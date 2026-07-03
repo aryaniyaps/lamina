@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -88,4 +88,20 @@ export async function writeArtifact(projectRoot, relativeFile, content) {
     ? content
     : `---\nartifact: ${artifact}\nversion: 1\nupdated: ${now}\nstatus: draft\n---\n\n${content}`;
   await writeFile(target, body);
+}
+
+export async function readArtifacts(projectRoot) {
+  const names = ['insights.md', 'decisions.md', 'requirements.md'];
+  const out = { insights: '', decisions: '', requirements: '' };
+
+  for (const name of names) {
+    try {
+      out[name.replace('.md', '')] = await readFile(join(projectRoot, '.lamina', name), 'utf8');
+    } catch {
+      // ponytail: fail-soft reuse; missing/invalid artifact should not block sessions
+      out[name.replace('.md', '')] = '';
+    }
+  }
+
+  return out;
 }
