@@ -1,6 +1,7 @@
-import { initArtifacts, writeArtifact } from './artifacts.js';
+import { initArtifacts, readArtifacts, writeArtifact } from './artifacts.js';
 import { formatDiscoverySummary, scanProject } from './discovery.js';
 import { questionsForFlow, routeFlow } from './flow-router.js';
+import { buildPriorContext } from './prior-context.js';
 import { generateSessionArtifacts } from './synthesis.js';
 
 function yes(value) {
@@ -20,6 +21,7 @@ function normalizeInterface(answer, fallback) {
 export async function startGuidedSession(projectRoot, io) {
   await initArtifacts(projectRoot);
   const context = await scanProject(projectRoot);
+  const priorContext = buildPriorContext(await readArtifacts(projectRoot));
   io.stdout.write(`${formatDiscoverySummary(context)}\n`);
 
   const intent = await io.ask('What are you working on? ');
@@ -43,7 +45,7 @@ export async function startGuidedSession(projectRoot, io) {
     return { artifactsChanged: [], implementationTasksPath: '.lamina/implementation-tasks.md', nextAction: 'Restart Lamina with revised framing.' };
   }
 
-  const artifacts = generateSessionArtifacts({ flow, intent, answers, interfaceType, context });
+  const artifacts = generateSessionArtifacts({ flow, intent, answers, interfaceType, context, priorContext });
   io.stdout.write(`\nHere are the main UX insights and assumptions:\n\n${artifacts.insights}\n`);
 
   if (!yes(await io.ask('Do these feel accurate enough to generate tasks? '))) {

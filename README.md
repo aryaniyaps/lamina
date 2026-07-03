@@ -14,13 +14,14 @@ npm run lamina -- tasks
 npm run lamina -- doctor
 ```
 
-## What Phase 0 builds
+## What Lamina currently builds
 
 - `.lamina/` Markdown/YAML artifacts
 - Basic project context discovery with confidence and gaps
 - Guided flows for ideation, optimization, and adding a feature
 - Web and mobile UX edge-case coverage
 - UX-only implementation tasks in `.lamina/implementation-tasks.md`
+- Reuse of prior `.lamina` insights, decisions, and requirements in new sessions
 
 ## Boundaries
 
