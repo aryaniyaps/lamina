@@ -1,5 +1,8 @@
+import { createInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 import { initArtifacts } from './artifacts.js';
 import { formatDiscoverySummary, scanProject } from './discovery.js';
+import { startGuidedSession } from './session.js';
 
 const HELP = `Usage: lamina <command> [options]
 
@@ -14,6 +17,17 @@ Options:
   --help    Show this help
   --json    Print machine-readable JSON where supported
 `;
+
+function interactiveIo(io) {
+  if (io.ask) return io;
+  if (io !== process) return null;
+  const rl = createInterface({ input, output });
+  return {
+    ...io,
+    ask: async (question) => rl.question(question),
+    close: () => rl.close(),
+  };
+}
 
 export async function runCli(argv, io = process) {
   const [command, ...args] = argv;
@@ -35,6 +49,21 @@ export async function runCli(argv, io = process) {
     const context = await scanProject(root);
     io.stdout.write(args.includes('--json') ? `${JSON.stringify(context, null, 2)}\n` : formatDiscoverySummary(context));
     return 0;
+  }
+
+  if (command === 'start') {
+    const sessionIo = interactiveIo(io);
+    if (!sessionIo) {
+      io.stderr.write('Interactive input is required for lamina start.\n');
+      return 1;
+    }
+    try {
+      const result = await startGuidedSession(root, sessionIo);
+      if (args.includes('--json')) io.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return 0;
+    } finally {
+      if (sessionIo.close) sessionIo.close();
+    }
   }
 
   io.stderr.write(`Unknown command: ${command}\n`);

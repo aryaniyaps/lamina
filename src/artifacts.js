@@ -78,3 +78,14 @@ export async function initArtifacts(projectRoot, options = {}) {
 
   return { created, existing };
 }
+
+export async function writeArtifact(projectRoot, relativeFile, content) {
+  const now = new Date().toISOString();
+  const target = join(projectRoot, '.lamina', relativeFile);
+  await mkdir(dirname(target), { recursive: true });
+  const artifact = relativeFile.replace(/\.md$/, '');
+  const body = content.startsWith('---\n')
+    ? content
+    : `---\nartifact: ${artifact}\nversion: 1\nupdated: ${now}\nstatus: draft\n---\n\n${content}`;
+  await writeFile(target, body);
+}
