@@ -1,3 +1,5 @@
+import { initArtifacts } from './artifacts.js';
+
 const HELP = `Usage: lamina <command> [options]
 
 Commands:
@@ -17,6 +19,13 @@ export async function runCli(argv, io = process) {
 
   if (!command || command === '--help' || command === '-h') {
     io.stdout.write(HELP);
+    return 0;
+  }
+
+  if (command === 'init') {
+    const root = io.cwd ? io.cwd() : process.cwd();
+    const result = await initArtifacts(root);
+    io.stdout.write(`Created .lamina (${result.created.length} new, ${result.existing.length} existing)\n`);
     return 0;
   }
 
