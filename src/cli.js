@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { initArtifacts } from './artifacts.js';
@@ -64,6 +67,23 @@ export async function runCli(argv, io = process) {
     } finally {
       if (sessionIo.close) sessionIo.close();
     }
+  }
+
+  if (command === 'tasks') {
+    const target = join(root, '.lamina', 'implementation-tasks.md');
+    if (!existsSync(target)) {
+      io.stderr.write('No implementation tasks found. Run `lamina init` or `lamina start` first.\n');
+      return 1;
+    }
+    io.stdout.write(await readFile(target, 'utf8'));
+    return 0;
+  }
+
+  if (command === 'doctor') {
+    const hasArtifacts = existsSync(join(root, '.lamina'));
+    const context = await scanProject(root);
+    io.stdout.write(`Lamina doctor\n\n- .lamina artifacts: ${hasArtifacts ? 'present' : 'missing'}\n- Discovery confidence: ${context.confidence}\n- Frameworks: ${context.frameworks.length ? context.frameworks.join(', ') : 'none detected'}\n`);
+    return 0;
   }
 
   io.stderr.write(`Unknown command: ${command}\n`);
