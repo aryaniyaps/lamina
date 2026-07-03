@@ -1,0 +1,17 @@
+{
+  "name": "lamina",
+  "version": "0.1.0",
+  "description": "UX context and implementation task artifacts for coding agents",
+  "type": "module",
+  "bin": {
+    "lamina": "./bin/lamina.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lamina": "node ./bin/lamina.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
