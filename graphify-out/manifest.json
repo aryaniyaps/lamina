@@ -1,0 +1,167 @@
+{
+  "package.json": {
+    "mtime": 1783137347.5420084,
+    "ast_hash": "42c7a9e770239292f042b2ef87e23e6a",
+    "semantic_hash": "42c7a9e770239292f042b2ef87e23e6a"
+  },
+  "skills-lock.json": {
+    "mtime": 1783136758.6191654,
+    "ast_hash": "d309fc6b510b00ac29a91af288652968",
+    "semantic_hash": "d309fc6b510b00ac29a91af288652968"
+  },
+  ".agents/skills/grill-me/SKILL.md": {
+    "mtime": 1783136758.6175585,
+    "ast_hash": "d07c47e3f0ffefd2c28354eb81a1e831",
+    "semantic_hash": "d07c47e3f0ffefd2c28354eb81a1e831"
+  },
+  "README.md": {
+    "mtime": 1783137339.6867301,
+    "ast_hash": "58ef5a0375aa14c71d9c4484ac60585c",
+    "semantic_hash": "58ef5a0375aa14c71d9c4484ac60585c"
+  },
+  "commands/lamina-feature.md": {
+    "mtime": 1783137334.8996103,
+    "ast_hash": "38fe5ddc9f2483cdbd9c69f8d47df654",
+    "semantic_hash": "38fe5ddc9f2483cdbd9c69f8d47df654"
+  },
+  "commands/lamina-ideate.md": {
+    "mtime": 1783137334.8956103,
+    "ast_hash": "b19a0fc829df5befb2325fca2eae3e34",
+    "semantic_hash": "b19a0fc829df5befb2325fca2eae3e34"
+  },
+  "commands/lamina-optimize.md": {
+    "mtime": 1783137334.8986104,
+    "ast_hash": "9720a50fbea367f4fbf2fa9118cdcb48",
+    "semantic_hash": "9720a50fbea367f4fbf2fa9118cdcb48"
+  },
+  "commands/lamina.md": {
+    "mtime": 1783137334.8926103,
+    "ast_hash": "c84734e455e3749ab4539d9102740633",
+    "semantic_hash": "c84734e455e3749ab4539d9102740633"
+  },
+  "dashboard/README.md": {
+    "mtime": 1783137334.9346113,
+    "ast_hash": "eba3a25d96c82017cd3435405a15c21e",
+    "semantic_hash": "eba3a25d96c82017cd3435405a15c21e"
+  },
+  "dashboard/visual-verification.md": {
+    "mtime": 1783137334.9356112,
+    "ast_hash": "c1f6440753cfe12ae50fd9781963d13f",
+    "semantic_hash": "c1f6440753cfe12ae50fd9781963d13f"
+  },
+  "docs/superpowers/distribution/skills-cli.md": {
+    "mtime": 1783137334.928611,
+    "ast_hash": "dd49d90190faae7cab341152f705f1c6",
+    "semantic_hash": "dd49d90190faae7cab341152f705f1c6"
+  },
+  "docs/superpowers/plans/2026-07-04-ux-research-skill-v1.md": {
+    "mtime": 1783137174.6506019,
+    "ast_hash": "6826251408a466a171f04018dc49c280",
+    "semantic_hash": "6826251408a466a171f04018dc49c280"
+  },
+  "docs/superpowers/specs/2026-07-04-lamina-claude-skill-plugin-design.md": {
+    "mtime": 1783137334.9446115,
+    "ast_hash": "e151d333419559d3cb6f2e45c3286fe0",
+    "semantic_hash": "e151d333419559d3cb6f2e45c3286fe0"
+  },
+  "skills/lamina-artifacts/SKILL.md": {
+    "mtime": 1783137334.9056106,
+    "ast_hash": "6cdd8cfab8ca7946c8b413493820d05a",
+    "semantic_hash": "6cdd8cfab8ca7946c8b413493820d05a"
+  },
+  "skills/lamina-context-discovery/SKILL.md": {
+    "mtime": 1783137334.9066105,
+    "ast_hash": "c10dfea2a22fb5190011703732bfb551",
+    "semantic_hash": "c10dfea2a22fb5190011703732bfb551"
+  },
+  "skills/lamina-core/SKILL.md": {
+    "mtime": 1783137334.9016104,
+    "ast_hash": "e0dc5c031ad8b9af8bc2ba94fe42ffb5",
+    "semantic_hash": "e0dc5c031ad8b9af8bc2ba94fe42ffb5"
+  },
+  "skills/lamina-edge-cases/SKILL.md": {
+    "mtime": 1783137334.9216108,
+    "ast_hash": "e623467d6ed5bef12ab87eea98ef15d1",
+    "semantic_hash": "e623467d6ed5bef12ab87eea98ef15d1"
+  },
+  "skills/lamina-flow-feature/SKILL.md": {
+    "mtime": 1783137334.9136107,
+    "ast_hash": "e87e79219d608696b332107838bb660a",
+    "semantic_hash": "e87e79219d608696b332107838bb660a"
+  },
+  "skills/lamina-flow-ideate/SKILL.md": {
+    "mtime": 1783137334.9106107,
+    "ast_hash": "9eafbcf305aeae97017fc834afe3424c",
+    "semantic_hash": "9eafbcf305aeae97017fc834afe3424c"
+  },
+  "skills/lamina-flow-optimize/SKILL.md": {
+    "mtime": 1783137334.9116106,
+    "ast_hash": "892c7ae023131f4dedce98856bcc1204",
+    "semantic_hash": "892c7ae023131f4dedce98856bcc1204"
+  },
+  "skills/lamina-guardrails/SKILL.md": {
+    "mtime": 1783137334.9036105,
+    "ast_hash": "dcdd6417f44faef6263f8032d2f33e44",
+    "semantic_hash": "dcdd6417f44faef6263f8032d2f33e44"
+  },
+  "skills/lamina-handoff/SKILL.md": {
+    "mtime": 1783137334.927611,
+    "ast_hash": "238a303be4b9f7b15e6c8e3e88d33551",
+    "semantic_hash": "238a303be4b9f7b15e6c8e3e88d33551"
+  },
+  "skills/lamina-insights/SKILL.md": {
+    "mtime": 1783137334.9166107,
+    "ast_hash": "80598b28eca34c912cc38d4d38f0c112",
+    "semantic_hash": "80598b28eca34c912cc38d4d38f0c112"
+  },
+  "skills/lamina-journeys/SKILL.md": {
+    "mtime": 1783137334.919611,
+    "ast_hash": "fb3e0ae9c92af02a16d5bab93c6cc054",
+    "semantic_hash": "fb3e0ae9c92af02a16d5bab93c6cc054"
+  },
+  "skills/lamina-personas/SKILL.md": {
+    "mtime": 1783137334.9186108,
+    "ast_hash": "975afd8b355aa56319835319b634413f",
+    "semantic_hash": "975afd8b355aa56319835319b634413f"
+  },
+  "skills/lamina-requirements/SKILL.md": {
+    "mtime": 1783137334.923611,
+    "ast_hash": "1dc05cfb34316fdabd5ca3e0264dd7a2",
+    "semantic_hash": "1dc05cfb34316fdabd5ca3e0264dd7a2"
+  },
+  "skills/lamina-research-questions/SKILL.md": {
+    "mtime": 1783137334.9086106,
+    "ast_hash": "a4072875ddac4ffb516c6e1c8653fb85",
+    "semantic_hash": "a4072875ddac4ffb516c6e1c8653fb85"
+  },
+  "skills/lamina-synthesis/SKILL.md": {
+    "mtime": 1783137334.9156108,
+    "ast_hash": "e2cc39100c5daee053449f4be00b399e",
+    "semantic_hash": "e2cc39100c5daee053449f4be00b399e"
+  },
+  "skills/lamina-tasks/SKILL.md": {
+    "mtime": 1783137334.925611,
+    "ast_hash": "333e15ad6e65e50a4fc2df1a3a5cc10a",
+    "semantic_hash": "333e15ad6e65e50a4fc2df1a3a5cc10a"
+  },
+  "tests/fixtures/minimal-nextjs/README.md": {
+    "mtime": 1783137334.9406114,
+    "ast_hash": "0b167cba88ef42e8e7dbf72ecaca04ee",
+    "semantic_hash": "0b167cba88ef42e8e7dbf72ecaca04ee"
+  },
+  "tests/fixtures/mobile-app/README.md": {
+    "mtime": 1783137334.9426115,
+    "ast_hash": "24f1dd8ff3c6ff15380ed411900e0a0c",
+    "semantic_hash": "24f1dd8ff3c6ff15380ed411900e0a0c"
+  },
+  "tests/golden/expected-artifacts.md": {
+    "mtime": 1783137334.9396114,
+    "ast_hash": "6247dac7776b5fa870024ece0f3e0f02",
+    "semantic_hash": "6247dac7776b5fa870024ece0f3e0f02"
+  },
+  "tests/integration/test_flows.md": {
+    "mtime": 1783137334.9376113,
+    "ast_hash": "839c9cea043df0c22b94362ae5c3f3b7",
+    "semantic_hash": "839c9cea043df0c22b94362ae5c3f3b7"
+  }
+}
