@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "lamina": "node ./bin/lamina.js"
+    "lamina": "node ./bin/lamina.js",
+    "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check all"
   },
   "engines": {
     "node": ">=20"
