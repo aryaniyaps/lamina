@@ -1,0 +1,50 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - docs/**
+      - README.md
+      - SKILL.md
+      - BACKERS.md
+      - mkdocs.yml
+      - .github/workflows/deploy-docs.yml
+  pull_request:
+    paths:
+      - docs/**
+      - README.md
+      - SKILL.md
+      - BACKERS.md
+      - mkdocs.yml
+      - .github/workflows/deploy-docs.yml
+
+# Minimal: gh-deploy pushes the built site to the gh-pages branch.
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      # Actions pinned to commit SHAs (tags in comments) so a supply-chain
+      # swap on a moving tag cannot alter the build. Zizmor-clean.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Install MkDocs Material
+        run: pip install mkdocs-material
+      - name: Assemble docs sources
+        # Single-source: the Guide and Skill Reference pages are the repo-root
+        # README.md / SKILL.md, copied in (never committed under docs/). The
+        # landing page docs/index.md is committed and curated separately.
+        run: |
+          cp README.md docs/guide.md
+          cp SKILL.md docs/skill-reference.md
+          cp BACKERS.md docs/BACKERS.md
+      - name: Build
+        run: mkdocs build
+      - name: Deploy to gh-pages (master push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: mkdocs gh-deploy --force
