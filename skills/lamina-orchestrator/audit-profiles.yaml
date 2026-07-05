@@ -1,0 +1,108 @@
+profiles:
+  full-flow:
+    skills:
+      - lamina-flow-design
+      - lamina-heuristic-review
+      - lamina-navigation
+      - lamina-discoverability
+      - lamina-forms
+      - lamina-error-handling
+      - lamina-content-design
+      - lamina-accessibility
+      - lamina-trust
+      - lamina-feedback-and-status
+      - lamina-decision-making
+
+  ideate-step-1:
+    skills:
+      - lamina-user-modeling
+      - lamina-problem-framing
+
+  ideate-step-2:
+    skills:
+      - lamina-task-analysis
+      - lamina-flow-design
+
+  ideate-step-3:
+    skills:
+      - lamina-information-architecture
+      - lamina-navigation
+
+  ideate-step-4:
+    skills:
+      - lamina-flow-design
+      - lamina-product-behavior
+
+  ideate-step-5:
+    skills:
+      - lamina-platform-posture
+      - lamina-product-behavior
+
+  ideate-step-6:
+    skills:
+      - lamina-controls-and-menus
+      - lamina-discoverability
+      - lamina-forms
+
+  ideate-step-7:
+    skills:
+      - lamina-content-design
+
+  ideate-step-8:
+    skills:
+      - lamina-accessibility
+
+  ideate-step-9:
+    skills:
+      - lamina-usability-evaluation
+      - lamina-research-scoping
+      - lamina-quantitative-validation
+
+  feature-problem:
+    skills:
+      - lamina-feature-discovery
+      - lamina-problem-framing
+
+  feature-jobs:
+    skills:
+      - lamina-user-modeling
+      - lamina-task-analysis
+
+  feature-assumptions:
+    skills:
+      - lamina-research-scoping
+      - lamina-problem-framing
+
+  feature-goals:
+    skills:
+      - lamina-user-modeling
+
+  feature-flows:
+    skills:
+      - lamina-flow-design
+      - lamina-task-analysis
+
+  feature-edge-cases:
+    skills:
+      - lamina-error-handling
+      - lamina-empty-states
+      - lamina-feedback-and-status
+
+  feature-risks:
+    skills:
+      - lamina-trust
+      - lamina-stakeholder-alignment
+      - lamina-persuasion-and-groups
+
+  feature-a11y:
+    skills:
+      - lamina-accessibility
+
+  feature-metrics:
+    skills:
+      - lamina-quantitative-validation
+      - lamina-research-communication
+
+  feature-checklist:
+    skills:
+      - lamina-requirements-definition

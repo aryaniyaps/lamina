@@ -1,0 +1,13 @@
+{
+  "name": "lamina",
+  "owner": {
+    "name": "Aryan Iyappan"
+  },
+  "plugins": [
+    {
+      "name": "lamina",
+      "source": "./",
+      "description": "Core UX knowledge and workflows"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "lamina",
+  "version": "0.1.0",
+  "description": "UX research and design knowledge for coding agents",
+  "author": {
+    "name": "Aryan Iyappan"
+  },
+  "skills": "skills",
+  "agents": "agents",
+  "commands": "commands"
+}

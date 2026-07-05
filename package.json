@@ -1,15 +1,11 @@
 {
   "name": "lamina",
   "version": "0.1.0",
-  "description": "UX context and implementation task artifacts for coding agents",
+  "description": "UX research and design knowledge for coding agents",
+  "author": "Aryan Iyappan",
   "type": "module",
-  "bin": {
-    "lamina": "./bin/lamina.js"
-  },
   "scripts": {
     "test": "node --test",
-    "lamina": "node ./bin/lamina.js",
-    "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check all"
   },
   "engines": {
     "node": ">=20"

@@ -18,9 +18,16 @@ This installs:
 | `commands/lamina-ideate.md` | `/lamina-ideate` |
 | `commands/lamina-feature.md` | `/lamina-feature` |
 | `commands/lamina-optimize.md` | `/lamina-optimize` |
-| `lamina/SKILL.md` | Knowledge base skill (`skillPath`: `lamina/SKILL.md`) |
+| `skills/lamina-core/SKILL.md` | Problem Router index |
+| `skills/lamina-orchestrator/SKILL.md` | Workflow coordination |
+| `skills/lamina-*/SKILL.md` | 38 capability skills |
+| `agents/*.md` | Subagents (Cursor plugin) |
 
-Workflow commands load `lamina/orchestration.md` then capabilities from `lamina/capabilities/`. `/lamina-optimize` may also load optional rubrics from `lamina/reasoning/` when that directory exists.
+Workflow commands load `skills/lamina-orchestrator/` then capability skills by name.
+
+## Cursor Marketplace
+
+Plugin manifest: `.cursor-plugin/plugin.json` (owner: Aryan Iyappan). Multi-plugin registry: `.cursor-plugin/marketplace.json`.
 
 ## Commands
 
@@ -46,6 +53,13 @@ Install/list/update/remove:
 If CLI install fails, copy into the target agent's local skills directories:
 
 - `commands/` → slash commands
-- `lamina/` → skill (entry: `lamina/SKILL.md`)
+- `skills/` → all lamina skills (core, orchestrator, and capability skills)
+- `agents/` → subagents (Cursor)
 
-Preserve relative paths so commands can reference `lamina/orchestration.md` and `lamina/capabilities/`.
+Preserve relative paths so commands can reference `skills/lamina-orchestrator/` and `skills/lamina-<id>/`.
+
+## Verify
+
+```bash
+npm run verify:bundle
+```
