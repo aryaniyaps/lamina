@@ -13,6 +13,8 @@ UX research and design knowledge for coding agents — slash commands, 38 capabi
 | `/lamina-optimize` | Audit existing flows → prioritized improvements (impact × effort)                       |
 
 
+
+
 ## Plugin structure
 
 
@@ -35,9 +37,3 @@ npx skills add . -a claude-code -a cursor -a codex -a pi -y
 ```
 
 See [docs/superpowers/distribution/skills-cli.md](docs/superpowers/distribution/skills-cli.md) for scope, global install, and manual fallback.
-
-## Verify
-
-```bash
-npm run verify:bundle
-```
