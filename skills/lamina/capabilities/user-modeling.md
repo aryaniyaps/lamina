@@ -56,6 +56,39 @@ related:
 - Primary persona test: Would this person be satisfied by a design aimed at anyone else in the set? If not, they're primary.
 - Personas are Method acting for interaction design: role-play scenarios from their perspective.
 
+## Persona simulation
+
+Personas are **simulated users**, not static documents. Run each persona as an **isolated subagent** (one agent per persona, parallel). Never inline multiple personas in one agent — that averages voices and kills conflict.
+
+**Artifacts:** `.lamina/personas.yaml` (registry) and `.lamina/personas/simulations/<run_id>.yaml` (per panel run). See [artifacts.md](../artifacts.md) for YAML shapes and spawn template.
+
+### Cast
+
+After research synthesis or problem framing:
+- Append to `personas.yaml`; no fixed persona count.
+- Each entry needs: goals (experience/end/life), frustrations, motivations, technical_literacy, accessibility, confidence.
+- Designate one `primary` persona per interface.
+- Behavioral rigor over demographics; provisional personas get `confidence: low`.
+
+### Simulate (think-aloud walkthrough)
+
+When a flow, screen, or journey exists:
+1. Orchestrator picks personas (always primary; add others relevant to the target).
+2. Spawn one subagent per persona with: their registry entry + situational context + target artifact.
+3. Each subagent walks step-by-step, think-aloud in character.
+4. Return compact blockers: step, severity, in-character quote.
+5. Orchestrator reconciles via Primary User Filter and conflict records.
+
+**Situational context** (spawn prompt, not persisted): scenario, device, time_pressure, stakes.
+
+### Simulation anti-patterns
+
+- **Inlined personas:** One agent playing all users — produces designer-flavored consensus.
+- **Simulation as research:** Label all panel output as simulation; real usability tests validate.
+- **Designer vocabulary in character:** Personas describe confusion, not heuristic names.
+- **Solutions in blockers:** Report pain and abandonment triggers, not prescribed fixes.
+- **Cross-contamination:** Subagents must not see other personas' outputs before reconciling.
+
 ## Evaluation rubrics
 
 ### User Archetype Construction

@@ -64,10 +64,10 @@
     "ast_hash": "e151d333419559d3cb6f2e45c3286fe0",
     "semantic_hash": "e151d333419559d3cb6f2e45c3286fe0"
   },
-  "skills/lamina-artifacts/SKILL.md": {
-    "mtime": 1783137334.9056106,
-    "ast_hash": "6cdd8cfab8ca7946c8b413493820d05a",
-    "semantic_hash": "6cdd8cfab8ca7946c8b413493820d05a"
+  "skills/lamina/artifacts.md": {
+    "mtime": 1783273271,
+    "ast_hash": "880de19508f6a30de06e4a5e9cf82058",
+    "semantic_hash": "880de19508f6a30de06e4a5e9cf82058"
   },
   "skills/lamina-context-discovery/SKILL.md": {
     "mtime": 1783137334.9066105,
@@ -119,10 +119,10 @@
     "ast_hash": "fb3e0ae9c92af02a16d5bab93c6cc054",
     "semantic_hash": "fb3e0ae9c92af02a16d5bab93c6cc054"
   },
-  "skills/lamina-personas/SKILL.md": {
-    "mtime": 1783137334.9186108,
-    "ast_hash": "975afd8b355aa56319835319b634413f",
-    "semantic_hash": "975afd8b355aa56319835319b634413f"
+  "skills/lamina/personas.md": {
+    "mtime": 1783273277,
+    "ast_hash": "32bd570e346b4eb0912bf48b4ce487f3",
+    "semantic_hash": "32bd570e346b4eb0912bf48b4ce487f3"
   },
   "skills/lamina-requirements/SKILL.md": {
     "mtime": 1783137334.923611,
