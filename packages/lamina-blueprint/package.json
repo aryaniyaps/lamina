@@ -17,6 +17,7 @@
     "test": "node cli/validate.js examples/minimal-blueprint/.lamina/blueprints/demo 2>/dev/null || node ../../examples/minimal-blueprint/validate-test.mjs"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

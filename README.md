@@ -39,6 +39,7 @@ Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local greyscale pr
 pnpm install
 pnpm preview:example
 # or: pnpm exec lamina-blueprint preview --root .lamina/blueprints --id <id>
+# from repo root without install: node packages/lamina-blueprint/cli/index.js preview --root ...
 ```
 
 See [skills/lamina-blueprint/SKILL.md](skills/lamina-blueprint/SKILL.md) and [examples/minimal-blueprint/](examples/minimal-blueprint/).

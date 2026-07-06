@@ -162,7 +162,29 @@ lamina-blueprint retire <id> --root .lamina/blueprints
 lamina-blueprint validate .lamina/blueprints/<id>
 ```
 
-Preview features (v2): dark greyscale wireframes, right-side flow graph with scenario branches, flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
+Preview features (v2): dark greyscale wireframes, right-side **React Flow** graph (pan/zoom, scenario branches, transition labels), flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
+
+### Persona lens (preview)
+
+When `.lamina/personas.yaml` exists, preview loads a **View as** selector (top bar, default None). Selecting a persona shows a compact card below the flow graph with goals and simulation blockers. Blocker screens get a dot on flow graph nodes.
+
+**Optional `flow` on persona** — ties a persona to a blueprint `<Flow id>`. Selecting that persona auto-switches the flow picker (same as manual flow change).
+
+```yaml
+# .lamina/personas.yaml (excerpt)
+personas:
+  - id: deal-hunter-diane
+    flow: main          # optional — auto-switch preview to this flow
+    type: primary
+    goals:
+      experience: ["feel smart, not duped"]
+      end: ["find orders quickly"]
+    # ...other required persona fields
+```
+
+Simulation results load from `.lamina/personas/simulations/*.yaml` (latest per persona). Blocker `step` must match a screen id for graph dots. Personas annotate the active flow; they do not add graph branches (scenarios do).
+
+Preview shows a DiceBear avatar per persona, with frustrations and simulation quotes in a chat-bubble slideshow (forward/back controls).
 
 Start preview in a background terminal once; HMR updates on file edits. Print URL: `http://localhost:5173?id=<id>`.
 

@@ -7,8 +7,11 @@
   "scripts": {
     "test": "node scripts/verify_lamina_bundle.mjs --check structure && node examples/minimal-blueprint/validate-test.mjs",
     "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure",
-    "preview:example": "pnpm --filter @lamina/blueprint exec lamina-blueprint preview --root examples/minimal-blueprint/.lamina/blueprints --id demo",
+    "preview:example": "lamina-blueprint preview --root examples/minimal-blueprint/.lamina/blueprints --id demo",
     "test:blueprint": "node examples/minimal-blueprint/validate-test.mjs"
+  },
+  "dependencies": {
+    "@lamina/blueprint": "workspace:*"
   },
   "engines": {
     "node": ">=20"

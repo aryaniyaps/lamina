@@ -2,6 +2,7 @@ import {
   StrictMode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -9,6 +10,9 @@ import {
 } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FlowGraphPanel } from './FlowGraphPanel.js';
+import { PersonaAvatar } from './PersonaPanel.js';
+import type { PersonaEntry, PersonaPreviewData } from './personas.js';
+import type { ScreenMeta } from './screen-meta.js';
 import type { ScenarioEntry } from './scenarios.js';
 import type { FlowGraphData } from './flow-graph.js';
 import {
@@ -17,6 +21,7 @@ import {
   resolveFlowTransitions,
   resolveActiveFlowId,
 } from './flow-graph.js';
+import '@xyflow/react/dist/style.css';
 import './styles/wireframe.css';
 
 interface BlueprintConfig {
@@ -145,6 +150,64 @@ function ScreenView({
   return <Screen />;
 }
 
+function BlueprintIdErrorScreen({
+  kind,
+  requestedId,
+  blueprints,
+  onSelectBlueprint,
+}: {
+  kind: 'missing' | 'invalid';
+  requestedId?: string;
+  blueprints: BlueprintEntry[];
+  onSelectBlueprint: (id: string) => void;
+}) {
+  const exampleId = blueprints[0]?.id ?? 'your-blueprint';
+
+  return (
+    <div className="sub-preview-shell">
+      <div className="sub-blueprint-id-error">
+        <div className="sub-blueprint-id-error-card">
+          <h1 className="sub-blueprint-id-error-title">
+            {kind === 'missing' ? 'No blueprint selected' : 'Blueprint not found'}
+          </h1>
+          <p className="sub-blueprint-id-error-lead">
+            {kind === 'missing'
+              ? 'Add a blueprint id to the URL to open a preview.'
+              : `We couldn't find a blueprint with id "${requestedId}".`}
+          </p>
+          <p className="sub-blueprint-id-error-hint">
+            Check the <code>?id=</code> value in the address bar and try again.
+          </p>
+          <p className="sub-blueprint-id-error-example">
+            Example:{' '}
+            <code>
+              {window.location.origin}
+              {window.location.pathname}?id={exampleId}
+            </code>
+          </p>
+          {blueprints.length > 0 ? (
+            <div className="sub-blueprint-id-error-list">
+              <p className="sub-blueprint-id-error-list-label">Available blueprints</p>
+              <ul>
+                {blueprints.map((b) => (
+                  <li key={b.id}>
+                    <button type="button" onClick={() => onSelectBlueprint(b.id)}>
+                      <span className="sub-blueprint-id-error-id">{b.id}</span>
+                      {b.title !== b.id ? (
+                        <span className="sub-blueprint-id-error-name">{b.title}</span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [config, setConfig] = useState<BlueprintConfig | null>(null);
   const [blueprints, setBlueprints] = useState<BlueprintEntry[]>([]);
@@ -153,12 +216,18 @@ function App() {
   const [activeFlowId, setActiveFlowId] = useState('default');
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioEntry[]>([]);
+  const [personaData, setPersonaData] = useState<PersonaPreviewData | null>(null);
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  const [screenMeta, setScreenMeta] = useState<Record<string, ScreenMeta>>({});
   const [viewportPreset, setViewportPreset] = useState<ViewportPreset>(loadViewportPreset);
   const [flowSidebarWidth, setFlowSidebarWidth] = useState(loadFlowSidebarWidth);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const params = new URLSearchParams(window.location.search);
-  const [activeBlueprint, setActiveBlueprint] = useState(params.get('id') ?? '');
+  const [activeBlueprint, setActiveBlueprint] = useState('');
+  const [blueprintError, setBlueprintError] = useState<
+    { kind: 'missing' | 'invalid'; id?: string } | null
+  >(null);
 
   const jumpToFlowEntry = useCallback((graph: FlowGraphData, flowId: string) => {
     const transitions = resolveFlowTransitions(graph, flowId);
@@ -173,6 +242,31 @@ function App() {
       return;
     }
     setScenarios((await res.json()) as ScenarioEntry[]);
+  }, []);
+
+  const loadPersonas = useCallback(async (blueprintId: string) => {
+    const res = await fetch(`/__lamina/personas?id=${encodeURIComponent(blueprintId)}`);
+    if (!res.ok) {
+      setPersonaData(null);
+      return;
+    }
+    const data = (await res.json()) as PersonaPreviewData;
+    if (!data.personas.length) {
+      setPersonaData(null);
+      return;
+    }
+    setPersonaData(data);
+  }, []);
+
+  const loadScreenMeta = useCallback(async (blueprintId: string, flowId: string) => {
+    const res = await fetch(
+      `/__lamina/screen-meta?id=${encodeURIComponent(blueprintId)}&flowId=${encodeURIComponent(flowId)}`,
+    );
+    if (!res.ok) {
+      setScreenMeta({});
+      return;
+    }
+    setScreenMeta((await res.json()) as Record<string, ScreenMeta>);
   }, []);
 
   const loadFlowGraph = useCallback(
@@ -198,22 +292,46 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const urlId = params.get('id')?.trim() ?? '';
+
     fetch('/__lamina/config')
       .then((r) => r.json())
       .then((cfg: BlueprintConfig) => {
         setConfig(cfg);
-        const id = params.get('id') ?? cfg.id;
-        setActiveBlueprint(id);
         return fetch('/__lamina/blueprints')
           .then((r) => r.json())
           .then(async (entries: BlueprintEntry[]) => {
             setBlueprints(entries);
-            await loadFlowGraph(id);
-            await loadScenarios(id);
-            return loadFallbackScreens(id);
+
+            if (!urlId) {
+              setBlueprintError({ kind: 'missing' });
+              return;
+            }
+
+            if (!entries.some((e) => e.id === urlId)) {
+              setBlueprintError({ kind: 'invalid', id: urlId });
+              return;
+            }
+
+            setBlueprintError(null);
+            setActiveBlueprint(urlId);
+            await loadFlowGraph(urlId);
+            await loadScenarios(urlId);
+            await loadPersonas(urlId);
+            return loadFallbackScreens(urlId);
           });
       });
-  }, [loadFlowGraph, loadFallbackScreens, loadScenarios]);
+  }, [loadFlowGraph, loadFallbackScreens, loadScenarios, loadPersonas]);
+
+  useEffect(() => {
+    if (!activeBlueprint) return;
+    loadScreenMeta(activeBlueprint, activeFlowId);
+  }, [activeBlueprint, activeFlowId, loadScreenMeta]);
+
+  const activePersona = useMemo((): PersonaEntry | null => {
+    if (!activePersonaId || !personaData) return null;
+    return personaData.personas.find((p) => p.id === activePersonaId) ?? null;
+  }, [activePersonaId, personaData]);
 
   const activeTransitions = flowGraph ? resolveFlowTransitions(flowGraph, activeFlowId) : [];
 
@@ -261,6 +379,18 @@ function App() {
   const onClearScenario = useCallback(() => {
     setActiveScenario(null);
   }, []);
+
+  const onPersonaChange = useCallback(
+    (personaId: string | null) => {
+      setActivePersonaId(personaId);
+      if (!personaId || !personaData) return;
+      const persona = personaData.personas.find((p) => p.id === personaId);
+      if (persona?.flow && persona.flow !== activeFlowId) {
+        onFlowChange(persona.flow);
+      }
+    },
+    [personaData, activeFlowId, onFlowChange],
+  );
 
   const onFlowSidebarResizeStart = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
@@ -336,12 +466,14 @@ function App() {
   };
 
   const onBlueprintChange = (id: string) => {
+    setBlueprintError(null);
     setActiveBlueprint(id);
     const next = new URLSearchParams(window.location.search);
     next.set('id', id);
     window.history.replaceState({}, '', `?${next}`);
     loadFlowGraph(id);
     loadScenarios(id);
+    loadPersonas(id);
     loadFallbackScreens(id);
   };
 
@@ -353,11 +485,42 @@ function App() {
     );
   }
 
+  if (blueprintError) {
+    return (
+      <BlueprintIdErrorScreen
+        kind={blueprintError.kind}
+        requestedId={blueprintError.id}
+        blueprints={blueprints}
+        onSelectBlueprint={onBlueprintChange}
+      />
+    );
+  }
+
   return (
     <div className="sub-preview-shell">
       <div className="sub-preview-topbar">
         <span className="sub-preview-topbar-title">{activeBlueprint}</span>
         <div className="sub-preview-topbar-spacer" />
+        {personaData && personaData.personas.length > 0 ? (
+          <label className="sub-preview-viewport-control sub-preview-persona-control">
+            {activePersonaId ? (
+              <PersonaAvatar personaId={activePersonaId} size={22} className="sub-persona-avatar-topbar" />
+            ) : null}
+            <span className="sub-preview-viewport-label">View as</span>
+            <select
+              value={activePersonaId ?? ''}
+              onChange={(e) => onPersonaChange(e.target.value || null)}
+              aria-label="View as persona"
+            >
+              <option value="">None</option>
+              {personaData.personas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="sub-preview-viewport-control">
           <span className="sub-preview-viewport-label">Viewport</span>
           <select
@@ -439,6 +602,8 @@ function App() {
                 activeScenario={activeScenario}
                 onSelectScenario={onSelectScenario}
                 onClearScenario={onClearScenario}
+                activePersona={activePersona}
+                screenMeta={screenMeta}
               />
             </aside>
           </div>
