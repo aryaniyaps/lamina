@@ -150,10 +150,13 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/SKILL.md',
     'skills/lamina-orchestrator/audit-profiles.yaml',
     'skills/lamina-orchestrator/merge-rules.md',
+    'skills/lamina-blueprint/SKILL.md',
     'skills/lamina-orchestrator/workflows/init.md',
     'commands/lamina.md',
     'commands/lamina-init.md',
     'prompts/outputs/init.md',
+    'prompts/checkpoints/blueprint-preview.md',
+    'packages/lamina-blueprint/package.json',
     'agents/ux-lens-reviewer.md',
     'agents/research-synthesizer.md',
   ];

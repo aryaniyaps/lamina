@@ -7,7 +7,7 @@ description: "Lamina Problem Router and UX reference index. Use to find the righ
 
 # Lamina Core — Problem Router
 
-**39 capability skills** — load one skill per problem.
+**40 capability skills** — load one skill per problem.
 
 ## Entry points (slash commands)
 
@@ -54,6 +54,7 @@ Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), 
 | Did my action work? | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
 | Observe real behavior in context | [field-research](../lamina-field-research/SKILL.md) |
 | Workflow excise, orchestration | [flow-design](../lamina-flow-design/SKILL.md) |
+| Wireframe preview, screen structure | [blueprint](../lamina-blueprint/SKILL.md) |
 | Form abandonment, validation pain | [forms](../lamina-forms/SKILL.md) |
 | Nielsen heuristics, no users yet | [heuristic-review](../lamina-heuristic-review/SKILL.md) |
 | Structure content and data | [information-architecture](../lamina-information-architecture/SKILL.md) |

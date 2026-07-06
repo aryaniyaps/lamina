@@ -1,6 +1,6 @@
 # Lamina
 
-UX research and design knowledge for coding agents — slash commands, 39 capability skills, orchestration, and subagents.
+UX research and design knowledge for coding agents — slash commands, 40 capability skills, orchestration, subagents, and optional UX blueprint preview.
 
 ## Slash commands
 
@@ -24,12 +24,24 @@ UX research and design knowledge for coding agents — slash commands, 39 capabi
 | Commands          | `[commands/](commands/)`                                     |
 | Index / router    | `[skills/lamina-core/SKILL.md](skills/lamina-core/SKILL.md)` |
 | Orchestration     | `[skills/lamina-orchestrator/](skills/lamina-orchestrator/)` |
-| Capability skills | `[skills/lamina-*/SKILL.md](skills/)` (39 skills)            |
+| Capability skills | `[skills/lamina-*/SKILL.md](skills/)` (40 skills)            |
 | Subagents         | `[agents/](agents/)`                                         |
 | Reusable prompts  | `[prompts/](prompts/)`                                       |
 
 
 **Guardrail:** UX guidance only. No product code or visual styling specs.
+
+## UX Blueprint preview (optional)
+
+Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local greyscale preview:
+
+```bash
+pnpm install
+pnpm preview:example
+# or: pnpm exec lamina-blueprint preview --root .lamina/blueprints --id <id>
+```
+
+See [skills/lamina-blueprint/SKILL.md](skills/lamina-blueprint/SKILL.md) and [examples/minimal-blueprint/](examples/minimal-blueprint/).
 
 ## Install
 

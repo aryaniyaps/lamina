@@ -33,9 +33,10 @@ Screens: structure and behavior only — no visual styling specs.
 3. Work through sections 1→9 in order.
 4. **Step 4 — Flows + persona panel:** After flows, append entries to `.lamina/flows-inventory.yaml` (`status: draft`) per [artifacts.md](../artifacts.md). Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Write `.lamina/personas/simulations/<run_id>.yaml`; reconcile into Flows section.
 5. After sections 3 and 6, offer checkpoint — prompt `checkpoints/continue-or-revise` (skip if user asked for full pass).
-6. **Step 9:** Map simulation blockers to real usability test tasks.
-7. Merge into output contract — prompt `outputs/ideate`.
-8. On conflicts, load `lamina-decision-making` per [merge-rules.md](../merge-rules.md).
+6. **Steps 5, 6, and end (before merge):** Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Step 5: generate `screens/` + `flows.tsx`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
+7. **Step 9:** Map simulation blockers to real usability test tasks.
+8. Merge into output contract — prompt `outputs/ideate`.
+9. On conflicts, load `lamina-decision-making` per [merge-rules.md](../merge-rules.md).
 
 ## Subagent hints
 

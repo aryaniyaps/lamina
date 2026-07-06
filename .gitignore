@@ -1,3 +1,5 @@
 
 .worktrees/
+node_modules/
+.pnpm-store/
 .agents/skills/book-to-skill/.venv/

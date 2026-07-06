@@ -193,6 +193,33 @@ flows:
 
 ---
 
+## UX blueprints (optional)
+
+| Path | Purpose |
+|---|---|
+| `.lamina/blueprints/<id>/` | Disposable semantic wireframe spec (TSX) — one per feature effort |
+
+Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and preview CLI.
+
+**Layout per blueprint:**
+
+```
+.lamina/blueprints/<id>/
+  meta.yaml              # id, title, status: draft | approved
+  flows.tsx
+  screens/<screen-id>.tsx
+  baseline/screens/      # optimize diff only
+  proposed/screens/      # optimize diff only
+```
+
+**Lifecycle:** `draft` → `approved` → deleted on retire after implementation. Durable artifacts (`requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`) survive retirement.
+
+**Multiple blueprints:** never overwrite another id's directory. Screen ids sync with `flows-inventory.yaml`.
+
+**Commands:** `lamina-blueprint preview`, `retire`, `validate` — see lamina-blueprint skill.
+
+---
+
 ## Other artifacts (downstream)
 
 | Path | Purpose | Owner |
