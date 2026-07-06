@@ -208,10 +208,12 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and p
   meta.yaml              # id, title, status: draft | approved
   flows.tsx
   screens/<screen-id>.tsx
-  baseline/screens/      # optimize diff only
-  proposed/screens/      # optimize diff only
+  flows/<flow-id>/screens/   # alternate / optimized flow overrides
+  scenarios.yaml             # edge-case list for preview
+  scenarios/<id>/screens/    # screen variants per scenario
 ```
 
+Optimize blueprints target **entire flows**. Update `screens/` for the new design, or add an alternate `<Flow id>` with `flows/<id>/screens/` overrides. Edge-case UI variants use `scenarios.yaml` branches on the flow graph.
 **Lifecycle:** `draft` → `approved` → deleted on retire after implementation. Durable artifacts (`requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`) survive retirement.
 
 **Multiple blueprints:** never overwrite another id's directory. Screen ids sync with `flows-inventory.yaml`.

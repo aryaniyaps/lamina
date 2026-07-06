@@ -18,7 +18,7 @@ import type {
   TransitionProps,
   TriggerProps,
 } from '../types.js';
-import { assertPreviewContext } from '../env.js';
+import { assertPreviewContext, isPreviewEnv } from '../env.js';
 
 function wrap(
   name: string,
@@ -68,6 +68,13 @@ export function Application({ children }: SubBaseProps) {
 
 export function Screen({ id, title, children }: ScreenProps) {
   assertPreviewContext('Screen');
+  if (isPreviewEnv()) {
+    return (
+      <div data-sub="Screen" data-screen-id={id}>
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="sub-screen" data-sub="Screen" data-screen-id={id}>
       {title ? <div className="sub-screen-label">{title}</div> : null}
@@ -197,7 +204,13 @@ export function Field({ name, label, type, required, children }: FieldProps) {
         {label ?? name}
         {required ? ' *' : ''}
       </span>
-      <span className="sub-field-input" />
+      <input
+        className="sub-field-input"
+        type={type ?? 'text'}
+        name={name}
+        required={required}
+        aria-label={label ?? name}
+      />
       {children}
     </label>
   );
@@ -212,7 +225,13 @@ export function Search({ name, label, children }: SearchProps) {
   return (
     <label className="sub-search" data-sub="Search" data-name={name}>
       {label ? <span className="sub-field-label">{label}</span> : null}
-      <span className="sub-search-input">Search…</span>
+      <input
+        className="sub-search-input"
+        type="search"
+        name={name}
+        placeholder="Search…"
+        aria-label={label ?? name ?? 'Search'}
+      />
       {children}
     </label>
   );
@@ -223,7 +242,7 @@ export function TextArea({ name, label, children }: FieldProps) {
   return (
     <label className="sub-textarea" data-sub="TextArea" data-name={name}>
       <span className="sub-field-label">{label ?? name}</span>
-      <span className="sub-textarea-box" />
+      <textarea className="sub-textarea-box" name={name} rows={4} aria-label={label ?? name} />
       {children}
     </label>
   );
@@ -234,7 +253,16 @@ export function Select({ name, label, options, children }: SelectProps) {
   return (
     <label className="sub-select" data-sub="Select" data-name={name}>
       <span className="sub-field-label">{label ?? name}</span>
-      <span className="sub-select-box">{options?.join(' | ') ?? 'Select…'}</span>
+      <select className="sub-select-box" name={name} aria-label={label ?? name} defaultValue="">
+        <option value="" disabled>
+          Select…
+        </option>
+        {options?.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
       {children}
     </label>
   );
@@ -244,7 +272,9 @@ export function Checkbox({ name, label, children }: FieldProps) {
   assertPreviewContext('Checkbox');
   return (
     <label className="sub-checkbox" data-sub="Checkbox" data-name={name}>
-      <span className="sub-checkbox-box" /> {label ?? name}
+      <input className="sub-checkbox-input" type="checkbox" name={name} aria-label={label ?? name} />
+      <span className="sub-checkbox-box" />
+      {label ?? name}
       {children}
     </label>
   );
@@ -254,7 +284,9 @@ export function Radio({ name, label, children }: FieldProps) {
   assertPreviewContext('Radio');
   return (
     <label className="sub-radio" data-sub="Radio" data-name={name}>
-      <span className="sub-radio-dot" /> {label ?? name}
+      <input className="sub-radio-input" type="radio" name={name} aria-label={label ?? name} />
+      <span className="sub-radio-dot" />
+      {label ?? name}
       {children}
     </label>
   );
@@ -264,6 +296,7 @@ export function Toggle({ name, label, children }: FieldProps) {
   assertPreviewContext('Toggle');
   return (
     <label className="sub-toggle" data-sub="Toggle" data-name={name}>
+      <input className="sub-toggle-input" type="checkbox" name={name} aria-label={label ?? name} />
       <span className="sub-toggle-track" />
       <span className="sub-field-label">{label ?? name}</span>
       {children}
@@ -276,7 +309,7 @@ export function DatePicker({ name, label, children }: FieldProps) {
   return (
     <label className="sub-datepicker" data-sub="DatePicker" data-name={name}>
       <span className="sub-field-label">{label ?? name}</span>
-      <span className="sub-datepicker-box">YYYY-MM-DD</span>
+      <input className="sub-datepicker-box" type="date" name={name} aria-label={label ?? name} />
       {children}
     </label>
   );
@@ -287,7 +320,7 @@ export function FileUpload({ name, label, children }: FieldProps) {
   return (
     <label className="sub-file-upload" data-sub="FileUpload" data-name={name}>
       <span className="sub-field-label">{label ?? name}</span>
-      <span className="sub-file-upload-zone">Drop file or browse</span>
+      <input className="sub-file-upload-input" type="file" name={name} aria-label={label ?? name} />
       {children}
     </label>
   );

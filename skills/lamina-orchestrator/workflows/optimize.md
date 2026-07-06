@@ -19,7 +19,7 @@ Primary profile: `full-flow` in [audit-profiles.yaml](../audit-profiles.yaml).
 3. Run audit lenses per flow — **prefer** [parallel-review](../patterns/parallel-review.md) (one lens subagent per skill) over loading all 11 `full-flow` skills inline. In parallel, [persona-panel](../patterns/persona-panel.md) per flow when `personas.yaml` exists. If no target is described, list gaps — do not invent UI.
 4. Load `lamina-decision-making` — score findings: impact × effort. Reconcile persona conflicts via primary-user filter.
 5. Sort: high impact + low effort first; group quick wins and strategic bets.
-6. **Blueprint diff (optional):** Offer preview checkpoint — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Write `baseline/screens/` from current UX; `proposed/screens/` from recommendations; `lamina-blueprint preview --diff`.
+6. **Blueprint (optional):** Offer preview checkpoint — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Optimize **one flow at a time**: write the recommended design to `screens/` or add a new `<Flow id>` with `flows/<id>/screens/` overrides; add edge cases to `scenarios.yaml`.
 7. Append or update audited flows in `.lamina/flows-inventory.yaml` (`status: shipped`) per [artifacts.md](../artifacts.md). Write simulation results to `.lamina/personas/simulations/<run_id>.yaml` when panel runs.
 8. Merge into output contract — prompt `outputs/optimize`.
 

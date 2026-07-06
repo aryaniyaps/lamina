@@ -4,6 +4,7 @@ import {
   collectScreensFromTransitions,
   parseFlowsSource,
 } from './flow-graph.js';
+import { loadScenarios } from './scenarios.js';
 
 function resolveBlueprintFile(blueprintRoot: string, rest: string): string | null {
   const filePath = path.resolve(blueprintRoot, rest);
@@ -17,19 +18,13 @@ export function blueprintRootFromConfig(cfg: { root: string }) {
   return path.resolve(cfg.root);
 }
 
-export function listScreenIds(blueprintRoot: string, blueprintId: string, diff = false): string[] {
-  const base = path.join(path.resolve(blueprintRoot), blueprintId);
-  const dirs = diff
-    ? ['screens', 'baseline/screens', 'proposed/screens']
-    : ['screens'];
-
+export function listScreenIds(blueprintRoot: string, blueprintId: string): string[] {
+  const screensDir = path.join(path.resolve(blueprintRoot), blueprintId, 'screens');
   const ids = new Set<string>();
-  for (const dir of dirs) {
-    const full = path.join(base, dir);
-    if (!fs.existsSync(full)) continue;
-    for (const file of fs.readdirSync(full)) {
-      if (file.endsWith('.tsx')) ids.add(file.replace(/\.tsx$/, ''));
-    }
+  if (!fs.existsSync(screensDir)) return [];
+
+  for (const file of fs.readdirSync(screensDir)) {
+    if (file.endsWith('.tsx')) ids.add(file.replace(/\.tsx$/, ''));
   }
   return [...ids].sort();
 }
@@ -59,21 +54,6 @@ export function loadFlowGraph(blueprintRoot: string, blueprintId: string) {
     listScreenIds(blueprintRoot, blueprintId),
   );
   return { ...parsed, screens };
-}
-
-/** Screens where baseline and proposed files both exist and differ. */
-export function listChangedScreens(blueprintRoot: string, blueprintId: string): string[] {
-  const screens = listScreenIds(blueprintRoot, blueprintId, true);
-  const changed: string[] = [];
-  for (const screenId of screens) {
-    const file = `screens/${screenId}.tsx`;
-    const baseline = resolveFirstPath(blueprintRoot, blueprintId, [`baseline/${file}`]);
-    const proposed = resolveFirstPath(blueprintRoot, blueprintId, [`proposed/${file}`]);
-    if (baseline && proposed && baseline !== proposed) {
-      changed.push(screenId);
-    }
-  }
-  return changed;
 }
 
 export function blueprintApiPlugin(blueprintRoot: string) {
@@ -126,9 +106,21 @@ export function blueprintApiPlugin(blueprintRoot: string) {
             return;
           }
           const graph = loadFlowGraph(root, blueprintId);
-          const changed = listChangedScreens(root, blueprintId);
           response.setHeader('Content-Type', 'application/json');
-          response.end(JSON.stringify({ ...graph, changedScreens: changed }));
+          response.end(JSON.stringify(graph));
+          return;
+        }
+
+        if (request.url.startsWith('/__lamina/scenarios')) {
+          const blueprintId = url.searchParams.get('id');
+          if (!blueprintId) {
+            response.statusCode = 400;
+            response.end(JSON.stringify({ error: 'missing id' }));
+            return;
+          }
+          const scenarios = loadScenarios(root, blueprintId);
+          response.setHeader('Content-Type', 'application/json');
+          response.end(JSON.stringify(scenarios));
           return;
         }
 
@@ -137,4 +129,3 @@ export function blueprintApiPlugin(blueprintRoot: string) {
     },
   };
 }
-

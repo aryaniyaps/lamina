@@ -16,3 +16,12 @@ export function assertPreviewContext(componentName: string): void {
     );
   }
 }
+
+export function isPreviewEnv(): boolean {
+  const g = globalThis as { process?: { env?: Record<string, string> } };
+  return (
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as { env?: { SUB_PREVIEW?: string } }).env?.SUB_PREVIEW === '1') ||
+    g.process?.env?.SUB_PREVIEW === '1'
+  );
+}

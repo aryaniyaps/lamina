@@ -6,7 +6,6 @@ Semantic UX blueprint components and dark greyscale wireframe preview for Lamina
 
 ```bash
 lamina-blueprint preview --root .lamina/blueprints --id <id>
-lamina-blueprint preview --root .lamina/blueprints --id <id> --diff
 lamina-blueprint export-graph --root .lamina/blueprints --id <id> --stdout
 lamina-blueprint validate .lamina/blueprints/<id>
 lamina-blueprint retire <id> --root .lamina/blueprints
@@ -15,10 +14,11 @@ lamina-blueprint retire <id> --root .lamina/blueprints
 ## Preview (v2)
 
 - Dark greyscale wireframe renderer (preview CSS only — blueprint TSX stays unstyled)
-- Visual flow graph in the sidebar with clickable screen nodes
-- Interactive walkthrough via `trigger` on `Button`, `Action`, and `Link`
-- Next-steps strip for outgoing transitions from the current screen
-- Optimize diff: Baseline/Proposed tabs and sidebar badges on changed screens
+- Flow graph with **scenario branches** (dashed edges) — click nodes or hotspots to navigate
+- Per-flow screen overrides at `flows/<flow-id>/screens/<screen>.tsx` (fallback: `screens/`)
+- Edge-case variants at `scenarios/<id>/screens/<screen>.tsx` (see `scenarios.yaml`)
+- Single designed state in the canvas (no baseline/proposed comparison)
+- Viewport presets in the topbar: Mobile (390px), Tablet (768px), Desktop (1280px, default)
 
 ## Components
 

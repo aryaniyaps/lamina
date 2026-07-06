@@ -93,17 +93,33 @@ export function inferEntryScreen(transitions: TransitionEdge[]): string | undefi
   return transitions[0]?.from ?? transitions[0]?.target;
 }
 
+export function resolveActiveFlowId(
+  graph: Pick<FlowGraphData, 'flows'>,
+  preferredId: string,
+): string {
+  if (graph.flows.some((f) => f.id === preferredId)) return preferredId;
+  return graph.flows[0]?.id ?? 'default';
+}
+
+export function resolveFlowTransitions(
+  graph: Pick<FlowGraphData, 'flows' | 'transitions'>,
+  flowId: string,
+): TransitionEdge[] {
+  const resolvedId = resolveActiveFlowId(graph, flowId);
+  const flow = graph.flows.find((f) => f.id === resolvedId);
+  if (flow?.transitions.length) return flow.transitions;
+  if (graph.transitions.length) return graph.transitions;
+  return graph.flows[0]?.transitions ?? [];
+}
+
 export function outgoingTransitions(
   transitions: TransitionEdge[],
   screenId: string,
-  flowId?: string,
 ): TransitionEdge[] {
   const entry = inferEntryScreen(transitions);
-  return transitions.filter((t) => {
-    const fromMatch = t.from === screenId || (!t.from && entry === screenId);
-    const flowMatch = !flowId || t.flowId === flowId;
-    return fromMatch && flowMatch;
-  });
+  return transitions.filter(
+    (t) => t.from === screenId || (!t.from && entry === screenId),
+  );
 }
 
 export function toMermaid(graph: FlowGraphData, changedScreens: string[] = []): string {

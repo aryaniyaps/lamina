@@ -12,7 +12,6 @@ function parseArgs(args) {
     root: '.lamina/blueprints',
     id: null,
     port: 5173,
-    diff: false,
     list: false,
   };
 
@@ -21,7 +20,6 @@ function parseArgs(args) {
     if (arg === '--root' && args[i + 1]) opts.root = args[++i];
     else if (arg === '--id' && args[i + 1]) opts.id = args[++i];
     else if (arg === '--port' && args[i + 1]) opts.port = Number(args[++i]);
-    else if (arg === '--diff') opts.diff = true;
     else if (arg === '--list') opts.list = true;
   }
 
@@ -89,7 +87,7 @@ export async function runPreview(args) {
   const configPath = path.join(os.tmpdir(), `lamina-blueprint-${opts.port}.json`);
   fs.writeFileSync(
     configPath,
-    JSON.stringify({ root, id, port: opts.port, diff: opts.diff }),
+    JSON.stringify({ root, id, port: opts.port }),
   );
 
   const viteBin = path.join(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');
@@ -98,7 +96,6 @@ export async function runPreview(args) {
   console.log(`Lamina Blueprint preview`);
   console.log(`  Blueprint: ${id}`);
   console.log(`  URL:       http://localhost:${opts.port}?id=${id}`);
-  if (opts.diff) console.log(`  Mode:      diff (baseline | proposed)`);
 
   const child = spawn(
     process.execPath,

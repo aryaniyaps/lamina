@@ -1,0 +1,7 @@
+scenarios:
+  - id: empty-orders
+    title: No orders yet
+    screen: orders
+    flow: main
+    description: User lands on orders before any exist
+    severity: medium

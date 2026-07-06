@@ -9,14 +9,20 @@ import {
 } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FlowGraphPanel } from './FlowGraphPanel.js';
+import type { ScenarioEntry } from './scenarios.js';
 import type { FlowGraphData } from './flow-graph.js';
-import { outgoingTransitions, inferEntryScreen } from './flow-graph.js';
+import {
+  outgoingTransitions,
+  inferEntryScreen,
+  resolveFlowTransitions,
+  resolveActiveFlowId,
+} from './flow-graph.js';
 import './styles/wireframe.css';
 
 interface BlueprintConfig {
   root: string;
   id: string;
-  diff: boolean;
+  port?: number;
 }
 
 interface BlueprintEntry {
@@ -24,19 +30,51 @@ interface BlueprintEntry {
   title: string;
 }
 
-interface FlowGraphResponse extends FlowGraphData {
-  changedScreens: string[];
+type ViewportPreset = 'mobile' | 'tablet' | 'desktop';
+
+const VIEWPORT_STORAGE_KEY = 'lamina-blueprint-viewport';
+const FLOW_SIDEBAR_WIDTH_KEY = 'lamina-blueprint-flow-sidebar-width';
+const DEFAULT_FLOW_SIDEBAR_WIDTH = 480;
+const MIN_FLOW_SIDEBAR_WIDTH = 320;
+const MAX_FLOW_SIDEBAR_WIDTH = 720;
+
+const VIEWPORT_PRESETS: Record<ViewportPreset, { label: string; width: number }> = {
+  mobile: { label: 'Mobile', width: 390 },
+  tablet: { label: 'Tablet', width: 768 },
+  desktop: { label: 'Desktop', width: 1280 },
+};
+
+function loadViewportPreset(): ViewportPreset {
+  try {
+    const stored = sessionStorage.getItem(VIEWPORT_STORAGE_KEY);
+    if (stored === 'mobile' || stored === 'tablet' || stored === 'desktop') return stored;
+  } catch {
+    /* ignore */
+  }
+  return 'desktop';
+}
+
+function loadFlowSidebarWidth(): number {
+  try {
+    const stored = Number(sessionStorage.getItem(FLOW_SIDEBAR_WIDTH_KEY));
+    if (stored >= MIN_FLOW_SIDEBAR_WIDTH && stored <= MAX_FLOW_SIDEBAR_WIDTH) return stored;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_FLOW_SIDEBAR_WIDTH;
 }
 
 function subpathsForScreen(
   screenId: string,
-  diff: boolean,
-  variant?: 'baseline' | 'proposed',
+  flowId: string,
+  scenarioId?: string | null,
 ): string[] {
-  const file = `screens/${screenId}.tsx`;
-  if (!diff || !variant) return [file];
-  if (variant === 'baseline') return [`baseline/${file}`, file];
-  return [`proposed/${file}`, file];
+  const shared = `screens/${screenId}.tsx`;
+  const flowScoped = `flows/${flowId}/screens/${screenId}.tsx`;
+  if (scenarioId) {
+    return [`scenarios/${scenarioId}/screens/${screenId}.tsx`, flowScoped, shared];
+  }
+  return [flowScoped, shared];
 }
 
 async function resolveFsPath(blueprintId: string, candidates: string[]): Promise<string> {
@@ -53,18 +91,6 @@ async function tryResolveFsPath(blueprintId: string, candidates: string[]): Prom
   return data.path;
 }
 
-async function screenHasDistinctDiff(blueprintId: string, screenId: string): Promise<boolean> {
-  const baseline = await tryResolveFsPath(
-    blueprintId,
-    subpathsForScreen(screenId, true, 'baseline'),
-  );
-  const proposed = await tryResolveFsPath(
-    blueprintId,
-    subpathsForScreen(screenId, true, 'proposed'),
-  );
-  return baseline !== null && proposed !== null && baseline !== proposed;
-}
-
 async function importScreen(blueprintId: string, candidates: string[]) {
   const fsPath = await resolveFsPath(blueprintId, candidates);
   return import(/* @vite-ignore */ `/@fs/${fsPath}`);
@@ -73,13 +99,15 @@ async function importScreen(blueprintId: string, candidates: string[]) {
 function ScreenView({
   blueprintId,
   screenId,
-  variant,
-  diff,
+  flowId,
+  scenarioId,
+  onLoaded,
 }: {
   blueprintId: string;
   screenId: string;
-  variant?: 'baseline' | 'proposed';
-  diff: boolean;
+  flowId: string;
+  scenarioId?: string | null;
+  onLoaded?: () => void;
 }) {
   const [Screen, setScreen] = useState<ComponentType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +117,7 @@ function ScreenView({
     setScreen(null);
     setError(null);
 
-    importScreen(blueprintId, subpathsForScreen(screenId, diff, variant))
+    importScreen(blueprintId, subpathsForScreen(screenId, flowId, scenarioId))
       .then((mod) => {
         if (!cancelled) setScreen(() => mod.default);
       })
@@ -100,7 +128,11 @@ function ScreenView({
     return () => {
       cancelled = true;
     };
-  }, [blueprintId, screenId, variant, diff]);
+  }, [blueprintId, screenId, flowId, scenarioId]);
+
+  useEffect(() => {
+    if (Screen) onLoaded?.();
+  }, [Screen, onLoaded]);
 
   if (error) {
     return (
@@ -113,41 +145,56 @@ function ScreenView({
   return <Screen />;
 }
 
-
 function App() {
   const [config, setConfig] = useState<BlueprintConfig | null>(null);
   const [blueprints, setBlueprints] = useState<BlueprintEntry[]>([]);
-  const [screens, setScreens] = useState<string[]>([]);
   const [activeScreen, setActiveScreen] = useState<string>('');
-  const [flowGraph, setFlowGraph] = useState<FlowGraphResponse | null>(null);
+  const [flowGraph, setFlowGraph] = useState<FlowGraphData | null>(null);
   const [activeFlowId, setActiveFlowId] = useState('default');
-  const [navFlash, setNavFlash] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const [activeScenario, setActiveScenario] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<ScenarioEntry[]>([]);
+  const [viewportPreset, setViewportPreset] = useState<ViewportPreset>(loadViewportPreset);
+  const [flowSidebarWidth, setFlowSidebarWidth] = useState(loadFlowSidebarWidth);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const params = new URLSearchParams(window.location.search);
   const [activeBlueprint, setActiveBlueprint] = useState(params.get('id') ?? '');
-  const [diffTab, setDiffTab] = useState<'baseline' | 'proposed'>('baseline');
-  const [showDiffTabs, setShowDiffTabs] = useState(false);
 
-  const loadScreens = useCallback(async (blueprintId: string, diff: boolean) => {
-    const res = await fetch(
-      `/__lamina/screens?id=${encodeURIComponent(blueprintId)}&diff=${diff ? '1' : '0'}`,
-    );
-    const list: string[] = await res.json();
-    setScreens(list);
-    setActiveScreen((prev) => (list.includes(prev) ? prev : list[0] ?? ''));
+  const jumpToFlowEntry = useCallback((graph: FlowGraphData, flowId: string) => {
+    const transitions = resolveFlowTransitions(graph, flowId);
+    const entry = inferEntryScreen(transitions);
+    if (entry) setActiveScreen(entry);
   }, []);
 
-  const loadFlowGraph = useCallback(async (blueprintId: string) => {
-    const res = await fetch(`/__lamina/flow-graph?id=${encodeURIComponent(blueprintId)}`);
+  const loadScenarios = useCallback(async (blueprintId: string) => {
+    const res = await fetch(`/__lamina/scenarios?id=${encodeURIComponent(blueprintId)}`);
     if (!res.ok) {
-      setFlowGraph(null);
+      setScenarios([]);
       return;
     }
-    const data = (await res.json()) as FlowGraphResponse;
-    setFlowGraph(data);
-    const firstFlow = data.flows[0]?.id ?? 'default';
-    setActiveFlowId(firstFlow);
+    setScenarios((await res.json()) as ScenarioEntry[]);
+  }, []);
+
+  const loadFlowGraph = useCallback(
+    async (blueprintId: string) => {
+      const res = await fetch(`/__lamina/flow-graph?id=${encodeURIComponent(blueprintId)}`);
+      if (!res.ok) {
+        setFlowGraph(null);
+        return;
+      }
+      const data = (await res.json()) as FlowGraphData;
+      setFlowGraph(data);
+      const flowId = resolveActiveFlowId(data, activeFlowId);
+      setActiveFlowId(flowId);
+      jumpToFlowEntry(data, flowId);
+    },
+    [activeFlowId, jumpToFlowEntry],
+  );
+
+  const loadFallbackScreens = useCallback(async (blueprintId: string) => {
+    const res = await fetch(`/__lamina/screens?id=${encodeURIComponent(blueprintId)}`);
+    const list: string[] = await res.json();
+    if (list.length) setActiveScreen((prev) => (prev && list.includes(prev) ? prev : list[0]));
   }, []);
 
   useEffect(() => {
@@ -159,41 +206,102 @@ function App() {
         setActiveBlueprint(id);
         return fetch('/__lamina/blueprints')
           .then((r) => r.json())
-          .then((entries: BlueprintEntry[]) => {
+          .then(async (entries: BlueprintEntry[]) => {
             setBlueprints(entries);
-            return Promise.all([loadScreens(id, cfg.diff), loadFlowGraph(id)]);
+            await loadFlowGraph(id);
+            await loadScenarios(id);
+            return loadFallbackScreens(id);
           });
       });
-  }, [loadScreens, loadFlowGraph]);
+  }, [loadFlowGraph, loadFallbackScreens, loadScenarios]);
+
+  const activeTransitions = flowGraph ? resolveFlowTransitions(flowGraph, activeFlowId) : [];
+
+  const applyHotspots = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const triggers = new Set(
+      outgoingTransitions(activeTransitions, activeScreen).map((t) => t.trigger),
+    );
+    viewport.querySelectorAll('[data-trigger]').forEach((el) => {
+      el.classList.toggle('sub-hotspot', triggers.has(el.getAttribute('data-trigger') ?? ''));
+    });
+  }, [activeTransitions, activeScreen]);
 
   useEffect(() => {
-    if (!config?.diff || !activeScreen || !activeBlueprint) {
-      setShowDiffTabs(false);
-      return;
-    }
-    let cancelled = false;
-    screenHasDistinctDiff(activeBlueprint, activeScreen).then((distinct) => {
-      if (!cancelled) {
-        setShowDiffTabs(distinct);
-        if (distinct) setDiffTab('baseline');
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [config?.diff, activeBlueprint, activeScreen]);
+    applyHotspots();
+    const id = window.setTimeout(applyHotspots, 100);
+    return () => window.clearTimeout(id);
+  }, [applyHotspots, activeScreen, activeFlowId]);
 
   const navigateToTarget = useCallback((target: string) => {
+    setActiveScenario(null);
     setActiveScreen(target);
-    setNavFlash(true);
-    window.setTimeout(() => setNavFlash(false), 400);
   }, []);
+
+  const onFlowChange = useCallback(
+    (flowId: string) => {
+      setActiveScenario(null);
+      setActiveFlowId(flowId);
+      if (flowGraph) jumpToFlowEntry(flowGraph, flowId);
+    },
+    [flowGraph, jumpToFlowEntry],
+  );
+
+  const onSelectScenario = useCallback(
+    (scenarioId: string) => {
+      const scenario = scenarios.find((s) => s.id === scenarioId);
+      if (!scenario) return;
+      setActiveScenario(scenarioId);
+      setActiveScreen(scenario.screen);
+    },
+    [scenarios],
+  );
+
+  const onClearScenario = useCallback(() => {
+    setActiveScenario(null);
+  }, []);
+
+  const onFlowSidebarResizeStart = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = flowSidebarWidth;
+
+      const onMove = (ev: globalThis.MouseEvent) => {
+        const next = Math.min(
+          MAX_FLOW_SIDEBAR_WIDTH,
+          Math.max(MIN_FLOW_SIDEBAR_WIDTH, startWidth + (startX - ev.clientX)),
+        );
+        setFlowSidebarWidth(next);
+      };
+
+      const onUp = (ev: globalThis.MouseEvent) => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.classList.remove('sub-preview-resizing');
+        const width = Math.min(
+          MAX_FLOW_SIDEBAR_WIDTH,
+          Math.max(MIN_FLOW_SIDEBAR_WIDTH, startWidth + (startX - ev.clientX)),
+        );
+        try {
+          sessionStorage.setItem(FLOW_SIDEBAR_WIDTH_KEY, String(width));
+        } catch {
+          /* ignore */
+        }
+      };
+
+      document.body.classList.add('sub-preview-resizing');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [flowSidebarWidth],
+  );
 
   const resolveTransition = useCallback(
     (trigger: string) => {
       if (!flowGraph) return null;
-      const flow = flowGraph.flows.find((f) => f.id === activeFlowId);
-      const transitions = flow?.transitions ?? flowGraph.transitions;
+      const transitions = resolveFlowTransitions(flowGraph, activeFlowId);
       const entry = inferEntryScreen(transitions);
       return transitions.find(
         (t) =>
@@ -206,7 +314,9 @@ function App() {
 
   const onCanvasClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
-      const el = (e.target as HTMLElement).closest('[data-trigger]');
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, select, option')) return;
+      const el = target.closest('[data-trigger]');
       if (!el) return;
       const trigger = el.getAttribute('data-trigger');
       if (!trigger) return;
@@ -216,39 +326,24 @@ function App() {
     [resolveTransition, navigateToTarget],
   );
 
+  const onViewportChange = (preset: ViewportPreset) => {
+    setViewportPreset(preset);
+    try {
+      sessionStorage.setItem(VIEWPORT_STORAGE_KEY, preset);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const onBlueprintChange = (id: string) => {
     setActiveBlueprint(id);
     const next = new URLSearchParams(window.location.search);
     next.set('id', id);
     window.history.replaceState({}, '', `?${next}`);
-    loadScreens(id, config?.diff ?? false);
     loadFlowGraph(id);
+    loadScenarios(id);
+    loadFallbackScreens(id);
   };
-
-  const flowScreens = flowGraph
-    ? (() => {
-        const flow = flowGraph.flows.find((f) => f.id === activeFlowId);
-        const transitions = flow?.transitions ?? [];
-        const ids = new Set<string>();
-        for (const t of transitions) {
-          if (t.from) ids.add(t.from);
-          ids.add(t.target);
-        }
-        if (!ids.size) return screens;
-        return screens.filter((s) => ids.has(s));
-      })()
-    : screens;
-
-  const displayScreens = flowScreens.length ? flowScreens : screens;
-
-  const outgoing = flowGraph
-    ? outgoingTransitions(
-        flowGraph.flows.find((f) => f.id === activeFlowId)?.transitions ??
-          flowGraph.transitions,
-        activeScreen,
-        activeFlowId,
-      )
-    : [];
 
   if (!config) {
     return (
@@ -258,19 +353,29 @@ function App() {
     );
   }
 
-  const diffMode = config.diff;
-  const comparing = diffMode && showDiffTabs;
-  const changedScreens = flowGraph?.changedScreens ?? [];
-
   return (
     <div className="sub-preview-shell">
       <div className="sub-preview-topbar">
         <span className="sub-preview-topbar-title">{activeBlueprint}</span>
-        {comparing ? <span className="sub-preview-topbar-meta">optimize</span> : null}
+        <div className="sub-preview-topbar-spacer" />
+        <label className="sub-preview-viewport-control">
+          <span className="sub-preview-viewport-label">Viewport</span>
+          <select
+            value={viewportPreset}
+            onChange={(e) => onViewportChange(e.target.value as ViewportPreset)}
+            aria-label="Viewport size preset"
+          >
+            {(Object.keys(VIEWPORT_PRESETS) as ViewportPreset[]).map((key) => (
+              <option key={key} value={key}>
+                {VIEWPORT_PRESETS[key].label} · {VIEWPORT_PRESETS[key].width}px
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="sub-preview-body">
-        <aside className="sub-preview-sidebar">
-          {blueprints.length > 1 ? (
+        {blueprints.length > 1 ? (
+          <aside className="sub-preview-sidebar">
             <div className="sub-preview-picker">
               <h2>Blueprint</h2>
               <select value={activeBlueprint} onChange={(e) => onBlueprintChange(e.target.value)}>
@@ -281,97 +386,62 @@ function App() {
                 ))}
               </select>
             </div>
-          ) : null}
-          {displayScreens.length > 0 ? (
-            <>
-              <h2>Screens</h2>
-              <ul className="sub-screen-nav">
-                {displayScreens.map((id) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      className={`${activeScreen === id ? 'active' : ''}${
-                        changedScreens.includes(id) ? ' has-diff' : ''
-                      }`}
-                      onClick={() => setActiveScreen(id)}
-                    >
-                      {id}
-                      {changedScreens.includes(id) ? (
-                        <span className="sub-diff-badge" title="Changed in optimize" />
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </aside>
-        <main className="sub-preview-main">
-          {comparing ? (
-            <div className="sub-preview-tabs" role="tablist" aria-label="Optimize comparison">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={diffTab === 'baseline'}
-                className={diffTab === 'baseline' ? 'active' : ''}
-                onClick={() => setDiffTab('baseline')}
-              >
-                Baseline
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={diffTab === 'proposed'}
-                className={diffTab === 'proposed' ? 'active' : ''}
-                onClick={() => setDiffTab('proposed')}
-              >
-                Proposed
-              </button>
-            </div>
-          ) : null}
-          <div
-            ref={canvasRef}
-            className={`sub-preview-canvas${navFlash ? ' sub-nav-flash' : ''}`}
-            onClick={comparing ? undefined : onCanvasClick}
-          >
-            {activeScreen ? (
-              <ScreenView
-                blueprintId={activeBlueprint}
-                screenId={activeScreen}
-                variant={comparing ? diffTab : undefined}
-                diff={comparing}
-              />
-            ) : (
-              <div className="sub-text">No screens</div>
-            )}
-          </div>
-          {!comparing && outgoing.length > 0 ? (
-            <div className="sub-next-steps-bar">
-              <span className="sub-next-steps-label">Next steps</span>
-              {outgoing.map((t) => (
-                <button
-                  key={`${t.trigger}-${t.target}`}
-                  type="button"
-                  className="sub-next-step-chip"
-                  onClick={() => navigateToTarget(t.target)}
-                >
-                  {t.trigger} → {t.target}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </main>
-        {!comparing && flowGraph ? (
-          <aside className="sub-preview-flow-sidebar">
-            <FlowGraphPanel
-              graph={flowGraph}
-              activeScreen={activeScreen}
-              activeFlowId={activeFlowId}
-              onSelectScreen={navigateToTarget}
-              onSelectFlow={setActiveFlowId}
-              changedScreens={changedScreens}
-            />
           </aside>
+        ) : null}
+        <main className="sub-preview-main">
+          <div className="sub-preview-canvas">
+            <div
+              ref={viewportRef}
+              className="sub-preview-viewport"
+              data-viewport={viewportPreset}
+              style={{ width: VIEWPORT_PRESETS[viewportPreset].width }}
+              onClick={onCanvasClick}
+            >
+              {activeScreen ? (
+                <div
+                  className="sub-preview-stage"
+                  key={`${activeFlowId}:${activeScreen}:${activeScenario ?? 'happy'}`}
+                >
+                  <ScreenView
+                    blueprintId={activeBlueprint}
+                    screenId={activeScreen}
+                    flowId={activeFlowId}
+                    scenarioId={activeScenario}
+                    onLoaded={applyHotspots}
+                  />
+                </div>
+              ) : (
+                <div className="sub-text">No screens</div>
+              )}
+            </div>
+          </div>
+        </main>
+        {flowGraph ? (
+          <div
+            className="sub-preview-flow-sidebar-wrap"
+            style={{ width: flowSidebarWidth }}
+          >
+            <div
+              className="sub-preview-flow-resize-handle"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize flow panel"
+              onMouseDown={onFlowSidebarResizeStart}
+            />
+            <aside className="sub-preview-flow-sidebar">
+              <FlowGraphPanel
+                graph={flowGraph}
+                activeScreen={activeScreen}
+                activeFlowId={activeFlowId}
+                onSelectScreen={setActiveScreen}
+                onSelectFlow={onFlowChange}
+                scenarios={scenarios}
+                activeScenario={activeScenario}
+                onSelectScenario={onSelectScenario}
+                onClearScenario={onClearScenario}
+              />
+            </aside>
+          </div>
         ) : null}
       </div>
     </div>

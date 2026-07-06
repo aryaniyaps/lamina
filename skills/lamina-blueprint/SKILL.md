@@ -37,8 +37,11 @@ metadata:
   flows.tsx           # Transition edges
   screens/
     <screen-id>.tsx
-  baseline/screens/   # optimize diff only
-  proposed/screens/   # optimize diff only
+  flows/
+    <flow-id>/screens/  # optional per-flow overrides (alternate flows, optimize variants)
+  scenarios.yaml        # edge-case inventory for preview
+  scenarios/
+    <scenario-id>/screens/<screen-id>.tsx  # screen variant (empty, error, etc.)
 ```
 
 Each blueprint is **disposable** — delete after implementation. Durable record: `requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`.
@@ -74,6 +77,38 @@ Wire buttons to flow transitions for clickable prototype walkthrough:
 ```
 
 `trigger` must match a `<Transition trigger="..." from="current-screen-id" />` in `flows.tsx`.
+
+### Multi-screen flow walkthrough (required)
+
+When a flow has **two or more linked screens**, every screen that has **outgoing** transitions must include **at least one** interactive element (`Button`, `Action`, or `Link`) with a `trigger` that matches an outgoing transition from that screen.
+
+- Put the trigger on the control that advances the flow (primary CTA, row action, nav link — not a passive label).
+- Prefer one trigger per outgoing transition so every branch is clickable in the prototype.
+- Preview highlights matching `[data-trigger]` elements as **hotspots** (pulse ring) for the active flow; clicking a hotspot navigates like clicking the flow graph.
+- **Terminal screens** (no outgoing transitions) are exempt.
+- Per-flow overrides (`flows/<flow-id>/screens/`) must still satisfy this for that flow’s transitions — a shared screen and a flow override can expose different triggers.
+
+`lamina-blueprint validate` checks that every `trigger` on a screen has a matching transition in that flow; when authoring, also verify each outgoing transition has a corresponding trigger on the effective screen file.
+
+### Edge-case scenarios (preview)
+
+Map each edge case to a **screen variant** in the blueprint (not a separate navigation paradigm). Branch-style edge cases (different path) use a new `<Flow id>` and the flow picker.
+
+**`scenarios.yaml`:**
+
+```yaml
+scenarios:
+  - id: empty-orders
+    title: No orders yet
+    screen: orders
+    flow: main              # optional — omit to show in all flows
+    description: User lands before any orders exist
+    severity: medium        # optional: high | medium | low
+```
+
+**Variant file:** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use `EmptyState`, `ErrorState`, `Alert`, etc.
+
+When feature/ideate documents edge cases, write prose to `.lamina/edge-cases.md` **and** add matching `scenarios.yaml` entries + variant files to the blueprint. Preview shows scenarios as **dashed branches** on the flow graph; click a branch node to load the variant; click the main screen node to return to the happy path.
 
 ### Screen example
 
@@ -113,7 +148,7 @@ export default function Flows() {
 }
 ```
 
-Optional `<Flow id="...">` groups transitions when multiple flows exist. Preview shows a visual flow graph in the sidebar; click nodes or `trigger` elements to navigate. **Next steps** chips list outgoing transitions from the current screen.
+Optional `<Flow id="...">` groups transitions when multiple flows exist. Per-flow screen overrides live at `flows/<flow-id>/screens/<screen>.tsx` and fall back to `screens/<screen>.tsx`. Preview shows a flow graph on the right; pick a flow, click nodes, or click highlighted hotspot triggers (`data-trigger`) to navigate the active flow.
 
 Screen `id` values must match entries in `.lamina/flows-inventory.yaml`.
 
@@ -122,20 +157,19 @@ Screen `id` values must match entries in `.lamina/flows-inventory.yaml`.
 ```bash
 lamina-blueprint preview --root .lamina/blueprints --id <id>
 lamina-blueprint preview --root .lamina/blueprints --list
-lamina-blueprint preview --root .lamina/blueprints --id <id> --diff
-lamina-blueprint export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd] [--diff]
+lamina-blueprint export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd]
 lamina-blueprint retire <id> --root .lamina/blueprints
 lamina-blueprint validate .lamina/blueprints/<id>
 ```
 
-Preview features (v2): dark greyscale wireframes, sidebar flow graph, clickable `trigger` navigation, next-steps strip. Optimize mode shows Baseline/Proposed tabs and diff badges on changed screens.
+Preview features (v2): dark greyscale wireframes, right-side flow graph with scenario branches, flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
 
 Start preview in a background terminal once; HMR updates on file edits. Print URL: `http://localhost:5173?id=<id>`.
 
 ## Workflow
 
 1. **Create** — new `<id>` (slug from feature name); write `meta.yaml` with `status: draft`
-2. **Generate** — write `screens/*.tsx` and `flows.tsx` from ideate/feature content
+2. **Generate** — write `screens/*.tsx` and `flows.tsx` from ideate/feature content; for multi-screen flows, add `trigger` on each screen that can advance the flow (hotspot walkthrough)
 3. **Iterate** — patch files when user requests changes in chat
 4. **Approve** — set `status: approved`; append handoff block to `requirements.md`
 5. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`; update `flows-inventory.yaml` to `shipped`
@@ -151,13 +185,16 @@ Start preview in a background terminal once; HMR updates on file edits. Print UR
 
 Tasks must reference **screen/flow names**, not blueprint file paths.
 
-## Optimize diff
+## Optimize (flow-level only)
 
-1. Create blueprint id (e.g. `optimize-checkout`)
-2. Write `baseline/screens/` for **changed** screens only (from existing UX)
-3. Write `proposed/screens/` for changed screens only
-4. Unchanged screens fall back to `screens/` in the preview
-5. `lamina-blueprint preview --id optimize-checkout --diff` — **Baseline / Proposed tabs** appear only on screens with distinct `baseline/` and `proposed/` files; changed screens show a dot in the sidebar; `export-graph --diff` marks changed nodes with dashed borders in Mermaid output
+Lamina **optimizes entire flows**, not isolated screens. Audit and blueprint work target a **named flow** from `.lamina/flows-inventory.yaml` (or a new flow you are proposing).
+
+Two ways to express an optimization in a blueprint:
+
+1. **Edit `screens/`** — update the designed state for the step under test (preview shows it directly).
+2. **New alternate flow** — add `<Flow id="...">` with `flows/<id>/screens/` overrides where steps differ; compare by switching flows in the preview picker.
+
+Edge-case states use `scenarios.yaml` branches on the graph, not separate optimize artifacts.
 
 ## Checkpoint
 

@@ -14,7 +14,6 @@ function loadBlueprintConfig() {
     return {
       root: path.resolve(packageRoot, '../../examples/minimal-blueprint/.lamina/blueprints'),
       id: 'demo',
-      diff: false,
     };
   }
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -59,8 +58,7 @@ export default defineConfig(() => {
           server.middlewares.use('/__lamina/screens', (req, res) => {
             const url = new URL(req.url ?? '', 'http://localhost');
             const blueprintId = url.searchParams.get('id') ?? cfg.id;
-            const diff = url.searchParams.get('diff') === '1' || cfg.diff;
-            const list = listScreenIds(blueprintRoot, blueprintId, diff);
+            const list = listScreenIds(blueprintRoot, blueprintId);
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(list));
           });
