@@ -60,7 +60,7 @@ body,
   flex: 1;
 }
 
-.sub-preview-viewport-control {
+.sub-preview-topbar-control {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -68,12 +68,12 @@ body,
   color: var(--sub-text-faint);
 }
 
-.sub-preview-viewport-label {
+.sub-preview-topbar-control-label {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.sub-preview-viewport-control select {
+.sub-preview-topbar-control select {
   padding: 4px 8px;
   border: 1px solid var(--sub-border);
   border-radius: var(--sub-radius-sm);
@@ -81,6 +81,7 @@ body,
   color: var(--sub-text);
   font-size: 12px;
   cursor: pointer;
+  max-width: 220px;
 }
 
 .sub-preview-topbar-title {
@@ -108,15 +109,6 @@ body,
   display: flex;
   flex: 1;
   min-height: 0;
-}
-
-.sub-preview-sidebar {
-  width: 132px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--sub-border);
-  background: var(--sub-surface);
-  overflow-y: auto;
-  padding: 6px;
 }
 
 .sub-preview-flow-sidebar-wrap {
@@ -160,28 +152,6 @@ body.sub-preview-resizing {
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
-}
-
-.sub-preview-sidebar h2 {
-  margin: 0 0 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--sub-text-faint);
-}
-
-.sub-preview-picker {
-  margin-bottom: 12px;
-}
-
-.sub-preview-picker select {
-  width: 100%;
-  padding: 4px;
-  border: 1px solid var(--sub-border);
-  border-radius: var(--sub-radius-sm);
-  background: var(--sub-bg);
-  color: var(--sub-text);
-  font-size: 12px;
 }
 
 .sub-screen-nav {

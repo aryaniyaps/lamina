@@ -585,13 +585,31 @@ function App() {
   return (
     <div className="sub-preview-shell">
       <div className="sub-preview-topbar">
-        <span className="sub-preview-topbar-title">{activeBlueprint}</span>
+        {blueprints.length <= 1 ? (
+          <span className="sub-preview-topbar-title">{activeBlueprint}</span>
+        ) : null}
         {flowGraphSource === 'flows-inventory' ? (
           <span className="sub-preview-provisional-badge">Provisional flow (from inventory)</span>
         ) : null}
         <div className="sub-preview-topbar-spacer" />
-        <label className="sub-preview-viewport-control">
-          <span className="sub-preview-viewport-label">Viewport</span>
+        {blueprints.length > 1 ? (
+          <label className="sub-preview-topbar-control">
+            <span className="sub-preview-topbar-control-label">Blueprint</span>
+            <select
+              value={activeBlueprint}
+              onChange={(e) => onBlueprintChange(e.target.value)}
+              aria-label="Blueprint"
+            >
+              {blueprints.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.title !== b.id ? `${b.title} (${b.id})` : b.id}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <label className="sub-preview-topbar-control">
+          <span className="sub-preview-topbar-control-label">Viewport</span>
           <select
             value={viewportPreset}
             onChange={(e) => onViewportChange(e.target.value as ViewportPreset)}
@@ -606,20 +624,6 @@ function App() {
         </label>
       </div>
       <div className="sub-preview-body">
-        {blueprints.length > 1 ? (
-          <aside className="sub-preview-sidebar">
-            <div className="sub-preview-picker">
-              <h2>Blueprint</h2>
-              <select value={activeBlueprint} onChange={(e) => onBlueprintChange(e.target.value)}>
-                {blueprints.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </aside>
-        ) : null}
         <main className="sub-preview-main">
           <div className="sub-preview-canvas">
             <div
