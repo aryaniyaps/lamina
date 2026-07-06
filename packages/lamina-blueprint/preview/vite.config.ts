@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { blueprintApiPlugin, blueprintRootFromConfig, listScreenIds } from './blueprint-plugin.js';
+import { blueprintApiPlugin, blueprintRootFromConfig } from './blueprint-plugin.js';
+import { listScreenIds } from './flow-graph-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');

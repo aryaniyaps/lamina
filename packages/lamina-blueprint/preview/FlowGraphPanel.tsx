@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -11,8 +11,7 @@ import { resolveFlowTransitions } from './flow-graph.js';
 import type { ScenarioEntry } from './scenarios.js';
 import { blockerScreens, type PersonaEntry } from './personas.js';
 import type { ScreenMeta } from './screen-meta.js';
-import { PersonaPanel } from './PersonaPanel.js';
-import { buildFlowElements, scenarioNodeId, SCREEN_NODE_H, SCREEN_NODE_W } from './flow-graph-reactflow.js';
+import { buildFlowElements } from './flow-graph-reactflow.js';
 import { flowNodeTypes } from './flow-nodes.js';
 
 export type { ScenarioEntry };
@@ -31,37 +30,15 @@ interface FlowGraphPanelProps {
   screenMeta?: Record<string, ScreenMeta>;
 }
 
-function FlowFocus({
-  activeScreen,
-  activeScenario,
-  activeFlowId,
-}: {
-  activeScreen: string;
-  activeScenario: string | null;
-  activeFlowId: string;
-}) {
-  const { setCenter, fitView, getNode } = useReactFlow();
-  const prevFlowRef = useRef(activeFlowId);
+function FlowFocus({ activeFlowId, nodeCount }: { activeFlowId: string; nodeCount: number }) {
+  const { fitView } = useReactFlow();
 
   useEffect(() => {
-    if (prevFlowRef.current !== activeFlowId) {
-      prevFlowRef.current = activeFlowId;
+    const frame = requestAnimationFrame(() => {
       fitView({ padding: 0.2, duration: 200 });
-      return;
-    }
-
-    const nodeId = activeScenario ? scenarioNodeId(activeScenario) : activeScreen;
-    if (!nodeId) return;
-    const node = getNode(nodeId);
-    if (!node) return;
-
-    const w = node.measured?.width ?? node.width ?? SCREEN_NODE_W;
-    const h = node.measured?.height ?? node.height ?? SCREEN_NODE_H;
-    setCenter(node.position.x + w / 2, node.position.y + h / 2, {
-      zoom: 1,
-      duration: 200,
     });
-  }, [activeScreen, activeScenario, activeFlowId, setCenter, fitView, getNode]);
+    return () => cancelAnimationFrame(frame);
+  }, [activeFlowId, nodeCount, fitView]);
 
   return null;
 }
@@ -142,6 +119,7 @@ function FlowGraphCanvas({
   return (
     <div className="sub-flow-graph-canvas">
       <ReactFlow
+        key={activeFlowId}
         nodes={nodes}
         edges={edges}
         nodeTypes={flowNodeTypes}
@@ -158,11 +136,7 @@ function FlowGraphCanvas({
         fitViewOptions={{ padding: 0.2 }}
       >
         <Controls showInteractive={false} />
-        <FlowFocus
-          activeScreen={activeScreen}
-          activeScenario={activeScenario}
-          activeFlowId={activeFlowId}
-        />
+        <FlowFocus activeFlowId={activeFlowId} nodeCount={nodes.length} />
       </ReactFlow>
     </div>
   );
@@ -216,9 +190,6 @@ export function FlowGraphPanel({
           screenMeta={screenMeta}
         />
       </ReactFlowProvider>
-      {activePersona ? (
-        <PersonaPanel persona={activePersona} activeScreen={activeScreen} />
-      ) : null}
     </div>
   );
 }

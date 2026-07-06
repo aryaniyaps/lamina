@@ -1,131 +1,21 @@
 import type { Edge, Node } from '@xyflow/react';
-import type { FlowGraphData } from './flow-graph.js';
-import { inferEntryScreen, resolveFlowTransitions } from './flow-graph.js';
+import type { FlowGraphData, TransitionEdge } from './flow-graph.js';
+import {
+  inferEntryScreen,
+  outgoingTransitions,
+  resolveFlowTransitions,
+} from './flow-graph.js';
 import type { ScenarioEntry } from './scenarios.js';
 import type { ScreenMeta } from './screen-meta.js';
 
-export const SCREEN_NODE_W = 200;
-export const SCREEN_NODE_H = 78;
-export const SCENARIO_NODE_W = 188;
-/** Layout estimate; scenario nodes size to content when height is omitted. */
-export const SCENARIO_NODE_H = 92;
-const ROW_GAP = 56;
-const BRANCH_GAP = 16;
-const BRANCH_GAP_X = 88;
-const BRANCH_OFFSET_X = SCREEN_NODE_W + BRANCH_GAP_X;
+const SCREEN_NODE_WIDTH = 168;
+const SCREEN_NODE_HEIGHT = 88;
+const SCENARIO_NODE_WIDTH = 148;
+const H_GAP = 96;
+const V_GAP = 56;
+const SCENARIO_OFFSET_Y = 112;
 
-const FLOW_EDGE_LABEL = {
-  labelShowBg: true,
-  labelBgPadding: [6, 4] as [number, number],
-  labelBgBorderRadius: 4,
-};
-
-function distinctSubtitle(
-  title: string,
-  subtitle: string | undefined,
-  screenId: string,
-): string | undefined {
-  if (!subtitle?.trim()) return undefined;
-  const norm = (s: string) => s.trim().toLowerCase();
-  if (norm(subtitle) === norm(title)) return undefined;
-  if (norm(subtitle) === norm(screenId)) return undefined;
-  return subtitle;
-}
-
-export function scenarioNodeId(scenarioId: string) {
-  return `scenario:${scenarioId}`;
-}
-
-function orderScreens(
-  transitions: ReturnType<typeof resolveFlowTransitions>,
-  screenIds: string[],
-): string[] {
-  const entry = inferEntryScreen(transitions);
-  const ordered: string[] = [];
-  const seen = new Set<string>();
-
-  if (entry) {
-    ordered.push(entry);
-    seen.add(entry);
-  }
-
-  for (const t of transitions) {
-    if (t.from && !seen.has(t.from)) {
-      ordered.push(t.from);
-      seen.add(t.from);
-    }
-    if (!seen.has(t.target)) {
-      ordered.push(t.target);
-      seen.add(t.target);
-    }
-  }
-
-  for (const id of screenIds) {
-    if (!seen.has(id)) ordered.push(id);
-  }
-
-  return ordered;
-}
-
-function layoutGraph(
-  transitions: ReturnType<typeof resolveFlowTransitions>,
-  screenIds: string[],
-  visibleScenarios: ScenarioEntry[],
-): {
-  screens: { id: string; x: number; y: number }[];
-  scenarios: {
-    id: string;
-    scenarioId: string;
-    screenId: string;
-    entry: ScenarioEntry;
-    x: number;
-    y: number;
-  }[];
-} {
-  const ordered = orderScreens(transitions, screenIds);
-  const screens = ordered.map((id, i) => ({
-    id,
-    x: 16,
-    y: 12 + i * (SCREEN_NODE_H + ROW_GAP),
-  }));
-
-  const screenMap = Object.fromEntries(screens.map((s) => [s.id, s]));
-  const scenarios: {
-    id: string;
-    scenarioId: string;
-    screenId: string;
-    entry: ScenarioEntry;
-    x: number;
-    y: number;
-  }[] = [];
-
-  const byScreen = new Map<string, ScenarioEntry[]>();
-  for (const s of visibleScenarios) {
-    const list = byScreen.get(s.screen) ?? [];
-    list.push(s);
-    byScreen.set(s.screen, list);
-  }
-
-  for (const [screenId, list] of byScreen) {
-    const parent = screenMap[screenId];
-    if (!parent) continue;
-    list.forEach((entry, i) => {
-      const yOffset = (i - (list.length - 1) / 2) * (SCENARIO_NODE_H + BRANCH_GAP);
-      scenarios.push({
-        id: scenarioNodeId(entry.id),
-        scenarioId: entry.id,
-        screenId,
-        entry,
-        x: parent.x + BRANCH_OFFSET_X,
-        y: parent.y + yOffset,
-      });
-    });
-  }
-
-  return { screens, scenarios };
-}
-
-export interface BuildFlowElementsInput {
+interface BuildParams {
   graph: FlowGraphData;
   activeFlowId: string;
   scenarios: ScenarioEntry[];
@@ -136,105 +26,127 @@ export interface BuildFlowElementsInput {
   screenMeta: Record<string, ScreenMeta>;
 }
 
-export function buildFlowElements(input: BuildFlowElementsInput): {
-  nodes: Node[];
-  edges: Edge[];
-} {
-  const {
-    graph,
-    activeFlowId,
-    scenarios,
-    activeScreen,
-    activeScenario,
-    personaBlockedScreens,
-    blockerQuotes,
-    screenMeta,
-  } = input;
+function layoutScreens(
+  transitions: TransitionEdge[],
+  entry: string | undefined,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  if (!entry) return positions;
 
+  const columns = new Map<number, string[]>();
+  const stepByScreen = new Map<string, number>();
+  const queue: { id: string; step: number }[] = [{ id: entry, step: 0 }];
+  const visited = new Set<string>();
+
+  while (queue.length) {
+    const { id, step } = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    stepByScreen.set(id, step);
+    if (!columns.has(step)) columns.set(step, []);
+    columns.get(step)!.push(id);
+
+    for (const t of outgoingTransitions(transitions, id)) {
+      if (!visited.has(t.target)) queue.push({ id: t.target, step: step + 1 });
+    }
+  }
+
+  for (const [col, ids] of [...columns.entries()].sort((a, b) => a[0] - b[0])) {
+    const totalHeight = ids.length * SCREEN_NODE_HEIGHT + (ids.length - 1) * V_GAP;
+    let y = -totalHeight / 2;
+    for (const id of ids) {
+      positions.set(id, { x: col * (SCREEN_NODE_WIDTH + H_GAP), y });
+      y += SCREEN_NODE_HEIGHT + V_GAP;
+    }
+  }
+
+  return positions;
+}
+
+export function buildFlowElements({
+  graph,
+  activeFlowId,
+  scenarios,
+  activeScreen,
+  activeScenario,
+  personaBlockedScreens,
+  screenMeta,
+}: BuildParams): { nodes: Node[]; edges: Edge[] } {
   const transitions = resolveFlowTransitions(graph, activeFlowId);
-  const screenIdSet = new Set<string>();
-  for (const t of transitions) {
-    if (t.from) screenIdSet.add(t.from);
-    screenIdSet.add(t.target);
-  }
-  if (!screenIdSet.size && graph.screens.length) {
-    graph.screens.forEach((s) => screenIdSet.add(s));
-  }
-
-  const visibleScenarios = scenarios.filter((s) => !s.flow || s.flow === activeFlowId);
-  const { screens, scenarios: scenarioLayouts } = layoutGraph(
-    transitions,
-    [...screenIdSet],
-    visibleScenarios,
-  );
-
-  const nodes: Node[] = [
-    ...screens.map((s) => {
-      const meta = screenMeta[s.id];
-      return {
-        id: s.id,
-        type: 'screen' as const,
-        position: { x: s.x, y: s.y },
-        data: {
-          screenId: s.id,
-          title: meta?.title ?? s.id,
-          subtitle: distinctSubtitle(meta?.title ?? s.id, meta?.subtitle, s.id),
-          stepLabel: meta ? `${meta.stepIndex}/${meta.stepTotal}` : undefined,
-          isEntry: meta?.isEntry ?? false,
-          isTerminal: meta?.isTerminal ?? false,
-          triggers: meta?.triggers ?? [],
-          states: meta?.states ?? [],
-          isActive: activeScreen === s.id && !activeScenario,
-          hasBlocker: personaBlockedScreens.has(s.id),
-          blockerQuote: blockerQuotes.get(s.id),
-        },
-        style: { width: SCREEN_NODE_W, height: SCREEN_NODE_H },
-      };
-    }),
-    ...scenarioLayouts.map((s) => ({
-      id: s.id,
-      type: 'scenario' as const,
-      position: { x: s.x, y: s.y },
-      data: {
-        title: s.entry.title,
-        description: s.entry.description,
-        severity: s.entry.severity,
-        scenarioId: s.scenarioId,
-        parentScreen: s.screenId,
-        isActive: activeScenario === s.scenarioId,
-      },
-      style: { width: SCENARIO_NODE_W },
-      className: 'sub-rf-flow-node-scenario',
-    })),
-  ];
-
   const entry = inferEntryScreen(transitions);
-  const edges: Edge[] = transitions.map((t, i) => {
-    const fromId = t.from ?? entry ?? t.target;
-    const active =
-      !activeScenario && (activeScreen === fromId || activeScreen === t.target);
-    return {
-      id: `flow-${t.trigger}-${i}`,
-      source: fromId,
+  const positions = layoutScreens(transitions, entry);
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+
+  for (const [screenId, pos] of positions) {
+    const meta = screenMeta[screenId];
+    nodes.push({
+      id: screenId,
+      type: 'screen',
+      position: pos,
+      data: {
+        label: meta?.title ?? screenId,
+        subtitle: meta?.title && meta.title !== screenId ? screenId : undefined,
+        step: meta?.stepIndex,
+        triggers: meta?.triggers,
+        active: screenId === activeScreen && !activeScenario,
+        blocked: personaBlockedScreens.has(screenId),
+        completeness: meta?.completeness ?? 'skeleton',
+        isEntry: meta?.isEntry,
+        isTerminal: meta?.isTerminal,
+      },
+      style: { width: SCREEN_NODE_WIDTH, height: SCREEN_NODE_HEIGHT },
+    });
+  }
+
+  for (const t of transitions) {
+    const from = t.from ?? entry;
+    if (!from) continue;
+    edges.push({
+      id: `${from}-${t.trigger}-${t.target}`,
+      source: from,
       target: t.target,
       label: t.trigger,
       type: 'smoothstep',
-      className: active ? 'sub-rf-edge sub-rf-edge-flow sub-rf-edge-active' : 'sub-rf-edge sub-rf-edge-flow',
-      ...FLOW_EDGE_LABEL,
-    };
-  });
+      animated: false,
+      style: { stroke: 'var(--sub-border-strong)' },
+      labelStyle: { fontSize: 10, fill: 'var(--sub-text-muted)' },
+    });
+  }
 
-  for (const s of scenarioLayouts) {
-    const active = activeScenario === s.scenarioId;
+  const flowScenarios = scenarios.filter(
+    (s) => !s.flow || s.flow === activeFlowId,
+  );
+
+  for (const scenario of flowScenarios) {
+    const anchor = positions.get(scenario.screen);
+    if (!anchor) continue;
+
+    const scenarioNodeId = `scenario:${scenario.id}`;
+    nodes.push({
+      id: scenarioNodeId,
+      type: 'scenario',
+      position: {
+        x: anchor.x + (SCREEN_NODE_WIDTH - SCENARIO_NODE_WIDTH) / 2,
+        y: anchor.y + SCENARIO_OFFSET_Y,
+      },
+      data: {
+        scenarioId: scenario.id,
+        title: scenario.title,
+        description: scenario.description,
+        severity: scenario.severity,
+        active: activeScenario === scenario.id,
+      },
+      className: 'sub-rf-flow-node-scenario',
+      style: { width: SCENARIO_NODE_WIDTH },
+    });
+
     edges.push({
-      id: `scenario-${s.scenarioId}`,
-      source: s.screenId,
-      sourceHandle: 'branch',
-      target: s.id,
+      id: `scenario-edge-${scenario.id}`,
+      source: scenario.screen,
+      target: scenarioNodeId,
       type: 'smoothstep',
-      className: active
-        ? 'sub-rf-edge sub-rf-edge-branch sub-rf-edge-active'
-        : 'sub-rf-edge sub-rf-edge-branch',
+      style: { stroke: 'var(--sub-border-strong)', strokeDasharray: '4 4' },
     });
   }
 

@@ -1,103 +1,112 @@
 import { memo } from 'react';
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+import type { ScreenCompleteness } from './screen-meta.js';
 
-export type ScreenNodeData = {
-  screenId: string;
-  title: string;
+export interface ScreenNodeData {
+  label: string;
   subtitle?: string;
-  stepLabel?: string;
-  isEntry: boolean;
-  isTerminal: boolean;
-  triggers: string[];
-  states: string[];
-  isActive: boolean;
-  hasBlocker: boolean;
-  blockerQuote?: string;
-};
+  step?: number;
+  triggers?: string[];
+  active?: boolean;
+  blocked?: boolean;
+  completeness?: ScreenCompleteness;
+  isEntry?: boolean;
+  isTerminal?: boolean;
+  [key: string]: unknown;
+}
 
-export type ScenarioNodeData = {
+export interface ScenarioNodeData {
+  scenarioId: string;
   title: string;
   description?: string;
   severity?: string;
-  scenarioId: string;
-  parentScreen: string;
-  isActive: boolean;
-};
-
-export type ScreenNodeType = Node<ScreenNodeData, 'screen'>;
-export type ScenarioNodeType = Node<ScenarioNodeData, 'scenario'>;
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  active?: boolean;
+  [key: string]: unknown;
 }
 
-export const ScreenNode = memo(function ScreenNode({ data }: NodeProps<ScreenNodeType>) {
-  const showSubtitle = Boolean(data.subtitle);
-  const showStates = data.states.length > 0;
+function completenessLabel(completeness?: ScreenCompleteness): string | null {
+  if (completeness === 'skeleton') return 'Pending';
+  if (completeness === 'error') return 'Error';
+  return null;
+}
+
+function ScreenNodeComponent({ data }: NodeProps) {
+  const d = data as ScreenNodeData;
+  const stateLabel = completenessLabel(d.completeness);
 
   return (
     <div
-      className={`sub-rf-screen-node${data.isActive ? ' active' : ''}${data.hasBlocker ? ' blocked' : ''}`}
-      title={data.blockerQuote}
+      className={[
+        'sub-rf-node',
+        'sub-rf-screen-node',
+        d.active ? 'active' : '',
+        d.blocked ? 'blocked' : '',
+        d.completeness === 'skeleton' ? 'skeleton' : '',
+        d.completeness === 'error' ? 'error' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      <Handle type="target" position={Position.Top} className="sub-rf-handle" />
+      <Handle type="target" position={Position.Left} className="sub-rf-handle" />
       <div className="sub-rf-screen-node-header">
-        <span className="sub-rf-screen-node-title">{data.title}</span>
+        <div className="sub-rf-screen-node-titles">
+          <span className="sub-rf-screen-node-title">{d.label}</span>
+          {d.subtitle ? <p className="sub-rf-screen-node-subtitle">{d.subtitle}</p> : null}
+        </div>
         <div className="sub-rf-screen-node-badges">
-          {data.isEntry ? <span className="sub-rf-badge sub-rf-badge-entry">Entry</span> : null}
-          {data.isTerminal ? <span className="sub-rf-badge sub-rf-badge-terminal">End</span> : null}
-          {data.hasBlocker ? <span className="sub-rf-badge sub-rf-badge-blocker" aria-hidden /> : null}
+          {d.isEntry ? <span className="sub-rf-badge sub-rf-badge-entry">Entry</span> : null}
+          {d.isTerminal ? <span className="sub-rf-badge sub-rf-badge-terminal">End</span> : null}
+          {d.blocked ? <span className="sub-rf-badge sub-rf-badge-blocker" title="Persona blocker" /> : null}
         </div>
       </div>
-      {showSubtitle ? (
-        <p className="sub-rf-screen-node-subtitle">{truncate(data.subtitle!, 40)}</p>
-      ) : null}
       <div className="sub-rf-screen-node-footer">
-        {data.stepLabel ? <span className="sub-rf-screen-node-step">{data.stepLabel}</span> : null}
-        {data.triggers.length > 0 ? (
-          <span className="sub-rf-screen-node-triggers" title={data.triggers.join(', ')}>
-            {data.triggers.join(' · ')}
-          </span>
+        {d.step !== undefined ? (
+          <span className="sub-rf-screen-node-step">Step {d.step + 1}</span>
+        ) : (
+          <span />
+        )}
+        {d.triggers?.length ? (
+          <span className="sub-rf-screen-node-triggers">{d.triggers.join(' · ')}</span>
         ) : null}
       </div>
-      {showStates ? (
+      {stateLabel ? (
         <div className="sub-rf-screen-node-states">
-          {data.states.map((s) => (
-            <span key={s} className="sub-rf-chip">
-              {s.replace('State', '')}
-            </span>
-          ))}
+          <span className="sub-rf-chip">{stateLabel}</span>
         </div>
       ) : null}
-      <Handle type="source" position={Position.Bottom} className="sub-rf-handle" />
-      <Handle type="source" position={Position.Right} id="branch" className="sub-rf-handle" />
+      <Handle type="source" position={Position.Right} className="sub-rf-handle" />
     </div>
   );
-});
+}
 
-export const ScenarioNode = memo(function ScenarioNode({ data }: NodeProps<ScenarioNodeType>) {
-  const showDesc =
-    data.description &&
-    data.description.trim().toLowerCase() !== data.title.trim().toLowerCase();
+function ScenarioNodeComponent({ data }: NodeProps) {
+  const d = data as ScenarioNodeData;
 
   return (
-    <div className={`sub-rf-scenario-node${data.isActive ? ' active' : ''}`}>
-      <Handle type="target" position={Position.Left} className="sub-rf-handle" />
+    <div
+      className={[
+        'sub-rf-node',
+        'sub-rf-scenario-node',
+        d.active ? 'active' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <Handle type="target" position={Position.Top} className="sub-rf-handle" />
       <div className="sub-rf-scenario-node-header">
+        <span className="sub-rf-scenario-node-title">{d.title}</span>
         <span className="sub-rf-badge sub-rf-badge-branch">Branch</span>
-        {data.severity ? (
-          <span className={`sub-rf-badge sub-rf-badge-severity sub-rf-badge-severity-${data.severity}`}>
-            {data.severity}
-          </span>
+        {d.severity ? (
+          <span className={`sub-rf-badge sub-rf-badge-severity-${d.severity}`}>{d.severity}</span>
         ) : null}
       </div>
-      <span className="sub-rf-scenario-node-title">{data.title}</span>
-      {showDesc ? <p className="sub-rf-scenario-node-desc">{data.description}</p> : null}
+      {d.description ? <p className="sub-rf-scenario-node-desc">{d.description}</p> : null}
+      <Handle type="source" position={Position.Bottom} className="sub-rf-handle" />
     </div>
   );
-});
+}
 
 export const flowNodeTypes = {
-  screen: ScreenNode,
-  scenario: ScenarioNode,
+  screen: memo(ScreenNodeComponent),
+  scenario: memo(ScenarioNodeComponent),
 };

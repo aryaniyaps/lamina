@@ -1,11 +1,9 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const packageRoot = path.resolve(__dirname, '..');
+import {
+  defaultStateFile,
+  ensurePreviewRunning,
+} from './preview-lifecycle.js';
 
 function parseArgs(args) {
   const opts = {
@@ -13,6 +11,9 @@ function parseArgs(args) {
     id: null,
     port: 5173,
     list: false,
+    ensure: false,
+    open: false,
+    stateFile: null,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -20,7 +21,10 @@ function parseArgs(args) {
     if (arg === '--root' && args[i + 1]) opts.root = args[++i];
     else if (arg === '--id' && args[i + 1]) opts.id = args[++i];
     else if (arg === '--port' && args[i + 1]) opts.port = Number(args[++i]);
+    else if (arg === '--state-file' && args[i + 1]) opts.stateFile = args[++i];
     else if (arg === '--list') opts.list = true;
+    else if (arg === '--ensure') opts.ensure = true;
+    else if (arg === '--open') opts.open = true;
   }
 
   return opts;
@@ -84,34 +88,16 @@ export async function runPreview(args) {
     throw new Error(`Blueprint not found: ${blueprintDir}`);
   }
 
-  const configPath = path.join(os.tmpdir(), `lamina-blueprint-${opts.port}.json`);
-  fs.writeFileSync(
-    configPath,
-    JSON.stringify({ root, id, port: opts.port }),
-  );
+  const stateFile = opts.stateFile
+    ? path.resolve(opts.stateFile)
+    : defaultStateFile(root);
 
-  const viteBin = path.join(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');
-  const configFile = path.join(packageRoot, 'preview', 'vite.config.ts');
-
-  console.log(`Lamina Blueprint preview`);
-  console.log(`  Blueprint: ${id}`);
-  console.log(`  URL:       http://localhost:${opts.port}?id=${id}`);
-
-  const child = spawn(
-    process.execPath,
-    [viteBin, '--config', configFile, '--port', String(opts.port)],
-    {
-      cwd: packageRoot,
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        SUB_PREVIEW: '1',
-        LAMINA_BLUEPRINT_CONFIG: configPath,
-      },
-    },
-  );
-
-  await new Promise((resolve, reject) => {
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`vite exited ${code}`))));
+  await ensurePreviewRunning({
+    root,
+    id,
+    port: opts.port,
+    stateFile,
+    open: opts.open,
+    foreground: !opts.ensure,
   });
 }

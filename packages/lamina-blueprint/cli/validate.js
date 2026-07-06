@@ -1,13 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ALLOWED_COMPONENTS, parseJsxComponentTags } from '../lib/component-whitelist.mjs';
 import {
   collectScreensFromTransitions,
   inferEntryScreen,
+  outgoingTransitions,
   parseFlowsSource,
   parseScreenIdsFromSource,
   parseTriggersFromScreenSource,
 } from '../lib/flow-graph.mjs';
-import { loadScenariosFromBlueprintDir, scenarioScreenPathInBlueprint } from '../lib/scenarios.mjs';
+import {
+  loadScenariosFromBlueprintDir,
+  scenarioScreenPathInBlueprint,
+  validateScenarioFields,
+} from '../lib/scenarios.mjs';
+import { findRepoRoot, validateStructureManifest } from '../lib/structure-manifest.mjs';
 
 const FORBIDDEN_PATTERNS = [
   { name: 'className', pattern: /\bclassName\s*=/ },
@@ -83,6 +90,18 @@ function screensInFlow(transitions) {
   return screens;
 }
 
+function validateComponentWhitelist(dir, files, errors) {
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf8');
+    const rel = path.relative(dir, file);
+    for (const tag of parseJsxComponentTags(content)) {
+      if (!ALLOWED_COMPONENTS.has(tag)) {
+        errors.push(`${rel}: disallowed component <${tag}>`);
+      }
+    }
+  }
+}
+
 function validateStructure(dir, errors) {
   const screensDir = path.join(dir, 'screens');
   if (!fs.existsSync(screensDir)) return;
@@ -151,6 +170,15 @@ function validateStructure(dir, errors) {
           );
         }
       }
+
+      const outgoing = outgoingTransitions(transitions, screenId);
+      for (const t of outgoing) {
+        if (!triggers.includes(t.trigger)) {
+          errors.push(
+            `${rel}: outgoing transition "${t.trigger}" has no matching trigger on screen in flow "${flowId}"`,
+          );
+        }
+      }
     }
 
     const reachable = collectScreensFromTransitions(transitions, []);
@@ -167,9 +195,7 @@ function validateScenarios(dir, errors) {
   if (!scenarios.length) return;
 
   for (const s of scenarios) {
-    if (!s.id) errors.push('scenarios.yaml: scenario missing id');
-    if (!s.title) errors.push(`scenarios.yaml: scenario "${s.id}" missing title`);
-    if (!s.screen) errors.push(`scenarios.yaml: scenario "${s.id}" missing screen`);
+    errors.push(...validateScenarioFields(s));
 
     if (!s.id || !s.screen) continue;
 
@@ -190,15 +216,17 @@ function validateScenarios(dir, errors) {
   }
 }
 
-export async function runValidate(args) {
-  const target = args[0];
-  if (!target) throw new Error('Usage: lamina-blueprint validate <blueprint-dir>');
-
+/**
+ * @param {string} target — blueprint directory
+ * @returns {{ ok: boolean; errors: string[]; fileCount: number }}
+ */
+export function validateBlueprint(target) {
   const dir = path.resolve(target);
   if (!fs.existsSync(dir)) throw new Error(`Not found: ${dir}`);
 
   const errors = [];
   const files = walk(dir);
+  const repoRoot = findRepoRoot(dir);
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8');
@@ -219,14 +247,25 @@ export async function runValidate(args) {
     }
   }
 
+  validateComponentWhitelist(dir, files, errors);
   validateStructure(dir, errors);
   validateScenarios(dir, errors);
+  validateStructureManifest(dir, repoRoot, errors);
 
-  if (errors.length) {
+  return { ok: errors.length === 0, errors, fileCount: files.length };
+}
+
+export async function runValidate(args) {
+  const target = args[0];
+  if (!target) throw new Error('Usage: lamina-blueprint validate <blueprint-dir>');
+
+  const { ok, errors, fileCount } = validateBlueprint(target);
+
+  if (!ok) {
     console.error('Blueprint validation FAILED:\n');
     for (const e of errors) console.error(`  - ${e}`);
     process.exit(1);
   }
 
-  console.log(`OK — ${files.length} file(s) validated`);
+  console.log(`OK — ${fileCount} file(s) validated`);
 }

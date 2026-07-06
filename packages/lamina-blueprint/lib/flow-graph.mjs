@@ -147,3 +147,14 @@ export function parseTriggersFromScreenSource(source) {
   }
   return triggers;
 }
+
+/**
+ * @param {TransitionEdge[]} transitions
+ * @param {string} screenId
+ */
+export function outgoingTransitions(transitions, screenId) {
+  const entry = inferEntryScreen(transitions);
+  return transitions.filter(
+    (t) => t.from === screenId || (!t.from && entry === screenId),
+  );
+}

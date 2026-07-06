@@ -1,108 +1,66 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { FlowGraphData } from './flow-graph.js';
 import {
   inferEntryScreen,
+  outgoingTransitions,
+  parseScreenIdsFromSource,
   parseTriggersFromScreenSource,
   resolveFlowTransitions,
-  type FlowGraphData,
 } from './flow-graph.js';
 
+export type ScreenCompleteness = 'complete' | 'skeleton' | 'error';
+
 export interface ScreenMeta {
-  id: string;
-  title: string;
-  subtitle?: string;
+  completeness: ScreenCompleteness;
+  title?: string;
   triggers: string[];
-  states: string[];
-  stepIndex: number;
-  stepTotal: number;
-  isEntry: boolean;
-  isTerminal: boolean;
+  stepIndex?: number;
+  isEntry?: boolean;
+  isTerminal?: boolean;
 }
 
-const STATE_COMPONENTS = ['EmptyState', 'ErrorState', 'SuccessState', 'Loading', 'Banner'];
-
-function parseInlineText(tag: string, source: string): string | undefined {
-  const re = new RegExp(`<${tag}\\b[^>]*>([^<]+)<\\/${tag}>`);
-  const m = source.match(re);
-  return m?.[1]?.trim();
+function effectiveScreenPath(blueprintDir: string, flowId: string, screenId: string): string {
+  const flowPath = path.join(blueprintDir, 'flows', flowId, 'screens', `${screenId}.tsx`);
+  if (fs.existsSync(flowPath)) return flowPath;
+  return path.join(blueprintDir, 'screens', `${screenId}.tsx`);
 }
 
-export function parseScreenMetaFromSource(
-  source: string,
-  screenId: string,
-): Omit<ScreenMeta, 'stepIndex' | 'stepTotal' | 'isEntry' | 'isTerminal'> {
-  const titleAttr = source.match(/<Screen\b[^>]*\btitle=["']([^"']+)["']/);
-  const heading = parseInlineText('Heading', source);
-  const text = parseInlineText('Text', source);
-  const states = STATE_COMPONENTS.filter((c) => source.includes(`<${c}`));
-
-  return {
-    id: screenId,
-    title: titleAttr?.[1] ?? screenId,
-    subtitle: heading ?? text,
-    triggers: parseTriggersFromScreenSource(source),
-    states,
-  };
+function parseScreenTitle(source: string): string | undefined {
+  const m = source.match(/<Screen\b[^>]*\btitle=["']([^"']+)["']/);
+  return m?.[1];
 }
 
-function orderScreenIds(
-  transitions: ReturnType<typeof resolveFlowTransitions>,
-  screenIds: string[],
-): string[] {
-  const entry = inferEntryScreen(transitions);
-  const ordered: string[] = [];
-  const seen = new Set<string>();
-
-  if (entry) {
-    ordered.push(entry);
-    seen.add(entry);
-  }
-
+function screensInFlow(transitions: { from?: string; target: string }[]): Set<string> {
+  const screens = new Set<string>();
   for (const t of transitions) {
-    if (t.from && !seen.has(t.from)) {
-      ordered.push(t.from);
-      seen.add(t.from);
-    }
-    if (!seen.has(t.target)) {
-      ordered.push(t.target);
-      seen.add(t.target);
-    }
+    if (t.from) screens.add(t.from);
+    screens.add(t.target);
   }
-
-  for (const id of screenIds) {
-    if (!seen.has(id)) ordered.push(id);
-  }
-
-  return ordered;
+  return screens;
 }
 
-function resolveScreenFile(
-  blueprintRoot: string,
-  blueprintId: string,
-  subpaths: string[],
-): string | null {
-  const root = path.resolve(blueprintRoot);
-  for (const subpath of subpaths) {
-    const filePath = path.resolve(root, blueprintId, subpath);
-    if (!filePath.startsWith(path.resolve(root, blueprintId) + path.sep)) continue;
-    if (fs.existsSync(filePath)) return filePath;
-  }
-  return null;
-}
+function buildStepOrder(
+  transitions: ReturnType<typeof resolveFlowTransitions>,
+  entry: string | undefined,
+): Map<string, number> {
+  const stepOrder = new Map<string, number>();
+  if (!entry) return stepOrder;
 
-function readScreenSource(
-  blueprintRoot: string,
-  blueprintId: string,
-  flowId: string,
-  screenId: string,
-): string | null {
-  const candidates = [
-    `flows/${flowId}/screens/${screenId}.tsx`,
-    `screens/${screenId}.tsx`,
-  ];
-  const file = resolveScreenFile(blueprintRoot, blueprintId, candidates);
-  if (!file) return null;
-  return fs.readFileSync(file, 'utf8');
+  const queue: { id: string; step: number }[] = [{ id: entry, step: 0 }];
+  const visited = new Set<string>();
+
+  while (queue.length) {
+    const { id, step } = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    stepOrder.set(id, step);
+    for (const t of outgoingTransitions(transitions, id)) {
+      if (!visited.has(t.target)) queue.push({ id: t.target, step: step + 1 });
+    }
+  }
+
+  return stepOrder;
 }
 
 export function loadScreenMetaForFlow(
@@ -111,39 +69,42 @@ export function loadScreenMetaForFlow(
   graph: FlowGraphData,
   flowId: string,
 ): Record<string, ScreenMeta> {
+  const blueprintDir = path.join(path.resolve(blueprintRoot), blueprintId);
   const transitions = resolveFlowTransitions(graph, flowId);
-  const screenIdSet = new Set<string>();
-  for (const t of transitions) {
-    if (t.from) screenIdSet.add(t.from);
-    screenIdSet.add(t.target);
-  }
-  if (!screenIdSet.size && graph.screens.length) {
-    graph.screens.forEach((s) => screenIdSet.add(s));
-  }
-
-  const ordered = orderScreenIds(transitions, [...screenIdSet]);
   const entry = inferEntryScreen(transitions);
-  const outgoing = new Map<string, number>();
-  for (const t of transitions) {
-    const from = t.from ?? entry;
-    if (from) outgoing.set(from, (outgoing.get(from) ?? 0) + 1);
+  const screens = screensInFlow(transitions);
+  const stepOrder = buildStepOrder(transitions, entry);
+  const meta: Record<string, ScreenMeta> = {};
+
+  for (const screenId of screens) {
+    const filePath = effectiveScreenPath(blueprintDir, flowId, screenId);
+    let completeness: ScreenCompleteness = 'skeleton';
+    let title: string | undefined;
+    let triggers: string[] = [];
+
+    if (fs.existsSync(filePath)) {
+      try {
+        const source = fs.readFileSync(filePath, 'utf8');
+        title = parseScreenTitle(source);
+        triggers = parseTriggersFromScreenSource(source);
+        const ids = parseScreenIdsFromSource(source);
+        completeness = ids.length ? 'complete' : 'error';
+      } catch {
+        completeness = 'error';
+      }
+    }
+
+    const outgoing = outgoingTransitions(transitions, screenId);
+
+    meta[screenId] = {
+      completeness,
+      title,
+      triggers,
+      stepIndex: stepOrder.get(screenId),
+      isEntry: screenId === entry,
+      isTerminal: outgoing.length === 0,
+    };
   }
 
-  const result: Record<string, ScreenMeta> = {};
-  ordered.forEach((screenId, index) => {
-    const source = readScreenSource(blueprintRoot, blueprintId, flowId, screenId);
-    const parsed = source
-      ? parseScreenMetaFromSource(source, screenId)
-      : { id: screenId, title: screenId, triggers: [], states: [] };
-
-    result[screenId] = {
-      ...parsed,
-      stepIndex: index + 1,
-      stepTotal: ordered.length,
-      isEntry: screenId === entry,
-      isTerminal: !outgoing.has(screenId),
-    };
-  });
-
-  return result;
+  return meta;
 }

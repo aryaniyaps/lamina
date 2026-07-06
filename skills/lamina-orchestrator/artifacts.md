@@ -198,6 +198,7 @@ flows:
 | Path | Purpose |
 |---|---|
 | `.lamina/blueprints/<id>/` | Disposable semantic wireframe spec (TSX) — one per feature effort |
+| `.lamina/preview-state.yaml` | Running preview server state (`url`, `port`, `pid`, `id`) — written by `preview --ensure` |
 
 Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and preview CLI.
 
@@ -206,19 +207,22 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and p
 ```
 .lamina/blueprints/<id>/
   meta.yaml              # id, title, status: draft | approved
+  structure-manifest.yaml  # optional — existing-screen checklist (subset of screens OK)
   flows.tsx
   screens/<screen-id>.tsx
   flows/<flow-id>/screens/   # alternate / optimized flow overrides
-  scenarios.yaml             # edge-case list for preview
+  scenarios.yaml             # structured edge-case inventory (see lamina-edge-cases)
   scenarios/<id>/screens/    # screen variants per scenario
 ```
 
-Optimize blueprints target **entire flows**. Update `screens/` for the new design, or add an alternate `<Flow id>` with `flows/<id>/screens/` overrides. Edge-case UI variants use `scenarios.yaml` branches on the flow graph.
+`structure-manifest.yaml` lists **existing** screens only (with `source` + `elements`). New screens in the same blueprint have no manifest row. Validate enforces fidelity for listed screens; unlisted screens use standard checks only.
+
+Optimize blueprints target **entire flows**. When evidence exists, write manifest for shipped screens before hydration. Update `screens/` for the new design, or add an alternate `<Flow id>` with `flows/<id>/screens/` overrides (no manifest row for overrides). Edge-case UI variants use `scenarios.yaml` branches on the flow graph.
 **Lifecycle:** `draft` → `approved` → deleted on retire after implementation. Durable artifacts (`requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`) survive retirement.
 
 **Multiple blueprints:** never overwrite another id's directory. Screen ids sync with `flows-inventory.yaml`.
 
-**Commands:** `lamina-blueprint preview`, `retire`, `validate` — see lamina-blueprint skill.
+**Commands:** `lamina-blueprint preview --ensure --open`, `retire`, `validate` — see lamina-blueprint skill.
 
 ---
 
@@ -226,9 +230,8 @@ Optimize blueprints target **entire flows**. Update `screens/` for the new desig
 
 | Path | Purpose | Owner |
 |---|---|---|
-| `.lamina/requirements.md` | UX requirements + handoff block | `/lamina-feature`, `/lamina-ideate` |
+| `.lamina/requirements.md` | UX requirements + handoff block (includes edge case summary on blueprint approve) | `/lamina-feature`, `/lamina-ideate` |
 | `.lamina/implementation-tasks.md` | P0/P1/P2 tasks for coding agents | feature checklist |
-| `.lamina/edge-cases.md` | Edge case inventory | `/lamina-feature` |
 | `.lamina/decisions.md` | Decision log | any workflow on conflict |
 
 Create on first write — init does not create empty stubs.

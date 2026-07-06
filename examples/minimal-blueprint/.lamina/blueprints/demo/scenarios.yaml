@@ -5,3 +5,9 @@ scenarios:
     flow: main
     description: User lands on orders before any exist
     severity: medium
+    category: empty
+    trigger:
+      operation: view orders
+      subject: orders
+      when: collection_empty
+    ux: empty_state

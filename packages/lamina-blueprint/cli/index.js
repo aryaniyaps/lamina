@@ -8,13 +8,14 @@ const [command, ...args] = process.argv.slice(2);
 
 function usage() {
   console.log(`Usage:
-  lamina-blueprint preview --root <dir> [--id <id>] [--port <port>] [--list]
+  lamina-blueprint preview --root <dir> [--id <id>] [--port <port>] [--list] [--ensure] [--open] [--state-file <path>]
   lamina-blueprint export-graph --root <dir> --id <id> [--out file.mmd] [--stdout]
   lamina-blueprint retire <id> [--root <dir>]
   lamina-blueprint validate <blueprint-dir>
 
 Examples:
   lamina-blueprint preview --root .lamina/blueprints --id checkout-v2
+  lamina-blueprint preview --root .lamina/blueprints --ensure --open
   lamina-blueprint preview --root .lamina/blueprints --list
   lamina-blueprint retire checkout-v2 --root .lamina/blueprints
   lamina-blueprint validate .lamina/blueprints/checkout-v2

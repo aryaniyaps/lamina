@@ -90,6 +90,7 @@ profiles:
 
   feature-edge-cases:
     skills:
+      - lamina-edge-cases
       - lamina-error-handling
       - lamina-empty-states
       - lamina-feedback-and-status

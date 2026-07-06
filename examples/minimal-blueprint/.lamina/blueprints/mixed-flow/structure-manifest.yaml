@@ -1,0 +1,11 @@
+screens:
+  - id: login
+    source: examples/minimal-blueprint/fixtures/app/login/page.tsx
+    regions: [Page, Section]
+    elements:
+      - { component: Heading, text: Sign in }
+      - { component: Text }
+      - { component: Form }
+      - { component: Field, label: Email, name: email }
+      - { component: Field, label: Password, name: password }
+      - { component: Button, label: Sign in, trigger: sign-in }

@@ -29,8 +29,8 @@ Resolve skills from [audit-profiles.yaml](../audit-profiles.yaml).
 0. If `.lamina/business-context.md` exists, read it — align problem definition and scope with business context. If missing, note the gap; do not auto-run init.
 1. Emit work plan — prompt `work-plan`.
 2. Work through sections in order (problem → flows).
-3. **After flows:** Append feature flows to `.lamina/flows-inventory.yaml` (`status: planned`) per [artifacts.md](../artifacts.md). [persona-panel](../patterns/persona-panel.md) if `.lamina/personas.yaml` exists; feed conflicts into Risks. Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`; load [lamina-blueprint](../../lamina-blueprint/SKILL.md).
-4. Continue remaining sections.
+3. **After flows:** Append feature flows to `.lamina/flows-inventory.yaml` (`status: planned`) per [artifacts.md](../artifacts.md). [persona-panel](../patterns/persona-panel.md) if `.lamina/personas.yaml` exists; feed conflicts into Risks. Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`; load [lamina-blueprint](../../lamina-blueprint/SKILL.md). When the feature reuses shipped screens, classify steps **existing** vs **new**; write `structure-manifest.yaml` for existing only; design new screens directly in blueprint TSX (partial manifest is valid).
+4. Continue remaining sections. For **Edge cases:** load [lamina-edge-cases](../../lamina-edge-cases/SKILL.md); run transient operation inventory; write `scenarios.yaml` + variant TSX when blueprint exists, else structured table in feature output (see [lamina-edge-cases](../../lamina-edge-cases/SKILL.md)).
 5. **Before implementation checklist:** Offer blueprint preview checkpoint again if blueprint exists; approve before writing `implementation-tasks.md`.
 6. Accessibility and risks: [parallel-review](../patterns/parallel-review.md) if host supports it.
 7. Merge into output contract — prompt `outputs/feature`.

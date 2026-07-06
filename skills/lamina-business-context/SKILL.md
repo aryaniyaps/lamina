@@ -128,7 +128,7 @@ When a section changes, flag downstream artifacts that may need refresh:
 | Scope | `flows-inventory.yaml` entries outside new scope; feature specs in flight |
 | Business goals, success metrics | optimize prioritization; feature metrics sections |
 | Product posture, constraints | ideate IA and interaction sections |
-| Problem statement (pivot) | personas, flows-inventory, requirements, edge-cases |
+| Problem statement (pivot) | personas, flows-inventory, requirements |
 
 Never silently overwrite `personas.yaml` or `decisions.md`. Offer explicit refresh or append.
 
