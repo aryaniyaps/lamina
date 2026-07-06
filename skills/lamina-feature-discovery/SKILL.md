@@ -17,14 +17,6 @@ metadata:
 ---
 # Feature Discovery
 
-## When to load
-
-- finding what problem to solve
-- choosing generative research methods
-- early product discovery
-- choosing research method
-- generative vs evaluative debate
-
 ## Decision frameworks
 
 - **The common UX research failure modes**: Credulity, Dogmatism, Bias, Obscurantism, Laziness, Vagueness, Hubris. - When to use: Auditing research quality before and after studies. - How: Credulity = asking what users want; Dogmatism = one "right" method; Bias = cherry-picking; Obscurantism = hoarding findings; Laziness/Vagueness/Hubris = shortcuts and overconfidence.
@@ -146,7 +138,3 @@ metadata:
 - [Research Scoping](../lamina-research-scoping/SKILL.md)
 - [Problem Framing](../lamina-problem-framing/SKILL.md)
 - [Field Research](../lamina-field-research/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -20,17 +20,6 @@ metadata:
 ---
 # Research Scoping
 
-## When to load
-
-- what research should we run
-- right-sized research scope
-- stakeholders want exhaustive research
-- when to stop researching
-- starting a design project
-- uncertain assumptions
-- choosing research method
-- generative vs evaluative debate
-
 ## Decision frameworks
 
 - **right-sized research scoping**: Match research scope to the specific decisions you need to make. - Use when assumptions outpace evidence or stakeholders resist inquiry. - How: Identify key decisions → select matching research → act on findings → keep asking questions.
@@ -87,7 +76,3 @@ metadata:
 - [Feature Discovery](../lamina-feature-discovery/SKILL.md)
 - [Research Planning](../lamina-research-planning/SKILL.md)
 - [Decision Making](../lamina-decision-making/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

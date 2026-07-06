@@ -20,15 +20,6 @@ metadata:
 ---
 # Feedback and Status
 
-## When to load
-
-- users unsure if action worked
-- opaque system state changes
-- action-feedback loop gaps
-- interaction design
-- users can't act
-- users can't tell what happened
-
 ## Decision frameworks
 
 - **Forcing Functions**: Physical or logical constraints preventing continuation until critical action taken (car won't start without key; microwave stops when door opens). - When to use: Safety-critical or irreversible actions. - How: Interlocks, confirmations that require understanding, not just clicking OK.
@@ -87,7 +78,3 @@ metadata:
 - [Discoverability](../lamina-discoverability/SKILL.md)
 - [Error Handling](../lamina-error-handling/SKILL.md)
 - [Trust](../lamina-trust/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

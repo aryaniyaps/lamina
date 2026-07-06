@@ -20,17 +20,6 @@ metadata:
 ---
 # User Modeling
 
-## When to load
-
-- building personas from research
-- identifying primary users
-- behavioral archetypes and goals
-- after qualitative research
-- before requirements
-- feature debates need user grounding
-- feature prioritization debate
-- conflicting user needs
-
 ## Decision frameworks
 
 - **Personas**: Fictional individuals assembled from real behavior patterns; each represents a class of users for a specific product context. - When to use: After research synthesis; before scenarios and requirements. - How: Group by role → identify behavioral variables → map subjects → find clusters → synthesize goals → designate types → write narrative.
@@ -98,13 +87,9 @@ When a flow, screen, or journey exists:
 - **When**: After qualitative user research, before design requirements.
 - **Process**: Identify behavioral variables  ->  map subjects  ->  find patterns  ->  synthesize 2-4 archetypes  ->  define experience/end/life goals  ->  name and detail  ->  identify primary user.
 - **Pass**: Archetypes distinguish behaviors and goals; primary user identified for prioritization.
-- **Failure signals**: Thin research  ->  false precision; demographic-only personas.
+- **Failure signals**: Thin research → false precision; demographic-only personas.
 
-### Primary User Filter
-- **When**: Feature prioritization debates among multiple user types.
-- **Process**: Ask: does this serve the primary user's goals ->  If no  ->  deprioritize or cut. If yes  ->  design fully for their scenario.
-- **Pass**: Features ranked by primary user goal alignment.
-- **Failure signals**: Designing for edge cases first; accommodating everyone equally  ->  nobody satisfied.
+For prioritization when personas conflict, apply [Primary User Filter](../lamina-decision-making/SKILL.md).
 
 ## Anti-patterns
 
@@ -123,7 +108,3 @@ When a flow, screen, or journey exists:
 - [Research Synthesis](../lamina-research-synthesis/SKILL.md)
 - [Requirements Definition](../lamina-requirements-definition/SKILL.md)
 - [Decision Making](../lamina-decision-making/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

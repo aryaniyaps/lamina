@@ -1,8 +1,6 @@
 # Lamina Reference
 
-Load [lamina-core/SKILL.md](SKILL.md) Problem Router for signal matching.
-
-Compact index and lookup. For full frameworks, rubrics, and examples, load the linked capability.
+Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Problem Router. For full frameworks, rubrics, and examples, load the linked capability skill.
 
 ## Shortcuts
 
@@ -53,53 +51,6 @@ Compact index and lookup. For full frameworks, rubrics, and examples, load the l
 | Stakeholder objections | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Web writing rules | [content-design](../lamina-content-design/SKILL.md) |
 | Featuritis signals | [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
-
----
-
-## Capabilities index
-
-Problem-oriented capability files. Load one capability per user problem.
-
-| Capability | Problems | Related |
-|---|---|---|
-| [Accessibility](../lamina-accessibility/SKILL.md) | accessible design fundamentals | [content-design](../lamina-content-design/SKILL.md), [forms](../lamina-forms/SKILL.md), [navigation](../lamina-navigation/SKILL.md) |
-| [Competitive Analysis](../lamina-competitive-analysis/SKILL.md) | market positioning research | [feature-discovery](../lamina-feature-discovery/SKILL.md), [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
-| [Content Design](../lamina-content-design/SKILL.md) | web copy too long or unclear | [navigation](../lamina-navigation/SKILL.md), [discoverability](../lamina-discoverability/SKILL.md), [trust](../lamina-trust/SKILL.md) |
-| [Controls And Menus](../lamina-controls-and-menus/SKILL.md) | menu and toolbar design | [forms](../lamina-forms/SKILL.md), [error-handling](../lamina-error-handling/SKILL.md), [progressive-disclosure](../lamina-progressive-disclosure/SKILL.md) |
-| [Decision Making](../lamina-decision-making/SKILL.md) | feature prioritization debates | [user-modeling](../lamina-user-modeling/SKILL.md), [feature-prioritization](../lamina-feature-prioritization/SKILL.md), [research-communication](../lamina-research-communication/SKILL.md) |
-| [Design Process](../lamina-design-process/SKILL.md) | human-centered design workflow | [research-scoping](../lamina-research-scoping/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
-| [Discoverability](../lamina-discoverability/SKILL.md) | users can't see what to do | [onboarding](../lamina-onboarding/SKILL.md), [error-handling](../lamina-error-handling/SKILL.md), [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
-| [Empty States](../lamina-empty-states/SKILL.md) | blank slate screens | [onboarding](../lamina-onboarding/SKILL.md), [discoverability](../lamina-discoverability/SKILL.md), [content-design](../lamina-content-design/SKILL.md) |
-| [Error Handling](../lamina-error-handling/SKILL.md) | high error rates blamed on users | [forms](../lamina-forms/SKILL.md), [controls-and-menus](../lamina-controls-and-menus/SKILL.md), [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
-| [Feature Discovery](../lamina-feature-discovery/SKILL.md) | finding what problem to solve | [research-scoping](../lamina-research-scoping/SKILL.md), [problem-framing](../lamina-problem-framing/SKILL.md), [field-research](../lamina-field-research/SKILL.md) |
-| [Feature Prioritization](../lamina-feature-prioritization/SKILL.md) | featuritis and scope creep | [decision-making](../lamina-decision-making/SKILL.md), [progressive-disclosure](../lamina-progressive-disclosure/SKILL.md), [platform-posture](../lamina-platform-posture/SKILL.md) |
-| [Feedback And Status](../lamina-feedback-and-status/SKILL.md) | users unsure if action worked | [discoverability](../lamina-discoverability/SKILL.md), [error-handling](../lamina-error-handling/SKILL.md), [trust](../lamina-trust/SKILL.md) |
-| [Field Research](../lamina-field-research/SKILL.md) | contextual inquiry in user environment | [interview-design](../lamina-interview-design/SKILL.md), [interview-documentation](../lamina-interview-documentation/SKILL.md), [research-synthesis](../lamina-research-synthesis/SKILL.md) |
-| [Flow Design](../lamina-flow-design/SKILL.md) | multi-step workflow design | [product-behavior](../lamina-product-behavior/SKILL.md), [forms](../lamina-forms/SKILL.md), [task-analysis](../lamina-task-analysis/SKILL.md) |
-| [Forms](../lamina-forms/SKILL.md) | designing data entry forms | [error-handling](../lamina-error-handling/SKILL.md), [flow-design](../lamina-flow-design/SKILL.md), [controls-and-menus](../lamina-controls-and-menus/SKILL.md) |
-| [Heuristic Review](../lamina-heuristic-review/SKILL.md) | expert usability review without users | [usability-evaluation](../lamina-usability-evaluation/SKILL.md), [discoverability](../lamina-discoverability/SKILL.md), [content-design](../lamina-content-design/SKILL.md) |
-| [Information Architecture](../lamina-information-architecture/SKILL.md) | structuring content and data | [task-analysis](../lamina-task-analysis/SKILL.md), [navigation](../lamina-navigation/SKILL.md), [content-design](../lamina-content-design/SKILL.md) |
-| [Interview Design](../lamina-interview-design/SKILL.md) | writing an interview guide | [problem-framing](../lamina-problem-framing/SKILL.md), [field-research](../lamina-field-research/SKILL.md), [interview-documentation](../lamina-interview-documentation/SKILL.md) |
-| [Interview Documentation](../lamina-interview-documentation/SKILL.md) | documenting interview sessions | [field-research](../lamina-field-research/SKILL.md), [research-synthesis](../lamina-research-synthesis/SKILL.md) |
-| [Mobile Interaction](../lamina-mobile-interaction/SKILL.md) | mobile-specific interaction patterns | [platform-posture](../lamina-platform-posture/SKILL.md), [navigation](../lamina-navigation/SKILL.md), [forms](../lamina-forms/SKILL.md) |
-| [Navigation](../lamina-navigation/SKILL.md) | users feel lost in the app | [information-architecture](../lamina-information-architecture/SKILL.md), [content-design](../lamina-content-design/SKILL.md) |
-| [Onboarding](../lamina-onboarding/SKILL.md) | first-time user experience | [empty-states](../lamina-empty-states/SKILL.md), [discoverability](../lamina-discoverability/SKILL.md), [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
-| [Persuasion And Groups](../lamina-persuasion-and-groups/SKILL.md) | designing for persuasion ethically | [trust](../lamina-trust/SKILL.md), [onboarding](../lamina-onboarding/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md) |
-| [Platform Posture](../lamina-platform-posture/SKILL.md) | choosing product density and stance | [product-behavior](../lamina-product-behavior/SKILL.md), [feature-prioritization](../lamina-feature-prioritization/SKILL.md), [mobile-interaction](../lamina-mobile-interaction/SKILL.md) |
-| [Problem Framing](../lamina-problem-framing/SKILL.md) | aligning research to business needs | [research-scoping](../lamina-research-scoping/SKILL.md), [interview-design](../lamina-interview-design/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
-| [Product Behavior](../lamina-product-behavior/SKILL.md) | defining product behavior before build | [flow-design](../lamina-flow-design/SKILL.md), [user-modeling](../lamina-user-modeling/SKILL.md), [platform-posture](../lamina-platform-posture/SKILL.md) |
-| [Progressive Disclosure](../lamina-progressive-disclosure/SKILL.md) | complex interfaces overwhelming novices | [feature-prioritization](../lamina-feature-prioritization/SKILL.md), [controls-and-menus](../lamina-controls-and-menus/SKILL.md), [onboarding](../lamina-onboarding/SKILL.md) |
-| [Quantitative Validation](../lamina-quantitative-validation/SKILL.md) | A/B testing design variants | [usability-evaluation](../lamina-usability-evaluation/SKILL.md), [decision-making](../lamina-decision-making/SKILL.md) |
-| [Requirements Definition](../lamina-requirements-definition/SKILL.md) | turning research into requirements | [user-modeling](../lamina-user-modeling/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md), [task-analysis](../lamina-task-analysis/SKILL.md) |
-| [Research Communication](../lamina-research-communication/SKILL.md) | delivering findings to decision-makers | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md), [decision-making](../lamina-decision-making/SKILL.md) |
-| [Research Planning](../lamina-research-planning/SKILL.md) | planning a research study | [research-scoping](../lamina-research-scoping/SKILL.md), [field-research](../lamina-field-research/SKILL.md), [interview-design](../lamina-interview-design/SKILL.md) |
-| [Research Scoping](../lamina-research-scoping/SKILL.md) | what research should we run | [feature-discovery](../lamina-feature-discovery/SKILL.md), [research-planning](../lamina-research-planning/SKILL.md), [decision-making](../lamina-decision-making/SKILL.md) |
-| [Research Synthesis](../lamina-research-synthesis/SKILL.md) | synthesizing interview data | [interview-documentation](../lamina-interview-documentation/SKILL.md), [user-modeling](../lamina-user-modeling/SKILL.md), [requirements-definition](../lamina-requirements-definition/SKILL.md) |
-| [Stakeholder Alignment](../lamina-stakeholder-alignment/SKILL.md) | stakeholders block research | [research-communication](../lamina-research-communication/SKILL.md), [problem-framing](../lamina-problem-framing/SKILL.md), [design-process](../lamina-design-process/SKILL.md) |
-| [Task Analysis](../lamina-task-analysis/SKILL.md) | mapping user tasks and workflows | [information-architecture](../lamina-information-architecture/SKILL.md), [flow-design](../lamina-flow-design/SKILL.md), [requirements-definition](../lamina-requirements-definition/SKILL.md) |
-| [Trust](../lamina-trust/SKILL.md) | goodwill reservoir depletion | [content-design](../lamina-content-design/SKILL.md), [error-handling](../lamina-error-handling/SKILL.md), [persuasion-and-groups](../lamina-persuasion-and-groups/SKILL.md) |
-| [Usability Evaluation](../lamina-usability-evaluation/SKILL.md) | running usability tests | [heuristic-review](../lamina-heuristic-review/SKILL.md), [competitive-analysis](../lamina-competitive-analysis/SKILL.md), [quantitative-validation](../lamina-quantitative-validation/SKILL.md) |
-| [User Modeling](../lamina-user-modeling/SKILL.md) | building personas from research | [research-synthesis](../lamina-research-synthesis/SKILL.md), [requirements-definition](../lamina-requirements-definition/SKILL.md), [decision-making](../lamina-decision-making/SKILL.md) |
 
 ---
 

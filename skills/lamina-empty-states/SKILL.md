@@ -15,12 +15,6 @@ metadata:
 ---
 # Empty States
 
-## When to load
-
-- blank slate screens
-- no data yet screens
-- guiding first productive action
-
 ## Decision frameworks
 
 - **Blank Slate Design**: Empty states are onboarding opportunities, not dead ends. - When: First visit, no data yet, cleared filters. - How: Show what will appear here, one clear primary action, sample content if helpful.
@@ -56,7 +50,3 @@ metadata:
 - [Onboarding](../lamina-onboarding/SKILL.md)
 - [Discoverability](../lamina-discoverability/SKILL.md)
 - [Content Design](../lamina-content-design/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

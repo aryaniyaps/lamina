@@ -15,12 +15,6 @@ metadata:
 ---
 # Information Architecture
 
-## When to load
-
-- structuring content and data
-- working with complex data displays
-- IA for task-oriented products
-
 ## Decision frameworks
 
 - **Unified File Model**: Applications own persistence; users work on documents, not files. - Use when users shouldn't manage paths, extensions, or Save As. - How: Auto-save continuously; app-native document browsers; eliminate "Do you want to save?"
@@ -64,7 +58,3 @@ metadata:
 - [Task Analysis](../lamina-task-analysis/SKILL.md)
 - [Navigation](../lamina-navigation/SKILL.md)
 - [Content Design](../lamina-content-design/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

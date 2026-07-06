@@ -15,12 +15,6 @@ metadata:
 ---
 # Task Analysis
 
-## When to load
-
-- mapping user tasks and workflows
-- task navigation design
-- identifying deal-breaker tasks
-
 ## Decision frameworks
 
 - **Harmonious Interactions (navigation strategies)**: Follow mental models; keep necessary tools close; provide choices not questions; avoid blank slates. - Use when designing navigation architecture. - How: Map nav to user tasks and objects, not internal team structure.
@@ -60,7 +54,3 @@ metadata:
 - [Information Architecture](../lamina-information-architecture/SKILL.md)
 - [Flow Design](../lamina-flow-design/SKILL.md)
 - [Requirements Definition](../lamina-requirements-definition/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

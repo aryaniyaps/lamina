@@ -17,14 +17,6 @@ metadata:
 ---
 # Research Planning
 
-## When to load
-
-- planning a research study
-- recruitment and logistics
-- high-volume research programs
-- high research volume
-- recruitment bottlenecks
-
 ## Decision frameworks
 
 - **Defining Your UX Research Problem**: Translate business needs into specific, answerable research questions. - Use when scoping any study. - How: Stakeholder interviews → clarify objectives → write research questions before choosing methods.
@@ -134,7 +126,3 @@ metadata:
 - [Research Scoping](../lamina-research-scoping/SKILL.md)
 - [Field Research](../lamina-field-research/SKILL.md)
 - [Interview Design](../lamina-interview-design/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

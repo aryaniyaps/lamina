@@ -15,12 +15,6 @@ metadata:
 ---
 # Persuasion and Groups
 
-## When to load
-
-- designing for persuasion ethically
-- social and group product features
-- community onboarding paths
-
 ## Decision frameworks
 
 - **Designing Smart Products**: Software that works hard when users aren't busy—proactive search, context-aware assistance, intelligent defaults. - Use when users perform repetitive information management tasks. - How: Use idle CPU cycles; make reasonable assumptions discardable if wrong.
@@ -88,7 +82,3 @@ metadata:
 - [Trust](../lamina-trust/SKILL.md)
 - [Onboarding](../lamina-onboarding/SKILL.md)
 - [Product Behavior](../lamina-product-behavior/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

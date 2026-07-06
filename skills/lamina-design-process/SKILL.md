@@ -17,14 +17,6 @@ metadata:
 ---
 # Design Process
 
-## When to load
-
-- human-centered design workflow
-- diverge-converge product development
-- creative teamwork practices
-- full product development
-- problem to solution journey
-
 ## Decision frameworks
 
 - **Human-Centered Design (HCD) Process**: Iterative cycle ensuring products meet human needs, are understandable, usable, and enjoyable. - When to use: Any product development. - How: Observe people in natural environment; generate alternatives; prototype; test; repeat.
@@ -99,7 +91,3 @@ metadata:
 - [Research Scoping](../lamina-research-scoping/SKILL.md)
 - [Product Behavior](../lamina-product-behavior/SKILL.md)
 - [Stakeholder Alignment](../lamina-stakeholder-alignment/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

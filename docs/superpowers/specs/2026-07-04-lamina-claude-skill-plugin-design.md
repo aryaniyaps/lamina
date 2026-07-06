@@ -7,3 +7,5 @@ Contract-first outputs for `.lamina/*` artifacts.
 Do not generate product implementation code.
 
 Provider analytics connectors are deferred pending first-iteration validation.
+
+When a host supports MCP resources, `.lamina/*` artifacts are the integration surface. No Lamina-specific tools until a concrete host need is validated.

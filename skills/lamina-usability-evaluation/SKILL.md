@@ -20,17 +20,6 @@ metadata:
 ---
 # Usability Evaluation
 
-## When to load
-
-- running usability tests
-- quick prototype validation
-- ongoing monthly testing cadence
-- prototype available
-- limited time
-- need quick feedback
-- ongoing product improvement
-- no formal lab
-
 ## Decision frameworks
 
 - **Heuristic Analysis**(Nielsen & Molich, 1990): 2–3 evaluators individually score a site against usability principles—quick, cheap, no recruiting.
@@ -122,7 +111,3 @@ metadata:
 - [Heuristic Review](../lamina-heuristic-review/SKILL.md)
 - [Competitive Analysis](../lamina-competitive-analysis/SKILL.md)
 - [Quantitative Validation](../lamina-quantitative-validation/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -22,17 +22,6 @@ metadata:
 ---
 # Error Handling
 
-## When to load
-
-- high error rates blamed on users
-- error message design
-- slip vs mistake diagnosis
-- error analysis
-- high error rates
-- blaming users
-- error states
-- failed form submission
-
 ## Decision frameworks
 
 - **Slips vs. Mistakes**:
@@ -93,7 +82,3 @@ metadata:
 - [Forms](../lamina-forms/SKILL.md)
 - [Controls And Menus](../lamina-controls-and-menus/SKILL.md)
 - [Feedback And Status](../lamina-feedback-and-status/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

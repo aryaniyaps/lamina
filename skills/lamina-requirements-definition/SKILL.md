@@ -17,14 +17,6 @@ metadata:
 ---
 # Requirements Definition
 
-## When to load
-
-- turning research into requirements
-- writing scenarios and vision
-- bridging insights to specs
-- bridging research to specs
-- vision setting
-
 ## Decision frameworks
 
 - **Bridging the Research-Design Gap**: Personas and scenarios connect ethnographic data to concrete design decisions. - Use when research feels disconnected from wireframes. - How: Write context scenarios first; derive requirements from persona goals in narrative form.
@@ -75,7 +67,3 @@ metadata:
 - [User Modeling](../lamina-user-modeling/SKILL.md)
 - [Product Behavior](../lamina-product-behavior/SKILL.md)
 - [Task Analysis](../lamina-task-analysis/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

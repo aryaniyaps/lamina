@@ -19,14 +19,6 @@ metadata:
 ---
 # Controls and Menus
 
-## When to load
-
-- menu and toolbar design
-- undo and reversible actions
-- destructive action anxiety
-- destructive actions
-- user anxiety about mistakes
-
 ## Decision frameworks
 
 - **Anatomy of a Desktop App**: Primary and secondary windows; menu bar, toolbars, content panes, index panes. - Use when structuring sovereign desktop applications. - How: Primary window for main work; secondary for properties and dialogs.
@@ -96,7 +88,3 @@ metadata:
 - [Forms](../lamina-forms/SKILL.md)
 - [Error Handling](../lamina-error-handling/SKILL.md)
 - [Progressive Disclosure](../lamina-progressive-disclosure/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -17,14 +17,6 @@ metadata:
 ---
 # Platform Posture
 
-## When to load
-
-- choosing product density and stance
-- sovereign vs transient vs augmentation
-- platform attention mismatch
-- defining new product stance
-- density mismatch complaints
-
 ## Decision frameworks
 
 - **Product Platforms**: Desktop, web, mobile, and embedded platforms each constrain and enable different interaction models. - Use when scoping a new product or port. - How: Choose platform based on user context and goals, not technical convenience alone.
@@ -76,7 +68,3 @@ metadata:
 - [Product Behavior](../lamina-product-behavior/SKILL.md)
 - [Feature Prioritization](../lamina-feature-prioritization/SKILL.md)
 - [Mobile Interaction](../lamina-mobile-interaction/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

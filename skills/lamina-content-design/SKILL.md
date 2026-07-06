@@ -26,17 +26,6 @@ metadata:
 ---
 # Content Design
 
-## When to load
-
-- web copy too long or unclear
-- pages fail scan-first test
-- homepage and landing page design
-- page review
-- label ambiguity
-- user confusion
-- content-heavy pages
-- low engagement
-
 ## Decision frameworks
 
 - **scan-first layout Principles**( scanning checklist):
@@ -212,7 +201,3 @@ metadata:
 - [Navigation](../lamina-navigation/SKILL.md)
 - [Discoverability](../lamina-discoverability/SKILL.md)
 - [Trust](../lamina-trust/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

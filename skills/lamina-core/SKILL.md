@@ -7,27 +7,29 @@ description: "Lamina Problem Router and UX reference index. Use to find the righ
 
 # Lamina Core — Problem Router
 
-**38 capability skills** — load one skill per problem.
+**39 capability skills** — load one skill per problem.
 
 ## Entry points (slash commands)
 
 | Command | Use when |
 |---|---|
 | `/lamina` | Auto-route or single-topic answer |
+| `/lamina-init` | Bootstrap or update business context for UX work |
 | `/lamina-ideate` | Problem → full concept |
 | `/lamina-feature` | Feature idea → spec + checklist |
 | `/lamina-optimize` | Audit existing flows |
 
-Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching file from `commands/`. Direct mode: [reference.md](reference.md) → one skill (below).
+Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching file from `commands/`. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
 
 **Guardrail:** UX artifacts only. Do not implement product code or visual styling specs. See [guardrails.md](guardrails.md).
 
 ## How to Use
 
-**Load order** (minimize tokens): `reference.md` → one `lamina-<id>/SKILL.md`
+**Load order** (minimize tokens): Problem Router below → one `lamina-<id>/SKILL.md`. Optional: [reference.md](reference.md) for research shortcuts and glossary only.
 
 - **Without arguments** — scan the Problem Router below; load the matching skill
 - **With a problem** — e.g. `forms`, `usability testing`, `users feel lost`; load that skill directly
+- **Machine routing** — `metadata.lamina.problems` in each skill frontmatter is canonical; Problem Router must stay aligned
 - **Cross-cutting filters** — prioritization and evidence triage → [lamina-decision-making](../lamina-decision-making/SKILL.md)
 - **Artifacts** — load [artifacts.md](../lamina-orchestrator/artifacts.md) when writing or reusing `.lamina/` outputs
 
@@ -35,6 +37,9 @@ Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), 
 
 | Problem signal | Skill |
 |---|---|
+| Bootstrap UX context, initialize lamina | `/lamina-init` — see [business-context](../lamina-business-context/SKILL.md) |
+| Business pivot, scope change | `/lamina-init update` |
+| Business goals, metrics, scope (existing project) | read `.lamina/business-context.md` |
 | Inclusive design | [accessibility](../lamina-accessibility/SKILL.md) |
 | Market positioning, parity debates | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) |
 | Wordy pages, scan failures | [content-design](../lamina-content-design/SKILL.md) |
@@ -76,6 +81,6 @@ Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), 
 
 ## Supporting files
 
-- [reference.md](reference.md) — shortcuts, capability index, glossary
+- [reference.md](reference.md) — research shortcuts and glossary (optional)
 - [guardrails.md](guardrails.md) — scope limits
 - [lamina-orchestrator](../lamina-orchestrator/SKILL.md) — multi-capability workflows, merge rules, subagent patterns

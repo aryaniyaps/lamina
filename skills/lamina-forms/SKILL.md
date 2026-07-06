@@ -21,15 +21,6 @@ metadata:
 ---
 # Forms
 
-## When to load
-
-- designing data entry forms
-- validation blocking users
-- form abandonment and errors
-- data collection
-- form abandonment
-- validation errors
-
 ## Decision frameworks
 
 - **Rethinking Data Entry**: Forms oriented to human mental models, not database schemas. - Use when designing any data collection interface. - How: Accept varied formats; defer strict validation; annotate uncertainty.
@@ -81,7 +72,3 @@ metadata:
 - [Error Handling](../lamina-error-handling/SKILL.md)
 - [Flow Design](../lamina-flow-design/SKILL.md)
 - [Controls And Menus](../lamina-controls-and-menus/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

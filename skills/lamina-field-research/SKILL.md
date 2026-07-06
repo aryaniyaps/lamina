@@ -17,14 +17,6 @@ metadata:
 ---
 # Field Research
 
-## When to load
-
-- contextual inquiry in user environment
-- observing real workflows
-- successful fieldwork logistics
-- understanding real behavior
-- workflow research
-
 ## Decision frameworks
 
 - **Homework / Self-Documentation (Diary Studies)**: Pre-session activities priming introspection—logs, screenshots, journals. - Use when behavior is habitual and invisible to participants. - How: Assign before interview; review artifacts together during session.
@@ -96,7 +88,3 @@ metadata:
 - [Interview Design](../lamina-interview-design/SKILL.md)
 - [Interview Documentation](../lamina-interview-documentation/SKILL.md)
 - [Research Synthesis](../lamina-research-synthesis/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

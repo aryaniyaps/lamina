@@ -4,7 +4,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 ## Prerequisites
 
-- `npm run verify:bundle` passes
+- `npm test` (or `npm run verify:bundle`) passes
 - Lamina installed via `npx skills add . -a cursor -y` or manual copy
 
 ## Router (`/lamina`)
@@ -16,10 +16,19 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 | "Audit our checkout flow" | optimize workflow |
 | "Help with form validation UX" | direct → lamina-forms |
 
+## Init (`/lamina-init`)
+
+- Input: product description or brownfield repo context
+- Expect: `.lamina/business-context.md` with business sections and confidence
+- Expect: init output contract per `prompts/outputs/init.md`
+- Expect: loads skills from `audit-profiles.yaml` `init` profile
+- Update: `/lamina-init update` with pivot description — expect changelog append, stale artifact flags
+
 ## Ideate (`/lamina-ideate`)
 
 - Input: problem statement for a mobile budgeting app
 - Expect: 9-section output per `prompts/outputs/ideate.md`
+- Expect: step 0 reads `business-context.md` when present
 - Expect: `.lamina/personas.yaml` cast at step 1
 - Optional: persona panel at step 4 when flows exist
 

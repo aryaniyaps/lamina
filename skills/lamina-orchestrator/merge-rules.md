@@ -8,6 +8,11 @@ Emit before heavy work (skip for quick takes). Use prompt: `prompts/work-plan.md
 
 problem → users → flows → structure → UI → edge cases → requirements → metrics → next steps
 
+## Grounding and citations
+
+- Every finding must name `@step/screen/element` or state `insufficient detail — cannot verify`.
+- Do not invent UI not described in user input, repo context, or existing `.lamina/` artifacts.
+
 ## Conflicts
 
 **On conflict:** Load [lamina-decision-making](../lamina-decision-making/SKILL.md). Apply primary-user filter and evidence triangulation.

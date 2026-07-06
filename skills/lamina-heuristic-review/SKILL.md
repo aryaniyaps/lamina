@@ -19,20 +19,22 @@ metadata:
 ---
 # Heuristic Review
 
-## When to load
-
-- expert usability review without users
-- early design critique
-- Nielsen heuristic evaluation
-- early design review
-- no user recruitment yet
-
 ## Decision frameworks
 
-- **Heuristic Analysis**(Nielsen & Molich, 1990): 2–3 evaluators individually score a site against usability principles—quick, cheap, no recruiting.
+- **Heuristic Analysis** (Nielsen & Molich, 1990): 2–3 evaluators individually score a site against usability principles—quick, cheap, no recruiting.
 - **Nielsen's Ten Usability Heuristics**:
-- **Usability Definition**(five components): Learnability, efficiency, memorability, errors, satisfaction.
-- **Usability Test Plan Checklist**(usability.gov): Objectives, subject/state, methodology, participants/recruiting, procedure, tasks, usability goals, completion rate, error-free rate.
+  1. Visibility of system status
+  2. Match between system and the real world
+  3. User control and freedom
+  4. Consistency and standards
+  5. Error prevention
+  6. Recognition rather than recall
+  7. Flexibility and efficiency of use
+  8. Aesthetic and minimalist design
+  9. Help users recognize, diagnose, and recover from errors
+  10. Help and documentation
+- **Usability Definition** (five components): Learnability, efficiency, memorability, errors, satisfaction.
+- **Usability Test Plan Checklist** (usability.gov): Objectives, subject/state, methodology, participants/recruiting, procedure, tasks, usability goals, completion rate, error-free rate.
 
 ## Evaluation rubrics
 
@@ -47,7 +49,3 @@ metadata:
 - [Usability Evaluation](../lamina-usability-evaluation/SKILL.md)
 - [Discoverability](../lamina-discoverability/SKILL.md)
 - [Content Design](../lamina-content-design/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

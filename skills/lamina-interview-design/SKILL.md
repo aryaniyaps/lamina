@@ -15,12 +15,6 @@ metadata:
 ---
 # Interview Design
 
-## When to load
-
-- writing an interview guide
-- crafting effective questions
-- interview do's and don'ts
-
 ## Decision frameworks
 
 - **Question Types and Techniques**: Open vs. closed; past behavior vs. hypothetical future; "tell me about" vs. "do you ever." - Use when writing interview guides. - How: Prefer past-behavior and story prompts over hypotheticals and yes/no.
@@ -120,7 +114,3 @@ metadata:
 - [Problem Framing](../lamina-problem-framing/SKILL.md)
 - [Field Research](../lamina-field-research/SKILL.md)
 - [Interview Documentation](../lamina-interview-documentation/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -19,16 +19,6 @@ metadata:
 ---
 # Onboarding
 
-## When to load
-
-- first-time user experience
-- users can't figure out what to do
-- learnability vs power features
-- onboarding failures
-- complex interfaces
-- novice and expert users
-- feature overload
-
 ## Decision frameworks
 
 - **Command Modalities**: Pedagogic (menus, dialogs teach via inspection), immediate (sliders, buttons act directly), invisible (keyboard accelerators, gestures require memory). - Use when structuring how users invoke functions. - How: Provide multiple modalities for critical commands; guide beginners to intermediates.
@@ -88,7 +78,3 @@ metadata:
 - [Empty States](../lamina-empty-states/SKILL.md)
 - [Discoverability](../lamina-discoverability/SKILL.md)
 - [Feature Prioritization](../lamina-feature-prioritization/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

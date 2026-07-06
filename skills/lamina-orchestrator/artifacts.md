@@ -110,6 +110,7 @@ Orchestrator responsibility (main thread, not a subagent):
 
 | Hook | Command | Action |
 |---|---|---|
+| Bootstrap | `/lamina-init` | Write `business-context.md` |
 | Cast | `/lamina-ideate` step 1 | Write `personas.yaml` |
 | Walkthrough | `/lamina-ideate` step 4 | Persona panel on draft flows |
 | Audit | `/lamina-optimize` | Persona panel per flow (parallel with expert lenses) |
@@ -118,15 +119,90 @@ Orchestrator responsibility (main thread, not a subagent):
 
 ---
 
-## Other artifacts (planned)
+## Business context (init)
 
 | Path | Purpose |
 |---|---|
-| `.lamina/insights.md` | Synthesized UX insights |
-| `.lamina/requirements.md` | UX requirements + handoff block |
-| `.lamina/implementation-tasks.md` | P0/P1/P2 tasks for coding agents |
-| `.lamina/edge-cases.md` | Edge case inventory |
-| `.lamina/decisions.md` | Decision log |
+| `.lamina/business-context.md` | Business foundation for UX work — problem, goals, metrics, scope, users, constraints. **Only artifact `/lamina-init` creates.** |
+
+Load [lamina-business-context](../lamina-business-context/SKILL.md) for question bank, skill mapping, and establish/update protocols.
+
+### Establish (`/lamina-init`)
+
+**When:** First-time project bootstrap; explicit only (no auto-init from `/lamina`).
+
+**How:**
+1. Resolve business sections via user input and optional brownfield repo/doc scan.
+2. Write `.lamina/business-context.md` with optional YAML frontmatter (`maturity`, `platform`, `last_updated`).
+3. Recommend next command in init output only — do not persist.
+
+**Does not create:** `config.yaml`, `insights.md`, `personas.yaml`, `flows-inventory.yaml`, or empty stubs.
+
+### Update (`/lamina-init update`)
+
+**When:** Business use case changed — pivot, new market, scope shift.
+
+**How:**
+1. Read existing `business-context.md` and changelog.
+2. Re-apply skills for changed sections only; merge — preserve unchanged sections.
+3. Append changelog entry (date, changed sections, trigger, stale downstream artifacts).
+4. Never silently overwrite `personas.yaml` or `decisions.md` — flag staleness instead.
+5. Conflicts with `decisions.md` → load `lamina-decision-making`.
+
+### Section format
+
+Each business section includes: **Answer**, **Confidence** (`high` | `medium` | `low`), **Evidence** (user input | `@path` | `assumption — needs validation`), **Skill** (capability that informed it).
+
+Brownfield only: optional **Inferred context** section — product signals from README/docs/code with `@path` cites.
+
+### Changelog (append-only footer)
+
+```markdown
+## Changelog
+### 2026-07-06 — pivot to B2B
+- Changed: scope, users & market, success metrics
+- Trigger: user stated enterprise pivot
+- Stale: re-run /lamina-ideate step 1 if personas exist
+```
+
+---
+
+## Flows inventory (downstream)
+
+| Path | Purpose |
+|---|---|
+| `.lamina/flows-inventory.yaml` | User-facing flows accumulated as UX work progresses — **not created by init**. |
+
+| Command | When to write / append |
+|---|---|
+| `/lamina-optimize` | After auditing each flow — `status: shipped` |
+| `/lamina-ideate` step 4 | When draft flows are defined — `status: draft` |
+| `/lamina-feature` | When feature flows are specified — `status: planned` |
+
+Read before writing; append or update entries — never replace the whole file without consent.
+
+```yaml
+flows:
+  - id: checkout
+    name: Checkout
+    routes: ["/cart", "/checkout"]
+    status: shipped          # shipped | draft | planned | unknown
+    priority: high           # high | medium | low
+    evidence: ["app/checkout/page.tsx"]
+```
+
+---
+
+## Other artifacts (downstream)
+
+| Path | Purpose | Owner |
+|---|---|---|
+| `.lamina/requirements.md` | UX requirements + handoff block | `/lamina-feature`, `/lamina-ideate` |
+| `.lamina/implementation-tasks.md` | P0/P1/P2 tasks for coding agents | feature checklist |
+| `.lamina/edge-cases.md` | Edge case inventory | `/lamina-feature` |
+| `.lamina/decisions.md` | Decision log | any workflow on conflict |
+
+Create on first write — init does not create empty stubs.
 
 ---
 

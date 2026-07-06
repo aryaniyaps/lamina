@@ -13,6 +13,7 @@ Use these exact headings:
 ### Success metrics
 ### Implementation checklist
 ### Persona simulation notes
+method: simulation | not_user_research: true | confidence: <high|medium|low>
 ### Open questions
 ```
 

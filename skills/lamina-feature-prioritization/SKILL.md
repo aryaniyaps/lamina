@@ -17,14 +17,6 @@ metadata:
 ---
 # Feature Prioritization
 
-## When to load
-
-- featuritis and scope creep
-- designing for intermediates not experts
-- expert-only feature density
-- learnability vs power features
-- expert mode debates
-
 ## Decision frameworks
 
 - **Perpetual Intermediates**: Users who master fundamentals but rarely advance to expert shortcuts. - Use when deciding how much beginner scaffolding to include. - How: Design default experience for intermediate skill; don't optimize for experts or beginners alone.
@@ -76,7 +68,3 @@ metadata:
 - [Decision Making](../lamina-decision-making/SKILL.md)
 - [Progressive Disclosure](../lamina-progressive-disclosure/SKILL.md)
 - [Platform Posture](../lamina-platform-posture/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

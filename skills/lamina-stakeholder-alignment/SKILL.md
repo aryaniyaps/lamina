@@ -18,15 +18,6 @@ metadata:
 ---
 # Stakeholder Alignment
 
-## When to load
-
-- stakeholders block research
-- organizational politics affect design
-- handling stakeholder objections
-- organizational constraints
-- political landscape
-- internal research
-
 ## Decision frameworks
 
 - **Stakeholder Definition**(SRI, 1963): "Those groups without whose support the organization would cease to exist"—include anyone without whose support your project fails.
@@ -134,7 +125,3 @@ metadata:
 - [Research Communication](../lamina-research-communication/SKILL.md)
 - [Problem Framing](../lamina-problem-framing/SKILL.md)
 - [Design Process](../lamina-design-process/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

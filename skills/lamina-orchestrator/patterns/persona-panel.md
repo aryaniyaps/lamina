@@ -6,6 +6,8 @@
 
 **How to spawn:** For each panel member, build a unique prompt from `prompts/subagents/persona-panel-spawn.md` using that persona's full registry entry. Use the host Task/subagent tool — one parallel task per persona, `readonly: true`.
 
+**Default panel:** `primary` + up to 2 other relevant personas unless the user requests more.
+
 **Skip when:** No evaluable artifact yet, or user wants a quick take.
 
 **With parallel review:** In optimize, persona panel and expert audit lenses run as separate parallel groups on the same flow target.

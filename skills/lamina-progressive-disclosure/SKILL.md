@@ -18,15 +18,6 @@ metadata:
 ---
 # Progressive Disclosure
 
-## When to load
-
-- complex interfaces overwhelming novices
-- hiding power features from experts
-- feature overload on first view
-- complex interfaces
-- novice and expert users
-- feature overload
-
 ## Decision frameworks
 
 - **Progressive Disclosure**: Show essential controls first; reveal advanced on demand. - When: Novice and expert users share one interface. - How: Default to common tasks; tuck power features behind explicit affordances; remember preferences.
@@ -67,7 +58,3 @@ metadata:
 - [Feature Prioritization](../lamina-feature-prioritization/SKILL.md)
 - [Controls And Menus](../lamina-controls-and-menus/SKILL.md)
 - [Onboarding](../lamina-onboarding/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

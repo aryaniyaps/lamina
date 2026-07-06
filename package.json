@@ -5,7 +5,8 @@
   "author": "Aryan Iyappan",
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node scripts/verify_lamina_bundle.mjs --check structure",
+    "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure"
   },
   "engines": {
     "node": ">=20"

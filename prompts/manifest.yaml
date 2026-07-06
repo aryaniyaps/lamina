@@ -6,6 +6,8 @@ outputs/feature:
   path: outputs/feature.md
 outputs/optimize:
   path: outputs/optimize.md
+outputs/init:
+  path: outputs/init.md
 subagents/persona-panel-spawn:
   path: subagents/persona-panel-spawn.md
 checkpoints/continue-or-revise:

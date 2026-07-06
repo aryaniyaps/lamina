@@ -1,4 +1,7 @@
 profiles:
+  # full-flow: audit-default tagged skills (lamina-heuristic-review, lamina-navigation,
+  # lamina-discoverability, lamina-forms, lamina-error-handling, lamina-content-design,
+  # lamina-accessibility, lamina-trust, lamina-feedback-and-status) plus flow-design and decision-making.
   full-flow:
     skills:
       - lamina-flow-design
@@ -106,3 +109,15 @@ profiles:
   feature-checklist:
     skills:
       - lamina-requirements-definition
+
+  init:
+    skills:
+      - lamina-problem-framing
+      - lamina-feature-discovery
+      - lamina-product-behavior
+      - lamina-stakeholder-alignment
+      - lamina-feature-prioritization
+      - lamina-competitive-analysis
+      - lamina-platform-posture
+      - lamina-research-scoping
+      - lamina-quantitative-validation

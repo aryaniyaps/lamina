@@ -17,15 +17,6 @@ metadata:
 ---
 # Research Communication
 
-## When to load
-
-- delivering findings to decision-makers
-- persuading with research evidence
-- building research impact
-- delivering findings
-- stakeholder buy-in
-- research impact
-
 ## Decision frameworks
 
 - **Evangelizing UX Research**: Five alternatives to wordy reports—journey maps, photo-ethnographies, affinity diagramming, screenshot forensics, hallway evangelism. - Use when findings aren't reaching decision-makers. - How: Match format to audience attention span and decision timeline.
@@ -104,7 +95,3 @@ metadata:
 
 - [Stakeholder Alignment](../lamina-stakeholder-alignment/SKILL.md)
 - [Decision Making](../lamina-decision-making/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -17,12 +17,6 @@ metadata:
 ---
 # Trust
 
-## When to load
-
-- goodwill reservoir depletion
-- digital etiquette failures
-- usability as common courtesy
-
 ## Decision frameworks
 
 - **Goodwill Reservoir**: Every interaction deposits or withdraws user patience; design should maintain positive balance. - When to use: Evaluating flows, error messages, marketing intrusions. - How: Ask "does this respect user's time and intelligence?"
@@ -89,7 +83,3 @@ metadata:
 - [Content Design](../lamina-content-design/SKILL.md)
 - [Error Handling](../lamina-error-handling/SKILL.md)
 - [Persuasion And Groups](../lamina-persuasion-and-groups/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

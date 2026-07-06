@@ -17,14 +17,6 @@ metadata:
 ---
 # Research Synthesis
 
-## When to load
-
-- synthesizing interview data
-- affinity mapping qualitative data
-- turning observations into insights
-- synthesizing interviews
-- qualitative data overload
-
 ## Decision frameworks
 
 - **Affinity Diagram Process**:
@@ -114,7 +106,3 @@ metadata:
 - [Interview Documentation](../lamina-interview-documentation/SKILL.md)
 - [User Modeling](../lamina-user-modeling/SKILL.md)
 - [Requirements Definition](../lamina-requirements-definition/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

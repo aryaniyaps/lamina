@@ -21,15 +21,26 @@ Workflow commands always load this skill first, then their workflow file from [w
 
 ## Three steps
 
-1. **Select** — parse request; list skills from Problem Router, skill `related` metadata, or [audit-profiles.yaml](audit-profiles.yaml). Cap at 6 unless the workflow lists more.
-2. **Apply** — load each skill; run inline by default.
-3. **Deliver** — merge into the command output contract; load `lamina-decision-making` only when outputs conflict.
+1. **Select** — parse request; list skills from Problem Router, skill `related` metadata, or [audit-profiles.yaml](audit-profiles.yaml). Workflow profiles define the skill set; do not truncate.
+2. **Apply** — load each skill; run inline by default. For optimize, prefer parallel lens subagents over loading all profile skills inline when the host supports Task.
+3. **Deliver** — merge into the command output contract; load `lamina-decision-making` per the table below.
+
+### When to load `lamina-decision-making`
+
+| Workflow | Load `lamina-decision-making` |
+|---|---|
+| optimize | Always (scoring) |
+| feature | Risks section + conflicts |
+| init | Conflicts only |
+| ideate | Conflicts only |
+| direct | Only if user asks |
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | [workflows/router.md](workflows/router.md) | `/lamina` intent routing |
+| [workflows/init.md](workflows/init.md) | `/lamina-init` establish + update |
 | [workflows/ideate.md](workflows/ideate.md) | `/lamina-ideate` steps |
 | [workflows/feature.md](workflows/feature.md) | `/lamina-feature` steps |
 | [workflows/optimize.md](workflows/optimize.md) | `/lamina-optimize` steps |

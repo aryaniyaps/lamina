@@ -17,12 +17,6 @@ metadata:
 ---
 # Accessibility
 
-## When to load
-
-- accessible design fundamentals
-- CSS and markup accessibility
-- inclusive interaction design
-
 ## Decision frameworks
 
 - **Three-Second Accessibility Test**: Disable images, turn off CSS, or view grayscale—can you still use the site? - When to use: Quick sanity check on any page. - How: Browser dev tools: disable images/CSS; verify content order and link text make sense.
@@ -68,7 +62,3 @@ metadata:
 - [Content Design](../lamina-content-design/SKILL.md)
 - [Forms](../lamina-forms/SKILL.md)
 - [Navigation](../lamina-navigation/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

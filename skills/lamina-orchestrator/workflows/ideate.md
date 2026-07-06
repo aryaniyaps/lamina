@@ -27,10 +27,11 @@ Screens: structure and behavior only — no visual styling specs.
 
 ## Procedure
 
+0. If `.lamina/business-context.md` exists, read it — ground work in business goals, scope, and constraints. If missing, note the gap in Open questions; do not auto-run init.
 1. Emit work plan — prompt `work-plan`.
-2. **Step 1 — Cast:** Write `.lamina/personas.yaml`. See [artifacts.md](../artifacts.md).
+2. **Step 1 — Cast:** Write `.lamina/personas.yaml`. See [artifacts.md](../artifacts.md). Validate against Users & market in business-context when present.
 3. Work through sections 1→9 in order.
-4. **Step 4 — Persona panel:** After flows, run [persona-panel](../patterns/persona-panel.md). Write `.lamina/personas/simulations/<run_id>.yaml`; reconcile into Flows section.
+4. **Step 4 — Flows + persona panel:** After flows, append entries to `.lamina/flows-inventory.yaml` (`status: draft`) per [artifacts.md](../artifacts.md). Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Write `.lamina/personas/simulations/<run_id>.yaml`; reconcile into Flows section.
 5. After sections 3 and 6, offer checkpoint — prompt `checkpoints/continue-or-revise` (skip if user asked for full pass).
 6. **Step 9:** Map simulation blockers to real usability test tasks.
 7. Merge into output contract — prompt `outputs/ideate`.

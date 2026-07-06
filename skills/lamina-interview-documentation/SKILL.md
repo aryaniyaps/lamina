@@ -14,12 +14,6 @@ metadata:
 ---
 # Interview Documentation
 
-## When to load
-
-- documenting interview sessions
-- making sense of qualitative notes
-- capturing findings for synthesis
-
 ## Decision frameworks
 
 - **Note-Taking Approaches**: Real-time notes, post-session expansion, split moderator/notetaker roles. - Use during every session. - How: Notetaker captures quotes and observations; moderator focuses on facilitation.
@@ -87,7 +81,3 @@ metadata:
 
 - [Field Research](../lamina-field-research/SKILL.md)
 - [Research Synthesis](../lamina-research-synthesis/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

@@ -18,15 +18,6 @@ metadata:
 ---
 # Product Behavior
 
-## When to load
-
-- defining product behavior before build
-- UI mirrors database or org structure
-- behavior-first design process
-- new digital product
-- major redesign
-- UI mirrors internal structure
-
 ## Decision frameworks
 
 - **behavior-first design process**: A six-phase process (Research → Modeling → Requirements Definition → Framework Definition → Refinement → Development Support) that translates user understanding into product behavior before construction. - When to use: Any interactive product where desirability, not just feasibility, determines success. - How: Designers participate in research, synthesize personas, derive scenarios and design requirements, define frameworks, refine detail, then support developers during build.
@@ -123,7 +114,3 @@ metadata:
 - [Flow Design](../lamina-flow-design/SKILL.md)
 - [User Modeling](../lamina-user-modeling/SKILL.md)
 - [Platform Posture](../lamina-platform-posture/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

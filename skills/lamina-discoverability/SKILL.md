@@ -22,16 +22,6 @@ metadata:
 ---
 # Discoverability
 
-## When to load
-
-- users can't see what to do
-- hidden affordances and signifiers
-- execution and evaluation gaps
-- users can't figure out what to do
-- onboarding failures
-- users can't act
-- users can't tell what happened
-
 ## Decision frameworks
 
 - **Human-Centered Design (HCD)**: Design philosophy starting with people—ensure products fit human needs and capabilities. - When to use: Any product, service, or interface design. - How: Observe users; iterate; avoid specifying problems too early; integrate design specializations (interaction, industrial, service).
@@ -152,7 +142,3 @@ metadata:
 - [Onboarding](../lamina-onboarding/SKILL.md)
 - [Error Handling](../lamina-error-handling/SKILL.md)
 - [Feedback And Status](../lamina-feedback-and-status/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

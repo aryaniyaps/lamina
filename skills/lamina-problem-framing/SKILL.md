@@ -18,15 +18,6 @@ metadata:
 ---
 # Problem Framing
 
-## When to load
-
-- aligning research to business needs
-- defining research questions
-- cross-functional misalignment before fieldwork
-- before interviews
-- before field study
-- cross-functional misalignment
-
 ## Decision frameworks
 
 - **Qualitative versus Quantitative Data in Design Research**: Qualitative answers what, how, and why; quantitative answers how much along reductive axes. - Use when stakeholders demand numbers for behavioral questions. - How: Pair qualitative behavioral research with quantitative market sizing and analytics.
@@ -100,7 +91,3 @@ metadata:
 - [Research Scoping](../lamina-research-scoping/SKILL.md)
 - [Interview Design](../lamina-interview-design/SKILL.md)
 - [Stakeholder Alignment](../lamina-stakeholder-alignment/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

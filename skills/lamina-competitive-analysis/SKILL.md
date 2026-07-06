@@ -16,14 +16,6 @@ metadata:
 ---
 # Competitive Analysis
 
-## When to load
-
-- market positioning research
-- feature parity debates
-- differentiation opportunities
-- market positioning
-- differentiation
-
 ## Decision frameworks
 
 - **Competition Definition**: Top market-share players + Google first-page results + anything solving the same problem or helping users avoid it + inertia, habit, sofa, mom, duct tape, etc.
@@ -79,7 +71,3 @@ metadata:
 
 - [Feature Discovery](../lamina-feature-discovery/SKILL.md)
 - [Usability Evaluation](../lamina-usability-evaluation/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

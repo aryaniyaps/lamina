@@ -13,5 +13,6 @@ Use these exact headings:
 ### Quick wins
 ### Strategic bets
 ### Persona simulation notes
+method: simulation | not_user_research: true | confidence: <high|medium|low>
 ### Open questions
 ```

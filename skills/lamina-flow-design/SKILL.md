@@ -17,12 +17,6 @@ metadata:
 ---
 # Flow Design
 
-## When to load
-
-- multi-step workflow design
-- reducing excise and manipulative work
-- orchestrating user flows
-
 ## Decision frameworks
 
 - **Flow and Transparency**: Design so interaction mechanics disappear and users face their objectives directly (Csikszentmihalyi flow). - Use when evaluating whether UI interrupts productive concentration. - How: Minimize interface; make interaction transparent like invisible prose.
@@ -88,7 +82,3 @@ metadata:
 - [Product Behavior](../lamina-product-behavior/SKILL.md)
 - [Forms](../lamina-forms/SKILL.md)
 - [Task Analysis](../lamina-task-analysis/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

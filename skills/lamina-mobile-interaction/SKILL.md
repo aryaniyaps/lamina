@@ -17,12 +17,6 @@ metadata:
 ---
 # Mobile Interaction
 
-## When to load
-
-- mobile-specific interaction patterns
-- touch and gesture design
-- new interaction approaches
-
 ## Decision frameworks
 
 - **Anatomy of a Mobile App**: Structure for sovereign and transient mobile postures—tab bars, navigation bars, content areas. - Use when designing native or responsive mobile apps. - How: Limit top-level sections; maximize content; minimize chrome.
@@ -88,7 +82,3 @@ metadata:
 - [Platform Posture](../lamina-platform-posture/SKILL.md)
 - [Navigation](../lamina-navigation/SKILL.md)
 - [Forms](../lamina-forms/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

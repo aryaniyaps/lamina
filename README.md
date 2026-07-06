@@ -1,6 +1,6 @@
 # Lamina
 
-UX research and design knowledge for coding agents — slash commands, 38 capability skills, orchestration, and subagents.
+UX research and design knowledge for coding agents — slash commands, 39 capability skills, orchestration, and subagents.
 
 ## Slash commands
 
@@ -8,6 +8,7 @@ UX research and design knowledge for coding agents — slash commands, 38 capabi
 | Command            | Product                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------- |
 | `/lamina`          | Auto-route to ideate, feature, optimize, or a single-topic answer                       |
+| `/lamina-init`     | Establish or update business context (goals, scope, users, metrics) for UX work         |
 | `/lamina-ideate`   | Problem → user model, journey, IA, flows, screens, interactions, copy, a11y, validation |
 | `/lamina-feature`  | Feature idea → spec, risks, accessibility, metrics, implementation checklist            |
 | `/lamina-optimize` | Audit existing flows → prioritized improvements (impact × effort)                       |
@@ -23,7 +24,7 @@ UX research and design knowledge for coding agents — slash commands, 38 capabi
 | Commands          | `[commands/](commands/)`                                     |
 | Index / router    | `[skills/lamina-core/SKILL.md](skills/lamina-core/SKILL.md)` |
 | Orchestration     | `[skills/lamina-orchestrator/](skills/lamina-orchestrator/)` |
-| Capability skills | `[skills/lamina-*/SKILL.md](skills/)` (38 skills)            |
+| Capability skills | `[skills/lamina-*/SKILL.md](skills/)` (39 skills)            |
 | Subagents         | `[agents/](agents/)`                                         |
 | Reusable prompts  | `[prompts/](prompts/)`                                       |
 

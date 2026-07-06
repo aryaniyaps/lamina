@@ -19,15 +19,6 @@ metadata:
 ---
 # Navigation
 
-## When to load
-
-- users feel lost in the app
-- deep-page orientation failures
-- persistent nav and breadcrumbs
-- navigation review
-- users feel lost
-- deep pages
-
 ## Decision frameworks
 
 - **deep-page navigation orientation audit**: If users were knocked unconscious and woke on any random page, could they tell what site they're on, what page they're on, major sections, local navigation, search, and utilities? - When to use: Evaluating navigation consistency across site. - How: Pick random deep pages; verify Site ID, page name, section nav, search, and way home.
@@ -116,7 +107,3 @@ On any deep page, answer within 5 seconds:
 
 - [Information Architecture](../lamina-information-architecture/SKILL.md)
 - [Content Design](../lamina-content-design/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).

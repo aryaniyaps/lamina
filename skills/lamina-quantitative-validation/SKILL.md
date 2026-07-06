@@ -19,17 +19,6 @@ metadata:
 ---
 # Quantitative Validation
 
-## When to load
-
-- A/B testing design variants
-- post-launch analytics analysis
-- triangulating qual and quant data
-- two design variants
-- sufficient traffic
-- conversion debates
-- conflicting data sources
-- analysis paralysis
-
 ## Decision frameworks
 
 - **Conversion**: Any measurable user action defined as a site goal (sign up, buy now, make a reservation)—success measured by how many people click the button and complete the desired outcome.
@@ -121,7 +110,3 @@ metadata:
 
 - [Usability Evaluation](../lamina-usability-evaluation/SKILL.md)
 - [Decision Making](../lamina-decision-making/SKILL.md)
-
-## Cross-cutting
-
-For prioritization and evidence triage, see [Decision Making](../lamina-decision-making/SKILL.md).
