@@ -1,5 +1,6 @@
 ---
-description: Establish or update business context — goals, scope, users, metrics — for UX work.
+name: lamina-init
+description: "Establish or update business context — goals, scope, users, metrics — for UX work."
 disable-model-invocation: true
 ---
 
@@ -16,12 +17,12 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 
 ## Load
 
-- `skills/lamina-orchestrator/SKILL.md`
-- `skills/lamina-orchestrator/workflows/init.md`
-- `skills/lamina-business-context/SKILL.md`
-- `skills/lamina-orchestrator/artifacts.md`
-- `skills/lamina-orchestrator/audit-profiles.yaml`
-- Output contract: `skills/lamina-orchestrator/prompts/outputs/init.md`
+- `../lamina-orchestrator/SKILL.md`
+- `../lamina-orchestrator/workflows/init.md`
+- `../lamina-business-context/SKILL.md`
+- `../lamina-orchestrator/artifacts.md`
+- `../lamina-orchestrator/audit-profiles.yaml`
+- Output contract: `../lamina-orchestrator/prompts/outputs/init.md`
 
 ## Guardrail
 
@@ -29,5 +30,5 @@ UX artifacts only. Do not implement product code or visual styling specs.
 
 ## Subagent hints
 
-- **Fresh context:** `skills/lamina-orchestrator/agents/research-synthesizer` for large doc corpus on brownfield establish/update
+- **Fresh context:** `../lamina-orchestrator/agents/research-synthesizer` for large doc corpus on brownfield establish/update
 - Default: inline sequential

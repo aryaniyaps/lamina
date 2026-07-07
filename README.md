@@ -43,9 +43,10 @@ This installs:
 
 | Path | Role |
 |------|------|
-| `commands/` | Slash commands (`/lamina`, `/lamina-init`, etc.) |
-| `skills/` | Problem router, orchestrator, and ~40 capability skills |
-| `agents/` | Subagents for parallel audit and research synthesis |
+| `skills/lamina/`, `skills/lamina-init/`, … | Slash commands (`/lamina`, `/lamina-init`, etc.) as `disable-model-invocation` skills |
+| `commands/` | Authoring source for Cursor plugin manifests (synced to command skills via `npm run sync:commands`) |
+| `skills/lamina-*/` | Problem router, orchestrator, and ~40 capability skills |
+| `skills/lamina-orchestrator/agents/` | Subagent definitions bundled with the orchestrator skill |
 
 **Flags:** `-g` (global install), `--copy` (copy instead of symlink), `-y` (non-interactive).
 
@@ -140,7 +141,7 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 /lamina-init update We're pivoting to enterprise teams
 ```
 
-**Output:** `.lamina/business-context.md` · contract: [`prompts/outputs/init.md`](prompts/outputs/init.md)
+**Output:** `.lamina/business-context.md` · contract: [`skills/lamina-orchestrator/prompts/outputs/init.md`](skills/lamina-orchestrator/prompts/outputs/init.md)
 
 ### `/lamina-ideate` — Problem → full UX concept
 
@@ -152,7 +153,7 @@ Start from a user problem and build a complete UX concept incrementally — nine
 /lamina-ideate Mobile budgeting app for college students who overspend
 ```
 
-**Output:** `.lamina/personas.yaml`, `.lamina/flows-inventory.yaml`, optional blueprint TSX · contract: [`prompts/outputs/ideate.md`](prompts/outputs/ideate.md)
+**Output:** `.lamina/personas.yaml`, `.lamina/flows-inventory.yaml`, optional blueprint TSX · contract: [`skills/lamina-orchestrator/prompts/outputs/ideate.md`](skills/lamina-orchestrator/prompts/outputs/ideate.md)
 
 ### `/lamina-feature` — Feature → implementation-ready spec
 
@@ -164,7 +165,7 @@ Turn a feature idea into a spec with problem framing, JTBD, assumptions, goals, 
 /lamina-feature Add two-factor authentication to settings
 ```
 
-**Output:** feature spec artifacts under `.lamina/` · contract: [`prompts/outputs/feature.md`](prompts/outputs/feature.md)
+**Output:** feature spec artifacts under `.lamina/` · contract: [`skills/lamina-orchestrator/prompts/outputs/feature.md`](skills/lamina-orchestrator/prompts/outputs/feature.md)
 
 ### `/lamina-optimize` — Audit existing flows
 
@@ -176,7 +177,7 @@ Audit one or more existing flows and return improvements ranked by impact vs eff
 /lamina-optimize Audit our checkout flow
 ```
 
-**Output:** prioritized improvement list · contract: [`prompts/outputs/optimize.md`](prompts/outputs/optimize.md)
+**Output:** prioritized improvement list · contract: [`skills/lamina-orchestrator/prompts/outputs/optimize.md`](skills/lamina-orchestrator/prompts/outputs/optimize.md)
 
 ---
 
@@ -227,7 +228,7 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 | Orchestration | [`skills/lamina-orchestrator/`](skills/lamina-orchestrator/) |
 | Capability skills | [`skills/lamina-*/SKILL.md`](skills/) (~40 skills) |
 | Subagents | [`agents/`](agents/) |
-| Reusable prompts | [`prompts/`](prompts/) |
+| Reusable prompts | [`skills/lamina-orchestrator/prompts/`](skills/lamina-orchestrator/prompts/) |
 
 ---
 

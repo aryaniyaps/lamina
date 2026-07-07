@@ -315,4 +315,4 @@ Edge-case states use `scenarios.yaml` branches on the graph, not separate optimi
 
 ## Checkpoint
 
-Offer after ideate steps 5, 6, end; feature flows and before tasks; optimize findings. See `prompts/checkpoints/blueprint-preview.md`.
+Offer after ideate steps 5, 6, end; feature flows and before tasks; optimize findings. See `../lamina-orchestrator/prompts/checkpoints/blueprint-preview.md`.

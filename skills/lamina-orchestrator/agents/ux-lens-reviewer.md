@@ -33,7 +33,7 @@ The parent orchestrator delegates to you when:
 - Only one lens is needed — parent can run that skill inline.
 - Lenses depend on each other sequentially (e.g. persona walkthrough before flow critique — use persona panel first).
 - The ask is research synthesis — use `agents/research-synthesizer`.
-- The ask is persona simulation — use `skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`.
+- The ask is persona simulation — use `prompts/subagents/persona-panel-spawn.md`.
 
 ## Required inputs (parent must provide)
 

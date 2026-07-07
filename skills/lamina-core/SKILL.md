@@ -19,7 +19,7 @@ description: "Lamina Problem Router and UX reference index. Use to find the righ
 | `/lamina-feature` | Feature idea → spec + checklist |
 | `/lamina-optimize` | Audit existing flows |
 
-Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching file from `commands/`. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
+Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching workflow in `workflows/`, or invoke `/lamina`, `/lamina-init`, etc. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
 
 **Guardrail:** UX artifacts only. Do not implement product code or visual styling specs. See [guardrails.md](guardrails.md).
 

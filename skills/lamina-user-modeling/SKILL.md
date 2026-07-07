@@ -54,7 +54,7 @@ Personas are **simulated users**, not static documents. Run each persona as an *
 
 **Artifacts:** `.lamina/personas.yaml` (registry) and `.lamina/personas/simulations/<run_id>.yaml` (per panel run). See [artifacts.md](../../lamina-orchestrator/artifacts.md).
 
-**Simulate via dynamic spawns:** one subagent per persona; each prompt embeds that persona's identity — `prompts/subagents/persona-panel-spawn.md`.
+**Simulate via dynamic spawns:** one subagent per persona; each prompt embeds that persona's identity — `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`.
 
 ### Cast
 
@@ -68,7 +68,7 @@ After research synthesis or problem framing:
 
 When a flow, screen, or journey exists:
 1. Orchestrator picks personas (always primary; add others relevant to the target).
-2. Spawn one **dynamic subagent per persona** in parallel — each prompt makes the subagent **that person** (see `prompts/subagents/persona-panel-spawn.md`). Do not use a fixed agent type.
+2. Spawn one **dynamic subagent per persona** in parallel — each prompt makes the subagent **that person** (see `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`). Do not use a fixed agent type.
 3. Orchestrator reconciles via Primary User Filter and conflict records.
 
 **Situational context** (spawn prompt, not persisted): scenario, device, time_pressure, stakes.

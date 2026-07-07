@@ -20,14 +20,14 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 - Input: product description or brownfield repo context
 - Expect: `.lamina/business-context.md` with business sections and confidence
-- Expect: init output contract per `prompts/outputs/init.md`
+- Expect: init output contract per `skills/lamina-orchestrator/prompts/outputs/init.md`
 - Expect: loads skills from `audit-profiles.yaml` `init` profile
 - Update: `/lamina-init update` with pivot description — expect changelog append, stale artifact flags
 
 ## Ideate (`/lamina-ideate`)
 
 - Input: problem statement for a mobile budgeting app
-- Expect: 9-section output per `prompts/outputs/ideate.md`
+- Expect: 9-section output per `skills/lamina-orchestrator/prompts/outputs/ideate.md`
 - Expect: step 0 reads `business-context.md` when present
 - Expect: `.lamina/personas.yaml` cast at step 1
 - Optional: persona panel at step 4 when flows exist
@@ -51,6 +51,6 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 ## Subagents (optional)
 
-- Persona panel: dynamic spawns — one subagent per persona, each prompt embeds that persona's identity (`prompts/subagents/persona-panel-spawn.md`)
+- Persona panel: dynamic spawns — one subagent per persona, each prompt embeds that persona's identity (`skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`)
 - Parallel audit delegates to `agents/ux-lens-reviewer`
 - Large corpus synthesis delegates to `agents/research-synthesizer`

@@ -9,7 +9,7 @@ Use these exact headings:
 ### Flows
 ### Edge cases
 
-When no blueprint exists, use a structured table (columns: id, screen, category, operation, subject, when, ux, title). When a blueprint exists, `scenarios.yaml` is the source of truth — see [lamina-edge-cases](../../skills/lamina-edge-cases/SKILL.md).
+When no blueprint exists, use a structured table (columns: id, screen, category, operation, subject, when, ux, title). When a blueprint exists, `scenarios.yaml` is the source of truth — see [lamina-edge-cases](../../../lamina-edge-cases/SKILL.md).
 ### Risks
 ### Accessibility review
 ### Success metrics

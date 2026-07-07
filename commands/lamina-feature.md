@@ -15,7 +15,7 @@ Turn a feature idea into an implementation-ready UX spec with risks, accessibili
 - `skills/lamina-orchestrator/workflows/feature.md`
 - `skills/lamina-orchestrator/audit-profiles.yaml`
 - `skills/lamina-orchestrator/artifacts.md`
-- Output contract: `prompts/outputs/feature.md`
+- Output contract: `skills/lamina-orchestrator/prompts/outputs/feature.md`
 
 ## Guardrail
 
@@ -23,6 +23,6 @@ UX artifacts only. Do not implement product code or visual styling specs.
 
 ## Subagent hints
 
-- **Persona panel:** dynamic spawns after flows — one subagent per persona; see `prompts/subagents/persona-panel-spawn.md`
-- **Parallel review:** `agents/ux-lens-reviewer` for accessibility + risks
+- **Persona panel:** dynamic spawns after flows — one subagent per persona; see `skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`
+- **Parallel review:** `skills/lamina-orchestrator/agents/ux-lens-reviewer` for accessibility + risks
 - Default: inline sequential

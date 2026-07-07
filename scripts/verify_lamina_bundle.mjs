@@ -57,7 +57,7 @@ function extractMarkdownLinks(content, baseDir) {
 }
 
 function checkReferencedFiles() {
-  const dirs = ['agents', 'prompts', 'skills/lamina-orchestrator', 'commands'];
+  const dirs = ['agents', 'skills/lamina-orchestrator', 'commands', 'skills/lamina', 'skills/lamina-init'];
   for (const dir of dirs) {
     const absDir = path.join(ROOT, dir);
     if (!fs.existsSync(absDir)) continue;
@@ -86,7 +86,7 @@ function walk(dir) {
 
 function checkOutputContracts() {
   const contracts = {
-    'prompts/outputs/ideate.md': [
+    'skills/lamina-orchestrator/prompts/outputs/ideate.md': [
       'User model',
       'Journey',
       'Information architecture',
@@ -99,7 +99,7 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'prompts/outputs/feature.md': [
+    'skills/lamina-orchestrator/prompts/outputs/feature.md': [
       'Problem definition',
       'Jobs to be done',
       'Assumptions',
@@ -113,7 +113,7 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'prompts/outputs/optimize.md': [
+    'skills/lamina-orchestrator/prompts/outputs/optimize.md': [
       'Executive summary',
       'Findings by flow',
       'Prioritized improvements',
@@ -122,7 +122,7 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'prompts/outputs/init.md': [
+    'skills/lamina-orchestrator/prompts/outputs/init.md': [
       'Mode',
       'Business context summary',
       'Open questions',
@@ -143,9 +143,38 @@ function checkOutputContracts() {
   }
 }
 
+function checkCommandSkills() {
+  const commandNames = ['lamina', 'lamina-init', 'lamina-ideate', 'lamina-feature', 'lamina-optimize'];
+  for (const name of commandNames) {
+    const skillPath = `skills/${name}/SKILL.md`;
+    const commandPath = `commands/${name}.md`;
+    if (!exists(commandPath)) {
+      errors.push(`Missing command source: ${commandPath}`);
+      continue;
+    }
+    if (!exists(skillPath)) {
+      errors.push(`Missing command skill (run npm run sync:commands): ${skillPath}`);
+      continue;
+    }
+    const skill = read(skillPath);
+    if (!skill.includes('disable-model-invocation: true')) {
+      errors.push(`Command skill missing disable-model-invocation: ${skillPath}`);
+    }
+    if (!skill.includes(`name: ${name}`)) {
+      errors.push(`Command skill name mismatch: ${skillPath}`);
+    }
+  }
+}
 function checkRequiredPaths() {
   const required = [
+    '.claude-plugin/plugin.json',
+    '.cursor-plugin/plugin.json',
     'skills/lamina-core/SKILL.md',
+    'skills/lamina/SKILL.md',
+    'skills/lamina-init/SKILL.md',
+    'skills/lamina-ideate/SKILL.md',
+    'skills/lamina-feature/SKILL.md',
+    'skills/lamina-optimize/SKILL.md',
     'skills/lamina-business-context/SKILL.md',
     'skills/lamina-orchestrator/SKILL.md',
     'skills/lamina-orchestrator/audit-profiles.yaml',
@@ -154,11 +183,16 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/workflows/init.md',
     'commands/lamina.md',
     'commands/lamina-init.md',
-    'prompts/outputs/init.md',
-    'prompts/checkpoints/blueprint-preview.md',
+    'commands/lamina-ideate.md',
+    'commands/lamina-feature.md',
+    'commands/lamina-optimize.md',
+    'skills/lamina-orchestrator/prompts/outputs/init.md',
+    'skills/lamina-orchestrator/prompts/checkpoints/blueprint-preview.md',
     'packages/lamina-blueprint/package.json',
     'agents/ux-lens-reviewer.md',
     'agents/research-synthesizer.md',
+    'skills/lamina-orchestrator/agents/ux-lens-reviewer.md',
+    'skills/lamina-orchestrator/agents/research-synthesizer.md',
   ];
   for (const rel of required) {
     if (!exists(rel)) errors.push(`Missing required path: ${rel}`);
@@ -171,6 +205,7 @@ const check = process.argv.includes('--check')
 
 if (check === 'structure' || check === 'all') {
   checkRequiredPaths();
+  checkCommandSkills();
   checkAuditProfiles();
   checkProblemRouterLinks();
   checkOutputContracts();
