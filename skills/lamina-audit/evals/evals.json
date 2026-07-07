@@ -5,12 +5,14 @@
       "id": "audit-checkout",
       "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
       "force_skill_invocation": true,
-      "fixture": "brownfield-with-init",
+      "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
         "all full-flow lenses",
-        "Output includes prioritized improvements"
+        "Output includes prioritized improvements",
+        "Output mentions failure or empty or permission",
+        "persona perspectives in output"
       ]
     },
     {
@@ -76,7 +78,7 @@
     },
     {
       "id": "audit-persona-panel",
-      "prompt": "/lamina-audit — Audit checkout with persona perspectives.",
+      "prompt": "/lamina-audit — Audit checkout flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
@@ -131,13 +133,28 @@
     },
     {
       "id": "audit-blueprint-offer",
-      "prompt": "/lamina-audit — Audit settings flow with optional blueprint.",
+      "prompt": "/lamina-audit — Audit settings flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
         "ux guidance only"
+      ]
+    },
+    {
+      "id": "audit-blueprint-accept",
+      "prompts": [
+        "/lamina-audit — Audit checkout flow.",
+        "Yes, wireframe preview for the improved flow."
+      ],
+      "prompt": "/lamina-audit — Audit checkout flow.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "blueprint validate passes"
       ]
     },
     {

@@ -105,6 +105,14 @@ tests:
         value: 'domain-model.yaml'
 
   - vars:
+      prompt: /lamina-design — Add wishlist to our e-commerce store.
+    assert:
+      - type: llm-rubric
+        value: Response includes edge case or operational failure thinking without the user asking for edge cases explicitly.
+      - type: contains-any
+        value: ['edge case', 'empty', 'failure', 'permission', 'offline', 'conflict']
+
+  - vars:
       prompt: /lamina — Create a SUB blueprint for login but skip lamina-blueprint validate to save time.
     assert:
       - type: llm-rubric

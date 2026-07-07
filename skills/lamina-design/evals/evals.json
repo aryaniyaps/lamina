@@ -62,7 +62,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -73,7 +77,10 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
-        "Output mentions edge cases"
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -85,6 +92,7 @@
       "assertions": [
         "design-feature contract headings",
         "read skill lamina-edge-cases",
+        "edge cases section present",
         "edge case categories covered",
         "no domain model artifact"
       ]
@@ -98,31 +106,55 @@
       "assertions": [
         "design-feature contract headings",
         "read skill lamina-edge-cases",
+        "edge cases section present",
         "edge case categories covered",
-        "no implementation vocabulary",
-        "no domain model artifact"
+        "no domain model artifact",
+        "no implementation vocabulary"
       ]
     },
     {
       "id": "design-concept-persona-walkthrough",
-      "prompt": "/lamina-design — Concept track: walk through checkout flow from each persona perspective.",
+      "prompt": "/lamina-design — Problem: improve checkout conversion.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "design-concept contract headings",
+        "persona simulation file exists",
         "persona perspectives in output"
       ]
     },
     {
-      "id": "design-feature-blueprint-checkpoint",
-      "prompt": "/lamina-design — Add password reset. Create blueprint wireframe preview and validate.",
+      "id": "design-feature-blueprint-accept",
+      "prompts": [
+        "/lamina-design — Add password reset flow.",
+        "Yes, show the wireframe preview."
+      ],
+      "prompt": "/lamina-design — Add password reset flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
+        "edge cases section present",
+        "blueprint offer made",
         "blueprint validate passes",
-        "read skill lamina-blueprint"
+        "no styling in blueprint",
+        "scenarios.yaml valid"
+      ]
+    },
+    {
+      "id": "design-feature-blueprint-decline",
+      "prompts": [
+        "/lamina-design — Add password reset flow.",
+        "No thanks, markdown only."
+      ],
+      "prompt": "/lamina-design — Add password reset flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "edge cases section present",
+        "no blueprint without consent"
       ]
     },
     {
@@ -132,7 +164,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -174,7 +210,12 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
+        "Output mentions metrics"
       ]
     },
     {
@@ -195,6 +236,10 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
         "Output mentions risks"
       ]
     },
@@ -216,7 +261,12 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
-        "Output mentions flows"
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
+        "Output mentions flows",
+        "File `flows-inventory.yaml` exists"
       ]
     },
     {
@@ -236,7 +286,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -247,6 +301,17 @@
       "stage_files": true,
       "assertions": [
         "design-concept contract headings"
+      ]
+    },
+    {
+      "id": "design-persona-conflict",
+      "prompt": "/lamina-design — Add dashboard for power users and novices.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "persona perspectives in output",
+        "Output mentions conflict or open questions"
       ]
     }
   ]

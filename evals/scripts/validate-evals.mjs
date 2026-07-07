@@ -55,8 +55,14 @@ function validateSuite(relPath) {
       errors.push(`${relPath}: duplicate id ${ev.id}`);
     }
     ids.add(ev.id);
-    if (!ev.prompt || typeof ev.prompt !== 'string') {
-      errors.push(`${relPath}: ${ev.id} missing prompt`);
+    if (!ev.prompt && (!Array.isArray(ev.prompts) || ev.prompts.length < 2)) {
+      errors.push(`${relPath}: ${ev.id} requires prompt (string) or prompts (string[], 2+)`);
+    }
+    if (ev.prompts && (!Array.isArray(ev.prompts) || ev.prompts.length < 2)) {
+      errors.push(`${relPath}: ${ev.id} prompts must be an array with 2+ entries`);
+    }
+    if (ev.prompt && ev.prompts && ev.prompt !== ev.prompts[0]) {
+      errors.push(`${relPath}: ${ev.id} prompt must match prompts[0] when both are set`);
     }
     if (ev.fixture) {
       try {

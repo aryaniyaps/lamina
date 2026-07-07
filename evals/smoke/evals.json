@@ -178,11 +178,58 @@
       "id": "fixture-brownfield-audit-checkout",
       "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
-      "fixture": "brownfield-with-init",
+      "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
-        "Output mentions cart or checkout"
+        "Output mentions cart or checkout",
+        "Output mentions failure or empty or permission"
+      ]
+    },
+    {
+      "id": "design-feature-edge-cases",
+      "prompt": "/lamina-design — Add offline mode to mobile app.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
+      ]
+    },
+    {
+      "id": "design-feature-blueprint-accept",
+      "prompts": [
+        "/lamina-design — Add password reset flow.",
+        "Yes, show the wireframe preview."
+      ],
+      "prompt": "/lamina-design — Add password reset flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "edge cases section present",
+        "blueprint offer made",
+        "blueprint validate passes",
+        "no styling in blueprint",
+        "scenarios.yaml valid"
+      ]
+    },
+    {
+      "id": "audit-checkout",
+      "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "all full-flow lenses",
+        "Output includes prioritized improvements",
+        "Output mentions failure or empty or permission",
+        "persona perspectives in output"
       ]
     },
     {
@@ -192,43 +239,6 @@
       "assertions": [
         "init-blocked contract headings",
         "no `.lamina/` writes"
-      ]
-    },
-    {
-      "id": "cap-edge-cases-direct",
-      "prompt": "/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-edge-cases",
-        "edge case categories covered",
-        "no domain model artifact",
-        "no implementation vocabulary"
-      ]
-    },
-    {
-      "id": "cap-persona-panel-checkout",
-      "prompt": "/lamina — Run a persona panel walkthrough of the checkout flow from each persona's perspective.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-user-modeling",
-        "persona simulation file exists",
-        "persona perspectives in output"
-      ]
-    },
-    {
-      "id": "cap-blueprint-create-login",
-      "prompt": "/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.",
-      "force_skill_invocation": true,
-      "fixture": "greenfield-with-init",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-blueprint",
-        "blueprint validate passes",
-        "no styling in blueprint"
       ]
     }
   ]

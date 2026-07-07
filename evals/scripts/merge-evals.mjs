@@ -18,6 +18,25 @@ function e(id, prompt, extra = {}) {
   return { id, prompt, force_skill_invocation: true, ...extra };
 }
 
+function mt(id, prompts, extra = {}) {
+  return { id, prompts, prompt: prompts[0], force_skill_invocation: true, ...extra };
+}
+
+const FEATURE_EDGE_ASSERTIONS = [
+  'read skill lamina-edge-cases',
+  'edge cases section present',
+  'edge case categories covered',
+  'no domain model artifact',
+];
+
+function featureFx(assertions = [], extra = {}) {
+  return {
+    ...fx('greenfield-with-init'),
+    assertions: ['design-feature contract headings', ...FEATURE_EDGE_ASSERTIONS, ...assertions],
+    ...extra,
+  };
+}
+
 const laminaEvals = {
   skill_name: 'lamina',
   evals: [
@@ -240,8 +259,12 @@ const laminaEvals = {
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
     }),
     e('fixture-brownfield-audit-checkout', '/lamina-audit — Audit cart modal and checkout redirect flow.', {
-      ...fx('brownfield-with-init'),
-      assertions: ['audit contract headings', 'Output mentions cart or checkout'],
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'audit contract headings',
+        'Output mentions cart or checkout',
+        'Output mentions failure or empty or permission',
+      ],
     }),
   ],
 };
@@ -313,45 +336,46 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['Output mentions conflict or open questions or decision-making'],
     }),
-    e('design-feature-2fa', '/lamina-design — Add two-factor authentication to settings.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings'],
-    }),
-    e('design-feature-wishlist', '/lamina-design — Add wishlist feature to e-commerce.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings', 'Output mentions edge cases'],
-    }),
-    e('design-feature-edge-cases', '/lamina-design — Add offline mode to mobile app.', {
-      ...fx('greenfield-with-init'),
-      assertions: [
-        'design-feature contract headings',
-        'read skill lamina-edge-cases',
-        'edge case categories covered',
-        'no domain model artifact',
-      ],
-    }),
+    e('design-feature-2fa', '/lamina-design — Add two-factor authentication to settings.', featureFx()),
+    e('design-feature-wishlist', '/lamina-design — Add wishlist feature to e-commerce.', featureFx()),
+    e('design-feature-edge-cases', '/lamina-design — Add offline mode to mobile app.', featureFx()),
     e('design-feature-edge-cases-brownfield', '/lamina-design --track feature Add offline cart sync for our commerce storefront.', {
       ...fx('brownfield-audit-ready'),
       assertions: [
         'design-feature contract headings',
-        'read skill lamina-edge-cases',
-        'edge case categories covered',
+        ...FEATURE_EDGE_ASSERTIONS,
         'no implementation vocabulary',
-        'no domain model artifact',
       ],
     }),
-    e('design-concept-persona-walkthrough', '/lamina-design — Concept track: walk through checkout flow from each persona perspective.', {
+    e('design-concept-persona-walkthrough', '/lamina-design — Problem: improve checkout conversion.', {
       ...fx('brownfield-audit-ready'),
-      assertions: ['design-concept contract headings', 'persona perspectives in output'],
+      assertions: [
+        'design-concept contract headings',
+        'persona simulation file exists',
+        'persona perspectives in output',
+      ],
     }),
-    e('design-feature-blueprint-checkpoint', '/lamina-design — Add password reset. Create blueprint wireframe preview and validate.', {
+    mt('design-feature-blueprint-accept', [
+      '/lamina-design — Add password reset flow.',
+      'Yes, show the wireframe preview.',
+    ], {
       ...fx('greenfield-with-init'),
-      assertions: ['blueprint validate passes', 'read skill lamina-blueprint'],
+      assertions: [
+        'edge cases section present',
+        'blueprint offer made',
+        'blueprint validate passes',
+        'no styling in blueprint',
+        'scenarios.yaml valid',
+      ],
     }),
-    e('design-track-override', '/lamina-design --track feature Problem only: users hate our onboarding.', {
+    mt('design-feature-blueprint-decline', [
+      '/lamina-design — Add password reset flow.',
+      'No thanks, markdown only.',
+    ], {
       ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings'],
+      assertions: ['edge cases section present', 'no blueprint without consent'],
     }),
+    e('design-track-override', '/lamina-design --track feature Problem only: users hate our onboarding.', featureFx()),
     e('design-blocked-no-init', '/lamina-design — Add notifications feature.', {
       expected_output: 'init-blocked.',
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
@@ -364,37 +388,29 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings', 'Output mentions validation or usability test'],
     }),
-    e('design-feature-metrics', '/lamina-design — Add search with success metrics.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings'],
-    }),
+    e('design-feature-metrics', '/lamina-design — Add search with success metrics.', featureFx(['Output mentions metrics'])),
     e('design-concept-accessibility', '/lamina-design — Concept for healthcare portal with accessibility.', {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],
     }),
-    e('design-feature-risks', '/lamina-design — Add social sharing with privacy risks.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings', 'Output mentions risks'],
-    }),
+    e('design-feature-risks', '/lamina-design — Add social sharing with privacy risks.', featureFx(['Output mentions risks'])),
     e('design-concept-ia', '/lamina-design — Concept for documentation site information architecture.', {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],
     }),
-    e('design-feature-flows', '/lamina-design — Add password reset flow.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings', 'Output mentions flows'],
-    }),
+    e('design-feature-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'File `flows-inventory.yaml` exists'])),
     e('design-concept-copy', '/lamina-design — Concept for legal terms acceptance UX.', {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],
     }),
-    e('design-feature-a11y', '/lamina-design — Add keyboard shortcuts feature accessibly.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings'],
-    }),
+    e('design-feature-a11y', '/lamina-design — Add keyboard shortcuts feature accessibly.', featureFx()),
     e('design-concept-mobile', '/lamina-design — Concept for mobile-first food delivery.', {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],
+    }),
+    e('design-persona-conflict', '/lamina-design — Add dashboard for power users and novices.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: ['persona perspectives in output', 'Output mentions conflict or open questions'],
     }),
   ],
 };
@@ -403,8 +419,14 @@ const laminaAuditEvals = {
   skill_name: 'lamina-audit',
   evals: [
     e('audit-checkout', '/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.', {
-      ...fx('brownfield-with-init'),
-      assertions: ['audit contract headings', 'all full-flow lenses', 'Output includes prioritized improvements'],
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'audit contract headings',
+        'all full-flow lenses',
+        'Output includes prioritized improvements',
+        'Output mentions failure or empty or permission',
+        'persona perspectives in output',
+      ],
     }),
     e('audit-no-flow-target', '/lamina-audit — Audit our app.', {
       ...fx('greenfield-with-init'),
@@ -428,7 +450,7 @@ const laminaAuditEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['all full-flow lenses'],
     }),
-    e('audit-persona-panel', '/lamina-audit — Audit checkout with persona perspectives.', {
+    e('audit-persona-panel', '/lamina-audit — Audit checkout flow.', {
       ...fx('brownfield-audit-ready'),
       assertions: [
         'audit contract headings',
@@ -452,9 +474,16 @@ const laminaAuditEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['audit contract headings', 'Output mentions conflict or open questions'],
     }),
-    e('audit-blueprint-offer', '/lamina-audit — Audit settings flow with optional blueprint.', {
+    e('audit-blueprint-offer', '/lamina-audit — Audit settings flow.', {
       ...fx('greenfield-with-init'),
       assertions: ['audit contract headings', 'ux guidance only'],
+    }),
+    mt('audit-blueprint-accept', [
+      '/lamina-audit — Audit checkout flow.',
+      'Yes, wireframe preview for the improved flow.',
+    ], {
+      ...fx('brownfield-audit-ready'),
+      assertions: ['audit contract headings', 'blueprint validate passes'],
     }),
     e('audit-forms-lens', '/lamina-audit — Audit account registration form.', {
       ...fx('greenfield-with-init'),
@@ -470,54 +499,9 @@ const laminaAuditEvals = {
 const laminaCapabilitiesEvals = {
   skill_name: 'lamina-capabilities',
   evals: [
-    e('cap-edge-cases-direct', '/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.', {
-      ...fx('brownfield-audit-ready'),
-      assertions: [
-        'read skill lamina-edge-cases',
-        'edge case categories covered',
-        'no domain model artifact',
-        'no implementation vocabulary',
-      ],
-    }),
-    e('cap-edge-cases-brownfield', '/lamina — Systematically map edge cases for cart and checkout using our shipped flows.', {
-      ...fx('brownfield-audit-ready'),
-      assertions: [
-        'read skill lamina-edge-cases',
-        'Output mentions flows or edge cases',
-        'no implementation vocabulary',
-      ],
-    }),
-    e('cap-edge-cases-no-persist', '/lamina — Build an operation inventory for wishlist feature edge cases. Do not write a domain model file.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['no domain model artifact', 'edge case categories covered'],
-    }),
-    e('cap-flow-design-framework', '/lamina — Design the information and interaction framework for password reset before wireframes.', {
+    e('cap-flow-design-framework', '/lamina — Users get lost resetting passwords.', {
       ...fx('greenfield-with-init'),
       assertions: ['read skill lamina-flow-design', 'Output mentions flows', 'no implementation vocabulary'],
-    }),
-    e('cap-persona-panel-checkout', '/lamina — Run a persona panel walkthrough of the checkout flow from each persona\'s perspective.', {
-      ...fx('brownfield-audit-ready'),
-      assertions: [
-        'read skill lamina-user-modeling',
-        'persona simulation file exists',
-        'persona perspectives in output',
-      ],
-    }),
-    e('cap-persona-conflict', '/lamina — Simulate how our personas would experience a dense power-user dashboard vs simplified novice layout.', {
-      ...fx('brownfield-audit-ready'),
-      assertions: ['persona perspectives in output', 'Output mentions conflict or open questions'],
-    }),
-    e('cap-blueprint-create-login', '/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['read skill lamina-blueprint', 'blueprint validate passes', 'no styling in blueprint'],
-    }),
-    e('cap-blueprint-with-scenarios', '/lamina — Create blueprint for password reset flow including empty and error scenarios in scenarios.yaml.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['blueprint validate passes', 'File `scenarios.yaml` exists', 'scenarios.yaml valid'],
-    }),
-    e('cap-blueprint-brownfield', '/lamina — Blueprint the checkout flow screens we already ship; use structure-manifest for existing screens.', {
-      ...fx('brownfield-audit-ready'),
-      assertions: ['read skill lamina-blueprint', 'blueprint validate passes'],
     }),
   ],
 };
@@ -581,9 +565,9 @@ const smokeIds = [
   'fixture-brownfield-init',
   'fixture-brownfield-design-blocked',
   'fixture-brownfield-audit-checkout',
-  'cap-edge-cases-direct',
-  'cap-blueprint-create-login',
-  'cap-persona-panel-checkout',
+  'design-feature-edge-cases',
+  'design-feature-blueprint-accept',
+  'audit-checkout',
 ];
 
 const smokeEvals = {

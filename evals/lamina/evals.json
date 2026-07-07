@@ -467,11 +467,12 @@
       "id": "fixture-brownfield-audit-checkout",
       "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
-      "fixture": "brownfield-with-init",
+      "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
-        "Output mentions cart or checkout"
+        "Output mentions cart or checkout",
+        "Output mentions failure or empty or permission"
       ]
     },
     {
@@ -631,7 +632,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -642,7 +647,10 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
-        "Output mentions edge cases"
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -654,6 +662,7 @@
       "assertions": [
         "design-feature contract headings",
         "read skill lamina-edge-cases",
+        "edge cases section present",
         "edge case categories covered",
         "no domain model artifact"
       ]
@@ -667,31 +676,55 @@
       "assertions": [
         "design-feature contract headings",
         "read skill lamina-edge-cases",
+        "edge cases section present",
         "edge case categories covered",
-        "no implementation vocabulary",
-        "no domain model artifact"
+        "no domain model artifact",
+        "no implementation vocabulary"
       ]
     },
     {
       "id": "design-concept-persona-walkthrough",
-      "prompt": "/lamina-design — Concept track: walk through checkout flow from each persona perspective.",
+      "prompt": "/lamina-design — Problem: improve checkout conversion.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "design-concept contract headings",
+        "persona simulation file exists",
         "persona perspectives in output"
       ]
     },
     {
-      "id": "design-feature-blueprint-checkpoint",
-      "prompt": "/lamina-design — Add password reset. Create blueprint wireframe preview and validate.",
+      "id": "design-feature-blueprint-accept",
+      "prompts": [
+        "/lamina-design — Add password reset flow.",
+        "Yes, show the wireframe preview."
+      ],
+      "prompt": "/lamina-design — Add password reset flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
+        "edge cases section present",
+        "blueprint offer made",
         "blueprint validate passes",
-        "read skill lamina-blueprint"
+        "no styling in blueprint",
+        "scenarios.yaml valid"
+      ]
+    },
+    {
+      "id": "design-feature-blueprint-decline",
+      "prompts": [
+        "/lamina-design — Add password reset flow.",
+        "No thanks, markdown only."
+      ],
+      "prompt": "/lamina-design — Add password reset flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "edge cases section present",
+        "no blueprint without consent"
       ]
     },
     {
@@ -701,7 +734,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -743,7 +780,12 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
+        "Output mentions metrics"
       ]
     },
     {
@@ -764,6 +806,10 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
         "Output mentions risks"
       ]
     },
@@ -785,7 +831,12 @@
       "stage_files": true,
       "assertions": [
         "design-feature contract headings",
-        "Output mentions flows"
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
+        "Output mentions flows",
+        "File `flows-inventory.yaml` exists"
       ]
     },
     {
@@ -805,7 +856,11 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact"
       ]
     },
     {
@@ -819,15 +874,28 @@
       ]
     },
     {
+      "id": "design-persona-conflict",
+      "prompt": "/lamina-design — Add dashboard for power users and novices.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "persona perspectives in output",
+        "Output mentions conflict or open questions"
+      ]
+    },
+    {
       "id": "audit-checkout",
       "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
       "force_skill_invocation": true,
-      "fixture": "brownfield-with-init",
+      "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
         "all full-flow lenses",
-        "Output includes prioritized improvements"
+        "Output includes prioritized improvements",
+        "Output mentions failure or empty or permission",
+        "persona perspectives in output"
       ]
     },
     {
@@ -893,7 +961,7 @@
     },
     {
       "id": "audit-persona-panel",
-      "prompt": "/lamina-audit — Audit checkout with persona perspectives.",
+      "prompt": "/lamina-audit — Audit checkout flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
@@ -948,13 +1016,28 @@
     },
     {
       "id": "audit-blueprint-offer",
-      "prompt": "/lamina-audit — Audit settings flow with optional blueprint.",
+      "prompt": "/lamina-audit — Audit settings flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
         "ux guidance only"
+      ]
+    },
+    {
+      "id": "audit-blueprint-accept",
+      "prompts": [
+        "/lamina-audit — Audit checkout flow.",
+        "Yes, wireframe preview for the improved flow."
+      ],
+      "prompt": "/lamina-audit — Audit checkout flow.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "blueprint validate passes"
       ]
     },
     {
@@ -979,44 +1062,8 @@
       ]
     },
     {
-      "id": "cap-edge-cases-direct",
-      "prompt": "/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-edge-cases",
-        "edge case categories covered",
-        "no domain model artifact",
-        "no implementation vocabulary"
-      ]
-    },
-    {
-      "id": "cap-edge-cases-brownfield",
-      "prompt": "/lamina — Systematically map edge cases for cart and checkout using our shipped flows.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-edge-cases",
-        "Output mentions flows or edge cases",
-        "no implementation vocabulary"
-      ]
-    },
-    {
-      "id": "cap-edge-cases-no-persist",
-      "prompt": "/lamina — Build an operation inventory for wishlist feature edge cases. Do not write a domain model file.",
-      "force_skill_invocation": true,
-      "fixture": "greenfield-with-init",
-      "stage_files": true,
-      "assertions": [
-        "no domain model artifact",
-        "edge case categories covered"
-      ]
-    },
-    {
       "id": "cap-flow-design-framework",
-      "prompt": "/lamina — Design the information and interaction framework for password reset before wireframes.",
+      "prompt": "/lamina — Users get lost resetting passwords.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
@@ -1024,64 +1071,6 @@
         "read skill lamina-flow-design",
         "Output mentions flows",
         "no implementation vocabulary"
-      ]
-    },
-    {
-      "id": "cap-persona-panel-checkout",
-      "prompt": "/lamina — Run a persona panel walkthrough of the checkout flow from each persona's perspective.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-user-modeling",
-        "persona simulation file exists",
-        "persona perspectives in output"
-      ]
-    },
-    {
-      "id": "cap-persona-conflict",
-      "prompt": "/lamina — Simulate how our personas would experience a dense power-user dashboard vs simplified novice layout.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "persona perspectives in output",
-        "Output mentions conflict or open questions"
-      ]
-    },
-    {
-      "id": "cap-blueprint-create-login",
-      "prompt": "/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.",
-      "force_skill_invocation": true,
-      "fixture": "greenfield-with-init",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-blueprint",
-        "blueprint validate passes",
-        "no styling in blueprint"
-      ]
-    },
-    {
-      "id": "cap-blueprint-with-scenarios",
-      "prompt": "/lamina — Create blueprint for password reset flow including empty and error scenarios in scenarios.yaml.",
-      "force_skill_invocation": true,
-      "fixture": "greenfield-with-init",
-      "stage_files": true,
-      "assertions": [
-        "blueprint validate passes",
-        "File `scenarios.yaml` exists",
-        "scenarios.yaml valid"
-      ]
-    },
-    {
-      "id": "cap-blueprint-brownfield",
-      "prompt": "/lamina — Blueprint the checkout flow screens we already ship; use structure-manifest for existing screens.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "read skill lamina-blueprint",
-        "blueprint validate passes"
       ]
     }
   ]

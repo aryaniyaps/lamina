@@ -17,8 +17,8 @@ npm run test:eval:spec
 |---|---|
 | `npm run test:eval:spec` | agentskills.io `--strict` + Lamina plugin validation (no LLM) |
 | `npm run test:eval:validate` | JSON schema validation for eval suites |
-| `npm run test:eval:smoke` | 21 critical cases × claude-code, codex, opencode |
-| `npm run test:eval:full` | ~105 cases, 3 trials, with/without baseline |
+| `npm run test:eval:smoke` | 21 critical cases × claude-code, codex, opencode (incl. multi-turn) |
+| `npm run test:eval:full` | ~100 cases, 3 trials, with/without baseline |
 | `npm run test:eval:portable` | agent-skills-eval portable instruction lift |
 | `npm run test:eval:redteam` | promptfoo adversarial probes |
 | `npm run test:eval:compat` | Weekly install matrix for 68+ agents |
@@ -27,7 +27,9 @@ npm run test:eval:spec
 ## Layout
 
 - `skills/*/evals/evals.json` — per-workflow eval suites (agentskills.io format)
-- `skills/lamina-capabilities/evals/evals.json` — edge cases, persona simulation, blueprint creation
+- `skills/lamina-capabilities/evals/evals.json` — direct-mode capability probes
+- `evals/scripts/run-suite.mjs` — unified runner (single-turn + multi-turn)
+- `evals/scripts/run-multiturn-case.mjs` — multi-turn eval runner
 - `evals/smoke/evals.json` — 21-case PR smoke subset
 - `evals/lamina/evals.json` — merged full suite (generated)
 - `evals/hooks/` — install, validate, grade hooks for agent-skill-eval
@@ -50,16 +52,40 @@ npm run test:eval:spec
 - **Nightly:** `eval-nightly.yml` — full harness + portable
 - **Weekly:** `eval-weekly.yml` — compat matrix + promptfoo redteam
 
+## Prompt realism
+
+Workflow evals use **natural user requests** — never telegraph expected workflow steps:
+
+- Feature design: plain feature asks (`Add wishlist`) — edge cases are asserted automatically via `lamina-edge-cases` hooks
+- Persona panel: runs when `personas.yaml` exists — prompts do not mention persona panel
+- Blueprint: **multi-turn** checkpoint — turn 1 is the workflow request; turn 2 is user consent (`Yes, show the wireframe preview.`)
+
+### Multi-turn schema
+
+```json
+{
+  "id": "design-feature-blueprint-accept",
+  "prompts": [
+    "/lamina-design — Add password reset flow.",
+    "Yes, show the wireframe preview."
+  ],
+  "fixture": "greenfield-with-init",
+  "assertions": ["blueprint offer made", "blueprint validate passes"]
+}
+```
+
+Use `prompt` for single-turn cases. Use `prompts` (2+ strings) for checkpoint flows. Validated by `test:eval:validate`.
+
 ## Capability coverage
 
-The `lamina-capabilities` suite tests UX artifact quality beyond routing/guardrails:
+Workflow artifact quality is tested inside `lamina-design` and `lamina-audit` suites (not via explicit user asks):
 
 | Area | Eval IDs | Hook assertions |
 |------|----------|-----------------|
-| Edge case mapping | `cap-edge-cases-*`, `design-feature-edge-cases*` | `edge case categories covered`, `no domain model artifact`, `no implementation vocabulary` |
-| Persona simulation | `cap-persona-*`, `design-concept-persona-walkthrough`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
-| Blueprint creation | `cap-blueprint-*`, `design-feature-blueprint-checkpoint` | `blueprint validate passes`, `scenarios.yaml valid`, `no styling in blueprint` |
-| Flow design | `cap-flow-design-framework` | `read skill lamina-flow-design` |
+| Edge case mapping | `design-feature-*`, `design-feature-edge-cases*` | `edge cases section present`, `edge case categories covered`, `no domain model artifact` |
+| Persona simulation | `design-concept-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
+| Blueprint checkpoint | `design-feature-blueprint-accept`, `design-feature-blueprint-decline`, `audit-blueprint-accept` | `blueprint offer made`, `blueprint validate passes`, `no blueprint without consent` |
+| Flow design (direct) | `cap-flow-design-framework` | `read skill lamina-flow-design` |
 
 Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lamina-blueprint validate` for blueprint/scenario checks).
 

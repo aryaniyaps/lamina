@@ -188,16 +188,36 @@ function listBlueprintTsxFiles(blueprintDirs) {
   return files;
 }
 
+function loadTurnOutputs(outputDir) {
+  const turnsDir = path.join(outputDir, 'turns');
+  const outputs = [];
+  if (!fs.existsSync(turnsDir)) return outputs;
+  const indices = fs
+    .readdirSync(turnsDir)
+    .filter((n) => /^\d+$/.test(n))
+    .sort((a, b) => Number(a) - Number(b));
+  for (const idx of indices) {
+    const text = readTextSafe(path.join(turnsDir, idx, 'output.txt'));
+    if (text) outputs.push(text);
+  }
+  return outputs;
+}
+
+function combinedOutputText(output, turnOutputs) {
+  if (turnOutputs.length) return turnOutputs.join('\n\n');
+  return output;
+}
 function gradeAssertion(text, ctx) {
   const lower = text.toLowerCase();
-  const { output, workspace, preState, postState, logs, evalMeta } = ctx;
+  const { output, workspace, preState, postState, logs, evalMeta, turnOutputs = [] } = ctx;
+  const allOutput = combinedOutputText(output, turnOutputs);
   const newFiles = diffNewFiles(preState, postState);
   const workspaceFiles = listFiles(workspace);
 
   if (lower.includes('init required') || lower.includes('init-blocked') || lower.includes("'blocked'")) {
     const hasBlocked =
-      (/init required|blocked/i.test(output) || /## Lamina: init required/i.test(output)) &&
-      (/### Status/i.test(output) || /what's missing/i.test(output) || /### Do not/i.test(output));
+      (/init required|blocked/i.test(allOutput) || /## Lamina: init required/i.test(allOutput)) &&
+      (/### Status/i.test(allOutput) || /what's missing/i.test(allOutput) || /### Do not/i.test(allOutput));
     return hookResult(text, hasBlocked, hasBlocked ? 'Output contains init-blocked signals' : 'No init-blocked contract in output');
   }
 
@@ -322,7 +342,7 @@ function gradeAssertion(text, ctx) {
 
   if (lower.includes('edge case categories covered')) {
     const scenariosText = readScenariosText(workspace, findBlueprintDirs(workspace, newFiles));
-    const combined = `${output}\n${scenariosText}`;
+    const combined = `${allOutput}\n${scenariosText}`;
     const count = countEdgeCategories(combined);
     const passed = count >= 3;
     return hookResult(
@@ -421,8 +441,8 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('persona perspectives in output')) {
     const personaIds = loadPersonaIds(workspace);
     const passed =
-      personaIds.some((id) => output.includes(id)) ||
-      /persona panel|from .+'s perspective|as (the )?(primary|demo)/i.test(output);
+      personaIds.some((id) => allOutput.includes(id)) ||
+      /persona panel|from .+'s perspective|as (the )?(primary|demo)/i.test(allOutput);
     return hookResult(
       text,
       passed,
@@ -446,8 +466,43 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('mentions conflict or open questions')) {
-    const passed = /conflict|open questions?|trade-?off|tension between/i.test(output);
+    const passed = /conflict|open questions?|trade-?off|tension between/i.test(allOutput);
     return hookResult(text, passed, passed ? 'Conflict or open questions mentioned' : 'No conflict/open-questions language');
+  }
+
+  if (lower.includes('edge cases section present')) {
+    const passed = /### Edge cases/i.test(allOutput);
+    return hookResult(text, passed, passed ? '### Edge cases heading present' : 'Missing ### Edge cases section');
+  }
+
+  if (lower.includes('blueprint offer made')) {
+    const firstTurn = turnOutputs[0] ?? allOutput;
+    const passed = /wireframe preview|blueprint preview|preview\?|opens a local link/i.test(firstTurn);
+    return hookResult(text, passed, passed ? 'Blueprint/wireframe offer found in early turn' : 'No blueprint checkpoint offer');
+  }
+
+  if (lower.includes('no blueprint without consent')) {
+    const blueprintNew = newFiles.filter((f) => normalizePath(f).startsWith('.lamina/blueprints/'));
+    const passed = blueprintNew.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No blueprint directory created' : `Blueprint files created: ${blueprintNew.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('mentions failure or empty or permission')) {
+    const passed = /failure|empty|permission|session expired|not found|unavailable/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Operational gap language found' : 'No failure/empty/permission mentions');
+  }
+
+  const turnMatch = text.match(/turn (\d+) output contains ["'`]([^"'`]+)["'`]/i);
+  if (turnMatch) {
+    const turnIdx = Number(turnMatch[1]) - 1;
+    const needle = turnMatch[2].toLowerCase();
+    const turnText = (turnOutputs[turnIdx] ?? '').toLowerCase();
+    const passed = turnText.includes(needle);
+    return hookResult(text, passed, passed ? `Found in turn ${turnMatch[1]}` : `Missing in turn ${turnMatch[1]}`);
   }
 
   return null;
@@ -456,6 +511,7 @@ function gradeAssertion(text, ctx) {
 function main() {
   const workspace = process.env.ASE_WORKSPACE_PATH || process.cwd();
   const outputDir = process.env.ASE_OUTPUT_DIR || workspace;
+  const turnOutputs = loadTurnOutputs(outputDir);
   const output =
     readTextSafe(path.join(outputDir, 'outputs', 'output.txt')) ||
     readTextSafe(path.join(outputDir, 'output.txt')) ||
@@ -474,18 +530,19 @@ function main() {
   const assertions = grading?.assertion_results?.map((a) => a.text) ?? [];
 
   const hookAssertions = [];
+  const gradeCtx = { output, workspace, preState, postState, logs, evalMeta, turnOutputs };
   for (const text of assertions) {
-    const result = gradeAssertion(text, { output, workspace, preState, postState, logs, evalMeta });
+    const result = gradeAssertion(text, gradeCtx);
     if (result) hookAssertions.push(result);
   }
 
   const evalId = process.env.ASE_EVAL_ID || '';
   if (evalId.includes('init-gate') || evalId.includes('init-blocked')) {
-    const blocked = gradeAssertion('init-blocked contract headings', { output, workspace, preState, postState, logs, evalMeta });
+    const blocked = gradeAssertion('init-blocked contract headings', gradeCtx);
     if (blocked && !hookAssertions.some((h) => h.text.includes('init-blocked'))) {
       hookAssertions.push(blocked);
     }
-    const noLamina = gradeAssertion('no `.lamina/` writes', { output, workspace, preState, postState, logs, evalMeta });
+    const noLamina = gradeAssertion('no `.lamina/` writes', gradeCtx);
     if (noLamina) hookAssertions.push(noLamina);
   }
 

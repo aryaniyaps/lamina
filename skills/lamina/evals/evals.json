@@ -467,11 +467,12 @@
       "id": "fixture-brownfield-audit-checkout",
       "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
-      "fixture": "brownfield-with-init",
+      "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "audit contract headings",
-        "Output mentions cart or checkout"
+        "Output mentions cart or checkout",
+        "Output mentions failure or empty or permission"
       ]
     }
   ]
