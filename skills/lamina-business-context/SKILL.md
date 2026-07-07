@@ -47,7 +47,7 @@ Apply the linked capability skill's frameworks when writing each section.
 | Business goals | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md) |
 | Success metrics | [quantitative-validation](../lamina-quantitative-validation/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Scope | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md), [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
-| Users & market | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) — prose only; structured personas are ideate's job |
+| Users & market | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) — prose only; structured personas are the design concept track's job |
 | Product posture | [platform-posture](../lamina-platform-posture/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md) |
 | Constraints | [research-scoping](../lamina-research-scoping/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Stakeholders | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
@@ -124,10 +124,10 @@ When a section changes, flag downstream artifacts that may need refresh:
 
 | Changed section | May stale |
 |---|---|
-| Users & market | `personas.yaml` — re-run `/lamina-ideate` step 1 |
+| Users & market | `personas.yaml` — re-run `/lamina-design` concept track step 1 |
 | Scope | `flows-inventory.yaml` entries outside new scope; feature specs in flight |
-| Business goals, success metrics | optimize prioritization; feature metrics sections |
-| Product posture, constraints | ideate IA and interaction sections |
+| Business goals, success metrics | audit prioritization; design feature track metrics sections |
+| Product posture, constraints | design concept track IA and interaction sections |
 | Problem statement (pivot) | personas, flows-inventory, requirements |
 
 Never silently overwrite `personas.yaml` or `decisions.md`. Offer explicit refresh or append.
@@ -190,9 +190,9 @@ lamina:
 
 | Signal | Suggest |
 |---|---|
-| Problem unclear, early exploration | `/lamina-ideate` |
-| Specific feature to specify | `/lamina-feature` |
-| Shipped UI, known pain, clear goals | `/lamina-optimize` |
+| Problem unclear, early exploration | `/lamina-design` (concept track) |
+| Specific feature to specify | `/lamina-design` (feature track) |
+| Shipped UI, known pain, clear goals | `/lamina-audit` |
 | Business context incomplete | finish open questions before other commands |
 
 Do not persist recommendation in any file.

@@ -11,10 +11,17 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 | Input | Expected dispatch |
 |---|---|
-| "We don't know what problem to solve yet" | ideate workflow |
-| "Add a wishlist feature" | feature workflow |
-| "Audit our checkout flow" | optimize workflow |
+| "We don't know what problem to solve yet" | design workflow → concept track |
+| "Add a wishlist feature" | design workflow → feature track |
+| "Audit our checkout flow" | audit workflow |
 | "Help with form validation UX" | direct → lamina-forms |
+
+### Init gate (workflow dispatch)
+
+| Input | Expected |
+|---|---|
+| Any design/audit signal without `.lamina/business-context.md` | Blocked — init-blocked output; instruct `/lamina-init`; no artifacts created |
+| Design signal with valid business context | Dispatch to design workflow |
 
 ## Init (`/lamina-init`)
 
@@ -24,25 +31,38 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 - Expect: loads skills from `audit-profiles.yaml` `init` profile
 - Update: `/lamina-init update` with pivot description — expect changelog append, stale artifact flags
 
-## Ideate (`/lamina-ideate`)
+## Design (`/lamina-design`)
+
+- **Prerequisite:** valid `.lamina/business-context.md` from `/lamina-init` (required — gate blocks without it)
+
+### Concept track
 
 - Input: problem statement for a mobile budgeting app
-- Expect: 9-section output per `skills/lamina-orchestrator/prompts/outputs/ideate.md`
-- Expect: step 0 reads `business-context.md` when present
+- Expect: 9-section output per `skills/lamina-orchestrator/prompts/outputs/design-concept.md`
+- Expect: step 0 init gate passes; reads `business-context.md`
 - Expect: `.lamina/personas.yaml` cast at step 1
 - Optional: persona panel at step 4 when flows exist
+- **Without init:** expect init-blocked output; no personas or other artifacts created
 
-## Feature (`/lamina-feature`)
+### Feature track
 
 - Input: "Add two-factor authentication to settings"
-- Expect: feature output contract headings
+- Expect: feature output contract headings per `skills/lamina-orchestrator/prompts/outputs/design-feature.md`
 - Expect: loads skills from `audit-profiles.yaml` feature-* profiles
+- **Without init:** expect init-blocked output; no artifacts created
 
-## Optimize (`/lamina-optimize`)
+### Track override
 
+- Input: `/lamina-design --track feature Add wishlist`
+- Expect: feature track regardless of problem-only phrasing
+
+## Audit (`/lamina-audit`)
+
+- **Prerequisite:** valid business context (required)
 - Input: checkout flow description or screenshot reference
 - Expect: prioritized improvements table
 - Expect: loads `audit-profiles.full-flow` skills
+- **Without init:** expect init-blocked output; no artifacts created
 
 ## Direct capability
 

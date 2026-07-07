@@ -50,10 +50,10 @@ personas:
 
 ### Per run — `.lamina/personas/simulations/<run_id>.yaml`
 
-One file per panel execution. `run_id` = short slug (e.g. `checkout-optimize-2026-07-05`).
+One file per panel execution. `run_id` = short slug (e.g. `checkout-audit-2026-07-05`).
 
 ```yaml
-hook: optimize              # ideate | optimize | feature
+hook: audit              # concept | audit | feature
 target: checkout flow
 panel: [deal-hunter-diane, screen-reader-sam]
 results:
@@ -111,11 +111,11 @@ Orchestrator responsibility (main thread, not a subagent):
 | Hook | Command | Action |
 |---|---|---|
 | Bootstrap | `/lamina-init` | Write `business-context.md` |
-| Cast | `/lamina-ideate` step 1 | Write `personas.yaml` |
-| Walkthrough | `/lamina-ideate` step 4 | Persona panel on draft flows |
-| Audit | `/lamina-optimize` | Persona panel per flow (parallel with expert lenses) |
-| Feature review | `/lamina-feature` after flows | Persona panel; conflicts → risks |
-| Test tasks | `/lamina-ideate` step 9 | Map simulation blockers → real usability test tasks |
+| Cast | `/lamina-design` concept track step 1 | Write `personas.yaml` |
+| Walkthrough | `/lamina-design` concept track step 4 | Persona panel on draft flows |
+| Audit | `/lamina-audit` | Persona panel per flow (parallel with expert lenses) |
+| Feature review | `/lamina-design` feature track after flows | Persona panel; conflicts → risks |
+| Test tasks | `/lamina-design` concept track step 9 | Map simulation blockers → real usability test tasks |
 
 ---
 
@@ -126,6 +126,12 @@ Orchestrator responsibility (main thread, not a subagent):
 | `.lamina/business-context.md` | Business foundation for UX work — problem, goals, metrics, scope, users, constraints. **Only artifact `/lamina-init` creates.** |
 
 Load [lamina-business-context](../lamina-business-context/SKILL.md) for question bank, skill mapping, and establish/update protocols.
+
+### Prerequisite for downstream workflows
+
+`/lamina-design`, `/lamina-audit`, and `/lamina` (when routing to those workflows) **require** a valid `business-context.md` from `/lamina-init`. See [init-required](prerequisites/init-required.md).
+
+**Does not satisfy init:** `.lamina/personas.yaml`, `flows-inventory.yaml`, `blueprints/`, `preview-state.yaml`, or any other downstream artifact — presence of `.lamina/` alone is insufficient.
 
 ### Establish (`/lamina-init`)
 
@@ -162,7 +168,7 @@ Brownfield only: optional **Inferred context** section — product signals from 
 ### 2026-07-06 — pivot to B2B
 - Changed: scope, users & market, success metrics
 - Trigger: user stated enterprise pivot
-- Stale: re-run /lamina-ideate step 1 if personas exist
+- Stale: re-run `/lamina-design` concept track step 1 if personas exist
 ```
 
 ---
@@ -175,9 +181,9 @@ Brownfield only: optional **Inferred context** section — product signals from 
 
 | Command | When to write / append |
 |---|---|
-| `/lamina-optimize` | After auditing each flow — `status: shipped` |
-| `/lamina-ideate` step 4 | When draft flows are defined — `status: draft` |
-| `/lamina-feature` | When feature flows are specified — `status: planned` |
+| `/lamina-audit` | After auditing each flow — `status: shipped` |
+| `/lamina-design` concept track step 4 | When draft flows are defined — `status: draft` |
+| `/lamina-design` feature track | When feature flows are specified — `status: planned` |
 
 Read before writing; append or update entries — never replace the whole file without consent.
 
@@ -230,7 +236,7 @@ Optimize blueprints target **entire flows**. When evidence exists, write manifes
 
 | Path | Purpose | Owner |
 |---|---|---|
-| `.lamina/requirements.md` | UX requirements + handoff block (includes edge case summary on blueprint approve) | `/lamina-feature`, `/lamina-ideate` |
+| `.lamina/requirements.md` | UX requirements + handoff block (includes edge case summary on blueprint approve) | `/lamina-design` |
 | `.lamina/implementation-tasks.md` | P0/P1/P2 tasks for coding agents | feature checklist |
 | `.lamina/decisions.md` | Decision log | any workflow on conflict |
 

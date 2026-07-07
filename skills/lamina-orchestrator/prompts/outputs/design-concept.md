@@ -1,7 +1,7 @@
 Use these exact headings:
 
 ```markdown
-## Ideation: <problem>
+## Design (concept): <problem>
 ### User model
 ### Journey
 ### Information architecture

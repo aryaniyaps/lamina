@@ -86,7 +86,7 @@ function walk(dir) {
 
 function checkOutputContracts() {
   const contracts = {
-    'skills/lamina-orchestrator/prompts/outputs/ideate.md': [
+    'skills/lamina-orchestrator/prompts/outputs/design-concept.md': [
       'User model',
       'Journey',
       'Information architecture',
@@ -99,7 +99,7 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/feature.md': [
+    'skills/lamina-orchestrator/prompts/outputs/design-feature.md': [
       'Problem definition',
       'Jobs to be done',
       'Assumptions',
@@ -113,7 +113,7 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/optimize.md': [
+    'skills/lamina-orchestrator/prompts/outputs/audit.md': [
       'Executive summary',
       'Findings by flow',
       'Prioritized improvements',
@@ -131,6 +131,12 @@ function checkOutputContracts() {
       'Recommended next step',
       'Skills applied',
     ],
+    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
+      'Status',
+      "What's missing",
+      'Next step',
+      'Do not',
+    ],
   };
 
   for (const [file, headings] of Object.entries(contracts)) {
@@ -144,7 +150,7 @@ function checkOutputContracts() {
 }
 
 function checkCommandSkills() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-ideate', 'lamina-feature', 'lamina-optimize'];
+  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-audit'];
   for (const name of commandNames) {
     const skillPath = `skills/${name}/SKILL.md`;
     const commandPath = `commands/${name}.md`;
@@ -165,6 +171,25 @@ function checkCommandSkills() {
     }
   }
 }
+function checkInitPrerequisiteLinks() {
+  const gatedCommands = ['lamina-design', 'lamina-audit'];
+  for (const name of gatedCommands) {
+    const skillPath = `skills/${name}/SKILL.md`;
+    const skill = read(skillPath);
+    if (!skill.includes('init-required.md')) {
+      errors.push(`Command skill missing init-required reference: ${skillPath}`);
+    }
+    if (!skill.includes('init-blocked.md')) {
+      errors.push(`Command skill missing init-blocked reference: ${skillPath}`);
+    }
+  }
+
+  const routerSkill = read('skills/lamina/SKILL.md');
+  if (!routerSkill.includes('init-required.md')) {
+    errors.push('Router command skill missing init-required reference: skills/lamina/SKILL.md');
+  }
+}
+
 function checkRequiredPaths() {
   const required = [
     '.claude-plugin/plugin.json',
@@ -172,20 +197,25 @@ function checkRequiredPaths() {
     'skills/lamina-core/SKILL.md',
     'skills/lamina/SKILL.md',
     'skills/lamina-init/SKILL.md',
-    'skills/lamina-ideate/SKILL.md',
-    'skills/lamina-feature/SKILL.md',
-    'skills/lamina-optimize/SKILL.md',
+    'skills/lamina-design/SKILL.md',
+    'skills/lamina-audit/SKILL.md',
     'skills/lamina-business-context/SKILL.md',
     'skills/lamina-orchestrator/SKILL.md',
     'skills/lamina-orchestrator/audit-profiles.yaml',
     'skills/lamina-orchestrator/merge-rules.md',
     'skills/lamina-blueprint/SKILL.md',
     'skills/lamina-orchestrator/workflows/init.md',
+    'skills/lamina-orchestrator/prerequisites/init-required.md',
+    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
+    'scripts/check_lamina_init.mjs',
     'commands/lamina.md',
     'commands/lamina-init.md',
-    'commands/lamina-ideate.md',
-    'commands/lamina-feature.md',
-    'commands/lamina-optimize.md',
+    'commands/lamina-design.md',
+    'commands/lamina-audit.md',
+    'skills/lamina-orchestrator/workflows/design.md',
+    'skills/lamina-orchestrator/workflows/design-concept.md',
+    'skills/lamina-orchestrator/workflows/design-feature.md',
+    'skills/lamina-orchestrator/workflows/audit.md',
     'skills/lamina-orchestrator/prompts/outputs/init.md',
     'skills/lamina-orchestrator/prompts/checkpoints/blueprint-preview.md',
     'packages/lamina-blueprint/package.json',
@@ -206,6 +236,7 @@ const check = process.argv.includes('--check')
 if (check === 'structure' || check === 'all') {
   checkRequiredPaths();
   checkCommandSkills();
+  checkInitPrerequisiteLinks();
   checkAuditProfiles();
   checkProblemRouterLinks();
   checkOutputContracts();

@@ -98,9 +98,8 @@ Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow.
 |---------|---------|-------------|
 | `/lamina` | Intent router | Unsure which workflow; general UX question |
 | `/lamina-init` | Business context bootstrap | New project or pivot |
-| `/lamina-ideate` | Problem → full UX concept | Early exploration, greenfield |
-| `/lamina-feature` | Feature → implementation-ready spec | Known feature to spec |
-| `/lamina-optimize` | Flow audit → prioritized fixes | Improve existing UI or flows |
+| `/lamina-design` | Net-new UX — concept or feature track | Greenfield product or scoped feature spec |
+| `/lamina-audit` | Flow audit → prioritized fixes | Improve existing UI or flows |
 
 ### `/lamina` — Intent router
 
@@ -110,9 +109,9 @@ One entry point that detects what you need and runs the right workflow — or an
 
 | Signal | Dispatch |
 |--------|----------|
-| Problem only, early exploration | `ideate` workflow |
-| Specific feature to add | `feature` workflow |
-| Audit or improve existing UI | `optimize` workflow |
+| Problem only, early exploration | `design` workflow → concept track |
+| Specific feature to add | `design` workflow → feature track |
+| Audit or improve existing UI | `audit` workflow |
 | Single clear topic (forms, navigation, etc.) | **Direct mode** → `lamina-core` Problem Router → one skill |
 | Ambiguous | Ask one clarifying question, then dispatch |
 
@@ -143,41 +142,31 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 
 **Output:** `.lamina/business-context.md` · contract: [`skills/lamina-orchestrator/prompts/outputs/init.md`](skills/lamina-orchestrator/prompts/outputs/init.md)
 
-### `/lamina-ideate` — Problem → full UX concept
+### `/lamina-design` — Net-new UX
 
-Start from a user problem and build a complete UX concept incrementally — nine sections: user model, journey, IA, flows, screens, interactions, copy, a11y, validation plan.
+Design net-new UX — whole product from a problem (concept track) or one capability on an existing product (feature track). Auto-routes based on input; override with `--track concept` or `--track feature`.
 
-**Example:**
-
-```
-/lamina-ideate Mobile budgeting app for college students who overspend
-```
-
-**Output:** `.lamina/personas.yaml`, `.lamina/flows-inventory.yaml`, optional blueprint TSX · contract: [`skills/lamina-orchestrator/prompts/outputs/ideate.md`](skills/lamina-orchestrator/prompts/outputs/ideate.md)
-
-### `/lamina-feature` — Feature → implementation-ready spec
-
-Turn a feature idea into a spec with problem framing, JTBD, assumptions, goals, flows, edge cases, risks, a11y, metrics, and an implementation checklist.
-
-**Example:**
+**Examples:**
 
 ```
-/lamina-feature Add two-factor authentication to settings
+/lamina-design Mobile budgeting app for college students who overspend
+/lamina-design Add two-factor authentication to settings
+/lamina-design --track feature Add wishlist
 ```
 
-**Output:** feature spec artifacts under `.lamina/` · contract: [`skills/lamina-orchestrator/prompts/outputs/feature.md`](skills/lamina-orchestrator/prompts/outputs/feature.md)
+**Output:** `.lamina/personas.yaml` (concept track), `.lamina/flows-inventory.yaml`, optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
 
-### `/lamina-optimize` — Audit existing flows
+### `/lamina-audit` — Audit existing flows
 
 Audit one or more existing flows and return improvements ranked by impact vs effort.
 
 **Example:**
 
 ```
-/lamina-optimize Audit our checkout flow
+/lamina-audit Audit our checkout flow
 ```
 
-**Output:** prioritized improvement list · contract: [`skills/lamina-orchestrator/prompts/outputs/optimize.md`](skills/lamina-orchestrator/prompts/outputs/optimize.md)
+**Output:** prioritized improvement list · contract: [`skills/lamina-orchestrator/prompts/outputs/audit.md`](skills/lamina-orchestrator/prompts/outputs/audit.md)
 
 ---
 

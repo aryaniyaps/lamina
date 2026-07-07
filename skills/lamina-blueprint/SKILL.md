@@ -24,7 +24,7 @@ metadata:
 
 ## When to use
 
-- User opts into wireframe preview during ideate (steps 5, 6, end), feature, or optimize
+- User opts into wireframe preview during design (concept track steps 5, 6, end; feature track flows and before tasks) or audit
 - User describes layout changes to update a live preview
 - Handoff to coding agents after blueprint approval
 
@@ -117,7 +117,7 @@ scenarios:
 
 **Variant file:** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use `EmptyState`, `ErrorState`, `Alert`, etc. per `ux` field.
 
-When no blueprint exists yet, document edge cases as a structured table in feature output (`### Edge cases`); migrate to `scenarios.yaml` + variant files when blueprint checkpoint runs.
+When no blueprint exists yet, document edge cases as a structured table in design feature track output (`### Edge cases`); migrate to `scenarios.yaml` + variant files when blueprint checkpoint runs.
 
 Preview shows scenarios as **dashed branches** on the flow graph; click a branch node to load the variant; click the main screen node to return to the happy path.
 
@@ -206,7 +206,7 @@ Start preview once with `lamina-blueprint preview --root .lamina/blueprints --id
 
 ## Brownfield extraction (existing screens)
 
-Use when a blueprint includes **existing production screens** — optimize audits, or features that reuse shipped UI. New screens in the same flow do **not** need manifest entries.
+Use when a blueprint includes **existing production screens** — audit findings, or features that reuse shipped UI. New screens in the same flow do **not** need manifest entries.
 
 ### When manifest is required
 
@@ -311,8 +311,8 @@ Two ways to express an optimization in a blueprint:
 1. **Edit `screens/`** — update the designed state for the step under test (preview shows it directly).
 2. **New alternate flow** — add `<Flow id="...">` with `flows/<id>/screens/` overrides where steps differ; compare by switching flows in the preview picker.
 
-Edge-case states use `scenarios.yaml` branches on the graph, not separate optimize artifacts.
+Edge-case states use `scenarios.yaml` branches on the graph, not separate audit artifacts.
 
 ## Checkpoint
 
-Offer after ideate steps 5, 6, end; feature flows and before tasks; optimize findings. See `../lamina-orchestrator/prompts/checkpoints/blueprint-preview.md`.
+Offer after design concept track steps 5, 6, end; design feature track flows and before tasks; audit findings. See `../lamina-orchestrator/prompts/checkpoints/blueprint-preview.md`.

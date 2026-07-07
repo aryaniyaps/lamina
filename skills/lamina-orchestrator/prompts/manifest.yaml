@@ -1,11 +1,11 @@
 work-plan:
   path: work-plan.md
-outputs/ideate:
-  path: outputs/ideate.md
-outputs/feature:
-  path: outputs/feature.md
-outputs/optimize:
-  path: outputs/optimize.md
+outputs/design-concept:
+  path: outputs/design-concept.md
+outputs/design-feature:
+  path: outputs/design-feature.md
+outputs/audit:
+  path: outputs/audit.md
 outputs/init:
   path: outputs/init.md
 subagents/persona-panel-spawn:

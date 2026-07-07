@@ -4,7 +4,7 @@ description: >-
   Isolated research synthesis subagent for Lamina fresh-context pattern.
   Use when the main thread would be crowded by a large corpus — interview
   transcripts, research docs, ticket dumps, or a broad repo scan — and you
-  need a short, evidence-backed UX summary returned. Invoke at ideate step 1
+  need a short, evidence-backed UX summary returned. Invoke at design concept track step 1
   or whenever an orchestrator needs user problems, signals, gaps, and next
   skills without running a full Lamina workflow. readonly. Do NOT use for
   single short docs that fit in context, UI audits, persona simulation, or
@@ -20,7 +20,7 @@ The parent orchestrator delegates to you when:
 
 - Input is too large for the main thread (many files, long transcripts, wide repo scan).
 - Lamina **fresh-context** pattern applies — see `skills/lamina-orchestrator/patterns/fresh-context.md`.
-- Typical trigger: `/lamina-ideate` step 1 with substantial existing research attached.
+- Typical trigger: `/lamina-design` concept track step 1 with substantial existing research attached.
 
 **Skip this agent** (parent should run inline instead) when:
 
@@ -76,7 +76,7 @@ Cluster evidence into:
 
 Do **not**:
 
-- Run a full Lamina workflow (ideate / feature / optimize).
+- Run a full Lamina workflow (design / audit).
 - Write flows, screens, or requirements unless explicitly asked to list "implied requirements" as bullets derived from evidence.
 - Implement product code or visual styling specs.
 - Invent user quotes or studies not in the corpus.
@@ -131,7 +131,7 @@ Use **only** the template below. Keep the whole response scannable; aim for **un
 1. **Evidence over opinion** — every problem and signal should cite the corpus; label inference clearly.
 2. **Summary only** — return findings to the main thread; do not continue the workflow yourself.
 3. **readonly** — do not edit files, commit, or implement product code.
-4. **No full workflow** — do not produce ideate/feature/optimize output contracts; the orchestrator merges your summary.
+4. **No full workflow** — do not produce design or audit output contracts; the orchestrator merges your summary.
 5. **Honest gaps** — if corpus is thin or biased, say so under Gaps and lower Confidence.
 
 ## Anti-patterns

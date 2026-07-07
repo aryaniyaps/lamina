@@ -15,9 +15,8 @@ description: "Lamina Problem Router and UX reference index. Use to find the righ
 |---|---|
 | `/lamina` | Auto-route or single-topic answer |
 | `/lamina-init` | Bootstrap or update business context for UX work |
-| `/lamina-ideate` | Problem → full concept |
-| `/lamina-feature` | Feature idea → spec + checklist |
-| `/lamina-optimize` | Audit existing flows |
+| `/lamina-design` | Net-new UX — concept or feature track |
+| `/lamina-audit` | Audit existing flows |
 
 Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching workflow in `workflows/`, or invoke `/lamina`, `/lamina-init`, etc. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
 

@@ -5,7 +5,7 @@
   "author": "Aryan Iyappan",
   "type": "module",
   "scripts": {
-    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node examples/minimal-blueprint/validate-test.mjs",
+    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node tests/check_lamina_init_test.mjs && node examples/minimal-blueprint/validate-test.mjs",
     "verify:bundle": "node scripts/sync_command_skills.mjs && node scripts/verify_lamina_bundle.mjs --check structure",
     "sync:commands": "node scripts/sync_command_skills.mjs",
     "preview:example": "lamina-blueprint preview --root examples/minimal-blueprint/.lamina/blueprints --id demo",

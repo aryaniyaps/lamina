@@ -25,7 +25,7 @@ metadata:
 
 ## Impact × effort scoring
 
-Use when prioritizing findings (especially `/lamina-optimize`):
+Use when prioritizing findings (especially `/lamina-audit`):
 
 | Dimension | high | medium | low |
 |---|---|---|---|

@@ -10,6 +10,6 @@
 
 **Skip when:** No evaluable artifact yet, or user wants a quick take.
 
-**With parallel review:** In optimize, persona panel and expert audit lenses run as separate parallel groups on the same flow target.
+**With parallel review:** In audit, persona panel and expert audit lenses run as separate parallel groups on the same flow target.
 
 Load [artifacts.md](../artifacts.md) for YAML shapes and reconcile protocol.

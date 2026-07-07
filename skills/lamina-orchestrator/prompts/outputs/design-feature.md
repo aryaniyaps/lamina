@@ -1,7 +1,7 @@
 Use these exact headings:
 
 ```markdown
-## Feature: <name>
+## Design (feature): <name>
 ### Problem definition
 ### Jobs to be done
 ### Assumptions

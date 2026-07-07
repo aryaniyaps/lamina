@@ -17,9 +17,8 @@ const SKILLS_DIR = path.join(ROOT, 'skills');
 const COMMAND_SKILL_NAMES = new Set([
   'lamina',
   'lamina-init',
-  'lamina-ideate',
-  'lamina-feature',
-  'lamina-optimize',
+  'lamina-design',
+  'lamina-audit',
 ]);
 
 function parseFrontmatter(content) {

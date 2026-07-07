@@ -28,9 +28,9 @@ metadata:
 
 ## When to use
 
-- `/lamina-feature` edge cases section (after flows defined)
+- `/lamina-design` feature track edge cases section (after flows defined)
 - Blueprint checkpoint when hydrating scenario variants
-- `/lamina-optimize` when auditing unmapped failure/empty/permission states
+- `/lamina-audit` when auditing unmapped failure/empty/permission states
 - Any flow where happy-path screens exist but operational deviations are unaddressed
 
 ## Transient operation inventory (session-only)

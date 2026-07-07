@@ -22,17 +22,17 @@ Workflow commands always load this skill first, then their workflow file from [w
 ## Three steps
 
 1. **Select** — parse request; list skills from Problem Router, skill `related` metadata, or [audit-profiles.yaml](audit-profiles.yaml). Workflow profiles define the skill set; do not truncate.
-2. **Apply** — load each skill; run inline by default. For optimize, prefer parallel lens subagents over loading all profile skills inline when the host supports Task.
+2. **Apply** — load each skill; run inline by default. For audit, prefer parallel lens subagents over loading all profile skills inline when the host supports Task.
 3. **Deliver** — merge into the command output contract; load `lamina-decision-making` per the table below.
 
 ### When to load `lamina-decision-making`
 
 | Workflow | Load `lamina-decision-making` |
 |---|---|
-| optimize | Always (scoring) |
-| feature | Risks section + conflicts |
+| audit | Always (scoring) |
+| design (feature track) | Risks section + conflicts |
 | init | Conflicts only |
-| ideate | Conflicts only |
+| design (concept track) | Conflicts only |
 | direct | Only if user asks |
 
 ## Files
@@ -41,9 +41,11 @@ Workflow commands always load this skill first, then their workflow file from [w
 |---|---|
 | [workflows/router.md](workflows/router.md) | `/lamina` intent routing |
 | [workflows/init.md](workflows/init.md) | `/lamina-init` establish + update |
-| [workflows/ideate.md](workflows/ideate.md) | `/lamina-ideate` steps |
-| [workflows/feature.md](workflows/feature.md) | `/lamina-feature` steps |
-| [workflows/optimize.md](workflows/optimize.md) | `/lamina-optimize` steps |
+| [workflows/design.md](workflows/design.md) | `/lamina-design` — concept or feature track |
+| [workflows/design-concept.md](workflows/design-concept.md) | Concept track steps |
+| [workflows/design-feature.md](workflows/design-feature.md) | Feature track steps |
+| [workflows/audit.md](workflows/audit.md) | `/lamina-audit` steps |
+| [prerequisites/init-required.md](prerequisites/init-required.md) | Init gate for downstream workflows |
 | [audit-profiles.yaml](audit-profiles.yaml) | Workflow → skill name lists |
 | [merge-rules.md](merge-rules.md) | Work plan, merge order, conflicts |
 | [artifacts.md](artifacts.md) | `.lamina/` contract, persona protocol |
