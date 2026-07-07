@@ -17,7 +17,7 @@
 | UI generation | Code generation | **UX reasoning** |
 |---------------|-----------------|------------------|
 | Impeccable, frontend-design | Cursor, Copilot, Claude Code | **Lamina** |
-| Make things *look* good | Write the *code* | Figure out *what to build* and *how it works* |
+| Make things *look* good | Write the *code* | Figure out *how it works* |
 
 AI UI tools make things pretty. Coding agents write the code. Nobody goes through user personas, maps the flows, or handles edge cases. Lamina is that layer.
 
