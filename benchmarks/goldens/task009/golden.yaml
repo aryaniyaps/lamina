@@ -1,0 +1,22 @@
+task_id: task009
+required_personas:
+  - frequent_shopper
+  - b2b_buyer
+required_flows:
+  - save_search
+  - run_saved_search
+  - edit_saved_search
+  - notification_opt_in
+required_rules:
+  - max_saved_searches
+  - notification_frequency
+required_edge_cases:
+  - no_new_matches
+  - filter_deprecated
+  - duplicate_name
+required_a11y:
+  - search_results_announcement
+  - filter_state_persistence
+required_sections:
+  - flows
+  - edge cases

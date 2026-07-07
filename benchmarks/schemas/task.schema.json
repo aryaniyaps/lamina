@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LaminaBench Task",
+  "type": "object",
+  "required": ["id", "category", "workflow", "prompt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^task[0-9]{3}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "greenfield",
+        "oss_feature",
+        "oss_audit",
+        "workflow_edge",
+        "accessibility"
+      ]
+    },
+    "workflow": {
+      "type": "string",
+      "enum": ["design-concept", "design-feature", "audit"]
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 10
+    },
+    "fixture": {
+      "type": ["string", "null"]
+    },
+    "oss": {
+      "type": "object",
+      "properties": {
+        "repo": { "type": "string" },
+        "commit": { "type": "string" }
+      }
+    },
+    "runs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "human_eval": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

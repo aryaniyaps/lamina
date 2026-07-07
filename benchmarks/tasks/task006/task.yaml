@@ -1,0 +1,10 @@
+id: task006
+category: oss_feature
+workflow: design-feature
+prompt: Design a recurring tasks feature for Plane.
+fixture: plane-with-init
+human_eval: true
+runs: 3
+oss:
+  repo: makeplane/plane
+  commit: develop

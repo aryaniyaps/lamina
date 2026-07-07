@@ -1,0 +1,25 @@
+task_id: task013
+required_personas:
+  - author
+  - viewer
+  - admin
+required_flows:
+  - share_document
+  - change_permissions
+  - public_link
+required_findings:
+  - permission_confusion
+  - inheritance_clarity
+  - share_discoverability
+  - revocation
+required_edge_cases:
+  - permission_downgrade
+  - link_leak
+  - moved_document
+required_a11y:
+  - permission_status
+  - share_dialog_focus
+required_sections:
+  - executive summary
+  - findings
+  - prioritized improvements

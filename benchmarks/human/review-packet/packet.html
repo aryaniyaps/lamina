@@ -1,0 +1,639 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>LaminaBench Blind Review</title>
+<style>body{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem}
+article{border:1px solid #ddd;margin:2rem 0;padding:1.5rem;border-radius:8px}
+pre{white-space:pre-wrap;background:#f6f6f6;padding:1rem;max-height:400px;overflow:auto}
+h2{margin-top:0}</style></head><body>
+<h1>LaminaBench Blind Review Packet</h1>
+<p>Tasks: 10. Score each artifact A and B using the rubric. Do not infer which arm produced which.</p>
+<p><a href="../judges/rubric.md">Rubric</a></p>
+<article><h2>task001</h2>
+<h3>Task</h3><pre># Household Budgeting App
+
+Design a new mobile-first budgeting product for young families in the US.
+
+## Requirements
+
+- Help users understand where money goes across multiple accounts
+- Reduce financial anxiety through clarity, not judgment
+- Support weekly check-ins without overwhelming daily tracking
+- Exclude investment advice and tax filing
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task001 (treatment, mock)
+
+### User model
+
+### Flows
+
+### Accessibility
+
+### Validation plan
+
+- primary_budgeter: detailed UX reasoning for primary budgeter
+- partner: detailed UX reasoning for partner
+- occasional_viewer: detailed UX reasoning for occasional viewer
+- onboarding: detailed UX reasoning for onboarding
+- account_linking: detailed UX reasoning for account linking
+- weekly_review: detailed UX reasoning for weekly review
+- category_adjustment: detailed UX reasoning for category adjustment
+- spending_alert: detailed UX reasoning for spending alert
+- no_investment_advice: detailed UX reasoning for no investment advice
+- shared_household_view: detailed UX reasoning for shared household view
+- privacy_between_partners: detailed UX reasoning for privacy between partners
+- empty_accounts: detailed UX reasoning for empty accounts
+- sync_failure: detailed UX reasoning for sync failure
+- duplicate_transactions: detailed UX reasoning for duplicate transactions
+- zero_income_month: detailed UX reasoning for zero income month
+- screen_reader_labels: detailed UX reasoning for screen reader labels
+- large_touch_targets: detailed UX reasoning for large touch targets
+- color_not_only_indicator: detailed UX reasoning for color not only indicator</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task001 (control, mock)
+
+### User model
+
+### Flows
+
+### Accessibility
+
+### Validation plan
+
+- primary_budgeter: detailed UX reasoning for primary budgeter
+- partner: detailed UX reasoning for partner
+- onboarding: detailed UX reasoning for onboarding
+- account_linking: detailed UX reasoning for account linking
+- weekly_review: detailed UX reasoning for weekly review
+- no_investment_advice: detailed UX reasoning for no investment advice
+- shared_household_view: detailed UX reasoning for shared household view
+- empty_accounts: detailed UX reasoning for empty accounts
+- sync_failure: detailed UX reasoning for sync failure
+- duplicate_transactions: detailed UX reasoning for duplicate transactions
+- screen_reader_labels: detailed UX reasoning for screen reader labels
+- large_touch_targets: detailed UX reasoning for large touch targets</pre>
+</article>
+<article><h2>task002</h2>
+<h3>Task</h3><pre># Clinic Appointment Scheduling
+
+Design a patient-facing scheduling system for a multi-specialty clinic network.
+
+## Requirements
+
+- Patients book, reschedule, and cancel appointments online
+- Support multiple providers, locations, and appointment types
+- Handle insurance verification status in the flow
+- Reduce phone call volume to front desk
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task002 (control, mock)
+
+### User model
+
+### Journeys
+
+### Flows
+
+### Edge cases
+
+### Accessibility
+
+- patient: detailed UX reasoning for patient
+- caregiver: detailed UX reasoning for caregiver
+- book_appointment: detailed UX reasoning for book appointment
+- reschedule: detailed UX reasoning for reschedule
+- cancel: detailed UX reasoning for cancel
+- cancellation_policy: detailed UX reasoning for cancellation policy
+- insurance_verification_gate: detailed UX reasoning for insurance verification gate
+- no_availability: detailed UX reasoning for no availability
+- insurance_denied: detailed UX reasoning for insurance denied
+- same_day_cancellation: detailed UX reasoning for same day cancellation
+- keyboard_navigation: detailed UX reasoning for keyboard navigation
+- form_error_announcement: detailed UX reasoning for form error announcement</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task002 (treatment, mock)
+
+### User model
+
+### Journeys
+
+### Flows
+
+### Edge cases
+
+### Accessibility
+
+- patient: detailed UX reasoning for patient
+- caregiver: detailed UX reasoning for caregiver
+- front_desk_staff: detailed UX reasoning for front desk staff
+- book_appointment: detailed UX reasoning for book appointment
+- reschedule: detailed UX reasoning for reschedule
+- cancel: detailed UX reasoning for cancel
+- insurance_check: detailed UX reasoning for insurance check
+- waitlist_join: detailed UX reasoning for waitlist join
+- cancellation_policy: detailed UX reasoning for cancellation policy
+- insurance_verification_gate: detailed UX reasoning for insurance verification gate
+- provider_availability: detailed UX reasoning for provider availability
+- no_availability: detailed UX reasoning for no availability
+- insurance_denied: detailed UX reasoning for insurance denied
+- same_day_cancellation: detailed UX reasoning for same day cancellation
+- timezone_confusion: detailed UX reasoning for timezone confusion
+- keyboard_navigation: detailed UX reasoning for keyboard navigation
+- form_error_announcement: detailed UX reasoning for form error announcement
+- contrast_compliance: detailed UX reasoning for contrast compliance</pre>
+</article>
+<article><h2>task006</h2>
+<h3>Task</h3><pre># Recurring Tasks for Plane
+
+Design a recurring task feature that integrates with Plane's existing issue workflow.
+
+## Requirements
+
+- Create issues that repeat on a schedule (daily, weekly, monthly, custom)
+- Handle completion vs skip for individual occurrences
+- Show recurrence clearly in issue list and detail views
+- Respect existing labels, assignees, and project structure
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task006 (control, mock)
+
+### Flows
+
+### Edge cases
+
+### Risks
+
+### Accessibility
+
+- team_lead: detailed UX reasoning for team lead
+- individual_contributor: detailed UX reasoning for individual contributor
+- create_recurrence: detailed UX reasoning for create recurrence
+- complete_occurrence: detailed UX reasoning for complete occurrence
+- skip_occurrence: detailed UX reasoning for skip occurrence
+- recurrence_end_conditions: detailed UX reasoning for recurrence end conditions
+- timezone_handling: detailed UX reasoning for timezone handling
+- deleted_project: detailed UX reasoning for deleted project
+- permission_denied: detailed UX reasoning for permission denied
+- cycle_boundary: detailed UX reasoning for cycle boundary
+- keyboard_shortcuts: detailed UX reasoning for keyboard shortcuts
+- screen_reader_recurrence_description: detailed UX reasoning for screen reader recurrence description</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task006 (treatment, mock)
+
+### Flows
+
+### Edge cases
+
+### Risks
+
+### Accessibility
+
+- team_lead: detailed UX reasoning for team lead
+- individual_contributor: detailed UX reasoning for individual contributor
+- create_recurrence: detailed UX reasoning for create recurrence
+- complete_occurrence: detailed UX reasoning for complete occurrence
+- skip_occurrence: detailed UX reasoning for skip occurrence
+- edit_series: detailed UX reasoning for edit series
+- end_recurrence: detailed UX reasoning for end recurrence
+- recurrence_end_conditions: detailed UX reasoning for recurrence end conditions
+- timezone_handling: detailed UX reasoning for timezone handling
+- assignee_inheritance: detailed UX reasoning for assignee inheritance
+- deleted_project: detailed UX reasoning for deleted project
+- permission_denied: detailed UX reasoning for permission denied
+- cycle_boundary: detailed UX reasoning for cycle boundary
+- duplicate_occurrence: detailed UX reasoning for duplicate occurrence
+- keyboard_shortcuts: detailed UX reasoning for keyboard shortcuts
+- screen_reader_recurrence_description: detailed UX reasoning for screen reader recurrence description</pre>
+</article>
+<article><h2>task007</h2>
+<h3>Task</h3><pre># Wishlist Feature
+
+Design a wishlist feature for the Vercel Commerce storefront.
+
+## Requirements
+
+- Save products while browsing (authenticated and guest)
+- Merge guest wishlist on login
+- Share wishlist via link (optional privacy)
+- Add wishlist items to cart individually or in bulk
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task007 (treatment, mock)
+
+### Flows
+
+### Edge cases
+
+### Success metrics
+
+- guest_shopper: detailed UX reasoning for guest shopper
+- registered_user: detailed UX reasoning for registered user
+- gift_buyer: detailed UX reasoning for gift buyer
+- add_to_wishlist: detailed UX reasoning for add to wishlist
+- view_wishlist: detailed UX reasoning for view wishlist
+- move_to_cart: detailed UX reasoning for move to cart
+- share_wishlist: detailed UX reasoning for share wishlist
+- guest_merge: detailed UX reasoning for guest merge
+- guest_persistence: detailed UX reasoning for guest persistence
+- out_of_stock_handling: detailed UX reasoning for out of stock handling
+- price_change_notification: detailed UX reasoning for price change notification
+- product_discontinued: detailed UX reasoning for product discontinued
+- guest_session_expired: detailed UX reasoning for guest session expired
+- empty_wishlist: detailed UX reasoning for empty wishlist
+- duplicate_add: detailed UX reasoning for duplicate add
+- wishlist_button_label: detailed UX reasoning for wishlist button label
+- bulk_action_feedback: detailed UX reasoning for bulk action feedback</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task007 (control, mock)
+
+### Flows
+
+### Edge cases
+
+### Success metrics
+
+- guest_shopper: detailed UX reasoning for guest shopper
+- registered_user: detailed UX reasoning for registered user
+- add_to_wishlist: detailed UX reasoning for add to wishlist
+- view_wishlist: detailed UX reasoning for view wishlist
+- move_to_cart: detailed UX reasoning for move to cart
+- guest_persistence: detailed UX reasoning for guest persistence
+- out_of_stock_handling: detailed UX reasoning for out of stock handling
+- product_discontinued: detailed UX reasoning for product discontinued
+- guest_session_expired: detailed UX reasoning for guest session expired
+- empty_wishlist: detailed UX reasoning for empty wishlist
+- wishlist_button_label: detailed UX reasoning for wishlist button label
+- bulk_action_feedback: detailed UX reasoning for bulk action feedback</pre>
+</article>
+<article><h2>task011</h2>
+<h3>Task</h3><pre># Checkout Flow Audit
+
+Perform a UX audit of the storefront checkout flow.
+
+## Scope
+
+- Cart review through order confirmation
+- Guest and authenticated checkout paths
+- Payment and shipping information entry
+- Error states and recovery
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task011 (treatment, mock)
+
+### Executive summary
+
+### Findings
+
+### Prioritized improvements
+
+- first_time_buyer: detailed UX reasoning for first time buyer
+- returning_customer: detailed UX reasoning for returning customer
+- cart_review: detailed UX reasoning for cart review
+- shipping_entry: detailed UX reasoning for shipping entry
+- payment: detailed UX reasoning for payment
+- confirmation: detailed UX reasoning for confirmation
+- payment_declined: detailed UX reasoning for payment declined
+- address_validation_failure: detailed UX reasoning for address validation failure
+- session_timeout: detailed UX reasoning for session timeout
+- form_labels: detailed UX reasoning for form labels
+- error_announcement: detailed UX reasoning for error announcement
+- keyboard_checkout: detailed UX reasoning for keyboard checkout
+- form_validation: detailed UX reasoning for form validation
+- progress_indication: detailed UX reasoning for progress indication
+- error_recovery: detailed UX reasoning for error recovery
+- trust_signals: detailed UX reasoning for trust signals
+- mobile_usability: detailed UX reasoning for mobile usability
+
+### Executive summary
+Mock audit findings with prioritized improvements.
+
+### Findings by flow
+Identified usability issues with impact and effort ratings.
+
+### Prioritized improvements
+1. High-impact quick wins listed.
+</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task011 (control, mock)
+
+### Executive summary
+
+### Findings
+
+### Prioritized improvements
+
+- first_time_buyer: detailed UX reasoning for first time buyer
+- returning_customer: detailed UX reasoning for returning customer
+- cart_review: detailed UX reasoning for cart review
+- shipping_entry: detailed UX reasoning for shipping entry
+- payment: detailed UX reasoning for payment
+- payment_declined: detailed UX reasoning for payment declined
+- address_validation_failure: detailed UX reasoning for address validation failure
+- form_labels: detailed UX reasoning for form labels
+- error_announcement: detailed UX reasoning for error announcement
+- form_validation: detailed UX reasoning for form validation
+- progress_indication: detailed UX reasoning for progress indication
+- error_recovery: detailed UX reasoning for error recovery
+
+### Executive summary
+Mock audit findings with prioritized improvements.
+
+### Findings by flow
+Identified usability issues with impact and effort ratings.
+
+### Prioritized improvements
+1. High-impact quick wins listed.
+</pre>
+</article>
+<article><h2>task012</h2>
+<h3>Task</h3><pre># Project Settings Audit
+
+Audit the UX of project settings and configuration in Plane.
+
+## Scope
+
+- Project creation and configuration
+- Member management and roles
+- Project views and workflow states
+- Integration settings
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task012 (treatment, mock)
+
+### Executive summary
+
+### Findings
+
+### Quick wins
+
+- project_admin: detailed UX reasoning for project admin
+- team_member: detailed UX reasoning for team member
+- project_settings: detailed UX reasoning for project settings
+- member_invite: detailed UX reasoning for member invite
+- role_management: detailed UX reasoning for role management
+- last_admin_removal: detailed UX reasoning for last admin removal
+- invalid_invite: detailed UX reasoning for invalid invite
+- settings_conflict: detailed UX reasoning for settings conflict
+- settings_navigation: detailed UX reasoning for settings navigation
+- toggle_labels: detailed UX reasoning for toggle labels
+- discoverability: detailed UX reasoning for discoverability
+- destructive_action_guards: detailed UX reasoning for destructive action guards
+- settings_organization: detailed UX reasoning for settings organization
+- permission_clarity: detailed UX reasoning for permission clarity
+
+### Executive summary
+Mock audit findings with prioritized improvements.
+
+### Findings by flow
+Identified usability issues with impact and effort ratings.
+
+### Prioritized improvements
+1. High-impact quick wins listed.
+</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task012 (control, mock)
+
+### Executive summary
+
+### Findings
+
+### Quick wins
+
+- project_admin: detailed UX reasoning for project admin
+- team_member: detailed UX reasoning for team member
+- project_settings: detailed UX reasoning for project settings
+- member_invite: detailed UX reasoning for member invite
+- last_admin_removal: detailed UX reasoning for last admin removal
+- invalid_invite: detailed UX reasoning for invalid invite
+- settings_navigation: detailed UX reasoning for settings navigation
+- toggle_labels: detailed UX reasoning for toggle labels
+- discoverability: detailed UX reasoning for discoverability
+- destructive_action_guards: detailed UX reasoning for destructive action guards
+- settings_organization: detailed UX reasoning for settings organization
+
+### Executive summary
+Mock audit findings with prioritized improvements.
+
+### Findings by flow
+Identified usability issues with impact and effort ratings.
+
+### Prioritized improvements
+1. High-impact quick wins listed.
+</pre>
+</article>
+<article><h2>task016</h2>
+<h3>Task</h3><pre># Healthcare Scheduling with Insurance Rules
+
+Design scheduling UX for a clinic where insurance verification affects appointment availability.
+
+## Requirements
+
+- Real-time insurance eligibility check before booking
+- Different flows for in-network vs out-of-network
+- Handle prior authorization requirements
+- Clear communication when insurance blocks booking
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task016 (treatment, mock)
+
+### Flows
+
+### Edge cases
+
+### Business rules
+
+- patient: detailed UX reasoning for patient
+- scheduler: detailed UX reasoning for scheduler
+- insurance_coordinator: detailed UX reasoning for insurance coordinator
+- eligibility_check: detailed UX reasoning for eligibility check
+- book_in_network: detailed UX reasoning for book in network
+- prior_auth_wait: detailed UX reasoning for prior auth wait
+- out_of_network_option: detailed UX reasoning for out of network option
+- insurance_verification_gate: detailed UX reasoning for insurance verification gate
+- prior_auth_required: detailed UX reasoning for prior auth required
+- copay_display: detailed UX reasoning for copay display
+- eligibility_timeout: detailed UX reasoning for eligibility timeout
+- partial_coverage: detailed UX reasoning for partial coverage
+- auth_denied: detailed UX reasoning for auth denied
+- plan_change_mid_booking: detailed UX reasoning for plan change mid booking
+- plain_language_insurance: detailed UX reasoning for plain language insurance
+- error_recovery_paths: detailed UX reasoning for error recovery paths</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task016 (control, mock)
+
+### Flows
+
+### Edge cases
+
+### Business rules
+
+- patient: detailed UX reasoning for patient
+- scheduler: detailed UX reasoning for scheduler
+- eligibility_check: detailed UX reasoning for eligibility check
+- book_in_network: detailed UX reasoning for book in network
+- prior_auth_wait: detailed UX reasoning for prior auth wait
+- insurance_verification_gate: detailed UX reasoning for insurance verification gate
+- prior_auth_required: detailed UX reasoning for prior auth required
+- eligibility_timeout: detailed UX reasoning for eligibility timeout
+- partial_coverage: detailed UX reasoning for partial coverage
+- auth_denied: detailed UX reasoning for auth denied
+- plain_language_insurance: detailed UX reasoning for plain language insurance
+- error_recovery_paths: detailed UX reasoning for error recovery paths</pre>
+</article>
+<article><h2>task017</h2>
+<h3>Task</h3><pre># Expense Reimbursement Workflow
+
+Design a multi-step expense reimbursement system with manager and finance approval.
+
+## Requirements
+
+- Submit expenses with receipts and categories
+- Manager approval → finance review → payment
+- Handle policy violations and partial approvals
+- Audit trail for compliance
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task017 (control, mock)
+
+### Flows
+
+### Edge cases
+
+### State management
+
+- employee: detailed UX reasoning for employee
+- manager: detailed UX reasoning for manager
+- submit_expense: detailed UX reasoning for submit expense
+- manager_approve: detailed UX reasoning for manager approve
+- finance_review: detailed UX reasoning for finance review
+- receipt_threshold: detailed UX reasoning for receipt threshold
+- category_limits: detailed UX reasoning for category limits
+- policy_violation: detailed UX reasoning for policy violation
+- manager_ooo: detailed UX reasoning for manager ooo
+- duplicate_submission: detailed UX reasoning for duplicate submission
+- form_validation_feedback: detailed UX reasoning for form validation feedback
+- status_tracking: detailed UX reasoning for status tracking</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task017 (treatment, mock)
+
+### Flows
+
+### Edge cases
+
+### State management
+
+- employee: detailed UX reasoning for employee
+- manager: detailed UX reasoning for manager
+- finance_reviewer: detailed UX reasoning for finance reviewer
+- submit_expense: detailed UX reasoning for submit expense
+- manager_approve: detailed UX reasoning for manager approve
+- finance_review: detailed UX reasoning for finance review
+- payment_initiated: detailed UX reasoning for payment initiated
+- reject_with_reason: detailed UX reasoning for reject with reason
+- receipt_threshold: detailed UX reasoning for receipt threshold
+- category_limits: detailed UX reasoning for category limits
+- delegation_rules: detailed UX reasoning for delegation rules
+- policy_violation: detailed UX reasoning for policy violation
+- manager_ooo: detailed UX reasoning for manager ooo
+- duplicate_submission: detailed UX reasoning for duplicate submission
+- currency_conversion: detailed UX reasoning for currency conversion
+- form_validation_feedback: detailed UX reasoning for form validation feedback
+- status_tracking: detailed UX reasoning for status tracking</pre>
+</article>
+<article><h2>task021</h2>
+<h3>Task</h3><pre># Offline Editing
+
+Design how a collaborative document editor handles offline editing and reconnection.
+
+## Requirements
+
+- Continue editing when connection drops
+- Clear offline/online status indicator
+- Conflict resolution when multiple users edited offline
+- Queue changes and sync on reconnect
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task021 (control, mock)
+
+### Flows
+
+### Edge cases
+
+### Accessibility
+
+### Recovery paths
+
+- frequent_editor: detailed UX reasoning for frequent editor
+- occasional_viewer: detailed UX reasoning for occasional viewer
+- edit_offline: detailed UX reasoning for edit offline
+- reconnect_sync: detailed UX reasoning for reconnect sync
+- conflict_resolution: detailed UX reasoning for conflict resolution
+- offline_indicator: detailed UX reasoning for offline indicator
+- sync_queue: detailed UX reasoning for sync queue
+- extended_offline: detailed UX reasoning for extended offline
+- conflicting_edits: detailed UX reasoning for conflicting edits
+- storage_full: detailed UX reasoning for storage full
+- status_announcements: detailed UX reasoning for status announcements
+- offline_mode_screen_reader: detailed UX reasoning for offline mode screen reader</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task021 (treatment, mock)
+
+### Flows
+
+### Edge cases
+
+### Accessibility
+
+### Recovery paths
+
+- frequent_editor: detailed UX reasoning for frequent editor
+- occasional_viewer: detailed UX reasoning for occasional viewer
+- edit_offline: detailed UX reasoning for edit offline
+- reconnect_sync: detailed UX reasoning for reconnect sync
+- conflict_resolution: detailed UX reasoning for conflict resolution
+- view_offline: detailed UX reasoning for view offline
+- offline_indicator: detailed UX reasoning for offline indicator
+- sync_queue: detailed UX reasoning for sync queue
+- conflict_policy: detailed UX reasoning for conflict policy
+- extended_offline: detailed UX reasoning for extended offline
+- conflicting_edits: detailed UX reasoning for conflicting edits
+- storage_full: detailed UX reasoning for storage full
+- auth_expired_offline: detailed UX reasoning for auth expired offline
+- status_announcements: detailed UX reasoning for status announcements
+- offline_mode_screen_reader: detailed UX reasoning for offline mode screen reader</pre>
+</article>
+<article><h2>task023</h2>
+<h3>Task</h3><pre># Empty States Design
+
+Design comprehensive empty states for a project management application.
+
+## Requirements
+
+- First-time user empty states with guided actions
+- Contextual empty states (empty project, empty cycle, no search results)
+- Distinguish "nothing here yet" from "failed to load"
+- Accessible and encouraging tone
+</pre>
+<h3>Artifact A</h3><pre># UX Artifact — task023 (treatment, mock)
+
+### Flows
+
+### Copy guidance
+
+### Accessibility
+
+- new_user: detailed UX reasoning for new user
+- experienced_user: detailed UX reasoning for experienced user
+- first_project_empty: detailed UX reasoning for first project empty
+- empty_search: detailed UX reasoning for empty search
+- empty_cycle: detailed UX reasoning for empty cycle
+- error_vs_empty: detailed UX reasoning for error vs empty
+- actionable_cta: detailed UX reasoning for actionable cta
+- error_distinction: detailed UX reasoning for error distinction
+- tone_guidelines: detailed UX reasoning for tone guidelines
+- permission_limited_empty: detailed UX reasoning for permission limited empty
+- filtered_to_zero: detailed UX reasoning for filtered to zero
+- deleted_all_items: detailed UX reasoning for deleted all items
+- empty_state_announced: detailed UX reasoning for empty state announced
+- cta_focus_order: detailed UX reasoning for cta focus order</pre>
+<h3>Artifact B</h3><pre># UX Artifact — task023 (control, mock)
+
+### Flows
+
+### Copy guidance
+
+### Accessibility
+
+- new_user: detailed UX reasoning for new user
+- experienced_user: detailed UX reasoning for experienced user
+- first_project_empty: detailed UX reasoning for first project empty
+- empty_search: detailed UX reasoning for empty search
+- empty_cycle: detailed UX reasoning for empty cycle
+- actionable_cta: detailed UX reasoning for actionable cta
+- error_distinction: detailed UX reasoning for error distinction
+- permission_limited_empty: detailed UX reasoning for permission limited empty
+- filtered_to_zero: detailed UX reasoning for filtered to zero
+- empty_state_announced: detailed UX reasoning for empty state announced
+- cta_focus_order: detailed UX reasoning for cta focus order</pre>
+</article>
+</body></html>

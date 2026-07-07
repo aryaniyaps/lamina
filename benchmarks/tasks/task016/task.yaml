@@ -1,0 +1,7 @@
+id: task016
+category: workflow_edge
+workflow: design-feature
+prompt: Design a healthcare appointment scheduling workflow with complex insurance rules.
+fixture: null
+human_eval: true
+runs: 3

@@ -1,0 +1,7 @@
+id: task004
+category: greenfield
+workflow: design-concept
+prompt: Design a collaborative travel itinerary planner for friend groups.
+fixture: null
+human_eval: false
+runs: 3

@@ -1,0 +1,24 @@
+task_id: task024
+required_personas:
+  - active_user
+  - idle_user
+required_flows:
+  - idle_warning
+  - extend_session
+  - reauth_preserve_work
+  - expired_mid_submit
+required_rules:
+  - warning_timing
+  - work_preservation
+  - sso_redirect
+required_edge_cases:
+  - sso_failure
+  - concurrent_sessions
+  - unsaved_form_data
+required_a11y:
+  - timeout_warning_announced
+  - focus_on_modal
+required_sections:
+  - flows
+  - edge cases
+  - recovery paths

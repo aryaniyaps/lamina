@@ -17,7 +17,13 @@
     "test:eval:redteam": "node evals/promptfoo/build-skill-context.mjs && npx promptfoo eval -c evals/promptfoo/lamina-redteam.yaml",
     "test:eval:compat": "bash evals/hooks/compatibility-matrix.sh",
     "test:eval:aggregate": "node evals/scripts/aggregate-reports.mjs",
-    "fixtures:vendor": "node evals/scripts/vendor-nextjs-fixture.mjs"
+    "fixtures:vendor": "node evals/scripts/vendor-nextjs-fixture.mjs",
+    "bench:validate": "node benchmarks/scripts/compile-suite.mjs --check",
+    "bench:run": "node benchmarks/scripts/run-bench.mjs",
+    "bench:score": "node benchmarks/judges/golden-coverage.mjs && node benchmarks/scripts/score-judge.mjs --mock",
+    "bench:analyze": "python3 benchmarks/scripts/analyze.py",
+    "bench:human-packet": "node benchmarks/scripts/export-human-packet.mjs",
+    "bench:all": "npm run bench:validate && npm run bench:run -- --mock && npm run bench:score && npm run bench:analyze && npm run bench:human-packet"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",

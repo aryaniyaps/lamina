@@ -1,0 +1,27 @@
+task_id: task011
+required_personas:
+  - first_time_buyer
+  - returning_customer
+required_flows:
+  - cart_review
+  - shipping_entry
+  - payment
+  - confirmation
+required_findings:
+  - form_validation
+  - progress_indication
+  - error_recovery
+  - trust_signals
+  - mobile_usability
+required_edge_cases:
+  - payment_declined
+  - address_validation_failure
+  - session_timeout
+required_a11y:
+  - form_labels
+  - error_announcement
+  - keyboard_checkout
+required_sections:
+  - executive summary
+  - findings
+  - prioritized improvements

@@ -1,0 +1,5 @@
+{
+  "name": "greenfield-with-init",
+  "description": "Valid greenfield business context (from evals fixtures)",
+  "layers": ["evals:_layers/lamina-valid-init"]
+}

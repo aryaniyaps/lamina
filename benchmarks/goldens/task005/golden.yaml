@@ -1,0 +1,26 @@
+task_id: task005
+required_personas:
+  - beginner
+  - returning_athlete
+  - accountability_partner
+required_flows:
+  - daily_checkin
+  - habit_setup
+  - streak_recovery
+  - friend_challenge
+required_rules:
+  - no_public_leaderboard
+  - opt_in_social
+  - streak_forgiveness
+required_edge_cases:
+  - missed_day
+  - health_sync_failure
+  - friend_request_declined
+required_a11y:
+  - motion_reduced_mode
+  - voiceover_labels
+required_sections:
+  - user model
+  - flows
+  - interactions
+  - accessibility

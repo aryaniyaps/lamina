@@ -2,6 +2,8 @@
 
 Multi-layer eval framework using [agent-skills-eval](https://github.com/darkrishabh/agent-skills-eval), [agent-skill-eval](https://github.com/tardigrde/agent-skill-eval), and [promptfoo](https://github.com/promptfoo/promptfoo).
 
+**Not LaminaBench.** Internal skill-compliance regression tests live here. Public UX-quality benchmarking (coding agent vs agent+Lamina) is in [`../benchmarks/`](../benchmarks/).
+
 ## Quick start
 
 ```bash

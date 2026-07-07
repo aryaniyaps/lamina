@@ -1,0 +1,24 @@
+task_id: task012
+required_personas:
+  - project_admin
+  - team_member
+required_flows:
+  - project_settings
+  - member_invite
+  - role_management
+required_findings:
+  - discoverability
+  - destructive_action_guards
+  - settings_organization
+  - permission_clarity
+required_edge_cases:
+  - last_admin_removal
+  - invalid_invite
+  - settings_conflict
+required_a11y:
+  - settings_navigation
+  - toggle_labels
+required_sections:
+  - executive summary
+  - findings
+  - quick wins

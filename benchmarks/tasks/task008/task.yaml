@@ -1,0 +1,10 @@
+id: task008
+category: oss_feature
+workflow: design-feature
+prompt: Design guest sharing for Outline documents.
+fixture: outline-with-init
+human_eval: false
+runs: 3
+oss:
+  repo: outline/outline
+  commit: main

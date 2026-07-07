@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: LaminaBench LLM judge scoring (golden-spec rubric)
+
+prompts:
+  - |
+    You are an expert UX evaluator scoring a generated UX artifact against a golden reference specification.
+
+    ## Task description
+    {{description}}
+
+    ## Context
+    {{context}}
+
+    ## Golden reference (evaluation checklist — not expected verbatim output)
+    {{golden}}
+
+    ## Generated artifact to score
+    {{artifact}}
+
+    Score the artifact on these criteria (1-5 each). Penalize shallow checklist filling without substantive reasoning.
+    Return STRICT JSON only:
+    {
+      "business_understanding": <1-5>,
+      "ux_completeness": <1-5>,
+      "flow_quality": <1-5>,
+      "integration": <1-5>,
+      "edge_case_coverage": <1-5>,
+      "error_handling": <1-5>,
+      "accessibility": <1-5>,
+      "consistency": <1-5>,
+      "implementation_readiness": <1-5>,
+      "overall": <1-5>,
+      "evidence": "<brief justification>"
+    }
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0
+  - id: anthropic:messages:claude-sonnet-4-20250514
+    config:
+      temperature: 0
+
+defaultTest:
+  options:
+    provider: openai:gpt-4o
+  assert:
+    - type: is-json
+    - type: javascript
+      value: |
+        const s = JSON.parse(output);
+        const keys = ['business_understanding','ux_completeness','flow_quality','integration','edge_case_coverage','error_handling','accessibility','consistency','implementation_readiness','overall'];
+        return keys.every(k => typeof s[k] === 'number' && s[k] >= 1 && s[k] <= 5);
+
+tests: []

@@ -1,0 +1,24 @@
+task_id: task023
+required_personas:
+  - new_user
+  - experienced_user
+required_flows:
+  - first_project_empty
+  - empty_search
+  - empty_cycle
+  - error_vs_empty
+required_rules:
+  - actionable_cta
+  - error_distinction
+  - tone_guidelines
+required_edge_cases:
+  - permission_limited_empty
+  - filtered_to_zero
+  - deleted_all_items
+required_a11y:
+  - empty_state_announced
+  - cta_focus_order
+required_sections:
+  - flows
+  - copy guidance
+  - accessibility

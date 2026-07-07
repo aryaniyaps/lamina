@@ -1,0 +1,10 @@
+id: task012
+category: oss_audit
+workflow: audit
+prompt: Audit the project settings and configuration experience in Plane.
+fixture: plane-with-init
+human_eval: true
+runs: 3
+oss:
+  repo: makeplane/plane
+  commit: develop

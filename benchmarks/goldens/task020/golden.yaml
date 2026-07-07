@@ -1,0 +1,26 @@
+task_id: task020
+required_personas:
+  - new_hire
+  - hr_coordinator
+  - it_admin
+  - hiring_manager
+required_flows:
+  - onboarding_kickoff
+  - it_provisioning
+  - team_introduction
+  - compliance_training
+required_rules:
+  - task_dependencies
+  - compliance_gate
+  - stage_ownership
+required_edge_cases:
+  - delayed_start
+  - role_change_mid_onboarding
+  - it_provisioning_failure
+required_a11y:
+  - progress_visibility
+  - deadline_reminders
+required_sections:
+  - flows
+  - edge cases
+  - recovery flows

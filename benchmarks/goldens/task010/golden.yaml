@@ -1,0 +1,24 @@
+task_id: task010
+required_personas:
+  - team_lead
+  - project_manager
+required_flows:
+  - multi_select
+  - bulk_state_change
+  - bulk_assign
+  - bulk_delete_confirm
+required_rules:
+  - permission_check_per_issue
+  - undo_window
+  - max_selection
+required_edge_cases:
+  - partial_permission_denied
+  - mixed_project_selection
+  - selection_across_pages
+required_a11y:
+  - selection_count_announced
+  - keyboard_multi_select
+required_sections:
+  - flows
+  - edge cases
+  - error handling

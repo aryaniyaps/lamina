@@ -1,0 +1,23 @@
+task_id: task015
+required_personas:
+  - new_admin
+  - invited_member
+required_flows:
+  - workspace_setup
+  - first_project
+  - invite_team
+required_findings:
+  - time_to_value
+  - empty_state_guidance
+  - skip_options
+  - progress_indication
+required_edge_cases:
+  - solo_user
+  - invite_expired
+  - abandoned_setup
+required_a11y:
+  - onboarding_step_labels
+required_sections:
+  - executive summary
+  - findings
+  - quick wins

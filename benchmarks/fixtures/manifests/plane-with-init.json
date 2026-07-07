@@ -1,0 +1,5 @@
+{
+  "name": "plane-with-init",
+  "description": "Plane project management product context stub",
+  "layers": ["_layers/plane-context"]
+}

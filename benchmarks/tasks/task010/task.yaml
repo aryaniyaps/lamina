@@ -1,0 +1,10 @@
+id: task010
+category: oss_feature
+workflow: design-feature
+prompt: Design bulk actions for issues in Plane.
+fixture: plane-with-init
+human_eval: false
+runs: 3
+oss:
+  repo: makeplane/plane
+  commit: develop

@@ -1,0 +1,24 @@
+task_id: task014
+required_personas:
+  - browsing_shopper
+  - ready_to_buy
+required_flows:
+  - add_to_cart
+  - update_quantity
+  - remove_item
+  - proceed_checkout
+required_findings:
+  - add_to_cart_feedback
+  - cart_persistence
+  - price_transparency
+  - mobile_cart
+required_edge_cases:
+  - out_of_stock_in_cart
+  - price_change
+  - empty_cart
+required_a11y:
+  - cart_updates_announced
+  - quantity_controls
+required_sections:
+  - executive summary
+  - findings

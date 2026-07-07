@@ -1,0 +1,26 @@
+task_id: task021
+required_personas:
+  - frequent_editor
+  - occasional_viewer
+required_flows:
+  - edit_offline
+  - reconnect_sync
+  - conflict_resolution
+  - view_offline
+required_rules:
+  - offline_indicator
+  - sync_queue
+  - conflict_policy
+required_edge_cases:
+  - extended_offline
+  - conflicting_edits
+  - storage_full
+  - auth_expired_offline
+required_a11y:
+  - status_announcements
+  - offline_mode_screen_reader
+required_sections:
+  - flows
+  - edge cases
+  - accessibility
+  - recovery paths

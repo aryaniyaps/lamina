@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LaminaBench Golden Specification",
+  "type": "object",
+  "required": ["task_id"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^task[0-9]{3}$"
+    },
+    "required_personas": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_flows": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_rules": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_edge_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_a11y": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_sections": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_findings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "For audit tasks: issue categories that should be discovered"
+    }
+  },
+  "additionalProperties": false
+}

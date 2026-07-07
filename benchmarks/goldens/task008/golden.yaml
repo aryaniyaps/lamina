@@ -1,0 +1,26 @@
+task_id: task008
+required_personas:
+  - document_author
+  - team_member
+  - external_guest
+required_flows:
+  - share_with_guest
+  - guest_access
+  - revoke_access
+  - comment_as_guest
+required_rules:
+  - expiration_policy
+  - permission_levels
+  - audit_trail
+required_edge_cases:
+  - expired_link
+  - guest_email_mismatch
+  - document_moved
+  - collection_permission_conflict
+required_a11y:
+  - permission_status_visible
+  - guest_mode_indicator
+required_sections:
+  - flows
+  - edge cases
+  - risks

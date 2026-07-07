@@ -1,0 +1,7 @@
+id: task018
+category: workflow_edge
+workflow: design-feature
+prompt: Design subscription billing UX with upgrades, downgrades, and proration.
+fixture: null
+human_eval: false
+runs: 3

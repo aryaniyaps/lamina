@@ -1,0 +1,10 @@
+id: task007
+category: oss_feature
+workflow: design-feature
+prompt: Add a wishlist feature to the storefront.
+fixture: commerce-with-init
+human_eval: true
+runs: 3
+oss:
+  repo: vercel/commerce
+  commit: main

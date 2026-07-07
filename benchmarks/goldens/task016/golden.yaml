@@ -1,0 +1,26 @@
+task_id: task016
+required_personas:
+  - patient
+  - scheduler
+  - insurance_coordinator
+required_flows:
+  - eligibility_check
+  - book_in_network
+  - prior_auth_wait
+  - out_of_network_option
+required_rules:
+  - insurance_verification_gate
+  - prior_auth_required
+  - copay_display
+required_edge_cases:
+  - eligibility_timeout
+  - partial_coverage
+  - auth_denied
+  - plan_change_mid_booking
+required_a11y:
+  - plain_language_insurance
+  - error_recovery_paths
+required_sections:
+  - flows
+  - edge cases
+  - business rules

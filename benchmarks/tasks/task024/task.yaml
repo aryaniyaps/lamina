@@ -1,0 +1,7 @@
+id: task024
+category: accessibility
+workflow: design-feature
+prompt: Design session expiration and re-authentication UX.
+fixture: null
+human_eval: false
+runs: 3

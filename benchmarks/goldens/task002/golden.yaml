@@ -1,0 +1,30 @@
+task_id: task002
+required_personas:
+  - patient
+  - caregiver
+  - front_desk_staff
+required_flows:
+  - book_appointment
+  - reschedule
+  - cancel
+  - insurance_check
+  - waitlist_join
+required_rules:
+  - cancellation_policy
+  - insurance_verification_gate
+  - provider_availability
+required_edge_cases:
+  - no_availability
+  - insurance_denied
+  - same_day_cancellation
+  - timezone_confusion
+required_a11y:
+  - keyboard_navigation
+  - form_error_announcement
+  - contrast_compliance
+required_sections:
+  - user model
+  - journeys
+  - flows
+  - edge cases
+  - accessibility

@@ -1,0 +1,26 @@
+task_id: task003
+required_personas:
+  - coordinator
+  - volunteer
+  - org_admin
+required_flows:
+  - post_opportunity
+  - volunteer_signup
+  - shift_checkin
+  - hours_reporting
+required_rules:
+  - background_check_required
+  - min_age_requirement
+  - shift_capacity
+required_edge_cases:
+  - no_show
+  - certification_expired
+  - overbooked_shift
+  - last_minute_cancel
+required_a11y:
+  - screen_reader_support
+  - simple_language_mode
+required_sections:
+  - user model
+  - flows
+  - edge cases

@@ -1,0 +1,52 @@
+[
+  {
+    "task_id": "task001",
+    "A": "treatment",
+    "B": "control"
+  },
+  {
+    "task_id": "task002",
+    "A": "control",
+    "B": "treatment"
+  },
+  {
+    "task_id": "task006",
+    "A": "control",
+    "B": "treatment"
+  },
+  {
+    "task_id": "task007",
+    "A": "treatment",
+    "B": "control"
+  },
+  {
+    "task_id": "task011",
+    "A": "treatment",
+    "B": "control"
+  },
+  {
+    "task_id": "task012",
+    "A": "treatment",
+    "B": "control"
+  },
+  {
+    "task_id": "task016",
+    "A": "treatment",
+    "B": "control"
+  },
+  {
+    "task_id": "task017",
+    "A": "control",
+    "B": "treatment"
+  },
+  {
+    "task_id": "task021",
+    "A": "control",
+    "B": "treatment"
+  },
+  {
+    "task_id": "task023",
+    "A": "treatment",
+    "B": "control"
+  }
+]

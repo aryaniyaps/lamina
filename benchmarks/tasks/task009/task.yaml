@@ -1,0 +1,10 @@
+id: task009
+category: oss_feature
+workflow: design-feature
+prompt: Design saved searches for the product catalog.
+fixture: commerce-with-init
+human_eval: false
+runs: 3
+oss:
+  repo: vercel/commerce
+  commit: main

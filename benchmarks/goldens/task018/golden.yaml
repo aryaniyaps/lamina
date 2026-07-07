@@ -1,0 +1,25 @@
+task_id: task018
+required_personas:
+  - account_owner
+  - team_admin
+required_flows:
+  - upgrade_plan
+  - downgrade_plan
+  - payment_failed_recovery
+  - view_invoice
+required_rules:
+  - proration_policy
+  - downgrade_timing
+  - grace_period
+required_edge_cases:
+  - card_expired
+  - chargeback
+  - plan_discontinued
+  - usage_overage
+required_a11y:
+  - billing_status_clear
+  - charge_preview
+required_sections:
+  - flows
+  - edge cases
+  - error handling

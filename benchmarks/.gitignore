@@ -1,0 +1,11 @@
+results/raw/
+results/scored/
+results/statistics/
+results/report.md
+results/index.jsonl
+tmp/
+*.pyc
+__pycache__/
+
+# Release snapshots are published (not ignored)
+!releases/

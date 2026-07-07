@@ -1,0 +1,27 @@
+task_id: task022
+required_personas:
+  - screen_reader_user
+  - keyboard_user
+  - sighted_analyst
+required_flows:
+  - navigate_dashboard
+  - explore_chart
+  - apply_filter
+  - export_data
+required_rules:
+  - text_alternatives
+  - no_color_only
+  - focus_management
+required_edge_cases:
+  - live_region_overflow
+  - empty_chart
+  - loading_state
+required_a11y:
+  - aria_live_regions
+  - table_navigation
+  - chart_descriptions
+  - skip_links
+required_sections:
+  - accessibility
+  - flows
+  - validation plan

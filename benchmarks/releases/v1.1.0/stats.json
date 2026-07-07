@@ -1,0 +1,531 @@
+{
+  "generated": "2026-07-07T16:38:54.282633+00:00",
+  "coverage": {
+    "control_mean": 80.08,
+    "treatment_mean": 100.0,
+    "control_std": 4.48998886412873,
+    "treatment_std": 0.0,
+    "mean_delta": 19.92,
+    "median_delta": 21.0,
+    "ci_95_low": 18.083594554571352,
+    "ci_95_high": 21.75640544542865,
+    "cohens_d": 4.436536615746245,
+    "wilcoxon_stat": 25.0,
+    "wilcoxon_p": 5.733031436250258e-07,
+    "n_pairs": 25
+  },
+  "judge": {
+    "control_mean": 4.036,
+    "treatment_mean": 5.0,
+    "control_std": 0.09521904571390465,
+    "treatment_std": 0.0,
+    "mean_delta": 0.9640000000000001,
+    "median_delta": 1.0,
+    "ci_95_low": 0.9250554103030131,
+    "ci_95_high": 1.002944589696987,
+    "cohens_d": 10.124025007522517,
+    "wilcoxon_stat": 25.0,
+    "wilcoxon_p": 5.733031436250258e-07,
+    "n_pairs": 25
+  },
+  "human": {
+    "note": "Example scores derived from coverage for pipeline validation. Replace with real rater CSV imports.",
+    "fleiss_kappa": 0.72,
+    "control_mean": 4.0233333333333325,
+    "treatment_mean": 4.966666666666668,
+    "ratings": [
+      {
+        "task_id": "task001",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task001",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 3.5
+      },
+      {
+        "task_id": "task001",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task001",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 3.7
+      },
+      {
+        "task_id": "task001",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task001",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 3.8
+      },
+      {
+        "task_id": "task002",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task002",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 3.6
+      },
+      {
+        "task_id": "task002",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task002",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 3.7
+      },
+      {
+        "task_id": "task002",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task002",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 3.9
+      },
+      {
+        "task_id": "task006",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task006",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 4.1
+      },
+      {
+        "task_id": "task006",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task006",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 4.3
+      },
+      {
+        "task_id": "task006",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task006",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 4.4
+      },
+      {
+        "task_id": "task007",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task007",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 3.6
+      },
+      {
+        "task_id": "task007",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task007",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 3.8
+      },
+      {
+        "task_id": "task007",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task007",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 3.9
+      },
+      {
+        "task_id": "task011",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task011",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 3.6
+      },
+      {
+        "task_id": "task011",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task011",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 3.8
+      },
+      {
+        "task_id": "task011",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task011",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 3.9
+      },
+      {
+        "task_id": "task012",
+        "label": "A",
+        "arm": "control",
+        "rater": 1,
+        "overall": 4
+      },
+      {
+        "task_id": "task012",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task012",
+        "label": "A",
+        "arm": "control",
+        "rater": 2,
+        "overall": 4.1
+      },
+      {
+        "task_id": "task012",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task012",
+        "label": "A",
+        "arm": "control",
+        "rater": 3,
+        "overall": 4.3
+      },
+      {
+        "task_id": "task012",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task016",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task016",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 4.1
+      },
+      {
+        "task_id": "task016",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task016",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 4.2
+      },
+      {
+        "task_id": "task016",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task016",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 4.4
+      },
+      {
+        "task_id": "task017",
+        "label": "A",
+        "arm": "control",
+        "rater": 1,
+        "overall": 3.6
+      },
+      {
+        "task_id": "task017",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task017",
+        "label": "A",
+        "arm": "control",
+        "rater": 2,
+        "overall": 3.8
+      },
+      {
+        "task_id": "task017",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task017",
+        "label": "A",
+        "arm": "control",
+        "rater": 3,
+        "overall": 3.9
+      },
+      {
+        "task_id": "task017",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task021",
+        "label": "A",
+        "arm": "control",
+        "rater": 1,
+        "overall": 4.3
+      },
+      {
+        "task_id": "task021",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task021",
+        "label": "A",
+        "arm": "control",
+        "rater": 2,
+        "overall": 4.5
+      },
+      {
+        "task_id": "task021",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task021",
+        "label": "A",
+        "arm": "control",
+        "rater": 3,
+        "overall": 4.6
+      },
+      {
+        "task_id": "task021",
+        "label": "B",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task023",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 1,
+        "overall": 4.9
+      },
+      {
+        "task_id": "task023",
+        "label": "B",
+        "arm": "control",
+        "rater": 1,
+        "overall": 4.3
+      },
+      {
+        "task_id": "task023",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 2,
+        "overall": 5
+      },
+      {
+        "task_id": "task023",
+        "label": "B",
+        "arm": "control",
+        "rater": 2,
+        "overall": 4.4
+      },
+      {
+        "task_id": "task023",
+        "label": "A",
+        "arm": "treatment",
+        "rater": 3,
+        "overall": 5
+      },
+      {
+        "task_id": "task023",
+        "label": "B",
+        "arm": "control",
+        "rater": 3,
+        "overall": 4.6
+      }
+    ]
+  },
+  "by_category": {
+    "greenfield": {
+      "control_mean": 76.0,
+      "treatment_mean": 100.0,
+      "control_std": 2.8284271247461903,
+      "treatment_std": 0.0,
+      "mean_delta": 24.0,
+      "median_delta": 25.0,
+      "ci_95_low": 20.488606886149032,
+      "ci_95_high": 27.511393113850968,
+      "cohens_d": 8.48528137423857,
+      "wilcoxon_stat": 5.0,
+      "wilcoxon_p": 0.025347318677468422,
+      "n_pairs": 5
+    },
+    "oss_feature": {
+      "control_mean": 81.6,
+      "treatment_mean": 100.0,
+      "control_std": 4.774934554525329,
+      "treatment_std": 0.0,
+      "mean_delta": 18.4,
+      "median_delta": 18.0,
+      "ci_95_low": 12.472086154472215,
+      "ci_95_high": 24.32791384552778,
+      "cohens_d": 3.8534559562835997,
+      "wilcoxon_stat": 5.0,
+      "wilcoxon_p": 0.025347318677468422,
+      "n_pairs": 5
+    },
+    "oss_audit": {
+      "control_mean": 79.6,
+      "treatment_mean": 100.0,
+      "control_std": 3.0495901363953815,
+      "treatment_std": 0.0,
+      "mean_delta": 20.4,
+      "median_delta": 19.0,
+      "ci_95_low": 16.614040760916726,
+      "ci_95_high": 24.18595923908327,
+      "cohens_d": 6.689423524996322,
+      "wilcoxon_stat": 5.0,
+      "wilcoxon_p": 0.025347318677468422,
+      "n_pairs": 5
+    },
+    "workflow_edge": {
+      "control_mean": 80.0,
+      "treatment_mean": 100.0,
+      "control_std": 3.605551275463989,
+      "treatment_std": 0.0,
+      "mean_delta": 20.0,
+      "median_delta": 21.0,
+      "ci_95_low": 15.523834498144645,
+      "ci_95_high": 24.476165501855355,
+      "cohens_d": 5.547001962252292,
+      "wilcoxon_stat": 5.0,
+      "wilcoxon_p": 0.025347318677468422,
+      "n_pairs": 5
+    },
+    "accessibility": {
+      "control_mean": 83.2,
+      "treatment_mean": 100.0,
+      "control_std": 5.630275304103699,
+      "treatment_std": 0.0,
+      "mean_delta": 16.8,
+      "median_delta": 18.0,
+      "ci_95_low": 9.810210601169734,
+      "ci_95_high": 23.789789398830266,
+      "cohens_d": 2.9838682999666286,
+      "wilcoxon_stat": 5.0,
+      "wilcoxon_p": 0.025347318677468422,
+      "n_pairs": 5
+    }
+  }
+}
