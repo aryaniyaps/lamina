@@ -1,22 +1,23 @@
 <p align="center">
-  <img src="brand/assets/wordmark/lamina-lockup-light.svg" alt="lamina" width="200" />
+  <img src="brand/assets/wordmark/lamina-lockup-readme.svg" alt="lamina" width="360" />
 </p>
 
-> The UX reasoning layer for AI dev tools.
+<p align="center"><em>The UX reasoning layer for AI dev tools.</em></p>
 
-**Design how it works.**
+<p align="center"><strong>Design how it works.</strong></p>
 
-Lamina figures out what to build and how users move through it — before anyone opens a design tool or writes production code. Personas, flows, edge cases. Framework-agnostic. Packaged as a skill for every AI coding tool.
+<p align="center">
+  Lamina figures out what to build and how users move through it — before anyone opens a design tool or writes production code. Personas, flows, edge cases. Framework-agnostic. Packaged as a skill for every AI coding tool.
+</p>
 
 ---
 
 ## The missing layer
 
-| Layer | Tools | What they do |
-|-------|-------|--------------|
-| UI generation | Stitch, v0, Galileo | Make things *look* good |
-| **UX reasoning** | **Lamina** | Figure out *what to build* and *how it works* |
-| Code generation | Cursor, Copilot, Claude Code | Write the *code* |
+| UI generation | Code generation | **UX reasoning** |
+|---------------|-----------------|------------------|
+| Impeccable, frontend-design | Cursor, Copilot, Claude Code | **Lamina** |
+| Make things *look* good | Write the *code* | Figure out *what to build* and *how it works* |
 
 AI UI tools make things pretty. Coding agents write the code. Nobody goes through user personas, maps the flows, or handles edge cases. Lamina is that layer.
 
