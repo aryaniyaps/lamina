@@ -9,7 +9,20 @@
     "verify:bundle": "node scripts/sync_command_skills.mjs && node scripts/verify_lamina_bundle.mjs --check structure",
     "sync:commands": "node scripts/sync_command_skills.mjs",
     "preview:example": "lamina-blueprint preview --root examples/minimal-blueprint/.lamina/blueprints --id demo",
-    "test:blueprint": "node examples/minimal-blueprint/validate-test.mjs"
+    "test:blueprint": "node examples/minimal-blueprint/validate-test.mjs",
+    "test:eval:spec": "npm run sync:commands && node evals/hooks/validate-plugin.mjs && node evals/hooks/validate-skills-strict.mjs",
+    "test:eval:validate": "node evals/scripts/merge-evals.mjs && node evals/scripts/validate-evals.mjs",
+    "test:eval:smoke": "node evals/scripts/merge-evals.mjs && agent-skill-eval run --skill ./skills/lamina --evals ./evals/smoke/evals.json --agent claude-code --agent codex --agent opencode --runs 1 --pre-run-command 'bash evals/hooks/pre-run-eval.sh' --post-grade-command 'node evals/hooks/grade-lamina.mjs'",
+    "test:eval:full": "node evals/scripts/merge-evals.mjs && agent-skill-eval run --skill ./skills/lamina --evals ./evals/lamina/evals.json --agent claude-code --agent codex --agent opencode --runs 3 --baseline --pre-run-command 'bash evals/hooks/pre-run-eval.sh' --post-grade-command 'node evals/hooks/grade-lamina.mjs'",
+    "test:eval:portable": "npx agent-skills-eval ./skills --baseline --config evals/lamina.config.yaml",
+    "test:eval:redteam": "node evals/promptfoo/build-skill-context.mjs && npx promptfoo eval -c evals/promptfoo/lamina-redteam.yaml",
+    "test:eval:compat": "bash evals/hooks/compatibility-matrix.sh",
+    "test:eval:aggregate": "node evals/scripts/aggregate-reports.mjs",
+    "fixtures:vendor": "node evals/scripts/vendor-nextjs-fixture.mjs"
+  },
+  "devDependencies": {
+    "agent-skills-eval": "^0.1.1",
+    "promptfoo": "^0.121.0"
   },
   "dependencies": {
     "@lamina/blueprint": "workspace:*"

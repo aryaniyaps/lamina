@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_pass": { "type": "boolean" },
+    "dispatch": { "type": "string", "enum": ["concept", "feature", "audit", "direct", "clarify", "blocked"] },
+    "notes": { "type": "string" }
+  },
+  "required": ["overall_pass", "dispatch", "notes"]
+}

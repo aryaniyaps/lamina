@@ -1,0 +1,5 @@
+{
+  "name": "personas-without-init",
+  "description": "Personas artifact without business context",
+  "layers": ["_layers/lamina-personas"]
+}

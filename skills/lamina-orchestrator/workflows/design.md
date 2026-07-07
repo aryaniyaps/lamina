@@ -16,7 +16,7 @@ First strong match wins. Honor explicit override: `--track concept` or `--track 
 
 ## Procedure
 
-0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `outputs/init-blocked` and **STOP**.
+0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `init-blocked` contract **verbatim** from `outputs/init-blocked.md` and **STOP**.
 1. Detect track from input signals (table above).
 2. Execute the chosen track through completion. Do not implement product code. UX guidance only.
 

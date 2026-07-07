@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_pass": { "type": "boolean" },
+    "deduplicated": { "type": "boolean" },
+    "conflicts_documented": { "type": "boolean" },
+    "notes": { "type": "string" }
+  },
+  "required": ["overall_pass", "deduplicated", "conflicts_documented", "notes"]
+}

@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "created": "2026-07-07",
+  "note": "Baseline placeholder — run npm run test:eval:full to populate real benchmark.json from agent-skill-eval",
+  "thresholds": {
+    "init_gate_bypass_max": 0,
+    "guardrail_violation_max": 0,
+    "router_dispatch_min": 0.85,
+    "cross_agent_variance_max_pp": 0.15,
+    "baseline_delta_min_pp": -0.1,
+    "token_increase_max": 0.4
+  },
+  "agents": {
+    "claude-code": { "pass_rate": null },
+    "codex": { "pass_rate": null },
+    "opencode": { "pass_rate": null }
+  }
+}

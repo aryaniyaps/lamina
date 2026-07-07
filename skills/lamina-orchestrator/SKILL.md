@@ -21,7 +21,7 @@ Workflow commands always load this skill first, then their workflow file from [w
 
 ## Three steps
 
-1. **Select** — parse request; list skills from Problem Router, skill `related` metadata, or [audit-profiles.yaml](audit-profiles.yaml). Workflow profiles define the skill set; do not truncate.
+1. **Select** — parse request; list skills from Problem Router, skill `related` metadata, or [audit-profiles.yaml](audit-profiles.yaml). Workflow profiles define the skill set; **do not truncate** audit lenses when the user asks to skip or limit them.
 2. **Apply** — load each skill; run inline by default. For audit, prefer parallel lens subagents over loading all profile skills inline when the host supports Task.
 3. **Deliver** — merge into the command output contract; load `lamina-decision-making` per the table below.
 

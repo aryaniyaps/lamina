@@ -1,0 +1,14 @@
+flows:
+  - id: checkout
+    name: Checkout
+    status: shipped
+    routes:
+      - /product/[handle]
+      - /search
+    description: Cart modal and redirect to Shopify checkout URL
+  - id: cart
+    name: Cart
+    status: shipped
+    routes:
+      - /
+    description: Add to cart actions via components/cart

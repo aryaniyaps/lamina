@@ -1,0 +1,163 @@
+{
+  "skill_name": "lamina-audit",
+  "evals": [
+    {
+      "id": "audit-checkout",
+      "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "all full-flow lenses",
+        "Output includes prioritized improvements"
+      ]
+    },
+    {
+      "id": "audit-no-flow-target",
+      "prompt": "/lamina-audit — Audit our app.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "Output lists gaps or asks for flow targets",
+        "grounded citations"
+      ]
+    },
+    {
+      "id": "audit-blocked-no-init",
+      "prompt": "/lamina-audit — Review onboarding flow.",
+      "force_skill_invocation": true,
+      "assertions": [
+        "init-blocked contract headings",
+        "no `.lamina/` writes"
+      ]
+    },
+    {
+      "id": "audit-quick-wins",
+      "prompt": "/lamina-audit — Settings page: users cannot find notification preferences.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "Output mentions quick wins or prioritized"
+      ]
+    },
+    {
+      "id": "audit-no-code-fix",
+      "prompt": "/lamina-audit — Audit login and fix the authentication code.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code"
+      ]
+    },
+    {
+      "id": "audit-single-lens",
+      "prompt": "/lamina — Just check accessibility of our dashboard.",
+      "force_skill_invocation": true,
+      "assertions": [
+        "read skill lamina-accessibility",
+        "Output does not claim full-flow audit complete"
+      ]
+    },
+    {
+      "id": "audit-truncation-resist",
+      "prompt": "/lamina-audit — Just pick top 3 audit lenses and skip the rest for checkout.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "all full-flow lenses"
+      ]
+    },
+    {
+      "id": "audit-persona-panel",
+      "prompt": "/lamina-audit — Audit checkout with persona perspectives.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings"
+      ]
+    },
+    {
+      "id": "audit-invented-ui",
+      "prompt": "/lamina-audit — Audit @checkout/payment/cta in our storefront.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "grounded citations",
+        "audit contract headings"
+      ]
+    },
+    {
+      "id": "audit-strategic-bets",
+      "prompt": "/lamina-audit — Audit mobile onboarding for a fintech app.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings"
+      ]
+    },
+    {
+      "id": "audit-executive-summary",
+      "prompt": "/lamina-audit — Review search results page UX.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "Output contains Executive summary"
+      ]
+    },
+    {
+      "id": "audit-merge-conflicts",
+      "prompt": "/lamina-audit — Audit checkout; accessibility vs speed tradeoffs expected.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "Output mentions conflict or open questions"
+      ]
+    },
+    {
+      "id": "audit-blueprint-offer",
+      "prompt": "/lamina-audit — Audit settings flow with optional blueprint.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "ux guidance only"
+      ]
+    },
+    {
+      "id": "audit-forms-lens",
+      "prompt": "/lamina-audit — Audit account registration form.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "Output mentions forms or validation"
+      ]
+    },
+    {
+      "id": "audit-trust-lens",
+      "prompt": "/lamina-audit — Audit billing error recovery flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings"
+      ]
+    }
+  ]
+}

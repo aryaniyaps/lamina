@@ -32,6 +32,15 @@ Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), 
 - **Cross-cutting filters** — prioritization and evidence triage → [lamina-decision-making](../lamina-decision-making/SKILL.md)
 - **Artifacts** — load [artifacts.md](../lamina-orchestrator/artifacts.md) when writing or reusing `.lamina/` outputs
 
+## Direct mode (from `/lamina` router)
+
+When routing to a single capability:
+
+1. **Read** the matched `lamina-<id>/SKILL.md` file before answering — do not answer from memory alone.
+2. **Apply** that skill's frameworks, checklists, and output shape.
+3. **Cite** the skill id in your response (e.g. "Using **lamina-forms**:").
+4. Stay UX-only — see [guardrails.md](guardrails.md). Never implement product code or styling specs.
+
 ## Problem Router
 
 | Problem signal | Skill |

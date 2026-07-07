@@ -1,0 +1,52 @@
+# TEMP: LLM eval steps disabled to save API costs. Offline CI runs in eval-spec.yml.
+name: Eval Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'commands/**'
+      - 'evals/**'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    if: false # TEMP: disabled — LLM evals cost API credits. Re-enable when ready.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pip install -r evals/requirements.txt
+
+      - name: Sync and validate
+        run: npm run test:eval:validate
+
+      - name: Run smoke evals (requires agent CLIs + API keys)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run test:eval:smoke
+        continue-on-error: true
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-smoke-artifacts
+          path: evals/workspace/

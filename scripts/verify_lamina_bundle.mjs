@@ -190,6 +190,26 @@ function checkInitPrerequisiteLinks() {
   }
 }
 
+function checkAgentSkillPollution() {
+  const forbidden = [
+    '.agents',
+    '.windsurf',
+    '.claude',
+    '.roo',
+    '.pi',
+    '.goose',
+    '.cursor/skills',
+    'skills-lock.json',
+  ];
+  for (const rel of forbidden) {
+    if (exists(rel)) {
+      errors.push(
+        `skills CLI pollution at repo root: ${rel} — run evals/scripts/clean-root-pollution.sh and use evals/harness-sandbox for eval installs`
+      );
+    }
+  }
+}
+
 function checkRequiredPaths() {
   const required = [
     '.claude-plugin/plugin.json',
@@ -234,6 +254,7 @@ const check = process.argv.includes('--check')
   : 'structure';
 
 if (check === 'structure' || check === 'all') {
+  checkAgentSkillPollution();
   checkRequiredPaths();
   checkCommandSkills();
   checkInitPrerequisiteLinks();

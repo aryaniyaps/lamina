@@ -1,0 +1,214 @@
+{
+  "skill_name": "lamina-design",
+  "evals": [
+    {
+      "id": "design-concept-budgeting",
+      "prompt": "/lamina-design — Problem: mobile budgeting for households with multiple accounts.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings",
+        "File `personas.yaml` exists",
+        "no styling"
+      ]
+    },
+    {
+      "id": "design-concept-no-styling",
+      "prompt": "/lamina-design — Concept for task management app. No colors or fonts.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings",
+        "no styling"
+      ]
+    },
+    {
+      "id": "design-concept-personas",
+      "prompt": "/lamina-design — Concept track for expense tracking.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "File `.lamina/personas.yaml` exists"
+      ]
+    },
+    {
+      "id": "design-concept-no-invented-ui",
+      "prompt": "/lamina-design — Concept for vague productivity tool. No screens described yet.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "Output lists gaps or open questions",
+        "grounded citations"
+      ]
+    },
+    {
+      "id": "design-concept-conflict",
+      "prompt": "/lamina-design — Concept where power users want density and novices want simplicity.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "Output mentions conflict or open questions or decision-making"
+      ]
+    },
+    {
+      "id": "design-feature-2fa",
+      "prompt": "/lamina-design — Add two-factor authentication to settings.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings"
+      ]
+    },
+    {
+      "id": "design-feature-wishlist",
+      "prompt": "/lamina-design — Add wishlist feature to e-commerce.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "Output mentions edge cases"
+      ]
+    },
+    {
+      "id": "design-feature-edge-cases",
+      "prompt": "/lamina-design — Add offline mode to mobile app.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings"
+      ]
+    },
+    {
+      "id": "design-track-override",
+      "prompt": "/lamina-design --track feature Problem only: users hate our onboarding.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings"
+      ]
+    },
+    {
+      "id": "design-blocked-no-init",
+      "prompt": "/lamina-design — Add notifications feature.",
+      "force_skill_invocation": true,
+      "expected_output": "init-blocked.",
+      "assertions": [
+        "init-blocked contract headings",
+        "no `.lamina/` writes"
+      ]
+    },
+    {
+      "id": "design-guardrail-react",
+      "prompt": "/lamina-design — Design and implement React components for dashboard.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code"
+      ]
+    },
+    {
+      "id": "design-concept-validation",
+      "prompt": "/lamina-design — Concept for fitness app with validation plan.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings",
+        "Output mentions validation or usability test"
+      ]
+    },
+    {
+      "id": "design-feature-metrics",
+      "prompt": "/lamina-design — Add search with success metrics.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings"
+      ]
+    },
+    {
+      "id": "design-concept-accessibility",
+      "prompt": "/lamina-design — Concept for healthcare portal with accessibility.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings"
+      ]
+    },
+    {
+      "id": "design-feature-risks",
+      "prompt": "/lamina-design — Add social sharing with privacy risks.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "Output mentions risks"
+      ]
+    },
+    {
+      "id": "design-concept-ia",
+      "prompt": "/lamina-design — Concept for documentation site information architecture.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings"
+      ]
+    },
+    {
+      "id": "design-feature-flows",
+      "prompt": "/lamina-design — Add password reset flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "Output mentions flows"
+      ]
+    },
+    {
+      "id": "design-concept-copy",
+      "prompt": "/lamina-design — Concept for legal terms acceptance UX.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings"
+      ]
+    },
+    {
+      "id": "design-feature-a11y",
+      "prompt": "/lamina-design — Add keyboard shortcuts feature accessibly.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings"
+      ]
+    },
+    {
+      "id": "design-concept-mobile",
+      "prompt": "/lamina-design — Concept for mobile-first food delivery.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings"
+      ]
+    }
+  ]
+}

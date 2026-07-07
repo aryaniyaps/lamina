@@ -1,0 +1,58 @@
+# TEMP: LLM eval steps disabled to save API costs. Offline CI runs in eval-spec.yml.
+name: Eval Nightly
+
+on:
+  # schedule:
+  #   - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  full:
+    if: false # TEMP: disabled — LLM evals cost API credits. Re-enable when ready.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pip install -r evals/requirements.txt
+
+      - name: Full harness evals
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npm run test:eval:validate
+          npm run test:eval:full
+        continue-on-error: true
+
+      - name: Portable evals
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: https://api.openai.com/v1
+        run: npm run test:eval:portable
+        continue-on-error: true
+
+      - name: Aggregate reports
+        if: always()
+        run: node evals/scripts/aggregate-reports.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-nightly
+          path: evals/reports/

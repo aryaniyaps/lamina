@@ -1,0 +1,5 @@
+{
+  "name": "partial-init-frontmatter",
+  "description": "business-context.md with frontmatter only",
+  "layers": ["_layers/lamina-partial-init-frontmatter"]
+}

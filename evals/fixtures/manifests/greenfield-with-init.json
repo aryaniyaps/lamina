@@ -1,0 +1,5 @@
+{
+  "name": "greenfield-with-init",
+  "description": "Valid greenfield business context only (no app repo)",
+  "layers": ["_layers/lamina-valid-init"]
+}

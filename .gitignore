@@ -2,3 +2,32 @@
 .worktrees/
 node_modules/
 .pnpm-store/
+evals/workspace/
+eval-workspace/
+agent-skills-workspace/
+evals/reports/iteration-*/
+promptfoo-output/
+.env
+
+# skills CLI pollution (must never live at repo root)
+.agents/
+.windsurf/
+.claude/
+.roo/
+.pi/
+.goose/
+.cursor/skills/
+skills-lock.json
+
+# eval harness sandbox (generated installs)
+evals/harness-sandbox/.agents/
+evals/harness-sandbox/.windsurf/
+evals/harness-sandbox/.claude/
+evals/harness-sandbox/.roo/
+evals/harness-sandbox/.pi/
+evals/harness-sandbox/.goose/
+evals/harness-sandbox/skills-lock.json
+
+# generated promptfoo skill context
+evals/promptfoo/skill-context.txt
+evals/fixtures/.vendor-tmp-*/

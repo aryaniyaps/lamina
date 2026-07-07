@@ -1,0 +1,5 @@
+{
+  "name": "brownfield-no-init",
+  "description": "Vercel Commerce Next.js app without Lamina init",
+  "layers": ["_base/nextjs-commerce"]
+}

@@ -1,6 +1,8 @@
 # Output contract: init blocked
 
-Emit this contract when the init-required gate fails. Do not emit design or audit output contracts.
+Emit this contract when the init-required gate fails. **Copy this block exactly** — do not emit design or audit output contracts. Do not substitute a prose-only refusal.
+
+**Required:** All five headings below must appear in your response.
 
 ```markdown
 ## Lamina: init required
@@ -21,4 +23,4 @@ Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this c
 - Treat personas, blueprints, or flows inventory as a substitute for business context
 ```
 
-Keep **What's missing** concrete — cite the exact failed checks (missing file, empty file, missing section name, placeholder answer, invalid frontmatter field).
+Keep **What's missing** concrete — cite the exact failed checks (missing file, empty file, missing section name, placeholder answer, invalid frontmatter field, personas offered as init substitute).

@@ -1,0 +1,6 @@
+{
+  "timestamp": "2026-07-07T14:35:55Z",
+  "passed": 13,
+  "failed": 0,
+  "agents": [{"agent":"cursor","status":"pass"},{"agent":"claude-code","status":"pass"},{"agent":"codex","status":"pass"},{"agent":"opencode","status":"pass"},{"agent":"gemini-cli","status":"pass"},{"agent":"github-copilot","status":"pass"},{"agent":"roo","status":"pass"},{"agent":"windsurf","status":"pass"},{"agent":"cline","status":"pass"},{"agent":"amp","status":"pass"},{"agent":"goose","status":"pass"},{"agent":"antigravity","status":"pass"},{"agent":"pi","status":"pass"}]
+}

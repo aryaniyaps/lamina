@@ -33,11 +33,13 @@ From GitHub:
 npx skills add https://github.com/aryaniyaps/lamina -a cursor -a claude-code -a codex -a pi -y
 ```
 
-From a local clone:
+From a local clone (run from **your app repo**, or use the published GitHub URL above — do not install from the Lamina repo root during development):
 
 ```bash
-npx skills add . -a cursor -a claude-code -a codex -a pi -y
+npx skills add /path/to/lamina -a cursor -a claude-code -a codex -a pi -y
 ```
+
+**Contributors:** do not run `npx skills add .` from the Lamina repo root — it duplicates skills into `.agents/`, `.windsurf/`, etc. Eval harnesses install via [`evals/harness-sandbox/`](evals/harness-sandbox/). If polluted, run `bash evals/scripts/clean-root-pollution.sh`.
 
 This installs:
 

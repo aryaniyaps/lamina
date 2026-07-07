@@ -12,6 +12,7 @@ problem → users → flows → structure → UI → edge cases → requirements
 
 - Every finding must name `@step/screen/element` or state `insufficient detail — cannot verify`.
 - Do not invent UI not described in user input, repo context, or existing `.lamina/` artifacts.
+- When the user cites a path (e.g. `@checkout/payment/cta`) without screenshots, routes, or repo context, respond with `insufficient detail — cannot verify` for that element — do not fabricate labels, states, or layout.
 
 ## Conflicts
 

@@ -1,0 +1,10 @@
+{
+  "name": "brownfield-audit-ready",
+  "description": "Commerce app with brownfield init, personas, and flows inventory",
+  "layers": [
+    "_base/nextjs-commerce",
+    "_layers/lamina-brownfield-init",
+    "_layers/lamina-personas",
+    "_layers/lamina-brownfield-audit"
+  ]
+}

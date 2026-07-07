@@ -1,0 +1,41 @@
+# TEMP: LLM eval steps disabled to save API costs. Offline CI runs in eval-spec.yml.
+name: Eval Weekly
+
+on:
+  # schedule:
+  #   - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Compatibility matrix
+        run: npm run test:eval:compat
+        continue-on-error: true
+
+      - name: Promptfoo redteam
+        if: false # TEMP: disabled — LLM evals cost API credits. Re-enable when ready.
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npm run test:eval:redteam
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-weekly
+          path: evals/reports/

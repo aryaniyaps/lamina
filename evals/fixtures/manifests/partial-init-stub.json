@@ -1,0 +1,5 @@
+{
+  "name": "partial-init-stub",
+  "description": "business-context.md with placeholder stub answers",
+  "layers": ["_layers/lamina-partial-init-stub"]
+}

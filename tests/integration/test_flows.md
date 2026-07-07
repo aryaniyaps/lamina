@@ -5,7 +5,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 ## Prerequisites
 
 - `npm test` (or `npm run verify:bundle`) passes
-- Lamina installed via `npx skills add . -a cursor -y` or manual copy
+- Lamina installed via `npx skills add https://github.com/aryaniyaps/lamina -a cursor -y` from your app repo (not from the Lamina repo root — see `evals/harness-sandbox/`)
 
 ## Router (`/lamina`)
 

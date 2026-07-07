@@ -1,0 +1,2 @@
+# Python eval harness (install: pip install -r evals/requirements.txt)
+agent-skill-eval>=0.6.1

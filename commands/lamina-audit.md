@@ -21,7 +21,7 @@ Audit one or more existing flows and return improvements ranked by impact vs eff
 
 ## Prerequisite
 
-Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init gate fails, stop and instruct the user to run init — do not proceed with audit.
+Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init gate fails, emit the `init-blocked` contract **verbatim** from `prompts/outputs/init-blocked.md` and **STOP** — do not proceed with audit, do not create artifacts.
 
 ## Guardrail
 

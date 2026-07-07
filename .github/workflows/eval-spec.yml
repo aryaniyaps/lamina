@@ -1,0 +1,44 @@
+name: Eval Spec
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'commands/**'
+      - 'evals/**'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - 'commands/**'
+      - 'evals/**'
+
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync command skills
+        run: npm run sync:commands
+
+      - name: Existing unit tests
+        run: npm test
+
+      - name: Eval spec + validate
+        run: |
+          npm run test:eval:spec
+          npm run test:eval:validate
