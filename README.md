@@ -57,43 +57,6 @@ npx skills update lamina
 npx skills remove lamina
 ```
 
-### Per-agent fallback
-
-If the Skills CLI is unavailable, clone or copy into your agent's skills directory:
-
-**Cursor**
-
-```bash
-# Project-level
-git clone https://github.com/aryaniyaps/lamina.git .cursor/skills/lamina
-
-# User-level
-git clone https://github.com/aryaniyaps/lamina.git ~/.cursor/skills/lamina
-```
-
-**Claude Code**
-
-```bash
-git clone https://github.com/aryaniyaps/lamina.git .claude/skills/lamina
-# or user-level: ~/.claude/skills/lamina
-```
-
-**Windsurf**
-
-```bash
-git clone https://github.com/aryaniyaps/lamina.git .windsurf/skills/lamina
-```
-
-**Copilot / generic**
-
-Copy `commands/`, `skills/`, and `agents/` into your agent's skills directory, preserving relative paths so commands can reference `skills/lamina-orchestrator/` and `skills/lamina-<id>/`.
-
-### Verify
-
-```bash
-npm run verify:bundle
-```
-
 ---
 
 ## Quickstart
