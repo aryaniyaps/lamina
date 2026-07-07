@@ -1,17 +1,4 @@
 {
   "version": 1,
-  "skills": {
-    "book-to-skill": {
-      "source": "virgiliojr94/book-to-skill",
-      "sourceType": "github",
-      "skillPath": "SKILL.md",
-      "computedHash": "18f06dc85d93c2b0d78c62136489f2a98f93e9ba0f57bd5d98a2da05d7b7a73a"
-    },
-    "grill-me": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/productivity/grill-me/SKILL.md",
-      "computedHash": "f321507f77702a54af1db66549ec1685fc625390d06c57d7949cdcda8eb1b5c7"
-    }
-  }
+  "skills": {}
 }
