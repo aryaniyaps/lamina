@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Lamina Orchestrator
 
-Coordinates multi-capability UX workflows. Slash commands (`/lamina`, `/lamina-init`, etc.) are installed as `disable-model-invocation` skills; `commands/` is the authoring source synced by `npm run sync:commands`.
+Coordinates multi-capability UX workflows. Slash commands (`/lamina`, `/lamina-init`, etc.) are `disable-model-invocation` skills under `skills/lamina*`.
 
 **Guardrail:** UX artifacts and recommendations only. Do not implement product code or visual styling specs. See [guardrails in lamina-core](../lamina-core/guardrails.md).
 

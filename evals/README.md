@@ -7,7 +7,6 @@ Multi-layer eval framework using [agent-skills-eval](https://github.com/darkrish
 ```bash
 npm install
 pip install -r evals/requirements.txt
-npm run sync:commands
 node evals/scripts/merge-evals.mjs
 npm run test:eval:spec
 ```

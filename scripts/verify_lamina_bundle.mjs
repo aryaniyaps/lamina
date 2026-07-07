@@ -57,7 +57,7 @@ function extractMarkdownLinks(content, baseDir) {
 }
 
 function checkReferencedFiles() {
-  const dirs = ['agents', 'skills/lamina-orchestrator', 'commands', 'skills/lamina', 'skills/lamina-init'];
+  const dirs = ['agents', 'skills/lamina-orchestrator', 'skills/lamina', 'skills/lamina-init'];
   for (const dir of dirs) {
     const absDir = path.join(ROOT, dir);
     if (!fs.existsSync(absDir)) continue;
@@ -153,13 +153,8 @@ function checkCommandSkills() {
   const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-audit'];
   for (const name of commandNames) {
     const skillPath = `skills/${name}/SKILL.md`;
-    const commandPath = `commands/${name}.md`;
-    if (!exists(commandPath)) {
-      errors.push(`Missing command source: ${commandPath}`);
-      continue;
-    }
     if (!exists(skillPath)) {
-      errors.push(`Missing command skill (run npm run sync:commands): ${skillPath}`);
+      errors.push(`Missing command skill: ${skillPath}`);
       continue;
     }
     const skill = read(skillPath);
@@ -228,10 +223,6 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/prerequisites/init-required.md',
     'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
     'scripts/check_lamina_init.mjs',
-    'commands/lamina.md',
-    'commands/lamina-init.md',
-    'commands/lamina-design.md',
-    'commands/lamina-audit.md',
     'skills/lamina-orchestrator/workflows/design.md',
     'skills/lamina-orchestrator/workflows/design-concept.md',
     'skills/lamina-orchestrator/workflows/design-feature.md',

@@ -25,8 +25,6 @@ AGENTS=(
   pi
 )
 
-npm run sync:commands >/dev/null 2>&1 || true
-
 results=()
 passed=0
 failed=0

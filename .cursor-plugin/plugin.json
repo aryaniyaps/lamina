@@ -6,6 +6,5 @@
     "name": "Aryan Iyappan"
   },
   "skills": "./skills/",
-  "agents": "./agents/",
-  "commands": "./commands/"
+  "agents": "./agents/"
 }

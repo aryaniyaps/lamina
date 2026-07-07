@@ -4,14 +4,12 @@ on:
   pull_request:
     paths:
       - 'skills/**'
-      - 'commands/**'
       - 'evals/**'
       - 'package.json'
   push:
     branches: [main]
     paths:
       - 'skills/**'
-      - 'commands/**'
       - 'evals/**'
 
 jobs:
@@ -31,9 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Sync command skills
-        run: npm run sync:commands
 
       - name: Existing unit tests
         run: npm test

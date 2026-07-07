@@ -46,7 +46,6 @@ This installs:
 | Path | Role |
 |------|------|
 | `skills/lamina/`, `skills/lamina-init/`, … | Slash commands (`/lamina`, `/lamina-init`, etc.) as `disable-model-invocation` skills |
-| `commands/` | Authoring source for Cursor plugin manifests (synced to command skills via `npm run sync:commands`) |
 | `skills/lamina-*/` | Problem router, orchestrator, and ~40 capability skills |
 | `skills/lamina-orchestrator/agents/` | Subagent definitions bundled with the orchestrator skill |
 
@@ -214,7 +213,7 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 
 | Layer | Path |
 |-------|------|
-| Commands | [`commands/`](commands/) |
+| Slash commands | [`skills/lamina/`](skills/lamina/), [`skills/lamina-init/`](skills/lamina-init/), [`skills/lamina-design/`](skills/lamina-design/), [`skills/lamina-audit/`](skills/lamina-audit/) |
 | Index / router | [`skills/lamina-core/SKILL.md`](skills/lamina-core/SKILL.md) |
 | Orchestration | [`skills/lamina-orchestrator/`](skills/lamina-orchestrator/) |
 | Capability skills | [`skills/lamina-*/SKILL.md`](skills/) (~40 skills) |

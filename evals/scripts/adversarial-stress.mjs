@@ -38,8 +38,6 @@ function readSkillContext() {
     'skills/lamina-orchestrator/workflows/router.md',
     'skills/lamina-orchestrator/workflows/audit.md',
     'skills/lamina-orchestrator/merge-rules.md',
-    'commands/lamina-optimize.md',
-    'commands/lamina-ideate.md',
   ];
   return files
     .map((f) => `--- ${f} ---\n${fs.readFileSync(path.join(ROOT, f), 'utf8')}`)

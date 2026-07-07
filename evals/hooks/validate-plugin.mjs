@@ -56,20 +56,6 @@ function checkCommandSkills() {
   }
 }
 
-function checkCommandsSync() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-audit'];
-  for (const name of commandNames) {
-    const commandPath = `commands/${name}.md`;
-    const skillPath = `skills/${name}/SKILL.md`;
-    if (!exists(commandPath)) {
-      errors.push(`Missing command source: ${commandPath}`);
-    }
-    if (!exists(skillPath)) {
-      errors.push(`Missing synced skill: ${skillPath} — run npm run sync:commands`);
-    }
-  }
-}
-
 function checkOutputContracts() {
   const contracts = {
     'skills/lamina-orchestrator/prompts/outputs/design-concept.md': [
@@ -146,7 +132,6 @@ function checkMetadataAlignment() {
 checkAuditProfiles();
 checkProblemRouterLinks();
 checkCommandSkills();
-checkCommandsSync();
 checkOutputContracts();
 checkMetadataAlignment();
 

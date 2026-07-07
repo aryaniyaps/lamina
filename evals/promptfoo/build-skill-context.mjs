@@ -23,8 +23,6 @@ const files = [
   'skills/lamina-orchestrator/workflows/router.md',
   'skills/lamina-orchestrator/workflows/audit.md',
   'skills/lamina-orchestrator/merge-rules.md',
-  'commands/lamina-optimize.md',
-  'commands/lamina-ideate.md',
 ];
 
 const body = files
