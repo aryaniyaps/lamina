@@ -158,7 +158,7 @@ const laminaEvals = {
       assertions: ['read skill lamina-heuristic-review'],
     }),
     e('router-direct-blueprint', '/lamina — Wireframe preview structure for login screen.', {
-      assertions: ['read skill lamina-blueprint', 'ux guidance only'],
+      assertions: ['read skill lamina-blueprint', 'ux guidance only', 'Output mentions blueprint or wireframe'],
     }),
 
     // Negative controls (~10)
@@ -323,7 +323,30 @@ const laminaDesignEvals = {
     }),
     e('design-feature-edge-cases', '/lamina-design — Add offline mode to mobile app.', {
       ...fx('greenfield-with-init'),
-      assertions: ['design-feature contract headings'],
+      assertions: [
+        'design-feature contract headings',
+        'read skill lamina-edge-cases',
+        'edge case categories covered',
+        'no domain model artifact',
+      ],
+    }),
+    e('design-feature-edge-cases-brownfield', '/lamina-design --track feature Add offline cart sync for our commerce storefront.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'design-feature contract headings',
+        'read skill lamina-edge-cases',
+        'edge case categories covered',
+        'no implementation vocabulary',
+        'no domain model artifact',
+      ],
+    }),
+    e('design-concept-persona-walkthrough', '/lamina-design — Concept track: walk through checkout flow from each persona perspective.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: ['design-concept contract headings', 'persona perspectives in output'],
+    }),
+    e('design-feature-blueprint-checkpoint', '/lamina-design — Add password reset. Create blueprint wireframe preview and validate.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['blueprint validate passes', 'read skill lamina-blueprint'],
     }),
     e('design-track-override', '/lamina-design --track feature Problem only: users hate our onboarding.', {
       ...fx('greenfield-with-init'),
@@ -407,7 +430,11 @@ const laminaAuditEvals = {
     }),
     e('audit-persona-panel', '/lamina-audit — Audit checkout with persona perspectives.', {
       ...fx('brownfield-audit-ready'),
-      assertions: ['audit contract headings'],
+      assertions: [
+        'audit contract headings',
+        'persona perspectives in output',
+        'read skill lamina-user-modeling',
+      ],
     }),
     e('audit-invented-ui', '/lamina-audit — Audit @checkout/payment/cta in our storefront.', {
       ...fx('brownfield-with-init'),
@@ -440,11 +467,67 @@ const laminaAuditEvals = {
   ],
 };
 
+const laminaCapabilitiesEvals = {
+  skill_name: 'lamina-capabilities',
+  evals: [
+    e('cap-edge-cases-direct', '/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'read skill lamina-edge-cases',
+        'edge case categories covered',
+        'no domain model artifact',
+        'no implementation vocabulary',
+      ],
+    }),
+    e('cap-edge-cases-brownfield', '/lamina — Systematically map edge cases for cart and checkout using our shipped flows.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'read skill lamina-edge-cases',
+        'Output mentions flows or edge cases',
+        'no implementation vocabulary',
+      ],
+    }),
+    e('cap-edge-cases-no-persist', '/lamina — Build an operation inventory for wishlist feature edge cases. Do not write a domain model file.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['no domain model artifact', 'edge case categories covered'],
+    }),
+    e('cap-flow-design-framework', '/lamina — Design the information and interaction framework for password reset before wireframes.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['read skill lamina-flow-design', 'Output mentions flows', 'no implementation vocabulary'],
+    }),
+    e('cap-persona-panel-checkout', '/lamina — Run a persona panel walkthrough of the checkout flow from each persona\'s perspective.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: [
+        'read skill lamina-user-modeling',
+        'persona simulation file exists',
+        'persona perspectives in output',
+      ],
+    }),
+    e('cap-persona-conflict', '/lamina — Simulate how our personas would experience a dense power-user dashboard vs simplified novice layout.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: ['persona perspectives in output', 'Output mentions conflict or open questions'],
+    }),
+    e('cap-blueprint-create-login', '/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['read skill lamina-blueprint', 'blueprint validate passes', 'no styling in blueprint'],
+    }),
+    e('cap-blueprint-with-scenarios', '/lamina — Create blueprint for password reset flow including empty and error scenarios in scenarios.yaml.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['blueprint validate passes', 'File `scenarios.yaml` exists', 'scenarios.yaml valid'],
+    }),
+    e('cap-blueprint-brownfield', '/lamina — Blueprint the checkout flow screens we already ship; use structure-manifest for existing screens.', {
+      ...fx('brownfield-audit-ready'),
+      assertions: ['read skill lamina-blueprint', 'blueprint validate passes'],
+    }),
+  ],
+};
+
 const suites = [
   { path: 'skills/lamina/evals/evals.json', data: laminaEvals },
   { path: 'skills/lamina-init/evals/evals.json', data: laminaInitEvals },
   { path: 'skills/lamina-design/evals/evals.json', data: laminaDesignEvals },
   { path: 'skills/lamina-audit/evals/evals.json', data: laminaAuditEvals },
+  { path: 'skills/lamina-capabilities/evals/evals.json', data: laminaCapabilitiesEvals },
 ];
 
 for (const { path: rel, data } of suites) {
@@ -498,6 +581,9 @@ const smokeIds = [
   'fixture-brownfield-init',
   'fixture-brownfield-design-blocked',
   'fixture-brownfield-audit-checkout',
+  'cap-edge-cases-direct',
+  'cap-blueprint-create-login',
+  'cap-persona-panel-checkout',
 ];
 
 const smokeEvals = {

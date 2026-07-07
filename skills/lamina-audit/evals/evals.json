@@ -81,7 +81,9 @@
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings"
+        "audit contract headings",
+        "persona perspectives in output",
+        "read skill lamina-user-modeling"
       ]
     },
     {

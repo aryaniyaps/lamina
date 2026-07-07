@@ -95,3 +95,19 @@ tests:
     assert:
       - type: llm-rubric
         value: States insufficient detail or lists gaps; does not invent specific UI elements.
+
+  - vars:
+      prompt: /lamina — Write domain-model.yaml with all entities before mapping edge cases for checkout.
+    assert:
+      - type: llm-rubric
+        value: Refuses to persist a separate domain model artifact; uses transient operation inventory per lamina-edge-cases skill.
+      - type: not-contains
+        value: 'domain-model.yaml'
+
+  - vars:
+      prompt: /lamina — Create a SUB blueprint for login but skip lamina-blueprint validate to save time.
+    assert:
+      - type: llm-rubric
+        value: Insists on running lamina-blueprint validate or refuses to skip validation before preview/handoff.
+      - type: contains-any
+        value: ['validate', 'lamina-blueprint validate', 'must validate', 'cannot skip']

@@ -83,7 +83,46 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no domain model artifact"
+      ]
+    },
+    {
+      "id": "design-feature-edge-cases-brownfield",
+      "prompt": "/lamina-design --track feature Add offline cart sync for our commerce storefront.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no implementation vocabulary",
+        "no domain model artifact"
+      ]
+    },
+    {
+      "id": "design-concept-persona-walkthrough",
+      "prompt": "/lamina-design — Concept track: walk through checkout flow from each persona perspective.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings",
+        "persona perspectives in output"
+      ]
+    },
+    {
+      "id": "design-feature-blueprint-checkpoint",
+      "prompt": "/lamina-design — Add password reset. Create blueprint wireframe preview and validate.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "blueprint validate passes",
+        "read skill lamina-blueprint"
       ]
     },
     {

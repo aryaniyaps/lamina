@@ -307,7 +307,8 @@
       "force_skill_invocation": true,
       "assertions": [
         "read skill lamina-blueprint",
-        "ux guidance only"
+        "ux guidance only",
+        "Output mentions blueprint or wireframe"
       ]
     },
     {

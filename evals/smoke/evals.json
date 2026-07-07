@@ -193,6 +193,43 @@
         "init-blocked contract headings",
         "no `.lamina/` writes"
       ]
+    },
+    {
+      "id": "cap-edge-cases-direct",
+      "prompt": "/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no domain model artifact",
+        "no implementation vocabulary"
+      ]
+    },
+    {
+      "id": "cap-persona-panel-checkout",
+      "prompt": "/lamina — Run a persona panel walkthrough of the checkout flow from each persona's perspective.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-user-modeling",
+        "persona simulation file exists",
+        "persona perspectives in output"
+      ]
+    },
+    {
+      "id": "cap-blueprint-create-login",
+      "prompt": "/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-blueprint",
+        "blueprint validate passes",
+        "no styling in blueprint"
+      ]
     }
   ]
 }

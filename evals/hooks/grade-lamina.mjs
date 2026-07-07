@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
+import { validateBlueprint } from '../../packages/lamina-blueprint/cli/validate.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -105,6 +106,86 @@ function diffNewFiles(preState, postState) {
 
 function hookResult(text, passed, evidence) {
   return { text, passed, evidence, method: 'hook', skipped: false };
+}
+
+const EDGE_CASE_CATEGORIES = ['empty', 'failure', 'permission', 'conflict', 'boundary', 'precondition', 'external'];
+const DOMAIN_MODEL_PATTERNS = /domain-model|entity-catalog|operations-inventory|operation-inventory/i;
+const IMPL_VOCAB_PATTERNS =
+  /\b(users table|orders table|POST\s+\/|GET\s+\/|Prisma|SELECT\s+|INSERT\s+|ORM\b|graphql\s+mutation)\b/i;
+
+function normalizePath(p) {
+  return p.replace(/\\/g, '/');
+}
+
+function findBlueprintDirs(workspace, newFiles = []) {
+  const dirs = new Set();
+  for (const rel of newFiles) {
+    const norm = normalizePath(rel);
+    const match = norm.match(/^\.lamina\/blueprints\/([^/]+)\//);
+    if (match) dirs.add(path.join(workspace, '.lamina/blueprints', match[1]));
+  }
+  const blueprintsRoot = path.join(workspace, '.lamina/blueprints');
+  if (fs.existsSync(blueprintsRoot)) {
+    for (const entry of fs.readdirSync(blueprintsRoot, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        const dir = path.join(blueprintsRoot, entry.name);
+        const hasMeta = fs.existsSync(path.join(dir, 'meta.yaml'));
+        const hasFlows = fs.existsSync(path.join(dir, 'flows.tsx'));
+        if (hasMeta || hasFlows) dirs.add(dir);
+      }
+    }
+  }
+  return [...dirs];
+}
+
+function readScenariosText(workspace, blueprintDirs) {
+  for (const dir of blueprintDirs) {
+    const file = path.join(dir, 'scenarios.yaml');
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
+  }
+  const fallback = path.join(workspace, '.lamina/blueprints');
+  if (!fs.existsSync(fallback)) return '';
+  for (const entry of fs.readdirSync(fallback, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const file = path.join(fallback, entry.name, 'scenarios.yaml');
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
+  }
+  return '';
+}
+
+function countEdgeCategories(text) {
+  const lower = text.toLowerCase();
+  return EDGE_CASE_CATEGORIES.filter((cat) => lower.includes(cat)).length;
+}
+
+function loadPersonaIds(workspace) {
+  const file = path.join(workspace, '.lamina/personas.yaml');
+  if (!fs.existsSync(file)) return [];
+  try {
+    const data = fs.readFileSync(file, 'utf8');
+    const ids = [];
+    for (const line of data.split('\n')) {
+      const m = line.match(/^\s*-\s*id:\s*(\S+)/);
+      if (m) ids.push(m[1]);
+    }
+    if (!ids.length && /^\s*id:\s*(\S+)/m.test(data)) {
+      const m = data.match(/^\s*id:\s*(\S+)/m);
+      if (m) ids.push(m[1]);
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+function listBlueprintTsxFiles(blueprintDirs) {
+  const files = [];
+  for (const dir of blueprintDirs) {
+    for (const rel of listFiles(dir)) {
+      if (rel.endsWith('.tsx')) files.push(path.join(dir, rel));
+    }
+  }
+  return files;
 }
 
 function gradeAssertion(text, ctx) {
@@ -237,6 +318,136 @@ function gradeAssertion(text, ctx) {
     const codeBlocks = /```(?:tsx?|jsx?|python|rust|go)\n[\s\S]*?```/i.test(output);
     const passed = !codeBlocks || /\.lamina\/blueprints/i.test(output);
     return hookResult(text, passed, passed ? 'No implementable product code in output' : 'Product code blocks in output');
+  }
+
+  if (lower.includes('edge case categories covered')) {
+    const scenariosText = readScenariosText(workspace, findBlueprintDirs(workspace, newFiles));
+    const combined = `${output}\n${scenariosText}`;
+    const count = countEdgeCategories(combined);
+    const passed = count >= 3;
+    return hookResult(
+      text,
+      passed,
+      passed ? `${count} edge categories found` : `Only ${count} categories (need 3+): ${EDGE_CASE_CATEGORIES.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('no domain model artifact')) {
+    const laminaNew = newFiles.filter((f) => normalizePath(f).startsWith('.lamina/'));
+    const violations = laminaNew.filter((f) => DOMAIN_MODEL_PATTERNS.test(normalizePath(f)));
+    const passed = violations.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No domain model artifacts created' : `Domain model files: ${violations.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('no implementation vocabulary')) {
+    const edgeSection = output.split(/### Edge cases/i)[1] ?? output;
+    const passed = !IMPL_VOCAB_PATTERNS.test(edgeSection);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No implementation vocabulary in edge-case output' : 'SQL/ORM/API terms found in edge cases',
+    );
+  }
+
+  if (lower.includes('scenarios.yaml valid')) {
+    const dirs = findBlueprintDirs(workspace, newFiles);
+    const withScenarios = dirs.filter((d) => fs.existsSync(path.join(d, 'scenarios.yaml')));
+    if (!withScenarios.length) {
+      return hookResult(text, false, 'No scenarios.yaml found in blueprint dirs');
+    }
+    for (const dir of withScenarios) {
+      const result = validateBlueprint(dir);
+      if (result.ok) {
+        return hookResult(text, true, `scenarios.yaml valid in ${path.basename(dir)}`);
+      }
+      return hookResult(text, false, result.errors.join('; '));
+    }
+  }
+
+  if (lower.includes('blueprint validate passes')) {
+    const dirs = findBlueprintDirs(workspace, newFiles);
+    if (!dirs.length) {
+      return hookResult(text, false, 'No blueprint directory found under .lamina/blueprints/');
+    }
+    for (const dir of dirs) {
+      const hasMeta = fs.existsSync(path.join(dir, 'meta.yaml'));
+      const hasFlows = fs.existsSync(path.join(dir, 'flows.tsx'));
+      const screensDir = path.join(dir, 'screens');
+      const hasScreen =
+        fs.existsSync(screensDir) &&
+        fs.readdirSync(screensDir).some((f) => f.endsWith('.tsx'));
+      if (!hasMeta || !hasFlows || !hasScreen) {
+        continue;
+      }
+      const result = validateBlueprint(dir);
+      if (result.ok) {
+        return hookResult(text, true, `Blueprint ${path.basename(dir)} passes validate`);
+      }
+      return hookResult(text, false, result.errors.join('; '));
+    }
+    return hookResult(text, false, 'Blueprint missing meta.yaml, flows.tsx, or screens/*.tsx');
+  }
+
+  if (lower.includes('no styling in blueprint')) {
+    const tsxFiles = listBlueprintTsxFiles(findBlueprintDirs(workspace, newFiles));
+    if (!tsxFiles.length) {
+      return hookResult(text, false, 'No blueprint TSX files to scan');
+    }
+    const stylingPattern = /\bclassName\s*=|style\s*=|bg-[a-z]+-\d{3}|text-[a-z]+-\d{3}|#[0-9a-f]{3,6}\b/i;
+    const violations = tsxFiles.filter((f) => stylingPattern.test(fs.readFileSync(f, 'utf8')));
+    const passed = violations.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No styling in blueprint TSX' : `Styling in: ${violations.map((f) => path.basename(f)).join(', ')}`,
+    );
+  }
+
+  if (lower.includes('persona simulation file exists')) {
+    const simNew = newFiles.filter((f) => /\.lamina\/personas\/simulations\/.+\.yaml$/i.test(normalizePath(f)));
+    const simExists = workspaceFiles.some((f) => f.includes('personas/simulations/') && f.endsWith('.yaml'));
+    const passed = simNew.length > 0 || simExists;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Persona simulation YAML found' : 'No .lamina/personas/simulations/*.yaml',
+    );
+  }
+
+  if (lower.includes('persona perspectives in output')) {
+    const personaIds = loadPersonaIds(workspace);
+    const passed =
+      personaIds.some((id) => output.includes(id)) ||
+      /persona panel|from .+'s perspective|as (the )?(primary|demo)/i.test(output);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Persona voice or id referenced in output' : `Expected one of: ${personaIds.join(', ') || 'persona references'}`,
+    );
+  }
+
+  if (lower.includes('mentions blueprint or wireframe')) {
+    const passed = /blueprint|wireframe|SUB\b|\.lamina\/blueprints/i.test(output);
+    return hookResult(text, passed, passed ? 'Blueprint/wireframe mentioned' : 'No blueprint or wireframe language');
+  }
+
+  if (lower.includes('mentions flows or edge cases')) {
+    const passed = /\bflows?\b/i.test(output) && /edge cases?/i.test(output);
+    return hookResult(text, passed, passed ? 'Flows and edge cases mentioned' : 'Missing flows or edge cases mention');
+  }
+
+  if (lower.includes('mentions flows') && !lower.includes('edge cases')) {
+    const passed = /\bflows?\b/i.test(output);
+    return hookResult(text, passed, passed ? 'Flows mentioned in output' : 'No flows mention in output');
+  }
+
+  if (lower.includes('mentions conflict or open questions')) {
+    const passed = /conflict|open questions?|trade-?off|tension between/i.test(output);
+    return hookResult(text, passed, passed ? 'Conflict or open questions mentioned' : 'No conflict/open-questions language');
   }
 
   return null;

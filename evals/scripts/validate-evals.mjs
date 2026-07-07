@@ -18,6 +18,7 @@ const suites = [
   'skills/lamina-init/evals/evals.json',
   'skills/lamina-design/evals/evals.json',
   'skills/lamina-audit/evals/evals.json',
+  'skills/lamina-capabilities/evals/evals.json',
 ];
 
 function validateSuite(relPath) {

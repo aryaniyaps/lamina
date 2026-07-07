@@ -307,7 +307,8 @@
       "force_skill_invocation": true,
       "assertions": [
         "read skill lamina-blueprint",
-        "ux guidance only"
+        "ux guidance only",
+        "Output mentions blueprint or wireframe"
       ]
     },
     {
@@ -651,7 +652,46 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings"
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no domain model artifact"
+      ]
+    },
+    {
+      "id": "design-feature-edge-cases-brownfield",
+      "prompt": "/lamina-design --track feature Add offline cart sync for our commerce storefront.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "design-feature contract headings",
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no implementation vocabulary",
+        "no domain model artifact"
+      ]
+    },
+    {
+      "id": "design-concept-persona-walkthrough",
+      "prompt": "/lamina-design — Concept track: walk through checkout flow from each persona perspective.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "design-concept contract headings",
+        "persona perspectives in output"
+      ]
+    },
+    {
+      "id": "design-feature-blueprint-checkpoint",
+      "prompt": "/lamina-design — Add password reset. Create blueprint wireframe preview and validate.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "blueprint validate passes",
+        "read skill lamina-blueprint"
       ]
     },
     {
@@ -858,7 +898,9 @@
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings"
+        "audit contract headings",
+        "persona perspectives in output",
+        "read skill lamina-user-modeling"
       ]
     },
     {
@@ -934,6 +976,112 @@
       "stage_files": true,
       "assertions": [
         "audit contract headings"
+      ]
+    },
+    {
+      "id": "cap-edge-cases-direct",
+      "prompt": "/lamina — Map operational edge cases for our checkout flow: empty cart, payment failure, session expiry.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-edge-cases",
+        "edge case categories covered",
+        "no domain model artifact",
+        "no implementation vocabulary"
+      ]
+    },
+    {
+      "id": "cap-edge-cases-brownfield",
+      "prompt": "/lamina — Systematically map edge cases for cart and checkout using our shipped flows.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-edge-cases",
+        "Output mentions flows or edge cases",
+        "no implementation vocabulary"
+      ]
+    },
+    {
+      "id": "cap-edge-cases-no-persist",
+      "prompt": "/lamina — Build an operation inventory for wishlist feature edge cases. Do not write a domain model file.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no domain model artifact",
+        "edge case categories covered"
+      ]
+    },
+    {
+      "id": "cap-flow-design-framework",
+      "prompt": "/lamina — Design the information and interaction framework for password reset before wireframes.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-flow-design",
+        "Output mentions flows",
+        "no implementation vocabulary"
+      ]
+    },
+    {
+      "id": "cap-persona-panel-checkout",
+      "prompt": "/lamina — Run a persona panel walkthrough of the checkout flow from each persona's perspective.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-user-modeling",
+        "persona simulation file exists",
+        "persona perspectives in output"
+      ]
+    },
+    {
+      "id": "cap-persona-conflict",
+      "prompt": "/lamina — Simulate how our personas would experience a dense power-user dashboard vs simplified novice layout.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "persona perspectives in output",
+        "Output mentions conflict or open questions"
+      ]
+    },
+    {
+      "id": "cap-blueprint-create-login",
+      "prompt": "/lamina — Create a SUB blueprint for a login screen with email/password flow. Validate before finishing.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-blueprint",
+        "blueprint validate passes",
+        "no styling in blueprint"
+      ]
+    },
+    {
+      "id": "cap-blueprint-with-scenarios",
+      "prompt": "/lamina — Create blueprint for password reset flow including empty and error scenarios in scenarios.yaml.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "blueprint validate passes",
+        "File `scenarios.yaml` exists",
+        "scenarios.yaml valid"
+      ]
+    },
+    {
+      "id": "cap-blueprint-brownfield",
+      "prompt": "/lamina — Blueprint the checkout flow screens we already ship; use structure-manifest for existing screens.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-blueprint",
+        "blueprint validate passes"
       ]
     }
   ]
