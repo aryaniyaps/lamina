@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lamina.dev — Brand Identity System v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --void: #09090B;
+      --base: #111113;
+      --surface: #1A1A1D;
+      --elevated: #242428;
+      --border: #2E2E33;
+      --border-dotted: #3F3F46;
+      --muted: #71717A;
+      --secondary: #A1A1AA;
+      --text: #FAFAFA;
+      --highlighter: #FACC15;
+      --highlighter-muted: rgba(250, 204, 21, 0.22);
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page { size: A4; margin: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      font-size: 10pt;
+      line-height: 1.55;
+      color: var(--base);
+      background: #F4F4F5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      min-height: 297mm;
+      padding: 16mm 18mm 20mm;
+      page-break-after: always;
+      break-after: page;
+      break-inside: avoid;
+      position: relative;
+      background: white;
+      overflow: hidden;
+    }
+
+    .page:last-child { page-break-after: auto; }
+
+    .page--cover {
+      background: var(--void);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 22mm;
+    }
+
+    .page--dark {
+      background: var(--void);
+      color: var(--secondary);
+    }
+
+    .page--dark h1, .page--dark h2, .page--dark h3 { color: var(--text); }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #E4E4E7;
+      padding-bottom: 3mm;
+      margin-bottom: 7mm;
+      font-size: 8pt;
+      color: var(--muted);
+    }
+
+    .page--dark .page-header { border-color: var(--border); }
+
+    .page-header .logo-text { font-weight: 600; color: var(--base); }
+    .page--dark .page-header .logo-text { color: var(--text); }
+    .page-header .logo-text span { font-family: var(--font-mono); color: var(--muted); font-weight: 400; }
+
+    .section-num {
+      font-family: var(--font-mono);
+      font-size: 8pt;
+      color: var(--highlighter);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 2mm;
+    }
+
+    .page--dark .section-num { color: var(--highlighter); }
+
+    h1 { font-size: 20pt; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 5mm; }
+    h2 { font-size: 13pt; font-weight: 600; margin: 6mm 0 3mm; }
+    h3 { font-size: 10.5pt; font-weight: 600; margin: 4mm 0 2mm; color: #27272A; }
+    .page--dark h3 { color: var(--text); }
+
+    p { margin-bottom: 3mm; max-width: 42em; }
+    ul, ol { margin: 2mm 0 4mm 5mm; }
+    li { margin-bottom: 1.5mm; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 3mm 0 4mm;
+      font-size: 9pt;
+    }
+
+    th, td {
+      border: 1px solid #E4E4E7;
+      padding: 2.5mm 3mm;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #F4F4F5;
+      font-weight: 600;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .page--dark th { background: var(--surface); border-color: var(--border); color: var(--secondary); }
+    .page--dark td { border-color: var(--border); color: var(--secondary); }
+
+    .callout {
+      background: var(--highlighter-muted);
+      border-left: 3px solid var(--highlighter);
+      padding: 4mm 5mm;
+      margin: 4mm 0;
+      font-size: 9.5pt;
+    }
+
+    .callout--dark {
+      background: var(--surface);
+      border-left-color: var(--highlighter);
+    }
+
+    .quote {
+      font-size: 12pt;
+      font-weight: 500;
+      line-height: 1.4;
+      border-left: 3px solid var(--highlighter);
+      padding-left: 5mm;
+      margin: 4mm 0;
+      color: #27272A;
+    }
+
+    .toc { list-style: none; margin: 0; padding: 0; }
+    .toc li {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dotted #D4D4D8;
+      padding: 2.5mm 0;
+      font-size: 10pt;
+    }
+    .toc .num { font-family: var(--font-mono); color: var(--highlighter); width: 8mm; }
+
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3mm;
+      margin: 3mm 0;
+    }
+
+    .swatch { border-radius: 2mm; overflow: hidden; border: 1px solid #E4E4E7; }
+    .swatch-color { height: 14mm; }
+    .swatch-info { padding: 2mm; font-size: 7.5pt; background: white; }
+    .swatch-info strong { display: block; font-size: 8pt; }
+
+    .ux-box {
+      border: 1.5px dashed var(--border-dotted);
+      border-radius: 2mm;
+      padding: 3mm 4mm;
+      background: var(--surface);
+      position: relative;
+      margin: 3mm 0;
+    }
+
+    .ux-box--active { border-color: var(--highlighter); }
+
+    .ux-label {
+      font-family: var(--font-mono);
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 2mm;
+    }
+
+    .ux-box--active .ux-label { color: var(--highlighter); }
+
+    .wireframe {
+      background: var(--void);
+      border-radius: 3mm;
+      padding: 4mm;
+      font-family: var(--font-mono);
+      font-size: 7pt;
+      color: var(--secondary);
+      line-height: 1.5;
+    }
+
+    pre {
+      font-family: var(--font-mono);
+      font-size: 7.5pt;
+      background: var(--surface);
+      color: var(--secondary);
+      padding: 4mm;
+      border-radius: 2mm;
+      border: 1.5px dashed var(--border-dotted);
+      margin: 3mm 0;
+      overflow: hidden;
+      line-height: 1.45;
+    }
+
+    .page--dark pre { background: var(--surface); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+
+    .page-footer {
+      position: absolute;
+      bottom: 10mm;
+      left: 18mm;
+      right: 18mm;
+      font-size: 7pt;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #E4E4E7;
+      padding-top: 2mm;
+    }
+
+    .page--cover .page-footer,
+    .page--dark .page-footer { border-color: var(--border); color: #52525B; }
+
+    .wordmark-demo {
+      display: flex;
+      align-items: center;
+      gap: 4mm;
+      padding: 5mm;
+      border-radius: 2mm;
+    }
+
+    .pose-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+    }
+
+    .pose-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2mm;
+      padding: 3mm;
+      text-align: center;
+    }
+
+    .pose-card h4 { font-size: 8pt; color: var(--text); margin-bottom: 2mm; }
+    .pose-card p { font-size: 7pt; color: var(--muted); margin: 0; }
+  </style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="page page--cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:5mm">
+      <svg width="51" height="56" viewBox="0 0 697 762" fill="none" aria-hidden="true">
+        <path d="M384.428 107.547C448.953 142.948 472.564 223.954 437.163 288.48L277.114 580.197L160.28 516.097C95.7552 480.696 72.1457 399.69 107.547 335.165L267.595 43.4471L384.428 107.547Z" stroke="#FAFAFA" stroke-width="64"/>
+        <path d="M586.919 602.257C550.447 666.183 469.059 688.44 405.132 651.969L156.324 510.02L222.361 394.27C258.832 330.344 340.221 308.087 404.148 344.558L652.955 486.508L586.919 602.257Z" stroke="#FAFAFA" stroke-width="64"/>
+      </svg>
+      <div style="font-size: 36pt; font-weight: 600; letter-spacing: -0.04em;">
+        lamina
+      </div>
+    </div>
+    <div style="font-size: 14pt; color: var(--highlighter); margin-top: 4mm; font-weight: 500;">
+      Design how it works.
+    </div>
+  </div>
+  <div>
+    <p style="font-size: 10pt; color: var(--secondary); max-width: 34em; margin-bottom: 10mm;">
+      Brand Identity System v3 — UX layer grey palette, Highlighter accent, dotted annotation language, layer mark + flat wordmark, 3D meerkat mascot (separate).
+    </p>
+    <div style="font-size: 8pt; color: var(--muted); border-top: 1px solid var(--border); padding-top: 5mm;">
+      <strong style="color: var(--secondary);">Brand Identity System</strong> · Version 3.0 · July 2026
+    </div>
+  </div>
+  <div class="page-footer" style="border: none;">
+    <span>lamina.dev</span>
+    <span>v3.0</span>
+  </div>
+</section>
+
+<!-- TOC -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>Contents</span>
+  </div>
+  <h1>Contents</h1>
+  <ul class="toc">
+    <li><span class="num">01</span> Strategic Foundation <span>3</span></li>
+    <li><span class="num">02</span> Verbal Identity <span>5</span></li>
+    <li><span class="num">03</span> Brand Principle — The UX Layer <span>6</span></li>
+    <li><span class="num">04</span> Color System <span>7</span></li>
+    <li><span class="num">05</span> Dotted Line Language <span>8</span></li>
+    <li><span class="num">06</span> Mascot — 3D Meerkat <span>9</span></li>
+    <li><span class="num">07</span> Logo, Wordmark &amp; Icon <span>11</span></li>
+    <li><span class="num">08</span> Typography <span>12</span></li>
+    <li><span class="num">09</span> Landing Page <span>13</span></li>
+    <li><span class="num">10</span> Voice &amp; Touchpoints <span>15</span></li>
+    <li><span class="num">11</span> Guidelines &amp; Assets <span>16</span></li>
+    <li><span class="num">12</span> Launch Checklist <span>17</span></li>
+  </ul>
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>2</span></div>
+</section>
+
+<!-- 01 STRATEGY -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>01 — Strategic Foundation</span>
+  </div>
+  <div class="section-num">Section 01</div>
+  <h1>Strategic Foundation</h1>
+
+  <h2>Category &amp; Position</h2>
+  <p>Lamina is the <strong>UX reasoning layer</strong> in the AI developer tools stack — not a UI generator, not a coding agent. Personas, flows, specs, edge cases before pixels or production code.</p>
+
+  <table>
+    <tr><th>Layer</th><th>Tools</th><th>Role</th></tr>
+    <tr><td>UI generation</td><td>Stitch, v0, Galileo</td><td>Make it look good</td></tr>
+    <tr><td><strong>UX reasoning</strong></td><td><strong>Lamina</strong></td><td>Figure out what to build</td></tr>
+    <tr><td>Code generation</td><td>Cursor, Copilot, Claude Code</td><td>Write the code</td></tr>
+  </table>
+
+  <h2>Onliness Statement</h2>
+  <div class="callout">
+    <strong>Lamina is the ONLY</strong> UX reasoning layer for developers that turns intent into personas, flows, and edge-case-ready specs — framework-agnostic, packaged as a skill for every AI coding tool.
+  </div>
+
+  <h2>Brand Pillars</h2>
+  <table>
+    <tr><th>Pillar</th><th>Expression in v3 identity</th></tr>
+    <tr><td>Structure before surface</td><td>Grey wireframe world, dotted annotations</td></tr>
+    <tr><td>UX layer only</td><td>No pretty UI screenshots, no code chrome</td></tr>
+    <tr><td>Unopinionated</td><td>Neutral grey works with any stack</td></tr>
+    <tr><td>Personality via mascot</td><td>3D meerkat carries warmth; UI stays structural</td></tr>
+  </table>
+
+  <h2>Sacrifice</h2>
+  <p>No pixel pushing. No code generation as primary output. No rainbow UI. No blue/purple AI palette. No decorative color — one Highlighter accent only.</p>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>3</span></div>
+</section>
+
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>01 — Strategic Foundation</span>
+  </div>
+  <h2>Enemy &amp; Trueline</h2>
+  <p><strong>Enemy:</strong> The Pretty Prototype Gap — jumping from vibe to pixels/code without personas, flows, or edge cases.</p>
+  <p class="quote">It figures out what to build and how users move through it — before anyone opens a design tool or writes production code.</p>
+
+  <h2>Taglines</h2>
+  <table>
+    <tr><th>Tagline</th><th>Role</th></tr>
+    <tr><td><strong>Design how it works.</strong></td><td>Primary</td></tr>
+    <tr><td>Flows before pixels.</td><td>Developer shorthand</td></tr>
+    <tr><td>The UX layer dev tools forgot.</td><td>Category / PR</td></tr>
+    <tr><td>Know what to build.</td><td>Outcome / marketplace</td></tr>
+  </table>
+
+  <h2>Brand Architecture</h2>
+  <pre>lamina.dev                 ← master brand
+├── Layer mark             ← logo (favicon, navbar, lockup)
+├── Wordmark               ← lamina flat type
+├── 3D meerkat mascot      ← personality only (landing, empty states)
+├── UX annotation system   ← dotted lines, mono labels
+└── Lamina Skill           ← Cursor / Claude / Copilot plugin</pre>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>4</span></div>
+</section>
+
+<!-- 02 VERBAL -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>02 — Verbal Identity</span>
+  </div>
+  <div class="section-num">Section 02</div>
+  <h1>Verbal Identity</h1>
+
+  <h2>Elevator Copy</h2>
+  <p><strong>One line:</strong> Lamina is the missing UX layer in the AI dev stack — it reasons through personas, flows, and edge cases so your coding agent builds the right thing.</p>
+  <p><strong>One paragraph:</strong> AI UI tools make things pretty. Coding agents write the code. Nobody goes through user personas, maps the flows, or handles edge cases. Lamina is that layer — unopinionated, framework-agnostic, and packaged as a skill for every AI coding tool.</p>
+
+  <h2>Messaging Matrix</h2>
+  <table>
+    <tr><th>Audience</th><th>Message</th><th>Proof</th></tr>
+    <tr><td>Indie devs</td><td>Stop shipping broken flows</td><td>Edge case checklist before code</td></tr>
+    <tr><td>Eng leads</td><td>UX reasoning without hiring a designer</td><td>Persona + flow specs in minutes</td></tr>
+    <tr><td>AI tool builders</td><td>Plug the gap in your stack</td><td>Skill for any agent</td></tr>
+    <tr><td>Design engineers</td><td>Structure before surface</td><td>Framework-agnostic output</td></tr>
+  </table>
+
+  <h2>Swap Test</h2>
+  <p>If you can replace "Lamina" with Notion or Linear and the copy still works, rewrite it.</p>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>5</span></div>
+</section>
+
+<!-- 03 PRINCIPLE -->
+<section class="page page--dark">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>03 — Brand Principle</span>
+  </div>
+  <div class="section-num">Section 03</div>
+  <h1>The UX Layer Principle</h1>
+
+  <div class="callout callout--dark">
+    <strong style="color: var(--highlighter);">Grey is the brand. Highlighter is the only color. Dotted lines mean UX thinking happened here.</strong>
+  </div>
+
+  <h2>Visual hierarchy</h2>
+  <table>
+    <tr><th>Layer</th><th>Visual</th><th>Job</th></tr>
+    <tr><td>Background</td><td>Dark grey scale</td><td>Neutral UX structure</td></tr>
+    <tr><td>Content</td><td>Dotted wireframe cards</td><td>Flows, personas, specs</td></tr>
+    <tr><td>Accent</td><td>Highlighter #FACC15</td><td>Active path, CTAs, labels</td></tr>
+    <tr><td>Mascot</td><td>3D meerkat (full color)</td><td>Personality, warmth</td></tr>
+  </table>
+
+  <h2>Why grey + one accent (branding skill)</h2>
+  <ul>
+    <li><strong>Airey:</strong> Color supports structure — grey form is primary</li>
+    <li><strong>Hyndman:</strong> Grey = still/calm (wireframe); meerkat = sparkling (personality)</li>
+    <li><strong>Sharp:</strong> Grey + dotted lines + highlighter = distinctive asset combo</li>
+    <li><strong>Highlighter semantics:</strong> UX workshop markup — not luxury gold, not SaaS blue</li>
+  </ul>
+
+  <h2>What we signal</h2>
+  <div class="two-col">
+    <div class="ux-box">
+      <div class="ux-label">we are</div>
+      <p style="color: var(--secondary); font-size: 9pt; margin:0;">UX reasoning · flows · edge cases · wireframe thinking</p>
+    </div>
+    <div class="ux-box ux-box--active">
+      <div class="ux-label">we are not</div>
+      <p style="color: var(--secondary); font-size: 9pt; margin:0;">UI design · pretty screenshots · code generation · AI magic</p>
+    </div>
+  </div>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>6</span></div>
+</section>
+
+<!-- 04 COLOR -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>04 — Color System</span>
+  </div>
+  <div class="section-num">Section 04</div>
+  <h1>Color System</h1>
+
+  <h2>Grey scale — the UX layer</h2>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#09090B"></div><div class="swatch-info"><strong>Void</strong>#09090B · Page bg</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#111113"></div><div class="swatch-info"><strong>Base</strong>#111113 · Sections</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1A1A1D"></div><div class="swatch-info"><strong>Surface</strong>#1A1A1D · Cards</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#242428"></div><div class="swatch-info"><strong>Elevated</strong>#242428 · Hover</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#2E2E33"></div><div class="swatch-info"><strong>Border</strong>#2E2E33 · Solid</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#3F3F46"></div><div class="swatch-info"><strong>Dotted</strong>#3F3F46 · Annotations</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#71717A"></div><div class="swatch-info"><strong>Muted</strong>#71717A · Labels</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#FAFAFA;border-bottom:1px solid #E4E4E7"></div><div class="swatch-info"><strong>Text</strong>#FAFAFA · Primary</div></div>
+  </div>
+
+  <h2>Highlighter — only foreground color</h2>
+  <div class="swatch-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="swatch"><div class="swatch-color" style="background:#FACC15"></div><div class="swatch-info"><strong>Highlighter</strong>#FACC15 · CTA, active path, focus</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:rgba(250,204,21,0.22)"></div><div class="swatch-info"><strong>Highlighter muted</strong>rgba(250,204,21,0.22) · Tinted bg</div></div>
+  </div>
+
+  <h2>Usage rules</h2>
+  <table>
+    <tr><th>Element</th><th>Color</th></tr>
+    <tr><td>Page background</td><td>Void #09090B</td></tr>
+    <tr><td>Cards / wireframe boxes</td><td>Surface + dashed #3F3F46 border</td></tr>
+    <tr><td>Active flow path</td><td>Highlighter dashed border</td></tr>
+    <tr><td>CTA buttons</td><td>Highlighter bg, Void text</td></tr>
+    <tr><td>Body text on dark</td><td>#FAFAFA / #A1A1AA</td></tr>
+    <tr><td>Meerkat</td><td>Full color in 3D render only — tan, gold chest</td></tr>
+    <tr><td>Forbidden</td><td>Blue, purple, green, rainbow, gradients on UI</td></tr>
+  </table>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>7</span></div>
+</section>
+
+<!-- 05 DOTTED -->
+<section class="page page--dark">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>05 — Dotted Line Language</span>
+  </div>
+  <div class="section-num">Section 05</div>
+  <h1>Dotted Line Language</h1>
+  <p>The dotted annotation system is a distinctive brand asset. Use on landing page, docs, marketing — wherever UX thinking is shown.</p>
+
+  <h2>Rules</h2>
+  <table>
+    <tr><th>Element</th><th>Spec</th></tr>
+    <tr><td>Default border</td><td>1.5px dashed #3F3F46</td></tr>
+    <tr><td>Active / primary flow</td><td>1.5px dashed #FACC15</td></tr>
+    <tr><td>Labels</td><td>Uppercase mono — PERSONA, FLOW, EDGE CASE, PRIMARY PATH</td></tr>
+    <tr><td>Connectors</td><td>Dashed arrows between steps</td></tr>
+    <tr><td>Section dividers</td><td>Dashed line + centered uppercase label</td></tr>
+  </table>
+
+  <h2>Example</h2>
+  <div class="ux-box ux-box--active" style="margin-top:4mm">
+    <div class="ux-label">primary flow</div>
+    <div class="two-col" style="margin-top:2mm">
+      <div class="ux-box"><div class="ux-label">persona</div><p style="font-size:8pt;color:var(--muted);margin:0">Team admin</p></div>
+      <div class="ux-box"><div class="ux-label">action</div><p style="font-size:8pt;color:var(--muted);margin:0">Invite member</p></div>
+    </div>
+    <div class="ux-box" style="margin-top:2mm">
+      <div class="ux-label">edge case</div>
+      <p style="font-size:8pt;color:var(--muted);margin:0">Invite expires after 7d → resend option</p>
+    </div>
+  </div>
+
+  <h2>CSS</h2>
+  <pre>:root {
+  --ux-dash: 1.5px dashed #3F3F46;
+  --ux-dash-active: 1.5px dashed #FACC15;
+}
+.ux-card { border: var(--ux-dash); border-radius: 8px; background: #1A1A1D; }
+.ux-card--active { border: var(--ux-dash-active); }
+.ux-label { font-family: monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em; color: #71717A; }
+.ux-label--active { color: #FACC15; }</pre>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>8</span></div>
+</section>
+
+<!-- 06 MASCOT -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>06 — Mascot</span>
+  </div>
+  <div class="section-num">Section 06</div>
+  <h1>Mascot — 3D Meerkat</h1>
+
+  <p><strong>Character:</strong> Cute, sentinel, competent. Watches flows, catches edge cases. Tan fur, gold/highlighter chest chevron. Lives in a grey wireframe world — the only full-color organic element.</p>
+
+  <h2>Logo vs mascot</h2>
+  <table>
+    <tr><th>Asset</th><th>Format</th><th>Use</th></tr>
+    <tr><td>Layer mark</td><td>SVG vector</td><td>Favicon, navbar, header lockup, GitHub avatar</td></tr>
+    <tr><td>3D meerkat</td><td>Rendered PNG/WebP</td><td>Landing sections, empty states, 404, social</td></tr>
+  </table>
+  <p><strong>Rule:</strong> Mascot never appears in the logo, wordmark, or favicon. Personality and product identity stay separate.</p>
+
+  <h2>Landing page poses (max 4)</h2>
+  <div class="pose-grid">
+    <div class="pose-card" style="background:#F4F4F5;border-color:#E4E4E7">
+      <h4 style="color:#18181B">Hero — Sentinel</h4>
+      <p style="color:#71717A">Upright, watching wireframe demo. Right side of hero.</p>
+    </div>
+    <div class="pose-card" style="background:#F4F4F5;border-color:#E4E4E7">
+      <h4 style="color:#18181B">How it works — Pointing</h4>
+      <p style="color:#71717A">Gesturing at a flow step or persona card.</p>
+    </div>
+    <div class="pose-card" style="background:#F4F4F5;border-color:#E4E4E7">
+      <h4 style="color:#18181B">Edge cases — Curious</h4>
+      <p style="color:#71717A">Leaning in, examining a dotted edge-case card.</p>
+    </div>
+    <div class="pose-card" style="background:#F4F4F5;border-color:#E4E4E7">
+      <h4 style="color:#18181B">CTA — Welcoming</h4>
+      <p style="color:#71717A">Small wave beside install block.</p>
+    </div>
+  </div>
+
+  <h2>Pose rules</h2>
+  <ul>
+    <li>Same render style across all poses (lighting, material, camera)</li>
+    <li>Dark grey (#09090B) background in every render</li>
+    <li>Pose reacts to UX content — never decorative</li>
+    <li>Max one meerkat per viewport height</li>
+    <li>Never use mascot in logo lockup, favicon, or navbar — layer mark only</li>
+  </ul>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>9</span></div>
+</section>
+
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>06 — Mascot Personality</span>
+  </div>
+
+  <h2>Personality</h2>
+  <table>
+    <tr><th>Trait</th><th>Expression</th></tr>
+    <tr><td>Sentinel</td><td>Upright alert pose — watches the flow</td></tr>
+    <tr><td>Thorough</td><td>Examines edge cases others skip</td></tr>
+    <tr><td>Curious</td><td>"But what if…?" energy</td></tr>
+    <tr><td>Cute but competent</td><td>Approachable, not derpy or kawaii</td></tr>
+  </table>
+
+  <h2>Voice example</h2>
+  <div class="callout">
+    "Hold on — what happens when the invite expires? Adding that to edge cases before we hand off."
+  </div>
+
+  <h2>ChatGPT prompt (3D poses)</h2>
+  <pre style="font-size:7pt;background:#F4F4F5;color:#3F3F46;border-color:#D4D4D8">Cute 3D meerkat mascot for Lamina.dev. Sentinel pose [or: pointing /
+curious lean / welcoming wave]. Tan fur, charcoal eye patches, gold
+#FACC15 chevron on chest. Dark charcoal background #09090B. Clean 3D
+render, soft lighting, not hyper-realistic. No text, no UI elements.
+Square format.</pre>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>10</span></div>
+</section>
+
+<!-- 07 WORDMARK -->
+<section class="page page--dark">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>07 — Logo &amp; Wordmark</span>
+  </div>
+  <div class="section-num">Section 07</div>
+  <h1>Logo, Wordmark &amp; Icon</h1>
+
+  <div class="wordmark-demo" style="background: var(--void);">
+    <svg width="33" height="36" viewBox="0 0 697 762" fill="none" aria-hidden="true">
+      <path d="M384.428 107.547C448.953 142.948 472.564 223.954 437.163 288.48L277.114 580.197L160.28 516.097C95.7552 480.696 72.1457 399.69 107.547 335.165L267.595 43.4471L384.428 107.547Z" stroke="#FAFAFA" stroke-width="64"/>
+      <path d="M586.919 602.257C550.447 666.183 469.059 688.44 405.132 651.969L156.324 510.02L222.361 394.27C258.832 330.344 340.221 308.087 404.148 344.558L652.955 486.508L586.919 602.257Z" stroke="#FAFAFA" stroke-width="64"/>
+    </svg>
+    <span style="font-size:18pt;font-weight:600;letter-spacing:-0.04em;color:var(--text)">lamina</span>
+  </div>
+
+  <h2>Layer mark semantics</h2>
+  <table>
+    <tr><th>Read</th><th>Meaning</th></tr>
+    <tr><td>Leaf (lamina)</td><td>Thin layer — literal name, structure before surface</td></tr>
+    <tr><td>Letter L</td><td>Lamina — ownable monogram in the silhouette</td></tr>
+    <tr><td>Wireframe cards</td><td>Overlapping UX planes — flows before pixels</td></tr>
+  </table>
+
+  <h2>Wordmark rules</h2>
+  <table>
+    <tr><th>Rule</th><th>Spec</th></tr>
+    <tr><td>Case</td><td>lamina lowercase only</td></tr>
+    <tr><td>Weight</td><td>600</td></tr>
+    <tr><td>Tracking</td><td>-0.04em on lamina</td></tr>
+    <tr><td>Font</td><td>Geist Sans + Geist Mono (Inter/JetBrains fallback)</td></tr>
+    <tr><td>Forbidden</td><td>No bevel, no gradient, no layer-dot on i, no title case</td></tr>
+  </table>
+
+  <h2>Checklist</h2>
+  <table>
+    <tr><th>Test</th><th>Pass</th></tr>
+    <tr><td>B&amp;W</td><td>Layer mark + wordmark readable without color</td></tr>
+    <tr><td>16px favicon</td><td>Mark silhouette holds — two interlocking cards</td></tr>
+    <tr><td>Swap test</td><td>Not Linear, Notion, Buffer, or generic AI tool</td></tr>
+    <tr><td>Hand test</td><td>Grey + dotted lines + highlighter = Lamina without logo</td></tr>
+    <tr><td>Mascot rule</td><td>Meerkat never in lockup — marketing only</td></tr>
+  </table>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>11</span></div>
+</section>
+
+<!-- 08 TYPE -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>08 — Typography</span>
+  </div>
+  <div class="section-num">Section 08</div>
+  <h1>Typography</h1>
+
+  <table>
+    <tr><th>Role</th><th>Family</th><th>Use</th></tr>
+    <tr><td>Display / UI</td><td>Geist Sans</td><td>Headlines, body, buttons</td></tr>
+    <tr><td>UX labels</td><td>Geist Mono</td><td>PERSONA, EDGE CASE, flow IDs</td></tr>
+  </table>
+
+  <h2>Scale</h2>
+  <table>
+    <tr><th>Level</th><th>Size</th><th>Use</th></tr>
+    <tr><td>Display</td><td>48px / 600</td><td>Hero headline</td></tr>
+    <tr><td>H1</td><td>32px / 600</td><td>Page titles</td></tr>
+    <tr><td>Body</td><td>16px / 400</td><td>Prose</td></tr>
+    <tr><td>UX label</td><td>10px / 400 mono uppercase</td><td>Annotation labels</td></tr>
+    <tr><td>Code</td><td>14px / 400 mono</td><td>Spec output</td></tr>
+  </table>
+
+  <pre>:root {
+  --font-sans: 'Geist Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+}</pre>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>12</span></div>
+</section>
+
+<!-- 09 LANDING -->
+<section class="page page--dark">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>09 — Landing Page</span>
+  </div>
+  <div class="section-num">Section 09</div>
+  <h1>Landing Page</h1>
+
+  <div class="wireframe">
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <span style="color:#FAFAFA">[mark] lamina</span>
+      <span>Docs · GitHub · <span style="background:#FACC15;color:#09090B;padding:2px 6px;border-radius:3px">Install skill</span></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:12px">
+      <div>
+        <div style="font-size:14px;color:#FAFAFA;font-weight:600;font-family:sans-serif">Design how it works.</div>
+        <div style="color:#71717A;margin:4px 0 8px;font-family:sans-serif">UX reasoning layer. Personas, flows, edge cases.</div>
+        <div style="border:1.5px dashed #FACC15;border-radius:4px;padding:6px;margin-bottom:6px">
+          <div style="color:#FACC15;font-size:6px">PRIMARY FLOW</div>
+          <div style="border:1.5px dashed #3F3F46;border-radius:3px;padding:4px;margin-top:4px;color:#71717A">persona → action → edge case</div>
+        </div>
+        <span style="background:#FACC15;color:#09090B;padding:3px 8px;border-radius:3px">Install skill</span>
+      </div>
+      <div style="text-align:center;color:#71717A;padding-top:20px">[3D meerkat<br>sentinel pose]</div>
+    </div>
+    <div style="border-top:1.5px dashed #3F3F46;margin:12px 0;text-align:center;padding-top:6px;color:#71717A;font-size:6px">THE MISSING LAYER</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div style="border:1.5px dashed #3F3F46;border-radius:3px;padding:4px;color:#71717A">UI tools</div>
+      <div style="border:1.5px dashed #FACC15;border-radius:3px;padding:4px;color:#FACC15">Lamina</div>
+      <div style="border:1.5px dashed #3F3F46;border-radius:3px;padding:4px;color:#71717A">Code agents</div>
+    </div>
+  </div>
+
+  <h2>Section map</h2>
+  <table>
+    <tr><th>Section</th><th>Content</th><th>Meerkat pose</th></tr>
+    <tr><td>Hero</td><td>Headline + wireframe demo</td><td>Sentinel (right)</td></tr>
+    <tr><td>Missing layer</td><td>3-column stack diagram</td><td>None</td></tr>
+    <tr><td>How it works</td><td>4 steps with dotted flows</td><td>Pointing</td></tr>
+    <tr><td>Edge cases</td><td>Annotated spec example</td><td>Curious lean</td></tr>
+    <tr><td>Install</td><td>Per-agent commands</td><td>Welcoming wave</td></tr>
+  </table>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>13</span></div>
+</section>
+
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>09 — Landing Copy</span>
+  </div>
+
+  <h2>Hero copy</h2>
+  <table>
+    <tr><th>Element</th><th>Copy</th></tr>
+    <tr><td>H1</td><td>Design how it works.</td></tr>
+    <tr><td>Sub</td><td>The UX reasoning layer for AI dev tools.</td></tr>
+    <tr><td>Body</td><td>Personas. Flows. Edge cases. Before pixels or code.</td></tr>
+    <tr><td>CTA primary</td><td>Install the skill</td></tr>
+    <tr><td>CTA secondary</td><td>Read the docs</td></tr>
+  </table>
+
+  <h2>How it works</h2>
+  <table>
+    <tr><th>Step</th><th>Label</th><th>Copy</th></tr>
+    <tr><td>1</td><td>PERSONA</td><td>Who uses this, what they need, what they fear</td></tr>
+    <tr><td>2</td><td>FLOW</td><td>Primary paths, alternate paths, entry/exit</td></tr>
+    <tr><td>3</td><td>SPEC</td><td>What to build, acceptance criteria</td></tr>
+    <tr><td>4</td><td>EDGE CASE</td><td>Empty states, errors, permissions</td></tr>
+  </table>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>14</span></div>
+</section>
+
+<!-- 10 VOICE -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>10 — Voice &amp; Touchpoints</span>
+  </div>
+  <div class="section-num">Section 10</div>
+  <h1>Voice &amp; Touchpoints</h1>
+
+  <table>
+    <tr><th>Attribute</th><th>Sounds like</th><th>Never sounds like</th></tr>
+    <tr><td>Precise</td><td>"Map the onboarding flow"</td><td>"Magical AI experiences"</td></tr>
+    <tr><td>Structural</td><td>"Three personas, fourteen edge cases"</td><td>"Beautiful, stunning"</td></tr>
+    <tr><td>Dev-native</td><td>Specs, flows, states, guards</td><td>Marketing fluff</td></tr>
+  </table>
+
+  <h2>Touchpoints</h2>
+  <table>
+    <tr><th>Touchpoint</th><th>Direction</th></tr>
+    <tr><td>Website</td><td>Grey bg, dotted UX demo, 3D meerkat poses, no UI screenshots</td></tr>
+    <tr><td>GitHub</td><td>Layer mark avatar, wireframe diagram in README</td></tr>
+    <tr><td>Docs</td><td>Dotted annotation components, mono UX labels</td></tr>
+    <tr><td>Empty states</td><td>3D meerkat + one-line UX tip</td></tr>
+    <tr><td>Social</td><td>Edge case threads, dotted flow snippets</td></tr>
+  </table>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>15</span></div>
+</section>
+
+<!-- 11 GUIDELINES -->
+<section class="page">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>11 — Guidelines</span>
+  </div>
+  <div class="section-num">Section 11</div>
+  <h1>Asset Inventory</h1>
+
+  <table>
+    <tr><th>Asset</th><th>Path</th></tr>
+    <tr><td>Brand identity PDF</td><td>brand/lamina-brand-identity.pdf</td></tr>
+    <tr><td>Color tokens</td><td>brand/assets/colors/palette.json</td></tr>
+    <tr><td>Logo mark (master)</td><td>brand/logo.svg</td></tr>
+    <tr><td>Logo mark (asset)</td><td>brand/assets/logo/lamina-mark.svg</td></tr>
+    <tr><td>Wordmark lockups</td><td>brand/assets/wordmark/</td></tr>
+    <tr><td>Favicon</td><td>brand/assets/favicon/</td></tr>
+    <tr><td>3D meerkat renders</td><td>brand/assets/mascot/ (poses)</td></tr>
+    <tr><td>SKILL.md template</td><td>brand/templates/SKILL.md</td></tr>
+    <tr><td>README template</td><td>brand/templates/README.md</td></tr>
+  </table>
+
+  <h2>CSS tokens (complete)</h2>
+  <pre>:root {
+  --void: #09090B;
+  --base: #111113;
+  --surface: #1A1A1D;
+  --elevated: #242428;
+  --border: #2E2E33;
+  --border-dotted: #3F3F46;
+  --text-muted: #71717A;
+  --text: #FAFAFA;
+  --highlighter: #FACC15;
+  --highlighter-muted: rgba(250, 204, 21, 0.22);
+  --ux-dash: 1.5px dashed var(--border-dotted);
+  --ux-dash-active: 1.5px dashed var(--highlighter);
+  --font-sans: 'Geist Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+}</pre>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3</span><span>16</span></div>
+</section>
+
+<!-- 12 CHECKLIST -->
+<section class="page page--dark">
+  <div class="page-header">
+    <span class="logo-text">lamina</span>
+    <span>12 — Summary</span>
+  </div>
+  <div class="section-num">Section 12</div>
+  <h1>Summary &amp; Launch Checklist</h1>
+
+  <table>
+    <tr><th>Element</th><th>v3 Decision</th></tr>
+    <tr><td>Category</td><td>UX reasoning layer for AI dev tools</td></tr>
+    <tr><td>Visual principle</td><td>Grey = UX layer. Highlighter = only accent.</td></tr>
+    <tr><td>Annotation language</td><td>Dotted lines + uppercase mono labels</td></tr>
+    <tr><td>Accent</td><td>Highlighter #FACC15 (UX markup semantics)</td></tr>
+    <tr><td>Logo mark</td><td>Layer mark — leaf / L / wireframe cards (vector SVG)</td></tr>
+    <tr><td>Mascot</td><td>3D meerkat — landing &amp; empty states only (never in logo)</td></tr>
+    <tr><td>Wordmark</td><td>lamina flat lowercase, no dot on i</td></tr>
+    <tr><td>Tagline</td><td>Design how it works.</td></tr>
+  </table>
+
+  <h2>Launch checklist</h2>
+  <table>
+    <tr><th>☐</th><th>Task</th></tr>
+    <tr><td>☑</td><td>Layer mark SVG + header lockups (dark / light / bw)</td></tr>
+    <tr><td>☑</td><td>Favicon SVG from layer mark</td></tr>
+    <tr><td>☐</td><td>Export favicon PNG set (16 / 32 / 180px)</td></tr>
+    <tr><td>☐</td><td>Export 4× 3D meerkat poses (hero, pointing, curious, wave)</td></tr>
+    <tr><td>☐</td><td>Build landing page with dotted UX components</td></tr>
+    <tr><td>☐</td><td>Publish skill repo with updated brand</td></tr>
+    <tr><td>☐</td><td>Implement CSS token system</td></tr>
+  </table>
+
+  <div class="callout callout--dark" style="margin-top:8mm">
+    <span style="color:var(--highlighter);font-weight:600">Flows before pixels.</span><br>
+    <span style="color:var(--muted)">Design how it works. — lamina.dev</span>
+  </div>
+
+  <div class="page-footer"><span>lamina.dev — Brand Identity v3.0</span><span>17</span></div>
+</section>
+
+</body>
+</html>

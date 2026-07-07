@@ -1,0 +1,48 @@
+{
+  "version": "3.0",
+  "name": "UX Layer Grey + Highlighter",
+  "philosophy": "Dark grey = UX structure. Highlighter = only foreground accent. Dotted lines = UX annotation language. Layer mark = product identity. 3D meerkat = personality.",
+  "grey": {
+    "void": "#09090B",
+    "base": "#111113",
+    "surface": "#1A1A1D",
+    "elevated": "#242428",
+    "border": "#2E2E33",
+    "borderDotted": "#3F3F46",
+    "muted": "#71717A",
+    "secondary": "#A1A1AA",
+    "primary": "#FAFAFA"
+  },
+  "accent": {
+    "name": "Highlighter",
+    "hex": "#FACC15",
+    "muted": "rgba(250, 204, 21, 0.22)",
+    "semantics": "UX markup, active flow path, CTAs — not luxury gold",
+    "usage": [
+      "CTA buttons",
+      "Active dashed borders on primary UX paths",
+      "UX label highlights on critical annotations",
+      "Focus rings"
+    ]
+  },
+  "logo": {
+    "mark": "Layer mark — interlocking wireframe cards (leaf / L / UX planes)",
+    "master": "brand/logo.svg",
+    "lockup": "brand/assets/wordmark/lamina-lockup-dark.svg",
+    "favicon": "brand/assets/favicon/favicon-16.svg",
+    "rule": "Mascot never in logo lockup, favicon, or navbar"
+  },
+  "mascot": {
+    "character": "Meerkat",
+    "style": "Cute 3D render",
+    "colors": "Tan fur, charcoal patches, highlighter chest chevron",
+    "landingPoses": ["sentinel-hero", "pointing-flow", "curious-edge-case", "welcoming-cta"],
+    "use": "Landing sections, empty states, 404, social — not in logo"
+  },
+  "annotation": {
+    "defaultBorder": "1.5px dashed #3F3F46",
+    "activeBorder": "1.5px dashed #FACC15",
+    "labelStyle": "uppercase mono — PERSONA, FLOW, EDGE CASE, PRIMARY PATH"
+  },
+  "forbidden": ["blue", "purple", "green primary", "rainbow UI", "UI screenshots on marketing", "mascot in logo lockup"]
+}
