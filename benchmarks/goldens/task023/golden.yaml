@@ -20,5 +20,5 @@ required_a11y:
   - cta_focus_order
 required_sections:
   - flows
-  - copy guidance
+  - interactions and copy
   - accessibility

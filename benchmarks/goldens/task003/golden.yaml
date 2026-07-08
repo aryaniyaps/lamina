@@ -21,6 +21,6 @@ required_a11y:
   - screen_reader_support
   - simple_language_mode
 required_sections:
-  - user model
+  - users and jobs
   - flows
   - edge cases

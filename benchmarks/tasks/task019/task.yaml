@@ -1,6 +1,6 @@
 id: task019
 category: workflow_edge
-workflow: design-feature
+workflow: design
 prompt: Design enterprise RBAC permission management for a multi-tenant admin console.
 fixture: null
 human_eval: false

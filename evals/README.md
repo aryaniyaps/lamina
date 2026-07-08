@@ -66,7 +66,7 @@ Workflow evals use **natural user requests** — never telegraph expected workfl
 
 ```json
 {
-  "id": "design-feature-blueprint-accept",
+  "id": "design-blueprint-accept",
   "prompts": [
     "/lamina-design — Add password reset flow.",
     "Yes, show the wireframe preview."
@@ -84,9 +84,9 @@ Workflow artifact quality is tested inside `lamina-design` and `lamina-audit` su
 
 | Area | Eval IDs | Hook assertions |
 |------|----------|-----------------|
-| Edge case mapping | `design-feature-*`, `design-feature-edge-cases*` | `edge cases section present`, `edge case categories covered`, `no domain model artifact` |
-| Persona simulation | `design-concept-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
-| Blueprint checkpoint | `design-feature-blueprint-accept`, `design-feature-blueprint-decline`, `audit-blueprint-accept` | `blueprint offer made`, `blueprint validate passes`, `no blueprint without consent` |
+| Edge case mapping | `design-*`, `design-edge-cases*` | `edge cases section present`, `edge case categories covered`, `no domain model artifact` |
+| Persona simulation | `design-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
+| Blueprint checkpoint | `design-blueprint-accept`, `design-blueprint-decline`, `audit-blueprint-accept` | `blueprint offer made`, `blueprint validate passes`, `no blueprint without consent` |
 | Flow design (direct) | `cap-flow-design-framework` | `read skill lamina-flow-design` |
 
 Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lamina-studio validate` for blueprint/scenario checks).

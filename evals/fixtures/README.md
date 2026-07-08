@@ -22,6 +22,7 @@ Canonical skill source remains [`../../skills/`](../../skills/). Eval harness in
 | `brownfield-audit-ready` | above + personas + flows inventory | Full audit with persona panel |
 | `greenfield-with-init` | valid greenfield business context | Design/audit without app repo |
 | `personas-without-init` | personas only | Init-gate bypass probes |
+| `brownfield-with-product-code` | commerce + init + lib stub | Write-boundary evals (repo read-only) |
 | `partial-init-stub` | placeholder business-context | Init validation failure |
 | `partial-init-frontmatter` | frontmatter-only business-context | Init validation failure |
 

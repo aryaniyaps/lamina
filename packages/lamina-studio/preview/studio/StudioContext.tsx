@@ -3,29 +3,22 @@ import type { FlowGraphData } from '../flow-graph.js';
 import type { PersonaEntry, PersonaPreviewData } from '../personas.js';
 import type { ScenarioEntry } from '../scenarios.js';
 import type { ScreenMeta } from '../screen-meta.js';
-import type {
-  CoverageData,
-  NavigationTarget,
-  ScenariosSubView,
-  StudioConfig,
-  StudioView,
-} from './types.js';
+import type { CoverageData, NavigationTarget, RunArtifactsData, StudioConfig } from './types.js';
 
 export interface StudioContextValue {
   config: StudioConfig | null;
   runId: string;
   blueprintId: string;
   runMeta: CoverageData['run'] | null;
-  activeView: StudioView;
-  setActiveView: (view: StudioView) => void;
-  scenariosSubView: ScenariosSubView;
-  setScenariosSubView: (v: ScenariosSubView) => void;
   flowGraph: FlowGraphData | null;
   flowGraphSource: string | null;
   scenarios: ScenarioEntry[];
   personaData: PersonaPreviewData | null;
   coverage: CoverageData | null;
+  artifacts: RunArtifactsData | null;
   screenMeta: Record<string, ScreenMeta>;
+  activeStudioView: 'review' | 'artifacts' | 'handoff';
+  setActiveStudioView: (view: 'review' | 'artifacts' | 'handoff') => void;
   activeFlowId: string;
   setActiveFlowId: (id: string) => void;
   activeScreen: string;

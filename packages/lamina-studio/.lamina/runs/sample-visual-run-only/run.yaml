@@ -1,0 +1,41 @@
+id: sample-visual-run-only
+hook: audit
+command: /lamina-audit studio run only
+flows_touched:
+  - run-only
+flows:
+  - id: run-only
+    name: Run without blueprint
+    status: unknown
+    priority: P2
+    graphs:
+      - id: run-only
+        entry_screen: detached-start
+        transitions:
+          - trigger: continue
+            from: detached-start
+            target: detached-end
+screens:
+  - id: detached-start
+    title: Detached Start
+    status: new
+  - id: detached-end
+    title: Detached End
+    status: new
+scenarios: []
+findings:
+  - id: no-blueprint-linked
+    priority: medium
+    finding: Run-only output should keep markdown review available when no blueprint is linked.
+    impact: Audit artifacts remain reviewable even without wireframes.
+    effort: low
+    recommendation: Keep Review empty state isolated from Artifacts and Handoff.
+    screen_id: detached-start
+    flow_id: run-only
+artifacts:
+  - id: run-only-artifact
+    type: research_brief
+    pack: research
+    path: artifacts/run-only.md
+    confidence: blocked
+    evidence_mode: run_yaml_required

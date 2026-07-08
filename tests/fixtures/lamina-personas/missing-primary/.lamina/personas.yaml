@@ -1,0 +1,14 @@
+personas:
+  - id: demo-user
+    type: primary
+    goals:
+      experience: []
+      end: []
+      life: []
+    frustrations: []
+    motivations: []
+    technical_literacy: intermediate
+    accessibility:
+      needs: []
+      assistive_tech: []
+    confidence: medium

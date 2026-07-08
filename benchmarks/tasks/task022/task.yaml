@@ -1,6 +1,6 @@
 id: task022
 category: accessibility
-workflow: design-feature
+workflow: design
 prompt: Design screen reader support for a data-heavy analytics dashboard.
 fixture: null
 human_eval: false

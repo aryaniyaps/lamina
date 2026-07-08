@@ -1,120 +1,140 @@
+import { useEffect, useState } from 'react';
 import { useStudio } from '../studio/StudioContext.js';
-import { whenLabel } from './PeopleView.js';
+import { CATEGORY_LABELS, SCENARIO_CATEGORIES } from '../studio/scenario-categories.js';
+import { whenLabel } from '../studio/when-label.js';
 import { ScenarioDetailDrawer } from './ScenarioDetailDrawer.js';
 
-const CATEGORIES = [
-  'empty',
-  'precondition',
-  'partial',
-  'conflict',
-  'failure',
-  'permission',
-  'external',
-  'boundary',
-];
+const ADVANCED_STORAGE_KEY = 'lamina-studio-advanced-coverage';
+
+const CATEGORIES = [...SCENARIO_CATEGORIES];
+
+function readAdvancedPreference(): boolean {
+  try {
+    return localStorage.getItem(ADVANCED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 export function ScenariosView() {
   const {
     coverage,
-    scenariosSubView,
-    setScenariosSubView,
     scenarios,
     selectedScenarioId,
     setSelectedScenarioId,
     navigate,
-    gapScreenIds,
   } = useStudio();
 
   const gaps = coverage?.gaps ?? [];
   const score = coverage?.score ?? 0;
   const operations = coverage?.operations ?? [];
   const cells = coverage?.cells ?? [];
+  const [showAdvanced, setShowAdvanced] = useState(readAdvancedPreference);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ADVANCED_STORAGE_KEY, showAdvanced ? 'true' : 'false');
+    } catch {
+      /* ignore */
+    }
+  }, [showAdvanced]);
 
   return (
-    <div className="sub-studio-scenarios">
+    <div className="sub-studio-scenarios sub-studio-scenarios-simple">
       <header className="sub-studio-view-header sub-studio-view-header-row">
         <div>
           <h2>Scenarios</h2>
-          <p className="sub-studio-view-subtitle">UX design — edge-case coverage</p>
+          <p className="sub-studio-view-subtitle">What could go wrong?</p>
         </div>
-        <span className="sub-studio-coverage-score">Coverage: {score}%</span>
+        <span className="sub-studio-coverage-score">
+          {score}% covered · {gaps.length} gaps · {scenarios.length} edge cases
+        </span>
       </header>
-      <div className="sub-studio-scenarios-body">
-        <aside className="sub-studio-scenarios-rail">
-          <section>
-            <h3>Gaps ({gaps.length})</h3>
-            <ul>
-              {gaps.map((g) => (
-                <li key={`${g.operationId}-${g.category}`}>
-                  <button type="button" className="sub-studio-gap-item">
-                    <span className="sub-studio-gap-label">
-                      {g.operation} × {g.category}
-                    </span>
-                    <span className="sub-studio-muted">{g.screenId}</span>
-                  </button>
-                </li>
-              ))}
-              {!gaps.length ? <li className="sub-studio-muted">No required gaps</li> : null}
-            </ul>
-          </section>
-          <section>
-            <h3>Mapped ({scenarios.length})</h3>
-            <ul>
-              {scenarios.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className={selectedScenarioId === s.id ? 'active' : ''}
-                    onClick={() => setSelectedScenarioId(s.id)}
-                  >
-                    {s.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </aside>
-        <main className="sub-studio-scenarios-main">
-          <div className="sub-studio-subtabs">
-            {(['gaps', 'matrix', 'gallery'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                className={scenariosSubView === tab ? 'active' : ''}
-                onClick={() => setScenariosSubView(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
 
-          {scenariosSubView === 'gaps' ? (
+      <div className="sub-studio-scenarios-simple-body">
+        <section className="sub-studio-scenarios-section">
+          <h3>Gaps to fix</h3>
+          {gaps.length ? (
             <div className="sub-studio-gap-cards">
               {gaps.map((g) => (
                 <article key={`${g.operationId}-${g.category}`} className="sub-studio-gap-card">
                   <h4>
-                    GAP · {g.operation} × {g.category}
+                    {g.operation} — {CATEGORY_LABELS[g.category] ?? g.category}
                   </h4>
-                  <p>
-                    Screen: {g.screenId}
-                  </p>
                   <p className="sub-studio-muted">{g.reason}</p>
+                  <p>
+                    Screen: <strong>{g.screenId}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    className="sub-studio-primary-action"
+                    onClick={() => navigate({ screenId: g.screenId })}
+                  >
+                    Go to screen
+                  </button>
                 </article>
               ))}
-              {!gaps.length ? (
-                <p className="sub-studio-muted">All required operation × outcome cells are covered.</p>
-              ) : null}
             </div>
-          ) : null}
+          ) : (
+            <p className="sub-studio-muted">All required edge cases are covered for this run.</p>
+          )}
+        </section>
 
-          {scenariosSubView === 'matrix' ? (
+        <section className="sub-studio-scenarios-section">
+          <h3>Mapped edge cases</h3>
+          {scenarios.length ? (
+            <ul className="sub-studio-mapped-list">
+              {scenarios.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className="sub-studio-mapped-item"
+                    onClick={() => setSelectedScenarioId(s.id)}
+                  >
+                    <span className="sub-studio-mapped-title">{s.title}</span>
+                    <span className="sub-studio-muted">
+                      {s.screen} · {whenLabel(s.trigger.when)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sub-studio-link-action"
+                    onClick={() =>
+                      navigate({ screenId: s.screen, scenarioId: s.id })
+                    }
+                  >
+                    Open screen
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sub-studio-muted">No edge cases mapped yet for this run.</p>
+          )}
+        </section>
+
+        <section className="sub-studio-scenarios-section">
+          <button
+            type="button"
+            className="sub-studio-advanced-toggle"
+            aria-expanded={showAdvanced}
+            onClick={() => setShowAdvanced((v) => !v)}
+          >
+            {showAdvanced ? 'Hide' : 'Show'} advanced coverage matrix
+          </button>
+          {showAdvanced ? (
             <div className="sub-studio-matrix-wrap">
+              <p className="sub-studio-matrix-legend sub-studio-muted">
+                ● Covered · ○ Missing · — Not required
+              </p>
               <table className="sub-studio-matrix">
                 <thead>
                   <tr>
                     <th>Operation</th>
                     {CATEGORIES.map((c) => (
-                      <th key={c}>{c}</th>
+                      <th key={c} title={CATEGORY_LABELS[c]}>
+                        {CATEGORY_LABELS[c]}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -140,6 +160,7 @@ export function ScenariosView() {
                               className={
                                 cell.covered ? 'sub-studio-matrix-covered' : 'sub-studio-matrix-gap'
                               }
+                              title={cell.covered ? 'Covered' : 'Missing'}
                               onClick={() => {
                                 if (cell.scenarioId) setSelectedScenarioId(cell.scenarioId);
                               }}
@@ -155,39 +176,9 @@ export function ScenariosView() {
               </table>
             </div>
           ) : null}
-
-          {scenariosSubView === 'gallery' ? (
-            <div className="sub-studio-gallery">
-              {scenarios.map((s, i) => (
-                <article key={s.id} className="sub-studio-scenario-card">
-                  <header>
-                    <span className="sub-studio-chip">{s.category}</span>
-                    {s.severity ? <span className="sub-studio-chip">{s.severity}</span> : null}
-                    <span className="sub-studio-card-num">#{i + 1}</span>
-                  </header>
-                  <h4>{s.title}</h4>
-                  <p>{whenLabel(s.trigger.when)}</p>
-                  <p className="sub-studio-muted">
-                    Pattern: {s.ux} · Screen: {s.screen}
-                    {gapScreenIds.has(s.screen) ? '' : ''}
-                  </p>
-                  <div className="sub-studio-card-actions">
-                    <button type="button" onClick={() => setSelectedScenarioId(s.id)}>
-                      Inspect
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate({ view: 'screens', screenId: s.screen, scenarioId: s.id })}
-                    >
-                      Show on screen
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </main>
+        </section>
       </div>
+
       {selectedScenarioId ? (
         <ScenarioDetailDrawer
           scenarioId={selectedScenarioId}

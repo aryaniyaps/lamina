@@ -9,6 +9,7 @@ export interface ScreenNodeData {
   triggers?: string[];
   active?: boolean;
   blocked?: boolean;
+  gapCount?: number;
   completeness?: ScreenCompleteness;
   isEntry?: boolean;
   isTerminal?: boolean;
@@ -56,7 +57,17 @@ function ScreenNodeComponent({ data }: NodeProps) {
         <div className="sub-rf-screen-node-badges">
           {d.isEntry ? <span className="sub-rf-badge sub-rf-badge-entry">Entry</span> : null}
           {d.isTerminal ? <span className="sub-rf-badge sub-rf-badge-terminal">End</span> : null}
-          {d.blocked ? <span className="sub-rf-badge sub-rf-badge-blocker" title="Persona blocker" /> : null}
+          {d.gapCount ? (
+            <span
+              className="sub-rf-badge sub-rf-badge-gap"
+              title={`${d.gapCount} coverage gap${d.gapCount === 1 ? '' : 's'}`}
+            >
+              {d.gapCount} gap{d.gapCount === 1 ? '' : 's'}
+            </span>
+          ) : null}
+          {d.blocked ? (
+            <span className="sub-rf-badge sub-rf-badge-blocker" title="Persona blocker" />
+          ) : null}
         </div>
       </div>
       <div className="sub-rf-screen-node-footer">

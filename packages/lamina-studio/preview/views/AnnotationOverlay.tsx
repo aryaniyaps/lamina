@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ScenarioEntry } from '../scenarios.js';
-import { whenLabel } from './PeopleView.js';
+import { whenLabel } from '../studio/when-label.js';
 
 interface AnnotationOverlayProps {
   containerRef: React.RefObject<HTMLDivElement | null>;

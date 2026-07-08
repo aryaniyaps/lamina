@@ -22,7 +22,7 @@ One entry point that detects what you need and runs the right workflow — or an
 
 ## Guardrail
 
-UX artifacts only. Do not implement product code or visual styling specs.
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor app source code, tests, config, styles, docs outside `.lamina/`, or generated source during `/lamina`. If the user asks to implement after routing or handoff, refuse that part briefly and continue only with UX artifacts/recommendations. See [guardrails](../lamina-core/guardrails.md).
 
 ## Subagent hints
 

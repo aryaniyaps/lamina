@@ -23,12 +23,14 @@ Map skills to sections per business-context skill. Load all inline for establish
 
 ## Procedure — establish
 
-1. Emit work plan — prompt `work-plan`.
-2. **Frame** — resolve business sections via user input; one batch of clarifying questions for gaps (see question bank in lamina-business-context).
-3. **Evidence** (brownfield only) — scan README, docs, user-facing code per brownfield scan protocol; large corpus → [fresh-context](../patterns/fresh-context.md). Write findings into **Inferred context** section only.
-4. **Write** — create `.lamina/business-context.md` with frontmatter (`maturity`, `platform`, `last_updated`). See [artifacts.md](../artifacts.md).
-5. Merge into output contract — prompt `outputs/init`.
-6. Recommend next command in output only — not persisted.
+1. **Frame gate** — resolve business sections via user input; one batch of clarifying questions for gaps (see question bank in lamina-business-context). At minimum, require enough signal for Problem statement, Scope, Users & market, Product posture, and Constraints. If any are missing, emit `outputs/clarify` and **STOP** before writing `.lamina/business-context.md` or `.lamina/personas.yaml`.
+2. **Skip/refusal handling** — if the user explicitly refuses, skips, or asks to proceed without answering blocking questions, continue only with clearly labeled low-confidence assumptions and preserve unanswered items under **Open questions**. Do not silently fill missing core sections.
+3. Emit work plan — prompt `work-plan`.
+4. **Evidence** (brownfield only) — scan README, docs, and user-facing code per brownfield scan protocol; large corpus → [fresh-context](../patterns/fresh-context.md). Brownfield files are read-only evidence; never modify source. Write findings into **Inferred context** section only.
+5. **Write** — create `.lamina/business-context.md` with frontmatter (`maturity`, `platform`, `last_updated`). See [artifacts.md](../artifacts.md).
+6. **Cast** — infer personas from available evidence and Users & market section. Load [lamina-user-modeling](../../lamina-user-modeling/SKILL.md). Write `.lamina/personas.yaml` per Cast protocol in [artifacts.md](../artifacts.md). Brownfield: ground in scan findings. Greenfield: ground in user input / attached PRD. Provisional personas get `confidence: low|medium`. If file already exists, append only.
+7. Merge into output contract — prompt `outputs/init`.
+8. Recommend next command in output only — not persisted. Do not offer to implement source changes in the init session.
 
 ## Procedure — update
 
@@ -48,4 +50,4 @@ Map skills to sections per business-context skill. Load all inline for establish
 
 ## Guardrail
 
-UX artifacts only. Do not create `config.yaml`, `insights.md`, `personas.yaml`, or empty stubs.
+Writes: `.lamina/` only. Repo: read-only. Do not create `config.yaml`, `insights.md`, source edits, tests, config, styles, docs outside `.lamina/`, or empty stubs outside `.lamina/`.

@@ -4,6 +4,8 @@ import {
   ReactFlowProvider,
   Controls,
   useReactFlow,
+  useNodesState,
+  useEdgesState,
   type NodeMouseHandler,
 } from '@xyflow/react';
 import type { FlowGraphData } from './flow-graph.js';
@@ -21,13 +23,14 @@ interface FlowGraphPanelProps {
   activeScreen: string;
   activeFlowId: string;
   onSelectScreen: (id: string) => void;
-  onSelectFlow: (id: string) => void;
+  onSelectFlow?: (id: string) => void;
   scenarios?: ScenarioEntry[];
   activeScenario?: string | null;
   onSelectScenario?: (id: string) => void;
   onClearScenario?: () => void;
   activePersona?: PersonaEntry | null;
   screenMeta?: Record<string, ScreenMeta>;
+  gapCounts?: Map<string, number>;
 }
 
 function FlowFocus({ activeFlowId, nodeCount }: { activeFlowId: string; nodeCount: number }) {
@@ -54,6 +57,7 @@ function FlowGraphCanvas({
   onClearScenario,
   activePersona,
   screenMeta = {},
+  gapCounts = new Map(),
 }: Omit<FlowGraphPanelProps, 'onSelectFlow'> & { activeScenario: string | null }) {
   const personaBlockedScreens = useMemo(
     () => blockerScreens(activePersona?.simulation),
@@ -71,7 +75,7 @@ function FlowGraphCanvas({
     return map;
   }, [activePersona]);
 
-  const { nodes, edges } = useMemo(
+  const { nodes: layoutNodes, edges: layoutEdges } = useMemo(
     () =>
       buildFlowElements({
         graph,
@@ -81,6 +85,7 @@ function FlowGraphCanvas({
         activeScenario,
         personaBlockedScreens,
         blockerQuotes,
+        gapCounts,
         screenMeta,
       }),
     [
@@ -91,9 +96,24 @@ function FlowGraphCanvas({
       activeScenario,
       personaBlockedScreens,
       blockerQuotes,
+      gapCounts,
       screenMeta,
     ],
   );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
+
+  useEffect(() => {
+    setNodes((current) => {
+      const positionById = new Map(current.map((node) => [node.id, node.position]));
+      return layoutNodes.map((node) => ({
+        ...node,
+        position: positionById.get(node.id) ?? node.position,
+      }));
+    });
+    setEdges(layoutEdges);
+  }, [layoutNodes, layoutEdges, setNodes, setEdges]);
 
   const transitions = resolveFlowTransitions(graph, activeFlowId);
 
@@ -123,7 +143,9 @@ function FlowGraphCanvas({
         nodes={nodes}
         edges={edges}
         nodeTypes={flowNodeTypes}
-        nodesDraggable={false}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodesDraggable
         nodesConnectable={false}
         elementsSelectable={false}
         panOnScroll
@@ -154,6 +176,7 @@ export function FlowGraphPanel({
   onClearScenario,
   activePersona = null,
   screenMeta = {},
+  gapCounts = new Map(),
 }: FlowGraphPanelProps) {
   const multiFlow = graph.flows.length > 1 || (graph.flows[0] && graph.flows[0].id !== 'default');
 
@@ -161,7 +184,7 @@ export function FlowGraphPanel({
     <div className="sub-flow-graph-panel">
       <div className={`sub-flow-graph-header${multiFlow ? ' sub-flow-graph-header-stacked' : ''}`}>
         <h2>Flow</h2>
-        {multiFlow ? (
+        {multiFlow && onSelectFlow ? (
           <select
             className="sub-flow-filter-lg"
             value={activeFlowId}
@@ -188,6 +211,7 @@ export function FlowGraphPanel({
           onClearScenario={onClearScenario}
           activePersona={activePersona}
           screenMeta={screenMeta}
+          gapCounts={gapCounts}
         />
       </ReactFlowProvider>
     </div>

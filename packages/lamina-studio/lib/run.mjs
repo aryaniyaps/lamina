@@ -10,14 +10,53 @@ import { elementMatchesSource, regionPresent } from './structure-manifest.mjs';
 /** @typedef {{ id: string; title?: string; status?: string; source?: string; regions?: string[]; elements?: RunScreenElement[] }} RunScreen */
 /** @typedef {{ id: string; priority: string; title: string; acceptance?: string[]; screens?: string[]; flows?: string[] }} ChecklistItem */
 /** @typedef {{ id: string; priority: string; finding: string; impact?: string; effort?: string; recommendation?: string; screen_id?: string; flow_id?: string }} FindingItem */
+/** @typedef {{ id: string; source?: string; kind?: string; summary?: string }} EvidenceItem */
+/** @typedef {{ id: string; type?: string; pack?: string; path?: string; confidence?: string; evidence_mode?: string; diagram?: string }} ArtifactItem */
 
-const HOOKS = new Set(['concept', 'feature', 'audit']);
+const HOOKS = new Set(['design', 'audit']);
 const FLOW_STATUS = new Set(['shipped', 'draft', 'planned', 'unknown']);
 const SCREEN_STATUS = new Set(['new', 'existing']);
 const CHECKLIST_PRIORITY = new Set(['P0', 'P1', 'P2']);
 const FINDING_PRIORITY = new Set(['high', 'medium', 'low']);
 const SIM_OUTCOMES = new Set(['success', 'partial_fail', 'abandon']);
 const SEVERITY = new Set(['high', 'medium', 'low']);
+const CONFIDENCE = new Set(['high', 'medium', 'low', 'blocked']);
+const EVIDENCE_MODES = new Set(['evidence_required', 'assumption_allowed', 'simulation_or_evidence', 'run_yaml_required']);
+const ARTIFACT_PACKS = new Set([
+  'research',
+  'ia',
+  'flow',
+  'journey',
+  'interaction',
+  'wireframe',
+  'validation',
+  'accessibility',
+  'strategy',
+  'handoff',
+]);
+const ARTIFACT_TYPES = new Set([
+  'research_plan', 'research_brief', 'user_interview_guide', 'observation_notes', 'affinity_diagram',
+  'empathy_map', 'persona', 'proto_persona', 'user_archetype', 'jtbd_canvas', 'experience_sampling_log',
+  'customer_insights_report', 'user_needs_matrix', 'behavioral_segmentation_map', 'mental_model_diagram',
+  'user_motivation_matrix', 'research_repository_index', 'site_map', 'information_architecture_diagram',
+  'navigation_map', 'content_inventory', 'content_audit', 'content_model', 'taxonomy_diagram',
+  'ontology_diagram', 'labeling_system', 'metadata_schema', 'card_sorting_results', 'tree_testing_report',
+  'user_flow', 'task_flow', 'screen_flow', 'flowchart', 'navigation_flow', 'decision_flow', 'happy_path_flow',
+  'edge_case_flow', 'alternate_flow', 'use_case_diagram', 'activity_diagram', 'state_diagram',
+  'customer_journey_map', 'user_journey_map', 'experience_map', 'service_blueprint', 'ecosystem_map',
+  'stakeholder_map', 'journey_timeline', 'emotional_journey_map', 'touchpoint_map', 'channel_map',
+  'wireflow', 'interaction_flow', 'storyboard', 'scenario', 'use_scenario', 'interaction_matrix',
+  'event_flow', 'state_machine_diagram', 'state_transition_table', 'decision_tree', 'low_fidelity_wireframe',
+  'mid_fidelity_wireframe', 'high_fidelity_wireframe', 'annotated_wireframe', 'responsive_wireframe',
+  'paper_wireframe', 'digital_wireframe', 'usability_test_plan', 'test_script', 'task_list',
+  'observation_sheet', 'heatmap', 'click_map', 'scroll_map', 'session_recording', 'issue_log',
+  'severity_matrix', 'usability_findings_report', 'sus_report', 'benchmark_report', 'accessibility_audit',
+  'contrast_report', 'keyboard_navigation_map', 'screen_reader_flow', 'focus_order_diagram', 'wcag_checklist',
+  'opportunity_solution_tree', 'feature_prioritization_matrix', 'kano_model', 'value_proposition_canvas',
+  'lean_ux_canvas', 'product_vision_board', 'roadmap', 'impact_mapping', 'story_mapping',
+  'design_specification', 'redlines', 'asset_export', 'component_specs', 'motion_specs',
+  'token_documentation', 'api_interaction_spec', 'developer_handoff',
+]);
 
 /**
  * @param {string} raw
@@ -61,6 +100,10 @@ export function parseRunYaml(source) {
   const checklist = [];
   /** @type {FindingItem[]} */
   const findings = [];
+  /** @type {EvidenceItem[]} */
+  const evidence = [];
+  /** @type {ArtifactItem[]} */
+  const artifacts = [];
 
   /** @type {RunFlow | null} */
   let currentFlow = null;
@@ -78,6 +121,10 @@ export function parseRunYaml(source) {
   let currentChecklist = null;
   /** @type {FindingItem | null} */
   let currentFinding = null;
+  /** @type {EvidenceItem | null} */
+  let currentEvidence = null;
+  /** @type {ArtifactItem | null} */
+  let currentArtifact = null;
 
   let section = 'root';
   let inSimulation = false;
@@ -125,6 +172,14 @@ export function parseRunYaml(source) {
       section = 'findings';
       continue;
     }
+    if (/^evidence:\s*$/.test(line)) {
+      section = 'evidence';
+      continue;
+    }
+    if (/^artifacts:\s*$/.test(line)) {
+      section = 'artifacts';
+      continue;
+    }
 
     if (section === 'root') {
       const kv = line.match(/^(\w+):\s*(.*)$/);
@@ -150,7 +205,7 @@ export function parseRunYaml(source) {
     }
 
     if (section === 'flows') {
-      const flowItem = line.match(/^\s*-\s+id:\s*(.+)$/);
+      const flowItem = line.match(/^\s{2}-\s+id:\s*(.+)$/);
       if (flowItem) {
         if (currentFlow) flows.push(currentFlow);
         currentFlow = { id: stripYamlScalar(flowItem[1]), graphs: [] };
@@ -172,7 +227,7 @@ export function parseRunYaml(source) {
         continue;
       }
       const listItem = line.match(/^\s+-\s+(.+)$/);
-      if (listItem) {
+      if (listItem && (inRoutes || inEvidence)) {
         const v = stripYamlScalar(listItem[1]);
         if (inRoutes && v) currentFlow.routes.push(v);
         else if (inEvidence && v) currentFlow.evidence.push(v);
@@ -361,6 +416,38 @@ export function parseRunYaml(source) {
       continue;
     }
 
+    if (section === 'evidence') {
+      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
+      if (item) {
+        if (currentEvidence) evidence.push(currentEvidence);
+        currentEvidence = { id: stripYamlScalar(item[1]) };
+        continue;
+      }
+      if (!currentEvidence) continue;
+      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
+      if (kv) {
+        const val = stripYamlScalar(kv[2]);
+        if (val) currentEvidence[kv[1]] = val;
+      }
+      continue;
+    }
+
+    if (section === 'artifacts') {
+      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
+      if (item) {
+        if (currentArtifact) artifacts.push(currentArtifact);
+        currentArtifact = { id: stripYamlScalar(item[1]) };
+        continue;
+      }
+      if (!currentArtifact) continue;
+      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
+      if (kv) {
+        const val = stripYamlScalar(kv[2]);
+        if (val) currentArtifact[kv[1]] = val;
+      }
+      continue;
+    }
+
     if (section === 'simulation' && inSimulation) {
       if (/^\s+panel:\s*$/.test(line)) {
         inPanel = true;
@@ -379,9 +466,28 @@ export function parseRunYaml(source) {
 
       const resultItem = line.match(/^\s+-\s+persona_id:\s*(.+)$/);
       if (resultItem) {
+        if (currentBlocker && currentResult?.blockers) {
+          /** @type {Record<string, unknown>[]} */ (currentResult.blockers).push(currentBlocker);
+          currentBlocker = null;
+        }
         if (currentResult) /** @type {Record<string, unknown>[]} */ (/** @type {Record<string, unknown>} */ (run.simulation).results).push(currentResult);
         currentResult = { persona_id: stripYamlScalar(resultItem[1]) };
         inBlockers = false;
+        continue;
+      }
+
+      const simKv = line.match(/^\s{2}(\w+):\s*(.*)$/);
+      if (simKv) {
+        if (currentBlocker && currentResult?.blockers) {
+          /** @type {Record<string, unknown>[]} */ (currentResult.blockers).push(currentBlocker);
+          currentBlocker = null;
+        }
+        if (currentResult) {
+          /** @type {Record<string, unknown>[]} */ (/** @type {Record<string, unknown>} */ (run.simulation).results).push(currentResult);
+          currentResult = null;
+        }
+        const val = stripYamlScalar(simKv[2]);
+        if (val) /** @type {Record<string, unknown>} */ (run.simulation)[simKv[1]] = val;
         continue;
       }
 
@@ -413,12 +519,6 @@ export function parseRunYaml(source) {
           if (val) currentResult[kv[1]] = val;
         }
       }
-
-      const simKv = line.match(/^\s+(\w+):\s*(.*)$/);
-      if (simKv && !currentResult) {
-        const val = stripYamlScalar(simKv[2]);
-        if (val) /** @type {Record<string, unknown>} */ (run.simulation)[simKv[1]] = val;
-      }
     }
   }
 
@@ -430,14 +530,18 @@ export function parseRunYaml(source) {
   if (currentScenario) scenarios.push(currentScenario);
   if (currentChecklist) checklist.push(currentChecklist);
   if (currentFinding) findings.push(currentFinding);
-  if (currentResult) /** @type {Record<string, unknown>[]} */ (/** @type {Record<string, unknown>} */ (run.simulation)?.results)?.push(currentResult);
+  if (currentEvidence) evidence.push(currentEvidence);
+  if (currentArtifact) artifacts.push(currentArtifact);
   if (currentBlocker && currentResult?.blockers) currentResult.blockers.push(currentBlocker);
+  if (currentResult) /** @type {Record<string, unknown>[]} */ (/** @type {Record<string, unknown>} */ (run.simulation)?.results)?.push(currentResult);
 
   if (flows.length) run.flows = flows;
   if (screens.length) run.screens = screens;
   if (scenarios.length) run.scenarios = scenarios;
   if (checklist.length) run.checklist = checklist;
   if (findings.length) run.findings = findings;
+  if (evidence.length) run.evidence = evidence;
+  if (artifacts.length) run.artifacts = artifacts;
 
   return run;
 }
@@ -458,7 +562,7 @@ export function validateRunFields(run, rel = 'run.yaml') {
 
   const hook = String(run.hook || '');
 
-  if (hook === 'concept' || hook === 'feature') {
+  if (hook === 'design' || hook === 'concept' || hook === 'feature') {
     if (!run.flows?.length) errors.push(`${rel}: missing flows[] (required for ${hook})`);
     if (!run.screens?.length) errors.push(`${rel}: missing screens[] (required for ${hook})`);
   }
@@ -469,6 +573,10 @@ export function validateRunFields(run, rel = 'run.yaml') {
 
   if (hook === 'audit' && !run.findings?.length) {
     errors.push(`${rel}: missing findings[] (required for audit)`);
+  }
+
+  if ((hook === 'design' || hook === 'concept' || hook === 'feature' || hook === 'audit') && !run.artifacts?.length) {
+    errors.push(`${rel}: missing artifacts[] index (required for ${hook})`);
   }
 
   const screenIds = new Set();
@@ -523,6 +631,32 @@ export function validateRunFields(run, rel = 'run.yaml') {
     }
   }
 
+  for (const e of /** @type {EvidenceItem[]} */ (run.evidence ?? [])) {
+    if (!e.id) errors.push(`${rel}: evidence item missing id`);
+    if (!e.source) errors.push(`${rel}: evidence "${e.id || '?'}" missing source`);
+    if (!e.summary) errors.push(`${rel}: evidence "${e.id || '?'}" missing summary`);
+  }
+
+  for (const a of /** @type {ArtifactItem[]} */ (run.artifacts ?? [])) {
+    if (!a.id) errors.push(`${rel}: artifact item missing id`);
+    if (a.type && !ARTIFACT_TYPES.has(String(a.type))) {
+      errors.push(`${rel}: artifact "${a.id || '?'}" invalid type "${a.type}"`);
+    }
+    if (!a.path) errors.push(`${rel}: artifact "${a.id || '?'}" missing path`);
+    if (a.path && (path.isAbsolute(String(a.path)) || String(a.path).includes('..'))) {
+      errors.push(`${rel}: artifact "${a.id}" path must be relative within run directory`);
+    }
+    if (a.pack && !ARTIFACT_PACKS.has(String(a.pack))) {
+      errors.push(`${rel}: artifact "${a.id}" invalid pack "${a.pack}"`);
+    }
+    if (a.confidence && !CONFIDENCE.has(String(a.confidence))) {
+      errors.push(`${rel}: artifact "${a.id}" invalid confidence "${a.confidence}"`);
+    }
+    if (a.evidence_mode && !EVIDENCE_MODES.has(String(a.evidence_mode))) {
+      errors.push(`${rel}: artifact "${a.id}" invalid evidence_mode "${a.evidence_mode}"`);
+    }
+  }
+
   const sim = /** @type {Record<string, unknown>} */ (run.simulation);
   if (sim?.results) {
     for (const r of /** @type {Record<string, unknown>[]} */ (sim.results)) {
@@ -561,6 +695,25 @@ export function validateRunYaml(runPath) {
   const run = loadRunYaml(runPath);
   const rel = path.basename(runPath);
   const errors = validateRunFields(run, rel);
+  const runDir = path.dirname(path.resolve(runPath));
+  for (const a of /** @type {ArtifactItem[]} */ (run.artifacts ?? [])) {
+    if (!a.path) continue;
+    const artifactPath = path.resolve(runDir, String(a.path));
+    if (!artifactPath.startsWith(runDir + path.sep) && artifactPath !== runDir) {
+      errors.push(`${rel}: artifact "${a.id}" resolves outside run directory`);
+      continue;
+    }
+    if (!fs.existsSync(artifactPath)) {
+      errors.push(`${rel}: artifact "${a.id}" file not found: ${a.path}`);
+    } else {
+      const artifactStat = fs.lstatSync(artifactPath);
+      if (artifactStat.isSymbolicLink()) {
+        errors.push(`${rel}: artifact "${a.id}" path must not be a symlink: ${a.path}`);
+      } else if (!artifactStat.isFile()) {
+        errors.push(`${rel}: artifact "${a.id}" path is not a file: ${a.path}`);
+      }
+    }
+  }
   return { ok: errors.length === 0, errors, run };
 }
 

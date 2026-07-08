@@ -7,7 +7,7 @@ establish | update
 ### Business context summary
 Per section: answer, confidence (high | medium | low)
 ### Open questions
-Gaps that block good UX work
+Only questions the user explicitly skipped, refused, or deferred after the clarify gate. Do not use this section instead of asking blocking questions upfront.
 ### Artifacts
 Path and what was written or changed
 ### Stale downstream artifacts

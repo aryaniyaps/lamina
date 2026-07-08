@@ -1,6 +1,6 @@
 id: task021
 category: accessibility
-workflow: design-feature
+workflow: design
 prompt: Design offline editing UX for a collaborative document editor.
 fixture: null
 human_eval: true

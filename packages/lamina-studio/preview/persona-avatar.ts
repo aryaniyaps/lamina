@@ -15,6 +15,7 @@ export interface PainPoint {
   text: string;
   screenId?: string;
   severity?: string;
+  step?: string;
 }
 
 export function collectPainPointsForScreen(persona: PersonaEntry, screenId: string): PainPoint[] {
@@ -25,5 +26,6 @@ export function collectPainPointsForScreen(persona: PersonaEntry, screenId: stri
       text: b.quote,
       screenId: b.screenId,
       severity: b.severity,
+      step: b.step,
     }));
 }

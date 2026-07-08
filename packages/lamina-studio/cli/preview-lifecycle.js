@@ -13,11 +13,13 @@ export function defaultStateFile(blueprintRoot) {
 }
 
 export function previewUrl(port, id, runId) {
-  const params = new URLSearchParams();
-  if (runId) params.set('run', runId);
-  if (id) params.set('id', id);
-  const q = params.toString();
-  return `http://localhost:${port}${q ? `?${q}` : ''}`;
+  if (runId) {
+    return `http://localhost:${port}/${encodeURIComponent(runId)}`;
+  }
+  if (id) {
+    return `http://localhost:${port}/?id=${encodeURIComponent(id)}`;
+  }
+  return `http://localhost:${port}/`;
 }
 
 function parseStateYaml(source) {

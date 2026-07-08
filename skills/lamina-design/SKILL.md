@@ -1,6 +1,6 @@
 ---
 name: lamina-design
-description: "Design net-new UX — whole product concept or a single feature spec."
+description: "Design net-new UX — from problem framing through flows, edge cases, validation, and handoff."
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Design net-new UX — from a user problem (whole product concept) or a named capability (feature spec). Auto-routes to concept or feature track.
+Design net-new UX — from a user problem, product idea, or named capability through flows, edge cases, validation, and handoff.
 
 ## Load
 
@@ -17,7 +17,7 @@ Design net-new UX — from a user problem (whole product concept) or a named cap
 - `../lamina-orchestrator/audit-profiles.yaml`
 - `../lamina-orchestrator/artifacts.md`
 - `../lamina-orchestrator/prerequisites/init-required.md`
-- Output contracts: `../lamina-orchestrator/prompts/outputs/design-concept.md`, `../lamina-orchestrator/prompts/outputs/design-feature.md`
+- Output contract: `../lamina-orchestrator/prompts/outputs/design.md`
 - Blocked output: `../lamina-orchestrator/prompts/outputs/init-blocked.md`
 
 ## Prerequisite
@@ -26,15 +26,15 @@ Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init ga
 
 ## Guardrail
 
-UX artifacts only. Do not implement product code or visual styling specs.
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor app source code, tests, config, styles, docs outside `.lamina/`, or generated source during `/lamina-design`. A completed checklist, handoff, or approved blueprint is input for a later coding session, not permission to modify source now. If the user asks to implement, refuse that part briefly and finish only `.lamina/` artifacts. See [guardrails](../lamina-core/guardrails.md).
 
 ## Routing
 
-Auto-routes to concept or feature track from prompt signals. Say `concept for …` or `add … feature` to disambiguate.
+Use the single design workflow for net-new UX. If the request is to redesign, improve, fix, or optimize shipped UI, route to `/lamina-audit` instead.
 
 ## Subagent hints
 
-- **Fresh context:** `../lamina-orchestrator/agents/research-synthesizer` for large research docs (concept track, step 1)
-- **Persona panel:** dynamic spawns — concept track at step 4; feature track after flows; see `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`
-- **Parallel review:** `../lamina-orchestrator/agents/ux-lens-reviewer` for feature track accessibility + risks
+- **Fresh context:** `../lamina-orchestrator/agents/research-synthesizer` for large research docs or brownfield source sets
+- **Persona panel:** dynamic spawns after flows/screens or journey exists; see `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`
+- **Parallel review:** `../lamina-orchestrator/agents/ux-lens-reviewer` for accessibility + risks
 - Default: inline sequential

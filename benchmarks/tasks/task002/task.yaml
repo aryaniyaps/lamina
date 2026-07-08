@@ -1,6 +1,6 @@
 id: task002
 category: greenfield
-workflow: design-concept
+workflow: design
 prompt: Design the appointment scheduling experience for a multi-provider clinic.
 fixture: null
 human_eval: true

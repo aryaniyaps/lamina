@@ -20,7 +20,7 @@ required_a11y:
   - motion_reduced_mode
   - voiceover_labels
 required_sections:
-  - user model
+  - users and jobs
   - flows
   - interactions
   - accessibility

@@ -1,6 +1,6 @@
 id: task023
 category: accessibility
-workflow: design-feature
+workflow: design
 prompt: Design empty states across a project management application.
 fixture: null
 human_eval: true

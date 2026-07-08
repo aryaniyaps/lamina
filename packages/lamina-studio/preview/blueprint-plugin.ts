@@ -10,6 +10,7 @@ import {
 } from './flow-graph-loader.js';
 import {
   getCoverage,
+  getRunArtifacts,
   getRunMeta,
   getRunScreens,
   listRuns,
@@ -115,6 +116,24 @@ export function blueprintApiPlugin(blueprintRoot: string) {
           return;
         }
 
+        if (request.url.startsWith('/__lamina/artifacts')) {
+          const runId = url.searchParams.get('run') ?? url.searchParams.get('id');
+          if (!runId) {
+            response.statusCode = 400;
+            response.end(JSON.stringify({ error: 'missing run' }));
+            return;
+          }
+          const artifacts = getRunArtifacts(laminaRoot, runId);
+          if (!artifacts) {
+            response.statusCode = 404;
+            response.end(JSON.stringify({ error: 'run not found', runId }));
+            return;
+          }
+          response.setHeader('Content-Type', 'application/json');
+          response.end(JSON.stringify(artifacts));
+          return;
+        }
+
         if (request.url.startsWith('/__lamina/resolve')) {
           const blueprintId = url.searchParams.get('id');
           const pathsParam = url.searchParams.get('paths') ?? '';
@@ -216,14 +235,20 @@ export function blueprintApiPlugin(blueprintRoot: string) {
 
         if (request.url.startsWith('/__lamina/screen-meta')) {
           const blueprintId = url.searchParams.get('id');
+          const runId = url.searchParams.get('run');
           const flowId = url.searchParams.get('flowId') ?? 'default';
-          if (!blueprintId) {
+          const resolvedBlueprint =
+            (runId ? resolveBlueprintId(laminaRoot, runId) : null) ??
+            blueprintId ??
+            undefined;
+          if (!resolvedBlueprint) {
             response.statusCode = 400;
-            response.end(JSON.stringify({ error: 'missing id' }));
+            response.end(JSON.stringify({ error: 'missing id or run' }));
             return;
           }
-          const { graph } = loadFlowGraphFromDisk(root, blueprintId);
-          const meta = loadScreenMetaForFlow(root, blueprintId, graph, flowId);
+          const runGraph = runId ? loadRunFlowGraphByRunId(laminaRoot, runId) : null;
+          const { graph } = runGraph ? { graph: runGraph } : loadFlowGraphFromDisk(root, resolvedBlueprint);
+          const meta = loadScreenMetaForFlow(root, resolvedBlueprint, graph, flowId);
           response.setHeader('Content-Type', 'application/json');
           response.end(JSON.stringify(meta));
           return;

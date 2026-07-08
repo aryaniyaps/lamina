@@ -24,4 +24,4 @@ required_a11y:
 required_sections:
   - flows
   - edge cases
-  - success metrics
+  - metrics and validation

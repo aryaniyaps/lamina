@@ -23,5 +23,5 @@ required_a11y:
 required_sections:
   - flows
   - edge cases
-  - risks
+  - risks and decisions
   - accessibility

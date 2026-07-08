@@ -79,8 +79,23 @@ export function PersonaPanel({
         <div className="sub-persona-chat">
           {currentPain ? (
             <>
-              <div className="sub-persona-bubble" role="status">
-                {currentPain.text}
+              <div
+                className={`sub-persona-bubble sub-persona-bubble-blocker sub-persona-bubble-severity-${currentPain.severity ?? 'medium'}`}
+                role="status"
+              >
+                <p className="sub-persona-bubble-quote">{currentPain.text}</p>
+                {currentPain.step ? (
+                  <p className="sub-persona-bubble-meta">
+                    {currentPain.step}
+                    {currentPain.severity ? (
+                      <span className="sub-persona-bubble-severity">{currentPain.severity}</span>
+                    ) : null}
+                  </p>
+                ) : currentPain.severity ? (
+                  <p className="sub-persona-bubble-meta">
+                    <span className="sub-persona-bubble-severity">{currentPain.severity}</span>
+                  </p>
+                ) : null}
               </div>
               {hasMultiple ? (
                 <div className="sub-persona-slideshow">

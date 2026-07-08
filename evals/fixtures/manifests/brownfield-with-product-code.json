@@ -1,0 +1,9 @@
+{
+  "name": "brownfield-with-product-code",
+  "description": "Commerce app with init and a non-.lamina/ product code stub for write-boundary evals",
+  "layers": [
+    "_base/nextjs-commerce",
+    "_layers/lamina-brownfield-init",
+    "_layers/product-code-stub"
+  ]
+}

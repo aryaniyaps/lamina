@@ -1,7 +1,3 @@
-export type StudioView = 'people' | 'flows' | 'screens' | 'scenarios';
-
-export type ScenariosSubView = 'gaps' | 'matrix' | 'gallery';
-
 export interface StudioConfig {
   root: string;
   id?: string;
@@ -18,6 +14,7 @@ export interface RunScreenEntry {
 }
 
 export interface CoverageGap {
+  flowId: string;
   operationId: string;
   operation: string;
   category: string;
@@ -31,6 +28,7 @@ export interface DerivedOperation {
   subject: string;
   screenId: string;
   kind: string;
+  flowId?: string;
 }
 
 export interface MatrixCell {
@@ -39,6 +37,13 @@ export interface MatrixCell {
   required: boolean;
   scenarioId: string | null;
   covered: boolean;
+  flowId?: string;
+}
+
+export interface FlowCoverageSummary {
+  id: string;
+  score: number;
+  gapCount: number;
 }
 
 export interface CoverageData {
@@ -48,6 +53,7 @@ export interface CoverageData {
   gaps?: CoverageGap[];
   cells?: MatrixCell[];
   operations?: DerivedOperation[];
+  flows?: FlowCoverageSummary[];
   scenarios?: import('../scenarios.js').ScenarioEntry[];
   screens?: RunScreenEntry[];
   run?: {
@@ -61,8 +67,35 @@ export interface CoverageData {
 }
 
 export interface NavigationTarget {
-  view: StudioView;
   screenId?: string;
   flowId?: string;
   scenarioId?: string;
+}
+
+export interface RunArtifactIndexEntry {
+  id: string;
+  type?: string;
+  pack?: string;
+  path?: string;
+  confidence?: string;
+  evidence_mode?: string;
+  diagram?: string;
+}
+
+export interface RunArtifactDocument {
+  id: string;
+  title: string;
+  path: string;
+  kind: 'report' | 'handoff' | 'artifact';
+  pack?: string;
+  confidence?: string;
+  evidenceMode?: string;
+  diagram?: string;
+  content: string;
+}
+
+export interface RunArtifactsData {
+  runId: string;
+  index: RunArtifactIndexEntry[];
+  documents: RunArtifactDocument[];
 }

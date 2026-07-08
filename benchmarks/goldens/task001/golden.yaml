@@ -23,7 +23,7 @@ required_a11y:
   - large_touch_targets
   - color_not_only_indicator
 required_sections:
-  - user model
+  - users and jobs
   - flows
   - accessibility
-  - validation plan
+  - metrics and validation

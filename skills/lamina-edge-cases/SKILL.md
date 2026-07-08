@@ -28,7 +28,7 @@ metadata:
 
 ## When to use
 
-- `/lamina-design` feature track edge cases section (after flows defined)
+- `/lamina-design` edge cases section (after flows defined)
 - Blueprint checkpoint when hydrating scenario variants
 - `/lamina-audit` when auditing unmapped failure/empty/permission states
 - Any flow where happy-path screens exist but operational deviations are unaddressed

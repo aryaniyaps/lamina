@@ -1,0 +1,46 @@
+id: sample-visual-markdown-heavy
+hook: design
+command: /lamina-design studio markdown visual
+blueprint_id: sample-visual-blueprint-v1
+flows_touched:
+  - onboarding
+flows:
+  - id: onboarding
+    name: Markdown-focused flow
+    status: draft
+    priority: P1
+    graphs:
+      - id: onboarding
+        entry_screen: artifact-review
+        transitions:
+          - trigger: finish
+            from: artifact-review
+            target: terminal
+screens:
+  - id: artifact-review
+    title: Artifact Review
+    status: new
+  - id: terminal
+    title: Terminal State
+    status: new
+scenarios:
+  - id: dense-markdown
+    title: Dense markdown artifact
+    screen: artifact-review
+    flow: onboarding
+    description: Tables, blockquotes, code blocks, and Mermaid source all appear in one artifact.
+    severity: medium
+    category: partial
+    ux: alternate_flow
+    trigger:
+      operation: inspect
+      subject: markdown artifact
+      when: limit_reached
+artifacts:
+  - id: dense-artifact
+    type: design_specification
+    pack: handoff
+    path: artifacts/dense-artifact.md
+    confidence: high
+    evidence_mode: simulation_or_evidence
+    diagram: mermaid

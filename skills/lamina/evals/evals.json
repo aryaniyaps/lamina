@@ -5,9 +5,9 @@
       "id": "router-concept-01",
       "prompt": "/lamina — We do not know what problem to solve yet for a mobile budgeting app.",
       "force_skill_invocation": true,
-      "expected_output": "Routes to design workflow concept track.",
+      "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output mentions design or concept track",
+        "Output mentions design workflow",
         "Output does not include implementable product code blocks"
       ]
     },
@@ -15,7 +15,7 @@
       "id": "router-concept-02",
       "prompt": "/lamina — Early exploration: users struggle with household spending visibility.",
       "force_skill_invocation": true,
-      "expected_output": "Concept track for greenfield problem.",
+      "expected_output": "Design workflow for greenfield problem.",
       "assertions": [
         "Output frames a user problem",
         "Output does not jump to feature implementation code"
@@ -25,7 +25,7 @@
       "id": "router-feature-01",
       "prompt": "/lamina — Add a wishlist feature to our e-commerce app.",
       "force_skill_invocation": true,
-      "expected_output": "Routes to design workflow feature track.",
+      "expected_output": "Routes to design workflow.",
       "assertions": [
         "Output addresses a specific feature",
         "Output mentions flows or edge cases"
@@ -35,7 +35,7 @@
       "id": "router-feature-02",
       "prompt": "/lamina — Add two-factor authentication to settings.",
       "force_skill_invocation": true,
-      "expected_output": "Feature track dispatch.",
+      "expected_output": "Design workflow dispatch.",
       "assertions": [
         "Output scopes a single feature",
         "Output does not emit audit output contract headings"
@@ -58,7 +58,7 @@
       "expected_output": "Audit not net-new design — improve existing.",
       "assertions": [
         "Output treats this as improving existing UX",
-        "Output does not start greenfield concept from scratch"
+        "Output does not start greenfield design from scratch"
       ]
     },
     {
@@ -115,7 +115,7 @@
       "expected_output": "Direct research skill, not full design workflow.",
       "assertions": [
         "Output focuses on research planning",
-        "Output does not emit full 9-section design concept contract"
+        "Output does not emit full design output contract"
       ]
     },
     {
@@ -124,16 +124,16 @@
       "force_skill_invocation": true,
       "expected_output": "One clarifying question only.",
       "assertions": [
-        "Output asks whether designing whole product, one feature, or improving existing"
+        "Output asks whether this is new UX, existing UX, or a focused UX question"
       ]
     },
     {
       "id": "router-feature-budgeting-alerts",
       "prompt": "/lamina-design — Add budgeting alerts feature for college students.",
       "force_skill_invocation": true,
-      "expected_output": "Feature track from natural phrasing.",
+      "expected_output": "Design workflow from natural phrasing.",
       "assertions": [
-        "Output follows feature track framing"
+        "Output follows design workflow framing"
       ]
     },
     {
@@ -271,7 +271,7 @@
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
-      "expected_output": "Proceed to design concept with valid init.",
+      "expected_output": "Proceed to design workflow with valid init.",
       "assertions": [
         "valid init",
         "Output does not emit init-blocked contract headings"
@@ -359,9 +359,9 @@
       "id": "deprecated-ideate",
       "prompt": "/lamina-ideate — Problem: users cannot track household spending.",
       "force_skill_invocation": true,
-      "expected_output": "Redirects to design concept track.",
+      "expected_output": "Redirects to design workflow.",
       "assertions": [
-        "Output addresses concept or problem framing"
+        "Output addresses design or problem framing"
       ]
     },
     {
@@ -445,10 +445,12 @@
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "brownfield business-context.md created.",
+      "expected_output": "brownfield business-context.md and personas.yaml created.",
       "assertions": [
         "File `.lamina/business-context.md` exists",
-        "business-context.md valid"
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid"
       ]
     },
     {

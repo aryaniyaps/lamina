@@ -98,7 +98,7 @@ Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow.
 |---------|---------|-------------|
 | `/lamina` | Intent router | Unsure which workflow; general UX question |
 | `/lamina-init` | Business context bootstrap | New project or pivot |
-| `/lamina-design` | Net-new UX — concept or feature track | Greenfield product or scoped feature spec |
+| `/lamina-design` | Net-new UX workflow | Greenfield product, problem, or scoped capability |
 | `/lamina-audit` | Flow audit → prioritized fixes | Improve existing UI or flows |
 
 ### `/lamina` — Intent router
@@ -109,8 +109,8 @@ One entry point that detects what you need and runs the right workflow — or an
 
 | Signal | Dispatch |
 |--------|----------|
-| Problem only, early exploration | `design` workflow → concept track |
-| Specific feature to add | `design` workflow → feature track |
+| Problem only, early exploration | `design` workflow |
+| Specific capability to add | `design` workflow |
 | Audit or improve existing UI | `audit` workflow |
 | Single clear topic (forms, navigation, etc.) | **Direct mode** → `lamina-core` Problem Router → one skill |
 | Ambiguous | Ask one clarifying question, then dispatch |
@@ -144,7 +144,7 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 
 ### `/lamina-design` — Net-new UX
 
-Design net-new UX — whole product from a problem (concept track) or one capability on an existing product (feature track). Auto-routes from prompt signals; say `concept for …` or `add … feature` to disambiguate.
+Design net-new UX from a problem, product idea, or named capability in one workflow. Improving shipped UI still belongs in `/lamina-audit`.
 
 **Examples:**
 
@@ -154,7 +154,7 @@ Design net-new UX — whole product from a problem (concept track) or one capabi
 /lamina-design Add wishlist feature to our storefront
 ```
 
-**Output:** `.lamina/runs/<run_id>/` (`run.yaml`, `report.md`), `.lamina/personas.yaml` (concept track), optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
+**Output:** `.lamina/runs/<run_id>/` (`run.yaml`, `report.md`), `.lamina/personas.yaml` when the cast changes, optional blueprint TSX · contract: [`design.md`](skills/lamina-orchestrator/prompts/outputs/design.md)
 
 ### `/lamina-audit` — Audit existing flows
 

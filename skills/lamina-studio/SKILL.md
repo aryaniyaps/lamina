@@ -72,7 +72,7 @@ Read `run.yaml` `flows`, `screens`, and `scenarios` before authoring blueprint T
 
 Each blueprint is **disposable** — delete after implementation. Durable record per run: `runs/<run_id>/run.yaml` and `report.md`.
 
-**Multiple blueprints:** one directory per feature effort. Never overwrite another blueprint's files.
+**Multiple blueprints:** one directory per design effort. Never overwrite another blueprint's files.
 
 ## Component vocabulary
 
@@ -142,7 +142,7 @@ Load [lamina-edge-cases](../lamina-edge-cases/SKILL.md) for systematic discovery
 
 **Variant file (optional):** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use when documenting a distinct wireframe state. Omit for coverage-only scenarios; annotation pins on the happy-path screen are the default.
 
-When no blueprint exists yet, write edge cases to `run.yaml` `scenarios[]` during the feature track. Write screen TSX at blueprint checkpoint; variant TSX only when explicitly needed.
+When no blueprint exists yet, write edge cases to `run.yaml` `scenarios[]` during the design workflow. Write screen TSX at blueprint checkpoint; variant TSX only when explicitly needed.
 
 Studio shows scenarios on the flow graph as dashed branches when variant TSX exists; Scenarios view always shows full coverage from `run.yaml`.
 
@@ -233,14 +233,14 @@ Start studio once with `lamina-studio review --root .lamina/blueprints --run <ru
 
 ## Brownfield extraction (existing screens)
 
-Use when a blueprint includes **existing production screens** — audit findings, or features that reuse shipped UI. New screens in the same flow do **not** need manifest entries.
+Use when a blueprint includes **existing production screens** — audit findings, or design work that reuses shipped UI. New screens in the same flow do **not** need manifest entries.
 
 ### When manifest is required
 
 | Screen type | Signal | Manifest row? |
 |-------------|--------|---------------|
 | **Existing** | prior run `flows[]` `status: shipped` + `evidence`, or user cites route/file | Yes — `run.yaml` `screens[]` with `status: existing`, `source` + `elements` |
-| **New** | `status: planned`, or introduced in this feature | No — design directly in `screens/<id>.tsx` |
+| **New** | `status: planned`, or introduced in this design | No — design directly in `screens/<id>.tsx` |
 | **Optimize override** | `flows/<flow-id>/screens/` variant | No — standard validate only |
 
 Manifest presence enables fidelity checks. No manifest file = greenfield path (current workflow).
@@ -337,4 +337,4 @@ Edge-case states use `run.yaml` `scenarios[]` branches on the graph (variant TSX
 
 ## Checkpoint
 
-Offer after design concept track steps 5, 6, end; design feature track flows and before tasks; audit findings. See `../lamina-orchestrator/prompts/checkpoints/blueprint-preview.md`.
+Offer after design flows/screens exist, before checklist handoff, at final design review, and after audit findings. See `../lamina-orchestrator/prompts/checkpoints/blueprint-preview.md`.

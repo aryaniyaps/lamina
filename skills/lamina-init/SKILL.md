@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Answer the business questions UX work depends on and persist them in `.lamina/business-context.md`. Run once per project (or again when the business use case changes).
+Answer the business questions UX work depends on and persist them in `.lamina/business-context.md`. Establish mode also casts `.lamina/personas.yaml` from available evidence. Run once per project (or again when the business use case changes).
 
 ## Modes
 
@@ -26,7 +26,7 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 
 ## Guardrail
 
-UX artifacts only. Do not implement product code or visual styling specs.
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor app source code, tests, config, styles, docs outside `.lamina/`, or generated source during `/lamina-init`. Brownfield scanning may read source files only to infer context. See [guardrails](../lamina-core/guardrails.md).
 
 ## Subagent hints
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useStudio } from '../studio/StudioContext.js';
-import { whenLabel } from './PeopleView.js';
+import { whenLabel } from '../studio/when-label.js';
 
 export function ScenarioDetailDrawer({
   scenarioId,
@@ -9,7 +9,7 @@ export function ScenarioDetailDrawer({
   scenarioId: string;
   onClose: () => void;
 }) {
-  const { scenarios, navigate } = useStudio();
+  const { scenarios, setActiveScreen, setActiveScenario, setSelectedScenarioId } = useStudio();
   const scenario = useMemo(
     () => scenarios.find((s) => s.id === scenarioId),
     [scenarios, scenarioId],
@@ -56,9 +56,12 @@ export function ScenarioDetailDrawer({
         <div className="sub-studio-drawer-actions">
           <button
             type="button"
-            onClick={() =>
-              navigate({ view: 'screens', screenId: scenario.screen, scenarioId: scenario.id })
-            }
+            onClick={() => {
+              setActiveScreen(scenario.screen);
+              setActiveScenario(scenario.id);
+              setSelectedScenarioId(scenario.id);
+              onClose();
+            }}
           >
             Show on screen
           </button>

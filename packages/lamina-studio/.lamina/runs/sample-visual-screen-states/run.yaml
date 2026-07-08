@@ -1,0 +1,77 @@
+id: sample-visual-screen-states
+hook: audit
+command: /lamina-audit studio visual screen states
+blueprint_id: sample-visual-blueprint-v1
+flows_touched:
+  - screen-states
+flows:
+  - id: screen-states
+    name: Missing and error screens
+    status: draft
+    priority: P0
+    graphs:
+      - id: screen-states
+        entry_screen: start
+        transitions:
+          - trigger: open-flow
+            from: start
+            target: missing-screen
+          - trigger: fallback
+            from: missing-screen
+            target: broken-screen
+          - trigger: resolve
+            from: broken-screen
+            target: terminal
+screens:
+  - id: start
+    title: Complete Entry
+    status: existing
+    source: screens/start.tsx
+  - id: missing-screen
+    title: Missing Screen File
+    status: new
+  - id: broken-screen
+    title: Error Screen File
+    status: new
+  - id: terminal
+    title: Terminal State
+    status: existing
+    source: screens/terminal.tsx
+scenarios:
+  - id: missing-screen-skeleton
+    title: Missing screen renders skeleton
+    screen: missing-screen
+    flow: screen-states
+    description: React Flow should show Pending and the canvas should render a skeleton screen.
+    severity: high
+    category: empty
+    ux: empty_state
+    trigger:
+      operation: preview
+      subject: missing screen
+      when: not_found
+findings:
+  - id: missing-screen-visible
+    priority: high
+    finding: Missing screen files must be visible in the viewer instead of failing silently.
+    impact: Reviewers can distinguish pending work from rendering failures.
+    effort: low
+    recommendation: Keep skeleton canvas and Pending graph node states.
+    screen_id: missing-screen
+    flow_id: screen-states
+simulation:
+  results:
+    - persona_id: product-manager
+      outcome: partial_fail
+      blockers:
+        - step: missing-screen
+          screenId: missing-screen
+          severity: high
+          quote: I cannot evaluate a screen that has not been generated yet.
+artifacts:
+  - id: screen-state-notes
+    type: issue_log
+    pack: validation
+    path: artifacts/screen-states.md
+    confidence: high
+    evidence_mode: run_yaml_required

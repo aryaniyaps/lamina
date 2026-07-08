@@ -12,7 +12,6 @@ import {
   inferEntryScreen,
 } from '../flow-graph.js';
 import { useStudio } from '../studio/StudioContext.js';
-import { AnnotationOverlay } from './AnnotationOverlay.js';
 
 const VIEWPORT_PRESETS = {
   mobile: { label: 'Mobile', width: 390, aspectRatio: '9 / 19.5' },
@@ -20,7 +19,7 @@ const VIEWPORT_PRESETS = {
   desktop: { label: 'Desktop', width: 1280, aspectRatio: '16 / 9' },
 } as const;
 
-type ViewportPreset = keyof typeof VIEWPORT_PRESETS;
+export type ViewportPreset = keyof typeof VIEWPORT_PRESETS;
 
 function subpathsForScreen(
   screenId: string,
@@ -121,7 +120,7 @@ function ScreenView({
   return <Screen />;
 }
 
-export function ScreenCanvas() {
+export function ScreenCanvas({ viewportPreset = 'desktop' }: { viewportPreset?: ViewportPreset }) {
   const {
     blueprintId,
     activeScreen,
@@ -129,12 +128,9 @@ export function ScreenCanvas() {
     activeScenario,
     flowGraph,
     prototypeMode,
-    scenarios,
-    selectedScenarioId,
   } = useStudio();
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [viewportPreset] = useState<ViewportPreset>('desktop');
 
   const activeTransitions = flowGraph ? resolveFlowTransitions(flowGraph, activeFlowId) : [];
 
@@ -190,9 +186,6 @@ export function ScreenCanvas() {
     [prototypeMode, resolveTransition, setActiveScreen, setActiveScenario],
   );
 
-  const screenScenarios = scenarios.filter((s) => s.screen === activeScreen);
-  const highlightScenarioId = selectedScenarioId ?? activeScenario;
-
   if (!blueprintId) {
     return (
       <div className="sub-studio-empty">
@@ -229,11 +222,6 @@ export function ScreenCanvas() {
             flowId={activeFlowId}
             scenarioId={activeScenario}
             onLoaded={applyHotspots}
-          />
-          <AnnotationOverlay
-            containerRef={viewportRef}
-            scenarios={screenScenarios}
-            highlightScenarioId={highlightScenarioId}
           />
         </div>
       </div>

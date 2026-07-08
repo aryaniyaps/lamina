@@ -32,7 +32,7 @@ Load [artifacts.md](../lamina-orchestrator/artifacts.md) for file contract, chan
 
 | Mode | Trigger | Behavior |
 |---|---|---|
-| **Establish** | No `business-context.md`, or user requests fresh bootstrap | Frame → Evidence (brownfield) → Write |
+| **Establish** | No `business-context.md`, or user requests fresh bootstrap | Frame gate → Evidence (brownfield) → Write → Cast |
 | **Update** | `/lamina-init update`, or explicit pivot/scope-change language | Read existing → re-run changed sections → merge + changelog |
 
 ---
@@ -47,7 +47,7 @@ Apply the linked capability skill's frameworks when writing each section.
 | Business goals | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md) |
 | Success metrics | [quantitative-validation](../lamina-quantitative-validation/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Scope | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md), [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
-| Users & market | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) — prose only; structured personas are the design concept track's job |
+| Users & market | [competitive-analysis](../lamina-competitive-analysis/SKILL.md), [user-modeling](../lamina-user-modeling/SKILL.md) — prose in business-context; structured cast in `personas.yaml` during establish |
 | Product posture | [platform-posture](../lamina-platform-posture/SKILL.md), [product-behavior](../lamina-product-behavior/SKILL.md) |
 | Constraints | [research-scoping](../lamina-research-scoping/SKILL.md), [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Stakeholders | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
@@ -61,6 +61,8 @@ Apply the linked capability skill's frameworks when writing each section.
 ## Question bank (establish)
 
 Ask **one batch** of clarifying questions for empty sections — not a multi-step wizard.
+
+Before writing `.lamina/business-context.md` or `.lamina/personas.yaml`, require enough non-placeholder input for Problem statement, Scope, Users & market, Product posture, and Constraints. If any of those core sections are empty or too vague to support downstream UX work, use the clarify output contract and **STOP**. Only carry unanswered items into **Open questions** when the user explicitly refuses, skips, or asks to proceed without answering.
 
 ### Problem statement
 - What user or business problem are we solving?
@@ -124,10 +126,10 @@ When a section changes, flag downstream artifacts that may need refresh:
 
 | Changed section | May stale |
 |---|---|
-| Users & market | `personas.yaml` — re-run `/lamina-design` concept track step 1 |
-| Scope | prior `run.yaml` flows outside new scope; feature specs in flight |
-| Business goals, success metrics | audit prioritization; design feature track metrics sections |
-| Product posture, constraints | design concept track IA and interaction sections |
+| Users & market | `personas.yaml` — re-run `/lamina-design` discovery and cast update |
+| Scope | prior `run.yaml` flows outside new scope; design runs in flight |
+| Business goals, success metrics | audit prioritization; design workflow metrics sections |
+| Product posture, constraints | design workflow IA and interaction sections |
 | Problem statement (pivot) | personas, prior runs, requirements |
 
 Never silently overwrite `personas.yaml` or `decisions.md`. Offer explicit refresh or append.
@@ -136,7 +138,7 @@ Never silently overwrite `personas.yaml` or `decisions.md`. Offer explicit refre
 
 ## Brownfield scan protocol
 
-Use when shipped UI or product docs exist. Informs business answers and **Inferred context** section only — no flow inventory, no personas.yaml.
+Use when shipped UI or product docs exist. Informs business answers, **Inferred context** section, and provisional persona cast.
 
 ### Read order
 1. README, `docs/`, PRDs, pitch decks, marketing copy
@@ -190,8 +192,8 @@ lamina:
 
 | Signal | Suggest |
 |---|---|
-| Problem unclear, early exploration | `/lamina-design` (concept track) |
-| Specific feature to specify | `/lamina-design` (feature track) |
+| Problem unclear, early exploration | `/lamina-design` |
+| Specific capability to specify | `/lamina-design` |
 | Shipped UI, known pain, clear goals | `/lamina-audit` |
 | Business context incomplete | finish open questions before other commands |
 

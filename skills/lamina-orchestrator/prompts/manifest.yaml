@@ -1,13 +1,19 @@
 work-plan:
   path: work-plan.md
-outputs/design-concept:
-  path: outputs/design-concept.md
-outputs/design-feature:
-  path: outputs/design-feature.md
+outputs/design:
+  path: outputs/design.md
 outputs/audit:
   path: outputs/audit.md
 outputs/init:
   path: outputs/init.md
+outputs/clarify:
+  path: outputs/clarify.md
+outputs/artifact-template:
+  path: outputs/artifact-template.md
+outputs/artifact-pack:
+  path: outputs/artifact-pack.md
+outputs/handoff:
+  path: outputs/handoff.md
 subagents/persona-panel-spawn:
   path: subagents/persona-panel-spawn.md
 checkpoints/continue-or-revise:

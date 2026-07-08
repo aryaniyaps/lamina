@@ -11,8 +11,8 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 | Input | Expected dispatch |
 |---|---|
-| "We don't know what problem to solve yet" | design workflow → concept track |
-| "Add a wishlist feature" | design workflow → feature track |
+| "We don't know what problem to solve yet" | design workflow |
+| "Add a wishlist feature" | design workflow |
 | "Audit our checkout flow" | audit workflow |
 | "Help with form validation UX" | direct → lamina-forms |
 
@@ -35,29 +35,29 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 - **Prerequisite:** valid `.lamina/business-context.md` from `/lamina-init` (required — gate blocks without it)
 
-### Concept track
+### Design workflow
 
 - Input: problem statement for a mobile budgeting app
-- Expect: 9-section output per `skills/lamina-orchestrator/prompts/outputs/design-concept.md`
+- Expect: unified output per `skills/lamina-orchestrator/prompts/outputs/design.md`
 - Expect: step 0 init gate passes; reads `business-context.md`
-- Expect: `.lamina/personas.yaml` cast at step 1
-- Optional: persona panel at step 4 when flows exist
+- Expect: `.lamina/personas.yaml` cast when missing or stale
+- Optional: persona panel when flows or a journey exist
 - **Without init:** expect init-blocked output; no personas or other artifacts created
 
-### Feature track
+### Scoped capability example
 
 - Input: "Add two-factor authentication to settings"
-- Expect: feature output contract headings per `skills/lamina-orchestrator/prompts/outputs/design-feature.md`
-- Expect: loads skills from `audit-profiles.yaml` feature-* profiles
+- Expect: design output contract headings per `skills/lamina-orchestrator/prompts/outputs/design.md`
+- Expect: loads skills from `audit-profiles.yaml` design-* profiles
 - **Without init:** expect init-blocked output; no artifacts created
 
 ### Natural-language routing
 
 - Input: `/lamina-design Add wishlist feature to our storefront`
-- Expect: feature track (despite problem-adjacent phrasing, `Add` + `feature` signals feature)
+- Expect: design workflow
 
 - Input: `/lamina-design Concept for expense tracking app`
-- Expect: concept track
+- Expect: design workflow
 
 ## Audit (`/lamina-audit`)
 

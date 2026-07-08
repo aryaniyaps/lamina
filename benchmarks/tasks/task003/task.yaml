@@ -1,6 +1,6 @@
 id: task003
 category: greenfield
-workflow: design-concept
+workflow: design
 prompt: Design a volunteer management platform for nonprofit coordinators.
 fixture: null
 human_eval: false

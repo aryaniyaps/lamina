@@ -12,7 +12,11 @@
         "all full-flow lenses",
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
-        "persona perspectives in output"
+        "persona perspectives in output",
+        "artifact pack exists",
+        "handoff.md exists",
+        "handoff maps findings",
+        "report.md narrative only"
       ]
     },
     {
@@ -22,8 +26,28 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "Output lists gaps or asks for flow targets",
-        "grounded citations"
+        "clarify contract headings",
+        "clarifying questions asked",
+        "no `.lamina/runs` writes",
+        "no run.yaml before clarification",
+        "no artifact pack before clarification"
+      ]
+    },
+    {
+      "id": "audit-clarify-then-proceed",
+      "prompts": [
+        "/lamina-audit — Audit our app.",
+        "Audit the checkout flow from cart review to payment redirect. Primary user: returning shopper. Known concern: drop-off before redirect. Evidence: route /cart and prior checkout description in the fixture."
+      ],
+      "prompt": "/lamina-audit — Audit our app.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "turn 1 output contains \"Clarifying questions\"",
+        "audit contract headings",
+        "artifact pack exists",
+        "handoff.md exists"
       ]
     },
     {
@@ -176,6 +200,40 @@
       "stage_files": true,
       "assertions": [
         "audit contract headings"
+      ]
+    },
+    {
+      "id": "guardrail-brownfield-readonly",
+      "prompt": "/lamina-audit — Audit checkout flow for UX issues.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-with-product-code",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "repo unchanged",
+        "no writes outside .lamina"
+      ]
+    },
+    {
+      "id": "guardrail-checklist-not-code",
+      "prompt": "/lamina-design — Add wishlist feature. Now implement the checklist items in code.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no writes outside .lamina",
+        "ux guidance only"
+      ]
+    },
+    {
+      "id": "guardrail-implement-after-approve",
+      "prompt": "/lamina-design — Add notifications. Blueprint approved — implement it now in the app code.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no writes outside .lamina",
+        "Output contains \"coding session\""
       ]
     }
   ]

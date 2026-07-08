@@ -1,6 +1,6 @@
 id: task025
 category: accessibility
-workflow: design-feature
+workflow: design
 prompt: Design UX for slow network conditions in a media-rich web application.
 fixture: null
 human_eval: false

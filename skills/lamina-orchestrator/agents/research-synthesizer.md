@@ -4,7 +4,7 @@ description: >-
   Isolated research synthesis subagent for Lamina fresh-context pattern.
   Use when the main thread would be crowded by a large corpus — interview
   transcripts, research docs, ticket dumps, or a broad repo scan — and you
-  need a short, evidence-backed UX summary returned. Invoke at design concept track step 1
+  need a short, evidence-backed UX summary returned. Invoke at the design workflow discovery step
   or whenever an orchestrator needs user problems, signals, gaps, and next
   skills without running a full Lamina workflow. readonly. Do NOT use for
   single short docs that fit in context, UI audits, persona simulation, or
@@ -20,7 +20,7 @@ The parent orchestrator delegates to you when:
 
 - Input is too large for the main thread (many files, long transcripts, wide repo scan).
 - Lamina **fresh-context** pattern applies — see `skills/lamina-orchestrator/patterns/fresh-context.md`.
-- Typical trigger: `/lamina-design` concept track step 1 with substantial existing research attached.
+- Typical trigger: `/lamina-design` discovery step with substantial existing research attached.
 
 **Skip this agent** (parent should run inline instead) when:
 

@@ -10,6 +10,7 @@ import { stageFixture } from './stage-fixture.mjs';
 import { invokeAgent } from './invoke-agent.mjs';
 import { writeState } from './workspace-state.mjs';
 import { judgeAssertions, writeGrading } from './judge-assertions.mjs';
+import { checkWriteBoundary } from '../lib/lamina-write-boundary.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -120,6 +121,13 @@ async function main() {
   const postStatePath = path.join(runRoot, 'post-state.json');
   writeState(postStatePath, workspace);
 
+  const preState = JSON.parse(fs.readFileSync(preStatePath, 'utf8'));
+  const postState = JSON.parse(fs.readFileSync(postStatePath, 'utf8'));
+  const boundary = checkWriteBoundary(preState, postState, workspace);
+  if (!boundary.ok) {
+    console.error('Write boundary violation (files outside .lamina/ changed):', boundary.violations.join(', '));
+  }
+
   const assertions = ev.assertions ?? [];
   const llmGrading = await judgeAssertions(assertions, combinedOutput, combinedLogs);
   const gradingPath = path.join(outputDir, 'grading.json');
@@ -150,6 +158,23 @@ async function main() {
   }
 
   const assertion_results = assertions.map((text) => merged.get(text) ?? { text, passed: false, evidence: 'Not graded' });
+
+  if (!boundary.ok) {
+    const boundaryText = 'no writes outside .lamina';
+    const existing = assertion_results.find((r) => r.text === boundaryText);
+    if (existing) {
+      existing.passed = false;
+      existing.evidence = `Files changed: ${boundary.violations.join(', ')}`;
+    } else {
+      assertion_results.push({
+        text: boundaryText,
+        passed: false,
+        evidence: `Files changed: ${boundary.violations.join(', ')}`,
+        method: 'hook',
+      });
+    }
+  }
+
   const passed = assertion_results.filter((r) => r.passed).length;
   const report = {
     eval_id: opts.evalId,

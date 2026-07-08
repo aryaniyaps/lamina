@@ -1,6 +1,6 @@
 id: task005
 category: greenfield
-workflow: design-concept
+workflow: design
 prompt: Design a personal fitness tracker focused on habit formation, not metrics obsession.
 fixture: null
 human_eval: false

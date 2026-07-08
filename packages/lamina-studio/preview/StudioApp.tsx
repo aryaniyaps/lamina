@@ -19,15 +19,82 @@ import type { PersonaEntry, PersonaPreviewData } from './personas.js';
 import type { ScenarioEntry } from './scenarios.js';
 import type { ScreenMeta } from './screen-meta.js';
 import { StudioProvider, type StudioContextValue } from './studio/StudioContext.js';
-import type { CoverageData, NavigationTarget, ScenariosSubView, StudioConfig, StudioView } from './studio/types.js';
-import { FlowsStudioView } from './views/FlowsStudioView.js';
-import { PeopleView } from './views/PeopleView.js';
-import { ScenariosView } from './views/ScenariosView.js';
-import { ScreensStudioView } from './views/ScreensStudioView.js';
+import type {
+  CoverageData,
+  NavigationTarget,
+  RunArtifactsData,
+  StudioConfig,
+} from './studio/types.js';
+import { ReviewView } from './views/ReviewView.js';
+import { ArtifactReviewView } from './views/ArtifactReviewView.js';
 
 interface BlueprintEntry {
   id: string;
   title: string;
+  run_id?: string;
+}
+
+interface RunEntry {
+  id: string;
+  hook?: string;
+}
+
+function runLabel(run: RunEntry): string {
+  return run.hook ? `${run.id} (${run.hook})` : run.id;
+}
+
+function RunNotFoundView({
+  requestedRunId,
+  runs,
+  blueprints,
+  onSelectRun,
+}: {
+  requestedRunId: string;
+  runs: RunEntry[];
+  blueprints: BlueprintEntry[];
+  onSelectRun: (runId: string) => void;
+}) {
+  const availableRuns = runs.filter((run) => run.id !== requestedRunId);
+
+  return (
+    <section className="sub-studio-missing-run" aria-labelledby="missing-run-title">
+      <div className="sub-studio-missing-run-card">
+        <p className="sub-studio-missing-run-kicker">Run not found</p>
+        <h1 id="missing-run-title">We could not find that Lamina run.</h1>
+        <p>
+          <code>{requestedRunId}</code> is not available in this workspace anymore. Pick one of the
+          existing runs below to keep reviewing generated flows and artifacts.
+        </p>
+
+        {availableRuns.length ? (
+          <div className="sub-studio-missing-run-list">
+            <h2>Available runs</h2>
+            {availableRuns.map((run) => {
+              const linkedBlueprint = blueprints.find((b) => b.run_id === run.id);
+              return (
+                <button key={run.id} type="button" onClick={() => onSelectRun(run.id)}>
+                  <span className="sub-studio-missing-run-id">{runLabel(run)}</span>
+                  {linkedBlueprint ? (
+                    <span className="sub-studio-missing-run-meta">
+                      Opens {linkedBlueprint.title || linkedBlueprint.id}
+                    </span>
+                  ) : (
+                    <span className="sub-studio-missing-run-meta">
+                      Markdown artifacts only unless the run links a blueprint
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="sub-studio-muted">
+            No other runs were found under <code>.lamina/runs</code>.
+          </p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function resolveDefaultPersonaId(data: PersonaPreviewData): string {
@@ -37,27 +104,48 @@ function resolveDefaultPersonaId(data: PersonaPreviewData): string {
   return data.personas[0]!.id;
 }
 
+function runSlugFromPath(pathname: string): string {
+  const segment = pathname.replace(/^\/+|\/+$/g, '').split('/')[0] ?? '';
+  if (!segment || segment.startsWith('__lamina')) return '';
+  try {
+    return decodeURIComponent(segment).trim();
+  } catch {
+    return segment.trim();
+  }
+}
+
+function initialRunFromUrl(): string {
+  const fromPath = runSlugFromPath(window.location.pathname);
+  if (fromPath) return fromPath;
+  return new URLSearchParams(window.location.search).get('run')?.trim() ?? '';
+}
+
 function StudioShell() {
-  const params = new URLSearchParams(window.location.search);
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [blueprints, setBlueprints] = useState<BlueprintEntry[]>([]);
-  const [runId, setRunId] = useState(params.get('run')?.trim() ?? '');
-  const [blueprintId, setBlueprintId] = useState(params.get('id')?.trim() ?? '');
-  const [activeView, setActiveView] = useState<StudioView>('people');
-  const [scenariosSubView, setScenariosSubView] = useState<ScenariosSubView>('gaps');
+  const [runs, setRuns] = useState<RunEntry[]>([]);
+  const [runId, setRunId] = useState(initialRunFromUrl);
+  const [blueprintId, setBlueprintId] = useState('');
   const [flowGraph, setFlowGraph] = useState<FlowGraphData | null>(null);
   const [flowGraphSource, setFlowGraphSource] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioEntry[]>([]);
   const [personaData, setPersonaData] = useState<PersonaPreviewData | null>(null);
   const [coverage, setCoverage] = useState<CoverageData | null>(null);
+  const [artifacts, setArtifacts] = useState<RunArtifactsData | null>(null);
   const [screenMeta, setScreenMeta] = useState<Record<string, ScreenMeta>>({});
+  const [activeStudioView, setActiveStudioView] = useState<'review' | 'artifacts' | 'handoff'>('review');
   const [activeFlowId, setActiveFlowId] = useState('default');
   const [activeScreen, setActiveScreen] = useState('');
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [prototypeMode, setPrototypeMode] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+
+  const syncUrl = useCallback((rid: string) => {
+    const nextPath = rid ? `/${encodeURIComponent(rid)}` : '/';
+    window.history.replaceState({}, '', nextPath);
+  }, []);
 
   const fetchCoverage = useCallback(async (rid: string) => {
     const res = await fetch(`/__lamina/coverage?run=${encodeURIComponent(rid)}`);
@@ -81,6 +169,21 @@ function StudioShell() {
     setFlowGraph(graph);
     setFlowGraphSource(source ?? null);
     return graph;
+  }, []);
+
+  const fetchArtifacts = useCallback(async (rid: string) => {
+    if (!rid) {
+      setArtifacts(null);
+      return null;
+    }
+    const res = await fetch(`/__lamina/artifacts?run=${encodeURIComponent(rid)}`);
+    if (!res.ok) {
+      setArtifacts(null);
+      return null;
+    }
+    const data = (await res.json()) as RunArtifactsData;
+    setArtifacts(data);
+    return data;
   }, []);
 
   const fetchScenarios = useCallback(async (rid: string, bid: string) => {
@@ -119,25 +222,42 @@ function StudioShell() {
     return data;
   }, []);
 
-  const fetchScreenMeta = useCallback(async (bid: string, flowId: string) => {
-    if (!bid) return {};
-    const res = await fetch(
-      `/__lamina/screen-meta?id=${encodeURIComponent(bid)}&flowId=${encodeURIComponent(flowId)}`,
-    );
+  const fetchScreenMeta = useCallback(async (rid: string, bid: string, flowId: string) => {
+    if (!rid && !bid) return {};
+    const query = new URLSearchParams({ flowId });
+    if (rid) query.set('run', rid);
+    else if (bid) query.set('id', bid);
+    const res = await fetch(`/__lamina/screen-meta?${query}`);
     if (!res.ok) return {};
     return (await res.json()) as Record<string, ScreenMeta>;
   }, []);
 
   const bootstrap = useCallback(
     async (rid: string, bid: string) => {
-      setLoadError(null);
+      setBootstrapError(null);
+      if (!rid) setCoverage(null);
       const cov = rid ? await fetchCoverage(rid) : null;
+      if (rid && cov && !cov.ok && cov.error) {
+        setBootstrapError(null);
+        setFlowGraph(null);
+        setScenarios([]);
+        setPersonaData(null);
+        setActivePersonaId(null);
+        setArtifacts(null);
+        setScreenMeta({});
+        setActiveScreen('');
+        setActiveScenario(null);
+        setSelectedScenarioId(null);
+        return;
+      }
       const resolvedBid = bid || cov?.run?.blueprint_id || '';
       if (resolvedBid) setBlueprintId(resolvedBid);
+      if (rid) syncUrl(rid);
 
       const graph = await fetchFlowGraph(rid, resolvedBid);
       await fetchScenarios(rid, resolvedBid);
       await fetchPersonas(rid, resolvedBid);
+      await fetchArtifacts(rid);
 
       if (graph) {
         const flowId = resolveActiveFlowId(graph, 'default');
@@ -146,7 +266,7 @@ function StudioShell() {
         if (entry) setActiveScreen(entry);
       }
     },
-    [fetchCoverage, fetchFlowGraph, fetchPersonas, fetchScenarios],
+    [fetchArtifacts, fetchCoverage, fetchFlowGraph, fetchPersonas, fetchScenarios, syncUrl],
   );
 
   useEffect(() => {
@@ -154,38 +274,74 @@ function StudioShell() {
       .then((r) => r.json())
       .then((cfg: StudioConfig) => {
         setConfig(cfg);
-        const rid = params.get('run')?.trim() ?? cfg.runId ?? '';
-        const bid = params.get('id')?.trim() ?? cfg.id ?? '';
+        const urlRunId = initialRunFromUrl();
+        const rid = urlRunId || cfg.runId || '';
+        const bid = !rid ? (cfg.id ?? '') : '';
         if (rid) setRunId(rid);
         if (bid) setBlueprintId(bid);
-        return fetch('/__lamina/blueprints').then((r) => r.json());
+        return Promise.all([
+          fetch('/__lamina/blueprints').then((r) => r.json()),
+          fetch('/__lamina/runs').then((r) => r.json()),
+        ]).then(([bpEntries, runEntries]) => ({
+          bpEntries,
+          runEntries,
+          initialRunId: rid,
+          initialBlueprintId: bid,
+        }));
       })
-      .then((entries: BlueprintEntry[] | undefined) => {
-        if (entries) setBlueprints(entries);
+      .then(
+        ({
+          bpEntries,
+          runEntries,
+          initialRunId,
+          initialBlueprintId,
+        }: {
+          bpEntries: BlueprintEntry[] | undefined;
+          runEntries: RunEntry[] | undefined;
+          initialRunId: string;
+          initialBlueprintId: string;
+        }) => {
+        if (runEntries?.length) setRuns(runEntries);
+        if (!bpEntries?.length) return;
+        setBlueprints(bpEntries);
+        const cfgBid = blueprintId;
+        if (initialRunId) return;
+        const initial: BlueprintEntry | undefined =
+          (initialBlueprintId ? bpEntries.find((b) => b.id === initialBlueprintId) : undefined) ??
+          (cfgBid ? bpEntries.find((b) => b.id === cfgBid) : undefined) ??
+          bpEntries[0];
+        if (initial && !initialBlueprintId && !cfgBid) {
+          setBlueprintId(initial.id);
+          if (initial.run_id) setRunId(initial.run_id);
+          syncUrl(initial.run_id ?? '');
+        } else if (initial?.run_id && !runId && !initialRunId) {
+          setRunId(initial.run_id);
+        }
       });
-  }, []);
+  }, [syncUrl]);
 
   useEffect(() => {
     if (!config) return;
-    const rid = runId || config.runId || '';
-    const bid = blueprintId || config.id || '';
-    if (!rid && !bid) {
-      setLoadError('Add ?run=<run_id> or ?id=<blueprint_id> to the URL.');
-      return;
-    }
-    void bootstrap(rid, bid);
-  }, [config, runId, blueprintId, bootstrap]);
+    const bid = blueprintId || (!runId ? config.id : '') || '';
+    if (!bid && !runId && !config.runId) return;
+    const linkedRun =
+      runId ||
+      blueprints.find((b) => b.id === bid)?.run_id ||
+      config.runId ||
+      '';
+    void bootstrap(linkedRun, bid);
+  }, [config, runId, blueprintId, blueprints, bootstrap]);
 
   useEffect(() => {
     if (!blueprintId) return;
     let cancelled = false;
-    fetchScreenMeta(blueprintId, activeFlowId).then((meta) => {
+    fetchScreenMeta(runId, blueprintId, activeFlowId).then((meta) => {
       if (!cancelled) setScreenMeta(meta);
     });
     return () => {
       cancelled = true;
     };
-  }, [blueprintId, activeFlowId, fetchScreenMeta]);
+  }, [runId, blueprintId, activeFlowId, fetchScreenMeta]);
 
   const activePersona = useMemo((): PersonaEntry | null => {
     if (!activePersonaId || !personaData) return null;
@@ -207,7 +363,6 @@ function StudioShell() {
   }, [scenarios]);
 
   const navigate = useCallback((target: NavigationTarget) => {
-    setActiveView(target.view);
     if (target.flowId) setActiveFlowId(target.flowId);
     if (target.screenId) setActiveScreen(target.screenId);
     if (target.scenarioId) {
@@ -216,21 +371,33 @@ function StudioShell() {
     }
   }, []);
 
+  const handleRunChange = (nextRunId: string) => {
+    const linkedBlueprint = blueprints.find((b) => b.run_id === nextRunId)?.id ?? '';
+    setCoverage(null);
+    setRunId(nextRunId);
+    setBlueprintId(linkedBlueprint);
+    syncUrl(nextRunId);
+  };
+
+  const missingRunId =
+    runId && coverage?.runId === runId && !coverage.ok && coverage.error === 'run not found'
+      ? runId
+      : '';
+
   const studioValue: StudioContextValue = {
     config,
     runId,
     blueprintId,
     runMeta: coverage?.run ?? null,
-    activeView,
-    setActiveView,
-    scenariosSubView,
-    setScenariosSubView,
     flowGraph,
     flowGraphSource,
     scenarios,
     personaData,
     coverage,
+    artifacts,
     screenMeta,
+    activeStudioView,
+    setActiveStudioView,
     activeFlowId,
     setActiveFlowId,
     activeScreen,
@@ -260,13 +427,30 @@ function StudioShell() {
     );
   }
 
-  if (loadError) {
+  if (!blueprints.length && !blueprintId && !runId) {
     return (
       <div className="sub-preview-shell">
-        <div className="sub-studio-empty">
+        <div className="sub-studio-empty sub-studio-empty-hero">
           <h1>UX Review Studio</h1>
-          <p>{loadError}</p>
+          <p>No blueprints in this project yet.</p>
+          <p className="sub-studio-muted">
+            Run <code>/lamina-design</code> or <code>/lamina-audit</code> in Cursor to create artifacts
+            under <code>.lamina/blueprints/</code>, then open Studio again.
+          </p>
         </div>
+      </div>
+    );
+  }
+
+  if (missingRunId) {
+    return (
+      <div className="sub-preview-shell">
+        <RunNotFoundView
+          requestedRunId={missingRunId}
+          runs={runs}
+          blueprints={blueprints}
+          onSelectRun={handleRunChange}
+        />
       </div>
     );
   }
@@ -276,59 +460,33 @@ function StudioShell() {
       <div className="sub-preview-shell sub-studio-shell">
         <header className="sub-studio-chrome">
           <div className="sub-studio-chrome-title">
-            <strong>UX Review Studio</strong>
-            {runId ? <span>{runId}</span> : null}
-            {coverage?.run?.command ? <span className="sub-studio-muted">{coverage.run.command}</span> : null}
+            <img
+              className="sub-studio-brand-mark"
+              src="/__lamina/brand/logo.svg"
+              alt=""
+              width="24"
+              height="24"
+            />
+            <div className="sub-studio-brand-text">
+              <strong>Lamina Studio</strong>
+            </div>
           </div>
           <div className="sub-studio-chrome-controls">
-            {personaData?.personas.length ? (
+            {runs.length > 0 || runId ? (
               <label className="sub-preview-topbar-control">
-                <span className="sub-preview-topbar-control-label">View as</span>
+                <span className="sub-preview-topbar-control-label">Run</span>
                 <select
-                  value={activePersonaId ?? ''}
-                  onChange={(e) => setActivePersonaId(e.target.value)}
-                  aria-label="Persona lens"
+                  value={runId}
+                  onChange={(e) => handleRunChange(e.target.value)}
+                  aria-label="Select run"
                 >
-                  {personaData.personas.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {flowGraph && flowGraph.flows.length > 1 ? (
-              <label className="sub-preview-topbar-control">
-                <span className="sub-preview-topbar-control-label">Flow</span>
-                <select
-                  value={activeFlowId}
-                  onChange={(e) => setActiveFlowId(e.target.value)}
-                  aria-label="Active flow"
-                >
-                  {flowGraph.flows.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {blueprints.length > 1 ? (
-              <label className="sub-preview-topbar-control">
-                <span className="sub-preview-topbar-control-label">Blueprint</span>
-                <select
-                  value={blueprintId}
-                  onChange={(e) => {
-                    setBlueprintId(e.target.value);
-                    const next = new URLSearchParams(window.location.search);
-                    next.set('id', e.target.value);
-                    window.history.replaceState({}, '', `?${next}`);
-                  }}
-                  aria-label="Blueprint"
-                >
-                  {blueprints.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.title !== b.id ? `${b.title} (${b.id})` : b.id}
+                  {!runId ? <option value="">Select a run…</option> : null}
+                  {runId && !runs.some((run) => run.id === runId) ? (
+                    <option value={runId}>{runId}</option>
+                  ) : null}
+                  {runs.map((run) => (
+                    <option key={run.id} value={run.id}>
+                      {runLabel(run)}
                     </option>
                   ))}
                 </select>
@@ -336,30 +494,48 @@ function StudioShell() {
             ) : null}
           </div>
         </header>
+
         <nav className="sub-studio-nav" aria-label="Studio views">
-          {(
-            [
-              ['people', 'People'],
-              ['flows', 'Flows'],
-              ['screens', 'Screens'],
-              ['scenarios', 'Scenarios'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className={activeView === id ? 'active' : ''}
-              onClick={() => setActiveView(id)}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            className={activeStudioView === 'review' ? 'active' : ''}
+            onClick={() => setActiveStudioView('review')}
+          >
+            Blueprint
+          </button>
+          <button
+            type="button"
+            className={activeStudioView === 'artifacts' ? 'active' : ''}
+            onClick={() => setActiveStudioView('artifacts')}
+            disabled={!artifacts?.documents.length}
+          >
+            Artifacts
+            {artifacts?.documents.length ? (
+              <span className="sub-studio-tab-badge">{artifacts.documents.length}</span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            className={activeStudioView === 'handoff' ? 'active' : ''}
+            onClick={() => setActiveStudioView('handoff')}
+            disabled={!artifacts?.documents.some((doc) => doc.kind === 'handoff')}
+          >
+            Handoff
+          </button>
         </nav>
+
         <main className="sub-studio-main">
-          {activeView === 'people' ? <PeopleView /> : null}
-          {activeView === 'flows' ? <FlowsStudioView /> : null}
-          {activeView === 'screens' ? <ScreensStudioView /> : null}
-          {activeView === 'scenarios' ? <ScenariosView /> : null}
+          {bootstrapError ? (
+            <div className="sub-studio-banner-error">{bootstrapError}</div>
+          ) : null}
+          {!blueprintId && activeStudioView === 'review' ? (
+            <div className="sub-studio-empty">
+              <p>{runId ? 'No blueprint linked. Use Artifacts or Handoff to review markdown docs.' : 'Select a run above to load artifacts.'}</p>
+            </div>
+          ) : null}
+          {blueprintId && activeStudioView === 'review' ? <ReviewView /> : null}
+          {activeStudioView === 'artifacts' ? <ArtifactReviewView mode="artifacts" /> : null}
+          {activeStudioView === 'handoff' ? <ArtifactReviewView mode="handoff" /> : null}
         </main>
       </div>
     </StudioProvider>

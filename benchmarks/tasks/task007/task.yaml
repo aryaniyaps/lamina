@@ -1,6 +1,6 @@
 id: task007
 category: oss_feature
-workflow: design-feature
+workflow: design
 prompt: Add a wishlist feature to the storefront.
 fixture: commerce-with-init
 human_eval: true

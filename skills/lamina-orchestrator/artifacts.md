@@ -1,6 +1,6 @@
 # Lamina Artifacts
 
-**Guardrail:** Do not implement product code; generate UX artifacts only.
+**Guardrail:** Do not edit files outside `.lamina/`; generate UX artifacts only.
 
 Always preserve `.lamina/` outputs between runs and reuse existing artifacts before regenerating.
 
@@ -12,7 +12,7 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 
 ---
 
-## Artifact model (7 artifacts)
+## Artifact model
 
 ### Global (4)
 
@@ -23,12 +23,16 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 | `.lamina/decisions.md` | Conflict resolution log with `run_id` refs | Markdown |
 | `.lamina/preview-state.yaml` | UX Review Studio server URL/port/pid | YAML (runtime) |
 
-### Per-run (2)
+### Per-run
 
 | Path | Purpose | Format |
 |------|---------|--------|
 | `.lamina/runs/<run_id>/run.yaml` | **Single machine-parsable run record** | YAML |
 | `.lamina/runs/<run_id>/report.md` | **Human narrative only** | Markdown |
+| `.lamina/runs/<run_id>/artifacts/*.md` | Diagram-backed UX research/design artifact packs | Markdown + Mermaid |
+| `.lamina/runs/<run_id>/handoff.md` | Final developer handoff for a separate coding session | Markdown + Mermaid |
+| `.lamina/runs/<run_id>/evidence.md` | Optional evidence ledger for sources used by artifact packs | Markdown |
+| `.lamina/runs/<run_id>/diagrams/*.mmd` | Optional reusable Mermaid diagrams | Mermaid |
 
 ### Optional disposable (1 directory)
 
@@ -42,12 +46,15 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 
 ## Runs (per command)
 
-Each `/lamina-design` or `/lamina-audit` command creates a run workspace at `.lamina/runs/<run_id>/` with **two files**:
+Each `/lamina-design` or `/lamina-audit` command creates a run workspace at `.lamina/runs/<run_id>/` with structured machine state, narrative, artifact packs, and a final handoff:
 
 | Path | When written | Purpose |
 |---|---|---|
 | `.lamina/runs/<run_id>/run.yaml` | Command start; updated incrementally | Machine-readable: identity, flows, screens, scenarios, checklist/findings, simulation |
 | `.lamina/runs/<run_id>/report.md` | Command end | Human narrative: journey, rationale, open questions, summaries |
+| `.lamina/runs/<run_id>/artifacts/*.md` | After relevant workflow sections | Human-reviewable UX artifacts with diagrams, evidence, confidence, and gaps |
+| `.lamina/runs/<run_id>/handoff.md` | After checklist/findings and artifact packs | Developer handoff for a future coding session |
+| `.lamina/runs/<run_id>/evidence.md` | As sources are synthesized | Evidence ledger for research, repo references, simulation, assumptions, and source paths |
 
 **`run_id` convention:** short slug + date, e.g. `wishlist-feature-2026-07-08`, `checkout-audit-2026-07-08`.
 
@@ -55,18 +62,23 @@ Each `/lamina-design` or `/lamina-audit` command creates a run workspace at `.la
 - Never overwrite an existing run directory; each command gets a new `run_id`.
 - Write `run.yaml` at command start; update structured sections as each workflow step completes.
 - Write `report.md` once at command end with narrative only.
+- Write artifact packs only under the current run's `artifacts/` directory; do not write UX artifacts outside `.lamina/`.
+- Write `handoff.md` only after `run.yaml` has checklist or findings.
 - On conflict resolution, append to global `decisions.md` with `run_id` reference.
 
 **Write lifecycle:**
 1. Command start → create `run.yaml` with identity fields
-2. After cast (concept step 1) → set `personas_updated: true` in `run.yaml`
+2. After cast updates → set `personas_updated: true` in `run.yaml`
 3. After flows defined → write `flows[]` and `screens[]` to `run.yaml`
 4. After edge cases → write `scenarios[]` to `run.yaml`
 5. After persona panel → add `simulation` block to `run.yaml`
-6. Feature track → write `checklist[]` to `run.yaml`
+6. Design handoff → write `checklist[]` to `run.yaml` when implementation tasks are clear
 7. Audit track → write `findings[]` to `run.yaml`
-8. After blueprint create/approve → set `blueprint_id` in `run.yaml`; set `run_id` in blueprint `meta.yaml`
-9. Command end → write `report.md` (includes `### Blueprint handoff` on approve when applicable)
+8. Artifact planning → load `artifact-catalog.yaml`; decide generate, plan/template, delegate, block, or skip
+9. Artifact packs → write `artifacts/*.md`; add entries to `run.yaml` `artifacts[]`
+10. After blueprint create/approve → set `blueprint_id` in `run.yaml`; set `run_id` in blueprint `meta.yaml`
+11. Handoff → write `handoff.md`; add it to `run.yaml` `artifacts[]`
+12. Command end → write `report.md` (brief narrative and pointers only)
 
 Validate structured output: `lamina-studio validate run .lamina/runs/<run_id>/run.yaml`
 
@@ -74,13 +86,39 @@ Validate structured output: `lamina-studio validate run .lamina/runs/<run_id>/ru
 
 ```yaml
 id: wishlist-feature-2026-07-08
-hook: feature          # concept | feature | audit
+hook: design           # design | audit
 target: wishlist flow
 command: /lamina-design
 blueprint_id: wishlist-v1   # optional — link to evaluation artifact
 flows_touched: [wishlist]
 personas_updated: false
 started_at: 2026-07-08
+
+evidence:
+  - id: business-context
+    source: .lamina/business-context.md
+    kind: business_context
+    summary: Budget-conscious shoppers need confidence before checkout
+  - id: persona-panel
+    source: run.yaml simulation
+    kind: simulation
+    summary: Primary persona hesitated at unclear shipping threshold
+
+artifacts:
+  - id: flow-pack
+    type: user_flow
+    pack: flow
+    path: artifacts/flow-pack.md
+    confidence: medium
+    evidence_mode: run_yaml_required
+    diagram: flowchart
+  - id: developer-handoff
+    type: developer_handoff
+    pack: handoff
+    path: handoff.md
+    confidence: medium
+    evidence_mode: run_yaml_required
+    diagram: flowchart
 
 flows:
   - id: wishlist
@@ -101,7 +139,7 @@ screens:
   - id: wishlist
     title: Wishlist
     status: new          # new | existing
-    source: null         # @path when existing (brownfield fidelity)
+    source: null         # @path when existing (brownfield fidelity) — read-only reference, never edit during Lamina commands
     regions: [main]
     elements:
       - component: Heading
@@ -124,7 +162,7 @@ scenarios:
       when: collection_empty
     ux: empty_state
 
-checklist:               # feature track only
+checklist:               # design handoff tasks for a future coding agent, not work done now
   - id: wishlist-empty-state
     priority: P0
     title: Add empty wishlist state
@@ -158,23 +196,52 @@ simulation:
 
 **Section presence by hook:**
 
-| Section | concept | feature | audit |
-|---------|---------|---------|-------|
-| `flows`, `screens` | yes | yes | optional |
-| `scenarios` | optional | yes | optional |
-| `checklist` | — | yes | — |
-| `findings` | — | — | yes |
-| `simulation` | when panel runs | when panel runs | when panel runs |
+| Section | design | audit |
+|---------|--------|-------|
+| `flows`, `screens` | yes | optional |
+| `scenarios` | when concrete edge cases exist | optional |
+| `checklist` | when handoff tasks are clear | — |
+| `findings` | — | yes |
+| `simulation` | when panel runs | when panel runs |
+| `evidence` | when sources exist | when sources exist |
+| `artifacts` | yes | yes |
 
 ### Human narrative — `report.md`
 
-Persisted copy of the narrative output contract (`prompts/outputs/audit.md`, `design-concept.md`, or `design-feature.md`). **Not** the source of truth for structure — agents read `run.yaml` for flows, screens, scenarios, checklist, and findings.
+Persisted copy of the narrative output contract (`prompts/outputs/design.md` or `prompts/outputs/audit.md`). **Not** the source of truth for structure — agents read `run.yaml` for flows, screens, scenarios, checklist, and findings.
 
 - `run.yaml` holds all machine-parsable data
 - `report.md` holds journey, rationale, copy guidance (tone), open questions, reconciled persona summary
+- `artifacts/*.md` holds rich UX deliverables with diagrams, evidence, confidence, and missing inputs
+- `handoff.md` holds developer-ready implementation guidance for a separate coding session
 - Brief pointers to `run.yaml`: e.g. *"3 flows, 8 screens — see `run.yaml`"*
-- Feature track: `### Blueprint handoff (<id>)` on approve
+- Design workflow: `### Blueprint handoff (<id>)` on approve
 - Never embed authoritative flow graphs, edge-case tables, or checklist tables in `report.md`
+
+### Diagram-backed artifact packs
+
+Load `artifact-catalog.yaml` before generating artifacts.
+
+**Artifact packs are not automatic dumps.** Generate only the packs relevant to the command and evidence:
+
+- Research pack: research plan, brief, interview guide, observation notes, affinity diagram, empathy map, personas/proto-personas, archetypes, JTBD, insights, needs, segmentation, mental model, motivation matrix.
+- IA pack: site map, navigation map, content inventory/audit/model, taxonomy, ontology, labeling, metadata, card sort/tree test summaries.
+- Flow pack: user flows, task flows, screen flows, decision/edge/alternate/happy paths, use case/activity/state diagrams.
+- Journey pack: customer/user journey, experience map, service blueprint, ecosystem/stakeholder maps, emotional journey, touchpoints/channels, timelines.
+- Interaction pack: wireflows, interaction matrix, scenarios, event flow, state machine/table, decision tree.
+- Validation pack: usability test plan/script/tasks, observation sheet, issue log, severity matrix, findings/SUS/benchmark reports.
+- Accessibility pack: audit, contrast report, keyboard/focus order, screen reader flow, WCAG checklist.
+- Strategy pack: opportunity solution tree, prioritization, Kano, value proposition, Lean UX canvas, product vision, roadmap, impact/story mapping.
+- Handoff pack: design specification, component specs, motion specs, token docs, API interaction spec, implementation sequencing.
+
+**Evidence gating:**
+
+- Do not invent interview quotes, participants, analytics, usability results, SUS scores, heatmaps, click maps, scroll maps, benchmark data, or accessibility measurements.
+- If evidence-required inputs are missing, write a plan/template artifact and mark confidence `blocked` or `low`.
+- Label real research, repo evidence, assumptions, and persona simulation separately.
+- Every generated artifact must cite sources and include at least one Mermaid diagram or a blocked-diagram explanation.
+
+**Mermaid defaults:** `flowchart`, `journey`, `timeline`, `stateDiagram-v2`, `sequenceDiagram`, `classDiagram`, `quadrantChart`, `mindmap`, or swimlane-style `flowchart` with subgraphs. Do not use custom Mermaid styling.
 
 ---
 
@@ -221,7 +288,7 @@ personas:
 
 ## Cast
 
-**When:** Ideate step 1, or when adding personas to an existing product.
+**When:** The design workflow needs a missing or stale cast, or when adding personas to an existing product.
 
 **How:**
 1. Read existing `.lamina/personas.yaml` if present; append new personas, don't overwrite without consent.
@@ -304,7 +371,8 @@ Load [lamina-studio](../lamina-studio/SKILL.md) for generation rules and studio 
 
 | Path | Purpose |
 |---|---|
-| `.lamina/business-context.md` | Business foundation for UX work — **only artifact `/lamina-init` creates.** |
+| `.lamina/business-context.md` | Business foundation for UX work |
+| `.lamina/personas.yaml` | Product cast — written during `/lamina-init` establish |
 
 Load [lamina-business-context](../lamina-business-context/SKILL.md) for question bank, skill mapping, and establish/update protocols.
 
@@ -330,12 +398,12 @@ Create on first write — init does not create empty stubs.
 
 | Hook | Command | Action |
 |---|---|---|
-| Bootstrap | `/lamina-init` | Write `business-context.md` |
-| Cast | `/lamina-design` concept track step 1 | Write `personas.yaml`; set `personas_updated` on run |
-| Walkthrough | `/lamina-design` concept track step 4 | Persona panel; write `flows[]`/`screens[]` to `run.yaml` |
+| Bootstrap | `/lamina-init` establish | Write `business-context.md` and `personas.yaml` |
+| Cast | `/lamina-design` | Append or refine `personas.yaml`; set `personas_updated` on run when cast changes |
+| Walkthrough | `/lamina-design` | Persona panel; write `flows[]`/`screens[]` to `run.yaml` |
 | Audit | `/lamina-audit` | Persona panel per flow; write `findings[]` to `run.yaml` |
-| Feature review | `/lamina-design` feature track after flows | Persona panel; write `scenarios[]`, `checklist[]` to `run.yaml` |
-| Test tasks | `/lamina-design` concept track step 9 | Map simulation blockers → real usability test tasks |
+| Edge-case review | `/lamina-design` | Persona panel; write `scenarios[]`, `checklist[]` to `run.yaml` when applicable |
+| Test tasks | `/lamina-design` | Map simulation blockers → real usability test tasks |
 
 ---
 

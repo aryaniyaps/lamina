@@ -1,6 +1,6 @@
 id: task001
 category: greenfield
-workflow: design-concept
+workflow: design
 prompt: Design the core UX for a household budgeting app.
 fixture: null
 human_eval: true

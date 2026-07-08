@@ -22,6 +22,6 @@ required_a11y:
   - readable_maps_alternative
   - notification_preferences
 required_sections:
-  - user model
-  - information architecture
+  - users and jobs
+  - journey and information architecture
   - flows

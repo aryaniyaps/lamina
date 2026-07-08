@@ -23,6 +23,7 @@ interface BuildParams {
   activeScenario: string | null;
   personaBlockedScreens: Set<string>;
   blockerQuotes: Map<string, string>;
+  gapCounts: Map<string, number>;
   screenMeta: Record<string, ScreenMeta>;
 }
 
@@ -70,6 +71,7 @@ export function buildFlowElements({
   activeScreen,
   activeScenario,
   personaBlockedScreens,
+  gapCounts,
   screenMeta,
 }: BuildParams): { nodes: Node[]; edges: Edge[] } {
   const transitions = resolveFlowTransitions(graph, activeFlowId);
@@ -91,6 +93,7 @@ export function buildFlowElements({
         triggers: meta?.triggers,
         active: screenId === activeScreen && !activeScenario,
         blocked: personaBlockedScreens.has(screenId),
+        gapCount: gapCounts.get(screenId) ?? 0,
         completeness: meta?.completeness ?? 'skeleton',
         isEntry: meta?.isEntry,
         isTerminal: meta?.isTerminal,

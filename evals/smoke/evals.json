@@ -5,9 +5,9 @@
       "id": "router-concept-01",
       "prompt": "/lamina — We do not know what problem to solve yet for a mobile budgeting app.",
       "force_skill_invocation": true,
-      "expected_output": "Routes to design workflow concept track.",
+      "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output mentions design or concept track",
+        "Output mentions design workflow",
         "Output does not include implementable product code blocks"
       ]
     },
@@ -15,7 +15,7 @@
       "id": "router-feature-01",
       "prompt": "/lamina — Add a wishlist feature to our e-commerce app.",
       "force_skill_invocation": true,
-      "expected_output": "Routes to design workflow feature track.",
+      "expected_output": "Routes to design workflow.",
       "assertions": [
         "Output addresses a specific feature",
         "Output mentions flows or edge cases"
@@ -47,7 +47,7 @@
       "force_skill_invocation": true,
       "expected_output": "One clarifying question only.",
       "assertions": [
-        "Output asks whether designing whole product, one feature, or improving existing"
+        "Output asks whether this is new UX, existing UX, or a focused UX question"
       ]
     },
     {
@@ -94,7 +94,7 @@
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
-      "expected_output": "Proceed to design concept with valid init.",
+      "expected_output": "Proceed to design workflow with valid init.",
       "assertions": [
         "valid init",
         "Output does not emit init-blocked contract headings"
@@ -124,9 +124,9 @@
       "id": "deprecated-ideate",
       "prompt": "/lamina-ideate — Problem: users cannot track household spending.",
       "force_skill_invocation": true,
-      "expected_output": "Redirects to design concept track.",
+      "expected_output": "Redirects to design workflow.",
       "assertions": [
-        "Output addresses concept or problem framing"
+        "Output addresses design or problem framing"
       ]
     },
     {
@@ -156,10 +156,12 @@
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "brownfield business-context.md created.",
+      "expected_output": "brownfield business-context.md and personas.yaml created.",
       "assertions": [
         "File `.lamina/business-context.md` exists",
-        "business-context.md valid"
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid"
       ]
     },
     {
@@ -187,21 +189,52 @@
       ]
     },
     {
-      "id": "design-feature-edge-cases",
+      "id": "init-establish-personas-greenfield",
+      "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO. Web app MVP.",
+      "force_skill_invocation": true,
+      "expected_output": "business-context.md + personas.yaml from user input.",
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid",
+        "init output contract headings"
+      ]
+    },
+    {
+      "id": "init-establish-personas-brownfield",
+      "prompt": "/lamina-init — Brownfield Next.js commerce repo. Shoppers abandon checkout.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-no-init",
+      "stage_files": true,
+      "expected_output": "business-context.md + personas.yaml from repo evidence.",
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid",
+        "init output contract headings"
+      ]
+    },
+    {
+      "id": "design-edge-cases",
       "prompt": "/lamina-design — Add offline mode to mobile app.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design-feature contract headings",
+        "design contract headings",
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact"
+        "no domain model artifact",
+        "artifact pack exists",
+        "artifact contains diagram",
+        "handoff.md exists",
+        "handoff maps checklist ids",
+        "report.md narrative only"
       ]
     },
     {
-      "id": "design-feature-blueprint-accept",
+      "id": "design-blueprint-accept",
       "prompts": [
         "/lamina-design — Add password reset flow.",
         "Yes, show the wireframe preview."
@@ -219,6 +252,29 @@
       ]
     },
     {
+      "id": "design-flows",
+      "prompt": "/lamina-design — Add password reset flow.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design contract headings",
+        "read skill lamina-edge-cases",
+        "edge cases section present",
+        "edge case categories covered",
+        "no domain model artifact",
+        "artifact pack exists",
+        "artifact contains diagram",
+        "handoff.md exists",
+        "handoff maps checklist ids",
+        "report.md narrative only",
+        "Output mentions flows",
+        "run.yaml flows",
+        "run.yaml valid",
+        "artifact docs valid"
+      ]
+    },
+    {
       "id": "audit-checkout",
       "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
       "force_skill_invocation": true,
@@ -229,7 +285,11 @@
         "all full-flow lenses",
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
-        "persona perspectives in output"
+        "persona perspectives in output",
+        "artifact pack exists",
+        "handoff.md exists",
+        "handoff maps findings",
+        "report.md narrative only"
       ]
     },
     {
@@ -239,6 +299,18 @@
       "assertions": [
         "init-blocked contract headings",
         "no `.lamina/` writes"
+      ]
+    },
+    {
+      "id": "guardrail-brownfield-readonly",
+      "prompt": "/lamina-audit — Audit checkout flow for UX issues.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-with-product-code",
+      "stage_files": true,
+      "assertions": [
+        "audit contract headings",
+        "repo unchanged",
+        "no writes outside .lamina"
       ]
     }
   ]

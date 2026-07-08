@@ -1,6 +1,6 @@
 id: task006
 category: oss_feature
-workflow: design-feature
+workflow: design
 prompt: Design a recurring tasks feature for Plane.
 fixture: plane-with-init
 human_eval: true

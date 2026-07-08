@@ -82,7 +82,7 @@ export async function runPreview(args) {
     return;
   }
 
-  if (!fs.existsSync(root)) {
+  if (!fs.existsSync(root) && !opts.runId) {
     throw new Error(`Blueprints root not found: ${root}`);
   }
 
@@ -97,7 +97,7 @@ export async function runPreview(args) {
     runId = readBlueprintRunId(path.join(root, id));
   }
 
-  if (!id) {
+  if (!id && !runId) {
     const dirs = fs
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory());

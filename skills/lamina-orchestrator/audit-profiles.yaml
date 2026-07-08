@@ -16,101 +16,74 @@ profiles:
       - lamina-feedback-and-status
       - lamina-decision-making
 
-  ideate-step-1:
+  design-problem:
+    skills:
+      - lamina-feature-discovery
+      - lamina-problem-framing
+      - lamina-stakeholder-alignment
+
+  design-users:
     skills:
       - lamina-user-modeling
+      - lamina-task-analysis
+
+  design-assumptions:
+    skills:
+      - lamina-research-scoping
       - lamina-problem-framing
 
-  ideate-step-2:
-    skills:
-      - lamina-task-analysis
-      - lamina-flow-design
-
-  ideate-step-3:
+  design-structure:
     skills:
       - lamina-information-architecture
       - lamina-navigation
+      - lamina-task-analysis
 
-  ideate-step-4:
+  design-flows:
     skills:
       - lamina-flow-design
-      - lamina-product-behavior
+      - lamina-task-analysis
+      - lamina-studio
 
-  ideate-step-5:
+  design-screens:
     skills:
       - lamina-platform-posture
       - lamina-product-behavior
       - lamina-studio
 
-  ideate-step-6:
+  design-interactions:
     skills:
       - lamina-controls-and-menus
       - lamina-discoverability
       - lamina-forms
-      - lamina-studio
-
-  ideate-step-7:
-    skills:
+      - lamina-feedback-and-status
       - lamina-content-design
 
-  ideate-step-8:
-    skills:
-      - lamina-accessibility
-
-  ideate-step-9:
-    skills:
-      - lamina-usability-evaluation
-      - lamina-research-scoping
-      - lamina-quantitative-validation
-
-  feature-problem:
-    skills:
-      - lamina-feature-discovery
-      - lamina-problem-framing
-
-  feature-jobs:
-    skills:
-      - lamina-user-modeling
-      - lamina-task-analysis
-
-  feature-assumptions:
-    skills:
-      - lamina-research-scoping
-      - lamina-problem-framing
-
-  feature-goals:
-    skills:
-      - lamina-user-modeling
-
-  feature-flows:
-    skills:
-      - lamina-flow-design
-      - lamina-task-analysis
-      - lamina-studio
-
-  feature-edge-cases:
+  design-edge-cases:
     skills:
       - lamina-edge-cases
       - lamina-error-handling
       - lamina-empty-states
       - lamina-feedback-and-status
 
-  feature-risks:
+  design-risks:
     skills:
       - lamina-trust
       - lamina-stakeholder-alignment
       - lamina-persuasion-and-groups
+      - lamina-decision-making
 
-  feature-a11y:
+  design-accessibility:
     skills:
       - lamina-accessibility
 
-  feature-metrics:
+  design-metrics:
     skills:
+      - lamina-usability-evaluation
+      - lamina-research-scoping
       - lamina-quantitative-validation
       - lamina-research-communication
 
-  feature-checklist:
+  design-handoff:
     skills:
       - lamina-requirements-definition
 
@@ -125,3 +98,4 @@ profiles:
       - lamina-platform-posture
       - lamina-research-scoping
       - lamina-quantitative-validation
+      - lamina-user-modeling

@@ -1,0 +1,8 @@
+primary: missing-nested
+personas:
+  - id: missing-nested
+    type: primary
+    frustrations: []
+    motivations: []
+    technical_literacy: novice
+    confidence: medium

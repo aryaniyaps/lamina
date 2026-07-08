@@ -15,12 +15,12 @@ description: "Lamina Problem Router and UX reference index. Use to find the righ
 |---|---|
 | `/lamina` | Auto-route or single-topic answer |
 | `/lamina-init` | Bootstrap or update business context for UX work |
-| `/lamina-design` | Net-new UX — concept or feature track |
+| `/lamina-design` | Net-new UX — concept or design workflow |
 | `/lamina-audit` | Audit existing flows |
 
 Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching workflow in `workflows/`, or invoke `/lamina`, `/lamina-init`, etc. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
 
-**Guardrail:** UX artifacts only. Do not implement product code or visual styling specs. See [guardrails.md](guardrails.md).
+**Guardrail:** Writes: `.lamina/` only. Repo: read-only. Do not implement product code or visual styling specs. See [guardrails.md](guardrails.md).
 
 ## How to Use
 
@@ -39,7 +39,7 @@ When routing to a single capability:
 1. **Read** the matched `lamina-<id>/SKILL.md` file before answering — do not answer from memory alone.
 2. **Apply** that skill's frameworks, checklists, and output shape.
 3. **Cite** the skill id in your response (e.g. "Using **lamina-forms**:").
-4. Stay UX-only — see [guardrails.md](guardrails.md). Never implement product code or styling specs.
+4. Stay UX-only — see [guardrails.md](guardrails.md). Writes: `.lamina/` only; repo is read-only.
 
 ## Problem Router
 

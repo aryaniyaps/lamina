@@ -23,8 +23,8 @@ required_a11y:
   - form_error_announcement
   - contrast_compliance
 required_sections:
-  - user model
-  - journeys
+  - users and jobs
+  - journey and information architecture
   - flows
   - edge cases
   - accessibility

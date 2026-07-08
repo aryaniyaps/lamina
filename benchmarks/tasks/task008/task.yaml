@@ -1,6 +1,6 @@
 id: task008
 category: oss_feature
-workflow: design-feature
+workflow: design
 prompt: Design guest sharing for Outline documents.
 fixture: outline-with-init
 human_eval: false

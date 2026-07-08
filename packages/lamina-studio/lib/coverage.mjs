@@ -1,8 +1,8 @@
 import { SCENARIO_CATEGORIES } from './scenarios.mjs';
 
-/** @typedef {{ id: string; operation: string; subject: string; screenId: string; kind: 'read_collection' | 'read_resource' | 'mutate' | 'navigate' }} DerivedOperation */
-/** @typedef {{ operationId: string; category: string; required: boolean; scenarioId: string | null; covered: boolean }} MatrixCell */
-/** @typedef {{ operationId: string; operation: string; category: string; screenId: string; reason: string }} CoverageGap */
+/** @typedef {{ id: string; operation: string; subject: string; screenId: string; kind: 'read_collection' | 'read_resource' | 'mutate' | 'navigate'; flowId?: string }} DerivedOperation */
+/** @typedef {{ operationId: string; category: string; required: boolean; scenarioId: string | null; covered: boolean; flowId?: string }} MatrixCell */
+/** @typedef {{ flowId: string; operationId: string; operation: string; category: string; screenId: string; reason: string }} CoverageGap */
 /** @typedef {{ id: string; title: string; screen: string; flow?: string; category: string; severity?: string; ux: string; trigger: { operation: string; subject: string; when: string }; description?: string }} ScenarioLike */
 
 const WHEN_LABELS = {
@@ -116,10 +116,27 @@ function requiredCategoriesForOperation(op) {
 }
 
 /**
+ * @param {import('./run.mjs').RunFlow} flow
+ */
+export function screensForFlow(flow) {
+  const screens = new Set();
+  const graphs = flow.graphs?.length ? flow.graphs : [{ id: flow.id, transitions: [] }];
+  for (const graph of graphs) {
+    if (graph.entry_screen) screens.add(graph.entry_screen);
+    for (const t of graph.transitions ?? []) {
+      if (t.from) screens.add(t.from);
+      if (t.target) screens.add(t.target);
+    }
+  }
+  return screens;
+}
+
+/**
  * @param {ScenarioLike[]} scenarios
  * @param {DerivedOperation[]} operations
+ * @param {string} flowId
  */
-export function buildCoverageMatrix(scenarios = [], operations = []) {
+export function buildCoverageMatrix(scenarios = [], operations = [], flowId = 'default') {
   /** @type {MatrixCell[]} */
   const cells = [];
   /** @type {CoverageGap[]} */
@@ -142,14 +159,16 @@ export function buildCoverageMatrix(scenarios = [], operations = []) {
         required: isRequired,
         scenarioId: match?.id ?? null,
         covered: Boolean(match),
+        flowId,
       });
       if (isRequired && !match) {
         gaps.push({
+          flowId,
           operationId: op.id,
           operation: op.operation,
           category,
           screenId: op.screenId,
-          reason: `Missing ${category} scenario for "${op.operation}"`,
+          reason: `Missing ${category} edge case for "${op.operation}"`,
         });
       }
     }
@@ -160,7 +179,9 @@ export function buildCoverageMatrix(scenarios = [], operations = []) {
   const score =
     requiredCells.length > 0 ? Math.round((coveredRequired / requiredCells.length) * 100) : 100;
 
-  return { cells, gaps, score, operations };
+  const taggedOperations = operations.map((op) => ({ ...op, flowId }));
+
+  return { cells, gaps, score, operations: taggedOperations };
 }
 
 /**
@@ -177,8 +198,41 @@ export function loadCoverageForRun(laminaRoot, runId, fs, runMod) {
   const run = runMod.parseRunYaml(fs.readFileSync(runPath, 'utf8'));
   const screens = /** @type {import('./run.mjs').RunScreen[]} */ (run.screens ?? []);
   const scenarios = /** @type {ScenarioLike[]} */ (run.scenarios ?? []);
-  const operations = deriveOperations(screens);
-  const matrix = buildCoverageMatrix(scenarios, operations);
+  const runFlows = /** @type {import('./run.mjs').RunFlow[]} */ (run.flows ?? []);
+
+  /** @type {CoverageGap[]} */
+  const gaps = [];
+  /** @type {MatrixCell[]} */
+  const cells = [];
+  /** @type {DerivedOperation[]} */
+  const operations = [];
+  /** @type {{ id: string; score: number; gapCount: number }[]} */
+  const flows = [];
+
+  if (runFlows.length) {
+    for (const flow of runFlows) {
+      const flowScreenIds = screensForFlow(flow);
+      const flowScreens = screens.filter((s) => flowScreenIds.has(s.id));
+      const flowScenarios = scenarios.filter((s) => !s.flow || s.flow === flow.id);
+      const flowOperations = deriveOperations(flowScreens);
+      const matrix = buildCoverageMatrix(flowScenarios, flowOperations, flow.id);
+      gaps.push(...matrix.gaps);
+      cells.push(...matrix.cells);
+      operations.push(...matrix.operations);
+      flows.push({ id: flow.id, score: matrix.score, gapCount: matrix.gaps.length });
+    }
+  } else {
+    const matrix = buildCoverageMatrix(scenarios, deriveOperations(screens), 'default');
+    gaps.push(...matrix.gaps);
+    cells.push(...matrix.cells);
+    operations.push(...matrix.operations);
+    flows.push({ id: 'default', score: matrix.score, gapCount: matrix.gaps.length });
+  }
+
+  const requiredCells = cells.filter((c) => c.required);
+  const coveredRequired = requiredCells.filter((c) => c.covered).length;
+  const score =
+    requiredCells.length > 0 ? Math.round((coveredRequired / requiredCells.length) * 100) : 100;
 
   return {
     ok: true,
@@ -192,6 +246,10 @@ export function loadCoverageForRun(laminaRoot, runId, fs, runMod) {
     },
     screens,
     scenarios,
-    ...matrix,
+    flows,
+    gaps,
+    cells,
+    operations,
+    score,
   };
 }

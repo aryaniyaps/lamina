@@ -1,6 +1,6 @@
 id: task020
 category: workflow_edge
-workflow: design-feature
+workflow: design
 prompt: Design a multi-stage employee onboarding workflow across HR, IT, and team leads.
 fixture: null
 human_eval: false

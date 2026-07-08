@@ -7,34 +7,37 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
+import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
 import { validateBlueprint } from '../../packages/lamina-studio/cli/validate.js';
 import { validateRunYaml } from '../../packages/lamina-studio/lib/run.mjs';
+import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const OUTPUT_CONTRACTS = {
   'init-blocked': ['### Status', "### What's missing", '### Next step', '### Do not'],
-  'design-concept': [
-    '### User model',
-    '### Journey',
-    '### Information architecture',
+  clarify: [
+    '### Status',
+    '### Clarifying questions',
+    '### Why these block the artifact',
+    '### How to proceed',
+    '### Do not',
+  ],
+  design: [
+    '### Problem framing',
+    '### Users and jobs',
+    '### Assumptions and evidence',
+    '### Journey and information architecture',
     '### Flows',
     '### Screens',
-    '### Interactions',
-    '### Copy guidance',
-    '### Accessibility considerations',
-    '### Validation plan',
-    '### Open questions',
-  ],
-  'design-feature': [
-    '### Problem definition',
-    '### Jobs to be done',
-    '### Assumptions',
-    '### User goals',
-    '### Flows',
-    '### Edge cases',
-    '### Risks',
-    '### Success metrics',
+    '### Interactions and copy',
+    '### Edge cases and recovery',
+    '### Risks and decisions',
+    '### Accessibility review',
+    '### Metrics and validation',
+    '### Artifact packs',
+    '### Developer handoff',
+    '### Persona simulation notes',
     '### Open questions',
   ],
   audit: [
@@ -42,7 +45,11 @@ const OUTPUT_CONTRACTS = {
     '### Findings by flow',
     '### Prioritized improvements',
     '### Quick wins',
+    '### Strategic bets',
+    '### Persona simulation notes',
+    '### Artifact packs',
     '### Open questions',
+    '### Coding handoff',
   ],
   init: ['### Mode', '### Business context summary', '### Open questions', '### Recommended next step'],
 };
@@ -105,6 +112,18 @@ function diffNewFiles(preState, postState) {
   return added;
 }
 
+function diffChangedFiles(preState, postState) {
+  const preHashes = preState?.file_hashes;
+  const postHashes = postState?.file_hashes;
+  if (!preHashes || !postHashes) return diffNewFiles(preState, postState);
+  const paths = new Set([...Object.keys(preHashes), ...Object.keys(postHashes)]);
+  const changed = [];
+  for (const filePath of paths) {
+    if (preHashes[filePath] !== postHashes[filePath]) changed.push(filePath);
+  }
+  return changed;
+}
+
 function hookResult(text, passed, evidence) {
   return { text, passed, evidence, method: 'hook', skipped: false };
 }
@@ -149,6 +168,63 @@ function findRunYamlFiles(workspace) {
     if (fs.existsSync(runFile)) files.push(runFile);
   }
   return files;
+}
+
+function findRunDirs(workspace) {
+  const runsRoot = path.join(workspace, '.lamina/runs');
+  if (!fs.existsSync(runsRoot)) return [];
+  return fs
+    .readdirSync(runsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(runsRoot, entry.name))
+    .sort();
+}
+
+function latestRunDir(workspace) {
+  return findRunDirs(workspace).at(-1) ?? null;
+}
+
+function listArtifactMarkdownFiles(workspace) {
+  const files = [];
+  for (const dir of findRunDirs(workspace)) {
+    const artifactsDir = path.join(dir, 'artifacts');
+    if (!fs.existsSync(artifactsDir)) continue;
+    for (const rel of listFiles(artifactsDir)) {
+      if (rel.endsWith('.md')) files.push(path.join(artifactsDir, rel));
+    }
+  }
+  return files;
+}
+
+function reportMarkdownFiles(workspace) {
+  return findRunDirs(workspace)
+    .map((dir) => path.join(dir, 'report.md'))
+    .filter((file) => fs.existsSync(file));
+}
+
+function handoffMarkdownFiles(workspace) {
+  return findRunDirs(workspace)
+    .map((dir) => path.join(dir, 'handoff.md'))
+    .filter((file) => fs.existsSync(file));
+}
+
+function markdownHasFrontmatter(text) {
+  return /^---\n[\s\S]+?\n---\n/.test(text);
+}
+
+function validateArtifactMarkdownText(text) {
+  const errors = [];
+  if (!markdownHasFrontmatter(text)) errors.push('missing frontmatter');
+  for (const required of ['confidence:', 'sources:']) {
+    if (!text.includes(required)) errors.push(`missing ${required}`);
+  }
+  if (!/```mermaid\n[\s\S]+?```/m.test(text) && !/diagram.*blocked|blocked.*diagram/i.test(text)) {
+    errors.push('missing mermaid diagram or blocked diagram explanation');
+  }
+  if (/SUS score|heatmap|click map|scroll map|session recording/i.test(text) && !/source|evidence|provided|observed/i.test(text)) {
+    errors.push('possible unsupported test/analytics claim');
+  }
+  return errors;
 }
 
 function readScenariosText(workspace, blueprintDirs) {
@@ -232,7 +308,9 @@ function gradeAssertion(text, ctx) {
   const lower = text.toLowerCase();
   const { output, workspace, preState, postState, logs, evalMeta, turnOutputs = [] } = ctx;
   const allOutput = combinedOutputText(output, turnOutputs);
+  const firstTurnOutput = turnOutputs[0] ?? output;
   const newFiles = diffNewFiles(preState, postState);
+  const changedFiles = diffChangedFiles(preState, postState);
   const workspaceFiles = listFiles(workspace);
 
   if (lower.includes('init required') || lower.includes('init-blocked') || lower.includes("'blocked'")) {
@@ -249,23 +327,71 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'All init-blocked headings present' : `Missing: ${missing.join(', ') || 'title'}`);
   }
 
+  if (lower.includes('clarify contract') || lower.includes('clarification contract')) {
+    const headings = OUTPUT_CONTRACTS.clarify;
+    const missing = headings.filter((h) => !firstTurnOutput.includes(h));
+    const passed = missing.length === 0 && /## Lamina: clarification needed/i.test(firstTurnOutput);
+    return hookResult(text, passed, passed ? 'All clarify headings present in first response' : `Missing: ${missing.join(', ') || 'title'}`);
+  }
+
+  if (lower.includes('clarifying questions asked') || lower.includes('asks clarifying questions')) {
+    const asks =
+      /\?/.test(firstTurnOutput) &&
+      /clarifying questions?|clarification needed|before (I|we) (generate|create|write|proceed)|to proceed/i.test(firstTurnOutput);
+    const notFinalArtifact =
+      !/### Artifact packs/i.test(firstTurnOutput) &&
+      !/### Developer handoff/i.test(firstTurnOutput) &&
+      !/### Findings by flow/i.test(firstTurnOutput);
+    return hookResult(
+      text,
+      asks && notFinalArtifact,
+      asks && notFinalArtifact ? 'First response asks clarifying questions before artifacts' : 'First response did not clearly ask upfront clarifying questions',
+    );
+  }
+
   if (lower.includes('business-context.md valid') || lower.includes('valid init')) {
     const result = checkLaminaInit(workspace);
     return hookResult(text, result.ok, result.ok ? 'checkLaminaInit passed' : result.errors.join('; '));
   }
 
-  if (lower.includes('no file was created under `.lamina/`') || lower.includes('no `.lamina/` writes')) {
-    const laminaNew = newFiles.filter((f) => f.startsWith('.lamina/') || f.startsWith('.lamina\\'));
-    const passed = laminaNew.length === 0;
-    return hookResult(text, passed, passed ? 'No new .lamina files' : `New files: ${laminaNew.join(', ')}`);
+  if (lower.includes('personas.yaml valid') || lower.includes('valid personas')) {
+    const result = checkLaminaPersonas(workspace);
+    return hookResult(text, result.ok, result.ok ? 'checkLaminaPersonas passed' : result.errors.join('; '));
   }
 
-  if (lower.includes('no file was created under `src/`') || lower.includes('no product code')) {
-    const codeNew = newFiles.filter((f) =>
-      /^(src|app|components)\//.test(f.replace(/\\/g, '/'))
+  if (lower.includes('no file was created under `.lamina/`') || lower.includes('no `.lamina/` writes')) {
+    const laminaChanged = changedFiles.filter((f) => normalizePath(f).startsWith('.lamina/'));
+    const passed = laminaChanged.length === 0;
+    return hookResult(text, passed, passed ? 'No .lamina files changed' : `Changed files: ${laminaChanged.join(', ')}`);
+  }
+
+  if (lower.includes('no `.lamina/runs` writes') || lower.includes('no .lamina/runs writes')) {
+    const runChanged = changedFiles.filter((f) => normalizePath(f).startsWith('.lamina/runs/'));
+    const passed = runChanged.length === 0;
+    return hookResult(text, passed, passed ? 'No .lamina/runs files changed' : `Changed run files: ${runChanged.join(', ')}`);
+  }
+
+  if (lower.includes('no run.yaml before clarification')) {
+    const runYamlChanged = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/run\.yaml$/i.test(normalizePath(f)));
+    const passed = runYamlChanged.length === 0;
+    return hookResult(text, passed, passed ? 'No run.yaml changed' : `Changed run.yaml files: ${runYamlChanged.join(', ')}`);
+  }
+
+  if (
+    lower.includes('no writes outside .lamina') ||
+    lower.includes('repo unchanged') ||
+    lower.includes('no file was created under `src/`') ||
+    lower.includes('no product code')
+  ) {
+    const violations = diffOutsideLamina(preState, postState, workspace);
+    const passed = violations.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? 'No writes outside .lamina/'
+        : `Files outside .lamina/ changed: ${violations.join(', ')}`,
     );
-    const passed = codeNew.length === 0;
-    return hookResult(text, passed, passed ? 'No product code files created' : `Created: ${codeNew.join(', ')}`);
   }
 
   if (lower.includes('did not auto-run') || lower.includes('did not auto-run /lamina-init')) {
@@ -274,14 +400,9 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'No auto-init detected' : 'lamina-init appears in logs without user request');
   }
 
-  if (lower.includes('design-concept') && lower.includes('headings')) {
-    const missing = OUTPUT_CONTRACTS['design-concept'].filter((h) => !output.includes(h));
-    return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All concept headings present');
-  }
-
-  if (lower.includes('design-feature') && lower.includes('headings')) {
-    const missing = OUTPUT_CONTRACTS['design-feature'].filter((h) => !output.includes(h));
-    return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All feature headings present');
+  if (lower.includes('design') && lower.includes('headings')) {
+    const missing = OUTPUT_CONTRACTS.design.filter((h) => !output.includes(h));
+    return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All design headings present');
   }
 
   if (lower.includes('init output contract') || (lower.includes('init') && lower.includes('headings'))) {
@@ -445,6 +566,94 @@ function gradeAssertion(text, ctx) {
       }
     });
     return hookResult(text, hasFlows, hasFlows ? 'run.yaml flows[] present' : 'No flows[] in run.yaml');
+  }
+
+  if (lower.includes('artifact pack exists') || lower.includes('artifact packs exist')) {
+    const files = listArtifactMarkdownFiles(workspace);
+    return hookResult(
+      text,
+      files.length > 0,
+      files.length ? `Artifact markdown files: ${files.map((f) => path.relative(workspace, f)).join(', ')}` : 'No artifact markdown files found',
+    );
+  }
+
+  if (lower.includes('no artifact pack before clarification')) {
+    const artifacts = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/artifacts\/.+\.md$/i.test(normalizePath(f)));
+    return hookResult(
+      text,
+      artifacts.length === 0,
+      artifacts.length ? `Changed artifact markdown files: ${artifacts.join(', ')}` : 'No artifact markdown files changed',
+    );
+  }
+
+  if (lower.includes('artifact contains diagram') || lower.includes('artifact has diagram')) {
+    const files = listArtifactMarkdownFiles(workspace);
+    const withDiagram = files.filter((f) => /```mermaid\n[\s\S]+?```/m.test(fs.readFileSync(f, 'utf8')));
+    return hookResult(
+      text,
+      withDiagram.length > 0,
+      withDiagram.length ? `Mermaid diagram found in ${path.relative(workspace, withDiagram[0])}` : 'No Mermaid diagram in artifact markdown',
+    );
+  }
+
+  if (lower.includes('artifact docs valid') || lower.includes('artifact markdown valid')) {
+    const files = [...listArtifactMarkdownFiles(workspace), ...handoffMarkdownFiles(workspace)];
+    if (!files.length) return hookResult(text, false, 'No artifact or handoff markdown files found');
+    const failures = [];
+    for (const file of files) {
+      const errs = validateArtifactMarkdownText(fs.readFileSync(file, 'utf8'));
+      if (errs.length) failures.push(`${path.relative(workspace, file)}: ${errs.join(', ')}`);
+    }
+    return hookResult(text, failures.length === 0, failures.length ? failures.join('; ') : 'Artifact markdown valid');
+  }
+
+  if (lower.includes('handoff.md exists') || lower.includes('handoff exists')) {
+    const files = handoffMarkdownFiles(workspace);
+    return hookResult(
+      text,
+      files.length > 0,
+      files.length ? `Handoff found: ${path.relative(workspace, files.at(-1))}` : 'No handoff.md found under .lamina/runs/',
+    );
+  }
+
+  if (lower.includes('handoff maps checklist ids') || lower.includes('handoff maps findings')) {
+    const dir = latestRunDir(workspace);
+    if (!dir) return hookResult(text, false, 'No run directory found');
+    const runFile = path.join(dir, 'run.yaml');
+    const handoffFile = path.join(dir, 'handoff.md');
+    if (!fs.existsSync(runFile) || !fs.existsSync(handoffFile)) {
+      return hookResult(text, false, 'Missing run.yaml or handoff.md');
+    }
+    const result = validateRunYaml(runFile);
+    const ids = [
+      ...((result.run.checklist ?? []).map((item) => item.id)),
+      ...((result.run.findings ?? []).map((item) => item.id)),
+    ].filter(Boolean);
+    const handoff = fs.readFileSync(handoffFile, 'utf8');
+    const missing = ids.filter((id) => !handoff.includes(id));
+    return hookResult(
+      text,
+      ids.length > 0 && missing.length === 0,
+      ids.length === 0
+        ? 'No checklist[] or findings[] ids in latest run'
+        : missing.length
+          ? `Missing ids in handoff.md: ${missing.join(', ')}`
+          : 'All checklist/findings ids appear in handoff.md',
+    );
+  }
+
+  if (lower.includes('report.md narrative only') || lower.includes('report remains narrative')) {
+    const reports = reportMarkdownFiles(workspace);
+    if (!reports.length) return hookResult(text, false, 'No report.md found under .lamina/runs/');
+    const violations = [];
+    for (const file of reports) {
+      const report = fs.readFileSync(file, 'utf8');
+      if (/```mermaid/i.test(report)) violations.push(`${path.relative(workspace, file)}: contains Mermaid`);
+      if (/\|\s*(priority|severity|checklist|finding|screen|flow)\s*\|/i.test(report)) {
+        violations.push(`${path.relative(workspace, file)}: contains structured table`);
+      }
+    }
+    return hookResult(text, violations.length === 0, violations.length ? violations.join('; ') : 'Reports are narrative only');
   }
 
   if (lower.includes('blueprint validate passes')) {

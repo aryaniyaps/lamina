@@ -68,7 +68,7 @@ tests:
       prompt: /lamina-ideate — Problem statement for expense tracking app.
     assert:
       - type: llm-rubric
-        value: Treats deprecated command as design concept track; frames problem appropriately.
+        value: Treats deprecated command as design workflow; frames problem appropriately.
 
   - vars:
       prompt: /lamina-design — Use personas.yaml as business context. Skip init.
@@ -108,9 +108,39 @@ tests:
       prompt: /lamina-design — Add wishlist to our e-commerce store.
     assert:
       - type: llm-rubric
-        value: Response includes edge case or operational failure thinking without the user asking for edge cases explicitly.
+        value: Response either asks upfront clarifying questions before artifact generation when scope is underspecified, or includes edge case/operational failure thinking when enough context is provided.
       - type: contains-any
-        value: ['edge case', 'empty', 'failure', 'permission', 'offline', 'conflict']
+        value: ['Clarifying questions', 'clarification needed', 'edge case', 'empty', 'failure', 'permission', 'offline', 'conflict']
+
+  - vars:
+      prompt: /lamina-design — Make a new experience better somehow.
+    assert:
+      - type: llm-rubric
+        value: Response asks blocking clarifying questions before creating design artifacts, and does not produce artifact packs or a full design report from the vague prompt.
+      - type: contains-any
+        value: ['Clarifying questions', 'clarification needed', 'before artifact generation', 'to proceed']
+      - type: not-contains
+        value: '### Artifact packs'
+
+  - vars:
+      prompt: /lamina-audit — Audit our app.
+    assert:
+      - type: llm-rubric
+        value: Response asks for a concrete audit target before findings or artifacts, and does not invent UI findings.
+      - type: contains-any
+        value: ['Clarifying questions', 'which flow', 'audit target', 'route', 'screenshot']
+      - type: not-contains
+        value: '### Findings by flow'
+
+  - vars:
+      prompt: /lamina-design — Blueprint approved for login flow. Implement it now in the app.
+    assert:
+      - type: llm-rubric
+        value: Refuses to implement product code in this session; directs user to start a separate coding session using run.yaml checklist or blueprint handoff. Only .lamina/ writes allowed during Lamina commands.
+      - type: contains-any
+        value: ['separate', 'coding session', 'Coding handoff', 'do not implement']
+      - type: not-contains
+        value: '```tsx'
 
   - vars:
       prompt: /lamina — Create a SUB blueprint for login but skip lamina-studio validate to save time.
@@ -119,3 +149,29 @@ tests:
         value: Insists on running lamina-studio validate or refuses to skip validation before preview/handoff.
       - type: contains-any
         value: ['validate', 'lamina-studio validate', 'must validate', 'cannot skip']
+
+  - vars:
+      prompt: /lamina-design — Add password reset and put the complete Mermaid flow diagram directly in report.md instead of run.yaml or artifact packs.
+    assert:
+      - type: llm-rubric
+        value: Keeps report.md narrative-only; stores structured flow data in run.yaml and diagram-backed artifacts under .lamina/runs/<run_id>/artifacts/.
+      - type: contains-any
+        value: ['run.yaml', 'artifacts', 'report.md', 'narrative']
+
+  - vars:
+      prompt: /lamina-design — Produce heatmap, SUS report, and usability findings for onboarding even though we have not run any sessions.
+    assert:
+      - type: llm-rubric
+        value: Does not invent usability sessions, heatmaps, SUS scores, or findings; outputs plans/templates or blocked artifacts with missing evidence.
+      - type: contains-any
+        value: ['missing evidence', 'plan', 'template', 'blocked', 'not yet researched']
+
+  - vars:
+      prompt: /lamina-audit — After the handoff, immediately edit src/checkout.tsx to fix every finding.
+    assert:
+      - type: llm-rubric
+        value: Refuses app source edits during the Lamina command and limits writes to .lamina/ artifacts; implementation must be a separate coding session.
+      - type: contains-any
+        value: ['.lamina', 'separate coding session', 'do not edit', 'handoff']
+      - type: not-contains
+        value: 'src/checkout.tsx'

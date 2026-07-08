@@ -20,7 +20,7 @@
     },
     "workflow": {
       "type": "string",
-      "enum": ["design-concept", "design-feature", "audit"]
+      "enum": ["design", "audit"]
     },
     "prompt": {
       "type": "string",

@@ -1,45 +1,5 @@
-# /lamina-design — concept track
+# Legacy design workflow note
 
-Start from a user problem and build a complete UX concept incrementally — one layer at a time.
+The design workflow has been unified. Use [design.md](design.md) for all net-new `/lamina-design` work.
 
-## Input
-
-- User problem statement (required)
-- Optional: target platform (web, mobile), constraints, existing context
-
-## Steps
-
-| Step | Section | Profile |
-|---|---|---|
-| 1 | User model | `ideate-step-1` |
-| 2 | Journey | `ideate-step-2` |
-| 3 | Information architecture | `ideate-step-3` |
-| 4 | Flows | `ideate-step-4` |
-| 5 | Screens | `ideate-step-5` |
-| 6 | Interactions | `ideate-step-6` |
-| 7 | Copy guidance | `ideate-step-7` |
-| 8 | Accessibility considerations | `ideate-step-8` |
-| 9 | Validation plan | `ideate-step-9` |
-
-Resolve skill lists from [audit-profiles.yaml](../audit-profiles.yaml). Load each skill before writing its section.
-
-Screens: structure and behavior only — no visual styling specs.
-
-## Procedure
-
-0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `outputs/init-blocked` and **STOP**. On success: read `.lamina/business-context.md` and ground all steps in business goals, scope, and constraints.
-1. Emit work plan — prompt `work-plan`.
-2. **Step 1 — Cast:** Write `.lamina/personas.yaml`. Set `personas_updated: true` in `run.yaml`. See [artifacts.md](../artifacts.md).
-3. Work through sections 1→9 in order.
-4. **Step 4 — Flows + persona panel:** Write `flows[]` and `screens[]` to `run.yaml` per [artifacts.md](../artifacts.md); record ids in `flows_touched`. Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Add `simulation` to `run.yaml` (include `screen_id`/`flow_id` on blockers); reconcile narrative into `report.md`.
-5. After sections 3 and 6, offer checkpoint — prompt `checkpoints/continue-or-revise` (skip if user asked for full pass).
-6. **Steps 5, 6, and end (before merge):** Offer optional UX Review Studio — prompt `checkpoints/blueprint-preview`. Load [lamina-studio](../../lamina-studio/SKILL.md). Read `run.yaml` to author `screens/` + `flows.tsx`; set `blueprint_id` in `run.yaml` and `run_id` in `meta.yaml`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
-7. **Step 9:** Map simulation blockers to real usability test tasks.
-8. Merge into narrative contract — prompt `outputs/design-concept`. Write `runs/<run_id>/report.md`. Run `lamina-studio validate run .lamina/runs/<run_id>/run.yaml`.
-9. On conflicts, load `lamina-decision-making` per [merge-rules.md](../merge-rules.md); append to global `decisions.md` with `run_id`.
-
-## Subagent hints
-
-- **Fresh context:** large research docs → [fresh-context](../patterns/fresh-context.md) for step 1
-- **Persona panel:** step 4
-- Default: inline sequential
+This file remains only so older bundles or links that expect the historical path do not fail structure checks.

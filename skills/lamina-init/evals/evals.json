@@ -5,10 +5,12 @@
       "id": "init-establish-greenfield",
       "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO requests. Web app, six-month MVP.",
       "force_skill_invocation": true,
-      "expected_output": "Valid business-context.md with all sections.",
+      "expected_output": "Valid business-context.md with all sections and personas.yaml.",
       "assertions": [
         "File `business-context.md` exists",
         "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid",
         "init output contract headings"
       ]
     },
@@ -27,10 +29,12 @@
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "maturity brownfield grounded answers.",
+      "expected_output": "maturity brownfield grounded answers and personas.yaml.",
       "assertions": [
         "File `.lamina/business-context.md` exists",
-        "business-context.md valid"
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid"
       ]
     },
     {
@@ -95,6 +99,32 @@
       "assertions": [
         "business-context.md valid",
         "Output addresses risks or unknowns"
+      ]
+    },
+    {
+      "id": "init-establish-personas-greenfield",
+      "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO. Web app MVP.",
+      "force_skill_invocation": true,
+      "expected_output": "business-context.md + personas.yaml from user input.",
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid",
+        "init output contract headings"
+      ]
+    },
+    {
+      "id": "init-establish-personas-brownfield",
+      "prompt": "/lamina-init — Brownfield Next.js commerce repo. Shoppers abandon checkout.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-no-init",
+      "stage_files": true,
+      "expected_output": "business-context.md + personas.yaml from repo evidence.",
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.yaml` exists",
+        "personas.yaml valid",
+        "init output contract headings"
       ]
     }
   ]

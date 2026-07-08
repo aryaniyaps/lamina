@@ -1,6 +1,6 @@
 id: task017
 category: workflow_edge
-workflow: design-feature
+workflow: design
 prompt: Design an expense reimbursement approval workflow for a mid-size company.
 fixture: null
 human_eval: true

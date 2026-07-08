@@ -1,11 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  attachScreenIds as attachBlockerScreenIds,
+  resolveBlockerScreenId as resolveBlockerScreenIdLib,
+} from '../lib/persona-blockers.mjs';
+import { parseSimulationYaml as parseSimulationYamlFromLib } from '../lib/persona-simulation.mjs';
 
 export interface PersonaBlocker {
   step: string;
   severity: string;
   quote: string;
   screenId?: string;
+  flowId?: string;
 }
 
 export interface PersonaSimulation {
@@ -175,76 +181,7 @@ interface SimulationResult {
 }
 
 export function parseSimulationYaml(source: string): SimulationResult[] {
-  const results: SimulationResult[] = [];
-  let current: SimulationResult | null = null;
-  let inBlockers = false;
-
-  for (const line of source.split('\n')) {
-    const resultItem = line.match(/^\s*-\s+persona_id:\s*(.+)$/);
-    if (resultItem) {
-      if (current) results.push(current);
-      current = {
-        persona_id: stripYamlScalar(resultItem[1])!,
-        outcome: 'success',
-        blockers: [],
-      };
-      inBlockers = false;
-      continue;
-    }
-
-    if (!current) continue;
-
-    const outcome = line.match(/^\s{2,}outcome:\s*(.+)$/);
-    if (outcome) {
-      const val = stripYamlScalar(outcome[1]);
-      if (val === 'success' || val === 'partial_fail' || val === 'abandon') {
-        current.outcome = val;
-      }
-      continue;
-    }
-
-    const blockersOpen = line.match(/^\s{2,}blockers:\s*$/);
-    if (blockersOpen) {
-      inBlockers = true;
-      continue;
-    }
-
-    if (inBlockers) {
-      const blockerItem = line.match(/^\s{4,}-\s+step:\s*(.+)$/);
-      if (blockerItem) {
-        current.blockers.push({
-          step: stripYamlScalar(blockerItem[1]) ?? '',
-          severity: 'medium',
-          quote: '',
-        });
-        continue;
-      }
-      const step = line.match(/^\s{6,}step:\s*(.+)$/);
-      if (step) {
-        current.blockers.push({
-          step: stripYamlScalar(step[1]) ?? '',
-          severity: 'medium',
-          quote: '',
-        });
-        continue;
-      }
-      const last = current.blockers[current.blockers.length - 1];
-      if (last) {
-        const severity = line.match(/^\s{6,}severity:\s*(.+)$/);
-        if (severity) {
-          last.severity = stripYamlScalar(severity[1]) ?? 'medium';
-          continue;
-        }
-        const quote = line.match(/^\s{6,}quote:\s*(.+)$/);
-        if (quote) {
-          last.quote = stripYamlScalar(quote[1]) ?? '';
-        }
-      }
-    }
-  }
-
-  if (current) results.push(current);
-  return results;
+  return parseSimulationYamlFromLib(source) as SimulationResult[];
 }
 
 function listSimulationFiles(simulationsDir: string): string[] {
@@ -342,12 +279,10 @@ function loadLatestSimulations(laminaRoot: string, blueprintId?: string): Map<st
   );
 }
 
+export { resolveBlockerScreenIdLib as resolveBlockerScreenId };
+
 export function attachScreenIds(blockers: PersonaBlocker[], screenIds: string[]): PersonaBlocker[] {
-  const ids = new Set(screenIds);
-  return blockers.map((b) => ({
-    ...b,
-    screenId: ids.has(b.step) ? b.step : undefined,
-  }));
+  return attachBlockerScreenIds(blockers, screenIds);
 }
 
 export function loadPersonas(

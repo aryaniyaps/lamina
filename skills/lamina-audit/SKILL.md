@@ -26,7 +26,7 @@ Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init ga
 
 ## Guardrail
 
-UX artifacts only. Do not implement product code or visual styling specs.
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor app source code, tests, config, styles, docs outside `.lamina/`, or generated source during `/lamina-audit`. Audit findings and handoff docs are input for a later coding session, not permission to fix source now. If the user asks to fix code, refuse that part briefly and finish only `.lamina/` artifacts. See [guardrails](../lamina-core/guardrails.md).
 
 ## Subagent hints
 
