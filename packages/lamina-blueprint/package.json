@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "preview:dev": "vite --config preview/vite.config.ts",
-    "test": "node cli/validate.js examples/minimal-blueprint/.lamina/blueprints/demo 2>/dev/null || node ../../examples/minimal-blueprint/validate-test.mjs"
+    "test": "npm run build"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.1",

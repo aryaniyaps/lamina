@@ -5,10 +5,8 @@
   "author": "Aryan Iyappan",
   "type": "module",
   "scripts": {
-    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node tests/check_lamina_init_test.mjs && node examples/minimal-blueprint/validate-test.mjs",
+    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node tests/check_lamina_init_test.mjs",
     "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure",
-    "preview:example": "lamina-blueprint review --root examples/minimal-blueprint/.lamina/blueprints --run demo --id demo --ensure --open",
-    "test:blueprint": "node examples/minimal-blueprint/validate-test.mjs",
     "test:eval:spec": "node evals/hooks/validate-plugin.mjs && node evals/hooks/validate-skills-strict.mjs",
     "test:eval:validate": "node evals/scripts/merge-evals.mjs && node evals/scripts/validate-evals.mjs",
     "test:eval:smoke": "node evals/scripts/run-suite.mjs --evals ./evals/smoke/evals.json --agent claude-code --agent codex --agent opencode --runs 1",

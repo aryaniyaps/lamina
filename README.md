@@ -80,11 +80,10 @@ npx skills remove lamina
 
 4. **Review artifacts** — specs land under `.lamina/` (business context, personas, flows inventory, and more depending on the workflow).
 
-5. **Optional: preview wireframes** — if blueprint artifacts were generated:
+5. **Optional: UX Review Studio** — if blueprint artifacts were generated in your project:
 
    ```bash
-   pnpm install
-   pnpm preview:example
+   lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
    ```
 
 Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow."*
@@ -227,9 +226,7 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local **UX Review Studio** — People, Flows, Screens, and Scenarios views:
 
 ```bash
-pnpm install
-pnpm preview:example
-# or: pnpm exec lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
+lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
 # from repo root without install: node packages/lamina-blueprint/cli/index.js review --root ...
 ```
 
@@ -240,7 +237,7 @@ pnpm preview:example
 | `export-graph` | Export flow graph as Mermaid |
 | `retire` | Delete a blueprint directory |
 
-See [`skills/lamina-blueprint/SKILL.md`](skills/lamina-blueprint/SKILL.md) and [`examples/minimal-blueprint/`](examples/minimal-blueprint/).
+See [`skills/lamina-blueprint/SKILL.md`](skills/lamina-blueprint/SKILL.md).
 
 ---
 

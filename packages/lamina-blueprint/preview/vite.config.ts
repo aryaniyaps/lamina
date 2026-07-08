@@ -13,9 +13,9 @@ function loadBlueprintConfig() {
   const configPath = process.env.LAMINA_BLUEPRINT_CONFIG;
   if (!configPath || !fs.existsSync(configPath)) {
     return {
-      root: path.resolve(packageRoot, '../../examples/minimal-blueprint/.lamina/blueprints'),
-      id: 'demo',
-      runId: 'demo',
+      root: path.resolve(packageRoot, '.dev/blueprints'),
+      id: '',
+      runId: '',
     };
   }
   const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
