@@ -1,5 +1,5 @@
 ---
-name: lamina-blueprint
+name: lamina-studio
 description: "Generate and maintain semantic UX blueprints (SUB) and open UX Review Studio — visual review of personas, flows, edge-case coverage, and greyscale wireframes."
 metadata:
   lamina:
@@ -38,8 +38,8 @@ Four views, one local URL. People, Flows, and Scenarios read from `run.yaml` (+ 
 **Annotation pins** — numbered overlays on happy-path wireframes mark where scenarios attach (`trigger.subject` / `source` on SUB components). No auto-compose — pins show *where*, not *how*.
 
 ```bash
-lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
-# alias: lamina-blueprint preview ... --run <run_id>
+lamina-studio review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
+# alias: lamina-studio preview ... --run <run_id>
 ```
 
 Studio opens at `?run=<run_id>&id=<blueprint_id>`. People/Flows/Scenarios work with `--run` alone; Screens needs a linked blueprint.
@@ -76,7 +76,7 @@ Each blueprint is **disposable** — delete after implementation. Durable record
 
 ## Component vocabulary
 
-Import only from `@lamina/blueprint`:
+Import only from `@lamina/studio`:
 
 **Structure:** `Application`, `Screen`, `Flow`, `Page`, `Header`, `Footer`, `Main`, `Section`, `Sidebar`, `Row`, `Column`, `Stack`, `Grid`, `Tabs`, `SplitLayout`, `ScrollArea`, `Overlay`
 
@@ -114,7 +114,7 @@ When a flow has **two or more linked screens**, every screen that has **outgoing
 - **Terminal screens** (no outgoing transitions) are exempt.
 - Per-flow overrides (`flows/<flow-id>/screens/`) must still satisfy this for that flow’s transitions — a shared screen and a flow override can expose different triggers.
 
-`lamina-blueprint validate` checks that every `trigger` on a screen has a matching transition **and** every outgoing transition has a matching `trigger` on the effective screen file.
+`lamina-studio validate` checks that every `trigger` on a screen has a matching transition **and** every outgoing transition has a matching `trigger` on the effective screen file.
 
 ### Edge-case scenarios (coverage + optional variants)
 
@@ -149,7 +149,7 @@ Studio shows scenarios on the flow graph as dashed branches when variant TSX exi
 ### Screen example
 
 ```tsx
-import { Screen, Page, Section, Heading, Form, Field, Button } from '@lamina/blueprint';
+import { Screen, Page, Section, Heading, Form, Field, Button } from '@lamina/studio';
 
 export default function LoginScreen() {
   return (
@@ -172,7 +172,7 @@ export default function LoginScreen() {
 ### Flow example (`flows.tsx`)
 
 ```tsx
-import { Flow, Transition } from '@lamina/blueprint';
+import { Flow, Transition } from '@lamina/studio';
 
 export default function Flows() {
   return (
@@ -191,14 +191,14 @@ Screen `id` values must match `run.yaml` `screens[]` ids.
 ## Preview / Review CLI
 
 ```bash
-lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
-lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
-lamina-blueprint preview --root .lamina/blueprints --id <id>   # legacy; add --run for studio
-lamina-blueprint preview --root .lamina/blueprints --list
-lamina-blueprint export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd]
-lamina-blueprint retire <id> --root .lamina/blueprints
-lamina-blueprint validate .lamina/blueprints/<id>
-lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
+lamina-studio review --root .lamina/blueprints --run <run_id> --id <id>
+lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
+lamina-studio preview --root .lamina/blueprints --id <id>   # legacy; add --run for studio
+lamina-studio preview --root .lamina/blueprints --list
+lamina-studio export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd]
+lamina-studio retire <id> --root .lamina/blueprints
+lamina-studio validate .lamina/blueprints/<id>
+lamina-studio validate run .lamina/runs/<run_id>/run.yaml
 ```
 
 **Lifecycle:** Use `--ensure` to start the studio in the background (idempotent — reuses running server). Use `--open` to open the system default browser. State is written to `.lamina/preview-state.yaml` (`run`, `id`, `port`, `url`, `pid`, `root`, `startedAt`). Read that file on later turns instead of re-spawning.
@@ -229,7 +229,7 @@ Simulation results load from `.lamina/runs/*/run.yaml` `simulation` (prefer runs
 
 Preview shows a DiceBear avatar per persona, with frustrations and simulation quotes in a chat-bubble slideshow (forward/back controls).
 
-Start studio once with `lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`; HMR updates on file edits. URL is also in `.lamina/preview-state.yaml`.
+Start studio once with `lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`; HMR updates on file edits. URL is also in `.lamina/preview-state.yaml`.
 
 ## Brownfield extraction (existing screens)
 
@@ -253,7 +253,7 @@ Manifest presence enables fidelity checks. No manifest file = greenfield path (c
 | 2 | For **existing** only: resolve `source` from run evidence or user path; read source; add screen row to `run.yaml` `screens[]` |
 | 3 | Scaffold `flows.tsx` — all steps, existing + new |
 | 4 | Hydrate **existing** screens from manifest; **design new** screens directly (no manifest row) |
-| 5 | `lamina-blueprint validate` — fix all errors before preview |
+| 5 | `lamina-studio validate` — fix all errors before preview |
 | 6 | **Self-check (existing only):** re-read each `source` file; confirm no key region or CTA was dropped |
 
 ### Brownfield screens in `run.yaml`
@@ -303,13 +303,13 @@ Validate enforces `status: existing` screens from linked `run.yaml` — screens 
 
 1. **Create** — new `<id>` (slug from feature name); write `meta.yaml` with `status: draft` and `run_id`
 2. **Scaffold** — write complete `flows.tsx` first (all transitions for every flow)
-3. **Validate scaffold** — `lamina-blueprint validate .lamina/blueprints/<id>` (expect screen-file errors until screens exist — that's OK)
+3. **Validate scaffold** — `lamina-studio validate .lamina/blueprints/<id>` (expect screen-file errors until screens exist — that's OK)
 4. **Hydrate screens** — one flow at a time; entry screen first; then remaining screens per flow
 5. **Validate before preview** — run `validate` again; fix errors before starting preview
-6. **Start studio** — `lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`
+6. **Start studio** — `lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`
 7. **Iterate** — patch files when user requests changes in chat
 8. **Approve** — set `status: approved`; append `### Blueprint handoff` to `runs/<run_id>/report.md`; set `blueprint_id` in `run.yaml`
-9. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`
+9. **Retire** — after implementation confirmed: `lamina-studio retire <id>`; optional one-liner in `decisions.md`
 
 ### Handoff block (on approve)
 

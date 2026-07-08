@@ -28,7 +28,7 @@ function parseArgs(args) {
 export async function runExportGraph(args) {
   const opts = parseArgs(args);
   if (!opts.id) {
-    throw new Error('Usage: lamina-blueprint export-graph --root <dir> --id <id> [--out file.mmd] [--stdout]');
+    throw new Error('Usage: lamina-studio export-graph --root <dir> --id <id> [--out file.mmd] [--stdout]');
   }
 
   const blueprintDir = path.resolve(opts.root, opts.id);

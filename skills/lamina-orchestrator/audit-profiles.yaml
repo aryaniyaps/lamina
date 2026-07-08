@@ -40,14 +40,14 @@ profiles:
     skills:
       - lamina-platform-posture
       - lamina-product-behavior
-      - lamina-blueprint
+      - lamina-studio
 
   ideate-step-6:
     skills:
       - lamina-controls-and-menus
       - lamina-discoverability
       - lamina-forms
-      - lamina-blueprint
+      - lamina-studio
 
   ideate-step-7:
     skills:
@@ -86,7 +86,7 @@ profiles:
     skills:
       - lamina-flow-design
       - lamina-task-analysis
-      - lamina-blueprint
+      - lamina-studio
 
   feature-edge-cases:
     skills:

@@ -1,4 +1,4 @@
-/** SUB components exported from @lamina/blueprint (keep in sync with src/index.ts). */
+/** SUB components exported from @lamina/studio (keep in sync with src/index.ts). */
 export const ALLOWED_COMPONENTS = new Set([
   'Application',
   'Screen',

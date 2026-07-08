@@ -33,9 +33,9 @@ Screens: structure and behavior only — no visual styling specs.
 3. Work through sections 1→9 in order.
 4. **Step 4 — Flows + persona panel:** Write `flows[]` and `screens[]` to `run.yaml` per [artifacts.md](../artifacts.md); record ids in `flows_touched`. Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Add `simulation` to `run.yaml` (include `screen_id`/`flow_id` on blockers); reconcile narrative into `report.md`.
 5. After sections 3 and 6, offer checkpoint — prompt `checkpoints/continue-or-revise` (skip if user asked for full pass).
-6. **Steps 5, 6, and end (before merge):** Offer optional UX Review Studio — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Read `run.yaml` to author `screens/` + `flows.tsx`; set `blueprint_id` in `run.yaml` and `run_id` in `meta.yaml`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
+6. **Steps 5, 6, and end (before merge):** Offer optional UX Review Studio — prompt `checkpoints/blueprint-preview`. Load [lamina-studio](../../lamina-studio/SKILL.md). Read `run.yaml` to author `screens/` + `flows.tsx`; set `blueprint_id` in `run.yaml` and `run_id` in `meta.yaml`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
 7. **Step 9:** Map simulation blockers to real usability test tasks.
-8. Merge into narrative contract — prompt `outputs/design-concept`. Write `runs/<run_id>/report.md`. Run `lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml`.
+8. Merge into narrative contract — prompt `outputs/design-concept`. Write `runs/<run_id>/report.md`. Run `lamina-studio validate run .lamina/runs/<run_id>/run.yaml`.
 9. On conflicts, load `lamina-decision-making` per [merge-rules.md](../merge-rules.md); append to global `decisions.md` with `run_id`.
 
 ## Subagent hints

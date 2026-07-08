@@ -11,7 +11,7 @@ export function assertPreviewContext(componentName: string): void {
 
   if (!inPreview && !inNodePreview) {
     throw new Error(
-      `@lamina/blueprint: <${componentName}> is a planning artifact only. ` +
+      `@lamina/studio: <${componentName}> is a planning artifact only. ` +
         'Do not import in production code. Read .lamina/blueprints/ as a spec.',
     );
   }

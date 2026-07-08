@@ -39,7 +39,7 @@ From a local clone (run from **your app repo**, or use the published GitHub URL 
 npx skills add /path/to/lamina -a cursor -a claude-code -a codex -a pi -y
 ```
 
-**Contributors:** do not run `npx skills add .` from the Lamina repo root — it duplicates skills into `.agents/`, `.windsurf/`, etc. Eval harnesses install via [`evals/harness-sandbox/`](evals/harness-sandbox/). If polluted, run `bash evals/scripts/clean-root-pollution.sh`.
+**Contributors:** do not run `npx skills add .` from the Lamina repo root — it duplicates skills into `.agents/`, `.windsurf/`, etc. Eval harnesses install via [`evals/harness-sandbox/`](evals/harness-sandbox/). Building UX Review Studio itself: install from [`packages/lamina-studio/`](packages/lamina-studio/) (`npm run setup:skills`). If polluted, run `bash evals/scripts/clean-root-pollution.sh`.
 
 This installs:
 
@@ -83,7 +83,7 @@ npx skills remove lamina
 5. **Optional: UX Review Studio** — if blueprint artifacts were generated in your project:
 
    ```bash
-   lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
+   lamina-studio review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
    ```
 
 Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow."*
@@ -226,8 +226,8 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local **UX Review Studio** — People, Flows, Screens, and Scenarios views:
 
 ```bash
-lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
-# from repo root without install: node packages/lamina-blueprint/cli/index.js review --root ...
+lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
+# from repo root without install: node packages/lamina-studio/cli/index.js review --root ...
 ```
 
 | CLI command | Description |
@@ -237,7 +237,7 @@ lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ens
 | `export-graph` | Export flow graph as Mermaid |
 | `retire` | Delete a blueprint directory |
 
-See [`skills/lamina-blueprint/SKILL.md`](skills/lamina-blueprint/SKILL.md).
+See [`skills/lamina-studio/SKILL.md`](skills/lamina-studio/SKILL.md).
 
 ---
 

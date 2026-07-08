@@ -53,7 +53,7 @@ export function blueprintApiPlugin(blueprintRoot: string) {
   const laminaRoot = resolveLaminaRoot(root);
 
   return {
-    name: 'lamina-blueprint-api',
+    name: 'lamina-studio-api',
     configureServer(server: {
       middlewares: {
         use: (fn: (req: unknown, res: unknown, next: () => void) => void) => void;

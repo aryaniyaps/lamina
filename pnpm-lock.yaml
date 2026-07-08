@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@lamina/blueprint':
+      '@lamina/studio':
         specifier: workspace:*
-        version: link:packages/lamina-blueprint
+        version: link:packages/lamina-studio
     devDependencies:
       agent-skills-eval:
         specifier: ^0.1.1
@@ -19,7 +19,7 @@ importers:
         specifier: ^0.121.0
         version: 0.121.17(@aws-sdk/credential-provider-node@3.972.62)(@smithy/signature-v4@5.6.2)(@types/json-schema@7.0.15)(@types/node@22.20.0)(pg@8.22.0)(playwright-core@1.61.1)(socks@2.8.9)
 
-  packages/lamina-blueprint:
+  packages/lamina-studio:
     dependencies:
       '@xyflow/react':
         specifier: ^12.11.1

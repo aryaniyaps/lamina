@@ -62,7 +62,7 @@ When routing to a single capability:
 | Did my action work? | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
 | Observe real behavior in context | [field-research](../lamina-field-research/SKILL.md) |
 | Workflow excise, orchestration | [flow-design](../lamina-flow-design/SKILL.md) |
-| Wireframe preview, screen structure | [blueprint](../lamina-blueprint/SKILL.md) |
+| Wireframe preview, screen structure | [blueprint](../lamina-studio/SKILL.md) |
 | Form abandonment, validation pain | [forms](../lamina-forms/SKILL.md) |
 | Nielsen heuristics, no users yet | [heuristic-review](../lamina-heuristic-review/SKILL.md) |
 | Structure content and data | [information-architecture](../lamina-information-architecture/SKILL.md) |

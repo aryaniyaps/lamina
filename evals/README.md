@@ -89,7 +89,7 @@ Workflow artifact quality is tested inside `lamina-design` and `lamina-audit` su
 | Blueprint checkpoint | `design-feature-blueprint-accept`, `design-feature-blueprint-decline`, `audit-blueprint-accept` | `blueprint offer made`, `blueprint validate passes`, `no blueprint without consent` |
 | Flow design (direct) | `cap-flow-design-framework` | `read skill lamina-flow-design` |
 
-Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lamina-blueprint validate` for blueprint/scenario checks).
+Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lamina-studio validate` for blueprint/scenario checks).
 
 ## Regenerating evals
 

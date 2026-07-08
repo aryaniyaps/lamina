@@ -40,7 +40,7 @@ export default defineConfig(() => {
       react(),
       blueprintApiPlugin(blueprintRoot),
       {
-        name: 'lamina-blueprint-config',
+        name: 'lamina-studio-config',
         configureServer(server) {
           server.middlewares.use('/__lamina/config', (_req, res) => {
             res.setHeader('Content-Type', 'application/json');
@@ -80,7 +80,7 @@ export default defineConfig(() => {
     },
     resolve: {
       alias: {
-        '@lamina/blueprint': path.resolve(packageRoot, 'src/index.ts'),
+        '@lamina/studio': path.resolve(packageRoot, 'src/index.ts'),
         '@blueprint': blueprintDir,
       },
     },

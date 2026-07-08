@@ -306,7 +306,7 @@
       "prompt": "/lamina — Wireframe preview structure for login screen.",
       "force_skill_invocation": true,
       "assertions": [
-        "read skill lamina-blueprint",
+        "read skill lamina-studio",
         "ux guidance only",
         "Output mentions blueprint or wireframe"
       ]

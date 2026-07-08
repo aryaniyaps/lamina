@@ -11,7 +11,7 @@ metadata:
       - "permission and conflict UX"
       - "data-driven edge cases"
     related:
-      - lamina-blueprint
+      - lamina-studio
       - lamina-error-handling
       - lamina-empty-states
       - lamina-feedback-and-status
@@ -88,7 +88,7 @@ Coverage lives in `run.yaml`. Variant TSX is optional — use when the edge case
 | `redirect` | Different screen or `ErrorState` with navigation action |
 | `alternate_flow` | New `<Flow id>` + flow overrides — no variant file required for branch entry |
 
-Run `lamina-blueprint validate` after writing scenarios.
+Run `lamina-studio validate` after writing scenarios.
 
 ## Output contract
 
@@ -110,7 +110,7 @@ Run `lamina-blueprint validate` after writing scenarios.
 
 ## Related capabilities
 
-- [Blueprint](../lamina-blueprint/SKILL.md) — scenarios schema and UX Review Studio
+- [Blueprint](../lamina-studio/SKILL.md) — scenarios schema and UX Review Studio
 - [Error Handling](../lamina-error-handling/SKILL.md) — message and recovery patterns
 - [Empty States](../lamina-empty-states/SKILL.md) — blank slate guidance
 - [Feedback and Status](../lamina-feedback-and-status/SKILL.md) — loading and async feedback

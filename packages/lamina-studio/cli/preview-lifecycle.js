@@ -109,7 +109,7 @@ export function openInBrowser(url) {
 }
 
 export function spawnPreviewServer({ root, id, runId, port, detached }) {
-  const configPath = path.join(os.tmpdir(), `lamina-blueprint-${port}.json`);
+  const configPath = path.join(os.tmpdir(), `lamina-studio-${port}.json`);
   fs.writeFileSync(configPath, JSON.stringify({ root, id, runId, port }));
 
   const viteBin = path.join(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');

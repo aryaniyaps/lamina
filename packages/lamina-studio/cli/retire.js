@@ -17,7 +17,7 @@ function parseArgs(args) {
 
 export async function runRetire(args) {
   const opts = parseArgs(args);
-  if (!opts.id) throw new Error('Usage: lamina-blueprint retire <id> [--root <dir>]');
+  if (!opts.id) throw new Error('Usage: lamina-studio retire <id> [--root <dir>]');
 
   const blueprintDir = path.resolve(opts.root, opts.id);
   if (!fs.existsSync(blueprintDir)) {

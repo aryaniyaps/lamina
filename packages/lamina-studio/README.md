@@ -1,16 +1,16 @@
-# @lamina/blueprint
+# @lamina/studio
 
 Semantic UX blueprint components and **UX Review Studio** — visual review of personas, flows, edge-case coverage, and greyscale wireframes for Lamina.
 
 ## CLI
 
 ```bash
-lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
-lamina-blueprint preview --root .lamina/blueprints --id <id>   # legacy alias; add --run
-lamina-blueprint export-graph --root .lamina/blueprints --id <id> --stdout
-lamina-blueprint validate .lamina/blueprints/<id>
-lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
-lamina-blueprint retire <id> --root .lamina/blueprints
+lamina-studio review --root .lamina/blueprints --run <run_id> --id <id>
+lamina-studio preview --root .lamina/blueprints --id <id>   # legacy alias; add --run
+lamina-studio export-graph --root .lamina/blueprints --id <id> --stdout
+lamina-studio validate .lamina/blueprints/<id>
+lamina-studio validate run .lamina/runs/<run_id>/run.yaml
+lamina-studio retire <id> --root .lamina/blueprints
 ```
 
 ## UX Review Studio
@@ -25,7 +25,7 @@ Four views at one local URL:
 | **Scenarios** | `run.yaml` scenarios — Gaps, Matrix, Gallery |
 
 ```bash
-lamina-blueprint review --root .lamina/blueprints --run demo --id demo --ensure --open
+lamina-studio review --root .lamina/blueprints --run demo --id demo --ensure --open
 ```
 
 Writes `.lamina/preview-state.yaml`. `--ensure` starts background server if not running; `--open` uses system browser.
@@ -44,7 +44,22 @@ People, Flows, and Scenarios work with `--run` alone. Screens requires linked bl
 
 ## Components
 
-Import from `@lamina/blueprint`. See `skills/lamina-blueprint/SKILL.md` for the full SUB taxonomy and generation rules.
+Import from `@lamina/studio`. See `skills/lamina-studio/SKILL.md` for the full SUB taxonomy and generation rules.
+
+## Developing with Lamina (dogfooding)
+
+Open `packages/lamina-studio` as the Cursor workspace (not the repo root) and install the full Lamina skill bundle to design and build UX Review Studio with Lamina itself:
+
+```bash
+cd packages/lamina-studio
+npm run setup:skills
+```
+
+This runs `npx skills add ../.. --skill '*' -a cursor -y --copy` — all Lamina skills (`/lamina`, orchestrator, capability skills, `lamina-studio`, etc.) as independent copies in `.agents/skills/`.
+
+After canonical skill changes at repo root, refresh with `npm run setup:skills` or `npx skills update -y` from this directory.
+
+Do **not** run `npx skills add` from the Lamina repo root (see root `README.md`).
 
 ## Validation
 

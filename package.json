@@ -28,7 +28,7 @@
     "promptfoo": "^0.121.0"
   },
   "dependencies": {
-    "@lamina/blueprint": "workspace:*"
+    "@lamina/studio": "workspace:*"
   },
   "engines": {
     "node": ">=20"

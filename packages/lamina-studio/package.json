@@ -1,5 +1,5 @@
 {
-  "name": "@lamina/blueprint",
+  "name": "@lamina/studio",
   "version": "0.1.0",
   "description": "Semantic UX blueprint components and UX Review Studio for Lamina",
   "type": "module",
@@ -9,12 +9,13 @@
     ".": "./src/index.ts"
   },
   "bin": {
-    "lamina-blueprint": "./cli/index.js"
+    "lamina-studio": "./cli/index.js"
   },
   "scripts": {
     "build": "tsc --noEmit",
     "preview:dev": "vite --config preview/vite.config.ts",
-    "test": "npm run build"
+    "test": "npm run build",
+    "setup:skills": "npx skills add ../.. --skill '*' -a cursor -y --copy"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.1",

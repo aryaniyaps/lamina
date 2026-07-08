@@ -177,7 +177,7 @@ const laminaEvals = {
       assertions: ['read skill lamina-heuristic-review'],
     }),
     e('router-direct-blueprint', '/lamina — Wireframe preview structure for login screen.', {
-      assertions: ['read skill lamina-blueprint', 'ux guidance only', 'Output mentions blueprint or wireframe'],
+      assertions: ['read skill lamina-studio', 'ux guidance only', 'Output mentions blueprint or wireframe'],
     }),
 
     // Negative controls (~10)

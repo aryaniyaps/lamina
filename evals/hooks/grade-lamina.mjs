@@ -7,8 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
-import { validateBlueprint } from '../../packages/lamina-blueprint/cli/validate.js';
-import { validateRunYaml } from '../../packages/lamina-blueprint/lib/run.mjs';
+import { validateBlueprint } from '../../packages/lamina-studio/cli/validate.js';
+import { validateRunYaml } from '../../packages/lamina-studio/lib/run.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 

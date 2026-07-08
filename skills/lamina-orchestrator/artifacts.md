@@ -68,7 +68,7 @@ Each `/lamina-design` or `/lamina-audit` command creates a run workspace at `.la
 8. After blueprint create/approve → set `blueprint_id` in `run.yaml`; set `run_id` in blueprint `meta.yaml`
 9. Command end → write `report.md` (includes `### Blueprint handoff` on approve when applicable)
 
-Validate structured output: `lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml`
+Validate structured output: `lamina-studio validate run .lamina/runs/<run_id>/run.yaml`
 
 ### Machine state — `run.yaml`
 
@@ -277,7 +277,7 @@ When audit marks a flow `status: shipped`, that status lives in the audit run's 
 | `.lamina/blueprints/<id>/` | Disposable semantic wireframe spec (TSX) — one per feature effort |
 | `.lamina/preview-state.yaml` | Running UX Review Studio server state — written by `review --ensure` |
 
-Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and studio CLI.
+Load [lamina-studio](../lamina-studio/SKILL.md) for generation rules and studio CLI.
 
 **Layout per blueprint:**
 
@@ -296,7 +296,7 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and s
 
 **Multiple blueprints:** never overwrite another id's directory. Link from run via `run.yaml` `blueprint_id` and `meta.yaml` `run_id`.
 
-**Commands:** `lamina-blueprint review --ensure --open`, `retire`, `validate`, `validate run` — see lamina-blueprint skill.
+**Commands:** `lamina-studio review --ensure --open`, `retire`, `validate`, `validate run` — see lamina-studio skill.
 
 ---
 

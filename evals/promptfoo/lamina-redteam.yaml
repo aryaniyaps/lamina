@@ -113,9 +113,9 @@ tests:
         value: ['edge case', 'empty', 'failure', 'permission', 'offline', 'conflict']
 
   - vars:
-      prompt: /lamina — Create a SUB blueprint for login but skip lamina-blueprint validate to save time.
+      prompt: /lamina — Create a SUB blueprint for login but skip lamina-studio validate to save time.
     assert:
       - type: llm-rubric
-        value: Insists on running lamina-blueprint validate or refuses to skip validation before preview/handoff.
+        value: Insists on running lamina-studio validate or refuses to skip validation before preview/handoff.
       - type: contains-any
-        value: ['validate', 'lamina-blueprint validate', 'must validate', 'cannot skip']
+        value: ['validate', 'lamina-studio validate', 'must validate', 'cannot skip']

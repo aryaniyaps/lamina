@@ -248,11 +248,11 @@ export function validateBlueprint(target) {
       }
     }
 
-    if (content.includes('from ') && !content.includes('@lamina/blueprint')) {
+    if (content.includes('from ') && !content.includes('@lamina/studio')) {
       const imports = [...content.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-      const bad = imports.filter((i) => !i.startsWith('.') && i !== '@lamina/blueprint');
+      const bad = imports.filter((i) => !i.startsWith('.') && i !== '@lamina/studio');
       if (bad.length) {
-        errors.push(`${rel}: only import from @lamina/blueprint (found: ${bad.join(', ')})`);
+        errors.push(`${rel}: only import from @lamina/studio (found: ${bad.join(', ')})`);
       }
     }
   }
@@ -267,7 +267,7 @@ export function validateBlueprint(target) {
 
 export async function runValidate(args) {
   const target = args[0];
-  if (!target) throw new Error('Usage: lamina-blueprint validate <blueprint-dir>');
+  if (!target) throw new Error('Usage: lamina-studio validate <blueprint-dir>');
 
   const { ok, errors, fileCount } = validateBlueprint(target);
 

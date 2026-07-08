@@ -11,8 +11,8 @@ After completing this section, offer the UX Review Studio checkpoint (skip if us
 2. Blueprint `meta.yaml` (include `run_id`) + complete `flows.tsx` (all transitions)
 3. Screen TSX files — one flow at a time, entry screen first (`screens/<id>.tsx`)
 4. Scenario variant TSX at `scenarios/<id>/screens/<screen>.tsx` is **optional** — only when documenting a second wireframe state. Coverage and annotations use happy-path screens by default.
-5. `lamina-blueprint validate .lamina/blueprints/<id>` — fix errors before opening studio
-6. `lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`
+5. `lamina-studio validate .lamina/blueprints/<id>` — fix errors before opening studio
+6. `lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`
 
 **Brownfield (any existing screen in the flow):**
 1. Use `run.yaml` `screens[]` with `status: existing`, `source`, and `elements`
@@ -28,4 +28,4 @@ Studio state persists in `.lamina/preview-state.yaml`. Read that file on later t
 
 When starting a new feature, create a **new blueprint id** — never overwrite an in-progress blueprint.
 
-On implementation complete, offer retirement: *"Delete `<id>` blueprint?"* → `lamina-blueprint retire <id>`.
+On implementation complete, offer retirement: *"Delete `<id>` blueprint?"* → `lamina-studio retire <id>`.

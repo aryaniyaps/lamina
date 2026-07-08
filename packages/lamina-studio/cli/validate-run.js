@@ -2,7 +2,7 @@ import { validateRunYaml } from '../lib/run.mjs';
 
 export async function runValidateRun(args) {
   const target = args[0];
-  if (!target) throw new Error('Usage: lamina-blueprint validate run <run.yaml>');
+  if (!target) throw new Error('Usage: lamina-studio validate run <run.yaml>');
 
   const { ok, errors } = validateRunYaml(target);
 
