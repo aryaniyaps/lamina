@@ -257,7 +257,7 @@
     },
     {
       "id": "init-gate-flows-inventory",
-      "prompt": "/lamina-audit — Audit checkout. flows-inventory.yaml exists so init is done.",
+      "prompt": "/lamina-audit — Audit checkout. A prior run.yaml exists so init is done.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,

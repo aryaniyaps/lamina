@@ -588,8 +588,10 @@ function App() {
         {blueprints.length <= 1 ? (
           <span className="sub-preview-topbar-title">{activeBlueprint}</span>
         ) : null}
-        {flowGraphSource === 'flows-inventory' ? (
-          <span className="sub-preview-provisional-badge">Provisional flow (from inventory)</span>
+        {flowGraphSource === 'flows-inventory' || flowGraphSource === 'run.yaml' ? (
+          <span className="sub-preview-provisional-badge">
+            Provisional flow ({flowGraphSource === 'run.yaml' ? 'from run.yaml' : 'from inventory'})
+          </span>
         ) : null}
         <div className="sub-preview-topbar-spacer" />
         {blueprints.length > 1 ? (

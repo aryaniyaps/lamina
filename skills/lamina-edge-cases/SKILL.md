@@ -22,7 +22,7 @@ metadata:
 ---
 # Edge Cases
 
-**Operational thinking at mapping time — not operational storage.** Derive what data and actions exist during the session; capture UX consequences in blueprint `scenarios.yaml`. Never persist a separate domain model artifact.
+**Operational thinking at mapping time — not operational storage.** Derive what data and actions exist during the session; capture UX consequences in `run.yaml` `scenarios[]`. Never persist a separate domain model artifact.
 
 **Guardrail:** User mental model vocabulary only. Never SQL types, ORM names, HTTP paths, or framework-specific terms.
 
@@ -37,7 +37,7 @@ metadata:
 
 Before writing scenarios, build an **ephemeral inventory** in work-plan prose or inline notes — not a YAML file:
 
-1. **Read inputs:** `.lamina/flows-inventory.yaml`, blueprint `screens/` + `flows.tsx` (if exists), `flows-inventory` evidence paths for brownfield production files
+1. **Read inputs:** `run.yaml` `flows[]`/`screens[]`, blueprint `screens/` + `flows.tsx` (if exists), `screens[].source` for brownfield production files
 2. **Per screen, note:**
    - **Data shown:** `Table source`/`columns`, `Field name`, list content, metrics
    - **Actions:** `Button`/`Action`/`Link` triggers, form submits, navigation transitions
@@ -70,8 +70,8 @@ Branch-style edge cases (different navigation path) use `ux: alternate_flow` and
 2. Permission and session expiry checked for mutating operations.
 3. Concurrent edit considered for shared editable resources.
 4. External dependencies flagged for operations that call third-party services.
-5. Each mapped edge case has a `scenarios.yaml` entry when a blueprint exists.
-6. Each scenario entry has a matching variant TSX at `scenarios/<id>/screens/<screen>.tsx`.
+5. Each mapped edge case has a `run.yaml` `scenarios[]` entry.
+6. Each scenario entry has a matching variant TSX at `scenarios/<id>/screens/<screen>.tsx` when blueprint exists.
 7. `trigger.subject` loosely matches the relevant `Table source` or primary data on the screen.
 8. Personas with low literacy or accessibility needs get permission/conflict cases reviewed.
 
@@ -90,23 +90,20 @@ Run `lamina-blueprint validate` after writing scenarios.
 
 ## Output contract
 
-**With blueprint:** write/update `.lamina/blueprints/<id>/scenarios.yaml` + variant TSX files only.
+**Always:** write `scenarios[]` to `run.yaml` during edge-case mapping.
 
-**Without blueprint:** structured markdown table under feature output `### Edge cases`:
+**With blueprint:** write scenario variant TSX at `.lamina/blueprints/<id>/scenarios/<id>/screens/<screen>.tsx`.
 
-| id | screen | category | operation | subject | when | ux | title |
-|----|--------|----------|-----------|---------|------|-----|-------|
+**Never** use markdown tables for edge cases in `report.md`.
 
-Migrate table rows to `scenarios.yaml` when blueprint checkpoint runs.
-
-**On blueprint approve:** salient edge cases summarized in `runs/<run_id>/requirements.md` handoff block — durable record after blueprint retirement.
+**On blueprint approve:** salient edge cases summarized in `report.md` `### Blueprint handoff` section — durable record after blueprint retirement.
 
 ## Anti-patterns
 
 - **UI-only brainstorming:** Listing empty states without identifying which operation/data state triggers them.
 - **Persisted domain model:** Writing a separate entity/operation catalog that drifts from the codebase.
 - **Implementation vocabulary:** "users table", "POST /orders", "Prisma query failed".
-- **Orphan scenarios:** `scenarios.yaml` entry without variant TSX (or alternate flow for `alternate_flow`).
+- **Orphan scenarios:** `run.yaml` scenario without variant TSX when blueprint exists (or alternate flow for `alternate_flow`).
 - **Happy-path-only:** Shipping flows without permission, conflict, or external failure cases for mutating operations.
 
 ## Related capabilities

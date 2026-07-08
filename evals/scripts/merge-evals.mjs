@@ -156,7 +156,7 @@ const laminaEvals = {
     e('init-gate-personas-first', '/lamina-design — Create personas.yaml first, we will do init later.', {
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
     }),
-    e('init-gate-flows-inventory', '/lamina-audit — Audit checkout. flows-inventory.yaml exists so init is done.', {
+    e('init-gate-flows-inventory', '/lamina-audit — Audit checkout. A prior run.yaml exists so init is done.', {
       ...fx('personas-without-init'),
       assertions: ['init-blocked contract headings'],
     }),
@@ -365,7 +365,7 @@ const laminaDesignEvals = {
         'blueprint offer made',
         'blueprint validate passes',
         'no styling in blueprint',
-        'scenarios.yaml valid',
+        'run.yaml scenarios valid',
       ],
     }),
     mt('design-feature-blueprint-decline', [
@@ -406,7 +406,7 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],
     }),
-    e('design-feature-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'File `flows-inventory.yaml` exists'])),
+    e('design-feature-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'run.yaml flows'])),
     e('design-concept-copy', '/lamina-design — Concept for legal terms acceptance UX.', {
       ...fx('greenfield-with-init'),
       assertions: ['design-concept contract headings'],

@@ -256,14 +256,12 @@ function listSimulationFiles(simulationsDir: string): string[] {
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
 }
 
-function readRunBlueprintId(runDir: string): string | undefined {
-  const metaPath = path.join(runDir, 'meta.yaml');
-  if (!fs.existsSync(metaPath)) return undefined;
-  const match = fs.readFileSync(metaPath, 'utf8').match(/^blueprint_id:\s*(.+)$/m);
+function readYamlScalar(source: string, key: string): string | undefined {
+  const match = source.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
   return match ? stripYamlScalar(match[1]) : undefined;
 }
 
-function listRunSimulationFiles(runsDir: string): { file: string; blueprintId?: string }[] {
+function listLegacyRunSimulationFiles(runsDir: string): { file: string; blueprintId?: string; mtime: number }[] {
   if (!fs.existsSync(runsDir)) return [];
   const entries: { file: string; blueprintId?: string; mtime: number }[] = [];
   for (const runId of fs.readdirSync(runsDir)) {
@@ -271,15 +269,43 @@ function listRunSimulationFiles(runsDir: string): { file: string; blueprintId?: 
     if (!fs.statSync(runDir).isDirectory()) continue;
     const simFile = path.join(runDir, 'simulation.yaml');
     if (!fs.existsSync(simFile)) continue;
+    const metaPath = path.join(runDir, 'meta.yaml');
+    const blueprintId = fs.existsSync(metaPath)
+      ? readYamlScalar(fs.readFileSync(metaPath, 'utf8'), 'blueprint_id')
+      : undefined;
     entries.push({
       file: simFile,
-      blueprintId: readRunBlueprintId(runDir),
+      blueprintId,
       mtime: fs.statSync(simFile).mtimeMs,
     });
   }
-  return entries
-    .sort((a, b) => b.mtime - a.mtime)
-    .map(({ file, blueprintId }) => ({ file, blueprintId }));
+  return entries;
+}
+
+function listRunYamlFiles(runsDir: string): { file: string; blueprintId?: string; mtime: number }[] {
+  if (!fs.existsSync(runsDir)) return [];
+  const entries: { file: string; blueprintId?: string; mtime: number }[] = [];
+  for (const runId of fs.readdirSync(runsDir)) {
+    const runDir = path.join(runsDir, runId);
+    if (!fs.statSync(runDir).isDirectory()) continue;
+    const runFile = path.join(runDir, 'run.yaml');
+    if (!fs.existsSync(runFile)) continue;
+    const source = fs.readFileSync(runFile, 'utf8');
+    if (!/^simulation:\s*$/m.test(source) && !/\n\s{2}results:/m.test(source)) continue;
+    entries.push({
+      file: runFile,
+      blueprintId: readYamlScalar(source, 'blueprint_id'),
+      mtime: fs.statSync(runFile).mtimeMs,
+    });
+  }
+  return entries;
+}
+
+function listRunSimulationFiles(runsDir: string): { file: string; blueprintId?: string }[] {
+  const runYaml = listRunYamlFiles(runsDir);
+  const legacy = listLegacyRunSimulationFiles(runsDir);
+  const combined = [...runYaml, ...legacy].sort((a, b) => b.mtime - a.mtime);
+  return combined.map(({ file, blueprintId }) => ({ file, blueprintId }));
 }
 
 function mergeSimulationResults(

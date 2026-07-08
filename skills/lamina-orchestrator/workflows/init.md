@@ -37,7 +37,7 @@ Map skills to sections per business-context skill. Load all inline for establish
 3. Re-apply skills for changed sections only (see staleness table in lamina-business-context).
 4. Merge updates — preserve unchanged sections.
 5. Append changelog entry.
-6. Flag stale downstream artifacts (`personas.yaml`, `flows-inventory.yaml`, etc.).
+6. Flag stale downstream artifacts (`personas.yaml`, prior runs, etc.).
 7. If conflicts with `.lamina/decisions.md`, load `lamina-decision-making`.
 8. Merge into output contract — prompt `outputs/init`.
 
@@ -48,4 +48,4 @@ Map skills to sections per business-context skill. Load all inline for establish
 
 ## Guardrail
 
-UX artifacts only. Do not create `config.yaml`, `insights.md`, `personas.yaml`, `flows-inventory.yaml`, or empty stubs.
+UX artifacts only. Do not create `config.yaml`, `insights.md`, `personas.yaml`, or empty stubs.

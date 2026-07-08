@@ -24,9 +24,9 @@ assert.equal(mixed.ok, true, `mixed-flow should pass: ${mixed.errors.join('; ')}
 const fail = validateBlueprint(blueprintDir('brownfield-fail'));
 assert.equal(fail.ok, false, 'brownfield-fail should not pass');
 assert.ok(
-  fail.errors.some((e) => e.includes('manifest element not found')),
-  `expected manifest fidelity error, got: ${fail.errors.join('; ')}`,
+  fail.errors.some((e) => e.includes('run.yaml element not found')),
+  `expected run.yaml fidelity error, got: ${fail.errors.join('; ')}`,
 );
 
 await runExportGraph(['--root', blueprintRoot, '--id', 'demo', '--stdout']);
-console.log('validate-test OK — demo, mixed-flow pass; brownfield-fail rejects manifest drift');
+console.log('validate-test OK — demo, mixed-flow pass; brownfield-fail rejects run.yaml drift');

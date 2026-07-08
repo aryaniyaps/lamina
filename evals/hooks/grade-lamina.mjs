@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { validateBlueprint } from '../../packages/lamina-blueprint/cli/validate.js';
+import { validateRunYaml } from '../../packages/lamina-blueprint/lib/run.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -138,7 +139,27 @@ function findBlueprintDirs(workspace, newFiles = []) {
   return [...dirs];
 }
 
+function findRunYamlFiles(workspace) {
+  const runsRoot = path.join(workspace, '.lamina/runs');
+  if (!fs.existsSync(runsRoot)) return [];
+  const files = [];
+  for (const entry of fs.readdirSync(runsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const runFile = path.join(runsRoot, entry.name, 'run.yaml');
+    if (fs.existsSync(runFile)) files.push(runFile);
+  }
+  return files;
+}
+
 function readScenariosText(workspace, blueprintDirs) {
+  for (const runFile of findRunYamlFiles(workspace)) {
+    try {
+      const text = fs.readFileSync(runFile, 'utf8');
+      if (text.includes('scenarios:')) return text;
+    } catch {
+      /* ignore */
+    }
+  }
   for (const dir of blueprintDirs) {
     const file = path.join(dir, 'scenarios.yaml');
     if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
@@ -364,7 +385,8 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('no implementation vocabulary')) {
-    const edgeSection = output.split(/### Edge cases/i)[1] ?? output;
+    const runText = findRunYamlFiles(workspace).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const edgeSection = `${runText}\n${output.split(/### Edge cases/i)[1] ?? output}`;
     const passed = !IMPL_VOCAB_PATTERNS.test(edgeSection);
     return hookResult(
       text,
@@ -373,11 +395,22 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('scenarios.yaml valid')) {
+  if (lower.includes('scenarios.yaml valid') || lower.includes('run.yaml scenarios valid')) {
+    const runFiles = findRunYamlFiles(workspace);
+    for (const runFile of runFiles) {
+      const result = validateRunYaml(runFile);
+      if (result.run.scenarios?.length) {
+        return hookResult(
+          text,
+          result.ok,
+          result.ok ? `run.yaml scenarios valid (${path.basename(path.dirname(runFile))})` : result.errors.join('; '),
+        );
+      }
+    }
     const dirs = findBlueprintDirs(workspace, newFiles);
     const withScenarios = dirs.filter((d) => fs.existsSync(path.join(d, 'scenarios.yaml')));
     if (!withScenarios.length) {
-      return hookResult(text, false, 'No scenarios.yaml found in blueprint dirs');
+      return hookResult(text, false, 'No scenarios in run.yaml or scenarios.yaml in blueprint dirs');
     }
     for (const dir of withScenarios) {
       const result = validateBlueprint(dir);
@@ -386,6 +419,32 @@ function gradeAssertion(text, ctx) {
       }
       return hookResult(text, false, result.errors.join('; '));
     }
+  }
+
+  if (lower.includes('run.yaml valid') || lower.includes('run.yaml structured')) {
+    const runFiles = findRunYamlFiles(workspace);
+    if (!runFiles.length) {
+      return hookResult(text, false, 'No run.yaml found under .lamina/runs/');
+    }
+    const latest = runFiles.sort().at(-1);
+    const result = validateRunYaml(latest);
+    return hookResult(
+      text,
+      result.ok,
+      result.ok ? `run.yaml valid (${path.basename(path.dirname(latest))})` : result.errors.join('; '),
+    );
+  }
+
+  if (lower.includes('run.yaml flows')) {
+    const runFiles = findRunYamlFiles(workspace);
+    const hasFlows = runFiles.some((f) => {
+      try {
+        return fs.readFileSync(f, 'utf8').includes('\nflows:');
+      } catch {
+        return false;
+      }
+    });
+    return hookResult(text, hasFlows, hasFlows ? 'run.yaml flows[] present' : 'No flows[] in run.yaml');
   }
 
   if (lower.includes('blueprint validate passes')) {
@@ -428,20 +487,34 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('persona simulation file exists')) {
-    const simNew = newFiles.filter((f) =>
-      /\.lamina\/runs\/.+\/simulation\.yaml$/i.test(normalizePath(f)),
-    );
-    const simExists = workspaceFiles.some(
+    const simNew = newFiles.filter((f) => {
+      const p = normalizePath(f);
+      return /\.lamina\/runs\/.+\/run\.yaml$/i.test(p) || /\.lamina\/runs\/.+\/simulation\.yaml$/i.test(p);
+    });
+    const runYamlExists = workspaceFiles.some((f) => f.includes('/runs/') && f.endsWith('/run.yaml'));
+    const legacySimExists = workspaceFiles.some(
       (f) => f.includes('/runs/') && f.endsWith('/simulation.yaml'),
     );
-    const legacyExists = workspaceFiles.some(
+    const legacyPersonasSim = workspaceFiles.some(
       (f) => f.includes('personas/simulations/') && f.endsWith('.yaml'),
     );
-    const passed = simNew.length > 0 || simExists || legacyExists;
+    const runYamlHasSimulation =
+      runYamlExists &&
+      workspaceFiles
+        .filter((f) => f.endsWith('/run.yaml'))
+        .some((f) => {
+          try {
+            return fs.readFileSync(f, 'utf8').includes('simulation:');
+          } catch {
+            return false;
+          }
+        });
+    const passed =
+      simNew.length > 0 || runYamlHasSimulation || legacySimExists || legacyPersonasSim;
     return hookResult(
       text,
       passed,
-      passed ? 'Persona simulation YAML found' : 'No .lamina/runs/*/simulation.yaml',
+      passed ? 'Persona simulation data found' : 'No simulation in .lamina/runs/*/run.yaml',
     );
   }
 
@@ -478,8 +551,19 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('edge cases section present')) {
-    const passed = /### Edge cases/i.test(allOutput);
-    return hookResult(text, passed, passed ? '### Edge cases heading present' : 'Missing ### Edge cases section');
+    const runHasScenarios = findRunYamlFiles(workspace).some((f) => {
+      try {
+        return fs.readFileSync(f, 'utf8').includes('scenarios:');
+      } catch {
+        return false;
+      }
+    });
+    const passed = runHasScenarios || /### Edge cases/i.test(allOutput);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'scenarios in run.yaml or ### Edge cases in report' : 'Missing run.yaml scenarios and ### Edge cases section',
+    );
   }
 
   if (lower.includes('blueprint offer made')) {

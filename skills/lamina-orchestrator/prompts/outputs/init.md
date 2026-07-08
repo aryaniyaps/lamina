@@ -11,7 +11,7 @@ Gaps that block good UX work
 ### Artifacts
 Path and what was written or changed
 ### Stale downstream artifacts
-update mode only — personas, flows-inventory, etc.
+update mode only — personas, prior runs, etc.
 ### Recommended next step
 One command and why — not persisted
 ### Skills applied

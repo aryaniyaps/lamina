@@ -33,20 +33,20 @@ metadata:
 
 ```
 .lamina/blueprints/<id>/
-  meta.yaml           # id, title, status: draft | approved
-  structure-manifest.yaml  # optional — existing-screen checklist (brownfield only)
+  meta.yaml           # id, title, status, run_id (link to run.yaml scenarios)
   app.tsx             # optional root
   flows.tsx           # Transition edges
   screens/
     <screen-id>.tsx
   flows/
     <flow-id>/screens/  # optional per-flow overrides (alternate flows, optimize variants)
-  scenarios.yaml        # structured edge-case inventory for preview
   scenarios/
     <scenario-id>/screens/<screen-id>.tsx  # screen variant (empty, error, etc.)
 ```
 
-Each blueprint is **disposable** — delete after implementation. Durable record per run: `runs/<run_id>/output.md`, `requirements.md`, `implementation-tasks.md`, plus global `flows-inventory.yaml`.
+Read `run.yaml` `flows`, `screens`, and `scenarios` before authoring blueprint TSX. **No codegen** — write TSX by hand.
+
+Each blueprint is **disposable** — delete after implementation. Durable record per run: `runs/<run_id>/run.yaml` and `report.md`.
 
 **Multiple blueprints:** one directory per feature effort. Never overwrite another blueprint's files.
 
@@ -98,10 +98,10 @@ Map each edge case to a **screen variant** in the blueprint (not a separate navi
 
 Load [lamina-edge-cases](../lamina-edge-cases/SKILL.md) for systematic discovery via transient operation inventory and outcome matrix.
 
-**`scenarios.yaml`** — single source of truth per blueprint (required fields):
+**Scenarios** — inventory lives in linked `run.yaml` `scenarios[]`. Preview reads via `meta.yaml` `run_id`. Blueprint holds variant TSX only.
 
 ```yaml
-scenarios:
+# run.yaml scenarios[] (required fields per entry):
   - id: empty-orders
     title: No orders yet
     screen: orders
@@ -118,7 +118,7 @@ scenarios:
 
 **Variant file:** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use `EmptyState`, `ErrorState`, `Alert`, etc. per `ux` field.
 
-When no blueprint exists yet, document edge cases as a structured table in design feature track output (`### Edge cases`); migrate to `scenarios.yaml` + variant files when blueprint checkpoint runs.
+When no blueprint exists yet, write edge cases to `run.yaml` `scenarios[]` during the feature track. Write scenario variant TSX at blueprint checkpoint.
 
 Preview shows scenarios as **dashed branches** on the flow graph; click a branch node to load the variant; click the main screen node to return to the happy path.
 
@@ -162,7 +162,7 @@ export default function Flows() {
 
 Optional `<Flow id="...">` groups transitions when multiple flows exist. Per-flow screen overrides live at `flows/<flow-id>/screens/<screen>.tsx` and fall back to `screens/<screen>.tsx`. Preview shows a flow graph on the right; pick a flow, click nodes, or click highlighted hotspot triggers (`data-trigger`) to navigate the active flow.
 
-Screen `id` values must match entries in `.lamina/flows-inventory.yaml`.
+Screen `id` values must match `run.yaml` `screens[]` ids.
 
 ## Preview CLI
 
@@ -173,13 +173,14 @@ lamina-blueprint preview --root .lamina/blueprints --list
 lamina-blueprint export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd]
 lamina-blueprint retire <id> --root .lamina/blueprints
 lamina-blueprint validate .lamina/blueprints/<id>
+lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
 ```
 
 **Lifecycle:** Use `--ensure` to start preview in the background (idempotent — reuses running server). Use `--open` to open the system default browser (cross-platform; not IDE-specific). State is written to `.lamina/preview-state.yaml` (`id`, `port`, `url`, `pid`, `root`, `startedAt`). Read that file on later turns instead of re-spawning.
 
 **Agent verification:** `curl http://localhost:<port>/__lamina/state?id=<id>&flowId=<flow>` returns per-screen completeness (`complete` | `skeleton` | `error`). Use before printing the preview URL to the user.
 
-Preview features (v2): dark greyscale wireframes, right-side **React Flow** graph (pan/zoom, scenario branches, transition labels, skeleton/error node badges), flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Missing screen files render as **skeleton placeholders** instead of errors. When `flows.tsx` is absent, preview falls back to a **provisional graph** from `.lamina/flows-inventory.yaml`. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
+Preview features (v2): dark greyscale wireframes, right-side **React Flow** graph (pan/zoom, scenario branches, transition labels, skeleton/error node badges), flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Missing screen files render as **skeleton placeholders** instead of errors. When `flows.tsx` is absent, preview falls back to a **provisional graph** from linked `run.yaml` `flows[]` (via `meta.yaml` `run_id`), or legacy `flows-inventory.yaml` if present. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
 
 ### Persona lens (preview)
 
@@ -199,7 +200,7 @@ personas:
     # ...other required persona fields
 ```
 
-Simulation results load from `.lamina/runs/*/simulation.yaml` (prefer runs whose `meta.blueprint_id` matches the active blueprint; latest per persona otherwise). Blocker `step` must match a screen id for graph dots. Personas annotate the active flow; they do not add graph branches (scenarios do).
+Simulation results load from `.lamina/runs/*/run.yaml` `simulation` (prefer runs whose `blueprint_id` matches the active blueprint; latest per persona otherwise). Blocker `step` must match a screen id for graph dots. Personas annotate the active flow; they do not add graph branches (scenarios do).
 
 Preview shows a DiceBear avatar per persona, with frustrations and simulation quotes in a chat-bubble slideshow (forward/back controls).
 
@@ -213,7 +214,7 @@ Use when a blueprint includes **existing production screens** — audit findings
 
 | Screen type | Signal | Manifest row? |
 |-------------|--------|---------------|
-| **Existing** | `flows-inventory.yaml` `status: shipped` + `evidence`, or user cites route/file | Yes — `source` + `elements` |
+| **Existing** | prior run `flows[]` `status: shipped` + `evidence`, or user cites route/file | Yes — `run.yaml` `screens[]` with `status: existing`, `source` + `elements` |
 | **New** | `status: planned`, or introduced in this feature | No — design directly in `screens/<id>.tsx` |
 | **Optimize override** | `flows/<flow-id>/screens/` variant | No — standard validate only |
 
@@ -224,32 +225,27 @@ Manifest presence enables fidelity checks. No manifest file = greenfield path (c
 | Step | Action |
 |------|--------|
 | 1 | Classify each flow step: **existing** vs **new** |
-| 2 | For **existing** only: resolve `source` from inventory `evidence` or user path; read source; add row to `structure-manifest.yaml` |
+| 2 | For **existing** only: resolve `source` from run evidence or user path; read source; add screen row to `run.yaml` `screens[]` |
 | 3 | Scaffold `flows.tsx` — all steps, existing + new |
 | 4 | Hydrate **existing** screens from manifest; **design new** screens directly (no manifest row) |
 | 5 | `lamina-blueprint validate` — fix all errors before preview |
 | 6 | **Self-check (existing only):** re-read each `source` file; confirm no key region or CTA was dropped |
 
-### `structure-manifest.yaml` (partial manifest is valid)
+### Brownfield screens in `run.yaml`
 
 ```yaml
 screens:
   - id: cart
+    status: existing
     source: app/cart/page.tsx
     regions: [Page, Main]
     elements:
       - { component: Heading, text: Your cart }
       - { component: Table, columns: [Item, Qty, Price] }
       - { component: Button, label: Checkout, trigger: to-checkout }
-  # gift-message — new screen: no row here
-  - id: checkout
-    source: app/checkout/page.tsx
-    elements:
-      - { component: Heading, text: Checkout }
-      - { component: Form }
 ```
 
-Validate enforces manifest rows only — screens without a row pass with standard checks.
+Validate enforces `status: existing` screens from linked `run.yaml` — screens without existing status pass with standard checks.
 
 ### Production → SUB mapping
 
@@ -280,15 +276,15 @@ Validate enforces manifest rows only — screens without a row pass with standar
 
 ## Workflow
 
-1. **Create** — new `<id>` (slug from feature name); write `meta.yaml` with `status: draft`
+1. **Create** — new `<id>` (slug from feature name); write `meta.yaml` with `status: draft` and `run_id`
 2. **Scaffold** — write complete `flows.tsx` first (all transitions for every flow)
 3. **Validate scaffold** — `lamina-blueprint validate .lamina/blueprints/<id>` (expect screen-file errors until screens exist — that's OK)
 4. **Hydrate screens** — one flow at a time; entry screen first; then remaining screens per flow
 5. **Validate before preview** — run `validate` again; fix errors before starting preview
 6. **Start preview** — `lamina-blueprint preview --root .lamina/blueprints --id <id> --ensure --open`
 7. **Iterate** — patch files when user requests changes in chat
-8. **Approve** — set `status: approved`; append handoff block to `runs/<run_id>/requirements.md`; set `meta.blueprint_id`
-9. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`; update `flows-inventory.yaml` to `shipped`
+8. **Approve** — set `status: approved`; append `### Blueprint handoff` to `runs/<run_id>/report.md`; set `blueprint_id` in `run.yaml`
+9. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`
 
 ### Handoff block (on approve)
 
@@ -303,16 +299,16 @@ Tasks must reference **screen/flow names**, not blueprint file paths.
 
 ## Optimize (flow-level only)
 
-Lamina **optimizes entire flows**, not isolated screens. Audit and blueprint work target a **named flow** from `.lamina/flows-inventory.yaml` (or a new flow you are proposing).
+Lamina **optimizes entire flows**, not isolated screens. Audit and blueprint work target a **named flow** from `run.yaml` `flows[]` (or prior runs).
 
-When evidence exists, write **`structure-manifest.yaml` for audited (shipped) screens before** hydrating blueprint TSX. Proposed changes go in `screens/` or `flows/<id>/screens/` overrides — overrides have no manifest row.
+When evidence exists, write **`run.yaml` `screens[]` with `status: existing` for audited screens before** hydrating blueprint TSX. Proposed changes go in `screens/` or `flows/<id>/screens/` overrides — overrides have no manifest row.
 
 Two ways to express an optimization in a blueprint:
 
 1. **Edit `screens/`** — update the designed state for the step under test (preview shows it directly).
 2. **New alternate flow** — add `<Flow id="...">` with `flows/<id>/screens/` overrides where steps differ; compare by switching flows in the preview picker.
 
-Edge-case states use `scenarios.yaml` branches on the graph, not separate audit artifacts.
+Edge-case states use `run.yaml` `scenarios[]` branches on the graph (variant TSX in blueprint).
 
 ## Checkpoint
 

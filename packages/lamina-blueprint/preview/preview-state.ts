@@ -8,7 +8,7 @@ import { loadFlowGraphFromDisk } from './flow-graph-loader.js';
 export interface BlueprintStateResponse {
   blueprintId: string;
   flowId: string;
-  source: 'flows.tsx' | 'flows-inventory' | 'screens-only';
+  source: 'flows.tsx' | 'run.yaml' | 'flows-inventory' | 'screens-only';
   screens: string[];
   completeness: {
     complete: number;
@@ -58,7 +58,7 @@ export function buildBlueprintState(
     screens: screens.length ? screens.sort() : graph.screens,
     completeness: { complete, skeleton, error, total },
     screenMeta: screenMetaSummary,
-    provisional: source === 'flows-inventory',
+    provisional: source === 'flows-inventory' || source === 'run.yaml',
   };
 }
 

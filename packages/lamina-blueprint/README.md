@@ -8,6 +8,7 @@ Semantic UX blueprint components and dark greyscale wireframe preview for Lamina
 lamina-blueprint preview --root .lamina/blueprints --id <id>
 lamina-blueprint export-graph --root .lamina/blueprints --id <id> --stdout
 lamina-blueprint validate .lamina/blueprints/<id>
+lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
 lamina-blueprint retire <id> --root .lamina/blueprints
 ```
 
@@ -16,9 +17,9 @@ lamina-blueprint retire <id> --root .lamina/blueprints
 - Dark greyscale wireframe renderer (preview CSS only — blueprint TSX stays unstyled)
 - Flow graph with **scenario branches** (dashed edges) — click nodes or hotspots to navigate
 - **Skeleton screens** for missing TSX files; graph nodes show Pending/Error badges
-- **Provisional flow graph** from `.lamina/flows-inventory.yaml` when `flows.tsx` is absent
+- **Provisional flow graph** from linked `run.yaml` `flows[]` (via `meta.yaml` `run_id`) when `flows.tsx` is absent
 - Per-flow screen overrides at `flows/<flow-id>/screens/<screen>.tsx` (fallback: `screens/`)
-- Edge-case variants at `scenarios/<id>/screens/<screen>.tsx` (see `scenarios.yaml` — requires `category`, `trigger`, `ux`)
+- Edge-case variants at `scenarios/<id>/screens/<screen>.tsx` (scenario inventory in linked `run.yaml` `scenarios[]`)
 - Single designed state in the canvas (no baseline/proposed comparison)
 - Viewport presets in the topbar: Mobile (390px), Tablet (768px), Desktop (1280px, default)
 
@@ -41,4 +42,4 @@ Import from `@lamina/blueprint`. See `skills/lamina-blueprint/SKILL.md` for the 
 
 ## Brownfield validation
 
-Optional `structure-manifest.yaml` in a blueprint directory lists **existing** screens (`source` + `elements` checklist). `lamina-blueprint validate` enforces manifest fidelity for listed screens only; new screens without manifest rows use standard checks. See `skills/lamina-blueprint/SKILL.md` § Brownfield extraction.
+`run.yaml` `screens[]` with `status: existing`, `source`, and `elements` defines brownfield fidelity. `lamina-blueprint validate` enforces fidelity for existing screens via `meta.yaml` `run_id`. New screens use standard checks only. See `skills/lamina-blueprint/SKILL.md` § Brownfield extraction.

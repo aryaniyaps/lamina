@@ -52,7 +52,7 @@ metadata:
 
 Personas are **simulated users**, not static documents. Run each persona as an **isolated subagent** (one agent per persona, parallel). Never inline multiple personas in one agent — that averages voices and kills conflict.
 
-**Artifacts:** `.lamina/personas.yaml` (global identity registry) and `.lamina/runs/<run_id>/simulation.yaml` (per-run walkthrough outcomes). Identity is stable across runs; outcomes change every panel. See [artifacts.md](../../lamina-orchestrator/artifacts.md).
+**Artifacts:** `.lamina/personas.yaml` (global identity registry) and `.lamina/runs/<run_id>/run.yaml` `simulation` (per-run walkthrough outcomes). Identity is stable across runs; outcomes change every panel. See [artifacts.md](../../lamina-orchestrator/artifacts.md).
 
 **Simulate via dynamic spawns:** one subagent per persona; each prompt embeds that persona's identity — `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`.
 

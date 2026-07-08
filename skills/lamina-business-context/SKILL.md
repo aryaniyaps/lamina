@@ -125,10 +125,10 @@ When a section changes, flag downstream artifacts that may need refresh:
 | Changed section | May stale |
 |---|---|
 | Users & market | `personas.yaml` — re-run `/lamina-design` concept track step 1 |
-| Scope | `flows-inventory.yaml` entries outside new scope; feature specs in flight |
+| Scope | prior `run.yaml` flows outside new scope; feature specs in flight |
 | Business goals, success metrics | audit prioritization; design feature track metrics sections |
 | Product posture, constraints | design concept track IA and interaction sections |
-| Problem statement (pivot) | personas, flows-inventory, requirements |
+| Problem statement (pivot) | personas, prior runs, requirements |
 
 Never silently overwrite `personas.yaml` or `decisions.md`. Offer explicit refresh or append.
 

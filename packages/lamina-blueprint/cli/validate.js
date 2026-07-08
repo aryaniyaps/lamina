@@ -14,7 +14,8 @@ import {
   scenarioScreenPathInBlueprint,
   validateScenarioFields,
 } from '../lib/scenarios.mjs';
-import { findRepoRoot, validateStructureManifest } from '../lib/structure-manifest.mjs';
+import { findRepoRoot } from '../lib/structure-manifest.mjs';
+import { readBlueprintRunId, validateRunScreensFidelity, loadScenariosFromRun } from '../lib/run.mjs';
 
 const FORBIDDEN_PATTERNS = [
   { name: 'className', pattern: /\bclassName\s*=/ },
@@ -191,7 +192,15 @@ function validateStructure(dir, errors) {
 }
 
 function validateScenarios(dir, errors) {
-  const scenarios = loadScenariosFromBlueprintDir(dir);
+  const runId = readBlueprintRunId(dir);
+  let scenarios = [];
+  if (runId) {
+    const laminaRoot = path.resolve(dir, '../..');
+    scenarios = loadScenariosFromRun(laminaRoot, runId);
+  }
+  if (!scenarios.length) {
+    scenarios = loadScenariosFromBlueprintDir(dir);
+  }
   if (!scenarios.length) return;
 
   for (const s of scenarios) {
@@ -250,7 +259,7 @@ export function validateBlueprint(target) {
   validateComponentWhitelist(dir, files, errors);
   validateStructure(dir, errors);
   validateScenarios(dir, errors);
-  validateStructureManifest(dir, repoRoot, errors);
+  validateRunScreensFidelity(dir, repoRoot, errors);
 
   return { ok: errors.length === 0, errors, fileCount: files.length };
 }

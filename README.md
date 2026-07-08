@@ -155,7 +155,7 @@ Design net-new UX — whole product from a problem (concept track) or one capabi
 /lamina-design Add wishlist feature to our storefront
 ```
 
-**Output:** `.lamina/runs/<run_id>/` (output, simulation, requirements, tasks), `.lamina/personas.yaml` (concept track), `.lamina/flows-inventory.yaml`, optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
+**Output:** `.lamina/runs/<run_id>/` (`run.yaml`, `report.md`), `.lamina/personas.yaml` (concept track), optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
 
 ### `/lamina-audit` — Audit existing flows
 

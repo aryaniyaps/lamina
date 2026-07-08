@@ -5,9 +5,9 @@ import {
   parseFlowsSource,
   type FlowGraphData,
 } from './flow-graph.js';
-import { inventoryToFlowGraph, loadFlowsInventory, resolveLaminaRoot } from './flows-inventory.js';
+import { inventoryToFlowGraph, loadFlowsInventory, loadRunFlowGraph, resolveLaminaRoot } from './flows-inventory.js';
 
-export type FlowGraphSource = 'flows.tsx' | 'flows-inventory' | 'screens-only';
+export type FlowGraphSource = 'flows.tsx' | 'run.yaml' | 'flows-inventory' | 'screens-only';
 
 export function blueprintExists(blueprintRoot: string, blueprintId: string): boolean {
   if (!blueprintId.trim()) return false;
@@ -49,6 +49,15 @@ export function loadFlowGraphFromDisk(
 
   if (fs.existsSync(flowsPath) && graph.transitions.length > 0) {
     return { graph, source: 'flows.tsx' };
+  }
+
+  const fromRun = loadRunFlowGraph(blueprintRoot, blueprintId);
+  if (fromRun && fromRun.transitions.length > 0) {
+    const screens = [...new Set([...fromRun.screens, ...graph.screens])].sort();
+    return {
+      graph: { ...fromRun, screens },
+      source: 'run.yaml',
+    };
   }
 
   const inventory = loadFlowsInventory(resolveLaminaRoot(blueprintRoot));

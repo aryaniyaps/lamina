@@ -139,7 +139,7 @@
         "blueprint offer made",
         "blueprint validate passes",
         "no styling in blueprint",
-        "scenarios.yaml valid"
+        "run.yaml scenarios valid"
       ]
     },
     {
@@ -288,7 +288,7 @@
         "edge case categories covered",
         "no domain model artifact",
         "Output mentions flows",
-        "File `flows-inventory.yaml` exists"
+        "run.yaml flows"
       ]
     },
     {

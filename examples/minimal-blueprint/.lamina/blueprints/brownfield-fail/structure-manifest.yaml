@@ -1,6 +1,0 @@
-screens:
-  - id: login
-    source: examples/minimal-blueprint/fixtures/app/login/page.tsx
-    elements:
-      - { component: Heading, text: Sign in }
-      - { component: Button, label: Missing button, trigger: sign-in }

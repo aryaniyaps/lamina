@@ -29,14 +29,14 @@ Resolve skills from [audit-profiles.yaml](../audit-profiles.yaml).
 0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `outputs/init-blocked` and **STOP**. On success: read `.lamina/business-context.md` and align problem definition and scope with business context.
 1. Emit work plan — prompt `work-plan`.
 2. Work through sections in order (problem → flows).
-3. **After flows:** Append feature flows to `.lamina/flows-inventory.yaml` (`status: planned`) per [artifacts.md](../artifacts.md); record ids in `meta.flows_touched`. [persona-panel](../patterns/persona-panel.md) if `.lamina/personas.yaml` exists; write `runs/<run_id>/simulation.yaml`; feed conflicts into Risks. Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`; load [lamina-blueprint](../../lamina-blueprint/SKILL.md); set `meta.blueprint_id` when created. When the feature reuses shipped screens, classify steps **existing** vs **new**; write `structure-manifest.yaml` for existing only; design new screens directly in blueprint TSX (partial manifest is valid).
-4. Continue remaining sections. For **Edge cases:** load [lamina-edge-cases](../../lamina-edge-cases/SKILL.md); run transient operation inventory; write `scenarios.yaml` + variant TSX when blueprint exists, else structured table in feature output (see [lamina-edge-cases](../../lamina-edge-cases/SKILL.md)).
-5. **Before implementation checklist:** Offer blueprint preview checkpoint again if blueprint exists; approve before writing `runs/<run_id>/requirements.md` and `runs/<run_id>/implementation-tasks.md`.
+3. **After flows:** Write `flows[]` and `screens[]` to `run.yaml` per [artifacts.md](../artifacts.md); record ids in `flows_touched`. [persona-panel](../patterns/persona-panel.md) if `.lamina/personas.yaml` exists; add `simulation` to `run.yaml`; feed conflicts into Risks. Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`; load [lamina-blueprint](../../lamina-blueprint/SKILL.md); read `run.yaml` to author blueprint TSX; set `blueprint_id` in `run.yaml` and `run_id` in `meta.yaml`. When the feature reuses shipped screens, set `screens[].status: existing` with `source` and `elements` in `run.yaml`.
+4. Continue remaining sections. For **Edge cases:** load [lamina-edge-cases](../../lamina-edge-cases/SKILL.md); run transient operation inventory; write `scenarios[]` to `run.yaml`; write scenario variant TSX in blueprint when checkpoint accepted.
+5. **Before implementation checklist:** Offer blueprint preview checkpoint again if blueprint exists; approve before writing `checklist[]` to `run.yaml` and `### Blueprint handoff` to `report.md`.
 6. Accessibility and risks: [parallel-review](../patterns/parallel-review.md) if host supports it.
-7. Merge into output contract — prompt `outputs/design-feature`. Write `runs/<run_id>/output.md`.
+7. Merge into narrative contract — prompt `outputs/design-feature`. Write `runs/<run_id>/report.md`. Run `lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml`.
 8. On conflicts, load `lamina-decision-making`; append to global `decisions.md` with `run_id`.
 
-Implementation checklist: actionable UX tasks with acceptance criteria. Write to `runs/<run_id>/implementation-tasks.md`. No product code.
+Implementation checklist: actionable UX tasks with acceptance criteria in `run.yaml` `checklist[]`. No product code.
 
 ## Subagent hints
 

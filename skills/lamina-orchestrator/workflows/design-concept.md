@@ -29,13 +29,13 @@ Screens: structure and behavior only — no visual styling specs.
 
 0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `outputs/init-blocked` and **STOP**. On success: read `.lamina/business-context.md` and ground all steps in business goals, scope, and constraints.
 1. Emit work plan — prompt `work-plan`.
-2. **Step 1 — Cast:** Write `.lamina/personas.yaml`. Set `meta.personas_updated: true` on the active run; optionally write `runs/<run_id>/personas-snapshot.yaml`. See [artifacts.md](../artifacts.md). Validate against Users & market in business-context.
+2. **Step 1 — Cast:** Write `.lamina/personas.yaml`. Set `personas_updated: true` in `run.yaml`. See [artifacts.md](../artifacts.md).
 3. Work through sections 1→9 in order.
-4. **Step 4 — Flows + persona panel:** After flows, append entries to `.lamina/flows-inventory.yaml` (`status: draft`) per [artifacts.md](../artifacts.md); record ids in `meta.flows_touched`. Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Write `runs/<run_id>/simulation.yaml`; reconcile into Flows section and `output.md`.
+4. **Step 4 — Flows + persona panel:** Write `flows[]` and `screens[]` to `run.yaml` per [artifacts.md](../artifacts.md); record ids in `flows_touched`. Run [persona-panel](../patterns/persona-panel.md). If no flow or screen target is described, list gaps — do not invent UI. Add `simulation` to `run.yaml` (include `screen_id`/`flow_id` on blockers); reconcile narrative into `report.md`.
 5. After sections 3 and 6, offer checkpoint — prompt `checkpoints/continue-or-revise` (skip if user asked for full pass).
-6. **Steps 5, 6, and end (before merge):** Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Step 5: generate `screens/` + `flows.tsx`; set `meta.blueprint_id`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
+6. **Steps 5, 6, and end (before merge):** Offer optional blueprint preview — prompt `checkpoints/blueprint-preview`. Load [lamina-blueprint](../../lamina-blueprint/SKILL.md). Read `run.yaml` to author `screens/` + `flows.tsx`; set `blueprint_id` in `run.yaml` and `run_id` in `meta.yaml`. Step 6: add interaction `metadata` props. End: final review. Not offered at step 4.
 7. **Step 9:** Map simulation blockers to real usability test tasks.
-8. Merge into output contract — prompt `outputs/design-concept`. Write `runs/<run_id>/output.md`.
+8. Merge into narrative contract — prompt `outputs/design-concept`. Write `runs/<run_id>/report.md`. Run `lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml`.
 9. On conflicts, load `lamina-decision-making` per [merge-rules.md](../merge-rules.md); append to global `decisions.md` with `run_id`.
 
 ## Subagent hints

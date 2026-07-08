@@ -20,7 +20,7 @@ First strong match wins. Auto-route from prompt signals and project context — 
 ## Procedure
 
 0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `init-blocked` contract **verbatim** from `outputs/init-blocked.md` and **STOP**.
-1. **Create run** — `.lamina/runs/<run_id>/meta.yaml` per [artifacts.md](../artifacts.md). Set `hook` to `concept` or `feature` after track detection.
+1. **Create run** — `.lamina/runs/<run_id>/run.yaml` per [artifacts.md](../artifacts.md). Set `hook` to `concept` or `feature` after track detection.
 2. Detect track from input signals (table above).
 3. Execute the chosen track through completion. Do not implement product code. UX guidance only.
 

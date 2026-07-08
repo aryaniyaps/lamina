@@ -1,0 +1,60 @@
+id: mixed-flow
+hook: feature
+target: mixed existing and new screens
+command: /lamina-design
+blueprint_id: mixed-flow
+flows_touched: [main]
+personas_updated: false
+started_at: 2026-07-05
+
+flows:
+  - id: main
+    name: Main
+    status: draft
+    graphs:
+      - id: main
+        entry_screen: login
+        transitions:
+          - trigger: sign-in
+            from: login
+            target: welcome
+          - trigger: continue
+            from: welcome
+            target: dashboard
+
+screens:
+  - id: login
+    title: Login
+    status: existing
+    source: examples/minimal-blueprint/fixtures/app/login/page.tsx
+    regions: [Page, Section]
+    elements:
+      - component: Heading
+        text: Sign in
+      - component: Text
+      - component: Form
+      - component: Field
+        label: Email
+        name: email
+      - component: Field
+        label: Password
+        name: password
+      - component: Button
+        label: Sign in
+        trigger: sign-in
+  - id: welcome
+    title: Welcome
+    status: new
+    regions: [main]
+    elements:
+      - component: Heading
+        text: Welcome
+        level: 1
+  - id: dashboard
+    title: Dashboard
+    status: new
+    regions: [main]
+    elements:
+      - component: Heading
+        text: Dashboard
+        level: 1

@@ -257,7 +257,7 @@
     },
     {
       "id": "init-gate-flows-inventory",
-      "prompt": "/lamina-audit — Audit checkout. flows-inventory.yaml exists so init is done.",
+      "prompt": "/lamina-audit — Audit checkout. A prior run.yaml exists so init is done.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -709,7 +709,7 @@
         "blueprint offer made",
         "blueprint validate passes",
         "no styling in blueprint",
-        "scenarios.yaml valid"
+        "run.yaml scenarios valid"
       ]
     },
     {
@@ -858,7 +858,7 @@
         "edge case categories covered",
         "no domain model artifact",
         "Output mentions flows",
-        "File `flows-inventory.yaml` exists"
+        "run.yaml flows"
       ]
     },
     {

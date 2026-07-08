@@ -2,7 +2,7 @@
 
 Hard prerequisite for `/lamina-design`, `/lamina-audit`, and `/lamina` when routing to those workflows.
 
-**Do not infer init** from other `.lamina/` artifacts (`personas.yaml`, `flows-inventory.yaml`, `blueprints/`, `preview-state.yaml`, etc.). Only `.lamina/business-context.md` from `/lamina-init` satisfies this gate.
+**Do not infer init** from other `.lamina/` artifacts (`personas.yaml`, prior `run.yaml`, `blueprints/`, `preview-state.yaml`, etc.). Only `.lamina/business-context.md` from `/lamina-init` satisfies this gate.
 
 **Never treat missing or present `personas.yaml` as an init check.** Personas are downstream design artifacts — not business context. If `personas.yaml` exists but `business-context.md` does not, init has **not** been run. If the user asks to use personas as business context, **block** — do not audit or design.
 
