@@ -1,10 +1,10 @@
 After completing this section, offer the blueprint checkpoint (skip if user asked for a full pass in one shot):
 
-*"Wireframe preview? Opens a local link — structure only, no styling. Missing screens show as skeletons."*
+*"Open wireframe preview to evaluate structure, flows, and scenarios? Structure only, no styling. Missing screens show as skeletons."*
 
 - **Yes** — scaffold then hydrate blueprint (see generation order below), validate, start preview
 - **No** — continue with markdown only
-- **Approve** — set `meta.yaml` status to `approved`, write handoff block to `requirements.md`
+- **Approve** — set `meta.yaml` status to `approved`, write handoff block to `runs/<run_id>/requirements.md`, set `meta.blueprint_id` on the active run
 
 **Generation order (required):**
 1. `meta.yaml` + complete `flows.tsx` (all transitions)

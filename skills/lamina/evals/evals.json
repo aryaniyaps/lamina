@@ -128,10 +128,10 @@
       ]
     },
     {
-      "id": "router-override-feature",
-      "prompt": "/lamina-design --track feature We only have a problem statement about budgeting.",
+      "id": "router-feature-budgeting-alerts",
+      "prompt": "/lamina-design — Add budgeting alerts feature for college students.",
       "force_skill_invocation": true,
-      "expected_output": "Feature track despite problem phrasing.",
+      "expected_output": "Feature track from natural phrasing.",
       "assertions": [
         "Output follows feature track framing"
       ]

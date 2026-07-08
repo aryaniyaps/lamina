@@ -99,7 +99,7 @@ Run `lamina-blueprint validate` after writing scenarios.
 
 Migrate table rows to `scenarios.yaml` when blueprint checkpoint runs.
 
-**On blueprint approve:** salient edge cases summarized in `requirements.md` handoff block — durable record after blueprint retirement.
+**On blueprint approve:** salient edge cases summarized in `runs/<run_id>/requirements.md` handoff block — durable record after blueprint retirement.
 
 ## Anti-patterns
 

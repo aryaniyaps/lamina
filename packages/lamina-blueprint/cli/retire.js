@@ -27,5 +27,5 @@ export async function runRetire(args) {
   fs.rmSync(blueprintDir, { recursive: true, force: true });
   console.log(`Retired blueprint: ${opts.id}`);
   console.log(`Deleted: ${blueprintDir}`);
-  console.log('Durable artifacts (requirements.md, tasks) are unchanged.');
+  console.log('Durable artifacts per run (output.md, requirements.md, tasks) and flows-inventory.yaml are unchanged.');
 }

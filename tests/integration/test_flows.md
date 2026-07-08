@@ -51,10 +51,13 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 - Expect: loads skills from `audit-profiles.yaml` feature-* profiles
 - **Without init:** expect init-blocked output; no artifacts created
 
-### Track override
+### Natural-language routing
 
-- Input: `/lamina-design --track feature Add wishlist`
-- Expect: feature track regardless of problem-only phrasing
+- Input: `/lamina-design Add wishlist feature to our storefront`
+- Expect: feature track (despite problem-adjacent phrasing, `Add` + `feature` signals feature)
+
+- Input: `/lamina-design Concept for expense tracking app`
+- Expect: concept track
 
 ## Audit (`/lamina-audit`)
 

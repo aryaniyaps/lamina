@@ -145,17 +145,17 @@ Answer the business questions UX work depends on and persist them in `.lamina/bu
 
 ### `/lamina-design` — Net-new UX
 
-Design net-new UX — whole product from a problem (concept track) or one capability on an existing product (feature track). Auto-routes based on input; override with `--track concept` or `--track feature`.
+Design net-new UX — whole product from a problem (concept track) or one capability on an existing product (feature track). Auto-routes from prompt signals; say `concept for …` or `add … feature` to disambiguate.
 
 **Examples:**
 
 ```
 /lamina-design Mobile budgeting app for college students who overspend
 /lamina-design Add two-factor authentication to settings
-/lamina-design --track feature Add wishlist
+/lamina-design Add wishlist feature to our storefront
 ```
 
-**Output:** `.lamina/personas.yaml` (concept track), `.lamina/flows-inventory.yaml`, optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
+**Output:** `.lamina/runs/<run_id>/` (output, simulation, requirements, tasks), `.lamina/personas.yaml` (concept track), `.lamina/flows-inventory.yaml`, optional blueprint TSX · contracts: [`design-concept.md`](skills/lamina-orchestrator/prompts/outputs/design-concept.md), [`design-feature.md`](skills/lamina-orchestrator/prompts/outputs/design-feature.md)
 
 ### `/lamina-audit` — Audit existing flows
 

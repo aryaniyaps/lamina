@@ -7,7 +7,7 @@ Personas are **not** a fixed agent type. Each persona is a **dynamically spawned
 1. Read `.lamina/personas.yaml` and pick panel members (always include `primary`).
 2. For **each persona**, spawn one isolated subagent in parallel using the host Task/subagent tool.
 3. Do **not** reuse a shared agent definition. Each spawn gets a unique prompt built from that persona's registry entry.
-4. Collect YAML results; write `.lamina/personas/simulations/<run_id>.yaml`.
+4. Collect YAML results; write `.lamina/runs/<run_id>/simulation.yaml`.
 5. Reconcile on the main thread — see [merge-rules.md](../../merge-rules.md).
 
 ## Per-persona spawn prompt (template)

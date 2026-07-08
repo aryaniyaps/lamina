@@ -428,13 +428,20 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('persona simulation file exists')) {
-    const simNew = newFiles.filter((f) => /\.lamina\/personas\/simulations\/.+\.yaml$/i.test(normalizePath(f)));
-    const simExists = workspaceFiles.some((f) => f.includes('personas/simulations/') && f.endsWith('.yaml'));
-    const passed = simNew.length > 0 || simExists;
+    const simNew = newFiles.filter((f) =>
+      /\.lamina\/runs\/.+\/simulation\.yaml$/i.test(normalizePath(f)),
+    );
+    const simExists = workspaceFiles.some(
+      (f) => f.includes('/runs/') && f.endsWith('/simulation.yaml'),
+    );
+    const legacyExists = workspaceFiles.some(
+      (f) => f.includes('personas/simulations/') && f.endsWith('.yaml'),
+    );
+    const passed = simNew.length > 0 || simExists || legacyExists;
     return hookResult(
       text,
       passed,
-      passed ? 'Persona simulation YAML found' : 'No .lamina/personas/simulations/*.yaml',
+      passed ? 'Persona simulation YAML found' : 'No .lamina/runs/*/simulation.yaml',
     );
   }
 

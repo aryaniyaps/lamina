@@ -28,9 +28,9 @@ Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init ga
 
 UX artifacts only. Do not implement product code or visual styling specs.
 
-## Track override
+## Routing
 
-Optional: `--track concept` or `--track feature` to force a track.
+Auto-routes to concept or feature track from prompt signals. Say `concept for …` or `add … feature` to disambiguate.
 
 ## Subagent hints
 

@@ -1,0 +1,7 @@
+id: demo
+hook: concept
+target: demo blueprint
+command: /lamina-design
+blueprint_id: demo
+personas_updated: false
+started_at: 2026-07-05

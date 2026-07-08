@@ -93,8 +93,8 @@ const laminaEvals = {
       expected_output: 'One clarifying question only.',
       assertions: ['Output asks whether designing whole product, one feature, or improving existing'],
     }),
-    e('router-override-feature', '/lamina-design --track feature We only have a problem statement about budgeting.', {
-      expected_output: 'Feature track despite problem phrasing.',
+    e('router-feature-budgeting-alerts', '/lamina-design — Add budgeting alerts feature for college students.', {
+      expected_output: 'Feature track from natural phrasing.',
       assertions: ['Output follows feature track framing'],
     }),
     e('router-keyword-stuffing', '/lamina — Audit the forms in our redesign of checkout navigation.', {
@@ -339,7 +339,7 @@ const laminaDesignEvals = {
     e('design-feature-2fa', '/lamina-design — Add two-factor authentication to settings.', featureFx()),
     e('design-feature-wishlist', '/lamina-design — Add wishlist feature to e-commerce.', featureFx()),
     e('design-feature-edge-cases', '/lamina-design — Add offline mode to mobile app.', featureFx()),
-    e('design-feature-edge-cases-brownfield', '/lamina-design --track feature Add offline cart sync for our commerce storefront.', {
+    e('design-feature-edge-cases-brownfield', '/lamina-design — Add offline cart sync for our commerce storefront.', {
       ...fx('brownfield-audit-ready'),
       assertions: [
         'design-feature contract headings',
@@ -375,7 +375,15 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['edge cases section present', 'no blueprint without consent'],
     }),
-    e('design-track-override', '/lamina-design --track feature Problem only: users hate our onboarding.', featureFx()),
+    e('design-concept-steering', '/lamina-design — Concept for expense tracking app.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['design-concept contract headings'],
+    }),
+    e('design-feature-budgeting-alerts', '/lamina-design — Add budgeting alerts feature for college students.', {
+      ...fx('greenfield-with-init'),
+      assertions: ['design-feature contract headings', ...FEATURE_EDGE_ASSERTIONS.slice(0, 2)],
+    }),
+    e('design-feature-onboarding', '/lamina-design — Add guided onboarding improvements feature. Problem only: users hate our onboarding.', featureFx()),
     e('design-blocked-no-init', '/lamina-design — Add notifications feature.', {
       expected_output: 'init-blocked.',
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],

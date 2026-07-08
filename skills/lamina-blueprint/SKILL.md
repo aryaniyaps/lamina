@@ -1,14 +1,14 @@
 ---
 name: lamina-blueprint
-description: "Generate and maintain semantic UX blueprints (SUB) with optional greyscale wireframe preview. Use when structuring screens, flows, or reviewing UX before implementation."
+description: "Generate and maintain semantic UX blueprints (SUB) with optional greyscale wireframe preview. Use when visualizing and evaluating UX artifacts — flows, screens, scenarios, and persona walkthroughs."
 metadata:
   lamina:
     id: blueprint
     problems:
       - "wireframe preview"
       - "screen structure"
-      - "UX blueprint before implementation"
-      - "blueprint review"
+      - "UX artifact evaluation"
+      - "visualize flows and screens"
     related:
       - lamina-flow-design
       - lamina-product-behavior
@@ -18,15 +18,16 @@ metadata:
 ---
 # Lamina Blueprint (SUB)
 
-**Semantic UX blueprints** — TSX structure specs, not production code. Optional greyscale wireframe preview via local URL.
+**Semantic UX blueprints** — TSX structure specs, not production code. Optional greyscale wireframe preview via local URL for **evaluating UX artifacts** — walk flows, compare scenarios, overlay persona blockers, assess structure before coding.
 
 **Guardrail:** Blueprints describe **structure and behavior only**. No `className`, `style`, CSS, colors, typography, or design tokens in blueprint files. Preview uses a **dark greyscale** renderer — still not a styling spec.
 
 ## When to use
 
-- User opts into wireframe preview during design (concept track steps 5, 6, end; feature track flows and before tasks) or audit
-- User describes layout changes to update a live preview
-- Handoff to coding agents after blueprint approval
+- Evaluate structure, flows, and edge-case scenarios during design or audit
+- Walk interactive prototypes with hotspot navigation and flow graph
+- Overlay persona simulation blockers on screens for usability assessment
+- Handoff to coding agents after evaluation (approve is one outcome, not the primary purpose)
 
 ## Artifact layout
 
@@ -45,7 +46,7 @@ metadata:
     <scenario-id>/screens/<screen-id>.tsx  # screen variant (empty, error, etc.)
 ```
 
-Each blueprint is **disposable** — delete after implementation. Durable record: `requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`.
+Each blueprint is **disposable** — delete after implementation. Durable record per run: `runs/<run_id>/output.md`, `requirements.md`, `implementation-tasks.md`, plus global `flows-inventory.yaml`.
 
 **Multiple blueprints:** one directory per feature effort. Never overwrite another blueprint's files.
 
@@ -198,7 +199,7 @@ personas:
     # ...other required persona fields
 ```
 
-Simulation results load from `.lamina/personas/simulations/*.yaml` (latest per persona). Blocker `step` must match a screen id for graph dots. Personas annotate the active flow; they do not add graph branches (scenarios do).
+Simulation results load from `.lamina/runs/*/simulation.yaml` (prefer runs whose `meta.blueprint_id` matches the active blueprint; latest per persona otherwise). Blocker `step` must match a screen id for graph dots. Personas annotate the active flow; they do not add graph branches (scenarios do).
 
 Preview shows a DiceBear avatar per persona, with frustrations and simulation quotes in a chat-bubble slideshow (forward/back controls).
 
@@ -286,7 +287,7 @@ Validate enforces manifest rows only — screens without a row pass with standar
 5. **Validate before preview** — run `validate` again; fix errors before starting preview
 6. **Start preview** — `lamina-blueprint preview --root .lamina/blueprints --id <id> --ensure --open`
 7. **Iterate** — patch files when user requests changes in chat
-8. **Approve** — set `status: approved`; append handoff block to `requirements.md`
+8. **Approve** — set `status: approved`; append handoff block to `runs/<run_id>/requirements.md`; set `meta.blueprint_id`
 9. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`; update `flows-inventory.yaml` to `shipped`
 
 ### Handoff block (on approve)

@@ -12,17 +12,82 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 
 ---
 
+## Runs (per command)
+
+Each `/lamina-design` or `/lamina-audit` command creates a run workspace at `.lamina/runs/<run_id>/`.
+
+**`run_id` convention:** short slug + date, e.g. `wishlist-feature-2026-07-08`, `checkout-audit-2026-07-08`.
+
+| Path | When written | Purpose |
+|---|---|---|
+| `.lamina/runs/<run_id>/meta.yaml` | Command start | Run identity, hook, target, traceability |
+| `.lamina/runs/<run_id>/output.md` | Command end | Full merged output contract (audit, concept, or feature) |
+| `.lamina/runs/<run_id>/simulation.yaml` | Persona panel | Walkthrough outcomes (`results[]`, blockers) |
+| `.lamina/runs/<run_id>/requirements.md` | Feature track, blueprint approve | UX requirements + handoff block |
+| `.lamina/runs/<run_id>/implementation-tasks.md` | Feature track, implementation checklist | P0/P1/P2 coding-agent tasks |
+| `.lamina/runs/<run_id>/personas-snapshot.yaml` | Optional — cast/refreshed in-run | Frozen copy of registry at panel time |
+
+**Reuse rules:**
+- Never overwrite an existing run directory; each command gets a new `run_id`.
+- Write `meta.yaml` before other run artifacts.
+- Write `output.md` at command end with the merged output contract.
+- On conflict resolution, append to global `decisions.md` with `run_id` reference.
+
+### Run metadata — `meta.yaml`
+
+```yaml
+id: wishlist-feature-2026-07-08
+hook: feature          # concept | feature | audit
+target: wishlist flow
+command: /lamina-design
+blueprint_id: wishlist-v1   # optional — link to evaluation artifact
+flows_touched: [wishlist]   # flows appended/updated this run
+personas_updated: false     # true when this run cast/refreshed personas.yaml
+personas_snapshot: personas-snapshot.yaml  # optional — only when personas_updated
+started_at: 2026-07-08
+```
+
+### Run output — `output.md`
+
+Persisted copy of the merged output contract (`prompts/outputs/audit.md`, `design-concept.md`, or `design-feature.md`). Chat may summarize or point to this file.
+
+`simulation.yaml` holds raw panel data; `output.md` holds reconciled **Persona simulation notes** and all other sections.
+
+### Per-run simulation — `simulation.yaml`
+
+One file per persona panel execution in the active run.
+
+```yaml
+hook: audit              # concept | audit | feature
+target: checkout flow
+panel: [deal-hunter-diane, screen-reader-sam]
+results:
+  - persona_id: deal-hunter-diane
+    outcome: partial_fail    # success | partial_fail | abandon
+    blockers:
+      - step: "Shipping options"
+        severity: high       # high | medium | low
+        quote: "Where's the free shipping threshold?"
+confidence: medium           # simulation — not user research
+```
+
+---
+
 ## Persona artifacts
 
-| Path | Purpose |
-|---|---|
-| `.lamina/personas.yaml` | Persona registry — goals, frustrations, literacy, accessibility. Cast appends; no fixed count. |
-| `.lamina/personas/simulations/<run_id>.yaml` | One file per persona panel run. Keeps registry reads small. |
+Persona **identity** (who) and **simulation outcomes** (what happened) are separate layers.
+
+| Path | Layer | Scope |
+|---|---|---|
+| `.lamina/personas.yaml` | Identity — goals, frustrations, literacy, accessibility | **Global** — stable product cast |
+| `.lamina/runs/<run_id>/simulation.yaml` | Outcomes — walkthrough blockers and quotes | **Per run** |
+| `.lamina/runs/<run_id>/personas-snapshot.yaml` | Identity snapshot when cast changed in-run | **Optional per run** |
 
 **Reuse rules:**
 - Read `personas.yaml` before casting; append new personas rather than replacing.
-- Never overwrite simulation files; each run gets a new `run_id`.
-- Reconciliation output goes in command deliverables, not a separate artifact file.
+- Do not copy full personas into every run — identity lives in the global registry.
+- When a run modifies the cast, set `meta.personas_updated: true` and optionally write `personas-snapshot.yaml`.
+- Situational context (scenario, device, stakes) stays in spawn prompts only — not persisted.
 
 ### Registry — `.lamina/personas.yaml`
 
@@ -48,24 +113,6 @@ personas:
 
 **Required fields per persona:** `id`, `type`, `goals`, `frustrations`, `motivations`, `technical_literacy`, `accessibility`, `confidence`
 
-### Per run — `.lamina/personas/simulations/<run_id>.yaml`
-
-One file per panel execution. `run_id` = short slug (e.g. `checkout-audit-2026-07-05`).
-
-```yaml
-hook: audit              # concept | audit | feature
-target: checkout flow
-panel: [deal-hunter-diane, screen-reader-sam]
-results:
-  - persona_id: deal-hunter-diane
-    outcome: partial_fail    # success | partial_fail | abandon
-    blockers:
-      - step: "Shipping options"
-        severity: high       # high | medium | low
-        quote: "Where's the free shipping threshold?"
-confidence: medium           # simulation — not user research
-```
-
 ---
 
 ## Cast
@@ -77,6 +124,7 @@ confidence: medium           # simulation — not user research
 2. Group by behavioral variables (not demographics alone); synthesize goals from evidence.
 3. Designate exactly one `primary` persona per interface.
 4. Write or update `.lamina/personas.yaml`.
+5. Set `meta.personas_updated: true` on the active run; optionally write `personas-snapshot.yaml`.
 
 ---
 
@@ -87,10 +135,10 @@ confidence: medium           # simulation — not user research
 **Who runs:** Orchestrator picks relevant personas (always include primary). User may override with explicit ids.
 
 **How:**
-1. Read `.lamina/personas.yaml`.
+1. Read `.lamina/personas.yaml` for identity.
 2. For each panel persona, spawn one isolated subagent in parallel — build the prompt from `prompts/subagents/persona-panel-spawn.md` so the subagent **is** that person (not a generic simulator).
-3. Write results to `.lamina/personas/simulations/<run_id>.yaml`.
-4. Reconcile inline — see [patterns/persona-panel.md](patterns/persona-panel.md) and [merge-rules.md](merge-rules.md).
+3. Write results to `.lamina/runs/<run_id>/simulation.yaml`.
+4. Reconcile into `output.md` — see [patterns/persona-panel.md](patterns/persona-panel.md) and [merge-rules.md](merge-rules.md).
 
 ---
 
@@ -98,11 +146,11 @@ confidence: medium           # simulation — not user research
 
 Orchestrator responsibility (main thread, not a subagent):
 
-1. Collect all `results[]` from the run file.
+1. Collect all `results[]` from the run's `simulation.yaml`.
 2. **Consensus** — 2+ personas flag same step/issue → note as finding (still simulation).
 3. **Conflict** — primary vs others → apply primary-user filter from `lamina-decision-making`.
-4. **Unresolved** — use conflict record template from [merge-rules.md](merge-rules.md).
-5. Surface **Conflicts resolved** in command output. Never average opinions.
+4. **Unresolved** — use conflict record template from [merge-rules.md](merge-rules.md); append to global `decisions.md` with `run_id`.
+5. Surface **Conflicts resolved** in `output.md`. Never average opinions.
 
 ---
 
@@ -111,7 +159,7 @@ Orchestrator responsibility (main thread, not a subagent):
 | Hook | Command | Action |
 |---|---|---|
 | Bootstrap | `/lamina-init` | Write `business-context.md` |
-| Cast | `/lamina-design` concept track step 1 | Write `personas.yaml` |
+| Cast | `/lamina-design` concept track step 1 | Write `personas.yaml`; set `personas_updated` on run |
 | Walkthrough | `/lamina-design` concept track step 4 | Persona panel on draft flows |
 | Audit | `/lamina-audit` | Persona panel per flow (parallel with expert lenses) |
 | Feature review | `/lamina-design` feature track after flows | Persona panel; conflicts → risks |
@@ -185,7 +233,7 @@ Brownfield only: optional **Inferred context** section — product signals from 
 | `/lamina-design` concept track step 4 | When draft flows are defined — `status: draft` |
 | `/lamina-design` feature track | When feature flows are specified — `status: planned` |
 
-Read before writing; append or update entries — never replace the whole file without consent.
+Read before writing; append or update entries — never replace the whole file without consent. Record touched flow ids in `meta.flows_touched`.
 
 ```yaml
 flows:
@@ -224,21 +272,20 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and p
 `structure-manifest.yaml` lists **existing** screens only (with `source` + `elements`). New screens in the same blueprint have no manifest row. Validate enforces fidelity for listed screens; unlisted screens use standard checks only.
 
 Optimize blueprints target **entire flows**. When evidence exists, write manifest for shipped screens before hydration. Update `screens/` for the new design, or add an alternate `<Flow id>` with `flows/<id>/screens/` overrides (no manifest row for overrides). Edge-case UI variants use `scenarios.yaml` branches on the flow graph.
-**Lifecycle:** `draft` → `approved` → deleted on retire after implementation. Durable artifacts (`requirements.md`, `implementation-tasks.md`, `flows-inventory.yaml`) survive retirement.
 
-**Multiple blueprints:** never overwrite another id's directory. Screen ids sync with `flows-inventory.yaml`.
+**Lifecycle:** `draft` → `approved` → deleted on retire after implementation. Durable artifacts per run (`requirements.md`, `implementation-tasks.md`, `output.md`) and `flows-inventory.yaml` survive retirement.
+
+**Multiple blueprints:** never overwrite another id's directory. Screen ids sync with `flows-inventory.yaml`. Link from run via `meta.blueprint_id`.
 
 **Commands:** `lamina-blueprint preview --ensure --open`, `retire`, `validate` — see lamina-blueprint skill.
 
 ---
 
-## Other artifacts (downstream)
+## Other artifacts (global)
 
 | Path | Purpose | Owner |
 |---|---|---|
-| `.lamina/requirements.md` | UX requirements + handoff block (includes edge case summary on blueprint approve) | `/lamina-design` |
-| `.lamina/implementation-tasks.md` | P0/P1/P2 tasks for coding agents | feature checklist |
-| `.lamina/decisions.md` | Decision log | any workflow on conflict |
+| `.lamina/decisions.md` | Decision log — append with `run_id` on conflict | any workflow on conflict |
 
 Create on first write — init does not create empty stubs.
 
@@ -249,4 +296,4 @@ Create on first write — init does not create empty stubs.
 Mandatory human gates (when running guided flows):
 1. Problem framing — "Is this accurate?"
 2. Synthesis validation — "Accurate enough to generate tasks?"
-3. Task commit — write to `implementation-tasks.md`?
+3. Task commit — write to `runs/<run_id>/implementation-tasks.md`?

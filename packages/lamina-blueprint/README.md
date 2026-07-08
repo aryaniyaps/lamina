@@ -1,6 +1,6 @@
 # @lamina/blueprint
 
-Semantic UX blueprint components and dark greyscale wireframe preview for Lamina.
+Semantic UX blueprint components and dark greyscale wireframe preview for Lamina — visualize and evaluate UX artifacts (flows, screens, scenarios, persona blockers).
 
 ## CLI
 

@@ -118,7 +118,7 @@ export function blueprintApiPlugin(blueprintRoot: string) {
             return;
           }
           const { graph } = loadFlowGraphFromDisk(root, blueprintId);
-          const data = loadPersonas(root, graph.screens);
+          const data = loadPersonas(root, graph.screens, blueprintId);
           response.setHeader('Content-Type', 'application/json');
           response.end(JSON.stringify(data ?? { primary: null, personas: [] }));
           return;

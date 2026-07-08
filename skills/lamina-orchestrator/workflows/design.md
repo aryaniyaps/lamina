@@ -4,21 +4,25 @@ Design net-new UX — whole product concept or a single feature spec. Dispatches
 
 ## Track detection
 
-First strong match wins. Honor explicit override: `--track concept` or `--track feature`.
+First strong match wins. Auto-route from prompt signals and project context — no `--track` flag.
 
 | Signal | Track |
 |---|---|
-| `--track concept` | [design-concept.md](design-concept.md) |
-| `--track feature` | [design-feature.md](design-feature.md) |
-| Problem only, no solution, early exploration, greenfield | concept |
-| Specific feature or capability to add | feature |
+| `Problem:`, `Concept for`, whole-product nouns (app, product, platform), early exploration, greenfield | [design-concept.md](design-concept.md) |
+| `Add`, `Implement`, `Spec`, scoped capability or flow on existing product | [design-feature.md](design-feature.md) |
+| Audit signals (`redesign`, `improve`, `fix`, existing flow) | Route to [audit.md](audit.md) — not design |
 | Ambiguous | Ask **one** question: *"Are you designing a whole product from a problem, or specifying one feature?"* Then dispatch |
+
+**Weak prior** from `.lamina/business-context.md` frontmatter (`maturity: greenfield | brownfield`): greenfield + vague problem → concept; brownfield + `Add X` → feature.
+
+**Disambiguation:** Say `concept for …` or `add … feature` to steer routing without flags.
 
 ## Procedure
 
 0. **Init gate** — run [init-required](../prerequisites/init-required.md). On failure: emit `init-blocked` contract **verbatim** from `outputs/init-blocked.md` and **STOP**.
-1. Detect track from input signals (table above).
-2. Execute the chosen track through completion. Do not implement product code. UX guidance only.
+1. **Create run** — `.lamina/runs/<run_id>/meta.yaml` per [artifacts.md](../artifacts.md). Set `hook` to `concept` or `feature` after track detection.
+2. Detect track from input signals (table above).
+3. Execute the chosen track through completion. Do not implement product code. UX guidance only.
 
 ## Subagent hints
 

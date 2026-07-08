@@ -256,9 +256,42 @@ function listSimulationFiles(simulationsDir: string): string[] {
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
 }
 
-function loadLatestSimulations(simulationsDir: string): Map<string, PersonaSimulation> {
+function readRunBlueprintId(runDir: string): string | undefined {
+  const metaPath = path.join(runDir, 'meta.yaml');
+  if (!fs.existsSync(metaPath)) return undefined;
+  const match = fs.readFileSync(metaPath, 'utf8').match(/^blueprint_id:\s*(.+)$/m);
+  return match ? stripYamlScalar(match[1]) : undefined;
+}
+
+function listRunSimulationFiles(runsDir: string): { file: string; blueprintId?: string }[] {
+  if (!fs.existsSync(runsDir)) return [];
+  const entries: { file: string; blueprintId?: string; mtime: number }[] = [];
+  for (const runId of fs.readdirSync(runsDir)) {
+    const runDir = path.join(runsDir, runId);
+    if (!fs.statSync(runDir).isDirectory()) continue;
+    const simFile = path.join(runDir, 'simulation.yaml');
+    if (!fs.existsSync(simFile)) continue;
+    entries.push({
+      file: simFile,
+      blueprintId: readRunBlueprintId(runDir),
+      mtime: fs.statSync(simFile).mtimeMs,
+    });
+  }
+  return entries
+    .sort((a, b) => b.mtime - a.mtime)
+    .map(({ file, blueprintId }) => ({ file, blueprintId }));
+}
+
+function mergeSimulationResults(
+  files: { file: string; blueprintId?: string }[],
+  blueprintId?: string,
+): Map<string, PersonaSimulation> {
   const byPersona = new Map<string, PersonaSimulation>();
-  for (const file of listSimulationFiles(simulationsDir)) {
+  const preferred = blueprintId
+    ? files.filter((f) => f.blueprintId === blueprintId)
+    : [];
+  const ordered = [...preferred, ...files.filter((f) => !preferred.includes(f))];
+  for (const { file } of ordered) {
     const results = parseSimulationYaml(fs.readFileSync(file, 'utf8'));
     for (const r of results) {
       if (!byPersona.has(r.persona_id)) {
@@ -272,6 +305,17 @@ function loadLatestSimulations(simulationsDir: string): Map<string, PersonaSimul
   return byPersona;
 }
 
+function loadLatestSimulations(laminaRoot: string, blueprintId?: string): Map<string, PersonaSimulation> {
+  const runFiles = listRunSimulationFiles(path.join(laminaRoot, 'runs'));
+  if (runFiles.length > 0) {
+    return mergeSimulationResults(runFiles, blueprintId);
+  }
+  return mergeSimulationResults(
+    listSimulationFiles(path.join(laminaRoot, 'personas', 'simulations')).map((file) => ({ file })),
+    blueprintId,
+  );
+}
+
 export function attachScreenIds(blockers: PersonaBlocker[], screenIds: string[]): PersonaBlocker[] {
   const ids = new Set(screenIds);
   return blockers.map((b) => ({
@@ -283,13 +327,14 @@ export function attachScreenIds(blockers: PersonaBlocker[], screenIds: string[])
 export function loadPersonas(
   blueprintRoot: string,
   screenIds: string[] = [],
+  blueprintId?: string,
 ): PersonaPreviewData | null {
   const laminaRoot = path.resolve(blueprintRoot, '..');
   const personasFile = path.join(laminaRoot, 'personas.yaml');
   if (!fs.existsSync(personasFile)) return null;
 
   const { primary, personas: raw } = parsePersonasYaml(fs.readFileSync(personasFile, 'utf8'));
-  const simulations = loadLatestSimulations(path.join(laminaRoot, 'personas', 'simulations'));
+  const simulations = loadLatestSimulations(laminaRoot, blueprintId);
 
   const personas: PersonaEntry[] = raw.map((p) => {
     const sim = simulations.get(p.id);
