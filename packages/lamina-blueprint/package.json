@@ -1,7 +1,7 @@
 {
   "name": "@lamina/blueprint",
   "version": "0.1.0",
-  "description": "Semantic UX blueprint components and greyscale wireframe preview for Lamina",
+  "description": "Semantic UX blueprint components and UX Review Studio for Lamina",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

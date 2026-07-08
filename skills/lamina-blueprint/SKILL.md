@@ -1,6 +1,6 @@
 ---
 name: lamina-blueprint
-description: "Generate and maintain semantic UX blueprints (SUB) with optional greyscale wireframe preview. Use when visualizing and evaluating UX artifacts — flows, screens, scenarios, and persona walkthroughs."
+description: "Generate and maintain semantic UX blueprints (SUB) and open UX Review Studio — visual review of personas, flows, edge-case coverage, and greyscale wireframes."
 metadata:
   lamina:
     id: blueprint
@@ -18,9 +18,33 @@ metadata:
 ---
 # Lamina Blueprint (SUB)
 
-**Semantic UX blueprints** — TSX structure specs, not production code. Optional greyscale wireframe preview via local URL for **evaluating UX artifacts** — walk flows, compare scenarios, overlay persona blockers, assess structure before coding.
+**Semantic UX blueprints** — TSX structure specs, not production code. **UX Review Studio** is the visual surface for evaluating UX artifacts — personas and simulation (People), flow graphs (Flows), edge-case coverage (Scenarios), and SUB wireframes with annotation pins (Screens).
 
 **Guardrail:** Blueprints describe **structure and behavior only**. No `className`, `style`, CSS, colors, typography, or design tokens in blueprint files. Preview uses a **dark greyscale** renderer — still not a styling spec.
+
+## UX Review Studio
+
+Four views, one local URL. People, Flows, and Scenarios read from `run.yaml` (+ `personas.yaml`). Screens require blueprint SUB TSX for wireframe canvas and prototype navigation.
+
+| View | Primary question | Data source |
+|------|------------------|-------------|
+| **People** | Who are we designing for, and where do they struggle? | `personas.yaml`, `run.yaml` `simulation` |
+| **Flows** | How do users move through this? | `run.yaml` `flows[]`, blueprint `flows.tsx` |
+| **Screens** | What's on each screen and where do edge cases attach? | Blueprint SUB TSX + `run.yaml` screen inventory |
+| **Scenarios** | What edge cases are mapped — and what's missing? | `run.yaml` `scenarios[]` (Gaps, Matrix, Gallery) |
+
+**Persona lens** — "View as" selector filters blockers and highlights friction across all views.
+
+**Annotation pins** — numbered overlays on happy-path wireframes mark where scenarios attach (`trigger.subject` / `source` on SUB components). No auto-compose — pins show *where*, not *how*.
+
+```bash
+lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
+# alias: lamina-blueprint preview ... --run <run_id>
+```
+
+Studio opens at `?run=<run_id>&id=<blueprint_id>`. People/Flows/Scenarios work with `--run` alone; Screens needs a linked blueprint.
+
+**Agent API:** `GET /__lamina/coverage?run=<run_id>`, `GET /__lamina/run?run=<run_id>`, `GET /__lamina/flow-graph?run=<run_id>`, `GET /__lamina/scenarios?run=<run_id>`, `GET /__lamina/personas?run=<run_id>`.
 
 ## When to use
 
@@ -92,13 +116,13 @@ When a flow has **two or more linked screens**, every screen that has **outgoing
 
 `lamina-blueprint validate` checks that every `trigger` on a screen has a matching transition **and** every outgoing transition has a matching `trigger` on the effective screen file.
 
-### Edge-case scenarios (preview)
+### Edge-case scenarios (coverage + optional variants)
 
-Map each edge case to a **screen variant** in the blueprint (not a separate navigation paradigm). Branch-style edge cases (different path) use a new `<Flow id>` and the flow picker.
+Map each edge case in `run.yaml` `scenarios[]`. **Coverage Board** (Scenarios view) is the primary review surface — gaps, matrix, gallery, detail drawer. Scenario **variant** SUB TSX is optional second wireframe state only.
 
 Load [lamina-edge-cases](../lamina-edge-cases/SKILL.md) for systematic discovery via transient operation inventory and outcome matrix.
 
-**Scenarios** — inventory lives in linked `run.yaml` `scenarios[]`. Preview reads via `meta.yaml` `run_id`. Blueprint holds variant TSX only.
+**Scenarios** — inventory lives in linked `run.yaml` `scenarios[]`. Studio reads via `--run <run_id>`. Blueprint holds optional variant TSX only.
 
 ```yaml
 # run.yaml scenarios[] (required fields per entry):
@@ -116,11 +140,11 @@ Load [lamina-edge-cases](../lamina-edge-cases/SKILL.md) for systematic discovery
     ux: empty_state           # empty_state | error_state | alert | banner | redirect | alternate_flow
 ```
 
-**Variant file:** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use `EmptyState`, `ErrorState`, `Alert`, etc. per `ux` field.
+**Variant file (optional):** `scenarios/<scenario-id>/screens/<screen-id>.tsx` — use when documenting a distinct wireframe state. Omit for coverage-only scenarios; annotation pins on the happy-path screen are the default.
 
-When no blueprint exists yet, write edge cases to `run.yaml` `scenarios[]` during the feature track. Write scenario variant TSX at blueprint checkpoint.
+When no blueprint exists yet, write edge cases to `run.yaml` `scenarios[]` during the feature track. Write screen TSX at blueprint checkpoint; variant TSX only when explicitly needed.
 
-Preview shows scenarios as **dashed branches** on the flow graph; click a branch node to load the variant; click the main screen node to return to the happy path.
+Studio shows scenarios on the flow graph as dashed branches when variant TSX exists; Scenarios view always shows full coverage from `run.yaml`.
 
 ### Screen example
 
@@ -164,11 +188,12 @@ Optional `<Flow id="...">` groups transitions when multiple flows exist. Per-flo
 
 Screen `id` values must match `run.yaml` `screens[]` ids.
 
-## Preview CLI
+## Preview / Review CLI
 
 ```bash
-lamina-blueprint preview --root .lamina/blueprints --id <id>
-lamina-blueprint preview --root .lamina/blueprints --ensure --open
+lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
+lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
+lamina-blueprint preview --root .lamina/blueprints --id <id>   # legacy; add --run for studio
 lamina-blueprint preview --root .lamina/blueprints --list
 lamina-blueprint export-graph --root .lamina/blueprints --id <id> [--out flow-graph.mmd]
 lamina-blueprint retire <id> --root .lamina/blueprints
@@ -176,11 +201,11 @@ lamina-blueprint validate .lamina/blueprints/<id>
 lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
 ```
 
-**Lifecycle:** Use `--ensure` to start preview in the background (idempotent — reuses running server). Use `--open` to open the system default browser (cross-platform; not IDE-specific). State is written to `.lamina/preview-state.yaml` (`id`, `port`, `url`, `pid`, `root`, `startedAt`). Read that file on later turns instead of re-spawning.
+**Lifecycle:** Use `--ensure` to start the studio in the background (idempotent — reuses running server). Use `--open` to open the system default browser. State is written to `.lamina/preview-state.yaml` (`run`, `id`, `port`, `url`, `pid`, `root`, `startedAt`). Read that file on later turns instead of re-spawning.
 
-**Agent verification:** `curl http://localhost:<port>/__lamina/state?id=<id>&flowId=<flow>` returns per-screen completeness (`complete` | `skeleton` | `error`). Use before printing the preview URL to the user.
+**Agent verification:** `curl http://localhost:<port>/__lamina/coverage?run=<run_id>` for gaps and coverage score. `curl http://localhost:<port>/__lamina/state?id=<id>&flowId=<flow>` for per-screen blueprint completeness.
 
-Preview features (v2): dark greyscale wireframes, right-side **React Flow** graph (pan/zoom, scenario branches, transition labels, skeleton/error node badges), flow-scoped screen overrides, hotspot highlighting, short fade on screen change, device viewport presets (Mobile/Tablet/Desktop) in preview chrome only. Missing screen files render as **skeleton placeholders** instead of errors. When `flows.tsx` is absent, preview falls back to a **provisional graph** from linked `run.yaml` `flows[]` (via `meta.yaml` `run_id`), or legacy `flows-inventory.yaml` if present. Canvas shows the **current designed state** only. Blueprint TSX files remain unstyled — radius and stage chrome are renderer-only.
+Studio features: four views (People, Flows, Screens, Scenarios), persona lens, coverage board (gaps/matrix/gallery), annotation pins on wireframes, React Flow graph with scenario branches and blocker dots, hotspot prototype navigation, device viewport presets. Missing screen files render as **skeleton placeholders**. Blueprint TSX files remain unstyled.
 
 ### Persona lens (preview)
 
@@ -204,7 +229,7 @@ Simulation results load from `.lamina/runs/*/run.yaml` `simulation` (prefer runs
 
 Preview shows a DiceBear avatar per persona, with frustrations and simulation quotes in a chat-bubble slideshow (forward/back controls).
 
-Start preview once with `lamina-blueprint preview --root .lamina/blueprints --id <id> --ensure --open`; HMR updates on file edits. URL is also in `.lamina/preview-state.yaml`.
+Start studio once with `lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`; HMR updates on file edits. URL is also in `.lamina/preview-state.yaml`.
 
 ## Brownfield extraction (existing screens)
 
@@ -281,7 +306,7 @@ Validate enforces `status: existing` screens from linked `run.yaml` — screens 
 3. **Validate scaffold** — `lamina-blueprint validate .lamina/blueprints/<id>` (expect screen-file errors until screens exist — that's OK)
 4. **Hydrate screens** — one flow at a time; entry screen first; then remaining screens per flow
 5. **Validate before preview** — run `validate` again; fix errors before starting preview
-6. **Start preview** — `lamina-blueprint preview --root .lamina/blueprints --id <id> --ensure --open`
+6. **Start studio** — `lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open`
 7. **Iterate** — patch files when user requests changes in chat
 8. **Approve** — set `status: approved`; append `### Blueprint handoff` to `runs/<run_id>/report.md`; set `blueprint_id` in `run.yaml`
 9. **Retire** — after implementation confirmed: `lamina-blueprint retire <id>`; optional one-liner in `decisions.md`

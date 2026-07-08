@@ -60,7 +60,7 @@ Workflow evals use **natural user requests** — never telegraph expected workfl
 
 - Feature design: plain feature asks (`Add wishlist`) — edge cases are asserted automatically via `lamina-edge-cases` hooks
 - Persona panel: runs when `personas.yaml` exists — prompts do not mention persona panel
-- Blueprint: **multi-turn** checkpoint — turn 1 is the workflow request; turn 2 is user consent (`Yes, show the wireframe preview.`)
+- Blueprint / UX Review Studio: **multi-turn** checkpoint — turn 1 is the workflow request; turn 2 is user consent (`Yes, show the wireframe preview.` or `Yes, open UX Review Studio.`)
 
 ### Multi-turn schema
 

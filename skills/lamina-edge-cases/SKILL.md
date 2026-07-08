@@ -71,13 +71,15 @@ Branch-style edge cases (different navigation path) use `ux: alternate_flow` and
 3. Concurrent edit considered for shared editable resources.
 4. External dependencies flagged for operations that call third-party services.
 5. Each mapped edge case has a `run.yaml` `scenarios[]` entry.
-6. Each scenario entry has a matching variant TSX at `scenarios/<id>/screens/<screen>.tsx` when blueprint exists.
+6. Scenario variant TSX at `scenarios/<id>/screens/<screen>.tsx` is **optional** — write only when documenting a distinct wireframe state; coverage review uses Scenarios view + annotation pins on happy-path screens.
 7. `trigger.subject` loosely matches the relevant `Table source` or primary data on the screen.
 8. Personas with low literacy or accessibility needs get permission/conflict cases reviewed.
 
-## Mapping rules: scenario → variant TSX
+## Mapping rules: scenario → optional variant TSX
 
-| `ux` | SUB components |
+Coverage lives in `run.yaml`. Variant TSX is optional — use when the edge case needs a visibly different wireframe state.
+
+| `ux` | SUB components (when variant TSX written) |
 |------|----------------|
 | `empty_state` | `EmptyState` + primary action if applicable |
 | `error_state` | `ErrorState` — preserve context, suggest recovery |
@@ -92,7 +94,7 @@ Run `lamina-blueprint validate` after writing scenarios.
 
 **Always:** write `scenarios[]` to `run.yaml` during edge-case mapping.
 
-**With blueprint:** write scenario variant TSX at `.lamina/blueprints/<id>/scenarios/<id>/screens/<screen>.tsx`.
+**With blueprint (optional):** write scenario variant TSX at `.lamina/blueprints/<id>/scenarios/<id>/screens/<screen>.tsx` only when a second wireframe state is needed. Open UX Review Studio Scenarios view to review gaps and coverage without variant files.
 
 **Never** use markdown tables for edge cases in `report.md`.
 
@@ -103,12 +105,12 @@ Run `lamina-blueprint validate` after writing scenarios.
 - **UI-only brainstorming:** Listing empty states without identifying which operation/data state triggers them.
 - **Persisted domain model:** Writing a separate entity/operation catalog that drifts from the codebase.
 - **Implementation vocabulary:** "users table", "POST /orders", "Prisma query failed".
-- **Orphan scenarios:** `run.yaml` scenario without variant TSX when blueprint exists (or alternate flow for `alternate_flow`).
+- **Orphan scenarios:** `run.yaml` scenario missing required fields — not missing variant TSX (variants are optional).
 - **Happy-path-only:** Shipping flows without permission, conflict, or external failure cases for mutating operations.
 
 ## Related capabilities
 
-- [Blueprint](../lamina-blueprint/SKILL.md) — scenarios schema and preview
+- [Blueprint](../lamina-blueprint/SKILL.md) — scenarios schema and UX Review Studio
 - [Error Handling](../lamina-error-handling/SKILL.md) — message and recovery patterns
 - [Empty States](../lamina-empty-states/SKILL.md) — blank slate guidance
 - [Feedback and Status](../lamina-feedback-and-status/SKILL.md) — loading and async feedback

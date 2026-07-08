@@ -54,6 +54,7 @@ function Triggerable({
     className: `${className}${trigger ? ' sub-trigger' : ''}`,
     'data-sub': sub,
     'data-trigger': trigger,
+    'data-sub-trigger': trigger,
     role: tag === 'span' ? 'button' : undefined,
   };
   if (tag === 'a') return <a {...attrs}>{content}</a>;
@@ -181,6 +182,7 @@ export function Link({ children, label, trigger, href }: LinkProps) {
       className={`sub-link${trigger ? ' sub-trigger' : ''}`}
       data-sub="Link"
       data-trigger={trigger}
+      data-sub-trigger={trigger}
       href={href ?? '#'}
     >
       {label ?? children}
@@ -199,7 +201,7 @@ export function ActionMenu(props: SubBaseProps) {
 export function Field({ name, label, type, required, children }: FieldProps) {
   assertPreviewContext('Field');
   return (
-    <label className="sub-field" data-sub="Field" data-name={name} data-type={type}>
+    <label className="sub-field" data-sub="Field" data-name={name} data-sub-name={name} data-type={type}>
       <span className="sub-field-label">
         {label ?? name}
         {required ? ' *' : ''}
@@ -329,7 +331,7 @@ export function FileUpload({ name, label, children }: FieldProps) {
 export function Table({ source, columns, children }: TableProps) {
   assertPreviewContext('Table');
   return (
-    <div className="sub-table" data-sub="Table" data-source={source}>
+    <div className="sub-table" data-sub="Table" data-source={source} data-sub-source={source}>
       {columns?.length ? (
         <div className="sub-table-header">
           {columns.map((col) => (

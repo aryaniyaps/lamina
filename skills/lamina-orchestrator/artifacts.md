@@ -21,7 +21,7 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 | `.lamina/business-context.md` | Business foundation from `/lamina-init` | Markdown |
 | `.lamina/personas.yaml` | Product cast — identity only | YAML |
 | `.lamina/decisions.md` | Conflict resolution log with `run_id` refs | Markdown |
-| `.lamina/preview-state.yaml` | Preview server URL/port/pid | YAML (runtime) |
+| `.lamina/preview-state.yaml` | UX Review Studio server URL/port/pid | YAML (runtime) |
 
 ### Per-run (2)
 
@@ -34,7 +34,7 @@ Persona panel spawns are **dynamic** — one subagent per persona, each prompt e
 
 | Path | Purpose | Format |
 |------|---------|--------|
-| `.lamina/blueprints/<id>/` | Wireframe preview + evaluation | TSX + `meta.yaml` + scenario variant TSX |
+| `.lamina/blueprints/<id>/` | Wireframe spec + Screens view in UX Review Studio | TSX + `meta.yaml` + optional scenario variant TSX |
 
 **Removed / deprecated:** `flows-inventory.yaml`, `output.md`, `structure-manifest.yaml`, `blueprints/<id>/scenarios.yaml` (scenarios live in `run.yaml`; blueprint holds variant TSX only).
 
@@ -275,9 +275,9 @@ When audit marks a flow `status: shipped`, that status lives in the audit run's 
 | Path | Purpose |
 |---|---|
 | `.lamina/blueprints/<id>/` | Disposable semantic wireframe spec (TSX) — one per feature effort |
-| `.lamina/preview-state.yaml` | Running preview server state — written by `preview --ensure` |
+| `.lamina/preview-state.yaml` | Running UX Review Studio server state — written by `review --ensure` |
 
-Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and preview CLI.
+Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and studio CLI.
 
 **Layout per blueprint:**
 
@@ -287,7 +287,7 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and p
   flows.tsx
   screens/<screen-id>.tsx
   flows/<flow-id>/screens/   # alternate flow overrides
-  scenarios/<id>/screens/    # screen variants per scenario (inventory in run.yaml)
+  scenarios/<id>/screens/    # optional screen variants per scenario (inventory in run.yaml)
 ```
 
 **Blueprint authoring:** Read `run.yaml` `flows`, `screens`, and `scenarios` — write TSX by hand. No codegen. Brownfield: `screens[].status: existing` + `source` + `elements` in `run.yaml` replaces `structure-manifest.yaml`.
@@ -296,7 +296,7 @@ Load [lamina-blueprint](../lamina-blueprint/SKILL.md) for generation rules and p
 
 **Multiple blueprints:** never overwrite another id's directory. Link from run via `run.yaml` `blueprint_id` and `meta.yaml` `run_id`.
 
-**Commands:** `lamina-blueprint preview --ensure --open`, `retire`, `validate`, `validate run` — see lamina-blueprint skill.
+**Commands:** `lamina-blueprint review --ensure --open`, `retire`, `validate`, `validate run` — see lamina-blueprint skill.
 
 ---
 

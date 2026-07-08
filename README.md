@@ -222,20 +222,20 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 
 ---
 
-## UX Blueprint preview (optional)
+## UX Review Studio (optional)
 
-Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local greyscale preview:
+Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local **UX Review Studio** — People, Flows, Screens, and Scenarios views:
 
 ```bash
 pnpm install
 pnpm preview:example
-# or: pnpm exec lamina-blueprint preview --root .lamina/blueprints --id <id>
-# from repo root without install: node packages/lamina-blueprint/cli/index.js preview --root ...
+# or: pnpm exec lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
+# from repo root without install: node packages/lamina-blueprint/cli/index.js review --root ...
 ```
 
 | CLI command | Description |
 |-------------|-------------|
-| `preview` | Start greyscale wireframe preview server |
+| `review` / `preview` | Start UX Review Studio server |
 | `validate` | Validate blueprint directory structure |
 | `export-graph` | Export flow graph as Mermaid |
 | `retire` | Delete a blueprint directory |

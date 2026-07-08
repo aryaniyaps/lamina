@@ -1,6 +1,6 @@
 id: demo
 port: 5174
-url: "http://localhost:5174?id=demo"
-pid: 721995
+url: "http://localhost:5174?run=demo&id=demo"
+pid: 187458
 root: "/home/aryan/ai-projects/lamina/examples/minimal-blueprint/.lamina/blueprints"
-startedAt: "2026-07-06T17:25:23.363Z"
+startedAt: "2026-07-08T09:18:00.925Z"

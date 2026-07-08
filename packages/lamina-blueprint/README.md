@@ -1,45 +1,54 @@
 # @lamina/blueprint
 
-Semantic UX blueprint components and dark greyscale wireframe preview for Lamina — visualize and evaluate UX artifacts (flows, screens, scenarios, persona blockers).
+Semantic UX blueprint components and **UX Review Studio** — visual review of personas, flows, edge-case coverage, and greyscale wireframes for Lamina.
 
 ## CLI
 
 ```bash
-lamina-blueprint preview --root .lamina/blueprints --id <id>
+lamina-blueprint review --root .lamina/blueprints --run <run_id> --id <id>
+lamina-blueprint preview --root .lamina/blueprints --id <id>   # legacy alias; add --run
 lamina-blueprint export-graph --root .lamina/blueprints --id <id> --stdout
 lamina-blueprint validate .lamina/blueprints/<id>
 lamina-blueprint validate run .lamina/runs/<run_id>/run.yaml
 lamina-blueprint retire <id> --root .lamina/blueprints
 ```
 
-## Preview (v2)
+## UX Review Studio
 
-- Dark greyscale wireframe renderer (preview CSS only — blueprint TSX stays unstyled)
-- Flow graph with **scenario branches** (dashed edges) — click nodes or hotspots to navigate
-- **Skeleton screens** for missing TSX files; graph nodes show Pending/Error badges
-- **Provisional flow graph** from linked `run.yaml` `flows[]` (via `meta.yaml` `run_id`) when `flows.tsx` is absent
-- Per-flow screen overrides at `flows/<flow-id>/screens/<screen>.tsx` (fallback: `screens/`)
-- Edge-case variants at `scenarios/<id>/screens/<screen>.tsx` (scenario inventory in linked `run.yaml` `scenarios[]`)
-- Single designed state in the canvas (no baseline/proposed comparison)
-- Viewport presets in the topbar: Mobile (390px), Tablet (768px), Desktop (1280px, default)
+Four views at one local URL:
 
-### CLI lifecycle
+| View | Source |
+|------|--------|
+| **People** | `personas.yaml`, `run.yaml` simulation |
+| **Flows** | `run.yaml` flows + blueprint `flows.tsx` |
+| **Screens** | Blueprint SUB TSX wireframes + annotation pins |
+| **Scenarios** | `run.yaml` scenarios — Gaps, Matrix, Gallery |
 
 ```bash
-lamina-blueprint preview --root .lamina/blueprints --id <id> --ensure --open
+lamina-blueprint review --root .lamina/blueprints --run demo --id demo --ensure --open
 ```
 
-Writes `.lamina/preview-state.yaml`. `--ensure` starts background server if not running; `--open` uses system browser (`xdg-open` / `open` / `start`).
+Writes `.lamina/preview-state.yaml`. `--ensure` starts background server if not running; `--open` uses system browser.
+
+People, Flows, and Scenarios work with `--run` alone. Screens requires linked blueprint SUB TSX.
 
 ### Agent API
 
-- `GET /__lamina/state?id=<id>&flowId=<flow>` — per-screen completeness
-- `GET /__lamina/screenshot` — not yet available (returns 501; use `/state`)
+- `GET /__lamina/runs` — list runs
+- `GET /__lamina/run?run=<run_id>` — run metadata + screen inventory
+- `GET /__lamina/coverage?run=<run_id>` — gaps, matrix, coverage score
+- `GET /__lamina/flow-graph?run=<run_id>` — flow graph data
+- `GET /__lamina/scenarios?run=<run_id>` — scenario entries
+- `GET /__lamina/personas?run=<run_id>` — persona + simulation data
+- `GET /__lamina/state?id=<id>&flowId=<flow>` — per-screen blueprint completeness
 
 ## Components
 
 Import from `@lamina/blueprint`. See `skills/lamina-blueprint/SKILL.md` for the full SUB taxonomy and generation rules.
 
-## Brownfield validation
+## Validation
 
-`run.yaml` `screens[]` with `status: existing`, `source`, and `elements` defines brownfield fidelity. `lamina-blueprint validate` enforces fidelity for existing screens via `meta.yaml` `run_id`. New screens use standard checks only. See `skills/lamina-blueprint/SKILL.md` § Brownfield extraction.
+- Blueprint structure, flow wiring, trigger matching
+- Brownfield fidelity via `run.yaml` `screens[]` with `status: existing`
+- `run.yaml` `scenarios[]` field validation
+- Scenario variant TSX is **optional** — validated only when present

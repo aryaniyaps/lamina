@@ -12,8 +12,12 @@ export function defaultStateFile(blueprintRoot) {
   return path.join(path.resolve(blueprintRoot, '..'), 'preview-state.yaml');
 }
 
-export function previewUrl(port, id) {
-  return `http://localhost:${port}?id=${encodeURIComponent(id)}`;
+export function previewUrl(port, id, runId) {
+  const params = new URLSearchParams();
+  if (runId) params.set('run', runId);
+  if (id) params.set('id', id);
+  const q = params.toString();
+  return `http://localhost:${port}${q ? `?${q}` : ''}`;
 }
 
 function parseStateYaml(source) {
@@ -104,9 +108,9 @@ export function openInBrowser(url) {
   child.unref();
 }
 
-export function spawnPreviewServer({ root, id, port, detached }) {
+export function spawnPreviewServer({ root, id, runId, port, detached }) {
   const configPath = path.join(os.tmpdir(), `lamina-blueprint-${port}.json`);
-  fs.writeFileSync(configPath, JSON.stringify({ root, id, port }));
+  fs.writeFileSync(configPath, JSON.stringify({ root, id, runId, port }));
 
   const viteBin = path.join(packageRoot, 'node_modules', 'vite', 'bin', 'vite.js');
   const configFile = path.join(packageRoot, 'preview', 'vite.config.ts');
@@ -126,6 +130,7 @@ export function spawnPreviewServer({ root, id, port, detached }) {
 export async function ensurePreviewRunning({
   root,
   id,
+  runId,
   port,
   stateFile,
   open,
@@ -135,8 +140,9 @@ export async function ensurePreviewRunning({
   if (existing?.port && existing?.pid && isProcessAlive(existing.pid)) {
     const healthy = await healthCheck(existing.port);
     if (healthy) {
-      const url = previewUrl(existing.port, existing.id ?? id);
-      console.log(`Lamina Blueprint preview (already running)`);
+      const url = previewUrl(existing.port, existing.id ?? id, runId ?? existing.runId);
+      console.log(`Lamina UX Review Studio (already running)`);
+      console.log(`  Run:       ${runId ?? existing.runId ?? '—'}`);
       console.log(`  Blueprint: ${existing.id ?? id}`);
       console.log(`  URL:       ${url}`);
       console.log(`  State:     ${stateFile}`);
@@ -146,18 +152,20 @@ export async function ensurePreviewRunning({
   }
 
   const resolvedPort = await findAvailablePort(port);
-  const url = previewUrl(resolvedPort, id);
+  const url = previewUrl(resolvedPort, id, runId);
   const startedAt = new Date().toISOString();
 
   if (foreground) {
-    console.log(`Lamina Blueprint preview`);
+    console.log(`Lamina UX Review Studio`);
+    console.log(`  Run:       ${runId ?? '—'}`);
     console.log(`  Blueprint: ${id}`);
     console.log(`  URL:       ${url}`);
     if (open) openInBrowser(url);
 
-    const child = spawnPreviewServer({ root, id, port: resolvedPort, detached: false });
+    const child = spawnPreviewServer({ root, id, runId, port: resolvedPort, detached: false });
     writePreviewState(stateFile, {
       id,
+      runId,
       port: resolvedPort,
       url,
       pid: child.pid,
@@ -173,11 +181,12 @@ export async function ensurePreviewRunning({
     return { url, port: resolvedPort, pid: child.pid, reused: false };
   }
 
-  const child = spawnPreviewServer({ root, id, port: resolvedPort, detached: true });
+  const child = spawnPreviewServer({ root, id, runId, port: resolvedPort, detached: true });
   child.unref();
 
   writePreviewState(stateFile, {
     id,
+    runId,
     port: resolvedPort,
     url,
     pid: child.pid,
@@ -192,7 +201,8 @@ export async function ensurePreviewRunning({
 
   if (open) openInBrowser(url);
 
-  console.log(`Lamina Blueprint preview (background)`);
+  console.log(`Lamina UX Review Studio (background)`);
+  console.log(`  Run:       ${runId ?? '—'}`);
   console.log(`  Blueprint: ${id}`);
   console.log(`  URL:       ${url}`);
   console.log(`  State:     ${stateFile}`);

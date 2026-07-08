@@ -568,7 +568,7 @@ function gradeAssertion(text, ctx) {
 
   if (lower.includes('blueprint offer made')) {
     const firstTurn = turnOutputs[0] ?? allOutput;
-    const passed = /wireframe preview|blueprint preview|preview\?|opens a local link/i.test(firstTurn);
+    const passed = /ux review studio|wireframe preview|blueprint preview|preview\?|opens a local link/i.test(firstTurn);
     return hookResult(text, passed, passed ? 'Blueprint/wireframe offer found in early turn' : 'No blueprint checkpoint offer');
   }
 

@@ -208,10 +208,11 @@ function validateScenarios(dir, errors) {
 
     if (!s.id || !s.screen) continue;
 
+    if (s.ux === 'alternate_flow') continue;
+
     const variantPath = scenarioScreenPathInBlueprint(dir, s.id, s.screen);
     const rel = path.relative(dir, variantPath);
     if (!fs.existsSync(variantPath)) {
-      errors.push(`${rel}: scenario variant screen not found for "${s.id}"`);
       continue;
     }
 

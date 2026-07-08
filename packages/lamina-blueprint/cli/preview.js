@@ -4,11 +4,13 @@ import {
   defaultStateFile,
   ensurePreviewRunning,
 } from './preview-lifecycle.js';
+import { readBlueprintRunId } from '../lib/run.mjs';
 
 function parseArgs(args) {
   const opts = {
     root: '.lamina/blueprints',
     id: null,
+    runId: null,
     port: 5173,
     list: false,
     ensure: false,
@@ -20,6 +22,7 @@ function parseArgs(args) {
     const arg = args[i];
     if (arg === '--root' && args[i + 1]) opts.root = args[++i];
     else if (arg === '--id' && args[i + 1]) opts.id = args[++i];
+    else if (arg === '--run' && args[i + 1]) opts.runId = args[++i];
     else if (arg === '--port' && args[i + 1]) opts.port = Number(args[++i]);
     else if (arg === '--state-file' && args[i + 1]) opts.stateFile = args[++i];
     else if (arg === '--list') opts.list = true;
@@ -61,9 +64,18 @@ function listBlueprints(root) {
   }
 }
 
+function resolveBlueprintFromRun(laminaRoot, runId) {
+  const runPath = path.join(laminaRoot, 'runs', runId, 'run.yaml');
+  if (!fs.existsSync(runPath)) return null;
+  const m = fs.readFileSync(runPath, 'utf8').match(/^blueprint_id:\s*(.+)$/m);
+  if (!m) return null;
+  return m[1].trim().replace(/^["']|["']$/g, '');
+}
+
 export async function runPreview(args) {
   const opts = parseArgs(args);
   const root = path.resolve(opts.root);
+  const laminaRoot = path.resolve(root, '..');
 
   if (opts.list) {
     listBlueprints(root);
@@ -74,18 +86,35 @@ export async function runPreview(args) {
     throw new Error(`Blueprints root not found: ${root}`);
   }
 
+  let runId = opts.runId;
   let id = opts.id;
+
+  if (runId && !id) {
+    id = resolveBlueprintFromRun(laminaRoot, runId);
+  }
+
+  if (!runId && id) {
+    runId = readBlueprintRunId(path.join(root, id));
+  }
+
   if (!id) {
     const dirs = fs
       .readdirSync(root, { withFileTypes: true })
       .filter((d) => d.isDirectory());
     if (!dirs.length) throw new Error(`No blueprints in ${root}`);
     id = dirs[0].name;
+    if (!runId) runId = readBlueprintRunId(path.join(root, id));
   }
 
-  const blueprintDir = path.join(root, id);
-  if (!fs.existsSync(blueprintDir)) {
-    throw new Error(`Blueprint not found: ${blueprintDir}`);
+  if (!runId && !id) {
+    throw new Error('Provide --run <run_id> and/or --id <blueprint_id>');
+  }
+
+  if (id) {
+    const blueprintDir = path.join(root, id);
+    if (!fs.existsSync(blueprintDir)) {
+      throw new Error(`Blueprint not found: ${blueprintDir}`);
+    }
   }
 
   const stateFile = opts.stateFile
@@ -95,6 +124,7 @@ export async function runPreview(args) {
   await ensurePreviewRunning({
     root,
     id,
+    runId,
     port: opts.port,
     stateFile,
     open: opts.open,

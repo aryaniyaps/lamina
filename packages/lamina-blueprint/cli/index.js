@@ -9,13 +9,14 @@ const [command, ...args] = process.argv.slice(2);
 
 function usage() {
   console.log(`Usage:
-  lamina-blueprint preview --root <dir> [--id <id>] [--port <port>] [--list] [--ensure] [--open] [--state-file <path>]
+  lamina-blueprint preview|review --root <dir> [--run <run_id>] [--id <id>] [--port <port>] [--list] [--ensure] [--open] [--state-file <path>]
   lamina-blueprint export-graph --root <dir> --id <id> [--out file.mmd] [--stdout]
   lamina-blueprint retire <id> [--root <dir>]
   lamina-blueprint validate <blueprint-dir>
   lamina-blueprint validate run <run.yaml>
 
 Examples:
+  lamina-blueprint review --root .lamina/blueprints --run demo --open
   lamina-blueprint preview --root .lamina/blueprints --id checkout-v2
   lamina-blueprint preview --root .lamina/blueprints --ensure --open
   lamina-blueprint preview --root .lamina/blueprints --list
@@ -28,6 +29,7 @@ Examples:
 try {
   switch (command) {
     case 'preview':
+    case 'review':
       await runPreview(args);
       break;
     case 'retire':

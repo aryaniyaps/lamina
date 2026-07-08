@@ -15,9 +15,18 @@ function loadBlueprintConfig() {
     return {
       root: path.resolve(packageRoot, '../../examples/minimal-blueprint/.lamina/blueprints'),
       id: 'demo',
+      runId: 'demo',
     };
   }
-  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (!cfg.runId && cfg.id) {
+    const metaPath = path.join(cfg.root, cfg.id, 'meta.yaml');
+    if (fs.existsSync(metaPath)) {
+      const m = fs.readFileSync(metaPath, 'utf8').match(/^run_id:\s*(.+)$/m);
+      if (m) cfg.runId = m[1].trim().replace(/^["']|["']$/g, '');
+    }
+  }
+  return cfg;
 }
 
 export default defineConfig(() => {
