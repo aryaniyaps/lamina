@@ -2,8 +2,6 @@
 
 Post-build and brownfield verification against design contracts — actor walks, invariants, accessibility, integrity on live product.
 
-Absorbs former `/lamina-audit` brownfield review.
-
 ## Boundary
 
 | Signal | Dispatch |

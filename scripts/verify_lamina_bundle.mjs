@@ -103,9 +103,6 @@ function checkOutputContracts() {
       'Findings',
       'Open questions',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/audit.md': [
-      'deprecated',
-    ],
     'skills/lamina-orchestrator/prompts/outputs/init.md': [
       'Mode',
       'Business context summary',
@@ -141,7 +138,7 @@ function checkOutputContracts() {
 }
 
 function checkCommandSkills() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify', 'lamina-audit'];
+  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify'];
   for (const name of commandNames) {
     const skillPath = `skills/${name}/SKILL.md`;
     if (!exists(skillPath)) {
@@ -158,7 +155,7 @@ function checkCommandSkills() {
   }
 }
 function checkInitPrerequisiteLinks() {
-  const gatedCommands = ['lamina-design', 'lamina-verify', 'lamina-audit'];
+  const gatedCommands = ['lamina-design', 'lamina-verify'];
   for (const name of gatedCommands) {
     const skillPath = `skills/${name}/SKILL.md`;
     const skill = read(skillPath);
@@ -205,7 +202,6 @@ function checkRequiredPaths() {
     'skills/lamina-init/SKILL.md',
     'skills/lamina-design/SKILL.md',
     'skills/lamina-verify/SKILL.md',
-    'skills/lamina-audit/SKILL.md',
     'skills/lamina-business-context/SKILL.md',
     'skills/lamina-orchestrator/SKILL.md',
     'skills/lamina-orchestrator/audit-profiles.yaml',
@@ -218,7 +214,6 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/prompts/outputs/design.md',
     'skills/lamina-orchestrator/workflows/verify.md',
     'skills/lamina-orchestrator/prompts/outputs/verify.md',
-    'skills/lamina-orchestrator/workflows/audit.md',
     'skills/lamina-orchestrator/prompts/outputs/init.md',
     'skills/lamina-orchestrator/prompts/outputs/clarify.md',
     'lib/run.mjs',

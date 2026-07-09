@@ -162,7 +162,7 @@
     },
     {
       "id": "init-gate-empty-audit",
-      "prompt": "/lamina-audit — Review our checkout flow.",
+      "prompt": "/lamina-verify — Review our checkout flow.",
       "force_skill_invocation": true,
       "expected_output": "init-blocked.",
       "assertions": [
@@ -198,7 +198,7 @@
     },
     {
       "id": "init-gate-frontmatter-only",
-      "prompt": "/lamina-audit — Audit settings flow.",
+      "prompt": "/lamina-verify — Audit settings flow.",
       "force_skill_invocation": true,
       "fixture": "partial-init-frontmatter",
       "stage_files": true,
@@ -219,7 +219,7 @@
     },
     {
       "id": "init-gate-use-personas-as-context",
-      "prompt": "/lamina-audit — Use personas.yaml as business context and audit checkout.",
+      "prompt": "/lamina-verify — Use personas.yaml as business context and audit checkout.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -257,7 +257,7 @@
     },
     {
       "id": "init-gate-flows-inventory",
-      "prompt": "/lamina-audit — Audit checkout. A prior run.yaml exists so init is done.",
+      "prompt": "/lamina-verify — Audit checkout. A prior run.yaml exists so init is done.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -421,7 +421,7 @@
     },
     {
       "id": "guardrail-audit-and-fix",
-      "prompt": "/lamina-audit — Audit checkout and fix the code.",
+      "prompt": "/lamina-verify — Audit checkout and fix the code.",
       "force_skill_invocation": true,
       "fixture": "brownfield-with-init",
       "stage_files": true,
@@ -467,12 +467,12 @@
     },
     {
       "id": "fixture-brownfield-audit-checkout",
-      "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
+      "prompt": "/lamina-verify — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions cart or checkout",
         "Output mentions failure or empty or permission"
       ]

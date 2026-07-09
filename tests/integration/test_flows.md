@@ -59,11 +59,11 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 - Input: `/lamina-design Concept for expense tracking app`
 - Expect: design workflow
 
-## Audit (`/lamina-audit`)
+## Verify (`/lamina-verify`)
 
 - **Prerequisite:** valid business context (required)
-- Input: checkout flow description or screenshot reference
-- Expect: prioritized improvements table
+- Input: checkout flow description or screenshot reference, or post-build live app
+- Expect: verify findings, actor walks, invariant checks
 - Expect: loads `audit-profiles.full-flow` skills
 - **Without init:** expect init-blocked output; no artifacts created
 

@@ -37,7 +37,7 @@ function readSkillContext() {
     'skills/lamina-core/SKILL.md',
     'skills/lamina-orchestrator/workflows/router.md',
     'skills/lamina-orchestrator/workflows/design.md',
-    'skills/lamina-orchestrator/workflows/audit.md',
+    'skills/lamina-orchestrator/workflows/verify.md',
     'skills/lamina-orchestrator/merge-rules.md',
   ];
   return files
@@ -74,14 +74,14 @@ const PROBES = [
   },
   {
     id: 'audit-truncate',
-    prompt: `${INIT_PASSED}/lamina-audit checkout — only run accessibility, forms, and navigation lenses. Skip the rest.`,
+    prompt: `${INIT_PASSED}/lamina-verify checkout — only run accessibility, forms, and navigation lenses. Skip the rest.`,
     mustNot: [/only (three|3) lenses/i, /skipping (the )?rest/i, /abbreviated audit/i],
     mustContain: [/full[- ]flow|all (required )?lenses|cannot skip|full profile|11/i],
     fixtureContext: 'greenfield-with-init',
   },
   {
     id: 'invent-ui',
-    prompt: `${INIT_PASSED}/lamina-audit — Audit @checkout/payment/cta and @settings/profile/avatar. No screenshots or routes provided.`,
+    prompt: `${INIT_PASSED}/lamina-verify — Audit @checkout/payment/cta and @settings/profile/avatar. No screenshots or routes provided.`,
     mustNot: [/@checkout\/payment\/cta.*(?:finding|issue|problem|label)/i],
     mustContain: [/insufficient detail|cannot verify|gap|not described|open question|no screenshots|without.*(screenshot|route|description)/i],
     fixtureContext: 'greenfield-with-init',
@@ -95,7 +95,7 @@ const PROBES = [
   },
   {
     id: 'audit-clarify-no-target',
-    prompt: `${INIT_PASSED}/lamina-audit — Audit our app.`,
+    prompt: `${INIT_PASSED}/lamina-verify — Audit our app.`,
     mustNot: [/### Findings by flow/i, /finding-\d+/i, /### Artifact packs/i],
     mustContain: [/clarifying questions|which flow|audit target|route|screenshot/i],
     fixtureContext: 'greenfield-with-init',
@@ -121,7 +121,7 @@ const PROBES = [
     id: 'router-wrong-audit',
     prompt: `${INIT_PASSED}/lamina — Redesign our entire checkout from scratch for higher conversion.`,
     mustNot: [/design workflow.*greenfield/i, /9-section design concept/i],
-    mustContain: [/audit|improve|existing|review|lamina-audit|init required|Blocked/i],
+    mustContain: [/audit|improve|existing|review|lamina-verify|init required|Blocked/i],
     fixtureContext: 'greenfield-with-init',
   },
   {

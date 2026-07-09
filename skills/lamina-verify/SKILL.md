@@ -1,6 +1,6 @@
 ---
 name: lamina-verify
-description: "Verify built product against design contracts — actor walks, invariants, accessibility, and integrity on live UI. Use after implementation or for brownfield audit."
+description: "Verify built product against design contracts — actor walks, invariants, accessibility, and integrity on live UI. Use after implementation or for brownfield review."
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Post-build verification: walk the live product against `run.yaml` contracts — actor permissions, invariants, UX flows, and accessibility. Absorbs brownfield audit. Lamina never writes app source.
+Post-build verification: walk the live product against `run.yaml` contracts — actor permissions, invariants, UX flows, and accessibility. Lamina never writes app source.
 
 ## Load
 
@@ -30,9 +30,7 @@ Writes: `.lamina/` only. Repo: read-only. Never modify app source. See [guardrai
 
 ## Routing
 
-Use for: user signals implementation done; brownfield integrity audit; checking live product against domain, actors, workflows, scenarios.
-
-Former `/lamina-audit` requests route here.
+Use for: user signals implementation done; brownfield integrity check; checking live product against domain, actors, workflows, scenarios.
 
 ## Subagent hints
 

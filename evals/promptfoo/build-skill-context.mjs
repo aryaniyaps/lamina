@@ -24,7 +24,7 @@ const files = [
   'skills/lamina-orchestrator/prompts/outputs/artifact-pack.md',
   'skills/lamina-orchestrator/prompts/outputs/handoff.md',
   'skills/lamina-orchestrator/workflows/router.md',
-  'skills/lamina-orchestrator/workflows/audit.md',
+  'skills/lamina-orchestrator/workflows/verify.md',
   'skills/lamina-orchestrator/merge-rules.md',
 ];
 

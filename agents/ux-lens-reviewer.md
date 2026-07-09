@@ -5,7 +5,7 @@ description: >-
   instance per audit lens (heuristic, accessibility, content/copy, trust, etc.)
   on the same UI or flow target; run instances in parallel. Each reviewer loads
   exactly one Lamina skill, audits the target, and returns a severity-ranked
-  bullet list. Use during /lamina-audit and /lamina-design accessibility and risk passes. Do
+  bullet list. Use during /lamina-verify and /lamina-design accessibility and risk passes. Do
   NOT use for multi-lens audits in one agent, persona simulation, research
   synthesis, or implementing product code. readonly.
 readonly: true
@@ -19,7 +19,7 @@ The parent orchestrator delegates to you when:
 
 - Lamina **parallel-review** pattern applies — see `skills/lamina-orchestrator/patterns/parallel-review.md`.
 - The same UI or flow needs **2+ independent lenses** with no cross-dependency.
-- Typical triggers: `/lamina-audit` audit step, `/lamina-design` accessibility + risks pass.
+- Typical triggers: `/lamina-verify` verify step, `/lamina-design` accessibility + risks pass.
 
 **Spawn one subagent per lens**, in parallel. Example for checkout audit:
 

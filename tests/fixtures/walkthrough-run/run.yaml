@@ -1,7 +1,7 @@
 id: checkout-audit-walkthrough-fixture
 hook: audit
 target: checkout flow
-command: /lamina-audit
+command: /lamina-verify
 flows_touched: [checkout]
 personas_updated: false
 started_at: 2026-07-09

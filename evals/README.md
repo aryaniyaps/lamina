@@ -80,7 +80,7 @@ Use `prompt` for single-turn cases. Use `prompts` (2+ strings) for checkpoint fl
 
 ## Capability coverage
 
-Workflow artifact quality is tested inside `lamina-design` and `lamina-audit` suites (not via explicit user asks):
+Workflow artifact quality is tested inside `lamina-design` and `lamina-verify` suites (not via explicit user asks):
 
 | Area | Eval IDs | Hook assertions |
 |------|----------|-----------------|

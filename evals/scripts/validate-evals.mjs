@@ -17,7 +17,7 @@ const suites = [
   'skills/lamina/evals/evals.json',
   'skills/lamina-init/evals/evals.json',
   'skills/lamina-design/evals/evals.json',
-  'skills/lamina-audit/evals/evals.json',
+  'skills/lamina-verify/evals/evals.json',
   'skills/lamina-capabilities/evals/evals.json',
 ];
 

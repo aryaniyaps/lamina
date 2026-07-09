@@ -35,9 +35,6 @@ const OUTPUT_CONTRACTS = {
     '### Findings',
     '### Open questions',
   ],
-  audit: [
-    'deprecated',
-  ],
   init: ['### Mode', '### Business context summary', '### Open questions', '### Recommended next step'],
 };
 
@@ -397,9 +394,9 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'Init output contract present' : 'Missing init contract headings');
   }
 
-  if (lower.includes('audit') && lower.includes('headings')) {
-    const missing = OUTPUT_CONTRACTS.audit.filter((h) => !output.includes(h));
-    return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All audit headings present');
+  if (lower.includes('verify') && lower.includes('headings')) {
+    const missing = OUTPUT_CONTRACTS.verify.filter((h) => !output.includes(h));
+    return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All verify headings present');
   }
 
   if (lower.includes('all full-flow lenses') || lower.includes('full-flow lenses')) {

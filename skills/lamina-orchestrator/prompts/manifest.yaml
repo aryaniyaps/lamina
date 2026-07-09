@@ -4,8 +4,6 @@ outputs/design:
   path: outputs/design.md
 outputs/verify:
   path: outputs/verify.md
-outputs/audit:
-  path: outputs/audit.md
 outputs/init:
   path: outputs/init.md
 outputs/clarify:

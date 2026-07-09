@@ -25,7 +25,6 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 | Init | [workflows/init.md](workflows/init.md) |
 | Design | [workflows/design.md](workflows/design.md) |
 | Verify | [workflows/verify.md](workflows/verify.md) |
-| Audit (deprecated) | [workflows/audit.md](workflows/audit.md) → verify |
 
 ## Steps
 

@@ -1,6 +1,6 @@
 # Init required gate
 
-Hard prerequisite for `/lamina-design`, `/lamina-audit`, and `/lamina` when routing to those workflows.
+Hard prerequisite for `/lamina-design`, `/lamina-verify`, and `/lamina` when routing to those workflows.
 
 **Do not infer init** from other `.lamina/` artifacts (`personas.yaml`, prior `run.yaml`, `blueprints/`, `preview-state.yaml`, etc.). Only `.lamina/business-context.md` from `/lamina-init` satisfies this gate.
 

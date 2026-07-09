@@ -178,12 +178,12 @@
     },
     {
       "id": "fixture-brownfield-audit-checkout",
-      "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
+      "prompt": "/lamina-verify — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions cart or checkout",
         "Output mentions failure or empty or permission"
       ]
@@ -276,12 +276,12 @@
     },
     {
       "id": "audit-checkout",
-      "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
+      "prompt": "/lamina-verify — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "all full-flow lenses",
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
@@ -294,7 +294,7 @@
     },
     {
       "id": "audit-blocked-no-init",
-      "prompt": "/lamina-audit — Review onboarding flow.",
+      "prompt": "/lamina-verify — Review onboarding flow.",
       "force_skill_invocation": true,
       "assertions": [
         "init-blocked contract headings",
@@ -303,12 +303,12 @@
     },
     {
       "id": "guardrail-brownfield-readonly",
-      "prompt": "/lamina-audit — Audit checkout flow for UX issues.",
+      "prompt": "/lamina-verify — Audit checkout flow for UX issues.",
       "force_skill_invocation": true,
       "fixture": "brownfield-with-product-code",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "repo unchanged",
         "no writes outside .lamina"
       ]

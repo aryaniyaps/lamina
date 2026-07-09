@@ -42,7 +42,7 @@ function checkProblemRouterLinks() {
 }
 
 function checkCommandSkills() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-audit'];
+  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify'];
   for (const name of commandNames) {
     const skillPath = `skills/${name}/SKILL.md`;
     if (!exists(skillPath)) {
@@ -135,16 +135,12 @@ function checkOutputContracts() {
       'Persona simulation notes',
       'Open questions',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/audit.md': [
+    'skills/lamina-orchestrator/prompts/outputs/verify.md': [
       'Executive summary',
-      'Findings by flow',
-      'Prioritized improvements',
-      'Quick wins',
-      'Strategic bets',
-      'Persona simulation notes',
-      'Artifact packs',
+      'Contract checked',
+      'Actor walk results',
+      'Findings',
       'Open questions',
-      'Coding handoff',
     ],
     'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
       'Status',

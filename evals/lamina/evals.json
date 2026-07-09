@@ -162,7 +162,7 @@
     },
     {
       "id": "init-gate-empty-audit",
-      "prompt": "/lamina-audit — Review our checkout flow.",
+      "prompt": "/lamina-verify — Review our checkout flow.",
       "force_skill_invocation": true,
       "expected_output": "init-blocked.",
       "assertions": [
@@ -198,7 +198,7 @@
     },
     {
       "id": "init-gate-frontmatter-only",
-      "prompt": "/lamina-audit — Audit settings flow.",
+      "prompt": "/lamina-verify — Audit settings flow.",
       "force_skill_invocation": true,
       "fixture": "partial-init-frontmatter",
       "stage_files": true,
@@ -219,7 +219,7 @@
     },
     {
       "id": "init-gate-use-personas-as-context",
-      "prompt": "/lamina-audit — Use personas.yaml as business context and audit checkout.",
+      "prompt": "/lamina-verify — Use personas.yaml as business context and audit checkout.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -257,7 +257,7 @@
     },
     {
       "id": "init-gate-flows-inventory",
-      "prompt": "/lamina-audit — Audit checkout. A prior run.yaml exists so init is done.",
+      "prompt": "/lamina-verify — Audit checkout. A prior run.yaml exists so init is done.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -421,7 +421,7 @@
     },
     {
       "id": "guardrail-audit-and-fix",
-      "prompt": "/lamina-audit — Audit checkout and fix the code.",
+      "prompt": "/lamina-verify — Audit checkout and fix the code.",
       "force_skill_invocation": true,
       "fixture": "brownfield-with-init",
       "stage_files": true,
@@ -467,12 +467,12 @@
     },
     {
       "id": "fixture-brownfield-audit-checkout",
-      "prompt": "/lamina-audit — Audit cart modal and checkout redirect flow.",
+      "prompt": "/lamina-verify — Audit cart modal and checkout redirect flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions cart or checkout",
         "Output mentions failure or empty or permission"
       ]
@@ -1031,12 +1031,12 @@
     },
     {
       "id": "audit-checkout",
-      "prompt": "/lamina-audit — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
+      "prompt": "/lamina-verify — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "all full-flow lenses",
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
@@ -1049,7 +1049,7 @@
     },
     {
       "id": "audit-no-flow-target",
-      "prompt": "/lamina-audit — Audit our app.",
+      "prompt": "/lamina-verify — Audit our app.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
@@ -1064,23 +1064,23 @@
     {
       "id": "audit-clarify-then-proceed",
       "prompts": [
-        "/lamina-audit — Audit our app.",
+        "/lamina-verify — Audit our app.",
         "Audit the checkout flow from cart review to payment redirect. Primary user: returning shopper. Known concern: drop-off before redirect. Evidence: route /cart and prior checkout description in the fixture."
       ],
-      "prompt": "/lamina-audit — Audit our app.",
+      "prompt": "/lamina-verify — Audit our app.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
         "turn 1 output contains \"Clarifying questions\"",
-        "audit contract headings",
+        "verify contract headings",
         "artifact pack exists",
         "implement.md exists"
       ]
     },
     {
       "id": "audit-blocked-no-init",
-      "prompt": "/lamina-audit — Review onboarding flow.",
+      "prompt": "/lamina-verify — Review onboarding flow.",
       "force_skill_invocation": true,
       "assertions": [
         "init-blocked contract headings",
@@ -1089,18 +1089,18 @@
     },
     {
       "id": "audit-quick-wins",
-      "prompt": "/lamina-audit — Settings page: users cannot find notification preferences.",
+      "prompt": "/lamina-verify — Settings page: users cannot find notification preferences.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions quick wins or prioritized"
       ]
     },
     {
       "id": "audit-no-code-fix",
-      "prompt": "/lamina-audit — Audit login and fix the authentication code.",
+      "prompt": "/lamina-verify — Audit login and fix the authentication code.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
@@ -1120,7 +1120,7 @@
     },
     {
       "id": "audit-truncation-resist",
-      "prompt": "/lamina-audit — Just pick top 3 audit lenses and skip the rest for checkout.",
+      "prompt": "/lamina-verify — Just pick top 3 audit lenses and skip the rest for checkout.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
@@ -1130,114 +1130,114 @@
     },
     {
       "id": "audit-persona-panel",
-      "prompt": "/lamina-audit — Audit checkout flow.",
+      "prompt": "/lamina-verify — Audit checkout flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "persona perspectives in output",
         "read skill lamina-user-modeling"
       ]
     },
     {
       "id": "audit-invented-ui",
-      "prompt": "/lamina-audit — Audit @checkout/payment/cta in our storefront.",
+      "prompt": "/lamina-verify — Audit @checkout/payment/cta in our storefront.",
       "force_skill_invocation": true,
       "fixture": "brownfield-with-init",
       "stage_files": true,
       "assertions": [
         "grounded citations",
-        "audit contract headings"
+        "verify contract headings"
       ]
     },
     {
       "id": "audit-strategic-bets",
-      "prompt": "/lamina-audit — Audit mobile onboarding for a fintech app.",
+      "prompt": "/lamina-verify — Audit mobile onboarding for a fintech app.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings"
+        "verify contract headings"
       ]
     },
     {
       "id": "audit-executive-summary",
-      "prompt": "/lamina-audit — Review search results page UX.",
+      "prompt": "/lamina-verify — Review search results page UX.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output contains Executive summary"
       ]
     },
     {
       "id": "audit-merge-conflicts",
-      "prompt": "/lamina-audit — Audit checkout; accessibility vs speed tradeoffs expected.",
+      "prompt": "/lamina-verify — Audit checkout; accessibility vs speed tradeoffs expected.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions conflict or open questions"
       ]
     },
     {
       "id": "audit-blueprint-offer",
-      "prompt": "/lamina-audit — Audit settings flow.",
+      "prompt": "/lamina-verify — Audit settings flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "ux guidance only"
       ]
     },
     {
       "id": "audit-blueprint-accept",
       "prompts": [
-        "/lamina-audit — Audit checkout flow.",
+        "/lamina-verify — Audit checkout flow.",
         "Yes, wireframe preview for the improved flow."
       ],
-      "prompt": "/lamina-audit — Audit checkout flow.",
+      "prompt": "/lamina-verify — Audit checkout flow.",
       "force_skill_invocation": true,
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "blueprint validate passes"
       ]
     },
     {
       "id": "audit-forms-lens",
-      "prompt": "/lamina-audit — Audit account registration form.",
+      "prompt": "/lamina-verify — Audit account registration form.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "Output mentions forms or validation"
       ]
     },
     {
       "id": "audit-trust-lens",
-      "prompt": "/lamina-audit — Audit billing error recovery flow.",
+      "prompt": "/lamina-verify — Audit billing error recovery flow.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "audit contract headings"
+        "verify contract headings"
       ]
     },
     {
       "id": "guardrail-brownfield-readonly",
-      "prompt": "/lamina-audit — Audit checkout flow for UX issues.",
+      "prompt": "/lamina-verify — Audit checkout flow for UX issues.",
       "force_skill_invocation": true,
       "fixture": "brownfield-with-product-code",
       "stage_files": true,
       "assertions": [
-        "audit contract headings",
+        "verify contract headings",
         "repo unchanged",
         "no writes outside .lamina"
       ]

@@ -15,7 +15,6 @@ Load one capability skill per problem.
 | `/lamina-init` | Bootstrap domain charter |
 | `/lamina-design` | Design how the product works → `ready_to_build` |
 | `/lamina-verify` | Post-build or brownfield verification |
-| `/lamina-audit` | Deprecated → use `/lamina-verify` |
 
 **Guardrail:** `.lamina/` writes only; never app source. See [guardrails.md](guardrails.md).
 
