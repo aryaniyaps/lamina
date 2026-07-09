@@ -7,7 +7,7 @@
 <p align="center"><strong>Know what to build. Iterate faster.</strong></p>
 
 <p align="center">
-  Open-source skill for developers who build with AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped with <strong>parallel persona simulations</strong> — one subagent per actor, walking your live app. Any stack. Never writes app source.
+  Open-source skill for developers who build with AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped by spawning <strong>one subagent per persona</strong> to walk your live app in parallel. Any stack. Never writes app source.
 </p>
 
 ---
@@ -54,13 +54,20 @@ flowchart LR
 | 2. Build | **Your coding agent** | App source — any stack |
 | 3. Verify | **Lamina** | Parallel persona walks, findings, visual walkthrough, invariant checks |
 
-### Persona simulations
+---
 
-Most tools critique UX from the outside. Lamina **walks your live app as your users** — spawning one subagent per persona in parallel during `/lamina-verify`.
+## Pair with
 
-Each subagent embodies that actor from `personas.yaml`: goals, permissions, constraints, literacy. They attempt real workflows on your running product (screenshot-backed when a `base_url` is available). A registrar hits different walls than a student; Lamina surfaces both in one pass and merges results into `findings[]` for the next design iteration.
+Lamina designs and verifies product behavior. It works best when your agent can **see the whole system cheaply** and **remember what you already decided**. Add these to your coding stack:
 
-No interviews to schedule. No empathy docs that never reach implementation. Simulated actor walks on what you actually shipped.
+| Tool | Why it helps Lamina |
+|------|---------------------|
+| **[Graphify](https://github.com/safishamsi/graphify)** | Most flows span many files. Graphify turns the repo into a queryable knowledge graph so your agent maps routes, callers, and architecture without burning tokens on grep-walks. Run `/graphify .` before `/lamina-design` or `/lamina-verify` on brownfield apps. |
+| **[Claude-Mem](https://github.com/thedotmack/claude-mem)** | Design → build → verify spans sessions. Claude-Mem keeps decisions, prior findings, and project context across chats so you don't re-explain the domain every time. |
+| **UI design skill** ([Impeccable](https://github.com/pbakaus/impeccable), UI UX Pro Max, `frontend-design`) | Lamina stays unopinionated on pixels. Pair a UI skill so implementation looks intentional while Lamina owns states, edges, and verify. |
+| **Spec Kit / Kiro** | After `/lamina-design`, feed `implement.md` into an engineering spec for task breakdown. Product contract first, then build plan. |
+
+**Minimum upgrade for brownfield:** Graphify (codebase map) + Claude-Mem (session continuity). Lamina then designs against real structure and verifies without rediscovering the app every turn.
 
 ---
 
