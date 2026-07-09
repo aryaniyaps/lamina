@@ -7,7 +7,7 @@
 <p align="center"><strong>Know what to build. Iterate faster.</strong></p>
 
 <p align="center">
-  Open-source skill for developers who build with AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped by spawning <strong>one subagent per persona</strong> to walk your live app in parallel. Any stack. Never writes app source.
+  Open-source skill for AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped by spawning <strong>one subagent per persona</strong> to walk your live app in parallel. Any stack. Never writes app source.
 </p>
 
 ---
