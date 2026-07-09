@@ -1,59 +1,69 @@
 ---
 name: lamina
 description: >-
-  UX reasoning layer for developers. Use when you need to figure out what to
-  build before writing code or generating UI � defines user personas, maps
-  flows, writes specs, and enumerates edge cases. Framework-agnostic. Invoke
-  before any feature build, settings page, onboarding flow, or multi-step
-  interaction. Do NOT use for visual design, pixel layouts, or code generation.
+  Product design skill for developers who build with AI coding agents. Use when
+  you need to know what to build before prompting your agent — domain model,
+  workflows, edge cases, product states, and UX gaps handled upfront. Works
+  alongside Cursor, Claude Code, Codex, Gemini, Pi. Any stack, any UI library.
+  Do NOT use for visual styling, pixel layouts, or writing app source.
 metadata:
   surfaces:
     - ide
     - cli
 ---
 
-# Lamina � UX Reasoning Layer
+# Lamina — For Developers Who Build with AI
 
 **Design how it works.**
 
-Lamina is the missing layer between AI UI tools and coding agents. It does not make things pretty and it does not write code. It figures out **what to build** and **how users move through it**.
+Lamina runs alongside your AI coding agent — Cursor, Claude Code, Codex, Gemini, Pi. It helps you know what to build before you prompt: edge cases, UX gaps, product states, and invariants in a design contract your agent implements. Verified visually after you ship. Does not write your app source.
 
 ## When to use
 
 Invoke Lamina when the task involves:
 
-- New features or pages where user behavior matters
+- New features where domain rules, user behavior, and system invariants all matter
 - Multi-step flows (onboarding, checkout, settings, wizards)
-- Permission-sensitive interactions
-- Empty states, error handling, or edge cases
-- "Build me a dashboard/settings/app" requests that skip UX thinking
+- Permission-sensitive or multi-actor interactions
+- Empty states, error handling, or edge cases tied to business rules
+- Post-build verification against a design contract
+- "Build me a dashboard/settings/app" requests that skip product thinking
 
 Do **not** invoke Lamina for:
 
-- Visual design, color, typography, or layout polish
+- Visual design, color, typography, or layout polish (use your UI design skill)
 - Generating React/Vue/Svelte components directly
-- Code review or refactoring existing code
 - Pure backend/API design with no user-facing flow
 
 ## Process
 
-Follow this sequence every time:
+Follow this sequence for design:
 
-### 1. Personas
+### 1. Domain
 
-Define 1�3 personas relevant to the feature:
+Define entities, states, and invariants:
 
 ```
-### [Name] � [Role]
+### Entity: [Name]
+- States: [list]
+- Invariants: [rules that must never break]
+- Permissions: [who can do what]
+```
+
+### 2. Actors & workflows
+
+Map who does what across the system:
+
+```
+### Actor: [Role]
 - Goal: [what they're trying to accomplish]
-- Context: [when/where they use this]
-- Fear: [what goes wrong for them]
-- Frequency: [how often]
+- Operations: [what they can trigger]
+
+## Workflow: [Name]
+1. [Actor] → [Operation] → [Side effect]
 ```
 
-Only include personas that affect design decisions. Skip decorative personas.
-
-### 2. Flows
+### 3. UX flows
 
 Map primary and alternate paths as numbered steps:
 
@@ -65,68 +75,39 @@ Map primary and alternate paths as numbered steps:
 
 1. [Step]
 2. [Step]
-...
 
 ### Alternate paths
-- [Condition] ? [different path]
+- [Condition] → [different path]
 ```
 
-Use ASCII flow diagrams for complex branching:
+### 4. Scenarios & edge cases
+
+Enumerate violations and recovery:
 
 ```
-[Entry] ? [Step 1] ? [Decision]
-                        ?? Yes ? [Path A] ? [Done]
-                        ?? No  ? [Path B] ? [Done]
+### Scenarios
+- [ ] [Specific scenario] → [Expected behavior]
 ```
 
-### 3. Spec
+Categories: empty states, errors, concurrency, boundaries, permissions, recovery.
 
-Write implementation-ready specs:
+## Verify
 
-```
-## Spec: [Feature name]
+After implementation, run verification:
 
-### Requirements
-- [ ] [Testable requirement]
-
-### States
-| State | Trigger | UI behavior |
-|-------|---------|-------------|
-| default | page load | ... |
-| loading | async fetch | ... |
-| empty | no data | ... |
-| error | fetch fails | ... |
-
-### Dependencies
-- [API, auth, feature flags, etc.]
-```
-
-### 4. Edge cases
-
-Enumerate edge cases as a checklist. Categories:
-
-- **Empty states** � no data yet
-- **Errors** � network, validation, permissions
-- **Concurrency** � two users, race conditions
-- **Boundaries** � max limits, truncation, overflow
-- **Permissions** � role-based visibility and actions
-- **Recovery** � undo, retry, escape hatches
-
-Format:
-
-```
-### Edge cases
-- [ ] [Specific scenario] ? [Expected behavior]
-```
+1. Actor walks against `run.yaml` contract
+2. Visual walkthrough capture from live app (screenshots + a11y)
+3. Persona simulations consume visual evidence
+4. Findings written to `.lamina/runs/<id>/`
 
 ## Output format
 
 Always output in this order:
 
-1. Personas
-2. Flows (with diagrams if needed)
-3. Spec
-4. Edge cases
+1. Domain (entities, invariants)
+2. Actors & workflows
+3. UX flows
+4. Scenarios & edge cases
 
 End with a **handoff block** for the coding agent:
 
@@ -142,34 +123,23 @@ Defer: [what can wait]
 
 - Precise, structural, dev-native
 - No marketing language, no "revolutionary AI"
-- Specs are testable � if you can't write a test for it, rewrite it
+- Specs are testable — if you can't write a test for it, rewrite it
 - Name things consistently (use IDs like `flow.invite-member.step-3`)
 
 ## Integration
 
-Lamina is unopinionated. Output specs that work with:
+Lamina is unopinionated. Works alongside:
 
+- Any UI design skill (Impeccable, UI UX Pro Max, etc.)
 - Any UI library (shadcn, MUI, Chakra, Radix, Tailwind)
-- Any framework (React, Vue, Svelte, Next.js)
-- Any coding agent (Cursor, Claude, Copilot, Windsurf)
+- Any framework (React, Vue, Svelte, Next.js, Angular, Astro, mobile)
+- Any coding agent (Cursor, Claude Code, Codex, Gemini, Pi)
 
-Never prescribe component names from a specific library unless the user specifies one.
-
-## Example invocation
-
-**User:** "Build a team settings page for our SaaS app"
-
-**Lamina output:**
-
-1. Personas: Team Admin, Member, Guest
-2. Flow: Change role, Remove member, Transfer ownership
-3. Spec: States table, permission matrix, API dependencies
-4. Edge cases: Last admin, pending invites, SSO conflicts
-5. Handoff: Build permission matrix first, defer audit log
+Never prescribe component names from a specific library unless the user specifies one. Never opinionated about context management or memory.
 
 ## Brand
 
 - Tagline: *Design how it works.*
-- Shorthand: *Flows before pixels.*
+- Position: *Know what to build. Iterate faster.*
 - Visual: Grey UX layer · Highlighter `#FACC15` accent · dotted annotations · 3D meerkat mascot
 - Website: [lamina.dev](https://lamina.dev)

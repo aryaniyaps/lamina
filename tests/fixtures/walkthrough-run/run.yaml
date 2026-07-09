@@ -1,0 +1,65 @@
+id: checkout-audit-walkthrough-fixture
+hook: audit
+target: checkout flow
+command: /lamina-audit
+flows_touched: [checkout]
+personas_updated: false
+started_at: 2026-07-09
+
+evidence:
+  - id: live-app-walkthrough
+    source: walkthrough/index.yaml
+    kind: visual_walkthrough
+    summary: Captured 1 existing product screen at http://localhost:3000
+
+artifacts:
+  - id: audit-pack
+    type: usability_findings_report
+    pack: validation
+    path: artifacts/audit-pack.md
+    confidence: medium
+    evidence_mode: run_yaml_required
+    diagram: flowchart
+
+flows:
+  - id: checkout
+    name: Checkout
+    status: shipped
+    routes: ["/cart"]
+    graphs:
+      - id: main
+        entry_screen: cart
+        transitions: []
+
+screens:
+  - id: cart
+    title: Cart
+    status: existing
+    source: app/cart/page.tsx
+    regions: [main]
+    elements:
+      - component: Button
+        label: Checkout
+
+simulation:
+  panel: [deal-hunter-diane]
+  results:
+    - persona_id: deal-hunter-diane
+      outcome: partial_fail
+      blockers:
+        - step: 01-cart
+          screen_id: cart
+          flow_id: checkout
+          severity: medium
+          quote: "I cannot find shipping costs on this screen"
+  confidence: medium
+
+findings:
+  - id: shipping-visibility
+    priority: high
+    finding: Shipping costs not visible on cart
+    impact: high
+    effort: low
+    recommendation: Show shipping estimate on cart
+    screen_id: cart
+    flow_id: checkout

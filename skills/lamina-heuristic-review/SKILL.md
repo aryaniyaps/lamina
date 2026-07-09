@@ -1,51 +1,39 @@
 ---
 name: lamina-heuristic-review
-description: "Heuristic Review UX guidance. Use when expert usability review without users; early design critique; Nielsen heuristic evaluation."
+description: "Expert lens review — parallel contract, a11y, and invariant checks. Not Nielsen heuristic checklist theater."
 metadata:
   lamina:
     id: heuristic-review
     problems:
-      - "expert usability review without users"
-      - "early design critique"
-      - "Nielsen heuristic evaluation"
-      - "early design review"
-      - "no user recruitment yet"
+      - "expert parallel review"
+      - "structured critique"
     related:
-      - lamina-usability-evaluation
-      - lamina-discoverability
-      - lamina-content-design
-    tags:
-      - audit-default
+      - lamina-orchestrator/patterns/parallel-review
+      - lamina-verify
+      - lamina-edge-cases
 ---
-# Heuristic Review
+# Expert Lens Review (agent-native)
 
-## Decision frameworks
+Run **parallel skill-based reviewers** against contract and live product — not generic heuristic scores.
 
-- **Heuristic Analysis** (Nielsen & Molich, 1990): 2–3 evaluators individually score a site against usability principles—quick, cheap, no recruiting.
-- **Nielsen's Ten Usability Heuristics**:
-  1. Visibility of system status
-  2. Match between system and the real world
-  3. User control and freedom
-  4. Consistency and standards
-  5. Error prevention
-  6. Recognition rather than recall
-  7. Flexibility and efficiency of use
-  8. Aesthetic and minimalist design
-  9. Help users recognize, diagnose, and recover from errors
-  10. Help and documentation
-- **Usability Definition** (five components): Learnability, efficiency, memorability, errors, satisfaction.
-- **Usability Test Plan Checklist** (usability.gov): Objectives, subject/state, methodology, participants/recruiting, procedure, tasks, usability goals, completion rate, error-free rate.
+## Lenses (spawn in parallel)
 
-## Evaluation rubrics
+| Lens | Checks |
+|------|--------|
+| Invariants | `lamina-invariants` vs workflows |
+| Permissions | actor guards, forbidden ops |
+| Edge cases | `lamina-edge-cases` scenarios |
+| A11y | verify a11y subagent on live UI |
+| Consistency | `lamina-multi-view-integrity` |
 
-### Heuristic Expert Review
-- **When**: Early design review without user recruitment.
-- **Process**: Evaluators independently review against established usability principles  ->  compile issues  ->  severity-rate  ->  prioritize fixes.
-- **Pass**: Prioritized issue list with severity ratings.
-- **Failure signals**: Single evaluator; no severity ranking; experts treated as users.
+Output: findings with contract ref and repro — not "severity 3 on heuristic 4".
 
-## Related capabilities
+## Anti-patterns
 
-- [Usability Evaluation](../lamina-usability-evaluation/SKILL.md)
-- [Discoverability](../lamina-discoverability/SKILL.md)
-- [Content Design](../lamina-content-design/SKILL.md)
+- **Nielsen theater** — 10 heuristics without domain context
+- **Score without action** — ratings that don't map to `findings[]`
+
+## Related
+
+- [Parallel Review](../lamina-orchestrator/patterns/parallel-review.md)
+- [Verify](../lamina-verify/SKILL.md)

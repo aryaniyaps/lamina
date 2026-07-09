@@ -1,6 +1,6 @@
 ---
 name: lamina-design
-description: "Design net-new UX — from problem framing through flows, edge cases, validation, and handoff."
+description: "Design how the product works — domain, actors, workflows, invariants, UX surfaces — then ready_to_build + implement.md."
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Design net-new UX — from a user problem, product idea, or named capability through flows, edge cases, validation, and handoff.
+End-to-end product design at the intersection of UX, product rules, and systems thinking. Emits a machine contract and stack-agnostic `implement.md`. Does not write app source.
 
 ## Load
 
@@ -22,19 +22,19 @@ Design net-new UX — from a user problem, product idea, or named capability thr
 
 ## Prerequisite
 
-Requires valid `.lamina/business-context.md` from `/lamina-init`. If the init gate fails, emit the `init-blocked` contract **verbatim** from `../lamina-orchestrator/prompts/outputs/init-blocked.md` and **STOP** — do not proceed with design, do not create artifacts.
+Valid `.lamina/business-context.md` from `/lamina-init`.
 
 ## Guardrail
 
-Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor app source code, tests, config, styles, docs outside `.lamina/`, or generated source during `/lamina-design`. A completed checklist, handoff, or approved blueprint is input for a later coding session, not permission to modify source now. If the user asks to implement, refuse that part briefly and finish only `.lamina/` artifacts. See [guardrails](../lamina-core/guardrails.md).
+Writes: `.lamina/` only. Never app source. See [guardrails](../lamina-core/guardrails.md).
 
 ## Routing
 
-Use the single design workflow for net-new UX. If the request is to redesign, improve, fix, or optimize shipped UI, route to `/lamina-audit` instead.
+Improve/fix shipped UI → `/lamina-verify`. After design completes, user implements externally, then `/lamina-verify`.
 
 ## Subagent hints
 
-- **Fresh context:** `../lamina-orchestrator/agents/research-synthesizer` for large research docs or brownfield source sets
-- **Persona panel:** dynamic spawns after flows/screens or journey exists; see `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`
-- **Parallel review:** `../lamina-orchestrator/agents/ux-lens-reviewer` for accessibility + risks
+- **Fresh context:** brownfield source sets — bounded scan per [field-research](../lamina-field-research/SKILL.md)
+- **Intake:** `design-intake` + `design-evidence` profiles from [audit-profiles.yaml](../lamina-orchestrator/audit-profiles.yaml)
+- **Parallel review:** accessibility + risks when supported (`heuristic-review` pattern)
 - Default: inline sequential

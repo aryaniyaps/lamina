@@ -1,0 +1,13 @@
+step_id: 01-cart
+screen_id: cart
+visible_copy:
+  - "Your cart"
+primary_actions:
+  - label: Checkout
+    type: button
+layout_regions:
+  - name: main
+    contents: "Cart items list with checkout CTA"
+form_fields: []
+errors_or_alerts: []
+uncertainty: []

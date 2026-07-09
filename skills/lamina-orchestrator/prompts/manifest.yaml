@@ -2,21 +2,19 @@ work-plan:
   path: work-plan.md
 outputs/design:
   path: outputs/design.md
+outputs/verify:
+  path: outputs/verify.md
 outputs/audit:
   path: outputs/audit.md
 outputs/init:
   path: outputs/init.md
 outputs/clarify:
   path: outputs/clarify.md
-outputs/artifact-template:
-  path: outputs/artifact-template.md
-outputs/artifact-pack:
-  path: outputs/artifact-pack.md
-outputs/handoff:
-  path: outputs/handoff.md
 subagents/persona-panel-spawn:
   path: subagents/persona-panel-spawn.md
+subagents/walkthrough-capturer:
+  path: subagents/walkthrough-capturer.md
+subagents/screen-describer:
+  path: subagents/screen-describer.md
 checkpoints/continue-or-revise:
   path: checkpoints/continue-or-revise.md
-checkpoints/blueprint-preview:
-  path: checkpoints/blueprint-preview.md

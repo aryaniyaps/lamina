@@ -1,57 +1,60 @@
 ---
 name: lamina-decision-making
-description: "Decision Making UX guidance. Use when feature prioritization debates; conflicting evidence from data sources; persona-based prioritization."
+description: "Prioritize contract gaps and verify findings — impact × effort, primary actor filter. Use when reconciling conflicts or ranking findings[]."
 metadata:
   lamina:
     id: decision-making
     problems:
-      - "feature prioritization debates"
-      - "conflicting evidence from data sources"
-      - "persona-based prioritization"
-      - "conflicting data sources"
+      - "prioritizing findings"
+      - "conflicting actor goals"
       - "analysis paralysis"
-      - "feature prioritization debate"
-      - "conflicting user needs"
     related:
       - lamina-user-modeling
       - lamina-feature-prioritization
-      - lamina-research-communication
+      - lamina-tradeoffs
 ---
-# Decision Making
+# Decision Making (agent-native)
 
-## Heuristics
+Rank **contract changes and verify findings** by impact on primary actor goals and invariants — output to `decisions.md` and sorted `findings[]`.
 
-- **Decision filter**: Does this finding change a specific design or business decision? If not, dig deeper or stop.
+## Decision filter
 
-## Impact × effort scoring
+Does this finding change a specific design or implementation decision? If not, dig deeper or drop.
 
-Use when prioritizing findings (especially `/lamina-audit`):
+## Impact × effort (verify findings)
 
-| Dimension | high | medium | low |
-|---|---|---|---|
-| **Impact** | Blocks task completion, major trust/a11y risk, or primary-user goal failure | Significant friction; workaround exists | Polish or minor clarity |
-| **Effort** | Cross-flow redesign, new patterns, or major content/IA change | Localized screen or flow change | Copy, label, or micro-interaction fix |
+| Impact | high | medium | low |
+|--------|------|--------|-----|
+| **Definition** | Blocks workflow, invariant violation, primary actor stuck | Friction with workaround | Polish |
 
-**Sort:** high impact + low effort first (quick wins), then high impact + high effort (strategic bets). Tie-break with Primary User Filter below.
+| Effort | high | medium | low |
+|--------|------|--------|-----|
+| **Definition** | Cross-workflow contract change | Localized screen/scenario | Copy/label fix |
 
-## Evaluation rubrics
+**Sort:** high impact + low effort first; then high impact + high effort. Record rationale in `decisions.md`.
 
-### Evidence Prioritization
-- **When**: Multiple data sources suggest different actions.
-- **Process**: Weight evidence by decision risk  ->  triangulate qual and quant  ->  prioritize actionable insights.
-- **Pass**: Clear ranked recommendations with evidence cited.
-- **Failure signals**: Analytics-only decisions; ignoring sample size limits.
+## Primary actor filter
 
-### Primary User Filter
-- **When**: Feature prioritization debates among multiple user types.
-- **Process**: Ask: does this serve the primary user's goals? If no → deprioritize or cut. If yes → design fully for their scenario.
-- **Pass**: Features ranked by primary user goal alignment.
-- **Failure signals**: Designing for edge cases first; accommodating everyone equally → nobody satisfied.
+When actors conflict:
+1. Does option serve **primary** persona goals completely?
+2. If no → deprioritize or cut; if yes → design fully for their scenario.
+3. Log trade-off in `decisions.md` with rejected actor impact noted.
 
-Also used when reconciling persona panel conflicts — see [user-modeling](../lamina-user-modeling/SKILL.md) persona simulation.
+Used when reconciling parallel persona panel outputs.
 
-## Related capabilities
+## Evidence weighting
+
+| Source | Weight |
+|--------|--------|
+| Invariant probe failure on live product | highest |
+| Actor walk blocker (repro steps) | high |
+| Walkthrough/repo grounding | medium |
+| Assumption in design | low — mark `to-verify` |
+
+Never rank invented analytics above reproduced actor failures.
+
+## Related
 
 - [User Modeling](../lamina-user-modeling/SKILL.md)
 - [Feature Prioritization](../lamina-feature-prioritization/SKILL.md)
-- [Research Communication](../lamina-research-communication/SKILL.md)
+- [Tradeoffs](../lamina-tradeoffs/SKILL.md)

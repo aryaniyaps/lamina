@@ -1,7 +1,7 @@
 {
   "name": "lamina",
   "version": "0.1.0",
-  "description": "UX research and design knowledge for coding agents",
+  "description": "Product design skill for developers who build with AI coding agents",
   "author": "Aryan Iyappan",
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "test:eval:compat": "bash evals/hooks/compatibility-matrix.sh",
     "test:eval:aggregate": "node evals/scripts/aggregate-reports.mjs",
     "fixtures:vendor": "node evals/scripts/vendor-nextjs-fixture.mjs",
+    "setup:external-skills": "npx skills add ../skills --skill '*' -a cursor -y --copy",
     "bench:validate": "node benchmarks/scripts/compile-suite.mjs --check",
     "bench:run": "node benchmarks/scripts/run-bench.mjs",
     "bench:score": "node benchmarks/judges/golden-coverage.mjs && node benchmarks/scripts/score-judge.mjs --mock",
@@ -26,9 +27,6 @@
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",
     "promptfoo": "^0.121.0"
-  },
-  "dependencies": {
-    "@lamina/studio": "workspace:*"
   },
   "engines": {
     "node": ">=20"

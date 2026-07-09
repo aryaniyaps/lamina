@@ -1,6 +1,6 @@
 # Lamina.dev — Brand Package v3
 
-Complete brand identity for [lamina.dev](https://lamina.dev) — UX layer grey system, Highlighter accent, dotted annotation language, layer mark logo, 3D meerkat mascot (separate).
+Complete brand identity for [lamina.dev](https://lamina.dev) — know what to build, iterate faster. Grey UX layer system, Highlighter accent, dotted annotation language, layer mark logo, 3D meerkat mascot (separate).
 
 ## Deliverables
 
@@ -29,6 +29,8 @@ node scripts/generate-pdf.cjs
 
 | Element | Decision |
 |---------|----------|
+| **Position** | Product design skill for developers who build with AI — know what to build, iterate faster |
+| **ICP** | Developers using AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi) — not designers or PMs |
 | **Principle** | Grey = UX layer. Highlighter = only accent. Dots = UX thinking. |
 | **Grey scale** | `#09090B` → `#3F3F46` (8 steps) |
 | **Accent** | Highlighter `#FACC15` — UX markup semantics |
@@ -37,6 +39,7 @@ node scripts/generate-pdf.cjs
 | **Wordmark** | `lamina` flat lowercase |
 | **Annotation** | Dashed borders + uppercase mono labels |
 | **Tagline** | Design how it works. |
+| **Subline** | Know what to build. Iterate faster. |
 
 ## PDF contents
 

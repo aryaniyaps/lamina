@@ -1,0 +1,13 @@
+flow_id: checkout
+base_url: http://localhost:3000
+mode: live_app
+source: product
+steps:
+  - id: 01-cart
+    screen_id: cart
+    screen_status: existing
+    url: /cart
+    action: "landed on cart"
+    screenshot: steps/01-cart.png
+    description: steps/01-cart.desc.yaml
+    a11y: steps/01-cart.a11y.json

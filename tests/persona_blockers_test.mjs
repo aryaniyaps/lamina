@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { attachScreenIds, resolveBlockerScreenId } from '../packages/lamina-studio/lib/persona-blockers.mjs';
-import { parseSimulationYaml } from '../packages/lamina-studio/lib/persona-simulation.mjs';
+import { attachScreenIds, resolveBlockerScreenId } from '../lib/persona-blockers.mjs';
+import { parseSimulationYaml } from '../lib/persona-simulation.mjs';
 
 {
   const blockers = [

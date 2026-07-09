@@ -4,11 +4,13 @@ Personas are **not** a fixed agent type. Each persona is a **dynamically spawned
 
 ## Orchestrator procedure
 
-1. Read `.lamina/personas.yaml` and pick panel members (always include `primary`).
-2. For **each persona**, spawn one isolated subagent in parallel using the host Task/subagent tool.
-3. Do **not** reuse a shared agent definition. Each spawn gets a unique prompt built from that persona's registry entry.
-4. Collect YAML results; add `simulation` block to `.lamina/runs/<run_id>/run.yaml`.
-5. Reconcile on the main thread — see [merge-rules.md](../../merge-rules.md).
+1. When `screens[].status: existing` and product `base_url` is available, run [visual-walkthrough](../../patterns/visual-walkthrough.md) first.
+2. Apply capability ladder (see visual-walkthrough pattern): multimodal attachments, vision→description, or a11y-only.
+3. Read `.lamina/personas.yaml` and pick panel members (always include `primary`).
+4. For **each persona**, spawn one isolated subagent in parallel using the host Task/subagent tool.
+5. Do **not** reuse a shared agent definition. Each spawn gets a unique prompt built from that persona's registry entry.
+6. Collect YAML results; add `simulation` block to `.lamina/runs/<run_id>/run.yaml`.
+7. Reconcile on the main thread — see [merge-rules.md](../../merge-rules.md).
 
 ## Per-persona spawn prompt (template)
 
@@ -30,9 +32,35 @@ You are this person, with their goals, frustrations, motivations, literacy, and 
 - Device / context: <device, location, time pressure>
 - Stakes: <what you lose if this fails>
 
+## Visual evidence (when walkthrough pack exists)
+
+Evidence is from the **live product app** — not Lamina blueprints or UX Review Studio wireframes.
+
+<choose one based on capability ladder>
+
+### Option A — multimodal (attach PNGs via file_attachments)
+
+Attach walkthrough/steps/*.png for each step. Walk the captured step sequence in order.
+
+### Option B — structured descriptions (text-only host)
+
+<paste each step's walkthrough/steps/<step-id>.desc.yaml>
+
+### Option C — no visual pack
+
+Skip this section. Use "What you're evaluating" below.
+
 ## What you're evaluating
 
-<flow, screen set, or journey — step by step>
+### Existing screens (from walkthrough pack)
+
+When visual evidence is present, walk these captured product steps in order:
+
+<paste step list from walkthrough/index.yaml: id, screen_id, action>
+
+### New or uncaptured screens (text/SUB only)
+
+<flow, screen set, or journey — step by step for screens not in walkthrough pack>
 
 ## Your task
 
@@ -44,7 +72,9 @@ Return ONLY this YAML fragment:
 persona_id: <persona_id>
 outcome: success | partial_fail | abandon
 blockers:
-  - step: "<step name>"
+  - step: "<step name — must match walkthrough step id or named screen step>"
+    screen_id: <screen_id when known>
+    flow_id: <flow_id when known>
     severity: high | medium | low
     quote: "<your words, in character>"
 
@@ -55,9 +85,11 @@ blockers:
 - Do not prescribe fixes — describe confusion, frustration, abandonment.
 - Do not see other personas' outputs or expert audit findings.
 - This is simulation, not user research.
+- When visual evidence is present: do not invent UI absent from screenshots or structured descriptions. If something is unclear, say so in-character.
+- Never treat blueprint or Studio wireframe screenshots as product evidence.
 ```
 
-## Example (deal-hunter-diane)
+## Example (deal-hunter-diane, with visual walkthrough)
 
 ```markdown
 readonly: true
@@ -82,9 +114,16 @@ technical_literacy: novice
 - Device: Phone, standing in line, 2 minutes before closing
 - Stakes: Overpaying or missing free shipping threshold
 
+## Visual evidence
+
+<file_attachments: walkthrough/steps/01-cart.png, walkthrough/steps/02-shipping.png>
+
 ## What you're evaluating
 
-<draft checkout flow>
+### Existing screens (from walkthrough pack)
+
+- 01-cart: landed on cart (/cart)
+- 02-shipping: selected checkout (/checkout/shipping)
 
 ## Your task
 
@@ -97,3 +136,5 @@ Walk through step by step as deal-hunter-diane. Think aloud in first person.
 - **Fixed agent type** — a reusable "persona-simulator" agent averages voices and breaks immersion.
 - **One agent, many personas** — never inline multiple personas in one subagent.
 - **Third-person simulation** — "The user would feel confused" kills the panel.
+- **Blueprint as product** — never use Studio or SUB wireframes as visual evidence.
+- **Inventing UI** — when a walkthrough pack exists, blockers must ground in captured steps.

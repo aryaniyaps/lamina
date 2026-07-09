@@ -673,10 +673,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
@@ -692,10 +692,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
@@ -711,10 +711,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
@@ -730,10 +730,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "no implementation vocabulary"
@@ -882,10 +882,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "Output mentions metrics"
@@ -914,10 +914,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "Output mentions risks"
@@ -944,10 +944,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "Output mentions flows",
@@ -977,10 +977,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
@@ -1015,7 +1015,7 @@
       "assertions": [
         "no writes outside .lamina",
         "Output contains \"coding session\"",
-        "handoff.md exists"
+        "implement.md exists"
       ]
     },
     {
@@ -1042,7 +1042,7 @@
         "Output mentions failure or empty or permission",
         "persona perspectives in output",
         "artifact pack exists",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps findings",
         "report.md narrative only"
       ]
@@ -1075,7 +1075,7 @@
         "turn 1 output contains \"Clarifying questions\"",
         "audit contract headings",
         "artifact pack exists",
-        "handoff.md exists"
+        "implement.md exists"
       ]
     },
     {

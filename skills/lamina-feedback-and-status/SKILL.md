@@ -1,80 +1,62 @@
 ---
 name: lamina-feedback-and-status
-description: "Feedback And Status UX guidance. Use when users unsure if action worked; opaque system state changes; action-feedback loop gaps."
+description: "System state visibility in contracts — modeless feedback, progress, and async status. Use when actors can't tell what happened after actions."
 metadata:
   lamina:
     id: feedback-and-status
     problems:
       - "users unsure if action worked"
       - "opaque system state changes"
-      - "action-feedback loop gaps"
-      - "interaction design"
-      - "users can't act"
-      - "users can't tell what happened"
+      - "async operation status"
     related:
       - lamina-discoverability
       - lamina-error-handling
-      - lamina-trust
+      - lamina-consistency-guarantees
     tags:
       - audit-default
 ---
-# Feedback and Status
+# Feedback and Status (agent-native)
 
-## Decision frameworks
+Every mutating operation declares **what the actor sees during and after** — in workflow steps and `scenarios[]`.
 
-- **Forcing Functions**: Physical or logical constraints preventing continuation until critical action taken (car won't start without key; microwave stops when door opens). - When to use: Safety-critical or irreversible actions. - How: Interlocks, confirmations that require understanding, not just clicking OK.
-- **Visibility of System State**: User always knows where they are, what's happening, what's possible next. - When to use: Multi-step flows, modes, async operations. - How: Progress indicators, breadcrumbs, status messages, disabled state styling.
-- **Design Exploits Constraints**: Combine physical, semantic, logical constraints so correct assembly/interaction is the only path. - When to use: Complex configuration, assembly, forms. - How: Shape coding, slot-key matching, disable invalid options.
+## Contract encoding
 
-## Checklists
+Per workflow step:
+- `feedback`: immediate | progress | async_poll | silent_ok
+- `visible_state`: what changes on screen (entity state, badge, banner)
+- Async: `status: processing` scenario until terminal state
 
-1. Combine affordances, signifiers, mapping, constraints, and feedback.
-2. Forcing functions prevent errors at critical moments.
-3. System state must always be visible.
-4. Group controls logically and spatially.
-5. Constraints beat warnings for error prevention.
-6. Feedforward previews consequences; feedback confirms results.
-7. Every step should answer "what do I do now?"
+**Modeless feedback** preferred over modals for routine status.
 
-## Heuristics
+## Frameworks
 
-- **Affordances + signifiers + mapping + constraints + feedback**: Integrated toolkit for "knowing what to do."
-- **Interlock**: Forcing function variant—action A required before B enabled.
-- **Visibility**: Opposite of mystery—state perceivable without recall.
-- **Grouping**: Related controls clustered by function or spatial logic.
-- **Feedforward + feedback loop**: Continuous guidance through task.
-- Think of each screen as**answering one question**: "What can I do here, right now?"
-- Use forcing functions as**guardrails**, not annoyances—reserve for true risks.
-- Treat invisible state as**design absence**—users will guess wrong.
+- **Visibility of system state**: actor always knows where they are in multi-step flows.
+- **Forcing functions**: only for safety-critical irreversible ops — document in scenario.
+- **Feedforward**: preview consequence before commit (destructive ops).
 
-## Evaluation rubrics
+## Design checklists
 
-### Action Feedback Cycle
-- **When**: Analyzing or designing any interactive control flow.
-- **Process**: Map goal  ->  plan  ->  specify  ->  perform  ->  perceive  ->  interpret  ->  compare. Ensure each stage has visible feedback.
-- **Pass**: Users can tell what happened and whether goal is met.
-- **Failure signals**: Delayed or missing feedback; opaque state changes.
+1. No dialog reports normal completion.
+2. Disabled controls explain why (link to scenario or inline hint).
+3. Progress for ops > ~1s perceived wait.
+4. Optimistic UI only when `consistency-guarantees` allow + rollback scenario exists.
+5. Group related status in same screen region.
 
-### Execution Evaluation Gaps
-- **When**: Users struggle to execute intentions or interpret system state.
-- **Process**: Bridge execution gap (intent to action) with affordances and signifiers. Bridge evaluation gap (action to understanding) with clear feedback.
-- **Pass**: Users know what they can do and what happened after acting.
-- **Failure signals**: Hidden controls; ambiguous system state; no signifiers.
+## Verify checks
+
+- Actor walk: each mutating step produces expected visible feedback.
+- Async probe: refresh during processing — stale state handled per invariant.
+- Double-click submit — idempotency feedback (`idempotency-concurrency`).
 
 ## Anti-patterns
 
-- **Mystery meat navigation**: No signifier of what's clickable.
-- **Disabled with no explanation**: User doesn't know why or how to enable.
-- **Warnings without constraints**: "Are you sure?" on destructive acts users click through.
-- **Mode confusion**: Same control different effects—visibility fails.
-- **Async silence**: Upload/processing with no progress feedback.
+- Async silence — upload with no progress.
+- Disabled with no explanation.
+- "Are you sure?" without true irreversibility.
+- Modal blocking batch flow for recoverable status.
 
-## Examples
-
-- **Knowing What To Do**: Car ignition interlock: must be in Park, foot on brake, key present—constraints chain prevents dangerous starts. Web equivalent: checkout won't proceed without shipping address (forcing function with visible empty field signifier); progress bar during payment (feedback); shipping/billing grouped (mapping). Bad: identical buttons "Continue" on each step with no indication what's missing when disabled.
-
-## Related capabilities
+## Related
 
 - [Discoverability](../lamina-discoverability/SKILL.md)
+- [Consistency Guarantees](../lamina-consistency-guarantees/SKILL.md)
 - [Error Handling](../lamina-error-handling/SKILL.md)
-- [Trust](../lamina-trust/SKILL.md)

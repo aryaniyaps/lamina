@@ -7,8 +7,8 @@ import {
   buildCoverageMatrix,
   loadCoverageForRun,
   screensForFlow,
-} from '../packages/lamina-studio/lib/coverage.mjs';
-import * as runMod from '../packages/lamina-studio/lib/run.mjs';
+} from '../lib/coverage.mjs';
+import * as runMod from '../lib/run.mjs';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-coverage-flow-'));

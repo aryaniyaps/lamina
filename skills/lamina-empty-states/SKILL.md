@@ -1,6 +1,6 @@
 ---
 name: lamina-empty-states
-description: "Empty States UX guidance. Use when blank slate screens; no data yet screens; guiding first productive action."
+description: "Empty and zero-data UX in scenarios — first productive action when domain collections are empty. Use when collection_empty scenarios are missing."
 metadata:
   lamina:
     id: empty-states
@@ -13,40 +13,46 @@ metadata:
       - lamina-discoverability
       - lamina-content-design
 ---
-# Empty States
+# Empty States (agent-native)
 
-## Decision frameworks
+Empty domain state is a **`scenarios[]` category `empty`** — not an afterthought in implementation.
 
-- **Blank Slate Design**: Empty states are onboarding opportunities, not dead ends. - When: First visit, no data yet, cleared filters. - How: Show what will appear here, one clear primary action, sample content if helpful.
-- **First Productive Action**: Guide users toward the action that creates value. - When: Dashboard, inbox, project list is empty. - How: One prominent CTA; explain benefit; avoid feature tour overload.
+## Contract encoding
 
-## Checklists
+```yaml
+scenarios:
+  - id: no-tickets-yet
+    category: empty
+    trigger:
+      when: collection_empty
+      entity: hall_ticket
+    screen_id: ticket-list
+    ux: empty_state
+    primary_action: view exam schedule
+    copy: No tickets yet — tickets appear after payment confirms.
+```
 
-- Treat empty states as the start of a flow, not a dead end.
-- Provide one obvious next action.
-- Explain what will appear once the user acts.
+## Design checklists
 
-## Heuristics
+1. Every list/dashboard screen has `collection_empty` scenario or explicit "always populated" invariant.
+2. One primary CTA toward first productive workflow step.
+3. Explain what will appear after actor acts — not just "no data".
+4. Distinguish empty vs error vs loading in `ux` field.
+5. No fake data without label.
 
-- Blank slates are missed onboarding opportunities  -  never show an empty box without guidance.
-- Show what belongs in the space, not just that it is empty.
-- One primary action beats three equal options on empty states.
-- **Blank slate avoidance**: Empty states guide toward first productive action.
-- **Blank slates**are missed onboarding opportunities. - **Decision filter**: Ask whether this finding changes a specific design or business decision—if not, dig deeper or stop.
+## Verify checks
+
+- Actor walk with zero-data fixture or fresh account.
+- Empty state copy matches contract; CTA completes onboarding workflow.
 
 ## Anti-patterns
 
-- **Empty box only**: No explanation, no CTA  -  user wonders if something is broken.
-- **Feature tour instead of action**: Lengthy onboarding modal when one button would suffice.
-- **Fake data without label**: Misleading placeholder content presented as real.
+- Bare table with no rows and no guidance.
+- Feature tour modal instead of one clear action.
+- Empty state missing from contract — implementer guesses.
 
-## Examples
-
-- Project dashboard with zero projects: show illustration, 'Create your first project' button, and one-line explanation of what projects contain. Avoid a bare table header with no rows.
-- Search results with no matches: explain why (filters too narrow), suggest broadening search, offer to clear filters.
-
-## Related capabilities
+## Related
 
 - [Onboarding](../lamina-onboarding/SKILL.md)
-- [Discoverability](../lamina-discoverability/SKILL.md)
 - [Content Design](../lamina-content-design/SKILL.md)
+- [Edge Cases](../lamina-edge-cases/SKILL.md)

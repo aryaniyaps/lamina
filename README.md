@@ -2,253 +2,111 @@
   <img src="brand/assets/wordmark/lamina-lockup-readme.svg" alt="lamina" width="360" />
 </p>
 
-<p align="center"><em>The UX reasoning layer for AI dev tools.</em></p>
+<p align="center"><em>Design is how it works — not just how it looks.</em></p>
 
-<p align="center"><strong>Design how it works.</strong></p>
+<p align="center"><strong>Know what to build. Iterate faster.</strong></p>
 
 <p align="center">
-  Lamina figures out what to build and how users move through it — before anyone opens a design tool or writes production code. Personas, flows, edge cases. Framework-agnostic. Packaged as a skill for every AI coding tool.
+  Open-source skill for developers who build with AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped. Any stack. Never writes app source.
 </p>
 
 ---
 
-## The missing layer
+## Where Lamina fits
 
-| UI generation | Code generation | **UX reasoning** |
-|---------------|-----------------|------------------|
-| Impeccable, frontend-design | Cursor, Copilot, Claude Code | **Lamina** |
-| Make things *look* good | Write the *code* | Figure out *how it works* |
+Your coding agent writes code. UI design skills handle pixels. **Lamina handles product behavior** — what to build, how states and flows work, what edge cases to cover — before and after your agent ships.
 
-AI UI tools make things pretty. Coding agents write the code. Nobody goes through user personas, maps the flows, or handles edge cases. Lamina is that layer.
+```mermaid
+flowchart TB
+  subgraph skills["Skills in your agent"]
+    direction LR
+    UI["UI design skills<br/><small>Impeccable, UI UX Pro Max…</small>"]
+    LAM["Lamina<br/><small>edge cases, states, flows</small>"]
+  end
+
+  subgraph agent["Coding agent"]
+    CODE["Cursor · Claude Code · Codex · Pi · Gemini"]
+  end
+
+  subgraph app["Your app"]
+    STACK["Any framework · any UI library"]
+  end
+
+  LAM -->|"implement.md"| CODE
+  UI -.->|"optional — look & feel"| CODE
+  CODE --> STACK
+  LAM -->|"verify — screenshots + contract"| STACK
+```
+
+---
+
+## Dev loop
+
+```mermaid
+flowchart LR
+  subgraph lamina["Lamina"]
+    direction TB
+    INIT["/lamina-init"]
+    DESIGN["/lamina-design"]
+    VERIFY["/lamina-verify"]
+  end
+
+  subgraph build["You + coding agent"]
+    IMPL["Implement"]
+  end
+
+  INIT --> DESIGN
+  DESIGN -->|"run.yaml · implement.md"| IMPL
+  IMPL -->|"live app"| VERIFY
+  VERIFY -.->|"findings → fix"| DESIGN
+```
+
+| Phase | Owner | Output |
+|-------|-------|--------|
+| Charter + design | **Lamina** | `.lamina/runs/<id>/run.yaml`, `implement.md` |
+| Build | **Your coding agent** | App source — any stack |
+| Verify | **Lamina** | Findings, visual walkthrough, invariant checks |
 
 ---
 
 ## Install
 
-### Skills CLI (recommended)
-
-From GitHub:
-
 ```bash
 npx skills add https://github.com/aryaniyaps/lamina -a cursor -a claude-code -a codex -a pi -y
-```
-
-From a local clone (run from **your app repo**, or use the published GitHub URL above — do not install from the Lamina repo root during development):
-
-```bash
-npx skills add /path/to/lamina -a cursor -a claude-code -a codex -a pi -y
-```
-
-**Contributors:** do not run `npx skills add .` from the Lamina repo root — it duplicates skills into `.agents/`, `.windsurf/`, etc. Eval harnesses install via [`evals/harness-sandbox/`](evals/harness-sandbox/). Building UX Review Studio itself: install from [`packages/lamina-studio/`](packages/lamina-studio/) (`npm run setup:skills`). If polluted, run `bash evals/scripts/clean-root-pollution.sh`.
-
-This installs:
-
-| Path | Role |
-|------|------|
-| `skills/lamina/`, `skills/lamina-init/`, … | Slash commands (`/lamina`, `/lamina-init`, etc.) as `disable-model-invocation` skills |
-| `skills/lamina-*/` | Problem router, orchestrator, and ~40 capability skills |
-| `skills/lamina-orchestrator/agents/` | Subagent definitions bundled with the orchestrator skill |
-
-**Flags:** `-g` (global install), `--copy` (copy instead of symlink), `-y` (non-interactive).
-
-**Maintain:**
-
-```bash
-npx skills list
-npx skills update lamina
-npx skills remove lamina
 ```
 
 ---
 
 ## Quickstart
 
-1. **Install** — run the Skills CLI command above.
-2. **Bootstrap context** — establish business goals, scope, users, and metrics:
+```
+/lamina-init Exam hall ticket system for universities
+/lamina-design Hall ticket download with payment gate and venue assignment
+# … build with your coding agent …
+/lamina-verify
+```
 
-   ```
-   /lamina-init We're building a team collaboration app for small engineering teams
-   ```
-
-   → Creates `.lamina/business-context.md`
-
-3. **Run a workflow** — let the router pick the right path, or call a command directly:
-
-   ```
-   /lamina Add a member invite flow with role-based permissions
-   ```
-
-4. **Review artifacts** — specs land under `.lamina/` (business context, personas, flows inventory, and more depending on the workflow).
-
-5. **Optional: UX Review Studio** — if blueprint artifacts were generated in your project:
-
-   ```bash
-   lamina-studio review --root .lamina/blueprints --run <run_id> --id <blueprint_id> --ensure --open
-   ```
-
-Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow."*
+Output lives in `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
 
 ---
 
-## Slash commands
+## Commands
 
-**Guardrail:** UX artifacts only. No product code or visual styling specs.
+| Command | What it does |
+|---------|--------------|
+| `/lamina` | Router |
+| `/lamina-init` | Domain charter |
+| `/lamina-design` | Design contract → `ready_to_build` |
+| `/lamina-verify` | Post-build check against contract + screenshot walkthrough |
+| `/lamina-audit` | Deprecated — use `/lamina-verify` |
 
-| Command | Summary | When to use |
-|---------|---------|-------------|
-| `/lamina` | Intent router | Unsure which workflow; general UX question |
-| `/lamina-init` | Business context bootstrap | New project or pivot |
-| `/lamina-design` | Net-new UX workflow | Greenfield product, problem, or scoped capability |
-| `/lamina-audit` | Flow audit → prioritized fixes | Improve existing UI or flows |
-
-### `/lamina` — Intent router
-
-One entry point that detects what you need and runs the right workflow — or answers a single-topic UX question directly.
-
-**Router logic** (first strong match wins):
-
-| Signal | Dispatch |
-|--------|----------|
-| Problem only, early exploration | `design` workflow |
-| Specific capability to add | `design` workflow |
-| Audit or improve existing UI | `audit` workflow |
-| Single clear topic (forms, navigation, etc.) | **Direct mode** → `lamina-core` Problem Router → one skill |
-| Ambiguous | Ask one clarifying question, then dispatch |
-
-**Examples:**
-
-```
-/lamina We don't know what problem to solve yet
-/lamina Add a wishlist feature
-/lamina Audit our checkout flow
-/lamina Help with form validation UX
-```
-
-### `/lamina-init` — Business context bootstrap
-
-Answer the business questions UX work depends on and persist them in `.lamina/business-context.md`. Run once per project, or again when the business use case changes.
-
-**Modes:**
-
-- **establish** (default) — first-time bootstrap
-- **update** — pivot, new market, or scope change; merges into existing file and appends changelog
-
-**Examples:**
-
-```
-/lamina-init
-/lamina-init update We're pivoting to enterprise teams
-```
-
-**Output:** `.lamina/business-context.md` · contract: [`skills/lamina-orchestrator/prompts/outputs/init.md`](skills/lamina-orchestrator/prompts/outputs/init.md)
-
-### `/lamina-design` — Net-new UX
-
-Design net-new UX from a problem, product idea, or named capability in one workflow. Improving shipped UI still belongs in `/lamina-audit`.
-
-**Examples:**
-
-```
-/lamina-design Mobile budgeting app for college students who overspend
-/lamina-design Add two-factor authentication to settings
-/lamina-design Add wishlist feature to our storefront
-```
-
-**Output:** `.lamina/runs/<run_id>/` (`run.yaml`, `report.md`), `.lamina/personas.yaml` when the cast changes, optional blueprint TSX · contract: [`design.md`](skills/lamina-orchestrator/prompts/outputs/design.md)
-
-### `/lamina-audit` — Audit existing flows
-
-Audit one or more existing flows and return improvements ranked by impact vs effort.
-
-**Example:**
-
-```
-/lamina-audit Audit our checkout flow
-```
-
-**Output:** prioritized improvement list · contract: [`skills/lamina-orchestrator/prompts/outputs/audit.md`](skills/lamina-orchestrator/prompts/outputs/audit.md)
+Writes to `.lamina/` only. No app source. No visual styling.
 
 ---
 
-## Example output
+## More
 
-```markdown
-## Personas
-
-### Alex — Team Admin
-- Goal: Configure workspace without breaking existing workflows
-- Fear: Accidental data loss from bulk changes
-- Frequency: Weekly
-
-## Flow: Invite team member
-
-1. Admin opens Settings → Team
-2. Clicks "Invite member"
-3. Enters email, selects role
-4. System sends invite email
-5. Invitee accepts → appears in member list
-
-### Edge cases
-- Email already on team → inline error, suggest role change
-- Invite expires after 7 days → resend option
-- SSO-enforced org → invite redirects to IdP flow
-- Last admin demotion → blocked with explanation
-```
-
-Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tailwind, or whatever you use.
-
----
-
-## Philosophy
-
-- **Design is how it works** — not how it looks
-- **Flows before pixels** — structure before surface
-- **Unopinionated** — your stack, your UI library, your agent
-- **Edge cases are the product** — happy paths are easy; Lamina lives in the gaps
-
----
-
-## Plugin structure
-
-| Layer | Path |
-|-------|------|
-| Slash commands | [`skills/lamina/`](skills/lamina/), [`skills/lamina-init/`](skills/lamina-init/), [`skills/lamina-design/`](skills/lamina-design/), [`skills/lamina-audit/`](skills/lamina-audit/) |
-| Index / router | [`skills/lamina-core/SKILL.md`](skills/lamina-core/SKILL.md) |
-| Orchestration | [`skills/lamina-orchestrator/`](skills/lamina-orchestrator/) |
-| Capability skills | [`skills/lamina-*/SKILL.md`](skills/) (~40 skills) |
-| Subagents | [`agents/`](agents/) |
-| Reusable prompts | [`skills/lamina-orchestrator/prompts/`](skills/lamina-orchestrator/prompts/) |
-
----
-
-## UX Review Studio (optional)
-
-Semantic wireframe specs in `.lamina/blueprints/<id>/` with a local **UX Review Studio** — People, Flows, Screens, and Scenarios views:
-
-```bash
-lamina-studio review --root .lamina/blueprints --run <run_id> --id <id> --ensure --open
-# from repo root without install: node packages/lamina-studio/cli/index.js review --root ...
-```
-
-| CLI command | Description |
-|-------------|-------------|
-| `review` / `preview` | Start UX Review Studio server |
-| `validate` | Validate blueprint directory structure |
-| `export-graph` | Export flow graph as Mermaid |
-| `retire` | Delete a blueprint directory |
-
-See [`skills/lamina-studio/SKILL.md`](skills/lamina-studio/SKILL.md).
-
----
-
-## Links
-
-- Website: [lamina.dev](https://lamina.dev)
-- Docs: [lamina.dev/docs](https://lamina.dev/docs)
-- Brand: [`brand/README.md`](brand/README.md) — UX layer grey + Highlighter accent
-
----
-
-## License
+- Skill router: [`skills/lamina-core/SKILL.md`](skills/lamina-core/SKILL.md)
+- Validate a run: `node lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
 
 MIT

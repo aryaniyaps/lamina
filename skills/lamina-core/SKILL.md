@@ -1,95 +1,92 @@
 ---
 name: lamina-core
-description: "Lamina Problem Router and UX reference index. Use to find the right capability skill for a UX question."
+description: "Lamina Problem Router — product design at the intersection of UX, product rules, and systems thinking."
 ---
-
-<!-- argument-hint: [problem or capability-id] -->
 
 # Lamina Core — Problem Router
 
-**40 capability skills** — load one skill per problem.
+Load one capability skill per problem.
 
-## Entry points (slash commands)
+## Entry points
 
 | Command | Use when |
-|---|---|
+|---------|----------|
 | `/lamina` | Auto-route or single-topic answer |
-| `/lamina-init` | Bootstrap or update business context for UX work |
-| `/lamina-design` | Net-new UX — concept or design workflow |
-| `/lamina-audit` | Audit existing flows |
+| `/lamina-init` | Bootstrap domain charter |
+| `/lamina-design` | Design how the product works → `ready_to_build` |
+| `/lamina-verify` | Post-build or brownfield verification |
+| `/lamina-audit` | Deprecated → use `/lamina-verify` |
 
-Workflow commands: load [lamina-orchestrator](../lamina-orchestrator/SKILL.md), then the matching workflow in `workflows/`, or invoke `/lamina`, `/lamina-init`, etc. Direct mode: Problem Router below → one `lamina-<id>/SKILL.md`.
+**Guardrail:** `.lamina/` writes only; never app source. See [guardrails.md](guardrails.md).
 
-**Guardrail:** Writes: `.lamina/` only. Repo: read-only. Do not implement product code or visual styling specs. See [guardrails.md](guardrails.md).
-
-## How to Use
-
-**Load order** (minimize tokens): Problem Router below → one `lamina-<id>/SKILL.md`. Optional: [reference.md](reference.md) for research shortcuts and glossary only.
-
-- **Without arguments** — scan the Problem Router below; load the matching skill
-- **With a problem** — e.g. `forms`, `usability testing`, `users feel lost`; load that skill directly
-- **Machine routing** — `metadata.lamina.problems` in each skill frontmatter is canonical; Problem Router must stay aligned
-- **Cross-cutting filters** — prioritization and evidence triage → [lamina-decision-making](../lamina-decision-making/SKILL.md)
-- **Artifacts** — load [artifacts.md](../lamina-orchestrator/artifacts.md) when writing or reusing `.lamina/` outputs
-
-## Direct mode (from `/lamina` router)
-
-When routing to a single capability:
-
-1. **Read** the matched `lamina-<id>/SKILL.md` file before answering — do not answer from memory alone.
-2. **Apply** that skill's frameworks, checklists, and output shape.
-3. **Cite** the skill id in your response (e.g. "Using **lamina-forms**:").
-4. Stay UX-only — see [guardrails.md](guardrails.md). Writes: `.lamina/` only; repo is read-only.
-
-## Problem Router
+## Systems thinking (spine)
 
 | Problem signal | Skill |
-|---|---|
-| Bootstrap UX context, initialize lamina | `/lamina-init` — see [business-context](../lamina-business-context/SKILL.md) |
-| Business pivot, scope change | `/lamina-init update` |
-| Business goals, metrics, scope (existing project) | read `.lamina/business-context.md` |
+|----------------|-------|
+| Entities, relationships, purpose | [system-structure](../lamina-system-structure/SKILL.md) |
+| Feedback, delays, oscillation | [feedback-loops](../lamina-feedback-loops/SKILL.md) |
+| Fixes keep failing, structural traps | [system-traps](../lamina-system-traps/SKILL.md) |
+| Where to intervene (rules vs UI) | [leverage-points](../lamina-leverage-points/SKILL.md) |
+| Impossible states, business rules | [invariants](../lamina-invariants/SKILL.md) |
+| Domain boundaries, hide complexity | [modularity-boundaries](../lamina-modularity-boundaries/SKILL.md) |
+| What users see when (stale data) | [consistency-guarantees](../lamina-consistency-guarantees/SKILL.md) |
+| Double-submit, concurrent edits | [idempotency-concurrency](../lamina-idempotency-concurrency/SKILL.md) |
+| Name trade-offs before mechanisms | [tradeoffs](../lamina-tradeoffs/SKILL.md) |
+| Multi-actor views stay consistent | [multi-view-integrity](../lamina-multi-view-integrity/SKILL.md) |
+| Evolving rules safely | [evolutionary-rules](../lamina-evolutionary-rules/SKILL.md) |
+| Notifications, downstream updates | [side-effects](../lamina-side-effects/SKILL.md) |
+
+## UX and product expression
+
+| Problem signal | Skill |
+|----------------|-------|
+| Bootstrap context | [business-context](../lamina-business-context/SKILL.md) |
 | Inclusive design | [accessibility](../lamina-accessibility/SKILL.md) |
-| Market positioning, parity debates | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) |
-| Wordy pages, scan failures | [content-design](../lamina-content-design/SKILL.md) |
-| Destructive actions, undo | [controls-and-menus](../lamina-controls-and-menus/SKILL.md) |
-| Prioritize features, triangulate evidence | [decision-making](../lamina-decision-making/SKILL.md) |
-| Double-diamond, team design | [design-process](../lamina-design-process/SKILL.md) |
-| Hidden affordances, signifiers | [discoverability](../lamina-discoverability/SKILL.md) |
-| No data yet screen | [empty-states](../lamina-empty-states/SKILL.md) |
-| High errors, bad messages | [error-handling](../lamina-error-handling/SKILL.md) |
-| Problem undefined, early discovery | [feature-discovery](../lamina-feature-discovery/SKILL.md) |
-| Expert-only features, featuritis | [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
-| Did my action work? | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
-| Observe real behavior in context | [field-research](../lamina-field-research/SKILL.md) |
-| Workflow excise, orchestration | [flow-design](../lamina-flow-design/SKILL.md) |
-| Wireframe preview, screen structure | [blueprint](../lamina-studio/SKILL.md) |
-| Form abandonment, validation pain | [forms](../lamina-forms/SKILL.md) |
-| Nielsen heuristics, no users yet | [heuristic-review](../lamina-heuristic-review/SKILL.md) |
-| Structure content and data | [information-architecture](../lamina-information-architecture/SKILL.md) |
-| Interview guide, question craft | [interview-design](../lamina-interview-design/SKILL.md) |
-| Capture and organize notes | [interview-documentation](../lamina-interview-documentation/SKILL.md) |
-| Touch, mobile patterns | [mobile-interaction](../lamina-mobile-interaction/SKILL.md) |
-| Lost users, breadcrumbs, deep pages | [navigation](../lamina-navigation/SKILL.md) |
-| Learnability, can't figure it out | [onboarding](../lamina-onboarding/SKILL.md) |
-| Social features, ethical persuasion | [persuasion-and-groups](../lamina-persuasion-and-groups/SKILL.md) |
-| Sovereign vs transient density | [platform-posture](../lamina-platform-posture/SKILL.md) |
-| Research questions misaligned | [problem-framing](../lamina-problem-framing/SKILL.md) |
-| UI mirrors database/org chart | [product-behavior](../lamina-product-behavior/SKILL.md) |
-| Novice overwhelmed, power users stuck | [progressive-disclosure](../lamina-progressive-disclosure/SKILL.md) |
-| Post-launch metrics, A/B tests | [quantitative-validation](../lamina-quantitative-validation/SKILL.md) |
-| Scenarios to specs | [requirements-definition](../lamina-requirements-definition/SKILL.md) |
-| Deliver findings, build impact | [research-communication](../lamina-research-communication/SKILL.md) |
-| Study logistics, recruitment | [research-planning](../lamina-research-planning/SKILL.md) |
-| Assumptions untested, scope debate | [research-scoping](../lamina-research-scoping/SKILL.md) |
-| Affinity mapping, sense-making | [research-synthesis](../lamina-research-synthesis/SKILL.md) |
-| Org politics, objections | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
-| Task flows, deal-breaker tasks | [task-analysis](../lamina-task-analysis/SKILL.md) |
-| Goodwill depleted, rude UX | [trust](../lamina-trust/SKILL.md) |
-| Test prototype or live product | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
-| Personas, primary user | [user-modeling](../lamina-user-modeling/SKILL.md) |
+| Copy, labels, errors | [content-design](../lamina-content-design/SKILL.md) |
+| Prioritize, resolve conflicts | [decision-making](../lamina-decision-making/SKILL.md) |
+| Affordances, signifiers | [discoverability](../lamina-discoverability/SKILL.md) |
+| Domain-empty screens | [empty-states](../lamina-empty-states/SKILL.md) |
+| Violation recovery UX | [error-handling](../lamina-error-handling/SKILL.md) |
+| Permission/conflict scenarios | [edge-cases](../lamina-edge-cases/SKILL.md) |
+| Async feedback, status | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
+| User journeys over state | [flow-design](../lamina-flow-design/SKILL.md) |
+| Forms under rules | [forms](../lamina-forms/SKILL.md) |
+| Entity organization | [information-architecture](../lamina-information-architecture/SKILL.md) |
+| Wayfinding | [navigation](../lamina-navigation/SKILL.md) |
+| First-run paths | [onboarding](../lamina-onboarding/SKILL.md) |
+| UI reflects domain truth | [product-behavior](../lamina-product-behavior/SKILL.md) |
+| Operations actors perform | [task-analysis](../lamina-task-analysis/SKILL.md) |
+| Actors, roles, permissions | [user-modeling](../lamina-user-modeling/SKILL.md) |
+
+## Agent simulation (replaces human research)
+
+Human labs, interviews, and workshop ceremony are reframed as **contract + live-product simulation**.
+
+| Problem signal | Skill |
+|----------------|-------|
+| Design→build→verify loop | [design-process](../lamina-design-process/SKILL.md) |
+| Scope the design target | [problem-framing](../lamina-problem-framing/SKILL.md) |
+| Map ask → workflows | [feature-discovery](../lamina-feature-discovery/SKILL.md) |
+| What evidence vs assumption | [research-scoping](../lamina-research-scoping/SKILL.md) |
+| Plan verify actor walks | [research-planning](../lamina-research-planning/SKILL.md) |
+| Merge walk results | [research-synthesis](../lamina-research-synthesis/SKILL.md) |
+| Report verify findings | [research-communication](../lamina-research-communication/SKILL.md) |
+| Actor-walk scripts | [interview-design](../lamina-interview-design/SKILL.md) |
+| Walkthrough evidence | [interview-documentation](../lamina-interview-documentation/SKILL.md) |
+| Repo + live UI grounding | [field-research](../lamina-field-research/SKILL.md) |
+| Simulated usability (verify) | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
+| Real metrics only | [quantitative-validation](../lamina-quantitative-validation/SKILL.md) |
+| Conflicting actor goals | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
+| User-cited references | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) |
+| Workflow priority | [feature-prioritization](../lamina-feature-prioritization/SKILL.md) |
+| Group permissions / shared state | [persuasion-and-groups](../lamina-persuasion-and-groups/SKILL.md) |
+| Parallel expert lenses | [heuristic-review](../lamina-heuristic-review/SKILL.md) |
+| Complexity budget / disclosure | [platform-posture](../lamina-platform-posture/SKILL.md), [progressive-disclosure](../lamina-progressive-disclosure/SKILL.md) |
+| Payment / sensitive action honesty | [trust](../lamina-trust/SKILL.md) |
+| Testable acceptance criteria | [requirements-definition](../lamina-requirements-definition/SKILL.md) |
 
 ## Supporting files
 
-- [reference.md](reference.md) — research shortcuts and glossary (optional)
-- [guardrails.md](guardrails.md) — scope limits
-- [lamina-orchestrator](../lamina-orchestrator/SKILL.md) — multi-capability workflows, merge rules, subagent patterns
+- [guardrails.md](guardrails.md)
+- [artifacts.md](../lamina-orchestrator/artifacts.md)
+- [lamina-orchestrator](../lamina-orchestrator/SKILL.md)

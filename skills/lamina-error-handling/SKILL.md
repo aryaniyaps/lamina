@@ -1,84 +1,65 @@
 ---
 name: lamina-error-handling
-description: "Error Handling UX guidance. Use when high error rates blamed on users; error message design; slip vs mistake diagnosis."
+description: "Error and recovery UX in scenarios — slips vs mistakes, root cause in design not actors. Use when mapping failure scenarios in run.yaml."
 metadata:
   lamina:
     id: error-handling
     problems:
-      - "high error rates blamed on users"
       - "error message design"
       - "slip vs mistake diagnosis"
-      - "error analysis"
-      - "high error rates"
-      - "blaming users"
-      - "error states"
-      - "failed form submission"
+      - "recovery UX"
     related:
       - lamina-forms
-      - lamina-controls-and-menus
+      - lamina-edge-cases
       - lamina-feedback-and-status
     tags:
       - audit-default
 ---
-# Error Handling
+# Error Handling (agent-native)
 
-## Decision frameworks
+Every failure mode gets a **`scenarios[]` entry** with actor-visible recovery — never blame the actor in copy or findings.
 
-- **Slips vs. Mistakes**:
-- **Slip**: Correct intention, wrong execution—especially under distraction or automaticity.
-- **Mistake**: Wrong intention or plan—problem in mental model or decision. - When to use: Incident analysis, error-proofing strategy. - How: Slips → constraints, forcing functions, better feedback; Mistakes → better conceptual models, training, decision support.
-- **Root Cause Analysis**: Investigate underlying systemic and design causes—not "human error" as terminal explanation. - When to use: Accidents, near-misses, support tickets, usability failures. - How: Five Whys; ask what in design/process enabled the error.
-- **Swiss Cheese Model**: Multiple layered failures align to permit accident—fix layers, not one "root" person. - When to use: Complex system failures (healthcare, aviation, automation). - How: Strengthen each defensive layer; design for resilience.
+## Contract encoding
+
+```yaml
+scenarios:
+  - id: venue-conflict
+    category: conflict
+    trigger:
+      operation: assign venue
+      when: concurrent_edit
+    ux: error_state
+    recovery: refresh and retry; show who holds lock
+```
+
+| Error type | Design response |
+|------------|-----------------|
+| **Slip** (right goal, wrong execution) | Undo, constraints, immediate feedback |
+| **Mistake** (wrong goal/plan) | Better signifiers, conceptual model in copy |
 
 ## Checklists
 
-1. Label "human error" as design failure until proven otherwise.
-2. Slips need constraints and feedback; mistakes need better models.
-3. Root cause analysis must go beyond blaming the last human touch.
-4. Swiss Cheese Model—multiple layers must align for disaster.
-5. Design for error—assume slips will happen.
-6. Automation must keep users informed and recoverable.
-7. Five Whys connects surface errors to design decisions.
+1. "Human error" is design failure until proven otherwise.
+2. Preserve actor input on recoverable failures.
+3. Message: what happened → why (plain language) → next action.
+4. No error codes without human explanation.
+5. Automation failures: actor kept informed (no silent mode switches).
 
-## Heuristics
+## Verify checks
 
-- **Law**: If system designed for human error, error rates drop dramatically.
-- **Automation surprise**: User "out of the loop" when automation fails—slow to notice and respond.
-- **Confirmation bias in RCA**: Stopping when human blamed.
-- **Poka-yoke**: Error-proofing from manufacturing—applied to interaction design.
-- **Learned helplessness**: Users assume they're stupid when design fails repeatedly.
-- Think**"human error" as design symptom**, not root cause category.
-- Use slip/mistake distinction to**pick the right fix**—constraints vs. mental models.
-- Treat automation failures as**design responsibility**—keep human in informed loop.
-
-## Evaluation rubrics
-
-### Slip Vs Mistake Response
-- **When**: Diagnosing errors and choosing design response.
-- **Process**: Classify as slip (right goal, wrong execution) or mistake (wrong goal/plan). Slips  ->  undo, constraints, confirmations. Mistakes  ->  better signifiers, training, conceptual model.
-- **Pass**: Design response matches error type.
-- **Failure signals**: Blaming users; confirmations for mistakes; training for slips.
-
-### Error Message Design
-- **When**: Users encounter slips or system failures.
-- **Process**: State what happened plainly  ->  explain why  ->  suggest fix  ->  preserve user input  ->  never blame user.
-- **Pass**: User can recover without losing work or guessing.
-- **Failure signals**: Error codes; vague messages; cleared form data.
+- Trigger each failure scenario on live product (actor walk or probe).
+- Double-submit / race scenarios (`idempotency-concurrency`).
+- Actor walk reports confusion at recovery step → finding.
 
 ## Anti-patterns
 
-- **Blame the user**: "Operator error" closes investigation prematurely.
-- **Alert fatigue**: Warnings users dismiss—slip enablers.
-- **Out-of-the-loop automation**: No feedback until catastrophic failure.
-- **Identical controls for different functions**: Slip magnets.
-- **Training as band-aid**: Teaching users to work around bad design.
+- Blame-the-user copy.
+- Alert fatigue — warnings dismissed become slip enablers.
+- Modal for recoverable batch errors.
+- Training docs substituting for error-proofing.
 
-## Examples
+## Related
 
-- **Human Error Bad Design**: Royal Majesty cruise ship grounding (1997): GPS cable disconnected; system switched to dead reckoning without alerting crew—automation failure invisible for days. Root cause isn't "navigator error" but design of silent mode switch and lack of Gulf of Evaluation bridging. Design fix: prominent mode indicators, alerts when GPS lost, forcing acknowledgment.
-
-## Related capabilities
-
+- [Edge Cases](../lamina-edge-cases/SKILL.md)
 - [Forms](../lamina-forms/SKILL.md)
-- [Controls And Menus](../lamina-controls-and-menus/SKILL.md)
 - [Feedback And Status](../lamina-feedback-and-status/SKILL.md)

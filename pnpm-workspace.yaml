@@ -1,2 +1,9 @@
 packages:
   - 'packages/*'
+allowBuilds:
+  '@playwright/browser-chromium': true
+  '@swc/core': true
+  esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true

@@ -84,12 +84,11 @@ Workflow artifact quality is tested inside `lamina-design` and `lamina-audit` su
 
 | Area | Eval IDs | Hook assertions |
 |------|----------|-----------------|
-| Edge case mapping | `design-*`, `design-edge-cases*` | `edge cases section present`, `edge case categories covered`, `no domain model artifact` |
+| Edge case mapping | `design-*`, `design-edge-cases*` | `edge cases section present`, `edge case categories covered`, `domain contract present` |
 | Persona simulation | `design-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
-| Blueprint checkpoint | `design-blueprint-accept`, `design-blueprint-decline`, `audit-blueprint-accept` | `blueprint offer made`, `blueprint validate passes`, `no blueprint without consent` |
-| Flow design (direct) | `cap-flow-design-framework` | `read skill lamina-flow-design` |
+| Blueprint checkpoint | (removed) | Studio/blueprint evals deprecated — skipped in grade hook |
 
-Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lamina-studio validate` for blueprint/scenario checks).
+Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lib/run.mjs` for run.yaml validation).
 
 ## Regenerating evals
 

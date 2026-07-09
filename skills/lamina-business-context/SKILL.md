@@ -148,7 +148,7 @@ Use when shipped UI or product docs exist. Informs business answers, **Inferred 
 ### Size heuristics (internal — do not persist)
 - **Small:** single app, few surfaces → inline read
 - **Medium:** multiple feature areas, research folders → bounded inline read
-- **Large:** monorepo or corpus crowds context → delegate to [research-synthesizer](../../agents/research-synthesizer.md) via [fresh-context](../lamina-orchestrator/patterns/fresh-context.md)
+- **Large:** monorepo or corpus crowds context → bounded repo scan per [field-research](../lamina-field-research/SKILL.md); summarize in `evidence.md`
 
 ### Evidence tagging
 Every inferred claim cites `@path` or states `insufficient detail — cannot verify`.
@@ -194,7 +194,7 @@ lamina:
 |---|---|
 | Problem unclear, early exploration | `/lamina-design` |
 | Specific capability to specify | `/lamina-design` |
-| Shipped UI, known pain, clear goals | `/lamina-audit` |
+| Shipped UI, known pain, clear goals | `/lamina-verify` |
 | Business context incomplete | finish open questions before other commands |
 
 Do not persist recommendation in any file.

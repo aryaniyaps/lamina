@@ -20,7 +20,7 @@ Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Pr
 |---|---|
 | Tight deadline, high assumption risk | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
 | New product, unknown audience | [feature-discovery](../lamina-feature-discovery/SKILL.md) |
-| Feature debate among stakeholders | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
+| Feature debate among stakeholders | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | Conflicting data sources | [decision-making](../lamina-decision-making/SKILL.md) |
 | When to stop researching | [research-scoping](../lamina-research-scoping/SKILL.md) |
 
@@ -58,7 +58,7 @@ Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Pr
 
 **Affordance** — Perceived and actual properties determining how an object could be used ([Discoverability](../lamina-discoverability/SKILL.md))
 
-**Affinity diagramming** — Grouping observations into thematic clusters to find patterns ([Research Synthesis](../lamina-research-synthesis/SKILL.md), [Interview Documentation](../lamina-interview-documentation/SKILL.md))
+**Affinity diagramming** — Clustering actor-walk and walkthrough evidence into themed findings ([Research Synthesis](../lamina-research-synthesis/SKILL.md), [Interview Documentation](../lamina-interview-documentation/SKILL.md))
 
 **Applied research** — Research serving a specific real-world goal ([Research Scoping](../lamina-research-scoping/SKILL.md))
 
@@ -78,7 +78,7 @@ Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Pr
 
 **Constraints** — Limits on possible actions ([Discoverability](../lamina-discoverability/SKILL.md))
 
-**Contextual inquiry** — Research in users' natural environment ([Field Research](../lamina-field-research/SKILL.md))
+**Contextual inquiry** — Observing product behavior in repo and live UI ([Field Research](../lamina-field-research/SKILL.md))
 
 **Deep-page navigation orientation audit** — Five navigation questions answerable in five seconds from any page ([Navigation](../lamina-navigation/SKILL.md))
 
@@ -100,9 +100,9 @@ Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Pr
 
 **Gulf of execution** — Gap between user's goal and allowed actions ([Discoverability](../lamina-discoverability/SKILL.md))
 
-**Heuristic evaluation** — Expert review against usability principles ([Usability Evaluation](../lamina-usability-evaluation/SKILL.md))
+**Heuristic evaluation** — Parallel expert lens review on contract and live product ([Heuristic Review](../lamina-heuristic-review/SKILL.md))
 
-**Human-centered design** — Design process centered on human needs throughout ([Design Process](../lamina-design-process/SKILL.md))
+**Human-centered design** — Design loop centered on actor outcomes via contract and verify ([Design Process](../lamina-design-process/SKILL.md))
 
 **Implementation model** — How engineers think the product works internally ([Product Behavior](../lamina-product-behavior/SKILL.md))
 
@@ -136,4 +136,4 @@ Optional deep lookup. For skill routing, use [lamina-core/SKILL.md](SKILL.md) Pr
 
 **Two-cycle diverge-converge process** — Discover, define, develop, deliver ([Design Process](../lamina-design-process/SKILL.md))
 
-**Usability testing** — Observing users attempting tasks with a design ([Usability Evaluation](../lamina-usability-evaluation/SKILL.md))
+**Usability testing** — Simulated actor walks on live product during verify ([Usability Evaluation](../lamina-usability-evaluation/SKILL.md))

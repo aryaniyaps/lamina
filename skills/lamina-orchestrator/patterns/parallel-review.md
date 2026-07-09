@@ -1,9 +1,7 @@
 # Parallel review
 
-**When:** Same UI or flow target; 2+ independent lenses with no cross-dependency.
+Spawn readonly lens subagents when the host supports parallel Task execution.
 
-**Typical lenses:** `lamina-heuristic-review`, `lamina-accessibility`, `lamina-content-design`, `lamina-trust`
+**Typical lenses:** `lamina-accessibility`, `lamina-invariants`, `lamina-edge-cases`, `lamina-error-handling`
 
-**Delegate:** One [ux-lens-reviewer](../../../agents/ux-lens-reviewer.md) task per lens, in parallel.
-
-**Skip when:** Single lens needed, or sequential dependency (persona before flow).
+Merge findings into `run.yaml` `findings[]` or verify narrative. Do not let subagents write files.

@@ -30,5 +30,5 @@ Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, o
 
 ## Subagent hints
 
-- **Fresh context:** `../lamina-orchestrator/agents/research-synthesizer` for large doc corpus on brownfield establish/update
+- **Brownfield:** bounded repo scan per [field-research](../lamina-field-research/SKILL.md)
 - Default: inline sequential

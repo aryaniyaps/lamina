@@ -14,7 +14,7 @@
         "Output mentions failure or empty or permission",
         "persona perspectives in output",
         "artifact pack exists",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps findings",
         "report.md narrative only"
       ]
@@ -47,7 +47,7 @@
         "turn 1 output contains \"Clarifying questions\"",
         "audit contract headings",
         "artifact pack exists",
-        "handoff.md exists"
+        "implement.md exists"
       ]
     },
     {

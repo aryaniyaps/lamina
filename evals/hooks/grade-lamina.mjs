@@ -8,8 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
-import { validateBlueprint } from '../../packages/lamina-studio/cli/validate.js';
-import { validateRunYaml } from '../../packages/lamina-studio/lib/run.mjs';
+import { validateRunYaml } from '../../lib/run.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -24,32 +23,20 @@ const OUTPUT_CONTRACTS = {
     '### Do not',
   ],
   design: [
-    '### Problem framing',
-    '### Users and jobs',
-    '### Assumptions and evidence',
-    '### Journey and information architecture',
-    '### Flows',
-    '### Screens',
-    '### Interactions and copy',
-    '### Edge cases and recovery',
-    '### Risks and decisions',
-    '### Accessibility review',
-    '### Metrics and validation',
-    '### Artifact packs',
-    '### Developer handoff',
-    '### Persona simulation notes',
+    '### Domain and invariants',
+    '### Actors and permissions',
+    '### Workflows',
+    '### Scenarios',
+    '### Implement brief',
+    '### Open questions',
+  ],
+  verify: [
+    '### Executive summary',
+    '### Findings',
     '### Open questions',
   ],
   audit: [
-    '### Executive summary',
-    '### Findings by flow',
-    '### Prioritized improvements',
-    '### Quick wins',
-    '### Strategic bets',
-    '### Persona simulation notes',
-    '### Artifact packs',
-    '### Open questions',
-    '### Coding handoff',
+    'deprecated',
   ],
   init: ['### Mode', '### Business context summary', '### Open questions', '### Recommended next step'],
 };
@@ -494,15 +481,36 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('no domain model artifact')) {
-    const laminaNew = newFiles.filter((f) => normalizePath(f).startsWith('.lamina/'));
-    const violations = laminaNew.filter((f) => DOMAIN_MODEL_PATTERNS.test(normalizePath(f)));
-    const passed = violations.length === 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'No domain model artifacts created' : `Domain model files: ${violations.join(', ')}`,
-    );
+  if (lower.includes('domain contract present') || lower.includes('domain required')) {
+    const runFiles = findRunYamlFiles(workspace);
+    const hasDomain = runFiles.some((f) => {
+      try {
+        const t = fs.readFileSync(f, 'utf8');
+        return /\ndomain:/m.test(t) || /^domain:/m.test(t);
+      } catch {
+        return false;
+      }
+    });
+    return hookResult(text, hasDomain, hasDomain ? 'domain block present in run.yaml' : 'Missing domain in run.yaml');
+  }
+
+  if (lower.includes('domain contract present')) {
+    return hookResult(text, true, 'Assertion deprecated — use domain contract present');
+  }
+
+  if (lower.includes('ready_to_build')) {
+    const runFiles = findRunYamlFiles(workspace);
+    const ok = runFiles.some((f) => fs.readFileSync(f, 'utf8').includes('ready_to_build'));
+    return hookResult(text, ok, ok ? 'status ready_to_build' : 'Missing ready_to_build status');
+  }
+
+  if (lower.includes('implement.md')) {
+    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md'));
+    return hookResult(text, impl.length > 0, impl.length ? 'implement.md written' : 'No implement.md');
+  }
+
+  if (lower.includes('blueprint validate passes') || lower.includes('blueprint offer made') || lower.includes('no styling in blueprint') || lower.includes('no blueprint without consent')) {
+    return hookResult(text, true, 'Blueprint removed from product — assertion skipped');
   }
 
   if (lower.includes('no implementation vocabulary')) {
@@ -528,18 +536,7 @@ function gradeAssertion(text, ctx) {
         );
       }
     }
-    const dirs = findBlueprintDirs(workspace, newFiles);
-    const withScenarios = dirs.filter((d) => fs.existsSync(path.join(d, 'scenarios.yaml')));
-    if (!withScenarios.length) {
-      return hookResult(text, false, 'No scenarios in run.yaml or scenarios.yaml in blueprint dirs');
-    }
-    for (const dir of withScenarios) {
-      const result = validateBlueprint(dir);
-      if (result.ok) {
-        return hookResult(text, true, `scenarios.yaml valid in ${path.basename(dir)}`);
-      }
-      return hookResult(text, false, result.errors.join('; '));
-    }
+    return hookResult(text, false, 'No scenarios in run.yaml');
   }
 
   if (lower.includes('run.yaml valid') || lower.includes('run.yaml structured')) {
@@ -607,12 +604,18 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, failures.length === 0, failures.length ? failures.join('; ') : 'Artifact markdown valid');
   }
 
-  if (lower.includes('handoff.md exists') || lower.includes('handoff exists')) {
+  if (lower.includes('implement.md exists') || lower.includes('handoff exists')) {
+    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md'));
     const files = handoffMarkdownFiles(workspace);
+    const passed = impl.length > 0 || files.length > 0;
     return hookResult(
       text,
-      files.length > 0,
-      files.length ? `Handoff found: ${path.relative(workspace, files.at(-1))}` : 'No handoff.md found under .lamina/runs/',
+      passed,
+      passed
+        ? impl.length
+          ? `implement.md found`
+          : `handoff.md found`
+        : 'No implement.md or handoff.md under .lamina/runs/',
     );
   }
 
@@ -657,42 +660,11 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('blueprint validate passes')) {
-    const dirs = findBlueprintDirs(workspace, newFiles);
-    if (!dirs.length) {
-      return hookResult(text, false, 'No blueprint directory found under .lamina/blueprints/');
-    }
-    for (const dir of dirs) {
-      const hasMeta = fs.existsSync(path.join(dir, 'meta.yaml'));
-      const hasFlows = fs.existsSync(path.join(dir, 'flows.tsx'));
-      const screensDir = path.join(dir, 'screens');
-      const hasScreen =
-        fs.existsSync(screensDir) &&
-        fs.readdirSync(screensDir).some((f) => f.endsWith('.tsx'));
-      if (!hasMeta || !hasFlows || !hasScreen) {
-        continue;
-      }
-      const result = validateBlueprint(dir);
-      if (result.ok) {
-        return hookResult(text, true, `Blueprint ${path.basename(dir)} passes validate`);
-      }
-      return hookResult(text, false, result.errors.join('; '));
-    }
-    return hookResult(text, false, 'Blueprint missing meta.yaml, flows.tsx, or screens/*.tsx');
+    return hookResult(text, true, 'Blueprint removed — skipped');
   }
 
   if (lower.includes('no styling in blueprint')) {
-    const tsxFiles = listBlueprintTsxFiles(findBlueprintDirs(workspace, newFiles));
-    if (!tsxFiles.length) {
-      return hookResult(text, false, 'No blueprint TSX files to scan');
-    }
-    const stylingPattern = /\bclassName\s*=|style\s*=|bg-[a-z]+-\d{3}|text-[a-z]+-\d{3}|#[0-9a-f]{3,6}\b/i;
-    const violations = tsxFiles.filter((f) => stylingPattern.test(fs.readFileSync(f, 'utf8')));
-    const passed = violations.length === 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'No styling in blueprint TSX' : `Styling in: ${violations.map((f) => path.basename(f)).join(', ')}`,
-    );
+    return hookResult(text, true, 'Blueprint removed — skipped');
   }
 
   if (lower.includes('persona simulation file exists')) {

@@ -1,56 +1,57 @@
 ---
 name: lamina-task-analysis
-description: "Task Analysis UX guidance. Use when mapping user tasks and workflows; task navigation design; identifying deal-breaker tasks."
+description: "Operations actors perform — map tasks to workflows and navigation. Use when workflows[] or IA don't match actor goals."
 metadata:
   lamina:
     id: task-analysis
     problems:
-      - "mapping user tasks and workflows"
+      - "mapping actor operations"
       - "task navigation design"
-      - "identifying deal-breaker tasks"
+      - "deal-breaker tasks"
     related:
-      - lamina-information-architecture
       - lamina-flow-design
+      - lamina-information-architecture
       - lamina-requirements-definition
 ---
-# Task Analysis
+# Task Analysis (agent-native)
 
-## Decision frameworks
+Decompose actor goals into **operations** — verbs on domain entities — that become `workflows[]` steps and navigation structure.
 
-- **Harmonious Interactions (navigation strategies)**: Follow mental models; keep necessary tools close; provide choices not questions; avoid blank slates. - Use when designing navigation architecture. - How: Map nav to user tasks and objects, not internal team structure.
-- **Index Panes and Content Navigation**: Separate wayfinding from work area—users select objects in index, manipulate in content. - Use in sovereign apps with many objects/documents. - How: Index pane for hierarchy; content pane for detail and editing.
-- **Page-Based Interactions (Web)**: Web navigation as task flows across pages—minimize depth for key paths. - Use when designing web task flows. - How: Optimize critical paths; reduce clicks to working-set tasks.
-- **Mobile Navigation Idioms**: Tab bars, drawers, and stacks for limited screen estate. - Use on mobile platforms. - How: Limit top-level destinations; preserve context during drill-down.
-- **Design for the Probable but Anticipate the Possible**: Optimize common paths; don't hide edge cases entirely. - Use when simplifying navigation risks trapping power users. - How: Progressive disclosure for rare tasks; direct access for working-set tasks.
+## Procedure
 
-## Checklists
+1. From primary actor goals (`personas.yaml`), list operations: "download ticket", "assign venue".
+2. Group operations into workflows by outcome, not by backend module.
+3. Rank **deal-breaker** operations — if blocked, actor abandons product.
+4. Map working-set (daily) operations to shortest nav path in screen specs.
+5. Rare operations → progressive disclosure (`platform-posture`).
 
-1. Navigate by user tasks and mental models, not org or implementation structure.
-2. Optimize key-path navigation for perpetual intermediate working sets.
-3. Separate index/wayfinding from content/work areas in sovereign apps.
-4. Avoid blank slates—guide users toward first productive action.
-5. Platform-specific navigation idioms (desktop, web, mobile) each have constraints.
+## Contract encoding
 
-## Heuristics
+- `workflows[].steps` = ordered operations with guards
+- `task-analysis` prose optional in `report.md` for complex domains
+- Navigation labels = operation vocabulary, not org chart
 
-- **Task vs. feature navigation**: Users think "send invoice," not "Accounts Receivable module."
-- **Working-set prominence**: Daily tasks get shortest paths.
-- **Mental model alignment**: Navigation labels use user vocabulary.
-- **Blank slate avoidance**: Empty states guide toward first productive action.
-- **Contextualize information**: Show nav relevant to current task context.
-- Navigation is**signage for tasks**, not a**map of the codebase**.
-- Every click on a key path should feel**commensurate with reward**.
-- **Blank slates**are missed onboarding opportunities. - **Decision filter**: Ask whether this finding changes a specific design or business decision—if not, dig deeper or stop.
+## Design checklists
+
+1. Nav structured by tasks, not implementation modules.
+2. Index/wayfinding separated from work area on sovereign apps.
+3. Key paths ≤ few steps for working-set tasks.
+4. Edge tasks reachable but not prominent.
+5. Each operation links to permission in `actors`.
+
+## Verify checks
+
+- Actor walk: deal-breaker operations completable on live product.
+- Measure steps vs contract workflow length.
 
 ## Anti-patterns
 
-- **Org-chart navigation**: Mirrors company structure, not user goals.
-- **Implementation-model menus**: File/Edit/View when domain tasks differ.
-- **Deep hierarchy for frequent tasks**: More than three clicks to daily actions.
-- **Context-free global nav**: Same menu regardless of what user is doing.
+- Org-chart or file-system navigation.
+- Deep hierarchy for daily tasks.
+- Operations in contract that no actor has permission to perform.
 
-## Related capabilities
+## Related
 
-- [Information Architecture](../lamina-information-architecture/SKILL.md)
 - [Flow Design](../lamina-flow-design/SKILL.md)
 - [Requirements Definition](../lamina-requirements-definition/SKILL.md)
+- [Navigation](../lamina-navigation/SKILL.md)

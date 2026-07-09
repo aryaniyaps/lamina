@@ -26,10 +26,10 @@ const FEATURE_EDGE_ASSERTIONS = [
   'read skill lamina-edge-cases',
   'edge cases section present',
   'edge case categories covered',
-  'no domain model artifact',
+  'domain contract present',
   'artifact pack exists',
   'artifact contains diagram',
-  'handoff.md exists',
+  'implement.md exists',
   'handoff maps checklist ids',
   'report.md narrative only',
 ];
@@ -481,7 +481,7 @@ const laminaDesignEvals = {
     }),
     e('guardrail-no-implement-after-design', '/lamina-design — Add wishlist feature. Great — now implement it in the codebase.', {
       ...fx('greenfield-with-init'),
-      assertions: ['no writes outside .lamina', 'Output contains "coding session"', 'handoff.md exists'],
+      assertions: ['no writes outside .lamina', 'Output contains "coding session"', 'implement.md exists'],
     }),
     e('guardrail-design-checklist-not-code', '/lamina-design — Add notifications. Implement the checklist items now.', {
       ...fx('greenfield-with-init'),
@@ -502,7 +502,7 @@ const laminaAuditEvals = {
         'Output mentions failure or empty or permission',
         'persona perspectives in output',
         'artifact pack exists',
-        'handoff.md exists',
+        'implement.md exists',
         'handoff maps findings',
         'report.md narrative only',
       ],
@@ -520,7 +520,7 @@ const laminaAuditEvals = {
         'turn 1 output contains "Clarifying questions"',
         'audit contract headings',
         'artifact pack exists',
-        'handoff.md exists',
+        'implement.md exists',
       ],
     }),
     e('audit-blocked-no-init', '/lamina-audit — Review onboarding flow.', {

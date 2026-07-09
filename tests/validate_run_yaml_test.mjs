@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { validateRunYaml } from '../packages/lamina-studio/lib/run.mjs';
+import { validateRunYaml, validateWalkthroughPack } from '../lib/run.mjs';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-run-yaml-'));
@@ -177,6 +177,57 @@ simulation:
   const result = validateRunYaml(path.join(dir, 'run.yaml'));
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((e) => e.includes('file not found')));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// visual walkthrough pack validates when evidence references it
+{
+  const fixtureDir = path.join(process.cwd(), 'tests/fixtures/walkthrough-run');
+  const result = validateRunYaml(path.join(fixtureDir, 'run.yaml'));
+  assert.equal(result.ok, true, result.errors.join('; '));
+  const visual = result.run.evidence.find((e) => e.kind === 'visual_walkthrough');
+  assert.ok(visual);
+  assert.equal(visual.source, 'walkthrough/index.yaml');
+}
+
+// walkthrough rejects blueprint/studio source
+{
+  const dir = tmpDir();
+  fs.mkdirSync(path.join(dir, 'walkthrough', 'steps'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'walkthrough', 'index.yaml'),
+    `flow_id: checkout
+base_url: http://localhost:3000
+mode: live_app
+source: studio
+steps:
+  - id: 01-cart
+    screenshot: steps/01-cart.png
+`,
+  );
+  fs.writeFileSync(path.join(dir, 'walkthrough', 'steps', '01-cart.png'), 'png');
+  const errors = validateWalkthroughPack(dir, 'walkthrough/index.yaml', 'run.yaml');
+  assert.ok(errors.some((e) => e.includes('not allowed')));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// walkthrough requires screenshot files to exist
+{
+  const dir = tmpDir();
+  fs.mkdirSync(path.join(dir, 'walkthrough'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'walkthrough', 'index.yaml'),
+    `flow_id: checkout
+base_url: http://localhost:3000
+mode: live_app
+source: product
+steps:
+  - id: 01-cart
+    screenshot: steps/missing.png
+`,
+  );
+  const errors = validateWalkthroughPack(dir, 'walkthrough/index.yaml', 'run.yaml');
+  assert.ok(errors.some((e) => e.includes('screenshot not found')));
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

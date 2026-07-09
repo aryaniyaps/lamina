@@ -1,110 +1,69 @@
 ---
 name: lamina-user-modeling
-description: "User Modeling UX guidance. Use when building personas from research; identifying primary users; behavioral archetypes and goals."
+description: "Actor modeling — roles, goals, permissions, and constraints for contract and simulation. Use when defining personas.yaml and run.yaml actors."
 metadata:
   lamina:
     id: user-modeling
     problems:
-      - "building personas from research"
-      - "identifying primary users"
-      - "behavioral archetypes and goals"
-      - "after qualitative research"
-      - "before requirements"
-      - "feature debates need user grounding"
-      - "feature prioritization debate"
-      - "conflicting user needs"
+      - "defining actors and permissions"
+      - "primary vs secondary actors"
+      - "conflicting actor goals"
     related:
-      - lamina-research-synthesis
+      - lamina-stakeholder-alignment
       - lamina-requirements-definition
       - lamina-decision-making
 ---
-# User Modeling
+# Actor Modeling (agent-native)
 
-## Decision frameworks
+**Actors** are simulated users with goals, permissions, and constraints — persisted in `.lamina/personas.yaml` and `run.yaml` `actors`.
 
-- **Personas**: Fictional individuals assembled from real behavior patterns; each represents a class of users for a specific product context. - When to use: After research synthesis; before scenarios and requirements. - How: Group by role → identify behavioral variables → map subjects → find clusters → synthesize goals → designate types → write narrative.
-- **Three types of user goals**(mapped to visceral/behavioral/reflective): - **Experience goals**(how users want to feel): smart, in control, reassured. - **End goals**(what users want to do): clear inbox by 5pm, find music they'll love. - **Life goals**(who users want to be): succeed, be respected, live well.
-- **Persona types**: Primary (one per interface—design target), Secondary (satisfied by primary with additions), Supplemental, Customer, Served, Negative (anti-persona). - When to use: After persona construction; before framework design. - How: Eliminate until one primary persona's goals are fully met without disenfranchising others; avoid picking largest market segment over most constrained user (OXO Good Grips lesson).
+## Contract encoding
 
-## Checklists
+```yaml
+# personas.yaml — identity stable across runs
+- id: student
+  primary: true
+  goals:
+    end: [download hall ticket before exam]
+    experience: [feel prepared, not blocked]
+  permissions: [view_schedule, download_ticket]
+  technical_literacy: medium
+  confidence: high  # low = provisional from repo inference
+```
 
-1. Personas determine what the product should do and how it should behave; they align stakeholders without flowcharts.
-2. Goals must relate to the product being designed; infer from behavior—users rarely state goals accurately.
-3. Construct personas: 8-step process from grouping roles to expanding narratives with photos.
-4. Zero to two experience goals, three to five end goals, zero to one life goal per persona is typical.
-5. Customer and business goals matter but must not trump end-user goals at the user's expense.
-6. The most important interaction guideline: don't make the user feel stupid.
+Link `actors[]` in `run.yaml` to persona ids; permissions may extend per workflow.
 
-## Heuristics
+## Cast rules
 
-- **Elastic user**: "The user" who morphs between novice and expert to justify any design choice.
-- **Self-referential design**: Designers or developers projecting their own skills onto the product.
-- **Edge cases**: Must be supported but never drive the design focus.
-- **Personas vs market segments**: Segments = demographics and buying; personas = usage behavior and goals.
-- **Personas vs roles**: Roles are abstractions; personas add empathy, narrative, and goal hierarchy.
-- **Provisional personas**: Hypothesis-based stand-ins when fieldwork isn't possible—better than none, but not a substitute.
-- Design for specific individuals with specific needs—not everyone—because broad accommodation increases cognitive load for all.
-- If your user model has no goals, it isn't a persona.
-- Primary persona test: Would this person be satisfied by a design aimed at anyone else in the set? If not, they're primary.
-- Personas are Method acting for interaction design: role-play scenarios from their perspective.
+1. One **primary** actor per interface — design target for conflicts (`decision-making`).
+2. Behavioral variables over demographics; goals required on every persona.
+3. **Negative persona**: actor explicitly not served — prevents elastic-user drift.
+4. Provisional cast from brownfield: `confidence: low` until user confirms.
 
-## Persona simulation
+## Simulation (verify only)
 
-Personas are **simulated users**, not static documents. Run each persona as an **isolated subagent** (one agent per persona, parallel). Never inline multiple personas in one agent — that averages voices and kills conflict.
+Personas run as **isolated subagents** during `/lamina-verify` — not pre-build empathy theater.
 
-**Artifacts:** `.lamina/personas.yaml` (global identity registry) and `.lamina/runs/<run_id>/run.yaml` `simulation` (per-run walkthrough outcomes). Identity is stable across runs; outcomes change every panel. See [artifacts.md](../../lamina-orchestrator/artifacts.md).
+1. Orchestrator picks panel (primary + relevant actors).
+2. Spawn one subagent per persona via `persona-panel-spawn.md`.
+3. Reconcile conflicts with Primary User Filter → `findings[]` or `decisions.md`.
 
-**Simulate via dynamic spawns:** one subagent per persona; each prompt embeds that persona's identity — `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`.
+**Situational context** in spawn prompt only: scenario, device, time pressure, stakes.
 
-### Cast
+## Simulation anti-patterns
 
-After research synthesis or problem framing:
-- Append to `personas.yaml`; no fixed persona count.
-- Each entry needs: goals (experience/end/life), frustrations, motivations, technical_literacy, accessibility, confidence.
-- Designate one `primary` persona per interface.
-- Behavioral rigor over demographics; provisional personas get `confidence: low`.
+- One agent playing all personas — averaged consensus.
+- Simulated quotes presented as real user research.
+- Designer vocabulary in blocker reports ("Nielsen heuristic 4").
+- Prescribing fixes in walk output — report blocked operations only.
 
-### Simulate (think-aloud walkthrough)
+## Verify checks
 
-When a flow, screen, or journey exists:
-1. Orchestrator picks personas (always primary; add others relevant to the target).
-2. Spawn one **dynamic subagent per persona** in parallel — each prompt makes the subagent **that person** (see `../lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`). Do not use a fixed agent type.
-3. Orchestrator reconciles via Primary User Filter and conflict records.
+- Each actor attempts allowed and forbidden operations per `workflows`.
+- Permission denials match `scenarios[]` with category `permission`.
 
-**Situational context** (spawn prompt, not persisted): scenario, device, time_pressure, stakes.
+## Related
 
-### Simulation anti-patterns
-
-- **Inlined personas:** One agent playing all users — produces designer-flavored consensus.
-- **Simulation as research:** Label all panel output as simulation; real usability tests validate.
-- **Designer vocabulary in character:** Personas describe confusion, not heuristic names.
-- **Solutions in blockers:** Report pain and abandonment triggers, not prescribed fixes.
-- **Cross-contamination:** Subagents must not see other personas' outputs before reconciling.
-
-## Evaluation rubrics
-
-### User Archetype Construction
-- **When**: After qualitative user research, before design requirements.
-- **Process**: Identify behavioral variables  ->  map subjects  ->  find patterns  ->  synthesize 2-4 archetypes  ->  define experience/end/life goals  ->  name and detail  ->  identify primary user.
-- **Pass**: Archetypes distinguish behaviors and goals; primary user identified for prioritization.
-- **Failure signals**: Thin research → false precision; demographic-only personas.
-
-For prioritization when personas conflict, apply [Primary User Filter](../lamina-decision-making/SKILL.md).
-
-## Anti-patterns
-
-- **Stereotype personas**: Stock photo + job title without behavioral rigor.
-- **Demographic-only profiles**: Car and kids listed, no goals or pain points.
-- **Reusing personas across products**: Behaviors are context-specific; one-size personas dilute precision.
-- **Participatory design replacing personas**: Real users carry idiosyncrasies; aggregation reveals critical patterns.
-- **Solutions in persona narratives**: Describe pain, not prescribed fixes.
-
-## Examples
-
-- **User Archetypes And Goals**: An online store interview mapping reveals clusters: User 1, 4, 5 are price-oriented necessity shoppers; User 2 is entertainment-driven; User 3 is service-oriented. Across axes (frequency, desire to shop, motivation), a significant pattern emerges—a "deal hunter" persona with end goals like "stretch the household budget" and experience goals like "feel smart, not duped." Design targets comparison tools and trust signals, not boutique browsing features that serve a different cluster.
-
-## Related capabilities
-
-- [Research Synthesis](../lamina-research-synthesis/SKILL.md)
-- [Requirements Definition](../lamina-requirements-definition/SKILL.md)
+- [Stakeholder Alignment](../lamina-stakeholder-alignment/SKILL.md)
+- [Persona Panel](../lamina-orchestrator/patterns/persona-panel.md)
 - [Decision Making](../lamina-decision-making/SKILL.md)

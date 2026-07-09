@@ -1,13 +1,13 @@
 ---
 name: lamina-accessibility
-description: "Accessibility UX guidance. Use when accessible design fundamentals; CSS and markup accessibility; inclusive interaction design."
+description: "Accessibility in contracts and verify — semantic structure, keyboard paths, and a11y findings on live UI. Not CSS framework prescriptions."
 metadata:
   lamina:
     id: accessibility
     problems:
-      - "accessible design fundamentals"
-      - "CSS and markup accessibility"
-      - "inclusive interaction design"
+      - "accessible interaction design"
+      - "keyboard and screen reader paths"
+      - "inclusive verify pass"
     related:
       - lamina-content-design
       - lamina-forms
@@ -15,50 +15,46 @@ metadata:
     tags:
       - audit-default
 ---
-# Accessibility
+# Accessibility (agent-native)
 
-## Decision frameworks
+Accessibility is **usability for all actors** — specified in screen contracts and verified on **live product** during `/lamina-verify`.
 
-- **Three-Second Accessibility Test**: Disable images, turn off CSS, or view grayscale—can you still use the site? - When to use: Quick sanity check on any page. - How: Browser dev tools: disable images/CSS; verify content order and link text make sense.
-- **CSS for Accessibility Separation**: Structure in HTML (headings, lists, labels); presentation in CSS. - When to use: All development—especially redesigns. - How: Semantic markup; alt text for images; form labels; don't rely on color alone.
-- **Section 508 / WCAG Compliance Path**: Government and best-practice standards for accessible Web content. - When to use: Public sector, enterprise procurement, ethical baseline. - How: Keyboard navigation, screen reader compatibility, sufficient contrast, text equivalents.
+## Contract encoding
+
+Per `screens[]`:
+- Heading structure intent (h1–h6 hierarchy)
+- Primary actions reachable by keyboard
+- Form fields: label text, error association
+- State not conveyed by color alone (icon/text required)
+- Focus order notes for multi-step flows
+
+In `scenarios[]`: a11y failures as `findings[]` with severity.
+
+## Verify procedure
+
+1. Walkthrough capture at `base_url` (visual-walkthrough pattern).
+2. A11y subagent or lens on captured steps: keyboard nav, labels, contrast flags, heading order.
+3. Actor walk with `accessibility` constraints from persona (screen reader, keyboard-only).
+
+**Three-second structure test**: disable CSS/images mentally — does content order and link text still make sense? Run via walkthrough describer when multimodal unavailable.
 
 ## Checklists
 
-1. Accessibility is usability for all—including disabilities.
-2. Semantic HTML + CSS separates structure from presentation.
-3. Run three-second test: no images, no CSS—still usable?
-4. Alt text, labels, keyboard access, and contrast are non-negotiable.
-5. Section 508/WCAG provide concrete requirements.
-6. Accessible design often improves mobile and SEO.
-7. Build in from start—retrofit is expensive.
-
-## Heuristics
-
-- **Alt text**: Text alternative for images—empty for decorative, descriptive for informative.
-- **Semantic HTML**: Proper heading hierarchy (h1–h6), lists, labels.
-- **Keyboard access**: All functionality without mouse.
-- **Color contrast**: Text readable for low vision and color blindness.
-- **Screen readers**: Assistive tech depends on structure, not appearance.
-- **508**: US Rehabilitation Act amendment specifying accessibility requirements.
-- Think of accessibility as**extreme usability**—constraints reveal design clarity.
-- Use CSS as**presentation layer**—structure should work naked.
-- Treat alt text and labels as**first-class content**, not afterthoughts.
+1. Semantic structure in screen spec — not presentation classes.
+2. All workflow primary paths keyboard-completable.
+3. Error messages programmatically associated with fields.
+4. WCAG-oriented baseline; cite level target in `decisions.md` if user requires.
+5. Accessible design often improves mobile and clarity for everyone.
 
 ## Anti-patterns
 
-- **Image-only navigation**: No text alternatives—fails screen readers.
-- **Color-only state indicators**: Red/green without icons or labels.
-- **Layout tables for structure**: Breaks semantic navigation for assistive tech.
-- **Skipping heading levels**: Confuses document outline.
-- **"We'll add accessibility later"**: Retrofit costs more than building in.
+- "Add a11y later" without scenarios for gaps.
+- Color-only status indicators in contract.
+- Image-only controls without text alternative in screen spec.
+- Skipping a11y because design phase has no runnable UI — defer to verify, don't skip.
 
-## Examples
-
-- **Accessibility Fundamentals**: Run three-second test: disable CSS on shopping site. Page becomes unstyled but headings still outline structure, links still readable ("Add to cart" not "Click here"), form fields still labeled. Disable images: product names appear in alt text. Fail: navigation is image map with no alt; form fields identified only by adjacent graphics; gray-on-gray text.
-
-## Related capabilities
+## Related
 
 - [Content Design](../lamina-content-design/SKILL.md)
 - [Forms](../lamina-forms/SKILL.md)
-- [Navigation](../lamina-navigation/SKILL.md)
+- [Verify](../lamina-verify/SKILL.md)

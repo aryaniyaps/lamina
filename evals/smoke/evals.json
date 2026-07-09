@@ -225,10 +225,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
@@ -262,10 +262,10 @@
         "read skill lamina-edge-cases",
         "edge cases section present",
         "edge case categories covered",
-        "no domain model artifact",
+        "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "Output mentions flows",
@@ -287,7 +287,7 @@
         "Output mentions failure or empty or permission",
         "persona perspectives in output",
         "artifact pack exists",
-        "handoff.md exists",
+        "implement.md exists",
         "handoff maps findings",
         "report.md narrative only"
       ]

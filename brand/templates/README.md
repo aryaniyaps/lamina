@@ -1,22 +1,38 @@
 # Lamina
 
-> The UX reasoning layer for AI dev tools.
+> Know what to build. Iterate faster.
 
 **Design how it works.**
 
-Lamina figures out what to build and how users move through it � before anyone opens a design tool or writes production code. Personas, flows, edge cases. Framework-agnostic. Packaged as a skill for every AI coding tool.
+For **developers who build with AI coding agents** — Lamina is the open-source skill that handles product thinking (edge cases, UX gaps, product states) upfront, then verifies visually after you ship. Works with Cursor, Claude Code, Codex, Gemini, Pi, and any stack.
 
 ---
 
-## The missing layer
+## Why Lamina
 
-| Layer | Tools | What they do |
-|-------|-------|--------------|
-| UI generation | Stitch, v0, Galileo | Make things *look* good |
-| **UX reasoning** | **Lamina** | Figure out *what to build* and *how it works* |
-| Code generation | Cursor, Copilot, Claude Code | Write the *code* |
+Stop doing edge-case archaeology mid-sprint. Lamina front-loads product thinking into a build contract your coding agent can implement — so you move faster without worrying about what you missed.
 
-AI UI tools make things pretty. Coding agents write the code. Nobody goes through user personas, maps the flows, or handles edge cases. Lamina is that layer.
+| | |
+|---|---|
+| **Design is how it works** | The only AI skill for product behavior — not pixels or code |
+| **100% open source** | MIT. Inspect, fork, extend |
+| **Any UI design skill** | Impeccable, UI UX Pro Max, your own |
+| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter |
+| **Any UI library** | Tailwind, Chakra UI, shadcn, MUI |
+| **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi |
+| **Fits your stack** | Not opinionated about context management, memory, or UI workflow |
+
+---
+
+## The loop
+
+```text
+/lamina-design  →  run.yaml + implement.md (ready_to_build)
+       ↓
+  You implement (any stack)
+       ↓
+/lamina-verify  →  actor walks, visual flow capture, invariants → findings
+```
 
 ---
 
@@ -25,94 +41,60 @@ AI UI tools make things pretty. Coding agents write the code. Nobody goes throug
 ### Cursor
 
 ```bash
-# Clone into your project's skills directory
-git clone https://github.com/lamina-dev/skill.git .cursor/skills/lamina
-
-# Or add to user-level skills
-git clone https://github.com/lamina-dev/skill.git ~/.cursor/skills/lamina
+npx skills add https://github.com/aryaniyaps/lamina -a cursor -y
 ```
 
-Then invoke with `/lamina` or ask: *"Use Lamina to spec out the onboarding flow."*
+Then invoke with `/lamina-design`, `/lamina-verify`, or ask: *"Use Lamina to design the onboarding flow."*
 
-### Claude (Claude Code / Desktop)
+### Claude Code
 
 ```bash
-# Project-level
-git clone https://github.com/lamina-dev/skill.git .claude/skills/lamina
-
-# User-level
-git clone https://github.com/lamina-dev/skill.git ~/.claude/skills/lamina
+npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y
 ```
 
-### Windsurf
+### Codex / Pi / Generic
 
 ```bash
-git clone https://github.com/lamina-dev/skill.git .windsurf/skills/lamina
+npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
 ```
 
-### Copilot / Generic
-
-Copy `SKILL.md` into your agent's skills directory. Lamina is unopinionated � it outputs structured specs your agent already knows how to consume.
+Lamina outputs structured specs your agent already knows how to consume — unopinionated on how you manage context or memory.
 
 ---
 
 ## Usage
 
 ```
-/lamina Build a settings page for a team collaboration app.
+/lamina-design Build a settings page for a team collaboration app.
 ```
 
 Lamina will:
 
-1. **Define personas** � who uses this, what they need, what they fear
-2. **Map flows** � primary paths, alternate paths, entry/exit points
-3. **Write specs** � what to build, acceptance criteria, dependencies
-4. **Enumerate edge cases** � empty states, errors, permissions, race conditions
+1. **Model the domain** — entities, states, invariants, permissions
+2. **Define actors** — roles, goals, and what they can do
+3. **Map workflows** — primary paths, alternate paths, side effects
+4. **Specify UX surfaces** — flows, forms, error/empty recovery tied to domain rules
+5. **Enumerate scenarios** — violations, edge cases, recovery paths
+
+After you build, `/lamina-verify` runs actor walks and visual flow capture against your live app.
 
 Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tailwind, or whatever you use.
 
 ---
 
-## Example output
-
-```markdown
-## Personas
-
-### Alex � Team Admin
-- Goal: Configure workspace without breaking existing workflows
-- Fear: Accidental data loss from bulk changes
-- Frequency: Weekly
-
-## Flow: Invite team member
-
-1. Admin opens Settings ? Team
-2. Clicks "Invite member"
-3. Enters email, selects role
-4. System sends invite email
-5. Invitee accepts ? appears in member list
-
-### Edge cases
-- Email already on team ? inline error, suggest role change
-- Invite expires after 7 days ? resend option
-- SSO-enforced org ? invite redirects to IdP flow
-- Last admin demotion ? blocked with explanation
-```
-
----
-
 ## Philosophy
 
-- **Design is how it works** � not how it looks
-- **Flows before pixels** � structure before surface
-- **Unopinionated** � your stack, your UI library, your agent
-- **Edge cases are the product** � happy paths are easy; Lamina lives in the gaps
+- **Design is how it works** — not how it looks
+- **Know what to build** — iterate faster, fewer rewrites
+- **Edge cases upfront** — not discovered in production
+- **Unopinionated** — your stack, your UI library, your design skill, your agent
+- **Verify visually** — subagents read flows from screenshots, not just text specs
 
 ---
 
 ## Links
 
 - Website: [lamina.dev](https://lamina.dev)
-- Docs: [lamina.dev/docs](https://lamina.dev/docs)
 - Brand: UX layer grey + Highlighter accent · 3D meerkat mascot
 
 ---

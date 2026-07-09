@@ -87,32 +87,24 @@ function walk(dir) {
 function checkOutputContracts() {
   const contracts = {
     'skills/lamina-orchestrator/prompts/outputs/design.md': [
-      'Problem framing',
-      'Users and jobs',
-      'Assumptions and evidence',
-      'Journey and information architecture',
-      'Flows',
-      'Screens',
-      'Interactions and copy',
-      'Edge cases and recovery',
-      'Risks and decisions',
-      'Accessibility review',
-      'Metrics and validation',
-      'Artifact packs',
-      'Developer handoff',
-      'Persona simulation notes',
+      'Domain and invariants',
+      'Actors and permissions',
+      'Workflows',
+      'Scenarios',
+      'UX surfaces',
+      'Implement brief',
+      'Open questions',
+      'Next step',
+    ],
+    'skills/lamina-orchestrator/prompts/outputs/verify.md': [
+      'Executive summary',
+      'Contract checked',
+      'Actor walk results',
+      'Findings',
       'Open questions',
     ],
     'skills/lamina-orchestrator/prompts/outputs/audit.md': [
-      'Executive summary',
-      'Findings by flow',
-      'Prioritized improvements',
-      'Quick wins',
-      'Strategic bets',
-      'Persona simulation notes',
-      'Artifact packs',
-      'Open questions',
-      'Coding handoff',
+      'deprecated',
     ],
     'skills/lamina-orchestrator/prompts/outputs/init.md': [
       'Mode',
@@ -149,7 +141,7 @@ function checkOutputContracts() {
 }
 
 function checkCommandSkills() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-audit'];
+  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify', 'lamina-audit'];
   for (const name of commandNames) {
     const skillPath = `skills/${name}/SKILL.md`;
     if (!exists(skillPath)) {
@@ -166,7 +158,7 @@ function checkCommandSkills() {
   }
 }
 function checkInitPrerequisiteLinks() {
-  const gatedCommands = ['lamina-design', 'lamina-audit'];
+  const gatedCommands = ['lamina-design', 'lamina-verify', 'lamina-audit'];
   for (const name of gatedCommands) {
     const skillPath = `skills/${name}/SKILL.md`;
     const skill = read(skillPath);
@@ -212,25 +204,24 @@ function checkRequiredPaths() {
     'skills/lamina/SKILL.md',
     'skills/lamina-init/SKILL.md',
     'skills/lamina-design/SKILL.md',
+    'skills/lamina-verify/SKILL.md',
     'skills/lamina-audit/SKILL.md',
     'skills/lamina-business-context/SKILL.md',
     'skills/lamina-orchestrator/SKILL.md',
     'skills/lamina-orchestrator/audit-profiles.yaml',
     'skills/lamina-orchestrator/merge-rules.md',
-    'skills/lamina-studio/SKILL.md',
     'skills/lamina-orchestrator/workflows/init.md',
     'skills/lamina-orchestrator/prerequisites/init-required.md',
     'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
     'scripts/check_lamina_init.mjs',
     'skills/lamina-orchestrator/workflows/design.md',
     'skills/lamina-orchestrator/prompts/outputs/design.md',
-    'skills/lamina-orchestrator/workflows/design-concept.md',
-    'skills/lamina-orchestrator/workflows/design-feature.md',
+    'skills/lamina-orchestrator/workflows/verify.md',
+    'skills/lamina-orchestrator/prompts/outputs/verify.md',
     'skills/lamina-orchestrator/workflows/audit.md',
     'skills/lamina-orchestrator/prompts/outputs/init.md',
     'skills/lamina-orchestrator/prompts/outputs/clarify.md',
-    'skills/lamina-orchestrator/prompts/checkpoints/blueprint-preview.md',
-    'packages/lamina-studio/package.json',
+    'lib/run.mjs',
     'agents/ux-lens-reviewer.md',
     'agents/research-synthesizer.md',
     'skills/lamina-orchestrator/agents/ux-lens-reviewer.md',
