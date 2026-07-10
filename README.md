@@ -15,7 +15,7 @@
 ## Install
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina -a cursor -a claude-code -a codex -a pi -y
+npx skills install aryaniyaps/lamina
 ```
 
 ---
