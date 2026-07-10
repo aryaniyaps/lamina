@@ -8,6 +8,7 @@ Parse the user message for intent signals. Route (first strong match wins):
 | Specific feature or capability to add | [design.md](design.md) |
 | Implementation done, verify product | [verify.md](verify.md) |
 | Improve, audit, review, fix **existing** UI or flows | [verify.md](verify.md) |
+| Implement findings / apply `fix.md` from prior verify | **Not a Lamina command** — coding session reads `.lamina/runs/<id>/fix.md`; app source allowed outside Lamina |
 | Single clear topic | **Direct mode** — [lamina-core](../../lamina-core/SKILL.md) → one skill |
 | Ambiguous | Ask: *"Design new behavior, verify existing product, or one focused question?"* |
 
@@ -23,4 +24,4 @@ Parse the user message for intent signals. Route (first strong match wins):
 
 **Direct mode:** read matched `lamina-<id>/SKILL.md`; cite skill id in response.
 
-Execute chosen path. Writes: `.lamina/` only. Never app source. After `ready_to_build`, user implements externally then `/lamina-verify`.
+Execute chosen path. Writes: `.lamina/` only. Never app source. After `ready_to_build`, user implements from `implement.md` then `/lamina-verify`. After verify, user implements from `fix.md` then re-runs `/lamina-verify`.

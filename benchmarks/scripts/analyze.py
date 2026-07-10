@@ -18,6 +18,7 @@ SCORED_DIR = ROOT / "benchmarks/results/scored"
 STATS_DIR = ROOT / "benchmarks/results/statistics"
 RESULTS_DIR = ROOT / "benchmarks/results"
 RELEASE_YAML = ROOT / "benchmarks/release.yaml"
+METHODOLOGY_JSON = ROOT / "benchmarks/methodology.json"
 
 DEFAULT_WEIGHTS = {
     "golden_coverage": 0.4,
@@ -64,6 +65,40 @@ def wilcoxon_signed_rank(control: list[float], treatment: list[float]) -> tuple[
     z = (pos - expected) / math.sqrt(n * 0.25) if n > 0 else 0
     p = 2 * (1 - 0.5 * (1 + math.erf(abs(z) / math.sqrt(2))))
     return float(pos), float(p)
+
+
+def load_methodology() -> dict:
+    if not METHODOLOGY_JSON.exists():
+        return {}
+    return json.loads(METHODOLOGY_JSON.read_text())
+
+
+def methodology_report_section(methodology: dict) -> list[str]:
+    if not methodology:
+        return []
+    control = methodology.get("control", {})
+    treatment = methodology.get("treatment", {})
+    lines = [
+        "## Methodology (Design A — ecological adoption)",
+        "",
+        f"- **Id:** `{methodology.get('id', 'unknown')}` — {methodology.get('name', '')}",
+        f"- **Research question:** {methodology.get('research_question', '').strip()}",
+        f"- **Control:** {control.get('label', '')} ({control.get('phases', '?')} phases, scored {control.get('scoring_checkpoint', '')})",
+        f"- **Treatment:** {treatment.get('label', '')} ({treatment.get('phases', '?')} phases, scored {treatment.get('scoring_checkpoint', '')})",
+        "",
+        "**Why unequal turns is intentional (not a scoring loophole):**",
+        "",
+    ]
+    for item in methodology.get("why_unequal_turns_is_correct", []):
+        lines.append(f"- {item}")
+    lines.extend([
+        "",
+        "Full rationale: `benchmarks/METHODOLOGY.md` · Machine pin: `benchmarks/methodology.json`",
+        "",
+        "**Do not reinterpret** these results as matched-turn ablation unless a separate benchmark variant is run and published.",
+        "",
+    ])
+    return lines
 
 
 def load_json(path: Path) -> list[dict]:
@@ -217,6 +252,7 @@ def build_report(
     human: dict | None,
     composite_stats: dict | None,
     claim_ready: bool,
+    methodology: dict | None = None,
 ) -> str:
     lines = [
         "# LaminaBench v2.0 Report",
@@ -232,6 +268,9 @@ def build_report(
             "> before any external citation of these numbers.",
             "",
         ])
+
+    if methodology:
+        lines.extend(methodology_report_section(methodology))
 
     lines.extend([
         "## Golden Coverage (Objective reference checklist)",
@@ -289,10 +328,9 @@ def build_report(
         "",
         "## Interpretation",
         "",
-        "Positive mean delta indicates treatment (agent + Lamina) outperformed control (agent alone).",
-        "This report uses paired per-task comparisons, not single-run anecdotes.",
-        "This benchmark measures **product-behavior design brief quality**, not live verify outcomes.",
-        "A secondary implement+verify metric is documented separately when available.",
+        "Positive mean delta: Lamina full loop vs Plan + implement (ecological adoption methodology).",
+        "Unequal agent turns are **by design** — see Methodology section above; not equal-turn ablation.",
+        "Control scored post-implement; treatment post-fix. Golden coverage searches implementation source.",
         "",
         "## Reproducibility",
         "",
@@ -318,6 +356,7 @@ def detect_claim_ready(coverage_rows: list[dict], human: dict | None, judge_rows
 def main() -> None:
     STATS_DIR.mkdir(parents=True, exist_ok=True)
     weights = load_weights()
+    methodology = load_methodology()
 
     coverage_rows = load_json(SCORED_DIR / "coverage-summary.json")
     cov_pairs = task_level_means(coverage_rows, "coverage_score")
@@ -357,6 +396,7 @@ def main() -> None:
     out = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "claim_ready": claim_ready,
+        "methodology": methodology,
         "scoring_weights": weights,
         "coverage": cov_stats,
         "judge": judge_stats,
@@ -368,7 +408,7 @@ def main() -> None:
     stats_path = STATS_DIR / "stats.json"
     stats_path.write_text(json.dumps(out, indent=2) + "\n")
     report_path = RESULTS_DIR / "report.md"
-    report_path.write_text(build_report(cov_stats, judge_stats, human, composite_stats, claim_ready))
+    report_path.write_text(build_report(cov_stats, judge_stats, human, composite_stats, claim_ready, methodology))
 
     print(f"Statistics → {stats_path}")
     print(f"Report → {report_path}")

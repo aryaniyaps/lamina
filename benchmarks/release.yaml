@@ -12,7 +12,24 @@ max_tokens: 8192
 
 runs_per_arm: 3
 tasks_total: 25
-executions_total: 150
+workflow_runs_total: 150
+control_phases: 2
+treatment_phases: 5
+control_invocations_total: 150
+treatment_invocations_total: 375
+agent_invocations_total: 525
+
+# Ecological adoption comparison — see benchmarks/METHODOLOGY.md (not matched-turn ablation)
+methodology:
+  id: design_a_ecological
+  document: benchmarks/METHODOLOGY.md
+  machine_readable: benchmarks/methodology.json
+  research_question: >-
+    Does adopting Lamina (full agent-native loop) yield better implemented
+    product behavior than Plan mode + implement — the realistic without-Lamina path?
+  unequal_turns_intentional: true
+  control_scoring: post_implement
+  treatment_scoring: post_fix
 
 human_eval_tasks: 10
 human_raters: 3

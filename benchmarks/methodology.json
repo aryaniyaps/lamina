@@ -1,0 +1,48 @@
+{
+  "id": "design_a_ecological",
+  "name": "Ecological adoption comparison",
+  "version": "2.0.0",
+  "research_question": "When a developer adopts Lamina versus using Plan mode and implementing (the realistic without-Lamina path), which produces better implemented product behavior in code?",
+  "control": {
+    "label": "Plan mode + implement",
+    "phases": 2,
+    "workflow_id": "control_plan_2_phase",
+    "description": "Write bench-plan.md (IDE Plan-mode-style planning), then implement a minimal vertical slice. No Lamina skills. No verify/fix loop.",
+    "scoring_checkpoint": "post_implement",
+    "precedent": "Matches the without-Lamina arm of the public hotel-booking demo (README.md): Cursor Plan mode → implement."
+  },
+  "treatment": {
+    "label": "Full Lamina loop",
+    "phases": 5,
+    "workflow_id": "treatment_lamina_5_phase",
+    "description": "lamina-init → lamina-design or lamina-verify (audit) → implement → lamina-verify → fix from fix.md",
+    "scoring_checkpoint": "post_fix"
+  },
+  "why_unequal_turns_is_correct": [
+    "The benchmark answers an adoption question: should I install Lamina, not a tooling-ablation question inside a process nobody would use without Lamina.",
+    "Extra treatment phases (verify, fix) are the product — not hidden compute. Scoring treatment post-fix measures what Lamina is designed to deliver.",
+    "Forcing the control through a Lamina-shaped verify/fix loop would import Lamina's methodology into the baseline and understate the real without-Lamina path.",
+    "Matched-turn designs measure whether slash commands beat manual copies of Lamina's loop — a narrower claim than this benchmark makes."
+  ],
+  "fairness_constraints": [
+    "Same coding agent, model pin, temperature, task prompt, and fixture for both arms on each task.",
+    "Control receives no Lamina skills and no .lamina/ contracts.",
+    "Both arms score the same artifact type: bundled application source (process markdown and .lamina/ excluded).",
+    "Control is scored at its natural stopping point (post-implement); treatment at its natural stopping point (post-fix). This is intentional, not a scoring shortcut."
+  ],
+  "explicit_non_claims": [
+    "Does not claim matched compute fairness — ecological validity is prioritized.",
+    "Does not claim runtime/test pass rates without the optional secondary metric.",
+    "Does not claim model independence from a single agent pin."
+  ],
+  "rejected_alternatives": [
+    {
+      "id": "matched_5_phase_control",
+      "why_rejected": "Exports Lamina's design→verify→fix loop into the control arm. Tests tooling inside Lamina's process, not Lamina vs realistic baseline."
+    },
+    {
+      "id": "single_turn_control",
+      "why_rejected": "Task→implement with no planning understates what competent teams do without Lamina; Plan+implement is the documented comparison in the product demo."
+    }
+  ]
+}

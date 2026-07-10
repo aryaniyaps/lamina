@@ -14,10 +14,13 @@ Lamina **never writes app source**. The loop:
 
 1. **Design** (`/lamina-design`) → `run.yaml` contract + `implement.md` → `status: ready_to_build`
 2. **External build** — user or coding agent implements using any stack
-3. **Verify** (`/lamina-verify`) → walkthrough, actor walks, invariant checks → `findings[]`
+3. **Verify** (`/lamina-verify`) → walkthrough, actor walks, invariant checks → `findings[]` + `fix.md`
+4. **External fix** — coding agent implements product fixes from `fix.md` (not Lamina)
+5. **Re-verify** — `/lamina-verify` on updated build; contract deltas → `/lamina-design`
 
 - `/lamina`, `/lamina-init`, `/lamina-design`, `/lamina-verify` write `.lamina/` only.
-- After `ready_to_build`, tell the user to implement, then run `/lamina-verify`.
+- After `ready_to_build`, tell the user to implement from `implement.md`, then run `/lamina-verify`.
+- After verify, tell the user to implement product fixes from `fix.md`, then re-run `/lamina-verify`.
 - Do not set `status: implemented` during design; use `ready_to_build`, `verifying`, `complete`.
 
 ## Non-negotiable

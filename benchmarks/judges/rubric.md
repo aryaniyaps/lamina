@@ -1,19 +1,24 @@
 # LaminaBench Human Review Rubric
 
-Score each criterion **1–5** (1 = poor, 5 = excellent). Raters are blind to whether an artifact is Control or Treatment.
+Score each criterion **1–5** (1 = poor, 5 = excellent). Raters are blind to whether an implementation is Control or Treatment.
+
+You are reviewing **implemented product source**, not `.lamina/` artifacts or plan markdown.
+
+- **Control (A/B)**: code after Plan mode → implement (no verify/fix loop)
+- **Treatment**: code after the full Lamina loop (post-fix)
 
 ## Criteria
 
-1. **Domain / system structure** — Entities, relationships, and purpose defined; not a screen list
-2. **Invariants and product rules** — Illegal states named; rules before UI; testable constraints
-3. **Actors and permissions** — Who can do what; multi-view integrity across roles
-4. **Workflow quality** — Logical journeys over state and operations with clear decision points
-5. **Scenario / edge coverage** — Violation attempts, recovery paths, concurrency/idempotency where relevant
-6. **Systems judgment** — Trade-offs named; leverage on rules and information before UI churn; structural traps avoided
-7. **UX expression under rules** — Surfaces reflect domain truth (empty/error/a11y as expression, not the whole score)
-8. **Brownfield fit** — Integration with existing product (N/A for greenfield → score internal consistency)
-9. **Implementation readiness** — Actionable implement-brief quality for a coding agent to build from
-10. **Overall product-behavior quality** — Holistic judgment of end-to-end product reasoning
+1. **Domain / system structure** — Entities and relationships expressed in code (types, models, modules); not a UI shell without domain logic
+2. **Invariants and product rules** — Illegal states prevented or rejected in code; guards, validation, or state machines — not comments alone
+3. **Actors and permissions** — Role checks, authorization boundaries, or data scoping visible in implementation
+4. **Workflow quality** — A primary journey implemented end-to-end with coherent state transitions
+5. **Scenario / edge coverage** — Failure, recovery, or edge paths handled (errors, retries, empty states, idempotency where relevant)
+6. **Systems judgment** — Structure reflects sensible trade-offs; avoids obvious product traps (e.g. silent data loss, permission leaks)
+7. **UX expression under rules** — UI or API surfaces reflect domain rules (errors, empty states, a11y hooks where present)
+8. **Brownfield fit** — Integrates sensibly with existing fixture code (N/A for greenfield → score internal consistency)
+9. **Implementation readiness** — Vertical slice is coherent and buildable; clear entry points; not a stub-only scaffold
+10. **Overall product-behavior quality** — Holistic judgment of product behavior **as expressed in code**
 
 ## Scoring guide
 
@@ -21,15 +26,15 @@ Score each criterion **1–5** (1 = poor, 5 = excellent). Raters are blind to wh
 |-------|---------|
 | 1 | Missing or fundamentally wrong |
 | 2 | Superficial; major gaps in domain rules or scenarios |
-| 3 | Adequate; notable omissions in invariants or trade-offs |
+| 3 | Adequate; notable omissions in invariants or edge handling |
 | 4 | Strong; minor gaps only |
-| 5 | Excellent; production-ready product-behavior reasoning |
+| 5 | Excellent; production-quality reasoning visible in code |
 
 ## Instructions
 
-- Read the task description before scoring each artifact
-- Do not reward formatting alone — evaluate reasoning depth
-- Penalize shallow UX checklists **and** missing invariants, scenarios, or trade-offs
-- Do **not** reward invented interviews, fake analytics, SUS scores, or workshop theater
-- Do **not** reward Lamina-specific section titles or `.lamina/` file structure — score product-behavior substance
+- Read the task description before scoring each implementation
+- Score **code behavior and structure**, not document formatting
+- Penalize shallow UI without domain rules **and** missing invariant enforcement or recovery paths
+- Do **not** reward invented interviews, fake analytics, or workshop theater (in comments or docs)
+- Do **not** reward Lamina-specific file layout — score product-behavior substance in source
 - Record brief notes for scores ≤ 2 or ≥ 4

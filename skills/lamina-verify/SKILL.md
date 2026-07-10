@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Post-build verification: walk the live product against `run.yaml` contracts — actor permissions, invariants, UX flows, and accessibility. Lamina never writes app source.
+Post-build verification: walk the live product against `run.yaml` contracts — actor permissions, invariants, UX flows, and accessibility. Emits `findings[]`, `report.md`, and `fix.md`. Lamina never writes app source.
 
 ## Load
 
@@ -18,6 +18,7 @@ Post-build verification: walk the live product against `run.yaml` contracts — 
 - `../lamina-orchestrator/artifacts.md`
 - `../lamina-orchestrator/prerequisites/init-required.md`
 - Output contract: `../lamina-orchestrator/prompts/outputs/verify.md`
+- Fix brief contract: `../lamina-orchestrator/prompts/outputs/fix.md`
 - Blocked output: `../lamina-orchestrator/prompts/outputs/init-blocked.md`
 
 ## Prerequisite

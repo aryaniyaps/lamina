@@ -12,12 +12,15 @@ import { fileURLToPath } from 'url';
 import { spawnSync } from 'node:child_process';
 import { stageBenchFixture } from './stage-bench-fixture.mjs';
 import { readYamlSync } from './yaml.mjs';
-import { invokeAgent, isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
-import { captureScoringArtifact } from './artifact-contract.mjs';
+import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
+import { runControlWorkflow, runTreatmentWorkflow } from './bench-workflow.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const SKILLS_SRC = path.join(ROOT, 'skills');
+const METHODOLOGY = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'benchmarks/methodology.json'), 'utf8')
+);
 
 function parseArgs() {
   const opts = {
@@ -74,23 +77,18 @@ function copyTree(src, dest) {
 }
 
 /**
- * Mock artifacts for pipeline validation only.
+ * Mock implementation bundles for pipeline validation only.
  * Both arms get the same inclusion rate so mock deltas are not claimable.
  */
 function generateMockArtifact(task, arm) {
   const goldenPath = path.join(ROOT, 'benchmarks/goldens', task.id, 'golden.yaml');
   const golden = fs.existsSync(goldenPath) ? readYamlSync(goldenPath) : {};
-  // Equal coverage for both arms — mock must not invent a treatment advantage
   const boost = 0.75;
   const lines = [
-    `# Product-behavior brief — ${task.id} (${arm}, mock)\n`,
-    `## Domain model\n`,
-    `## Illegal states / invariants\n`,
-    `## Actors and permissions\n`,
-    `## Workflows\n`,
-    `## Scenarios\n`,
-    `## Trade-offs\n`,
-    `## Implementation brief\n`,
+    `# LaminaBench implementation capture — ${task.id} (${arm}, mock)\n`,
+    'Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts\n',
+    '## src/domain/model.ts\n```typescript\n',
+    '// Mock vertical slice for pipeline validation\n',
   ];
 
   const fields = [
@@ -111,17 +109,19 @@ function generateMockArtifact(task, arm) {
     const count = Math.ceil(items.length * boost);
     for (let i = 0; i < count; i++) {
       const phrase = items[i].replace(/_/g, ' ');
-      lines.push(`- ${phrase}: reasoning about ${phrase} for this product.`);
+      lines.push(`// ${phrase}\n`);
+      lines.push(`const ${String(items[i]).replace(/[^a-z0-9]+/gi, '_')} = true;\n`);
     }
   }
 
+  lines.push('```\n\n## src/workflows/primary.ts\n```typescript\n');
+  lines.push('export function runPrimaryWorkflow() {\n  // end-to-end path with guard rails\n}\n');
   if (task.workflow === 'audit') {
-    lines.push('\n## Executive summary\nMock audit of product-behavior gaps.\n');
-    lines.push('## Findings\nInvariant violations, state consistency, permission gaps.\n');
-    lines.push('## Prioritized improvements\n1. High-impact recovery and guard fixes.\n');
+    lines.push('// audit fix: invariant violations addressed in code\n');
   }
+  lines.push('```\n');
 
-  return lines.join('\n');
+  return lines.join('');
 }
 
 function appendIndex(entry) {
@@ -145,6 +145,7 @@ async function runTask(task, run, arm, opts, release) {
   const agent = opts.agent || release.agent;
   const start = Date.now();
   let output = '';
+  let workflowMeta = null;
 
   if (opts.mock) {
     output = generateMockArtifact(task, arm);
@@ -154,9 +155,14 @@ async function runTask(task, run, arm, opts, release) {
     }
     if (arm === 'treatment') {
       installLaminaSkills(workspace, agent);
+      const result = runTreatmentWorkflow(agent, workspace, task);
+      output = result.artifact;
+      workflowMeta = { workflow: result.workflow, steps: result.steps };
+    } else {
+      const result = runControlWorkflow(agent, workspace, task);
+      output = result.artifact;
+      workflowMeta = { workflow: result.workflow, steps: result.steps };
     }
-    const result = invokeAgent(agent, task.full_prompt, workspace);
-    output = captureScoringArtifact(workspace, result.output);
   }
 
   const elapsed = Date.now() - start;
@@ -175,6 +181,12 @@ async function runTask(task, run, arm, opts, release) {
     duration_ms: elapsed,
     timestamp: new Date().toISOString(),
     mock: opts.mock,
+    scoring_target: 'implementation',
+    methodology_id: METHODOLOGY.id,
+    methodology_document: 'benchmarks/METHODOLOGY.md',
+    workflow: workflowMeta?.workflow ?? (opts.mock ? 'mock' : null),
+    phases: workflowMeta?.phases ?? (opts.mock ? null : arm === 'treatment' ? 5 : 2),
+    steps: workflowMeta?.steps ?? null,
   };
   appendIndex(entry);
   return entry;

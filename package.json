@@ -25,6 +25,7 @@
     "bench:analyze": "python3 benchmarks/scripts/analyze.py",
     "bench:human-packet": "node benchmarks/scripts/export-human-packet.mjs",
     "bench:import-human": "node benchmarks/scripts/import-human-scores.mjs",
+    "bench:import-google-form": "node benchmarks/scripts/import-google-form.mjs",
     "bench:pipeline-check": "npm run bench:validate && npm run bench:run:mock && npm run bench:score:heuristic && npm run bench:analyze && npm run bench:human-packet",
     "bench:all": "npm run bench:validate && npm run bench:run && npm run bench:score && npm run bench:analyze && npm run bench:human-packet"
   },

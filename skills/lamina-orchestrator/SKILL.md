@@ -30,7 +30,7 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 
 1. **Select** — skills from audit-profiles for workflow section
 2. **Apply** — load each skill; write `run.yaml` incrementally
-3. **Deliver** — output contract; design ends at `ready_to_build` + `implement.md`; verify ends at `findings[]`
+3. **Deliver** — output contract; design ends at `ready_to_build` + `implement.md`; verify ends at `findings[]` + `fix.md`
 
 ## Files
 

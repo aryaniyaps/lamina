@@ -1,3 +1,5 @@
+**Superseded for post-verify:** use [`fix.md`](fix.md) instead. This template is retained for reference only — do not revive the `handoff.md` pipeline.
+
 Use this exact structure for `.lamina/runs/<run_id>/handoff.md`.
 
 `handoff.md` is the final developer-facing artifact for a future coding session. It is not permission for the current Lamina command to edit app source code.

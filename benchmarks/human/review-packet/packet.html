@@ -4,9 +4,9 @@ article{border:1px solid #ddd;margin:2rem 0;padding:1.5rem;border-radius:8px}
 pre{white-space:pre-wrap;background:#f6f6f6;padding:1rem;max-height:400px;overflow:auto}
 h2{margin-top:0}</style></head><body>
 <h1>LaminaBench Blind Review Packet</h1>
-<p>Tasks: 10. Score each artifact A and B using the product-behavior rubric. Do not infer which arm produced which.</p>
+<p>Tasks: 10. Score each implementation <strong>A</strong> and <strong>B</strong> using the product-behavior rubric. Review source code, not design briefs. Do not infer which arm produced which.</p>
 <p><a href="../../judges/rubric.md">Rubric</a></p>
-<p>After scoring, import with: <code>npm run bench:import-human -- --csv your-scores.csv</code></p>
+<p>Score via <a href="../google-form/SETUP.md">Google Form</a> or CSV. Import: <code>npm run bench:import-google-form</code></p>
 <article><h2>task001</h2>
 <h3>Task</h3><pre># Household Budgeting App
 
@@ -19,94 +19,146 @@ Design a new mobile-first budgeting product for young families in the US.
 - Support weekly check-ins without overwhelming daily tracking
 - Exclude investment advice and tax filing
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task001 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task001 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// household
+const household = true;
+// account
+const account = true;
+// transaction
+const transaction = true;
+// budget
+const budget = true;
+// one active budget per household
+const one_active_budget_per_household = true;
+// partner privacy boundary
+const partner_privacy_boundary = true;
+// no investment advice display
+const no_investment_advice_display = true;
+// primary budgeter
+const primary_budgeter = true;
+// partner
+const partner = true;
+// occasional viewer
+const occasional_viewer = true;
+// onboarding
+const onboarding = true;
+// account linking
+const account_linking = true;
+// weekly review
+const weekly_review = true;
+// category adjustment
+const category_adjustment = true;
+// no investment advice
+const no_investment_advice = true;
+// shared household view
+const shared_household_view = true;
+// privacy between partners
+const privacy_between_partners = true;
+// sync failure recovery
+const sync_failure_recovery = true;
+// zero income month
+const zero_income_month = true;
+// duplicate transaction handling
+const duplicate_transaction_handling = true;
+// empty accounts
+const empty_accounts = true;
+// sync failure
+const sync_failure = true;
+// duplicate transactions
+const duplicate_transactions = true;
+// clarity vs granularity
+const clarity_vs_granularity = true;
+// shared view vs partner privacy
+const shared_view_vs_partner_privacy = true;
+// screen reader labels
+const screen_reader_labels = true;
+// large touch targets
+const large_touch_targets = true;
+// color not only indicator
+const color_not_only_indicator = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task001 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// household
+const household = true;
+// account
+const account = true;
+// transaction
+const transaction = true;
+// budget
+const budget = true;
+// one active budget per household
+const one_active_budget_per_household = true;
+// partner privacy boundary
+const partner_privacy_boundary = true;
+// no investment advice display
+const no_investment_advice_display = true;
+// primary budgeter
+const primary_budgeter = true;
+// partner
+const partner = true;
+// occasional viewer
+const occasional_viewer = true;
+// onboarding
+const onboarding = true;
+// account linking
+const account_linking = true;
+// weekly review
+const weekly_review = true;
+// category adjustment
+const category_adjustment = true;
+// no investment advice
+const no_investment_advice = true;
+// shared household view
+const shared_household_view = true;
+// privacy between partners
+const privacy_between_partners = true;
+// sync failure recovery
+const sync_failure_recovery = true;
+// zero income month
+const zero_income_month = true;
+// duplicate transaction handling
+const duplicate_transaction_handling = true;
+// empty accounts
+const empty_accounts = true;
+// sync failure
+const sync_failure = true;
+// duplicate transactions
+const duplicate_transactions = true;
+// clarity vs granularity
+const clarity_vs_granularity = true;
+// shared view vs partner privacy
+const shared_view_vs_partner_privacy = true;
+// screen reader labels
+const screen_reader_labels = true;
+// large touch targets
+const large_touch_targets = true;
+// color not only indicator
+const color_not_only_indicator = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- household: reasoning about household for this product.
-- account: reasoning about account for this product.
-- transaction: reasoning about transaction for this product.
-- budget: reasoning about budget for this product.
-- one active budget per household: reasoning about one active budget per household for this product.
-- partner privacy boundary: reasoning about partner privacy boundary for this product.
-- no investment advice display: reasoning about no investment advice display for this product.
-- primary budgeter: reasoning about primary budgeter for this product.
-- partner: reasoning about partner for this product.
-- occasional viewer: reasoning about occasional viewer for this product.
-- onboarding: reasoning about onboarding for this product.
-- account linking: reasoning about account linking for this product.
-- weekly review: reasoning about weekly review for this product.
-- category adjustment: reasoning about category adjustment for this product.
-- no investment advice: reasoning about no investment advice for this product.
-- shared household view: reasoning about shared household view for this product.
-- privacy between partners: reasoning about privacy between partners for this product.
-- sync failure recovery: reasoning about sync failure recovery for this product.
-- zero income month: reasoning about zero income month for this product.
-- duplicate transaction handling: reasoning about duplicate transaction handling for this product.
-- empty accounts: reasoning about empty accounts for this product.
-- sync failure: reasoning about sync failure for this product.
-- duplicate transactions: reasoning about duplicate transactions for this product.
-- clarity vs granularity: reasoning about clarity vs granularity for this product.
-- shared view vs partner privacy: reasoning about shared view vs partner privacy for this product.
-- screen reader labels: reasoning about screen reader labels for this product.
-- large touch targets: reasoning about large touch targets for this product.
-- color not only indicator: reasoning about color not only indicator for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task001 (treatment, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- household: reasoning about household for this product.
-- account: reasoning about account for this product.
-- transaction: reasoning about transaction for this product.
-- budget: reasoning about budget for this product.
-- one active budget per household: reasoning about one active budget per household for this product.
-- partner privacy boundary: reasoning about partner privacy boundary for this product.
-- no investment advice display: reasoning about no investment advice display for this product.
-- primary budgeter: reasoning about primary budgeter for this product.
-- partner: reasoning about partner for this product.
-- occasional viewer: reasoning about occasional viewer for this product.
-- onboarding: reasoning about onboarding for this product.
-- account linking: reasoning about account linking for this product.
-- weekly review: reasoning about weekly review for this product.
-- category adjustment: reasoning about category adjustment for this product.
-- no investment advice: reasoning about no investment advice for this product.
-- shared household view: reasoning about shared household view for this product.
-- privacy between partners: reasoning about privacy between partners for this product.
-- sync failure recovery: reasoning about sync failure recovery for this product.
-- zero income month: reasoning about zero income month for this product.
-- duplicate transaction handling: reasoning about duplicate transaction handling for this product.
-- empty accounts: reasoning about empty accounts for this product.
-- sync failure: reasoning about sync failure for this product.
-- duplicate transactions: reasoning about duplicate transactions for this product.
-- clarity vs granularity: reasoning about clarity vs granularity for this product.
-- shared view vs partner privacy: reasoning about shared view vs partner privacy for this product.
-- screen reader labels: reasoning about screen reader labels for this product.
-- large touch targets: reasoning about large touch targets for this product.
-- color not only indicator: reasoning about color not only indicator for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task002</h2>
 <h3>Task</h3><pre># Clinic Appointment Scheduling
@@ -120,92 +172,142 @@ Design a patient-facing scheduling system for a multi-specialty clinic network.
 - Handle insurance verification status in the flow
 - Reduce phone call volume to front desk
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task002 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task002 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// patient
+const patient = true;
+// appointment
+const appointment = true;
+// provider
+const provider = true;
+// insurance plan
+const insurance_plan = true;
+// no phi in urls
+const no_phi_in_urls = true;
+// insurance gate before booking
+const insurance_gate_before_booking = true;
+// one booking per slot
+const one_booking_per_slot = true;
+// patient
+const patient = true;
+// caregiver
+const caregiver = true;
+// front desk staff
+const front_desk_staff = true;
+// book appointment
+const book_appointment = true;
+// reschedule
+const reschedule = true;
+// cancel
+const cancel = true;
+// insurance check
+const insurance_check = true;
+// cancellation policy
+const cancellation_policy = true;
+// insurance verification gate
+const insurance_verification_gate = true;
+// provider availability
+const provider_availability = true;
+// insurance denied recovery
+const insurance_denied_recovery = true;
+// timezone confusion handling
+const timezone_confusion_handling = true;
+// no availability waitlist
+const no_availability_waitlist = true;
+// no availability
+const no_availability = true;
+// insurance denied
+const insurance_denied = true;
+// same day cancellation
+const same_day_cancellation = true;
+// real time eligibility vs booking speed
+const real_time_eligibility_vs_booking_speed = true;
+// keyboard navigation
+const keyboard_navigation = true;
+// form error announcement
+const form_error_announcement = true;
+// contrast compliance
+const contrast_compliance = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task002 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// patient
+const patient = true;
+// appointment
+const appointment = true;
+// provider
+const provider = true;
+// insurance plan
+const insurance_plan = true;
+// no phi in urls
+const no_phi_in_urls = true;
+// insurance gate before booking
+const insurance_gate_before_booking = true;
+// one booking per slot
+const one_booking_per_slot = true;
+// patient
+const patient = true;
+// caregiver
+const caregiver = true;
+// front desk staff
+const front_desk_staff = true;
+// book appointment
+const book_appointment = true;
+// reschedule
+const reschedule = true;
+// cancel
+const cancel = true;
+// insurance check
+const insurance_check = true;
+// cancellation policy
+const cancellation_policy = true;
+// insurance verification gate
+const insurance_verification_gate = true;
+// provider availability
+const provider_availability = true;
+// insurance denied recovery
+const insurance_denied_recovery = true;
+// timezone confusion handling
+const timezone_confusion_handling = true;
+// no availability waitlist
+const no_availability_waitlist = true;
+// no availability
+const no_availability = true;
+// insurance denied
+const insurance_denied = true;
+// same day cancellation
+const same_day_cancellation = true;
+// real time eligibility vs booking speed
+const real_time_eligibility_vs_booking_speed = true;
+// keyboard navigation
+const keyboard_navigation = true;
+// form error announcement
+const form_error_announcement = true;
+// contrast compliance
+const contrast_compliance = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- patient: reasoning about patient for this product.
-- appointment: reasoning about appointment for this product.
-- provider: reasoning about provider for this product.
-- insurance plan: reasoning about insurance plan for this product.
-- no phi in urls: reasoning about no phi in urls for this product.
-- insurance gate before booking: reasoning about insurance gate before booking for this product.
-- one booking per slot: reasoning about one booking per slot for this product.
-- patient: reasoning about patient for this product.
-- caregiver: reasoning about caregiver for this product.
-- front desk staff: reasoning about front desk staff for this product.
-- book appointment: reasoning about book appointment for this product.
-- reschedule: reasoning about reschedule for this product.
-- cancel: reasoning about cancel for this product.
-- insurance check: reasoning about insurance check for this product.
-- cancellation policy: reasoning about cancellation policy for this product.
-- insurance verification gate: reasoning about insurance verification gate for this product.
-- provider availability: reasoning about provider availability for this product.
-- insurance denied recovery: reasoning about insurance denied recovery for this product.
-- timezone confusion handling: reasoning about timezone confusion handling for this product.
-- no availability waitlist: reasoning about no availability waitlist for this product.
-- no availability: reasoning about no availability for this product.
-- insurance denied: reasoning about insurance denied for this product.
-- same day cancellation: reasoning about same day cancellation for this product.
-- real time eligibility vs booking speed: reasoning about real time eligibility vs booking speed for this product.
-- keyboard navigation: reasoning about keyboard navigation for this product.
-- form error announcement: reasoning about form error announcement for this product.
-- contrast compliance: reasoning about contrast compliance for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task002 (control, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- patient: reasoning about patient for this product.
-- appointment: reasoning about appointment for this product.
-- provider: reasoning about provider for this product.
-- insurance plan: reasoning about insurance plan for this product.
-- no phi in urls: reasoning about no phi in urls for this product.
-- insurance gate before booking: reasoning about insurance gate before booking for this product.
-- one booking per slot: reasoning about one booking per slot for this product.
-- patient: reasoning about patient for this product.
-- caregiver: reasoning about caregiver for this product.
-- front desk staff: reasoning about front desk staff for this product.
-- book appointment: reasoning about book appointment for this product.
-- reschedule: reasoning about reschedule for this product.
-- cancel: reasoning about cancel for this product.
-- insurance check: reasoning about insurance check for this product.
-- cancellation policy: reasoning about cancellation policy for this product.
-- insurance verification gate: reasoning about insurance verification gate for this product.
-- provider availability: reasoning about provider availability for this product.
-- insurance denied recovery: reasoning about insurance denied recovery for this product.
-- timezone confusion handling: reasoning about timezone confusion handling for this product.
-- no availability waitlist: reasoning about no availability waitlist for this product.
-- no availability: reasoning about no availability for this product.
-- insurance denied: reasoning about insurance denied for this product.
-- same day cancellation: reasoning about same day cancellation for this product.
-- real time eligibility vs booking speed: reasoning about real time eligibility vs booking speed for this product.
-- keyboard navigation: reasoning about keyboard navigation for this product.
-- form error announcement: reasoning about form error announcement for this product.
-- contrast compliance: reasoning about contrast compliance for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task006</h2>
 <h3>Task</h3><pre># Recurring Tasks for Plane
@@ -219,90 +321,138 @@ Design a recurring task feature that integrates with Plane's existing issue work
 - Show recurrence clearly in issue list and detail views
 - Respect existing labels, assignees, and project structure
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task006 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task006 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// recurring issue
+const recurring_issue = true;
+// occurrence
+const occurrence = true;
+// issue
+const issue = true;
+// project
+const project = true;
+// one occurrence per schedule slot
+const one_occurrence_per_schedule_slot = true;
+// assignee inheritance on series
+const assignee_inheritance_on_series = true;
+// recurrence respects project permissions
+const recurrence_respects_project_permissions = true;
+// team lead
+const team_lead = true;
+// individual contributor
+const individual_contributor = true;
+// create recurrence
+const create_recurrence = true;
+// complete occurrence
+const complete_occurrence = true;
+// skip occurrence
+const skip_occurrence = true;
+// edit series
+const edit_series = true;
+// recurrence end conditions
+const recurrence_end_conditions = true;
+// timezone handling
+const timezone_handling = true;
+// assignee inheritance
+const assignee_inheritance = true;
+// deleted project series handling
+const deleted_project_series_handling = true;
+// permission denied occurrence
+const permission_denied_occurrence = true;
+// cycle boundary conflict
+const cycle_boundary_conflict = true;
+// deleted project
+const deleted_project = true;
+// permission denied
+const permission_denied = true;
+// cycle boundary
+const cycle_boundary = true;
+// series edit vs single occurrence edit
+const series_edit_vs_single_occurrence_edit = true;
+// timezone consistency vs user local display
+const timezone_consistency_vs_user_local_display = true;
+// keyboard shortcuts
+const keyboard_shortcuts = true;
+// screen reader recurrence description
+const screen_reader_recurrence_description = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task006 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// recurring issue
+const recurring_issue = true;
+// occurrence
+const occurrence = true;
+// issue
+const issue = true;
+// project
+const project = true;
+// one occurrence per schedule slot
+const one_occurrence_per_schedule_slot = true;
+// assignee inheritance on series
+const assignee_inheritance_on_series = true;
+// recurrence respects project permissions
+const recurrence_respects_project_permissions = true;
+// team lead
+const team_lead = true;
+// individual contributor
+const individual_contributor = true;
+// create recurrence
+const create_recurrence = true;
+// complete occurrence
+const complete_occurrence = true;
+// skip occurrence
+const skip_occurrence = true;
+// edit series
+const edit_series = true;
+// recurrence end conditions
+const recurrence_end_conditions = true;
+// timezone handling
+const timezone_handling = true;
+// assignee inheritance
+const assignee_inheritance = true;
+// deleted project series handling
+const deleted_project_series_handling = true;
+// permission denied occurrence
+const permission_denied_occurrence = true;
+// cycle boundary conflict
+const cycle_boundary_conflict = true;
+// deleted project
+const deleted_project = true;
+// permission denied
+const permission_denied = true;
+// cycle boundary
+const cycle_boundary = true;
+// series edit vs single occurrence edit
+const series_edit_vs_single_occurrence_edit = true;
+// timezone consistency vs user local display
+const timezone_consistency_vs_user_local_display = true;
+// keyboard shortcuts
+const keyboard_shortcuts = true;
+// screen reader recurrence description
+const screen_reader_recurrence_description = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- recurring issue: reasoning about recurring issue for this product.
-- occurrence: reasoning about occurrence for this product.
-- issue: reasoning about issue for this product.
-- project: reasoning about project for this product.
-- one occurrence per schedule slot: reasoning about one occurrence per schedule slot for this product.
-- assignee inheritance on series: reasoning about assignee inheritance on series for this product.
-- recurrence respects project permissions: reasoning about recurrence respects project permissions for this product.
-- team lead: reasoning about team lead for this product.
-- individual contributor: reasoning about individual contributor for this product.
-- create recurrence: reasoning about create recurrence for this product.
-- complete occurrence: reasoning about complete occurrence for this product.
-- skip occurrence: reasoning about skip occurrence for this product.
-- edit series: reasoning about edit series for this product.
-- recurrence end conditions: reasoning about recurrence end conditions for this product.
-- timezone handling: reasoning about timezone handling for this product.
-- assignee inheritance: reasoning about assignee inheritance for this product.
-- deleted project series handling: reasoning about deleted project series handling for this product.
-- permission denied occurrence: reasoning about permission denied occurrence for this product.
-- cycle boundary conflict: reasoning about cycle boundary conflict for this product.
-- deleted project: reasoning about deleted project for this product.
-- permission denied: reasoning about permission denied for this product.
-- cycle boundary: reasoning about cycle boundary for this product.
-- series edit vs single occurrence edit: reasoning about series edit vs single occurrence edit for this product.
-- timezone consistency vs user local display: reasoning about timezone consistency vs user local display for this product.
-- keyboard shortcuts: reasoning about keyboard shortcuts for this product.
-- screen reader recurrence description: reasoning about screen reader recurrence description for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task006 (control, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- recurring issue: reasoning about recurring issue for this product.
-- occurrence: reasoning about occurrence for this product.
-- issue: reasoning about issue for this product.
-- project: reasoning about project for this product.
-- one occurrence per schedule slot: reasoning about one occurrence per schedule slot for this product.
-- assignee inheritance on series: reasoning about assignee inheritance on series for this product.
-- recurrence respects project permissions: reasoning about recurrence respects project permissions for this product.
-- team lead: reasoning about team lead for this product.
-- individual contributor: reasoning about individual contributor for this product.
-- create recurrence: reasoning about create recurrence for this product.
-- complete occurrence: reasoning about complete occurrence for this product.
-- skip occurrence: reasoning about skip occurrence for this product.
-- edit series: reasoning about edit series for this product.
-- recurrence end conditions: reasoning about recurrence end conditions for this product.
-- timezone handling: reasoning about timezone handling for this product.
-- assignee inheritance: reasoning about assignee inheritance for this product.
-- deleted project series handling: reasoning about deleted project series handling for this product.
-- permission denied occurrence: reasoning about permission denied occurrence for this product.
-- cycle boundary conflict: reasoning about cycle boundary conflict for this product.
-- deleted project: reasoning about deleted project for this product.
-- permission denied: reasoning about permission denied for this product.
-- cycle boundary: reasoning about cycle boundary for this product.
-- series edit vs single occurrence edit: reasoning about series edit vs single occurrence edit for this product.
-- timezone consistency vs user local display: reasoning about timezone consistency vs user local display for this product.
-- keyboard shortcuts: reasoning about keyboard shortcuts for this product.
-- screen reader recurrence description: reasoning about screen reader recurrence description for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task007</h2>
 <h3>Task</h3><pre># Wishlist Feature
@@ -316,92 +466,142 @@ Design a wishlist feature for the Vercel Commerce storefront.
 - Share wishlist via link (optional privacy)
 - Add wishlist items to cart individually or in bulk
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task007 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task007 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// wishlist
+const wishlist = true;
+// wishlist item
+const wishlist_item = true;
+// product
+const product = true;
+// cart
+const cart = true;
+// guest wishlist merge on login
+const guest_wishlist_merge_on_login = true;
+// out of stock not purchasable
+const out_of_stock_not_purchasable = true;
+// price at add time displayed
+const price_at_add_time_displayed = true;
+// guest shopper
+const guest_shopper = true;
+// registered user
+const registered_user = true;
+// gift buyer
+const gift_buyer = true;
+// add to wishlist
+const add_to_wishlist = true;
+// view wishlist
+const view_wishlist = true;
+// move to cart
+const move_to_cart = true;
+// share wishlist
+const share_wishlist = true;
+// guest persistence
+const guest_persistence = true;
+// out of stock handling
+const out_of_stock_handling = true;
+// price change notification
+const price_change_notification = true;
+// guest session expired recovery
+const guest_session_expired_recovery = true;
+// product discontinued removal
+const product_discontinued_removal = true;
+// duplicate add idempotency
+const duplicate_add_idempotency = true;
+// product discontinued
+const product_discontinued = true;
+// guest session expired
+const guest_session_expired = true;
+// empty wishlist
+const empty_wishlist = true;
+// guest persistence vs privacy
+const guest_persistence_vs_privacy = true;
+// price notification vs noise
+const price_notification_vs_noise = true;
+// wishlist button label
+const wishlist_button_label = true;
+// bulk action feedback
+const bulk_action_feedback = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task007 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// wishlist
+const wishlist = true;
+// wishlist item
+const wishlist_item = true;
+// product
+const product = true;
+// cart
+const cart = true;
+// guest wishlist merge on login
+const guest_wishlist_merge_on_login = true;
+// out of stock not purchasable
+const out_of_stock_not_purchasable = true;
+// price at add time displayed
+const price_at_add_time_displayed = true;
+// guest shopper
+const guest_shopper = true;
+// registered user
+const registered_user = true;
+// gift buyer
+const gift_buyer = true;
+// add to wishlist
+const add_to_wishlist = true;
+// view wishlist
+const view_wishlist = true;
+// move to cart
+const move_to_cart = true;
+// share wishlist
+const share_wishlist = true;
+// guest persistence
+const guest_persistence = true;
+// out of stock handling
+const out_of_stock_handling = true;
+// price change notification
+const price_change_notification = true;
+// guest session expired recovery
+const guest_session_expired_recovery = true;
+// product discontinued removal
+const product_discontinued_removal = true;
+// duplicate add idempotency
+const duplicate_add_idempotency = true;
+// product discontinued
+const product_discontinued = true;
+// guest session expired
+const guest_session_expired = true;
+// empty wishlist
+const empty_wishlist = true;
+// guest persistence vs privacy
+const guest_persistence_vs_privacy = true;
+// price notification vs noise
+const price_notification_vs_noise = true;
+// wishlist button label
+const wishlist_button_label = true;
+// bulk action feedback
+const bulk_action_feedback = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- wishlist: reasoning about wishlist for this product.
-- wishlist item: reasoning about wishlist item for this product.
-- product: reasoning about product for this product.
-- cart: reasoning about cart for this product.
-- guest wishlist merge on login: reasoning about guest wishlist merge on login for this product.
-- out of stock not purchasable: reasoning about out of stock not purchasable for this product.
-- price at add time displayed: reasoning about price at add time displayed for this product.
-- guest shopper: reasoning about guest shopper for this product.
-- registered user: reasoning about registered user for this product.
-- gift buyer: reasoning about gift buyer for this product.
-- add to wishlist: reasoning about add to wishlist for this product.
-- view wishlist: reasoning about view wishlist for this product.
-- move to cart: reasoning about move to cart for this product.
-- share wishlist: reasoning about share wishlist for this product.
-- guest persistence: reasoning about guest persistence for this product.
-- out of stock handling: reasoning about out of stock handling for this product.
-- price change notification: reasoning about price change notification for this product.
-- guest session expired recovery: reasoning about guest session expired recovery for this product.
-- product discontinued removal: reasoning about product discontinued removal for this product.
-- duplicate add idempotency: reasoning about duplicate add idempotency for this product.
-- product discontinued: reasoning about product discontinued for this product.
-- guest session expired: reasoning about guest session expired for this product.
-- empty wishlist: reasoning about empty wishlist for this product.
-- guest persistence vs privacy: reasoning about guest persistence vs privacy for this product.
-- price notification vs noise: reasoning about price notification vs noise for this product.
-- wishlist button label: reasoning about wishlist button label for this product.
-- bulk action feedback: reasoning about bulk action feedback for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task007 (control, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- wishlist: reasoning about wishlist for this product.
-- wishlist item: reasoning about wishlist item for this product.
-- product: reasoning about product for this product.
-- cart: reasoning about cart for this product.
-- guest wishlist merge on login: reasoning about guest wishlist merge on login for this product.
-- out of stock not purchasable: reasoning about out of stock not purchasable for this product.
-- price at add time displayed: reasoning about price at add time displayed for this product.
-- guest shopper: reasoning about guest shopper for this product.
-- registered user: reasoning about registered user for this product.
-- gift buyer: reasoning about gift buyer for this product.
-- add to wishlist: reasoning about add to wishlist for this product.
-- view wishlist: reasoning about view wishlist for this product.
-- move to cart: reasoning about move to cart for this product.
-- share wishlist: reasoning about share wishlist for this product.
-- guest persistence: reasoning about guest persistence for this product.
-- out of stock handling: reasoning about out of stock handling for this product.
-- price change notification: reasoning about price change notification for this product.
-- guest session expired recovery: reasoning about guest session expired recovery for this product.
-- product discontinued removal: reasoning about product discontinued removal for this product.
-- duplicate add idempotency: reasoning about duplicate add idempotency for this product.
-- product discontinued: reasoning about product discontinued for this product.
-- guest session expired: reasoning about guest session expired for this product.
-- empty wishlist: reasoning about empty wishlist for this product.
-- guest persistence vs privacy: reasoning about guest persistence vs privacy for this product.
-- price notification vs noise: reasoning about price notification vs noise for this product.
-- wishlist button label: reasoning about wishlist button label for this product.
-- bulk action feedback: reasoning about bulk action feedback for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task011</h2>
 <h3>Task</h3><pre># Checkout Flow Audit
@@ -415,103 +615,127 @@ Perform a behavior and UX audit of the storefront checkout flow.
 - Payment and shipping information entry
 - Error states, invariant violations, and recovery
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task011 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task011 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// cart
+const cart = true;
+// order
+const order = true;
+// payment
+const payment = true;
+// order total matches line items
+const order_total_matches_line_items = true;
+// payment required before confirmation
+const payment_required_before_confirmation = true;
+// first time buyer
+const first_time_buyer = true;
+// returning customer
+const returning_customer = true;
+// cart review
+const cart_review = true;
+// shipping entry
+const shipping_entry = true;
+// payment
+const payment = true;
+// payment declined recovery
+const payment_declined_recovery = true;
+// address validation failure
+const address_validation_failure = true;
+// session timeout mid checkout
+const session_timeout_mid_checkout = true;
+// payment declined
+const payment_declined = true;
+// address validation failure
+const address_validation_failure = true;
+// session timeout
+const session_timeout = true;
+// form labels
+const form_labels = true;
+// error announcement
+const error_announcement = true;
+// keyboard checkout
+const keyboard_checkout = true;
+// invariant violation
+const invariant_violation = true;
+// state consistency
+const state_consistency = true;
+// permission gap
+const permission_gap = true;
+// error recovery
+const error_recovery = true;
+```
 
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- cart: reasoning about cart for this product.
-- order: reasoning about order for this product.
-- payment: reasoning about payment for this product.
-- order total matches line items: reasoning about order total matches line items for this product.
-- payment required before confirmation: reasoning about payment required before confirmation for this product.
-- first time buyer: reasoning about first time buyer for this product.
-- returning customer: reasoning about returning customer for this product.
-- cart review: reasoning about cart review for this product.
-- shipping entry: reasoning about shipping entry for this product.
-- payment: reasoning about payment for this product.
-- payment declined recovery: reasoning about payment declined recovery for this product.
-- address validation failure: reasoning about address validation failure for this product.
-- session timeout mid checkout: reasoning about session timeout mid checkout for this product.
-- payment declined: reasoning about payment declined for this product.
-- address validation failure: reasoning about address validation failure for this product.
-- session timeout: reasoning about session timeout for this product.
-- form labels: reasoning about form labels for this product.
-- error announcement: reasoning about error announcement for this product.
-- keyboard checkout: reasoning about keyboard checkout for this product.
-- invariant violation: reasoning about invariant violation for this product.
-- state consistency: reasoning about state consistency for this product.
-- permission gap: reasoning about permission gap for this product.
-- error recovery: reasoning about error recovery for this product.
-
-## Executive summary
-Mock audit of product-behavior gaps.
-
-## Findings
-Invariant violations, state consistency, permission gaps.
-
-## Prioritized improvements
-1. High-impact recovery and guard fixes.
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+// audit fix: invariant violations addressed in code
+```
 </pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task011 (control, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task011 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// cart
+const cart = true;
+// order
+const order = true;
+// payment
+const payment = true;
+// order total matches line items
+const order_total_matches_line_items = true;
+// payment required before confirmation
+const payment_required_before_confirmation = true;
+// first time buyer
+const first_time_buyer = true;
+// returning customer
+const returning_customer = true;
+// cart review
+const cart_review = true;
+// shipping entry
+const shipping_entry = true;
+// payment
+const payment = true;
+// payment declined recovery
+const payment_declined_recovery = true;
+// address validation failure
+const address_validation_failure = true;
+// session timeout mid checkout
+const session_timeout_mid_checkout = true;
+// payment declined
+const payment_declined = true;
+// address validation failure
+const address_validation_failure = true;
+// session timeout
+const session_timeout = true;
+// form labels
+const form_labels = true;
+// error announcement
+const error_announcement = true;
+// keyboard checkout
+const keyboard_checkout = true;
+// invariant violation
+const invariant_violation = true;
+// state consistency
+const state_consistency = true;
+// permission gap
+const permission_gap = true;
+// error recovery
+const error_recovery = true;
+```
 
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- cart: reasoning about cart for this product.
-- order: reasoning about order for this product.
-- payment: reasoning about payment for this product.
-- order total matches line items: reasoning about order total matches line items for this product.
-- payment required before confirmation: reasoning about payment required before confirmation for this product.
-- first time buyer: reasoning about first time buyer for this product.
-- returning customer: reasoning about returning customer for this product.
-- cart review: reasoning about cart review for this product.
-- shipping entry: reasoning about shipping entry for this product.
-- payment: reasoning about payment for this product.
-- payment declined recovery: reasoning about payment declined recovery for this product.
-- address validation failure: reasoning about address validation failure for this product.
-- session timeout mid checkout: reasoning about session timeout mid checkout for this product.
-- payment declined: reasoning about payment declined for this product.
-- address validation failure: reasoning about address validation failure for this product.
-- session timeout: reasoning about session timeout for this product.
-- form labels: reasoning about form labels for this product.
-- error announcement: reasoning about error announcement for this product.
-- keyboard checkout: reasoning about keyboard checkout for this product.
-- invariant violation: reasoning about invariant violation for this product.
-- state consistency: reasoning about state consistency for this product.
-- permission gap: reasoning about permission gap for this product.
-- error recovery: reasoning about error recovery for this product.
-
-## Executive summary
-Mock audit of product-behavior gaps.
-
-## Findings
-Invariant violations, state consistency, permission gaps.
-
-## Prioritized improvements
-1. High-impact recovery and guard fixes.
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+// audit fix: invariant violations addressed in code
+```
 </pre>
 </article>
 <article><h2>task012</h2>
@@ -526,99 +750,119 @@ Audit the product behavior and UX of project settings and configuration in Plane
 - Project views and workflow states
 - Integration settings and permission integrity
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task012 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task012 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// project
+const project = true;
+// member
+const member = true;
+// role
+const role = true;
+// last admin cannot be removed
+const last_admin_cannot_be_removed = true;
+// role permissions consistent
+const role_permissions_consistent = true;
+// project admin
+const project_admin = true;
+// team member
+const team_member = true;
+// project settings
+const project_settings = true;
+// member invite
+const member_invite = true;
+// role management
+const role_management = true;
+// last admin removal blocked
+const last_admin_removal_blocked = true;
+// invalid invite handling
+const invalid_invite_handling = true;
+// settings conflict resolution
+const settings_conflict_resolution = true;
+// last admin removal
+const last_admin_removal = true;
+// invalid invite
+const invalid_invite = true;
+// settings conflict
+const settings_conflict = true;
+// settings navigation
+const settings_navigation = true;
+// toggle labels
+const toggle_labels = true;
+// permission clarity
+const permission_clarity = true;
+// destructive action guards
+const destructive_action_guards = true;
+// multi view inconsistency
+const multi_view_inconsistency = true;
+```
 
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- project: reasoning about project for this product.
-- member: reasoning about member for this product.
-- role: reasoning about role for this product.
-- last admin cannot be removed: reasoning about last admin cannot be removed for this product.
-- role permissions consistent: reasoning about role permissions consistent for this product.
-- project admin: reasoning about project admin for this product.
-- team member: reasoning about team member for this product.
-- project settings: reasoning about project settings for this product.
-- member invite: reasoning about member invite for this product.
-- role management: reasoning about role management for this product.
-- last admin removal blocked: reasoning about last admin removal blocked for this product.
-- invalid invite handling: reasoning about invalid invite handling for this product.
-- settings conflict resolution: reasoning about settings conflict resolution for this product.
-- last admin removal: reasoning about last admin removal for this product.
-- invalid invite: reasoning about invalid invite for this product.
-- settings conflict: reasoning about settings conflict for this product.
-- settings navigation: reasoning about settings navigation for this product.
-- toggle labels: reasoning about toggle labels for this product.
-- permission clarity: reasoning about permission clarity for this product.
-- destructive action guards: reasoning about destructive action guards for this product.
-- multi view inconsistency: reasoning about multi view inconsistency for this product.
-
-## Executive summary
-Mock audit of product-behavior gaps.
-
-## Findings
-Invariant violations, state consistency, permission gaps.
-
-## Prioritized improvements
-1. High-impact recovery and guard fixes.
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+// audit fix: invariant violations addressed in code
+```
 </pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task012 (treatment, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task012 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// project
+const project = true;
+// member
+const member = true;
+// role
+const role = true;
+// last admin cannot be removed
+const last_admin_cannot_be_removed = true;
+// role permissions consistent
+const role_permissions_consistent = true;
+// project admin
+const project_admin = true;
+// team member
+const team_member = true;
+// project settings
+const project_settings = true;
+// member invite
+const member_invite = true;
+// role management
+const role_management = true;
+// last admin removal blocked
+const last_admin_removal_blocked = true;
+// invalid invite handling
+const invalid_invite_handling = true;
+// settings conflict resolution
+const settings_conflict_resolution = true;
+// last admin removal
+const last_admin_removal = true;
+// invalid invite
+const invalid_invite = true;
+// settings conflict
+const settings_conflict = true;
+// settings navigation
+const settings_navigation = true;
+// toggle labels
+const toggle_labels = true;
+// permission clarity
+const permission_clarity = true;
+// destructive action guards
+const destructive_action_guards = true;
+// multi view inconsistency
+const multi_view_inconsistency = true;
+```
 
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- project: reasoning about project for this product.
-- member: reasoning about member for this product.
-- role: reasoning about role for this product.
-- last admin cannot be removed: reasoning about last admin cannot be removed for this product.
-- role permissions consistent: reasoning about role permissions consistent for this product.
-- project admin: reasoning about project admin for this product.
-- team member: reasoning about team member for this product.
-- project settings: reasoning about project settings for this product.
-- member invite: reasoning about member invite for this product.
-- role management: reasoning about role management for this product.
-- last admin removal blocked: reasoning about last admin removal blocked for this product.
-- invalid invite handling: reasoning about invalid invite handling for this product.
-- settings conflict resolution: reasoning about settings conflict resolution for this product.
-- last admin removal: reasoning about last admin removal for this product.
-- invalid invite: reasoning about invalid invite for this product.
-- settings conflict: reasoning about settings conflict for this product.
-- settings navigation: reasoning about settings navigation for this product.
-- toggle labels: reasoning about toggle labels for this product.
-- permission clarity: reasoning about permission clarity for this product.
-- destructive action guards: reasoning about destructive action guards for this product.
-- multi view inconsistency: reasoning about multi view inconsistency for this product.
-
-## Executive summary
-Mock audit of product-behavior gaps.
-
-## Findings
-Invariant violations, state consistency, permission gaps.
-
-## Prioritized improvements
-1. High-impact recovery and guard fixes.
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+// audit fix: invariant violations addressed in code
+```
 </pre>
 </article>
 <article><h2>task016</h2>
@@ -633,88 +877,134 @@ Design scheduling UX for a clinic where insurance verification affects appointme
 - Handle prior authorization requirements
 - Clear communication when insurance blocks booking
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task016 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task016 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// patient
+const patient = true;
+// appointment
+const appointment = true;
+// insurance plan
+const insurance_plan = true;
+// eligibility verified before booking
+const eligibility_verified_before_booking = true;
+// prior auth blocks scheduling
+const prior_auth_blocks_scheduling = true;
+// copay displayed before confirm
+const copay_displayed_before_confirm = true;
+// patient
+const patient = true;
+// scheduler
+const scheduler = true;
+// insurance coordinator
+const insurance_coordinator = true;
+// eligibility check
+const eligibility_check = true;
+// book in network
+const book_in_network = true;
+// prior auth wait
+const prior_auth_wait = true;
+// insurance verification gate
+const insurance_verification_gate = true;
+// prior auth required
+const prior_auth_required = true;
+// copay display
+const copay_display = true;
+// eligibility timeout retry
+const eligibility_timeout_retry = true;
+// partial coverage communication
+const partial_coverage_communication = true;
+// auth denied alternative
+const auth_denied_alternative = true;
+// eligibility timeout
+const eligibility_timeout = true;
+// partial coverage
+const partial_coverage = true;
+// auth denied
+const auth_denied = true;
+// real time eligibility vs wait time
+const real_time_eligibility_vs_wait_time = true;
+// in network restriction vs patient choice
+const in_network_restriction_vs_patient_choice = true;
+// plain language insurance
+const plain_language_insurance = true;
+// error recovery paths
+const error_recovery_paths = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task016 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// patient
+const patient = true;
+// appointment
+const appointment = true;
+// insurance plan
+const insurance_plan = true;
+// eligibility verified before booking
+const eligibility_verified_before_booking = true;
+// prior auth blocks scheduling
+const prior_auth_blocks_scheduling = true;
+// copay displayed before confirm
+const copay_displayed_before_confirm = true;
+// patient
+const patient = true;
+// scheduler
+const scheduler = true;
+// insurance coordinator
+const insurance_coordinator = true;
+// eligibility check
+const eligibility_check = true;
+// book in network
+const book_in_network = true;
+// prior auth wait
+const prior_auth_wait = true;
+// insurance verification gate
+const insurance_verification_gate = true;
+// prior auth required
+const prior_auth_required = true;
+// copay display
+const copay_display = true;
+// eligibility timeout retry
+const eligibility_timeout_retry = true;
+// partial coverage communication
+const partial_coverage_communication = true;
+// auth denied alternative
+const auth_denied_alternative = true;
+// eligibility timeout
+const eligibility_timeout = true;
+// partial coverage
+const partial_coverage = true;
+// auth denied
+const auth_denied = true;
+// real time eligibility vs wait time
+const real_time_eligibility_vs_wait_time = true;
+// in network restriction vs patient choice
+const in_network_restriction_vs_patient_choice = true;
+// plain language insurance
+const plain_language_insurance = true;
+// error recovery paths
+const error_recovery_paths = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- patient: reasoning about patient for this product.
-- appointment: reasoning about appointment for this product.
-- insurance plan: reasoning about insurance plan for this product.
-- eligibility verified before booking: reasoning about eligibility verified before booking for this product.
-- prior auth blocks scheduling: reasoning about prior auth blocks scheduling for this product.
-- copay displayed before confirm: reasoning about copay displayed before confirm for this product.
-- patient: reasoning about patient for this product.
-- scheduler: reasoning about scheduler for this product.
-- insurance coordinator: reasoning about insurance coordinator for this product.
-- eligibility check: reasoning about eligibility check for this product.
-- book in network: reasoning about book in network for this product.
-- prior auth wait: reasoning about prior auth wait for this product.
-- insurance verification gate: reasoning about insurance verification gate for this product.
-- prior auth required: reasoning about prior auth required for this product.
-- copay display: reasoning about copay display for this product.
-- eligibility timeout retry: reasoning about eligibility timeout retry for this product.
-- partial coverage communication: reasoning about partial coverage communication for this product.
-- auth denied alternative: reasoning about auth denied alternative for this product.
-- eligibility timeout: reasoning about eligibility timeout for this product.
-- partial coverage: reasoning about partial coverage for this product.
-- auth denied: reasoning about auth denied for this product.
-- real time eligibility vs wait time: reasoning about real time eligibility vs wait time for this product.
-- in network restriction vs patient choice: reasoning about in network restriction vs patient choice for this product.
-- plain language insurance: reasoning about plain language insurance for this product.
-- error recovery paths: reasoning about error recovery paths for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task016 (treatment, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- patient: reasoning about patient for this product.
-- appointment: reasoning about appointment for this product.
-- insurance plan: reasoning about insurance plan for this product.
-- eligibility verified before booking: reasoning about eligibility verified before booking for this product.
-- prior auth blocks scheduling: reasoning about prior auth blocks scheduling for this product.
-- copay displayed before confirm: reasoning about copay displayed before confirm for this product.
-- patient: reasoning about patient for this product.
-- scheduler: reasoning about scheduler for this product.
-- insurance coordinator: reasoning about insurance coordinator for this product.
-- eligibility check: reasoning about eligibility check for this product.
-- book in network: reasoning about book in network for this product.
-- prior auth wait: reasoning about prior auth wait for this product.
-- insurance verification gate: reasoning about insurance verification gate for this product.
-- prior auth required: reasoning about prior auth required for this product.
-- copay display: reasoning about copay display for this product.
-- eligibility timeout retry: reasoning about eligibility timeout retry for this product.
-- partial coverage communication: reasoning about partial coverage communication for this product.
-- auth denied alternative: reasoning about auth denied alternative for this product.
-- eligibility timeout: reasoning about eligibility timeout for this product.
-- partial coverage: reasoning about partial coverage for this product.
-- auth denied: reasoning about auth denied for this product.
-- real time eligibility vs wait time: reasoning about real time eligibility vs wait time for this product.
-- in network restriction vs patient choice: reasoning about in network restriction vs patient choice for this product.
-- plain language insurance: reasoning about plain language insurance for this product.
-- error recovery paths: reasoning about error recovery paths for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task017</h2>
 <h3>Task</h3><pre># Expense Reimbursement Workflow
@@ -728,92 +1018,142 @@ Design a multi-step expense reimbursement system with manager and finance approv
 - Handle policy violations and partial approvals
 - Audit trail for compliance
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task017 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task017 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// expense
+const expense = true;
+// approval
+const approval = true;
+// receipt
+const receipt = true;
+// policy
+const policy = true;
+// receipt required above threshold
+const receipt_required_above_threshold = true;
+// audit trail immutable
+const audit_trail_immutable = true;
+// no payment without finance approval
+const no_payment_without_finance_approval = true;
+// employee
+const employee = true;
+// manager
+const manager = true;
+// finance reviewer
+const finance_reviewer = true;
+// submit expense
+const submit_expense = true;
+// manager approve
+const manager_approve = true;
+// finance review
+const finance_review = true;
+// payment initiated
+const payment_initiated = true;
+// receipt threshold
+const receipt_threshold = true;
+// category limits
+const category_limits = true;
+// delegation rules
+const delegation_rules = true;
+// policy violation escalation
+const policy_violation_escalation = true;
+// manager ooo delegation
+const manager_ooo_delegation = true;
+// duplicate submission idempotency
+const duplicate_submission_idempotency = true;
+// policy violation
+const policy_violation = true;
+// manager ooo
+const manager_ooo = true;
+// duplicate submission
+const duplicate_submission = true;
+// approval speed vs policy enforcement
+const approval_speed_vs_policy_enforcement = true;
+// delegation flexibility vs audit clarity
+const delegation_flexibility_vs_audit_clarity = true;
+// form validation feedback
+const form_validation_feedback = true;
+// status tracking
+const status_tracking = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task017 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// expense
+const expense = true;
+// approval
+const approval = true;
+// receipt
+const receipt = true;
+// policy
+const policy = true;
+// receipt required above threshold
+const receipt_required_above_threshold = true;
+// audit trail immutable
+const audit_trail_immutable = true;
+// no payment without finance approval
+const no_payment_without_finance_approval = true;
+// employee
+const employee = true;
+// manager
+const manager = true;
+// finance reviewer
+const finance_reviewer = true;
+// submit expense
+const submit_expense = true;
+// manager approve
+const manager_approve = true;
+// finance review
+const finance_review = true;
+// payment initiated
+const payment_initiated = true;
+// receipt threshold
+const receipt_threshold = true;
+// category limits
+const category_limits = true;
+// delegation rules
+const delegation_rules = true;
+// policy violation escalation
+const policy_violation_escalation = true;
+// manager ooo delegation
+const manager_ooo_delegation = true;
+// duplicate submission idempotency
+const duplicate_submission_idempotency = true;
+// policy violation
+const policy_violation = true;
+// manager ooo
+const manager_ooo = true;
+// duplicate submission
+const duplicate_submission = true;
+// approval speed vs policy enforcement
+const approval_speed_vs_policy_enforcement = true;
+// delegation flexibility vs audit clarity
+const delegation_flexibility_vs_audit_clarity = true;
+// form validation feedback
+const form_validation_feedback = true;
+// status tracking
+const status_tracking = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- expense: reasoning about expense for this product.
-- approval: reasoning about approval for this product.
-- receipt: reasoning about receipt for this product.
-- policy: reasoning about policy for this product.
-- receipt required above threshold: reasoning about receipt required above threshold for this product.
-- audit trail immutable: reasoning about audit trail immutable for this product.
-- no payment without finance approval: reasoning about no payment without finance approval for this product.
-- employee: reasoning about employee for this product.
-- manager: reasoning about manager for this product.
-- finance reviewer: reasoning about finance reviewer for this product.
-- submit expense: reasoning about submit expense for this product.
-- manager approve: reasoning about manager approve for this product.
-- finance review: reasoning about finance review for this product.
-- payment initiated: reasoning about payment initiated for this product.
-- receipt threshold: reasoning about receipt threshold for this product.
-- category limits: reasoning about category limits for this product.
-- delegation rules: reasoning about delegation rules for this product.
-- policy violation escalation: reasoning about policy violation escalation for this product.
-- manager ooo delegation: reasoning about manager ooo delegation for this product.
-- duplicate submission idempotency: reasoning about duplicate submission idempotency for this product.
-- policy violation: reasoning about policy violation for this product.
-- manager ooo: reasoning about manager ooo for this product.
-- duplicate submission: reasoning about duplicate submission for this product.
-- approval speed vs policy enforcement: reasoning about approval speed vs policy enforcement for this product.
-- delegation flexibility vs audit clarity: reasoning about delegation flexibility vs audit clarity for this product.
-- form validation feedback: reasoning about form validation feedback for this product.
-- status tracking: reasoning about status tracking for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task017 (treatment, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- expense: reasoning about expense for this product.
-- approval: reasoning about approval for this product.
-- receipt: reasoning about receipt for this product.
-- policy: reasoning about policy for this product.
-- receipt required above threshold: reasoning about receipt required above threshold for this product.
-- audit trail immutable: reasoning about audit trail immutable for this product.
-- no payment without finance approval: reasoning about no payment without finance approval for this product.
-- employee: reasoning about employee for this product.
-- manager: reasoning about manager for this product.
-- finance reviewer: reasoning about finance reviewer for this product.
-- submit expense: reasoning about submit expense for this product.
-- manager approve: reasoning about manager approve for this product.
-- finance review: reasoning about finance review for this product.
-- payment initiated: reasoning about payment initiated for this product.
-- receipt threshold: reasoning about receipt threshold for this product.
-- category limits: reasoning about category limits for this product.
-- delegation rules: reasoning about delegation rules for this product.
-- policy violation escalation: reasoning about policy violation escalation for this product.
-- manager ooo delegation: reasoning about manager ooo delegation for this product.
-- duplicate submission idempotency: reasoning about duplicate submission idempotency for this product.
-- policy violation: reasoning about policy violation for this product.
-- manager ooo: reasoning about manager ooo for this product.
-- duplicate submission: reasoning about duplicate submission for this product.
-- approval speed vs policy enforcement: reasoning about approval speed vs policy enforcement for this product.
-- delegation flexibility vs audit clarity: reasoning about delegation flexibility vs audit clarity for this product.
-- form validation feedback: reasoning about form validation feedback for this product.
-- status tracking: reasoning about status tracking for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task021</h2>
 <h3>Task</h3><pre># Offline Editing
@@ -827,86 +1167,130 @@ Design how a collaborative document editor handles offline editing and reconnect
 - Conflict resolution when multiple users edited offline
 - Queue changes and sync on reconnect
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task021 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task021 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// document
+const document = true;
+// edit operation
+const edit_operation = true;
+// sync queue
+const sync_queue = true;
+// no data loss on reconnect
+const no_data_loss_on_reconnect = true;
+// conflict resolution policy defined
+const conflict_resolution_policy_defined = true;
+// offline indicator always visible
+const offline_indicator_always_visible = true;
+// frequent editor
+const frequent_editor = true;
+// occasional viewer
+const occasional_viewer = true;
+// edit offline
+const edit_offline = true;
+// reconnect sync
+const reconnect_sync = true;
+// conflict resolution
+const conflict_resolution = true;
+// offline indicator
+const offline_indicator = true;
+// sync queue
+const sync_queue = true;
+// conflict policy
+const conflict_policy = true;
+// extended offline queue overflow
+const extended_offline_queue_overflow = true;
+// conflicting edits merge
+const conflicting_edits_merge = true;
+// auth expired offline recovery
+const auth_expired_offline_recovery = true;
+// extended offline
+const extended_offline = true;
+// conflicting edits
+const conflicting_edits = true;
+// storage full
+const storage_full = true;
+// last write wins vs manual merge
+const last_write_wins_vs_manual_merge = true;
+// queue size vs storage
+const queue_size_vs_storage = true;
+// status announcements
+const status_announcements = true;
+// offline mode screen reader
+const offline_mode_screen_reader = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task021 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// document
+const document = true;
+// edit operation
+const edit_operation = true;
+// sync queue
+const sync_queue = true;
+// no data loss on reconnect
+const no_data_loss_on_reconnect = true;
+// conflict resolution policy defined
+const conflict_resolution_policy_defined = true;
+// offline indicator always visible
+const offline_indicator_always_visible = true;
+// frequent editor
+const frequent_editor = true;
+// occasional viewer
+const occasional_viewer = true;
+// edit offline
+const edit_offline = true;
+// reconnect sync
+const reconnect_sync = true;
+// conflict resolution
+const conflict_resolution = true;
+// offline indicator
+const offline_indicator = true;
+// sync queue
+const sync_queue = true;
+// conflict policy
+const conflict_policy = true;
+// extended offline queue overflow
+const extended_offline_queue_overflow = true;
+// conflicting edits merge
+const conflicting_edits_merge = true;
+// auth expired offline recovery
+const auth_expired_offline_recovery = true;
+// extended offline
+const extended_offline = true;
+// conflicting edits
+const conflicting_edits = true;
+// storage full
+const storage_full = true;
+// last write wins vs manual merge
+const last_write_wins_vs_manual_merge = true;
+// queue size vs storage
+const queue_size_vs_storage = true;
+// status announcements
+const status_announcements = true;
+// offline mode screen reader
+const offline_mode_screen_reader = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- document: reasoning about document for this product.
-- edit operation: reasoning about edit operation for this product.
-- sync queue: reasoning about sync queue for this product.
-- no data loss on reconnect: reasoning about no data loss on reconnect for this product.
-- conflict resolution policy defined: reasoning about conflict resolution policy defined for this product.
-- offline indicator always visible: reasoning about offline indicator always visible for this product.
-- frequent editor: reasoning about frequent editor for this product.
-- occasional viewer: reasoning about occasional viewer for this product.
-- edit offline: reasoning about edit offline for this product.
-- reconnect sync: reasoning about reconnect sync for this product.
-- conflict resolution: reasoning about conflict resolution for this product.
-- offline indicator: reasoning about offline indicator for this product.
-- sync queue: reasoning about sync queue for this product.
-- conflict policy: reasoning about conflict policy for this product.
-- extended offline queue overflow: reasoning about extended offline queue overflow for this product.
-- conflicting edits merge: reasoning about conflicting edits merge for this product.
-- auth expired offline recovery: reasoning about auth expired offline recovery for this product.
-- extended offline: reasoning about extended offline for this product.
-- conflicting edits: reasoning about conflicting edits for this product.
-- storage full: reasoning about storage full for this product.
-- last write wins vs manual merge: reasoning about last write wins vs manual merge for this product.
-- queue size vs storage: reasoning about queue size vs storage for this product.
-- status announcements: reasoning about status announcements for this product.
-- offline mode screen reader: reasoning about offline mode screen reader for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task021 (control, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- document: reasoning about document for this product.
-- edit operation: reasoning about edit operation for this product.
-- sync queue: reasoning about sync queue for this product.
-- no data loss on reconnect: reasoning about no data loss on reconnect for this product.
-- conflict resolution policy defined: reasoning about conflict resolution policy defined for this product.
-- offline indicator always visible: reasoning about offline indicator always visible for this product.
-- frequent editor: reasoning about frequent editor for this product.
-- occasional viewer: reasoning about occasional viewer for this product.
-- edit offline: reasoning about edit offline for this product.
-- reconnect sync: reasoning about reconnect sync for this product.
-- conflict resolution: reasoning about conflict resolution for this product.
-- offline indicator: reasoning about offline indicator for this product.
-- sync queue: reasoning about sync queue for this product.
-- conflict policy: reasoning about conflict policy for this product.
-- extended offline queue overflow: reasoning about extended offline queue overflow for this product.
-- conflicting edits merge: reasoning about conflicting edits merge for this product.
-- auth expired offline recovery: reasoning about auth expired offline recovery for this product.
-- extended offline: reasoning about extended offline for this product.
-- conflicting edits: reasoning about conflicting edits for this product.
-- storage full: reasoning about storage full for this product.
-- last write wins vs manual merge: reasoning about last write wins vs manual merge for this product.
-- queue size vs storage: reasoning about queue size vs storage for this product.
-- status announcements: reasoning about status announcements for this product.
-- offline mode screen reader: reasoning about offline mode screen reader for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 <article><h2>task023</h2>
 <h3>Task</h3><pre># Empty States Design
@@ -920,85 +1304,129 @@ Design comprehensive empty states for a project management application.
 - Distinguish "nothing here yet" from "failed to load"
 - Accessible and encouraging tone
 </pre>
-<h3>Artifact A</h3><pre># Product-behavior brief — task023 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task023 (treatment, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// project
+const project = true;
+// cycle
+const cycle = true;
+// search result
+const search_result = true;
+// error distinct from empty
+const error_distinct_from_empty = true;
+// actionable cta when permissions allow
+const actionable_cta_when_permissions_allow = true;
+// permission limited empty explained
+const permission_limited_empty_explained = true;
+// new user
+const new_user = true;
+// experienced user
+const experienced_user = true;
+// first project empty
+const first_project_empty = true;
+// empty search
+const empty_search = true;
+// empty cycle
+const empty_cycle = true;
+// actionable cta
+const actionable_cta = true;
+// error distinction
+const error_distinction = true;
+// tone guidelines
+const tone_guidelines = true;
+// permission limited empty state
+const permission_limited_empty_state = true;
+// filtered to zero results
+const filtered_to_zero_results = true;
+// deleted all items recovery
+const deleted_all_items_recovery = true;
+// permission limited empty
+const permission_limited_empty = true;
+// filtered to zero
+const filtered_to_zero = true;
+// deleted all items
+const deleted_all_items = true;
+// guidance vs clutter
+const guidance_vs_clutter = true;
+// encouraging tone vs accuracy
+const encouraging_tone_vs_accuracy = true;
+// empty state announced
+const empty_state_announced = true;
+// cta focus order
+const cta_focus_order = true;
+```
 
-## Domain model
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task023 (control, mock)
+Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
+## src/domain/model.ts
+```typescript
+// Mock vertical slice for pipeline validation
+// project
+const project = true;
+// cycle
+const cycle = true;
+// search result
+const search_result = true;
+// error distinct from empty
+const error_distinct_from_empty = true;
+// actionable cta when permissions allow
+const actionable_cta_when_permissions_allow = true;
+// permission limited empty explained
+const permission_limited_empty_explained = true;
+// new user
+const new_user = true;
+// experienced user
+const experienced_user = true;
+// first project empty
+const first_project_empty = true;
+// empty search
+const empty_search = true;
+// empty cycle
+const empty_cycle = true;
+// actionable cta
+const actionable_cta = true;
+// error distinction
+const error_distinction = true;
+// tone guidelines
+const tone_guidelines = true;
+// permission limited empty state
+const permission_limited_empty_state = true;
+// filtered to zero results
+const filtered_to_zero_results = true;
+// deleted all items recovery
+const deleted_all_items_recovery = true;
+// permission limited empty
+const permission_limited_empty = true;
+// filtered to zero
+const filtered_to_zero = true;
+// deleted all items
+const deleted_all_items = true;
+// guidance vs clutter
+const guidance_vs_clutter = true;
+// encouraging tone vs accuracy
+const encouraging_tone_vs_accuracy = true;
+// empty state announced
+const empty_state_announced = true;
+// cta focus order
+const cta_focus_order = true;
+```
 
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- project: reasoning about project for this product.
-- cycle: reasoning about cycle for this product.
-- search result: reasoning about search result for this product.
-- error distinct from empty: reasoning about error distinct from empty for this product.
-- actionable cta when permissions allow: reasoning about actionable cta when permissions allow for this product.
-- permission limited empty explained: reasoning about permission limited empty explained for this product.
-- new user: reasoning about new user for this product.
-- experienced user: reasoning about experienced user for this product.
-- first project empty: reasoning about first project empty for this product.
-- empty search: reasoning about empty search for this product.
-- empty cycle: reasoning about empty cycle for this product.
-- actionable cta: reasoning about actionable cta for this product.
-- error distinction: reasoning about error distinction for this product.
-- tone guidelines: reasoning about tone guidelines for this product.
-- permission limited empty state: reasoning about permission limited empty state for this product.
-- filtered to zero results: reasoning about filtered to zero results for this product.
-- deleted all items recovery: reasoning about deleted all items recovery for this product.
-- permission limited empty: reasoning about permission limited empty for this product.
-- filtered to zero: reasoning about filtered to zero for this product.
-- deleted all items: reasoning about deleted all items for this product.
-- guidance vs clutter: reasoning about guidance vs clutter for this product.
-- encouraging tone vs accuracy: reasoning about encouraging tone vs accuracy for this product.
-- empty state announced: reasoning about empty state announced for this product.
-- cta focus order: reasoning about cta focus order for this product.</pre>
-<h3>Artifact B</h3><pre># Product-behavior brief — task023 (control, mock)
-
-## Domain model
-
-## Illegal states / invariants
-
-## Actors and permissions
-
-## Workflows
-
-## Scenarios
-
-## Trade-offs
-
-## Implementation brief
-
-- project: reasoning about project for this product.
-- cycle: reasoning about cycle for this product.
-- search result: reasoning about search result for this product.
-- error distinct from empty: reasoning about error distinct from empty for this product.
-- actionable cta when permissions allow: reasoning about actionable cta when permissions allow for this product.
-- permission limited empty explained: reasoning about permission limited empty explained for this product.
-- new user: reasoning about new user for this product.
-- experienced user: reasoning about experienced user for this product.
-- first project empty: reasoning about first project empty for this product.
-- empty search: reasoning about empty search for this product.
-- empty cycle: reasoning about empty cycle for this product.
-- actionable cta: reasoning about actionable cta for this product.
-- error distinction: reasoning about error distinction for this product.
-- tone guidelines: reasoning about tone guidelines for this product.
-- permission limited empty state: reasoning about permission limited empty state for this product.
-- filtered to zero results: reasoning about filtered to zero results for this product.
-- deleted all items recovery: reasoning about deleted all items recovery for this product.
-- permission limited empty: reasoning about permission limited empty for this product.
-- filtered to zero: reasoning about filtered to zero for this product.
-- deleted all items: reasoning about deleted all items for this product.
-- guidance vs clutter: reasoning about guidance vs clutter for this product.
-- encouraging tone vs accuracy: reasoning about encouraging tone vs accuracy for this product.
-- empty state announced: reasoning about empty state announced for this product.
-- cta focus order: reasoning about cta focus order for this product.</pre>
+## src/workflows/primary.ts
+```typescript
+export function runPrimaryWorkflow() {
+  // end-to-end path with guard rails
+}
+```
+</pre>
 </article>
 </body></html>

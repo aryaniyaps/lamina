@@ -3,7 +3,11 @@ description: LaminaBench LLM judge scoring (product-behavior rubric)
 
 prompts:
   - |
-    You are an expert product-behavior evaluator scoring a generated design artifact against a golden reference specification.
+    You are an expert product-behavior evaluator scoring **implemented product source** against a golden reference specification.
+
+    Do NOT score .lamina/ artifacts, bench-plan.md, or other planning markdown — evaluate application source only.
+
+    Arms may differ in process: control = Plan + implement; treatment = Lamina loop through post-fix. Score the code as-is.
 
     ## Task description
     {{description}}
@@ -11,13 +15,13 @@ prompts:
     ## Context
     {{context}}
 
-    ## Golden reference (evaluation checklist — concepts to look for; not expected verbatim; any clear wording counts)
+    ## Golden reference (evaluation checklist — concepts to look for in code; not expected verbatim; identifiers, comments, logic, and tests all count)
     {{golden}}
 
-    ## Generated artifact to score
+    ## Implemented product code to score
     {{artifact}}
 
-    Score the artifact on these criteria (1-5 each). Penalize shallow UX checklists without domain invariants, scenarios, or trade-offs. Do not reward invented interviews, fake analytics, or workshop theater.
+    Score the implementation on these criteria (1-5 each). Look for invariants enforced in code, permission boundaries, workflows, and edge-case handling — not documentation theater.
     Return STRICT JSON only:
     {
       "domain_system_structure": <1-5>,

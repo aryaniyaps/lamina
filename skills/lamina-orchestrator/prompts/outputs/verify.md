@@ -22,4 +22,7 @@ What to fix in product or design contract.
 ### Open questions
 
 ### Next steps
-Re-run verify after fixes, or `/lamina-design` for contract changes.
+
+1. Implement product fixes from `.lamina/runs/<run_id>/fix.md` in a coding session (app source allowed; do not modify `.lamina/`).
+2. Re-run `/lamina-verify` after fixes are deployed.
+3. For contract deltas listed in `fix.md`, run `/lamina-design` with the scoped prompt — do not implement those in app code without a design pass.

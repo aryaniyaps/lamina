@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Secondary usefulness metric (optional): after both arms produce a design brief,
- * implement a thin slice with the same coding agent and score verify-style findings.
- *
- * This is NOT part of the primary LaminaBench composite. It exists so the benchmark
- * can eventually answer: "does better contract quality reduce bad product states?"
+ * Secondary metric (optional): runtime / live verification depth beyond source review.
+ * Primary LaminaBench composite scores post-fix **implementation source** from bench:run.
  *
  * Usage:
  *   node benchmarks/scripts/secondary-verify-metric.mjs --help
@@ -22,12 +19,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const HELP = `
 secondary-verify-metric — optional LaminaBench usefulness path
 
-Protocol (per task, both arms):
-  1. Take the scored product-behavior brief from bench:run
-  2. Ask the SAME coding agent (no Lamina) to implement a thin vertical slice
-  3. Run persona/invariant checks against the live or mocked product
-  4. Record finding counts by severity (high/med/low)
-  5. Compare treatment-brief→implement vs control-brief→implement
+Protocol (per task, both arms — optional add-on):
+  1. Take the post-fix workspace from bench:run (or deploy the vertical slice)
+  2. Run persona/invariant checks against live or mocked product
+  3. Record finding counts by severity (high/med/low)
+  4. Compare treatment vs control runtime behavior
 
 Primary LaminaBench remains contract-quality A/B. This metric is reported separately.
 

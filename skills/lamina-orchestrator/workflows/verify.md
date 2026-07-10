@@ -31,8 +31,10 @@ Post-build and brownfield verification against design contracts — actor walks,
 4. **Actor walks** — one subagent per actor; attempt operations from `workflows` and `actors.permissions`.
 5. **Invariant probes** — test scenarios from contract against live UI (double submit, permission denied, stale state).
 6. **Accessibility** — load [lamina-accessibility](../../lamina-accessibility/SKILL.md) on captured steps.
-7. Write `findings[]`; set `status: complete` or document gaps for `/lamina-design` delta.
-8. Write `report.md`; **STOP**.
+7. Write `findings[]` with `fix_target` per finding (`product` default; `contract` for scope/design changes); set `status: complete` or document gaps.
+8. Write `report.md` and `fix.md` from [prompts/outputs/fix.md](../prompts/outputs/fix.md); **STOP**.
+
+Tell the user: implement **product fixes** from `fix.md` in a coding session, then re-run `/lamina-verify`. Route **contract deltas** in `fix.md` to `/lamina-design`.
 
 ## Subagent hints
 

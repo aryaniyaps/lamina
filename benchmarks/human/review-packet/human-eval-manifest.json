@@ -1,0 +1,74 @@
+{
+  "eval_id": "493c134a-4908-446a-9ef0-4bf81c29daa7",
+  "generated_at": "2026-07-10T12:34:42.549Z",
+  "release_version": "2.0.0",
+  "release_tag": "bench-v2.0.0",
+  "git_commit": "52852a05bfb8926f5a980d9b5144b62791909b0e",
+  "rubric_sha256": "26b45d34ef650bf822923d54ca1ef56df8f4f6b6f6faa62342be61de9885e105",
+  "human_eval_tasks": [
+    "task001",
+    "task002",
+    "task006",
+    "task007",
+    "task011",
+    "task012",
+    "task016",
+    "task017",
+    "task021",
+    "task023"
+  ],
+  "n_raters_expected": 3,
+  "tasks": [
+    {
+      "task_id": "task001",
+      "artifact_a_sha256": "ebc20436155789d698ec78692fc6823aa67b58e81c9824361f197c27af845f54",
+      "artifact_b_sha256": "3f84ff3d0eb64b8458de69dfb3ce68ca6f91c517b646de7b7d7874e909213e8a"
+    },
+    {
+      "task_id": "task002",
+      "artifact_a_sha256": "ca9834f58a85567ea2781205ef43f320151bc6dd70570f7dd1112ab0e4ccf256",
+      "artifact_b_sha256": "37a96efcc8f17595e3038131a2af1326e4d0bd80efc5742627f2cac0da612242"
+    },
+    {
+      "task_id": "task006",
+      "artifact_a_sha256": "eecf90808a56e9f8d7340696503144517dcbdbeaa14286e440a783a125fc93e5",
+      "artifact_b_sha256": "3aaa72325b630a1e8203a887310694b63bfd21bc4dff3146a9c25010192b4c07"
+    },
+    {
+      "task_id": "task007",
+      "artifact_a_sha256": "786bcfc0d4032696b29c4bcff88d251896735f4f1982d19b68257aaae9faed0e",
+      "artifact_b_sha256": "81bd6df98995aae24f3152ab8544d3eeebac53a005af908c73925ae5f042380e"
+    },
+    {
+      "task_id": "task011",
+      "artifact_a_sha256": "1297a9e9a6774dc90419b0d40d21e583e3d342377e4ee7effa6e6e199c0eac88",
+      "artifact_b_sha256": "04414ac3854887308c52e79ef4663b343f660048e5d76b75cd28e58f4133c6a8"
+    },
+    {
+      "task_id": "task012",
+      "artifact_a_sha256": "97e33c55bc6970fbab13c4561f2972b2ab98f622f5269a9b297913399b357610",
+      "artifact_b_sha256": "cbf05e7f6384a90888cf54939734e2f6cbe5f86d3d9b5c188dcf3f409b9ab01f"
+    },
+    {
+      "task_id": "task016",
+      "artifact_a_sha256": "6dd5bb0bbeae4fff5ca4bd2fc4c7ccc78c6407652ff0208b85a4f542adbda701",
+      "artifact_b_sha256": "c07e04519bfe41e083e504c50e939a28c7e05e461d8e10b54b06ef07b038dd9f"
+    },
+    {
+      "task_id": "task017",
+      "artifact_a_sha256": "032b0b59a1c16c3d8e6016fb57145a7ceb616530aab176e7af5c4b7faa9e1a2f",
+      "artifact_b_sha256": "42ea64163233807cd072b01f64cb16059967da2625c7a2ccde8bba87890263bc"
+    },
+    {
+      "task_id": "task021",
+      "artifact_a_sha256": "10c7e0a203c5ce0e9caa2b319e2859b083b7a50d89337ffd2d7d46159c24c2ba",
+      "artifact_b_sha256": "48757a1eb0e7d4461b328716aedc7493a4b5e4deb4f5ece26cdbfa125f9dcc6c"
+    },
+    {
+      "task_id": "task023",
+      "artifact_a_sha256": "e884cee9b3526382be98016ad25676a67e7c412b2c25cc0b75fedf5ec5d4dea6",
+      "artifact_b_sha256": "a5a2a097cf3771c09147a1d403c23c7ac86a39776860bd2a82fbcaff6ab835d8"
+    }
+  ],
+  "verification_note": "Publish this manifest before raters start. After import, publish human-eval-audit.json and optionally a read-only Google Sheet link."
+}

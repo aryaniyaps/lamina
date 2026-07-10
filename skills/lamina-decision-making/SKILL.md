@@ -15,7 +15,18 @@ metadata:
 ---
 # Decision Making (agent-native)
 
-Rank **contract changes and verify findings** by impact on primary actor goals and invariants — output to `decisions.md` and sorted `findings[]`.
+Rank **contract changes and verify findings** by impact on primary actor goals and invariants — output to `decisions.md`, sorted `findings[]`, and `fix.md` sections.
+
+## Fix target classification
+
+Before writing `fix.md`, set `fix_target` on each finding in `run.yaml`:
+
+| Signal | `fix_target` |
+|--------|---------------|
+| Missing UI, bug, invariant violation on live product, a11y on existing screen | `product` |
+| Scope change, new workflow/invariant, defer feature, contract wrong | `contract` |
+
+**Default:** `product` when `fix_target` is unset. Product fixes belong in `fix.md` → coding session. Contract items belong in `fix.md` → `/lamina-design` delta prompt only.
 
 ## Decision filter
 

@@ -1,0 +1,217 @@
+{
+  "eval_id": "493c134a-4908-446a-9ef0-4bf81c29daa7",
+  "form_mode": "one_submission_per_task",
+  "instructions": [
+    "Open the blind review packet (packet.html) for implementation source.",
+    "Do not guess which implementation used Lamina.",
+    "Submit this form once per task (10 submissions total per rater).",
+    "Use the same Evaluation ID and Rater code on every submission."
+  ],
+  "questions": [
+    {
+      "id": "eval_id",
+      "title": "Evaluation ID (do not edit)",
+      "type": "short_answer",
+      "required": true,
+      "description": "Must match manifest: 493c134a-4908-446a-9ef0-4bf81c29daa7"
+    },
+    {
+      "id": "rater_code",
+      "title": "Rater code",
+      "type": "short_answer",
+      "required": true,
+      "description": "Assigned code (e.g. R1, R2, R3). Do not use your real name if publishing results."
+    },
+    {
+      "id": "task_id",
+      "title": "Task ID",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        "task001",
+        "task002",
+        "task006",
+        "task007",
+        "task011",
+        "task012",
+        "task016",
+        "task017",
+        "task021",
+        "task023"
+      ],
+      "description": "Submit once per task. Complete all 10 tasks before finishing."
+    },
+    {
+      "id": "a_domain_system_structure",
+      "title": "A — Domain / system structure (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_invariants_product_rules",
+      "title": "A — Invariants and product rules (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_actors_permissions",
+      "title": "A — Actors and permissions (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_workflow_quality",
+      "title": "A — Workflow quality (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_scenario_edge_coverage",
+      "title": "A — Scenario / edge coverage (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_systems_judgment",
+      "title": "A — Systems judgment (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_ux_expression_under_rules",
+      "title": "A — UX expression under rules (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_brownfield_fit",
+      "title": "A — Brownfield fit (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_implementation_readiness",
+      "title": "A — Vertical slice completeness (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_overall_product_behavior",
+      "title": "A — Overall product-behavior quality (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "a_notes",
+      "title": "A — Notes (optional; required if any score ≤2 or ≥4)",
+      "type": "paragraph",
+      "required": false
+    },
+    {
+      "id": "b_domain_system_structure",
+      "title": "B — Domain / system structure (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_invariants_product_rules",
+      "title": "B — Invariants and product rules (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_actors_permissions",
+      "title": "B — Actors and permissions (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_workflow_quality",
+      "title": "B — Workflow quality (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_scenario_edge_coverage",
+      "title": "B — Scenario / edge coverage (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_systems_judgment",
+      "title": "B — Systems judgment (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_ux_expression_under_rules",
+      "title": "B — UX expression under rules (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_brownfield_fit",
+      "title": "B — Brownfield fit (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_implementation_readiness",
+      "title": "B — Vertical slice completeness (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_overall_product_behavior",
+      "title": "B — Overall product-behavior quality (1-5)",
+      "type": "linear_scale",
+      "required": true,
+      "scale_min": 1,
+      "scale_max": 5
+    },
+    {
+      "id": "b_notes",
+      "title": "B — Notes (optional; required if any score ≤2 or ≥4)",
+      "type": "paragraph",
+      "required": false
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Objective golden-spec coverage scorer for LaminaBench artifacts.
+ * Objective golden-spec coverage scorer for LaminaBench **implementations**.
  *
- * Goldens are a *reference checklist*, not ground truth.
+ * Artifacts are bundled application source (post fix). Goldens are a *reference checklist*, not ground truth.
  * required_sections are NOT scored (format-neutral — avoids Lamina-shaped bias).
  * Matching uses humanized phrases + optional aliases, not raw snake_case tokens.
  *
@@ -138,7 +138,7 @@ function main() {
       coverage_passed: result.passed,
       coverage_total: result.total,
       checks: result.checks,
-      note: 'Goldens are a reference checklist, not ground truth.',
+      note: 'Goldens are a reference checklist applied to implementation source, not ground truth.',
     };
     scores.push(scored);
 

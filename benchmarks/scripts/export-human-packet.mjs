@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
+import { writeHumanEvalManifest, hashArtifactContent } from './human-eval-manifest.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
@@ -67,6 +68,7 @@ function main() {
 
   fs.mkdirSync(PACKET_DIR, { recursive: true });
   const answerKey = [];
+  const artifactPairs = [];
   const csvRows = ['task_id,artifact_label,rater,' + CRITERIA.join(',') + ',notes'];
   const htmlParts = [
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>LaminaBench Blind Review</title>',
@@ -75,9 +77,10 @@ function main() {
     'pre{white-space:pre-wrap;background:#f6f6f6;padding:1rem;max-height:400px;overflow:auto}',
     'h2{margin-top:0}</style></head><body>',
     '<h1>LaminaBench Blind Review Packet</h1>',
-    `<p>Tasks: ${humanTasks.length}. Score each artifact A and B using the product-behavior rubric. Do not infer which arm produced which.</p>`,
+    `<p>Tasks: ${humanTasks.length}. Score each implementation <strong>A</strong> and <strong>B</strong> using the product-behavior rubric. Review source code, not design briefs.</p>`,
+    `<p><strong>Methodology:</strong> <a href="../../METHODOLOGY.md">Design A — ecological adoption</a> (Plan+implement vs Lamina loop; unequal turns intentional).</p>`,
     `<p><a href="../../judges/rubric.md">Rubric</a></p>`,
-    '<p>After scoring, import with: <code>npm run bench:import-human -- --csv your-scores.csv</code></p>',
+    '<p>Score via <a href="../google-form/SETUP.md">Google Form</a> or CSV. Import: <code>npm run bench:import-google-form</code></p>',
   ];
 
   for (const taskId of humanTasks) {
@@ -100,6 +103,11 @@ function main() {
     const b = { label: 'B', ...arms[1] };
 
     answerKey.push({ task_id: taskId, A: a.arm, B: b.arm });
+    artifactPairs.push({
+      task_id: taskId,
+      a_sha256: hashArtifactContent(a.text),
+      b_sha256: hashArtifactContent(b.text),
+    });
 
     htmlParts.push(`<article><h2>${taskId}</h2>`);
     htmlParts.push(`<h3>Task</h3><pre>${desc.replace(/</g, '&lt;')}</pre>`);
@@ -116,6 +124,10 @@ function main() {
   fs.writeFileSync(path.join(PACKET_DIR, 'packet.html'), htmlParts.join('\n'));
   fs.writeFileSync(path.join(PACKET_DIR, 'scores-template.csv'), csvRows.join('\n') + '\n');
   fs.writeFileSync(path.join(PACKET_DIR, 'answer-key.json'), JSON.stringify(answerKey, null, 2) + '\n');
+
+  const { manifestPath, evalId } = writeHumanEvalManifest({ answerKey, artifactPairs });
+  console.log(`Human eval manifest → ${manifestPath} (eval_id: ${evalId})`);
+  console.log(`Google Form spec → benchmarks/human/google-form/form-spec.json`);
 
   // Remove stale synthetic human-scores unless explicitly regenerating examples
   const humanScoresPath = path.join(ROOT, 'benchmarks/results/scored/human-scores.json');

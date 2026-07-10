@@ -102,6 +102,6 @@ See machine-readable `findings[]` in `run.yaml`.
 
 ## Next steps
 
-1. Fix high-severity findings in product code
+1. Implement product fixes from `.lamina/runs/havenstay-platform-2026-07-10/fix.md` in a coding session
 2. Re-run `/lamina-verify` against updated deployment
-3. For contract changes (defer SSO, impersonation), run `/lamina-design` delta
+3. For contract deltas in `fix.md` (Google SSO, admin impersonation), run `/lamina-design` with the scoped prompt

@@ -47,8 +47,11 @@ flowchart LR
     INIT["/lamina-init<br/>domain charter"]
     DESIGN["/lamina-design<br/>run.yaml + implement.md"]
     VERIFY["/lamina-verify<br/>persona subagents × N"]
+    FIX["fix.md<br/>coding session"]
     INIT --> DESIGN
-    VERIFY -.->|"refine contract"| DESIGN
+    VERIFY -->|"fix.md"| FIX
+    FIX -->|"re-verify"| VERIFY
+    VERIFY -.->|"contract delta"| DESIGN
   end
 
   subgraph build["You + coding agent"]
@@ -62,13 +65,16 @@ flowchart LR
   DESIGN -->|"implement.md"| IMPL
   IMPL --> APP
   APP -->|"screenshots + live app"| VERIFY
+  VERIFY -->|"fix.md"| IMPL
 ```
 
 | Step | Who | Output |
 |------|-----|--------|
 | 1. Charter + design | **Lamina** | `.lamina/runs/<id>/run.yaml`, `implement.md` |
 | 2. Build | **Your coding agent** | App source — any stack |
-| 3. Verify | **Lamina** | Parallel persona walks, findings, invariant checks |
+| 3. Verify | **Lamina** | Parallel persona walks, `findings[]`, `fix.md` |
+| 4. Fix | **Your coding agent** | Product fixes from `fix.md` |
+| 5. Re-verify | **Lamina** | Confirm fixes; contract gaps → `/lamina-design` |
 
 ---
 
@@ -185,11 +191,13 @@ Mocks show one screen. They aren't agent instructions and don't verify the build
 ```
 /lamina-init Exam hall ticket system for universities
 /lamina-design Hall ticket download with payment gate and venue assignment
-# … build with your coding agent …
+# … build with your coding agent from implement.md …
+/lamina-verify
+# … fix product issues from fix.md with your coding agent …
 /lamina-verify
 ```
 
-Output: `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
+Output: `.lamina/runs/<id>/`. Hand `implement.md` to build; hand `fix.md` to fix after verify.
 
 ---
 
@@ -200,7 +208,7 @@ Output: `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
 | `/lamina` | Router |
 | `/lamina-init` | Domain charter |
 | `/lamina-design` | Design contract → `ready_to_build` |
-| `/lamina-verify` | Post-build check, persona walks, invariants |
+| `/lamina-verify` | Post-build check, persona walks, invariants → `fix.md` |
 
 Writes to `.lamina/` only. No app source. No visual styling.
 

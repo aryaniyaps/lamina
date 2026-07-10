@@ -14,15 +14,17 @@ metadata:
 ---
 # Design Process (agent-native)
 
-The loop for coding agents: **design contract → implement (external) → verify → refine**.
+The loop for coding agents: **design contract → implement (external) → verify → fix.md → re-verify**.
 
 ## Loop
 
 1. `/lamina-init` — domain charter
 2. `/lamina-design` — `run.yaml` + `implement.md` at `ready_to_build`
 3. External implementation (any stack)
-4. `/lamina-verify` — actor walks, invariants, a11y
-5. Gaps → update contract or product; re-verify
+4. `/lamina-verify` — actor walks, invariants, a11y → `findings[]` + `fix.md`
+5. External fix — coding agent implements product fixes from `fix.md`
+6. Re-verify — `/lamina-verify` on updated build
+7. Contract gaps → `/lamina-design` delta (prompts in `fix.md`); re-verify
 
 ## Anti-patterns
 

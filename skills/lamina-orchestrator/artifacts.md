@@ -22,11 +22,12 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 |------|---------|
 | `.lamina/runs/<run_id>/run.yaml` | **Machine contract** — domain, actors, workflows, scenarios, screens, findings |
 | `.lamina/runs/<run_id>/implement.md` | Stack-agnostic build brief at `ready_to_build` |
+| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief (coding session handoff) |
 | `.lamina/runs/<run_id>/report.md` | Human narrative only |
 | `.lamina/runs/<run_id>/walkthrough/` | Live-app evidence (verify / brownfield) |
 | `.lamina/runs/<run_id>/evidence.md` | Optional evidence ledger |
 
-**Removed:** blueprints, `preview-state.yaml`, `handoff.md` pipeline, artifact-catalog packs.
+**Removed:** blueprints, `preview-state.yaml`, `handoff.md` pipeline, artifact-catalog packs. Post-verify handoff uses `fix.md` instead.
 
 ---
 
@@ -44,8 +45,9 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 1. Load design run or infer domain from repo
 2. Set `status: verifying`
 3. Capture `walkthrough/` when `base_url` available
-4. Run actor walks, a11y, invariant probes → `findings[]`
+4. Run actor walks, a11y, invariant probes → `findings[]` with `fix_target` per finding
 5. Set `status: complete` (or loop back with gaps in findings)
+6. Write `report.md` and `fix.md`
 
 Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` (or import from `lib/run.mjs` in tests).
 
@@ -93,7 +95,7 @@ screens:
     status: new | existing
     source: null
 
-findings: []   # verify phase
+findings: []   # verify phase — each item may include fix_target: product | contract
 
 evidence: []
 ```
@@ -118,6 +120,17 @@ Written when `status: ready_to_build`. Brief for external coding agent:
 - Explicit: any stack, any UI library
 
 ---
+
+## `fix.md`
+
+Written when verify completes with non-empty `findings[]`. Brief for external coding agent to fix the live product:
+
+- **Product fixes** — prioritized from `findings[]` where `fix_target` is `product` or unset
+- **Contract deltas** — findings with `fix_target: contract` → scoped `/lamina-design` prompts (not app code)
+- Acceptance criteria per finding id
+- Implementation session prompt and re-verify instruction
+
+Supersedes the removed `handoff.md` pipeline for post-verify work.
 
 ## Actor simulation (verify only)
 
