@@ -126,6 +126,7 @@ Lamina designs and verifies product behavior. It works best when your agent can 
 |------|-----|
 | **[Graphify](https://github.com/safishamsi/graphify)** | Queryable codebase map — run `/graphify .` before design/verify on brownfield apps |
 | **[Claude-Mem](https://github.com/thedotmack/claude-mem)** | Keeps decisions and findings across sessions |
+| **[obra/superpowers](https://github.com/obra/superpowers)** | Structured plan → TDD → review loop for implementing Lamina artifacts (`implement.md`, `fix.md`) |
 | **UI design skill** ([Impeccable](https://github.com/pbakaus/impeccable), UI UX Pro Max, `frontend-design`) | Pixels while Lamina owns states, edges, and verify |
 | **Spec Kit / Kiro** | Feed `implement.md` into an engineering plan after design |
 
