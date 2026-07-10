@@ -1,0 +1,263 @@
+# HavenStay — actor cast
+# Grounded in stakeholder Users & market (2026-07-10). Greenfield — confidence medium until validated.
+
+personas:
+  - id: leisure_traveler
+    primary: true
+    surface: traveler_web
+    summary: Plans leisure stays; wants clear search, trustworthy listings, and a fast book-pay-confirm path.
+    goals:
+      end:
+        - find a suitable independent or boutique hotel for trip dates
+        - compare options without overwhelm
+        - complete a paid booking and receive confirmation
+        - manage, cancel, or review a stay when needed
+      experience:
+        - feel the process is transparent on price, policies, and availability
+        - trust the hotel and the platform enough to pay
+    permissions:
+      - register_and_authenticate
+      - manage_own_profile
+      - search_and_filter_hotels
+      - view_hotel_and_room_details
+      - create_booking
+      - pay_for_booking
+      - view_and_manage_own_reservations
+      - cancel_own_reservation_per_policy
+      - write_review_when_verified_guest
+      - contact_support
+      - file_trust_report
+    constraints:
+      - english_only
+      - usd_only
+      - web_responsive_only
+      - email_notifications_only
+    technical_literacy: medium
+    confidence: medium
+    evidence: stakeholder input — leisure travelers in scope
+
+  - id: business_traveler
+    primary: false
+    surface: traveler_web
+    summary: Books individual business trips on the same traveler web; needs speed, clear receipts/confirmation, and reliable changes — not corporate travel tooling.
+    goals:
+      end:
+        - book a hotel quickly for work travel dates and location
+        - obtain clear confirmation and reservation details for expense records
+        - modify or cancel when plans change, within policy
+      experience:
+        - minimize time-to-book
+        - avoid ambiguity on total price and cancellation terms
+    permissions:
+      - register_and_authenticate
+      - manage_own_profile
+      - search_and_filter_hotels
+      - view_hotel_and_room_details
+      - create_booking
+      - pay_for_booking
+      - view_and_manage_own_reservations
+      - cancel_own_reservation_per_policy
+      - write_review_when_verified_guest
+      - contact_support
+      - file_trust_report
+    constraints:
+      - no_corporate_travel_features_v1
+      - english_only
+      - usd_only
+      - web_responsive_only
+    technical_literacy: medium
+    confidence: medium
+    evidence: stakeholder input — business travelers in scope; corporate travel out
+
+  - id: hotel_operator
+    primary: true
+    surface: hotel_dashboard
+    summary: Day-to-day operator at an independent or boutique property; manages listing presentation, rooms, rates, and marketplace reservations.
+    goals:
+      end:
+        - publish and maintain an accurate property listing
+        - keep room inventory and pricing current
+        - accept and manage reservations from the marketplace
+        - respond to guest-impacting reservation issues
+      experience:
+        - run marketplace ops without enterprise PMS complexity
+        - control how the hotel is presented to travelers
+    permissions:
+      - authenticate_hotel_staff
+      - apply_hotel_onboarding
+      - manage_property_profile
+      - submit_property_for_review
+      - manage_room_inventory
+      - manage_pricing
+      - select_cancellation_policy
+      - view_and_manage_property_reservations
+      - view_guest_contact_for_own_reservations
+      - respond_to_reviews
+      - contact_support
+    constraints:
+      - desktop_web_dashboard
+      - no_full_pms_v1
+      - no_channel_manager_or_external_pms_sync_v1
+      - no_dynamic_pricing_or_promotions_v1
+      - usd_english_us_only
+    technical_literacy: medium
+    confidence: medium
+    evidence: stakeholder input — independent/boutique hotel ops
+
+  - id: hotel_owner
+    primary: false
+    surface: hotel_dashboard
+    summary: Owner or small-group principal overseeing one or a few properties; cares about occupancy, presentation quality, and reservation health more than daily rate edits.
+    goals:
+      end:
+        - ensure properties are live and correctly represented
+        - monitor reservation volume and issues across properties
+      experience:
+        - trust that operators can run day-to-day without enterprise tooling
+    permissions:
+      - authenticate_hotel_staff
+      - apply_hotel_onboarding
+      - manage_property_profile
+      - submit_property_for_review
+      - manage_room_inventory
+      - manage_pricing
+      - select_cancellation_policy
+      - view_and_manage_property_reservations
+      - view_guest_contact_for_own_reservations
+      - respond_to_reviews
+      - contact_support
+    constraints:
+      - small_mid_sized_groups_only_v1
+      - no_enterprise_multi_brand_controls_v1
+      - desktop_web_dashboard
+    technical_literacy: low-medium
+    confidence: medium
+    evidence: stakeholder input — small and mid-sized hotel groups in scope
+
+  - id: platform_admin
+    primary: false
+    surface: platform_admin
+    summary: Internal operator with full marketplace governance — approvals, trust, payments, suspensions, and platform config.
+    goals:
+      end:
+        - keep marketplace quality and trust high
+        - process property approvals and trust reports promptly
+        - resolve escalated booking and payment edge cases
+        - monitor platform health and audit admin actions
+      experience:
+        - have complete visibility across users, hotels, bookings, and payouts
+        - act with confidence that all overrides are logged
+    permissions:
+      - authenticate_admin
+      - view_platform_dashboard
+      - approve_or_reject_property
+      - request_property_changes
+      - suspend_or_reinstate_property
+      - suspend_or_reinstate_user
+      - suspend_or_reinstate_hotel_account
+      - view_all_bookings
+      - admin_cancel_booking_with_override
+      - admin_refund_with_override
+      - view_all_payments_and_payouts
+      - retry_failed_payout
+      - moderate_reviews
+      - resolve_trust_reports
+      - manage_support_ticket_escalations
+      - view_and_search_all_users
+      - view_and_search_all_hotels
+      - configure_platform_commission_rate
+      - view_notification_log
+      - view_audit_log
+      - manage_admin_users
+      - impersonate_read_only
+    constraints:
+      - internal_only
+      - all_override_actions_audit_logged
+      - desktop_web_console
+    technical_literacy: high
+    confidence: medium
+    evidence: stakeholder decision 2026-07-10 — full platform admin console
+
+  - id: support_agent
+    primary: false
+    surface: support
+    summary: Handles basic traveler and hotel support for booking, payment, and account issues within v1 support scope.
+    goals:
+      end:
+        - resolve booking-related tickets quickly
+        - escalate trust-and-safety or payment disputes appropriately
+      experience:
+        - have enough reservation and payment context to help without full admin god-mode sprawl
+    permissions:
+      - view_booking_and_account_context_for_support
+      - assist_cancellation_and_refund_per_policy
+      - flag_trust_and_safety_issues
+      - resolve_support_tickets
+    constraints:
+      - basic_support_only_v1
+      - email_primary_channel
+    technical_literacy: medium
+    confidence: low
+    evidence: assumption — basic customer support in must-ship; role shape not detailed by stakeholder
+
+  # Negative personas — explicitly not designed for in v1
+  - id: vacation_rental_host
+    primary: false
+    negative: true
+    surface: none
+    summary: Hosts entire homes/apartments; needs short-term rental tooling.
+    goals:
+      end:
+        - list and manage vacation rentals
+    permissions: []
+    constraints:
+      - out_of_scope_v1
+    technical_literacy: medium
+    confidence: high
+    evidence: stakeholder out-of-scope list
+
+  - id: hostel_operator
+    primary: false
+    negative: true
+    surface: none
+    summary: Operates hostel / dorm-style lodging.
+    goals:
+      end:
+        - sell hostel beds and shared rooms at scale
+    permissions: []
+    constraints:
+      - out_of_scope_v1
+    technical_literacy: medium
+    confidence: high
+    evidence: stakeholder out-of-scope list
+
+  - id: enterprise_chain_admin
+    primary: false
+    negative: true
+    surface: none
+    summary: Large-chain revenue or distribution admin needing PMS depth, channel managers, and enterprise controls.
+    goals:
+      end:
+        - sync inventory across channel managers and full PMS
+        - run enterprise revenue and brand controls
+    permissions: []
+    constraints:
+      - out_of_scope_v1
+    technical_literacy: high
+    confidence: high
+    evidence: stakeholder out-of-scope — enterprise features and channel managers
+
+  - id: multi_vertical_traveler
+    primary: false
+    negative: true
+    surface: none
+    summary: Wants flights, cars, and packages in one trip cart.
+    goals:
+      end:
+        - book multi-modal travel packages
+    permissions: []
+    constraints:
+      - out_of_scope_v1
+    technical_literacy: medium
+    confidence: high
+    evidence: stakeholder out-of-scope — flights, cars, packages

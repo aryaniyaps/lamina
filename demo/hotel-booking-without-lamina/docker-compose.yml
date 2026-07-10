@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: havenstay
+      POSTGRES_PASSWORD: havenstay
+      POSTGRES_DB: havenstay
+    ports:
+      - "5432:5432"
+    volumes:
+      - havenstay_pg:/var/lib/postgresql/data
+
+volumes:
+  havenstay_pg:

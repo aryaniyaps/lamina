@@ -1,0 +1,412 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TRAVELER
+  HOTEL_STAFF
+  SUPPORT_AGENT
+  PLATFORM_ADMIN
+}
+
+enum UserStatus {
+  UNVERIFIED_EMAIL
+  ACTIVE
+  SUSPENDED
+}
+
+enum PropertyStatus {
+  DRAFT
+  PENDING_REVIEW
+  LIVE
+  PAUSED
+  REJECTED
+}
+
+enum HotelAccountStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+}
+
+enum CancellationTemplate {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum BookingStatus {
+  DRAFT
+  PENDING_PAYMENT
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED_BY_TRAVELER
+  CANCELLED_BY_HOTEL
+  NO_SHOW
+  PAYMENT_FAILED
+}
+
+enum HoldStatus {
+  ACTIVE
+  EXPIRED
+  CONVERTED
+  RELEASED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED_PARTIAL
+  REFUNDED_FULL
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum ReviewStatus {
+  DRAFT
+  PUBLISHED
+  FLAGGED
+  REMOVED
+}
+
+enum TicketStatus {
+  OPEN
+  AWAITING_CUSTOMER
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  BOOKING
+  PAYMENT
+  ACCOUNT
+  LISTING
+  TRUST
+}
+
+enum TrustReportStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  BOUNCED
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  passwordHash    String?
+  name            String
+  phone           String?
+  role            UserRole   @default(TRAVELER)
+  status          UserStatus @default(UNVERIFIED_EMAIL)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  bookings      Booking[]
+  reviews       Review[]
+  supportTickets SupportTicket[] @relation("TicketUser")
+  trustReports  TrustReport[] @relation("Reporter")
+  notifications Notification[]
+
+  hotelStaff HotelStaff?
+}
+
+model HotelAccount {
+  id                    String             @id @default(cuid())
+  legalBusinessName     String
+  status                HotelAccountStatus @default(DRAFT)
+  stripeConnectId       String?
+  stripeConnectComplete Boolean            @default(false)
+  commissionRate        Float              @default(0.15)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  staff      HotelStaff[]
+  properties Property[]
+  tickets    SupportTicket[] @relation("TicketHotel")
+}
+
+model HotelStaff {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  hotelAccountId String
+  staffRole      String   @default("operator")
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelAccount HotelAccount @relation(fields: [hotelAccountId], references: [id], onDelete: Cascade)
+}
+
+model Property {
+  id              String         @id @default(cuid())
+  hotelAccountId  String
+  slug            String         @unique
+  name            String
+  description     String
+  addressLine1    String
+  city            String
+  state           String
+  zip             String
+  latitude        Float?
+  longitude       Float?
+  photos          String         @default("[]")
+  amenities       String         @default("[]")
+  checkInTime     String         @default("15:00")
+  checkOutTime    String         @default("11:00")
+  houseRules      String         @default("")
+  starRating      Int            @default(3)
+  status          PropertyStatus @default(DRAFT)
+  rejectionReason String?
+  changeRequest   String?
+  averageRating   Float          @default(0)
+  reviewCount     Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  hotelAccount       HotelAccount       @relation(fields: [hotelAccountId], references: [id], onDelete: Cascade)
+  roomTypes          RoomType[]
+  cancellationPolicy CancellationPolicy?
+  bookings           Booking[]
+  reviews            Review[]
+  trustReports       TrustReport[]
+
+  @@index([city, state, status])
+}
+
+model CancellationPolicy {
+  id          String               @id @default(cuid())
+  propertyId  String               @unique
+  template    CancellationTemplate
+  description String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model RoomType {
+  id                  String   @id @default(cuid())
+  propertyId          String
+  name                String
+  description         String
+  maxOccupancy        Int
+  bedConfiguration    String
+  photos              String   @default("[]")
+  amenities           String   @default("[]")
+  baseRateCents       Int
+  totalInventoryCount Int
+  status              String   @default("active")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inventoryBlocks InventoryBlock[]
+  bookingLines    BookingLine[]
+  holds           InventoryHold[]
+}
+
+model InventoryBlock {
+  id             String   @id @default(cuid())
+  roomTypeId     String
+  date           DateTime
+  availableCount Int
+  rateCents      Int
+  version        Int      @default(1)
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([roomTypeId, date])
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  confirmationCode String        @unique
+  userId           String
+  propertyId       String
+  status           BookingStatus @default(DRAFT)
+  checkInDate      DateTime
+  checkOutDate     DateTime
+  guestCount       Int
+  specialRequests  String?
+  roomTotalCents   Int           @default(0)
+  taxesFeesCents   Int           @default(0)
+  totalCents       Int           @default(0)
+  commissionCents  Int           @default(0)
+  policySnapshot   String        @default("{}")
+  guestName        String?
+  guestEmail       String?
+  guestPhone       String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id])
+  property Property @relation(fields: [propertyId], references: [id])
+  lines    BookingLine[]
+  hold     InventoryHold?
+  payment  Payment?
+  refunds  Refund[]
+  review   Review?
+
+  @@index([userId, status])
+  @@index([propertyId, status])
+  @@index([confirmationCode])
+}
+
+model BookingLine {
+  id               String @id @default(cuid())
+  bookingId        String
+  roomTypeId       String
+  quantity         Int
+  nights           Int
+  ratePerNightCents Int
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomType RoomType @relation(fields: [roomTypeId], references: [id])
+}
+
+model InventoryHold {
+  id        String     @id @default(cuid())
+  bookingId String     @unique
+  roomTypeId String
+  status    HoldStatus @default(ACTIVE)
+  quantity  Int
+  nights    String     @default("[]")
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomType RoomType @relation(fields: [roomTypeId], references: [id])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  bookingId             String        @unique
+  stripePaymentIntentId String?
+  amountCents           Int
+  currency              String        @default("usd")
+  status                PaymentStatus @default(PENDING)
+  capturedAt            DateTime?
+  createdAt             DateTime      @default(now())
+
+  booking Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  refunds Refund[]
+}
+
+model Refund {
+  id              String       @id @default(cuid())
+  paymentId       String
+  bookingId       String
+  amountCents     Int
+  reason          String
+  status          RefundStatus @default(PENDING)
+  stripeRefundId  String?
+  createdAt       DateTime     @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model Review {
+  id          String       @id @default(cuid())
+  bookingId   String       @unique
+  userId      String
+  propertyId  String
+  status      ReviewStatus @default(PUBLISHED)
+  overallRating Int
+  cleanlinessRating Int?
+  locationRating    Int?
+  serviceRating     Int?
+  bodyText    String
+  hotelResponse String?
+  publishedAt DateTime     @default(now())
+
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  property Property @relation(fields: [propertyId], references: [id])
+}
+
+model SupportTicket {
+  id             String         @id @default(cuid())
+  userId         String?
+  hotelAccountId String?
+  bookingId      String?
+  category       TicketCategory
+  subject        String
+  messages       String         @default("[]")
+  status         TicketStatus   @default(OPEN)
+  priority       String         @default("normal")
+  escalated      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user         User?         @relation("TicketUser", fields: [userId], references: [id])
+  hotelAccount HotelAccount? @relation("TicketHotel", fields: [hotelAccountId], references: [id])
+}
+
+model TrustReport {
+  id          String            @id @default(cuid())
+  reporterId  String
+  propertyId  String?
+  bookingId   String?
+  reviewId    String?
+  reportType  String
+  description String
+  status      TrustReportStatus @default(SUBMITTED)
+  adminNotes  String?
+  createdAt   DateTime          @default(now())
+
+  reporter User      @relation("Reporter", fields: [reporterId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+}
+
+model Notification {
+  id         String             @id @default(cuid())
+  userId     String?
+  templateId String
+  recipient  String
+  subject    String
+  body       String
+  status     NotificationStatus @default(QUEUED)
+  sentAt     DateTime?
+  createdAt  DateTime           @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  adminEmail String
+  action     String
+  targetType String
+  targetId   String
+  reason     String?
+  payload    String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+}
+
+model PlatformConfig {
+  id    String @id @default("default")
+  commissionRate Float @default(0.15)
+}

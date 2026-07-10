@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+:root {
+  --teal-950: #042f2e;
+  --teal-900: #134e4a;
+  --teal-800: #115e59;
+  --teal-700: #0f766e;
+  --teal-600: #0d9488;
+  --teal-500: #14b8a6;
+  --teal-100: #ccfbf1;
+  --teal-50: #f0fdfa;
+
+  --amber-600: #d97706;
+  --amber-500: #f59e0b;
+  --amber-400: #fbbf24;
+  --amber-100: #fef3c7;
+
+  --mist-50: #f8fafc;
+  --mist-100: #f1f5f9;
+  --mist-200: #e2e8f0;
+  --mist-800: #1e293b;
+  --mist-900: #0f172a;
+
+  --background: var(--mist-50);
+  --foreground: var(--mist-900);
+  --primary: var(--teal-800);
+  --primary-foreground: #ffffff;
+  --accent: var(--amber-500);
+  --accent-foreground: var(--mist-900);
+  --muted: var(--mist-100);
+  --muted-foreground: #64748b;
+  --border: var(--mist-200);
+  --card: #ffffff;
+  --destructive: #dc2626;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-destructive: var(--destructive);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-fraunces);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(20, 184, 166, 0.15), transparent),
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(245, 158, 11, 0.08), transparent),
+    linear-gradient(165deg, var(--teal-950) 0%, var(--teal-900) 40%, var(--teal-800) 100%);
+}
+
+.mist-surface {
+  background: linear-gradient(180deg, var(--mist-50) 0%, #ffffff 100%);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out forwards;
+}
+
+.animate-fade-up-delay {
+  animation: fade-up 0.6s ease-out 0.15s forwards;
+  opacity: 0;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}

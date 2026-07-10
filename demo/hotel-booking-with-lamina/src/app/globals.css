@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --color-brand-50: #f0f7f4;
+  --color-brand-100: #dceee5;
+  --color-brand-500: #2d6a4f;
+  --color-brand-600: #1b4332;
+  --color-brand-700: #081c15;
+}
+
+body {
+  min-height: 100vh;
+}

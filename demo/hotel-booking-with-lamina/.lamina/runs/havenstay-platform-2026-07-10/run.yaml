@@ -1,0 +1,1334 @@
+id: havenstay-platform-2026-07-10
+status: ready_to_build
+hook: design
+target: HavenStay — complete hotel booking marketplace (traveler + hotel surfaces)
+command: /lamina-design
+started_at: 2026-07-10
+completed_at: 2026-07-10
+personas_ref: .lamina/personas.yaml
+business_context_ref: .lamina/business-context.md
+
+domain:
+  product_name: HavenStay
+  summary: >
+    US-focused, commission-based OTA connecting leisure and business travelers with
+    independent and boutique hotels. Travelers discover, compare, book, pay, and
+    manage stays on responsive web. Hotels onboard, manage listings, inventory,
+    pricing, and reservations on a desktop dashboard. Stripe handles payments;
+    email handles notifications.
+
+  entities:
+    - id: user
+      description: Traveler account (leisure or business traveler; same account model in v1)
+      relationships: [booking, review, support_ticket, trust_report, notification]
+      states: [unverified_email, active, suspended]
+      attributes:
+        - email
+        - name
+        - phone_optional
+        - password_or_sso
+        - email_verified_at
+        - created_at
+
+    - id: hotel_account
+      description: Organization representing one or more properties (independent, boutique, small group)
+      relationships: [property, hotel_staff, payout_profile]
+      states: [draft, pending_verification, active, suspended]
+      attributes:
+        - legal_business_name
+        - tax_id_optional_v1
+        - stripe_connect_account_id
+        - commission_rate_agreed
+
+    - id: hotel_staff
+      description: Operator or owner with access to hotel dashboard
+      relationships: [hotel_account, property]
+      states: [invited, active, removed]
+      attributes:
+        - role  # operator | owner (same permissions v1; role label for UX)
+        - email
+        - name
+
+    - id: property
+      description: Bookable hotel listing on the marketplace
+      relationships: [hotel_account, room_type, cancellation_policy, review, booking]
+      states: [draft, pending_review, live, paused, rejected]
+      attributes:
+        - name
+        - description
+        - address
+        - geo_coordinates
+        - photos
+        - amenities
+        - check_in_time
+        - check_out_time
+        - house_rules
+        - star_rating_display  # self-reported; not verified v1
+        - average_rating  # computed from reviews
+
+    - id: room_type
+      description: Sellable room category at a property (e.g., King Room, Suite)
+      relationships: [property, inventory_block, booking_line]
+      states: [draft, active, archived]
+      attributes:
+        - name
+        - description
+        - max_occupancy
+        - bed_configuration
+        - photos
+        - amenities
+        - base_rate_cents
+        - total_inventory_count
+
+    - id: inventory_block
+      description: Per-date availability and rate override for a room type
+      relationships: [room_type]
+      states: [open, closed, sold_out]
+      attributes:
+        - date
+        - available_count
+        - rate_cents  # nightly rate for this date; defaults to room_type.base_rate
+        - min_stay_nights_optional
+
+    - id: booking
+      description: Traveler reservation for one or more room-nights
+      relationships: [user, property, booking_line, payment, cancellation_policy, review]
+      states:
+        - draft  # checkout in progress; holds inventory briefly
+        - pending_payment
+        - confirmed
+        - checked_in  # informational; hotel marks or auto on check-in date
+        - completed  # past check-out; eligible for review
+        - cancelled_by_traveler
+        - cancelled_by_hotel
+        - no_show
+        - payment_failed
+      attributes:
+        - confirmation_code
+        - check_in_date
+        - check_out_date
+        - guest_count
+        - special_requests_optional
+        - total_cents
+        - taxes_fees_cents
+        - commission_cents
+        - policy_snapshot  # frozen cancellation policy at booking time
+
+    - id: booking_line
+      description: Line item — room type × nights within a booking
+      relationships: [booking, room_type]
+      attributes:
+        - nights
+        - rate_per_night_cents
+        - quantity  # rooms of this type
+
+    - id: inventory_hold
+      description: Short-lived lock on room-night inventory during checkout
+      relationships: [room_type, booking]
+      states: [active, expired, converted, released]
+      attributes:
+        - expires_at  # 15 minutes from creation
+        - room_nights  # date + room_type + quantity
+
+    - id: payment
+      description: Stripe charge for a booking
+      relationships: [booking, refund]
+      states: [pending, succeeded, failed, refunded_partial, refunded_full]
+      attributes:
+        - stripe_payment_intent_id
+        - amount_cents
+        - currency  # USD only v1
+        - captured_at
+
+    - id: refund
+      description: Partial or full refund per cancellation policy
+      relationships: [payment, booking]
+      states: [pending, succeeded, failed]
+      attributes:
+        - amount_cents
+        - reason
+        - stripe_refund_id
+
+    - id: cancellation_policy
+      description: Refund rules attached to a property; selected from platform templates
+      relationships: [property, booking]
+      templates:
+        - flexible  # full refund until 24h before check-in
+        - moderate  # full refund until 5 days before; 50% until 24h
+        - strict  # 50% refund until 7 days; none after
+      attributes:
+        - template_id
+        - custom_description  # human-readable summary shown at booking
+
+    - id: review
+      description: Verified-guest rating and text for a completed stay
+      relationships: [booking, property, user]
+      states: [draft, published, flagged, removed]
+      attributes:
+        - overall_rating  # 1-5
+        - sub_ratings_optional  # cleanliness, location, service
+        - body_text
+        - hotel_response_optional
+        - published_at
+
+    - id: support_ticket
+      description: Traveler or hotel request for help
+      relationships: [user, hotel_account, booking]
+      states: [open, awaiting_customer, in_progress, resolved, closed]
+      attributes:
+        - category  # booking | payment | account | listing | trust
+        - subject
+        - messages
+        - priority
+
+    - id: trust_report
+      description: User report of fraud, safety, or policy violation
+      relationships: [user, property, booking, review]
+      states: [submitted, under_review, action_taken, dismissed]
+      attributes:
+        - report_type
+        - description
+        - evidence_optional
+
+    - id: notification
+      description: Email notification log
+      relationships: [user, hotel_staff, booking]
+      states: [queued, sent, failed, bounced]
+      attributes:
+        - template_id
+        - channel  # email only v1
+        - recipient
+        - sent_at
+
+    - id: admin_audit_log
+      description: Immutable record of platform admin actions
+      relationships: [platform_admin]
+      attributes:
+        - actor_id
+        - action
+        - target_type
+        - target_id
+        - payload
+        - created_at
+
+    - id: platform_admin
+      description: Internal operator with full platform administration access
+      relationships: [property, trust_report, support_ticket, booking, user, hotel_account, payment, admin_audit_log]
+      states: [active, deactivated]
+      attributes:
+        - email
+        - name
+        - role  # super_admin | ops_admin | trust_admin (all access v1; roles for audit)
+
+  invariants:
+    - id: no-double-booking
+      rule: >
+        For any property, room_type, and date, confirmed bookings plus active holds
+        must not exceed available inventory_count. Enforce atomically at hold creation
+        and booking confirmation.
+
+    - id: payment-before-confirm
+      rule: >
+        A booking transitions to confirmed only after payment succeeds. No confirmed
+        booking without a succeeded payment record.
+
+    - id: price-transparency
+      rule: >
+        Total price shown on checkout review step equals amount charged. Taxes and
+        platform fees broken out before payment; no surprise charges post-booking.
+
+    - id: policy-snapshot-immutable
+      rule: >
+        Cancellation policy terms applied to a booking are frozen at confirmation.
+        Hotel cannot change policy retroactively for existing bookings.
+
+    - id: verified-guest-review-only
+      rule: >
+        Only users with a completed booking (check_out_date passed, status completed)
+        may publish a review for that property. One review per booking.
+
+    - id: live-property-only
+      rule: >
+        Only properties in live state appear in search results and accept bookings.
+
+    - id: hold-expiry-release
+      rule: >
+        Inventory holds expire after 15 minutes if checkout not completed; inventory
+        returns to available pool automatically.
+
+    - id: usd-english-us-only
+      rule: >
+        All prices in USD. All copy in English. Properties must have US addresses.
+
+    - id: email-verified-book
+      rule: >
+        Users must verify email before completing first booking payment.
+
+    - id: hotel-payout-after-checkin
+      rule: >
+        Hotel payout (Stripe Connect transfer) occurs after check-in date, net of
+        commission. Cancellation refunds reverse or adjust payout accordingly.
+
+    - id: commission-on-confirmed
+      rule: >
+        Platform commission calculated on confirmed booking total at payment time;
+        adjusted on partial/full refund per cancellation outcome.
+
+    - id: min-one-room-night
+      rule: >
+        Bookings require check_out_date > check_in_date (at least one night).
+
+    - id: max-occupancy-respected
+      rule: >
+        guest_count on booking must not exceed room_type.max_occupancy × quantity.
+
+    - id: review-window
+      rule: >
+        Reviews may be submitted within 30 days after check_out_date; after that
+        window closes.
+
+    - id: suspended-user-blocked
+      rule: >
+        Suspended users cannot create bookings, post reviews, or file new support
+        tickets. Existing confirmed bookings honored per policy.
+
+actors:
+  - id: leisure_traveler
+    ref: personas.yaml#leisure_traveler
+    permissions:
+      - register_and_authenticate
+      - verify_email
+      - manage_own_profile
+      - search_and_filter_hotels
+      - view_hotel_and_room_details
+      - create_booking
+      - pay_for_booking
+      - view_and_manage_own_reservations
+      - cancel_own_reservation_per_policy
+      - write_review_when_verified_guest
+      - contact_support
+      - file_trust_report
+
+  - id: business_traveler
+    ref: personas.yaml#business_traveler
+    permissions:
+      - register_and_authenticate
+      - verify_email
+      - manage_own_profile
+      - search_and_filter_hotels
+      - view_hotel_and_room_details
+      - create_booking
+      - pay_for_booking
+      - view_and_manage_own_reservations
+      - cancel_own_reservation_per_policy
+      - write_review_when_verified_guest
+      - contact_support
+      - file_trust_report
+
+  - id: hotel_operator
+    ref: personas.yaml#hotel_operator
+    permissions:
+      - authenticate_hotel_staff
+      - complete_hotel_onboarding
+      - manage_property_profile
+      - submit_property_for_review
+      - manage_room_inventory
+      - manage_pricing
+      - select_cancellation_policy
+      - view_and_manage_property_reservations
+      - mark_reservation_checked_in
+      - cancel_reservation_with_reason  # rare; triggers refund per policy
+      - view_guest_contact_for_own_reservations
+      - respond_to_reviews
+      - contact_support
+
+  - id: hotel_owner
+    ref: personas.yaml#hotel_owner
+    permissions:
+      - authenticate_hotel_staff
+      - complete_hotel_onboarding
+      - manage_property_profile
+      - submit_property_for_review
+      - manage_room_inventory
+      - manage_pricing
+      - select_cancellation_policy
+      - view_and_manage_property_reservations
+      - mark_reservation_checked_in
+      - cancel_reservation_with_reason
+      - view_guest_contact_for_own_reservations
+      - respond_to_reviews
+      - contact_support
+      - invite_hotel_staff  # v1: single account per property acceptable; invite optional stretch
+
+  - id: support_agent
+    ref: personas.yaml#support_agent
+    permissions:
+      - view_booking_and_account_context_for_support
+      - assist_cancellation_and_refund_per_policy
+      - flag_trust_and_safety_issues
+      - resolve_support_tickets
+      - escalate_to_platform_admin
+
+  - id: platform_admin
+    ref: personas.yaml#platform_admin
+    permissions:
+      - authenticate_admin
+      - view_platform_dashboard
+      - approve_or_reject_property
+      - request_property_changes
+      - suspend_or_reinstate_property
+      - suspend_or_reinstate_user
+      - suspend_or_reinstate_hotel_account
+      - view_all_bookings
+      - admin_cancel_booking_with_override
+      - admin_refund_with_override
+      - view_all_payments_and_payouts
+      - retry_failed_payout
+      - moderate_reviews
+      - resolve_trust_reports
+      - manage_support_ticket_escalations
+      - view_and_search_all_users
+      - view_and_search_all_hotels
+      - configure_platform_commission_rate
+      - view_notification_log
+      - view_audit_log
+      - manage_admin_users
+      - impersonate_read_only  # view-as for support/debug; fully logged
+
+workflows:
+  - id: traveler-discover-and-search
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Find hotels matching destination, dates, and preferences
+    steps:
+      - id: land-home
+        action: View home with search hero (destination, check-in, check-out, guests)
+      - id: enter-search-criteria
+        action: Enter destination (city, neighborhood, or hotel name), dates, guest count
+        validations:
+          - check_out after check_in
+          - dates not in past
+          - max 30-night stay v1
+      - id: view-search-results
+        action: Browse ranked list with filters and sort
+        outputs: [property_card_list]
+      - id: apply-filters
+        action: Filter by price range, star rating, amenities, cancellation policy type, guest rating
+        optional: true
+      - id: sort-results
+        action: Sort by recommended (default), price low-high, price high-low, guest rating
+        optional: true
+      - id: view-map
+        action: Toggle map view with property pins (Google Maps)
+        optional: true
+      - id: select-property
+        action: Open hotel detail page
+
+  - id: traveler-view-hotel-detail
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Evaluate a hotel before booking
+    steps:
+      - id: view-gallery-and-overview
+        action: See photos, description, amenities, location map, policies summary
+      - id: view-availability
+        action: See room types with nightly rates for selected dates (or prompt for dates)
+      - id: view-reviews
+        action: Read published reviews with ratings breakdown and hotel responses
+      - id: select-room
+        action: Choose room type and quantity; proceed to booking
+
+  - id: traveler-book-and-pay
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Complete a paid reservation
+    preconditions:
+      - user authenticated (or prompted to sign in/register during checkout)
+      - email verified before payment
+      - property live
+      - inventory available
+    steps:
+      - id: review-trip-summary
+        action: Confirm dates, room, guest count, price breakdown (room total, taxes, fees)
+      - id: enter-guest-details
+        action: Confirm name, email, phone; optional special requests
+      - id: accept-policies
+        action: Acknowledge cancellation policy and house rules (required checkbox)
+      - id: create-inventory-hold
+        action: System creates 15-minute hold; show countdown timer
+        invariant_ref: no-double-booking
+      - id: initiate-payment
+        action: Redirect to Stripe Checkout or embedded Stripe Elements
+        invariant_ref: payment-before-confirm
+      - id: confirm-booking
+        action: On payment success, booking → confirmed; send confirmation email
+        side_effects:
+          - decrement inventory
+          - create payment record
+          - queue confirmation notification
+          - schedule pre-arrival reminder email
+      - id: show-confirmation
+        action: Display confirmation code, summary, manage-booking link
+
+  - id: traveler-manage-reservation
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: View and act on upcoming or past bookings
+    steps:
+      - id: open-trips
+        action: Navigate to My Trips (upcoming / past tabs)
+      - id: view-reservation-detail
+        action: See full booking detail, hotel contact, policies, payment receipt
+      - id: download-receipt
+        action: Download or email receipt PDF for expense records
+        actor_note: business_traveler primary use
+      - id: contact-hotel
+        action: View hotel phone/email from reservation detail
+        optional: true
+
+  - id: traveler-cancel-reservation
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Cancel per policy and receive applicable refund
+    preconditions:
+      - booking status confirmed
+    steps:
+      - id: initiate-cancel
+        action: Tap Cancel reservation from detail view
+      - id: show-refund-preview
+        action: Display refund amount and policy explanation before confirm
+        invariant_ref: policy-snapshot-immutable
+      - id: confirm-cancel
+        action: User confirms cancellation
+      - id: process-refund
+        action: System processes Stripe refund; booking → cancelled_by_traveler
+        side_effects:
+          - release inventory for future dates
+          - adjust hotel payout
+          - send cancellation confirmation email
+      - id: show-cancellation-confirmation
+        action: Display refund amount and timeline (5-10 business days)
+
+  - id: traveler-write-review
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Share feedback after completed stay
+    preconditions:
+      - booking status completed
+      - within 30-day review window
+      - no existing published review for booking
+    steps:
+      - id: prompt-review
+        action: Email prompt + in-app banner on past trip
+      - id: compose-review
+        action: Rate overall (required) and optional sub-ratings; write text (min 20 chars)
+        invariant_ref: verified-guest-review-only
+      - id: publish-review
+        action: Review → published; update property average_rating
+      - id: notify-hotel
+        action: Email hotel of new review
+
+  - id: traveler-account-management
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Manage profile and security
+    steps:
+      - id: register
+        action: Sign up with email/password or Google SSO
+      - id: verify-email
+        action: Click verification link; required before first booking payment
+      - id: sign-in
+        action: Authenticate
+      - id: manage-profile
+        action: Update name, phone, email (re-verify on email change)
+      - id: manage-password
+        action: Change password or connect/disconnect SSO
+      - id: sign-out
+        action: End session
+
+  - id: traveler-contact-support
+    actor: leisure_traveler
+    also_used_by: [business_traveler, hotel_operator]
+    goal: Get help with booking or account issues
+    steps:
+      - id: open-support
+        action: Access Help center or Contact support from footer/account
+      - id: select-category
+        action: Choose booking, payment, account, or trust issue
+      - id: submit-ticket
+        action: Describe issue; attach booking ID if applicable
+      - id: receive-updates
+        action: Email notifications on ticket status changes
+
+  - id: traveler-file-trust-report
+    actor: leisure_traveler
+    also_used_by: [business_traveler]
+    goal: Report fraud, safety, or policy violations
+    steps:
+      - id: open-report-form
+        action: Access from listing, review, or help center
+      - id: select-report-type
+        action: Fraud, misleading listing, safety concern, harassment, other
+      - id: submit-report
+        action: Provide description; link booking/listing if applicable
+      - id: acknowledgment
+        action: Show confirmation; platform reviews within 48h SLA (internal)
+
+  - id: hotel-onboarding
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    mode: self_serve
+    goal: Create account, connect payouts, and publish first property without sales assistance
+    steps:
+      - id: start-from-list-your-property
+        action: Enter via public List your property CTA; no invite or sales code required
+      - id: register-hotel-account
+        action: Sign up with business email; create hotel_account
+      - id: connect-stripe
+        action: Complete Stripe Connect onboarding for payouts (required before submit)
+      - id: create-property-draft
+        action: Enter property name, address (US), description, photos, amenities
+      - id: configure-rooms
+        action: Add room types with rates, inventory counts, photos
+      - id: select-cancellation-policy
+        action: Choose from flexible / moderate / strict templates
+      - id: set-check-times
+        action: Configure check-in/out times and house rules
+      - id: run-readiness-checklist
+        action: >
+          In-app checklist validates minimum requirements (5+ photos, 1+ room type,
+          Stripe complete, US address, policy selected) before submit enabled
+      - id: submit-for-review
+        action: Property → pending_review; confirmation email with expected review SLA (3 business days)
+      - id: track-review-status
+        action: Dashboard shows pending_review status; email on approve, reject, or change-request
+      - id: go-live
+        action: On approval, property → live; appears in search; onboarding-complete email
+      - id: resubmit-after-rejection
+        action: If rejected or change-requested, edit and resubmit self-serve without contacting sales
+        optional: true
+
+  - id: hotel-manage-property
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    goal: Keep listing accurate and compelling
+    steps:
+      - id: open-property-dashboard
+        action: Select property from hotel dashboard home
+      - id: edit-profile
+        action: Update description, photos, amenities, house rules
+      - id: pause-listing
+        action: Property → paused; hidden from search; existing bookings honored
+        optional: true
+      - id: resume-listing
+        action: Property → live again
+        optional: true
+
+  - id: hotel-manage-inventory-pricing
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    goal: Keep availability and rates current
+    steps:
+      - id: open-calendar
+        action: View inventory calendar (room type × date grid)
+      - id: set-base-rates
+        action: Edit room type base nightly rate
+      - id: override-date-rates
+        action: Set per-date rate overrides on calendar
+      - id: close-dates
+        action: Set available_count to 0 for dates (stop sell)
+      - id: adjust-inventory
+        action: Update total room count per room type
+      - id: bulk-edit
+        action: Select date range; apply rate or availability change
+        optional: true
+
+  - id: hotel-manage-reservations
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    goal: View and act on incoming bookings
+    steps:
+      - id: open-reservations-list
+        action: View upcoming, in-house, past reservations with filters
+      - id: view-reservation-detail
+        action: See guest name, dates, room, special requests, payment status
+      - id: mark-checked-in
+        action: Update status to checked_in on arrival day
+        optional: true
+      - id: cancel-by-hotel
+        action: Cancel with mandatory reason; full refund to guest; logged
+        rare: true
+      - id: export-reservations
+        action: Download CSV for date range
+        optional: true
+
+  - id: hotel-respond-to-review
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    goal: Publicly respond to guest reviews
+    steps:
+      - id: view-reviews
+        action: Open reviews tab on property dashboard
+      - id: compose-response
+        action: Write response (max 500 chars); one response per review
+      - id: publish-response
+        action: Response visible on traveler-facing review section
+
+  - id: hotel-contact-support
+    actor: hotel_operator
+    also_used_by: [hotel_owner]
+    goal: Get help with listing, payouts, or reservations
+    steps:
+      - id: open-hotel-support
+        action: Access from dashboard help menu
+      - id: submit-ticket
+        action: Category listing | payout | reservation | account
+      - id: track-ticket
+        action: View status in dashboard
+
+  - id: support-resolve-ticket
+    actor: support_agent
+    goal: Resolve traveler or hotel issues within basic support scope
+    steps:
+      - id: view-ticket-queue
+        action: Open tickets by status and category
+      - id: review-context
+        action: View linked booking, payment, user/property records (read-only)
+      - id: respond
+        action: Reply via email thread; update ticket status
+      - id: assist-cancel-refund
+        action: Initiate cancellation/refund per policy when user cannot self-serve
+      - id: escalate
+        action: Flag trust issue or request admin override
+        optional: true
+      - id: resolve
+        action: Mark ticket resolved
+
+  - id: admin-platform-operations
+    actor: platform_admin
+    goal: Monitor marketplace health and act on operational queues
+    steps:
+      - id: open-admin-dashboard
+        action: View KPIs — bookings (today/7d/30d), GMV, active hotels, pending approvals, open tickets, trust reports
+      - id: drill-into-queues
+        action: Navigate to approval, support, trust, or payout exception queues from dashboard
+
+  - id: admin-review-property
+    actor: platform_admin
+    goal: Approve, reject, or request changes on pending properties
+    steps:
+      - id: open-approval-queue
+        action: List properties in pending_review sorted by submit date
+      - id: review-submission
+        action: View full listing draft, photos, rooms, Stripe status, hotel account info
+      - id: approve
+        action: Property → live; email hotel; log to admin_audit_log
+      - id: reject
+        action: Property → rejected with required reason; email hotel with resubmit instructions
+      - id: request-changes
+        action: Property stays pending_review; send change-request notes; hotel edits and resubmits self-serve
+
+  - id: admin-manage-users-and-hotels
+    actor: platform_admin
+    goal: Search, inspect, and suspend or reinstate accounts
+    steps:
+      - id: search-users
+        action: Find travelers by email, name, or user id; view profile and booking history
+      - id: search-hotels
+        action: Find hotel accounts and properties; view listing, reservations, payout status
+      - id: suspend-account
+        action: Suspend user, hotel_account, or property with required reason; log action
+      - id: reinstate-account
+        action: Reverse suspension when resolved; log action
+
+  - id: admin-manage-bookings-payments
+    actor: platform_admin
+    goal: Investigate and intervene on bookings, payments, and payouts
+    steps:
+      - id: search-bookings
+        action: Search by confirmation code, guest email, property, date range, status
+      - id: view-booking-detail
+        action: Full booking, payment, refund, policy snapshot, notification history
+      - id: admin-cancel-refund
+        action: Cancel with override refund amount when policy edge case; mandatory reason; audit logged
+      - id: view-payouts
+        action: List scheduled, completed, and failed Stripe Connect transfers
+      - id: retry-payout
+        action: Retry failed payout after resolving Stripe Connect issue
+
+  - id: admin-trust-and-reviews
+    actor: platform_admin
+    goal: Resolve trust reports and moderate reviews
+    steps:
+      - id: open-trust-queue
+        action: List trust reports by status and severity
+      - id: investigate-report
+        action: View linked booking, listing, review, reporter and reported party context
+      - id: take-trust-action
+        action: Dismiss, warn, suspend listing/user, or remove content; log with notes
+      - id: moderate-reviews
+        action: View flagged or reported reviews; remove or restore; notify parties if needed
+
+  - id: admin-support-escalations
+    actor: platform_admin
+    goal: Handle escalated support tickets and overrides
+    steps:
+      - id: view-escalated-tickets
+        action: Queue of tickets escalated by support_agent
+      - id: resolve-with-override
+        action: Apply refund/cancel overrides beyond support_agent permissions
+      - id: close-escalation
+        action: Resolve ticket; notify support_agent and customer
+
+  - id: admin-platform-config
+    actor: platform_admin
+    goal: Configure platform-level settings and audit activity
+    steps:
+      - id: set-commission-rate
+        action: Update platform commission rate (applies to new bookings; existing unchanged)
+      - id: view-audit-log
+        action: Searchable log of all admin actions with actor, target, timestamp
+      - id: view-notification-log
+        action: Search email delivery log by recipient, template, booking
+      - id: manage-admin-users
+        action: Invite, deactivate platform admin accounts
+
+scenarios:
+  - id: inventory-sold-out-mid-checkout
+    category: concurrency
+    trigger:
+      operation: create_inventory_hold
+      when: insufficient_inventory
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Clear message that the room is no longer available; offer to return to hotel
+      detail or search. Do not charge. Release any partial state.
+    invariant_ref: no-double-booking
+
+  - id: hold-expired-during-payment
+    category: concurrency
+    trigger:
+      operation: confirm_booking
+      when: hold_expired
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Payment may have succeeded — reconcile: if inventory still available, confirm;
+      if not, auto-refund and explain. Never confirm without inventory.
+    invariant_ref: hold-expiry-release
+
+  - id: payment-failed
+    category: payment
+    trigger:
+      operation: initiate_payment
+      when: stripe_declined
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Show card decline reason (generic if sensitive); hold remains until expiry;
+      allow retry with different payment method.
+    invariant_ref: payment-before-confirm
+
+  - id: payment-succeeded-confirm-failed
+    category: payment
+    trigger:
+      operation: confirm_booking
+      when: system_error_after_payment
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Idempotent reconciliation job; never double-charge. Show "processing" state;
+      email confirmation when resolved or auto-refund within 1h if cannot fulfill.
+    invariant_ref: payment-before-confirm
+
+  - id: email-unverified-at-checkout
+    category: permission
+    trigger:
+      operation: initiate_payment
+      when: email_not_verified
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Block payment step; prompt to verify email with resend link; preserve cart/hold.
+    invariant_ref: email-verified-book
+
+  - id: cancel-flexible-full-refund
+    category: cancellation
+    trigger:
+      operation: cancel_reservation
+      when: within_full_refund_window
+    workflow_ref: traveler-cancel-reservation
+    expected_ux: Show 100% refund amount; process immediately.
+    invariant_ref: policy-snapshot-immutable
+
+  - id: cancel-strict-no-refund
+    category: cancellation
+    trigger:
+      operation: cancel_reservation
+      when: outside_refund_window
+    workflow_ref: traveler-cancel-reservation
+    expected_ux: >
+      Show $0 refund clearly before confirm; require explicit acknowledgment.
+      Booking still cancellable (inventory released) but no refund.
+
+  - id: hotel-cancels-booking
+    category: cancellation
+    trigger:
+      operation: cancel_by_hotel
+      when: hotel_initiated
+    workflow_ref: hotel-manage-reservations
+    expected_ux: >
+      Mandatory reason; automatic 100% refund to guest regardless of policy;
+      email guest immediately; flag property for admin review if frequent.
+
+  - id: review-outside-window
+    category: permission
+    trigger:
+      operation: publish_review
+      when: after_30_days
+    workflow_ref: traveler-write-review
+    expected_ux: Review form unavailable; explain window closed.
+    invariant_ref: review-window
+
+  - id: duplicate-review-attempt
+    category: permission
+    trigger:
+      operation: publish_review
+      when: review_exists_for_booking
+    workflow_ref: traveler-write-review
+    expected_ux: Show existing review; offer edit within 48h of publish only.
+    invariant_ref: verified-guest-review-only
+
+  - id: property-paused-with-bookings
+    category: state_conflict
+    trigger:
+      operation: pause_listing
+      when: has_upcoming_confirmed_bookings
+    workflow_ref: hotel-manage-property
+    expected_ux: >
+      Allow pause; warn that listing hidden but existing bookings must be honored.
+      No new bookings accepted.
+
+  - id: search-zero-results
+    category: empty_state
+    trigger:
+      operation: view_search_results
+      when: no_matches
+    workflow_ref: traveler-discover-and-search
+    expected_ux: >
+      Helpful empty state: suggest broadening dates, removing filters, or nearby
+      cities. Never show blank screen.
+
+  - id: suspended-user-booking
+    category: permission
+    trigger:
+      operation: create_booking
+      when: user_suspended
+    workflow_ref: traveler-book-and-pay
+    expected_ux: Account suspended message; contact support. No new bookings.
+    invariant_ref: suspended-user-blocked
+
+  - id: stripe-connect-incomplete
+    category: onboarding
+    trigger:
+      operation: submit_for_review
+      when: stripe_connect_not_complete
+    workflow_ref: hotel-onboarding
+    expected_ux: Block submit; inline checklist item incomplete; link to complete Stripe Connect onboarding.
+
+  - id: onboarding-checklist-incomplete
+    category: onboarding
+    trigger:
+      operation: submit_for_review
+      when: readiness_checklist_failed
+    workflow_ref: hotel-onboarding
+    expected_ux: >
+      Submit disabled; checklist shows failing items (e.g. fewer than 5 photos, no room
+      types, missing US address). Self-serve fix in wizard; no sales contact required.
+
+  - id: property-rejected-self-serve-resubmit
+    category: onboarding
+    trigger:
+      operation: resubmit_after_rejection
+      when: property_rejected_or_change_requested
+    workflow_ref: hotel-onboarding
+    expected_ux: >
+      Dashboard shows rejection/change-request reason; hotel edits and resubmits via
+      wizard; returns to pending_review queue.
+
+  - id: concurrent-calendar-edit
+    category: concurrency
+    trigger:
+      operation: adjust_inventory
+      when: conflicting_update
+    workflow_ref: hotel-manage-inventory-pricing
+    expected_ux: >
+      Optimistic concurrency with version field; on conflict show refresh prompt
+      with diff summary. Never silently overwrite confirmed booking inventory.
+
+  - id: special-requests-overflow
+    category: validation
+    trigger:
+      operation: enter_guest_details
+      when: special_requests_over_500_chars
+    workflow_ref: traveler-book-and-pay
+    expected_ux: Inline validation; character count.
+
+  - id: network-error-mid-booking
+    category: error_recovery
+    trigger:
+      operation: any_booking_step
+      when: network_failure
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Retry affordance; preserve hold if active; never duplicate charge on retry
+      (idempotent payment intent).
+
+  - id: accessibility-keyboard-nav
+    category: accessibility
+    trigger:
+      operation: all_traveler_flows
+      when: keyboard_only
+    expected_ux: >
+      Full keyboard navigation; visible focus; skip links; form labels; error
+      association; modal trap and escape.
+
+  - id: overbooking-prevention-race
+    category: concurrency
+    trigger:
+      operation: confirm_booking
+      when: two_holds_same_last_room
+    workflow_ref: traveler-book-and-pay
+    expected_ux: >
+      Database-level constraint; second confirmer gets sold-out message and
+      auto-refund if payment captured.
+    invariant_ref: no-double-booking
+
+screens:
+  # Traveler — public
+  - id: home
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-discover-and-search]
+    elements: [search_hero, featured_destinations, value_props, footer]
+
+  - id: search-results
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-discover-and-search]
+    elements: [result_list, filter_panel, sort_control, map_toggle, pagination]
+
+  - id: hotel-detail
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-view-hotel-detail, traveler-discover-and-search]
+    elements: [photo_gallery, overview, amenities, location_map, room_list, reviews_section, policies_summary, book_cta]
+
+  - id: checkout
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-book-and-pay]
+    elements: [trip_summary, guest_form, policy_acknowledgment, hold_timer, payment_form, price_breakdown]
+
+  - id: booking-confirmation
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-book-and-pay]
+    elements: [confirmation_code, summary, manage_link, email_sent_notice]
+
+  - id: my-trips
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-manage-reservation]
+    elements: [upcoming_tab, past_tab, trip_cards]
+
+  - id: reservation-detail
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-manage-reservation, traveler-cancel-reservation]
+    elements: [booking_summary, hotel_contact, cancel_cta, receipt_download, policy_display]
+
+  - id: cancel-flow
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-cancel-reservation]
+    elements: [refund_preview, confirm_cancel, cancellation_confirmation]
+
+  - id: write-review
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-write-review]
+    elements: [rating_inputs, text_area, submit, guidelines]
+
+  - id: sign-in
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-account-management]
+    elements: [email_password_form, google_sso, forgot_password_link]
+
+  - id: sign-up
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-account-management]
+    elements: [registration_form, google_sso, terms_acknowledgment]
+
+  - id: account-settings
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-account-management]
+    elements: [profile_form, password_change, email_verification_status]
+
+  - id: help-center
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-contact-support]
+    elements: [faq_categories, contact_form, ticket_status]
+
+  - id: trust-report-form
+    surface: traveler_web
+    status: new
+    workflow_refs: [traveler-file-trust-report]
+    elements: [report_type_select, description, submit]
+
+  # Hotel — dashboard (desktop)
+  - id: hotel-dashboard-home
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-manage-reservations, hotel-manage-property]
+    elements: [property_selector, upcoming_arrivals, recent_bookings, quick_stats, alerts]
+
+  - id: list-your-property
+    surface: traveler_web
+    status: new
+    workflow_refs: [hotel-onboarding]
+    elements: [value_props_for_hotels, self_serve_cta, requirements_summary, faq_links]
+
+  - id: hotel-onboarding-wizard
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-onboarding]
+    elements: [step_indicator, account_form, stripe_connect, property_form, room_setup, policy_picker, readiness_checklist, review_submit, pending_status_tracker]
+
+  - id: property-editor
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-manage-property]
+    elements: [profile_form, photo_manager, amenities_picker, pause_toggle]
+
+  - id: inventory-calendar
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-manage-inventory-pricing]
+    elements: [date_grid, room_type_rows, rate_cells, bulk_edit, close_dates]
+
+  - id: hotel-reservations-list
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-manage-reservations]
+    elements: [filters, reservation_table, export]
+
+  - id: hotel-reservation-detail
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-manage-reservations]
+    elements: [guest_info, booking_summary, check_in_action, cancel_action]
+
+  - id: hotel-reviews
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-respond-to-review]
+    elements: [review_list, response_form]
+
+  - id: hotel-support
+    surface: hotel_dashboard
+    status: new
+    workflow_refs: [hotel-contact-support]
+    elements: [ticket_form, ticket_list]
+
+  # Platform admin — full internal console (desktop)
+  - id: admin-dashboard
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-platform-operations]
+    elements: [kpi_cards, queue_shortcuts, recent_activity, booking_chart, gmv_chart]
+
+  - id: admin-property-approval-queue
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-review-property]
+    elements: [pending_table, submission_preview, approve_reject_actions, change_request_form]
+
+  - id: admin-properties-list
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels]
+    elements: [search_filters, property_table, status_badges, suspend_action]
+
+  - id: admin-property-detail
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels, admin-review-property]
+    elements: [listing_preview, booking_stats, payout_status, action_panel]
+
+  - id: admin-users-list
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels]
+    elements: [search_filters, user_table, suspend_action]
+
+  - id: admin-user-detail
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels]
+    elements: [profile_summary, booking_history, trust_flags, action_panel]
+
+  - id: admin-hotels-list
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels]
+    elements: [search_filters, hotel_account_table, stripe_status, suspend_action]
+
+  - id: admin-hotel-detail
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-users-and-hotels]
+    elements: [account_summary, properties_list, staff_list, payout_overview, action_panel]
+
+  - id: admin-bookings-list
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-bookings-payments]
+    elements: [search_filters, booking_table, export]
+
+  - id: admin-booking-detail
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-bookings-payments]
+    elements: [booking_summary, payment_refund_history, policy_snapshot, notification_log, override_actions]
+
+  - id: admin-payments-payouts
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-manage-bookings-payments]
+    elements: [payments_table, payouts_table, failed_payout_alerts, retry_action]
+
+  - id: admin-trust-queue
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-trust-and-reviews]
+    elements: [report_table, investigation_panel, action_form]
+
+  - id: admin-reviews-moderation
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-trust-and-reviews]
+    elements: [flagged_reviews_table, review_detail, remove_restore_actions]
+
+  - id: admin-support-escalations
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-support-escalations]
+    elements: [escalated_ticket_queue, override_panel, resolution_form]
+
+  - id: admin-support-tickets
+    surface: platform_admin
+    status: new
+    workflow_refs: [support-resolve-ticket, admin-support-escalations]
+    elements: [all_tickets_table, ticket_detail, assign_action]
+
+  - id: admin-platform-settings
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-platform-config]
+    elements: [commission_rate_form, policy_templates_readonly, system_flags]
+
+  - id: admin-audit-log
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-platform-config]
+    elements: [searchable_log_table, action_detail]
+
+  - id: admin-notification-log
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-platform-config]
+    elements: [email_log_table, delivery_status, resend_action]
+
+  - id: admin-users-management
+    surface: platform_admin
+    status: new
+    workflow_refs: [admin-platform-config]
+    elements: [admin_user_table, invite_form, deactivate_action]
+
+  # Shared / system
+  - id: email-templates
+    surface: system
+    status: new
+    note: Not a screen — transactional email set
+    templates:
+      - booking_confirmation_traveler
+      - booking_confirmation_hotel
+      - pre_arrival_reminder
+      - cancellation_traveler
+      - cancellation_hotel
+      - review_prompt
+      - review_published_hotel
+      - email_verification
+      - password_reset
+      - support_ticket_update
+      - payout_notification_hotel
+      - property_submitted_for_review
+      - property_approved
+      - property_rejected
+      - property_change_requested
+
+decisions:
+  - id: checkout-hold-duration
+    choice: 15-minute inventory hold during checkout
+    rationale: Balance fairness (don't lock inventory indefinitely) vs payment time
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: cancellation-policy-templates
+    choice: Three platform templates (flexible/moderate/strict); hotel picks one per property
+    rationale: Simplifies v1; avoids free-form policy parsing; snapshot at booking
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: hotel-payout-timing
+    choice: Payout after check-in date via Stripe Connect
+    rationale: Reduces chargeback exposure; aligns with cancellation windows
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: search-default-sort
+    choice: Recommended (blend of rating, booking conversion, distance when geo known)
+    rationale: Differentiation vs pure price-sort OTAs; tunable post-launch
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: single-traveler-account-model
+    choice: Leisure and business travelers share account model; receipt download satisfies expense needs
+    rationale: Corporate travel out of scope; avoids duplicate auth systems
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: property-approval-gate
+    choice: Manual platform admin approval before go-live
+    rationale: Trust and quality for boutique positioning; cold-start acceptable at 300 hotel target
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: no-guest-messaging-v1
+    choice: No in-app guest-hotel messaging; surface hotel contact on reservation
+    rationale: Scope control; email/phone sufficient for v1; reduces moderation burden
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: hotel-onboarding-self-serve
+    choice: Fully self-serve hotel onboarding via public List your property flow; no sales-assisted path in v1
+    rationale: Stakeholder decision 2026-07-10; reduces supply friction and ops overhead at launch
+    run_ref: havenstay-platform-2026-07-10
+
+  - id: platform-admin-full-console
+    choice: Full platform admin web console — dashboard, approvals, users, hotels, bookings, payments/payouts, trust, reviews, support, config, audit and notification logs
+    rationale: Stakeholder decision 2026-07-10; maximize operational depth for marketplace governance
+    run_ref: havenstay-platform-2026-07-10
+
+open_questions:
+  - Commission rate percentage and guest-facing fee display
+  - Tax calculation approach (estimates vs jurisdiction-accurate)
+  - Support tooling depth (Zendesk integration vs built-in)
+  - Recommended sort algorithm weights
+
+findings: []
+evidence: []
