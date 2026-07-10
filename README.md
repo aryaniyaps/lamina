@@ -95,23 +95,47 @@ customer support, accessibility, edge cases, and system behavior.
 
 </details>
 
-| | **Without Lamina** | **With Lamina** |
+| | **With Lamina** | **Without Lamina** |
 |---|---|---|
-| **Folder** | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) |
-| **Workflow** | Cursor **Plan mode** → implement | `/lamina-design` → implement → `/lamina-verify` |
-| **Contract** | `.cursor/plans/havenstay_booking_platform_*.plan.md` | `.lamina/runs/havenstay-platform-2026-07-10/run.yaml` + `implement.md` |
-| **Post-build check** | None | Persona walks, invariant probes, verify report |
-| **Stack** | Next.js 16 · Prisma · PostgreSQL · Auth.js · Stripe | Next.js 15 · Prisma · SQLite · Stripe |
+| **Folder** | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) |
+| **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor **Plan mode** → implement |
+| **Contract** | `.lamina/runs/.../run.yaml` + `implement.md` | `.cursor/plans/havenstay_booking_platform_*.plan.md` |
+| **Post-build check** | Persona walks, invariant probes, verify report | None |
+| **Stack** | Next.js 15 · Prisma · SQLite · Stripe | Next.js 16 · Prisma · PostgreSQL · Auth.js · Stripe |
 
 <p align="center">
-  <img src="demo/hotel-booking-without-lamina/screenshot.png" alt="HavenStay built without Lamina (Cursor Plan mode)" width="48%" />
-  &nbsp;
   <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina (design + verify cycle)" width="48%" />
+  &nbsp;
+  <img src="demo/hotel-booking-without-lamina/screenshot.png" alt="HavenStay built without Lamina (Cursor Plan mode)" width="48%" />
 </p>
 
-<p align="center"><sub>Left: Plan mode only · Right: Lamina design + verify</sub></p>
+<p align="center"><sub>Left: Lamina design + verify · Right: Plan mode only</sub></p>
 
-Both apps ship traveler search/booking, hotel partner dashboards, and platform admin — but the Lamina build gets a machine-readable contract up front and a structured audit after implementation. See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/report.md) and [verify report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/verify-report.md) for the full contract and findings.
+Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a homepage exists.
+
+### What Lamina implemented that Plan mode missed
+
+- **Checkout inventory holds** — 15-minute hold with countdown timer, hold-aware availability, and cron expiry. Plan mode decrements inventory only after payment, so concurrent checkouts can race.
+- **Cancellation policy model** — Per-property Flexible / Moderate / Strict templates with an immutable `policySnapshot` and structured refund math. Plan mode uses one global 48h / 50% / none tier.
+- **Property go-live governance** — Hotels submit for review; admins approve, reject, or request changes. Plan mode lets partners self-publish with no approval queue.
+- **Hotel onboarding funnel** — “List your property” → 6-step wizard (Connect, property, rooms, policy, readiness checklist, submit). Plan mode is flat hotel/room forms + manual publish.
+- **Hotel-initiated cancellation** — Cancel with mandatory reason and automatic 100% guest refund (`CANCELLED_BY_HOTEL`). Plan mode has no hotel cancel path.
+- **Platform admin console** — Approvals, users, hotels, bookings, payments, trust reports, review moderation, tickets, settings, audit log. Plan mode ships a single KPI dashboard page.
+- **Traveler booking edges** — Email-verified booking gate, dedicated cancel flow with refund preview, review window gating, receipt on trip detail, richer booking states (`PENDING_PAYMENT`, `CHECKED_IN`, `CANCELLED_BY_*`, `PAYMENT_FAILED`).
+- **Search integrity** — Only `LIVE` properties; date search excludes sold-out inventory. Plan mode can still list unavailable hotels.
+- **Marketplace accounting** — Commission tracking, booking line items, dedicated refund records, user suspension that blocks booking.
+- **Design + verify artifacts** — Machine contract, personas, design report, implement brief, and verify report with invariant probes. Plan mode leaves only a Cursor plan file.
+
+### What Plan mode shipped that Lamina is weaker on
+
+- **Stripe Checkout + webhooks** — Real Checkout Session redirect and idempotent `checkout.session.completed` confirmation. Lamina uses mock-first payment confirm with no webhook handler.
+- **Email delivery** — Resend HTML templates when configured. Lamina logs to console / notification table only.
+- **Guest ↔ hotel messaging** — In-app threads on trip detail and partner inbox. Lamina deferred chat; contact info only.
+- **Traveler notification center** — Read/unread in-app notifications. Lamina has an admin delivery log, not a guest inbox.
+- **Optional Google OAuth** — Wired in Auth.js. Lamina is credentials-only.
+- **Search sort controls** — Price / rating / recommended. Lamina filters by price and rating but has no sort UI.
+
+See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/report.md) and [verify report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/verify-report.md) for the full contract and findings.
 
 ---
 
