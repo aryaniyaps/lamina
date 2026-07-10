@@ -1,7 +1,7 @@
 id: task007
 category: oss_feature
 workflow: design
-prompt: Add a wishlist feature to the storefront.
+prompt: "Design the product behavior for a wishlist feature on the storefront: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product."
 fixture: commerce-with-init
 human_eval: true
 runs: 3

@@ -1,7 +1,7 @@
 id: task003
 category: greenfield
 workflow: design
-prompt: Design a volunteer management platform for nonprofit coordinators.
+prompt: "Design the product behavior for a volunteer management platform for nonprofit coordinators: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: false
 runs: 3

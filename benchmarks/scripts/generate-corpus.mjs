@@ -12,11 +12,11 @@ const TASKS = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS = path.join(ROOT, 'benchmarks/goldens');
 
 const V2_SECTIONS = [
-  'domain and invariants',
+  'domain model and illegal states',
   'actors and permissions',
-  'workflows',
-  'scenarios',
-  'implement brief',
+  'workflows and decision points',
+  'edge cases and recovery',
+  'implementation brief',
 ];
 
 const AUDIT_SECTIONS = ['executive summary', 'findings', 'prioritized improvements'];
@@ -29,7 +29,7 @@ const CORPUS = [
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the core UX for a household budgeting app.',
+    prompt: 'Design the product behavior for a household budgeting app: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Household Budgeting App
 
 Design a new mobile-first budgeting product for young families in the US.
@@ -70,7 +70,7 @@ Young families (25–40) with dual incomes, 1–2 children, managing 2–4 finan
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the appointment scheduling experience for a multi-provider clinic.',
+    prompt: 'Design the product behavior for multi-provider clinic appointment scheduling: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Clinic Appointment Scheduling
 
 Design a patient-facing scheduling system for a multi-specialty clinic network.
@@ -110,7 +110,7 @@ Patients (18+), caregivers booking for dependents, front-desk staff handling exc
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design a volunteer management platform for nonprofit coordinators.',
+    prompt: 'Design the product behavior for a volunteer management platform for nonprofit coordinators: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Volunteer Management Platform
 
 Design a platform for nonprofit coordinators to recruit, schedule, and communicate with volunteers.
@@ -150,7 +150,7 @@ Nonprofit coordinators, volunteers (ages 16–70), organization admins.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design a collaborative travel itinerary planner for friend groups.',
+    prompt: 'Design the product behavior for a collaborative travel itinerary planner for friend groups: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Travel Itinerary Planner
 
 Design a collaborative trip planning tool for friend groups organizing vacations together.
@@ -190,7 +190,7 @@ Trip organizers (25–45), group members contributing ideas, passive viewers.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design a personal fitness tracker focused on habit formation, not metrics obsession.',
+    prompt: 'Design the product behavior for a personal fitness tracker focused on habit formation: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Habit-Focused Fitness Tracker
 
 Design a fitness app that prioritizes sustainable habits over competitive metrics.
@@ -232,7 +232,7 @@ Health-conscious adults (25–55) intimidated by gym culture; beginners returnin
     fixture: 'plane-with-init',
     human_eval: true,
     oss: { repo: 'makeplane/plane', commit: 'develop' },
-    prompt: 'Design a recurring tasks feature for Plane.',
+    prompt: 'Design the product behavior for a recurring tasks feature in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Recurring Tasks for Plane
 
 Design a recurring task feature that integrates with Plane's existing issue workflow.
@@ -256,7 +256,7 @@ Core UX: left sidebar navigation, issue states, cycles, modules, Kanban/List vie
       required_edge_cases: ['deleted_project', 'permission_denied', 'cycle_boundary', 'duplicate_occurrence'],
       required_a11y: ['keyboard_shortcuts', 'screen_reader_recurrence_description'],
       required_tradeoffs: ['series_edit_vs_single_occurrence_edit', 'timezone_consistency_vs_user_local_display'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'tradeoffs and decisions', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'tradeoffs and decisions', 'implementation brief'],
     },
   },
   {
@@ -266,7 +266,7 @@ Core UX: left sidebar navigation, issue states, cycles, modules, Kanban/List vie
     fixture: 'commerce-with-init',
     human_eval: true,
     oss: { repo: 'vercel/commerce', commit: 'main' },
-    prompt: 'Add a wishlist feature to the storefront.',
+    prompt: 'Design the product behavior for a wishlist feature on the storefront: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Wishlist Feature
 
 Design a wishlist feature for the Vercel Commerce storefront.
@@ -300,7 +300,7 @@ Existing flows: product listing, product detail, cart, checkout.`,
     fixture: 'outline-with-init',
     human_eval: false,
     oss: { repo: 'outline/outline', commit: 'main' },
-    prompt: 'Design guest sharing for Outline documents.',
+    prompt: 'Design the product behavior for guest sharing of Outline documents: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Guest Document Sharing
 
 Design a guest sharing feature for Outline documents.
@@ -324,7 +324,7 @@ Existing: collection-level permissions, @mentions, inline comments.`,
       required_edge_cases: ['expired_link', 'guest_email_mismatch', 'document_moved', 'collection_permission_conflict'],
       required_a11y: ['permission_status_visible', 'guest_mode_indicator'],
       required_tradeoffs: ['link_sharing_convenience_vs_security', 'comment_access_vs_read_only'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'tradeoffs and decisions', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'tradeoffs and decisions', 'implementation brief'],
     },
   },
   {
@@ -334,7 +334,7 @@ Existing: collection-level permissions, @mentions, inline comments.`,
     fixture: 'commerce-with-init',
     human_eval: false,
     oss: { repo: 'vercel/commerce', commit: 'main' },
-    prompt: 'Design saved searches for the product catalog.',
+    prompt: 'Design the product behavior for saved searches in the product catalog: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Saved Searches
 
 Design saved search functionality for the commerce product catalog.
@@ -366,7 +366,7 @@ Design saved search functionality for the commerce product catalog.
     fixture: 'plane-with-init',
     human_eval: false,
     oss: { repo: 'makeplane/plane', commit: 'develop' },
-    prompt: 'Design bulk actions for issues in Plane.',
+    prompt: 'Design the product behavior for bulk actions on issues in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Bulk Issue Actions
 
 Design bulk action UX for managing multiple issues at once in Plane.
@@ -399,7 +399,7 @@ Design bulk action UX for managing multiple issues at once in Plane.
     fixture: 'commerce-audit-ready',
     human_eval: true,
     oss: { repo: 'vercel/commerce', commit: 'main' },
-    prompt: 'Audit the checkout flow for product-behavior and usability issues.',
+    prompt: 'Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Checkout Flow Audit
 
 Perform a behavior and UX audit of the storefront checkout flow.
@@ -432,7 +432,7 @@ Review the codebase and existing flows inventory in .lamina/ if present.`,
     fixture: 'plane-with-init',
     human_eval: true,
     oss: { repo: 'makeplane/plane', commit: 'develop' },
-    prompt: 'Audit the project settings and configuration experience in Plane.',
+    prompt: 'Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Project Settings Audit
 
 Audit the product behavior and UX of project settings and configuration in Plane.
@@ -463,7 +463,7 @@ Audit the product behavior and UX of project settings and configuration in Plane
     fixture: 'outline-with-init',
     human_eval: false,
     oss: { repo: 'outline/outline', commit: 'main' },
-    prompt: 'Audit document sharing and permissions behavior in Outline.',
+    prompt: 'Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Document Sharing Audit
 
 Audit how Outline handles document sharing, permissions, and invariant enforcement.
@@ -494,7 +494,7 @@ Audit how Outline handles document sharing, permissions, and invariant enforceme
     fixture: 'commerce-audit-ready',
     human_eval: false,
     oss: { repo: 'vercel/commerce', commit: 'main' },
-    prompt: 'Audit the cart experience for behavioral friction and abandonment risks.',
+    prompt: 'Audit the cart experience for product-behavior friction and abandonment risks: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Cart Experience Audit
 
 Audit the shopping cart for behavioral friction, state consistency, and abandonment risks.
@@ -525,7 +525,7 @@ Audit the shopping cart for behavioral friction, state consistency, and abandonm
     fixture: 'plane-with-init',
     human_eval: false,
     oss: { repo: 'makeplane/plane', commit: 'develop' },
-    prompt: 'Audit the new user onboarding experience in Plane.',
+    prompt: 'Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Onboarding Audit
 
 Audit Plane's onboarding flow for behavioral gaps and time-to-value issues.
@@ -556,7 +556,7 @@ Audit Plane's onboarding flow for behavioral gaps and time-to-value issues.
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design a healthcare appointment scheduling workflow with complex insurance rules.',
+    prompt: 'Design the product behavior for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Healthcare Scheduling with Insurance Rules
 
 Design scheduling UX for a clinic where insurance verification affects appointment availability.
@@ -586,7 +586,7 @@ Patients, scheduling staff, insurance coordinators.
       required_edge_cases: ['eligibility_timeout', 'partial_coverage', 'auth_denied', 'plan_change_mid_booking'],
       required_a11y: ['plain_language_insurance', 'error_recovery_paths'],
       required_tradeoffs: ['real_time_eligibility_vs_wait_time', 'in_network_restriction_vs_patient_choice'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'policy enforcement', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'policy enforcement', 'implementation brief'],
     },
   },
   {
@@ -595,7 +595,7 @@ Patients, scheduling staff, insurance coordinators.
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design an expense reimbursement approval workflow for a mid-size company.',
+    prompt: 'Design the product behavior for an expense reimbursement approval workflow: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Expense Reimbursement Workflow
 
 Design a multi-step expense reimbursement system with manager and finance approval.
@@ -626,7 +626,7 @@ Employees, managers, finance team, auditors.
       required_edge_cases: ['policy_violation', 'manager_ooo', 'duplicate_submission', 'currency_conversion'],
       required_a11y: ['form_validation_feedback', 'status_tracking'],
       required_tradeoffs: ['approval_speed_vs_policy_enforcement', 'delegation_flexibility_vs_audit_clarity'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'state management', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'state management', 'implementation brief'],
     },
   },
   {
@@ -635,7 +635,7 @@ Employees, managers, finance team, auditors.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design subscription billing UX with upgrades, downgrades, and proration.',
+    prompt: 'Design the product behavior for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Subscription Billing Workflow
 
 Design billing UX for a SaaS product with plan changes mid-cycle.
@@ -666,7 +666,7 @@ Account owners, team admins, finance contacts.
       required_edge_cases: ['card_expired', 'chargeback', 'plan_discontinued', 'usage_overage'],
       required_a11y: ['billing_status_clear', 'charge_preview'],
       required_tradeoffs: ['immediate_upgrade_revenue_vs_user_surprise', 'grace_period_length_vs_churn_risk'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'error handling', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'error handling', 'implementation brief'],
     },
   },
   {
@@ -675,7 +675,7 @@ Account owners, team admins, finance contacts.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design enterprise RBAC permission management for a multi-tenant admin console.',
+    prompt: 'Design the product behavior for enterprise RBAC in a multi-tenant admin console: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Enterprise RBAC Admin Console
 
 Design role-based access control management for enterprise admins.
@@ -706,7 +706,7 @@ Org admins, security officers, team leads, end users.
       required_edge_cases: ['conflicting_permissions', 'role_deletion_with_users', 'sso_sync_delay'],
       required_a11y: ['permission_matrix_navigation', 'destructive_confirmations'],
       required_tradeoffs: ['granular_permissions_vs_admin_complexity', 'inheritance_vs_explicit_override'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'policy enforcement', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'policy enforcement', 'implementation brief'],
     },
   },
   {
@@ -715,7 +715,7 @@ Org admins, security officers, team leads, end users.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design a multi-stage employee onboarding workflow across HR, IT, and team leads.',
+    prompt: 'Design the product behavior for multi-stage employee onboarding across HR, IT, and team leads: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Multi-Stage Employee Onboarding
 
 Design onboarding coordination across HR, IT provisioning, and team integration.
@@ -745,7 +745,7 @@ New hires, HR coordinators, IT admins, hiring managers.
       required_edge_cases: ['delayed_start', 'role_change_mid_onboarding', 'it_provisioning_failure'],
       required_a11y: ['progress_visibility', 'deadline_reminders'],
       required_tradeoffs: ['parallel_tasks_vs_sequential_compliance', 'automation_vs_human_handoff'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery flows', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery flows', 'implementation brief'],
     },
   },
   // Resilience & degraded states (5)
@@ -755,7 +755,7 @@ New hires, HR coordinators, IT admins, hiring managers.
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design offline editing UX for a collaborative document editor.',
+    prompt: 'Design the product behavior for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Offline Editing
 
 Design how a collaborative document editor handles offline editing and reconnection.
@@ -785,7 +785,7 @@ Remote workers, field staff, travelers.
       required_edge_cases: ['extended_offline', 'conflicting_edits', 'storage_full', 'auth_expired_offline'],
       required_a11y: ['status_announcements', 'offline_mode_screen_reader'],
       required_tradeoffs: ['last_write_wins_vs_manual_merge', 'queue_size_vs_storage'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery paths', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery paths', 'implementation brief'],
     },
   },
   {
@@ -794,7 +794,7 @@ Remote workers, field staff, travelers.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design screen reader support for a data-heavy analytics dashboard.',
+    prompt: 'Design the product behavior for screen-reader support on a data-heavy analytics dashboard: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Screen Reader Analytics Dashboard
 
 Design accessible UX for a data analytics dashboard used with screen readers.
@@ -833,7 +833,7 @@ Analysts with visual impairments, keyboard-only users, sighted analysts.
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design empty states across a project management application.',
+    prompt: 'Design the product behavior for empty states across a project management application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Empty States Design
 
 Design comprehensive empty states for a project management application.
@@ -872,7 +872,7 @@ New users, experienced users encountering empty views, admins.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design session expiration and re-authentication UX.',
+    prompt: 'Design the product behavior for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Session Expiration UX
 
 Design how the application handles session timeout and re-authentication.
@@ -902,7 +902,7 @@ All authenticated users; especially form-heavy workflows.
       required_edge_cases: ['sso_failure', 'concurrent_sessions', 'unsaved_form_data'],
       required_a11y: ['timeout_warning_announced', 'focus_on_modal'],
       required_tradeoffs: ['security_timeout_vs_workflow_disruption', 'extend_session_vs_force_reauth'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery paths', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'recovery paths', 'implementation brief'],
     },
   },
   {
@@ -911,7 +911,7 @@ All authenticated users; especially form-heavy workflows.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design UX for slow network conditions in a media-rich web application.',
+    prompt: 'Design the product behavior for slow-network conditions in a media-rich web application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
     description: `# Slow Network Degradation
 
 Design progressive degradation for a media-rich web app on slow networks.
@@ -941,7 +941,7 @@ Mobile users on 3G/4G, rural users, international travelers.
       required_edge_cases: ['connection_drop_mid_upload', 'timeout', 'partial_load'],
       required_a11y: ['loading_status_announced', 'reduced_motion_option'],
       required_tradeoffs: ['media_quality_vs_load_time', 'auto_detection_vs_user_opt_in'],
-      required_sections: [...V2_SECTIONS.slice(0, 4), 'user guidance', 'implement brief'],
+      required_sections: [...V2_SECTIONS.slice(0, 4), 'user guidance', 'implementation brief'],
     },
   },
 ];

@@ -1,4 +1,5 @@
 task_id: task007
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - wishlist
   - wishlist_item
@@ -39,8 +40,8 @@ required_tradeoffs:
   - guest_persistence_vs_privacy
   - price_notification_vs_noise
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

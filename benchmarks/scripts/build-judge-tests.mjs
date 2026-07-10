@@ -43,6 +43,11 @@ function buildTests() {
         context,
         golden: JSON.stringify(golden, null, 2),
         artifact: artifact.slice(0, 24000),
+        metadata: {
+          task_id: entry.task_id,
+          arm: entry.arm,
+          run: entry.run,
+        },
       },
       metadata: {
         task_id: entry.task_id,

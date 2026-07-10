@@ -1,4 +1,5 @@
 task_id: task010
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - issue
   - bulk_selection
@@ -35,8 +36,8 @@ required_tradeoffs:
   - bulk_speed_vs_per_item_confirmation
   - cross_page_selection_vs_performance
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

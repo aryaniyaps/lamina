@@ -1,8 +1,8 @@
 [
   {
     "task_id": "task001",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task002",
@@ -16,8 +16,8 @@
   },
   {
     "task_id": "task007",
-    "A": "control",
-    "B": "treatment"
+    "A": "treatment",
+    "B": "control"
   },
   {
     "task_id": "task011",
@@ -26,18 +26,18 @@
   },
   {
     "task_id": "task012",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task016",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task017",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task021",

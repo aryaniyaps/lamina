@@ -1,7 +1,7 @@
 id: task017
 category: workflow_edge
 workflow: design
-prompt: Design an expense reimbursement approval workflow for a mid-size company.
+prompt: "Design the product behavior for an expense reimbursement approval workflow: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: true
 runs: 3

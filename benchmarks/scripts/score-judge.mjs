@@ -1,17 +1,26 @@
 #!/usr/bin/env node
 /**
- * LLM judge scoring via direct API (fallback when promptfoo keys unavailable).
+ * LLM judge scoring for LaminaBench.
+ *
+ * Modes:
+ *   (default)  Live: build promptfoo tests and run promptfoo if keys available;
+ *              otherwise arm-neutral heuristic (no treatment seed advantage).
+ *   --heuristic  Force arm-neutral heuristic (pipeline checks).
+ *   --mock       Alias for --heuristic (deprecated name).
+ *
  * Writes judge-summary.json for analyze.py.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
-import { readYamlSync } from '../scripts/yaml.mjs';
+import { spawnSync } from 'node:child_process';
+import { readYamlSync } from './yaml.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const SCORED_DIR = path.join(ROOT, 'benchmarks/results/scored');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
+const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 
 const CRITERIA = [
   'domain_system_structure',
@@ -26,22 +35,150 @@ const CRITERIA = [
   'overall_product_behavior',
 ];
 
-function judgeHeuristic(artifact, golden, arm) {
-  const text = artifact.toLowerCase();
-  let score = arm === 'treatment' ? 3.5 : 2.8;
-  const fields = Object.values(golden).flat().filter((v) => typeof v === 'string');
-  const hits = fields.filter((f) => text.includes(f.replace(/_/g, ' ').slice(0, 8)));
+/**
+ * Arm-neutral heuristic: base score identical for control and treatment.
+ * Used only when live LLM judging is unavailable.
+ */
+function judgeHeuristic(artifact, golden) {
+  const text = artifact.toLowerCase().replace(/[_-]/g, ' ');
+  let score = 2.8;
+  const fields = Object.values(golden)
+    .flat()
+    .filter((v) => typeof v === 'string');
+  const hits = fields.filter((f) => {
+    const phrase = f.replace(/_/g, ' ');
+    const words = phrase.split(/\s+/).filter((w) => w.length > 2);
+    if (!words.length) return text.includes(phrase);
+    const matched = words.filter((w) => text.includes(w));
+    return matched.length >= Math.ceil(words.length * 0.6);
+  });
   score += (hits.length / Math.max(fields.length, 1)) * 1.5;
   const out = {};
   for (const c of CRITERIA) {
     out[c] = Math.min(5, Math.max(1, Math.round(score * 10) / 10));
   }
-  out.evidence = `Heuristic judge: ${hits.length}/${fields.length} golden items referenced`;
+  out.evidence = `Arm-neutral heuristic: ${hits.length}/${fields.length} golden items referenced`;
+  out.judge_mode = 'heuristic';
   return out;
 }
 
+function tryPromptfooJudge(index) {
+  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  if (!hasOpenAI && !hasAnthropic) return null;
+
+  const build = spawnSync('node', ['benchmarks/scripts/build-judge-tests.mjs'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (build.status !== 0) {
+    console.warn('build-judge-tests failed; falling back to heuristic');
+    console.warn(build.stderr || build.stdout);
+    return null;
+  }
+
+  const testsPath = path.join(ROOT, 'benchmarks/judges/promptfoo-tests.json');
+  if (!fs.existsSync(testsPath)) return null;
+
+  const tests = JSON.parse(fs.readFileSync(testsPath, 'utf8'));
+  if (!tests.length) return null;
+
+  // Write config next to tests so file:// resolves
+  const tmpConfig = path.join(ROOT, 'benchmarks/judges/promptfoo-judge.generated.yaml');
+  const config = baseYaml.replace(
+    /tests:\s*\[\]/,
+    'tests: file://promptfoo-tests.json'
+  );
+  fs.writeFileSync(tmpConfig, config);
+
+  const outPath = path.join(ROOT, 'benchmarks/tmp/promptfoo-judge-output.json');
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  const pf = spawnSync(
+    'npx',
+    ['promptfoo', 'eval', '-c', 'promptfoo-judge.generated.yaml', '-o', outPath, '--no-cache'],
+    {
+      cwd: path.join(ROOT, 'benchmarks/judges'),
+      encoding: 'utf8',
+      env: process.env,
+      timeout: 600_000,
+    }
+  );
+
+  if (pf.status !== 0 || !fs.existsSync(outPath)) {
+    console.warn('promptfoo eval failed or produced no output; falling back to heuristic');
+    if (pf.stderr) console.warn(pf.stderr.slice(0, 2000));
+    return null;
+  }
+
+  try {
+    return parsePromptfooOutput(outPath, index);
+  } catch (err) {
+    console.warn(`Failed to parse promptfoo output: ${err.message}`);
+    return null;
+  }
+}
+
+function parsePromptfooOutput(outPath, index) {
+  const raw = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+  const results = raw.results?.results || raw.results || [];
+  if (!Array.isArray(results) || !results.length) return null;
+
+  const byKey = new Map();
+  for (const r of results) {
+    const meta = r.vars?.metadata || r.metadata || {};
+    // metadata may be nested in test metadata from build-judge-tests
+    const taskId = meta.task_id || r.test?.metadata?.task_id;
+    const arm = meta.arm || r.test?.metadata?.arm;
+    const run = meta.run || r.test?.metadata?.run;
+    if (!taskId) continue;
+
+    let scores = null;
+    const output = r.response?.output || r.output || r.response || '';
+    const text = typeof output === 'string' ? output : JSON.stringify(output);
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) scores = JSON.parse(jsonMatch[0]);
+    } catch {
+      /* skip */
+    }
+    if (!scores) continue;
+
+    const key = `${taskId}_${arm}_run${run}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(scores);
+  }
+
+  if (!byKey.size) return null;
+
+  const merged = [];
+  for (const entry of index) {
+    const key = `${entry.task_id}_${entry.arm}_run${entry.run}`;
+    const scoreSets = byKey.get(key);
+    if (!scoreSets?.length) continue;
+
+    const avg = {};
+    for (const c of CRITERIA) {
+      const vals = scoreSets.map((s) => Number(s[c])).filter((n) => !Number.isNaN(n));
+      avg[c] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 3;
+    }
+    avg.evidence = scoreSets.map((s) => s.evidence).filter(Boolean).join(' | ').slice(0, 500);
+    avg.judge_mode = 'promptfoo';
+    avg.judge_models = scoreSets.length;
+
+    const judge_mean = CRITERIA.reduce((sum, c) => sum + avg[c], 0) / CRITERIA.length;
+    merged.push({
+      ...entry,
+      judge_scores: avg,
+      judge_mean: Math.round(judge_mean * 100) / 100,
+    });
+  }
+
+  return merged.length ? merged : null;
+}
+
 function main() {
-  const mock = process.argv.includes('--mock');
+  const heuristic =
+    process.argv.includes('--heuristic') || process.argv.includes('--mock');
   const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
   if (!fs.existsSync(indexPath)) {
     console.error('No index.jsonl. Run bench:run first.');
@@ -56,35 +193,37 @@ function main() {
     .map((l) => JSON.parse(l));
 
   fs.mkdirSync(SCORED_DIR, { recursive: true });
-  const results = [];
 
-  for (const entry of index) {
-    const artifactPath = path.join(RESULTS_RAW, entry.artifact_path);
-    const golden = readYamlSync(path.join(GOLDENS_DIR, entry.task_id, 'golden.yaml'));
-    const artifact = fs.readFileSync(artifactPath, 'utf8');
+  let results = null;
+  if (!heuristic) {
+    results = tryPromptfooJudge(index);
+  }
 
-    let scores;
-    if (mock || !process.env.OPENAI_API_KEY) {
-      scores = judgeHeuristic(artifact, golden, entry.arm);
-    } else {
-      scores = judgeHeuristic(artifact, golden, entry.arm);
+  if (!results) {
+    results = [];
+    for (const entry of index) {
+      const artifactPath = path.join(RESULTS_RAW, entry.artifact_path);
+      const golden = readYamlSync(path.join(GOLDENS_DIR, entry.task_id, 'golden.yaml'));
+      const artifact = fs.existsSync(artifactPath) ? fs.readFileSync(artifactPath, 'utf8') : '';
+      const scores = judgeHeuristic(artifact, golden);
+      const judge_mean = CRITERIA.reduce((sum, c) => sum + scores[c], 0) / CRITERIA.length;
+      results.push({
+        ...entry,
+        judge_scores: scores,
+        judge_mean: Math.round(judge_mean * 100) / 100,
+      });
     }
-
-    const judge_mean =
-      CRITERIA.reduce((sum, c) => sum + scores[c], 0) / CRITERIA.length;
-
-    results.push({
-      ...entry,
-      judge_scores: scores,
-      judge_mean: Math.round(judge_mean * 100) / 100,
-    });
+    console.log(
+      heuristic
+        ? '(heuristic mode — arm-neutral; for pipeline checks only)'
+        : '(heuristic fallback — set OPENAI_API_KEY / ANTHROPIC_API_KEY for live LLM judging)'
+    );
+  } else {
+    console.log('(promptfoo LLM judge)');
   }
 
   fs.writeFileSync(path.join(SCORED_DIR, 'judge-summary.json'), JSON.stringify(results, null, 2) + '\n');
   console.log(`LLM judge scored ${results.length} artifacts → ${SCORED_DIR}/judge-summary.json`);
-  if (mock || !process.env.OPENAI_API_KEY) {
-    console.log('(heuristic mode — set OPENAI_API_KEY for live LLM judging via promptfoo)');
-  }
 }
 
 main();

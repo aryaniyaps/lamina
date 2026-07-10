@@ -1,4 +1,5 @@
 task_id: task011
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - cart
   - order

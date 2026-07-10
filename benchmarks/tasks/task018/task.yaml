@@ -1,7 +1,7 @@
 id: task018
 category: workflow_edge
 workflow: design
-prompt: Design subscription billing UX with upgrades, downgrades, and proration.
+prompt: "Design the product behavior for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: false
 runs: 3

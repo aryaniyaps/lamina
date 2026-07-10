@@ -11,7 +11,7 @@ prompts:
     ## Context
     {{context}}
 
-    ## Golden reference (evaluation checklist — not expected verbatim output)
+    ## Golden reference (evaluation checklist — concepts to look for; not expected verbatim; any clear wording counts)
     {{golden}}
 
     ## Generated artifact to score

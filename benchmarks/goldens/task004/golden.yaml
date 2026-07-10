@@ -1,4 +1,5 @@
 task_id: task004
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - trip
   - itinerary_item
@@ -39,8 +40,8 @@ required_tradeoffs:
   - collaboration_vs_organizer_control
   - offline_access_vs_live_sync
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

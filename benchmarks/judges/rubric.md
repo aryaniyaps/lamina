@@ -31,4 +31,5 @@ Score each criterion **1–5** (1 = poor, 5 = excellent). Raters are blind to wh
 - Do not reward formatting alone — evaluate reasoning depth
 - Penalize shallow UX checklists **and** missing invariants, scenarios, or trade-offs
 - Do **not** reward invented interviews, fake analytics, SUS scores, or workshop theater
+- Do **not** reward Lamina-specific section titles or `.lamina/` file structure — score product-behavior substance
 - Record brief notes for scores ≤ 2 or ≥ 4

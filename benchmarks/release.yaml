@@ -2,6 +2,8 @@ version: "2.0.0"
 release_tag: bench-v2.0.0
 created: "2026-07-10"
 
+# Default pin for the public leaderboard. Multi-agent pilots: pass --agent to run-bench.
+# Do not claim model independence from a single pin.
 agent: claude-code
 model: claude-sonnet-4-20250514
 temperature: 0
@@ -20,6 +22,7 @@ scoring_weights:
   llm_judge: 0.4
   human_eval: 0.2
 
+# required_sections intentionally omitted — format-neutral (avoids Lamina-shaped bias)
 golden_field_weights:
   required_invariants: 2
   required_entities: 2
@@ -30,7 +33,6 @@ golden_field_weights:
   required_rules: 1
   required_edge_cases: 1
   required_a11y: 1
-  required_sections: 1
   required_findings: 1
 
 llm_judges:
@@ -44,13 +46,17 @@ categories:
   - workflow_edge
   - resilience
 
+# Fixture honesty: commerce = full vendored repo; plane/outline = context stubs only
 oss_pins:
   commerce:
     repo: vercel/commerce
     commit: main
+    fixture_kind: vendored_full
   plane:
     repo: makeplane/plane
     commit: develop
+    fixture_kind: context_stub
   outline:
     repo: outline/outline
     commit: main
+    fixture_kind: context_stub

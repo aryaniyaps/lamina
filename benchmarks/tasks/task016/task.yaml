@@ -1,7 +1,7 @@
 id: task016
 category: workflow_edge
 workflow: design
-prompt: Design a healthcare appointment scheduling workflow with complex insurance rules.
+prompt: "Design the product behavior for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: true
 runs: 3

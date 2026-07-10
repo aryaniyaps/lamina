@@ -1,4 +1,5 @@
 task_id: task005
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - habit
   - checkin
@@ -36,8 +37,8 @@ required_tradeoffs:
   - accountability_vs_pressure
   - streak_motivation_vs_forgiveness
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

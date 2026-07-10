@@ -1,7 +1,7 @@
 id: task011
 category: oss_audit
 workflow: audit
-prompt: Audit the checkout flow for product-behavior and usability issues.
+prompt: "Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
 fixture: commerce-audit-ready
 human_eval: true
 runs: 3

@@ -1,7 +1,7 @@
 id: task010
 category: oss_feature
 workflow: design
-prompt: Design bulk actions for issues in Plane.
+prompt: "Design the product behavior for bulk actions on issues in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product."
 fixture: plane-with-init
 human_eval: false
 runs: 3

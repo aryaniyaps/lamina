@@ -1,7 +1,7 @@
 id: task015
 category: oss_audit
 workflow: audit
-prompt: Audit the new user onboarding experience in Plane.
+prompt: "Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
 fixture: plane-with-init
 human_eval: false
 runs: 3

@@ -1,4 +1,5 @@
 task_id: task022
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - dashboard
   - chart
@@ -38,8 +39,8 @@ required_tradeoffs:
   - data_density_vs_screen_reader_verbosity
   - live_updates_vs_cognitive_load
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

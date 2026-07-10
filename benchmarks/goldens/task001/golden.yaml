@@ -1,4 +1,5 @@
 task_id: task001
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - household
   - account
@@ -40,8 +41,8 @@ required_tradeoffs:
   - clarity_vs_granularity
   - shared_view_vs_partner_privacy
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

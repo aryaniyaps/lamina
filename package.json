@@ -19,10 +19,14 @@
     "setup:external-skills": "npx skills add ../skills --skill '*' -a cursor -y --copy",
     "bench:validate": "node benchmarks/scripts/compile-suite.mjs --check",
     "bench:run": "node benchmarks/scripts/run-bench.mjs",
-    "bench:score": "node benchmarks/judges/golden-coverage.mjs && node benchmarks/scripts/score-judge.mjs --mock",
+    "bench:run:mock": "node benchmarks/scripts/run-bench.mjs --mock",
+    "bench:score": "node benchmarks/judges/golden-coverage.mjs && node benchmarks/scripts/score-judge.mjs",
+    "bench:score:heuristic": "node benchmarks/judges/golden-coverage.mjs && node benchmarks/scripts/score-judge.mjs --heuristic",
     "bench:analyze": "python3 benchmarks/scripts/analyze.py",
     "bench:human-packet": "node benchmarks/scripts/export-human-packet.mjs",
-    "bench:all": "npm run bench:validate && npm run bench:run -- --mock && npm run bench:score && npm run bench:analyze && npm run bench:human-packet"
+    "bench:import-human": "node benchmarks/scripts/import-human-scores.mjs",
+    "bench:pipeline-check": "npm run bench:validate && npm run bench:run:mock && npm run bench:score:heuristic && npm run bench:analyze && npm run bench:human-packet",
+    "bench:all": "npm run bench:validate && npm run bench:run && npm run bench:score && npm run bench:analyze && npm run bench:human-packet"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",

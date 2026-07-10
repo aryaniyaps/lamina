@@ -1,4 +1,5 @@
 task_id: task009
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - saved_search
   - filter
@@ -32,8 +33,8 @@ required_a11y:
 required_tradeoffs:
   - notification_frequency_vs_relevance
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

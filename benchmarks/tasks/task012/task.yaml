@@ -1,7 +1,7 @@
 id: task012
 category: oss_audit
 workflow: audit
-prompt: Audit the project settings and configuration experience in Plane.
+prompt: "Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
 fixture: plane-with-init
 human_eval: true
 runs: 3

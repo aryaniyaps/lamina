@@ -1,4 +1,5 @@
 task_id: task021
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - document
   - edit_operation
@@ -36,9 +37,9 @@ required_tradeoffs:
   - last_write_wins_vs_manual_merge
   - queue_size_vs_storage
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
+  - workflows and decision points
+  - edge cases and recovery
   - recovery paths
-  - implement brief
+  - implementation brief

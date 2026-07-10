@@ -6,6 +6,7 @@ h2{margin-top:0}</style></head><body>
 <h1>LaminaBench Blind Review Packet</h1>
 <p>Tasks: 10. Score each artifact A and B using the product-behavior rubric. Do not infer which arm produced which.</p>
 <p><a href="../../judges/rubric.md">Rubric</a></p>
+<p>After scoring, import with: <code>npm run bench:import-human -- --csv your-scores.csv</code></p>
 <article><h2>task001</h2>
 <h3>Task</h3><pre># Household Budgeting App
 
@@ -18,60 +19,94 @@ Design a new mobile-first budgeting product for young families in the US.
 - Support weekly check-ins without overwhelming daily tracking
 - Exclude investment advice and tax filing
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task001 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task001 (control, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- primary_budgeter: detailed UX reasoning for primary budgeter
-- partner: detailed UX reasoning for partner
-- occasional_viewer: detailed UX reasoning for occasional viewer
-- onboarding: detailed UX reasoning for onboarding
-- account_linking: detailed UX reasoning for account linking
-- weekly_review: detailed UX reasoning for weekly review
-- category_adjustment: detailed UX reasoning for category adjustment
-- spending_alert: detailed UX reasoning for spending alert
-- no_investment_advice: detailed UX reasoning for no investment advice
-- shared_household_view: detailed UX reasoning for shared household view
-- privacy_between_partners: detailed UX reasoning for privacy between partners
-- empty_accounts: detailed UX reasoning for empty accounts
-- sync_failure: detailed UX reasoning for sync failure
-- duplicate_transactions: detailed UX reasoning for duplicate transactions
-- zero_income_month: detailed UX reasoning for zero income month
-- screen_reader_labels: detailed UX reasoning for screen reader labels
-- large_touch_targets: detailed UX reasoning for large touch targets
-- color_not_only_indicator: detailed UX reasoning for color not only indicator</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task001 (control, mock)
+## Trade-offs
 
-### Domain and invariants
+## Implementation brief
 
-### Actors and permissions
+- household: reasoning about household for this product.
+- account: reasoning about account for this product.
+- transaction: reasoning about transaction for this product.
+- budget: reasoning about budget for this product.
+- one active budget per household: reasoning about one active budget per household for this product.
+- partner privacy boundary: reasoning about partner privacy boundary for this product.
+- no investment advice display: reasoning about no investment advice display for this product.
+- primary budgeter: reasoning about primary budgeter for this product.
+- partner: reasoning about partner for this product.
+- occasional viewer: reasoning about occasional viewer for this product.
+- onboarding: reasoning about onboarding for this product.
+- account linking: reasoning about account linking for this product.
+- weekly review: reasoning about weekly review for this product.
+- category adjustment: reasoning about category adjustment for this product.
+- no investment advice: reasoning about no investment advice for this product.
+- shared household view: reasoning about shared household view for this product.
+- privacy between partners: reasoning about privacy between partners for this product.
+- sync failure recovery: reasoning about sync failure recovery for this product.
+- zero income month: reasoning about zero income month for this product.
+- duplicate transaction handling: reasoning about duplicate transaction handling for this product.
+- empty accounts: reasoning about empty accounts for this product.
+- sync failure: reasoning about sync failure for this product.
+- duplicate transactions: reasoning about duplicate transactions for this product.
+- clarity vs granularity: reasoning about clarity vs granularity for this product.
+- shared view vs partner privacy: reasoning about shared view vs partner privacy for this product.
+- screen reader labels: reasoning about screen reader labels for this product.
+- large touch targets: reasoning about large touch targets for this product.
+- color not only indicator: reasoning about color not only indicator for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task001 (treatment, mock)
 
-### Workflows
+## Domain model
 
-### Scenarios
+## Illegal states / invariants
 
-### Implement brief
+## Actors and permissions
 
-- primary_budgeter: detailed UX reasoning for primary budgeter
-- partner: detailed UX reasoning for partner
-- onboarding: detailed UX reasoning for onboarding
-- account_linking: detailed UX reasoning for account linking
-- weekly_review: detailed UX reasoning for weekly review
-- no_investment_advice: detailed UX reasoning for no investment advice
-- shared_household_view: detailed UX reasoning for shared household view
-- empty_accounts: detailed UX reasoning for empty accounts
-- sync_failure: detailed UX reasoning for sync failure
-- duplicate_transactions: detailed UX reasoning for duplicate transactions
-- screen_reader_labels: detailed UX reasoning for screen reader labels
-- large_touch_targets: detailed UX reasoning for large touch targets</pre>
+## Workflows
+
+## Scenarios
+
+## Trade-offs
+
+## Implementation brief
+
+- household: reasoning about household for this product.
+- account: reasoning about account for this product.
+- transaction: reasoning about transaction for this product.
+- budget: reasoning about budget for this product.
+- one active budget per household: reasoning about one active budget per household for this product.
+- partner privacy boundary: reasoning about partner privacy boundary for this product.
+- no investment advice display: reasoning about no investment advice display for this product.
+- primary budgeter: reasoning about primary budgeter for this product.
+- partner: reasoning about partner for this product.
+- occasional viewer: reasoning about occasional viewer for this product.
+- onboarding: reasoning about onboarding for this product.
+- account linking: reasoning about account linking for this product.
+- weekly review: reasoning about weekly review for this product.
+- category adjustment: reasoning about category adjustment for this product.
+- no investment advice: reasoning about no investment advice for this product.
+- shared household view: reasoning about shared household view for this product.
+- privacy between partners: reasoning about privacy between partners for this product.
+- sync failure recovery: reasoning about sync failure recovery for this product.
+- zero income month: reasoning about zero income month for this product.
+- duplicate transaction handling: reasoning about duplicate transaction handling for this product.
+- empty accounts: reasoning about empty accounts for this product.
+- sync failure: reasoning about sync failure for this product.
+- duplicate transactions: reasoning about duplicate transactions for this product.
+- clarity vs granularity: reasoning about clarity vs granularity for this product.
+- shared view vs partner privacy: reasoning about shared view vs partner privacy for this product.
+- screen reader labels: reasoning about screen reader labels for this product.
+- large touch targets: reasoning about large touch targets for this product.
+- color not only indicator: reasoning about color not only indicator for this product.</pre>
 </article>
 <article><h2>task002</h2>
 <h3>Task</h3><pre># Clinic Appointment Scheduling
@@ -85,60 +120,92 @@ Design a patient-facing scheduling system for a multi-specialty clinic network.
 - Handle insurance verification status in the flow
 - Reduce phone call volume to front desk
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task002 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task002 (treatment, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- patient: detailed UX reasoning for patient
-- caregiver: detailed UX reasoning for caregiver
-- front_desk_staff: detailed UX reasoning for front desk staff
-- book_appointment: detailed UX reasoning for book appointment
-- reschedule: detailed UX reasoning for reschedule
-- cancel: detailed UX reasoning for cancel
-- insurance_check: detailed UX reasoning for insurance check
-- waitlist_join: detailed UX reasoning for waitlist join
-- cancellation_policy: detailed UX reasoning for cancellation policy
-- insurance_verification_gate: detailed UX reasoning for insurance verification gate
-- provider_availability: detailed UX reasoning for provider availability
-- no_availability: detailed UX reasoning for no availability
-- insurance_denied: detailed UX reasoning for insurance denied
-- same_day_cancellation: detailed UX reasoning for same day cancellation
-- timezone_confusion: detailed UX reasoning for timezone confusion
-- keyboard_navigation: detailed UX reasoning for keyboard navigation
-- form_error_announcement: detailed UX reasoning for form error announcement
-- contrast_compliance: detailed UX reasoning for contrast compliance</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task002 (control, mock)
+## Trade-offs
 
-### Domain and invariants
+## Implementation brief
 
-### Actors and permissions
+- patient: reasoning about patient for this product.
+- appointment: reasoning about appointment for this product.
+- provider: reasoning about provider for this product.
+- insurance plan: reasoning about insurance plan for this product.
+- no phi in urls: reasoning about no phi in urls for this product.
+- insurance gate before booking: reasoning about insurance gate before booking for this product.
+- one booking per slot: reasoning about one booking per slot for this product.
+- patient: reasoning about patient for this product.
+- caregiver: reasoning about caregiver for this product.
+- front desk staff: reasoning about front desk staff for this product.
+- book appointment: reasoning about book appointment for this product.
+- reschedule: reasoning about reschedule for this product.
+- cancel: reasoning about cancel for this product.
+- insurance check: reasoning about insurance check for this product.
+- cancellation policy: reasoning about cancellation policy for this product.
+- insurance verification gate: reasoning about insurance verification gate for this product.
+- provider availability: reasoning about provider availability for this product.
+- insurance denied recovery: reasoning about insurance denied recovery for this product.
+- timezone confusion handling: reasoning about timezone confusion handling for this product.
+- no availability waitlist: reasoning about no availability waitlist for this product.
+- no availability: reasoning about no availability for this product.
+- insurance denied: reasoning about insurance denied for this product.
+- same day cancellation: reasoning about same day cancellation for this product.
+- real time eligibility vs booking speed: reasoning about real time eligibility vs booking speed for this product.
+- keyboard navigation: reasoning about keyboard navigation for this product.
+- form error announcement: reasoning about form error announcement for this product.
+- contrast compliance: reasoning about contrast compliance for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task002 (control, mock)
 
-### Workflows
+## Domain model
 
-### Scenarios
+## Illegal states / invariants
 
-### Implement brief
+## Actors and permissions
 
-- patient: detailed UX reasoning for patient
-- caregiver: detailed UX reasoning for caregiver
-- book_appointment: detailed UX reasoning for book appointment
-- reschedule: detailed UX reasoning for reschedule
-- cancel: detailed UX reasoning for cancel
-- cancellation_policy: detailed UX reasoning for cancellation policy
-- insurance_verification_gate: detailed UX reasoning for insurance verification gate
-- no_availability: detailed UX reasoning for no availability
-- insurance_denied: detailed UX reasoning for insurance denied
-- same_day_cancellation: detailed UX reasoning for same day cancellation
-- keyboard_navigation: detailed UX reasoning for keyboard navigation
-- form_error_announcement: detailed UX reasoning for form error announcement</pre>
+## Workflows
+
+## Scenarios
+
+## Trade-offs
+
+## Implementation brief
+
+- patient: reasoning about patient for this product.
+- appointment: reasoning about appointment for this product.
+- provider: reasoning about provider for this product.
+- insurance plan: reasoning about insurance plan for this product.
+- no phi in urls: reasoning about no phi in urls for this product.
+- insurance gate before booking: reasoning about insurance gate before booking for this product.
+- one booking per slot: reasoning about one booking per slot for this product.
+- patient: reasoning about patient for this product.
+- caregiver: reasoning about caregiver for this product.
+- front desk staff: reasoning about front desk staff for this product.
+- book appointment: reasoning about book appointment for this product.
+- reschedule: reasoning about reschedule for this product.
+- cancel: reasoning about cancel for this product.
+- insurance check: reasoning about insurance check for this product.
+- cancellation policy: reasoning about cancellation policy for this product.
+- insurance verification gate: reasoning about insurance verification gate for this product.
+- provider availability: reasoning about provider availability for this product.
+- insurance denied recovery: reasoning about insurance denied recovery for this product.
+- timezone confusion handling: reasoning about timezone confusion handling for this product.
+- no availability waitlist: reasoning about no availability waitlist for this product.
+- no availability: reasoning about no availability for this product.
+- insurance denied: reasoning about insurance denied for this product.
+- same day cancellation: reasoning about same day cancellation for this product.
+- real time eligibility vs booking speed: reasoning about real time eligibility vs booking speed for this product.
+- keyboard navigation: reasoning about keyboard navigation for this product.
+- form error announcement: reasoning about form error announcement for this product.
+- contrast compliance: reasoning about contrast compliance for this product.</pre>
 </article>
 <article><h2>task006</h2>
 <h3>Task</h3><pre># Recurring Tasks for Plane
@@ -152,62 +219,90 @@ Design a recurring task feature that integrates with Plane's existing issue work
 - Show recurrence clearly in issue list and detail views
 - Respect existing labels, assignees, and project structure
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task006 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task006 (treatment, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Tradeoffs and decisions
+## Scenarios
 
-### Implement brief
+## Trade-offs
 
-- team_lead: detailed UX reasoning for team lead
-- individual_contributor: detailed UX reasoning for individual contributor
-- create_recurrence: detailed UX reasoning for create recurrence
-- complete_occurrence: detailed UX reasoning for complete occurrence
-- skip_occurrence: detailed UX reasoning for skip occurrence
-- edit_series: detailed UX reasoning for edit series
-- end_recurrence: detailed UX reasoning for end recurrence
-- recurrence_end_conditions: detailed UX reasoning for recurrence end conditions
-- timezone_handling: detailed UX reasoning for timezone handling
-- assignee_inheritance: detailed UX reasoning for assignee inheritance
-- deleted_project: detailed UX reasoning for deleted project
-- permission_denied: detailed UX reasoning for permission denied
-- cycle_boundary: detailed UX reasoning for cycle boundary
-- duplicate_occurrence: detailed UX reasoning for duplicate occurrence
-- keyboard_shortcuts: detailed UX reasoning for keyboard shortcuts
-- screen_reader_recurrence_description: detailed UX reasoning for screen reader recurrence description</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task006 (control, mock)
+## Implementation brief
 
-### Domain and invariants
+- recurring issue: reasoning about recurring issue for this product.
+- occurrence: reasoning about occurrence for this product.
+- issue: reasoning about issue for this product.
+- project: reasoning about project for this product.
+- one occurrence per schedule slot: reasoning about one occurrence per schedule slot for this product.
+- assignee inheritance on series: reasoning about assignee inheritance on series for this product.
+- recurrence respects project permissions: reasoning about recurrence respects project permissions for this product.
+- team lead: reasoning about team lead for this product.
+- individual contributor: reasoning about individual contributor for this product.
+- create recurrence: reasoning about create recurrence for this product.
+- complete occurrence: reasoning about complete occurrence for this product.
+- skip occurrence: reasoning about skip occurrence for this product.
+- edit series: reasoning about edit series for this product.
+- recurrence end conditions: reasoning about recurrence end conditions for this product.
+- timezone handling: reasoning about timezone handling for this product.
+- assignee inheritance: reasoning about assignee inheritance for this product.
+- deleted project series handling: reasoning about deleted project series handling for this product.
+- permission denied occurrence: reasoning about permission denied occurrence for this product.
+- cycle boundary conflict: reasoning about cycle boundary conflict for this product.
+- deleted project: reasoning about deleted project for this product.
+- permission denied: reasoning about permission denied for this product.
+- cycle boundary: reasoning about cycle boundary for this product.
+- series edit vs single occurrence edit: reasoning about series edit vs single occurrence edit for this product.
+- timezone consistency vs user local display: reasoning about timezone consistency vs user local display for this product.
+- keyboard shortcuts: reasoning about keyboard shortcuts for this product.
+- screen reader recurrence description: reasoning about screen reader recurrence description for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task006 (control, mock)
 
-### Actors and permissions
+## Domain model
 
-### Workflows
+## Illegal states / invariants
 
-### Scenarios
+## Actors and permissions
 
-### Tradeoffs and decisions
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- team_lead: detailed UX reasoning for team lead
-- individual_contributor: detailed UX reasoning for individual contributor
-- create_recurrence: detailed UX reasoning for create recurrence
-- complete_occurrence: detailed UX reasoning for complete occurrence
-- skip_occurrence: detailed UX reasoning for skip occurrence
-- recurrence_end_conditions: detailed UX reasoning for recurrence end conditions
-- timezone_handling: detailed UX reasoning for timezone handling
-- deleted_project: detailed UX reasoning for deleted project
-- permission_denied: detailed UX reasoning for permission denied
-- cycle_boundary: detailed UX reasoning for cycle boundary
-- keyboard_shortcuts: detailed UX reasoning for keyboard shortcuts
-- screen_reader_recurrence_description: detailed UX reasoning for screen reader recurrence description</pre>
+## Trade-offs
+
+## Implementation brief
+
+- recurring issue: reasoning about recurring issue for this product.
+- occurrence: reasoning about occurrence for this product.
+- issue: reasoning about issue for this product.
+- project: reasoning about project for this product.
+- one occurrence per schedule slot: reasoning about one occurrence per schedule slot for this product.
+- assignee inheritance on series: reasoning about assignee inheritance on series for this product.
+- recurrence respects project permissions: reasoning about recurrence respects project permissions for this product.
+- team lead: reasoning about team lead for this product.
+- individual contributor: reasoning about individual contributor for this product.
+- create recurrence: reasoning about create recurrence for this product.
+- complete occurrence: reasoning about complete occurrence for this product.
+- skip occurrence: reasoning about skip occurrence for this product.
+- edit series: reasoning about edit series for this product.
+- recurrence end conditions: reasoning about recurrence end conditions for this product.
+- timezone handling: reasoning about timezone handling for this product.
+- assignee inheritance: reasoning about assignee inheritance for this product.
+- deleted project series handling: reasoning about deleted project series handling for this product.
+- permission denied occurrence: reasoning about permission denied occurrence for this product.
+- cycle boundary conflict: reasoning about cycle boundary conflict for this product.
+- deleted project: reasoning about deleted project for this product.
+- permission denied: reasoning about permission denied for this product.
+- cycle boundary: reasoning about cycle boundary for this product.
+- series edit vs single occurrence edit: reasoning about series edit vs single occurrence edit for this product.
+- timezone consistency vs user local display: reasoning about timezone consistency vs user local display for this product.
+- keyboard shortcuts: reasoning about keyboard shortcuts for this product.
+- screen reader recurrence description: reasoning about screen reader recurrence description for this product.</pre>
 </article>
 <article><h2>task007</h2>
 <h3>Task</h3><pre># Wishlist Feature
@@ -221,59 +316,92 @@ Design a wishlist feature for the Vercel Commerce storefront.
 - Share wishlist via link (optional privacy)
 - Add wishlist items to cart individually or in bulk
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task007 (control, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task007 (treatment, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- guest_shopper: detailed UX reasoning for guest shopper
-- registered_user: detailed UX reasoning for registered user
-- add_to_wishlist: detailed UX reasoning for add to wishlist
-- view_wishlist: detailed UX reasoning for view wishlist
-- move_to_cart: detailed UX reasoning for move to cart
-- guest_persistence: detailed UX reasoning for guest persistence
-- out_of_stock_handling: detailed UX reasoning for out of stock handling
-- product_discontinued: detailed UX reasoning for product discontinued
-- guest_session_expired: detailed UX reasoning for guest session expired
-- empty_wishlist: detailed UX reasoning for empty wishlist
-- wishlist_button_label: detailed UX reasoning for wishlist button label
-- bulk_action_feedback: detailed UX reasoning for bulk action feedback</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task007 (treatment, mock)
+## Trade-offs
 
-### Domain and invariants
+## Implementation brief
 
-### Actors and permissions
+- wishlist: reasoning about wishlist for this product.
+- wishlist item: reasoning about wishlist item for this product.
+- product: reasoning about product for this product.
+- cart: reasoning about cart for this product.
+- guest wishlist merge on login: reasoning about guest wishlist merge on login for this product.
+- out of stock not purchasable: reasoning about out of stock not purchasable for this product.
+- price at add time displayed: reasoning about price at add time displayed for this product.
+- guest shopper: reasoning about guest shopper for this product.
+- registered user: reasoning about registered user for this product.
+- gift buyer: reasoning about gift buyer for this product.
+- add to wishlist: reasoning about add to wishlist for this product.
+- view wishlist: reasoning about view wishlist for this product.
+- move to cart: reasoning about move to cart for this product.
+- share wishlist: reasoning about share wishlist for this product.
+- guest persistence: reasoning about guest persistence for this product.
+- out of stock handling: reasoning about out of stock handling for this product.
+- price change notification: reasoning about price change notification for this product.
+- guest session expired recovery: reasoning about guest session expired recovery for this product.
+- product discontinued removal: reasoning about product discontinued removal for this product.
+- duplicate add idempotency: reasoning about duplicate add idempotency for this product.
+- product discontinued: reasoning about product discontinued for this product.
+- guest session expired: reasoning about guest session expired for this product.
+- empty wishlist: reasoning about empty wishlist for this product.
+- guest persistence vs privacy: reasoning about guest persistence vs privacy for this product.
+- price notification vs noise: reasoning about price notification vs noise for this product.
+- wishlist button label: reasoning about wishlist button label for this product.
+- bulk action feedback: reasoning about bulk action feedback for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task007 (control, mock)
 
-### Workflows
+## Domain model
 
-### Scenarios
+## Illegal states / invariants
 
-### Implement brief
+## Actors and permissions
 
-- guest_shopper: detailed UX reasoning for guest shopper
-- registered_user: detailed UX reasoning for registered user
-- gift_buyer: detailed UX reasoning for gift buyer
-- add_to_wishlist: detailed UX reasoning for add to wishlist
-- view_wishlist: detailed UX reasoning for view wishlist
-- move_to_cart: detailed UX reasoning for move to cart
-- share_wishlist: detailed UX reasoning for share wishlist
-- guest_merge: detailed UX reasoning for guest merge
-- guest_persistence: detailed UX reasoning for guest persistence
-- out_of_stock_handling: detailed UX reasoning for out of stock handling
-- price_change_notification: detailed UX reasoning for price change notification
-- product_discontinued: detailed UX reasoning for product discontinued
-- guest_session_expired: detailed UX reasoning for guest session expired
-- empty_wishlist: detailed UX reasoning for empty wishlist
-- duplicate_add: detailed UX reasoning for duplicate add
-- wishlist_button_label: detailed UX reasoning for wishlist button label
-- bulk_action_feedback: detailed UX reasoning for bulk action feedback</pre>
+## Workflows
+
+## Scenarios
+
+## Trade-offs
+
+## Implementation brief
+
+- wishlist: reasoning about wishlist for this product.
+- wishlist item: reasoning about wishlist item for this product.
+- product: reasoning about product for this product.
+- cart: reasoning about cart for this product.
+- guest wishlist merge on login: reasoning about guest wishlist merge on login for this product.
+- out of stock not purchasable: reasoning about out of stock not purchasable for this product.
+- price at add time displayed: reasoning about price at add time displayed for this product.
+- guest shopper: reasoning about guest shopper for this product.
+- registered user: reasoning about registered user for this product.
+- gift buyer: reasoning about gift buyer for this product.
+- add to wishlist: reasoning about add to wishlist for this product.
+- view wishlist: reasoning about view wishlist for this product.
+- move to cart: reasoning about move to cart for this product.
+- share wishlist: reasoning about share wishlist for this product.
+- guest persistence: reasoning about guest persistence for this product.
+- out of stock handling: reasoning about out of stock handling for this product.
+- price change notification: reasoning about price change notification for this product.
+- guest session expired recovery: reasoning about guest session expired recovery for this product.
+- product discontinued removal: reasoning about product discontinued removal for this product.
+- duplicate add idempotency: reasoning about duplicate add idempotency for this product.
+- product discontinued: reasoning about product discontinued for this product.
+- guest session expired: reasoning about guest session expired for this product.
+- empty wishlist: reasoning about empty wishlist for this product.
+- guest persistence vs privacy: reasoning about guest persistence vs privacy for this product.
+- price notification vs noise: reasoning about price notification vs noise for this product.
+- wishlist button label: reasoning about wishlist button label for this product.
+- bulk action feedback: reasoning about bulk action feedback for this product.</pre>
 </article>
 <article><h2>task011</h2>
 <h3>Task</h3><pre># Checkout Flow Audit
@@ -287,70 +415,103 @@ Perform a behavior and UX audit of the storefront checkout flow.
 - Payment and shipping information entry
 - Error states, invariant violations, and recovery
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task011 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task011 (treatment, mock)
 
-### Executive summary
+## Domain model
 
-### Findings
+## Illegal states / invariants
 
-### Prioritized improvements
+## Actors and permissions
 
-- first_time_buyer: detailed UX reasoning for first time buyer
-- returning_customer: detailed UX reasoning for returning customer
-- cart_review: detailed UX reasoning for cart review
-- shipping_entry: detailed UX reasoning for shipping entry
-- payment: detailed UX reasoning for payment
-- confirmation: detailed UX reasoning for confirmation
-- payment_declined: detailed UX reasoning for payment declined
-- address_validation_failure: detailed UX reasoning for address validation failure
-- session_timeout: detailed UX reasoning for session timeout
-- form_labels: detailed UX reasoning for form labels
-- error_announcement: detailed UX reasoning for error announcement
-- keyboard_checkout: detailed UX reasoning for keyboard checkout
-- invariant_violation: detailed UX reasoning for invariant violation
-- state_consistency: detailed UX reasoning for state consistency
-- permission_gap: detailed UX reasoning for permission gap
-- error_recovery: detailed UX reasoning for error recovery
-- idempotency_risk: detailed UX reasoning for idempotency risk
+## Workflows
 
-### Executive summary
-Mock audit findings with prioritized improvements.
+## Scenarios
 
-### Findings by flow
-Identified usability issues with impact and effort ratings.
+## Trade-offs
 
-### Prioritized improvements
-1. High-impact quick wins listed.
+## Implementation brief
+
+- cart: reasoning about cart for this product.
+- order: reasoning about order for this product.
+- payment: reasoning about payment for this product.
+- order total matches line items: reasoning about order total matches line items for this product.
+- payment required before confirmation: reasoning about payment required before confirmation for this product.
+- first time buyer: reasoning about first time buyer for this product.
+- returning customer: reasoning about returning customer for this product.
+- cart review: reasoning about cart review for this product.
+- shipping entry: reasoning about shipping entry for this product.
+- payment: reasoning about payment for this product.
+- payment declined recovery: reasoning about payment declined recovery for this product.
+- address validation failure: reasoning about address validation failure for this product.
+- session timeout mid checkout: reasoning about session timeout mid checkout for this product.
+- payment declined: reasoning about payment declined for this product.
+- address validation failure: reasoning about address validation failure for this product.
+- session timeout: reasoning about session timeout for this product.
+- form labels: reasoning about form labels for this product.
+- error announcement: reasoning about error announcement for this product.
+- keyboard checkout: reasoning about keyboard checkout for this product.
+- invariant violation: reasoning about invariant violation for this product.
+- state consistency: reasoning about state consistency for this product.
+- permission gap: reasoning about permission gap for this product.
+- error recovery: reasoning about error recovery for this product.
+
+## Executive summary
+Mock audit of product-behavior gaps.
+
+## Findings
+Invariant violations, state consistency, permission gaps.
+
+## Prioritized improvements
+1. High-impact recovery and guard fixes.
 </pre>
-<h3>Artifact B</h3><pre># UX Artifact — task011 (control, mock)
+<h3>Artifact B</h3><pre># Product-behavior brief — task011 (control, mock)
 
-### Executive summary
+## Domain model
 
-### Findings
+## Illegal states / invariants
 
-### Prioritized improvements
+## Actors and permissions
 
-- first_time_buyer: detailed UX reasoning for first time buyer
-- returning_customer: detailed UX reasoning for returning customer
-- cart_review: detailed UX reasoning for cart review
-- shipping_entry: detailed UX reasoning for shipping entry
-- payment: detailed UX reasoning for payment
-- payment_declined: detailed UX reasoning for payment declined
-- address_validation_failure: detailed UX reasoning for address validation failure
-- form_labels: detailed UX reasoning for form labels
-- error_announcement: detailed UX reasoning for error announcement
-- invariant_violation: detailed UX reasoning for invariant violation
-- state_consistency: detailed UX reasoning for state consistency
-- permission_gap: detailed UX reasoning for permission gap
+## Workflows
 
-### Executive summary
-Mock audit findings with prioritized improvements.
+## Scenarios
 
-### Findings by flow
-Identified usability issues with impact and effort ratings.
+## Trade-offs
 
-### Prioritized improvements
-1. High-impact quick wins listed.
+## Implementation brief
+
+- cart: reasoning about cart for this product.
+- order: reasoning about order for this product.
+- payment: reasoning about payment for this product.
+- order total matches line items: reasoning about order total matches line items for this product.
+- payment required before confirmation: reasoning about payment required before confirmation for this product.
+- first time buyer: reasoning about first time buyer for this product.
+- returning customer: reasoning about returning customer for this product.
+- cart review: reasoning about cart review for this product.
+- shipping entry: reasoning about shipping entry for this product.
+- payment: reasoning about payment for this product.
+- payment declined recovery: reasoning about payment declined recovery for this product.
+- address validation failure: reasoning about address validation failure for this product.
+- session timeout mid checkout: reasoning about session timeout mid checkout for this product.
+- payment declined: reasoning about payment declined for this product.
+- address validation failure: reasoning about address validation failure for this product.
+- session timeout: reasoning about session timeout for this product.
+- form labels: reasoning about form labels for this product.
+- error announcement: reasoning about error announcement for this product.
+- keyboard checkout: reasoning about keyboard checkout for this product.
+- invariant violation: reasoning about invariant violation for this product.
+- state consistency: reasoning about state consistency for this product.
+- permission gap: reasoning about permission gap for this product.
+- error recovery: reasoning about error recovery for this product.
+
+## Executive summary
+Mock audit of product-behavior gaps.
+
+## Findings
+Invariant violations, state consistency, permission gaps.
+
+## Prioritized improvements
+1. High-impact recovery and guard fixes.
 </pre>
 </article>
 <article><h2>task012</h2>
@@ -365,66 +526,99 @@ Audit the product behavior and UX of project settings and configuration in Plane
 - Project views and workflow states
 - Integration settings and permission integrity
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task012 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task012 (control, mock)
 
-### Executive summary
+## Domain model
 
-### Findings
+## Illegal states / invariants
 
-### Quick wins
+## Actors and permissions
 
-- project_admin: detailed UX reasoning for project admin
-- team_member: detailed UX reasoning for team member
-- project_settings: detailed UX reasoning for project settings
-- member_invite: detailed UX reasoning for member invite
-- role_management: detailed UX reasoning for role management
-- last_admin_removal: detailed UX reasoning for last admin removal
-- invalid_invite: detailed UX reasoning for invalid invite
-- settings_conflict: detailed UX reasoning for settings conflict
-- settings_navigation: detailed UX reasoning for settings navigation
-- toggle_labels: detailed UX reasoning for toggle labels
-- permission_clarity: detailed UX reasoning for permission clarity
-- destructive_action_guards: detailed UX reasoning for destructive action guards
-- multi_view_inconsistency: detailed UX reasoning for multi view inconsistency
-- inheritance_confusion: detailed UX reasoning for inheritance confusion
+## Workflows
 
-### Executive summary
-Mock audit findings with prioritized improvements.
+## Scenarios
 
-### Findings by flow
-Identified usability issues with impact and effort ratings.
+## Trade-offs
 
-### Prioritized improvements
-1. High-impact quick wins listed.
+## Implementation brief
+
+- project: reasoning about project for this product.
+- member: reasoning about member for this product.
+- role: reasoning about role for this product.
+- last admin cannot be removed: reasoning about last admin cannot be removed for this product.
+- role permissions consistent: reasoning about role permissions consistent for this product.
+- project admin: reasoning about project admin for this product.
+- team member: reasoning about team member for this product.
+- project settings: reasoning about project settings for this product.
+- member invite: reasoning about member invite for this product.
+- role management: reasoning about role management for this product.
+- last admin removal blocked: reasoning about last admin removal blocked for this product.
+- invalid invite handling: reasoning about invalid invite handling for this product.
+- settings conflict resolution: reasoning about settings conflict resolution for this product.
+- last admin removal: reasoning about last admin removal for this product.
+- invalid invite: reasoning about invalid invite for this product.
+- settings conflict: reasoning about settings conflict for this product.
+- settings navigation: reasoning about settings navigation for this product.
+- toggle labels: reasoning about toggle labels for this product.
+- permission clarity: reasoning about permission clarity for this product.
+- destructive action guards: reasoning about destructive action guards for this product.
+- multi view inconsistency: reasoning about multi view inconsistency for this product.
+
+## Executive summary
+Mock audit of product-behavior gaps.
+
+## Findings
+Invariant violations, state consistency, permission gaps.
+
+## Prioritized improvements
+1. High-impact recovery and guard fixes.
 </pre>
-<h3>Artifact B</h3><pre># UX Artifact — task012 (control, mock)
+<h3>Artifact B</h3><pre># Product-behavior brief — task012 (treatment, mock)
 
-### Executive summary
+## Domain model
 
-### Findings
+## Illegal states / invariants
 
-### Quick wins
+## Actors and permissions
 
-- project_admin: detailed UX reasoning for project admin
-- team_member: detailed UX reasoning for team member
-- project_settings: detailed UX reasoning for project settings
-- member_invite: detailed UX reasoning for member invite
-- last_admin_removal: detailed UX reasoning for last admin removal
-- invalid_invite: detailed UX reasoning for invalid invite
-- settings_navigation: detailed UX reasoning for settings navigation
-- toggle_labels: detailed UX reasoning for toggle labels
-- permission_clarity: detailed UX reasoning for permission clarity
-- destructive_action_guards: detailed UX reasoning for destructive action guards
-- multi_view_inconsistency: detailed UX reasoning for multi view inconsistency
+## Workflows
 
-### Executive summary
-Mock audit findings with prioritized improvements.
+## Scenarios
 
-### Findings by flow
-Identified usability issues with impact and effort ratings.
+## Trade-offs
 
-### Prioritized improvements
-1. High-impact quick wins listed.
+## Implementation brief
+
+- project: reasoning about project for this product.
+- member: reasoning about member for this product.
+- role: reasoning about role for this product.
+- last admin cannot be removed: reasoning about last admin cannot be removed for this product.
+- role permissions consistent: reasoning about role permissions consistent for this product.
+- project admin: reasoning about project admin for this product.
+- team member: reasoning about team member for this product.
+- project settings: reasoning about project settings for this product.
+- member invite: reasoning about member invite for this product.
+- role management: reasoning about role management for this product.
+- last admin removal blocked: reasoning about last admin removal blocked for this product.
+- invalid invite handling: reasoning about invalid invite handling for this product.
+- settings conflict resolution: reasoning about settings conflict resolution for this product.
+- last admin removal: reasoning about last admin removal for this product.
+- invalid invite: reasoning about invalid invite for this product.
+- settings conflict: reasoning about settings conflict for this product.
+- settings navigation: reasoning about settings navigation for this product.
+- toggle labels: reasoning about toggle labels for this product.
+- permission clarity: reasoning about permission clarity for this product.
+- destructive action guards: reasoning about destructive action guards for this product.
+- multi view inconsistency: reasoning about multi view inconsistency for this product.
+
+## Executive summary
+Mock audit of product-behavior gaps.
+
+## Findings
+Invariant violations, state consistency, permission gaps.
+
+## Prioritized improvements
+1. High-impact recovery and guard fixes.
 </pre>
 </article>
 <article><h2>task016</h2>
@@ -439,62 +633,88 @@ Design scheduling UX for a clinic where insurance verification affects appointme
 - Handle prior authorization requirements
 - Clear communication when insurance blocks booking
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task016 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task016 (control, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Policy enforcement
+## Scenarios
 
-### Implement brief
+## Trade-offs
 
-- patient: detailed UX reasoning for patient
-- scheduler: detailed UX reasoning for scheduler
-- insurance_coordinator: detailed UX reasoning for insurance coordinator
-- eligibility_check: detailed UX reasoning for eligibility check
-- book_in_network: detailed UX reasoning for book in network
-- prior_auth_wait: detailed UX reasoning for prior auth wait
-- out_of_network_option: detailed UX reasoning for out of network option
-- insurance_verification_gate: detailed UX reasoning for insurance verification gate
-- prior_auth_required: detailed UX reasoning for prior auth required
-- copay_display: detailed UX reasoning for copay display
-- eligibility_timeout: detailed UX reasoning for eligibility timeout
-- partial_coverage: detailed UX reasoning for partial coverage
-- auth_denied: detailed UX reasoning for auth denied
-- plan_change_mid_booking: detailed UX reasoning for plan change mid booking
-- plain_language_insurance: detailed UX reasoning for plain language insurance
-- error_recovery_paths: detailed UX reasoning for error recovery paths</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task016 (control, mock)
+## Implementation brief
 
-### Domain and invariants
+- patient: reasoning about patient for this product.
+- appointment: reasoning about appointment for this product.
+- insurance plan: reasoning about insurance plan for this product.
+- eligibility verified before booking: reasoning about eligibility verified before booking for this product.
+- prior auth blocks scheduling: reasoning about prior auth blocks scheduling for this product.
+- copay displayed before confirm: reasoning about copay displayed before confirm for this product.
+- patient: reasoning about patient for this product.
+- scheduler: reasoning about scheduler for this product.
+- insurance coordinator: reasoning about insurance coordinator for this product.
+- eligibility check: reasoning about eligibility check for this product.
+- book in network: reasoning about book in network for this product.
+- prior auth wait: reasoning about prior auth wait for this product.
+- insurance verification gate: reasoning about insurance verification gate for this product.
+- prior auth required: reasoning about prior auth required for this product.
+- copay display: reasoning about copay display for this product.
+- eligibility timeout retry: reasoning about eligibility timeout retry for this product.
+- partial coverage communication: reasoning about partial coverage communication for this product.
+- auth denied alternative: reasoning about auth denied alternative for this product.
+- eligibility timeout: reasoning about eligibility timeout for this product.
+- partial coverage: reasoning about partial coverage for this product.
+- auth denied: reasoning about auth denied for this product.
+- real time eligibility vs wait time: reasoning about real time eligibility vs wait time for this product.
+- in network restriction vs patient choice: reasoning about in network restriction vs patient choice for this product.
+- plain language insurance: reasoning about plain language insurance for this product.
+- error recovery paths: reasoning about error recovery paths for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task016 (treatment, mock)
 
-### Actors and permissions
+## Domain model
 
-### Workflows
+## Illegal states / invariants
 
-### Scenarios
+## Actors and permissions
 
-### Policy enforcement
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- patient: detailed UX reasoning for patient
-- scheduler: detailed UX reasoning for scheduler
-- eligibility_check: detailed UX reasoning for eligibility check
-- book_in_network: detailed UX reasoning for book in network
-- prior_auth_wait: detailed UX reasoning for prior auth wait
-- insurance_verification_gate: detailed UX reasoning for insurance verification gate
-- prior_auth_required: detailed UX reasoning for prior auth required
-- eligibility_timeout: detailed UX reasoning for eligibility timeout
-- partial_coverage: detailed UX reasoning for partial coverage
-- auth_denied: detailed UX reasoning for auth denied
-- plain_language_insurance: detailed UX reasoning for plain language insurance
-- error_recovery_paths: detailed UX reasoning for error recovery paths</pre>
+## Trade-offs
+
+## Implementation brief
+
+- patient: reasoning about patient for this product.
+- appointment: reasoning about appointment for this product.
+- insurance plan: reasoning about insurance plan for this product.
+- eligibility verified before booking: reasoning about eligibility verified before booking for this product.
+- prior auth blocks scheduling: reasoning about prior auth blocks scheduling for this product.
+- copay displayed before confirm: reasoning about copay displayed before confirm for this product.
+- patient: reasoning about patient for this product.
+- scheduler: reasoning about scheduler for this product.
+- insurance coordinator: reasoning about insurance coordinator for this product.
+- eligibility check: reasoning about eligibility check for this product.
+- book in network: reasoning about book in network for this product.
+- prior auth wait: reasoning about prior auth wait for this product.
+- insurance verification gate: reasoning about insurance verification gate for this product.
+- prior auth required: reasoning about prior auth required for this product.
+- copay display: reasoning about copay display for this product.
+- eligibility timeout retry: reasoning about eligibility timeout retry for this product.
+- partial coverage communication: reasoning about partial coverage communication for this product.
+- auth denied alternative: reasoning about auth denied alternative for this product.
+- eligibility timeout: reasoning about eligibility timeout for this product.
+- partial coverage: reasoning about partial coverage for this product.
+- auth denied: reasoning about auth denied for this product.
+- real time eligibility vs wait time: reasoning about real time eligibility vs wait time for this product.
+- in network restriction vs patient choice: reasoning about in network restriction vs patient choice for this product.
+- plain language insurance: reasoning about plain language insurance for this product.
+- error recovery paths: reasoning about error recovery paths for this product.</pre>
 </article>
 <article><h2>task017</h2>
 <h3>Task</h3><pre># Expense Reimbursement Workflow
@@ -508,63 +728,92 @@ Design a multi-step expense reimbursement system with manager and finance approv
 - Handle policy violations and partial approvals
 - Audit trail for compliance
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task017 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task017 (control, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### State management
+## Scenarios
 
-### Implement brief
+## Trade-offs
 
-- employee: detailed UX reasoning for employee
-- manager: detailed UX reasoning for manager
-- finance_reviewer: detailed UX reasoning for finance reviewer
-- submit_expense: detailed UX reasoning for submit expense
-- manager_approve: detailed UX reasoning for manager approve
-- finance_review: detailed UX reasoning for finance review
-- payment_initiated: detailed UX reasoning for payment initiated
-- reject_with_reason: detailed UX reasoning for reject with reason
-- receipt_threshold: detailed UX reasoning for receipt threshold
-- category_limits: detailed UX reasoning for category limits
-- delegation_rules: detailed UX reasoning for delegation rules
-- policy_violation: detailed UX reasoning for policy violation
-- manager_ooo: detailed UX reasoning for manager ooo
-- duplicate_submission: detailed UX reasoning for duplicate submission
-- currency_conversion: detailed UX reasoning for currency conversion
-- form_validation_feedback: detailed UX reasoning for form validation feedback
-- status_tracking: detailed UX reasoning for status tracking</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task017 (control, mock)
+## Implementation brief
 
-### Domain and invariants
+- expense: reasoning about expense for this product.
+- approval: reasoning about approval for this product.
+- receipt: reasoning about receipt for this product.
+- policy: reasoning about policy for this product.
+- receipt required above threshold: reasoning about receipt required above threshold for this product.
+- audit trail immutable: reasoning about audit trail immutable for this product.
+- no payment without finance approval: reasoning about no payment without finance approval for this product.
+- employee: reasoning about employee for this product.
+- manager: reasoning about manager for this product.
+- finance reviewer: reasoning about finance reviewer for this product.
+- submit expense: reasoning about submit expense for this product.
+- manager approve: reasoning about manager approve for this product.
+- finance review: reasoning about finance review for this product.
+- payment initiated: reasoning about payment initiated for this product.
+- receipt threshold: reasoning about receipt threshold for this product.
+- category limits: reasoning about category limits for this product.
+- delegation rules: reasoning about delegation rules for this product.
+- policy violation escalation: reasoning about policy violation escalation for this product.
+- manager ooo delegation: reasoning about manager ooo delegation for this product.
+- duplicate submission idempotency: reasoning about duplicate submission idempotency for this product.
+- policy violation: reasoning about policy violation for this product.
+- manager ooo: reasoning about manager ooo for this product.
+- duplicate submission: reasoning about duplicate submission for this product.
+- approval speed vs policy enforcement: reasoning about approval speed vs policy enforcement for this product.
+- delegation flexibility vs audit clarity: reasoning about delegation flexibility vs audit clarity for this product.
+- form validation feedback: reasoning about form validation feedback for this product.
+- status tracking: reasoning about status tracking for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task017 (treatment, mock)
 
-### Actors and permissions
+## Domain model
 
-### Workflows
+## Illegal states / invariants
 
-### Scenarios
+## Actors and permissions
 
-### State management
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- employee: detailed UX reasoning for employee
-- manager: detailed UX reasoning for manager
-- submit_expense: detailed UX reasoning for submit expense
-- manager_approve: detailed UX reasoning for manager approve
-- finance_review: detailed UX reasoning for finance review
-- receipt_threshold: detailed UX reasoning for receipt threshold
-- category_limits: detailed UX reasoning for category limits
-- policy_violation: detailed UX reasoning for policy violation
-- manager_ooo: detailed UX reasoning for manager ooo
-- duplicate_submission: detailed UX reasoning for duplicate submission
-- form_validation_feedback: detailed UX reasoning for form validation feedback
-- status_tracking: detailed UX reasoning for status tracking</pre>
+## Trade-offs
+
+## Implementation brief
+
+- expense: reasoning about expense for this product.
+- approval: reasoning about approval for this product.
+- receipt: reasoning about receipt for this product.
+- policy: reasoning about policy for this product.
+- receipt required above threshold: reasoning about receipt required above threshold for this product.
+- audit trail immutable: reasoning about audit trail immutable for this product.
+- no payment without finance approval: reasoning about no payment without finance approval for this product.
+- employee: reasoning about employee for this product.
+- manager: reasoning about manager for this product.
+- finance reviewer: reasoning about finance reviewer for this product.
+- submit expense: reasoning about submit expense for this product.
+- manager approve: reasoning about manager approve for this product.
+- finance review: reasoning about finance review for this product.
+- payment initiated: reasoning about payment initiated for this product.
+- receipt threshold: reasoning about receipt threshold for this product.
+- category limits: reasoning about category limits for this product.
+- delegation rules: reasoning about delegation rules for this product.
+- policy violation escalation: reasoning about policy violation escalation for this product.
+- manager ooo delegation: reasoning about manager ooo delegation for this product.
+- duplicate submission idempotency: reasoning about duplicate submission idempotency for this product.
+- policy violation: reasoning about policy violation for this product.
+- manager ooo: reasoning about manager ooo for this product.
+- duplicate submission: reasoning about duplicate submission for this product.
+- approval speed vs policy enforcement: reasoning about approval speed vs policy enforcement for this product.
+- delegation flexibility vs audit clarity: reasoning about delegation flexibility vs audit clarity for this product.
+- form validation feedback: reasoning about form validation feedback for this product.
+- status tracking: reasoning about status tracking for this product.</pre>
 </article>
 <article><h2>task021</h2>
 <h3>Task</h3><pre># Offline Editing
@@ -578,61 +827,86 @@ Design how a collaborative document editor handles offline editing and reconnect
 - Conflict resolution when multiple users edited offline
 - Queue changes and sync on reconnect
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task021 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task021 (treatment, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Recovery paths
+## Scenarios
 
-### Implement brief
+## Trade-offs
 
-- frequent_editor: detailed UX reasoning for frequent editor
-- occasional_viewer: detailed UX reasoning for occasional viewer
-- edit_offline: detailed UX reasoning for edit offline
-- reconnect_sync: detailed UX reasoning for reconnect sync
-- conflict_resolution: detailed UX reasoning for conflict resolution
-- view_offline: detailed UX reasoning for view offline
-- offline_indicator: detailed UX reasoning for offline indicator
-- sync_queue: detailed UX reasoning for sync queue
-- conflict_policy: detailed UX reasoning for conflict policy
-- extended_offline: detailed UX reasoning for extended offline
-- conflicting_edits: detailed UX reasoning for conflicting edits
-- storage_full: detailed UX reasoning for storage full
-- auth_expired_offline: detailed UX reasoning for auth expired offline
-- status_announcements: detailed UX reasoning for status announcements
-- offline_mode_screen_reader: detailed UX reasoning for offline mode screen reader</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task021 (control, mock)
+## Implementation brief
 
-### Domain and invariants
+- document: reasoning about document for this product.
+- edit operation: reasoning about edit operation for this product.
+- sync queue: reasoning about sync queue for this product.
+- no data loss on reconnect: reasoning about no data loss on reconnect for this product.
+- conflict resolution policy defined: reasoning about conflict resolution policy defined for this product.
+- offline indicator always visible: reasoning about offline indicator always visible for this product.
+- frequent editor: reasoning about frequent editor for this product.
+- occasional viewer: reasoning about occasional viewer for this product.
+- edit offline: reasoning about edit offline for this product.
+- reconnect sync: reasoning about reconnect sync for this product.
+- conflict resolution: reasoning about conflict resolution for this product.
+- offline indicator: reasoning about offline indicator for this product.
+- sync queue: reasoning about sync queue for this product.
+- conflict policy: reasoning about conflict policy for this product.
+- extended offline queue overflow: reasoning about extended offline queue overflow for this product.
+- conflicting edits merge: reasoning about conflicting edits merge for this product.
+- auth expired offline recovery: reasoning about auth expired offline recovery for this product.
+- extended offline: reasoning about extended offline for this product.
+- conflicting edits: reasoning about conflicting edits for this product.
+- storage full: reasoning about storage full for this product.
+- last write wins vs manual merge: reasoning about last write wins vs manual merge for this product.
+- queue size vs storage: reasoning about queue size vs storage for this product.
+- status announcements: reasoning about status announcements for this product.
+- offline mode screen reader: reasoning about offline mode screen reader for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task021 (control, mock)
 
-### Actors and permissions
+## Domain model
 
-### Workflows
+## Illegal states / invariants
 
-### Scenarios
+## Actors and permissions
 
-### Recovery paths
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- frequent_editor: detailed UX reasoning for frequent editor
-- occasional_viewer: detailed UX reasoning for occasional viewer
-- edit_offline: detailed UX reasoning for edit offline
-- reconnect_sync: detailed UX reasoning for reconnect sync
-- conflict_resolution: detailed UX reasoning for conflict resolution
-- offline_indicator: detailed UX reasoning for offline indicator
-- sync_queue: detailed UX reasoning for sync queue
-- extended_offline: detailed UX reasoning for extended offline
-- conflicting_edits: detailed UX reasoning for conflicting edits
-- storage_full: detailed UX reasoning for storage full
-- status_announcements: detailed UX reasoning for status announcements
-- offline_mode_screen_reader: detailed UX reasoning for offline mode screen reader</pre>
+## Trade-offs
+
+## Implementation brief
+
+- document: reasoning about document for this product.
+- edit operation: reasoning about edit operation for this product.
+- sync queue: reasoning about sync queue for this product.
+- no data loss on reconnect: reasoning about no data loss on reconnect for this product.
+- conflict resolution policy defined: reasoning about conflict resolution policy defined for this product.
+- offline indicator always visible: reasoning about offline indicator always visible for this product.
+- frequent editor: reasoning about frequent editor for this product.
+- occasional viewer: reasoning about occasional viewer for this product.
+- edit offline: reasoning about edit offline for this product.
+- reconnect sync: reasoning about reconnect sync for this product.
+- conflict resolution: reasoning about conflict resolution for this product.
+- offline indicator: reasoning about offline indicator for this product.
+- sync queue: reasoning about sync queue for this product.
+- conflict policy: reasoning about conflict policy for this product.
+- extended offline queue overflow: reasoning about extended offline queue overflow for this product.
+- conflicting edits merge: reasoning about conflicting edits merge for this product.
+- auth expired offline recovery: reasoning about auth expired offline recovery for this product.
+- extended offline: reasoning about extended offline for this product.
+- conflicting edits: reasoning about conflicting edits for this product.
+- storage full: reasoning about storage full for this product.
+- last write wins vs manual merge: reasoning about last write wins vs manual merge for this product.
+- queue size vs storage: reasoning about queue size vs storage for this product.
+- status announcements: reasoning about status announcements for this product.
+- offline mode screen reader: reasoning about offline mode screen reader for this product.</pre>
 </article>
 <article><h2>task023</h2>
 <h3>Task</h3><pre># Empty States Design
@@ -646,54 +920,85 @@ Design comprehensive empty states for a project management application.
 - Distinguish "nothing here yet" from "failed to load"
 - Accessible and encouraging tone
 </pre>
-<h3>Artifact A</h3><pre># UX Artifact — task023 (treatment, mock)
+<h3>Artifact A</h3><pre># Product-behavior brief — task023 (treatment, mock)
 
-### Domain and invariants
+## Domain model
 
-### Actors and permissions
+## Illegal states / invariants
 
-### Workflows
+## Actors and permissions
 
-### Scenarios
+## Workflows
 
-### Implement brief
+## Scenarios
 
-- new_user: detailed UX reasoning for new user
-- experienced_user: detailed UX reasoning for experienced user
-- first_project_empty: detailed UX reasoning for first project empty
-- empty_search: detailed UX reasoning for empty search
-- empty_cycle: detailed UX reasoning for empty cycle
-- error_vs_empty: detailed UX reasoning for error vs empty
-- actionable_cta: detailed UX reasoning for actionable cta
-- error_distinction: detailed UX reasoning for error distinction
-- tone_guidelines: detailed UX reasoning for tone guidelines
-- permission_limited_empty: detailed UX reasoning for permission limited empty
-- filtered_to_zero: detailed UX reasoning for filtered to zero
-- deleted_all_items: detailed UX reasoning for deleted all items
-- empty_state_announced: detailed UX reasoning for empty state announced
-- cta_focus_order: detailed UX reasoning for cta focus order</pre>
-<h3>Artifact B</h3><pre># UX Artifact — task023 (control, mock)
+## Trade-offs
 
-### Domain and invariants
+## Implementation brief
 
-### Actors and permissions
+- project: reasoning about project for this product.
+- cycle: reasoning about cycle for this product.
+- search result: reasoning about search result for this product.
+- error distinct from empty: reasoning about error distinct from empty for this product.
+- actionable cta when permissions allow: reasoning about actionable cta when permissions allow for this product.
+- permission limited empty explained: reasoning about permission limited empty explained for this product.
+- new user: reasoning about new user for this product.
+- experienced user: reasoning about experienced user for this product.
+- first project empty: reasoning about first project empty for this product.
+- empty search: reasoning about empty search for this product.
+- empty cycle: reasoning about empty cycle for this product.
+- actionable cta: reasoning about actionable cta for this product.
+- error distinction: reasoning about error distinction for this product.
+- tone guidelines: reasoning about tone guidelines for this product.
+- permission limited empty state: reasoning about permission limited empty state for this product.
+- filtered to zero results: reasoning about filtered to zero results for this product.
+- deleted all items recovery: reasoning about deleted all items recovery for this product.
+- permission limited empty: reasoning about permission limited empty for this product.
+- filtered to zero: reasoning about filtered to zero for this product.
+- deleted all items: reasoning about deleted all items for this product.
+- guidance vs clutter: reasoning about guidance vs clutter for this product.
+- encouraging tone vs accuracy: reasoning about encouraging tone vs accuracy for this product.
+- empty state announced: reasoning about empty state announced for this product.
+- cta focus order: reasoning about cta focus order for this product.</pre>
+<h3>Artifact B</h3><pre># Product-behavior brief — task023 (control, mock)
 
-### Workflows
+## Domain model
 
-### Scenarios
+## Illegal states / invariants
 
-### Implement brief
+## Actors and permissions
 
-- new_user: detailed UX reasoning for new user
-- experienced_user: detailed UX reasoning for experienced user
-- first_project_empty: detailed UX reasoning for first project empty
-- empty_search: detailed UX reasoning for empty search
-- empty_cycle: detailed UX reasoning for empty cycle
-- actionable_cta: detailed UX reasoning for actionable cta
-- error_distinction: detailed UX reasoning for error distinction
-- permission_limited_empty: detailed UX reasoning for permission limited empty
-- filtered_to_zero: detailed UX reasoning for filtered to zero
-- empty_state_announced: detailed UX reasoning for empty state announced
-- cta_focus_order: detailed UX reasoning for cta focus order</pre>
+## Workflows
+
+## Scenarios
+
+## Trade-offs
+
+## Implementation brief
+
+- project: reasoning about project for this product.
+- cycle: reasoning about cycle for this product.
+- search result: reasoning about search result for this product.
+- error distinct from empty: reasoning about error distinct from empty for this product.
+- actionable cta when permissions allow: reasoning about actionable cta when permissions allow for this product.
+- permission limited empty explained: reasoning about permission limited empty explained for this product.
+- new user: reasoning about new user for this product.
+- experienced user: reasoning about experienced user for this product.
+- first project empty: reasoning about first project empty for this product.
+- empty search: reasoning about empty search for this product.
+- empty cycle: reasoning about empty cycle for this product.
+- actionable cta: reasoning about actionable cta for this product.
+- error distinction: reasoning about error distinction for this product.
+- tone guidelines: reasoning about tone guidelines for this product.
+- permission limited empty state: reasoning about permission limited empty state for this product.
+- filtered to zero results: reasoning about filtered to zero results for this product.
+- deleted all items recovery: reasoning about deleted all items recovery for this product.
+- permission limited empty: reasoning about permission limited empty for this product.
+- filtered to zero: reasoning about filtered to zero for this product.
+- deleted all items: reasoning about deleted all items for this product.
+- guidance vs clutter: reasoning about guidance vs clutter for this product.
+- encouraging tone vs accuracy: reasoning about encouraging tone vs accuracy for this product.
+- empty state announced: reasoning about empty state announced for this product.
+- cta focus order: reasoning about cta focus order for this product.</pre>
 </article>
 </body></html>

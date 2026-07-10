@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchManifest } from './stage-bench-fixture.mjs';
+import { OUTPUT_CONTRACT } from './artifact-contract.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
@@ -110,7 +111,7 @@ function discoverTasks() {
 function buildPrompt(task) {
   const desc = fs.readFileSync(path.join(ROOT, task._paths.description), 'utf8').trim();
   const ctx = fs.readFileSync(path.join(ROOT, task._paths.context), 'utf8').trim();
-  return `${desc}\n\n---\n\nContext:\n${ctx}\n\n---\n\n${task.prompt}`;
+  return `${desc}\n\n---\n\nContext:\n${ctx}\n\n---\n\n${task.prompt}\n\n---\n\n${OUTPUT_CONTRACT}`;
 }
 
 function compileSuite(tasks, release) {

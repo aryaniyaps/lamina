@@ -1,4 +1,5 @@
 task_id: task020
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - onboarding_checklist
   - task
@@ -38,9 +39,9 @@ required_tradeoffs:
   - parallel_tasks_vs_sequential_compliance
   - automation_vs_human_handoff
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
+  - workflows and decision points
+  - edge cases and recovery
   - recovery flows
-  - implement brief
+  - implementation brief

@@ -1,4 +1,5 @@
 task_id: task003
+# reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
   - opportunity
   - shift
@@ -37,8 +38,8 @@ required_a11y:
 required_tradeoffs:
   - coordinator_control_vs_volunteer_flexibility
 required_sections:
-  - domain and invariants
+  - domain model and illegal states
   - actors and permissions
-  - workflows
-  - scenarios
-  - implement brief
+  - workflows and decision points
+  - edge cases and recovery
+  - implementation brief

@@ -1,7 +1,7 @@
 id: task008
 category: oss_feature
 workflow: design
-prompt: Design guest sharing for Outline documents.
+prompt: "Design the product behavior for guest sharing of Outline documents: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product."
 fixture: outline-with-init
 human_eval: false
 runs: 3

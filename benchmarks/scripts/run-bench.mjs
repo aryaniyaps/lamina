@@ -2,6 +2,9 @@
 /**
  * LaminaBench runner: control vs treatment agent executions.
  * Usage: node benchmarks/scripts/run-bench.mjs [--mock] [--pilot] [--tasks id1,id2] [--runs N]
+ *
+ * --mock is for pipeline validation only. Never use mock results for external claims.
+ * Release path: npm run bench:all (live runs, no --mock).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { stageBenchFixture } from './stage-bench-fixture.mjs';
 import { readYamlSync } from './yaml.mjs';
 import { invokeAgent, isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
-import { listWorkspaceFiles } from '../../evals/scripts/workspace-state.mjs';
+import { captureScoringArtifact } from './artifact-contract.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
@@ -70,22 +73,35 @@ function copyTree(src, dest) {
   }
 }
 
+/**
+ * Mock artifacts for pipeline validation only.
+ * Both arms get the same inclusion rate so mock deltas are not claimable.
+ */
 function generateMockArtifact(task, arm) {
   const goldenPath = path.join(ROOT, 'benchmarks/goldens', task.id, 'golden.yaml');
   const golden = fs.existsSync(goldenPath) ? readYamlSync(goldenPath) : {};
-  const boost = arm === 'treatment' ? 1.0 : 0.55;
-  const sections = golden.required_sections || ['flows', 'edge cases'];
-  const lines = [`# UX Artifact — ${task.id} (${arm}, mock)\n`];
-
-  for (const section of sections) {
-    lines.push(`### ${section.charAt(0).toUpperCase() + section.slice(1)}\n`);
-  }
+  // Equal coverage for both arms — mock must not invent a treatment advantage
+  const boost = 0.75;
+  const lines = [
+    `# Product-behavior brief — ${task.id} (${arm}, mock)\n`,
+    `## Domain model\n`,
+    `## Illegal states / invariants\n`,
+    `## Actors and permissions\n`,
+    `## Workflows\n`,
+    `## Scenarios\n`,
+    `## Trade-offs\n`,
+    `## Implementation brief\n`,
+  ];
 
   const fields = [
+    'required_entities',
+    'required_invariants',
     'required_personas',
     'required_flows',
     'required_rules',
+    'required_scenarios',
     'required_edge_cases',
+    'required_tradeoffs',
     'required_a11y',
     'required_findings',
   ];
@@ -94,32 +110,18 @@ function generateMockArtifact(task, arm) {
     if (!items) continue;
     const count = Math.ceil(items.length * boost);
     for (let i = 0; i < count; i++) {
-      lines.push(`- ${items[i]}: detailed UX reasoning for ${items[i].replace(/_/g, ' ')}`);
+      const phrase = items[i].replace(/_/g, ' ');
+      lines.push(`- ${phrase}: reasoning about ${phrase} for this product.`);
     }
   }
 
   if (task.workflow === 'audit') {
-    lines.push('\n### Executive summary\nMock audit findings with prioritized improvements.\n');
-    lines.push('### Findings by flow\nIdentified usability issues with impact and effort ratings.\n');
-    lines.push('### Prioritized improvements\n1. High-impact quick wins listed.\n');
+    lines.push('\n## Executive summary\nMock audit of product-behavior gaps.\n');
+    lines.push('## Findings\nInvariant violations, state consistency, permission gaps.\n');
+    lines.push('## Prioritized improvements\n1. High-impact recovery and guard fixes.\n');
   }
 
   return lines.join('\n');
-}
-
-function captureArtifact(workspace, agentOutput) {
-  const parts = [agentOutput || ''];
-  const laminaDir = path.join(workspace, '.lamina');
-  if (fs.existsSync(laminaDir)) {
-    for (const f of listWorkspaceFiles(laminaDir, '.lamina')) {
-      try {
-        parts.push(`\n--- ${f} ---\n${fs.readFileSync(path.join(workspace, f), 'utf8')}`);
-      } catch {
-        /* skip */
-      }
-    }
-  }
-  return parts.join('\n');
 }
 
 function appendIndex(entry) {
@@ -148,13 +150,13 @@ async function runTask(task, run, arm, opts, release) {
     output = generateMockArtifact(task, arm);
   } else {
     if (!isAgentAvailable(agent)) {
-      throw new Error(`Agent ${agent} not available. Use --mock or install the agent CLI.`);
+      throw new Error(`Agent ${agent} not available. Use --mock for pipeline checks or install the agent CLI.`);
     }
     if (arm === 'treatment') {
       installLaminaSkills(workspace, agent);
     }
     const result = invokeAgent(agent, task.full_prompt, workspace);
-    output = captureArtifact(workspace, result.output);
+    output = captureScoringArtifact(workspace, result.output);
   }
 
   const elapsed = Date.now() - start;
@@ -193,7 +195,6 @@ async function main() {
 
   const runsPerArm = opts.runs ?? release.runs_per_arm ?? 3;
 
-  // Fresh index for full runs; append for partial
   if (!opts.tasks && !opts.pilot) {
     const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
     if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath);
@@ -214,7 +215,10 @@ async function main() {
   }
 
   console.log(`\nLaminaBench run complete: ${count} executions`);
-  if (opts.mock) console.log('(mock mode — artifacts are synthetic for pipeline validation)');
+  if (opts.mock) {
+    console.log('WARNING: mock mode — equal-coverage synthetic artifacts for pipeline validation only.');
+    console.log('Do NOT cite mock results externally. Use npm run bench:all for live release runs.');
+  }
 }
 
 main().catch((err) => {

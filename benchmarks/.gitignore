@@ -3,9 +3,12 @@ results/scored/
 results/statistics/
 results/report.md
 results/index.jsonl
+results/secondary/
 tmp/
 *.pyc
 __pycache__/
+judges/promptfoo-tests.json
+judges/promptfoo-judge.generated.yaml
 
 # Release snapshots are published (not ignored)
 !releases/

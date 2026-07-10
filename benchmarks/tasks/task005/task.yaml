@@ -1,7 +1,7 @@
 id: task005
 category: greenfield
 workflow: design
-prompt: Design a personal fitness tracker focused on habit formation, not metrics obsession.
+prompt: "Design the product behavior for a personal fitness tracker focused on habit formation: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: false
 runs: 3

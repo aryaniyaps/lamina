@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Generate blind human review packet for human_eval tasks.
- * Usage: node benchmarks/scripts/export-human-packet.mjs
+ * Usage:
+ *   node benchmarks/scripts/export-human-packet.mjs
+ *   node benchmarks/scripts/export-human-packet.mjs --example-scores  # synthetic only; not for claims
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,6 +57,7 @@ function pickRepresentativeArtifact(taskId, arm) {
 }
 
 function main() {
+  const exampleScores = process.argv.includes('--example-scores');
   const humanTasks = loadHumanEvalTasks();
   const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
   if (!fs.existsSync(indexPath)) {
@@ -64,7 +67,7 @@ function main() {
 
   fs.mkdirSync(PACKET_DIR, { recursive: true });
   const answerKey = [];
-  const csvRows = ['task_id,artifact_label,' + CRITERIA.join(',') + ',notes'];
+  const csvRows = ['task_id,artifact_label,rater,' + CRITERIA.join(',') + ',notes'];
   const htmlParts = [
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>LaminaBench Blind Review</title>',
     '<style>body{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem}',
@@ -74,6 +77,7 @@ function main() {
     '<h1>LaminaBench Blind Review Packet</h1>',
     `<p>Tasks: ${humanTasks.length}. Score each artifact A and B using the product-behavior rubric. Do not infer which arm produced which.</p>`,
     `<p><a href="../../judges/rubric.md">Rubric</a></p>`,
+    '<p>After scoring, import with: <code>npm run bench:import-human -- --csv your-scores.csv</code></p>',
   ];
 
   for (const taskId of humanTasks) {
@@ -103,8 +107,8 @@ function main() {
     htmlParts.push(`<h3>Artifact B</h3><pre>${b.text.replace(/</g, '&lt;')}</pre>`);
     htmlParts.push('</article>');
 
-    csvRows.push(`${taskId},A,,,,,,,,,,`);
-    csvRows.push(`${taskId},B,,,,,,,,,,`);
+    csvRows.push(`${taskId},A,1,,,,,,,,,,,`);
+    csvRows.push(`${taskId},B,1,,,,,,,,,,,`);
   }
 
   htmlParts.push('</body></html>');
@@ -113,10 +117,30 @@ function main() {
   fs.writeFileSync(path.join(PACKET_DIR, 'scores-template.csv'), csvRows.join('\n') + '\n');
   fs.writeFileSync(path.join(PACKET_DIR, 'answer-key.json'), JSON.stringify(answerKey, null, 2) + '\n');
 
-  generateExampleHumanScores(answerKey);
+  // Remove stale synthetic human-scores unless explicitly regenerating examples
+  const humanScoresPath = path.join(ROOT, 'benchmarks/results/scored/human-scores.json');
+  if (exampleScores) {
+    generateExampleHumanScores(answerKey);
+    console.log('WARNING: wrote synthetic human-scores.json — not for external claims.');
+  } else if (fs.existsSync(humanScoresPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(humanScoresPath, 'utf8'));
+      const keepImported = existing.synthetic === false && existing.source === 'csv_import';
+      if (keepImported) {
+        console.log('Keeping imported human-scores.json');
+      } else {
+        fs.unlinkSync(humanScoresPath);
+        console.log('Removed stale/synthetic human-scores.json');
+      }
+    } catch {
+      fs.unlinkSync(humanScoresPath);
+      console.log('Removed unreadable human-scores.json');
+    }
+  }
 
   console.log(`Human review packet → ${PACKET_DIR}`);
   console.log(`Tasks in packet: ${answerKey.length}`);
+  console.log('Import real scores: npm run bench:import-human -- --csv path/to/scores.csv');
 }
 
 function generateExampleHumanScores(answerKey) {
@@ -148,13 +172,16 @@ function generateExampleHumanScores(answerKey) {
   const treatmentScores = ratings.filter((r) => r.arm === 'treatment').map((r) => r.overall_product_behavior);
 
   const human = {
-    note: 'v2.0: Example scores derived from coverage for pipeline validation only. Replace with real rater CSV imports before any external claim.',
+    note: 'SYNTHETIC — derived from coverage for pipeline validation only. Do not cite. Import real CSV via bench:import-human.',
+    source: 'synthetic_from_coverage',
+    synthetic: true,
     fleiss_kappa: null,
     control_mean: avg(controlScores),
     treatment_mean: avg(treatmentScores),
     ratings,
   };
 
+  fs.mkdirSync(path.join(ROOT, 'benchmarks/results/scored'), { recursive: true });
   fs.writeFileSync(
     path.join(ROOT, 'benchmarks/results/scored/human-scores.json'),
     JSON.stringify(human, null, 2) + '\n'

@@ -1,7 +1,7 @@
 id: task022
 category: resilience
 workflow: design
-prompt: Design screen reader support for a data-heavy analytics dashboard.
+prompt: "Design the product behavior for screen-reader support on a data-heavy analytics dashboard: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
 fixture: null
 human_eval: false
 runs: 3
