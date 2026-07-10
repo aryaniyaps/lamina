@@ -1,0 +1,157 @@
+import { observer } from "mobx-react";
+import { SearchIcon, HomeIcon, SidebarIcon } from "outline-icons";
+import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  DragActiveProvider,
+  SidebarScrollProvider,
+} from "./components/DragActiveContext";
+import { useTranslation } from "react-i18next";
+import { useHistory } from "react-router-dom";
+import styled from "styled-components";
+import { metaDisplay } from "@shared/utils/keyboard";
+import Scrollable from "~/components/Scrollable";
+import { inviteUser } from "~/actions/definitions/users";
+import useCurrentTeam from "~/hooks/useCurrentTeam";
+import useCurrentUser from "~/hooks/useCurrentUser";
+import usePolicy from "~/hooks/usePolicy";
+import useStores from "~/hooks/useStores";
+import TeamMenu from "~/menus/TeamMenu";
+import { homePath, searchPath } from "~/utils/routeHelpers";
+import TeamLogo from "../TeamLogo";
+import Tooltip from "../Tooltip";
+import Sidebar from "./Sidebar";
+import ArchiveLink from "./components/ArchiveLink";
+import Collections from "./components/Collections";
+import { DraftsLink } from "./components/DraftsLink";
+import DragPlaceholder from "./components/DragPlaceholder";
+import HistoryNavigation from "./components/HistoryNavigation";
+import Section from "./components/Section";
+import SharedWithMe from "./components/SharedWithMe";
+import SidebarAction from "./components/SidebarAction";
+import SidebarButton from "./components/SidebarButton";
+import SidebarLink from "./components/SidebarLink";
+import Starred from "./components/Starred";
+import ToggleButton from "./components/ToggleButton";
+import TrashLink from "./components/TrashLink";
+import useMobile from "~/hooks/useMobile";
+
+function AppSidebar() {
+  const { t } = useTranslation();
+  const { documents, ui, collections } = useStores();
+  const team = useCurrentTeam();
+  const user = useCurrentUser();
+  const can = usePolicy(team);
+  const history = useHistory();
+  const isMobile = useMobile();
+
+  const handleSearchClick = useCallback(() => {
+    const basePath = searchPath();
+    const { pathname, search } = history.location;
+    if (pathname.startsWith(basePath) && (search || pathname !== basePath)) {
+      history.push(basePath);
+    }
+  }, [history]);
+
+  useEffect(() => {
+    void collections.fetchAll();
+
+    if (!user.isViewer) {
+      void documents.fetchDrafts();
+    }
+  }, [documents, collections, user.isViewer]);
+
+  // Scrollable reads ref.current internally for its shadow/ResizeObserver
+  // logic, so we must pass an object ref — a callback ref would leave those
+  // reads undefined. We mirror the attached node into state so the
+  // SidebarScrollProvider can re-render descendants with the scroll element.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollArea, setScrollArea] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setScrollArea(scrollRef.current);
+  }, []);
+
+  return (
+    <Sidebar hidden={!ui.readyToShow}>
+      <DragActiveProvider>
+        <DragPlaceholder />
+
+        <TeamMenu>
+          <SidebarButton
+            title={team.name}
+            image={<TeamLogo model={team} size={24} alt={t("Logo")} />}
+          >
+            {isMobile ? null : (
+              <Tooltip
+                content={t("Toggle sidebar")}
+                shortcut={`${metaDisplay}+.`}
+              >
+                <ToggleButton
+                  position="bottom"
+                  image={<SidebarIcon />}
+                  aria-label={
+                    ui.sidebarCollapsed
+                      ? t("Expand sidebar")
+                      : t("Collapse sidebar")
+                  }
+                  style={{ paddingInline: 4 }}
+                  onClick={() => {
+                    ui.toggleCollapsedSidebar();
+                    (document.activeElement as HTMLElement)?.blur();
+                  }}
+                />
+              </Tooltip>
+            )}
+          </SidebarButton>
+        </TeamMenu>
+        <Overflow>
+          <Section>
+            <SidebarLink
+              to={homePath()}
+              icon={<HomeIcon />}
+              exact={false}
+              label={t("Home")}
+            />
+            <SidebarLink
+              to={searchPath()}
+              icon={<SearchIcon />}
+              label={t("Search")}
+              exact={false}
+              onClick={handleSearchClick}
+            />
+            {can.createDocument && <DraftsLink />}
+          </Section>
+        </Overflow>
+        <Scrollable flex shadow ref={scrollRef}>
+          <SidebarScrollProvider value={scrollArea}>
+            <Section>
+              <Starred />
+            </Section>
+            <Section>
+              <SharedWithMe />
+            </Section>
+            <Section>
+              <Collections />
+            </Section>
+            {can.createDocument && (
+              <Section auto>
+                <ArchiveLink />
+              </Section>
+            )}
+            <Section>
+              {can.createDocument && <TrashLink />}
+              <SidebarAction action={inviteUser} />
+            </Section>
+          </SidebarScrollProvider>
+        </Scrollable>
+      </DragActiveProvider>
+      <HistoryNavigation />
+    </Sidebar>
+  );
+}
+
+const Overflow = styled.div`
+  overflow: hidden;
+  flex-shrink: 0;
+`;
+
+export default observer(AppSidebar);

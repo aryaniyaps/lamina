@@ -1,0 +1,161 @@
+import type { ActionImpl } from "kbar";
+import { ArrowIcon, BackIcon } from "outline-icons";
+import * as React from "react";
+import styled, { css, useTheme } from "styled-components";
+import { s, ellipsis } from "@shared/styles";
+import { normalizeKeyDisplay, shortcutSeparator } from "@shared/utils/keyboard";
+import Highlight from "~/components/Highlight";
+import Flex from "~/components/Flex";
+import Key from "~/components/Key";
+import Text from "~/components/Text";
+import { HStack } from "../primitives/HStack";
+
+type Props = {
+  action: ActionImpl;
+  active: boolean;
+  currentRootActionId: string | null | undefined;
+};
+
+const SEARCH_RESULT_REGEX = /<b\b[^>]*>(.*?)<\/b>/gi;
+
+function replaceResultMarks(tag: string) {
+  // don't use SEARCH_RESULT_REGEX here as it causes
+  // an infinite loop to trigger a regex inside it's own callback
+  return tag.replace(/<b\b[^>]*>(.*?)<\/b>/gi, "$1");
+}
+
+function CommandBarItem(
+  { action, active, currentRootActionId }: Props,
+  ref: React.RefObject<HTMLDivElement>
+) {
+  const theme = useTheme();
+  const ancestors = React.useMemo(() => {
+    if (!currentRootActionId || !action.ancestors) {
+      return action.ancestors ?? [];
+    }
+    const index = action.ancestors.findIndex(
+      (ancestor) => ancestor.id === currentRootActionId
+    );
+
+    // +1 removes the currentRootAction; e.g. if we are on the "Set theme"
+    // parent action, the UI should not display "Set theme… > Dark" but rather
+    // just "Dark"
+    return action.ancestors.slice(index + 1);
+  }, [action.ancestors, currentRootActionId]);
+
+  return (
+    <Item active={active} ref={ref}>
+      <Content>
+        <Icon>
+          {action.icon ? (
+            // @ts-expect-error no icon on ActionImpl
+            React.cloneElement(action.icon, {
+              size: 22,
+            })
+          ) : (
+            <ArrowIcon />
+          )}
+        </Icon>
+
+        {ancestors.map((ancestor) => (
+          <React.Fragment key={ancestor.id}>
+            <Ancestor>{ancestor.name}</Ancestor>
+            <ForwardIcon color={theme.textSecondary} size={22} />
+          </React.Fragment>
+        ))}
+        {action.name}
+        {action.children?.length ? "…" : ""}
+        {action.subtitle && (
+          <Text type="secondary" ellipsis>
+            &nbsp;&nbsp;
+            <Highlight
+              text={action.subtitle}
+              highlight={SEARCH_RESULT_REGEX}
+              processResult={replaceResultMarks}
+            />
+          </Text>
+        )}
+      </Content>
+      {action.shortcut?.length ? (
+        <Shortcut>
+          {action.shortcut.map((sc: string, index) => (
+            <React.Fragment key={sc}>
+              {index > 0 ? (
+                <>
+                  {" "}
+                  <Text size="xsmall" type="secondary">
+                    then
+                  </Text>{" "}
+                </>
+              ) : (
+                ""
+              )}
+              {sc.split("+").flatMap((key, i, arr) => {
+                const el = <Key key={key}>{normalizeKeyDisplay(key)}</Key>;
+                return i < arr.length - 1 && shortcutSeparator
+                  ? [el, shortcutSeparator]
+                  : [el];
+              })}
+            </React.Fragment>
+          ))}
+        </Shortcut>
+      ) : null}
+    </Item>
+  );
+}
+
+const Shortcut = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  gap: 4px;
+`;
+
+const Icon = styled(Flex)`
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: ${s("textSecondary")};
+  flex-shrink: 0;
+`;
+
+const Ancestor = styled.span`
+  color: ${s("textSecondary")};
+`;
+
+const Content = styled(HStack)`
+  ${ellipsis()}
+  flex-shrink: 1;
+`;
+
+const Item = styled.div<{ active?: boolean }>`
+  font-size: 14px;
+  padding: 9px 12px;
+  margin: 0 8px;
+  border-radius: 4px;
+  background: ${(props) =>
+    props.active ? props.theme.menuItemSelected : "none"};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: var(--pointer);
+
+  ${ellipsis()}
+  user-select: none;
+  min-width: 0;
+
+  ${(props) =>
+    props.active &&
+    css`
+      ${Icon} {
+        color: ${props.theme.text};
+      }
+    `}
+`;
+
+const ForwardIcon = styled(BackIcon)`
+  transform: rotate(180deg);
+  flex-shrink: 0;
+`;
+
+export default React.forwardRef<HTMLDivElement, Props>(CommandBarItem);

@@ -63,17 +63,19 @@ categories:
   - workflow_edge
   - resilience
 
-# Fixture honesty: commerce = full vendored repo; plane/outline = context stubs only
+# Fixture honesty: all OSS fixtures are full vendored source trees
 oss_pins:
   commerce:
     repo: vercel/commerce
-    commit: main
+    commit: 3761e52e60df9c6a316e067dbfd7032e494d3634
     fixture_kind: vendored_full
   plane:
     repo: makeplane/plane
-    commit: develop
-    fixture_kind: context_stub
+    commit: dc9d80b2d2a499b967f0b541e083b283f463719f
+    ref: preview
+    fixture_kind: vendored_full
   outline:
     repo: outline/outline
-    commit: main
-    fixture_kind: context_stub
+    commit: 30730179b852d42da5078a9294f7d05a44f516b7
+    ref: main
+    fixture_kind: vendored_full

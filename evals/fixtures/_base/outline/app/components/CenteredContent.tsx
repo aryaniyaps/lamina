@@ -1,0 +1,41 @@
+import * as React from "react";
+import styled from "styled-components";
+import breakpoint from "styled-components-breakpoint";
+import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
+
+type Props = {
+  children?: React.ReactNode;
+  maxWidth?: string;
+  withStickyHeader?: boolean;
+};
+
+const Container = styled.div<Props>`
+  width: 100%;
+  max-width: 100vw;
+  padding: ${(props) => (props.withStickyHeader ? "4px 16px" : "60px 16px")};
+
+  ${breakpoint("tablet")`
+    padding: ${(props: Props) =>
+      props.withStickyHeader ? "4px 44px 60px" : "60px 44px"};
+  `};
+`;
+
+type ContentProps = { $maxWidth?: string };
+
+const Content = styled.div<ContentProps>`
+  max-width: ${(props: ContentProps) =>
+    props.$maxWidth ?? EditorStyleHelper.documentWidth};
+  margin: 0 auto;
+`;
+
+const CenteredContent: React.FC<Props> = ({
+  children,
+  maxWidth,
+  ...rest
+}: Props) => (
+  <Container {...rest}>
+    <Content $maxWidth={maxWidth}>{children}</Content>
+  </Container>
+);
+
+export default CenteredContent;

@@ -1,0 +1,109 @@
+import { observer } from "mobx-react";
+import { DocumentIcon } from "outline-icons";
+import { Link } from "react-router-dom";
+import styled from "styled-components";
+import Icon from "@shared/components/Icon";
+import { s, hover, ellipsis } from "@shared/styles";
+import type { NavigationNode } from "@shared/types";
+import { IconType } from "@shared/types";
+import { determineIconType } from "@shared/utils/icon";
+import useShare from "@shared/hooks/useShare";
+import Document from "~/models/Document";
+import Flex from "~/components/Flex";
+import type { SidebarContextType } from "~/components/Sidebar/components/SidebarContext";
+import { sharedModelPath } from "~/utils/routeHelpers";
+import useClickIntent from "~/hooks/useClickIntent";
+import useStores from "~/hooks/useStores";
+import { useCallback } from "react";
+
+type Props = {
+  document: Document | NavigationNode;
+  anchor?: string;
+  showCollection?: boolean;
+  sidebarContext?: SidebarContextType;
+};
+
+const DocumentLink = styled(Link)`
+  display: block;
+  margin: 2px -8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  max-height: 50vh;
+  min-width: 100%;
+  overflow: hidden;
+  position: relative;
+  cursor: var(--pointer);
+
+  &:${hover},
+  &:active,
+  &:focus {
+    background: ${s("listItemHoverBackground")};
+  }
+`;
+
+const Content = styled(Flex)`
+  color: ${s("textSecondary")};
+  margin-left: -4px;
+`;
+
+const Title = styled.div`
+  ${ellipsis()}
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+  padding-top: 3px;
+  color: ${s("text")};
+  font-family: ${s("fontFamily")};
+`;
+
+function ReferenceListItem({
+  document,
+  showCollection,
+  anchor,
+  sidebarContext,
+  ...rest
+}: Props) {
+  const { documents } = useStores();
+  const { shareId } = useShare();
+  const prefetchDocument = useCallback(async () => {
+    await documents.prefetchDocument(document.id);
+  }, [documents, document.id]);
+  const { handleMouseEnter, handleMouseLeave } =
+    useClickIntent(prefetchDocument);
+  const { icon, color } = document;
+  const isEmoji = determineIconType(icon) === IconType.Emoji;
+  const title =
+    document instanceof Document ? document.titleWithDefault : document.title;
+  const initial = title.charAt(0).toUpperCase();
+
+  return (
+    <li>
+      <DocumentLink
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        to={{
+          pathname: shareId
+            ? sharedModelPath(shareId, document.url)
+            : document.url,
+          hash: anchor ? `d-${anchor}` : undefined,
+          state: {
+            title: document.title,
+            sidebarContext,
+          },
+        }}
+        {...rest}
+      >
+        <Content gap={4} dir="auto">
+          {icon ? (
+            <Icon value={icon} color={color ?? undefined} initial={initial} />
+          ) : (
+            <DocumentIcon />
+          )}
+          <Title>{isEmoji ? title.replace(icon!, "") : title}</Title>
+        </Content>
+      </DocumentLink>
+    </li>
+  );
+}
+
+export default observer(ReferenceListItem);

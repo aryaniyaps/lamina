@@ -1,0 +1,964 @@
+import { FetchError } from "node-fetch";
+import { Op, QueryTypes } from "sequelize";
+import { toError } from "@shared/utils/error";
+import { colorPalette } from "@shared/utils/collections";
+import WebhookDisabledEmail from "@server/emails/templates/WebhookDisabledEmail";
+import env from "@server/env";
+import Logger from "@server/logging/Logger";
+import {
+  Attachment,
+  Collection,
+  FileOperation,
+  Group,
+  Integration,
+  Pin,
+  Star,
+  Team,
+  WebhookDelivery,
+  WebhookSubscription,
+  Document,
+  User,
+  Revision,
+  View,
+  Share,
+  UserMembership,
+  GroupMembership,
+  GroupUser,
+  Comment,
+} from "@server/models";
+import {
+  presentAttachment,
+  presentCollection,
+  presentDocument,
+  presentRevision,
+  presentFileOperation,
+  presentGroup,
+  presentIntegration,
+  presentPin,
+  presentStar,
+  presentTeam,
+  presentUser,
+  presentView,
+  presentShare,
+  presentMembership,
+  presentGroupUser,
+  presentGroupMembership,
+  presentComment,
+} from "@server/presenters";
+import { BaseTask } from "@server/queues/tasks/base/BaseTask";
+import type {
+  AttachmentEvent,
+  CollectionEvent,
+  CollectionGroupEvent,
+  CollectionUserEvent,
+  CommentEvent,
+  DocumentEvent,
+  DocumentUserEvent,
+  DocumentGroupEvent,
+  Event,
+  FileOperationEvent,
+  GroupEvent,
+  GroupUserEvent,
+  IntegrationEvent,
+  PinEvent,
+  RevisionEvent,
+  ShareEvent,
+  StarEvent,
+  TeamEvent,
+  UserEvent,
+  ViewEvent,
+  WebhookDeliveryStatus,
+  WebhookSubscriptionEvent,
+} from "@server/types";
+import fetch from "@server/utils/fetch";
+import type { WebhookPayload } from "../presenters/webhook";
+import presentWebhook from "../presenters/webhook";
+import presentWebhookSubscription from "../presenters/webhookSubscription";
+
+function assertUnreachable(event: never) {
+  Logger.warn(`DeliverWebhookTask did not handle ${(event as Event).name}`);
+}
+
+/**
+ * Node connection-level error codes that are expected when delivering to
+ * arbitrary, user-supplied webhook URLs. These indicate a misconfigured or
+ * unreachable destination rather than a bug in Outline.
+ */
+const expectedNetworkErrorCodes = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ECONNABORTED",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EPIPE",
+  "EPROTO",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "CERT_HAS_EXPIRED",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
+
+/**
+ * Determine whether an error thrown while delivering a webhook is an expected
+ * network failure caused by the user-supplied destination URL (connection
+ * reset, timeout, unreachable host, invalid certificate, etc) rather than an
+ * unexpected bug. Such failures are noisy and do not need error tracking.
+ *
+ * @param err The error that occurred during delivery.
+ * @returns true if the error is an expected network failure.
+ */
+export function isExpectedNetworkError(err: unknown): boolean {
+  if (err instanceof FetchError) {
+    return true;
+  }
+  if (err instanceof Error) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code && expectedNetworkErrorCodes.has(code)) {
+      return true;
+    }
+    // node-fetch surfaces some low-level socket failures (and our fetch wrapper
+    // converts aborted requests into timeouts) without a structured code.
+    return /socket hang up|request timeout|network|ECONNRESET/i.test(
+      err.message
+    );
+  }
+  return false;
+}
+
+type Props = {
+  subscriptionId: string;
+  event: Event;
+};
+
+export default class DeliverWebhookTask extends BaseTask<Props> {
+  // Minimum number of deliveries required in time window before considering disabling
+  private static readonly MIN_DELIVERIES_FOR_ANALYSIS = 10;
+
+  public async perform({ subscriptionId, event }: Props) {
+    const subscription = await WebhookSubscription.findByPk(subscriptionId, {
+      rejectOnEmpty: true,
+    });
+
+    if (!subscription.enabled) {
+      Logger.info("task", `WebhookSubscription was disabled before delivery`, {
+        event: event.name,
+        subscriptionId: subscription.id,
+      });
+      return;
+    }
+
+    Logger.info("task", `DeliverWebhookTask: ${event.name}`, {
+      event: event.name,
+      subscriptionId: subscription.id,
+    });
+
+    switch (event.name) {
+      case "attachments.create":
+      case "attachments.update":
+      case "attachments.delete":
+        await this.handleAttachmentEvent(subscription, event);
+        return;
+      case "api_keys.create":
+      case "api_keys.delete":
+      case "subscriptions.create":
+      case "subscriptions.delete":
+      case "authenticationProviders.update":
+      case "notifications.create":
+      case "notifications.update":
+      case "access_requests.create":
+        // Ignored
+        return;
+      case "users.create":
+      case "users.signin":
+      case "users.signout":
+      case "users.update":
+      case "users.suspend":
+      case "users.activate":
+      case "users.delete":
+      case "users.invite":
+      case "users.promote":
+      case "users.demote":
+      case "users.invite_accepted":
+        await this.handleUserEvent(subscription, event);
+        return;
+      case "documents.create":
+      case "documents.publish":
+      case "documents.unpublish":
+      case "documents.delete":
+      case "documents.permanent_delete":
+      case "documents.archive":
+      case "documents.unarchive":
+      case "documents.restore":
+      case "documents.move":
+      case "documents.update":
+      case "documents.title_change":
+        await this.handleDocumentEvent(subscription, event);
+        return;
+      case "documents.add_user":
+      case "documents.remove_user":
+        await this.handleDocumentUserEvent(subscription, event);
+        return;
+      case "documents.add_group":
+      case "documents.remove_group":
+        await this.handleDocumentGroupEvent(subscription, event);
+        return;
+      case "documents.update.delayed":
+      case "documents.update.debounced":
+      case "documents.empty_trash":
+        // Ignored
+        return;
+      case "revisions.create":
+        await this.handleRevisionEvent(subscription, event);
+        return;
+      case "fileOperations.create":
+      case "fileOperations.update":
+      case "fileOperations.delete":
+        await this.handleFileOperationEvent(subscription, event);
+        return;
+      case "collections.create":
+      case "collections.update":
+      case "collections.delete":
+      case "collections.move":
+      case "collections.permission_changed":
+      case "collections.archive":
+      case "collections.restore":
+        await this.handleCollectionEvent(subscription, event);
+        return;
+      case "collections.add_user":
+      case "collections.remove_user":
+        await this.handleCollectionUserEvent(subscription, event);
+        return;
+      case "collections.add_group":
+      case "collections.remove_group":
+        await this.handleCollectionGroupEvent(subscription, event);
+        return;
+      case "comments.create":
+      case "comments.update":
+      case "comments.delete":
+        await this.handleCommentEvent(subscription, event);
+        return;
+      case "comments.add_reaction":
+      case "comments.remove_reaction":
+        // Ignored
+        return;
+      case "groups.create":
+      case "groups.update":
+      case "groups.delete":
+        await this.handleGroupEvent(subscription, event);
+        return;
+      case "groups.add_user":
+      case "groups.remove_user":
+        await this.handleGroupUserEvent(subscription, event);
+        return;
+      case "integrations.create":
+      case "integrations.update":
+      case "integrations.delete":
+        await this.handleIntegrationEvent(subscription, event);
+        return;
+      case "teams.create":
+      case "teams.delete":
+      case "teams.destroy":
+        // Ignored
+        return;
+      case "teams.update":
+        await this.handleTeamEvent(subscription, event);
+        return;
+      case "pins.create":
+      case "pins.update":
+      case "pins.delete":
+        await this.handlePinEvent(subscription, event);
+        return;
+      case "stars.create":
+      case "stars.update":
+      case "stars.delete":
+        await this.handleStarEvent(subscription, event);
+        return;
+      case "shares.create":
+      case "shares.update":
+      case "shares.revoke":
+        await this.handleShareEvent(subscription, event);
+        return;
+      case "webhookSubscriptions.create":
+      case "webhookSubscriptions.delete":
+      case "webhookSubscriptions.update":
+        await this.handleWebhookSubscriptionEvent(subscription, event);
+        return;
+      case "views.create":
+        await this.handleViewEvent(subscription, event);
+        return;
+      case "userMemberships.update":
+        // Ignored
+        return;
+      case "imports.create":
+      case "imports.update":
+      case "imports.processed":
+      case "imports.delete":
+        // Ignored
+        return;
+      case "oauthClients.create":
+      case "oauthClients.update":
+      case "oauthClients.delete":
+        // Ignored
+        return;
+      case "templates.create":
+      case "templates.update":
+      case "templates.delete":
+      case "templates.restore":
+      case "passkeys.create":
+      case "passkeys.update":
+      case "passkeys.delete":
+        // Ignored
+        return;
+      default:
+        assertUnreachable(event);
+    }
+  }
+
+  private async handleAttachmentEvent(
+    subscription: WebhookSubscription,
+    event: AttachmentEvent
+  ): Promise<void> {
+    const model = await Attachment.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentAttachment(model),
+      },
+    });
+  }
+
+  private async handleWebhookSubscriptionEvent(
+    subscription: WebhookSubscription,
+    event: WebhookSubscriptionEvent
+  ): Promise<void> {
+    const model = await WebhookSubscription.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    let data = null;
+    if (model) {
+      data = {
+        ...presentWebhookSubscription(model),
+        secret: undefined,
+      };
+    }
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: data,
+      },
+    });
+  }
+
+  private async handleViewEvent(
+    subscription: WebhookSubscription,
+    event: ViewEvent
+  ): Promise<void> {
+    const model = await View.scope("withUser").findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentView(model),
+      },
+    });
+  }
+
+  private async handleStarEvent(
+    subscription: WebhookSubscription,
+    event: StarEvent
+  ): Promise<void> {
+    const model = await Star.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentStar(model),
+      },
+    });
+  }
+
+  private async handleShareEvent(
+    subscription: WebhookSubscription,
+    event: ShareEvent
+  ): Promise<void> {
+    const model = await Share.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentShare(model),
+      },
+    });
+  }
+
+  private async handleCommentEvent(
+    subscription: WebhookSubscription,
+    event: CommentEvent
+  ): Promise<void> {
+    const model = await Comment.findByPk(event.modelId, {
+      paranoid: false,
+    });
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentComment(model),
+      },
+    });
+  }
+
+  private async handlePinEvent(
+    subscription: WebhookSubscription,
+    event: PinEvent
+  ): Promise<void> {
+    const model = await Pin.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentPin(model),
+      },
+    });
+  }
+
+  private async handleTeamEvent(
+    subscription: WebhookSubscription,
+    event: TeamEvent
+  ): Promise<void> {
+    const model = await Team.scope("withDomains").findByPk(event.teamId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.teamId,
+        model: model && presentTeam(model),
+      },
+    });
+  }
+
+  private async handleIntegrationEvent(
+    subscription: WebhookSubscription,
+    event: IntegrationEvent
+  ): Promise<void> {
+    const model = await Integration.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentIntegration(model),
+      },
+    });
+  }
+
+  private async handleGroupEvent(
+    subscription: WebhookSubscription,
+    event: GroupEvent
+  ): Promise<void> {
+    const model = await Group.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && (await presentGroup(model)),
+      },
+    });
+  }
+
+  private async handleGroupUserEvent(
+    subscription: WebhookSubscription,
+    event: GroupUserEvent
+  ): Promise<void> {
+    const model = await GroupUser.scope(["withUser", "withGroup"]).findOne({
+      where: {
+        groupId: event.modelId,
+        userId: event.userId,
+      },
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: `${event.userId}-${event.modelId}`,
+        model: model && presentGroupUser(model),
+        group: model && (await presentGroup(model.group)),
+        user: model && presentUser(model.user),
+      },
+    });
+  }
+
+  private async handleCollectionEvent(
+    subscription: WebhookSubscription,
+    event: CollectionEvent
+  ): Promise<void> {
+    const model = await Collection.findByPk(event.collectionId, {
+      paranoid: false,
+    });
+
+    const collection = model && (await presentCollection(undefined, model));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.collectionId,
+        model: collection,
+      },
+    });
+  }
+
+  private async handleCollectionUserEvent(
+    subscription: WebhookSubscription,
+    event: CollectionUserEvent
+  ): Promise<void> {
+    const model = await UserMembership.scope([
+      "withUser",
+      "withCollection",
+    ]).findOne({
+      where: {
+        collectionId: event.collectionId,
+        userId: event.userId,
+      },
+      paranoid: false,
+    });
+
+    const collection =
+      model && (await presentCollection(undefined, model.collection!));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentMembership(model),
+        collection,
+        user: model && presentUser(model.user),
+      },
+    });
+  }
+
+  private async handleCollectionGroupEvent(
+    subscription: WebhookSubscription,
+    event: CollectionGroupEvent
+  ): Promise<void> {
+    const model = await GroupMembership.scope([
+      "withGroup",
+      "withCollection",
+    ]).findOne({
+      where: {
+        collectionId: event.collectionId,
+        groupId: event.modelId,
+      },
+      paranoid: false,
+    });
+
+    const collection =
+      model && (await presentCollection(undefined, model.collection!));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentGroupMembership(model),
+        collection,
+        group: model && (await presentGroup(model.group)),
+      },
+    });
+  }
+
+  private async handleFileOperationEvent(
+    subscription: WebhookSubscription,
+    event: FileOperationEvent
+  ): Promise<void> {
+    const model = await FileOperation.findByPk(event.modelId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentFileOperation(model),
+      },
+    });
+  }
+
+  private async handleDocumentEvent(
+    subscription: WebhookSubscription,
+    event: DocumentEvent
+  ): Promise<void> {
+    const model = await Document.findByPk(event.documentId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.documentId,
+        model:
+          model &&
+          (await presentDocument(undefined, model, {
+            includeData: true,
+            includeText: true,
+          })),
+      },
+    });
+  }
+
+  private async handleDocumentUserEvent(
+    subscription: WebhookSubscription,
+    event: DocumentUserEvent
+  ): Promise<void> {
+    const model = await UserMembership.scope([
+      "withUser",
+      "withDocument",
+    ]).findOne({
+      where: {
+        documentId: event.documentId,
+        userId: event.userId,
+      },
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentMembership(model),
+        document:
+          model &&
+          (await presentDocument(undefined, model.document!, {
+            includeData: true,
+            includeText: true,
+          })),
+        user: model && presentUser(model.user),
+      },
+    });
+  }
+
+  private async handleDocumentGroupEvent(
+    subscription: WebhookSubscription,
+    event: DocumentGroupEvent
+  ): Promise<void> {
+    const model = await GroupMembership.scope([
+      "withGroup",
+      "withDocument",
+    ]).findOne({
+      where: {
+        documentId: event.documentId,
+        groupId: event.modelId,
+      },
+      paranoid: false,
+    });
+
+    const document =
+      model && (await presentDocument(undefined, model.document!));
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: model && presentGroupMembership(model),
+        document,
+        group: model && (await presentGroup(model.group)),
+      },
+    });
+  }
+
+  private async handleRevisionEvent(
+    subscription: WebhookSubscription,
+    event: RevisionEvent
+  ): Promise<void> {
+    const [model, document] = await Promise.all([
+      Revision.findByPk(event.modelId, {
+        paranoid: false,
+      }),
+      Document.findByPk(event.documentId, {
+        paranoid: false,
+      }),
+    ]);
+
+    const data = {
+      ...(model ? await presentRevision(model) : {}),
+      collectionId: document ? document.collectionId : undefined,
+    };
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.modelId,
+        model: data,
+      },
+    });
+  }
+
+  private async handleUserEvent(
+    subscription: WebhookSubscription,
+    event: UserEvent
+  ): Promise<void> {
+    const model = await User.findByPk(event.userId, {
+      paranoid: false,
+    });
+
+    await this.sendWebhook({
+      event,
+      subscription,
+      payload: {
+        id: event.userId,
+        model: model && presentUser(model),
+      },
+    });
+  }
+
+  /** Maximum number of bytes to read from webhook response bodies. */
+  private static readonly MAX_RESPONSE_BODY_SIZE = 1024;
+
+  private async sendWebhook({
+    event,
+    subscription,
+    payload,
+  }: {
+    event: Event;
+    subscription: WebhookSubscription;
+    payload: WebhookPayload;
+  }) {
+    const delivery = await WebhookDelivery.create({
+      webhookSubscriptionId: subscription.id,
+      status: "pending",
+    });
+
+    let response: Awaited<ReturnType<typeof fetch>> | undefined;
+    let requestBody, requestHeaders;
+    let status: WebhookDeliveryStatus;
+    let responseBody = "";
+
+    try {
+      requestBody = presentWebhook({
+        event,
+        delivery,
+        payload,
+      });
+      requestHeaders = {
+        "Content-Type": "application/json",
+      } as Record<string, string>;
+
+      const signature = subscription.signature(JSON.stringify(requestBody));
+      if (signature) {
+        requestHeaders["Outline-Signature"] = signature;
+      }
+
+      response = await fetch(subscription.url, {
+        method: "POST",
+        headers: requestHeaders,
+        body: JSON.stringify(requestBody),
+        redirect: "error",
+        timeout: 5000,
+      });
+      status = response.ok ? "success" : "failed";
+    } catch (err) {
+      const error = toError(err);
+      if (isExpectedNetworkError(err) && env.isCloudHosted) {
+        Logger.warn(`Failed to send webhook: ${error.message}`, {
+          event,
+          deliveryId: delivery.id,
+        });
+      } else {
+        Logger.error("Failed to send webhook", error, {
+          event,
+          deliveryId: delivery.id,
+        });
+      }
+      status = "failed";
+    }
+
+    if (response) {
+      try {
+        // TODO: Use stream to avoid buffering large responses in memory.
+        const text = await response.text();
+        responseBody = text.slice(0, DeliverWebhookTask.MAX_RESPONSE_BODY_SIZE);
+      } catch (err) {
+        Logger.debug(
+          "task",
+          `Failed to read webhook response body: ${(err as Error).message}`
+        );
+      }
+    }
+
+    await delivery.update({
+      status,
+      statusCode: response ? response.status : null,
+      requestBody,
+      requestHeaders,
+      responseBody,
+      responseHeaders: response
+        ? Object.fromEntries(response.headers.entries())
+        : {},
+    });
+
+    if (status === "failed") {
+      try {
+        await this.checkAndDisableSubscription(subscription);
+      } catch (err) {
+        Logger.error(
+          "Failed to check and disable recent deliveries",
+          toError(err),
+          {
+            event,
+            deliveryId: delivery.id,
+          }
+        );
+      }
+    }
+  }
+
+  private async checkAndDisableSubscription(subscription: WebhookSubscription) {
+    // Calculate the time window for analysis
+    const timeWindowSeconds = env.WEBHOOK_FAILURE_TIME_WINDOW;
+    const failureRateThreshold = env.WEBHOOK_FAILURE_RATE_THRESHOLD;
+    const timeWindowStart = new Date(Date.now() - timeWindowSeconds * 1000);
+
+    // Count deliveries within the time window without loading the rows.
+    const [counts] = await WebhookDelivery.sequelize!.query<{
+      total: string;
+      failed: string;
+    }>(
+      `
+        SELECT
+          COUNT(*) as total,
+          COUNT(CASE WHEN status = :statusFailed THEN 1 END) as failed
+        FROM webhook_deliveries
+        WHERE "webhookSubscriptionId" = :subscriptionId
+        AND "createdAt" >= :timeWindowStart
+      `,
+      {
+        type: QueryTypes.SELECT,
+        replacements: {
+          subscriptionId: subscription.id,
+          timeWindowStart,
+          statusFailed: "failed",
+        },
+      }
+    );
+
+    const totalDeliveries = parseInt(counts.total, 10);
+    const failedDeliveries = parseInt(counts.failed, 10);
+
+    // If there are no deliveries in the time window, don't disable
+    if (totalDeliveries === 0) {
+      return;
+    }
+
+    // Calculate failure rate
+    const failureRate = (failedDeliveries / totalDeliveries) * 100;
+
+    // Only log analysis if there are failures to report
+    if (failedDeliveries > 0) {
+      Logger.info("task", "Webhook failure analysis", {
+        subscriptionId: subscription.id,
+        timeWindowSeconds,
+        totalDeliveries,
+        failedDeliveries,
+        failureRate: Math.round(failureRate * 100) / 100,
+        threshold: failureRateThreshold,
+      });
+    }
+
+    // Check if failure rate exceeds threshold and we have enough data points
+    if (
+      failureRate >= failureRateThreshold &&
+      totalDeliveries >= DeliverWebhookTask.MIN_DELIVERIES_FOR_ANALYSIS
+    ) {
+      Logger.warn("Disabling webhook due to high failure rate", {
+        subscriptionId: subscription.id,
+        failureRate: Math.round(failureRate * 100) / 100,
+        threshold: failureRateThreshold,
+        timeWindowSeconds,
+        totalDeliveries,
+        failedDeliveries,
+      });
+
+      // Disable the subscription
+      await subscription.disable();
+
+      // Send an email to the creator of the webhook to let them know
+      const [createdBy, team] = await Promise.all([
+        User.findOne({
+          where: {
+            id: subscription.createdById,
+            suspendedAt: { [Op.is]: null },
+          },
+        }),
+        subscription.$get("team"),
+      ]);
+
+      if (createdBy && team) {
+        await new WebhookDisabledEmail({
+          to: createdBy.email,
+          language: createdBy.language,
+          teamUrl: team.url,
+          webhookName: subscription.name,
+        }).schedule();
+      }
+    }
+  }
+}

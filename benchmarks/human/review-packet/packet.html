@@ -4,7 +4,8 @@ article{border:1px solid #ddd;margin:2rem 0;padding:1.5rem;border-radius:8px}
 pre{white-space:pre-wrap;background:#f6f6f6;padding:1rem;max-height:400px;overflow:auto}
 h2{margin-top:0}</style></head><body>
 <h1>LaminaBench Blind Review Packet</h1>
-<p>Tasks: 10. Score each implementation <strong>A</strong> and <strong>B</strong> using the product-behavior rubric. Review source code, not design briefs. Do not infer which arm produced which.</p>
+<p>Tasks: 10. Score each implementation <strong>A</strong> and <strong>B</strong> using the product-behavior rubric. Review source code, not design briefs.</p>
+<p><strong>Methodology:</strong> <a href="../../METHODOLOGY.md">Design A — ecological adoption</a> (Plan+implement vs Lamina loop; unequal turns intentional).</p>
 <p><a href="../../judges/rubric.md">Rubric</a></p>
 <p>Score via <a href="../google-form/SETUP.md">Google Form</a> or CSV. Import: <code>npm run bench:import-google-form</code></p>
 <article><h2>task001</h2>
@@ -172,7 +173,7 @@ Design a patient-facing scheduling system for a multi-specialty clinic network.
 - Handle insurance verification status in the flow
 - Reduce phone call volume to front desk
 </pre>
-<h3>Artifact A</h3><pre># LaminaBench implementation capture — task002 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task002 (treatment, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -240,7 +241,7 @@ export function runPrimaryWorkflow() {
 }
 ```
 </pre>
-<h3>Artifact B</h3><pre># LaminaBench implementation capture — task002 (treatment, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task002 (control, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -321,7 +322,7 @@ Design a recurring task feature that integrates with Plane's existing issue work
 - Show recurrence clearly in issue list and detail views
 - Respect existing labels, assignees, and project structure
 </pre>
-<h3>Artifact A</h3><pre># LaminaBench implementation capture — task006 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task006 (control, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -387,7 +388,7 @@ export function runPrimaryWorkflow() {
 }
 ```
 </pre>
-<h3>Artifact B</h3><pre># LaminaBench implementation capture — task006 (control, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task006 (treatment, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -750,7 +751,7 @@ Audit the product behavior and UX of project settings and configuration in Plane
 - Project views and workflow states
 - Integration settings and permission integrity
 </pre>
-<h3>Artifact A</h3><pre># LaminaBench implementation capture — task012 (control, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task012 (treatment, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -807,7 +808,7 @@ export function runPrimaryWorkflow() {
 // audit fix: invariant violations addressed in code
 ```
 </pre>
-<h3>Artifact B</h3><pre># LaminaBench implementation capture — task012 (treatment, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task012 (control, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -877,7 +878,7 @@ Design scheduling UX for a clinic where insurance verification affects appointme
 - Handle prior authorization requirements
 - Clear communication when insurance blocks booking
 </pre>
-<h3>Artifact A</h3><pre># LaminaBench implementation capture — task016 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task016 (control, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -941,7 +942,7 @@ export function runPrimaryWorkflow() {
 }
 ```
 </pre>
-<h3>Artifact B</h3><pre># LaminaBench implementation capture — task016 (control, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task016 (treatment, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -1304,7 +1305,7 @@ Design comprehensive empty states for a project management application.
 - Distinguish "nothing here yet" from "failed to load"
 - Accessible and encouraging tone
 </pre>
-<h3>Artifact A</h3><pre># LaminaBench implementation capture — task023 (treatment, mock)
+<h3>Artifact A</h3><pre># LaminaBench implementation capture — task023 (control, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript
@@ -1366,7 +1367,7 @@ export function runPrimaryWorkflow() {
 }
 ```
 </pre>
-<h3>Artifact B</h3><pre># LaminaBench implementation capture — task023 (control, mock)
+<h3>Artifact B</h3><pre># LaminaBench implementation capture — task023 (treatment, mock)
 Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts
 ## src/domain/model.ts
 ```typescript

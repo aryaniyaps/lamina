@@ -1,5 +1,5 @@
 {
-  "eval_id": "493c134a-4908-446a-9ef0-4bf81c29daa7",
+  "eval_id": "34305eae-b7fe-4462-9b97-7ec8edd0060c",
   "form_mode": "one_submission_per_task",
   "instructions": [
     "Open the blind review packet (packet.html) for implementation source.",
@@ -13,7 +13,7 @@
       "title": "Evaluation ID (do not edit)",
       "type": "short_answer",
       "required": true,
-      "description": "Must match manifest: 493c134a-4908-446a-9ef0-4bf81c29daa7"
+      "description": "Must match manifest: 34305eae-b7fe-4462-9b97-7ec8edd0060c"
     },
     {
       "id": "rater_code",

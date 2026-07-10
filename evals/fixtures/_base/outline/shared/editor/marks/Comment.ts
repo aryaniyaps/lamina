@@ -1,0 +1,212 @@
+import { toggleMark } from "prosemirror-commands";
+import type { MarkSpec, MarkType, Mark as PMMark } from "prosemirror-model";
+import type { Command } from "prosemirror-state";
+import { Plugin } from "prosemirror-state";
+import { v4 as uuidv4 } from "uuid";
+import { collapseSelection } from "../commands/collapseSelection";
+import { addComment } from "../commands/comment";
+import { chainTransactions } from "../lib/chainTransactions";
+import { isMarkActive } from "../queries/isMarkActive";
+import { EditorStyleHelper } from "../styles/EditorStyleHelper";
+import Mark from "./Mark";
+
+/**
+ * Options for the Comment mark.
+ */
+type CommentOptions = {
+  /** The id of the current user, recorded on newly created comment marks. */
+  userId?: string;
+  /** Callback invoked when a comment mark is created in the document. */
+  onCreateCommentMark?: (
+    commentId: string,
+    userId: string,
+    options?: { focus: boolean }
+  ) => void;
+  /** Callback invoked when an existing comment mark is clicked. */
+  onClickCommentMark?: (commentId: string) => void;
+  /** Callback invoked to request that the comments sidebar be opened. */
+  onOpenCommentsSidebar?: () => void;
+};
+
+export default class Comment extends Mark<CommentOptions> {
+  get name() {
+    return "comment";
+  }
+
+  get schema(): MarkSpec {
+    return {
+      // Allow multiple comments to overlap
+      excludes: "",
+      attrs: {
+        id: {},
+        userId: {},
+        resolved: {
+          default: false,
+          validate: "boolean",
+        },
+        draft: {
+          default: false,
+          validate: "boolean",
+        },
+      },
+      inclusive: false,
+      parseDOM: [
+        {
+          tag: `.${EditorStyleHelper.comment}`,
+          getAttrs: (dom: HTMLSpanElement) => {
+            // Ignore comment markers from other documents
+            const documentId = dom.getAttribute("data-document-id");
+            if (documentId && documentId !== this.editor?.props.id) {
+              return false;
+            }
+
+            return {
+              id: dom.getAttribute("id")?.replace("comment-", ""),
+              userId: dom.getAttribute("data-user-id"),
+              resolved: !!dom.getAttribute("data-resolved"),
+              draft: !!dom.getAttribute("data-draft"),
+            };
+          },
+        },
+      ],
+      toDOM: (node) => [
+        "span",
+        {
+          class: EditorStyleHelper.comment,
+          id: `comment-${node.attrs.id}`,
+          "data-resolved": node.attrs.resolved ? "true" : undefined,
+          "data-draft": node.attrs.draft ? "true" : undefined,
+          "data-user-id": node.attrs.userId,
+          "data-document-id": this.editor?.props.id,
+        },
+      ],
+    };
+  }
+
+  get allowInReadOnly() {
+    return true;
+  }
+
+  keys({ type }: { type: MarkType }): Record<string, Command> {
+    return {
+      "Mod-Alt-m": (state, dispatch) => {
+        if (state.selection.empty && this.options.onOpenCommentsSidebar) {
+          this.options.onOpenCommentsSidebar();
+          return true;
+        }
+
+        if (!this.options.onCreateCommentMark) {
+          return false;
+        }
+
+        if (
+          isMarkActive(state.schema.marks.comment, {
+            resolved: false,
+          })(state)
+        ) {
+          return false;
+        }
+
+        chainTransactions(
+          toggleMark(type, {
+            id: uuidv4(),
+            userId: this.options.userId,
+            draft: true,
+          }),
+          collapseSelection()
+        )(state, dispatch);
+
+        return true;
+      },
+    };
+  }
+
+  commands() {
+    return this.options.onCreateCommentMark
+      ? (): Command => addComment({ userId: this.options.userId })
+      : undefined;
+  }
+
+  toMarkdown() {
+    return {
+      open: "",
+      close: "",
+      mixable: true,
+      expelEnclosingWhitespace: true,
+    };
+  }
+
+  get plugins(): Plugin[] {
+    return [
+      new Plugin({
+        appendTransaction(transactions, oldState, newState) {
+          if (
+            !transactions.some(
+              (transaction) => transaction.getMeta("uiEvent") === "paste"
+            )
+          ) {
+            return;
+          }
+
+          // Record existing comment marks
+          const existingComments: PMMark[] = [];
+          oldState.doc.descendants((node) => {
+            node.marks.forEach((mark) => {
+              if (mark.type.name === "comment") {
+                existingComments.push(mark);
+              }
+            });
+            return true;
+          });
+
+          // Remove comment marks that are new duplicates of existing ones. This allows us to cut
+          // and paste a comment mark, but not copy and paste.
+          let tr = newState.tr;
+          newState.doc.descendants((node, pos) => {
+            node.marks.forEach((mark) => {
+              if (
+                mark.type.name === "comment" &&
+                existingComments.find((m) => m.attrs.id === mark.attrs.id) &&
+                !existingComments.find((m) => m === mark)
+              ) {
+                tr = tr.removeMark(pos, pos + node.nodeSize, mark.type);
+              }
+            });
+
+            return true;
+          });
+
+          return tr;
+        },
+        props: {
+          handleDOMEvents: {
+            mouseup: (_view, event: MouseEvent) => {
+              if (!(event.target instanceof HTMLElement)) {
+                return false;
+              }
+
+              const comment = event.target.closest(
+                `.${EditorStyleHelper.comment}`
+              );
+              if (!comment) {
+                return false;
+              }
+
+              const commentId = comment.id.replace("comment-", "");
+              const resolved = comment.getAttribute("data-resolved");
+              const draftByUser =
+                comment.getAttribute("data-draft") &&
+                comment.getAttribute("data-user-id") === this.options.userId;
+
+              if ((commentId && !resolved) || draftByUser) {
+                this.options?.onClickCommentMark?.(commentId);
+              }
+
+              return false;
+            },
+          },
+        },
+      }),
+    ];
+  }
+}

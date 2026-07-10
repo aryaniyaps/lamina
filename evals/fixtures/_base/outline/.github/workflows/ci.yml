@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgres://postgres:password@localhost:5432/outline_test
+  REDIS_URL: redis://127.0.0.1:6379
+  URL: http://localhost:3000
+  NODE_OPTIONS: --max-old-space-size=8192
+  SECRET_KEY: F0E5AD933D7F6FD8F4DBB3E038C501C052DC0593C686D21ACB30AE205D2F634B
+  UTILS_SECRET: 123456
+  SLACK_VERIFICATION_TOKEN: 123456
+  SMTP_USERNAME: localhost
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      config: ${{ steps.filter.outputs.config }}
+      server: ${{ steps.filter.outputs.server }}
+      app: ${{ steps.filter.outputs.app }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2
+        id: filter
+        with:
+          filters: |
+            config:
+              - '.github/**'
+              - 'vite.config.ts'
+              - 'vitest.config.ts'
+            server:
+              - 'server/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'yarn.lock'
+            app:
+              - 'app/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'yarn.lock'
+            deps:
+              - 'package.json'
+              - 'yarn.lock'
+              - '.yarnrc.yml'
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - run: yarn lint --quiet
+
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - run: yarn tsc
+
+  audit:
+    needs: changes
+    if: ${{ needs.changes.outputs.deps == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - run: yarn npm audit --severity high --recursive --environment production
+
+  test:
+    needs: changes
+    if: ${{ needs.changes.outputs.app == 'true' || needs.changes.outputs.config == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-group: [app, shared]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - run: yarn test:${{ matrix.test-group }}
+
+  test-server:
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' || needs.changes.outputs.config == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14.2
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: outline_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - run: yarn sequelize db:migrate
+      - name: Run server tests
+        run: yarn test:server --maxWorkers=2 --shard=${{ matrix.shard }}/4
+
+  bundle-size:
+    needs: changes
+    if: ${{ (needs.changes.outputs.app == 'true' || needs.changes.outputs.config == 'true') && github.repository == 'outline/outline' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/install
+      - name: Set environment to production
+        run: echo "NODE_ENV=production" >> $GITHUB_ENV
+      - run: yarn vite:build
+      - name: Send bundle stats to RelativeCI
+        if: ${{ env.RELATIVE_CI_KEY != '' }}
+        env:
+          RELATIVE_CI_KEY: ${{ secrets.RELATIVE_CI_KEY }}
+        uses: relative-ci/agent-action@38328454d6a23942175eba485fca4fbb807b1f03 # v2
+        with:
+          key: ${{ secrets.RELATIVE_CI_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          webpackStatsFile: ./build/app/webpack-stats.json

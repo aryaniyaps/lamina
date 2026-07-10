@@ -7,4 +7,4 @@ human_eval: true
 runs: 3
 oss:
   repo: makeplane/plane
-  commit: develop
+  commit: dc9d80b2d2a499b967f0b541e083b283f463719f

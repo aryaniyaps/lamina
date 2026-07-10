@@ -6,7 +6,9 @@ Composable fixture layers and manifests for agent-skill-eval workspaces.
 
 ```
 evals/fixtures/
-  _base/nextjs-commerce/     # Vendored Vercel Commerce (trimmed, no node_modules)
+  _base/nextjs-commerce/     # Vendored Vercel Commerce (full source, no node_modules)
+  _base/plane/               # Vendored Plane (full source, no node_modules)
+  _base/outline/             # Vendored Outline (full source, no node_modules)
   _layers/                   # Small Lamina overlay layers (.lamina/ artifacts)
   manifests/                 # Composite fixture definitions (layer merge order)
 ```
@@ -26,6 +28,8 @@ Canonical skill source remains [`../../skills/`](../../skills/). Eval harness in
 | `partial-init-stub` | placeholder business-context | Init validation failure |
 | `partial-init-frontmatter` | frontmatter-only business-context | Init validation failure |
 
+Benchmark manifests under `benchmarks/fixtures/manifests/` also reference `_base/plane`, `_base/outline`, and plane/outline init/audit layers.
+
 ## Stage manually
 
 ```bash
@@ -34,13 +38,18 @@ node evals/scripts/stage-fixture.mjs brownfield-with-init --out /tmp/lamina-fixt
 
 Eval harnesses stage automatically when an eval case sets `"fixture": "<name>"` (see `evals/hooks/stage-eval-fixture.sh`).
 
-## Refresh commerce base
+## Refresh OSS bases
 
 ```bash
-npm run fixtures:vendor
+npm run fixtures:vendor              # commerce + plane + outline
+npm run fixtures:vendor:commerce
+npm run fixtures:vendor:plane
+npm run fixtures:vendor:outline
 ```
 
-Updates `evals/fixtures/_base/nextjs-commerce/` from [vercel/commerce](https://github.com/vercel/commerce). See `ATTRIBUTION.md` in that directory.
+Updates `evals/fixtures/_base/*/` from upstream GitHub repos. See `ATTRIBUTION.md` in each base directory.
+
+Vendored trees include full working-tree source. Excludes only `.git`, `node_modules`, and build/cache directories.
 
 ## Cleanup
 

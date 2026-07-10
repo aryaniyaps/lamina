@@ -1,0 +1,35 @@
+import { observer } from "mobx-react";
+import { useCallback } from "react";
+import { useHistory } from "react-router-dom";
+import { toast } from "sonner";
+import { errToString } from "@shared/utils/error";
+import useStores from "~/hooks/useStores";
+import { settingsPath } from "~/utils/routeHelpers";
+import type { FormData } from "./OAuthClientForm";
+import { OAuthClientForm } from "./OAuthClientForm";
+
+type Props = {
+  onSubmit: () => void;
+};
+
+export const OAuthClientNew = observer(function OAuthClientNew_({
+  onSubmit,
+}: Props) {
+  const { oauthClients } = useStores();
+  const history = useHistory();
+
+  const handleSubmit = useCallback(
+    async (data: FormData) => {
+      try {
+        const oauthClient = await oauthClients.save(data);
+        onSubmit?.();
+        history.push(settingsPath("applications", oauthClient.id));
+      } catch (error) {
+        toast.error(errToString(error));
+      }
+    },
+    [oauthClients, history, onSubmit]
+  );
+
+  return <OAuthClientForm handleSubmit={handleSubmit} />;
+});

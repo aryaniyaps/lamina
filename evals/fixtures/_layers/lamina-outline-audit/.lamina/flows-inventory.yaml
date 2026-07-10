@@ -1,0 +1,19 @@
+flows:
+  - id: document-sharing
+    name: Document sharing
+    status: shipped
+    routes:
+      - /doc
+    description: Share documents via link, collection membership, and workspace access
+  - id: collection-permissions
+    name: Collection permissions
+    status: shipped
+    routes:
+      - /collection
+    description: Collection-level read/write/admin roles and inheritance to documents
+  - id: search-discovery
+    name: Search and discovery
+    status: shipped
+    routes:
+      - /search
+    description: Full-text search across accessible documents and collections

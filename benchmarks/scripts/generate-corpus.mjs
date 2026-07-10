@@ -231,7 +231,7 @@ Health-conscious adults (25–55) intimidated by gym culture; beginners returnin
     workflow: 'design',
     fixture: 'plane-with-init',
     human_eval: true,
-    oss: { repo: 'makeplane/plane', commit: 'develop' },
+    oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
     prompt: 'Design the product behavior for a recurring tasks feature in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Recurring Tasks for Plane
 
@@ -265,7 +265,7 @@ Core UX: left sidebar navigation, issue states, cycles, modules, Kanban/List vie
     workflow: 'design',
     fixture: 'commerce-with-init',
     human_eval: true,
-    oss: { repo: 'vercel/commerce', commit: 'main' },
+    oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
     prompt: 'Design the product behavior for a wishlist feature on the storefront: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Wishlist Feature
 
@@ -299,7 +299,7 @@ Existing flows: product listing, product detail, cart, checkout.`,
     workflow: 'design',
     fixture: 'outline-with-init',
     human_eval: false,
-    oss: { repo: 'outline/outline', commit: 'main' },
+    oss: { repo: 'outline/outline', commit: '30730179b852d42da5078a9294f7d05a44f516b7' },
     prompt: 'Design the product behavior for guest sharing of Outline documents: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Guest Document Sharing
 
@@ -333,7 +333,7 @@ Existing: collection-level permissions, @mentions, inline comments.`,
     workflow: 'design',
     fixture: 'commerce-with-init',
     human_eval: false,
-    oss: { repo: 'vercel/commerce', commit: 'main' },
+    oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
     prompt: 'Design the product behavior for saved searches in the product catalog: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Saved Searches
 
@@ -365,7 +365,7 @@ Design saved search functionality for the commerce product catalog.
     workflow: 'design',
     fixture: 'plane-with-init',
     human_eval: false,
-    oss: { repo: 'makeplane/plane', commit: 'develop' },
+    oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
     prompt: 'Design the product behavior for bulk actions on issues in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
     description: `# Bulk Issue Actions
 
@@ -398,7 +398,7 @@ Design bulk action UX for managing multiple issues at once in Plane.
     workflow: 'audit',
     fixture: 'commerce-audit-ready',
     human_eval: true,
-    oss: { repo: 'vercel/commerce', commit: 'main' },
+    oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
     prompt: 'Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Checkout Flow Audit
 
@@ -429,9 +429,9 @@ Review the codebase and existing flows inventory in .lamina/ if present.`,
     id: 'task012',
     category: 'oss_audit',
     workflow: 'audit',
-    fixture: 'plane-with-init',
+    fixture: 'plane-audit-ready',
     human_eval: true,
-    oss: { repo: 'makeplane/plane', commit: 'develop' },
+    oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
     prompt: 'Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Project Settings Audit
 
@@ -460,9 +460,9 @@ Audit the product behavior and UX of project settings and configuration in Plane
     id: 'task013',
     category: 'oss_audit',
     workflow: 'audit',
-    fixture: 'outline-with-init',
+    fixture: 'outline-audit-ready',
     human_eval: false,
-    oss: { repo: 'outline/outline', commit: 'main' },
+    oss: { repo: 'outline/outline', commit: '30730179b852d42da5078a9294f7d05a44f516b7' },
     prompt: 'Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Document Sharing Audit
 
@@ -493,7 +493,7 @@ Audit how Outline handles document sharing, permissions, and invariant enforceme
     workflow: 'audit',
     fixture: 'commerce-audit-ready',
     human_eval: false,
-    oss: { repo: 'vercel/commerce', commit: 'main' },
+    oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
     prompt: 'Audit the cart experience for product-behavior friction and abandonment risks: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Cart Experience Audit
 
@@ -522,9 +522,9 @@ Audit the shopping cart for behavioral friction, state consistency, and abandonm
     id: 'task015',
     category: 'oss_audit',
     workflow: 'audit',
-    fixture: 'plane-with-init',
+    fixture: 'plane-audit-ready',
     human_eval: false,
-    oss: { repo: 'makeplane/plane', commit: 'develop' },
+    oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
     prompt: 'Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Onboarding Audit
 

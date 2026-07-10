@@ -1,0 +1,28 @@
+primary: doc-author
+personas:
+  - id: doc-author
+    type: primary
+    goals:
+      experience: ["publish and update internal docs"]
+      end: ["share accurate knowledge with the team"]
+      life: []
+    frustrations: ["permission confusion", "broken share links"]
+    motivations: ["clarity", "fast publishing"]
+    technical_literacy: intermediate
+    accessibility:
+      needs: []
+      assistive_tech: []
+    confidence: medium
+  - id: team-lead
+    type: secondary
+    goals:
+      experience: ["organize collections for the team"]
+      end: ["onboard new hires via docs"]
+      life: []
+    frustrations: ["docs outside collections", "stale permissions"]
+    motivations: ["team alignment", "discoverability"]
+    technical_literacy: intermediate
+    accessibility:
+      needs: []
+      assistive_tech: []
+    confidence: medium

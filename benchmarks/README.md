@@ -93,7 +93,7 @@ benchmarks/
   release.yaml          # Pinned agent, model, run parameters, weights
   tasks/taskNNN/        # description.md, context.md, task.yaml
   goldens/taskNNN/      # reference checklist (not ground truth)
-  fixtures/             # Manifests; Plane/Outline are context stubs
+  fixtures/             # Manifests; OSS bases vendored under evals/fixtures/_base/
   judges/               # Rubric, golden-coverage, promptfoo config
   scripts/              # Runner, compiler, analysis, human import
   results/              # Raw runs, scores, statistics (gitignored)
@@ -105,8 +105,8 @@ benchmarks/
 25 tasks across 5 categories (5 each):
 
 1. Greenfield product design
-2. OSS feature design (Commerce = vendored code; Plane/Outline = **product-context stubs**)
-3. OSS behavior audit (same fixture honesty as above)
+2. OSS feature design (Commerce, Plane, Outline — **full vendored codebases**)
+3. OSS behavior audit (same fixture bases; audit tasks use `*-audit-ready` manifests)
 4. Workflow and edge-case design
 5. Resilience and degraded states
 
@@ -165,6 +165,8 @@ Until live results exist, prefer:
 
 | Fixture | Realism |
 |---------|---------|
-| `commerce-*` | Full vendored Vercel Commerce codebase |
-| `plane-with-init` | **Stub** — product description + business context, not a full Plane clone |
-| `outline-with-init` | **Stub** — product description + business context, not a full Outline clone |
+| `commerce-*` | Full vendored Vercel Commerce source tree |
+| `plane-*` | Full vendored Plane source tree |
+| `outline-*` | Full vendored Outline source tree |
+
+Pinned commits in `release.yaml` and per-task `task.yaml`. Refresh via `npm run fixtures:vendor`.

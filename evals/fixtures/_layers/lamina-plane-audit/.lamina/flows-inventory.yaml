@@ -1,0 +1,19 @@
+flows:
+  - id: project-settings
+    name: Project settings
+    status: shipped
+    routes:
+      - /settings
+    description: Workspace and project configuration, members, and integrations
+  - id: issue-lifecycle
+    name: Issue lifecycle
+    status: shipped
+    routes:
+      - /issues
+    description: Create, assign, transition, and comment on issues across projects
+  - id: cycles
+    name: Cycles
+    status: shipped
+    routes:
+      - /cycles
+    description: Time-boxed sprints with issue assignment and completion tracking

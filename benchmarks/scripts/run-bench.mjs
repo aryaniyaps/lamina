@@ -14,6 +14,7 @@ import { stageBenchFixture } from './stage-bench-fixture.mjs';
 import { readYamlSync } from './yaml.mjs';
 import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
 import { runControlWorkflow, runTreatmentWorkflow } from './bench-workflow.mjs';
+import { copyTree } from '../../evals/scripts/vendor-fixture-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
@@ -63,16 +64,6 @@ function installLaminaSkills(workspace, agent) {
     const target = path.join(dest, entry.name);
     if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
     copyTree(src, target);
-  }
-}
-
-function copyTree(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, entry.name);
-    const d = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyTree(s, d);
-    else fs.copyFileSync(s, d);
   }
 }
 

@@ -2,9 +2,9 @@ id: task015
 category: oss_audit
 workflow: audit
 prompt: "Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
-fixture: plane-with-init
+fixture: plane-audit-ready
 human_eval: false
 runs: 3
 oss:
   repo: makeplane/plane
-  commit: develop
+  commit: dc9d80b2d2a499b967f0b541e083b283f463719f

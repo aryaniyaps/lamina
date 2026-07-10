@@ -1,0 +1,25 @@
+dist
+build
+node_modules/*
+.env
+.env.local
+.env.production
+.log
+.vscode/*
+npm-debug.log
+stats.json
+.DS_Store
+data/*
+.idea
+*.pem
+*.key
+*.cert
+.history
+
+# Yarn Berry
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+.yarn/releases
+!.yarn/sdks

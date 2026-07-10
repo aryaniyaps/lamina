@@ -1,0 +1,442 @@
+import { observer } from "mobx-react";
+import * as React from "react";
+import { mergeRefs } from "react-merge-refs";
+import { useWebHaptics } from "web-haptics/react";
+import { useLocation } from "react-router-dom";
+import styled, { css, useTheme } from "styled-components";
+import breakpoint from "styled-components-breakpoint";
+import { depths, s } from "@shared/styles";
+import { Avatar } from "~/components/Avatar";
+import Flex from "~/components/Flex";
+import useCurrentUser from "~/hooks/useCurrentUser";
+import useMobile from "~/hooks/useMobile";
+import usePrevious from "~/hooks/usePrevious";
+import useStores from "~/hooks/useStores";
+import AccountMenu from "~/menus/AccountMenu";
+import { fadeOnDesktopBackgrounded } from "~/styles";
+import { fadeIn } from "~/styles/animations";
+import Desktop from "~/utils/Desktop";
+import NotificationIcon from "../Notifications/NotificationIcon";
+import NotificationsPopover from "../Notifications/NotificationsPopover";
+import { TooltipProvider } from "../TooltipContext";
+import ResizeBorder from "./components/ResizeBorder";
+import SidebarButton from "./components/SidebarButton";
+import ToggleButton from "./components/ToggleButton";
+import { useTranslation } from "react-i18next";
+import { useDirection } from "@radix-ui/react-direction";
+
+const ANIMATION_MS = 250;
+
+type Props = {
+  /** Whether to hide the sidebar content (sets opacity to 0). */
+  hidden?: boolean;
+  /** Whether the sidebar can be collapsed, defaults to true. */
+  canCollapse?: boolean;
+  /** CSS class name(s) to apply to the sidebar container. */
+  className?: string;
+  /** Content to render inside the sidebar. */
+  children: React.ReactNode;
+};
+
+const Sidebar = React.forwardRef<HTMLDivElement, Props>(function Sidebar_(
+  { children, hidden = false, canCollapse = true, className }: Props,
+  ref: React.RefObject<HTMLDivElement>
+) {
+  const [isCollapsing, setCollapsing] = React.useState(false);
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const { ui } = useStores();
+  const location = useLocation();
+  const previousLocation = usePrevious(location);
+  const user = useCurrentUser({ rejectOnEmpty: false });
+  const isMobile = useMobile();
+  const width = ui.sidebarWidth;
+  const collapsed = ui.sidebarIsClosed && canCollapse;
+  const maxWidth = theme.sidebarMaxWidth;
+  const minWidth = theme.sidebarMinWidth + 16; // padding
+  const { trigger } = useWebHaptics();
+  const direction = useDirection();
+
+  const [offset, setOffset] = React.useState(0);
+  const [isHovering, setHovering] = React.useState(false);
+  const [isAnimating, setAnimating] = React.useState(false);
+  const [isResizing, setResizing] = React.useState(false);
+  const [hasPointerMoved, setPointerMoved] = React.useState(false);
+  const isSmallerThanMinimum = width < minWidth;
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const internalRef = React.useRef<HTMLDivElement | null>(null);
+  const mergedRef = React.useMemo(() => mergeRefs([internalRef, ref]), [ref]);
+
+  const handleDrag = React.useCallback(
+    (event: MouseEvent) => {
+      // suppresses text selection
+      event.preventDefault();
+      const rawWidth =
+        direction === "rtl" ? offset - event.pageX : event.pageX - offset;
+      const newWidth = Math.min(rawWidth, maxWidth);
+      const isSmallerThanCollapsePoint = newWidth < minWidth / 2;
+
+      if (canCollapse) {
+        ui.set({
+          sidebarWidth: isSmallerThanCollapsePoint
+            ? theme.sidebarCollapsedWidth
+            : newWidth,
+        });
+      } else {
+        ui.set({ sidebarWidth: Math.max(newWidth, minWidth) });
+      }
+    },
+    [ui, theme, offset, minWidth, maxWidth, direction, canCollapse]
+  );
+
+  const handleStopDrag = React.useCallback(() => {
+    setResizing(false);
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    if (isSmallerThanMinimum) {
+      const isSmallerThanCollapsePoint = width < minWidth / 2;
+
+      if (isSmallerThanCollapsePoint && canCollapse) {
+        setAnimating(false);
+        setCollapsing(true);
+        ui.collapseSidebar();
+      } else {
+        ui.set({ sidebarWidth: minWidth });
+        setAnimating(true);
+      }
+    } else {
+      ui.set({ sidebarWidth: width });
+    }
+  }, [ui, isSmallerThanMinimum, minWidth, width, canCollapse]);
+
+  const handleBlur = React.useCallback(() => {
+    setHovering(false);
+  }, []);
+
+  const handleMouseDown = React.useCallback(
+    (event) => {
+      event.preventDefault();
+      if (!document.hasFocus()) {
+        return;
+      }
+
+      setOffset(
+        direction === "rtl" ? event.pageX + width : event.pageX - width
+      );
+      setResizing(true);
+      setAnimating(false);
+    },
+    [width, direction]
+  );
+
+  const handlePointerActivity = React.useCallback(() => {
+    if (ui.sidebarIsClosed) {
+      // clear the timeout when mouse exits
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      setHovering(document.hasFocus());
+      setPointerMoved(true);
+    }
+  }, [ui.sidebarIsClosed]);
+
+  const handlePointerLeave = React.useCallback(
+    (ev) => {
+      if (hasPointerMoved) {
+        // clear any previous timeout
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+
+        // add a short delay when mouse exits the sidebar before closing
+        hoverTimeoutRef.current = setTimeout(() => {
+          const withinSidebar =
+            direction === "rtl"
+              ? ev.pageX > window.innerWidth - width
+              : ev.pageX < width;
+
+          setHovering(
+            document.hasFocus() &&
+              withinSidebar &&
+              ev.pageY < window.innerHeight &&
+              ev.pageY > 0
+          );
+        }, 500);
+      }
+    },
+    [width, direction, hasPointerMoved]
+  );
+
+  React.useEffect(() => {
+    if (ui.sidebarIsClosed) {
+      setHovering(false);
+      setPointerMoved(false);
+    }
+  }, [ui.sidebarIsClosed]);
+
+  // Reset stale hover state when the sidebar becomes visible after being
+  // hidden via display:none (e.g. returning from settings). Without this, a
+  // pointer-leave event never fires when navigating away while hovering, so
+  // isHovering stays true and the sidebar appears expanded until the cursor
+  // re-enters and leaves.
+  React.useEffect(() => {
+    const el = internalRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    let wasVisible = false;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const nowVisible = entry.isIntersecting;
+        if (nowVisible && !wasVisible) {
+          setHovering(false);
+          setPointerMoved(false);
+        }
+        wasVisible = nowVisible;
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (isAnimating) {
+      setTimeout(() => setAnimating(false), ANIMATION_MS);
+    }
+  }, [isAnimating]);
+
+  React.useEffect(() => {
+    if (isCollapsing) {
+      setTimeout(() => {
+        ui.set({ sidebarWidth: minWidth });
+        setCollapsing(false);
+      }, ANIMATION_MS);
+    }
+  }, [ui, minWidth, isCollapsing]);
+
+  React.useEffect(() => {
+    if (isResizing) {
+      document.body.style.cursor = "col-resize";
+      document.addEventListener("mousemove", handleDrag);
+      document.addEventListener("mouseup", handleStopDrag);
+    } else {
+      document.body.style.cursor = "initial";
+    }
+
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("mousemove", handleDrag);
+      document.removeEventListener("mouseup", handleStopDrag);
+    };
+  }, [isResizing, handleDrag, handleBlur, handleStopDrag]);
+
+  const handleReset = React.useCallback(() => {
+    ui.set({ sidebarWidth: theme.sidebarWidth });
+  }, [ui, theme.sidebarWidth]);
+
+  React.useEffect(() => {
+    ui.setSidebarResizing(isResizing);
+  }, [ui, isResizing]);
+
+  React.useEffect(() => {
+    if (location !== previousLocation) {
+      ui.hideMobileSidebar();
+    }
+  }, [ui, location, previousLocation]);
+
+  const style = React.useMemo(
+    () => ({
+      width: `${width}px`,
+    }),
+    [width]
+  );
+
+  const handleCloseSidebar = () => {
+    void trigger("light");
+    ui.toggleMobileSidebar();
+  };
+
+  return (
+    <TooltipProvider>
+      <Container
+        id="sidebar"
+        ref={mergedRef}
+        style={style}
+        $hidden={hidden}
+        $isHovering={isHovering}
+        $isAnimating={isAnimating}
+        $isSmallerThanMinimum={isSmallerThanMinimum}
+        $mobileSidebarVisible={ui.mobileSidebarVisible}
+        $collapsed={collapsed}
+        $isMobile={isMobile}
+        className={className}
+        onPointerDown={handlePointerActivity}
+        onPointerMove={handlePointerActivity}
+        onPointerLeave={handlePointerLeave}
+        column
+      >
+        {children}
+
+        {user && (
+          <AccountMenu>
+            <SidebarButton
+              showMoreMenu
+              title={user.name}
+              position="bottom"
+              image={
+                <Avatar
+                  alt={t("Avatar of {{ name }}", { name: user.name })}
+                  model={user}
+                  size={24}
+                />
+              }
+            >
+              <NotificationsPopover>
+                <SidebarButton
+                  position="bottom"
+                  image={<NotificationIcon />}
+                  aria-label={t("Notifications")}
+                  style={{ paddingInline: 4 }}
+                />
+              </NotificationsPopover>
+            </SidebarButton>
+          </AccountMenu>
+        )}
+        <ResizeBorder
+          onMouseDown={handleMouseDown}
+          onDoubleClick={ui.sidebarIsClosed ? undefined : handleReset}
+        />
+      </Container>
+      {ui.mobileSidebarVisible && <Backdrop onClick={handleCloseSidebar} />}
+    </TooltipProvider>
+  );
+});
+
+const Backdrop = styled.a`
+  animation: ${fadeIn} 250ms ease-in-out;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  cursor: default;
+  z-index: ${depths.mobileSidebar - 1};
+  background: ${s("backdrop")};
+`;
+
+type ContainerProps = {
+  $mobileSidebarVisible: boolean;
+  $isAnimating: boolean;
+  $isSmallerThanMinimum: boolean;
+  $isHovering: boolean;
+  $collapsed: boolean;
+  $hidden: boolean;
+  $isMobile: boolean;
+};
+
+const hoverStyles = (props: ContainerProps) => `
+  transform: none !important;
+  box-shadow: ${
+    props.$collapsed
+      ? "rgba(0, 0, 0, 0.2) 1px 0 4px"
+      : props.$isSmallerThanMinimum
+        ? "rgba(0, 0, 0, 0.1) inset -1px 0 2px"
+        : "none"
+  };
+
+  ${ToggleButton} {
+    opacity: 1;
+  }
+`;
+
+const Container = styled(Flex)<ContainerProps>`
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 0;
+  width: 100%;
+  background: ${s("sidebarBackground")};
+  transition:
+    box-shadow 150ms ease-in-out,
+    transform 250ms cubic-bezier(0.34, 1.15, 0.64, 1)
+      ${(props: ContainerProps) =>
+        props.$isAnimating ? `, width ${ANIMATION_MS}ms ease-out` : ""};
+  transform: translateX(
+    ${(props) => (props.$mobileSidebarVisible ? 0 : "-100%")}
+  );
+  z-index: ${depths.mobileSidebar};
+  max-width: 80%;
+  min-width: 280px;
+  padding-inline-start: var(--sal);
+  ${fadeOnDesktopBackgrounded()}
+
+  [dir="rtl"] & {
+    transform: translateX(
+      ${(props) => (props.$mobileSidebarVisible ? 0 : "100%")}
+    );
+  }
+
+  @media print {
+    display: none;
+    transform: none;
+  }
+
+  & > div {
+    transition: opacity 150ms ease-in-out;
+    opacity: ${(props) => {
+      if (props.$hidden) {
+        return "0";
+      }
+      if (props.$isHovering) {
+        return "1";
+      }
+      if (props.$isMobile) {
+        return props.$mobileSidebarVisible ? "1" : "0";
+      } else {
+        return props.$collapsed ? "0" : "1";
+      }
+    }};
+  }
+
+  ${breakpoint("tablet")`
+    z-index: ${depths.sidebar};
+    margin: 0;
+    min-width: 0;
+    transition:
+      box-shadow 150ms ease-in-out,
+      transform 150ms ease-out${(props: ContainerProps) =>
+        props.$isAnimating ? `, width ${ANIMATION_MS}ms ease-out` : ""};
+    transform: translateX(${(props: ContainerProps) =>
+      props.$collapsed
+        ? `calc(-100% + ${Desktop.hasInsetTitlebar() ? 8 : 16}px)`
+        : 0});
+
+    [dir="rtl"] & {
+      transform: translateX(${(props: ContainerProps) =>
+        props.$collapsed ? `calc(100% - 8px)` : 0});
+    }
+
+    ${(props: ContainerProps) => props.$isHovering && css(hoverStyles)}
+
+    &:hover {
+      ${ToggleButton} {
+        opacity: 1;
+      }
+    }
+
+    &:focus-within {
+      ${hoverStyles}
+
+      & > div {
+        opacity: 1;
+      }
+    }
+  `};
+`;
+
+export default observer(Sidebar);

@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { copyTree } from './vendor-fixture-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURES = path.join(ROOT, 'evals/fixtures');
@@ -52,20 +53,6 @@ function copyLayer(layerRel, outDir) {
   const src = path.join(FIXTURES, layerRel);
   if (!fs.existsSync(src)) throw new Error(`Missing layer: ${layerRel}`);
   copyTree(src, outDir);
-}
-
-function copyTree(src, dest) {
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true });
-      copyTree(srcPath, destPath);
-    } else {
-      fs.mkdirSync(path.dirname(destPath), { recursive: true });
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
 }
 
 export function stageFixture(name, outDir) {

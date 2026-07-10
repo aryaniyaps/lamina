@@ -7,4 +7,4 @@ human_eval: false
 runs: 3
 oss:
   repo: vercel/commerce
-  commit: main
+  commit: 3761e52e60df9c6a316e067dbfd7032e494d3634

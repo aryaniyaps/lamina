@@ -1,0 +1,74 @@
+import * as OneTimePasswordField from "@radix-ui/react-one-time-password-field";
+import * as React from "react";
+import styled from "styled-components";
+import { s } from "@shared/styles";
+
+type Props = React.ComponentProps<typeof OneTimePasswordRoot> & {
+  /** The length of the OTP */
+  length?: number;
+  /**
+   * Whether to accept uppercase letters in addition to digits. Lowercase input
+   * is normalized to uppercase. Defaults to numeric only.
+   */
+  alphanumeric?: boolean;
+};
+
+const sanitizeAlphanumeric = (value: string) =>
+  value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
+export const OneTimePasswordInput = React.forwardRef(
+  function OneTimePasswordInput_(
+    { length = 6, alphanumeric, ...rest }: Props,
+    ref: React.RefObject<HTMLInputElement>
+  ) {
+    const alphanumericProps = alphanumeric
+      ? {
+          validationType: "none" as const,
+          sanitizeValue: sanitizeAlphanumeric,
+        }
+      : undefined;
+
+    return (
+      <OneTimePasswordRoot {...alphanumericProps} {...rest}>
+        {Array.from({ length }, (_, i) => (
+          <OneTimePasswordInputField key={i} />
+        ))}
+        <OneTimePasswordField.HiddenInput ref={ref} />
+      </OneTimePasswordRoot>
+    );
+  }
+);
+
+const OneTimePasswordRoot = styled(OneTimePasswordField.Root)`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+`;
+
+const OneTimePasswordInputField = styled(OneTimePasswordField.Input)`
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 15px;
+  color: ${s("text")};
+  background: ${s("background")};
+  box-shadow: 0 0 0 1px ${s("inputBorder")};
+  padding: 0;
+  height: 38px;
+  width: 38px;
+  line-height: 1;
+  transition: box-shadow 0.1s ease-in-out;
+
+  &:focus {
+    box-shadow: 0 0 0 2px ${s("inputBorderFocused")};
+  }
+  &::selection {
+    background-color: ${s("background")};
+    color: ${s("text")};
+  }
+`;

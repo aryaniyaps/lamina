@@ -1,0 +1,20 @@
+import { buildUser, buildTeam } from "@server/test/factories";
+import { serialize } from "./index";
+
+it("should serialize policy", async () => {
+  const user = await buildUser();
+  const response = serialize(user, user);
+  expect(response.update).toBeTruthy();
+  expect(response.delete).toBeTruthy();
+});
+
+it("should serialize domain policies on Team", async () => {
+  const team = await buildTeam();
+  const user = await buildUser({
+    teamId: team.id,
+  });
+  const response = serialize(user, team);
+  expect(response.readTemplate).toBeTruthy();
+  expect(response.createTemplate).toEqual(false);
+  expect(response.inviteUser).toBeTruthy();
+});

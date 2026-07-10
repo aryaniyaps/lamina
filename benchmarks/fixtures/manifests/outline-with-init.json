@@ -1,5 +1,8 @@
 {
   "name": "outline-with-init",
-  "description": "Outline knowledge base product context stub",
-  "layers": ["_layers/outline-context"]
+  "description": "Outline full source with brownfield business context",
+  "layers": [
+    "evals:_base/outline",
+    "evals:_layers/lamina-outline-init"
+  ]
 }

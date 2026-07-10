@@ -1,0 +1,483 @@
+import isEqual from "fast-deep-equal";
+import { isArray, isObject, pick } from "es-toolkit/compat";
+import type {
+  Attributes,
+  CreateOptions,
+  CreationAttributes,
+  FindOptions,
+  FindOrCreateOptions,
+  ModelStatic,
+  NonAttribute,
+  SaveOptions,
+} from "sequelize";
+import { DataTypes, UniqueConstraintError } from "sequelize";
+import {
+  AfterCreate,
+  AfterDestroy,
+  AfterRestore,
+  AfterUpdate,
+  AfterUpsert,
+  BeforeSave,
+  Model as SequelizeModel,
+} from "sequelize-typescript";
+import Logger from "@server/logging/Logger";
+import type { Replace, APIContext } from "@server/types";
+import { getChangesetSkipped } from "../decorators/Changeset";
+import { InternalError } from "@server/errors";
+
+export type EventOverrideOptions = {
+  /** Override the default event name. */
+  name?: string;
+  /** Additional data to publish in the event. */
+  data?: Record<string, unknown>;
+  /**
+   * Whether to persist the event to the database. Defaults to true when using any `withCtx` methods.
+   */
+  persist?: boolean;
+};
+
+type EventOptions = EventOverrideOptions & {
+  /**
+   * Whether to publish event to the job queue. Defaults to true when using any `withCtx` methods.
+   */
+  publish: boolean;
+};
+
+export type HookContext = APIContext["context"] & { event?: EventOptions };
+
+class Model<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Sequelize's Attributes<M> resolves to never under object default; load-bearing for static helpers like saveWithCtx<M extends Model>.
+  TModelAttributes extends object = any,
+  TCreationAttributes extends object = TModelAttributes,
+> extends SequelizeModel<TModelAttributes, TCreationAttributes> {
+  /**
+   * The namespace to use for events - defaults to the table name if none is provided.
+   */
+  static eventNamespace: string | undefined;
+
+  /**
+   * Validates this instance, and if the validation passes, persists it to the database.
+   */
+  public saveWithCtx<M extends Model>(
+    ctx: APIContext,
+    options?: SaveOptions<Attributes<M>>,
+    eventOpts?: EventOverrideOptions
+  ) {
+    const hookContext: HookContext = {
+      ...ctx.context,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    return this.save({ ...options, ...hookContext });
+  }
+
+  /**
+   * This is the same as calling `set` and then calling `save`.
+   */
+  public updateWithCtx(
+    ctx: APIContext,
+    keys: Partial<TModelAttributes>,
+    eventOpts?: EventOverrideOptions
+  ) {
+    const hookContext: HookContext = {
+      ...ctx.context,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    this.set(keys);
+    return this.save(hookContext);
+  }
+
+  /**
+   * Destroy the row corresponding to this instance. Depending on your setting for paranoid, the row will
+   * either be completely deleted, or have its deletedAt timestamp set to the current time.
+   */
+  public destroyWithCtx(ctx: APIContext, eventOpts?: EventOverrideOptions) {
+    const hookContext: HookContext = {
+      ...ctx.context,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    return this.destroy(hookContext);
+  }
+
+  /**
+   * Restore the row corresponding to this instance. Only available for paranoid models.
+   */
+  public restoreWithCtx(ctx: APIContext, eventOpts?: EventOverrideOptions) {
+    const hookContext: HookContext = {
+      ...ctx.context,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    return this.restore(hookContext);
+  }
+
+  /**
+   * Find a row that matches the query, or build and save the row if none is found.
+   * The successful result of the promise will be (instance, created) - Make sure to use `.then(([...]))`
+   *
+   * @param ctx The API context.
+   * @param options The find or create options.
+   * @param eventOpts Optional event override options.
+   * @returns a tuple of the instance and a boolean indicating if it was created.
+   */
+  public static async findOrCreateWithCtx<M extends Model>(
+    this: ModelStatic<M>,
+    ctx: APIContext,
+    options: FindOrCreateOptions<Attributes<M>, CreationAttributes<M>>,
+    eventOpts?: EventOverrideOptions
+  ): Promise<[M, boolean]> {
+    const hookContext: HookContext = {
+      ...ctx.context,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    const transaction = ctx.context.transaction;
+
+    // First, try to find an existing record
+    const existing = await this.findOne({
+      where: options.where,
+      transaction,
+    });
+
+    if (existing) {
+      return [existing as M, false];
+    }
+
+    // Record not found, try to create it
+    try {
+      const created = await this.create(
+        Object.assign(
+          {},
+          options.defaults,
+          options.where
+        ) as CreationAttributes<M>,
+        { ...hookContext, transaction }
+      );
+      return [created as M, true];
+    } catch (err) {
+      // Handle race condition: another request created the record first
+      if (err instanceof UniqueConstraintError) {
+        const found = await this.findOne({
+          where: options.where,
+          transaction,
+          rejectOnEmpty: true,
+        });
+        return [found as M, false];
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Builds a new model instance and calls save on it.
+   */
+  public static createWithCtx<M extends Model>(
+    this: ModelStatic<M>,
+    ctx: APIContext,
+    values?: CreationAttributes<M>,
+    eventOpts?: EventOverrideOptions,
+    createOpts?: CreateOptions<M>
+  ) {
+    const hookContext = {
+      ...ctx.context,
+      ...createOpts,
+      event: {
+        ...eventOpts,
+        publish: true,
+      },
+    };
+    return this.create(values, hookContext);
+  }
+
+  @BeforeSave
+  static async beforeSaveEvent<T extends Model>(model: T) {
+    model.cacheChangeset();
+  }
+
+  @AfterCreate
+  static async afterCreateEvent<T extends Model>(
+    model: T,
+    context: HookContext
+  ) {
+    await this.insertEvent("create", model, context);
+  }
+
+  @AfterUpsert
+  static async afterUpsertEvent<T extends Model>(
+    model: T,
+    context: HookContext
+  ) {
+    await this.insertEvent("create", model, context);
+  }
+
+  @AfterUpdate
+  static async afterUpdateEvent<T extends Model>(
+    model: T,
+    context: HookContext
+  ) {
+    await this.insertEvent("update", model, context);
+  }
+
+  @AfterDestroy
+  static async afterDestroyEvent<T extends Model>(
+    model: T,
+    context: HookContext
+  ) {
+    await this.insertEvent("delete", model, context);
+  }
+
+  @AfterRestore
+  static async afterRestoreEvent<T extends Model>(
+    model: T,
+    context: HookContext
+  ) {
+    await this.insertEvent("create", model, context);
+  }
+
+  /**
+   * Insert an event into the database recording a mutation to this model.
+   *
+   * @param name The name of the event.
+   * @param model The model that was mutated.
+   * @param context The API context.
+   */
+  protected static async insertEvent<T extends Model>(
+    name: string,
+    model: T,
+    context: HookContext
+  ) {
+    const namespace = this.eventNamespace ?? this.tableName;
+    const models = this.sequelize!.models;
+
+    if (!context.event?.publish) {
+      return;
+    }
+
+    if (!context.transaction) {
+      Logger.warn("No transaction provided to insertEvent", {
+        modelId: model.id,
+      });
+    }
+
+    if (!context.ip) {
+      Logger.warn("No ip provided to insertEvent", {
+        modelId: model.id,
+      });
+    }
+
+    if (context.event.name?.includes(".")) {
+      throw InternalError(
+        `Event name (${context.event.name}) should not include a period, the namespace is automatically prefixed`
+      );
+    }
+
+    const attrs = {
+      name: `${namespace}.${context.event.name ?? name}`,
+      modelId: "modelId" in model ? model.modelId : model.id,
+      collectionId:
+        "collectionId" in model
+          ? model.collectionId
+          : model instanceof models.collection
+            ? model.id
+            : undefined,
+      documentId:
+        "documentId" in model
+          ? model.documentId
+          : model instanceof models.document
+            ? model.id
+            : undefined,
+      userId:
+        "userId" in model
+          ? model.userId
+          : model instanceof models.user
+            ? model.id
+            : undefined,
+      teamId:
+        "teamId" in model
+          ? model.teamId
+          : model instanceof models.team
+            ? model.id
+            : context.auth?.user.teamId,
+      actorId:
+        context.auth?.user?.id ??
+        (model instanceof models.user && name === "create"
+          ? model.id
+          : undefined),
+      authType: context.auth?.type,
+      ip: context.ip,
+      changes: model.previousChangeset,
+      data: context.event.data,
+    };
+
+    if (context.event?.persist !== false) {
+      return models.event.create(attrs, {
+        transaction: context.transaction,
+      });
+    } else if (context.transaction) {
+      (context.transaction.parent || context.transaction).afterCommit(() =>
+        // @ts-expect-error Event class
+        models.event.schedule(attrs)
+      );
+    } else {
+      // @ts-expect-error Event class
+      return models.event.schedule(attrs);
+    }
+  }
+
+  /**
+   * Find all models in batches, calling the callback function for each batch.
+   *
+   * @param query The query options.
+   * @param callback The function to call for each batch of results
+   * @return The total number of results processed.
+   */
+  static async findAllInBatches<T extends Model>(
+    query: Replace<FindOptions<T>, "limit", "batchLimit"> & {
+      /** The maximum number of results to return, after which the query will stop. */
+      totalLimit?: number;
+    },
+    callback: (results: Array<T>, query: FindOptions<T>) => Promise<void>
+  ): Promise<number> {
+    let total = 0;
+    const mappedQuery = {
+      ...query,
+      offset: query.offset ?? 0,
+      limit: query.batchLimit ?? 10,
+    };
+
+    let results;
+
+    do {
+      // @ts-expect-error this T
+      results = await this.findAll<T>(mappedQuery);
+      total += results.length;
+      await callback(results, mappedQuery);
+      mappedQuery.offset += mappedQuery.limit;
+    } while (
+      results.length >= mappedQuery.limit &&
+      (mappedQuery.totalLimit ?? Infinity) > mappedQuery.offset
+    );
+
+    return total;
+  }
+
+  /**
+   * Returns a representation of the attributes that have changed since the last save and their previous values.
+   *
+   * @returns An object with `attributes` and `previousAttributes` keys.
+   */
+  public get changeset(): NonAttribute<{
+    attributes: Partial<TModelAttributes>;
+    previous: Partial<TModelAttributes>;
+  }> {
+    const changes = this.changed() as Array<keyof TModelAttributes> | false;
+    const attributes: Partial<TModelAttributes> = {};
+    const previousAttributes: Partial<TModelAttributes> = {};
+
+    if (!changes) {
+      return {
+        attributes,
+        previous: previousAttributes,
+      };
+    }
+
+    const virtualFields = (this.constructor as typeof Model).virtualFields;
+    const blobFields = (this.constructor as typeof Model).blobFields;
+    const skippedFields = getChangesetSkipped(this);
+
+    for (const change of changes) {
+      const previous = this.previous(change);
+      const current = this.getDataValue(change);
+
+      if (
+        virtualFields.includes(String(change)) ||
+        blobFields.includes(String(change)) ||
+        skippedFields.includes(String(change))
+      ) {
+        continue;
+      }
+
+      if (
+        isObject(previous) &&
+        isObject(current) &&
+        !isArray(previous) &&
+        !isArray(current)
+      ) {
+        const difference = Object.keys(previous)
+          .concat(Object.keys(current))
+          // @ts-expect-error TODO
+          .filter((key) => !isEqual(previous[key], current[key]));
+
+        previousAttributes[change] = pick(
+          previous,
+          difference
+        ) as TModelAttributes[keyof TModelAttributes];
+        attributes[change] = pick(
+          current,
+          difference
+        ) as TModelAttributes[keyof TModelAttributes];
+      } else {
+        previousAttributes[change] = previous;
+        attributes[change] = current;
+      }
+    }
+
+    return {
+      attributes,
+      previous: previousAttributes,
+    };
+  }
+
+  /**
+   * Cache the current changeset for later use.
+   */
+  protected cacheChangeset() {
+    const previous = this.changeset;
+
+    if (
+      Object.keys(previous.attributes).length > 0 ||
+      Object.keys(previous.previous).length > 0
+    ) {
+      this.previousChangeset = previous;
+    }
+  }
+
+  /**
+   * Returns the virtual fields for this model.
+   */
+  protected static get virtualFields() {
+    const attrs = this.rawAttributes;
+    return Object.keys(attrs).filter(
+      (attr) => attrs[attr].type instanceof DataTypes.VIRTUAL
+    );
+  }
+
+  /**
+   * Returns the blob fields for this model.
+   */
+  protected static get blobFields() {
+    const attrs = this.rawAttributes;
+    return Object.keys(attrs).filter(
+      (attr) => attrs[attr].type instanceof DataTypes.BLOB
+    );
+  }
+
+  private previousChangeset: NonAttribute<{
+    attributes: Partial<TModelAttributes>;
+    previous: Partial<TModelAttributes>;
+  }> | null;
+}
+
+export default Model;

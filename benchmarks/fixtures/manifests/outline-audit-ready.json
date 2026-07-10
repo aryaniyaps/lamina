@@ -1,0 +1,10 @@
+{
+  "name": "outline-audit-ready",
+  "description": "Outline with init, personas, and flows inventory",
+  "layers": [
+    "evals:_base/outline",
+    "evals:_layers/lamina-outline-init",
+    "evals:_layers/lamina-outline-personas",
+    "evals:_layers/lamina-outline-audit"
+  ]
+}

@@ -1,0 +1,316 @@
+import { difference } from "es-toolkit/compat";
+import { observer } from "mobx-react";
+import { DOMParser as ProsemirrorDOMParser } from "prosemirror-model";
+import { TextSelection } from "prosemirror-state";
+import * as React from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { mergeRefs } from "react-merge-refs";
+import type { Optional } from "utility-types";
+import insertFiles from "@shared/editor/commands/insertFiles";
+import EditorContainer from "@shared/editor/components/Styles";
+import { AttachmentPreset } from "@shared/types";
+import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
+import { getDataTransferFiles } from "@shared/utils/files";
+import { AttachmentValidation } from "@shared/validations";
+import ClickablePadding from "~/components/ClickablePadding";
+import ErrorBoundary from "~/components/ErrorBoundary";
+import type { Props as EditorProps, Editor as SharedEditor } from "~/editor";
+import useCurrentUser from "~/hooks/useCurrentUser";
+import useEditorClickHandlers from "~/hooks/useEditorClickHandlers";
+import useEmbeds from "~/hooks/useEmbeds";
+import useStores from "~/hooks/useStores";
+import { uploadFile, uploadFileFromUrl } from "~/utils/files";
+import lazyWithRetry from "~/utils/lazyWithRetry";
+import useShare from "@shared/hooks/useShare";
+
+const LazyLoadedEditor = lazyWithRetry(() => import("~/editor"));
+
+export type Props = Optional<
+  EditorProps,
+  "placeholder" | "defaultValue" | "onClickLink" | "embeds" | "extensions"
+> & {
+  embedsDisabled?: boolean;
+  onSynced?: () => Promise<void>;
+  onPublish?: (event: React.MouseEvent) => void;
+  editorStyle?: React.CSSProperties;
+};
+
+function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
+  const {
+    id,
+    onChange,
+    onCreateCommentMark,
+    onDeleteCommentMark,
+    onFileUploadStart,
+    onFileUploadStop,
+  } = props;
+  const { comments } = useStores();
+  const { shareId } = useShare();
+  const { t } = useTranslation();
+  const embeds = useEmbeds(!shareId);
+  const localRef = React.useRef<SharedEditor>();
+  const preferences = useCurrentUser({ rejectOnEmpty: false })?.preferences;
+  const previousCommentIds = React.useRef<string[]>();
+
+  // Upload progress tracking for delayed toast
+  const progressMap = React.useMemo(() => new Map<string, number>(), []);
+  const uploadState = React.useRef<{
+    toastId?: string | number;
+    timeoutId?: ReturnType<typeof setTimeout>;
+    progress: Map<string, number>;
+  }>({ progress: progressMap });
+
+  const handleUploadFile = React.useCallback(
+    async (
+      file: File | string,
+      uploadOptions?: {
+        id?: string;
+        onProgress?: (fractionComplete: number) => void;
+      }
+    ) => {
+      const options = {
+        id: uploadOptions?.id,
+        documentId: id,
+        preset: AttachmentPreset.DocumentAttachment,
+        onProgress: uploadOptions?.onProgress,
+      };
+      const result =
+        file instanceof File
+          ? await uploadFile(file, options)
+          : await uploadFileFromUrl(file, options);
+      return result.url;
+    },
+    [id]
+  );
+
+  const { handleClickLink } = useEditorClickHandlers({ shareId });
+
+  // Show toast only after uploads have been running for 2 seconds
+  const handleFileUploadStart = React.useCallback(() => {
+    uploadState.current.timeoutId = setTimeout(() => {
+      uploadState.current.toastId = toast.loading(
+        t("Uploading… {{ progress }}%", { progress: 0 })
+      );
+    }, 2000);
+    onFileUploadStart?.();
+  }, [onFileUploadStart, t]);
+
+  const handleFileUploadProgress = React.useCallback(
+    (fileId: string, fractionComplete: number) => {
+      uploadState.current.progress.set(fileId, fractionComplete);
+
+      // Calculate average progress across all files
+      const progressValues = Array.from(uploadState.current.progress.values());
+      const avgProgress =
+        progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
+      const percent = Math.round(avgProgress * 100);
+
+      // Update toast if visible
+      if (uploadState.current.toastId) {
+        toast.loading(t("Uploading… {{ progress }}%", { progress: percent }), {
+          id: uploadState.current.toastId,
+        });
+      }
+    },
+    [t]
+  );
+
+  const handleFileUploadStop = React.useCallback(() => {
+    if (uploadState.current.timeoutId) {
+      clearTimeout(uploadState.current.timeoutId);
+      uploadState.current.timeoutId = undefined;
+    }
+    if (uploadState.current.toastId) {
+      toast.dismiss(uploadState.current.toastId);
+      uploadState.current.toastId = undefined;
+    }
+    uploadState.current.progress.clear();
+    onFileUploadStop?.();
+  }, [onFileUploadStop]);
+
+  const focusAtEnd = React.useCallback(() => {
+    localRef?.current?.focusAtEnd();
+  }, [localRef]);
+
+  const handleDrop = React.useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const files = getDataTransferFiles(event);
+
+      const view = localRef?.current?.view;
+      if (!view) {
+        return;
+      }
+
+      // Find a valid position at the end of the document to insert our content
+      const pos = TextSelection.near(
+        view.state.doc.resolve(view.state.doc.nodeSize - 2)
+      ).from;
+
+      // If there are no files in the drop event attempt to parse the html
+      // as a fragment and insert it at the end of the document
+      if (files.length === 0) {
+        const text =
+          event.dataTransfer.getData("text/html") ||
+          event.dataTransfer.getData("text/plain");
+
+        const dom = new DOMParser().parseFromString(text, "text/html");
+
+        view.dispatch(
+          view.state.tr.insert(
+            pos,
+            ProsemirrorDOMParser.fromSchema(view.state.schema).parse(dom)
+          )
+        );
+
+        return;
+      }
+
+      // Insert all files as attachments if any of the files are not images.
+      const isAttachment = files.some(
+        (file) => !AttachmentValidation.imageContentTypes.includes(file.type)
+      );
+
+      return insertFiles(view, event, pos, files, {
+        uploadFile: handleUploadFile,
+        onFileUploadStart: handleFileUploadStart,
+        onFileUploadStop: handleFileUploadStop,
+        onFileUploadProgress: handleFileUploadProgress,
+        isAttachment,
+      });
+    },
+    [
+      localRef,
+      handleFileUploadStart,
+      handleFileUploadStop,
+      handleFileUploadProgress,
+      handleUploadFile,
+    ]
+  );
+
+  // see: https://stackoverflow.com/a/50233827/192065
+  const handleDragOver = React.useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+      event.preventDefault();
+    },
+    []
+  );
+
+  const updateComments = React.useCallback(
+    (event?: { remote: boolean }) => {
+      if (onCreateCommentMark && onDeleteCommentMark && localRef.current) {
+        const commentMarks = localRef.current.getComments();
+        const commentIds = comments.orderedData.map((c) => c.id);
+        const commentMarkIds = commentMarks?.map((c) => c.id);
+
+        // Comment marks that arrive through a remote or sync transaction, such
+        // as the initial load of a collaborative document containing a draft
+        // comment, should not steal focus – only marks created locally should.
+        const focus =
+          previousCommentIds.current !== undefined && !event?.remote;
+        const newCommentIds = difference(
+          commentMarkIds,
+          previousCommentIds.current ?? [],
+          commentIds
+        );
+
+        newCommentIds.forEach((commentId) => {
+          const mark = commentMarks.find((c) => c.id === commentId);
+          if (mark) {
+            onCreateCommentMark(mark.id, mark.userId, { focus });
+          }
+        });
+
+        const removedCommentIds = difference(
+          previousCommentIds.current ?? [],
+          commentMarkIds ?? []
+        );
+
+        removedCommentIds.forEach((commentId) => {
+          onDeleteCommentMark(commentId);
+        });
+
+        previousCommentIds.current = commentMarkIds;
+      }
+    },
+    [onCreateCommentMark, onDeleteCommentMark, comments.orderedData]
+  );
+
+  const handleChange = React.useCallback<NonNullable<EditorProps["onChange"]>>(
+    (value, event) => {
+      onChange?.(value, event);
+      updateComments(event);
+    },
+    [onChange, updateComments]
+  );
+
+  const handleRefChanged = React.useCallback(
+    (node: SharedEditor | null) => {
+      if (node) {
+        updateComments();
+      }
+    },
+    [updateComments]
+  );
+
+  const paragraphs = React.useMemo(() => {
+    if (props.readOnly && typeof props.value === "object") {
+      return ProsemirrorHelper.getPlainParagraphs(props.value);
+    }
+    return undefined;
+  }, [props.readOnly, props.value]);
+
+  return (
+    <ErrorBoundary component="div" reloadOnChunkMissing>
+      <>
+        {paragraphs ? (
+          <EditorContainer
+            $rtl={props.dir === "rtl"}
+            grow={props.grow}
+            style={props.style}
+            editorStyle={props.editorStyle}
+            commenting={!!props.onClickCommentMark}
+            lang={props.lang}
+          >
+            <div className="ProseMirror">
+              {paragraphs.map((paragraph, index) => (
+                <p key={index} dir="auto">
+                  {paragraph.content?.map((content) => content.text)}
+                </p>
+              ))}
+            </div>
+          </EditorContainer>
+        ) : (
+          <LazyLoadedEditor
+            key={props.extensions?.length || 0}
+            ref={mergeRefs([ref, localRef, handleRefChanged])}
+            uploadFile={handleUploadFile}
+            embeds={embeds}
+            userPreferences={preferences}
+            {...props}
+            onClickLink={handleClickLink}
+            onChange={handleChange}
+            onFileUploadStart={handleFileUploadStart}
+            onFileUploadStop={handleFileUploadStop}
+            onFileUploadProgress={handleFileUploadProgress}
+            placeholder={props.placeholder || ""}
+            defaultValue={props.defaultValue || ""}
+          />
+        )}
+        {props.editorStyle?.paddingBottom && !props.readOnly && (
+          <ClickablePadding
+            onClick={props.readOnly ? undefined : focusAtEnd}
+            onDrop={props.readOnly ? undefined : handleDrop}
+            onDragOver={props.readOnly ? undefined : handleDragOver}
+            minHeight={props.editorStyle.paddingBottom}
+          />
+        )}
+      </>
+    </ErrorBoundary>
+  );
+}
+
+export default observer(React.forwardRef(Editor));

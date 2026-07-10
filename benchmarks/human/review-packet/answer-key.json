@@ -6,13 +6,13 @@
   },
   {
     "task_id": "task002",
-    "A": "control",
-    "B": "treatment"
+    "A": "treatment",
+    "B": "control"
   },
   {
     "task_id": "task006",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task007",
@@ -26,13 +26,13 @@
   },
   {
     "task_id": "task012",
-    "A": "control",
-    "B": "treatment"
+    "A": "treatment",
+    "B": "control"
   },
   {
     "task_id": "task016",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   },
   {
     "task_id": "task017",
@@ -46,7 +46,7 @@
   },
   {
     "task_id": "task023",
-    "A": "treatment",
-    "B": "control"
+    "A": "control",
+    "B": "treatment"
   }
 ]

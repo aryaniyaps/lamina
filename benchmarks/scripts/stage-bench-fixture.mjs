@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
+import { copyTree } from '../../evals/scripts/vendor-fixture-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const BENCH_FIXTURES = path.join(ROOT, 'benchmarks/fixtures');
@@ -28,20 +29,6 @@ function resolveLayerRoot(layer) {
     return path.join(EVALS_FIXTURES, layer.slice('evals:'.length));
   }
   return path.join(BENCH_FIXTURES, layer);
-}
-
-function copyTree(src, dest) {
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true });
-      copyTree(srcPath, destPath);
-    } else {
-      fs.mkdirSync(path.dirname(destPath), { recursive: true });
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
 }
 
 export function stageBenchFixture(name, outDir) {
