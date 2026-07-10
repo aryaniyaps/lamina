@@ -22,12 +22,14 @@ npx skills install aryaniyaps/lamina
 
 ## Fits your stack
 
-Lamina slots into whatever you already use. Unopinionated on UI design, context management, and memory — it owns product behavior only.
+Lamina slots into whatever you already use. Unopinionated on your tech stack/ AI skills.
 
 | | |
 |---|---|
 | **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi |
 | **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, … |
+| **Any database**  | Postgres, MySQL, MongoDB, Cassandra, Redis, Neo4j, etc |
+| **Any Language**  | Javascript, Python, Golang, Rust, Elixir, C# etc |
 | **Any UI library** | Tailwind, Chakra UI, shadcn, MUI, … |
 | **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, your own |
 
