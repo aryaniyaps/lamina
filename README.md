@@ -99,8 +99,6 @@ customer support, accessibility, edge cases, and system behavior.
 |---|---|---|
 | **Folder** | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) |
 | **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor **Plan mode** → implement |
-| **Contract** | `.lamina/runs/.../run.yaml` + `implement.md` | `.cursor/plans/havenstay_booking_platform_*.plan.md` |
-| **Post-build check** | Persona walks, invariant probes, verify report | None |
 
 <p align="center">
   <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina (design + verify cycle)" width="48%" />
