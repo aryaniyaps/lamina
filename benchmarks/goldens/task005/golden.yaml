@@ -1,4 +1,13 @@
 task_id: task005
+required_entities:
+  - habit
+  - checkin
+  - streak
+  - friend_connection
+required_invariants:
+  - no_public_leaderboard
+  - opt_in_social_only
+  - streak_forgiveness_policy
 required_personas:
   - beginner
   - returning_athlete
@@ -12,6 +21,10 @@ required_rules:
   - no_public_leaderboard
   - opt_in_social
   - streak_forgiveness
+required_scenarios:
+  - missed_day_recovery
+  - health_sync_failure
+  - friend_request_declined
 required_edge_cases:
   - missed_day
   - health_sync_failure
@@ -19,8 +32,12 @@ required_edge_cases:
 required_a11y:
   - motion_reduced_mode
   - voiceover_labels
+required_tradeoffs:
+  - accountability_vs_pressure
+  - streak_motivation_vs_forgiveness
 required_sections:
-  - users and jobs
-  - flows
-  - interactions
-  - accessibility
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

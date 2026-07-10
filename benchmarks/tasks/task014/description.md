@@ -1,6 +1,6 @@
 # Cart Experience Audit
 
-Audit the shopping cart for friction points that may cause abandonment.
+Audit the shopping cart for behavioral friction, state consistency, and abandonment risks.
 
 ## Scope
 

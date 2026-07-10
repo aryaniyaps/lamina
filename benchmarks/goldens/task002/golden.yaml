@@ -1,4 +1,14 @@
 task_id: task002
+required_entities:
+  - patient
+  - appointment
+  - provider
+  - insurance_plan
+  - location
+required_invariants:
+  - no_phi_in_urls
+  - insurance_gate_before_booking
+  - one_booking_per_slot
 required_personas:
   - patient
   - caregiver
@@ -13,6 +23,10 @@ required_rules:
   - cancellation_policy
   - insurance_verification_gate
   - provider_availability
+required_scenarios:
+  - insurance_denied_recovery
+  - timezone_confusion_handling
+  - no_availability_waitlist
 required_edge_cases:
   - no_availability
   - insurance_denied
@@ -22,9 +36,11 @@ required_a11y:
   - keyboard_navigation
   - form_error_announcement
   - contrast_compliance
+required_tradeoffs:
+  - real_time_eligibility_vs_booking_speed
 required_sections:
-  - users and jobs
-  - journey and information architecture
-  - flows
-  - edge cases
-  - accessibility
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

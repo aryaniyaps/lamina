@@ -1,4 +1,12 @@
 task_id: task012
+required_entities:
+  - project
+  - member
+  - role
+  - workflow_state
+required_invariants:
+  - last_admin_cannot_be_removed
+  - role_permissions_consistent
 required_personas:
   - project_admin
   - team_member
@@ -7,10 +15,14 @@ required_flows:
   - member_invite
   - role_management
 required_findings:
-  - discoverability
-  - destructive_action_guards
-  - settings_organization
   - permission_clarity
+  - destructive_action_guards
+  - multi_view_inconsistency
+  - inheritance_confusion
+required_scenarios:
+  - last_admin_removal_blocked
+  - invalid_invite_handling
+  - settings_conflict_resolution
 required_edge_cases:
   - last_admin_removal
   - invalid_invite

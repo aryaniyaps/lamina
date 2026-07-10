@@ -15,7 +15,7 @@
         "oss_feature",
         "oss_audit",
         "workflow_edge",
-        "accessibility"
+        "resilience"
       ]
     },
     "workflow": {

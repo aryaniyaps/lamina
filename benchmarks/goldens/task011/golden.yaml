@@ -1,4 +1,12 @@
 task_id: task011
+required_entities:
+  - cart
+  - order
+  - payment
+  - shipping_address
+required_invariants:
+  - order_total_matches_line_items
+  - payment_required_before_confirmation
 required_personas:
   - first_time_buyer
   - returning_customer
@@ -8,11 +16,15 @@ required_flows:
   - payment
   - confirmation
 required_findings:
-  - form_validation
-  - progress_indication
+  - invariant_violation
+  - state_consistency
+  - permission_gap
   - error_recovery
-  - trust_signals
-  - mobile_usability
+  - idempotency_risk
+required_scenarios:
+  - payment_declined_recovery
+  - address_validation_failure
+  - session_timeout_mid_checkout
 required_edge_cases:
   - payment_declined
   - address_validation_failure

@@ -1,5 +1,5 @@
 id: task023
-category: accessibility
+category: resilience
 workflow: design
 prompt: Design empty states across a project management application.
 fixture: null

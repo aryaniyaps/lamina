@@ -10,7 +10,8 @@
     },
     "required_personas": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "description": "Actors / user roles that must be addressed"
     },
     "required_flows": {
       "type": "array",
@@ -18,7 +19,8 @@
     },
     "required_rules": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "description": "Testable product rules"
     },
     "required_edge_cases": {
       "type": "array",
@@ -30,12 +32,33 @@
     },
     "required_sections": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "description": "Contract narrative structure (domain, actors, workflows, scenarios, implement brief)"
     },
     "required_findings": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "For audit tasks: issue categories that should be discovered"
+      "description": "For audit tasks: behavior gaps and invariant/consistency failures to discover"
+    },
+    "required_invariants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Illegal states that must be unrepresentable or explicitly guarded"
+    },
+    "required_entities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Domain entities and relationships"
+    },
+    "required_tradeoffs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Named trade-offs between competing product/system goals"
+    },
+    "required_scenarios": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Violation attempts and recovery paths tied to invariants"
     }
   },
   "additionalProperties": false

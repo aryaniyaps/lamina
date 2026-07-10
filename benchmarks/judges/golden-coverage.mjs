@@ -13,15 +13,20 @@ const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 const SCORED_DIR = path.join(ROOT, 'benchmarks/results/scored');
 
-const GOLDEN_FIELDS = [
-  'required_personas',
-  'required_flows',
-  'required_rules',
-  'required_edge_cases',
-  'required_a11y',
-  'required_sections',
-  'required_findings',
-];
+/** Core contract fields weighted 2×; a11y and legacy fields weighted 1× */
+const GOLDEN_FIELD_WEIGHTS = {
+  required_invariants: 2,
+  required_entities: 2,
+  required_scenarios: 2,
+  required_tradeoffs: 2,
+  required_personas: 1,
+  required_flows: 1,
+  required_rules: 1,
+  required_edge_cases: 1,
+  required_a11y: 1,
+  required_sections: 1,
+  required_findings: 1,
+};
 
 function normalize(text) {
   return text.toLowerCase().replace(/[_-]/g, ' ');
@@ -38,22 +43,22 @@ function itemMatches(item, text) {
 function scoreArtifact(golden, artifactText) {
   const text = normalize(artifactText);
   const checks = [];
-  let total = 0;
-  let passed = 0;
+  let totalWeight = 0;
+  let passedWeight = 0;
 
-  for (const field of GOLDEN_FIELDS) {
+  for (const [field, weight] of Object.entries(GOLDEN_FIELD_WEIGHTS)) {
     const items = golden[field];
     if (!items?.length) continue;
     for (const item of items) {
-      total++;
+      totalWeight += weight;
       const pass = itemMatches(item, text);
-      if (pass) passed++;
-      checks.push({ field, item, pass, method: 'keyword' });
+      if (pass) passedWeight += weight;
+      checks.push({ field, item, pass, weight, method: 'keyword' });
     }
   }
 
-  const coverage_score = total > 0 ? Math.round((passed / total) * 100) : 0;
-  return { coverage_score, checks, passed, total };
+  const coverage_score = totalWeight > 0 ? Math.round((passedWeight / totalWeight) * 100) : 0;
+  return { coverage_score, checks, passed: passedWeight, total: totalWeight };
 }
 
 function loadIndex(resultsDir) {

@@ -1,4 +1,14 @@
 task_id: task019
+required_entities:
+  - role
+  - permission
+  - org
+  - team
+  - audit_log
+required_invariants:
+  - last_super_admin_protected
+  - permission_inheritance_transitive
+  - sso_group_mapping_consistent
 required_personas:
   - org_admin
   - security_officer
@@ -13,6 +23,10 @@ required_rules:
   - inheritance_hierarchy
   - last_admin_protection
   - sso_group_mapping
+required_scenarios:
+  - conflicting_permissions_resolution
+  - role_deletion_with_active_users
+  - sso_sync_delay_handling
 required_edge_cases:
   - conflicting_permissions
   - role_deletion_with_users
@@ -20,7 +34,13 @@ required_edge_cases:
 required_a11y:
   - permission_matrix_navigation
   - destructive_confirmations
+required_tradeoffs:
+  - granular_permissions_vs_admin_complexity
+  - inheritance_vs_explicit_override
 required_sections:
-  - flows
-  - edge cases
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
   - policy enforcement
+  - implement brief

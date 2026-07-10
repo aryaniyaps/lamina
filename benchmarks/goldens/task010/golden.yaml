@@ -1,4 +1,13 @@
 task_id: task010
+required_entities:
+  - issue
+  - bulk_selection
+  - permission
+  - project
+required_invariants:
+  - permission_check_per_issue
+  - undo_window_for_destructive
+  - max_selection_enforced
 required_personas:
   - team_lead
   - project_manager
@@ -11,6 +20,10 @@ required_rules:
   - permission_check_per_issue
   - undo_window
   - max_selection
+required_scenarios:
+  - partial_permission_denied_feedback
+  - mixed_project_selection_block
+  - selection_across_pages
 required_edge_cases:
   - partial_permission_denied
   - mixed_project_selection
@@ -18,7 +31,12 @@ required_edge_cases:
 required_a11y:
   - selection_count_announced
   - keyboard_multi_select
+required_tradeoffs:
+  - bulk_speed_vs_per_item_confirmation
+  - cross_page_selection_vs_performance
 required_sections:
-  - flows
-  - edge cases
-  - error handling
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

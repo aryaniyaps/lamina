@@ -1,4 +1,14 @@
 task_id: task017
+required_entities:
+  - expense
+  - approval
+  - receipt
+  - policy
+  - payment
+required_invariants:
+  - receipt_required_above_threshold
+  - audit_trail_immutable
+  - no_payment_without_finance_approval
 required_personas:
   - employee
   - manager
@@ -13,6 +23,11 @@ required_rules:
   - receipt_threshold
   - category_limits
   - delegation_rules
+required_scenarios:
+  - policy_violation_escalation
+  - manager_ooo_delegation
+  - duplicate_submission_idempotency
+  - currency_conversion_rounding
 required_edge_cases:
   - policy_violation
   - manager_ooo
@@ -21,7 +36,13 @@ required_edge_cases:
 required_a11y:
   - form_validation_feedback
   - status_tracking
+required_tradeoffs:
+  - approval_speed_vs_policy_enforcement
+  - delegation_flexibility_vs_audit_clarity
 required_sections:
-  - flows
-  - edge cases
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
   - state management
+  - implement brief

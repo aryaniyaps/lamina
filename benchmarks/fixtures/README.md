@@ -30,4 +30,4 @@ Commerce layers reference the evals fixture vendored by:
 npm run fixtures:vendor
 ```
 
-Plane and Outline v1.1 use lightweight context stubs (product description + business context) rather than full repo clones. Audit tasks on Commerce use the full vendored codebase.
+Plane and Outline use lightweight context stubs (product description + business context) rather than full repo clones. Audit tasks on Commerce use the full vendored codebase.

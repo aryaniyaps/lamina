@@ -1,4 +1,13 @@
 task_id: task025
+required_entities:
+  - media_asset
+  - sync_queue
+  - bandwidth_profile
+  - action
+required_invariants:
+  - queued_action_idempotent
+  - bandwidth_mode_reduces_payload
+  - partial_load_recoverable
 required_personas:
   - mobile_user
   - low_bandwidth_user
@@ -11,6 +20,10 @@ required_rules:
   - progressive_loading
   - bandwidth_detection
   - queue_policy
+required_scenarios:
+  - connection_drop_mid_upload
+  - timeout_retry
+  - partial_load_resume
 required_edge_cases:
   - connection_drop_mid_upload
   - timeout
@@ -18,7 +31,13 @@ required_edge_cases:
 required_a11y:
   - loading_status_announced
   - reduced_motion_option
+required_tradeoffs:
+  - media_quality_vs_load_time
+  - auto_detection_vs_user_opt_in
 required_sections:
-  - flows
-  - edge cases
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
   - user guidance
+  - implement brief

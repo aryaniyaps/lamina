@@ -1,7 +1,7 @@
 id: task013
 category: oss_audit
 workflow: audit
-prompt: Audit document sharing and permissions UX in Outline.
+prompt: Audit document sharing and permissions behavior in Outline.
 fixture: outline-with-init
 human_eval: false
 runs: 3

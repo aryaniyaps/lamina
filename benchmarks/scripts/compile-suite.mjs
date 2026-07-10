@@ -14,7 +14,7 @@ const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 const SCHEMAS = path.join(ROOT, 'benchmarks/schemas');
 
-const CATEGORIES = new Set(['greenfield', 'oss_feature', 'oss_audit', 'workflow_edge', 'accessibility']);
+const CATEGORIES = new Set(['greenfield', 'oss_feature', 'oss_audit', 'workflow_edge', 'resilience']);
 const WORKFLOWS = new Set(['design', 'audit']);
 
 const errors = [];

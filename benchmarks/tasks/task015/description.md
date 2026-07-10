@@ -1,6 +1,6 @@
 # Onboarding Audit
 
-Audit Plane's onboarding flow for new workspaces and projects.
+Audit Plane's onboarding flow for behavioral gaps and time-to-value issues.
 
 ## Scope
 

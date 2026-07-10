@@ -1,6 +1,6 @@
-version: "1.1.0"
-release_tag: bench-v1.1.0
-created: "2026-07-07"
+version: "2.0.0"
+release_tag: bench-v2.0.0
+created: "2026-07-10"
 
 agent: claude-code
 model: claude-sonnet-4-20250514
@@ -20,9 +20,29 @@ scoring_weights:
   llm_judge: 0.4
   human_eval: 0.2
 
+golden_field_weights:
+  required_invariants: 2
+  required_entities: 2
+  required_scenarios: 2
+  required_tradeoffs: 2
+  required_personas: 1
+  required_flows: 1
+  required_rules: 1
+  required_edge_cases: 1
+  required_a11y: 1
+  required_sections: 1
+  required_findings: 1
+
 llm_judges:
   - openai:gpt-4o
   - anthropic:claude-sonnet-4-20250514
+
+categories:
+  - greenfield
+  - oss_feature
+  - oss_audit
+  - workflow_edge
+  - resilience
 
 oss_pins:
   commerce:

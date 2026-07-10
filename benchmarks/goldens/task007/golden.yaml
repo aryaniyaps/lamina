@@ -1,4 +1,14 @@
 task_id: task007
+required_entities:
+  - wishlist
+  - wishlist_item
+  - product
+  - cart
+  - guest_session
+required_invariants:
+  - guest_wishlist_merge_on_login
+  - out_of_stock_not_purchasable
+  - price_at_add_time_displayed
 required_personas:
   - guest_shopper
   - registered_user
@@ -13,6 +23,10 @@ required_rules:
   - guest_persistence
   - out_of_stock_handling
   - price_change_notification
+required_scenarios:
+  - guest_session_expired_recovery
+  - product_discontinued_removal
+  - duplicate_add_idempotency
 required_edge_cases:
   - product_discontinued
   - guest_session_expired
@@ -21,7 +35,12 @@ required_edge_cases:
 required_a11y:
   - wishlist_button_label
   - bulk_action_feedback
+required_tradeoffs:
+  - guest_persistence_vs_privacy
+  - price_notification_vs_noise
 required_sections:
-  - flows
-  - edge cases
-  - metrics and validation
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

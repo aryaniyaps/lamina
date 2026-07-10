@@ -7,7 +7,7 @@
 <p align="center"><strong>Know what to build. Iterate faster.</strong></p>
 
 <p align="center">
-  Open-source skill for AI coding agents. Lamina designs how your app works — edge cases, product states, UX gaps — in a contract your agent implements. Then verifies what you shipped by spawning <strong>one subagent per persona</strong> to walk your live app in parallel. Any stack. Never writes app source.
+  Product-design skill for AI coding agents. Specs how your app works — states, edges, UX gaps — into a contract your agent implements, then verifies the live build with parallel persona walks. Never writes app source.
 </p>
 
 ---
@@ -20,9 +20,22 @@ npx skills add https://github.com/aryaniyaps/lamina -a cursor -a claude-code -a 
 
 ---
 
+## Fits your stack
+
+Lamina slots into whatever you already use. Unopinionated on UI design, context management, and memory — it owns product behavior only.
+
+| | |
+|---|---|
+| **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi |
+| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, … |
+| **Any UI library** | Tailwind, Chakra UI, shadcn, MUI, … |
+| **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, your own |
+
+---
+
 ## How it works
 
-Your coding agent writes app source. Optional UI design skills (Impeccable, UI UX Pro Max, etc.) handle look and feel. **Lamina handles product behavior** — what to build, how states and flows work, which edge cases to cover — in a loop around implementation:
+Your coding agent writes app source. Optional UI skills handle look and feel. **Lamina owns product behavior** — what to build, how states and flows work, which edges to cover:
 
 ```mermaid
 flowchart LR
@@ -52,68 +65,58 @@ flowchart LR
 |------|-----|--------|
 | 1. Charter + design | **Lamina** | `.lamina/runs/<id>/run.yaml`, `implement.md` |
 | 2. Build | **Your coding agent** | App source — any stack |
-| 3. Verify | **Lamina** | Parallel persona walks, findings, visual walkthrough, invariant checks |
+| 3. Verify | **Lamina** | Parallel persona walks, findings, invariant checks |
 
 ---
 
 ## Pair with
 
-Lamina designs and verifies product behavior. It works best when your agent can **see the whole system cheaply** and **remember what you already decided**. Add these to your coding stack:
+Lamina designs and verifies product behavior. It works best when your agent can **see the system cheaply** and **remember prior decisions**:
 
-| Tool | Why it helps Lamina |
-|------|---------------------|
-| **[Graphify](https://github.com/safishamsi/graphify)** | Most flows span many files. Graphify turns the repo into a queryable knowledge graph so your agent maps routes, callers, and architecture without burning tokens on grep-walks. Run `/graphify .` before `/lamina-design` or `/lamina-verify` on brownfield apps. |
-| **[Claude-Mem](https://github.com/thedotmack/claude-mem)** | Design → build → verify spans sessions. Claude-Mem keeps decisions, prior findings, and project context across chats so you don't re-explain the domain every time. |
-| **UI design skill** ([Impeccable](https://github.com/pbakaus/impeccable), UI UX Pro Max, `frontend-design`) | Lamina stays unopinionated on pixels. Pair a UI skill so implementation looks intentional while Lamina owns states, edges, and verify. |
-| **Spec Kit / Kiro** | After `/lamina-design`, feed `implement.md` into an engineering spec for task breakdown. Product contract first, then build plan. |
+| Tool | Why |
+|------|-----|
+| **[Graphify](https://github.com/safishamsi/graphify)** | Queryable codebase map — run `/graphify .` before design/verify on brownfield apps |
+| **[Claude-Mem](https://github.com/thedotmack/claude-mem)** | Keeps decisions and findings across sessions |
+| **UI design skill** ([Impeccable](https://github.com/pbakaus/impeccable), UI UX Pro Max, `frontend-design`) | Pixels while Lamina owns states, edges, and verify |
+| **Spec Kit / Kiro** | Feed `implement.md` into an engineering plan after design |
 
-**Minimum upgrade for brownfield:** Graphify (codebase map) + Claude-Mem (session continuity). Lamina then designs against real structure and verifies without rediscovering the app every turn.
+**Brownfield minimum:** Graphify + Claude-Mem.
 
 ---
 
 ## Why not …?
 
-Developers often reach for tools that solve adjacent problems. Most are complementary — UI skills for pixels, product/UX skills for craft, Lamina for the contract and verify loop. If you're comparing, here's where each fits.
+Most of these are complementary. Lamina is the contract + verify loop.
 
-### Impeccable, UI UX Pro Max, or `frontend-design`
+### Impeccable, UI UX Pro Max, `frontend-design`
 
-**They polish how it looks** — design languages, palettes, typography, anti-slop rules, and component aesthetics.
+**They polish how it looks.** Lamina designs how it works — actors, flows, empty/error/loading states, invariants. Pair any UI skill; Lamina stays out of pixels.
 
-**Lamina designs how it works** — actors and permissions, flows, empty/error/loading states, business invariants, concurrency edges. Many teams run both: UI skill on implementation, Lamina on the contract and verify loop.
+### BMAD, ai-ux-skills, design-skills
 
-### BMAD, ai-ux-skills, design-skills, or other product/UX skills
+**They teach design judgment** — heuristics, critique, a11y, PRDs. Collections like [BMAD](https://github.com/bmad-code-org/BMAD-METHOD), [ai-ux-skills](https://github.com/firassb/ai-ux-skills), and [design-skills](https://github.com/cuellarfr/design-skills) improve how your agent *thinks*.
 
-**They teach design judgment** — heuristics, critique frameworks, accessibility checklists, PRDs, journey maps, and UX writing. Collections like [BMAD](https://github.com/bmad-code-org/BMAD-METHOD), [ai-ux-skills](https://github.com/firassb/ai-ux-skills), and [design-skills](https://github.com/cuellarfr/design-skills) activate when relevant and improve how your agent *thinks* about design.
-
-**Lamina runs a product-design workflow** — slash commands that produce a structured contract (`run.yaml`, `implement.md`), then verify what you shipped against it. Reference skills don't encode domain invariants, actor permissions, or multi-step failure modes into an implementable artifact, and none walk your live app after build. Use both: product/UX skills for craft and critique; Lamina when you need a contract your agent implements and a verify pass that catches gaps.
+**Lamina runs a workflow** — slash commands → `run.yaml` / `implement.md` → live-app verify. Use craft skills for judgment; Lamina when you need an implementable contract and a post-build check.
 
 ### Just asking your coding agent
 
-Works for happy paths. Weak on permission matrices, stale-data states, and product rules that only surface after you ship ("payment fails mid-checkout — now what?").
+Fine for happy paths. Weak on permission matrices, stale states, and mid-flow failures. Lamina structures before build and walks the live app after.
 
-Lamina adds structure before build (`run.yaml`, `implement.md`) and checks after (`/lamina-verify` walks the live app with actor simulations and invariant probes). You keep your agent; Lamina adds the product-design layer it skips.
+### Spec Kit, Kiro, spec-driven dev
 
-### Spec Kit, Kiro, or spec-driven dev
+**Product first, then spec.** Spec tools structure engineering work; Lamina structures product behavior. Run `/lamina-design`, then feed `implement.md` into Spec Kit/Kiro. Spec tools don't walk your live UI.
 
-**Complementary — product first, then spec.** Spec Kit and Kiro structure engineering work: requirements, plans, tasks, constitution. Lamina structures product behavior: actors, workflows, scenarios, invariants.
+### v0, Lovable, Bolt
 
-Better order: run `/lamina-design` to nail what the product must do (`run.yaml`, `implement.md`), then feed that into Spec Kit or Kiro for the implementation plan. Starting with an engineering spec skips the product layer — you get well-specified code for behavior nobody designed. Lamina also verifies the shipped app; spec tools don't walk your live UI.
+**They generate apps** — often stack-locked. Lamina doesn't generate code or pick your framework; it fits your repo, agent, and UI stack. Targets role hierarchies, multi-step flows, and domain edges those builders miss.
 
-### v0, Lovable, or Bolt
+### Figma / design handoff
 
-**They generate apps** — often full-stack, often locked to their stack and hosting. Fast for weekend MVPs.
+Mocks show one screen. They aren't agent instructions and don't verify the build. Lamina outputs `implement.md`, then audits the live product. Coexist fine.
 
-Lamina doesn't generate code or replace your IDE. It fits developers who already build in their own repo with Cursor, Claude Code, or Codex — any framework. AI builders tend to struggle with role hierarchies, multi-step workflows, and domain edge cases; that's what Lamina's contract + verify loop targets.
+**Choose Lamina** if you're a developer who builds with AI and care about product correctness — not just UI polish.
 
-### Figma or design handoff
-
-Mocks show one screen at a time. They don't ship as agent instructions, don't systematically cover edge cases, and don't verify what got built.
-
-Lamina outputs `implement.md` your agent follows, then audits the live product against the contract. Figma and Lamina can coexist — Lamina is the behavioral spec for agent-native builds.
-
-**Choose Lamina** when you build with a coding agent, care about product correctness (not just UI polish), and want verification before users find the gaps.
-
-**Skip it** when you only need a landing-page skin, you're fully inside a no-code AI builder, or you don't want a `.lamina/` contract in your repo.
+**Skip it** for landing-page skins, no-code AI builders, or if you don't want a `.lamina/` contract.
 
 ---
 
@@ -126,7 +129,7 @@ Lamina outputs `implement.md` your agent follows, then audits the live product a
 /lamina-verify
 ```
 
-Output lives in `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
+Output: `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
 
 ---
 
@@ -137,7 +140,7 @@ Output lives in `.lamina/runs/<id>/`. Hand `implement.md` to your coding agent.
 | `/lamina` | Router |
 | `/lamina-init` | Domain charter |
 | `/lamina-design` | Design contract → `ready_to_build` |
-| `/lamina-verify` | Post-build check, persona walks, invariant checks |
+| `/lamina-verify` | Post-build check, persona walks, invariants |
 
 Writes to `.lamina/` only. No app source. No visual styling.
 

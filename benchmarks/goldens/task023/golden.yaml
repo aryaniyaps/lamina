@@ -1,4 +1,13 @@
 task_id: task023
+required_entities:
+  - project
+  - cycle
+  - search_result
+  - empty_state
+required_invariants:
+  - error_distinct_from_empty
+  - actionable_cta_when_permissions_allow
+  - permission_limited_empty_explained
 required_personas:
   - new_user
   - experienced_user
@@ -11,6 +20,10 @@ required_rules:
   - actionable_cta
   - error_distinction
   - tone_guidelines
+required_scenarios:
+  - permission_limited_empty_state
+  - filtered_to_zero_results
+  - deleted_all_items_recovery
 required_edge_cases:
   - permission_limited_empty
   - filtered_to_zero
@@ -18,7 +31,12 @@ required_edge_cases:
 required_a11y:
   - empty_state_announced
   - cta_focus_order
+required_tradeoffs:
+  - guidance_vs_clutter
+  - encouraging_tone_vs_accuracy
 required_sections:
-  - flows
-  - interactions and copy
-  - accessibility
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

@@ -1,4 +1,14 @@
 task_id: task004
+required_entities:
+  - trip
+  - itinerary_item
+  - expense
+  - member
+  - vote
+required_invariants:
+  - invite_only_trip_access
+  - organizer_approval_for_changes
+  - expense_currency_consistency
 required_personas:
   - trip_organizer
   - contributor
@@ -13,6 +23,10 @@ required_rules:
   - invite_only_access
   - organizer_approval
   - expense_currency
+required_scenarios:
+  - member_leaves_group_settlement
+  - conflicting_votes_resolution
+  - offline_sync_reconciliation
 required_edge_cases:
   - member_leaves_group
   - conflicting_votes
@@ -21,7 +35,12 @@ required_edge_cases:
 required_a11y:
   - readable_maps_alternative
   - notification_preferences
+required_tradeoffs:
+  - collaboration_vs_organizer_control
+  - offline_access_vs_live_sync
 required_sections:
-  - users and jobs
-  - journey and information architecture
-  - flows
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

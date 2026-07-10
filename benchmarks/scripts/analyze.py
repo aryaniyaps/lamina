@@ -104,7 +104,7 @@ def paired_stats(pairs: dict[str, dict[str, float]]) -> dict:
 
 def build_report(coverage_stats: dict, judge_stats: dict | None, human: dict | None) -> str:
     lines = [
-        "# LaminaBench v1.1 Report",
+        "# LaminaBench v2.0 Report",
         "",
         f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
@@ -140,6 +140,8 @@ def build_report(coverage_stats: dict, judge_stats: dict | None, human: dict | N
             f"- Control mean overall: {human.get('control_mean', 'N/A')}",
             f"- Treatment mean overall: {human.get('treatment_mean', 'N/A')}",
             f"- Note: {human.get('note', '')}",
+            "",
+            "v2 scores product-behavior contracts (domain, invariants, scenarios) — not UX research docs.",
         ])
 
     lines.extend([

@@ -1,5 +1,5 @@
 id: task025
-category: accessibility
+category: resilience
 workflow: design
 prompt: Design UX for slow network conditions in a media-rich web application.
 fixture: null

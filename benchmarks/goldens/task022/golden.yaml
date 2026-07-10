@@ -1,4 +1,13 @@
 task_id: task022
+required_entities:
+  - dashboard
+  - chart
+  - filter
+  - data_table
+required_invariants:
+  - no_color_only_status
+  - text_alternative_for_every_chart
+  - focus_order_logical
 required_personas:
   - screen_reader_user
   - keyboard_user
@@ -12,6 +21,10 @@ required_rules:
   - text_alternatives
   - no_color_only
   - focus_management
+required_scenarios:
+  - live_region_overflow_handling
+  - empty_chart_accessible_state
+  - loading_state_announced
 required_edge_cases:
   - live_region_overflow
   - empty_chart
@@ -21,7 +34,12 @@ required_a11y:
   - table_navigation
   - chart_descriptions
   - skip_links
+required_tradeoffs:
+  - data_density_vs_screen_reader_verbosity
+  - live_updates_vs_cognitive_load
 required_sections:
-  - accessibility
-  - flows
-  - metrics and validation
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief

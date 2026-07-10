@@ -12,19 +12,18 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const PACKET_DIR = path.join(ROOT, 'benchmarks/human/review-packet');
-const RUBRIC = path.join(ROOT, 'benchmarks/judges/rubric.md');
 
 const CRITERIA = [
-  'business_understanding',
-  'ux_completeness',
-  'flow_quality',
-  'integration',
-  'edge_case_coverage',
-  'error_handling',
-  'accessibility',
-  'consistency',
+  'domain_system_structure',
+  'invariants_product_rules',
+  'actors_permissions',
+  'workflow_quality',
+  'scenario_edge_coverage',
+  'systems_judgment',
+  'ux_expression_under_rules',
+  'brownfield_fit',
   'implementation_readiness',
-  'overall',
+  'overall_product_behavior',
 ];
 
 function shuffle(arr) {
@@ -73,8 +72,8 @@ function main() {
     'pre{white-space:pre-wrap;background:#f6f6f6;padding:1rem;max-height:400px;overflow:auto}',
     'h2{margin-top:0}</style></head><body>',
     '<h1>LaminaBench Blind Review Packet</h1>',
-    `<p>Tasks: ${humanTasks.length}. Score each artifact A and B using the rubric. Do not infer which arm produced which.</p>`,
-    `<p><a href="../judges/rubric.md">Rubric</a></p>`,
+    `<p>Tasks: ${humanTasks.length}. Score each artifact A and B using the product-behavior rubric. Do not infer which arm produced which.</p>`,
+    `<p><a href="../../judges/rubric.md">Rubric</a></p>`,
   ];
 
   for (const taskId of humanTasks) {
@@ -114,7 +113,6 @@ function main() {
   fs.writeFileSync(path.join(PACKET_DIR, 'scores-template.csv'), csvRows.join('\n') + '\n');
   fs.writeFileSync(path.join(PACKET_DIR, 'answer-key.json'), JSON.stringify(answerKey, null, 2) + '\n');
 
-  // Example human scores for pipeline (3 raters, synthetic from coverage if no real raters)
   generateExampleHumanScores(answerKey);
 
   console.log(`Human review packet → ${PACKET_DIR}`);
@@ -132,7 +130,7 @@ function generateExampleHumanScores(answerKey) {
     for (const rater of [1, 2, 3]) {
       for (const [label, arm] of Object.entries({ A: key.A, B: key.B })) {
         const entry = coverage.find((c) => c.task_id === key.task_id && c.arm === arm);
-        const base = entry ? entry.coverage_score / 20 : 3; // scale 0-100 → ~1-5
+        const base = entry ? entry.coverage_score / 20 : 3;
         const noise = (rater - 2) * 0.15;
         const overall = Math.min(5, Math.max(1, Math.round((base + noise) * 10) / 10));
         ratings.push({
@@ -140,24 +138,18 @@ function generateExampleHumanScores(answerKey) {
           label,
           arm,
           rater,
-          overall,
+          overall_product_behavior: overall,
         });
       }
     }
   }
 
-  // Fleiss kappa on overall scores per item (A and B as separate items)
-  const items = answerKey.flatMap((k) => [
-    ratings.filter((r) => r.task_id === k.task_id && r.label === 'A'),
-    ratings.filter((r) => r.task_id === k.task_id && r.label === 'B'),
-  ]);
-
-  const controlScores = ratings.filter((r) => r.arm === 'control').map((r) => r.overall);
-  const treatmentScores = ratings.filter((r) => r.arm === 'treatment').map((r) => r.overall);
+  const controlScores = ratings.filter((r) => r.arm === 'control').map((r) => r.overall_product_behavior);
+  const treatmentScores = ratings.filter((r) => r.arm === 'treatment').map((r) => r.overall_product_behavior);
 
   const human = {
-    note: 'Example scores derived from coverage for pipeline validation. Replace with real rater CSV imports.',
-    fleiss_kappa: 0.72,
+    note: 'v2.0: Example scores derived from coverage for pipeline validation only. Replace with real rater CSV imports before any external claim.',
+    fleiss_kappa: null,
     control_mean: avg(controlScores),
     treatment_mean: avg(treatmentScores),
     ratings,

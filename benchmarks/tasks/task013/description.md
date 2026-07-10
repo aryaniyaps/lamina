@@ -1,6 +1,6 @@
 # Document Sharing Audit
 
-Audit how Outline handles document sharing and permissions.
+Audit how Outline handles document sharing, permissions, and invariant enforcement.
 
 ## Scope
 

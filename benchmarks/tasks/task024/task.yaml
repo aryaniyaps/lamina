@@ -1,5 +1,5 @@
 id: task024
-category: accessibility
+category: resilience
 workflow: design
 prompt: Design session expiration and re-authentication UX.
 fixture: null

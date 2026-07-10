@@ -1,4 +1,14 @@
 task_id: task020
+required_entities:
+  - onboarding_checklist
+  - task
+  - stage
+  - new_hire
+  - compliance_training
+required_invariants:
+  - compliance_gate_before_system_access
+  - task_dependencies_enforced
+  - stage_ownership_clear
 required_personas:
   - new_hire
   - hr_coordinator
@@ -13,6 +23,10 @@ required_rules:
   - task_dependencies
   - compliance_gate
   - stage_ownership
+required_scenarios:
+  - delayed_start_date_handling
+  - role_change_mid_onboarding
+  - it_provisioning_failure_recovery
 required_edge_cases:
   - delayed_start
   - role_change_mid_onboarding
@@ -20,7 +34,13 @@ required_edge_cases:
 required_a11y:
   - progress_visibility
   - deadline_reminders
+required_tradeoffs:
+  - parallel_tasks_vs_sequential_compliance
+  - automation_vs_human_handoff
 required_sections:
-  - flows
-  - edge cases
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
   - recovery flows
+  - implement brief

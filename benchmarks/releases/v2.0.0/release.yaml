@@ -1,0 +1,4 @@
+version: "2.0.0"
+release_tag: bench-v2.0.0
+created: "2026-07-10"
+status: schema_updated_live_run_required

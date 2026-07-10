@@ -1,4 +1,12 @@
 task_id: task015
+required_entities:
+  - workspace
+  - project
+  - invite
+  - issue
+required_invariants:
+  - workspace_requires_owner
+  - invite_expires_after_ttl
 required_personas:
   - new_admin
   - invited_member
@@ -7,10 +15,14 @@ required_flows:
   - first_project
   - invite_team
 required_findings:
-  - time_to_value
-  - empty_state_guidance
-  - skip_options
-  - progress_indication
+  - empty_state_guidance_gap
+  - workflow_dead_end
+  - permission_confusion
+  - time_to_value_blocker
+required_scenarios:
+  - solo_user_onboarding_path
+  - invite_expired_recovery
+  - abandoned_setup_resume
 required_edge_cases:
   - solo_user
   - invite_expired

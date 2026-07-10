@@ -11,20 +11,19 @@ import { readYamlSync } from '../scripts/yaml.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const SCORED_DIR = path.join(ROOT, 'benchmarks/results/scored');
-const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 
 const CRITERIA = [
-  'business_understanding',
-  'ux_completeness',
-  'flow_quality',
-  'integration',
-  'edge_case_coverage',
-  'error_handling',
-  'accessibility',
-  'consistency',
+  'domain_system_structure',
+  'invariants_product_rules',
+  'actors_permissions',
+  'workflow_quality',
+  'scenario_edge_coverage',
+  'systems_judgment',
+  'ux_expression_under_rules',
+  'brownfield_fit',
   'implementation_readiness',
-  'overall',
+  'overall_product_behavior',
 ];
 
 function judgeHeuristic(artifact, golden, arm) {

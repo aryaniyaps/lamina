@@ -1,4 +1,13 @@
 task_id: task024
+required_entities:
+  - session
+  - auth_token
+  - unsaved_work
+  - sso_provider
+required_invariants:
+  - unsaved_work_preserved_on_reauth
+  - warning_before_expiry
+  - mid_action_graceful_recovery
 required_personas:
   - active_user
   - idle_user
@@ -11,6 +20,10 @@ required_rules:
   - warning_timing
   - work_preservation
   - sso_redirect
+required_scenarios:
+  - sso_failure_recovery
+  - concurrent_session_conflict
+  - unsaved_form_data_preservation
 required_edge_cases:
   - sso_failure
   - concurrent_sessions
@@ -18,7 +31,13 @@ required_edge_cases:
 required_a11y:
   - timeout_warning_announced
   - focus_on_modal
+required_tradeoffs:
+  - security_timeout_vs_workflow_disruption
+  - extend_session_vs_force_reauth
 required_sections:
-  - flows
-  - edge cases
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
   - recovery paths
+  - implement brief

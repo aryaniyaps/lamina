@@ -1,4 +1,14 @@
 task_id: task001
+required_entities:
+  - household
+  - account
+  - transaction
+  - budget
+  - category
+required_invariants:
+  - one_active_budget_per_household
+  - partner_privacy_boundary
+  - no_investment_advice_display
 required_personas:
   - primary_budgeter
   - partner
@@ -13,6 +23,10 @@ required_rules:
   - no_investment_advice
   - shared_household_view
   - privacy_between_partners
+required_scenarios:
+  - sync_failure_recovery
+  - zero_income_month
+  - duplicate_transaction_handling
 required_edge_cases:
   - empty_accounts
   - sync_failure
@@ -22,8 +36,12 @@ required_a11y:
   - screen_reader_labels
   - large_touch_targets
   - color_not_only_indicator
+required_tradeoffs:
+  - clarity_vs_granularity
+  - shared_view_vs_partner_privacy
 required_sections:
-  - users and jobs
-  - flows
-  - accessibility
-  - metrics and validation
+  - domain and invariants
+  - actors and permissions
+  - workflows
+  - scenarios
+  - implement brief
