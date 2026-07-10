@@ -1,10 +1,12 @@
 ## Business goals
-Enable enterprise sales by meeting SOC2 access control requirements.
+Unblock enterprise sales by meeting SOC2-style access-control expectations.
 
 ## Users
-Org admins, security officers, team leads, end users.
+- Org admins and security officers defining policy
+- Team leads assigning roles within scope
+- End users affected by role changes
 
 ## Constraints
-- 50+ permission types
-- Cannot lock out last super-admin
-- SSO group mapping
+- 50+ permission types (model a representative subset in the slice)
+- Cannot lock out the last super-admin
+- SSO group mapping (e.g. Okta) can lag — show and recover from sync delay

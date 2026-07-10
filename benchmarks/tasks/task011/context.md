@@ -1,3 +1,11 @@
-Vercel Commerce Next.js storefront. Checkout includes cart, shipping, payment, confirmation.
+## Business goals
+Reduce checkout abandonment and payment-support tickets caused by inconsistent totals, failed recovery, and unclear errors.
 
-Review the codebase and existing flows inventory in .lamina/ if present.
+## Users
+- First-time buyers (often guest checkout)
+- Returning customers with saved details
+
+## Constraints
+- Brownfield Next.js Commerce; review source and any `.lamina/` flow inventory if present
+- Do not redesign the entire storefront — fix checkout behavior gaps
+- Payment must be required before confirmation; order total must match line items

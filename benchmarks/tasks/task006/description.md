@@ -1,10 +1,12 @@
 # Recurring Tasks for Plane
 
-Design a recurring task feature that integrates with Plane's existing issue workflow.
+Design and implement a **minimal vertical slice** of recurring issues in Plane that fits existing projects, cycles, assignees, and permissions.
 
 ## Requirements
 
-- Create issues that repeat on a schedule (daily, weekly, monthly, custom)
-- Handle completion vs skip for individual occurrences
-- Show recurrence clearly in issue list and detail views
-- Respect existing labels, assignees, and project structure
+- Create a recurring issue series (daily, weekly, monthly, custom) that spawns occurrences
+- Complete vs skip a single occurrence; edit series vs single occurrence; end recurrence
+- One occurrence per schedule slot; assignees inherit from the series; respect project permissions
+- Handle timezone display, cycle-boundary conflicts, deleted projects, and permission-denied occurrences
+- Show recurrence clearly in list and detail views without breaking Kanban/List patterns
+- Keyboard shortcuts and screen-reader-friendly recurrence descriptions

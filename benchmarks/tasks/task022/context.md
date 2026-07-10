@@ -1,9 +1,12 @@
 ## Business goals
-Meet WCAG 2.1 AA for enterprise procurement.
+Meet WCAG 2.1 AA for enterprise procurement while keeping the dashboard useful for sighted analysts.
 
 ## Users
-Analysts with visual impairments, keyboard-only users, sighted analysts.
+- Screen-reader users analyzing trends
+- Keyboard-only users
+- Sighted analysts (must not regress)
 
 ## Constraints
-- 20+ chart types
-- Real-time data updates
+- Scope the slice to a representative dashboard with a few chart types + one data table — not 20 chart implementations
+- Real-time updates must be throttled/summarized for assistive tech
+- Empty and loading states must be announced

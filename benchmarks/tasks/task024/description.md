@@ -1,10 +1,12 @@
 # Session Expiration UX
 
-Design how the application handles session timeout and re-authentication.
+Build a **minimal vertical slice** of session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
 
 ## Requirements
 
-- Warn before session expires with extend option
-- Preserve unsaved work during re-auth
-- Handle expired session mid-action gracefully
-- Support SSO re-authentication
+- Warn before idle expiry with an extend option; 30-minute idle timeout
+- Preserve unsaved form work across re-auth; recover gracefully if session dies mid-submit
+- Flows: idle warning, extend session, re-auth with work preservation, expired mid-submit
+- Handle SSO (Okta) failure, concurrent session conflicts, and focus management on the warning modal
+- Timeout warning must be announced to assistive tech
+- Trade-off: security timeout vs workflow disruption; extend session vs force re-auth

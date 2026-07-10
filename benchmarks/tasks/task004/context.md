@@ -1,10 +1,12 @@
 ## Business goals
-Achieve 100K trip plans in year one; 25% convert to premium.
+Reach 100K trip plans in year one with 25% converting to premium (unlimited trips + expense export).
 
 ## Users
-Trip organizers (25–45), group members contributing ideas, passive viewers.
+- Trip organizer (25–45) owning the plan
+- Contributors adding ideas and expenses
+- Passive members who mostly view
 
 ## Constraints
-- iOS and Android native apps
-- Integrates with Google Maps and calendar
-- Premium: unlimited trips and expense export
+- iOS and Android native apps; Google Maps + calendar integration
+- Premium unlocks unlimited trips and expense export
+- Trade-offs: collaboration vs organizer control; offline access vs live sync
