@@ -42,30 +42,13 @@ Your coding agent writes app source. Optional UI skills handle look and feel. **
 
 ```mermaid
 flowchart LR
-  subgraph lamina["Lamina — product behavior"]
-    direction TB
-    INIT["/lamina-init<br/>domain charter"]
-    DESIGN["/lamina-design<br/>run.yaml + implement.md"]
-    VERIFY["/lamina-verify<br/>persona subagents × N"]
-    FIX["fix.md<br/>coding session"]
-    INIT --> DESIGN
-    VERIFY -->|"fix.md"| FIX
-    FIX -->|"re-verify"| VERIFY
-    VERIFY -.->|"contract delta"| DESIGN
-  end
-
-  subgraph build["You + coding agent"]
-    IMPL["Implement<br/>Cursor · Claude Code · Codex · Pi · Gemini"]
-  end
-
-  APP["Your app<br/>any framework · any UI library"]
-
-  UI["UI design skills<br/><i>optional</i>"] -.-> IMPL
+  DESIGN["/lamina-design"]
+  IMPL["Implement"]
+  VERIFY["/lamina-verify"]
 
   DESIGN -->|"implement.md"| IMPL
-  IMPL --> APP
-  APP -->|"screenshots + live app"| VERIFY
-  VERIFY -->|"fix.md"| IMPL
+  IMPL -->|"live app"| VERIFY
+  VERIFY -->|"fix.md / contract delta"| DESIGN
 ```
 
 | Step | Who | Output |
