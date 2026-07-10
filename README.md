@@ -101,7 +101,6 @@ customer support, accessibility, edge cases, and system behavior.
 | **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor **Plan mode** → implement |
 | **Contract** | `.lamina/runs/.../run.yaml` + `implement.md` | `.cursor/plans/havenstay_booking_platform_*.plan.md` |
 | **Post-build check** | Persona walks, invariant probes, verify report | None |
-| **Stack** | Next.js 15 · Prisma · SQLite · Stripe | Next.js 16 · Prisma · PostgreSQL · Auth.js · Stripe |
 
 <p align="center">
   <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina (design + verify cycle)" width="48%" />
@@ -113,27 +112,20 @@ customer support, accessibility, edge cases, and system behavior.
 
 Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a homepage exists.
 
-### What Lamina implemented that Plan mode missed
+<details>
+<summary><strong>Product design Plan mode missed (Lamina implemented)</strong></summary>
 
-- **Checkout inventory holds** — 15-minute hold with countdown timer, hold-aware availability, and cron expiry. Plan mode decrements inventory only after payment, so concurrent checkouts can race.
-- **Cancellation policy model** — Per-property Flexible / Moderate / Strict templates with an immutable `policySnapshot` and structured refund math. Plan mode uses one global 48h / 50% / none tier.
-- **Property go-live governance** — Hotels submit for review; admins approve, reject, or request changes. Plan mode lets partners self-publish with no approval queue.
-- **Hotel onboarding funnel** — “List your property” → 6-step wizard (Connect, property, rooms, policy, readiness checklist, submit). Plan mode is flat hotel/room forms + manual publish.
-- **Hotel-initiated cancellation** — Cancel with mandatory reason and automatic 100% guest refund (`CANCELLED_BY_HOTEL`). Plan mode has no hotel cancel path.
-- **Platform admin console** — Approvals, users, hotels, bookings, payments, trust reports, review moderation, tickets, settings, audit log. Plan mode ships a single KPI dashboard page.
-- **Traveler booking edges** — Email-verified booking gate, dedicated cancel flow with refund preview, review window gating, receipt on trip detail, richer booking states (`PENDING_PAYMENT`, `CHECKED_IN`, `CANCELLED_BY_*`, `PAYMENT_FAILED`).
-- **Search integrity** — Only `LIVE` properties; date search excludes sold-out inventory. Plan mode can still list unavailable hotels.
-- **Marketplace accounting** — Commission tracking, booking line items, dedicated refund records, user suspension that blocks booking.
-- **Design + verify artifacts** — Machine contract, personas, design report, implement brief, and verify report with invariant probes. Plan mode leaves only a Cursor plan file.
+- 15-minute checkout inventory hold with countdown, hold-aware availability, and expiry — Plan mode only decrements stock after payment.
+- Per-property Flexible / Moderate / Strict cancellation policies with an immutable snapshot at booking — Plan mode uses one global refund tier.
+- Property go-live requires admin approve / reject / request-changes — Plan mode lets partners self-publish.
+- “List your property” → multi-step onboarding wizard with readiness checklist — Plan mode is flat forms + manual publish.
+- Hotel can cancel a reservation with a required reason and automatic full guest refund — Plan mode has no hotel cancel path.
+- Full platform admin console (approvals, users, bookings, payments, trust, reviews, tickets, audit) — Plan mode has a single KPI page.
+- Traveler edges: email-verified booking gate, cancel flow with refund preview, review-window gating, and receipt on trip detail.
+- Search only surfaces live properties and excludes sold-out inventory for the selected dates — Plan mode can still list unavailable hotels.
+- Richer booking lifecycle states (`PENDING_PAYMENT`, `CHECKED_IN`, `CANCELLED_BY_TRAVELER` / `_HOTEL`, `PAYMENT_FAILED`) plus user suspension that blocks booking.
 
-### What Plan mode shipped that Lamina is weaker on
-
-- **Stripe Checkout + webhooks** — Real Checkout Session redirect and idempotent `checkout.session.completed` confirmation. Lamina uses mock-first payment confirm with no webhook handler.
-- **Email delivery** — Resend HTML templates when configured. Lamina logs to console / notification table only.
-- **Guest ↔ hotel messaging** — In-app threads on trip detail and partner inbox. Lamina deferred chat; contact info only.
-- **Traveler notification center** — Read/unread in-app notifications. Lamina has an admin delivery log, not a guest inbox.
-- **Optional Google OAuth** — Wired in Auth.js. Lamina is credentials-only.
-- **Search sort controls** — Price / rating / recommended. Lamina filters by price and rating but has no sort UI.
+</details>
 
 See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/report.md) and [verify report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/verify-report.md) for the full contract and findings.
 
