@@ -1,7 +1,7 @@
 id: task009
 category: oss_feature
 workflow: design
-prompt: "Design the product behavior for saved searches in the product catalog: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product."
+prompt: "Design and implement saved searches in the catalog as a complete feature: domain model, illegal states, actors and permissions, save/rerun/alert workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce."
 fixture: commerce-with-init
 human_eval: false
 runs: 3

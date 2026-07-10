@@ -1,6 +1,6 @@
 # Onboarding Audit
 
-Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -12,4 +12,4 @@ Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, 
 ## Deliverable
 
 - Findings on empty-state guidance gaps, workflow dead ends, permission confusion, time-to-value blockers
-- Prioritized fixes (including quick wins); implement the top slice that unblocks first value in code
+- Prioritized fixes (including quick wins); implement the highest-priority fixes that unblock first value across the onboarding audit scope

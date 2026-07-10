@@ -32,7 +32,7 @@ export const CRITERIA_LABELS = {
   systems_judgment: 'Systems judgment',
   ux_expression_under_rules: 'UX expression under rules',
   brownfield_fit: 'Brownfield fit',
-  implementation_readiness: 'Vertical slice completeness',
+  implementation_readiness: 'Product implementation completeness',
   overall_product_behavior: 'Overall product-behavior quality',
 };
 

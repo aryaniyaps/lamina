@@ -22,12 +22,14 @@ The comparison is **adoption-shaped**: realistic without-Lamina practice vs adop
 | Phase | Control (Plan mode, no Lamina) | Treatment (Lamina installed) |
 |-------|-------------------------------|------------------------------|
 | 1 | Write `bench-plan.md` (implementation plan) | `/lamina-init` establish or update |
-| 2 | Implement minimal vertical slice | `/lamina-design` or `/lamina-verify` (audit tasks) |
+| 2 | Implement **full product scope** from plan | `/lamina-design` or `/lamina-verify` (audit tasks) |
 | 3 | — | Implement from contract |
 | 4 | — | `/lamina-verify` post-build |
 | 5 | — | Fix issues from `fix.md` (falls back to verify report) |
 
 **2 turns (control)** vs **5 turns (treatment)** — [documented methodology](METHODOLOGY.md), not matched compute.
+
+**Scope:** Greenfield, workflow, and resilience tasks ask for a **full product** (all primary workflows + secondary surfaces), not a minimum demo. OSS feature tasks ask for a complete feature that fits the host product. Audit tasks stay focused: find gaps, then implement the highest-priority fixes across the audit scope.
 
 **Scoring** captures **application source** (see [methodology.json](methodology.json)):
 - **Control**: after phase 2 (post-implement) — no verify/fix loop
@@ -60,30 +62,26 @@ Full rationale: **[METHODOLOGY.md](METHODOLOGY.md)**
 
 ```bash
 npm install
-# Live release path (requires agent CLI + API keys for LLM judge)
+# Live release path (requires agent CLI + Anthropic credentials for LLM judge)
+npm run bench:env-check
 npm run bench:validate
 npm run bench:all
-
-# Pipeline check only (mock artifacts — NOT for claims)
-npm run bench:pipeline-check
 ```
 
 ## Commands
 
 | Script | Purpose |
 |--------|---------|
+| `npm run bench:env-check` | Verify Anthropic credentials and gateway reachability |
 | `npm run bench:validate` | Validate task + golden + probe schemas and fixtures |
 | `npm run bench:probes:generate` | Regenerate structural probes from goldens |
-| `npm run bench:run` | Live control/treatment runs (requires agent CLI) |
-| `npm run bench:run:mock` | Synthetic equal-coverage artifacts for pipeline checks |
+| `npm run bench:run` | Live control/treatment runs (requires agent CLI); `--pilot` for 3-task smoke; `--concurrency N` (default 4); `--fresh` to wipe index |
 | `npm run bench:score` | Golden coverage + LLM judge + behavior probes |
-| `npm run bench:score:heuristic` | Coverage + heuristic judge + probes |
 | `npm run bench:analyst` | Flag non-discriminating golden/probe items |
 | `npm run bench:analyze` | Analyst pass + stats/composite/cost → `results/report.md` |
 | `npm run bench:human-packet` | Optional qualitative review packet (not in composite) |
 | `npm run bench:import-human` | Import rater CSV (appendix only) |
 | `npm run bench:all` | **Live** validate → run → score → analyze |
-| `npm run bench:pipeline-check` | Mock path for CI/pipeline validation only |
 
 ## Layout
 
@@ -112,16 +110,44 @@ benchmarks/
 4. Workflow and edge-case design
 5. Resilience and degraded states
 
-3 runs per arm × 25 tasks = **150 workflow runs** (150 control invocations + 375 treatment = **525 agent calls**).
+3 runs per arm × 25 tasks = **150 workflow runs** (150 control invocations + 375 treatment = **525 agent calls**). Default **4 concurrent workflows** (`--concurrency` / `BENCH_CONCURRENCY`).
 
-## Scoring
+## Parallel runner
+
+The harness runs **whole workflows** in parallel (never interleaved phases). Each job gets an isolated workspace under `results/raw/workspaces/{task}_{arm}_run{N}`.
+
+| Flag / env | Default | Purpose |
+|------------|---------|---------|
+| `--concurrency N` | `4` | Max simultaneous workflows |
+| `BENCH_CONCURRENCY` | — | Env override for concurrency |
+| `--fresh` | off | Delete `index.jsonl` before run (full re-run) |
+| *(resume)* | on | Skip jobs already in `index.jsonl` with `artifact_valid: true` |
+| `BENCH_PHASE_TIMEOUT_MS` | `1200000` (20 min) | Per-phase agent timeout; kills hung processes |
+
+**Resume:** Partial runs append to `index.jsonl`. Re-run the same command to continue — completed valid jobs are skipped. Use `--fresh` only when you want to discard prior index rows.
+
+**Fixture cache:** Staged OSS trees are cached under `benchmarks/tmp/fixture-cache/`; skills under `benchmarks/tmp/skills-cache/` — copied per workspace, not re-vendored each run.
+
+**Phase gates:** After each phase the harness checks required files on disk (e.g. `bench-plan.md`, `src/`). One automatic retry on failure; invalid runs are indexed with `artifact_valid: false` and excluded from resume skip until fixed.
+
+```bash
+# Pilot (3 tasks × 3 runs × 2 arms), 4 workers
+npm run bench:run -- --pilot --concurrency 4
+
+# Single-task smoke, 2 overlapping workflows
+npm run bench:run -- --tasks task001 --runs 1 --concurrency 2 --fresh
+
+# Full suite (after pilot passes)
+npm run bench:run -- --concurrency 4
+```
+
 
 ### Claim composite (50/50)
 
 | Layer | Weight | Method |
 |-------|--------|--------|
 | Golden coverage | 50% | Phrase match in **implementation source** vs reference checklist (invariants/scenarios/entities/trade-offs 2×). **Sections not scored**. |
-| LLM judge | 50% | 2-model promptfoo rubric on bundled source when API keys set; otherwise arm-neutral heuristic (disclosed, not claim-ready) |
+| LLM judge | 50% | Claude (Anthropic) promptfoo rubric on bundled source; heuristic fallback is disclosed and not claim-ready |
 
 ### Reported separately (not in composite)
 
@@ -132,7 +158,7 @@ benchmarks/
 | Human review | Optional qualitative packet — **not** part of the claim composite |
 | Analyst pass | Flags golden/probe items that always pass or always fail on both arms |
 
-`claim_ready: true` requires live (non-mock) runs and a real LLM judge (not heuristic-only).
+`claim_ready: true` requires live runs and an Anthropic LLM judge (not heuristic-only).
 
 Goldens are a **reference checklist**, not ground truth — any clear wording of the concept counts. Probes are stricter: they require code-like context (guards, types, handlers).
 
@@ -153,16 +179,17 @@ npm run bench:probes            # score after bench:run
 
 ## Reproducing a release
 
-1. Set API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`
+1. Copy `benchmarks/.env.example` → `benchmarks/.env` and set credentials:
+   - `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` (Claude Code gateway) **or** `ANTHROPIC_API_KEY` (direct API)
+   - `ANTHROPIC_MODEL` — Sonnet pin for agent runs and LLM judge (overrides `release.yaml`)
 2. Install reference agent: `claude` CLI (see `release.yaml`)
-3. `npm run bench:all` (live — never `--mock`)
-4. Copy `results/report.md` + `results/statistics/stats.json` to `releases/v2.0.0/` only if `claim_ready: true`
-
-**v1.1.0 mock results are retired** — do not use for external claims.
+3. `npm run bench:env-check` — verify credentials and gateway reachability
+4. `npm run bench:all` (live)
+5. Copy `results/report.md` + `results/statistics/stats.json` to `releases/v2.0.0/` only if `claim_ready: true`
 
 ## Claim wording (use only after claim_ready)
 
-> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on **reference-checklist coverage** and **multi-model rubric scores of implemented source**. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately. Methodology: `benchmarks/METHODOLOGY.md`. Results pinned to `release.yaml`.
+> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on **reference-checklist coverage** and **Claude rubric scores of implemented source**. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately. Methodology: `benchmarks/METHODOLOGY.md`. Results pinned to `release.yaml`.
 
 Until live results exist, prefer:
 

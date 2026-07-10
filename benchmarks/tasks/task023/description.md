@@ -1,6 +1,6 @@
 # Empty States Design
 
-Build a **minimal vertical slice** of empty-state behavior for a project-management app (projects, cycles, search): first-run guidance, contextual empties, and hard distinction from errors.
+Design and implement complete empty-state behavior for a project-management app (projects, cycles, search): first-run guidance, contextual empties, and hard distinction from errors.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Build a **minimal vertical slice** of empty-state behavior for a project-managem
 - Announce empty states; sensible CTA focus order
 - Tone: encouraging but accurate — never claim data exists when it does not
 - Trade-off: guidance vs clutter; encouraging tone vs accuracy
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

@@ -1,7 +1,7 @@
 id: task001
 category: greenfield
 workflow: design
-prompt: "Design the product behavior for a household budgeting app: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
+prompt: "Design and implement a full household budgeting product — not a demo stub: domain model, illegal states, actors and permissions, all primary workflows (onboarding, linking, weekly review, alerts, partner invite, settings), edge cases, named trade-offs, and a buildable multi-surface product."
 fixture: null
 human_eval: true
 runs: 3

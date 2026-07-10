@@ -38,16 +38,13 @@ prompts:
     }
 
 providers:
-  - id: openai:gpt-4o
-    config:
-      temperature: 0
   - id: anthropic:messages:claude-sonnet-4-20250514
     config:
       temperature: 0
 
 defaultTest:
   options:
-    provider: openai:gpt-4o
+    provider: anthropic:messages:claude-sonnet-4-20250514
   assert:
     - type: is-json
     - type: javascript

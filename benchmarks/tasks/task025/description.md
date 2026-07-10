@@ -1,6 +1,6 @@
 # Slow Network Degradation
 
-Build a **minimal vertical slice** of progressive degradation for a media-rich web app on slow or unstable networks: detection, low-bandwidth mode, queued actions, and recoverable partial loads.
+Design and implement complete progressive degradation for a media-rich web app on slow or unstable networks: detection, low-bandwidth mode, queued actions, and recoverable partial loads.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Build a **minimal vertical slice** of progressive degradation for a media-rich w
 - Handle connection drop mid-upload, timeouts, and partial-load resume
 - Announce loading status; offer reduced-motion
 - Trade-off: media quality vs load time; auto-detection vs explicit opt-in
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

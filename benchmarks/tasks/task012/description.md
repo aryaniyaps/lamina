@@ -1,6 +1,6 @@
 # Project Settings Audit
 
-Audit Plane project settings and configuration for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Plane project settings and configuration for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -12,4 +12,4 @@ Audit Plane project settings and configuration for product-behavior gaps, then i
 ## Deliverable
 
 - Findings on permission clarity, destructive guards, multi-view inconsistency, inheritance confusion
-- Prioritized fixes (including quick wins); implement the top slice in code
+- Prioritized fixes (including quick wins); implement the highest-priority fixes across the settings audit scope

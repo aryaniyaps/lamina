@@ -1,6 +1,6 @@
 # Offline Editing
 
-Build a **minimal vertical slice** of offline editing for a collaborative document editor: edit while offline, visible status, queued sync, and defined conflict resolution on reconnect.
+Design and implement complete offline editing for a collaborative document editor: edit while offline, visible status, queued sync, and defined conflict resolution on reconnect.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Build a **minimal vertical slice** of offline editing for a collaborative docume
 - Handle extended offline (queue overflow), storage full, conflicting edits, and auth expiry while offline
 - Status announcements for screen readers
 - Trade-off: last-write-wins vs manual merge; queue size vs storage
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

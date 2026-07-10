@@ -1,6 +1,6 @@
 # Cart Experience Audit
 
-Audit the Vercel Commerce cart for behavioral friction, state consistency, and abandonment risks, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit the Vercel Commerce cart for behavioral friction, state consistency, and abandonment risks, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -12,4 +12,4 @@ Audit the Vercel Commerce cart for behavioral friction, state consistency, and a
 ## Deliverable
 
 - Findings on state consistency, idempotency, price transparency, inventory invariants
-- Prioritized fixes; implement the top slice that reduces cart abandonment risk in code
+- Prioritized fixes; implement the highest-priority fixes that reduce cart abandonment risk across the audit scope

@@ -85,7 +85,7 @@ probes:
     weight: 2
     patterns:
       - "(?is)(auth[\\s_-]*denied).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(auth[\\s_-]*denied)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

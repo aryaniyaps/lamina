@@ -43,6 +43,18 @@ probes:
     weight: 1
     patterns:
       - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*friend[\\s_-]*connection|(?is)friend[\\s_-]*connection[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_challenge
+    kind: entity_model
+    description: "Entity \"challenge\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*challenge|(?is)challenge[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_notification_preference
+    kind: entity_model
+    description: "Entity \"notification preference\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*notification[\\s_-]*preference|(?is)notification[\\s_-]*preference[\\s\\w]*({|struct|class|interface|=)"
   - id: scn_missed_day_recovery
     kind: scenario_handler
     description: "Scenario/edge \"missed day recovery\" near error/recovery handling"
@@ -61,13 +73,19 @@ probes:
     weight: 2
     patterns:
       - "(?is)(friend[\\s_-]*request[\\s_-]*declined).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(friend[\\s_-]*request[\\s_-]*declined)"
+  - id: scn_health_sync_failure_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"health sync failure recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(health[\\s_-]*sync[\\s_-]*failure[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(health[\\s_-]*sync[\\s_-]*failure[\\s_-]*recovery)"
   - id: scn_missed_day
     kind: scenario_handler
     description: "Scenario/edge \"missed day\" near error/recovery handling"
     weight: 2
     patterns:
       - "(?is)(missed[\\s_-]*day).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(missed[\\s_-]*day)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

@@ -6,6 +6,8 @@ required_entities:
   - transaction
   - budget
   - category
+  - alert
+  - household_member
 required_invariants:
   - one_active_budget_per_household
   - partner_privacy_boundary
@@ -20,6 +22,8 @@ required_flows:
   - weekly_review
   - category_adjustment
   - spending_alert
+  - invite_partner
+  - household_settings
 required_rules:
   - no_investment_advice
   - shared_household_view
@@ -28,6 +32,7 @@ required_scenarios:
   - sync_failure_recovery
   - zero_income_month
   - duplicate_transaction_handling
+  - partner_privacy_category_hidden
 required_edge_cases:
   - empty_accounts
   - sync_failure

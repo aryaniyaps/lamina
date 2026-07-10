@@ -25,7 +25,7 @@ cp benchmarks/results/statistics/stats.json benchmarks/releases/v2.0.0/
 
 Use only when `stats.json` has `"claim_ready": true`:
 
-> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on reference-checklist coverage and multi-model rubric scores of implemented source. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately.
+> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on reference-checklist coverage and Claude rubric scores of implemented source. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately.
 
 Until then:
 

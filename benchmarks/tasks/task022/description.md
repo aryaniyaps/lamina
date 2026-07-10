@@ -1,6 +1,6 @@
 # Screen Reader Analytics Dashboard
 
-Build a **minimal vertical slice** of an analytics dashboard that is fully usable with keyboard and screen reader — not a visual-only chart wall.
+Design and implement a complete analytics dashboard that is fully usable with keyboard and screen reader — not a visual-only chart wall.
 
 ## Requirements
 
@@ -9,3 +9,7 @@ Build a **minimal vertical slice** of an analytics dashboard that is fully usabl
 - Live regions for updates without flooding; accessible empty and loading states
 - Table navigation patterns for underlying data; announce filter changes
 - Trade-off: data density vs screen-reader verbosity; live updates vs cognitive load
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

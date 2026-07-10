@@ -1,6 +1,6 @@
 # Guest Document Sharing
 
-Design and implement a **minimal vertical slice** of guest sharing for Outline documents: invite/link access, comment-or-view permissions, expiry, and revocation.
+Design and implement guest sharing for Outline documents: invite/link access, comment-or-view permissions, expiry, and revocation.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Design and implement a **minimal vertical slice** of guest sharing for Outline d
 - Handle guest email mismatch, documents moved across collections, and collection vs document permission conflicts
 - Clear guest-vs-member indicators; audit trail of share/revoke events
 - Trade-off: link convenience vs security; comment access vs read-only
+
+## Deliverable
+
+A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.

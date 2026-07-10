@@ -1,6 +1,6 @@
 # Enterprise RBAC Admin Console
 
-Build a **minimal vertical slice** of multi-tenant RBAC: custom roles, org/team/resource assignment, inheritance/overrides, and an audit log — without locking out the last super-admin.
+Design and implement a complete multi-tenant RBAC admin product: custom roles, org/team/resource assignment, inheritance/overrides, and an audit log — without locking out the last super-admin.
 
 ## Requirements
 
@@ -9,3 +9,7 @@ Build a **minimal vertical slice** of multi-tenant RBAC: custom roles, org/team/
 - Resolve conflicting permissions; handle role deletion while users are assigned; tolerate SSO sync delay
 - Destructive permission changes need confirmation; permission matrix must be keyboard-navigable
 - Trade-off: granular permissions vs admin complexity; inheritance vs explicit override
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

@@ -129,6 +129,35 @@ def load_weights() -> dict[str, float]:
     return weights
 
 
+def load_llm_judges() -> list[str]:
+    if not RELEASE_YAML.exists():
+        return []
+    text = RELEASE_YAML.read_text()
+    judges: list[str] = []
+    in_block = False
+    for line in text.splitlines():
+        if line.strip().startswith("llm_judges:"):
+            in_block = True
+            continue
+        if in_block:
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                judges.append(stripped[2:].strip().strip('"').strip("'"))
+            elif stripped and not line.startswith(" ") and not line.startswith("\t"):
+                break
+    return judges
+
+
+def required_judge_provider_count(judges: list[str]) -> int:
+    families: set[str] = set()
+    for judge in judges:
+        if judge.startswith("openai:"):
+            families.add("openai")
+        elif judge.startswith("anthropic:"):
+            families.add("anthropic")
+    return len(families) if families else 1
+
+
 def task_level_means(rows: list[dict], score_col: str) -> dict[str, dict[str, float]]:
     buckets: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
@@ -301,7 +330,7 @@ def build_report(
 
     if not claim_ready:
         lines.extend([
-            "> **Not claim-ready.** Live non-mock runs and a real LLM judge (not heuristic-only)",
+            "> **Not claim-ready.** Live runs and an Anthropic LLM judge (not heuristic-only)",
             "> are required before any external citation of these numbers.",
             "",
         ])
@@ -427,20 +456,34 @@ def build_report(
         "",
         "See `benchmarks/release.yaml` for pinned agent and model configuration.",
         "Raw artifacts: `benchmarks/results/raw/`. Scored outputs: `benchmarks/results/scored/`.",
-        "Release path: `npm run bench:all` (live). Pipeline check: `npm run bench:pipeline-check` (mock).",
+        "Release path: `npm run bench:all` (live).",
     ])
     return "\n".join(lines) + "\n"
 
 
-def detect_claim_ready(coverage_rows: list[dict], judge_rows: list[dict] | None) -> bool:
+def detect_claim_ready(
+    coverage_rows: list[dict],
+    judge_rows: list[dict] | None,
+    llm_judges: list[str] | None = None,
+) -> bool:
     if any(r.get("mock") for r in coverage_rows):
         return False
-    if judge_rows:
-        modes = {((r.get("judge_scores") or {}).get("judge_mode")) for r in judge_rows}
-        if modes == {"heuristic"}:
-            return False
-    else:
+    if not judge_rows:
         return False
+
+    modes = {((r.get("judge_scores") or {}).get("judge_mode")) for r in judge_rows}
+    if modes == {"heuristic"} or "heuristic" in modes:
+        return False
+    if "promptfoo" not in modes:
+        return False
+
+    required_models = required_judge_provider_count(llm_judges or [])
+    for row in judge_rows:
+        judge_scores = row.get("judge_scores") or {}
+        if judge_scores.get("judge_mode") != "promptfoo":
+            return False
+        if judge_scores.get("judge_models", 0) < required_models:
+            return False
     return True
 
 
@@ -483,7 +526,8 @@ def main() -> None:
 
     cost = load_index_cost()
     composite_stats = compute_composite(cov_pairs, judge_pairs, weights)
-    claim_ready = detect_claim_ready(coverage_rows, judge_rows)
+    llm_judges = load_llm_judges()
+    claim_ready = detect_claim_ready(coverage_rows, judge_rows, llm_judges)
 
     by_category: dict = {}
     cat_tasks: dict[str, list[dict]] = defaultdict(list)
@@ -498,6 +542,7 @@ def main() -> None:
         "generated": datetime.now(timezone.utc).isoformat(),
         "claim_ready": claim_ready,
         "claim_surface": "golden_coverage + llm_judge on implemented source (Design A)",
+        "llm_judges_required": llm_judges,
         "methodology": methodology,
         "scoring_weights": weights,
         "coverage": cov_stats,

@@ -90,6 +90,18 @@ function walkImplementation(dir, prefix, out) {
   }
 }
 
+/** List scored implementation source paths in workspace. */
+export function listImplementationFiles(workspace) {
+  const files = [];
+  walkImplementation(workspace, '', files);
+  return files.map((f) => f.rel);
+}
+
+/** True when artifact contains bundled source, not stdout fallback or empty capture. */
+export function isArtifactValid(artifact) {
+  return Boolean(artifact) && /Captured \d+ source file\(s\):/.test(artifact);
+}
+
 /** Bundle application source from the workspace. */
 export function captureImplementationArtifact(workspace, agentOutput) {
   const files = [];

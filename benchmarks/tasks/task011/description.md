@@ -1,6 +1,6 @@
 # Checkout Flow Audit
 
-Audit the Vercel Commerce checkout path for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit the Vercel Commerce checkout path for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -12,4 +12,4 @@ Audit the Vercel Commerce checkout path for product-behavior gaps, then implemen
 ## Deliverable
 
 - Findings covering invariant violations, state consistency, permission gaps, error recovery, and idempotency
-- Prioritized fixes; implement the top slice that hardens checkout behavior in code
+- Prioritized fixes; implement the highest-priority fixes that harden checkout behavior across the audit scope

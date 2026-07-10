@@ -100,7 +100,7 @@ async function main() {
         ? `Continue this Lamina workflow session in the same workspace.\n\n${history}\nUser: ${userPrompt}`
         : userPrompt;
 
-    const { output, stdout, stderr } = invokeAgent(opts.agent, fullPrompt, workspace);
+    const { output, stdout, stderr } = await invokeAgent(opts.agent, fullPrompt, workspace);
     turnOutputs.push(output);
     combinedLogs += stdout + stderr;
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * LaminaBench runner: control vs treatment agent executions.
- * Usage: node benchmarks/scripts/run-bench.mjs [--mock] [--pilot] [--tasks id1,id2] [--runs N]
  *
- * --mock is for pipeline validation only. Never use mock results for external claims.
- * Release path: npm run bench:all (live runs, no --mock).
+ * Usage:
+ *   node benchmarks/scripts/run-bench.mjs [--pilot] [--tasks id1,id2] [--runs N]
+ *     [--concurrency N] [--fresh]
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,22 +14,27 @@ import { stageBenchFixture } from './stage-bench-fixture.mjs';
 import { readYamlSync } from './yaml.mjs';
 import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
 import { runControlWorkflow, runTreatmentWorkflow } from './bench-workflow.mjs';
-import { copyTree } from '../../evals/scripts/vendor-fixture-lib.mjs';
+import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
+import { installLaminaSkills } from './bench-skills.mjs';
+
+loadBenchEnv();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
-const SKILLS_SRC = path.join(ROOT, 'skills');
 const METHODOLOGY = JSON.parse(
   fs.readFileSync(path.join(ROOT, 'benchmarks/methodology.json'), 'utf8')
 );
 
+const DEFAULT_CONCURRENCY = Number(process.env.BENCH_CONCURRENCY) || 4;
+
 function parseArgs() {
   const opts = {
-    mock: process.argv.includes('--mock'),
     pilot: process.argv.includes('--pilot'),
+    fresh: process.argv.includes('--fresh'),
     tasks: null,
     runs: null,
     agent: null,
+    concurrency: DEFAULT_CONCURRENCY,
   };
   const tasksIdx = process.argv.indexOf('--tasks');
   if (tasksIdx !== -1) opts.tasks = process.argv[tasksIdx + 1].split(',');
@@ -37,6 +42,8 @@ function parseArgs() {
   if (runsIdx !== -1) opts.runs = Number(process.argv[runsIdx + 1]);
   const agentIdx = process.argv.indexOf('--agent');
   if (agentIdx !== -1) opts.agent = process.argv[agentIdx + 1];
+  const concIdx = process.argv.indexOf('--concurrency');
+  if (concIdx !== -1) opts.concurrency = Number(process.argv[concIdx + 1]);
   return opts;
 }
 
@@ -48,91 +55,25 @@ function loadSuite() {
   return JSON.parse(fs.readFileSync(suitePath, 'utf8'));
 }
 
-function installLaminaSkills(workspace, agent) {
-  const agentDirs = {
-    'claude-code': '.claude/skills',
-    codex: '.codex/skills',
-    opencode: '.opencode/skills',
-  };
-  const rel = agentDirs[agent] || '.claude/skills';
-  const dest = path.join(workspace, rel);
-  fs.mkdirSync(dest, { recursive: true });
-
-  for (const entry of fs.readdirSync(SKILLS_SRC, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const src = path.join(SKILLS_SRC, entry.name);
-    const target = path.join(dest, entry.name);
-    if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
-    copyTree(src, target);
-  }
-}
-
-/**
- * Mock implementation bundles for pipeline validation only.
- * Both arms get the same inclusion rate so mock deltas are not claimable.
- * Includes structural patterns so behavior probes can exercise the scorer.
- */
-function generateMockArtifact(task, arm) {
-  const goldenPath = path.join(ROOT, 'benchmarks/goldens', task.id, 'golden.yaml');
-  const golden = fs.existsSync(goldenPath) ? readYamlSync(goldenPath) : {};
-  const boost = 0.75;
-  const lines = [
-    `# LaminaBench implementation capture — ${task.id} (${arm}, mock)\n`,
-    'Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts\n',
-    '## src/domain/model.ts\n```typescript\n',
-    '// Mock vertical slice for pipeline validation\n',
-    'export class DomainModel {\n',
-  ];
-
-  const fields = [
-    'required_entities',
-    'required_invariants',
-    'required_personas',
-    'required_flows',
-    'required_rules',
-    'required_scenarios',
-    'required_edge_cases',
-    'required_tradeoffs',
-    'required_a11y',
-    'required_findings',
-  ];
-  for (const field of fields) {
-    const items = golden[field];
-    if (!items) continue;
-    const count = Math.ceil(items.length * boost);
-    for (let i = 0; i < count; i++) {
-      const phrase = items[i].replace(/_/g, ' ');
-      const ident = String(items[i]).replace(/[^a-z0-9]+/gi, '_');
-      lines.push(`  // ${phrase}\n`);
-      if (field === 'required_entities') {
-        lines.push(`  interface ${ident}Model { id: string }\n`);
-        lines.push(`  type ${ident} = ${ident}Model;\n`);
-      } else if (field === 'required_invariants') {
-        lines.push(`  function assert_${ident}(value: unknown) {\n`);
-        lines.push(`    if (!value) throw new Error('invariant: ${phrase}');\n`);
-        lines.push(`    return value;\n`);
-        lines.push(`  }\n`);
-      } else if (field === 'required_scenarios' || field === 'required_edge_cases') {
-        lines.push(`  async function handle_${ident}() {\n`);
-        lines.push(`    try { /* ${phrase} */ } catch (error) { /* recover / retry */ }\n`);
-        lines.push(`  }\n`);
-      } else {
-        lines.push(`  const ${ident} = true;\n`);
+function loadCompletedJobs() {
+  const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
+  const completed = new Set();
+  if (!fs.existsSync(indexPath)) return completed;
+  for (const line of fs.readFileSync(indexPath, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const row = JSON.parse(line);
+      if (row.artifact_valid === true) {
+        completed.add(`${row.task_id}:${row.arm}:run${row.run}`);
       }
+    } catch {
+      /* skip */
     }
   }
-
-  lines.push('}\n');
-  lines.push('export function runPrimaryWorkflow() {\n  // end-to-end path with guard rails\n}\n');
-  lines.push('```\n\n## src/workflows/primary.ts\n```typescript\n');
-  lines.push('export function runPrimaryWorkflow() {\n  // end-to-end path with guard rails\n}\n');
-  if (task.workflow === 'audit') {
-    lines.push('// audit fix: invariant violations addressed in code\n');
-  }
-  lines.push('```\n');
-
-  return lines.join('');
+  return completed;
 }
+
+let indexLock = Promise.resolve();
 
 function appendIndex(entry) {
   const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
@@ -140,7 +81,13 @@ function appendIndex(entry) {
   fs.appendFileSync(indexPath, JSON.stringify(entry) + '\n');
 }
 
-async function runTask(task, run, arm, opts, release) {
+function appendIndexSafe(entry) {
+  indexLock = indexLock.then(() => appendIndex(entry));
+  return indexLock;
+}
+
+async function runTask(task, run, arm, opts, release, workerId) {
+  const jobKey = `${task.id}:${arm}:run${run}`;
   const workspace = path.join(RESULTS_RAW, 'workspaces', `${task.id}_${arm}_run${run}`);
   const artifactRel = `artifacts/${task.id}_${arm}_run${run}.md`;
   const artifactAbs = path.join(RESULTS_RAW, artifactRel);
@@ -149,8 +96,6 @@ async function runTask(task, run, arm, opts, release) {
     try {
       fs.rmSync(workspace, { recursive: true, force: true });
     } catch (err) {
-      // OSS fixtures can leave undeletable paths in restricted environments —
-      // fall back to a unique workspace suffix.
       console.warn(`Could not clear ${workspace}: ${err.message}`);
     }
   }
@@ -162,40 +107,22 @@ async function runTask(task, run, arm, opts, release) {
 
   const agent = opts.agent || release.agent;
   const start = Date.now();
-  let output = '';
-  let workflowMeta = null;
+  let workflowResult;
 
-  if (opts.mock) {
-    output = generateMockArtifact(task, arm);
+  if (!isAgentAvailable(agent)) {
+    throw new Error(`Agent ${agent} not available. Install the agent CLI before running benchmarks.`);
+  }
+
+  if (arm === 'treatment') {
+    installLaminaSkills(workspace, agent);
+    workflowResult = await runTreatmentWorkflow(agent, workspace, task);
   } else {
-    if (!isAgentAvailable(agent)) {
-      throw new Error(`Agent ${agent} not available. Use --mock for pipeline checks or install the agent CLI.`);
-    }
-    if (arm === 'treatment') {
-      installLaminaSkills(workspace, agent);
-      const result = runTreatmentWorkflow(agent, workspace, task);
-      output = result.artifact;
-      workflowMeta = {
-        workflow: result.workflow,
-        steps: result.steps,
-        phases: result.phases,
-        total_tokens: result.total_tokens,
-      };
-    } else {
-      const result = runControlWorkflow(agent, workspace, task);
-      output = result.artifact;
-      workflowMeta = {
-        workflow: result.workflow,
-        steps: result.steps,
-        phases: result.phases,
-        total_tokens: result.total_tokens,
-      };
-    }
+    workflowResult = await runControlWorkflow(agent, workspace, task);
   }
 
   const elapsed = Date.now() - start;
   fs.mkdirSync(path.dirname(artifactAbs), { recursive: true });
-  fs.writeFileSync(artifactAbs, output);
+  fs.writeFileSync(artifactAbs, workflowResult.artifact);
 
   const entry = {
     task_id: task.id,
@@ -203,22 +130,53 @@ async function runTask(task, run, arm, opts, release) {
     run,
     arm,
     agent,
-    model: release.model || null,
+    model: resolveBenchModel(release),
     artifact_path: artifactRel,
     workspace: path.relative(ROOT, workspace),
     duration_ms: elapsed,
-    total_tokens: workflowMeta?.total_tokens ?? null,
+    total_tokens: workflowResult.total_tokens ?? null,
+    cost_usd: workflowResult.cost_usd ?? null,
     timestamp: new Date().toISOString(),
-    mock: opts.mock,
     scoring_target: 'implementation',
     methodology_id: METHODOLOGY.id,
     methodology_document: 'benchmarks/METHODOLOGY.md',
-    workflow: workflowMeta?.workflow ?? (opts.mock ? 'mock' : null),
-    phases: workflowMeta?.phases ?? (opts.mock ? null : arm === 'treatment' ? 5 : 2),
-    steps: workflowMeta?.steps ?? null,
+    workflow: workflowResult.workflow,
+    phases: workflowResult.phases,
+    steps: workflowResult.steps,
+    status: workflowResult.status,
+    failed_gate: workflowResult.failed_gate ?? null,
+    artifact_valid: workflowResult.artifact_valid,
   };
-  appendIndex(entry);
-  return entry;
+
+  if (!workflowResult.artifact_valid) {
+    console.warn(
+      `WARNING [w${workerId}]: ${jobKey} — invalid artifact (${workflowResult.status}${workflowResult.failed_gate ? `, gate=${workflowResult.failed_gate}` : ''})`
+    );
+  }
+
+  await appendIndexSafe(entry);
+  return { entry, workerId, jobKey };
+}
+
+async function runPool(jobs, concurrency, workerFn) {
+  let cursor = 0;
+  let done = 0;
+  const total = jobs.length;
+
+  async function worker(workerId) {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= jobs.length) break;
+      const job = jobs[idx];
+      await workerFn(job, workerId, () => {
+        done++;
+        return { done, total };
+      });
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, (_, i) => worker(i + 1));
+  await Promise.all(workers);
 }
 
 async function main() {
@@ -235,31 +193,46 @@ async function main() {
   }
 
   const runsPerArm = opts.runs ?? release.runs_per_arm ?? 3;
+  const arms = ['control', 'treatment'];
 
-  if (!opts.tasks && !opts.pilot) {
+  if (opts.fresh) {
     const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
     if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath);
   }
 
   fs.mkdirSync(RESULTS_RAW, { recursive: true });
-  const arms = ['control', 'treatment'];
-  let count = 0;
+  const completed = opts.fresh ? new Set() : loadCompletedJobs();
 
+  const jobs = [];
   for (const task of tasks) {
     for (let run = 1; run <= runsPerArm; run++) {
       for (const arm of arms) {
-        const entry = await runTask(task, run, arm, opts, release);
-        count++;
-        console.log(`[${count}] ${entry.task_id} ${entry.arm} run${entry.run} → ${entry.artifact_path} (${entry.duration_ms}ms)`);
+        const key = `${task.id}:${arm}:run${run}`;
+        if (completed.has(key)) {
+          console.log(`skip ${key} (already complete)`);
+          continue;
+        }
+        jobs.push({ task, run, arm });
       }
     }
   }
 
-  console.log(`\nLaminaBench run complete: ${count} executions`);
-  if (opts.mock) {
-    console.log('WARNING: mock mode — equal-coverage synthetic artifacts for pipeline validation only.');
-    console.log('Do NOT cite mock results externally. Use npm run bench:all for live release runs.');
+  if (!jobs.length) {
+    console.log('No benchmark jobs to run (all complete or empty task list).');
+    return;
   }
+
+  console.log(`LaminaBench: ${jobs.length} workflow(s), concurrency=${opts.concurrency}`);
+
+  await runPool(jobs, opts.concurrency, async (job, workerId, progress) => {
+    const { entry } = await runTask(job.task, job.run, job.arm, opts, release, workerId);
+    const { done, total } = progress();
+    console.log(
+      `[${done}/${total}] w${workerId} ${entry.task_id} ${entry.arm} run${entry.run} → ${entry.artifact_path} (${entry.duration_ms}ms, valid=${entry.artifact_valid})`
+    );
+  });
+
+  console.log(`\nLaminaBench run complete: ${jobs.length} workflow(s)`);
 }
 
 main().catch((err) => {

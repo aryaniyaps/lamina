@@ -1,6 +1,6 @@
 # Recurring Tasks for Plane
 
-Design and implement a **minimal vertical slice** of recurring issues in Plane that fits existing projects, cycles, assignees, and permissions.
+Design and implement recurring issues in Plane that fit existing projects, cycles, assignees, and permissions.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Design and implement a **minimal vertical slice** of recurring issues in Plane t
 - Handle timezone display, cycle-boundary conflicts, deleted projects, and permission-denied occurrences
 - Show recurrence clearly in list and detail views without breaking Kanban/List patterns
 - Keyboard shortcuts and screen-reader-friendly recurrence descriptions
+
+## Deliverable
+
+A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.

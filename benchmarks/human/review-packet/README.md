@@ -16,6 +16,8 @@ Methodology: **[Design A — ecological adoption](../../METHODOLOGY.md)**.
 
 ## Files
 
+Regenerate after a live run (`npm run bench:human-packet`):
+
 - `packet.html` — Browser-friendly review UI
 - `scores-template.csv` — Blank scoring sheet
 - `human-eval-manifest.json` — Eval ID + artifact hashes

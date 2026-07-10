@@ -49,6 +49,18 @@ probes:
     weight: 1
     patterns:
       - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*location|(?is)location[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_waitlist_entry
+    kind: entity_model
+    description: "Entity \"waitlist entry\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*waitlist[\\s_-]*entry|(?is)waitlist[\\s_-]*entry[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_dependent
+    kind: entity_model
+    description: "Entity \"dependent\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*dependent|(?is)dependent[\\s\\w]*({|struct|class|interface|=)"
   - id: scn_insurance_denied_recovery
     kind: scenario_handler
     description: "Scenario/edge \"insurance denied recovery\" near error/recovery handling"
@@ -67,6 +79,12 @@ probes:
     weight: 2
     patterns:
       - "(?is)(availability[\\s_-]*waitlist).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(availability[\\s_-]*waitlist)"
+  - id: scn_caregiver_books_for_dependent
+    kind: scenario_handler
+    description: "Scenario/edge \"caregiver books for dependent\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(caregiver[\\s_-]*books[\\s_-]*for[\\s_-]*dependent).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(caregiver[\\s_-]*books[\\s_-]*for[\\s_-]*dependent)"
   - id: scn_no_availability
     kind: scenario_handler
     description: "Scenario/edge \"no availability\" near error/recovery handling"
@@ -91,7 +109,7 @@ probes:
     weight: 2
     patterns:
       - "(?is)(timezone[\\s_-]*confusion).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(timezone[\\s_-]*confusion)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

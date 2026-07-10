@@ -11,6 +11,7 @@ import { copyTree } from '../../evals/scripts/vendor-fixture-lib.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const BENCH_FIXTURES = path.join(ROOT, 'benchmarks/fixtures');
 const EVALS_FIXTURES = path.join(ROOT, 'evals/fixtures');
+const FIXTURE_CACHE = path.join(ROOT, 'benchmarks/tmp/fixture-cache');
 
 export function loadBenchManifest(name) {
   const manifestPath = path.join(BENCH_FIXTURES, 'manifests', `${name}.json`);
@@ -31,8 +32,7 @@ function resolveLayerRoot(layer) {
   return path.join(BENCH_FIXTURES, layer);
 }
 
-export function stageBenchFixture(name, outDir) {
-  const manifest = loadBenchManifest(name);
+function stageToDir(manifest, outDir) {
   if (fs.existsSync(outDir)) {
     fs.rmSync(outDir, { recursive: true, force: true });
   }
@@ -44,6 +44,25 @@ export function stageBenchFixture(name, outDir) {
     }
     copyTree(src, outDir);
   }
+}
+
+function ensureFixtureCache(name) {
+  const cacheDir = path.join(FIXTURE_CACHE, name);
+  if (fs.existsSync(cacheDir)) return cacheDir;
+  fs.mkdirSync(path.dirname(cacheDir), { recursive: true });
+  const manifest = loadBenchManifest(name);
+  stageToDir(manifest, cacheDir);
+  return cacheDir;
+}
+
+export function stageBenchFixture(name, outDir) {
+  const manifest = loadBenchManifest(name);
+  const cacheDir = ensureFixtureCache(name);
+  if (fs.existsSync(outDir)) {
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(outDir, { recursive: true });
+  copyTree(cacheDir, outDir);
   return manifest;
 }
 

@@ -49,6 +49,18 @@ probes:
     weight: 1
     patterns:
       - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*vote|(?is)vote[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_invite
+    kind: entity_model
+    description: "Entity \"invite\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*invite|(?is)invite[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_settlement
+    kind: entity_model
+    description: "Entity \"settlement\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*settlement|(?is)settlement[\\s\\w]*({|struct|class|interface|=)"
   - id: scn_member_leaves_group_settlement
     kind: scenario_handler
     description: "Scenario/edge \"member leaves group settlement\" near error/recovery handling"
@@ -67,6 +79,12 @@ probes:
     weight: 2
     patterns:
       - "(?is)(offline[\\s_-]*sync[\\s_-]*reconciliation).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(offline[\\s_-]*sync[\\s_-]*reconciliation)"
+  - id: scn_offline_edit_conflict
+    kind: scenario_handler
+    description: "Scenario/edge \"offline edit conflict\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(offline[\\s_-]*edit[\\s_-]*conflict).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(offline[\\s_-]*edit[\\s_-]*conflict)"
   - id: scn_member_leaves_group
     kind: scenario_handler
     description: "Scenario/edge \"member leaves group\" near error/recovery handling"
@@ -91,7 +109,7 @@ probes:
     weight: 2
     patterns:
       - "(?is)(timezone[\\s_-]*changes).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(timezone[\\s_-]*changes)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

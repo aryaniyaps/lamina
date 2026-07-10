@@ -1,19 +1,15 @@
 /**
  * LaminaBench agent workflows — Design A (ecological adoption).
  *
- * Documented in benchmarks/METHODOLOGY.md — unequal turns are intentional.
- *
  * Treatment (5 phases): full Lamina loop
- *   init → design|verify(audit) → implement → verify(post-build) → fix
- *
- * Control (2 phases): Plan-mode baseline (no Lamina) — matches hotel demo
- *   plan → implement
+ * Control (2 phases): Plan-mode baseline
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { invokeAgent } from '../../evals/scripts/invoke-agent.mjs';
-import { captureImplementationArtifact } from './artifact-contract.mjs';
+import { captureImplementationArtifact, isArtifactValid } from './artifact-contract.mjs';
+import { checkPhaseGate, GATE_RETRY_PROMPT } from './phase-gates.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -89,8 +85,8 @@ ${task.prompt}
 
 Review the existing product in this workspace (read-only on app source). Write \`bench-plan.md\` with:
 - product-behavior gaps (invariants, permissions, state consistency)
-- prioritized fixes for a minimal vertical slice
-- what the implementation should demonstrate
+- prioritized fixes covering the audit scope
+- what the implementation should demonstrate end-to-end
 
 Do not modify app source. Do not create a \`.lamina/\` directory.`;
   }
@@ -106,13 +102,31 @@ ${brief}
 Write \`bench-plan.md\` — an actionable implementation plan covering:
 - domain entities and key invariants
 - actors and permissions
-- one primary workflow to build end-to-end
+- all primary workflows from the requirements (not a thin demo stub)
+- secondary surfaces called for by the brief (settings, empty/error states, recovery)
 - edge cases and recovery paths to handle
+- enough product surface that a user could complete the core jobs described in the brief
 
-Keep scope to a minimal vertical slice. Do not write app source. Do not create a \`.lamina/\` directory.`;
+Plan for a coherent **full-product** implementation of the task scope — not a minimum demo. Write \`bench-plan.md\` now. Do not ask for permission. Do not write app source. Do not create a \`.lamina/\` directory.`;
 }
 
 function buildImplementPrompt(workspace, workflow) {
+  const benchPlan = path.join(workspace, 'bench-plan.md');
+  if (fs.existsSync(benchPlan)) {
+    return `You are now in **implementation mode** (app source allowed; do not modify .lamina/ or bench-plan.md).
+
+Read \`bench-plan.md\` in the workspace root and implement from it.
+
+Implement the **full product scope** from the plan — not a stub or single-screen demo:
+- core domain entities and invariants
+- all primary workflows end-to-end
+- secondary surfaces from the plan (settings, empty/error/recovery states)
+- failure/recovery paths called out in the plan
+- enough structure that the product jobs in the brief are actually usable
+
+Use any stack appropriate for the workspace. Write source files now — do not ask for permission or more context.`;
+  }
+
   const briefPath = findImplementationContract(workspace, workflow);
   const rel = briefPath ? path.relative(workspace, briefPath) : null;
   if (rel) {
@@ -120,21 +134,24 @@ function buildImplementPrompt(workspace, workflow) {
 
 Read the plan/contract at: ${rel}
 
-Implement a **minimal vertical slice** that demonstrates:
+Implement the **full product scope** from the contract — not a stub or single-screen demo:
 - core domain entities and invariants
-- one primary workflow end-to-end
-- at least one failure/recovery path from the plan
+- all primary workflows end-to-end
+- secondary surfaces from the contract (settings, empty/error/recovery states)
+- failure/recovery paths called out in the contract
+- enough structure that the product jobs in the brief are actually usable
 
-Use any stack appropriate for the workspace. Keep scope small — prove the plan is buildable, not a production app.`;
+Use any stack appropriate for the workspace. Write source files now — do not ask for permission or more context.`;
   }
   return `You are now in **implementation mode** (app source allowed; do not modify .lamina/).
 
-Using the plan from your previous step, implement a **minimal vertical slice**:
-- core domain rules
-- one primary workflow
-- one edge-case or recovery path
+Using the plan from your previous step in this session, implement the **full product scope**:
+- core domain rules and entities
+- all primary workflows from the brief
+- edge-case and recovery paths
+- a coherent product surface, not a thin stub
 
-Keep scope small — prove the plan is buildable.`;
+Write source files now — do not ask for permission or more context.`;
 }
 
 function buildPostImplementVerifyPrompt(task) {
@@ -169,17 +186,24 @@ function buildFixPrompt(workspace) {
 
 Read verify ${isFixBrief ? 'fix brief' : 'findings'} at: ${reportRel}
 
-Fix the reported product-behavior issues in the application source. Prioritize high-severity findings. Keep changes scoped to this minimal slice.`;
+Fix the reported product-behavior issues in the application source. Prioritize high-severity findings, then work through the rest of the verify scope so the product matches the design contract.`;
   }
   return `You are in **fix mode** (app source allowed; do not modify .lamina/).
 
 Fix product-behavior gaps between the implementation and the design contract. Focus on invariants, permissions, and edge-case handling.`;
 }
 
-/**
- * Control: Plan mode → implement (ecological baseline, matches hotel demo).
- * @returns {{ artifact: string, steps: object[], phases: number }}
- */
+function pushGateStep(steps, phase, prompt_kind, gateResult) {
+  steps.push({
+    phase: `${phase}_gate`,
+    prompt_kind: `${prompt_kind}_gate`,
+    exitCode: gateResult.ok ? 0 : 1,
+    duration_ms: 0,
+    gate_ok: gateResult.ok,
+    gate_reason: gateResult.reason ?? null,
+  });
+}
+
 function pushStep(steps, phase, prompt_kind, result) {
   const usage = result.usage || null;
   steps.push({
@@ -190,6 +214,8 @@ function pushStep(steps, phase, prompt_kind, result) {
     total_tokens: usage?.total_tokens ?? null,
     input_tokens: usage?.input_tokens ?? null,
     output_tokens: usage?.output_tokens ?? null,
+    cost_usd: result.cost_usd ?? null,
+    session_id: result.session_id ?? null,
   });
 }
 
@@ -205,35 +231,122 @@ function sumUsage(steps) {
   return any ? total : null;
 }
 
-export function runControlWorkflow(agent, workspace, task) {
+function sumCost(steps) {
+  let total = 0;
+  let any = false;
+  for (const s of steps) {
+    if (s.cost_usd != null) {
+      total += s.cost_usd;
+      any = true;
+    }
+  }
+  return any ? total : null;
+}
+
+function workflowResult({ artifact, steps, workflow, phases, status, failed_gate = null, lastOutput = '' }) {
+  const valid = status === 'success' && isArtifactValid(artifact);
+  return {
+    artifact,
+    artifact_valid: valid,
+    status,
+    failed_gate,
+    steps,
+    workflow,
+    phases,
+    total_tokens: sumUsage(steps),
+    cost_usd: sumCost(steps),
+    last_output: lastOutput,
+  };
+}
+
+async function invokeStep(agent, prompt, workspace, steps, phase, prompt_kind, sessionId) {
+  const result = await invokeAgent(agent, prompt, workspace, { sessionId });
+  pushStep(steps, phase, prompt_kind, result);
+  return { result, sessionId: result.session_id ?? sessionId };
+}
+
+async function invokeStepWithGate(agent, prompt, workspace, steps, phase, prompt_kind, gate, task, sessionId) {
+  let { result, sessionId: sid } = await invokeStep(agent, prompt, workspace, steps, phase, prompt_kind, sessionId);
+
+  let gateResult = checkPhaseGate(workspace, gate, task);
+  if (!gateResult.ok) {
+    const retryPrompt = `${prompt}\n\n${GATE_RETRY_PROMPT}\nMissing: ${gateResult.reason}`;
+    ({ result, sessionId: sid } = await invokeStep(agent, retryPrompt, workspace, steps, phase, `${prompt_kind}_retry`, sid));
+    gateResult = checkPhaseGate(workspace, gate, task);
+  }
+
+  pushGateStep(steps, phase, prompt_kind, gateResult);
+
+  return { result, sessionId: sid, gate: gateResult };
+}
+
+export async function runControlWorkflow(agent, workspace, task) {
   const steps = [];
 
-  const p1 = invokeAgent(agent, buildControlPlanPrompt(task), workspace);
-  pushStep(steps, 'plan', 'control_plan', p1);
+  let { sessionId, gate: planGate } = await invokeStepWithGate(
+    agent,
+    buildControlPlanPrompt(task),
+    workspace,
+    steps,
+    'plan',
+    'control_plan',
+    'control_plan',
+    task,
+    null
+  );
+  if (!planGate.ok) {
+    const artifact = captureImplementationArtifact(workspace, '');
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'control_plan_2_phase',
+      phases: 2,
+      status: 'phase_gate_failed',
+      failed_gate: 'control_plan',
+    });
+  }
 
-  const p2 = invokeAgent(agent, buildImplementPrompt(workspace, task.workflow), workspace);
-  pushStep(steps, 'implement', 'control_implement', p2);
+  const { result: implement, gate: implGate } = await invokeStepWithGate(
+    agent,
+    buildImplementPrompt(workspace, task.workflow),
+    workspace,
+    steps,
+    'implement',
+    'control_implement',
+    'implement',
+    task,
+    sessionId
+  );
 
-  const artifact = captureImplementationArtifact(workspace, p2.output);
-  return {
+  const artifact = captureImplementationArtifact(workspace, implement.output);
+  if (!implGate.ok) {
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'control_plan_2_phase',
+      phases: 2,
+      status: 'phase_gate_failed',
+      failed_gate: 'implement',
+      lastOutput: implement.output,
+    });
+  }
+
+  return workflowResult({
     artifact,
     steps,
     workflow: 'control_plan_2_phase',
     phases: 2,
-    total_tokens: sumUsage(steps),
-  };
+    status: 'success',
+    lastOutput: implement.output,
+  });
 }
 
-/**
- * Treatment: init → design|verify(audit) → implement → verify → fix
- * @returns {{ artifact: string, steps: object[], phases: number }}
- */
-export function runTreatmentWorkflow(agent, workspace, task) {
+export async function runTreatmentWorkflow(agent, workspace, task) {
   const brief = readTaskBrief(task);
   const steps = [];
   const initMode = hasBusinessContext(workspace) ? 'update' : 'establish';
 
-  const p1 = invokeAgent(
+  let { sessionId, gate: initGate } = await invokeStepWithGate(
     agent,
     `/lamina-init ${initMode}
 
@@ -242,50 +355,151 @@ Use this project brief:
 ${brief}
 
 Persist business context under .lamina/ only. Do not write app source.`,
-    workspace
+    workspace,
+    steps,
+    'lamina-init',
+    'treatment_init',
+    'treatment_init',
+    task,
+    null
   );
-  pushStep(steps, 'lamina-init', 'treatment_init', p1);
+  if (!initGate.ok) {
+    const artifact = captureImplementationArtifact(workspace, '');
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'treatment_lamina_5_phase',
+      phases: 5,
+      status: 'phase_gate_failed',
+      failed_gate: 'treatment_init',
+    });
+  }
 
-  let p2;
+  let designGate;
   if (task.workflow === 'audit') {
-    p2 = invokeAgent(
+    ({ sessionId, gate: designGate } = await invokeStepWithGate(
       agent,
       `/lamina-verify
 
 ${task.prompt}
 
 Use business context in .lamina/. Audit the existing product behavior in this workspace (read-only on app source). Write findings under .lamina/ only.`,
-      workspace
-    );
-    pushStep(steps, 'lamina-verify-audit', 'treatment_verify_brownfield', p2);
+      workspace,
+      steps,
+      'lamina-verify-audit',
+      'treatment_verify_brownfield',
+      'treatment_verify_brownfield',
+      task,
+      sessionId
+    ));
   } else {
-    p2 = invokeAgent(
+    ({ sessionId, gate: designGate } = await invokeStepWithGate(
       agent,
       `/lamina-design
 
 ${task.prompt}
 
 Use business context in .lamina/. Emit run.yaml + implement.md at ready_to_build. Write .lamina/ only — no app source.`,
-      workspace
-    );
-    pushStep(steps, 'lamina-design', 'treatment_design', p2);
+      workspace,
+      steps,
+      'lamina-design',
+      'treatment_design',
+      'treatment_design',
+      task,
+      sessionId
+    ));
+  }
+  if (!designGate.ok) {
+    const artifact = captureImplementationArtifact(workspace, '');
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'treatment_lamina_5_phase',
+      phases: 5,
+      status: 'phase_gate_failed',
+      failed_gate: task.workflow === 'audit' ? 'treatment_verify_brownfield' : 'treatment_design',
+    });
   }
 
-  const p3 = invokeAgent(agent, buildImplementPrompt(workspace, task.workflow), workspace);
-  pushStep(steps, 'implement', 'treatment_implement', p3);
+  const { sessionId: implSid, gate: implGate } = await invokeStepWithGate(
+    agent,
+    buildImplementPrompt(workspace, task.workflow),
+    workspace,
+    steps,
+    'implement',
+    'treatment_implement',
+    'implement',
+    task,
+    sessionId
+  );
+  sessionId = implSid;
+  if (!implGate.ok) {
+    const artifact = captureImplementationArtifact(workspace, '');
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'treatment_lamina_5_phase',
+      phases: 5,
+      status: 'phase_gate_failed',
+      failed_gate: 'implement',
+    });
+  }
 
-  const p4 = invokeAgent(agent, buildPostImplementVerifyPrompt(task), workspace);
-  pushStep(steps, 'lamina-verify', 'treatment_verify_post_build', p4);
+  const { sessionId: verifySid, gate: verifyGate } = await invokeStepWithGate(
+    agent,
+    buildPostImplementVerifyPrompt(task),
+    workspace,
+    steps,
+    'lamina-verify',
+    'treatment_verify_post_build',
+    'treatment_verify_post_build',
+    task,
+    sessionId
+  );
+  sessionId = verifySid;
+  if (!verifyGate.ok) {
+    const artifact = captureImplementationArtifact(workspace, '');
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'treatment_lamina_5_phase',
+      phases: 5,
+      status: 'phase_gate_failed',
+      failed_gate: 'treatment_verify_post_build',
+    });
+  }
 
-  const p5 = invokeAgent(agent, buildFixPrompt(workspace), workspace);
-  pushStep(steps, 'fix', 'treatment_fix', p5);
+  const { result: fix, gate: fixGate } = await invokeStepWithGate(
+    agent,
+    buildFixPrompt(workspace),
+    workspace,
+    steps,
+    'fix',
+    'treatment_fix',
+    'treatment_fix',
+    task,
+    sessionId
+  );
 
-  const artifact = captureImplementationArtifact(workspace, p5.output);
-  return {
+  const artifact = captureImplementationArtifact(workspace, fix.output);
+  if (!fixGate.ok) {
+    return workflowResult({
+      artifact,
+      steps,
+      workflow: 'treatment_lamina_5_phase',
+      phases: 5,
+      status: 'phase_gate_failed',
+      failed_gate: 'treatment_fix',
+      lastOutput: fix.output,
+    });
+  }
+
+  return workflowResult({
     artifact,
     steps,
     workflow: 'treatment_lamina_5_phase',
     phases: 5,
-    total_tokens: sumUsage(steps),
-  };
+    status: 'success',
+    lastOutput: fix.output,
+  });
 }

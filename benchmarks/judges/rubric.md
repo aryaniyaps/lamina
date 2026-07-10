@@ -17,7 +17,7 @@ You are reviewing **implemented product source**, not `.lamina/` artifacts or pl
 6. **Systems judgment** — Structure reflects sensible trade-offs; avoids obvious product traps (e.g. silent data loss, permission leaks)
 7. **UX expression under rules** — UI or API surfaces reflect domain rules (errors, empty states, a11y hooks where present)
 8. **Brownfield fit** — Integrates sensibly with existing fixture code (N/A for greenfield → score internal consistency)
-9. **Implementation readiness** — Vertical slice is coherent and buildable; clear entry points; not a stub-only scaffold
+9. **Implementation readiness** — Product implementation is coherent and buildable; clear entry points; not a stub-only scaffold
 10. **Overall product-behavior quality** — Holistic judgment of product behavior **as expressed in code**
 
 ## Scoring guide

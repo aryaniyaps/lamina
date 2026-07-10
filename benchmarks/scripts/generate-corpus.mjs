@@ -29,19 +29,24 @@ const CORPUS = [
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for a household budgeting app: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a full household budgeting product — not a demo stub: domain model, illegal states, actors and permissions, all primary workflows (onboarding, linking, weekly review, alerts, partner invite, settings), edge cases, named trade-offs, and a buildable multi-surface product.',
     description: `# Household Budgeting App
 
-Build a **minimal vertical slice** of a mobile-first household budgeting product for young US families: link accounts, set one household budget, run a weekly review, and surface spending clarity without judgment.
+Design and implement a full mobile-first household budgeting product for young US families — not a demo stub. Cover the complete product surface: onboarding through ongoing weekly use, partner sharing, alerts, and settings.
 
 ## Requirements
 
-- Model a household with linked accounts, transactions, budgets, and categories
+- Domain: household, linked accounts, transactions, budgets, categories, alerts, and household membership
 - Exactly one active budget per household; partners share a household view with a privacy boundary for personal categories
-- Primary flows: onboarding, account linking, weekly review, category adjustment, spending alerts
+- Primary flows: onboarding, account linking, weekly review, category adjustment, spending alerts, invite partner, household settings
+- Secondary surfaces: empty/zero-income states, sync-error recovery UI, notification preferences, category privacy controls
 - Handle sync failures, duplicate transactions, empty accounts, and zero-income months without data loss or blame UX
 - Never display investment advice or tax filing guidance
-- Accessible mobile UI (screen-reader labels, large touch targets, status not by color alone)`,
+- Accessible mobile UI (screen-reader labels, large touch targets, status not by color alone)
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and enough UI that a household could actually use the product. Do not stop at a single-screen or thin demo stub.`,
     context: `## Business goals
 Launch a budgeting app that reaches 40% weekly active usage within 90 days by reducing financial anxiety through clarity.
 
@@ -74,19 +79,25 @@ Launch a budgeting app that reaches 40% weekly active usage within 90 days by re
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for multi-provider clinic appointment scheduling: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface.',
     description: `# Clinic Appointment Scheduling
 
-Build a **minimal vertical slice** of patient-facing scheduling for a multi-specialty clinic network: book, reschedule, cancel, and join a waitlist across providers and locations.
+Design and implement a full patient-facing scheduling product for a multi-specialty clinic network — not a booking stub. Cover book, reschedule, cancel, waitlist, insurance gating, and staff exception handling as one coherent product.
 
 ## Requirements
 
-- Support patients and caregivers booking for dependents; front-desk staff handle exceptions
+- Domain: patients, caregivers, dependents, providers, locations, appointments, insurance plans, waitlist entries
+- Support patients and caregivers booking for dependents; front-desk staff handle exceptions the self-serve flow cannot
 - Enforce one booking per slot; gate booking on insurance verification status
-- Flows: book, reschedule, cancel (with policy), insurance check, waitlist when no availability
+- Primary flows: book, reschedule, cancel (with policy), insurance check, waitlist when no availability, front-desk override
+- Secondary surfaces: appointment detail, confirmation/reminder copy, no-availability empty states, denied-insurance recovery
 - No PHI in URLs or notifications; handle timezone confusion and same-day cancellations
 - Recover when insurance is denied; offer waitlist when no slots exist
-- Keyboard-accessible forms with announced errors and adequate contrast`,
+- Keyboard-accessible forms with announced errors and adequate contrast
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable patient + staff surface. Do not stop at a single-screen or thin demo stub.`,
     context: `## Business goals
 Cut call-center scheduling volume by 50% within 6 months without increasing no-shows or compliance risk.
 
@@ -119,19 +130,24 @@ Cut call-center scheduling volume by 50% within 6 months without increasing no-s
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for a volunteer management platform for nonprofit coordinators: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a full volunteer coordination product — not a signup demo: domain model, illegal states, actors and permissions, post/fill/check-in/hours/certification workflows, edge cases, named trade-offs, and buildable coordinator + volunteer surfaces.',
     description: `# Volunteer Management Platform
 
-Build a **minimal vertical slice** for nonprofit coordinators to post opportunities, fill shifts, and track volunteer hours — with certification and background-check gates.
+Design and implement a full volunteer coordination product for nonprofit coordinators — not a signup form demo. Cover posting opportunities, staffing shifts, check-in, hours tracking, and certification/background-check gates as one product.
 
 ## Requirements
 
-- Entities: organization, opportunity, shift, volunteer, certification
+- Domain: organization, opportunity, shift, volunteer, certification, background-check status, hours record
 - Enforce shift capacity, minimum age, and background-check-before-assignment
-- Flows: post opportunity, volunteer signup, on-site check-in, hours reporting
+- Primary flows: post opportunity, volunteer signup, on-site check-in, hours reporting, certification renewal, coordinator staffing
+- Secondary surfaces: volunteer profile, shift roster, no-show handling, expired-certification blocks, org policy settings
 - Handle no-shows, last-minute cancels, expired certifications, and overbook prevention
 - Mobile-friendly for volunteers on-site; simple language and screen-reader support
-- Balance coordinator control vs volunteer self-serve flexibility`,
+- Balance coordinator control vs volunteer self-serve flexibility
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and usable coordinator + volunteer surfaces. Do not stop at a single-screen or thin demo stub.`,
     context: `## Business goals
 Increase volunteer retention by 30% and cut coordinator admin time by making signup and hours tracking self-serve.
 
@@ -163,19 +179,24 @@ Increase volunteer retention by 30% and cut coordinator admin time by making sig
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for a collaborative travel itinerary planner for friend groups: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a full collaborative trip planner — not a packing-list stub: domain model, illegal states, actors and permissions, itinerary/voting/expense/invite/offline workflows, edge cases, named trade-offs, and a buildable collaborative product surface.',
     description: `# Travel Itinerary Planner
 
-Build a **minimal vertical slice** of a collaborative trip planner for friend groups: shared itinerary, activity voting, and expense split/settle.
+Design and implement a full collaborative trip planner for friend groups — not a packing-list stub. Cover shared itinerary, activity voting, expense split/settle, invites, and offline reconciliation as one product.
 
 ## Requirements
 
+- Domain: trip, member, itinerary item, vote, expense, settlement, invite
 - Invite-only trip access; organizer approval for material itinerary changes
-- Entities: trip, itinerary item, expense, member, vote
-- Flows: create trip, add activity, vote on options, split expense, settle up
+- Primary flows: create trip, invite members, add activity, vote on options, split expense, settle up, leave trip
+- Secondary surfaces: trip overview, member roster, conflict/vote resolution, offline sync status, expense export path
 - Expense currency must stay consistent within a trip; handle member leaving mid-settlement
 - Resolve conflicting votes; reconcile offline edits when connectivity returns
-- Offline access during travel; maps need a non-visual alternative`,
+- Offline access during travel; maps need a non-visual alternative
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable collaborative surface. Do not stop at a single-screen or thin demo stub.`,
     context: `## Business goals
 Reach 100K trip plans in year one with 25% converting to premium (unlimited trips + expense export).
 
@@ -207,19 +228,24 @@ Reach 100K trip plans in year one with 25% converting to premium (unlimited trip
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for a personal fitness tracker focused on habit formation: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a full sustainable-habits fitness product — not a streak-counter demo: domain model, illegal states, actors and permissions, check-in/streak/accountability/pause workflows, edge cases, named trade-offs, and a buildable habit + social product surface.',
     description: `# Habit-Focused Fitness Tracker
 
-Build a **minimal vertical slice** of a fitness app that prioritizes sustainable habits over competitive metrics: daily check-ins, forgiving streaks, and opt-in close-friend accountability.
+Design and implement a full fitness product that prioritizes sustainable habits over competitive metrics — not a streak counter demo. Cover habit setup, daily check-ins, forgiving streaks, opt-in accountability, and recovery flows as one product.
 
 ## Requirements
 
-- Entities: habit, check-in, streak, friend connection
+- Domain: habit, check-in, streak, friend connection, challenge, notification preference
 - No public leaderboards; social features are opt-in only
 - Streaks use a forgiveness policy (missed days recoverable) — never punitive wipeouts as the default
-- Flows: habit setup, daily check-in, streak recovery, optional friend challenge
+- Primary flows: habit setup, daily check-in, streak recovery, optional friend challenge, pause/resume habit
+- Secondary surfaces: habit detail, friend list, declined-request handling, health-sync failure recovery, accessibility settings
 - Handle health-sync failures and declined friend requests gracefully
-- No weight-focused default dashboards; support reduced-motion and VoiceOver labels`,
+- No weight-focused default dashboards; support reduced-motion and VoiceOver labels
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable habit + social surface. Do not stop at a single-screen or thin demo stub.`,
     context: `## Business goals
 60-day retention above 40%; differentiate from metric-heavy competitors through low-pressure habit formation.
 
@@ -253,10 +279,10 @@ Build a **minimal vertical slice** of a fitness app that prioritizes sustainable
     fixture: 'plane-with-init',
     human_eval: true,
     oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
-    prompt: 'Design the product behavior for a recurring tasks feature in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
+    prompt: 'Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.',
     description: `# Recurring Tasks for Plane
 
-Design and implement a **minimal vertical slice** of recurring issues in Plane that fits existing projects, cycles, assignees, and permissions.
+Design and implement recurring issues in Plane that fits existing projects, cycles, assignees, and permissions.
 
 ## Requirements
 
@@ -297,10 +323,10 @@ Reduce repetitive issue creation for team leads running standup rituals, release
     fixture: 'commerce-with-init',
     human_eval: true,
     oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
-    prompt: 'Design the product behavior for a wishlist feature on the storefront: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
+    prompt: 'Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.',
     description: `# Wishlist Feature
 
-Design and implement a **minimal vertical slice** of wishlist on the Vercel Commerce storefront for guests and registered shoppers.
+Design and implement wishlist on the Vercel Commerce storefront for guests and registered shoppers.
 
 ## Requirements
 
@@ -342,10 +368,10 @@ Increase return visits and conversion by letting shoppers save products without 
     fixture: 'outline-with-init',
     human_eval: false,
     oss: { repo: 'outline/outline', commit: '30730179b852d42da5078a9294f7d05a44f516b7' },
-    prompt: 'Design the product behavior for guest sharing of Outline documents: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
+    prompt: 'Design and implement guest document sharing in Outline as a complete feature: domain model, illegal states, actors and permissions, share/revoke workflows, edge cases, named trade-offs, and a buildable product surface that fits Outline.',
     description: `# Guest Document Sharing
 
-Design and implement a **minimal vertical slice** of guest sharing for Outline documents: invite/link access, comment-or-view permissions, expiry, and revocation.
+Design and implement guest sharing for Outline documents: invite/link access, comment-or-view permissions, expiry, and revocation.
 
 ## Requirements
 
@@ -387,10 +413,10 @@ Enable external collaboration (clients, contractors) without forcing full worksp
     fixture: 'commerce-with-init',
     human_eval: false,
     oss: { repo: 'vercel/commerce', commit: '3761e52e60df9c6a316e067dbfd7032e494d3634' },
-    prompt: 'Design the product behavior for saved searches in the product catalog: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
+    prompt: 'Design and implement saved searches in the catalog as a complete feature: domain model, illegal states, actors and permissions, save/rerun/alert workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.',
     description: `# Saved Searches
 
-Design and implement a **minimal vertical slice** of saved catalog searches on Vercel Commerce: save filters, re-run, edit, and optional match notifications.
+Design and implement saved catalog searches on Vercel Commerce: save filters, re-run, edit, and optional match notifications.
 
 ## Requirements
 
@@ -431,10 +457,10 @@ Help frequent and B2B shoppers return to complex filter sets and discover new ma
     fixture: 'plane-with-init',
     human_eval: false,
     oss: { repo: 'makeplane/plane', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f' },
-    prompt: 'Design the product behavior for bulk actions on issues in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product.',
+    prompt: 'Design and implement bulk issue actions in Plane as a complete feature: domain model, illegal states, actors and permissions, multi-select/bulk workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.',
     description: `# Bulk Issue Actions
 
-Design and implement a **minimal vertical slice** of multi-select bulk actions for Plane issues across List and Kanban views.
+Design and implement multi-select bulk actions for Plane issues across List and Kanban views.
 
 ## Requirements
 
@@ -479,7 +505,7 @@ Let team leads and PMs triage large backlogs without opening issues one-by-one.
     prompt: 'Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Checkout Flow Audit
 
-Audit the Vercel Commerce checkout path for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit the Vercel Commerce checkout path for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -491,7 +517,7 @@ Audit the Vercel Commerce checkout path for product-behavior gaps, then implemen
 ## Deliverable
 
 - Findings covering invariant violations, state consistency, permission gaps, error recovery, and idempotency
-- Prioritized fixes; implement the top slice that hardens checkout behavior in code`,
+- Prioritized fixes; implement the highest-priority fixes that harden checkout behavior across the audit scope`,
     context: `## Business goals
 Reduce checkout abandonment and payment-support tickets caused by inconsistent totals, failed recovery, and unclear errors.
 
@@ -525,7 +551,7 @@ Reduce checkout abandonment and payment-support tickets caused by inconsistent t
     prompt: 'Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Project Settings Audit
 
-Audit Plane project settings and configuration for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Plane project settings and configuration for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -537,7 +563,7 @@ Audit Plane project settings and configuration for product-behavior gaps, then i
 ## Deliverable
 
 - Findings on permission clarity, destructive guards, multi-view inconsistency, inheritance confusion
-- Prioritized fixes (including quick wins); implement the top slice in code`,
+- Prioritized fixes (including quick wins); implement the highest-priority fixes across the settings audit scope`,
     context: `## Business goals
 Prevent admin lockouts and permission mistakes that block teams from using Plane safely.
 
@@ -571,7 +597,7 @@ Prevent admin lockouts and permission mistakes that block teams from using Plane
     prompt: 'Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Document Sharing Audit
 
-Audit Outline document sharing and permissions for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Outline document sharing and permissions for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -583,7 +609,7 @@ Audit Outline document sharing and permissions for product-behavior gaps, then i
 ## Deliverable
 
 - Findings on inheritance gaps, invariant violations, revocation failures, multi-view inconsistency
-- Prioritized fixes; implement the top slice that hardens sharing invariants in code`,
+- Prioritized fixes; implement the highest-priority fixes that harden sharing invariants across the audit scope`,
     context: `## Business goals
 Stop accidental data exposure from sharing/permission bugs while keeping collaboration usable.
 
@@ -617,7 +643,7 @@ Stop accidental data exposure from sharing/permission bugs while keeping collabo
     prompt: 'Audit the cart experience for product-behavior friction and abandonment risks: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Cart Experience Audit
 
-Audit the Vercel Commerce cart for behavioral friction, state consistency, and abandonment risks, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit the Vercel Commerce cart for behavioral friction, state consistency, and abandonment risks, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -629,7 +655,7 @@ Audit the Vercel Commerce cart for behavioral friction, state consistency, and a
 ## Deliverable
 
 - Findings on state consistency, idempotency, price transparency, inventory invariants
-- Prioritized fixes; implement the top slice that reduces cart abandonment risk in code`,
+- Prioritized fixes; implement the highest-priority fixes that reduce cart abandonment risk across the audit scope`,
     context: `## Business goals
 Reduce cart abandonment from stale prices, stock surprises, and unclear quantity/total feedback.
 
@@ -663,7 +689,7 @@ Reduce cart abandonment from stale prices, stock surprises, and unclear quantity
     prompt: 'Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.',
     description: `# Onboarding Audit
 
-Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -675,7 +701,7 @@ Audit Plane new-team onboarding for behavioral gaps and time-to-value blockers, 
 ## Deliverable
 
 - Findings on empty-state guidance gaps, workflow dead ends, permission confusion, time-to-value blockers
-- Prioritized fixes (including quick wins); implement the top slice that unblocks first value in code`,
+- Prioritized fixes (including quick wins); implement the highest-priority fixes that unblock first value across the onboarding audit scope`,
     context: `## Business goals
 Get new teams to a useful first project + issue quickly without admin dead ends or expired-invite traps.
 
@@ -706,10 +732,10 @@ Get new teams to a useful first project + issue quickly without admin dead ends 
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Healthcare Scheduling with Insurance Rules
 
-Build a **minimal vertical slice** focused on insurance-gated scheduling — not general clinic booking. Eligibility, prior auth, network status, and copay disclosure control whether and how a patient can book.
+Design and implement a complete product focused on insurance-gated scheduling — not general clinic booking. Eligibility, prior auth, network status, and copay disclosure control whether and how a patient can book.
 
 ## Requirements
 
@@ -750,10 +776,10 @@ Reduce no-shows and day-of insurance surprises; stay compliant while keeping sch
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for an expense reimbursement approval workflow: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for an expense reimbursement approval workflow: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Expense Reimbursement Workflow
 
-Build a **minimal vertical slice** of multi-step expense reimbursement: employee submit → manager approve → finance review → payment, with policy enforcement and an immutable audit trail.
+Design and implement a complete product for multi-step expense reimbursement: employee submit → manager approve → finance review → payment, with policy enforcement and an immutable audit trail.
 
 ## Requirements
 
@@ -795,10 +821,10 @@ Cut reimbursement cycle time from 14 days to 5 without weakening policy or audit
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Subscription Billing Workflow
 
-Build a **minimal vertical slice** of SaaS subscription plan changes: immediate prorated upgrades, end-of-period downgrades, failed-payment grace, and invoice clarity.
+Design and implement a complete product for SaaS subscription plan changes: immediate prorated upgrades, end-of-period downgrades, failed-payment grace, and invoice clarity.
 
 ## Requirements
 
@@ -838,10 +864,10 @@ Reduce billing support tickets by 40% by making plan changes and failures predic
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for enterprise RBAC in a multi-tenant admin console: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for enterprise RBAC in a multi-tenant admin console: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Enterprise RBAC Admin Console
 
-Build a **minimal vertical slice** of multi-tenant RBAC: custom roles, org/team/resource assignment, inheritance/overrides, and an audit log — without locking out the last super-admin.
+Design and implement a complete product for multi-tenant RBAC: custom roles, org/team/resource assignment, inheritance/overrides, and an audit log — without locking out the last super-admin.
 
 ## Requirements
 
@@ -859,7 +885,7 @@ Unblock enterprise sales by meeting SOC2-style access-control expectations.
 - End users affected by role changes
 
 ## Constraints
-- 50+ permission types (model a representative subset in the slice)
+- 50+ permission types (model a representative subset that still exercises inheritance and conflicts)
 - Cannot lock out the last super-admin
 - SSO group mapping (e.g. Okta) can lag — show and recover from sync delay`,
     golden: {
@@ -881,10 +907,10 @@ Unblock enterprise sales by meeting SOC2-style access-control expectations.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for multi-stage employee onboarding across HR, IT, and team leads: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for multi-stage employee onboarding across HR, IT, and team leads: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Multi-Stage Employee Onboarding
 
-Build a **minimal vertical slice** coordinating HR, IT, and hiring-manager onboarding stages with dependencies, compliance gating, and a new-hire progress portal.
+Build a complete product implementation coordinating HR, IT, and hiring-manager onboarding stages with dependencies, compliance gating, and a new-hire progress portal.
 
 ## Requirements
 
@@ -927,10 +953,10 @@ Reduce time-to-productivity from 30 days to 14 without skipping compliance.
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Offline Editing
 
-Build a **minimal vertical slice** of offline editing for a collaborative document editor: edit while offline, visible status, queued sync, and defined conflict resolution on reconnect.
+Design and implement a complete product for offline editing for a collaborative document editor: edit while offline, visible status, queued sync, and defined conflict resolution on reconnect.
 
 ## Requirements
 
@@ -970,10 +996,10 @@ Support low-connectivity users (field, travel, remote) without data loss or sile
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for screen-reader support on a data-heavy analytics dashboard: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for screen-reader support on a data-heavy analytics dashboard: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Screen Reader Analytics Dashboard
 
-Build a **minimal vertical slice** of an analytics dashboard that is fully usable with keyboard and screen reader — not a visual-only chart wall.
+Design and implement a complete analytics dashboard that is fully usable with keyboard and screen reader — not a visual-only chart wall.
 
 ## Requirements
 
@@ -991,7 +1017,7 @@ Meet WCAG 2.1 AA for enterprise procurement while keeping the dashboard useful f
 - Sighted analysts (must not regress)
 
 ## Constraints
-- Scope the slice to a representative dashboard with a few chart types + one data table — not 20 chart implementations
+- Cover a representative dashboard with several chart types plus one data table — enough to prove the a11y model, not 20 chart implementations
 - Real-time updates must be throttled/summarized for assistive tech
 - Empty and loading states must be announced`,
     golden: {
@@ -1013,10 +1039,10 @@ Meet WCAG 2.1 AA for enterprise procurement while keeping the dashboard useful f
     workflow: 'design',
     fixture: null,
     human_eval: true,
-    prompt: 'Design the product behavior for empty states across a project management application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for empty states across a project management application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Empty States Design
 
-Build a **minimal vertical slice** of empty-state behavior for a project-management app (projects, cycles, search): first-run guidance, contextual empties, and hard distinction from errors.
+Design and implement a complete product for empty-state behavior for a project-management app (projects, cycles, search): first-run guidance, contextual empties, and hard distinction from errors.
 
 ## Requirements
 
@@ -1057,10 +1083,10 @@ Improve activation for new teams by turning empty views into clear next actions.
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Session Expiration UX
 
-Build a **minimal vertical slice** of session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
+Design and implement a complete product for session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
 
 ## Requirements
 
@@ -1100,10 +1126,10 @@ Meet security compliance for idle timeout without destroying in-progress work or
     workflow: 'design',
     fixture: null,
     human_eval: false,
-    prompt: 'Design the product behavior for slow-network conditions in a media-rich web application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief.',
+    prompt: 'Design and implement a complete product for slow-network conditions in a media-rich web application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.',
     description: `# Slow Network Degradation
 
-Build a **minimal vertical slice** of progressive degradation for a media-rich web app on slow or unstable networks: detection, low-bandwidth mode, queued actions, and recoverable partial loads.
+Design and implement a complete product for progressive degradation for a media-rich web app on slow or unstable networks: detection, low-bandwidth mode, queued actions, and recoverable partial loads.
 
 ## Requirements
 

@@ -54,8 +54,7 @@ golden_field_weights:
   required_findings: 1
 
 llm_judges:
-  - openai:gpt-4o
-  - anthropic:claude-sonnet-4-20250514
+  - "anthropic:claude-sonnet-4-20250514"
 
 categories:
   - greenfield

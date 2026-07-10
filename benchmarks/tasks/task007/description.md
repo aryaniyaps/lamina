@@ -1,6 +1,6 @@
 # Wishlist Feature
 
-Design and implement a **minimal vertical slice** of wishlist on the Vercel Commerce storefront for guests and registered shoppers.
+Design and implement a wishlist on the Vercel Commerce storefront for guests and registered shoppers.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Design and implement a **minimal vertical slice** of wishlist on the Vercel Comm
 - Out-of-stock items are not purchasable from wishlist; show price at add-time; notify on material price changes
 - Handle discontinued products, expired guest sessions, empty wishlist, and duplicate-add idempotency
 - Accessible wishlist controls and bulk-action feedback
+
+## Deliverable
+
+A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.

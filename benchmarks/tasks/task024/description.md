@@ -1,6 +1,6 @@
 # Session Expiration UX
 
-Build a **minimal vertical slice** of session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
+Design and implement complete session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
 
 ## Requirements
 
@@ -10,3 +10,7 @@ Build a **minimal vertical slice** of session timeout and re-authentication that
 - Handle SSO (Okta) failure, concurrent session conflicts, and focus management on the warning modal
 - Timeout warning must be announced to assistive tech
 - Trade-off: security timeout vs workflow disruption; extend session vs force re-auth
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.

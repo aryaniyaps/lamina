@@ -49,6 +49,18 @@ probes:
     weight: 1
     patterns:
       - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*category|(?is)category[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_alert
+    kind: entity_model
+    description: "Entity \"alert\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*alert|(?is)alert[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_household_member
+    kind: entity_model
+    description: "Entity \"household member\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*household[\\s_-]*member|(?is)household[\\s_-]*member[\\s\\w]*({|struct|class|interface|=)"
   - id: scn_sync_failure_recovery
     kind: scenario_handler
     description: "Scenario/edge \"sync failure recovery\" near error/recovery handling"
@@ -67,6 +79,12 @@ probes:
     weight: 2
     patterns:
       - "(?is)(duplicate[\\s_-]*transaction[\\s_-]*handling).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(duplicate[\\s_-]*transaction[\\s_-]*handling)"
+  - id: scn_partner_privacy_category_hidden
+    kind: scenario_handler
+    description: "Scenario/edge \"partner privacy category hidden\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(partner[\\s_-]*privacy[\\s_-]*category[\\s_-]*hidden).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(partner[\\s_-]*privacy[\\s_-]*category[\\s_-]*hidden)"
   - id: scn_empty_accounts
     kind: scenario_handler
     description: "Scenario/edge \"empty accounts\" near error/recovery handling"
@@ -85,7 +103,7 @@ probes:
     weight: 2
     patterns:
       - "(?is)(duplicate[\\s_-]*transactions).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(duplicate[\\s_-]*transactions)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

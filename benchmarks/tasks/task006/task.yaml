@@ -1,7 +1,7 @@
 id: task006
 category: oss_feature
 workflow: design
-prompt: "Design the product behavior for a recurring tasks feature in Plane: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief that fits the existing product."
+prompt: "Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane."
 fixture: plane-with-init
 human_eval: true
 runs: 3

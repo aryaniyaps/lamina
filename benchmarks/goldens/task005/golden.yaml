@@ -5,6 +5,8 @@ required_entities:
   - checkin
   - streak
   - friend_connection
+  - challenge
+  - notification_preference
 required_invariants:
   - no_public_leaderboard
   - opt_in_social_only
@@ -18,6 +20,7 @@ required_flows:
   - habit_setup
   - streak_recovery
   - friend_challenge
+  - pause_resume_habit
 required_rules:
   - no_public_leaderboard
   - opt_in_social
@@ -26,6 +29,7 @@ required_scenarios:
   - missed_day_recovery
   - health_sync_failure
   - friend_request_declined
+  - health_sync_failure_recovery
 required_edge_cases:
   - missed_day
   - health_sync_failure

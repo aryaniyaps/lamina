@@ -49,6 +49,18 @@ probes:
     weight: 1
     patterns:
       - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*organization|(?is)organization[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_hours_record
+    kind: entity_model
+    description: "Entity \"hours record\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*hours[\\s_-]*record|(?is)hours[\\s_-]*record[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_background_check
+    kind: entity_model
+    description: "Entity \"background check\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*background[\\s_-]*check|(?is)background[\\s_-]*check[\\s\\w]*({|struct|class|interface|=)"
   - id: scn_no_show_handling
     kind: scenario_handler
     description: "Scenario/edge \"no show handling\" near error/recovery handling"
@@ -67,6 +79,12 @@ probes:
     weight: 2
     patterns:
       - "(?is)(overbooked[\\s_-]*shift[\\s_-]*prevention).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(overbooked[\\s_-]*shift[\\s_-]*prevention)"
+  - id: scn_expired_cert_blocks_assignment
+    kind: scenario_handler
+    description: "Scenario/edge \"expired cert blocks assignment\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(expired[\\s_-]*cert[\\s_-]*blocks[\\s_-]*assignment).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(expired[\\s_-]*cert[\\s_-]*blocks[\\s_-]*assignment)"
   - id: scn_no_show
     kind: scenario_handler
     description: "Scenario/edge \"no show\" near error/recovery handling"
@@ -91,7 +109,7 @@ probes:
     weight: 2
     patterns:
       - "(?is)(last[\\s_-]*minute[\\s_-]*cancel).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(last[\\s_-]*minute[\\s_-]*cancel)"
-  - id: has_executable_slice
+  - id: has_executable_implementation
     kind: code_guard
     description: Contains function/class/export definitions
     weight: 1

@@ -6,6 +6,8 @@ required_entities:
   - expense
   - member
   - vote
+  - invite
+  - settlement
 required_invariants:
   - invite_only_trip_access
   - organizer_approval_for_changes
@@ -20,6 +22,8 @@ required_flows:
   - vote_on_option
   - split_expense
   - settle_up
+  - invite_members
+  - leave_trip
 required_rules:
   - invite_only_access
   - organizer_approval
@@ -28,6 +32,7 @@ required_scenarios:
   - member_leaves_group_settlement
   - conflicting_votes_resolution
   - offline_sync_reconciliation
+  - offline_edit_conflict
 required_edge_cases:
   - member_leaves_group
   - conflicting_votes

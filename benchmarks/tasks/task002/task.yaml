@@ -1,7 +1,7 @@
 id: task002
 category: greenfield
 workflow: design
-prompt: "Design the product behavior for multi-provider clinic appointment scheduling: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and an implementation brief."
+prompt: "Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface."
 fixture: null
 human_eval: true
 runs: 3

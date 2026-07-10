@@ -1,12 +1,17 @@
 # Travel Itinerary Planner
 
-Build a **minimal vertical slice** of a collaborative trip planner for friend groups: shared itinerary, activity voting, and expense split/settle.
+Design and implement a full collaborative trip planner for friend groups — not a packing-list stub. Cover shared itinerary, activity voting, expense split/settle, invites, and offline reconciliation as one product.
 
 ## Requirements
 
+- Domain: trip, member, itinerary item, vote, expense, settlement, invite
 - Invite-only trip access; organizer approval for material itinerary changes
-- Entities: trip, itinerary item, expense, member, vote
-- Flows: create trip, add activity, vote on options, split expense, settle up
+- Primary flows: create trip, invite members, add activity, vote on options, split expense, settle up, leave trip
+- Secondary surfaces: trip overview, member roster, conflict/vote resolution, offline sync status, expense export path
 - Expense currency must stay consistent within a trip; handle member leaving mid-settlement
 - Resolve conflicting votes; reconcile offline edits when connectivity returns
 - Offline access during travel; maps need a non-visual alternative
+
+## Deliverable
+
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable collaborative surface. Do not stop at a single-screen or thin demo stub.

@@ -6,6 +6,8 @@ required_entities:
   - provider
   - insurance_plan
   - location
+  - waitlist_entry
+  - dependent
 required_invariants:
   - no_phi_in_urls
   - insurance_gate_before_booking
@@ -20,6 +22,7 @@ required_flows:
   - cancel
   - insurance_check
   - waitlist_join
+  - front_desk_override
 required_rules:
   - cancellation_policy
   - insurance_verification_gate
@@ -28,6 +31,7 @@ required_scenarios:
   - insurance_denied_recovery
   - timezone_confusion_handling
   - no_availability_waitlist
+  - caregiver_books_for_dependent
 required_edge_cases:
   - no_availability
   - insurance_denied

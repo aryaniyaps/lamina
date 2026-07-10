@@ -72,7 +72,7 @@ function buildProbes(taskId, golden) {
   }
 
   probes.push({
-    id: 'has_executable_slice',
+    id: 'has_executable_implementation',
     kind: 'code_guard',
     description: 'Contains function/class/export definitions',
     weight: 1,

@@ -1,3 +1,6 @@
+.env
+.env.local
+
 results/raw/
 results/scored/
 results/statistics/

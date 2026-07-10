@@ -8,7 +8,7 @@
     "label": "Plan mode + implement",
     "phases": 2,
     "workflow_id": "control_plan_2_phase",
-    "description": "Write bench-plan.md (IDE Plan-mode-style planning), then implement a minimal vertical slice. No Lamina skills. No verify/fix loop.",
+    "description": "Write bench-plan.md (IDE Plan-mode-style planning), then implement the full product scope from the brief. No Lamina skills. No verify/fix loop.",
     "scoring_checkpoint": "post_implement",
     "precedent": "Matches the without-Lamina arm of the public hotel-booking demo (README.md): Cursor Plan mode → implement."
   },

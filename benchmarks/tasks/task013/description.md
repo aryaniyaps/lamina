@@ -1,6 +1,6 @@
 # Document Sharing Audit
 
-Audit Outline document sharing and permissions for product-behavior gaps, then implement a **minimal vertical slice** of the highest-priority fixes.
+Audit Outline document sharing and permissions for product-behavior gaps, then implement the highest-priority fixes in code.
 
 ## Scope
 
@@ -12,4 +12,4 @@ Audit Outline document sharing and permissions for product-behavior gaps, then i
 ## Deliverable
 
 - Findings on inheritance gaps, invariant violations, revocation failures, multi-view inconsistency
-- Prioritized fixes; implement the top slice that hardens sharing invariants in code
+- Prioritized fixes; implement the highest-priority fixes that harden sharing invariants across the audit scope
