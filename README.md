@@ -32,6 +32,7 @@ Lamina slots into whatever you already use. Unopinionated on your tech stack/ AI
 | **Any Language**  | Javascript, Python, Golang, Rust, Elixir, C# etc |
 | **Any UI library** | Tailwind, Chakra UI, shadcn, MUI, … |
 | **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, your own |
+| **Any interface** | Websites, Mobile Apps, Desktop, PWAs, Chat Bots, CLIs, etc |
 
 ---
 
