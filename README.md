@@ -72,6 +72,49 @@ flowchart LR
 
 ---
 
+## Demo: HavenStay hotel booking platform
+
+Same prompt, two builds — one with Lamina, one without. Both were built from scratch by **Cursor Composer 2.5** with no human-written app code.
+
+<details>
+<summary><strong>The prompt</strong></summary>
+
+```
+Design and build a complete hotel booking platform from scratch.
+
+Create a production-ready product that enables travelers to discover, compare, book,
+and manage hotel stays, while enabling hotels to manage their properties, rooms,
+pricing, availability, reservations, and guest interactions.
+
+The product should feel polished, cohesive, and ready for real-world use. Design every
+aspect of the experience, including the end-to-end user journeys, information
+architecture, navigation, search and discovery, booking lifecycle, account management,
+payments, cancellations, reviews, notifications, hotel management, trust and safety,
+customer support, accessibility, edge cases, and system behavior.
+```
+
+</details>
+
+| | **Without Lamina** | **With Lamina** |
+|---|---|---|
+| **Folder** | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) |
+| **Workflow** | Cursor **Plan mode** → implement | `/lamina-design` → implement → `/lamina-verify` |
+| **Contract** | `.cursor/plans/havenstay_booking_platform_*.plan.md` | `.lamina/runs/havenstay-platform-2026-07-10/run.yaml` + `implement.md` |
+| **Post-build check** | None | Persona walks, invariant probes, verify report |
+| **Stack** | Next.js 16 · Prisma · PostgreSQL · Auth.js · Stripe | Next.js 15 · Prisma · SQLite · Stripe |
+
+<p align="center">
+  <img src="demo/hotel-booking-without-lamina/screenshot.png" alt="HavenStay built without Lamina (Cursor Plan mode)" width="48%" />
+  &nbsp;
+  <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina (design + verify cycle)" width="48%" />
+</p>
+
+<p align="center"><sub>Left: Plan mode only · Right: Lamina design + verify</sub></p>
+
+Both apps ship traveler search/booking, hotel partner dashboards, and platform admin — but the Lamina build gets a machine-readable contract up front and a structured audit after implementation. See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/report.md) and [verify report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-platform-2026-07-10/verify-report.md) for the full contract and findings.
+
+---
+
 ## Pair with
 
 Lamina designs and verifies product behavior. It works best when your agent can **see the system cheaply** and **remember prior decisions**:

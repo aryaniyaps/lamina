@@ -1,0 +1,54 @@
+run_id: havenstay-platform-2026-07-10
+base_url: http://localhost:3001
+captured_at: 2026-07-10
+capability: a11y_only
+status: structural_only
+source: product
+mode: live_app
+
+flows:
+  - id: traveler-discover-and-search
+    steps:
+      - step_id: home
+        url: /
+        result: pass
+      - step_id: search-results
+        url: /search?city=Portland&checkIn=2026-07-20&checkOut=2026-07-22&guests=2
+        result: pass
+      - step_id: search-empty
+        url: /search?city=Nowhereville&checkIn=2026-07-15&checkOut=2026-07-17&guests=2
+        result: pass
+
+  - id: traveler-account-and-trips
+    steps:
+      - step_id: sign-in
+        url: /sign-in
+        actor: leisure_traveler
+        result: partial
+        note: Session created but page does not redirect
+      - step_id: my-trips
+        url: /trips
+        result: pass
+
+  - id: admin-platform-operations
+    steps:
+      - step_id: admin-sign-in
+        url: /admin/sign-in
+        actor: platform_admin
+        result: pass
+      - step_id: admin-dashboard
+        url: /admin
+        result: pass
+      - step_id: admin-approvals
+        url: /admin/approvals
+        result: pass
+
+  - id: hotel-manage-reservations
+    steps:
+      - step_id: hotel-sign-in
+        url: /hotel/sign-in
+        actor: hotel_operator
+        result: pass
+      - step_id: hotel-dashboard
+        url: /hotel
+        result: pass

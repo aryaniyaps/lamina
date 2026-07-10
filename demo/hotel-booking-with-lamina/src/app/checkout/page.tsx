@@ -8,6 +8,7 @@ import { getSession } from "@/lib/session";
 import { getNightlyRates } from "@/lib/inventory";
 import { CANCELLATION_TEMPLATES, TAX_RATE_ESTIMATE } from "@/lib/constants";
 import { formatCents, startOfDay } from "@/lib/utils";
+import { startCheckoutSession } from "@/lib/booking";
 import { CheckoutForm } from "./checkout-form";
 
 export const dynamic = "force-dynamic";
@@ -44,13 +45,13 @@ export default async function CheckoutPage({
     );
   }
 
-  const session = await getSession();
-  if (!session) {
+  const authSession = await getSession();
+  if (!authSession) {
     const redirectUrl = `/checkout?${new URLSearchParams(params as Record<string, string>)}`;
     redirect(`/sign-in?redirect=${encodeURIComponent(redirectUrl)}`);
   }
 
-  const user = await db.user.findUnique({ where: { id: session.id } });
+  const user = await db.user.findUnique({ where: { id: authSession.id } });
   const property = await db.property.findUnique({
     where: { id: propertyId },
     include: { cancellationPolicy: true, roomTypes: true },
@@ -87,6 +88,27 @@ export default async function CheckoutPage({
     : "Flexible";
   const policyDescription = policy?.description ?? "Full refund until 24 hours before check-in.";
 
+  let checkoutSession: { bookingId: string; holdExpiresAt: string } | null = null;
+  let holdError: string | null = null;
+
+  try {
+    const hold = await startCheckoutSession({
+      userId: authSession.id,
+      propertyId,
+      roomTypeId,
+      quantity: 1,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      guestCount: guests,
+    });
+    checkoutSession = {
+      bookingId: hold.bookingId,
+      holdExpiresAt: hold.holdExpiresAt,
+    };
+  } catch (e) {
+    holdError = e instanceof Error ? e.message : "Unable to hold this room";
+  }
+
   return (
     <>
       <TravelerHeader />
@@ -107,25 +129,42 @@ export default async function CheckoutPage({
           </div>
         )}
 
-        <div className="mt-8">
-          <CheckoutForm
-            propertyId={propertyId}
-            roomTypeId={roomTypeId}
-            checkIn={checkIn}
-            checkOut={checkOut}
-            guestCount={guests}
-            roomName={room.name}
-            propertyName={property.name}
-            roomTotalCents={roomTotalCents}
-            taxesFeesCents={taxesFeesCents}
-            totalCents={totalCents}
-            policyLabel={policyLabel}
-            policyDescription={policyDescription}
-            defaultName={user?.name ?? session.name}
-            defaultEmail={user?.email ?? session.email}
-            defaultPhone={user?.phone ?? ""}
-          />
-        </div>
+        {holdError ? (
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+            <h2 className="text-lg font-semibold text-red-900">Room unavailable</h2>
+            <p className="mt-2 text-sm text-red-700">{holdError}</p>
+            <Link
+              href={`/hotels/${property.slug}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
+              className="mt-6 inline-block text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
+              ← Back to hotel
+            </Link>
+          </div>
+        ) : checkoutSession ? (
+          <div className="mt-8">
+            <CheckoutForm
+              bookingId={checkoutSession.bookingId}
+              holdExpiresAt={checkoutSession.holdExpiresAt}
+              propertySlug={property.slug}
+              propertyId={propertyId}
+              roomTypeId={roomTypeId}
+              checkIn={checkIn}
+              checkOut={checkOut}
+              guestCount={guests}
+              roomName={room.name}
+              propertyName={property.name}
+              roomTotalCents={roomTotalCents}
+              taxesFeesCents={taxesFeesCents}
+              totalCents={totalCents}
+              policyLabel={policyLabel}
+              policyDescription={policyDescription}
+              defaultName={user?.name ?? authSession.name}
+              defaultEmail={user?.email ?? authSession.email}
+              defaultPhone={user?.phone ?? ""}
+              emailVerified={!!user?.emailVerifiedAt}
+            />
+          </div>
+        ) : null}
       </main>
     </>
   );

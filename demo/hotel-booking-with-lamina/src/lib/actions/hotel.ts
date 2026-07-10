@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  BookingStatus,
   CancellationTemplate,
   HotelAccountStatus,
+  PaymentStatus,
   PropertyStatus,
+  RefundStatus,
   TicketCategory,
   TicketStatus,
   TrustReportStatus,
@@ -16,7 +19,8 @@ import { getSession, requireRole } from "@/lib/session";
 import { CANCELLATION_TEMPLATES } from "@/lib/constants";
 import { slugify, parseJsonArray } from "@/lib/utils";
 import { ensureInventoryBlocks } from "@/lib/inventory";
-import { sendPropertyStatusEmail } from "@/lib/notifications";
+import { sendPropertyStatusEmail, sendCancellationEmail } from "@/lib/notifications";
+import { createRefund } from "@/lib/stripe";
 
 export async function savePropertyDraftAction(formData: FormData) {
   const session = await requireRole(UserRole.HOTEL_STAFF);
@@ -171,6 +175,58 @@ export async function markCheckedInAction(bookingId: string) {
   });
   revalidatePath("/hotel/reservations");
   return { success: true };
+}
+
+export async function cancelReservationByHotelAction(formData: FormData) {
+  const session = await requireRole(UserRole.HOTEL_STAFF);
+  const staff = await db.hotelStaff.findUnique({ where: { userId: session.id } });
+  if (!staff) throw new Error("Hotel account not found");
+
+  const bookingId = String(formData.get("bookingId"));
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (reason.length < 10) {
+    return { error: "Please provide a cancellation reason (at least 10 characters)" };
+  }
+
+  const booking = await db.booking.findFirst({
+    where: {
+      id: bookingId,
+      property: { hotelAccountId: staff.hotelAccountId },
+      status: { in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN] },
+    },
+    include: { payment: true },
+  });
+
+  if (!booking) return { error: "Reservation cannot be cancelled" };
+
+  const refundCents = booking.totalCents;
+
+  if (booking.payment) {
+    await createRefund(booking.payment.stripePaymentIntentId ?? "", refundCents);
+    await db.refund.create({
+      data: {
+        paymentId: booking.payment.id,
+        bookingId: booking.id,
+        amountCents: refundCents,
+        reason: `Cancelled by hotel: ${reason}`,
+        status: RefundStatus.SUCCEEDED,
+      },
+    });
+    await db.payment.update({
+      where: { id: booking.payment.id },
+      data: { status: PaymentStatus.REFUNDED_FULL },
+    });
+  }
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { status: BookingStatus.CANCELLED_BY_HOTEL },
+  });
+
+  await sendCancellationEmail(bookingId, refundCents);
+  revalidatePath("/hotel/reservations");
+  revalidatePath(`/hotel/reservations/${bookingId}`);
+  return { success: true, refundCents };
 }
 
 export async function respondToReviewAction(formData: FormData) {

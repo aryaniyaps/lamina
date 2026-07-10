@@ -1,8 +1,11 @@
 id: havenstay-platform-2026-07-10
-status: ready_to_build
-hook: design
+status: complete
+hook: verify
 target: HavenStay — complete hotel booking marketplace (traveler + hotel surfaces)
-command: /lamina-design
+command: /lamina-verify
+verified_at: 2026-07-10
+verified_base_url: http://localhost:3001
+design_command: /lamina-design
 started_at: 2026-07-10
 completed_at: 2026-07-10
 personas_ref: .lamina/personas.yaml
@@ -1330,5 +1333,169 @@ open_questions:
   - Support tooling depth (Zendesk integration vs built-in)
   - Recommended sort algorithm weights
 
-findings: []
-evidence: []
+findings:
+  - id: sign-in-no-redirect
+    severity: medium
+    category: ux
+    actor: leisure_traveler
+    screen: sign-in
+    workflow_ref: traveler-account-management
+    description: >
+      Successful sign-in creates session (header updates) but does not redirect to
+      intended destination or home. User remains on sign-in page.
+    recommendation: Redirect after signInAction success using redirect hidden field.
+
+  - id: checkout-no-hold-timer
+    severity: high
+    category: invariant
+    status: resolved
+    resolved_at: 2026-07-10
+    invariant_ref: hold-expiry-release
+    screen: checkout
+    workflow_ref: traveler-book-and-pay
+    description: >
+      Inventory hold is created server-side (15 min) but checkout UI shows no
+      countdown timer per contract screen spec.
+    recommendation: Add visible hold timer with live region for screen readers.
+    resolution: >
+      Hold created on checkout page load via startCheckoutSession; HoldTimer
+      component shows 15:00 countdown with aria-live; form disabled on expiry.
+
+  - id: checkout-unverified-not-blocked-ui
+    severity: medium
+    category: invariant
+    invariant_ref: email-verified-book
+    screen: checkout
+    workflow_ref: traveler-book-and-pay
+    description: >
+      Unverified email shows amber banner but Confirm & pay button remains
+      enabled. Server rejects booking; client should disable submit.
+    recommendation: Disable checkout submit when emailVerifiedAt is null.
+
+  - id: mock-payments-only
+    severity: high
+    category: payment
+    invariant_ref: payment-before-confirm
+    screen: checkout
+    workflow_ref: traveler-book-and-pay
+    description: >
+      Payments auto-confirm via mock PaymentIntent. No Stripe Elements/Checkout,
+      no webhooks, no card-decline or retry UX.
+    recommendation: Integrate Stripe Payment Element and webhook reconciliation.
+
+  - id: missing-stripe-webhook
+    severity: high
+    category: scenario
+    scenario_ref: payment-succeeded-confirm-failed
+    description: >
+      No /api/webhooks/stripe handler for idempotent payment confirmation or
+      auto-refund on fulfillment failure.
+    recommendation: Add webhook handler per implement brief §9.
+
+  - id: missing-google-maps
+    severity: medium
+    category: scope
+    screen: search-results
+    workflow_ref: traveler-discover-and-search
+    description: >
+      Business context requires Google Maps. No map toggle on search results or
+      location map on hotel detail.
+    recommendation: Add map view with property pins and hotel detail map embed.
+
+  - id: hotel-cancel-booking-missing
+    severity: high
+    category: scenario
+    status: resolved
+    resolved_at: 2026-07-10
+    scenario_ref: hotel-cancels-booking
+    screen: hotel-reservation-detail
+    workflow_ref: hotel-manage-reservations
+    description: >
+      Hotel reservation detail allows mark checked-in only. No cancel-with-reason
+      action or automatic 100% guest refund.
+    recommendation: Add hotel cancel flow with mandatory reason and full refund.
+    resolution: >
+      cancelReservationByHotelAction issues 100% refund; HotelCancelForm on
+      reservation detail requires reason (min 10 chars) and sends cancellation email.
+
+  - id: missing-receipt-pdf
+    severity: low
+    category: ux
+    screen: reservation-detail
+    workflow_ref: traveler-manage-reservation
+    actor: business_traveler
+    description: >
+      Receipt details shown inline but no PDF download for expense records.
+    recommendation: Add receipt PDF generation endpoint and download CTA.
+
+  - id: missing-google-sso
+    severity: medium
+    category: scope
+    screen: sign-in
+    workflow_ref: traveler-account-management
+    description: Google SSO specified in implement brief but not present on sign-in/sign-up.
+    recommendation: Add Google OAuth provider or remove from contract.
+
+  - id: admin-users-management-missing
+    severity: medium
+    category: screen
+    screen: admin-users-management
+    workflow_ref: admin-platform-config
+    description: >
+      Platform admin user invite/deactivate screen not implemented. Admin nav
+      lacks Users management entry.
+    recommendation: Add /admin/admins route with invite and deactivate actions.
+
+  - id: admin-retry-payout-missing
+    severity: medium
+    category: screen
+    screen: admin-payments-payouts
+    workflow_ref: admin-manage-bookings-payments
+    description: Payments page lists data but no failed-payout retry action.
+    recommendation: Add payout status tracking and retry per contract.
+
+  - id: admin-impersonate-missing
+    severity: low
+    category: permission
+    actor: platform_admin
+    description: impersonate_read_only permission in contract not implemented.
+    recommendation: Defer or implement read-only view-as with audit logging.
+
+  - id: search-sort-missing
+    severity: low
+    category: ux
+    screen: search-results
+    workflow_ref: traveler-discover-and-search
+    description: Sort controls (recommended, price, rating) not exposed in search UI.
+    recommendation: Add sort dropdown wired to search query.
+
+  - id: search-filters-incomplete
+    severity: low
+    category: ux
+    screen: search-results
+    workflow_ref: traveler-discover-and-search
+    description: Price and rating filters present; amenities and cancellation policy filters missing.
+    recommendation: Add remaining filter facets from contract.
+
+  - id: accessibility-skip-link-missing
+    severity: medium
+    category: accessibility
+    screen: home
+    description: No skip-to-main-content link on traveler pages (WCAG 2.1 AA target).
+    recommendation: Add skip link as first focusable element in layout.
+
+  - id: accessibility-main-landmark
+    severity: low
+    category: accessibility
+    description: Pages use main element but no skip navigation pattern across surfaces.
+    recommendation: Audit all traveler critical paths for keyboard focus order.
+
+evidence:
+  - kind: visual_walkthrough
+    source: product
+    mode: live_app
+    base_url: http://localhost:3001
+    path: walkthrough/index.yaml
+    captured_at: 2026-07-10
+    capability: a11y_only
+    status: structural_only

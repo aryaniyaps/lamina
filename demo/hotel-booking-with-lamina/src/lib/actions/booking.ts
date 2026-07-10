@@ -10,7 +10,7 @@ import {
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { createBookingDraft, confirmBookingPayment } from "@/lib/booking";
+import { createBookingDraft, confirmBookingPayment, finalizeBooking } from "@/lib/booking";
 import { calculateRefundCents, isReviewWindowOpen, type PolicySnapshot } from "@/lib/cancellation";
 import { createRefund } from "@/lib/stripe";
 import { sendCancellationEmail } from "@/lib/notifications";
@@ -20,7 +20,21 @@ export async function createBookingAction(formData: FormData) {
   const session = await getSession();
   if (!session) redirect("/sign-in?redirect=/checkout");
 
+  const bookingId = String(formData.get("bookingId") ?? "");
+
   try {
+    if (bookingId) {
+      const booking = await finalizeBooking({
+        bookingId,
+        userId: session.id,
+        guestName: String(formData.get("guestName")),
+        guestEmail: String(formData.get("guestEmail")),
+        guestPhone: String(formData.get("guestPhone") || "") || undefined,
+        specialRequests: String(formData.get("specialRequests") || "") || undefined,
+      });
+      redirect(`/confirmation/${booking.confirmationCode}`);
+    }
+
     const result = await createBookingDraft({
       userId: session.id,
       propertyId: String(formData.get("propertyId")),

@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { BookingStatus } from "@prisma/client";
 import { HotelShell } from "@/components/hotel-shell";
 import { markCheckedInAction } from "@/lib/actions/hotel";
+import { HotelCancelForm } from "./hotel-cancel-form";
 import { db } from "@/lib/db";
 import { requireHotelStaff, getHotelPropertyIds } from "@/lib/auth-guards";
 import { formatCents } from "@/lib/utils";
@@ -30,6 +31,9 @@ export default async function ReservationDetailPage({
   if (!booking) notFound();
 
   const canCheckIn = booking.status === BookingStatus.CONFIRMED;
+  const canCancel =
+    booking.status === BookingStatus.CONFIRMED ||
+    booking.status === BookingStatus.CHECKED_IN;
 
   return (
     <HotelShell active="/hotel/reservations">
@@ -100,6 +104,10 @@ export default async function ReservationDetailPage({
             Mark checked in
           </button>
         </form>
+      )}
+
+      {canCancel && (
+        <HotelCancelForm bookingId={booking.id} totalCents={booking.totalCents} />
       )}
     </HotelShell>
   );

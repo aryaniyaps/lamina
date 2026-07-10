@@ -27,17 +27,14 @@ export async function createBookingDraft(input: {
   checkIn: Date;
   checkOut: Date;
   guestCount: number;
-  guestName: string;
-  guestEmail: string;
+  guestName?: string;
+  guestEmail?: string;
   guestPhone?: string;
   specialRequests?: string;
 }) {
   const user = await db.user.findUnique({ where: { id: input.userId } });
   if (!user || user.status === UserStatus.SUSPENDED) {
     throw new Error("Account cannot book");
-  }
-  if (!user.emailVerifiedAt) {
-    throw new Error("Please verify your email before booking");
   }
 
   const property = await db.property.findUnique({
@@ -109,8 +106,8 @@ export async function createBookingDraft(input: {
       totalCents,
       commissionCents,
       policySnapshot: JSON.stringify(snapshot),
-      guestName: input.guestName,
-      guestEmail: input.guestEmail,
+      guestName: input.guestName ?? user.name,
+      guestEmail: input.guestEmail ?? user.email,
       guestPhone: input.guestPhone,
       lines: {
         create: {
@@ -192,6 +189,86 @@ export async function confirmBookingPayment(bookingId: string) {
 
   await sendBookingConfirmation(bookingId);
   return updated;
+}
+
+export async function startCheckoutSession(input: {
+  userId: string;
+  propertyId: string;
+  roomTypeId: string;
+  quantity: number;
+  checkIn: Date;
+  checkOut: Date;
+  guestCount: number;
+}) {
+  const existing = await db.booking.findFirst({
+    where: {
+      userId: input.userId,
+      propertyId: input.propertyId,
+      status: BookingStatus.PENDING_PAYMENT,
+      checkInDate: input.checkIn,
+      checkOutDate: input.checkOut,
+      guestCount: input.guestCount,
+      lines: { some: { roomTypeId: input.roomTypeId, quantity: input.quantity } },
+      hold: { status: HoldStatus.ACTIVE, expiresAt: { gt: new Date() } },
+    },
+    include: { hold: true, payment: true },
+  });
+
+  if (existing?.hold) {
+    return {
+      bookingId: existing.id,
+      holdExpiresAt: existing.hold.expiresAt.toISOString(),
+      totalCents: existing.totalCents,
+    };
+  }
+
+  const result = await createBookingDraft({
+    ...input,
+    guestName: undefined,
+    guestEmail: undefined,
+  });
+
+  return {
+    bookingId: result.booking.id,
+    holdExpiresAt: result.booking.hold!.expiresAt.toISOString(),
+    totalCents: result.booking.totalCents,
+  };
+}
+
+export async function finalizeBooking(input: {
+  bookingId: string;
+  userId: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone?: string;
+  specialRequests?: string;
+}) {
+  const user = await db.user.findUnique({ where: { id: input.userId } });
+  if (!user?.emailVerifiedAt) {
+    throw new Error("Please verify your email before booking");
+  }
+
+  const booking = await db.booking.findFirst({
+    where: { id: input.bookingId, userId: input.userId, status: BookingStatus.PENDING_PAYMENT },
+    include: { hold: true },
+  });
+  if (!booking) throw new Error("Booking session not found");
+
+  if (booking.hold?.expiresAt && booking.hold.expiresAt < new Date()) {
+    throw new Error("Your room hold has expired. Please search again.");
+  }
+
+  await db.booking.update({
+    where: { id: input.bookingId },
+    data: {
+      guestName: input.guestName,
+      guestEmail: input.guestEmail,
+      guestPhone: input.guestPhone,
+      specialRequests: input.specialRequests,
+    },
+  });
+
+  return confirmBookingPayment(input.bookingId);
 }
 
 export async function expireStaleHolds() {
