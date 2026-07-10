@@ -7,7 +7,7 @@
 <p align="center"><strong>Know what to build. Iterate faster.</strong></p>
 
 <p align="center">
-  Product-design skill for AI coding agents. Specs how your app works — states, edges, UX gaps — into a contract your agent implements, then verifies the live build with parallel persona walks. Never writes app source.
+  Headless product-design skill for AI coding agents. Specs how your app works — states, edges, UX gaps — into a contract your agent implements, then verifies the live build with parallel persona walks. Never writes app source.
 </p>
 
 ---
