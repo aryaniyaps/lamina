@@ -1,0 +1,93 @@
+task_id: task016
+version: 1.0.0
+probes:
+  - id: inv_eligibility_verified_before_booking
+    kind: code_guard
+    description: "Invariant \"eligibility verified before booking\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(eligibility[\\s_-]*verified[\\s_-]*before[\\s_-]*booking).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(eligibility[\\s_-]*verified[\\s_-]*before[\\s_-]*booking)"
+  - id: inv_prior_auth_blocks_scheduling
+    kind: code_guard
+    description: "Invariant \"prior auth blocks scheduling\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(prior[\\s_-]*auth[\\s_-]*blocks[\\s_-]*scheduling).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(prior[\\s_-]*auth[\\s_-]*blocks[\\s_-]*scheduling)"
+  - id: inv_copay_displayed_before_confirm
+    kind: code_guard
+    description: "Invariant \"copay displayed before confirm\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(copay[\\s_-]*displayed[\\s_-]*before[\\s_-]*confirm).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(copay[\\s_-]*displayed[\\s_-]*before[\\s_-]*confirm)"
+  - id: ent_patient
+    kind: entity_model
+    description: "Entity \"patient\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*patient|(?is)patient[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_appointment
+    kind: entity_model
+    description: "Entity \"appointment\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*appointment|(?is)appointment[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_insurance_plan
+    kind: entity_model
+    description: "Entity \"insurance plan\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*insurance[\\s_-]*plan|(?is)insurance[\\s_-]*plan[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_prior_authorization
+    kind: entity_model
+    description: "Entity \"prior authorization\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*prior[\\s_-]*authorization|(?is)prior[\\s_-]*authorization[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_eligibility_timeout_retry
+    kind: scenario_handler
+    description: "Scenario/edge \"eligibility timeout retry\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(eligibility[\\s_-]*timeout[\\s_-]*retry).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(eligibility[\\s_-]*timeout[\\s_-]*retry)"
+  - id: scn_partial_coverage_communication
+    kind: scenario_handler
+    description: "Scenario/edge \"partial coverage communication\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(partial[\\s_-]*coverage[\\s_-]*communication).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(partial[\\s_-]*coverage[\\s_-]*communication)"
+  - id: scn_auth_denied_alternative
+    kind: scenario_handler
+    description: "Scenario/edge \"auth denied alternative\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(auth[\\s_-]*denied[\\s_-]*alternative).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(auth[\\s_-]*denied[\\s_-]*alternative)"
+  - id: scn_plan_change_mid_booking
+    kind: scenario_handler
+    description: "Scenario/edge \"plan change mid booking\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(plan[\\s_-]*change[\\s_-]*mid[\\s_-]*booking).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(plan[\\s_-]*change[\\s_-]*mid[\\s_-]*booking)"
+  - id: scn_eligibility_timeout
+    kind: scenario_handler
+    description: "Scenario/edge \"eligibility timeout\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(eligibility[\\s_-]*timeout).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(eligibility[\\s_-]*timeout)"
+  - id: scn_partial_coverage
+    kind: scenario_handler
+    description: "Scenario/edge \"partial coverage\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(partial[\\s_-]*coverage).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(partial[\\s_-]*coverage)"
+  - id: scn_auth_denied
+    kind: scenario_handler
+    description: "Scenario/edge \"auth denied\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(auth[\\s_-]*denied).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(auth[\\s_-]*denied)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

@@ -1,0 +1,87 @@
+task_id: task008
+version: 1.0.0
+probes:
+  - id: inv_expired_link_denies_access
+    kind: code_guard
+    description: "Invariant \"expired link denies access\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(expired[\\s_-]*link[\\s_-]*denies[\\s_-]*access).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(expired[\\s_-]*link[\\s_-]*denies[\\s_-]*access)"
+  - id: inv_guest_permissions_subset_of_document
+    kind: code_guard
+    description: "Invariant \"guest permissions subset of document\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(guest[\\s_-]*permissions[\\s_-]*subset[\\s_-]*document).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(guest[\\s_-]*permissions[\\s_-]*subset[\\s_-]*document)"
+  - id: inv_revocation_immediate
+    kind: code_guard
+    description: "Invariant \"revocation immediate\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(revocation[\\s_-]*immediate).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(revocation[\\s_-]*immediate)"
+  - id: ent_document
+    kind: entity_model
+    description: "Entity \"document\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*document|(?is)document[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_guest_invite
+    kind: entity_model
+    description: "Entity \"guest invite\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*guest[\\s_-]*invite|(?is)guest[\\s_-]*invite[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_collection
+    kind: entity_model
+    description: "Entity \"collection\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*collection|(?is)collection[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_permission
+    kind: entity_model
+    description: "Entity \"permission\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*permission|(?is)permission[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_share_link
+    kind: entity_model
+    description: "Entity \"share link\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*share[\\s_-]*link|(?is)share[\\s_-]*link[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_expired_link_access_denied
+    kind: scenario_handler
+    description: "Scenario/edge \"expired link access denied\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(expired[\\s_-]*link[\\s_-]*access[\\s_-]*denied).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(expired[\\s_-]*link[\\s_-]*access[\\s_-]*denied)"
+  - id: scn_guest_email_mismatch
+    kind: scenario_handler
+    description: "Scenario/edge \"guest email mismatch\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(guest[\\s_-]*email[\\s_-]*mismatch).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(guest[\\s_-]*email[\\s_-]*mismatch)"
+  - id: scn_collection_permission_conflict
+    kind: scenario_handler
+    description: "Scenario/edge \"collection permission conflict\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(collection[\\s_-]*permission[\\s_-]*conflict).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(collection[\\s_-]*permission[\\s_-]*conflict)"
+  - id: scn_expired_link
+    kind: scenario_handler
+    description: "Scenario/edge \"expired link\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(expired[\\s_-]*link).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(expired[\\s_-]*link)"
+  - id: scn_document_moved
+    kind: scenario_handler
+    description: "Scenario/edge \"document moved\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(document[\\s_-]*moved).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(document[\\s_-]*moved)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

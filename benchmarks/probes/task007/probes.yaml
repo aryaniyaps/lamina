@@ -1,0 +1,99 @@
+task_id: task007
+version: 1.0.0
+probes:
+  - id: inv_guest_wishlist_merge_on_login
+    kind: code_guard
+    description: "Invariant \"guest wishlist merge on login\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(guest[\\s_-]*wishlist[\\s_-]*merge[\\s_-]*login).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(guest[\\s_-]*wishlist[\\s_-]*merge[\\s_-]*login)"
+  - id: inv_out_of_stock_not_purchasable
+    kind: code_guard
+    description: "Invariant \"out of stock not purchasable\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(out[\\s_-]*stock[\\s_-]*not[\\s_-]*purchasable).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(out[\\s_-]*stock[\\s_-]*not[\\s_-]*purchasable)"
+  - id: inv_price_at_add_time_displayed
+    kind: code_guard
+    description: "Invariant \"price at add time displayed\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(price[\\s_-]*add[\\s_-]*time[\\s_-]*displayed).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(price[\\s_-]*add[\\s_-]*time[\\s_-]*displayed)"
+  - id: ent_wishlist
+    kind: entity_model
+    description: "Entity \"wishlist\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*wishlist|(?is)wishlist[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_wishlist_item
+    kind: entity_model
+    description: "Entity \"wishlist item\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*wishlist[\\s_-]*item|(?is)wishlist[\\s_-]*item[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_product
+    kind: entity_model
+    description: "Entity \"product\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*product|(?is)product[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_cart
+    kind: entity_model
+    description: "Entity \"cart\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*cart|(?is)cart[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_guest_session
+    kind: entity_model
+    description: "Entity \"guest session\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*guest[\\s_-]*session|(?is)guest[\\s_-]*session[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_guest_session_expired_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"guest session expired recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(guest[\\s_-]*session[\\s_-]*expired[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(guest[\\s_-]*session[\\s_-]*expired[\\s_-]*recovery)"
+  - id: scn_product_discontinued_removal
+    kind: scenario_handler
+    description: "Scenario/edge \"product discontinued removal\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(product[\\s_-]*discontinued[\\s_-]*removal).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(product[\\s_-]*discontinued[\\s_-]*removal)"
+  - id: scn_duplicate_add_idempotency
+    kind: scenario_handler
+    description: "Scenario/edge \"duplicate add idempotency\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(duplicate[\\s_-]*add[\\s_-]*idempotency).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(duplicate[\\s_-]*add[\\s_-]*idempotency)"
+  - id: scn_product_discontinued
+    kind: scenario_handler
+    description: "Scenario/edge \"product discontinued\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(product[\\s_-]*discontinued).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(product[\\s_-]*discontinued)"
+  - id: scn_guest_session_expired
+    kind: scenario_handler
+    description: "Scenario/edge \"guest session expired\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(guest[\\s_-]*session[\\s_-]*expired).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(guest[\\s_-]*session[\\s_-]*expired)"
+  - id: scn_empty_wishlist
+    kind: scenario_handler
+    description: "Scenario/edge \"empty wishlist\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(empty[\\s_-]*wishlist).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(empty[\\s_-]*wishlist)"
+  - id: scn_duplicate_add
+    kind: scenario_handler
+    description: "Scenario/edge \"duplicate add\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(duplicate[\\s_-]*add).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(duplicate[\\s_-]*add)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

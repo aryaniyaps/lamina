@@ -1,0 +1,81 @@
+task_id: task015
+version: 1.0.0
+probes:
+  - id: inv_workspace_requires_owner
+    kind: code_guard
+    description: "Invariant \"workspace requires owner\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(workspace[\\s_-]*requires[\\s_-]*owner).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(workspace[\\s_-]*requires[\\s_-]*owner)"
+  - id: inv_invite_expires_after_ttl
+    kind: code_guard
+    description: "Invariant \"invite expires after ttl\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(invite[\\s_-]*expires[\\s_-]*after[\\s_-]*ttl).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(invite[\\s_-]*expires[\\s_-]*after[\\s_-]*ttl)"
+  - id: ent_workspace
+    kind: entity_model
+    description: "Entity \"workspace\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*workspace|(?is)workspace[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_project
+    kind: entity_model
+    description: "Entity \"project\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*project|(?is)project[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_invite
+    kind: entity_model
+    description: "Entity \"invite\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*invite|(?is)invite[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_issue
+    kind: entity_model
+    description: "Entity \"issue\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*issue|(?is)issue[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_solo_user_onboarding_path
+    kind: scenario_handler
+    description: "Scenario/edge \"solo user onboarding path\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(solo[\\s_-]*user[\\s_-]*onboarding[\\s_-]*path).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(solo[\\s_-]*user[\\s_-]*onboarding[\\s_-]*path)"
+  - id: scn_invite_expired_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"invite expired recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(invite[\\s_-]*expired[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(invite[\\s_-]*expired[\\s_-]*recovery)"
+  - id: scn_abandoned_setup_resume
+    kind: scenario_handler
+    description: "Scenario/edge \"abandoned setup resume\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(abandoned[\\s_-]*setup[\\s_-]*resume).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(abandoned[\\s_-]*setup[\\s_-]*resume)"
+  - id: scn_solo_user
+    kind: scenario_handler
+    description: "Scenario/edge \"solo user\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(solo[\\s_-]*user).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(solo[\\s_-]*user)"
+  - id: scn_invite_expired
+    kind: scenario_handler
+    description: "Scenario/edge \"invite expired\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(invite[\\s_-]*expired).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(invite[\\s_-]*expired)"
+  - id: scn_abandoned_setup
+    kind: scenario_handler
+    description: "Scenario/edge \"abandoned setup\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(abandoned[\\s_-]*setup).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(abandoned[\\s_-]*setup)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

@@ -1,0 +1,99 @@
+task_id: task004
+version: 1.0.0
+probes:
+  - id: inv_invite_only_trip_access
+    kind: code_guard
+    description: "Invariant \"invite only trip access\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(invite[\\s_-]*only[\\s_-]*trip[\\s_-]*access).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(invite[\\s_-]*only[\\s_-]*trip[\\s_-]*access)"
+  - id: inv_organizer_approval_for_changes
+    kind: code_guard
+    description: "Invariant \"organizer approval for changes\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(organizer[\\s_-]*approval[\\s_-]*for[\\s_-]*changes).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(organizer[\\s_-]*approval[\\s_-]*for[\\s_-]*changes)"
+  - id: inv_expense_currency_consistency
+    kind: code_guard
+    description: "Invariant \"expense currency consistency\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(expense[\\s_-]*currency[\\s_-]*consistency).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(expense[\\s_-]*currency[\\s_-]*consistency)"
+  - id: ent_trip
+    kind: entity_model
+    description: "Entity \"trip\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*trip|(?is)trip[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_itinerary_item
+    kind: entity_model
+    description: "Entity \"itinerary item\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*itinerary[\\s_-]*item|(?is)itinerary[\\s_-]*item[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_expense
+    kind: entity_model
+    description: "Entity \"expense\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*expense|(?is)expense[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_member
+    kind: entity_model
+    description: "Entity \"member\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*member|(?is)member[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_vote
+    kind: entity_model
+    description: "Entity \"vote\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*vote|(?is)vote[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_member_leaves_group_settlement
+    kind: scenario_handler
+    description: "Scenario/edge \"member leaves group settlement\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(member[\\s_-]*leaves[\\s_-]*group[\\s_-]*settlement).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(member[\\s_-]*leaves[\\s_-]*group[\\s_-]*settlement)"
+  - id: scn_conflicting_votes_resolution
+    kind: scenario_handler
+    description: "Scenario/edge \"conflicting votes resolution\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(conflicting[\\s_-]*votes[\\s_-]*resolution).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(conflicting[\\s_-]*votes[\\s_-]*resolution)"
+  - id: scn_offline_sync_reconciliation
+    kind: scenario_handler
+    description: "Scenario/edge \"offline sync reconciliation\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(offline[\\s_-]*sync[\\s_-]*reconciliation).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(offline[\\s_-]*sync[\\s_-]*reconciliation)"
+  - id: scn_member_leaves_group
+    kind: scenario_handler
+    description: "Scenario/edge \"member leaves group\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(member[\\s_-]*leaves[\\s_-]*group).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(member[\\s_-]*leaves[\\s_-]*group)"
+  - id: scn_conflicting_votes
+    kind: scenario_handler
+    description: "Scenario/edge \"conflicting votes\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(conflicting[\\s_-]*votes).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(conflicting[\\s_-]*votes)"
+  - id: scn_offline_sync
+    kind: scenario_handler
+    description: "Scenario/edge \"offline sync\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(offline[\\s_-]*sync).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(offline[\\s_-]*sync)"
+  - id: scn_timezone_changes
+    kind: scenario_handler
+    description: "Scenario/edge \"timezone changes\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(timezone[\\s_-]*changes).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(timezone[\\s_-]*changes)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

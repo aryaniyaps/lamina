@@ -31,13 +31,14 @@ methodology:
   control_scoring: post_implement
   treatment_scoring: post_fix
 
-human_eval_tasks: 10
-human_raters: 3
-
+# Claim composite: checklist + LLM rubric only (50/50).
+# Behavior probes, cost/time, and optional human review are reported separately.
 scoring_weights:
-  golden_coverage: 0.4
-  llm_judge: 0.4
-  human_eval: 0.2
+  golden_coverage: 0.5
+  llm_judge: 0.5
+
+claim_surface: "golden_coverage + llm_judge on implemented source (Design A)"
+
 
 # required_sections intentionally omitted — format-neutral (avoids Lamina-shaped bias)
 golden_field_weights:

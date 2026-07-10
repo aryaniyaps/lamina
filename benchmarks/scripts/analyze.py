@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 LaminaBench statistical analysis (stdlib only).
-Reads golden coverage, judge, and human scores; emits report.md + stats.json
-including the documented 40/40/20 composite when layers are present.
+
+Primary composite (v2.1): golden coverage 50% + LLM judge 50% on implemented source.
+Optional layers (reported, not in composite): behavior probes, cost/time, human qualitative.
 """
 from __future__ import annotations
 
@@ -17,13 +18,14 @@ ROOT = Path(__file__).resolve().parents[2]
 SCORED_DIR = ROOT / "benchmarks/results/scored"
 STATS_DIR = ROOT / "benchmarks/results/statistics"
 RESULTS_DIR = ROOT / "benchmarks/results"
+RAW_DIR = ROOT / "benchmarks/results/raw"
 RELEASE_YAML = ROOT / "benchmarks/release.yaml"
 METHODOLOGY_JSON = ROOT / "benchmarks/methodology.json"
 
+# Human eval is optional qualitative only — not part of the claim composite.
 DEFAULT_WEIGHTS = {
-    "golden_coverage": 0.4,
-    "llm_judge": 0.4,
-    "human_eval": 0.2,
+    "golden_coverage": 0.5,
+    "llm_judge": 0.5,
 }
 
 
@@ -165,24 +167,6 @@ def paired_stats(pairs: dict[str, dict[str, float]]) -> dict:
     }
 
 
-def human_task_means(human: dict) -> dict[str, dict[str, float]]:
-    """Build per-task arm means from imported human ratings."""
-    ratings = human.get("ratings") or []
-    buckets: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    for r in ratings:
-        if "arm" not in r or "overall_product_behavior" not in r:
-            continue
-        buckets[r["task_id"]][r["arm"]].append(float(r["overall_product_behavior"]))
-    out: dict[str, dict[str, float]] = {}
-    for task_id, arms in buckets.items():
-        if "control" in arms and "treatment" in arms:
-            out[task_id] = {
-                "control": mean(arms["control"]),
-                "treatment": mean(arms["treatment"]),
-            }
-    return out
-
-
 def normalize_coverage(score: float) -> float:
     """Map 0–100 coverage to 1–5 rubric scale for composite."""
     return 1.0 + (max(0.0, min(100.0, score)) / 100.0) * 4.0
@@ -191,12 +175,11 @@ def normalize_coverage(score: float) -> float:
 def compute_composite(
     cov_pairs: dict[str, dict[str, float]],
     judge_pairs: dict[str, dict[str, float]] | None,
-    human_pairs: dict[str, dict[str, float]] | None,
     weights: dict[str, float],
 ) -> dict | None:
     """
-    Per-task composite on 1–5 scale using available layers.
-    Renormalizes weights when human (or judge) layer is missing.
+    Per-task composite on 1–5 scale: golden coverage + LLM judge only.
+    Human and probes are reported separately (not in claim composite).
     """
     tasks = set(cov_pairs)
     if judge_pairs:
@@ -204,34 +187,22 @@ def compute_composite(
     if not tasks:
         return None
 
-    w_cov = weights.get("golden_coverage", 0.4)
-    w_judge = weights.get("llm_judge", 0.4)
-    w_human = weights.get("human_eval", 0.2)
-
-    composite_pairs: dict[str, dict[str, float]] = {}
+    w_cov = weights.get("golden_coverage", 0.5)
+    w_judge = weights.get("llm_judge", 0.5)
+    # Human eval and behavior probes are reported separately — not in composite
     layers_used = ["golden_coverage"]
     if judge_pairs:
         layers_used.append("llm_judge")
-    use_human = bool(human_pairs)
-    if use_human:
-        layers_used.append("human_eval")
 
+    composite_pairs: dict[str, dict[str, float]] = {}
     for task_id in sorted(tasks):
         arm_scores: dict[str, float] = {}
         for arm in ("control", "treatment"):
-            parts = []
-            wsum = 0.0
-            parts.append((normalize_coverage(cov_pairs[task_id][arm]), w_cov))
-            wsum += w_cov
+            parts = [(normalize_coverage(cov_pairs[task_id][arm]), w_cov)]
+            wsum = w_cov
             if judge_pairs and task_id in judge_pairs:
                 parts.append((judge_pairs[task_id][arm], w_judge))
                 wsum += w_judge
-            if use_human and human_pairs and task_id in human_pairs:
-                parts.append((human_pairs[task_id][arm], w_human))
-                wsum += w_human
-            elif use_human:
-                # Task not in human subset — renormalize without human
-                pass
             arm_scores[arm] = sum(v * w for v, w in parts) / wsum if wsum else 0.0
         if "control" in arm_scores and "treatment" in arm_scores:
             composite_pairs[task_id] = arm_scores
@@ -241,31 +212,97 @@ def compute_composite(
 
     stats = paired_stats(composite_pairs)
     stats["layers"] = layers_used
-    stats["weights"] = {k: weights[k] for k in layers_used if k in weights}
+    stats["weights"] = {k: weights.get(k, 0) for k in layers_used}
     stats["scale"] = "1-5"
+    stats["excluded_from_composite"] = ["behavior_probes", "human_optional"]
     return stats
+
+
+def load_index_cost() -> dict | None:
+    index_path = RAW_DIR / "index.jsonl"
+    if not index_path.exists():
+        return None
+    rows = [
+        json.loads(line)
+        for line in index_path.read_text().splitlines()
+        if line.strip()
+    ]
+    if not rows:
+        return None
+
+    by_arm: dict[str, list[float]] = defaultdict(list)
+    tokens_by_arm: dict[str, list[float]] = defaultdict(list)
+    for r in rows:
+        arm = r.get("arm", "control")
+        if r.get("duration_ms") is not None:
+            by_arm[arm].append(float(r["duration_ms"]))
+        tok = r.get("total_tokens") or r.get("tokens")
+        if tok is not None:
+            tokens_by_arm[arm].append(float(tok))
+
+    def arm_stats(vals: list[float]) -> dict:
+        return {
+            "mean_ms": mean(vals),
+            "median_ms": statistics.median(vals) if vals else 0,
+            "total_ms": sum(vals),
+            "n": len(vals),
+        }
+
+    out: dict = {
+        "duration": {
+            "control": arm_stats(by_arm.get("control", [])),
+            "treatment": arm_stats(by_arm.get("treatment", [])),
+        },
+        "note": "Wall-clock from index.jsonl. Token fields populated when the agent CLI reports usage.",
+    }
+    if tokens_by_arm:
+        out["tokens"] = {
+            arm: {
+                "mean": mean(vals),
+                "total": sum(vals),
+                "n": len(vals),
+            }
+            for arm, vals in tokens_by_arm.items()
+        }
+        # Rough USD estimate from release.yaml-ish Sonnet rates if present
+        # $3/M input + $15/M output is unknown split — report tokens only unless cost_usd set
+    costs = [r.get("cost_usd") for r in rows if r.get("cost_usd") is not None]
+    if costs:
+        out["cost_usd_total"] = sum(float(c) for c in costs)
+    # Lift-style duration delta
+    if by_arm.get("control") and by_arm.get("treatment"):
+        c = mean(by_arm["control"])
+        t = mean(by_arm["treatment"])
+        out["duration"]["mean_delta_ms"] = t - c
+        out["duration"]["treatment_over_control_ratio"] = (t / c) if c else None
+    return out
 
 
 def build_report(
     coverage_stats: dict,
     judge_stats: dict | None,
+    probe_stats: dict | None,
+    cost: dict | None,
     human: dict | None,
     composite_stats: dict | None,
+    analyst: dict | None,
     claim_ready: bool,
     methodology: dict | None = None,
 ) -> str:
     lines = [
-        "# LaminaBench v2.0 Report",
+        "# LaminaBench v2.1 Report",
         "",
         f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+        "**Claim surface:** checklist coverage + LLM rubric on implemented source (Design A).",
+        "Behavior probes, cost/time, and human review are reported separately — not in the composite.",
         "",
     ]
 
     if not claim_ready:
         lines.extend([
-            "> **Not claim-ready.** Live non-mock runs, real LLM judge (or disclosed heuristic),",
-            "> and non-synthetic human scores (when citing the 20% human layer) are required",
-            "> before any external citation of these numbers.",
+            "> **Not claim-ready.** Live non-mock runs and a real LLM judge (not heuristic-only)",
+            "> are required before any external citation of these numbers.",
             "",
         ])
 
@@ -297,26 +334,14 @@ def build_report(
             f"- Cohen's d: **{judge_stats['cohens_d']:.2f}**",
         ])
 
-    if human:
-        synthetic = human.get("synthetic", True)
-        lines.extend([
-            "",
-            "## Human Evaluation (10-task subset)",
-            "",
-            f"- Fleiss' κ: **{human.get('fleiss_kappa', 'N/A')}**",
-            f"- Control mean overall: {human.get('control_mean', 'N/A')}",
-            f"- Treatment mean overall: {human.get('treatment_mean', 'N/A')}",
-            f"- Source: {'synthetic (not for claims)' if synthetic else human.get('source', 'import')}",
-            f"- Note: {human.get('note', '')}",
-        ])
-
     if composite_stats:
         lines.extend([
             "",
-            "## Composite score (documented weights)",
+            "## Composite score (claim surface)",
             "",
             f"- Layers: {', '.join(composite_stats.get('layers', []))}",
             f"- Weights: {composite_stats.get('weights', {})}",
+            f"- Excluded: {', '.join(composite_stats.get('excluded_from_composite', []))}",
             f"- Control mean (1–5): **{composite_stats['control_mean']:.2f}**",
             f"- Treatment mean (1–5): **{composite_stats['treatment_mean']:.2f}**",
             f"- Mean delta: **{composite_stats['mean_delta']:+.2f}**",
@@ -324,13 +349,79 @@ def build_report(
             f"- Paired tasks: {composite_stats['n_pairs']}",
         ])
 
+    if probe_stats:
+        lines.extend([
+            "",
+            "## Behavior probes (separate — not in composite)",
+            "",
+            f"- Control mean: **{probe_stats['control_mean']:.1f}**",
+            f"- Treatment mean: **{probe_stats['treatment_mean']:.1f}**",
+            f"- Mean delta (skill_lift-style): **{probe_stats['mean_delta']:+.1f}**",
+            f"- Cohen's d: **{probe_stats['cohens_d']:.2f}**",
+            f"- Paired tasks: {probe_stats['n_pairs']}",
+            "- Structural source probes (code_guard / entity_model / scenario_handler).",
+        ])
+
+    if cost:
+        dur = cost.get("duration") or {}
+        c = dur.get("control") or {}
+        t = dur.get("treatment") or {}
+        lines.extend([
+            "",
+            "## Cost / time",
+            "",
+            f"- Control mean wall-clock: **{c.get('mean_ms', 0):.0f} ms** (n={c.get('n', 0)})",
+            f"- Treatment mean wall-clock: **{t.get('mean_ms', 0):.0f} ms** (n={t.get('n', 0)})",
+        ])
+        if dur.get("mean_delta_ms") is not None:
+            lines.append(f"- Mean duration delta (treatment − control): **{dur['mean_delta_ms']:+.0f} ms**")
+        if dur.get("treatment_over_control_ratio") is not None:
+            lines.append(f"- Treatment/control duration ratio: **{dur['treatment_over_control_ratio']:.2f}×**")
+        if cost.get("tokens"):
+            for arm, tok in cost["tokens"].items():
+                lines.append(f"- {arm} tokens: mean={tok.get('mean', 0):.0f}, total={tok.get('total', 0):.0f}")
+        if cost.get("cost_usd_total") is not None:
+            lines.append(f"- Total cost_usd (when reported by runner): **${cost['cost_usd_total']:.4f}**")
+        lines.append(f"- Note: {cost.get('note', '')}")
+
+    if analyst:
+        g = analyst.get("golden_coverage") or {}
+        p = analyst.get("behavior_probes") or {}
+        lines.extend([
+            "",
+            "## Analyst pass (non-discriminating items)",
+            "",
+            f"- Golden always-pass-both: {len(g.get('always_pass_both') or [])}; "
+            f"always-fail-both: {len(g.get('always_fail_both') or [])}; "
+            f"discriminating: {len(g.get('discriminating') or [])}",
+            f"- Probes always-pass-both: {len(p.get('always_pass_both') or [])}; "
+            f"always-fail-both: {len(p.get('always_fail_both') or [])}; "
+            f"discriminating: {len(p.get('discriminating') or [])}",
+            "- See `results/scored/analyst-report.json` for item lists.",
+        ])
+
+    if human:
+        synthetic = human.get("synthetic", True)
+        lines.extend([
+            "",
+            "## Human review (optional qualitative — not in composite)",
+            "",
+            f"- Fleiss' κ: **{human.get('fleiss_kappa', 'N/A')}**",
+            f"- Control mean overall: {human.get('control_mean', 'N/A')}",
+            f"- Treatment mean overall: {human.get('treatment_mean', 'N/A')}",
+            f"- Source: {'synthetic (not for claims)' if synthetic else human.get('source', 'import')}",
+            f"- Note: {human.get('note', 'Optional appendix only; excluded from claim composite.')}",
+        ])
+
     lines.extend([
         "",
         "## Interpretation",
         "",
-        "Positive mean delta: Lamina full loop vs Plan + implement (ecological adoption methodology).",
-        "Unequal agent turns are **by design** — see Methodology section above; not equal-turn ablation.",
-        "Control scored post-implement; treatment post-fix. Golden coverage searches implementation source.",
+        "Positive mean delta on the composite: higher checklist + LLM-rubric scores on implemented source",
+        "for Lamina full loop vs Plan + implement (ecological adoption methodology).",
+        "Unequal agent turns are **by design** — see Methodology section; not equal-turn ablation.",
+        "Behavior-probe lift is a separate SkillsBench-style signal — do not fold into the composite claim",
+        "until probes include runtime oracles you trust.",
         "",
         "## Reproducibility",
         "",
@@ -341,15 +432,15 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def detect_claim_ready(coverage_rows: list[dict], human: dict | None, judge_rows: list[dict] | None) -> bool:
+def detect_claim_ready(coverage_rows: list[dict], judge_rows: list[dict] | None) -> bool:
     if any(r.get("mock") for r in coverage_rows):
-        return False
-    if human and human.get("synthetic", False):
         return False
     if judge_rows:
         modes = {((r.get("judge_scores") or {}).get("judge_mode")) for r in judge_rows}
         if modes == {"heuristic"}:
             return False
+    else:
+        return False
     return True
 
 
@@ -372,17 +463,27 @@ def main() -> None:
         if judge_pairs:
             judge_stats = paired_stats(judge_pairs)
 
+    probe_stats = None
+    probe_path = SCORED_DIR / "probes-summary.json"
+    if probe_path.exists():
+        probe_rows = load_json(probe_path)
+        probe_pairs = task_level_means(probe_rows, "probe_score")
+        if probe_pairs:
+            probe_stats = paired_stats(probe_pairs)
+
     human = None
-    human_pairs = None
     human_path = SCORED_DIR / "human-scores.json"
     if human_path.exists():
         human = json.loads(human_path.read_text())
-        if not human.get("synthetic", True):
-            human_pairs = human_task_means(human)
-        # Still show synthetic human in report but exclude from composite
 
-    composite_stats = compute_composite(cov_pairs, judge_pairs, human_pairs, weights)
-    claim_ready = detect_claim_ready(coverage_rows, human, judge_rows)
+    analyst = None
+    analyst_path = SCORED_DIR / "analyst-report.json"
+    if analyst_path.exists():
+        analyst = json.loads(analyst_path.read_text())
+
+    cost = load_index_cost()
+    composite_stats = compute_composite(cov_pairs, judge_pairs, weights)
+    claim_ready = detect_claim_ready(coverage_rows, judge_rows)
 
     by_category: dict = {}
     cat_tasks: dict[str, list[dict]] = defaultdict(list)
@@ -396,11 +497,24 @@ def main() -> None:
     out = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "claim_ready": claim_ready,
+        "claim_surface": "golden_coverage + llm_judge on implemented source (Design A)",
         "methodology": methodology,
         "scoring_weights": weights,
         "coverage": cov_stats,
         "judge": judge_stats,
-        "human": human,
+        "behavior_probes": probe_stats,
+        "cost": cost,
+        "human_optional": human,
+        "analyst": {
+            "golden_non_discriminating_rate": (analyst or {}).get("golden_coverage", {}).get(
+                "non_discriminating_rate"
+            ),
+            "probe_non_discriminating_rate": (analyst or {}).get("behavior_probes", {}).get(
+                "non_discriminating_rate"
+            ),
+        }
+        if analyst
+        else None,
         "composite": composite_stats,
         "by_category": by_category,
     }
@@ -408,13 +522,29 @@ def main() -> None:
     stats_path = STATS_DIR / "stats.json"
     stats_path.write_text(json.dumps(out, indent=2) + "\n")
     report_path = RESULTS_DIR / "report.md"
-    report_path.write_text(build_report(cov_stats, judge_stats, human, composite_stats, claim_ready, methodology))
+    report_path.write_text(
+        build_report(
+            cov_stats,
+            judge_stats,
+            probe_stats,
+            cost,
+            human,
+            composite_stats,
+            analyst,
+            claim_ready,
+            methodology,
+        )
+    )
 
     print(f"Statistics → {stats_path}")
     print(f"Report → {report_path}")
     print(f"Coverage delta: {cov_stats['mean_delta']:+.1f} (d={cov_stats['cohens_d']:.2f})")
+    if probe_stats:
+        print(f"Probe lift: {probe_stats['mean_delta']:+.1f} (d={probe_stats['cohens_d']:.2f})")
     if composite_stats:
         print(f"Composite delta: {composite_stats['mean_delta']:+.2f} (d={composite_stats['cohens_d']:.2f})")
+    if cost and cost.get("duration", {}).get("mean_delta_ms") is not None:
+        print(f"Duration delta: {cost['duration']['mean_delta_ms']:+.0f} ms")
     print(f"Claim-ready: {claim_ready}")
 
 

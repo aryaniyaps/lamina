@@ -1,0 +1,93 @@
+task_id: task021
+version: 1.0.0
+probes:
+  - id: inv_no_data_loss_on_reconnect
+    kind: code_guard
+    description: "Invariant \"no data loss on reconnect\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(data[\\s_-]*loss[\\s_-]*reconnect).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(data[\\s_-]*loss[\\s_-]*reconnect)"
+  - id: inv_conflict_resolution_policy_defined
+    kind: code_guard
+    description: "Invariant \"conflict resolution policy defined\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(conflict[\\s_-]*resolution[\\s_-]*policy[\\s_-]*defined).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(conflict[\\s_-]*resolution[\\s_-]*policy[\\s_-]*defined)"
+  - id: inv_offline_indicator_always_visible
+    kind: code_guard
+    description: "Invariant \"offline indicator always visible\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(offline[\\s_-]*indicator[\\s_-]*always[\\s_-]*visible).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(offline[\\s_-]*indicator[\\s_-]*always[\\s_-]*visible)"
+  - id: ent_document
+    kind: entity_model
+    description: "Entity \"document\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*document|(?is)document[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_edit_operation
+    kind: entity_model
+    description: "Entity \"edit operation\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*edit[\\s_-]*operation|(?is)edit[\\s_-]*operation[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_sync_queue
+    kind: entity_model
+    description: "Entity \"sync queue\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*sync[\\s_-]*queue|(?is)sync[\\s_-]*queue[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_conflict
+    kind: entity_model
+    description: "Entity \"conflict\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*conflict|(?is)conflict[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_extended_offline_queue_overflow
+    kind: scenario_handler
+    description: "Scenario/edge \"extended offline queue overflow\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(extended[\\s_-]*offline[\\s_-]*queue[\\s_-]*overflow).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(extended[\\s_-]*offline[\\s_-]*queue[\\s_-]*overflow)"
+  - id: scn_conflicting_edits_merge
+    kind: scenario_handler
+    description: "Scenario/edge \"conflicting edits merge\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(conflicting[\\s_-]*edits[\\s_-]*merge).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(conflicting[\\s_-]*edits[\\s_-]*merge)"
+  - id: scn_auth_expired_offline_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"auth expired offline recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(auth[\\s_-]*expired[\\s_-]*offline[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(auth[\\s_-]*expired[\\s_-]*offline[\\s_-]*recovery)"
+  - id: scn_extended_offline
+    kind: scenario_handler
+    description: "Scenario/edge \"extended offline\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(extended[\\s_-]*offline).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(extended[\\s_-]*offline)"
+  - id: scn_conflicting_edits
+    kind: scenario_handler
+    description: "Scenario/edge \"conflicting edits\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(conflicting[\\s_-]*edits).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(conflicting[\\s_-]*edits)"
+  - id: scn_storage_full
+    kind: scenario_handler
+    description: "Scenario/edge \"storage full\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(storage[\\s_-]*full).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(storage[\\s_-]*full)"
+  - id: scn_auth_expired_offline
+    kind: scenario_handler
+    description: "Scenario/edge \"auth expired offline\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(auth[\\s_-]*expired[\\s_-]*offline).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(auth[\\s_-]*expired[\\s_-]*offline)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

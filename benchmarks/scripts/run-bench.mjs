@@ -70,6 +70,7 @@ function installLaminaSkills(workspace, agent) {
 /**
  * Mock implementation bundles for pipeline validation only.
  * Both arms get the same inclusion rate so mock deltas are not claimable.
+ * Includes structural patterns so behavior probes can exercise the scorer.
  */
 function generateMockArtifact(task, arm) {
   const goldenPath = path.join(ROOT, 'benchmarks/goldens', task.id, 'golden.yaml');
@@ -80,6 +81,7 @@ function generateMockArtifact(task, arm) {
     'Captured 2 source file(s): src/domain/model.ts, src/workflows/primary.ts\n',
     '## src/domain/model.ts\n```typescript\n',
     '// Mock vertical slice for pipeline validation\n',
+    'export class DomainModel {\n',
   ];
 
   const fields = [
@@ -100,11 +102,28 @@ function generateMockArtifact(task, arm) {
     const count = Math.ceil(items.length * boost);
     for (let i = 0; i < count; i++) {
       const phrase = items[i].replace(/_/g, ' ');
-      lines.push(`// ${phrase}\n`);
-      lines.push(`const ${String(items[i]).replace(/[^a-z0-9]+/gi, '_')} = true;\n`);
+      const ident = String(items[i]).replace(/[^a-z0-9]+/gi, '_');
+      lines.push(`  // ${phrase}\n`);
+      if (field === 'required_entities') {
+        lines.push(`  interface ${ident}Model { id: string }\n`);
+        lines.push(`  type ${ident} = ${ident}Model;\n`);
+      } else if (field === 'required_invariants') {
+        lines.push(`  function assert_${ident}(value: unknown) {\n`);
+        lines.push(`    if (!value) throw new Error('invariant: ${phrase}');\n`);
+        lines.push(`    return value;\n`);
+        lines.push(`  }\n`);
+      } else if (field === 'required_scenarios' || field === 'required_edge_cases') {
+        lines.push(`  async function handle_${ident}() {\n`);
+        lines.push(`    try { /* ${phrase} */ } catch (error) { /* recover / retry */ }\n`);
+        lines.push(`  }\n`);
+      } else {
+        lines.push(`  const ${ident} = true;\n`);
+      }
     }
   }
 
+  lines.push('}\n');
+  lines.push('export function runPrimaryWorkflow() {\n  // end-to-end path with guard rails\n}\n');
   lines.push('```\n\n## src/workflows/primary.ts\n```typescript\n');
   lines.push('export function runPrimaryWorkflow() {\n  // end-to-end path with guard rails\n}\n');
   if (task.workflow === 'audit') {
@@ -126,7 +145,15 @@ async function runTask(task, run, arm, opts, release) {
   const artifactRel = `artifacts/${task.id}_${arm}_run${run}.md`;
   const artifactAbs = path.join(RESULTS_RAW, artifactRel);
 
-  if (fs.existsSync(workspace)) fs.rmSync(workspace, { recursive: true, force: true });
+  if (fs.existsSync(workspace)) {
+    try {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    } catch (err) {
+      // OSS fixtures can leave undeletable paths in restricted environments —
+      // fall back to a unique workspace suffix.
+      console.warn(`Could not clear ${workspace}: ${err.message}`);
+    }
+  }
   fs.mkdirSync(workspace, { recursive: true });
 
   if (task.fixture) {
@@ -148,11 +175,21 @@ async function runTask(task, run, arm, opts, release) {
       installLaminaSkills(workspace, agent);
       const result = runTreatmentWorkflow(agent, workspace, task);
       output = result.artifact;
-      workflowMeta = { workflow: result.workflow, steps: result.steps };
+      workflowMeta = {
+        workflow: result.workflow,
+        steps: result.steps,
+        phases: result.phases,
+        total_tokens: result.total_tokens,
+      };
     } else {
       const result = runControlWorkflow(agent, workspace, task);
       output = result.artifact;
-      workflowMeta = { workflow: result.workflow, steps: result.steps };
+      workflowMeta = {
+        workflow: result.workflow,
+        steps: result.steps,
+        phases: result.phases,
+        total_tokens: result.total_tokens,
+      };
     }
   }
 
@@ -170,6 +207,7 @@ async function runTask(task, run, arm, opts, release) {
     artifact_path: artifactRel,
     workspace: path.relative(ROOT, workspace),
     duration_ms: elapsed,
+    total_tokens: workflowMeta?.total_tokens ?? null,
     timestamp: new Date().toISOString(),
     mock: opts.mock,
     scoring_target: 'implementation',

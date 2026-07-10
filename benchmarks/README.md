@@ -1,10 +1,10 @@
-# LaminaBench v2.0
+# LaminaBench v2.1
 
 **Public product-behavior implementation benchmark** comparing the same coding agent with and without Lamina.
 
 This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests (routing, init gates, guardrails). LaminaBench measures whether Lamina improves **implemented product behavior** — domain rules, workflows, scenarios, and edge handling **in code** — on realistic tasks.
 
-> **Status (v2.0.0):** Corpus and scoring pipeline are claim-hardened. **No live results are published yet.** Do not cite performance numbers externally until a live `npm run bench:all` run is committed under `releases/v2.0.0/`.
+> **Status (v2.1):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design A. Behavior probes, cost/time, and optional human review are reported separately. **No live results are published yet.**
 
 **Methodology:** [Design A — ecological adoption comparison](METHODOLOGY.md) (`design_a_ecological`). Control = Plan + implement (2 turns). Treatment = full Lamina loop (5 turns). **Unequal turns are intentional** — see [why this is the right design](METHODOLOGY.md#why-unequal-turns-is-the-right-design-not-a-loophole), not a scoring loophole.
 
@@ -72,16 +72,17 @@ npm run bench:pipeline-check
 
 | Script | Purpose |
 |--------|---------|
-| `npm run bench:validate` | Validate task + golden schemas and fixtures |
+| `npm run bench:validate` | Validate task + golden + probe schemas and fixtures |
+| `npm run bench:probes:generate` | Regenerate structural probes from goldens |
 | `npm run bench:run` | Live control/treatment runs (requires agent CLI) |
 | `npm run bench:run:mock` | Synthetic equal-coverage artifacts for pipeline checks |
-| `npm run bench:score` | Golden coverage + LLM judge (promptfoo when keys set) |
-| `npm run bench:score:heuristic` | Coverage + arm-neutral heuristic judge |
-| `npm run bench:analyze` | Stats + composite 40/40/20 → `results/report.md` |
-| `npm run bench:human-packet` | Blind human review packet (no synthetic scores) |
-| `npm run bench:import-human` | Import real rater CSV → `human-scores.json` |
-| `npm run bench:import-google-form` | Import Google Form / Sheets CSV + verification audit |
-| `npm run bench:all` | **Live** validate → run → score → analyze → human-packet |
+| `npm run bench:score` | Golden coverage + LLM judge + behavior probes |
+| `npm run bench:score:heuristic` | Coverage + heuristic judge + probes |
+| `npm run bench:analyst` | Flag non-discriminating golden/probe items |
+| `npm run bench:analyze` | Analyst pass + stats/composite/cost → `results/report.md` |
+| `npm run bench:human-packet` | Optional qualitative review packet (not in composite) |
+| `npm run bench:import-human` | Import rater CSV (appendix only) |
+| `npm run bench:all` | **Live** validate → run → score → analyze |
 | `npm run bench:pipeline-check` | Mock path for CI/pipeline validation only |
 
 ## Layout
@@ -93,14 +94,15 @@ benchmarks/
   release.yaml          # Pinned agent, model, run parameters, weights
   tasks/taskNNN/        # description.md, context.md, task.yaml
   goldens/taskNNN/      # reference checklist (not ground truth)
+  probes/taskNNN/       # structural behavior probes (SkillsBench-inspired)
   fixtures/             # Manifests; OSS bases vendored under evals/fixtures/_base/
-  judges/               # Rubric, golden-coverage, promptfoo config
-  scripts/              # Runner, compiler, analysis, human import
+  judges/               # Rubric, golden-coverage, behavior-probes, promptfoo
+  scripts/              # Runner, compiler, analysis, analyst pass
   results/              # Raw runs, scores, statistics (gitignored)
   releases/             # Committed snapshots only when claim-ready
 ```
 
-## Corpus (v2.0)
+## Corpus (v2.1)
 
 25 tasks across 5 categories (5 each):
 
@@ -110,56 +112,61 @@ benchmarks/
 4. Workflow and edge-case design
 5. Resilience and degraded states
 
-3 runs per arm × 25 tasks = **150 workflow runs** (150 control invocations + 375 treatment = **525 agent calls**). Human blind eval on a 10-task stratified subset.
+3 runs per arm × 25 tasks = **150 workflow runs** (150 control invocations + 375 treatment = **525 agent calls**).
 
 ## Scoring
 
+### Claim composite (50/50)
+
 | Layer | Weight | Method |
 |-------|--------|--------|
-| Golden coverage | 40% | Phrase match in **implementation source** vs reference checklist (invariants/scenarios/entities/trade-offs 2×). **Sections not scored** (format-neutral). |
-| LLM judge | 40% | 2-model promptfoo rubric on bundled source when API keys set; otherwise arm-neutral heuristic (disclosed, not claim-ready alone) |
-| Human eval | 20% | Blind raters review implementations on 10-task subset via Google Form or CSV import |
+| Golden coverage | 50% | Phrase match in **implementation source** vs reference checklist (invariants/scenarios/entities/trade-offs 2×). **Sections not scored**. |
+| LLM judge | 50% | 2-model promptfoo rubric on bundled source when API keys set; otherwise arm-neutral heuristic (disclosed, not claim-ready) |
 
-`analyze.py` computes a **composite** on a 1–5 scale from available layers (renormalizes if human subset is absent). Reports mark `claim_ready: false` when any run is mock, judge is heuristic-only, or human scores are synthetic.
+### Reported separately (not in composite)
 
-Goldens are a **reference checklist**, not ground truth — any clear wording of the concept counts.
+| Signal | Method |
+|--------|--------|
+| Behavior probes | Structural `code_guard` / `entity_model` / `scenario_handler` checks on implementation source |
+| Cost / time | Wall-clock from `index.jsonl`; tokens when the agent CLI reports usage |
+| Human review | Optional qualitative packet — **not** part of the claim composite |
+| Analyst pass | Flags golden/probe items that always pass or always fail on both arms |
+
+`claim_ready: true` requires live (non-mock) runs and a real LLM judge (not heuristic-only).
+
+Goldens are a **reference checklist**, not ground truth — any clear wording of the concept counts. Probes are stricter: they require code-like context (guards, types, handlers).
 
 ### What this does *not* measure
 
-- Runtime correctness (tests passing, production deployment)
-- Live browser/persona-walk verification (see optional secondary metric)
+- Runtime product correctness unless you add per-task `probes/run.sh` oracles
+- Live browser/persona-walk verification (upgrade path for probes)
 - Model independence (default pin: `claude-code` + Sonnet 4; multi-agent pilots via `--agent`)
 - WCAG certification
 - Lamina workflow compliance (`evals/`)
 
-## Secondary metric (optional depth)
-
-Primary scoring is **implementation source** (control: post-implement; treatment: post-fix). Optional follow-on for runtime or live verification:
+## Behavior probes
 
 ```bash
-node benchmarks/scripts/secondary-verify-metric.mjs --help
+npm run bench:probes:generate   # from goldens
+npm run bench:probes            # score after bench:run
 ```
-
-Use for persona-walk findings, test-suite pass rates, or invariant probes — document separately from the primary A/B.
 
 ## Reproducing a release
 
 1. Set API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`
 2. Install reference agent: `claude` CLI (see `release.yaml`)
 3. `npm run bench:all` (live — never `--mock`)
-4. Run blind human review ([Google Form setup](human/google-form/SETUP.md)); `npm run bench:import-google-form -- --csv responses.csv`
-5. Re-run `npm run bench:analyze`
-6. Copy `results/report.md` + `results/statistics/stats.json` to `releases/v2.0.0/` only if `claim_ready: true`
+4. Copy `results/report.md` + `results/statistics/stats.json` to `releases/v2.0.0/` only if `claim_ready: true`
 
 **v1.1.0 mock results are retired** — do not use for external claims.
 
 ## Claim wording (use only after claim_ready)
 
-> On a public 25-task product-behavior implementation benchmark using **ecological adoption methodology (Design A)**, the same coding agent with Lamina produced higher-quality **implemented product behavior** than Plan-mode planning + implement — the without-Lamina baseline documented in our product demo. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Measured by reference-checklist coverage in source, multi-judge rubric scores on code, and blind human evaluation on a 10-task subset. Methodology: `benchmarks/METHODOLOGY.md`. Results pinned to `release.yaml`.
+> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on **reference-checklist coverage** and **multi-model rubric scores of implemented source**. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately. Methodology: `benchmarks/METHODOLOGY.md`. Results pinned to `release.yaml`.
 
 Until live results exist, prefer:
 
-> LaminaBench v2.0 defines a public ecological adoption A/B: Lamina full loop vs Plan + implement, scoring implemented product source. Methodology documented in `benchmarks/METHODOLOGY.md`. Live results not yet published.
+> LaminaBench defines a public ecological adoption A/B: Lamina full loop vs Plan + implement, with a claim surface of checklist + LLM rubric on implemented source. Live results not yet published.
 
 ## Fixture honesty
 

@@ -1,7 +1,8 @@
 {
   "id": "design_a_ecological",
   "name": "Ecological adoption comparison",
-  "version": "2.0.0",
+  "version": "2.1.0",
+  "claim_surface": "golden_coverage + llm_judge on implemented source",
   "research_question": "When a developer adopts Lamina versus using Plan mode and implementing (the realistic without-Lamina path), which produces better implemented product behavior in code?",
   "control": {
     "label": "Plan mode + implement",
@@ -32,8 +33,9 @@
   ],
   "explicit_non_claims": [
     "Does not claim matched compute fairness — ecological validity is prioritized.",
-    "Does not claim runtime/test pass rates without the optional secondary metric.",
-    "Does not claim model independence from a single agent pin."
+    "Does not claim runtime/test pass rates unless behavior probes include trusted shell/runtime oracles (reported separately from the composite).",
+    "Does not claim model independence from a single agent pin.",
+    "Human review is optional qualitative only — not part of the claim composite."
   ],
   "rejected_alternatives": [
     {

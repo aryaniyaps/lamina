@@ -63,21 +63,23 @@ Different stopping points reflect **different products**, not a hidden scoring a
 
 - Same **agent**, **model pin**, **task**, and **fixture** per paired run
 - **No Lamina skills** on control
-- **Blind** human and LLM judging of source code
+- **Blind** LLM judging of source code (human review optional, not in composite)
 - **Disclosed** methodology in every report (`methodology.json` + this document)
-- **`claim_ready: false`** until live runs, real judges, and non-synthetic human scores
+- **`claim_ready: false`** until live runs and a real LLM judge (not heuristic-only)
 
 ## How to cite results honestly
 
 **Do say:**
 
-> Lamina improved implemented product behavior versus Plan mode + implement on LaminaBench v2.0 (ecological adoption design; treatment includes verify/fix phases by design).
+> Under Design A, the same agent with Lamina scored higher on checklist coverage and LLM rubric scores of implemented source than Plan mode + implement (treatment includes verify/fix by design).
 
 **Do not say:**
 
 > Lamina won with equal agent turns — turn counts are intentionally unequal.
 
 > Lamina beat agents that already used Lamina’s workflow — control does not use that loop.
+
+> Lamina improved runtime product behavior — unless behavior-probe oracles include runtime checks you trust and report separately.
 
 ## Optional ablation (not primary)
 

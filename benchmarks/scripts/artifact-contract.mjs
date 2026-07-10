@@ -1,8 +1,6 @@
 /**
- * Shared helpers: extract the scoring artifact for both arms.
- * Primary target: **implemented product source**.
- * Control: post-implement (2-phase Plan baseline). Treatment: post-fix (5-phase Lamina loop).
- * Excludes .lamina/ and bench process markdown — those are workflow aids, not scored output.
+ * Extract scoring artifact: implemented product source (control post-implement, treatment post-fix).
+ * Excludes .lamina/ and bench process markdown.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -92,11 +90,7 @@ function walkImplementation(dir, prefix, out) {
   }
 }
 
-/**
- * Bundle application source from the workspace after implement → verify → fix.
- * @param {string} workspace
- * @param {string} [agentOutput] fallback when no source files were written
- */
+/** Bundle application source from the workspace. */
 export function captureImplementationArtifact(workspace, agentOutput) {
   const files = [];
   walkImplementation(workspace, '', files);
@@ -133,24 +127,3 @@ export function captureImplementationArtifact(workspace, agentOutput) {
   }
   return out;
 }
-
-/** @deprecated alias — use captureImplementationArtifact */
-export function captureScoringArtifact(workspace, agentOutput) {
-  return captureImplementationArtifact(workspace, agentOutput);
-}
-
-/** Shared output contract appended to phase-2 task prompts (both arms). */
-export const OUTPUT_CONTRACT = `## Required output
-
-Produce a **product-behavior design brief** (markdown). Cover:
-
-1. **Domain model** — entities and relationships
-2. **Illegal states / invariants** — what must never happen; how it is guarded
-3. **Actors and permissions** — who can do what
-4. **Workflows** — key journeys with decision points
-5. **Scenarios** — violation attempts, failures, and recovery paths
-6. **Trade-offs** — named competing goals and the choice you recommend
-7. **Implementation brief** — concrete build guidance for a coding agent
-
-Do not invent interviews, analytics, SUS scores, or workshop theater.
-Phase 2 briefs guide implementation; **primary benchmark scoring uses product source after fix**, not this document.`;

@@ -6,7 +6,6 @@
  *   (default)  Live: build promptfoo tests and run promptfoo if keys available;
  *              otherwise arm-neutral heuristic (no treatment seed advantage).
  *   --heuristic  Force arm-neutral heuristic (pipeline checks).
- *   --mock       Alias for --heuristic (deprecated name).
  *
  * Writes judge-summary.json for analyze.py.
  */
@@ -85,6 +84,12 @@ function tryPromptfooJudge(index) {
 
   // Write config next to tests so file:// resolves
   const tmpConfig = path.join(ROOT, 'benchmarks/judges/promptfoo-judge.generated.yaml');
+  const baseYamlPath = path.join(ROOT, 'benchmarks/judges/promptfoo.yaml');
+  if (!fs.existsSync(baseYamlPath)) {
+    console.warn('promptfoo.yaml missing; falling back to heuristic');
+    return null;
+  }
+  const baseYaml = fs.readFileSync(baseYamlPath, 'utf8');
   const config = baseYaml.replace(
     /tests:\s*\[\]/,
     'tests: file://promptfoo-tests.json'
@@ -177,8 +182,7 @@ function parsePromptfooOutput(outPath, index) {
 }
 
 function main() {
-  const heuristic =
-    process.argv.includes('--heuristic') || process.argv.includes('--mock');
+  const heuristic = process.argv.includes('--heuristic');
   const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
   if (!fs.existsSync(indexPath)) {
     console.error('No index.jsonl. Run bench:run first.');

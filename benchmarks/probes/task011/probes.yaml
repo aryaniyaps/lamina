@@ -1,0 +1,75 @@
+task_id: task011
+version: 1.0.0
+probes:
+  - id: inv_order_total_matches_line_items
+    kind: code_guard
+    description: "Invariant \"order total matches line items\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(order[\\s_-]*total[\\s_-]*matches[\\s_-]*line[\\s_-]*items).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(order[\\s_-]*total[\\s_-]*matches[\\s_-]*line[\\s_-]*items)"
+  - id: inv_payment_required_before_confirmation
+    kind: code_guard
+    description: "Invariant \"payment required before confirmation\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(payment[\\s_-]*required[\\s_-]*before[\\s_-]*confirmation).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(payment[\\s_-]*required[\\s_-]*before[\\s_-]*confirmation)"
+  - id: ent_cart
+    kind: entity_model
+    description: "Entity \"cart\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*cart|(?is)cart[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_order
+    kind: entity_model
+    description: "Entity \"order\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*order|(?is)order[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_payment
+    kind: entity_model
+    description: "Entity \"payment\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*payment|(?is)payment[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_shipping_address
+    kind: entity_model
+    description: "Entity \"shipping address\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*shipping[\\s_-]*address|(?is)shipping[\\s_-]*address[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_payment_declined_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"payment declined recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(payment[\\s_-]*declined[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(payment[\\s_-]*declined[\\s_-]*recovery)"
+  - id: scn_address_validation_failure
+    kind: scenario_handler
+    description: "Scenario/edge \"address validation failure\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(address[\\s_-]*validation[\\s_-]*failure).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(address[\\s_-]*validation[\\s_-]*failure)"
+  - id: scn_session_timeout_mid_checkout
+    kind: scenario_handler
+    description: "Scenario/edge \"session timeout mid checkout\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(session[\\s_-]*timeout[\\s_-]*mid[\\s_-]*checkout).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(session[\\s_-]*timeout[\\s_-]*mid[\\s_-]*checkout)"
+  - id: scn_payment_declined
+    kind: scenario_handler
+    description: "Scenario/edge \"payment declined\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(payment[\\s_-]*declined).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(payment[\\s_-]*declined)"
+  - id: scn_session_timeout
+    kind: scenario_handler
+    description: "Scenario/edge \"session timeout\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(session[\\s_-]*timeout).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(session[\\s_-]*timeout)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

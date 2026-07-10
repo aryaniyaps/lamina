@@ -1,22 +1,18 @@
 #!/usr/bin/env node
 /**
- * Validate benchmark tasks + goldens; compile suite manifest for run-bench.mjs.
- * Usage: node benchmarks/scripts/compile-suite.mjs [--check] [--out path]
+ * Validate benchmark tasks + goldens + probes; compile suite manifest for run-bench.mjs.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchManifest } from './stage-bench-fixture.mjs';
-import { OUTPUT_CONTRACT } from './artifact-contract.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
+const PROBES_DIR = path.join(ROOT, 'benchmarks/probes');
 const SCHEMAS = path.join(ROOT, 'benchmarks/schemas');
-
-const CATEGORIES = new Set(['greenfield', 'oss_feature', 'oss_audit', 'workflow_edge', 'resilience']);
-const WORKFLOWS = new Set(['design', 'audit']);
 
 const errors = [];
 
@@ -85,8 +81,11 @@ function discoverTasks() {
       if (golden.task_id && golden.task_id !== task.id) {
         errors.push(`${task.id}: golden task_id mismatch`);
       }
-      golden.task_id = golden.task_id || task.id;
-      task._golden = golden;
+    }
+
+    const probesPath = path.join(PROBES_DIR, task.id, 'probes.yaml');
+    if (!fs.existsSync(probesPath)) {
+      errors.push(`${task.id}: missing probes/${task.id}/probes.yaml (run npm run bench:probes:generate)`);
     }
 
     if (task.fixture) {
@@ -108,12 +107,6 @@ function discoverTasks() {
   return tasks;
 }
 
-function buildPrompt(task) {
-  const desc = fs.readFileSync(path.join(ROOT, task._paths.description), 'utf8').trim();
-  const ctx = fs.readFileSync(path.join(ROOT, task._paths.context), 'utf8').trim();
-  return `${desc}\n\n---\n\nContext:\n${ctx}\n\n---\n\n${task.prompt}\n\n---\n\n${OUTPUT_CONTRACT}`;
-}
-
 function compileSuite(tasks, release) {
   return {
     version: release.version,
@@ -125,18 +118,15 @@ function compileSuite(tasks, release) {
       category: t.category,
       workflow: t.workflow,
       prompt: t.prompt,
-      full_prompt: buildPrompt(t),
       fixture: t.fixture ?? null,
       oss: t.oss ?? null,
-      human_eval: t.human_eval ?? false,
       paths: t._paths,
     })),
   };
 }
 
 function readRelease() {
-  const releasePath = path.join(ROOT, 'benchmarks/release.yaml');
-  return readYamlSync(releasePath);
+  return readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
 }
 
 function main() {
@@ -146,9 +136,6 @@ function main() {
     outIdx !== -1
       ? path.resolve(process.argv[outIdx + 1])
       : path.join(ROOT, 'benchmarks/tmp/bench-suite.json');
-
-  const taskSchema = loadJsonSchema('task.schema.json');
-  void taskSchema;
 
   const tasks = discoverTasks();
   const release = readRelease();

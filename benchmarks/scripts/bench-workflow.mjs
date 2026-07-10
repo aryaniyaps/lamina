@@ -180,17 +180,48 @@ Fix product-behavior gaps between the implementation and the design contract. Fo
  * Control: Plan mode → implement (ecological baseline, matches hotel demo).
  * @returns {{ artifact: string, steps: object[], phases: number }}
  */
+function pushStep(steps, phase, prompt_kind, result) {
+  const usage = result.usage || null;
+  steps.push({
+    phase,
+    prompt_kind,
+    exitCode: result.exitCode,
+    duration_ms: result.duration_ms ?? null,
+    total_tokens: usage?.total_tokens ?? null,
+    input_tokens: usage?.input_tokens ?? null,
+    output_tokens: usage?.output_tokens ?? null,
+  });
+}
+
+function sumUsage(steps) {
+  let total = 0;
+  let any = false;
+  for (const s of steps) {
+    if (s.total_tokens != null) {
+      total += s.total_tokens;
+      any = true;
+    }
+  }
+  return any ? total : null;
+}
+
 export function runControlWorkflow(agent, workspace, task) {
   const steps = [];
 
   const p1 = invokeAgent(agent, buildControlPlanPrompt(task), workspace);
-  steps.push({ phase: 'plan', prompt_kind: 'control_plan', exitCode: p1.exitCode });
+  pushStep(steps, 'plan', 'control_plan', p1);
 
   const p2 = invokeAgent(agent, buildImplementPrompt(workspace, task.workflow), workspace);
-  steps.push({ phase: 'implement', prompt_kind: 'control_implement', exitCode: p2.exitCode });
+  pushStep(steps, 'implement', 'control_implement', p2);
 
   const artifact = captureImplementationArtifact(workspace, p2.output);
-  return { artifact, steps, workflow: 'control_plan_2_phase', phases: 2 };
+  return {
+    artifact,
+    steps,
+    workflow: 'control_plan_2_phase',
+    phases: 2,
+    total_tokens: sumUsage(steps),
+  };
 }
 
 /**
@@ -213,7 +244,7 @@ ${brief}
 Persist business context under .lamina/ only. Do not write app source.`,
     workspace
   );
-  steps.push({ phase: 'lamina-init', prompt_kind: 'treatment_init', exitCode: p1.exitCode });
+  pushStep(steps, 'lamina-init', 'treatment_init', p1);
 
   let p2;
   if (task.workflow === 'audit') {
@@ -226,7 +257,7 @@ ${task.prompt}
 Use business context in .lamina/. Audit the existing product behavior in this workspace (read-only on app source). Write findings under .lamina/ only.`,
       workspace
     );
-    steps.push({ phase: 'lamina-verify-audit', prompt_kind: 'treatment_verify_brownfield', exitCode: p2.exitCode });
+    pushStep(steps, 'lamina-verify-audit', 'treatment_verify_brownfield', p2);
   } else {
     p2 = invokeAgent(
       agent,
@@ -237,18 +268,24 @@ ${task.prompt}
 Use business context in .lamina/. Emit run.yaml + implement.md at ready_to_build. Write .lamina/ only — no app source.`,
       workspace
     );
-    steps.push({ phase: 'lamina-design', prompt_kind: 'treatment_design', exitCode: p2.exitCode });
+    pushStep(steps, 'lamina-design', 'treatment_design', p2);
   }
 
   const p3 = invokeAgent(agent, buildImplementPrompt(workspace, task.workflow), workspace);
-  steps.push({ phase: 'implement', prompt_kind: 'treatment_implement', exitCode: p3.exitCode });
+  pushStep(steps, 'implement', 'treatment_implement', p3);
 
   const p4 = invokeAgent(agent, buildPostImplementVerifyPrompt(task), workspace);
-  steps.push({ phase: 'lamina-verify', prompt_kind: 'treatment_verify_post_build', exitCode: p4.exitCode });
+  pushStep(steps, 'lamina-verify', 'treatment_verify_post_build', p4);
 
   const p5 = invokeAgent(agent, buildFixPrompt(workspace), workspace);
-  steps.push({ phase: 'fix', prompt_kind: 'treatment_fix', exitCode: p5.exitCode });
+  pushStep(steps, 'fix', 'treatment_fix', p5);
 
   const artifact = captureImplementationArtifact(workspace, p5.output);
-  return { artifact, steps, workflow: 'treatment_lamina_5_phase', phases: 5 };
+  return {
+    artifact,
+    steps,
+    workflow: 'treatment_lamina_5_phase',
+    phases: 5,
+    total_tokens: sumUsage(steps),
+  };
 }

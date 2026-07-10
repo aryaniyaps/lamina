@@ -1,0 +1,75 @@
+task_id: task005
+version: 1.0.0
+probes:
+  - id: inv_no_public_leaderboard
+    kind: code_guard
+    description: "Invariant \"no public leaderboard\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(public[\\s_-]*leaderboard).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(public[\\s_-]*leaderboard)"
+  - id: inv_opt_in_social_only
+    kind: code_guard
+    description: "Invariant \"opt in social only\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(opt[\\s_-]*social[\\s_-]*only).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(opt[\\s_-]*social[\\s_-]*only)"
+  - id: inv_streak_forgiveness_policy
+    kind: code_guard
+    description: "Invariant \"streak forgiveness policy\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(streak[\\s_-]*forgiveness[\\s_-]*policy).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(streak[\\s_-]*forgiveness[\\s_-]*policy)"
+  - id: ent_habit
+    kind: entity_model
+    description: "Entity \"habit\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*habit|(?is)habit[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_checkin
+    kind: entity_model
+    description: "Entity \"checkin\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*checkin|(?is)checkin[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_streak
+    kind: entity_model
+    description: "Entity \"streak\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*streak|(?is)streak[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_friend_connection
+    kind: entity_model
+    description: "Entity \"friend connection\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*friend[\\s_-]*connection|(?is)friend[\\s_-]*connection[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_missed_day_recovery
+    kind: scenario_handler
+    description: "Scenario/edge \"missed day recovery\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(missed[\\s_-]*day[\\s_-]*recovery).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(missed[\\s_-]*day[\\s_-]*recovery)"
+  - id: scn_health_sync_failure
+    kind: scenario_handler
+    description: "Scenario/edge \"health sync failure\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(health[\\s_-]*sync[\\s_-]*failure).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(health[\\s_-]*sync[\\s_-]*failure)"
+  - id: scn_friend_request_declined
+    kind: scenario_handler
+    description: "Scenario/edge \"friend request declined\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(friend[\\s_-]*request[\\s_-]*declined).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(friend[\\s_-]*request[\\s_-]*declined)"
+  - id: scn_missed_day
+    kind: scenario_handler
+    description: "Scenario/edge \"missed day\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(missed[\\s_-]*day).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(missed[\\s_-]*day)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

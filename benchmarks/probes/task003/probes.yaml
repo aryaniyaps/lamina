@@ -1,0 +1,99 @@
+task_id: task003
+version: 1.0.0
+probes:
+  - id: inv_shift_capacity_not_exceeded
+    kind: code_guard
+    description: "Invariant \"shift capacity not exceeded\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(shift[\\s_-]*capacity[\\s_-]*not[\\s_-]*exceeded).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(shift[\\s_-]*capacity[\\s_-]*not[\\s_-]*exceeded)"
+  - id: inv_background_check_before_assignment
+    kind: code_guard
+    description: "Invariant \"background check before assignment\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(background[\\s_-]*check[\\s_-]*before[\\s_-]*assignment).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(background[\\s_-]*check[\\s_-]*before[\\s_-]*assignment)"
+  - id: inv_min_age_enforced
+    kind: code_guard
+    description: "Invariant \"min age enforced\" with guard/validation"
+    weight: 2
+    patterns:
+      - "(?is)(min[\\s_-]*age[\\s_-]*enforced).{0,120}(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant)|(?is)(if|throw|assert|require|guard|validate|forbid|reject|cannot|must|ensure|check|deny|unauthorized|forbidden|invariant).{0,120}(min[\\s_-]*age[\\s_-]*enforced)"
+  - id: ent_opportunity
+    kind: entity_model
+    description: "Entity \"opportunity\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*opportunity|(?is)opportunity[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_shift
+    kind: entity_model
+    description: "Entity \"shift\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*shift|(?is)shift[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_volunteer
+    kind: entity_model
+    description: "Entity \"volunteer\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*volunteer|(?is)volunteer[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_certification
+    kind: entity_model
+    description: "Entity \"certification\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*certification|(?is)certification[\\s\\w]*({|struct|class|interface|=)"
+  - id: ent_organization
+    kind: entity_model
+    description: "Entity \"organization\" in type/model context"
+    weight: 1
+    patterns:
+      - "(?is)(type|interface|class|struct|model|schema|entity|record|enum|typedef)[\\s\\w{:,<]*organization|(?is)organization[\\s\\w]*({|struct|class|interface|=)"
+  - id: scn_no_show_handling
+    kind: scenario_handler
+    description: "Scenario/edge \"no show handling\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(show[\\s_-]*handling).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(show[\\s_-]*handling)"
+  - id: scn_certification_expired_block
+    kind: scenario_handler
+    description: "Scenario/edge \"certification expired block\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(certification[\\s_-]*expired[\\s_-]*block).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(certification[\\s_-]*expired[\\s_-]*block)"
+  - id: scn_overbooked_shift_prevention
+    kind: scenario_handler
+    description: "Scenario/edge \"overbooked shift prevention\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(overbooked[\\s_-]*shift[\\s_-]*prevention).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(overbooked[\\s_-]*shift[\\s_-]*prevention)"
+  - id: scn_no_show
+    kind: scenario_handler
+    description: "Scenario/edge \"no show\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(show).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(show)"
+  - id: scn_certification_expired
+    kind: scenario_handler
+    description: "Scenario/edge \"certification expired\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(certification[\\s_-]*expired).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(certification[\\s_-]*expired)"
+  - id: scn_overbooked_shift
+    kind: scenario_handler
+    description: "Scenario/edge \"overbooked shift\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(overbooked[\\s_-]*shift).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(overbooked[\\s_-]*shift)"
+  - id: scn_last_minute_cancel
+    kind: scenario_handler
+    description: "Scenario/edge \"last minute cancel\" near error/recovery handling"
+    weight: 2
+    patterns:
+      - "(?is)(last[\\s_-]*minute[\\s_-]*cancel).{0,160}(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue)|(?is)(catch|error|recover|retry|fallback|empty|offline|timeout|conflict|handler|onError|rescue).{0,160}(last[\\s_-]*minute[\\s_-]*cancel)"
+  - id: has_executable_slice
+    kind: code_guard
+    description: Contains function/class/export definitions
+    weight: 1
+    patterns:
+      - "\\b(export\\s+(async\\s+)?function|export\\s+class|def\\s+\\w+|function\\s+\\w+|class\\s+\\w+)\\b"

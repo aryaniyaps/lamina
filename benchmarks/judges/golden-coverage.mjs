@@ -141,9 +141,6 @@ function main() {
       note: 'Goldens are a reference checklist applied to implementation source, not ground truth.',
     };
     scores.push(scored);
-
-    const outFile = path.join(SCORED_DIR, `${entry.task_id}_${entry.arm}_run${entry.run}.json`);
-    fs.writeFileSync(outFile, JSON.stringify(scored, null, 2) + '\n');
   }
 
   const summaryPath = path.join(SCORED_DIR, 'coverage-summary.json');
