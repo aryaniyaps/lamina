@@ -1,0 +1,52 @@
+# LaminaBench judge context
+
+## Task description
+Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.
+
+## Golden reference checklist
+Concepts to look for in code; identifiers, comments, logic, and tests all count.
+
+### required_entities
+- document
+- collection
+- permission
+- share_link
+
+### required_invariants
+- document_permissions_bounded_by_collection
+- revoked_access_immediate
+
+### required_personas
+- author
+- viewer
+- admin
+
+### required_flows
+- share_document
+- change_permissions
+- public_link
+
+### required_findings
+- permission_inheritance_gap
+- invariant_violation
+- revocation_failure
+- multi_view_inconsistency
+
+### required_scenarios
+- permission_downgrade_propagation
+- link_leak_after_revocation
+- moved_document_access
+
+### required_edge_cases
+- permission_downgrade
+- link_leak
+- moved_document
+
+### required_a11y
+- permission_status
+- share_dialog_focus
+
+### required_sections
+- executive summary
+- findings
+- prioritized improvements

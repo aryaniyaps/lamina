@@ -1,3 +1,10 @@
 #!/bin/bash
 set -euo pipefail
-node /tests/harbor-score.mjs --workspace /app --golden /tests/golden.yaml --meta /tests/task-meta.json --out /logs/verifier/reward.json
+
+export PYTHONPATH=/tests
+
+python3 /tests/capture_artifact.py
+
+uvx --with harbor-rewardkit@0.1 --with pyyaml rewardkit /tests
+
+python3 /tests/finalize_reward.py

@@ -4,9 +4,9 @@
  *
  * Usage:
  *   node benchmarks/scripts/run-harbor-bench.mjs [--pilot] [--tasks task001] [--runs N]
- *     [--fresh] [--rerun task001] [--sync-only] [--ingest-only]
+ *     [--fresh] [--sync-only]
  *
- * Default: harbor sync + run + ingest.
+ * Default: harbor sync + run.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,6 @@ import { fileURLToPath } from 'url';
 import { spawnSync } from 'node:child_process';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
-import { computeJobFingerprint, getResultsContractVersion, readIndexRows, dedupeIndexByJob, jobKey, isCompleteForResume } from './bench-index.mjs';
 
 loadBenchEnv();
 
@@ -23,7 +22,6 @@ process.env.PATH = `${process.env.HOME}/.local/bin:${process.env.PATH}`;
 const HARBOR_TASKS = path.join(ROOT, 'benchmarks/harbor/tasks');
 const HARBOR_JOBS = path.join(ROOT, 'benchmarks/results/harbor/jobs');
 const PROMPT_TEMPLATE = path.join(ROOT, 'benchmarks/harbor/prompt_template.j2');
-const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 
 const PILOT_TASKS = ['task001', 'task002', 'task003'];
 
@@ -32,16 +30,12 @@ function parseArgs() {
     pilot: process.argv.includes('--pilot'),
     fresh: process.argv.includes('--fresh'),
     syncOnly: process.argv.includes('--sync-only'),
-    ingestOnly: process.argv.includes('--ingest-only'),
     tasks: null,
-    rerun: null,
     runs: null,
     concurrency: Number(process.env.BENCH_CONCURRENCY) || 4,
   };
   const tasksIdx = process.argv.indexOf('--tasks');
   if (tasksIdx !== -1) opts.tasks = process.argv[tasksIdx + 1].split(',');
-  const rerunIdx = process.argv.indexOf('--rerun');
-  if (rerunIdx !== -1) opts.rerun = process.argv[rerunIdx + 1].split(',');
   const runsIdx = process.argv.indexOf('--runs');
   if (runsIdx !== -1) opts.runs = Number(process.argv[runsIdx + 1]);
   const concIdx = process.argv.indexOf('--concurrency');
@@ -92,38 +86,14 @@ function listHarborTasks(opts, suite) {
   return harborNames;
 }
 
-function loadIndexByKey() {
-  const map = new Map();
-  for (const row of dedupeIndexByJob(readIndexRows(RESULTS_RAW))) {
-    map.set(jobKey(row), row);
+function clearJobsDir() {
+  if (fs.existsSync(HARBOR_JOBS)) {
+    fs.rmSync(HARBOR_JOBS, { recursive: true, force: true });
   }
-  return map;
+  fs.mkdirSync(HARBOR_JOBS, { recursive: true });
 }
 
-function shouldSkipHarborTask(harborName, run, opts, release, suite, indexByKey) {
-  if (opts.rerun?.some((id) => harborName.startsWith(id))) return false;
-  const m = harborName.match(/^(task\d{3})-(control|treatment)$/);
-  if (!m) return false;
-  const task = suite.tasks.find((t) => t.id === m[1]);
-  if (!task) return false;
-  const arm = m[2];
-  const model = resolveBenchModel(release);
-  const fp = computeJobFingerprint(task, {
-    arm,
-    run,
-    agent: release.agent,
-    model,
-    resultsContractVersion: getResultsContractVersion(),
-  });
-  const key = `${task.id}:${arm}:run${run}`;
-  const prev = indexByKey.get(key);
-  return (
-    isCompleteForResume(prev, fp) &&
-    (prev?.runner === 'harbor' || prev?.runner == null)
-  );
-}
-
-function runHarborTrial(harbor, harborName, release, opts, attempt) {
+function runHarborTrial(harbor, harborName, release, attempt) {
   const model = resolveBenchModel(release);
   const modelArg = model.startsWith('anthropic/') ? model : `anthropic/${model}`;
   const args = [
@@ -159,19 +129,8 @@ function runHarborTrial(harbor, harborName, release, opts, attempt) {
   return r.status === 0;
 }
 
-function ingest(opts) {
-  const args = ['benchmarks/scripts/ingest-harbor-results.mjs', '--jobs-dir', HARBOR_JOBS];
-  if (opts.fresh) args.push('--fresh');
-  spawnSync('node', args, { cwd: ROOT, stdio: 'inherit' });
-}
-
 function main() {
   const opts = parseArgs();
-
-  if (opts.ingestOnly) {
-    ingest(opts);
-    return;
-  }
 
   syncHarbor(opts);
   if (opts.syncOnly) return;
@@ -183,31 +142,29 @@ function main() {
   const harborTasks = listHarborTasks(opts, suite);
 
   if (opts.fresh) {
-    const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
-    if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath);
+    clearJobsDir();
+  } else {
+    fs.mkdirSync(HARBOR_JOBS, { recursive: true });
   }
 
-  const indexByKey = loadIndexByKey();
   let done = 0;
+  let failed = 0;
   const total = harborTasks.length * runs;
 
   for (let run = 1; run <= runs; run++) {
     for (const harborName of harborTasks) {
-      if (shouldSkipHarborTask(harborName, run, opts, release, suite, indexByKey)) {
-        console.log(`[skip] ${harborName} run${run} (fingerprint match)`);
-        done++;
-        continue;
-      }
-      const ok = runHarborTrial(harbor, harborName, release, opts, run);
+      const ok = runHarborTrial(harbor, harborName, release, run);
       done++;
-      if (!ok) console.warn(`WARNING: Harbor trial failed for ${harborName} run${run}`);
-      ingest({ fresh: false });
+      if (!ok) {
+        failed++;
+        console.warn(`WARNING: Harbor trial failed for ${harborName} run${run}`);
+      }
     }
   }
 
-  console.log(`\nHarbor bench complete: ${done}/${total} trial invocations`);
+  console.log(`\nHarbor bench complete: ${done}/${total} trial invocations (${failed} failed)`);
   console.log(`Jobs: ${HARBOR_JOBS}`);
-  console.log(`Index: ${path.join(RESULTS_RAW, 'index.jsonl')}`);
+  console.log('Inspect results: harbor view');
 }
 
 main();

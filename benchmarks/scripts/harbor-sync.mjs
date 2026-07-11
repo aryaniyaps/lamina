@@ -16,15 +16,13 @@ import {
   HARBOR_TASKS_DIR,
   harborPath,
   loadRegistry,
-  writeRegistry,
 } from './harbor-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HARBOR_ROOT = path.join(ROOT, 'benchmarks/harbor');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 const OVERLAY_TREATMENT = path.join(HARBOR_ROOT, 'overlays/treatment');
-const SCRIPTS = path.join(ROOT, 'benchmarks/scripts');
-const DEPS = ['artifact-contract.mjs', 'bench-clarify.mjs', 'yaml.mjs'];
+const VERIFIER_SRC = path.join(HARBOR_ROOT, 'verifier');
 
 function parseArgs() {
   const opts = { tasks: null, agent: 'claude-code' };
@@ -36,12 +34,7 @@ function parseArgs() {
 }
 
 function writeTaskToml(dest, { task, arm, release }) {
-  const taskTomlPath = path.join(dest, 'task.toml');
-  if (fs.existsSync(taskTomlPath) && fs.readFileSync(taskTomlPath, 'utf8').includes('[task]')) {
-    return;
-  }
-  const fixtureLine =
-    task.fixture == null ? '' : `lamina_fixture = "${task.fixture}"\n`;
+  const fixtureLine = task.fixture == null ? '' : `lamina_fixture = "${task.fixture}"\n`;
   const content = `version = "1.0"
 
 [metadata]
@@ -55,6 +48,12 @@ lamina_workflow = "${task.workflow}"
 ${fixtureLine}
 [verifier]
 timeout_sec = ${release.verifier_timeout_sec || 600}.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "\${ANTHROPIC_API_KEY}"
+ANTHROPIC_AUTH_TOKEN = "\${ANTHROPIC_AUTH_TOKEN}"
+ANTHROPIC_BASE_URL = "\${ANTHROPIC_BASE_URL}"
+REWARDKIT_JUDGE = "\${REWARDKIT_JUDGE}"
 
 [agent]
 timeout_sec = ${release.agent_timeout_sec || 5400}.0
@@ -75,9 +74,12 @@ function writeDockerfile(dest) {
     `FROM node:20-bookworm-slim
 
 RUN apt-get update \\
-  && apt-get install -y --no-install-recommends ca-certificates git \\
+  && apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv \\
   && rm -rf /var/lib/apt/lists/* \\
-  && npm install -g @anthropic-ai/claude-code
+  && npm install -g @anthropic-ai/claude-code \\
+  && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+ENV PATH="/root/.local/bin:\${PATH}"
 
 WORKDIR /app
 
@@ -88,23 +90,63 @@ CMD ["bash"]
   );
 }
 
+function rmPath(target) {
+  if (!fs.existsSync(target)) return;
+  try {
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  } catch (err) {
+    if (err?.code === 'EBUSY' || err?.errno === -4094) {
+      fs.rmSync(target, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
+      return;
+    }
+    throw err;
+  }
+}
+
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function buildJudgeContext(task, golden) {
+  const lines = [
+    '# LaminaBench judge context',
+    '',
+    '## Task description',
+    task.prompt || task.id,
+    '',
+    '## Golden reference checklist',
+    'Concepts to look for in code; identifiers, comments, logic, and tests all count.',
+    '',
+  ];
+  for (const [field, items] of Object.entries(golden)) {
+    if (!field.startsWith('required_') || !Array.isArray(items) || !items.length) continue;
+    lines.push(`### ${field}`);
+    for (const item of items) lines.push(`- ${item}`);
+    lines.push('');
+  }
+  return `${lines.join('\n').trim()}\n`;
+}
+
 function copyVerifierBundle(dest, task, arm) {
   const testsDir = path.join(dest, 'tests');
-  const depsDir = path.join(testsDir, 'deps');
-  fs.mkdirSync(depsDir, { recursive: true });
-  for (const file of DEPS) {
-    fs.copyFileSync(path.join(SCRIPTS, file), path.join(depsDir, file));
-  }
-  fs.copyFileSync(path.join(SCRIPTS, 'harbor-score.mjs'), path.join(testsDir, 'harbor-score.mjs'));
-  fs.writeFileSync(
-    path.join(testsDir, 'test.sh'),
-    `#!/bin/bash
-set -euo pipefail
-node /tests/harbor-score.mjs --workspace /app --golden /tests/golden.yaml --meta /tests/task-meta.json --out /logs/verifier/reward.json
-`
-  );
+  if (fs.existsSync(testsDir)) rmPath(testsDir);
+  copyDirRecursive(VERIFIER_SRC, testsDir);
   fs.chmodSync(path.join(testsDir, 'test.sh'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'capture_artifact.py'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'finalize_reward.py'), 0o755);
+
+  const golden = readYamlSync(path.join(GOLDENS_DIR, task.id, 'golden.yaml'));
   fs.copyFileSync(path.join(GOLDENS_DIR, task.id, 'golden.yaml'), path.join(testsDir, 'golden.yaml'));
+  fs.writeFileSync(path.join(testsDir, 'judge-context.md'), buildJudgeContext(task, golden));
   fs.writeFileSync(
     path.join(testsDir, 'task-meta.json'),
     JSON.stringify(
@@ -120,6 +162,11 @@ node /tests/harbor-score.mjs --workspace /app --golden /tests/golden.yaml --meta
       2
     ) + '\n'
   );
+
+  // Remove legacy Node verifier artifacts if present from prior syncs.
+  for (const legacy of ['harbor-score.mjs', 'deps', 'artifact']) {
+    rmPath(path.join(testsDir, legacy));
+  }
 }
 
 function readOverlay(name) {
@@ -140,7 +187,7 @@ function applyTreatmentOverlay(ctxDir, name) {
 
 function buildWorkspace(task, arm, agent) {
   const ctxDir = path.join(ROOT, 'benchmarks/tmp/harbor-build', `${task.id}-${arm}`);
-  if (fs.existsSync(ctxDir)) fs.rmSync(ctxDir, { recursive: true, force: true });
+  rmPath(ctxDir);
   fs.mkdirSync(ctxDir, { recursive: true });
   if (task.fixture) stageBenchFixture(task.fixture, ctxDir);
   if (arm === 'treatment') {
@@ -165,10 +212,10 @@ function syncHarborTask(task, arm, opts, release) {
   copyVerifierBundle(dest, task, arm);
 
   const workspaceDest = path.join(dest, 'environment', 'workspace');
-  if (fs.existsSync(workspaceDest)) fs.rmSync(workspaceDest, { recursive: true, force: true });
+  rmPath(workspaceDest);
   const workspaceSrc = buildWorkspace(task, arm, opts.agent);
   fs.cpSync(workspaceSrc, workspaceDest, { recursive: true });
-  fs.rmSync(workspaceSrc, { recursive: true, force: true });
+  rmPath(workspaceSrc);
 }
 
 function main() {

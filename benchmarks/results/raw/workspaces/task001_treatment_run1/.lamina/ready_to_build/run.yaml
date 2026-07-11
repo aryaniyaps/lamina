@@ -1,0 +1,197 @@
+# run.yaml – Machine contract for building the Household Budgeting product
+
+version: 1.0
+name: household-budgeting
+description: >
+  End‑to‑end contract describing the domain model, actors, permissions, primary workflows, edge cases, and trade‑offs for a buildable multi‑surface household budgeting app.
+
+# Actors & Permissions
+actors:
+  primary_budgeter:
+    description: Manages the household budget and shared settings.
+    permissions:
+      - create: household, budget, category, transaction, alert, notification_preference
+      - read:   household, budget, category, transaction, alert, partner, settings
+      - update: household, budget, category, transaction, alert, notification_preference
+      - delete: transaction, alert
+  partner:
+    description: Shared view with privacy for personal categories.
+    permissions:
+      - create: transaction (personal only)
+      - read:   household, budget, shared_category, alert, notification_preference
+      - update: personal_category, personal_transaction
+      - delete: personal_transaction
+  occasional_viewer:
+    description: Read‑only viewer of shared household data.
+    permissions:
+      - read: household, budget, shared_category, alert
+  system:
+    description: Backend services handling sync, notifications, and recovery.
+    permissions:
+      - create: sync_job, notification_event
+      - read:   all
+      - update: sync_job, notification_event
+      - delete: sync_job, notification_event
+
+# Domain Model
+entities:
+  Household:
+    fields:
+      - id: UUID
+      - name: string
+      - primary_budgeter_id: UUID (FK User)
+      - created_at: timestamp
+      - updated_at: timestamp
+  User:
+    fields:
+      - id: UUID
+      - role: enum[primary_budgeter, partner, occasional_viewer]
+      - household_id: UUID (FK Household)
+      - email: string
+      - name: string
+  Budget:
+    fields:
+      - id: UUID
+      - household_id: UUID (FK Household)
+      - period_start: date
+      - period_end: date
+      - total_income: decimal
+      - total_expense: decimal
+      - active: boolean (must be true for exactly one budget per household)
+  Account:
+    fields:
+      - id: UUID
+      - household_id: UUID
+      - provider: string (e.g., "Bank of America")
+      - external_id: string
+      - balance: decimal
+      - last_sync: timestamp
+  Category:
+    fields:
+      - id: UUID
+      - household_id: UUID
+      - name: string
+      - is_shared: boolean (true = visible to partner/viewer)
+      - budgeted_amount: decimal
+  Transaction:
+    fields:
+      - id: UUID
+      - account_id: UUID
+      - category_id: UUID (optional for personal transactions)
+      - amount: decimal (positive for income, negative for expense)
+      - date: date
+      - description: string
+      - is_personal: boolean (true = only visible to owner)
+      - sync_status: enum[pending, synced, duplicate]
+  Alert:
+    fields:
+      - id: UUID
+      - household_id: UUID
+      - type: enum[budget_overrun, category_overrun, sync_failure]
+      - threshold: decimal (percentage or amount)
+      - enabled: boolean
+  NotificationPreference:
+    fields:
+      - user_id: UUID
+      - channel: enum[email, push, sms]
+      - enabled: boolean
+
+# Illegal / Inconsistent States
+illegal_states:
+  - multiple_active_budgets:
+      description: More than one Budget with active=true for a Household.
+      detection: count(budgets where active=true) > 1
+  - orphan_transaction:
+      description: Transaction referencing a non‑existent Account or Category.
+      detection: foreign_key_missing
+  - privacy_leak:
+      description: Personal transaction visible to a partner or occasional_viewer.
+      detection: transaction.is_personal && transaction.visible_to != owner
+  - sync_loop:
+      description: Account sync_job stuck in pending > 24h.
+      detection: now - sync_job.last_update > 24h && status==pending
+  - zero_income_without_budget:
+      description: Household has zero income but no budget period defined.
+      detection: total_income == 0 && !exists(active_budget)
+
+# Primary Workflows (high‑level steps)
+workflows:
+  onboarding:
+    steps:
+      - create Household (primary_budgeter as owner)
+      - create initial Budget (period = current month, active=true)
+      - add default shared Categories (Housing, Food, Transport, etc.)
+      - invite partner (optional)
+      - configure notification preferences (push/email)
+  account_linking:
+    steps:
+      - user selects provider, authenticates via OAuth/credential entry
+      - system creates Account record, triggers initial sync job
+      - handle sync errors with retry UI and offline fallback
+      - dedupe duplicate transactions after each sync
+  weekly_review:
+    steps:
+      - fetch active Budget and aggregate transactions for the week
+      - display summary cards: income vs expense, category spend vs budget
+      - allow user to adjust Category budgeted_amount (drag or input)
+      - surface alerts triggered during the week
+      - optionally export CSV or share snapshot
+  alerts_configuration:
+    steps:
+      - list alert types (budget_overrun, category_overrun, sync_failure)
+      - set thresholds (percentage of budget, fixed amount)
+      - toggle enabled flag per alert
+      - test push/email notification
+  partner_invite:
+    steps:
+      - primary_budgeter generates invite token (short‑lived UUID)
+      - send email/SMS with deep‑link
+      - partner opens link, authenticates, joins Household
+      - system creates User with role=partner, links to Household
+      - partner sets personal categories (is_shared=false)
+  settings:
+    steps:
+      - edit NotificationPreference per channel
+      - toggle privacy defaults for new categories (shared vs personal)
+      - manage offline cache size & sync frequency
+      - logout / delete account (soft‑delete, retain household data)
+
+# Edge Cases & Recovery Paths
+edge_cases:
+  - zero_income_month:
+      handling: show "No income recorded" banner, allow manual income entry, keep budget active.
+  - empty_account:
+      handling: display placeholder with "No transactions yet" and a CTA to add manual transaction.
+  - sync_failure:
+      handling: queue retry with exponential backoff, surface in‑app alert, allow manual "Retry now".
+  - duplicate_transaction:
+      handling: auto‑detect by amount, date, description; present UI to merge or discard duplicates.
+  - offline_use:
+      handling: cache latest Budget, Accounts, Transactions locally; queue new transactions for later sync; show sync status indicator.
+  - privacy_boundary_violation:
+      handling: block UI from displaying personal transaction to partner, log warning, prompt user to correct category.
+
+# Named Trade‑offs
+tradeoffs:
+  clarity_vs_detail:
+    description: Show aggregated weekly spend (clarity) instead of full transaction list (detail).
+    decision: default to clarity with "View all" drill‑down for power users.
+  sync_immediacy_vs_battery:
+    description: Real‑time sync provides freshest data but drains battery.
+    decision: sync on app foreground + manual pull; background sync optional via user setting.
+  single_active_budget_vs_multiple:
+    description: Allow multiple concurrent budgets for different goals vs single active for simplicity.
+    decision: enforce single active budget to keep UI simple; historic budgets archived.
+  privacy_strictness_vs_shared_insight:
+    description: Strict personal categories reduce partner insight vs more shared data improves joint budgeting.
+    decision: default personal categories private; give partner optional "request view" flow.
+
+# Buildable Multi‑Surface Product
+surfaces:
+  - mobile_app (iOS & Android, React Native or Flutter)
+  - web_app (responsive PWA, same API)
+  - API (REST/GraphQL) for future integrations
+  - admin_dashboard (internal, for monitoring sync jobs, alerts)
+
+# Implementation Blueprint (implement.md)
+# See separate file for step‑by‑step technical plan.

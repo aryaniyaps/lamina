@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Apply LaminaBench reward gate and enrich reward.json for ingest."""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from criteria import (  # noqa: E402
+    CRITERIA_KEYS,
+    REWARD_DETAILS_PATH,
+    REWARD_PATH,
+    VERIFIER_META_PATH,
+    likert_norm_to_mean,
+)
+
+GOLDEN_WEIGHT = 0.5
+LLM_WEIGHT = 0.5
+PASS_THRESHOLD = 0.5
+
+
+def load_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def extract_llm_scores(details: dict) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    llm = details.get("llm_judge") or details.get("rewards", {}).get("llm_judge") or {}
+    criteria = llm.get("criteria") or llm.get("children") or []
+    if isinstance(criteria, dict):
+        criteria = list(criteria.values())
+    for entry in criteria:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name") or entry.get("id") or entry.get("description")
+        if not name:
+            continue
+        raw = entry.get("raw_value")
+        value = entry.get("value")
+        if raw is not None and isinstance(raw, (int, float)):
+            scores[str(name)] = float(raw)
+        elif value is not None and isinstance(value, (int, float)):
+            scores[str(name)] = likert_norm_to_mean(float(value))
+    return scores
+
+
+def main() -> int:
+    rewards = load_json(REWARD_PATH)
+    details = load_json(REWARD_DETAILS_PATH)
+    meta = load_json(VERIFIER_META_PATH)
+
+    golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
+    llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
+
+    artifact_valid = bool(meta.get("artifact_valid"))
+    clarify_stall = bool(meta.get("clarify_stall"))
+    if "clarify_stall" in rewards and float(rewards.get("clarify_stall") or 0.0) < 0.5:
+        clarify_stall = True
+
+    composite = golden_norm * GOLDEN_WEIGHT + llm_norm * LLM_WEIGHT
+    if clarify_stall or not artifact_valid:
+        final_reward = 0.0
+    else:
+        final_reward = composite
+
+    llm_scores = extract_llm_scores(details)
+    if llm_scores:
+        llm_mean = round(sum(llm_scores.values()) / len(llm_scores), 2)
+    else:
+        llm_mean = likert_norm_to_mean(llm_norm) if llm_norm else None
+
+    golden_pct = meta.get("golden_coverage_pct")
+    if golden_pct is None:
+        golden_pct = round(golden_norm * 100)
+
+    feedback = (
+        f"Golden {golden_pct}%, LLM mean {llm_mean:.2f}"
+        if artifact_valid and llm_mean is not None
+        else "Clarify stall — incomplete deliverables"
+        if clarify_stall
+        else "Missing or invalid implementation artifact"
+    )
+
+    enriched = {
+        **rewards,
+        "reward": round(final_reward, 4),
+        "max_reward": 1,
+        "composite": round(composite, 4),
+        "golden_coverage": golden_pct,
+        "llm_judge_mean": llm_mean,
+        "judge_mode": "rewardkit",
+        "artifact_valid": artifact_valid,
+        "clarify_stall": clarify_stall,
+        "checks_passed": meta.get("golden_checks_passed"),
+        "checks_total": meta.get("golden_checks_total"),
+        "feedback": feedback,
+        "llm_scores": {key: llm_scores.get(key) for key in CRITERIA_KEYS if key in llm_scores},
+    }
+
+    REWARD_PATH.parent.mkdir(parents=True, exist_ok=True)
+    REWARD_PATH.write_text(json.dumps(enriched, indent=2) + "\n", encoding="utf-8")
+    (REWARD_PATH.parent / "reward.txt").write_text(f"{enriched['reward']}\n", encoding="utf-8")
+
+    if not artifact_valid or final_reward < PASS_THRESHOLD:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

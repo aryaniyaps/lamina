@@ -1,0 +1,43 @@
+# Personas for Household Budgeting App
+
+- name: primary_budgeter
+  age_range: 25-40
+  role: primary_budgeter
+  description: |
+    Manages the household budget, sets up accounts, creates categories, and reviews weekly spending.
+    Values clarity, quick insights, and easy sharing with partner while maintaining privacy for personal categories.
+  goals:
+    - Establish a clear budget quickly during onboarding.
+    - Review weekly spending and adjust categories.
+    - Receive timely alerts for overspending.
+  frustrations:
+    - Complex UI flows.
+    - Lack of offline access.
+    - Unclear privacy boundaries.
+
+- name: partner
+  age_range: 25-45
+  role: partner
+  description: |
+    Shares visibility of household finances with the primary budgeter but has personal categories that remain private.
+    Wants easy access to shared data without interfering with personal spending.
+  goals:
+    - View household budget and spending.
+    - Add personal transactions that stay private.
+    - Receive alerts relevant to shared categories.
+  frustrations:
+    - Confusing privacy settings.
+    - Missing notifications for shared alerts.
+
+- name: occasional_viewer
+  age_range: 30-50
+  role: occasional_viewer
+  description: |
+    A co‑parent or family member who occasionally checks balances or recent activity.
+    Needs a simple, read‑only view without navigating complex settings.
+  goals:
+    - Quickly view current balances.
+    - Understand recent spending trends.
+  frustrations:
+    - Too many steps to reach a read‑only view.
+    - Overwhelming details not relevant to occasional checks.

@@ -1,0 +1,132 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Household {
+  id                String   @id @default(uuid())
+  name              String
+  primaryBudgeterId String
+  primaryBudgeter   User     @relation("PrimaryBudgeter", fields: [primaryBudgeterId], references: [id])
+  users             User[]   @relation("HouseholdMembers")
+  budgets           Budget[]
+  accounts          Account[]
+  categories        Category[]
+  alerts            Alert[]
+  inviteTokens      InviteToken[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(uuid())
+  householdId  String?
+  household    Household? @relation("HouseholdMembers", fields: [householdId], references: [id])
+  role         Role
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  notificationPreferences NotificationPreference[]
+  // relation for primary budgeter link
+  primaryHousehold Household? @relation("PrimaryBudgeter", fields: [], references: [])
+}
+
+enum Role {
+  primary_budgeter
+  partner
+  occasional_viewer
+}
+
+model Budget {
+  id           String   @id @default(uuid())
+  householdId  String
+  household    Household @relation(fields: [householdId], references: [id])
+  periodStart  DateTime
+  periodEnd    DateTime
+  totalIncome  Decimal   @default(0)
+  totalExpense Decimal   @default(0)
+  active       Boolean   @default(true)
+  @@unique([householdId, active], map: "one_active_budget_per_household")
+}
+
+model Account {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  provider    String
+  externalId  String
+  balance     Decimal   @default(0)
+  lastSync    DateTime?
+  transactions Transaction[]
+  @@unique([householdId, externalId])
+}
+
+enum SyncStatus {
+  pending
+  synced
+  duplicate
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  name        String
+  isShared    Boolean   @default(true)
+  budgetedAmount Decimal @default(0)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  accountId   String
+  account     Account @relation(fields: [accountId], references: [id])
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  amount      Decimal
+  date        DateTime
+  description String?
+  isPersonal  Boolean @default(false)
+  syncStatus  SyncStatus @default(pending)
+}
+
+model Alert {
+  id           String   @id @default(uuid())
+  householdId  String
+  household    Household @relation(fields: [householdId], references: [id])
+  type         AlertType
+  threshold    Decimal
+  enabled      Boolean @default(true)
+}
+
+enum AlertType {
+  budget_overrun
+  category_overrun
+  sync_failure
+}
+
+model NotificationPreference {
+  userId   String @id
+  user     User   @relation(fields: [userId], references: [id])
+  channel  NotificationChannel
+  enabled  Boolean @default(true)
+}
+
+enum NotificationChannel {
+  email
+  push
+  sms
+}
+
+model InviteToken {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  token       String   @unique
+  expiresAt   DateTime
+}

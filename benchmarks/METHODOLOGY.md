@@ -43,7 +43,7 @@ Peers assume unattended agents. Lamina skills can emit clarify-and-STOP in inter
 1. **Prevent** — `prompt_template.j2` + treatment `AGENTS.md`/`CLAUDE.md` state the user cannot respond; the brief is authoritative; proceed with labeled assumptions instead of clarifying.
 2. **Do not recover** — No synthetic auto-reply. If the agent exits after asking questions, the workspace is incomplete.
 3. **Fail** — Verifier assigns reward `0` when deliverables are missing.
-4. **Measure** — Post-hoc `clarify_stall` flag from agent output (secondary metric, not in composite).
+4. **Measure** — `clarify_stall` flag in verifier reward output (diagnostic, not in composite).
 
 High treatment stall rates are a real signal (skills not bench-safe unattended), not something to paper over.
 
@@ -51,7 +51,7 @@ High treatment stall rates are a real signal (skills not bench-safe unattended),
 
 - Same agent, model pin, task brief, fixture, and Harbor `prompt_template` per paired comparison
 - Control receives **no** Lamina skills and **no** workflow AGENTS.md/CLAUDE.md
-- Blind LLM judging of source code (human review optional, not in composite)
+- Blind LLM judging of source code via Harbor Rewardkit in-container verifier
 - `claim_ready: false` until live runs and a real LLM judge (not heuristic-only)
 
 ## How to cite results honestly
@@ -75,4 +75,4 @@ The prior ecological adoption design (`design_a_ecological`) used harness-forced
 - **Pure skill discovery** — skills installed, no AGENTS.md hint (multiturn-eval style)
 - **Clarify auto-reply** — separate harness variant; do not mix with Design B primary results
 
-Document any ablation under `releases/` with its own methodology id.
+Document any ablation with its own methodology id and Harbor job artifacts.

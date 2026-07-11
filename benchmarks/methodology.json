@@ -27,7 +27,7 @@
   "unattended_policy": {
     "prevention": "Harbor prompt_template.j2 and treatment AGENTS.md/CLAUDE.md include unattended contract: brief is authoritative; no clarify-and-STOP.",
     "recovery": "none",
-    "on_stall": "Verifier reward 0; clarify_stall logged as secondary metric (not in composite)."
+    "on_stall": "Verifier reward 0; clarify_stall logged in reward output (not in composite)."
   },
   "fairness_constraints": [
     "Same instruction.md product brief for both arms (no Lamina skill names in instructions — SkillsBench rule).",
@@ -38,14 +38,12 @@
   ],
   "explicit_non_claims": [
     "Does not claim the agent discovered Lamina skills without hints — treatment includes AGENTS.md/CLAUDE.md workflow guidance.",
-    "Does not claim runtime/test pass rates unless behavior probes include trusted shell/runtime oracles (reported separately).",
+    "Does not claim runtime/test pass rates from post-hoc local analysis — scoring is in-container via Harbor Rewardkit only.",
     "Does not claim model independence from a single agent pin.",
-    "Clarify stall rate is diagnostic only — not part of the claim composite.",
-    "Human review is optional qualitative only."
+    "Clarify stall rate is diagnostic only — not part of the claim composite."
   ],
   "secondary_metrics": [
     "clarify_stall_rate",
-    "behavior_probes",
     "cost_time",
     "skill_invocation_rate"
   ],

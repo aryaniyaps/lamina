@@ -2,7 +2,7 @@
  * Load benchmarks/.env into process.env (does not override existing shell vars).
  *
  * Supports optional `export` prefix and quoted values. Maps gateway credentials
- * for tools that expect ANTHROPIC_API_KEY (e.g. promptfoo) while preserving
+ * for tools that expect ANTHROPIC_API_KEY (e.g. Rewardkit LLM judge) while preserving
  * ANTHROPIC_AUTH_TOKEN for Claude Code gateway auth.
  */
 import fs from 'node:fs';
@@ -40,7 +40,7 @@ export function loadBenchEnv() {
     if (process.env[key] === undefined) process.env[key] = value;
   }
 
-  // promptfoo / Anthropic SDK expect ANTHROPIC_API_KEY; gateway setups use AUTH_TOKEN.
+  // Anthropic SDK / Rewardkit expect ANTHROPIC_API_KEY; gateway setups use AUTH_TOKEN.
   if (!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_AUTH_TOKEN) {
     process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_AUTH_TOKEN;
   }

@@ -40,9 +40,6 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 10
-    },
-    "human_eval": {
-      "type": "boolean"
     }
   },
   "additionalProperties": false

@@ -45,9 +45,21 @@ assert.ok(fs.existsSync(treatmentSkills), 'treatment must install skills');
 assert.ok(!fs.existsSync(path.join(control, 'environment/workspace/.claude/skills')), 'control must not have skills');
 
 assert.ok(fs.existsSync(path.join(control, 'tests/test.sh')));
-assert.ok(fs.existsSync(path.join(control, 'tests/harbor-score.mjs')));
+assert.ok(fs.existsSync(path.join(control, 'tests/criteria.py')));
+assert.ok(fs.existsSync(path.join(control, 'tests/llm_judge/product-behavior.toml')));
+assert.ok(fs.existsSync(path.join(control, 'tests/judge-context.md')));
+assert.ok(!fs.existsSync(path.join(control, 'tests/harbor-score.mjs')), 'legacy harbor-score.mjs must be removed');
 assert.ok(fs.existsSync(path.join(control, 'tests/golden.yaml')));
 assert.ok(fs.existsSync(path.join(ROOT, 'benchmarks/harbor/registry.yaml')));
+
+const testSh = fs.readFileSync(path.join(control, 'tests/test.sh'), 'utf8');
+assert.ok(/rewardkit/.test(testSh), 'test.sh must invoke rewardkit');
+
+const taskToml = fs.readFileSync(path.join(control, 'task.toml'), 'utf8');
+assert.ok(/\[verifier\.env\]/.test(taskToml), 'task.toml must pass verifier env for Rewardkit judge');
+
+const dockerfile = fs.readFileSync(path.join(control, 'environment/Dockerfile'), 'utf8');
+assert.ok(/uv/.test(dockerfile), 'Dockerfile must install uv for rewardkit');
 
 const promptTemplate = fs.readFileSync(path.join(ROOT, 'benchmarks/harbor/prompt_template.j2'), 'utf8');
 assert.ok(promptTemplate.includes('{{ instruction }}'));
@@ -57,6 +69,6 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_b_skillsbench_paired');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "1.0.0"'));
+assert.ok(release.includes('results_contract_version: "1.1.0"'));
 
 console.log('harbor_sync_test: ok');

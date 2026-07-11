@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Validate Harbor benchmark tasks + registry + goldens + probes; emit suite manifest.
+ * Validate Harbor benchmark tasks + registry + goldens; emit suite manifest.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +17,6 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
-const PROBES_DIR = path.join(ROOT, 'benchmarks/probes');
 const SCHEMAS = path.join(ROOT, 'benchmarks/schemas');
 
 const errors = [];
@@ -100,11 +99,6 @@ function validateHarborTask(task) {
     }
   }
 
-  const probesPath = path.join(PROBES_DIR, task.id, 'probes.yaml');
-  if (!fs.existsSync(probesPath)) {
-    errors.push(`${task.id}: missing probes/${task.id}/probes.yaml (run npm run bench:probes:generate)`);
-  }
-
   if (task.fixture) {
     try {
       loadBenchManifest(task.fixture);
@@ -174,7 +168,6 @@ function compileSuite(tasks, release) {
       fixture: t.fixture ?? null,
       oss: t.oss ?? null,
       runs: t.runs ?? release.runs_per_arm,
-      human_eval: t.human_eval ?? false,
       paths: t._paths,
       instruction: t.instruction,
     })),

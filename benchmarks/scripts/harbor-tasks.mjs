@@ -35,7 +35,6 @@ export function writeRegistry(tasks, releaseTag) {
     lines.push(`    fixture: ${t.fixture == null ? 'null' : t.fixture}`);
     lines.push(`    prompt: ${JSON.stringify(t.prompt)}`);
     lines.push(`    runs: ${t.runs ?? 3}`);
-    lines.push(`    human_eval: ${t.human_eval === true}`);
   }
   fs.mkdirSync(path.dirname(REGISTRY_PATH), { recursive: true });
   fs.writeFileSync(REGISTRY_PATH, lines.join('\n') + '\n');

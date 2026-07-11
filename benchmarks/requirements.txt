@@ -1,2 +1,0 @@
-# LaminaBench analysis (stdlib only — no pip required)
-# Optional: pip install scipy pandas for extended analysis
