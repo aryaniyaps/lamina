@@ -14,12 +14,16 @@ harbor run -d "aryaniyaps/lamina-bench@v1" -a claude-code -m "<model>" \
   --ak "prompt_template=benchmarks/harbor/prompt_template.j2"
 ```
 
-## Publish / refresh
+## Publish (no benchmark results required)
 
-From the repo root (requires `harbor auth login`):
+Publishing uploads **task definitions** to the Harbor registry. You do **not** need `bench:run`, `results/`, or scored artifacts.
 
 ```bash
+harbor auth login
+npm run fixtures:vendor   # once, for OSS task fixtures
 npm run bench:harbor:publish
 ```
 
-This syncs workspaces, symlinks tasks beside `dataset.toml`, refreshes digests, and publishes all 50 tasks plus the dataset manifest.
+Answer `y` when Harbor asks to confirm making tasks public.
+
+The publish script uploads tasks from `benchmarks/harbor/tasks/`, then publishes `dataset.toml` (no symlinks — Harbor rejects out-of-tree paths).
