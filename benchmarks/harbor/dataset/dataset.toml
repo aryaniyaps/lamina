@@ -16,7 +16,7 @@ digest = "sha256:abba4a38f7a2f7f713bd5e5b03c85146f153f5f397dd4e5ac204319632a82dd
 
 [[tasks]]
 name = "aryaniyaps/task001-treatment"
-digest = "sha256:e2d4c7ac5123935fd57ab843d672d96b65c9b5950e2726064a439db2675adeeb"
+digest = "sha256:374f50fce345c535048f86e87787742e0396bdc7aece3cb676e62b0f2d0a9fa4"
 
 [[tasks]]
 name = "aryaniyaps/task002-control"
@@ -72,7 +72,7 @@ digest = "sha256:e422f6d4c56697d046257f1e9d7b8d9ff737a6c1cd2dad1d68db537fda01657
 
 [[tasks]]
 name = "aryaniyaps/task008-treatment"
-digest = "sha256:a4d26fe6d7db873a860de609b5ba2e41d852a2d872322aa55607947f79a35465"
+digest = "sha256:995669ae06a6c70b25ecfc42b5ab9ff535b30f4dcfc8c58f40ab907e0350bffe"
 
 [[tasks]]
 name = "aryaniyaps/task009-control"
@@ -88,7 +88,7 @@ digest = "sha256:ed9b6d2a2f0717f005c58c6217febf71a9769f09bb19e59efe623d37e6de11c
 
 [[tasks]]
 name = "aryaniyaps/task010-treatment"
-digest = "sha256:f1773fe6b5ecc4dee212d0336fa3179a419a71ff889bd5531c91ff5283e9e24d"
+digest = "sha256:6d58498b885f4fce52feff9ee3e80bacd80afaf19ca54274cc3f29020094d669"
 
 [[tasks]]
 name = "aryaniyaps/task011-control"
@@ -104,7 +104,7 @@ digest = "sha256:3f57ac7c1e90b0062f5efe691a2882fe45948150b019c4a8607af2ebae65eb7
 
 [[tasks]]
 name = "aryaniyaps/task012-treatment"
-digest = "sha256:db1889eb6faebdd74d3e72c59e213b51a60dfa6fec692365a92d724b7bccd3a1"
+digest = "sha256:82da57810719ed38d954d166617432e14f89da8c2d02d7c71b93ff601b7b3374"
 
 [[tasks]]
 name = "aryaniyaps/task013-control"
@@ -112,7 +112,7 @@ digest = "sha256:1f0cdaf71b1a9bba0a3b35293a299e8d0b9fe92f70df1f101a40a4357860d24
 
 [[tasks]]
 name = "aryaniyaps/task013-treatment"
-digest = "sha256:03e1b3e7d83d5908b4c74317d60def01cd91d584d937084c0849bbb4717f1110"
+digest = "sha256:3f5beca97f2102e12092c4bacf95b9414c03e26ceada1cebb60eb5490acb5dd0"
 
 [[tasks]]
 name = "aryaniyaps/task014-control"
@@ -128,7 +128,7 @@ digest = "sha256:20cbedfc1836b94d73a335ed0732c892f449e05402e4ef9565b6aee50680904
 
 [[tasks]]
 name = "aryaniyaps/task015-treatment"
-digest = "sha256:ad66b1f8a691bc5c76662b33b5dda41971bbffe43098d862be020c593541ef82"
+digest = "sha256:79877a285c268e54a4fdfa9b387c021073e1d0f44f5863c3b9894b04601eb5c2"
 
 [[tasks]]
 name = "aryaniyaps/task016-control"
