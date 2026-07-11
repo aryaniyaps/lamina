@@ -1,0 +1,16 @@
+# Harbor job config reference — used by run-harbor-bench.mjs via CLI flags.
+# Example: harbor run -c benchmarks/harbor/job.config.yaml -p benchmarks/harbor/tasks/task001-control
+
+agents:
+  - name: claude-code
+    model_name: anthropic/claude-sonnet-4-20250514
+    kwargs:
+      prompt_template: benchmarks/harbor/prompt_template.j2
+
+orchestrator:
+  n_concurrent_trials: 4
+
+environment:
+  type: docker
+
+n_attempts: 1

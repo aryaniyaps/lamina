@@ -1,70 +1,42 @@
-# LaminaBench v2.1
+# LaminaBench v3.0
 
-**Public product-behavior implementation benchmark** comparing the same coding agent with and without Lamina.
+**Public product-behavior implementation benchmark** comparing the same coding agent with and without Lamina, run via [Harbor](https://www.harborframework.com/) in a **SkillsBench-style paired** design.
 
-This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests (routing, init gates, guardrails). LaminaBench measures whether Lamina improves **implemented product behavior** — domain rules, workflows, scenarios, and edge handling **in code** — on realistic tasks.
+This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests. LaminaBench measures whether Lamina (skills + workflow conventions) improves **implemented product behavior** in code on realistic tasks.
 
-> **Status (v2.1):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design A. Behavior probes, cost/time, and optional human review are reported separately. **No live results are published yet.**
+> **Status (v3.0):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design B (`design_b_skillsbench_paired`). Behavior probes, clarify stall rate, cost/time, and optional human review are reported separately. **No live results are published yet.**
 
-**Methodology:** [Design A — ecological adoption comparison](METHODOLOGY.md) (`design_a_ecological`). Control = Plan + implement (2 turns). Treatment = full Lamina loop (5 turns). **Unequal turns are intentional** — see [why this is the right design](METHODOLOGY.md#why-unequal-turns-is-the-right-design-not-a-loophole), not a scoring loophole.
+**Methodology:** [Design B — SkillsBench-style paired comparison](METHODOLOGY.md). Same `instruction.md` for both arms; one continuous Harbor agent rollout each. Control = no skills, no AGENTS.md. Treatment = Lamina skills + AGENTS.md/CLAUDE.md workflow hint.
 
 ## What is compared
 
-| Arm | Description |
-|-----|-------------|
-| **Control** | Plan mode → implement — same agent/model/fixture, **no Lamina** ([hotel demo baseline](../demo/)) |
-| **Treatment** | Full Lamina loop — same agent/model/fixture + Lamina skills |
+| Arm | Harbor task | Environment |
+|-----|-------------|-------------|
+| **Control** | `taskNNN-control` | Fixture + `instruction.md` only |
+| **Treatment** | `taskNNN-treatment` | Same brief + Lamina skills + `AGENTS.md`/`CLAUDE.md` |
 
-The comparison is **adoption-shaped**: realistic without-Lamina practice vs adopting Lamina. It is **not** a matched-turn ablation where control manually copies Lamina’s verify/fix loop.
+`instruction.md` never names Lamina skills (SkillsBench rule). Workflow guidance lives only in treatment project conventions.
 
-## Workflow (live runs)
+## Workflow (Harbor)
 
-| Phase | Control (Plan mode, no Lamina) | Treatment (Lamina installed) |
-|-------|-------------------------------|------------------------------|
-| 1 | Write `bench-plan.md` (implementation plan) | `/lamina-init` establish or update |
-| 2 | Implement **full product scope** from plan | `/lamina-design` or `/lamina-verify` (audit tasks) |
-| 3 | — | Implement from contract |
-| 4 | — | `/lamina-verify` post-build |
-| 5 | — | Fix issues from `fix.md` (falls back to verify report) |
+1. `npm run bench:harbor:compile` — emit Harbor task trees from `benchmarks/tasks/`
+2. `harbor run -a claude-code` with `prompt_template.j2` (unattended contract)
+3. Agent completes product work in one continuous rollout
+4. Verifier scores golden coverage + LLM judge → `reward.json`
+5. `ingest-harbor-results` → `results/raw/index.jsonl` for `bench:score` / `bench:analyze`
 
-**2 turns (control)** vs **5 turns (treatment)** — [documented methodology](METHODOLOGY.md), not matched compute.
+**Unattended policy:** No mid-run user. No harness auto-reply on clarify. Stalls → reward 0 + `clarify_stall` secondary metric.
 
-**Scope:** Greenfield, workflow, and resilience tasks ask for a **full product** (all primary workflows + secondary surfaces), not a minimum demo. OSS feature tasks ask for a complete feature that fits the host product. Audit tasks stay focused: find gaps, then implement the highest-priority fixes across the audit scope.
-
-**Scoring** captures **application source** (see [methodology.json](methodology.json)):
-- **Control**: after phase 2 (post-implement) — no verify/fix loop
-- **Treatment**: after phase 5 (post-fix)
-
-`.lamina/` files and `bench-plan.md` are excluded from scored artifacts.
-
-## Methodology (why Design A)
-
-Full rationale: **[METHODOLOGY.md](METHODOLOGY.md)**
-
-| Principle | What we do |
-|-----------|------------|
-| **Ecological validity** | Control matches Plan + implement — what teams do without Lamina |
-| **Product-complete treatment** | Treatment runs through verify → fix because that is Lamina’s loop |
-| **No borrowed methodology** | Control does **not** run Lamina’s verify/fix phases — that would be Lamina’s process without Lamina’s name |
-| **Honest stopping points** | Control scored post-implement; treatment post-fix — each at its natural finish |
-| **Transparent claims** | Every `report.md` includes methodology; `claim_ready` requires live runs |
-
-**Rejected alternative:** matched 5-phase control (manual copy of Lamina’s loop) — valid ablation, wrong question for this benchmark. See [rejected alternatives](METHODOLOGY.md#4-what-we-rejected-and-why).
-
-### Constraints we enforce
-
-- **Same agent, model, task, and fixture** per run
-- **No Lamina skills on control**
-- **Same scored artifact type**: product source (process files excluded)
-- **Audit tasks**: treatment uses brownfield `/lamina-verify` + post-implement verify; control plans fixes in `bench-plan.md` then implements
+**Legacy:** Design A phase harness (`bench:run:legacy`) remains for debugging only.
 
 ## Quick start
 
 ```bash
 npm install
-# Live release path (requires agent CLI + Anthropic credentials for LLM judge)
-npm run bench:env-check
+uv tool install harbor   # Harbor CLI
+npm run bench:env-check  # Anthropic + Docker + Harbor
 npm run bench:validate
+npm run bench:harbor:compile -- --tasks task001
 npm run bench:all
 ```
 
@@ -72,73 +44,65 @@ npm run bench:all
 
 | Script | Purpose |
 |--------|---------|
-| `npm run bench:env-check` | Verify Anthropic credentials and gateway reachability |
-| `npm run bench:validate` | Validate task + golden + probe schemas and fixtures |
-| `npm run bench:probes:generate` | Regenerate structural probes from goldens |
-| `npm run bench:run` | Live control/treatment runs (requires agent CLI); `--pilot` for 3-task smoke; `--concurrency N` (default 4); `--fresh` to wipe index |
+| `npm run bench:env-check` | Verify Anthropic credentials, Docker, Harbor CLI |
+| `npm run bench:harbor:compile` | Compile Harbor tasks (control + treatment per task) |
+| `npm run bench:harbor:ingest` | Ingest Harbor job outputs into `results/raw/` |
+| `npm run bench:validate` | Validate task + golden + probe schemas |
+| `npm run bench:run` | Harbor run + ingest (`--pilot`, `--tasks`, `--runs`, `--fresh`) |
+| `npm run bench:run:legacy` | Pre-v3 phase harness (Design A) |
 | `npm run bench:score` | Golden coverage + LLM judge + behavior probes |
-| `npm run bench:analyst` | Flag non-discriminating golden/probe items |
-| `npm run bench:analyze` | Analyst pass + stats/composite/cost → `results/report.md` |
-| `npm run bench:human-packet` | Optional qualitative review packet (not in composite) |
-| `npm run bench:import-human` | Import rater CSV (appendix only) |
-| `npm run bench:all` | **Live** validate → run → score → analyze |
+| `npm run bench:analyze` | Stats/composite/cost/clarify stalls → `results/report.md` |
+| `npm run bench:all` | validate → run → score → analyze |
 
 ## Layout
 
 ```
 benchmarks/
-  METHODOLOGY.md        # Design A rationale (ecological adoption — required reading)
-  methodology.json      # Machine-readable methodology pin for reports
-  release.yaml          # Pinned agent, model, run parameters, weights
-  tasks/taskNNN/        # description.md, context.md, task.yaml
-  goldens/taskNNN/      # reference checklist (not ground truth)
-  probes/taskNNN/       # structural behavior probes (SkillsBench-inspired)
-  fixtures/             # Manifests; OSS bases vendored under evals/fixtures/_base/
-  judges/               # Rubric, golden-coverage, behavior-probes, promptfoo
-  scripts/              # Runner, compiler, analysis, analyst pass
-  results/              # Raw runs, scores, statistics (gitignored)
+  METHODOLOGY.md
+  methodology.json
+  release.yaml
+  harbor/
+    prompt_template.j2
+    overlays/treatment/AGENTS.md, CLAUDE.md
+    tasks/              # generated by bench:harbor:compile (gitignored)
+  tasks/taskNNN/
+  scripts/
+    harbor-compile.mjs
+    run-harbor-bench.mjs
+    ingest-harbor-results.mjs
+    harbor-score.mjs
+  results/harbor/jobs/  # Harbor job output (gitignored)
   releases/             # Committed snapshots only when claim-ready
 ```
 
-## Corpus (v2.1)
+## Corpus (v3.0)
 
-25 tasks across 5 categories (5 each):
+25 tasks × 2 arms × 3 runs = **150 Harbor trials**. See [METHODOLOGY.md](METHODOLOGY.md) for Design B rationale.
 
-1. Greenfield product design
-2. OSS feature design (Commerce, Plane, Outline — **full vendored codebases**)
-3. OSS behavior audit (same fixture bases; audit tasks use `*-audit-ready` manifests)
-4. Workflow and edge-case design
-5. Resilience and degraded states
+## Harbor runner flags
 
-3 runs per arm × 25 tasks = **150 workflow runs** (150 control invocations + 375 treatment = **525 agent calls**). Default **4 concurrent workflows** (`--concurrency` / `BENCH_CONCURRENCY`).
+| Flag | Purpose |
+|------|---------|
+| `--pilot` | First 3 tasks only |
+| `--tasks task001` | Filter task ids |
+| `--runs N` | Attempts per arm (default from `release.yaml`) |
+| `--fresh` | Wipe `index.jsonl` before run |
+| `--compile-only` | Emit Harbor tasks without running |
+| `--ingest-only` | Re-ingest existing Harbor jobs |
+| `--legacy` | Delegate to Design A phase harness |
 
-## Parallel runner
+## Legacy runner (Design A)
 
-The harness runs **whole workflows** in parallel (never interleaved phases). Each job gets an isolated workspace under `results/raw/workspaces/{task}_{arm}_run{N}`.
+The pre-v3 phase harness (`bench:run:legacy`) forced 2-phase control vs 5-phase treatment. Kept for debugging only.
 
-| Flag / env | Default | Purpose |
-|------------|---------|---------|
-| `--concurrency N` | `4` | Max simultaneous workflows |
-| `BENCH_CONCURRENCY` | — | Env override for concurrency |
-| `--fresh` | off | Delete `index.jsonl` before run (full re-run) |
-| *(resume)* | on | Skip jobs already in `index.jsonl` with `artifact_valid: true` |
-| `BENCH_PHASE_TIMEOUT_MS` | `1200000` (20 min) | Per-phase agent timeout; kills hung processes |
+**Resume / cost:** Jobs with matching `job_fingerprint` under `results_contract_version: 3.0.0` are skipped. Use `--fresh` to wipe the index.
 
-**Resume:** Partial runs append to `index.jsonl`. Re-run the same command to continue — completed valid jobs are skipped. Use `--fresh` only when you want to discard prior index rows.
-
-**Fixture cache:** Staged OSS trees are cached under `benchmarks/tmp/fixture-cache/`; skills under `benchmarks/tmp/skills-cache/` — copied per workspace, not re-vendored each run.
-
-**Phase gates:** After each phase the harness checks required files on disk (e.g. `bench-plan.md`, `src/`). One automatic retry on failure; invalid runs are indexed with `artifact_valid: false` and excluded from resume skip until fixed.
+**Unattended / clarify:** No harness auto-reply. Clarify stalls → verifier reward 0; reported as `clarify_stall` secondary metric.
 
 ```bash
-# Pilot (3 tasks × 3 runs × 2 arms), 4 workers
-npm run bench:run -- --pilot --concurrency 4
-
-# Single-task smoke, 2 overlapping workflows
-npm run bench:run -- --tasks task001 --runs 1 --concurrency 2 --fresh
-
-# Full suite (after pilot passes)
-npm run bench:run -- --concurrency 4
+npm run bench:harbor:compile -- --tasks task001
+npm run bench:run -- --tasks task001 --runs 1 --fresh
+npm run bench:run -- --pilot
 ```
 
 
@@ -156,7 +120,7 @@ npm run bench:run -- --concurrency 4
 | Behavior probes | Structural `code_guard` / `entity_model` / `scenario_handler` checks on implementation source |
 | Cost / time | Wall-clock from `index.jsonl`; tokens when the agent CLI reports usage |
 | Human review | Optional qualitative packet — **not** part of the claim composite |
-| Analyst pass | Flags golden/probe items that always pass or always fail on both arms |
+| Clarify stall rate | Agent exited on clarify without deliverables (secondary) |
 
 `claim_ready: true` requires live runs and an Anthropic LLM judge (not heuristic-only).
 
@@ -182,18 +146,18 @@ npm run bench:probes            # score after bench:run
 1. Copy `benchmarks/.env.example` → `benchmarks/.env` and set credentials:
    - `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` (Claude Code gateway) **or** `ANTHROPIC_API_KEY` (direct API)
    - `ANTHROPIC_MODEL` — Sonnet pin for agent runs and LLM judge (overrides `release.yaml`)
-2. Install reference agent: `claude` CLI (see `release.yaml`)
+2. `uv tool install harbor` and Docker (see `release.yaml`)
 3. `npm run bench:env-check` — verify credentials and gateway reachability
 4. `npm run bench:all` (live)
 5. Copy `results/report.md` + `results/statistics/stats.json` to `releases/v2.0.0/` only if `claim_ready: true`
 
 ## Claim wording (use only after claim_ready)
 
-> On LaminaBench (Design A — ecological adoption), the same coding agent with Lamina scored higher than Plan mode + implement on **reference-checklist coverage** and **Claude rubric scores of implemented source**. Treatment includes Lamina’s verify/fix loop by design (5 phases); control stops after implement (2 phases). Wall-clock/token cost and structural behavior-probe lift are reported separately. Methodology: `benchmarks/METHODOLOGY.md`. Results pinned to `release.yaml`.
+> On LaminaBench (Design B — SkillsBench-paired), the same coding agent with Lamina skills + workflow conventions scored higher than the no-skills control on **reference-checklist coverage** and **Claude rubric scores of implemented source**. Clarify stall rate and behavior-probe lift are reported separately. Methodology: `benchmarks/METHODOLOGY.md`.
 
 Until live results exist, prefer:
 
-> LaminaBench defines a public ecological adoption A/B: Lamina full loop vs Plan + implement, with a claim surface of checklist + LLM rubric on implemented source. Live results not yet published.
+> LaminaBench defines a public SkillsBench-paired A/B: Lamina skills + conventions vs no skills, with a claim surface of checklist + LLM rubric on implemented source. Live results not yet published.
 
 ## Fixture honesty
 

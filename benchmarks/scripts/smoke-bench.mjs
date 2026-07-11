@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke validation for parallel bench harness.
+ * Smoke validation for parallel bench harness (container-isolated by default).
  * 1. Single control workflow (task001) — gates, session resume, artifact
  * 2. Parallel overlap — control + treatment with concurrency 2
  */
@@ -13,11 +13,19 @@ import { runControlWorkflow, runTreatmentWorkflow } from './bench-workflow.mjs';
 import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
 import { loadBenchEnv } from './load-bench-env.mjs';
 import { installLaminaSkills } from './bench-skills.mjs';
+import {
+  ensureBenchImage,
+  isDockerAvailable,
+  runJobInContainer,
+} from './bench-container.mjs';
 
 loadBenchEnv();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SMOKE_ROOT = path.join(ROOT, 'benchmarks/tmp/smoke');
+const JOB_META_DIR = path.join(ROOT, 'benchmarks/tmp/smoke-meta');
+const useContainer =
+  !process.argv.includes('--no-container') && process.env.BENCH_NO_CONTAINER !== '1';
 
 function loadTask001() {
   const suitePath = path.join(ROOT, 'benchmarks/tmp/bench-suite.json');
@@ -34,14 +42,30 @@ function assert(cond, msg) {
   if (!cond) throw new Error(`ASSERT: ${msg}`);
 }
 
+async function runWorkflow({ task, arm, workspace, agent = 'claude-code' }) {
+  if (task.fixture) stageBenchFixture(task.fixture, workspace);
+  if (arm === 'treatment') installLaminaSkills(workspace, agent);
+
+  if (useContainer) {
+    const metaDir = path.join(JOB_META_DIR, `${path.basename(workspace)}`);
+    if (fs.existsSync(metaDir)) fs.rmSync(metaDir, { recursive: true, force: true });
+    return runJobInContainer({ workspace, metaDir, task, arm, agent });
+  }
+
+  if (!isAgentAvailable(agent)) {
+    throw new Error(`Agent ${agent} not available — install CLI or drop --no-container`);
+  }
+  const fn = arm === 'control' ? runControlWorkflow : runTreatmentWorkflow;
+  return fn(agent, workspace, task);
+}
+
 async function smokeControl(task) {
   const workspace = path.join(SMOKE_ROOT, 'control-only');
   if (fs.existsSync(workspace)) fs.rmSync(workspace, { recursive: true, force: true });
   fs.mkdirSync(workspace, { recursive: true });
-  if (task.fixture) stageBenchFixture(task.fixture, workspace);
 
   console.log('\n[smoke 1/2] control-only task001...');
-  const result = await runControlWorkflow('claude-code', workspace, task);
+  const result = await runWorkflow({ task, arm: 'control', workspace });
 
   assert(result.status === 'success', `control status=${result.status}`);
   assert(result.artifact_valid === true, 'control artifact invalid');
@@ -72,15 +96,12 @@ async function smokeParallel(task) {
   for (const job of jobs) {
     if (fs.existsSync(job.workspace)) fs.rmSync(job.workspace, { recursive: true, force: true });
     fs.mkdirSync(job.workspace, { recursive: true });
-    if (task.fixture) stageBenchFixture(task.fixture, job.workspace);
   }
 
   const start = Date.now();
   const results = await Promise.all(
     jobs.map(async (job) => {
-      if (job.arm === 'treatment') installLaminaSkills(job.workspace, 'claude-code');
-      const fn = job.arm === 'control' ? runControlWorkflow : runTreatmentWorkflow;
-      const result = await fn('claude-code', job.workspace, task);
+      const result = await runWorkflow({ task, arm: job.arm, workspace: job.workspace });
       return { ...job, result };
     })
   );
@@ -102,7 +123,13 @@ async function smokeParallel(task) {
 }
 
 async function main() {
-  if (!isAgentAvailable('claude-code')) {
+  if (useContainer) {
+    if (!isDockerAvailable()) {
+      console.error('Docker not available — install Docker or pass --no-container');
+      process.exit(1);
+    }
+    ensureBenchImage();
+  } else if (!isAgentAvailable('claude-code')) {
     console.error('Claude Code CLI not available — skip smoke or install claude');
     process.exit(1);
   }
@@ -113,7 +140,7 @@ async function main() {
   await smokeControl(task);
   await smokeParallel(task);
 
-  console.log('\nSmoke validation passed.');
+  console.log(`\nSmoke validation passed (isolation=${useContainer ? 'docker' : 'host'}).`);
 }
 
 main().catch((err) => {

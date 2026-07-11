@@ -1,5 +1,6 @@
 /**
  * Install Lamina skills into a benchmark workspace (treatment arm).
+ * Always copies from repo skills/ so treatment runs use the latest skill tree.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,19 +9,12 @@ import { copyTree } from '../../evals/scripts/vendor-fixture-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKILLS_SRC = path.join(ROOT, 'skills');
-const SKILLS_CACHE = path.join(ROOT, 'benchmarks/tmp/skills-cache');
-
-function ensureSkillsCache() {
-  if (fs.existsSync(SKILLS_CACHE)) return;
-  fs.mkdirSync(SKILLS_CACHE, { recursive: true });
-  for (const entry of fs.readdirSync(SKILLS_SRC, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    copyTree(path.join(SKILLS_SRC, entry.name), path.join(SKILLS_CACHE, entry.name));
-  }
-}
 
 export function installLaminaSkills(workspace, agent) {
-  ensureSkillsCache();
+  if (!fs.existsSync(SKILLS_SRC)) {
+    throw new Error(`Lamina skills source missing: ${SKILLS_SRC}`);
+  }
+
   const agentDirs = {
     'claude-code': '.claude/skills',
     codex: '.codex/skills',
@@ -30,9 +24,9 @@ export function installLaminaSkills(workspace, agent) {
   const dest = path.join(workspace, rel);
   fs.mkdirSync(dest, { recursive: true });
 
-  for (const entry of fs.readdirSync(SKILLS_CACHE, { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(SKILLS_SRC, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const src = path.join(SKILLS_CACHE, entry.name);
+    const src = path.join(SKILLS_SRC, entry.name);
     const target = path.join(dest, entry.name);
     if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
     copyTree(src, target);

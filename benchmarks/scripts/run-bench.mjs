@@ -4,7 +4,11 @@
  *
  * Usage:
  *   node benchmarks/scripts/run-bench.mjs [--pilot] [--tasks id1,id2] [--runs N]
- *     [--concurrency N] [--fresh]
+ *     [--concurrency N] [--fresh] [--rerun id1,id2] [--no-container] [--rebuild-image]
+ *
+ * Resume (default): skips jobs that already succeeded with a matching job_fingerprint
+ * (task brief + fixture + agent/model + results_contract_version). Failed jobs re-run.
+ * --fresh wipes the index. --rerun forces specific task ids even if complete.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,11 +20,20 @@ import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
 import { runControlWorkflow, runTreatmentWorkflow } from './bench-workflow.mjs';
 import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
 import { installLaminaSkills } from './bench-skills.mjs';
+import { ensureBenchImage, isDockerAvailable, runJobInContainer } from './bench-container.mjs';
+import {
+  computeJobFingerprint,
+  getHarnessVersion,
+  getResultsContractVersion,
+  loadCompletedJobKeys,
+  upsertIndexEntry,
+} from './bench-index.mjs';
 
 loadBenchEnv();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
+const JOB_META_DIR = path.join(ROOT, 'benchmarks/tmp/job-meta');
 const METHODOLOGY = JSON.parse(
   fs.readFileSync(path.join(ROOT, 'benchmarks/methodology.json'), 'utf8')
 );
@@ -31,13 +44,19 @@ function parseArgs() {
   const opts = {
     pilot: process.argv.includes('--pilot'),
     fresh: process.argv.includes('--fresh'),
+    rebuildImage: process.argv.includes('--rebuild-image'),
     tasks: null,
+    rerun: null,
     runs: null,
     agent: null,
     concurrency: DEFAULT_CONCURRENCY,
+    useContainer:
+      !process.argv.includes('--no-container') && process.env.BENCH_NO_CONTAINER !== '1',
   };
   const tasksIdx = process.argv.indexOf('--tasks');
   if (tasksIdx !== -1) opts.tasks = process.argv[tasksIdx + 1].split(',');
+  const rerunIdx = process.argv.indexOf('--rerun');
+  if (rerunIdx !== -1) opts.rerun = process.argv[rerunIdx + 1].split(',');
   const runsIdx = process.argv.indexOf('--runs');
   if (runsIdx !== -1) opts.runs = Number(process.argv[runsIdx + 1]);
   const agentIdx = process.argv.indexOf('--agent');
@@ -55,39 +74,15 @@ function loadSuite() {
   return JSON.parse(fs.readFileSync(suitePath, 'utf8'));
 }
 
-function loadCompletedJobs() {
-  const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
-  const completed = new Set();
-  if (!fs.existsSync(indexPath)) return completed;
-  for (const line of fs.readFileSync(indexPath, 'utf8').split('\n')) {
-    if (!line.trim()) continue;
-    try {
-      const row = JSON.parse(line);
-      if (row.artifact_valid === true) {
-        completed.add(`${row.task_id}:${row.arm}:run${row.run}`);
-      }
-    } catch {
-      /* skip */
-    }
-  }
-  return completed;
-}
-
 let indexLock = Promise.resolve();
 
-function appendIndex(entry) {
-  const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
-  fs.mkdirSync(RESULTS_RAW, { recursive: true });
-  fs.appendFileSync(indexPath, JSON.stringify(entry) + '\n');
-}
-
-function appendIndexSafe(entry) {
-  indexLock = indexLock.then(() => appendIndex(entry));
+function upsertIndexSafe(entry) {
+  indexLock = indexLock.then(() => upsertIndexEntry(entry, RESULTS_RAW));
   return indexLock;
 }
 
-async function runTask(task, run, arm, opts, release, workerId) {
-  const jobKey = `${task.id}:${arm}:run${run}`;
+async function runTask(task, run, arm, opts, release, workerId, meta) {
+  const jobKeyStr = `${task.id}:${arm}:run${run}`;
   const workspace = path.join(RESULTS_RAW, 'workspaces', `${task.id}_${arm}_run${run}`);
   const artifactRel = `artifacts/${task.id}_${arm}_run${run}.md`;
   const artifactAbs = path.join(RESULTS_RAW, artifactRel);
@@ -109,15 +104,27 @@ async function runTask(task, run, arm, opts, release, workerId) {
   const start = Date.now();
   let workflowResult;
 
-  if (!isAgentAvailable(agent)) {
-    throw new Error(`Agent ${agent} not available. Install the agent CLI before running benchmarks.`);
-  }
-
-  if (arm === 'treatment') {
-    installLaminaSkills(workspace, agent);
-    workflowResult = await runTreatmentWorkflow(agent, workspace, task);
+  if (opts.useContainer) {
+    if (arm === 'treatment') installLaminaSkills(workspace, agent);
+    const metaDir = path.join(JOB_META_DIR, `${task.id}_${arm}_run${run}`);
+    if (fs.existsSync(metaDir)) fs.rmSync(metaDir, { recursive: true, force: true });
+    workflowResult = await runJobInContainer({
+      workspace,
+      metaDir,
+      task,
+      arm,
+      agent,
+    });
   } else {
-    workflowResult = await runControlWorkflow(agent, workspace, task);
+    if (!isAgentAvailable(agent)) {
+      throw new Error(`Agent ${agent} not available. Install the agent CLI before running benchmarks.`);
+    }
+    if (arm === 'treatment') {
+      installLaminaSkills(workspace, agent);
+      workflowResult = await runTreatmentWorkflow(agent, workspace, task);
+    } else {
+      workflowResult = await runControlWorkflow(agent, workspace, task);
+    }
   }
 
   const elapsed = Date.now() - start;
@@ -130,7 +137,10 @@ async function runTask(task, run, arm, opts, release, workerId) {
     run,
     arm,
     agent,
-    model: resolveBenchModel(release),
+    model: meta.model,
+    harness_version: meta.harnessVersion,
+    results_contract_version: meta.resultsContractVersion,
+    job_fingerprint: meta.fingerprint,
     artifact_path: artifactRel,
     workspace: path.relative(ROOT, workspace),
     duration_ms: elapsed,
@@ -146,16 +156,17 @@ async function runTask(task, run, arm, opts, release, workerId) {
     status: workflowResult.status,
     failed_gate: workflowResult.failed_gate ?? null,
     artifact_valid: workflowResult.artifact_valid,
+    interaction: workflowResult.interaction ?? null,
   };
 
   if (!workflowResult.artifact_valid) {
     console.warn(
-      `WARNING [w${workerId}]: ${jobKey} — invalid artifact (${workflowResult.status}${workflowResult.failed_gate ? `, gate=${workflowResult.failed_gate}` : ''})`
+      `WARNING [w${workerId}]: ${jobKeyStr} — invalid artifact (${workflowResult.status}${workflowResult.failed_gate ? `, gate=${workflowResult.failed_gate}` : ''})`
     );
   }
 
-  await appendIndexSafe(entry);
-  return { entry, workerId, jobKey };
+  await upsertIndexSafe(entry);
+  return { entry, workerId, jobKey: jobKeyStr };
 }
 
 async function runPool(jobs, concurrency, workerFn) {
@@ -182,7 +193,11 @@ async function runPool(jobs, concurrency, workerFn) {
 async function main() {
   const opts = parseArgs();
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
+  const harnessVersion = getHarnessVersion();
+  const resultsContractVersion = getResultsContractVersion();
   const suite = loadSuite();
+  const model = resolveBenchModel(release);
+  const agent = opts.agent || release.agent;
 
   let tasks = suite.tasks;
   if (opts.pilot) {
@@ -198,41 +213,91 @@ async function main() {
   if (opts.fresh) {
     const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
     if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath);
+    console.log('Fresh run: index.jsonl cleared (all jobs will execute).');
   }
 
   fs.mkdirSync(RESULTS_RAW, { recursive: true });
-  const completed = opts.fresh ? new Set() : loadCompletedJobs();
 
-  const jobs = [];
+  const planned = [];
   for (const task of tasks) {
     for (let run = 1; run <= runsPerArm; run++) {
       for (const arm of arms) {
-        const key = `${task.id}:${arm}:run${run}`;
-        if (completed.has(key)) {
-          console.log(`skip ${key} (already complete)`);
-          continue;
-        }
-        jobs.push({ task, run, arm });
+        planned.push({ task, run, arm });
       }
     }
   }
 
+  const forceKeys = new Set(opts.rerun || []);
+  const completed = opts.fresh
+    ? new Set()
+    : loadCompletedJobKeys({
+        jobs: planned,
+        agent,
+        model,
+        resultsContractVersion,
+        resultsDir: RESULTS_RAW,
+        forceKeys,
+      });
+
+  const jobs = [];
+  let skipped = 0;
+  for (const job of planned) {
+    const key = `${job.task.id}:${job.arm}:run${job.run}`;
+    if (completed.has(key)) {
+      skipped++;
+      console.log(`skip ${key} (fingerprint match — already complete)`);
+      continue;
+    }
+    jobs.push(job);
+  }
+
   if (!jobs.length) {
-    console.log('No benchmark jobs to run (all complete or empty task list).');
+    console.log(
+      `No benchmark jobs to run (${skipped} skipped as complete under results_contract ${resultsContractVersion}).`
+    );
     return;
   }
 
-  console.log(`LaminaBench: ${jobs.length} workflow(s), concurrency=${opts.concurrency}`);
+  if (opts.useContainer) {
+    if (!isDockerAvailable()) {
+      throw new Error(
+        'Docker is required for benchmark isolation. Install Docker or pass --no-container for local debugging.'
+      );
+    }
+    ensureBenchImage({ force: opts.rebuildImage });
+  } else if (!isAgentAvailable(agent)) {
+    throw new Error(
+      `Agent ${agent} not available. Install the agent CLI or use container mode (default).`
+    );
+  }
+
+  console.log(
+    `LaminaBench: ${jobs.length} to run, ${skipped} skipped, concurrency=${opts.concurrency}, isolation=${opts.useContainer ? 'docker' : 'host'}, contract=${resultsContractVersion}`
+  );
 
   await runPool(jobs, opts.concurrency, async (job, workerId, progress) => {
-    const { entry } = await runTask(job.task, job.run, job.arm, opts, release, workerId);
+    const fingerprint = computeJobFingerprint(job.task, {
+      arm: job.arm,
+      run: job.run,
+      agent,
+      model,
+      resultsContractVersion,
+    });
+    const { entry } = await runTask(job.task, job.run, job.arm, opts, release, workerId, {
+      harnessVersion,
+      resultsContractVersion,
+      model,
+      fingerprint,
+    });
     const { done, total } = progress();
     console.log(
       `[${done}/${total}] w${workerId} ${entry.task_id} ${entry.arm} run${entry.run} → ${entry.artifact_path} (${entry.duration_ms}ms, valid=${entry.artifact_valid})`
     );
   });
 
-  console.log(`\nLaminaBench run complete: ${jobs.length} workflow(s)`);
+  console.log(
+    `\nLaminaBench run complete: ${jobs.length} executed, ${skipped} skipped (resume)`
+  );
 }
 
 main().catch((err) => {

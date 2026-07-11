@@ -7,6 +7,7 @@ eval-workspace/
 agent-skills-workspace/
 evals/reports/iteration-*/
 promptfoo-output/
+jobs/
 .env
 
 # skills CLI pollution (must never live at repo root)

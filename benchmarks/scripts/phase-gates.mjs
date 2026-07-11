@@ -1,25 +1,47 @@
 /**
  * Mid-phase filesystem gates for LaminaBench workflows.
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import { listImplementationFiles } from './artifact-contract.mjs';
+import {
+  checkDesignRunLayout,
+  checkVerifyRunLayout,
+  fileNonTrivial,
+  latestRunRecord,
+} from './lamina-run-layout.mjs';
 
-function findFileRecursive(dir, name, limit = 16) {
-  const hits = [];
-  if (!fs.existsSync(dir)) return hits;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const abs = path.join(dir, entry.name);
-    if (entry.isDirectory()) hits.push(...findFileRecursive(abs, name, limit));
-    else if (entry.name.toLowerCase() === name.toLowerCase()) hits.push(abs);
-    if (hits.length >= limit) break;
-  }
-  return hits;
+/** Categories that must ship a client UI surface, not API-only. */
+const UI_REQUIRED_CATEGORIES = new Set(['greenfield', 'workflow_edge', 'resilience']);
+
+const UI_EXT = /\.(tsx|jsx|vue|svelte|swift|kt|html)$/i;
+const UI_PATH =
+  /(^|\/)(screens?|components?|pages?|views?|ui|mobile|frontend|client|app)(\/|$)/i;
+
+export function hasUiSurface(files) {
+  return files.some((rel) => {
+    if (UI_EXT.test(rel)) return true;
+    if (UI_PATH.test(rel) && /\.(ts|js|tsx|jsx|vue|svelte)$/i.test(rel)) return true;
+    return false;
+  });
 }
 
-function fileNonTrivial(filePath, minChars = 50) {
-  if (!fs.existsSync(filePath)) return false;
-  return fs.readFileSync(filePath, 'utf8').trim().length >= minChars;
+export function checkImplementGate(workspace, task = {}) {
+  const files = listImplementationFiles(workspace);
+  if (!files.length) {
+    return { ok: false, reason: 'no implementation source files on disk' };
+  }
+
+  const category = task.category || '';
+  if (UI_REQUIRED_CATEGORIES.has(category) && !hasUiSurface(files)) {
+    return {
+      ok: false,
+      reason:
+        `API/backend-only implementation rejected for ${category} tasks — ` +
+        'include client UI (e.g. .tsx/.jsx screens or components/, app/, mobile/)',
+    };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -33,63 +55,40 @@ export function checkPhaseGate(workspace, gate, task = {}) {
         : { ok: false, reason: 'bench-plan.md missing or too short' };
 
     case 'treatment_init':
-      return fileNonTrivial(path.join(workspace, '.lamina/business-context.md'))
+      return fileNonTrivial(path.join(workspace, '.lamina/business-context.md'), 200)
         ? { ok: true }
-        : { ok: false, reason: '.lamina/business-context.md missing or too short' };
+        : { ok: false, reason: '.lamina/business-context.md missing or too short (<200 chars)' };
 
-    case 'treatment_design': {
+    case 'treatment_design':
       if (task.workflow === 'audit') {
-        const lamina = path.join(workspace, '.lamina');
-        const reports = [
-          ...findFileRecursive(lamina, 'verify-report.md'),
-          ...findFileRecursive(lamina, 'report.md'),
-        ];
-        return reports.length
-          ? { ok: true }
-          : { ok: false, reason: 'audit verify report missing under .lamina/' };
+        return checkVerifyRunLayout(workspace);
       }
-      const impl = findFileRecursive(path.join(workspace, '.lamina'), 'implement.md');
-      return impl.length
-        ? { ok: true }
-        : { ok: false, reason: 'implement.md missing under .lamina/' };
-    }
+      return checkDesignRunLayout(workspace);
 
-    case 'treatment_verify_brownfield': {
-      const lamina = path.join(workspace, '.lamina');
-      const reports = [
-        ...findFileRecursive(lamina, 'verify-report.md'),
-        ...findFileRecursive(lamina, 'report.md'),
-      ];
-      return reports.length
-        ? { ok: true }
-        : { ok: false, reason: 'brownfield verify report missing under .lamina/' };
-    }
+    case 'treatment_verify_brownfield':
+      return checkVerifyRunLayout(workspace);
 
     case 'implement':
-      return listImplementationFiles(workspace).length > 0
-        ? { ok: true }
-        : { ok: false, reason: 'no implementation source files on disk' };
+      return checkImplementGate(workspace, task);
 
     case 'treatment_verify_post_build': {
-      const lamina = path.join(workspace, '.lamina');
-      const reports = [
-        ...findFileRecursive(lamina, 'verify-report.md'),
-        ...findFileRecursive(lamina, 'report.md'),
-      ];
-      return reports.length
-        ? { ok: true }
-        : { ok: false, reason: 'post-build verify report missing under .lamina/' };
+      const layout = checkVerifyRunLayout(workspace);
+      if (!layout.ok) return layout;
+      const run = latestRunRecord(workspace);
+      if (run && fileNonTrivial(run.fix)) return { ok: true };
+      return {
+        ok: false,
+        reason: 'post-build verify missing fix.md under `.lamina/runs/<run_id>/`',
+      };
     }
 
     case 'treatment_fix':
-      return listImplementationFiles(workspace).length > 0
-        ? { ok: true }
-        : { ok: false, reason: 'no implementation source after fix phase' };
+      return checkImplementGate(workspace, task);
 
     default:
-      return { ok: true };
+      return { ok: false, reason: `unknown phase gate: ${gate}` };
   }
 }
 
 export const GATE_RETRY_PROMPT =
-  'Required deliverables are still missing on disk. Write the files to this workspace now. Do not describe what you would do — create the actual files.';
+  'Required deliverables are still missing on disk. Write the files to this workspace now. Do not describe what you would do — create the actual files. For Lamina design/verify, use `.lamina/runs/<run_id>/` per artifacts.md — never `.lamina/ready_to_build/`. For greenfield/workflow/resilience tasks, include client UI source — not API-only.';

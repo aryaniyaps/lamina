@@ -1,9 +1,14 @@
-version: "2.0.0"
-release_tag: bench-v2.0.0
-created: "2026-07-10"
+version: "3.0.0"
+release_tag: bench-v3.0.0
+created: "2026-07-11"
+harness_version: "3.0.0"
+# Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
+results_contract_version: "3.0.0"
 
-# Default pin for the public leaderboard. Multi-agent pilots: pass --agent to run-bench.
-# Do not claim model independence from a single pin.
+# Harbor runner — see benchmarks/METHODOLOGY.md (Design B)
+runner: harbor
+harbor_prompt_template: benchmarks/harbor/prompt_template.j2
+
 agent: claude-code
 model: claude-sonnet-4-20250514
 temperature: 0
@@ -12,35 +17,30 @@ max_tokens: 8192
 
 runs_per_arm: 3
 tasks_total: 25
-workflow_runs_total: 150
-control_phases: 2
-treatment_phases: 5
-control_invocations_total: 150
-treatment_invocations_total: 375
-agent_invocations_total: 525
+trials_per_task: 2
+# 25 tasks × 2 arms × 3 runs = 150 trials
+trials_total: 150
 
-# Ecological adoption comparison — see benchmarks/METHODOLOGY.md (not matched-turn ablation)
+# Agent timeout for one continuous rollout (seconds)
+agent_timeout_sec: 5400
+verifier_timeout_sec: 600
+
 methodology:
-  id: design_a_ecological
+  id: design_b_skillsbench_paired
   document: benchmarks/METHODOLOGY.md
   machine_readable: benchmarks/methodology.json
   research_question: >-
-    Does adopting Lamina (full agent-native loop) yield better implemented
-    product behavior than Plan mode + implement — the realistic without-Lamina path?
-  unequal_turns_intentional: true
-  control_scoring: post_implement
-  treatment_scoring: post_fix
+    Given the same product brief, does Lamina (skills + workflow conventions)
+    yield better implemented product behavior than no Lamina skills?
+  paired_conditions: true
+  skillsbench_style: true
 
-# Claim composite: checklist + LLM rubric only (50/50).
-# Behavior probes, cost/time, and optional human review are reported separately.
 scoring_weights:
   golden_coverage: 0.5
   llm_judge: 0.5
 
-claim_surface: "golden_coverage + llm_judge on implemented source (Design A)"
+claim_surface: "golden_coverage + llm_judge on implemented source (Design B)"
 
-
-# required_sections intentionally omitted — format-neutral (avoids Lamina-shaped bias)
 golden_field_weights:
   required_invariants: 2
   required_entities: 2
@@ -63,7 +63,6 @@ categories:
   - workflow_edge
   - resilience
 
-# Fixture honesty: all OSS fixtures are full vendored source trees
 oss_pins:
   commerce:
     repo: vercel/commerce

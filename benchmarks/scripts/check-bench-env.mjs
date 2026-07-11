@@ -1,22 +1,30 @@
 #!/usr/bin/env node
 /**
- * Verify benchmarks/.env is loaded and credentials work for live benchmark runs.
+ * Verify benchmarks/.env, Anthropic credentials, Docker, and Harbor CLI for live runs.
  */
 import { loadBenchEnv, hasAnthropicCredentials, resolveBenchModel } from './load-bench-env.mjs';
 import { readYamlSync } from './yaml.mjs';
 import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
+import { isDockerAvailable } from './bench-container.mjs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PROBE_TIMEOUT_MS = 180_000;
 
+function which(cmd) {
+  const r = spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
 const { loaded, path: envPath } = loadBenchEnv();
 const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
 const model = resolveBenchModel(release);
 const llmJudges = release.llm_judges || [];
+const harbor = which('harbor');
 
-console.log('LaminaBench environment check\n');
+console.log('LaminaBench environment check (Harbor / Design B)\n');
 console.log(`  benchmarks/.env: ${loaded ? `loaded (${envPath})` : 'not found (using shell env only)'}`);
 console.log(`  Model pin: ${model || '(none)'}`);
 console.log(`  ANTHROPIC_BASE_URL: ${process.env.ANTHROPIC_BASE_URL || '(default api.anthropic.com)'}`);
@@ -24,16 +32,17 @@ console.log(
   `  Anthropic credentials: ${hasAnthropicCredentials() ? 'yes' : 'MISSING — set ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY'}`
 );
 console.log(`  LLM judge: ${llmJudges.join(', ') || '(none)'} (Anthropic only)`);
-console.log(`  Claude CLI (claude-code): ${isAgentAvailable('claude-code') ? 'found' : 'NOT FOUND — install for bench:run'}`);
+console.log(`  Harbor CLI: ${harbor ? harbor : 'NOT FOUND — install: uv tool install harbor'}`);
+console.log(`  Docker: ${isDockerAvailable() ? 'found' : 'NOT FOUND — required for harbor run'}`);
+console.log(
+  `  Claude CLI (claude-code): ${isAgentAvailable('claude-code') ? 'found on host' : 'optional on host (Harbor runs agent in container)'}`
+);
 
 let exitCode = 0;
 
-if (!hasAnthropicCredentials()) {
-  exitCode = 1;
-}
-if (!isAgentAvailable('claude-code')) {
-  exitCode = 1;
-}
+if (!hasAnthropicCredentials()) exitCode = 1;
+if (!harbor) exitCode = 1;
+if (!isDockerAvailable()) exitCode = 1;
 
 if (exitCode !== 0) {
   console.log('\nFix the issues above before running bench:all.');
@@ -93,11 +102,7 @@ async function probeGateway() {
       }
       throw new Error(`HTTP ${res.status}: ${text.slice(0, 400)}`);
     } catch (err) {
-      if (err.name === 'AbortError') {
-        lastError = new Error(`timed out after ${PROBE_TIMEOUT_MS / 1000}s`);
-      } else {
-        lastError = err;
-      }
+      lastError = err.name === 'AbortError' ? new Error(`timed out after ${PROBE_TIMEOUT_MS / 1000}s`) : err;
       if (attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 2000));
         continue;
@@ -118,15 +123,10 @@ if (process.env.ANTHROPIC_BASE_URL) {
       console.error(`\n  Model "${model}" is not in the gateway catalog.`);
       if (sonnetIds.length) {
         console.error(`  Available Sonnet models: ${sonnetIds.join(', ')}`);
-        console.error(`  Update ANTHROPIC_MODEL in benchmarks/.env (e.g. ${sonnetIds[0]}).`);
       }
       exitCode = 1;
     }
   }
-}
-
-if (!model) {
-  console.warn('\n  Warning: ANTHROPIC_MODEL not set; release.yaml model used for run metadata only.');
 }
 
 if (exitCode === 0) {
@@ -140,8 +140,10 @@ if (exitCode === 0) {
 }
 
 if (exitCode === 0) {
-  console.log('\nReady for live benchmark runs (npm run bench:all).');
-  console.log('Pilot smoke: node benchmarks/scripts/run-bench.mjs --pilot');
+  console.log('\nReady for Harbor benchmark runs (npm run bench:all).');
+  console.log('Compile only: npm run bench:harbor:compile -- --tasks task001');
+  console.log('Pilot: npm run bench:run -- --pilot --tasks task001 --runs 1');
+  console.log('Legacy phase harness: npm run bench:run:legacy');
 } else {
   console.log('\nFix the issues above before running bench:all.');
 }

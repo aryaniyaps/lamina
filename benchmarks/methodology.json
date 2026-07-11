@@ -1,50 +1,63 @@
 {
-  "id": "design_a_ecological",
-  "name": "Ecological adoption comparison",
-  "version": "2.1.0",
+  "id": "design_b_skillsbench_paired",
+  "name": "SkillsBench-style paired comparison",
+  "version": "3.0.0",
   "claim_surface": "golden_coverage + llm_judge on implemented source",
-  "research_question": "When a developer adopts Lamina versus using Plan mode and implementing (the realistic without-Lamina path), which produces better implemented product behavior in code?",
+  "research_question": "When the same coding agent receives the same product brief, does Lamina (skills installed + project workflow conventions) produce better implemented product behavior than no Lamina skills and no workflow hint?",
+  "runner": {
+    "framework": "harbor",
+    "agent": "claude-code",
+    "rollouts_per_trial": 1,
+    "description": "One continuous agent rollout per trial via harbor run. No harness-forced slash-command phases."
+  },
   "control": {
-    "label": "Plan mode + implement",
-    "phases": 2,
-    "workflow_id": "control_plan_2_phase",
-    "description": "Write bench-plan.md (IDE Plan-mode-style planning), then implement the full product scope from the brief. No Lamina skills. No verify/fix loop.",
-    "scoring_checkpoint": "post_implement",
-    "precedent": "Matches the without-Lamina arm of the public hotel-booking demo (README.md): Cursor Plan mode → implement."
+    "label": "No Lamina skills",
+    "harbor_task_suffix": "-control",
+    "description": "Fixture + instruction.md only. No Lamina skills, no AGENTS.md/CLAUDE.md workflow hint.",
+    "skills_installed": false,
+    "workflow_hint": false
   },
   "treatment": {
-    "label": "Full Lamina loop",
-    "phases": 5,
-    "workflow_id": "treatment_lamina_5_phase",
-    "description": "lamina-init → lamina-design or lamina-verify (audit) → implement → lamina-verify → fix from fix.md",
-    "scoring_checkpoint": "post_fix"
+    "label": "Lamina skills + workflow hint",
+    "harbor_task_suffix": "-treatment",
+    "description": "Same fixture and instruction.md. Lamina skills in agent skill path plus AGENTS.md/CLAUDE.md prescribing init → design → implement → verify → fix.",
+    "skills_installed": true,
+    "workflow_hint": true
   },
-  "why_unequal_turns_is_correct": [
-    "The benchmark answers an adoption question: should I install Lamina, not a tooling-ablation question inside a process nobody would use without Lamina.",
-    "Extra treatment phases (verify, fix) are the product — not hidden compute. Scoring treatment post-fix measures what Lamina is designed to deliver.",
-    "Forcing the control through a Lamina-shaped verify/fix loop would import Lamina's methodology into the baseline and understate the real without-Lamina path.",
-    "Matched-turn designs measure whether slash commands beat manual copies of Lamina's loop — a narrower claim than this benchmark makes."
-  ],
+  "unattended_policy": {
+    "prevention": "Harbor prompt_template.j2 and treatment AGENTS.md/CLAUDE.md include unattended contract: brief is authoritative; no clarify-and-STOP.",
+    "recovery": "none",
+    "on_stall": "Verifier reward 0; clarify_stall logged as secondary metric (not in composite)."
+  },
   "fairness_constraints": [
-    "Same coding agent, model pin, temperature, task prompt, and fixture for both arms on each task.",
-    "Control receives no Lamina skills and no .lamina/ contracts.",
-    "Both arms score the same artifact type: bundled application source (process markdown and .lamina/ excluded).",
-    "Control is scored at its natural stopping point (post-implement); treatment at its natural stopping point (post-fix). This is intentional, not a scoring shortcut."
+    "Same instruction.md product brief for both arms (no Lamina skill names in instructions — SkillsBench rule).",
+    "Same coding agent, model pin, temperature, task, fixture, and Harbor prompt_template wrapper per paired trial.",
+    "Control receives no Lamina skills and no workflow AGENTS.md/CLAUDE.md.",
+    "Both arms score the same artifact type: bundled application source (.lamina/ and bench process files excluded).",
+    "Workflow hint lives only in treatment project conventions, not in task instructions."
   ],
   "explicit_non_claims": [
-    "Does not claim matched compute fairness — ecological validity is prioritized.",
-    "Does not claim runtime/test pass rates unless behavior probes include trusted shell/runtime oracles (reported separately from the composite).",
+    "Does not claim the agent discovered Lamina skills without hints — treatment includes AGENTS.md/CLAUDE.md workflow guidance.",
+    "Does not claim runtime/test pass rates unless behavior probes include trusted shell/runtime oracles (reported separately).",
     "Does not claim model independence from a single agent pin.",
-    "Human review is optional qualitative only — not part of the claim composite."
+    "Clarify stall rate is diagnostic only — not part of the claim composite.",
+    "Human review is optional qualitative only."
+  ],
+  "secondary_metrics": [
+    "clarify_stall_rate",
+    "behavior_probes",
+    "cost_time",
+    "skill_invocation_rate"
   ],
   "rejected_alternatives": [
     {
-      "id": "matched_5_phase_control",
-      "why_rejected": "Exports Lamina's design→verify→fix loop into the control arm. Tests tooling inside Lamina's process, not Lamina vs realistic baseline."
+      "id": "design_a_ecological_5_phase_harness",
+      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Retained only as legacy --legacy runner."
     },
     {
-      "id": "single_turn_control",
-      "why_rejected": "Task→implement with no planning understates what competent teams do without Lamina; Plan+implement is the documented comparison in the product demo."
+      "id": "clarify_auto_reply_recovery",
+      "why_rejected": "Harbor has no native mid-run Q&A recovery; custom auto-reply reintroduces harness babysitting and muddies the skills claim."
     }
-  ]
+  ],
+  "supersedes": "design_a_ecological"
 }

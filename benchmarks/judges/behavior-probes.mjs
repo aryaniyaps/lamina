@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from '../scripts/yaml.mjs';
+import { loadScoreableIndex } from '../scripts/bench-index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
@@ -32,24 +33,20 @@ function matchPatterns(patterns, text) {
   return false;
 }
 
-function loadIndex(resultsDir) {
-  const indexPath = path.join(resultsDir, 'index.jsonl');
-  if (!fs.existsSync(indexPath)) {
-    console.error(`No index.jsonl at ${indexPath}. Run bench:run first.`);
-    process.exit(1);
-  }
-  return fs
-    .readFileSync(indexPath, 'utf8')
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-}
-
 function main() {
   const resultsIdx = process.argv.indexOf('--results-dir');
   const resultsDir = resultsIdx !== -1 ? path.resolve(process.argv[resultsIdx + 1]) : RESULTS_RAW;
-  const index = loadIndex(resultsDir);
+  const allPath = path.join(resultsDir, 'index.jsonl');
+  if (!fs.existsSync(allPath)) {
+    console.error(`No index.jsonl at ${allPath}. Run bench:run first.`);
+    process.exit(1);
+  }
+  const allCount = fs.readFileSync(allPath, 'utf8').trim().split('\n').filter(Boolean).length;
+  const index = loadScoreableIndex(resultsDir);
+  const skipped = allCount - index.length;
+  if (skipped > 0) {
+    console.log(`Skipping ${skipped} index row(s) (invalid, failed, or stale contract)`);
+  }
   fs.mkdirSync(SCORED_DIR, { recursive: true });
 
   const rows = [];

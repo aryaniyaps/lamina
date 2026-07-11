@@ -6,25 +6,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from '../scripts/yaml.mjs';
+import { loadScoreableIndex } from './bench-index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 
-function loadIndex() {
-  const indexPath = path.join(RESULTS_RAW, 'index.jsonl');
-  if (!fs.existsSync(indexPath)) return [];
-  return fs
-    .readFileSync(indexPath, 'utf8')
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => JSON.parse(l));
-}
-
 function buildTests() {
-  const index = loadIndex();
+  const index = loadScoreableIndex(RESULTS_RAW);
   const tests = [];
   for (const entry of index) {
     const taskDir = path.join(TASKS_DIR, entry.task_id);

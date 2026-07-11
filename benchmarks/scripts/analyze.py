@@ -80,24 +80,37 @@ def methodology_report_section(methodology: dict) -> list[str]:
         return []
     control = methodology.get("control", {})
     treatment = methodology.get("treatment", {})
+    mid = methodology.get("id", "unknown")
+    title = "Design B — SkillsBench-paired" if mid == "design_b_skillsbench_paired" else methodology.get("name", "")
     lines = [
-        "## Methodology (Design A — ecological adoption)",
+        f"## Methodology ({title})",
         "",
-        f"- **Id:** `{methodology.get('id', 'unknown')}` — {methodology.get('name', '')}",
+        f"- **Id:** `{mid}` — {methodology.get('name', '')}",
         f"- **Research question:** {methodology.get('research_question', '').strip()}",
-        f"- **Control:** {control.get('label', '')} ({control.get('phases', '?')} phases, scored {control.get('scoring_checkpoint', '')})",
-        f"- **Treatment:** {treatment.get('label', '')} ({treatment.get('phases', '?')} phases, scored {treatment.get('scoring_checkpoint', '')})",
-        "",
-        "**Why unequal turns is intentional (not a scoring loophole):**",
+        f"- **Runner:** {methodology.get('runner', {}).get('framework', 'harbor')}",
+        f"- **Control:** {control.get('label', '')}",
+        f"- **Treatment:** {treatment.get('label', '')}",
         "",
     ]
-    for item in methodology.get("why_unequal_turns_is_correct", []):
-        lines.append(f"- {item}")
+    unattended = methodology.get("unattended_policy", {})
+    if unattended:
+        lines.extend([
+            "**Unattended policy:**",
+            f"- Prevention: {unattended.get('prevention', '')}",
+            f"- Recovery: {unattended.get('recovery', 'none')}",
+            f"- On stall: {unattended.get('on_stall', '')}",
+            "",
+        ])
+    constraints = methodology.get("fairness_constraints", methodology.get("why_unequal_turns_is_correct", []))
+    if constraints:
+        lines.append("**Fairness constraints:**")
+        lines.append("")
+        for item in constraints:
+            lines.append(f"- {item}")
+        lines.append("")
     lines.extend([
         "",
         "Full rationale: `benchmarks/METHODOLOGY.md` · Machine pin: `benchmarks/methodology.json`",
-        "",
-        "**Do not reinterpret** these results as matched-turn ablation unless a separate benchmark variant is run and published.",
         "",
     ])
     return lines
@@ -247,6 +260,30 @@ def compute_composite(
     return stats
 
 
+def load_clarify_stalls() -> dict | None:
+    index_path = RAW_DIR / "index.jsonl"
+    if not index_path.exists():
+        return None
+    rows = [
+        json.loads(line)
+        for line in index_path.read_text().splitlines()
+        if line.strip()
+    ]
+    if not rows:
+        return None
+    by_arm: dict[str, dict] = defaultdict(lambda: {"total": 0, "stalls": 0})
+    for r in rows:
+        arm = r.get("arm", "control")
+        by_arm[arm]["total"] += 1
+        if r.get("clarify_stall") or r.get("failed_gate") == "clarify_stall":
+            by_arm[arm]["stalls"] += 1
+    out = {}
+    for arm, counts in by_arm.items():
+        rate = (counts["stalls"] / counts["total"]) if counts["total"] else 0
+        out[arm] = {**counts, "rate": rate}
+    return out if out else None
+
+
 def load_index_cost() -> dict | None:
     index_path = RAW_DIR / "index.jsonl"
     if not index_path.exists():
@@ -255,6 +292,13 @@ def load_index_cost() -> dict | None:
         json.loads(line)
         for line in index_path.read_text().splitlines()
         if line.strip()
+    ]
+    rows = [
+        r
+        for r in rows
+        if r.get("artifact_valid") is True
+        and r.get("status") == "success"
+        and not r.get("failed_gate")
     ]
     if not rows:
         return None
@@ -317,14 +361,15 @@ def build_report(
     analyst: dict | None,
     claim_ready: bool,
     methodology: dict | None = None,
+    clarify_stalls: dict | None = None,
 ) -> str:
     lines = [
-        "# LaminaBench v2.1 Report",
+        "# LaminaBench v3.0 Report",
         "",
         f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
-        "**Claim surface:** checklist coverage + LLM rubric on implemented source (Design A).",
-        "Behavior probes, cost/time, and human review are reported separately — not in the composite.",
+        "**Claim surface:** checklist coverage + LLM rubric on implemented source (Design B — SkillsBench-paired).",
+        "Behavior probes, clarify stall rate, cost/time, and human review are reported separately — not in the composite.",
         "",
     ]
 
@@ -390,6 +435,18 @@ def build_report(
             f"- Paired tasks: {probe_stats['n_pairs']}",
             "- Structural source probes (code_guard / entity_model / scenario_handler).",
         ])
+
+    if clarify_stalls:
+        lines.extend([
+            "",
+            "## Clarify stall rate (secondary — not in composite)",
+            "",
+        ])
+        for arm, stats in clarify_stalls.items():
+            lines.append(
+                f"- **{arm}:** {stats['stalls']}/{stats['total']} trials stalled ({stats['rate']*100:.1f}%)"
+            )
+        lines.append("- Agent exited on clarify without deliverables; no harness auto-reply (Harbor unattended policy).")
 
     if cost:
         dur = cost.get("duration") or {}
@@ -525,6 +582,7 @@ def main() -> None:
         analyst = json.loads(analyst_path.read_text())
 
     cost = load_index_cost()
+    clarify_stalls = load_clarify_stalls()
     composite_stats = compute_composite(cov_pairs, judge_pairs, weights)
     llm_judges = load_llm_judges()
     claim_ready = detect_claim_ready(coverage_rows, judge_rows, llm_judges)
@@ -541,13 +599,14 @@ def main() -> None:
     out = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "claim_ready": claim_ready,
-        "claim_surface": "golden_coverage + llm_judge on implemented source (Design A)",
+        "claim_surface": "golden_coverage + llm_judge on implemented source (Design B)",
         "llm_judges_required": llm_judges,
         "methodology": methodology,
         "scoring_weights": weights,
         "coverage": cov_stats,
         "judge": judge_stats,
         "behavior_probes": probe_stats,
+        "clarify_stalls": clarify_stalls,
         "cost": cost,
         "human_optional": human,
         "analyst": {
@@ -578,6 +637,7 @@ def main() -> None:
             analyst,
             claim_ready,
             methodology,
+            clarify_stalls,
         )
     )
 

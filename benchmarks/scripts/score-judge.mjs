@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import { spawnSync } from 'node:child_process';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchEnv, hasAnthropicCredentials, resolveBenchModel } from './load-bench-env.mjs';
+import { loadScoreableIndex } from './bench-index.mjs';
 
 loadBenchEnv();
 
@@ -239,12 +240,11 @@ function main() {
     process.exit(1);
   }
 
-  const index = fs
-    .readFileSync(indexPath, 'utf8')
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => JSON.parse(l));
+  const index = loadScoreableIndex(RESULTS_RAW);
+  if (!index.length) {
+    console.error('No scoreable index rows (need success + valid artifact under current results_contract_version).');
+    process.exit(1);
+  }
 
   fs.mkdirSync(SCORED_DIR, { recursive: true });
 
