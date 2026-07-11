@@ -27,9 +27,9 @@ Lamina slots into whatever you already use. Unopinionated on your tech stack/ AI
 | | |
 |---|---|
 | **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi, etc |
-| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, etc |
+| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, FastAPI, Gin, Express, etc |
 | **Any database**  | Postgres, MySQL, MongoDB, Cassandra, Redis, Neo4j, etc |
-| **Any Language**  | Javascript, Python, Golang, Rust, Elixir, C#, etc |
+| **Any Language**  | Javascript, Python, Go, Rust, Elixir, PHP, C#, etc |
 | **Any UI library** | TailwindCSS, Chakra UI, shadcn, MUI, etc |
 | **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, etc |
 | **Any interface** | Websites, Mobile Apps, Desktop, PWAs, Chat Bots, CLIs, etc |
@@ -61,15 +61,16 @@ flowchart LR
 
 ---
 
-## Demo: HavenStay hotel booking platform
+## Demo: A Hotel Booking Platform
 
+We built a demo hotel booking platform called HavenStay.
 Same prompt, two builds — one with Lamina, one without. Both were built from scratch by **Cursor Composer 2.5** with no human-written app code.
 
 <details>
 <summary><strong>The prompt</strong></summary>
 
 ```
-Design and build a complete hotel booking platform from scratch.
+Design and build a complete hotel booking platform called HavenStay from scratch.
 
 Create a production-ready product that enables travelers to discover, compare, book,
 and manage hotel stays, while enabling hotels to manage their properties, rooms,
@@ -95,12 +96,12 @@ customer support, accessibility, edge cases, and system behavior.
   <img src="demo/hotel-booking-without-lamina/screenshot.png" alt="HavenStay built without Lamina (Cursor Plan mode)" width="48%" />
 </p>
 
-<p align="center"><sub>Left: Lamina design + verify · Right: Plan mode only</sub></p>
+<p align="center"><sub>Left: With Lamina · Right: Without Lamina</sub></p>
 
-Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a homepage exists.
+Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a screen exists.
 
 <details>
-<summary><strong>Product design Plan mode missed (Lamina implemented)</strong></summary>
+<summary><strong>What Lamina Covered (And was missed otherwise)</strong></summary>
 
 - 15-minute checkout inventory hold with countdown, hold-aware availability, and expiry — Plan mode only decrements stock after payment.
 - Per-property Flexible / Moderate / Strict cancellation policies with an immutable snapshot at booking — Plan mode uses one global refund tier.
@@ -122,15 +123,15 @@ See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-pl
 
 Lamina designs and verifies product behavior. It works best when your agent can **see the system cheaply** and **remember prior decisions**:
 
-| Tool | Why |
-|------|-----|
-| **[Graphify](https://github.com/safishamsi/graphify)** | Queryable codebase map — run `/graphify .` before design/verify on brownfield apps |
-| **[Claude-Mem](https://github.com/thedotmack/claude-mem)** | Keeps decisions and findings across sessions |
-| **[obra/superpowers](https://github.com/obra/superpowers)** | Structured plan → TDD → review loop for implementing Lamina artifacts (`implement.md`, `fix.md`) |
-| **UI design skill** ([Impeccable](https://github.com/pbakaus/impeccable), UI UX Pro Max, `frontend-design`) | Pixels while Lamina owns states, edges, and verify |
-| **Spec Kit / Kiro** | Feed `implement.md` into an engineering plan after design |
+| Tool category | Examples | Why |
+|---------------|----------|-----|
+| **Codebase indexing / semantic code graph** | Graphify, Sourcegraph, code graph/indexing tools | Gives Lamina a queryable view of an existing codebase so it can reason about architecture, trace behavior, and verify designs without repeatedly scanning the entire project. |
+| **Persistent memory** | Claude-Mem, Mem0, agent memory systems | Preserves design decisions, assumptions, discoveries, and previous verification results across sessions, reducing repeated work. |
+| **Implementation workflow / coding agents** | obra/superpowers, Claude Code workflows, Cursor background agents | Turns Lamina's design artifacts (such as `implement.md` and `fix.md`) into structured implementation, testing, and review workflows. |
+| **UI/UX design tools and skills** | Impeccable, UI UX Pro Max, `frontend-design`, design-focused agents | Produces polished interfaces while Lamina focuses on interaction states, behavior, edge cases, and verification. |
+| **Specification-driven engineering** | Spec Kit, Kiro, specification-first workflows | Converts verified designs into implementation plans, tasks, and engineering specifications. |
 
-**Brownfield minimum:** Graphify + Claude-Mem.
+**Brownfield minimum:** a codebase indexing tool + persistent memory.
 
 ---
 
@@ -196,11 +197,3 @@ Output: `.lamina/runs/<id>/`. Hand `implement.md` to build; hand `fix.md` to fix
 
 Writes to `.lamina/` only. No app source. No visual styling.
 
----
-
-## More
-
-- Skill router: [`skills/lamina-core/SKILL.md`](skills/lamina-core/SKILL.md)
-- Validate a run: `node lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
-
-MIT
