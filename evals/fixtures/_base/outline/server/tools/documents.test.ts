@@ -15,7 +15,7 @@ import {
   UserMembership,
 } from "@server/models";
 import { getTestServer } from "@server/test/support";
-import { buildOAuthUser, callMcpTool } from "@server/test/McpHelper";
+import { buildOAuthUser, callMcpTool, parseMcpListContent } from "@server/test/McpHelper";
 
 const server = getTestServer();
 
@@ -203,12 +203,15 @@ describe("list_documents", () => {
       query: privateDocument.urlId,
     });
 
-    const data = (res?.result?.content ?? []).map((c: { text?: string }) =>
-      JSON.parse(c.text ?? "{}")
+    expect(res?.result?.content).toEqual([{ type: "text", text: "[]" }]);
+
+    const data = parseMcpListContent<{ document: { id: string } }>(
+      res?.result?.content
     );
-    const ids = data.map((d: { document: { id: string } }) => d.document.id);
+    const ids = data.map((d) => d.document.id);
 
     expect(res?.result?.isError).not.toBe(true);
+    expect(ids).toHaveLength(0);
     expect(ids).not.toContain(privateDocument.id);
   });
 

@@ -44,7 +44,7 @@ npm run bench:all
 |--------|---------|
 | `npm run bench:env-check` | Verify Anthropic credentials, Docker, Harbor CLI |
 | `npm run bench:harbor:sync` | Sync Harbor task workspaces + verifier bundles |
-| `npm run bench:harbor:publish` | Publish dataset to Harbor registry (after `harbor auth login`) |
+| `npm run bench:harbor:publish` | Publish dataset + tasks to Harbor registry (no results needed) |
 | `npm run bench:harbor:ingest` | Ingest Harbor job outputs into `results/raw/` |
 | `npm run bench:validate` | Validate registry + Harbor tasks + goldens + probes |
 | `npm run bench:run` | Harbor sync + run + ingest (`--pilot`, `--tasks`, `--runs`, `--fresh`) |

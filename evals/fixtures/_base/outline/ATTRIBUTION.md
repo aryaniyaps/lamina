@@ -1,7 +1,7 @@
 # Attribution
 
 Source: [outline/outline](https://github.com/outline/outline)
-Commit: `30730179b852d42da5078a9294f7d05a44f516b7`
+Commit: `0d255806a273e246d5bdcc8139be1511500af6bd`
 Ref: `main`
 License: Business Source License 1.1 (see LICENSE in this directory)
 
