@@ -50,6 +50,8 @@ assert.ok(fs.existsSync(path.join(control, 'tests/llm_judge/product-behavior.tom
 assert.ok(fs.existsSync(path.join(control, 'tests/judge-context.md')));
 assert.ok(!fs.existsSync(path.join(control, 'tests/harbor-score.mjs')), 'legacy harbor-score.mjs must be removed');
 assert.ok(fs.existsSync(path.join(control, 'tests/golden.yaml')));
+assert.ok(fs.existsSync(path.join(ROOT, 'benchmarks/harbor/verifier/reward.toml')));
+assert.ok(!fs.existsSync(path.join(ROOT, 'benchmarks/harbor/verifier/clarify_stall/check.py')));
 assert.ok(fs.existsSync(path.join(ROOT, 'benchmarks/harbor/registry.yaml')));
 
 const testSh = fs.readFileSync(path.join(control, 'tests/test.sh'), 'utf8');

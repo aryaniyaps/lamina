@@ -36,6 +36,29 @@ harbor run --path benchmarks/harbor/tasks \
 
 Harbor owns container isolation, parallelism, agent launch, and verification. LaminaBench tasks live in `benchmarks/harbor/tasks/`; `npm run bench:harbor:sync` refreshes fixture workspaces and verifier bundles before runs. Scoring uses golden coverage + LLM rubric on bundled source.
 
+## Scoring pipeline (per trial)
+
+1. **Rewardkit dimensions** — `golden_coverage/` + `llm_judge/` scored in-container; [`reward.toml`](harbor/verifier/reward.toml) aggregates them into `composite` via [Rewardkit dimension aggregation](https://www.harborframework.com/docs/rewardkit#aggregating-dimensions).
+2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false or `clarify_stall` is true; otherwise `reward = composite`.
+3. **Ingest** — `npm run bench:ingest` reads Harbor job dirs → `results/raw/index.jsonl` + `rewards.jsonl`.
+
+## Aggregation (cross-trial, publishable)
+
+| Setting | Dev default | Publish target |
+|---------|-------------|----------------|
+| Runs per arm | `1` (`release.yaml`) | `3` (`runs_per_arm_publish`) |
+| Within (task, arm) cell | median across runs | median across runs |
+| Primary inference unit | task | task |
+| Treatment effect | mean paired Δ (treatment − control) | same |
+| Uncertainty | bootstrap 95% CI over tasks | same |
+
+```bash
+npm run bench:run -- --runs 3    # publish replication
+npm run bench:report             # ingest + aggregate (also runs automatically after bench:run)
+```
+
+Paired metrics are computed by [`harbor/dataset/metric.py`](harbor/dataset/metric.py) (Harbor dataset metric + LaminaBench ingest path). Output: `results/aggregated/benchmark.json`.
+
 ## Unattended runs (no mid-run user)
 
 Peers assume unattended agents. Lamina skills can emit clarify-and-STOP in interactive use. For benchmarks:

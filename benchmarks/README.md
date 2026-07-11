@@ -22,8 +22,9 @@ This directory is **not** [`evals/`](../evals/). Those are internal skill-compli
 1. `npm run bench:harbor:sync` — refresh Harbor workspaces, [Rewardkit](https://www.harborframework.com/docs/rewardkit) verifier bundles, and `task.toml`
 2. `harbor run -a claude-code` with `prompt_template.j2` (unattended contract)
 3. Agent completes product work in one continuous rollout
-4. Verifier (`rewardkit /tests`) scores golden coverage + 10-criterion LLM judge → `reward.json` + `reward-details.json`
-5. Inspect results via `harbor view` or job directories under `results/harbor/jobs/`
+4. Verifier (`rewardkit /tests` + `reward.toml` + `finalize_reward.py`) → enriched `reward.json`
+5. `npm run bench:ingest` + `bench:aggregate` → paired summary in `results/aggregated/benchmark.json`
+6. Inspect per-trial detail via `harbor view` or job directories under `results/harbor/jobs/`
 
 **Unattended policy:** No mid-run user. No harness auto-reply on clarify. Stalls → reward 0 + `clarify_stall` flag in verifier output.
 
@@ -49,6 +50,9 @@ npm run bench:all
 | `npm run bench:harbor:publish` | Publish dataset + tasks to Harbor registry (no results needed) |
 | `npm run bench:validate` | Validate registry + Harbor tasks + goldens |
 | `npm run bench:run` | Harbor sync + run (`--pilot`, `--tasks`, `--runs`, `--fresh`) |
+| `npm run bench:ingest` | Harbor jobs → `results/raw/` JSONL |
+| `npm run bench:aggregate` | Paired metrics via `metric.py` → `results/aggregated/benchmark.json` |
+| `npm run bench:report` | ingest (fresh) + aggregate |
 | `npm run bench:pilot` | Sync task001 and validate structure |
 | `npm run bench:all` | validate → run |
 
@@ -73,14 +77,19 @@ benchmarks/
   scripts/
     harbor-sync.mjs
     harbor-tasks.mjs
-    run-harbor-bench.mjs
-  harbor/dataset/       # dataset.toml for Harbor registry (aryaniyaps/lamina-bench)
-  results/harbor/jobs/  # Harbor job output (gitignored)
+    ingest-harbor-results.mjs
+    aggregate-bench-results.mjs
+    bench-results-lib.mjs
+  harbor/dataset/       # dataset.toml + metric.py for Harbor registry
+  results/
+    raw/                # index.jsonl + rewards.jsonl (ingested trials)
+    aggregated/         # benchmark.json (paired summary)
+    harbor/jobs/        # Harbor job output (gitignored)
 ```
 
 ## Corpus (v1)
 
-25 tasks × 2 arms × 3 runs = **150 Harbor trials**. See [METHODOLOGY.md](METHODOLOGY.md) for Design B rationale.
+25 tasks × 2 arms × **1 run** (dev default) = **50 Harbor trials**. For publishable replication use `--runs 3` (150 trials). See [METHODOLOGY.md](METHODOLOGY.md) for scoring and aggregation.
 
 ## Harbor runner flags
 

@@ -106,6 +106,8 @@ function runHarborTrial(harbor, harborName, release, attempt) {
     modelArg,
     '-o',
     HARBOR_JOBS,
+    '--job-name',
+    `${harborName}__run${attempt}`,
     '-k',
     '1',
     '-n',
@@ -123,6 +125,7 @@ function runHarborTrial(harbor, harborName, release, attempt) {
     args.push('--ae', `ANTHROPIC_BASE_URL=${process.env.ANTHROPIC_BASE_URL}`);
   }
   if (model) args.push('--ae', `ANTHROPIC_MODEL=${model}`);
+  args.push('--ae', `LAMINA_BENCH_RUN=${attempt}`);
 
   console.log(`\n[harbor] ${harborName} attempt ${attempt}`);
   const r = spawnSync(harbor, args, { cwd: ROOT, stdio: 'inherit', env: process.env });
@@ -138,7 +141,7 @@ function main() {
   const harbor = ensureHarbor();
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
   const suite = loadSuite();
-  const runs = opts.runs ?? release.runs_per_arm ?? 3;
+  const runs = opts.runs ?? release.runs_per_arm ?? 1;
   const harborTasks = listHarborTasks(opts, suite);
 
   if (opts.fresh) {
@@ -164,6 +167,19 @@ function main() {
 
   console.log(`\nHarbor bench complete: ${done}/${total} trial invocations (${failed} failed)`);
   console.log(`Jobs: ${HARBOR_JOBS}`);
+
+  const ingest = spawnSync(
+    'node',
+    ['benchmarks/scripts/ingest-harbor-results.mjs', '--fresh'],
+    { cwd: ROOT, stdio: 'inherit' }
+  );
+  if (ingest.status === 0) {
+    spawnSync('node', ['benchmarks/scripts/aggregate-bench-results.mjs'], {
+      cwd: ROOT,
+      stdio: 'inherit',
+    });
+  }
+
   console.log('Inspect results: harbor view');
 }
 

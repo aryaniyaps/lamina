@@ -9,6 +9,8 @@ keywords = []
 [[dataset.authors]]
 name = "Aryan Iyappan"
 
+[[files]]
+path = "metric.py"
 
 [[tasks]]
 name = "aryaniyaps/task001-control"

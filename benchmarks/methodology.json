@@ -42,6 +42,14 @@
     "Does not claim model independence from a single agent pin.",
     "Clarify stall rate is diagnostic only — not part of the claim composite."
   ],
+  "replication": {
+    "runs_per_arm_default": 1,
+    "runs_per_arm_publish": 3,
+    "cell_aggregation": "median_across_runs",
+    "inference_unit": "task",
+    "confidence_method": "bootstrap_over_tasks",
+    "metric_script": "benchmarks/harbor/dataset/metric.py"
+  },
   "secondary_metrics": [
     "clarify_stall_rate",
     "cost_time",
