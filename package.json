@@ -24,7 +24,7 @@
     "bench:env-check": "node benchmarks/scripts/check-bench-env.mjs",
     "bench:probes:generate": "node benchmarks/scripts/generate-probes.mjs",
     "bench:harbor:sync": "node benchmarks/scripts/harbor-sync.mjs",
-    "bench:harbor:publish": "harbor publish benchmarks/harbor/dataset -t v3.0.0 --public",
+    "bench:harbor:publish": "node benchmarks/scripts/bench-harbor-publish.mjs",
     "bench:harbor:ingest": "node benchmarks/scripts/ingest-harbor-results.mjs",
     "bench:pilot": "node benchmarks/scripts/pilot-harbor.mjs",
     "bench:run": "node benchmarks/scripts/run-harbor-bench.mjs",

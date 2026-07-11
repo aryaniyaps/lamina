@@ -9,6 +9,7 @@ results/index.jsonl
 results/secondary/
 tmp/
 results/harbor/
+harbor/dataset/task*/
 harbor/tasks/**/environment/workspace/
 *.pyc
 __pycache__/

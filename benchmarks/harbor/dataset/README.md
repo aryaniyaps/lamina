@@ -19,9 +19,7 @@ harbor run -d "aryaniyaps/lamina-bench@v3.0.0" -a claude-code -m "<model>" \
 From the repo root (requires `harbor auth login`):
 
 ```bash
-npm run bench:harbor:sync
-harbor sync --to benchmarks/harbor/dataset
-harbor publish benchmarks/harbor/dataset -t v3.0.0 --public
+npm run bench:harbor:publish
 ```
 
-Workspaces are gitignored; run `bench:harbor:sync` before publishing so fixture layers are included in task archives.
+This syncs workspaces, symlinks tasks beside `dataset.toml`, refreshes digests, and publishes all 50 tasks plus the dataset manifest.
