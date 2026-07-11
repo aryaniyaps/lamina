@@ -52,7 +52,7 @@
   "rejected_alternatives": [
     {
       "id": "design_a_ecological_5_phase_harness",
-      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Retained only as legacy --legacy runner."
+      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Removed in v3.0 Harbor-only migration."
     },
     {
       "id": "clarify_auto_reply_recovery",

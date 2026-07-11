@@ -1,0 +1,8 @@
+{
+  "task_id": "task023",
+  "arm": "treatment",
+  "category": "resilience",
+  "workflow": "design",
+  "prompt": "Design and implement a complete product for empty states across a project management application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
+  "fixture": null
+}

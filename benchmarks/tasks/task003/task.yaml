@@ -1,7 +1,0 @@
-id: task003
-category: greenfield
-workflow: design
-prompt: "Design and implement a full volunteer coordination product — not a signup demo: domain model, illegal states, actors and permissions, post/fill/check-in/hours/certification workflows, edge cases, named trade-offs, and buildable coordinator + volunteer surfaces."
-fixture: null
-human_eval: false
-runs: 3

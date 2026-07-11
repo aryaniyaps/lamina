@@ -4,9 +4,9 @@
  *
  * Usage:
  *   node benchmarks/scripts/run-harbor-bench.mjs [--pilot] [--tasks task001] [--runs N]
- *     [--fresh] [--rerun task001] [--compile-only] [--ingest-only] [--legacy]
+ *     [--fresh] [--rerun task001] [--sync-only] [--ingest-only]
  *
- * Default: harbor run + ingest. Use --legacy for pre-v3 phase harness.
+ * Default: harbor sync + run + ingest.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,9 +31,8 @@ function parseArgs() {
   const opts = {
     pilot: process.argv.includes('--pilot'),
     fresh: process.argv.includes('--fresh'),
-    compileOnly: process.argv.includes('--compile-only'),
+    syncOnly: process.argv.includes('--sync-only'),
     ingestOnly: process.argv.includes('--ingest-only'),
-    legacy: process.argv.includes('--legacy'),
     tasks: null,
     rerun: null,
     runs: null,
@@ -65,8 +64,8 @@ function ensureHarbor() {
   return harbor;
 }
 
-function compileHarbor(opts) {
-  const args = ['benchmarks/scripts/harbor-compile.mjs'];
+function syncHarbor(opts) {
+  const args = ['benchmarks/scripts/harbor-sync.mjs'];
   if (opts.tasks) args.push('--tasks', opts.tasks.join(','));
   const r = spawnSync('node', args, { cwd: ROOT, stdio: 'inherit' });
   if (r.status !== 0) process.exit(r.status ?? 1);
@@ -166,33 +165,16 @@ function ingest(opts) {
   spawnSync('node', args, { cwd: ROOT, stdio: 'inherit' });
 }
 
-function runLegacy(opts) {
-  const args = ['benchmarks/scripts/run-bench.mjs'];
-  if (opts.pilot) args.push('--pilot');
-  if (opts.tasks) args.push('--tasks', opts.tasks.join(','));
-  if (opts.runs != null) args.push('--runs', String(opts.runs));
-  if (opts.fresh) args.push('--fresh');
-  if (opts.rerun) args.push('--rerun', opts.rerun.join(','));
-  args.push('--legacy');
-  const r = spawnSync('node', args, { cwd: ROOT, stdio: 'inherit' });
-  process.exit(r.status ?? 1);
-}
-
 function main() {
   const opts = parseArgs();
-
-  if (opts.legacy) {
-    runLegacy(opts);
-    return;
-  }
 
   if (opts.ingestOnly) {
     ingest(opts);
     return;
   }
 
-  compileHarbor(opts);
-  if (opts.compileOnly) return;
+  syncHarbor(opts);
+  if (opts.syncOnly) return;
 
   const harbor = ensureHarbor();
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));

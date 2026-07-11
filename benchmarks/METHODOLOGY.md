@@ -34,7 +34,7 @@ harbor run --path benchmarks/harbor/tasks \
   --agent-kwarg prompt_template=benchmarks/harbor/prompt_template.j2
 ```
 
-Harbor owns container isolation, parallelism, agent launch, and verification. LaminaBench compiles tasks from `benchmarks/tasks/` into Harbor format; scoring uses golden coverage + LLM rubric on bundled source.
+Harbor owns container isolation, parallelism, agent launch, and verification. LaminaBench tasks live in `benchmarks/harbor/tasks/`; `npm run bench:harbor:sync` refreshes fixture workspaces and verifier bundles before runs. Scoring uses golden coverage + LLM rubric on bundled source.
 
 ## Unattended runs (no mid-run user)
 
@@ -66,9 +66,9 @@ High treatment stall rates are a real signal (skills not bench-safe unattended),
 
 > Lamina won with harness-scripted slash commands — Design B uses one continuous rollout; the agent chooses when to invoke skills.
 
-## Legacy Design A
+## Legacy Design A (removed)
 
-The prior ecological adoption design (`design_a_ecological`) used harness-forced 2-phase control vs 5-phase treatment. It remains available via `npm run bench:run -- --legacy` for debugging but is **not** the primary methodology.
+The prior ecological adoption design (`design_a_ecological`) used harness-forced 2-phase control vs 5-phase treatment. It was removed in v3.0 in favor of Harbor-only Design B.
 
 ## Optional ablations (not primary)
 

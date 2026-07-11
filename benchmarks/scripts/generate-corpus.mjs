@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * Generate LaminaBench v2.0 task corpus (25 tasks + goldens).
- * Run once to materialize tasks/ and goldens/ directories.
+ * Generate LaminaBench task corpus (25 tasks + goldens + Harbor instruction.md).
+ * Run once to materialize benchmarks/harbor/tasks/ and goldens/.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 
+import { harborPath, writeRegistry } from './harbor-tasks.mjs';
+import { readYamlSync } from './yaml.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const TASKS = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS = path.join(ROOT, 'benchmarks/goldens');
 
 const V2_SECTIONS = [
@@ -1192,25 +1194,15 @@ function toYaml(obj, indent = 0) {
 }
 
 for (const task of CORPUS) {
-  const taskDir = path.join(TASKS, task.id);
   const goldenDir = path.join(GOLDENS, task.id);
-  fs.mkdirSync(taskDir, { recursive: true });
   fs.mkdirSync(goldenDir, { recursive: true });
 
-  fs.writeFileSync(path.join(taskDir, 'description.md'), task.description.trim() + '\n');
-  fs.writeFileSync(path.join(taskDir, 'context.md'), task.context.trim() + '\n');
-
-  const taskYaml = {
-    id: task.id,
-    category: task.category,
-    workflow: task.workflow,
-    prompt: task.prompt,
-    fixture: task.fixture ?? null,
-    human_eval: task.human_eval ?? false,
-    runs: 3,
-  };
-  if (task.oss) taskYaml.oss = task.oss;
-  fs.writeFileSync(path.join(taskDir, 'task.yaml'), toYaml(taskYaml) + '\n');
+  const instruction = `${task.description.trim()}\n\n## Context\n\n${task.context.trim()}\n`;
+  for (const arm of ['control', 'treatment']) {
+    const harborDir = harborPath(task.id, arm);
+    fs.mkdirSync(harborDir, { recursive: true });
+    fs.writeFileSync(path.join(harborDir, 'instruction.md'), instruction);
+  }
 
   const golden = { task_id: task.id, ...task.golden };
   const goldenBody = toYaml(golden).replace(
@@ -1221,4 +1213,20 @@ for (const task of CORPUS) {
   fs.writeFileSync(path.join(goldenDir, 'golden.yaml'), goldenBody + '\n');
 }
 
-console.log(`Generated ${CORPUS.length} tasks in ${TASKS}`);
+const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
+writeRegistry(
+  CORPUS.map((task) => ({
+    id: task.id,
+    category: task.category,
+    workflow: task.workflow,
+    prompt: task.prompt,
+    fixture: task.fixture ?? null,
+    human_eval: task.human_eval ?? false,
+    runs: 3,
+    oss: task.oss,
+  })),
+  release.release_tag
+);
+
+console.log(`Generated ${CORPUS.length} Harbor tasks in benchmarks/harbor/tasks/`);
+console.log('Run npm run bench:harbor:sync to refresh workspaces and verifier bundles.');

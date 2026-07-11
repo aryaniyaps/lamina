@@ -1,0 +1,8 @@
+{
+  "task_id": "task008",
+  "arm": "treatment",
+  "category": "oss_feature",
+  "workflow": "design",
+  "prompt": "Design and implement guest document sharing in Outline as a complete feature: domain model, illegal states, actors and permissions, share/revoke workflows, edge cases, named trade-offs, and a buildable product surface that fits Outline.",
+  "fixture": "outline-with-init"
+}

@@ -23,7 +23,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const SCORED_DIR = path.join(ROOT, 'benchmarks/results/scored');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
-const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 
 const CRITERIA = [
   'domain_system_structure',

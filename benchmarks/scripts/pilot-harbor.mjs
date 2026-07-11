@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Pilot: compile task001 Harbor tasks and validate structure (no live agent run).
+ * Pilot: sync task001 Harbor tasks and validate structure (no live agent run).
  * Live pilot: npm run bench:run -- --tasks task001 --runs 1 (requires Docker + credentials).
  */
 import { spawnSync } from 'node:child_process';
@@ -12,8 +12,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 process.env.PATH = `${process.env.HOME}/.local/bin:${process.env.PATH}`;
 
 const steps = [
-  ['node', ['benchmarks/scripts/harbor-compile.mjs', '--tasks', 'task001']],
-  ['node', ['tests/harbor_compile_test.mjs']],
+  ['node', ['benchmarks/scripts/harbor-sync.mjs', '--tasks', 'task001']],
+  ['node', ['tests/harbor_sync_test.mjs']],
 ];
 
 for (const [cmd, args] of steps) {
@@ -35,5 +35,5 @@ if (harbor.stdout.trim()) {
   console.log('\nOptional: harbor check benchmarks/harbor/tasks/task001-control (requires Docker)');
 }
 
-console.log('\nPilot compile OK. Live run:');
+console.log('\nPilot sync OK. Live run:');
 console.log('  npm run bench:run -- --tasks task001 --runs 1 --fresh');

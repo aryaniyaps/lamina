@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { hasUiSurface, checkImplementGate } from '../benchmarks/scripts/phase-gates.mjs';
 import {
   jobKey,
   dedupeIndexByJob,
@@ -14,18 +13,6 @@ import {
   readIndexRows,
   loadCompletedJobKeys,
 } from '../benchmarks/scripts/bench-index.mjs';
-
-assert.equal(hasUiSurface(['backend/src/routes/account.ts']), false);
-assert.equal(hasUiSurface(['app/screens/Home.tsx']), true);
-
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-impl-gate-'));
-fs.mkdirSync(path.join(tmp, 'backend/src'), { recursive: true });
-fs.writeFileSync(path.join(tmp, 'backend/src/server.ts'), 'export const x = 1;\n');
-assert.equal(checkImplementGate(tmp, { category: 'greenfield' }).ok, false);
-fs.mkdirSync(path.join(tmp, 'app/screens'), { recursive: true });
-fs.writeFileSync(path.join(tmp, 'app/screens/Home.tsx'), 'export default function Home() { return null }\n');
-assert.equal(checkImplementGate(tmp, { category: 'greenfield' }).ok, true);
-fs.rmSync(tmp, { recursive: true, force: true });
 
 const rows = [
   { task_id: 'task001', arm: 'control', run: 1, timestamp: '2026-07-11T01:00:00.000Z', artifact_valid: true },
@@ -59,8 +46,7 @@ const task = {
   workflow: 'design',
   prompt: 'Build X',
   fixture: null,
-  description: 'Desc',
-  context: 'Ctx',
+  instruction: 'Desc\n\n## Context\n\nCtx',
 };
 const fp1 = computeJobFingerprint(task, {
   arm: 'control',

@@ -40,12 +40,16 @@ export function getResultsContractVersion() {
 }
 
 function readTaskFile(task, kind) {
+  if (kind === 'instruction' && task.instruction != null) return String(task.instruction);
   if (kind === 'description' && task.description != null) return String(task.description);
   if (kind === 'context' && task.context != null) return String(task.context);
   const rel =
-    kind === 'description'
-      ? task._paths?.description || `benchmarks/tasks/${task.id}/description.md`
-      : task._paths?.context || `benchmarks/tasks/${task.id}/context.md`;
+    kind === 'instruction'
+      ? task.paths?.instruction || task._paths?.instruction || `benchmarks/harbor/tasks/${task.id}-control/instruction.md`
+      : kind === 'description'
+        ? task._paths?.description || task.paths?.instruction
+        : task._paths?.context;
+  if (!rel) return '';
   const abs = path.join(ROOT, rel);
   return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
 }
@@ -78,8 +82,7 @@ export function computeJobFingerprint(task, { arm, run, agent, model, resultsCon
     prompt: task.prompt || '',
     fixture: task.fixture || null,
     fixture_fp: fixtureFingerprint(task.fixture),
-    description: readTaskFile(task, 'description'),
-    context: readTaskFile(task, 'context'),
+    instruction: readTaskFile(task, 'instruction'),
   };
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
 }

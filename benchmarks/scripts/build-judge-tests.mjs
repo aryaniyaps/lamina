@@ -8,21 +8,25 @@ import { fileURLToPath } from 'url';
 import { readYamlSync } from '../scripts/yaml.mjs';
 import { loadScoreableIndex } from './bench-index.mjs';
 
+import { harborPath } from './harbor-tasks.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
-const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 
 function buildTests() {
   const index = loadScoreableIndex(RESULTS_RAW);
   const tests = [];
   for (const entry of index) {
-    const taskDir = path.join(TASKS_DIR, entry.task_id);
     const artifactPath = path.join(RESULTS_RAW, entry.artifact_path);
     if (!fs.existsSync(artifactPath)) continue;
 
-    const description = fs.readFileSync(path.join(taskDir, 'description.md'), 'utf8');
-    const context = fs.readFileSync(path.join(taskDir, 'context.md'), 'utf8');
+    const instructionPath = path.join(harborPath(entry.task_id, 'control'), 'instruction.md');
+    if (!fs.existsSync(instructionPath)) continue;
+    const instruction = fs.readFileSync(instructionPath, 'utf8');
+    const parts = instruction.split(/\n## Context\n\n/);
+    const description = parts[0] || instruction;
+    const context = parts[1] || '';
     const golden = readYamlSync(path.join(GOLDENS_DIR, entry.task_id, 'golden.yaml'));
     const artifact = fs.readFileSync(artifactPath, 'utf8');
 

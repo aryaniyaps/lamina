@@ -1,0 +1,8 @@
+{
+  "task_id": "task011",
+  "arm": "treatment",
+  "category": "oss_audit",
+  "workflow": "audit",
+  "prompt": "Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
+  "fixture": "commerce-audit-ready"
+}

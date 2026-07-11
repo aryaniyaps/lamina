@@ -8,8 +8,8 @@ results/report.md
 results/index.jsonl
 results/secondary/
 tmp/
-harbor/tasks/
 results/harbor/
+harbor/tasks/**/environment/workspace/
 *.pyc
 __pycache__/
 judges/promptfoo-tests.json

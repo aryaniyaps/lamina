@@ -5,7 +5,6 @@
 import { loadBenchEnv, hasAnthropicCredentials, resolveBenchModel } from './load-bench-env.mjs';
 import { readYamlSync } from './yaml.mjs';
 import { isAgentAvailable } from '../../evals/scripts/invoke-agent.mjs';
-import { isDockerAvailable } from './bench-container.mjs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
@@ -16,6 +15,11 @@ const PROBE_TIMEOUT_MS = 180_000;
 function which(cmd) {
   const r = spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : null;
+}
+
+function isDockerAvailable() {
+  const r = spawnSync('docker', ['info'], { encoding: 'utf8', stdio: 'pipe' });
+  return r.status === 0;
 }
 
 const { loaded, path: envPath } = loadBenchEnv();
@@ -141,9 +145,8 @@ if (exitCode === 0) {
 
 if (exitCode === 0) {
   console.log('\nReady for Harbor benchmark runs (npm run bench:all).');
-  console.log('Compile only: npm run bench:harbor:compile -- --tasks task001');
+  console.log('Sync workspaces: npm run bench:harbor:sync -- --tasks task001');
   console.log('Pilot: npm run bench:run -- --pilot --tasks task001 --runs 1');
-  console.log('Legacy phase harness: npm run bench:run:legacy');
 } else {
   console.log('\nFix the issues above before running bench:all.');
 }

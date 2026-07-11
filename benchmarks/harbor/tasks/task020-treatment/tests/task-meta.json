@@ -1,0 +1,8 @@
+{
+  "task_id": "task020",
+  "arm": "treatment",
+  "category": "workflow_edge",
+  "workflow": "design",
+  "prompt": "Design and implement a complete product for multi-stage employee onboarding across HR, IT, and team leads: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
+  "fixture": null
+}

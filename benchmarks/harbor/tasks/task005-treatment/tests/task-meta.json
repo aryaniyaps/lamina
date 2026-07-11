@@ -1,0 +1,8 @@
+{
+  "task_id": "task005",
+  "arm": "treatment",
+  "category": "greenfield",
+  "workflow": "design",
+  "prompt": "Design and implement a full sustainable-habits fitness product — not a streak-counter demo: domain model, illegal states, actors and permissions, check-in/streak/accountability/pause workflows, edge cases, named trade-offs, and a buildable habit + social product surface.",
+  "fixture": null
+}

@@ -1,0 +1,212 @@
+# Dataset manifest for aryaniyaps/lamina-bench
+# Add tasks using: harbor add <org>/<name>
+# Publish using: harbor publish
+
+[dataset]
+name = "aryaniyaps/lamina-bench"
+description = "LaminaBench v3.0: SkillsBench-paired product implementation benchmark (25 tasks, control + treatment arms)"
+keywords = []
+[[dataset.authors]]
+name = "Aryan Iyappan"
+
+
+[[tasks]]
+name = "aryaniyaps/task001-control"
+digest = "sha256:abba4a38f7a2f7f713bd5e5b03c85146f153f5f397dd4e5ac204319632a82dde"
+
+[[tasks]]
+name = "aryaniyaps/task001-treatment"
+digest = "sha256:e2d4c7ac5123935fd57ab843d672d96b65c9b5950e2726064a439db2675adeeb"
+
+[[tasks]]
+name = "aryaniyaps/task002-control"
+digest = "sha256:9a8f2da62cc636a9cdd2cae1b76caa1765c7e2e313a70c0d4b04095d853f0939"
+
+[[tasks]]
+name = "aryaniyaps/task002-treatment"
+digest = "sha256:9a6759ecb7e7d420a6d6629e7eba51fb6d54b2f07774afaaf0001b661ea248f7"
+
+[[tasks]]
+name = "aryaniyaps/task003-control"
+digest = "sha256:2f1a5d3de9e944079e971ee18488127b8fe6c6122483c33ebd9cb06738d0cffa"
+
+[[tasks]]
+name = "aryaniyaps/task003-treatment"
+digest = "sha256:356d2c923cc2670660ce9e0d1c6d8cd5a94be72a5d7e6bf35f32faa0448c385a"
+
+[[tasks]]
+name = "aryaniyaps/task004-control"
+digest = "sha256:7c591afef7ae982b161600b7be624968fcf52ae9e41797d1c2cdeebf8b886a9a"
+
+[[tasks]]
+name = "aryaniyaps/task004-treatment"
+digest = "sha256:fbc7db323c3429b11d84817685f45aab195a4f8131e8e32ab3cc123d985377c2"
+
+[[tasks]]
+name = "aryaniyaps/task005-control"
+digest = "sha256:462c99071dc09420c5ac70d0a422a5e3ea6a11da81abb98eb08858bd8235a7dc"
+
+[[tasks]]
+name = "aryaniyaps/task005-treatment"
+digest = "sha256:65e6e7376518255f654dbd58066fcdcb317cf401a67e99b8b9b41a1ad8353f59"
+
+[[tasks]]
+name = "aryaniyaps/task006-control"
+digest = "sha256:843fc1dc78f05a4dca180f3009061838a6040b8e302a143d90de423fa2abe9cf"
+
+[[tasks]]
+name = "aryaniyaps/task006-treatment"
+digest = "sha256:b5c1bb653a4d09c3f06c56fcff971c439dc447e4d283b3896d85d7e1872cc194"
+
+[[tasks]]
+name = "aryaniyaps/task007-control"
+digest = "sha256:ac9d5c1bebada665cdc8bb7b07e5296f338d9b32749b94584ab4900e7207874a"
+
+[[tasks]]
+name = "aryaniyaps/task007-treatment"
+digest = "sha256:92ad9bb03cb4356f8beee4e635fff0f8896ea460da9ad370d81161d2945b73de"
+
+[[tasks]]
+name = "aryaniyaps/task008-control"
+digest = "sha256:e422f6d4c56697d046257f1e9d7b8d9ff737a6c1cd2dad1d68db537fda016576"
+
+[[tasks]]
+name = "aryaniyaps/task008-treatment"
+digest = "sha256:a4d26fe6d7db873a860de609b5ba2e41d852a2d872322aa55607947f79a35465"
+
+[[tasks]]
+name = "aryaniyaps/task009-control"
+digest = "sha256:1b8659242c2543e3184273e5c61cda741586002ad2da7677e4e0907a96fc9c8e"
+
+[[tasks]]
+name = "aryaniyaps/task009-treatment"
+digest = "sha256:3598008a6a7e65e468f17f9f83f60ed609434e10e5d7000a9cf5711f35e631c3"
+
+[[tasks]]
+name = "aryaniyaps/task010-control"
+digest = "sha256:ed9b6d2a2f0717f005c58c6217febf71a9769f09bb19e59efe623d37e6de11c3"
+
+[[tasks]]
+name = "aryaniyaps/task010-treatment"
+digest = "sha256:f1773fe6b5ecc4dee212d0336fa3179a419a71ff889bd5531c91ff5283e9e24d"
+
+[[tasks]]
+name = "aryaniyaps/task011-control"
+digest = "sha256:2c1f368554ec2c420229a647a57e73467cf0254571e853584a91f93c94d418da"
+
+[[tasks]]
+name = "aryaniyaps/task011-treatment"
+digest = "sha256:bd5d091fc480e469c0eedc089a90feafee0359584301593fa527801c0ea15516"
+
+[[tasks]]
+name = "aryaniyaps/task012-control"
+digest = "sha256:3f57ac7c1e90b0062f5efe691a2882fe45948150b019c4a8607af2ebae65eb7a"
+
+[[tasks]]
+name = "aryaniyaps/task012-treatment"
+digest = "sha256:db1889eb6faebdd74d3e72c59e213b51a60dfa6fec692365a92d724b7bccd3a1"
+
+[[tasks]]
+name = "aryaniyaps/task013-control"
+digest = "sha256:1f0cdaf71b1a9bba0a3b35293a299e8d0b9fe92f70df1f101a40a4357860d248"
+
+[[tasks]]
+name = "aryaniyaps/task013-treatment"
+digest = "sha256:03e1b3e7d83d5908b4c74317d60def01cd91d584d937084c0849bbb4717f1110"
+
+[[tasks]]
+name = "aryaniyaps/task014-control"
+digest = "sha256:394a6b4364e57c0b8327f138ca792a99de1b80cfed32ad98adbec2cc1040dece"
+
+[[tasks]]
+name = "aryaniyaps/task014-treatment"
+digest = "sha256:939cda56116ba9fa92adc38dd7788e554b5dae25d3a121f6c203b43ef6dd8943"
+
+[[tasks]]
+name = "aryaniyaps/task015-control"
+digest = "sha256:20cbedfc1836b94d73a335ed0732c892f449e05402e4ef9565b6aee506809048"
+
+[[tasks]]
+name = "aryaniyaps/task015-treatment"
+digest = "sha256:ad66b1f8a691bc5c76662b33b5dda41971bbffe43098d862be020c593541ef82"
+
+[[tasks]]
+name = "aryaniyaps/task016-control"
+digest = "sha256:5396aff31251cd82be83865f139962a35104454487cbe5f4302ec52f39c25eb6"
+
+[[tasks]]
+name = "aryaniyaps/task016-treatment"
+digest = "sha256:2eb0312163152e0e50fa9824460fc040b962f41f95f977db46dc89278a140530"
+
+[[tasks]]
+name = "aryaniyaps/task017-control"
+digest = "sha256:f9ecff695d8e23bc0fd8c77fdfc76d4dbdaadcc51567e48e1efa7fe4a0fc2055"
+
+[[tasks]]
+name = "aryaniyaps/task017-treatment"
+digest = "sha256:3b5989d31a069fbf3690ebbc3d8ee9ff909ee9626723cd56cffce8b184387d3c"
+
+[[tasks]]
+name = "aryaniyaps/task018-control"
+digest = "sha256:090baa1d8584bda1ac34abaf6dac23888feb10da0f9d928775bc588322422d94"
+
+[[tasks]]
+name = "aryaniyaps/task018-treatment"
+digest = "sha256:c0f719d5861e3bf6ad3df2f85ce76eb485659e6fa93bb23c3faa5c67c4f80060"
+
+[[tasks]]
+name = "aryaniyaps/task019-control"
+digest = "sha256:3f793dcc4c41150c12f5e5451b02fab9c242cd68b2a8c90963229335afbe538f"
+
+[[tasks]]
+name = "aryaniyaps/task019-treatment"
+digest = "sha256:4ada4e0863c74c772006fcda9b75f274a39f3250898f10f4d21b192a8691fc95"
+
+[[tasks]]
+name = "aryaniyaps/task020-control"
+digest = "sha256:2eec52fc351fb551dd558b48b1fed5fed23587fb30785398e30647231f9821b7"
+
+[[tasks]]
+name = "aryaniyaps/task020-treatment"
+digest = "sha256:8bd84cec75874c2cc8b23fc356386810e4d82d63920162bdaf32d3fff9b76ffb"
+
+[[tasks]]
+name = "aryaniyaps/task021-control"
+digest = "sha256:3de32849756b18600856b10925350d2ec4c7aa86dcf75fff66b65c997e30929b"
+
+[[tasks]]
+name = "aryaniyaps/task021-treatment"
+digest = "sha256:43f24fac88045e3908b253286445cedda9c777b58b8d0429ac4b6bfc2c6cba40"
+
+[[tasks]]
+name = "aryaniyaps/task022-control"
+digest = "sha256:ced7e2f1e128a6b09a970078676ca3b4230b78d2b023d4b916311f5e7780ea63"
+
+[[tasks]]
+name = "aryaniyaps/task022-treatment"
+digest = "sha256:693f0af92929d135fe67b67e799a0a5e54ccb5c2165a079e13cda8ab93e72240"
+
+[[tasks]]
+name = "aryaniyaps/task023-control"
+digest = "sha256:9e70d9b13717583ef1bed73998316f8707094e5115158f2fd390d0106ac7cf77"
+
+[[tasks]]
+name = "aryaniyaps/task023-treatment"
+digest = "sha256:1b7f9e2de5cb477ec2b781b7baa7fb9fab411c4df63f9ed7df48584a9b9418bb"
+
+[[tasks]]
+name = "aryaniyaps/task024-control"
+digest = "sha256:de4d67600c7920d8ef66356a862ef105282ce29050d0de4c945feb2fd7913db0"
+
+[[tasks]]
+name = "aryaniyaps/task024-treatment"
+digest = "sha256:28241b36bd18aac81bb57025cd921782ce44429a48e62e6321d7d6598ac055b0"
+
+[[tasks]]
+name = "aryaniyaps/task025-control"
+digest = "sha256:1de2e71fe4d5d03944a9b030ec54bd7c8effde8ce3b74df08d2c2e1afcef0c64"
+
+[[tasks]]
+name = "aryaniyaps/task025-treatment"
+digest = "sha256:7f4391bb7f38ca344f7d7db3e6acef2a12c96d064900eb083ee34a895001c52f"
+

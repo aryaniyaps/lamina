@@ -1,0 +1,8 @@
+{
+  "task_id": "task012",
+  "arm": "control",
+  "category": "oss_audit",
+  "workflow": "audit",
+  "prompt": "Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
+  "fixture": "plane-audit-ready"
+}

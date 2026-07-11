@@ -1,0 +1,49 @@
+task_id: task017
+# reference_checklist: not ground truth — concepts to look for, any wording OK
+required_entities:
+  - expense
+  - approval
+  - receipt
+  - policy
+  - payment
+required_invariants:
+  - receipt_required_above_threshold
+  - audit_trail_immutable
+  - no_payment_without_finance_approval
+required_personas:
+  - employee
+  - manager
+  - finance_reviewer
+required_flows:
+  - submit_expense
+  - manager_approve
+  - finance_review
+  - payment_initiated
+  - reject_with_reason
+required_rules:
+  - receipt_threshold
+  - category_limits
+  - delegation_rules
+required_scenarios:
+  - policy_violation_escalation
+  - manager_ooo_delegation
+  - duplicate_submission_idempotency
+  - currency_conversion_rounding
+required_edge_cases:
+  - policy_violation
+  - manager_ooo
+  - duplicate_submission
+  - currency_conversion
+required_a11y:
+  - form_validation_feedback
+  - status_tracking
+required_tradeoffs:
+  - approval_speed_vs_policy_enforcement
+  - delegation_flexibility_vs_audit_clarity
+required_sections:
+  - domain model and illegal states
+  - actors and permissions
+  - workflows and decision points
+  - edge cases and recovery
+  - state management
+  - implementation brief

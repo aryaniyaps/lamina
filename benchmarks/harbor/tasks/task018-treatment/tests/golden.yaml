@@ -1,0 +1,47 @@
+task_id: task018
+# reference_checklist: not ground truth — concepts to look for, any wording OK
+required_entities:
+  - subscription
+  - plan
+  - invoice
+  - payment_method
+  - usage_addon
+required_invariants:
+  - downgrade_effective_end_of_period
+  - proration_on_upgrade
+  - grace_period_before_suspension
+required_personas:
+  - account_owner
+  - team_admin
+required_flows:
+  - upgrade_plan
+  - downgrade_plan
+  - payment_failed_recovery
+  - view_invoice
+required_rules:
+  - proration_policy
+  - downgrade_timing
+  - grace_period
+required_scenarios:
+  - card_expired_recovery
+  - chargeback_handling
+  - plan_discontinued_migration
+  - usage_overage_billing
+required_edge_cases:
+  - card_expired
+  - chargeback
+  - plan_discontinued
+  - usage_overage
+required_a11y:
+  - billing_status_clear
+  - charge_preview
+required_tradeoffs:
+  - immediate_upgrade_revenue_vs_user_surprise
+  - grace_period_length_vs_churn_risk
+required_sections:
+  - domain model and illegal states
+  - actors and permissions
+  - workflows and decision points
+  - edge cases and recovery
+  - error handling
+  - implementation brief

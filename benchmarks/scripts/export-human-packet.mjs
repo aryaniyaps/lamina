@@ -9,8 +9,9 @@ import { readYamlSync } from './yaml.mjs';
 import { CRITERIA } from './human-eval-lib.mjs';
 import { writeHumanEvalManifest, hashArtifactContent } from './human-eval-manifest.mjs';
 
+import { loadRegistry, harborPath } from './harbor-tasks.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const RESULTS_RAW = path.join(ROOT, 'benchmarks/results/raw');
 const PACKET_DIR = path.join(ROOT, 'benchmarks/human/review-packet');
 
@@ -24,13 +25,10 @@ function shuffle(arr) {
 }
 
 function loadHumanEvalTasks() {
-  const tasks = [];
-  for (const dir of fs.readdirSync(TASKS_DIR, { withFileTypes: true })) {
-    if (!dir.isDirectory()) continue;
-    const yaml = readYamlSync(path.join(TASKS_DIR, dir.name, 'task.yaml'));
-    if (yaml.human_eval) tasks.push(yaml.id);
-  }
-  return tasks.sort();
+  return loadRegistry()
+    .filter((t) => t.human_eval)
+    .map((t) => t.id)
+    .sort();
 }
 
 function pickRepresentativeArtifact(taskId, arm) {
@@ -73,7 +71,7 @@ function main() {
 
     const controlText = fs.readFileSync(controlPath, 'utf8');
     const treatmentText = fs.readFileSync(treatmentPath, 'utf8');
-    const desc = fs.readFileSync(path.join(TASKS_DIR, taskId, 'description.md'), 'utf8');
+    const desc = fs.readFileSync(path.join(harborPath(taskId, 'control'), 'instruction.md'), 'utf8');
 
     const arms = shuffle([
       { arm: 'control', text: controlText },

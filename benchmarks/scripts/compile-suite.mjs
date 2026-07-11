@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 /**
- * Validate benchmark tasks + goldens + probes; compile suite manifest for run-bench.mjs.
+ * Validate Harbor benchmark tasks + registry + goldens + probes; emit suite manifest.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchManifest } from './stage-bench-fixture.mjs';
+import {
+  HARBOR_TASKS_DIR,
+  REGISTRY_PATH,
+  harborPath,
+  loadRegistry,
+  parseHarborDirName,
+} from './harbor-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const TASKS_DIR = path.join(ROOT, 'benchmarks/tasks');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 const PROBES_DIR = path.join(ROOT, 'benchmarks/probes');
 const SCHEMAS = path.join(ROOT, 'benchmarks/schemas');
@@ -39,70 +45,117 @@ function validateAgainstSchema(obj, schema, label) {
   }
 }
 
-function discoverTasks() {
-  if (!fs.existsSync(TASKS_DIR)) {
-    errors.push('benchmarks/tasks/ directory missing');
+function validateHarborTask(task) {
+  for (const arm of ['control', 'treatment']) {
+    const dest = harborPath(task.id, arm);
+    const label = `${task.id}-${arm}`;
+    if (!fs.existsSync(dest)) {
+      errors.push(`${label}: missing Harbor task directory`);
+      continue;
+    }
+    const required = ['instruction.md', 'task.toml', 'environment/Dockerfile', 'tests/test.sh', 'tests/golden.yaml'];
+    for (const rel of required) {
+      if (!fs.existsSync(path.join(dest, rel))) {
+        errors.push(`${label}: missing ${rel}`);
+      }
+    }
+    const instruction = fs.readFileSync(path.join(dest, 'instruction.md'), 'utf8');
+    if (/\/lamina-init/i.test(instruction) || /lamina-design/i.test(instruction)) {
+      errors.push(`${label}: instruction.md must not name Lamina skills or slash commands`);
+    }
+    if (arm === 'control') {
+      const agents = path.join(dest, 'environment/workspace/AGENTS.md');
+      if (fs.existsSync(agents)) {
+        const text = fs.readFileSync(agents, 'utf8');
+        if (/\/lamina-init/i.test(text) || /lamina-design/i.test(text)) {
+          errors.push(`${label}: control must not ship Lamina workflow AGENTS.md`);
+        }
+      }
+      const claude = path.join(dest, 'environment/workspace/CLAUDE.md');
+      if (fs.existsSync(claude)) {
+        const text = fs.readFileSync(claude, 'utf8');
+        if (/\/lamina-init/i.test(text) || /lamina-design/i.test(text)) {
+          errors.push(`${label}: control must not ship Lamina workflow CLAUDE.md`);
+        }
+      }
+    }
+    if (arm === 'treatment') {
+      const agents = path.join(dest, 'environment/workspace/AGENTS.md');
+      if (!fs.existsSync(agents)) {
+        errors.push(`${label}: treatment must ship AGENTS.md workflow overlay`);
+      } else if (!/\/lamina-init/i.test(fs.readFileSync(agents, 'utf8'))) {
+        errors.push(`${label}: treatment AGENTS.md must prescribe Lamina workflow`);
+      }
+    }
+  }
+
+  const goldenPath = path.join(GOLDENS_DIR, task.id, 'golden.yaml');
+  if (!fs.existsSync(goldenPath)) {
+    errors.push(`${task.id}: missing goldens/${task.id}/golden.yaml`);
+  } else {
+    const golden = readYamlSync(goldenPath);
+    validateAgainstSchema(golden, loadJsonSchema('golden.schema.json'), `${task.id}/golden`);
+    if (golden.task_id && golden.task_id !== task.id) {
+      errors.push(`${task.id}: golden task_id mismatch`);
+    }
+  }
+
+  const probesPath = path.join(PROBES_DIR, task.id, 'probes.yaml');
+  if (!fs.existsSync(probesPath)) {
+    errors.push(`${task.id}: missing probes/${task.id}/probes.yaml (run npm run bench:probes:generate)`);
+  }
+
+  if (task.fixture) {
+    try {
+      loadBenchManifest(task.fixture);
+    } catch (err) {
+      errors.push(`${task.id}: fixture error — ${err.message}`);
+    }
+  }
+
+  validateAgainstSchema(task, loadJsonSchema('task.schema.json'), task.id);
+
+  const instructionPath = path.join(harborPath(task.id, 'control'), 'instruction.md');
+  const instruction = fs.readFileSync(instructionPath, 'utf8');
+  return {
+    ...task,
+    _paths: {
+      harbor_control: path.relative(ROOT, harborPath(task.id, 'control')),
+      harbor_treatment: path.relative(ROOT, harborPath(task.id, 'treatment')),
+      instruction: path.relative(ROOT, instructionPath),
+      golden: path.relative(ROOT, goldenPath),
+    },
+    instruction,
+  };
+}
+
+function discoverHarborTasks() {
+  if (!fs.existsSync(REGISTRY_PATH)) {
+    errors.push('benchmarks/harbor/registry.yaml missing — run npm run bench:harbor:sync');
     return [];
   }
-  const dirs = fs.readdirSync(TASKS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory());
+  if (!fs.existsSync(HARBOR_TASKS_DIR)) {
+    errors.push('benchmarks/harbor/tasks/ missing — run npm run bench:harbor:sync');
+    return [];
+  }
+
+  const dirs = fs
+    .readdirSync(HARBOR_TASKS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .filter((n) => parseHarborDirName(n));
+
+  const registry = loadRegistry();
   const tasks = [];
-  for (const dir of dirs.sort((a, b) => a.name.localeCompare(b.name))) {
-    const taskDir = path.join(TASKS_DIR, dir.name);
-    const taskYaml = path.join(taskDir, 'task.yaml');
-    const description = path.join(taskDir, 'description.md');
-    const context = path.join(taskDir, 'context.md');
-
-    if (!fs.existsSync(taskYaml)) {
-      errors.push(`${dir.name}: missing task.yaml`);
-      continue;
-    }
-    if (!fs.existsSync(description)) {
-      errors.push(`${dir.name}: missing description.md`);
-      continue;
-    }
-    if (!fs.existsSync(context)) {
-      errors.push(`${dir.name}: missing context.md`);
-      continue;
-    }
-
-    const task = readYamlSync(taskYaml);
-    if (task.id && task.id !== dir.name) {
-      errors.push(`${dir.name}: task.yaml id "${task.id}" does not match folder name`);
-    }
-    task.id = task.id || dir.name;
-    validateAgainstSchema(task, loadJsonSchema('task.schema.json'), task.id);
-
-    const goldenPath = path.join(GOLDENS_DIR, task.id, 'golden.yaml');
-    if (!fs.existsSync(goldenPath)) {
-      errors.push(`${task.id}: missing goldens/${task.id}/golden.yaml`);
-    } else {
-      const golden = readYamlSync(goldenPath);
-      validateAgainstSchema(golden, loadJsonSchema('golden.schema.json'), `${task.id}/golden`);
-      if (golden.task_id && golden.task_id !== task.id) {
-        errors.push(`${task.id}: golden task_id mismatch`);
+  for (const entry of registry) {
+    const validated = validateHarborTask(entry);
+    tasks.push(validated);
+    for (const arm of ['control', 'treatment']) {
+      const name = `${entry.id}-${arm}`;
+      if (!dirs.includes(name)) {
+        errors.push(`${name}: listed in registry but directory missing`);
       }
     }
-
-    const probesPath = path.join(PROBES_DIR, task.id, 'probes.yaml');
-    if (!fs.existsSync(probesPath)) {
-      errors.push(`${task.id}: missing probes/${task.id}/probes.yaml (run npm run bench:probes:generate)`);
-    }
-
-    if (task.fixture) {
-      try {
-        loadBenchManifest(task.fixture);
-      } catch (err) {
-        errors.push(`${task.id}: fixture error — ${err.message}`);
-      }
-    }
-
-    task._paths = {
-      task_dir: path.relative(ROOT, taskDir),
-      description: path.relative(ROOT, description),
-      context: path.relative(ROOT, context),
-      golden: path.relative(ROOT, goldenPath),
-    };
-    tasks.push(task);
   }
   return tasks;
 }
@@ -120,7 +173,10 @@ function compileSuite(tasks, release) {
       prompt: t.prompt,
       fixture: t.fixture ?? null,
       oss: t.oss ?? null,
+      runs: t.runs ?? release.runs_per_arm,
+      human_eval: t.human_eval ?? false,
       paths: t._paths,
+      instruction: t.instruction,
     })),
   };
 }
@@ -137,7 +193,7 @@ function main() {
       ? path.resolve(process.argv[outIdx + 1])
       : path.join(ROOT, 'benchmarks/tmp/bench-suite.json');
 
-  const tasks = discoverTasks();
+  const tasks = discoverHarborTasks();
   const release = readRelease();
 
   if (tasks.length !== Number(release.tasks_total)) {
@@ -154,7 +210,7 @@ function main() {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(suite, null, 2) + '\n');
 
-  console.log(`LaminaBench: ${tasks.length} tasks validated`);
+  console.log(`LaminaBench: ${tasks.length} Harbor tasks validated`);
   if (!checkOnly) {
     console.log(`Suite manifest → ${outPath}`);
   }

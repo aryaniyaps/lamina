@@ -1,0 +1,8 @@
+{
+  "task_id": "task004",
+  "arm": "treatment",
+  "category": "greenfield",
+  "workflow": "design",
+  "prompt": "Design and implement a full collaborative trip planner — not a packing-list stub: domain model, illegal states, actors and permissions, itinerary/voting/expense/invite/offline workflows, edge cases, named trade-offs, and a buildable collaborative product surface.",
+  "fixture": null
+}

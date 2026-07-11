@@ -1,0 +1,8 @@
+{
+  "task_id": "task014",
+  "arm": "control",
+  "category": "oss_audit",
+  "workflow": "audit",
+  "prompt": "Audit the cart experience for product-behavior friction and abandonment risks: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
+  "fixture": "commerce-audit-ready"
+}
