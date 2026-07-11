@@ -1,10 +1,10 @@
-# LaminaBench v3.0
+# LaminaBench v1
 
 **Public product-behavior implementation benchmark** comparing the same coding agent with and without Lamina, run via [Harbor](https://www.harborframework.com/) in a **SkillsBench-style paired** design.
 
 This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests. LaminaBench measures whether Lamina (skills + workflow conventions) improves **implemented product behavior** in code on realistic tasks.
 
-> **Status (v3.0):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design B (`design_b_skillsbench_paired`). Behavior probes, clarify stall rate, cost/time, and optional human review are reported separately. **No live results are published yet.**
+> **Status (v1):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design B (`design_b_skillsbench_paired`). Behavior probes, clarify stall rate, cost/time, and optional human review are reported separately. **No live results are published yet.**
 
 **Methodology:** [Design B — SkillsBench-style paired comparison](METHODOLOGY.md). Same `instruction.md` for both arms; one continuous Harbor agent rollout each. Control = no skills, no AGENTS.md. Treatment = Lamina skills + AGENTS.md/CLAUDE.md workflow hint.
 
@@ -77,7 +77,7 @@ benchmarks/
   releases/             # Committed snapshots only when claim-ready
 ```
 
-## Corpus (v3.0)
+## Corpus (v1)
 
 25 tasks × 2 arms × 3 runs = **150 Harbor trials**. See [METHODOLOGY.md](METHODOLOGY.md) for Design B rationale.
 
@@ -92,6 +92,6 @@ benchmarks/
 | `--sync-only` | Refresh Harbor workspaces without running |
 | `--ingest-only` | Re-ingest existing Harbor jobs |
 
-**Resume / cost:** Jobs with matching `job_fingerprint` under `results_contract_version: 3.0.0` are skipped. Use `--fresh` to wipe the index.
+**Resume / cost:** Jobs with matching `job_fingerprint` under `results_contract_version: 1.0.0` are skipped. Use `--fresh` to wipe the index.
 
 **Unattended / clarify:** No harness auto-reply. Clarify stalls → verifier reward 0; reported as `clarify_stall` secondary metric.

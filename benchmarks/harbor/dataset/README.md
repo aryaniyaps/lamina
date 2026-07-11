@@ -1,6 +1,6 @@
 # aryaniyaps/lamina-bench
 
-LaminaBench v3.0 — SkillsBench-paired product implementation benchmark.
+LaminaBench v1 — SkillsBench-paired product implementation benchmark.
 
 - **25 tasks** across greenfield, OSS feature, OSS audit, workflow edge, and resilience categories
 - **50 Harbor tasks** (`taskNNN-control` + `taskNNN-treatment`) for paired evaluation
@@ -10,7 +10,7 @@ LaminaBench v3.0 — SkillsBench-paired product implementation benchmark.
 ## Run from registry
 
 ```bash
-harbor run -d "aryaniyaps/lamina-bench@v3.0.0" -a claude-code -m "<model>" \
+harbor run -d "aryaniyaps/lamina-bench@v1" -a claude-code -m "<model>" \
   --ak "prompt_template=benchmarks/harbor/prompt_template.j2"
 ```
 

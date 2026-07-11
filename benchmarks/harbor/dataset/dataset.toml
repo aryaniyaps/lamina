@@ -4,7 +4,7 @@
 
 [dataset]
 name = "aryaniyaps/lamina-bench"
-description = "LaminaBench v3.0: SkillsBench-paired product implementation benchmark (25 tasks, control + treatment arms)"
+description = "LaminaBench v1: SkillsBench-paired product implementation benchmark (25 tasks, control + treatment arms)"
 keywords = []
 [[dataset.authors]]
 name = "Aryan Iyappan"

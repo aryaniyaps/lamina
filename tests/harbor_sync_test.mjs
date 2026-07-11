@@ -57,6 +57,6 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_b_skillsbench_paired');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "3.0.0"'));
+assert.ok(release.includes('results_contract_version: "1.0.0"'));
 
 console.log('harbor_sync_test: ok');

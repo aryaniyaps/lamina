@@ -1,7 +1,7 @@
 {
   "id": "design_b_skillsbench_paired",
   "name": "SkillsBench-style paired comparison",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "claim_surface": "golden_coverage + llm_judge on implemented source",
   "research_question": "When the same coding agent receives the same product brief, does Lamina (skills installed + project workflow conventions) produce better implemented product behavior than no Lamina skills and no workflow hint?",
   "runner": {
@@ -52,7 +52,7 @@
   "rejected_alternatives": [
     {
       "id": "design_a_ecological_5_phase_harness",
-      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Removed in v3.0 Harbor-only migration."
+      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Removed in v1 Harbor-only migration."
     },
     {
       "id": "clarify_auto_reply_recovery",

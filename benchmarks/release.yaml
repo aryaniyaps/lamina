@@ -1,9 +1,9 @@
-version: "3.0.0"
-release_tag: bench-v3.0.0
+version: "1.0.0"
+release_tag: bench-v1
 created: "2026-07-11"
-harness_version: "3.0.0"
+harness_version: "1.0.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "3.0.0"
+results_contract_version: "1.0.0"
 
 # Harbor runner — see benchmarks/METHODOLOGY.md (Design B)
 runner: harbor

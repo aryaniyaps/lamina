@@ -364,7 +364,7 @@ def build_report(
     clarify_stalls: dict | None = None,
 ) -> str:
     lines = [
-        "# LaminaBench v3.0 Report",
+        "# LaminaBench v1 Report",
         "",
         f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
         "",

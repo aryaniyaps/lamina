@@ -26,8 +26,8 @@ assert.equal(
     artifact_valid: true,
     status: 'success',
     failed_gate: null,
-    results_contract_version: '3.0.0',
-  }, '3.0.0'),
+    results_contract_version: '1.0.0',
+  }, '1.0.0'),
   true
 );
 assert.equal(
@@ -36,7 +36,7 @@ assert.equal(
     status: 'success',
     failed_gate: null,
     results_contract_version: '2.1.0',
-  }, '3.0.0'),
+  }, '1.0.0'),
   false
 );
 
@@ -53,19 +53,19 @@ const fp1 = computeJobFingerprint(task, {
   run: 1,
   agent: 'claude-code',
   model: 'm1',
-  resultsContractVersion: '3.0.0',
+  resultsContractVersion: '1.0.0',
 });
 const fp2 = computeJobFingerprint(task, {
   arm: 'control',
   run: 1,
   agent: 'claude-code',
   model: 'm1',
-  resultsContractVersion: '3.0.0',
+  resultsContractVersion: '1.0.0',
 });
 assert.equal(fp1, fp2);
 const fp3 = computeJobFingerprint(
   { ...task, prompt: 'Build Y' },
-  { arm: 'control', run: 1, agent: 'claude-code', model: 'm1', resultsContractVersion: '3.0.0' }
+  { arm: 'control', run: 1, agent: 'claude-code', model: 'm1', resultsContractVersion: '1.0.0' }
 );
 assert.notEqual(fp1, fp3);
 
@@ -92,7 +92,7 @@ upsertIndexEntry(
     run: 1,
     artifact_valid: true,
     status: 'success',
-    results_contract_version: '3.0.0',
+    results_contract_version: '1.0.0',
     job_fingerprint: fp1,
     timestamp: '2026-07-11T03:00:00.000Z',
   },
@@ -102,7 +102,7 @@ const completed = loadCompletedJobKeys({
   jobs: [{ task, run: 1, arm: 'control' }],
   agent: 'claude-code',
   model: 'm1',
-  resultsContractVersion: '3.0.0',
+  resultsContractVersion: '1.0.0',
   resultsDir: idxDir,
 });
 assert.ok(completed.has('taskX:control:run1'));
@@ -111,7 +111,7 @@ const forced = loadCompletedJobKeys({
   jobs: [{ task, run: 1, arm: 'control' }],
   agent: 'claude-code',
   model: 'm1',
-  resultsContractVersion: '3.0.0',
+  resultsContractVersion: '1.0.0',
   resultsDir: idxDir,
   forceKeys: new Set(['taskX']),
 });

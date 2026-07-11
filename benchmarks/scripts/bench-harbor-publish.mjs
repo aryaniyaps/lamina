@@ -14,7 +14,7 @@ import { HARBOR_TASKS_DIR, listHarborTaskDirs } from './harbor-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATASET_DIR = path.join(ROOT, 'benchmarks/harbor/dataset');
-const TAG = process.env.BENCH_HARBOR_TAG || 'v3.0.0';
+const TAG = process.env.BENCH_HARBOR_TAG || 'v1';
 
 function run(cmd, args, { optional = false } = {}) {
   const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env });

@@ -68,7 +68,7 @@ High treatment stall rates are a real signal (skills not bench-safe unattended),
 
 ## Legacy Design A (removed)
 
-The prior ecological adoption design (`design_a_ecological`) used harness-forced 2-phase control vs 5-phase treatment. It was removed in v3.0 in favor of Harbor-only Design B.
+The prior ecological adoption design (`design_a_ecological`) used harness-forced 2-phase control vs 5-phase treatment. It was removed in v1 in favor of Harbor-only Design B.
 
 ## Optional ablations (not primary)
 

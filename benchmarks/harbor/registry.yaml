@@ -1,5 +1,5 @@
 version: "1.0"
-release_tag: bench-v3.0.0
+release_tag: bench-v1
 tasks:
   - id: task001
     category: greenfield
