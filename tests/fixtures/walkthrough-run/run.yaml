@@ -1,9 +1,7 @@
-id: checkout-audit-walkthrough-fixture
-hook: audit
+id: checkout-verify-walkthrough-fixture
+hook: verify
 target: checkout flow
 command: /lamina-verify
-flows_touched: [checkout]
-personas_updated: false
 started_at: 2026-07-09
 
 evidence:
@@ -12,14 +10,12 @@ evidence:
     kind: visual_walkthrough
     summary: Captured 1 existing product screen at http://localhost:3000
 
-artifacts:
-  - id: audit-pack
-    type: usability_findings_report
-    pack: validation
-    path: artifacts/audit-pack.md
-    confidence: medium
-    evidence_mode: run_yaml_required
-    diagram: flowchart
+workflows:
+  - id: checkout
+    actor: deal-hunter-diane
+    steps:
+      - operation: review cart
+      - operation: proceed to checkout
 
 flows:
   - id: checkout
@@ -40,19 +36,6 @@ screens:
     elements:
       - component: Button
         label: Checkout
-
-simulation:
-  panel: [deal-hunter-diane]
-  results:
-    - persona_id: deal-hunter-diane
-      outcome: partial_fail
-      blockers:
-        - step: 01-cart
-          screen_id: cart
-          flow_id: checkout
-          severity: medium
-          quote: "I cannot find shipping costs on this screen"
-  confidence: medium
 
 findings:
   - id: shipping-visibility

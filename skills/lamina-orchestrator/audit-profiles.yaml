@@ -3,6 +3,7 @@ profiles:
     skills:
       - lamina-system-structure
       - lamina-invariants
+      - lamina-dependencies
       - lamina-modularity-boundaries
       - lamina-tradeoffs
       - lamina-business-context
@@ -16,12 +17,14 @@ profiles:
   design-workflows:
     skills:
       - lamina-flow-design
+      - lamina-dependencies
       - lamina-side-effects
       - lamina-task-analysis
 
   design-scenarios:
     skills:
       - lamina-edge-cases
+      - lamina-dependencies
       - lamina-invariants
       - lamina-idempotency-concurrency
       - lamina-error-handling
@@ -51,6 +54,7 @@ profiles:
     skills:
       - lamina-system-structure
       - lamina-invariants
+      - lamina-dependencies
       - lamina-consistency-guarantees
 
   verify-grounding:
@@ -67,6 +71,7 @@ profiles:
   verify-integrity:
     skills:
       - lamina-invariants
+      - lamina-dependencies
       - lamina-idempotency-concurrency
       - lamina-edge-cases
       - lamina-consistency-guarantees

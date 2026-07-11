@@ -36,7 +36,7 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 ### Design (`/lamina-design`)
 
 1. Create `run.yaml` — `status: designing`, `hook: design`
-2. Write `domain`, `actors` (or update `personas.yaml`), `workflows`, `scenarios`, optional `screens`
+2. Write `domain` (entities, invariants, `dependencies`), `actors` (or update `personas.yaml`), `workflows`, `scenarios`, optional `screens`
 3. Set `status: ready_to_build`; write `implement.md`
 4. Write `report.md` (narrative)
 
@@ -45,7 +45,7 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 1. Load design run or infer domain from repo
 2. Set `status: verifying`
 3. Capture `walkthrough/` when `base_url` available
-4. Run actor walks, a11y, invariant probes → `findings[]` with `fix_target` per finding
+4. Run actor walks, a11y, invariant probes, reachability probes → `findings[]` with `fix_target` per finding
 5. Set `status: complete` (or loop back with gaps in findings)
 6. Write `report.md` and `fix.md`
 
@@ -71,6 +71,12 @@ domain:
       invariants:
         - id: one-ticket-per-student
           rule: At most one valid hall ticket per student per exam
+  dependencies:
+    - id: download-requires-payment
+      from: workflow.download-ticket
+      requires: entity.payment
+      in_state: confirmed
+      failure: unreachable
 
 actors:
   - id: student
@@ -80,15 +86,25 @@ actors:
 
 workflows:
   - id: download-ticket
-    steps: [check_payment, check_window, generate_or_show]
+    requires: [download-requires-payment]
+    steps:
+      - operation: open ticket page
+      - operation: download pdf
+        invariant_ref: payment-confirmed
 
 scenarios:
   - id: unpaid-blocked
     category: permission
     trigger:
       operation: download ticket
-      when: precondition_failed
+      when: forbidden
     invariant_ref: payment-confirmed
+  - id: payment-not-confirmed
+    category: precondition
+    trigger:
+      operation: download ticket
+      when: dependency_unmet
+    dependency_ref: download-requires-payment
 
 screens:
   - id: ticket-download
@@ -101,10 +117,12 @@ evidence: []
 ```
 
 **Notes:**
-- `domain` holds entities, relationships, states, transitions, invariants (user language).
+- `domain` holds entities, relationships, states, transitions, invariants, and `dependencies` (reachability graph).
+- `domain.dependencies[]` is the single source of truth for cross-feature reachability. If feature A depends on B and B is unreachable, A is a failure — not an ad-hoc edge case.
+- `workflows[].requires` lists `domain.dependencies[]` ids the workflow depends on. Do **not** use free-text `preconditions` lists.
 - `actors` may reference `.lamina/personas.yaml` cast; permissions live here or in personas.
 - `workflows` are user journeys over operations/states.
-- `scenarios` cover invariant violations, permissions, conflicts, recovery UX.
+- `scenarios` cover invariant violations, unmet dependencies, permissions, conflicts, recovery UX.
 - `screens` are structural UX surfaces tied to workflows — no styling.
 
 ---
@@ -114,10 +132,13 @@ evidence: []
 Written when `status: ready_to_build`. Brief for external coding agent:
 
 - What to build (workflows, screens)
+- **Build/setup order** implied by `domain.dependencies[]` (e.g. property setup before booking)
 - Invariants that must hold (ids from `domain`)
 - Actors and permissions
-- Scenarios to handle
+- Scenarios to handle (including unmet-dependency failures via `dependency_ref`)
 - Explicit: any stack, any UI library
+
+Do not dump free-text precondition prose — reference dependency ids and invariant ids from the contract.
 
 ---
 

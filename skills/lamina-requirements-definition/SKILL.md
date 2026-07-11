@@ -20,10 +20,11 @@ Requirements live in **`run.yaml` + `implement.md`** — each scenario is verify
 
 | Artifact | Requirement form |
 |----------|------------------|
-| `workflows[]` | Ordered operations with guards |
-| `scenarios[]` | Given/when/then with actor + data state |
+| `domain.dependencies[]` | Reachability edges — what must exist before a workflow succeeds |
+| `workflows[]` | Ordered operations with `requires` refs to dependency ids |
+| `scenarios[]` | Given/when/then with actor + data state; `dependency_ref` for unmet deps |
 | `invariants[]` | Must always hold — verify probes |
-| `implement.md` | Build checklist derived from above |
+| `implement.md` | Build checklist + setup order derived from dependency graph |
 
 No separate requirements doc that drifts from contract.
 

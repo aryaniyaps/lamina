@@ -21,7 +21,7 @@ metadata:
 1. List actors and each one's success outcome
 2. Surface conflicts (student vs admin regenerates ticket; buyer vs seller refund)
 3. Record resolution in `decisions.md` with trade-off rationale
-4. Encode permissions in `actors` and workflow guards
+4. Encode permissions in `actors` and `workflows[].requires` / `domain.dependencies[]`
 
 ## Anti-patterns
 

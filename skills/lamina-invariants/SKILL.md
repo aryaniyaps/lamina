@@ -11,6 +11,7 @@ metadata:
       - "illegal state transitions"
     related:
       - lamina-system-structure
+      - lamina-dependencies
       - lamina-consistency-guarantees
       - lamina-idempotency-concurrency
       - lamina-edge-cases
@@ -24,6 +25,8 @@ Rules the product must never violate. Design so illegal states are unrepresentab
 ## Verify
 
 Each `domain.invariants[]` id gets a probe in `/lamina-verify` — attempt violation on live product; UI must prevent or recover per linked `scenarios[]`.
+
+**Invariants vs dependencies:** Invariants are predicates that must hold in valid states. Dependencies are reachability edges — what must exist before a workflow can succeed. Do not collapse them; use [Dependencies](../lamina-dependencies/SKILL.md) for cross-feature setup.
 
 ## Decision frameworks
 
@@ -64,6 +67,7 @@ Each `domain.invariants[]` id gets a probe in `/lamina-verify` — attempt viola
 
 ## Related capabilities
 
+- [Dependencies](../lamina-dependencies/SKILL.md)
 - [Consistency Guarantees](../lamina-consistency-guarantees/SKILL.md)
 - [Idempotency and Concurrency](../lamina-idempotency-concurrency/SKILL.md)
 - [Edge Cases](../lamina-edge-cases/SKILL.md)

@@ -1,6 +1,6 @@
 # /lamina-verify workflow
 
-Post-build and brownfield verification against design contracts — actor walks, invariants, accessibility, integrity on live product.
+Pre-merge verification against design contracts — actor walks, invariants, reachability, accessibility, integrity on live product. Run before opening a PR or merging when the product is buildable.
 
 ## Boundary
 
@@ -19,6 +19,7 @@ Post-build and brownfield verification against design contracts — actor walks,
 | Simulation plan | `verify-simulation` | Actor-walk scripts, synthesis |
 | Actor walks | `verify-actors` + persona panel | Allowed/forbidden operations per role |
 | Invariants | `verify-integrity` | Illegal transitions, duplicates, conflicts |
+| Reachability | `verify-integrity` | Unmet `domain.dependencies[]` — workflow blocked or recovers |
 | Accessibility | `verify-a11y` | Captured steps |
 | Findings | `verify-findings` | Gaps → loop to design |
 
@@ -29,10 +30,11 @@ Post-build and brownfield verification against design contracts — actor walks,
 2. Set `status: verifying` on run (create verify run if brownfield-only).
 3. **Walkthrough** — when `base_url` available, run [visual-walkthrough](../patterns/visual-walkthrough.md).
 4. **Actor walks** — one subagent per actor; attempt operations from `workflows` and `actors.permissions`.
-5. **Invariant probes** — test scenarios from contract against live UI (double submit, permission denied, stale state).
-6. **Accessibility** — load [lamina-accessibility](../../lamina-accessibility/SKILL.md) on captured steps.
-7. Write `findings[]` with `fix_target` per finding (`product` default; `contract` for scope/design changes); set `status: complete` or document gaps.
-8. Write `report.md` and `fix.md` from [prompts/outputs/fix.md](../prompts/outputs/fix.md); **STOP**.
+5. **Reachability probes** — for each `domain.dependencies[]` edge, attempt `from` workflow when `requires` is unmet; UI must prevent, block, or recover per linked scenario.
+6. **Invariant probes** — test scenarios from contract against live UI (double submit, permission denied, stale state).
+7. **Accessibility** — load [lamina-accessibility](../../lamina-accessibility/SKILL.md) on captured steps.
+8. Write `findings[]` with `fix_target` per finding (`product` default; `contract` for scope/design changes); set `status: complete` or document gaps.
+9. Write `report.md` and `fix.md` from [prompts/outputs/fix.md](../prompts/outputs/fix.md); **STOP**.
 
 Tell the user: implement **product fixes** from `fix.md` in a coding session, then re-run `/lamina-verify`. Route **contract deltas** in `fix.md` to `/lamina-design`.
 

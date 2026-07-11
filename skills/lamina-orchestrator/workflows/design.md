@@ -18,10 +18,11 @@ Load skills from [audit-profiles.yaml](../audit-profiles.yaml) per section.
 |---------|---------|-------|
 | Scope intake | `design-intake` | Problem, discovery, acceptance criteria |
 | Evidence plan | `design-evidence` | Repo/walkthrough grounding |
-| Domain charter | `design-domain` | Entities, relationships, states, invariants |
+| Domain charter | `design-domain` | Entities, relationships, states, invariants, dependencies |
 | Actors and permissions | `design-actors` | Cast, roles, what each may do |
 | Workflows | `design-workflows` | User journeys over operations/states |
-| Scenarios | `design-scenarios` | Violations, conflicts, recovery |
+| Dependencies | `design-workflows` | Reachability graph — after workflows, before scenarios |
+| Scenarios | `design-scenarios` | Violations, unmet deps, conflicts, recovery |
 | UX surfaces | `design-ux` | Nav, screens, forms, feedback bound to domain |
 | Trade-offs | `design-risks` | Material decisions |
 
@@ -34,12 +35,13 @@ Load skills from [audit-profiles.yaml](../audit-profiles.yaml) per section.
 4. Work sections in merge order (see [merge-rules.md](../merge-rules.md)).
 5. **Domain** — write `domain` block; load systems skills from profile.
 6. **Actors** — update `personas.yaml` / `actors` in run.
-7. **Workflows** — write `workflows` (and legacy `flows[]` if tooling still expects it).
-8. **Scenarios** — write `scenarios[]` tied to invariants and permissions.
-9. **UX surfaces** — optional `screens[]` tied to workflow steps; brownfield: `status: existing` + `source`.
-10. **Implement brief** — write `implement.md`; set `status: ready_to_build`.
-11. Write `report.md`; validate run if validator available.
-12. **STOP** — tell user to implement with any stack, then `/lamina-verify`.
+7. **Workflows** — write `workflows`.
+8. **Dependencies** — write `domain.dependencies[]`; set `workflows[].requires` per edge. Load [lamina-dependencies](../../lamina-dependencies/SKILL.md). Do not use free-text `preconditions`.
+9. **Scenarios** — write `scenarios[]` tied to dependencies, invariants, and permissions.
+10. **UX surfaces** — optional `screens[]` tied to workflow steps; brownfield: `status: existing` + `source`.
+11. **Implement brief** — write `implement.md` (include build order from dependency graph); set `status: ready_to_build`.
+12. Write `report.md`; validate run if validator available.
+13. **STOP** — tell user to implement with any stack, then `/lamina-verify`.
 
 ## Subagent hints
 

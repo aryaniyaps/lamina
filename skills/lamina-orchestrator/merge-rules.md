@@ -18,13 +18,13 @@ Before emitting a work plan or writing any `.lamina/` artifact, classify missing
 **Design (`/lamina-design`):**
 
 ```
-domain + invariants → actors + permissions → workflows → scenarios → UX surfaces (screens/nav/forms) → ready_to_build + implement.md
+domain + invariants → actors + permissions → workflows → dependencies → scenarios → UX surfaces (screens/nav/forms) → ready_to_build + implement.md
 ```
 
 **Verify (`/lamina-verify`):**
 
 ```
-load design contract → walkthrough (live product) → actor walks + a11y + invariant checks → findings → complete
+load design contract → walkthrough (live product) → actor walks + a11y + invariant + reachability probes → findings → complete
 ```
 
 ## Grounding and citations

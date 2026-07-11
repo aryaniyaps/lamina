@@ -12,6 +12,7 @@ metadata:
     related:
       - lamina-invariants
       - lamina-feedback-loops
+      - lamina-dependencies
       - lamina-information-architecture
       - lamina-user-modeling
     tags:
@@ -69,6 +70,7 @@ Re-read `domain` after external build: actor walks and invariant probes must ref
 
 ## Related capabilities
 
+- [Dependencies](../lamina-dependencies/SKILL.md) — reachability between features and entity states
 - [Invariants](../lamina-invariants/SKILL.md) — rules that must hold across entities
 - [Feedback Loops](../lamina-feedback-loops/SKILL.md) — how quantities self-correct or amplify
 - [Information Architecture](../lamina-information-architecture/SKILL.md) — organizing entities for findability

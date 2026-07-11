@@ -15,7 +15,7 @@
 ## Orchestrator procedure
 
 1. **Gate:** Confirm product `base_url` (e.g. `http://localhost:3000`). If user offers Studio/blueprint URL, refuse and ask for product URL. If routes exist but no `base_url`, ask once; on skip → `evidence.visual.status: unavailable`, text path only.
-2. **Identify steps:** From `run.yaml` `flows[].graphs` and `screens[]` where `status: existing`. Mixed flows: capture **existing** steps only; `new` screens stay text/SUB.
+2. **Identify steps:** From `run.yaml` `workflows[]` and `screens[]` where `status: existing`. Legacy `flows[]` may exist in older runs — prefer `workflows[]`. Mixed flows: capture **existing** steps only; `new` screens stay text/SUB.
 3. **Capture:** Spawn walkthrough capturer from `prompts/subagents/walkthrough-capturer.md` (or run inline with host browser tools). One pass per flow.
 4. **Write pack:** Save `walkthrough/index.yaml` + `walkthrough/steps/*`. Add `evidence[]` entry with `kind: visual_walkthrough`.
 5. **Capability ladder** (pick once per run before persona panel):

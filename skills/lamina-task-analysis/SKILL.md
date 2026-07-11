@@ -27,7 +27,7 @@ Decompose actor goals into **operations** — verbs on domain entities — that 
 
 ## Contract encoding
 
-- `workflows[].steps` = ordered operations with guards
+- `workflows[].steps` = ordered operations; use `requires` + `domain.dependencies[]` for prerequisites
 - `task-analysis` prose optional in `report.md` for complex domains
 - Navigation labels = operation vocabulary, not org chart
 

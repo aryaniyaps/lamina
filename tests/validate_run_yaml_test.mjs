@@ -10,82 +10,34 @@ function tmpDir() {
 }
 
 function writeValidRun(dir) {
-  fs.mkdirSync(path.join(dir, 'artifacts'), { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, 'artifacts', 'flow-pack.md'),
-    `---
-id: flow-pack
-title: Flow pack
-confidence: medium
-sources:
-  - run.yaml
----
-
-# Flow pack
-
-\`\`\`mermaid
-flowchart TD
-  Start --> Finish
-\`\`\`
-`,
-  );
-  fs.writeFileSync(
-    path.join(dir, 'handoff.md'),
-    `---
-id: handoff
-title: Developer handoff
-confidence: medium
-sources:
-  - run.yaml
----
-
-# Developer handoff
-
-\`\`\`mermaid
-flowchart TD
-  Start --> Finish
-\`\`\`
-`,
-  );
   fs.writeFileSync(
     path.join(dir, 'run.yaml'),
     `id: password-reset-2026-07-08
 hook: design
 target: password reset
 command: /lamina-design
-flows_touched: [password-reset]
-personas_updated: false
 started_at: 2026-07-08
 
-evidence:
-  - id: business-context
-    source: .lamina/business-context.md
-    kind: business_context
-    summary: Account recovery must be clear and secure
+domain:
+  dependencies:
+    - id: reset-requires-account
+      from: workflow.password-reset
+      requires: entity.account
+      in_state: active
+      failure: unreachable
 
-artifacts:
-  - id: flow-pack
-    type: user_flow
-    pack: flow
-    path: artifacts/flow-pack.md
-    confidence: medium
-    evidence_mode: run_yaml_required
-    diagram: flowchart
-  - id: developer-handoff
-    type: developer_handoff
-    pack: handoff
-    path: handoff.md
-    confidence: medium
-    evidence_mode: run_yaml_required
-    diagram: flowchart
+workflows:
+  - id: password-reset
+    requires: [reset-requires-account]
+    actor: primary-user
+    steps:
+      - operation: submit email
+      - operation: check inbox
 
 flows:
   - id: password-reset
     name: Password reset
     status: planned
-    routes: ["/reset-password"]
-    priority: high
-    evidence: []
     graphs:
       - id: main
         entry_screen: request-reset
@@ -115,42 +67,36 @@ screens:
         text: Check your email
         level: 1
 
-checklist:
-  - id: password-reset-request
-    priority: P0
-    title: Add reset request flow
-    acceptance:
-      - Email submission shows check email confirmation
-    screens: [request-reset, check-email]
+scenarios:
+  - id: account-missing
+    title: No account for email
+    screen: request-reset
+    category: precondition
+    ux: alert
+    trigger:
+      operation: submit email
+      subject: account
+      when: dependency_unmet
+    dependency_ref: reset-requires-account
 
-simulation:
-  panel: [primary-user, support-admin]
-  results:
-    - persona_id: primary-user
-      outcome: partial_fail
-      blockers:
-        - step: Request reset
-          screen_id: request-reset
-          severity: medium
-          quote: Email copy is unclear
-    - persona_id: support-admin
-      outcome: success
-  confidence: medium
+evidence:
+  - id: business-context
+    source: .lamina/business-context.md
+    kind: business_context
+    summary: Account recovery must be clear and secure
 `,
   );
 }
 
-// valid run with artifact index
+// valid design run with workflows and dependency graph
 {
   const dir = tmpDir();
   writeValidRun(dir);
   const result = validateRunYaml(path.join(dir, 'run.yaml'));
   assert.equal(result.ok, true, result.errors.join('; '));
-  assert.equal(result.run.artifacts.length, 2);
+  assert.equal(result.run.workflows.length, 1);
+  assert.deepEqual(result.run.workflows[0].requires, ['reset-requires-account']);
   assert.equal(result.run.evidence.length, 1);
-  assert.equal(result.run.simulation.confidence, 'medium');
-  assert.equal(result.run.simulation.results[0].blockers[0].quote, 'Email copy is unclear');
-  assert.equal(result.run.simulation.results[1].persona_id, 'support-admin');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -169,14 +115,29 @@ simulation:
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-// artifact index paths must exist and remain inside the run directory
+// design requires workflows[] or flows[]
 {
   const dir = tmpDir();
   writeValidRun(dir);
-  fs.rmSync(path.join(dir, 'artifacts', 'flow-pack.md'));
-  const result = validateRunYaml(path.join(dir, 'run.yaml'));
+  const runPath = path.join(dir, 'run.yaml');
+  fs.writeFileSync(
+    runPath,
+    fs
+      .readFileSync(runPath, 'utf8')
+      .replace(/^workflows:[\s\S]*?^flows:/m, 'flows:'),
+  );
+  const withoutBoth = validateRunYaml(runPath);
+  assert.equal(withoutBoth.ok, true, withoutBoth.errors.join('; '));
+
+  fs.writeFileSync(
+    runPath,
+    fs
+      .readFileSync(runPath, 'utf8')
+      .replace(/^flows:[\s\S]*?^screens:/m, 'screens:'),
+  );
+  const result = validateRunYaml(runPath);
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((e) => e.includes('file not found')));
+  assert.ok(result.errors.some((e) => e.includes('missing workflows[] or flows[]')));
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

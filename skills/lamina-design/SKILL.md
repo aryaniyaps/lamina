@@ -1,6 +1,6 @@
 ---
 name: lamina-design
-description: "Design how the product works — domain, actors, workflows, invariants, UX surfaces — then ready_to_build + implement.md."
+description: "Design how the product works — domain, actors, workflows, dependencies, invariants, UX surfaces — then ready_to_build + implement.md."
 disable-model-invocation: true
 ---
 

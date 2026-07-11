@@ -21,7 +21,8 @@ Run **parallel skill-based reviewers** against contract and live product — not
 | Lens | Checks |
 |------|--------|
 | Invariants | `lamina-invariants` vs workflows |
-| Permissions | actor guards, forbidden ops |
+| Reachability | `lamina-dependencies` — unmet `domain.dependencies[]` |
+| Permissions | `actors` permissions, forbidden ops |
 | Edge cases | `lamina-edge-cases` scenarios |
 | A11y | verify a11y subagent on live UI |
 | Consistency | `lamina-multi-view-integrity` |

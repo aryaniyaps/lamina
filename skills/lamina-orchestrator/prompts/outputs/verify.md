@@ -2,10 +2,13 @@
 What was verified and overall result.
 
 ### Contract checked
-Design run id and invariants tested.
+Design run id, dependencies, and invariants tested.
 
 ### Actor walk results
 Per-actor allowed/forbidden operations.
+
+### Reachability results
+Per `domain.dependencies[]` edge — unmet prerequisite blocked or recovered on live product.
 
 ### Invariant and scenario results
 Passes and failures against `scenarios[]`.
