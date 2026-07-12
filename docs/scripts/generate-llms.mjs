@@ -13,6 +13,10 @@ const contentDir = path.join(root, "content");
 const publicDir = path.join(root, "public");
 
 const DOMAIN = "https://lamina.dev";
+const GITHUB = "https://github.com/aryaniyaps/lamina";
+const INSTALL = "npx skills install aryaniyaps/lamina";
+const DISAMBIGUATION =
+  "Lamina (lamina.dev) is an open-source product-design skill for AI coding agents — not uselamina.ai (creative API for media generation).";
 
 const SECTION_ORDER = [
   "index",
@@ -99,11 +103,25 @@ function stripMdxBody(source) {
     .trim();
 }
 
+/** Rewrite relative markdown links to absolute lamina.dev URLs for out-of-context ingestion. */
+function absolutizeMarkdownLinks(text) {
+  return text
+    .replace(/\]\(\/docs\/([^)]+)\)/g, `](${DOMAIN}/docs/$1)`)
+    .replace(
+      /\]\(\/(guides|getting-started|concepts|commands|reference|advanced)(\/[^)]+)?\)/g,
+      (_match, section, rest = "") => `](${DOMAIN}/docs/${section}${rest})`,
+    )
+    .replace(
+      /\]\((guides|getting-started|concepts|commands|reference|advanced)\/([^)]+)\)/g,
+      `](${DOMAIN}/docs/$1/$2)`,
+    );
+}
+
 const files = sortFiles(collectMdxFiles(contentDir));
 const pages = files.map(({ rel, full }) => {
   const source = fs.readFileSync(full, "utf8");
   const meta = parseFrontmatter(source);
-  const body = stripMdxBody(source);
+  const body = absolutizeMarkdownLinks(stripMdxBody(source));
 
   return {
     rel,
@@ -122,9 +140,23 @@ const llmsTxt = `# Lamina
 
 Lamina is an open-source skill for developers who build with AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi). It designs product behavior, not pixels, before your agent writes app source. The loop: design → implement → verify → fix.
 
-Install: \`npx skills install aryaniyaps/lamina\`
+${DISAMBIGUATION}
 
-MIT licensed. Source: https://github.com/aryaniyaps/lamina
+## Install
+
+\`\`\`bash
+${INSTALL}
+\`\`\`
+
+## License
+
+MIT — ${GITHUB}
+
+## Contact
+
+- Issues: ${GITHUB}/issues
+- Creator: https://aryaniyappan.com
+- X: https://x.com/aryaniyaps
 
 ## Key pages
 
@@ -147,6 +179,8 @@ ${pages
 const llmsFullTxt = `# Lamina — full documentation export
 
 Generated from docs/content. Prefer per-page URLs for citations when possible.
+
+${DISAMBIGUATION}
 
 ${pages
   .map(

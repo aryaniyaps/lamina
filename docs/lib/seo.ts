@@ -3,6 +3,7 @@ import { SITE } from "@/lib/site";
 export const OG_IMAGE = `${SITE.domain}/og-twitter.png`;
 
 export const ORGANIZATION_ID = `${SITE.domain}/#organization`;
+export const PERSON_ID = `${SITE.domain}/#creator`;
 export const WEBSITE_ID = `${SITE.domain}/#website`;
 export const DOCS_WEBSITE_ID = `${SITE.domain}/docs/#website`;
 
@@ -95,17 +96,36 @@ export function buildSiteJsonLd(): Record<string, unknown> {
         publisher: { "@id": ORGANIZATION_ID },
       },
       {
+        "@type": "Person",
+        "@id": PERSON_ID,
+        name: SITE.creator.name,
+        url: SITE.creator.url,
+        sameAs: SITE.creator.socials,
+        worksFor: { "@id": ORGANIZATION_ID },
+      },
+      {
         "@type": "Organization",
         "@id": ORGANIZATION_ID,
         name: "Lamina",
+        alternateName: ["Lamina (lamina.dev)", "lamina.dev"],
         url: SITE.domain,
+        description: SITE.description,
+        disambiguatingDescription: SITE.disambiguation,
+        knowsAbout: [
+          "AI coding agents",
+          "Product design",
+          "State machines",
+          "Software verification",
+        ],
+        founder: { "@id": PERSON_ID },
         logo: {
           "@type": "ImageObject",
           url: `${SITE.domain}/brand/lamina-lockup-light.svg`,
         },
         sameAs: [
-          "https://github.com/aryaniyaps/lamina",
-          "https://x.com/aryaniyaps",
+          SITE.github,
+          ...SITE.creator.socials,
+          SITE.creator.url,
         ],
       },
       {
