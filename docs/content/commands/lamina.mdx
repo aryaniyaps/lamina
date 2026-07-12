@@ -1,0 +1,93 @@
+---
+title: /lamina
+description: Router command — auto-route to design, verify, or direct capability answers
+---
+
+import { Callout } from 'nextra/components'
+
+# /lamina
+
+The entry point for Lamina. Routes your request to design, verify, or a focused capability skill based on intent.
+
+## Quick path
+
+1. Run `/lamina` with no args to see available commands
+2. Or describe what you need in natural language
+3. Lamina routes to the right workflow or answers directly
+
+## When to use
+
+- You are not sure which slash command to run
+- You have a focused product design question (direct mode)
+- You want Lamina to interpret intent from natural language
+
+## Routing logic
+
+Lamina parses your message and dispatches to the first strong match:
+
+| Your intent | Routes to |
+|-------------|-----------|
+| "Add hall ticket feature", "spec booking flow" | `/lamina-design` workflow |
+| "We don't know what to build", early exploration | `/lamina-design` workflow |
+| "Implementation done", "audit settings", "fix flow" | `/lamina-verify` workflow |
+| "Redesign checkout", "review existing UI" | `/lamina-verify` workflow |
+| Single clear topic (e.g. "what invariants apply here?") | **Direct mode** — one capability skill |
+| Ambiguous | Lamina asks: design, verify, or focused question? |
+
+### Verify vs design
+
+| You say | Route |
+|---------|-------|
+| "Redesign checkout", "audit settings", "implementation done" | Verify |
+| "Add hall ticket feature", "spec booking flow" | Design |
+| "We don't know what to build" | Design (after init) |
+
+<Callout type="info">
+**Advanced:** Implementing fixes from `fix.md` is **not** a Lamina command. Your coding agent reads `.lamina/runs/<id>/fix.md` in a normal coding session and writes app source outside Lamina.
+</Callout>
+
+## Direct mode
+
+When you ask a focused question, `/lamina` loads a single capability skill instead of a full workflow:
+
+```
+/lamina What invariants should a booking hold enforce?
+```
+
+```
+/lamina How should we handle permission denial in checkout?
+```
+
+Direct mode skills cover systems thinking, UX, and agent simulation topics. See [Skill map](/docs/reference/skill-map) for the full list.
+
+## Prerequisite check
+
+Before routing to design or verify, Lamina checks for valid `.lamina/business-context.md`. If missing, you get an init-blocked response directing you to `/lamina-init`.
+
+## Examples
+
+```
+/lamina
+```
+
+```
+/lamina Design guest checkout with inventory hold for a rental marketplace
+```
+
+```
+/lamina Verify the live app at http://localhost:3000
+```
+
+```
+/lamina What edge cases should we cover for concurrent booking holds?
+```
+
+## What Lamina writes
+
+Only `.lamina/` artifacts. Never app source. See [Guardrails](/docs/concepts/the-loop#ownership) and [Contracts and runs](/docs/concepts/contracts-and-runs).
+
+## Next steps
+
+- [/lamina-init](/docs/commands/lamina-init) — bootstrap domain context
+- [/lamina-design](/docs/commands/lamina-design) — design a contract
+- [/lamina-verify](/docs/commands/lamina-verify) — verify the live build

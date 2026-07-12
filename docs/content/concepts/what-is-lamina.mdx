@@ -1,11 +1,20 @@
 ---
 title: What is Lamina?
-description: Product behavior, not pixels
+description: Headless product-design skill for AI coding agents — behavior, not pixels
 ---
+
+import { Callout } from 'nextra/components'
 
 # What is Lamina?
 
-Lamina is the only AI skill focused on **product behavior** — not pixels, not code generation, not engineering specs alone.
+Lamina is a **headless product-design skill for AI coding agents**. It designs how your app works — states, roles, flows, invariants — produces a contract your agent implements, then verifies the live build with parallel persona walks. It never writes app source.
+
+## Quick path
+
+1. Lamina designs product behavior → `implement.md`
+2. Your coding agent implements → app source
+3. Lamina verifies the live app → `fix.md`
+4. Your agent fixes → re-verify
 
 ## Behavior over pixels
 
@@ -22,7 +31,7 @@ UI skills like Impeccable, UI UX Pro Max, and frontend-design polish interfaces.
 
 ### UI skills
 
-They polish how it looks. Lamina designs how it works — actors, flows, empty/error/loading states, invariants. **Pair any UI skill; Lamina stays out of pixels.**
+They polish how it looks. Lamina designs how it works — actors, flows, empty/error/loading states, invariants. Pair any UI skill; Lamina stays out of pixels. See [Pair with UI skills](/docs/guides/pair-with-ui-skills).
 
 ### Design craft skills
 
@@ -30,19 +39,50 @@ BMAD, ai-ux-skills, and design-skills teach design judgment — heuristics, crit
 
 ### Just ask your agent
 
-Fine for happy paths. Weak on permission matrices, stale states, and mid-flow failures. Lamina structures before build and walks the live app after.
+Fine for happy paths. Weak on permission matrices, stale states, and mid-flow failures. Lamina structures behavior before build and walks the live app after.
 
 ### Spec tools
 
-Spec Kit, Kiro, and spec-driven dev structure engineering work. Lamina structures **product behavior**. Run `/lamina-design`, then feed `implement.md` into Spec Kit.
+Spec Kit, Kiro, and spec-driven dev structure engineering work. Lamina structures **product behavior**. Run `/lamina-design`, then feed `implement.md` into Spec Kit. See [Pair with Spec Kit](/docs/guides/pair-with-spec-kit).
 
 ### App builders
 
-v0, Lovable, and Bolt generate apps — often stack-locked. Lamina doesn't generate code or pick your framework; it fits your repo, agent, and UI stack.
+v0, Lovable, and Bolt generate apps — often stack-locked. Lamina does not generate code or pick your framework; it fits your repo, agent, and UI stack.
 
 ## Core principles
 
 1. **Design is how it works** — states, edges, and flows before your agent writes app code
 2. **Your agent writes app source** — Lamina never does
-3. **Verify visually** — persona walks read flows from your live application
+3. **Verify on the live app** — persona walks read real UI, not mocks
 4. **Any stack** — web, mobile, desktop, CLI — pair any UI skill
+
+## Any stack
+
+<span id="any-stack" />
+
+Lamina slots into whatever you already use. It is unopinionated on tech stack and AI skills.
+
+| | |
+|---|---|
+| **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi, etc. |
+| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, FastAPI, Gin, Express, etc. |
+| **Any database** | Postgres, MySQL, MongoDB, Cassandra, Redis, Neo4j, etc. |
+| **Any language** | JavaScript, Python, Go, Rust, Elixir, PHP, C#, etc. |
+| **Any UI library** | TailwindCSS, Chakra UI, shadcn, MUI, etc. |
+| **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, etc. |
+| **Any workflow skill** | obra/superpowers, mattpocock/skills, everything-claude-code, etc. |
+| **Any interface** | Websites, mobile apps, desktop, PWAs, chat bots, CLIs, etc. |
+
+## Direct mode
+
+`/lamina` can answer focused product design questions without a full workflow — routing to a single capability skill for invariants, error handling, dependencies, and more. See [/lamina command](/docs/commands/lamina) and [Skill map](/docs/reference/skill-map).
+
+<Callout type="info">
+**Advanced:** Lamina includes ~60 capability skills organized into systems thinking, UX/product expression, and agent simulation. The orchestrator routes design and verify sections to the right skills via audit profiles.
+</Callout>
+
+## Next steps
+
+- [The loop](/docs/concepts/the-loop) — design → implement → verify cycle
+- [Quickstart](/docs/getting-started/quickstart) — run your first cycle
+- [Demo: HavenStay](/docs/guides/demo-havenstay) — see Lamina in action

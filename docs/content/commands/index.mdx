@@ -1,38 +1,77 @@
 ---
-title: Commands Overview
-description: Lamina slash command reference
+title: Commands overview
+description: Lamina slash commands for design, verify, and routing
 ---
+
+import { Callout } from 'nextra/components'
 
 # Commands
 
 Lamina exposes four slash commands. Each maps to a phase in the design → implement → verify loop.
 
+## Quick path
+
+```text
+/lamina-init <domain>
+/lamina-design <feature or flow>
+# your agent implements from implement.md
+/lamina-verify <base_url>
+# your agent fixes from fix.md
+/lamina-verify <base_url>
+```
+
+## Command reference
+
 | Command | Phase | Purpose |
 |---------|-------|---------|
-| [`/lamina`](/docs/commands) | Router | List available commands |
-| [`/lamina-init`](/docs/commands/lamina-init) | Design | Domain charter — scope the product |
-| [`/lamina-design`](/docs/commands/lamina-design) | Design | Design contract → `ready_to_build` |
-| [`/lamina-verify`](/docs/commands/lamina-verify) | Verify | Persona walks → `fix.md` |
+| [`/lamina`](/docs/commands/lamina) | Router | Auto-route to design, verify, or direct Q&A |
+| [`/lamina-init`](/docs/commands/lamina-init) | Charter | Domain scope — required before design or verify |
+| [`/lamina-design`](/docs/commands/lamina-design) | Design | Contract → `ready_to_build` + `implement.md` |
+| [`/lamina-verify`](/docs/commands/lamina-verify) | Verify | Persona walks → `findings[]` + `fix.md` |
+
+## Prerequisite gates
+
+| Command | Requires |
+|---------|----------|
+| `/lamina-init` | None |
+| `/lamina-design` | Valid `.lamina/business-context.md` from init |
+| `/lamina-verify` | Valid `.lamina/business-context.md` from init |
+| `/lamina` (design/verify routes) | Same gates as the dispatched command |
+
+<Callout type="info">
+**Advanced:** The init gate cannot be bypassed. If `business-context.md` is missing or invalid, design and verify return a blocked response and stop.
+</Callout>
 
 ## Typical sequence
 
 ```text
-/lamina-init <domain description>
-/lamina-design <feature or flow description>
+/lamina-init Boutique hotel booking marketplace
+/lamina-design Guest checkout with payment hold and cancellation
 # … your agent implements from implement.md …
-/lamina-verify
+/lamina-verify http://localhost:3000
 # … your agent fixes from fix.md …
-/lamina-verify
+/lamina-verify http://localhost:3000
 ```
 
 ## Natural language
 
-You can also invoke Lamina without slash commands:
+You can invoke Lamina without slash commands:
 
 > "Use Lamina to design the onboarding flow for a team collaboration app."
 
-The skill router (`/lamina`) helps discover available commands in your agent.
+The `/lamina` router interprets intent and dispatches to the right workflow.
 
-## Authoritative source
+## What Lamina does not do
 
-Command behavior is defined in the [Lamina skill repo](https://github.com/aryaniyaps/lamina). This docs site summarizes the workflow; the repo has the latest skill definitions.
+| Action | Who handles it |
+|--------|----------------|
+| Write app source | Your coding agent |
+| Implement fixes from `fix.md` | Your coding agent (normal coding session) |
+| Pick your framework or database | You |
+| Style UI (colors, typography) | UI skills or your agent |
+
+## Next steps
+
+- [/lamina router](/docs/commands/lamina) — how auto-routing works
+- [Quickstart](/docs/getting-started/quickstart) — full walkthrough
+- [The loop](/docs/concepts/the-loop) — design → implement → verify cycle

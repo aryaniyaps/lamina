@@ -3,4 +3,5 @@ export default {
   "pair-with-ui-skills": "Pair with UI Skills",
   "pair-with-spec-kit": "Pair with Spec Kit",
   "demo-havenstay": "Demo: HavenStay",
+  "working-with-findings": "Working with Findings",
 };

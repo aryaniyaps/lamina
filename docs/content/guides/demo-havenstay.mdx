@@ -1,54 +1,140 @@
 ---
 title: "Demo: HavenStay"
-description: Inspectable product behaviors from the Lamina demo
+description: Hotel booking marketplace built with Lamina — compare with and without Lamina
 ---
+
+import { Callout } from 'nextra/components'
 
 # Demo: HavenStay
 
-HavenStay is a short-term rental marketplace built with Lamina's design → implement → verify loop. The demo shows concrete product behaviors that persona walks caught and fixed.
+HavenStay is a hotel booking marketplace built to demonstrate Lamina's design → implement → verify loop. The same prompt produced two builds — one with Lamina, one without — both from scratch by Cursor Composer 2.5 with no human-written app code.
 
-Source: [github.com/aryaniyaps/lamina/tree/main/demo](https://github.com/aryaniyaps/lamina/tree/main/demo)
+## Quick path
 
-## Behaviors covered
+1. Clone the repo and run the with-Lamina demo
+2. Compare behavior against the without-Lamina build
+3. Inspect `.lamina/` artifacts for the full contract
 
-### Guest checkout — inventory hold with countdown
+## The prompt
 
-15-minute hold and hold-aware availability. A room can't stay bookable while someone else is paying.
+Both builds used this prompt:
 
-**Why it matters:** Without hold logic, two guests can checkout the same room simultaneously — an impossible state that AI agents commonly ship.
+```
+Design and build a complete hotel booking platform called HavenStay from scratch.
 
-### Cancellation — policy locked at booking
+Create a production-ready product that enables travelers to discover, compare, book,
+and manage hotel stays, while enabling hotels to manage their properties, rooms,
+pricing, availability, reservations, and guest interactions.
 
-Flexible / Moderate / Strict per property, snapshotted immutably when the guest books.
+The product should feel polished, cohesive, and ready for real-world use. Design every
+aspect of the experience, including the end-to-end user journeys, information
+architecture, navigation, search and discovery, booking lifecycle, account management,
+payments, cancellations, reviews, notifications, hotel management, trust and safety,
+customer support, accessibility, edge cases, and system behavior.
+```
 
-**Why it matters:** Cancellation rules must be frozen at booking time. Agents often reference live policy, which can change retroactively.
+## With vs without Lamina
 
-### Partner go-live — admin gate before publish
+| | **With Lamina** | **Without Lamina** |
+|---|---|---|
+| **Folder** | [`demo/hotel-booking-with-lamina`](https://github.com/aryaniyaps/lamina/tree/main/demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](https://github.com/aryaniyaps/lamina/tree/main/demo/hotel-booking-without-lamina) |
+| **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor Plan mode → implement |
 
-Property goes live only after approve, reject, or request-changes — not on submit alone.
+Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a screen exists.
 
-**Why it matters:** Skipping approval gates lets incomplete or non-compliant listings reach guests.
+## Run the demo
 
-### Partner onboarding — wizard with readiness checklist
+```bash
+git clone https://github.com/aryaniyaps/lamina.git
+cd lamina/demo/hotel-booking-with-lamina
+npm install
+npm run db:setup
+npm run dev
+```
 
-Multi-step setup that tracks what's still missing before a property can accept guests.
+Open [http://localhost:3000](http://localhost:3000).
 
-**Why it matters:** Partners get stuck mid-flow without clear progress indicators and missing-field recovery.
+### Demo accounts
 
-### Guest cancel — reason required, refund automatic
+Password for all: `demo1234`
 
-Cancel path asks why, then triggers the guest refund from the snapshotted policy.
+| Email | Role |
+|-------|------|
+| `traveler@havenstay.demo` | Traveler |
+| `hotel@havenstay.demo` | Hotel operator |
+| `admin@havenstay.demo` | Platform admin |
 
-**Why it matters:** Cancel without reason loses audit data; refund without policy snapshot creates billing disputes.
+### Verify the demo
 
-## How to explore
+With the dev server running:
 
-1. Clone the [demo repo](https://github.com/aryaniyaps/lamina/tree/main/demo)
-2. Compare the with-Lamina and without-Lamina builds
-3. Run `/lamina-verify` on your own fork to see persona walks in action
+```
+/lamina-verify http://localhost:3000
+```
+
+## Behaviors Lamina covered
+
+These are product behavior gaps the with-Lamina build handles and the without-Lamina build missed:
+
+### Inventory hold with countdown
+
+15-minute checkout hold with hold-aware availability. A room cannot stay bookable while someone else is paying. Without hold logic, two guests can checkout the same room simultaneously.
+
+### Cancellation policy snapshot
+
+Flexible / Moderate / Strict per property, snapshotted immutably at booking time. Without snapshots, cancellation rules can change retroactively.
+
+### Admin gate before go-live
+
+Property goes live only after admin approve, reject, or request-changes — not on submit alone. Skipping approval gates lets incomplete listings reach guests.
+
+### Partner onboarding wizard
+
+Multi-step setup with readiness checklist tracking what is still missing. Partners get stuck mid-flow without clear progress indicators.
+
+### Hotel cancel with reason and refund
+
+Hotel can cancel a reservation with a required reason and automatic full guest refund. Without this path, hotels cannot handle guest-impacting issues.
+
+### Full platform admin console
+
+Approvals, users, bookings, payments, trust reports, reviews, support tickets, and audit log. Plan mode produced a single KPI page.
+
+### Traveler edge cases
+
+Email-verified booking gate, cancel flow with refund preview, review-window gating, and receipt on trip detail.
+
+### Search integrity
+
+Search surfaces only live properties and excludes sold-out inventory for selected dates.
+
+### Rich booking lifecycle
+
+States include `PENDING_PAYMENT`, `CHECKED_IN`, `CANCELLED_BY_TRAVELER`, `CANCELLED_BY_HOTEL`, `PAYMENT_FAILED`, plus user suspension that blocks booking.
+
+## Inspect the artifacts
+
+The Lamina contract and verify output live in the demo repo:
+
+| Artifact | Path |
+|----------|------|
+| Business context | `.lamina/business-context.md` |
+| Personas | `.lamina/personas.yaml` |
+| Machine contract | `.lamina/runs/havenstay-platform-2026-07-10/run.yaml` |
+| Implement brief | `.lamina/runs/havenstay-platform-2026-07-10/implement.md` |
+| Design report | `.lamina/runs/havenstay-platform-2026-07-10/report.md` |
+| Verify report | `.lamina/runs/havenstay-platform-2026-07-10/verify-report.md` |
+
+<Callout type="info">
+**Advanced:** The HavenStay `run.yaml` includes 15+ entities, 30+ workflows, and a full dependency graph. Use it as a reference when authoring your own contracts.
+</Callout>
 
 ## What this proves
 
-These aren't UI polish issues — they're product behavior gaps that Lamina's contract + verification loop catches before they reach users.
+These are not UI polish issues. They are product behavior gaps that Lamina's contract and verification loop catches before they reach users.
 
-See [Personas](/docs/concepts/personas) for how verification walks work.
+## Next steps
+
+- [Personas](/docs/concepts/personas) — how verification walks work
+- [Quickstart](/docs/getting-started/quickstart) — run your own cycle
+- [run.yaml schema](/docs/reference/run-yaml-schema) — study the HavenStay contract structure

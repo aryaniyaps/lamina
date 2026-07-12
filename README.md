@@ -12,6 +12,8 @@
 
 ---
 
+**Documentation:** [lamina.dev](https://lamina.dev)
+
 ## Install
 
 ```bash

@@ -1,0 +1,97 @@
+---
+title: LaminaBench
+description: Public product-behavior benchmark comparing agents with and without Lamina
+---
+
+import { Callout } from 'nextra/components'
+
+# LaminaBench
+
+LaminaBench is a public product-behavior implementation benchmark. It compares the same coding agent with and without Lamina on realistic tasks, measuring whether Lamina improves implemented product behavior in code.
+
+## Quick path
+
+LaminaBench is for evaluators and researchers, not end users running Lamina day to day. To try Lamina yourself, start with [Quickstart](/docs/getting-started/quickstart).
+
+## What it measures
+
+| System | Measures |
+|--------|----------|
+| **LaminaBench** (`benchmarks/`) | Product behavior outcomes — does the implemented code match domain rules? |
+| **Skill evals** (`evals/`) | Skill compliance — does Lamina follow its own workflow rules? |
+
+LaminaBench answers: "Does using Lamina produce better product behavior in AI-generated code?"
+
+## Methodology (Design B)
+
+SkillsBench-style paired comparison:
+
+| Arm | What the agent gets |
+|-----|---------------------|
+| **Control** | Task instruction only — no Lamina skills |
+| **Treatment** | Same instruction + Lamina skills + `AGENTS.md` workflow hint |
+
+Both arms receive the same `instruction.md`. The treatment arm has access to Lamina skills and workflow conventions. One continuous agent rollout per trial.
+
+Scoring uses checklist coverage and LLM rubric on implemented source via Harbor Rewardkit.
+
+<Callout type="info">
+**Advanced:** v1 status — no live published results yet. The benchmark infrastructure is in place; results will be published when replication runs complete.
+</Callout>
+
+## Corpus (v1)
+
+10 tasks × 2 arms (control + treatment) = 20 Harbor trials per run. Tasks cover realistic product scenarios with golden checklists for scoring.
+
+## What is compared
+
+Example task categories:
+
+- Marketplace flows with multi-actor permissions
+- State machines with edge case recovery
+- Dependency reachability between features
+- Admin governance and approval gates
+
+Each task has a `taskNNN-control` and `taskNNN-treatment` Harbor workspace.
+
+## Running the benchmark
+
+Prerequisites:
+
+- Node.js 20+
+- Harbor CLI (`uv tool install harbor`)
+- Docker
+- Anthropic API credentials
+
+```bash
+npm install
+npm run bench:env-check
+npm run bench:validate
+npm run bench:harbor:sync -- --tasks task001
+npm run bench:all
+```
+
+Key scripts:
+
+| Script | Purpose |
+|--------|---------|
+| `npm run bench:env-check` | Verify credentials, Docker, Harbor |
+| `npm run bench:harbor:sync` | Sync Harbor task workspaces |
+| `npm run bench:run` | Run benchmark trials |
+| `npm run bench:aggregate` | Paired metrics → `results/aggregated/benchmark.json` |
+
+## HavenStay as evidence
+
+The [HavenStay demo](/docs/guides/demo-havenstay) provides qualitative evidence of the with/without Lamina gap — same prompt, two builds, measurable behavior differences. LaminaBench provides quantitative paired comparison across a task corpus.
+
+## Further reading
+
+- [benchmarks/README.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/README.md) — full benchmark documentation
+- [benchmarks/METHODOLOGY.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md) — Design B methodology
+- [evals/README.md](https://github.com/aryaniyaps/lamina/blob/main/evals/README.md) — internal skill compliance evals
+
+## Next steps
+
+- [Demo: HavenStay](/docs/guides/demo-havenstay) — qualitative with/without comparison
+- [What is Lamina?](/docs/concepts/what-is-lamina) — what Lamina does
+- [Orchestrator](/docs/advanced/orchestrator) — how Lamina works internally

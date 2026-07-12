@@ -1,0 +1,217 @@
+---
+title: run.yaml schema
+description: Complete field reference for the Lamina machine contract
+---
+
+import { Callout } from 'nextra/components'
+
+# run.yaml schema
+
+`run.yaml` is the machine contract — the authoritative source for domain rules, workflows, and verify findings. Your coding agent implements from `implement.md`, which references ids defined here.
+
+## Quick path
+
+1. `/lamina-design` creates `run.yaml` with `status: designing`
+2. Contract fills in `domain`, `actors`, `workflows`, `scenarios`, optional `screens`
+3. Status becomes `ready_to_build`; `implement.md` is written
+4. `/lamina-verify` appends to `findings[]` and sets `status: complete`
+
+## Top-level fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | yes | Run identifier |
+| `status` | enum | yes | `designing`, `ready_to_build`, `verifying`, `complete` |
+| `hook` | enum | yes | `design` or `verify` |
+| `target` | string | yes | Human-readable scope |
+| `command` | string | yes | Slash command that created the run |
+| `started_at` | date | yes | Run start date |
+| `personas_ref` | path | no | Reference to `.lamina/personas.yaml` |
+| `business_context_ref` | path | no | Reference to `.lamina/business-context.md` |
+| `verified_at` | date | no | Set after verify completes |
+| `verified_base_url` | url | no | URL used for persona walks |
+| `completed_at` | date | no | Run completion date |
+| `domain` | object | yes | Entities, invariants, dependencies |
+| `actors` | array | yes | Roles and permissions |
+| `workflows` | array | yes | User journeys |
+| `scenarios` | array | no | Edge cases and failure modes |
+| `screens` | array | no | Structural UX surfaces |
+| `findings` | array | no | Verify output (empty during design) |
+| `evidence` | array | no | Evidence references |
+
+## Minimal example
+
+```yaml
+id: hall-ticket-2026-07-09
+status: designing
+hook: design
+target: hall ticket download
+command: /lamina-design
+started_at: 2026-07-09
+
+domain:
+  entities:
+    - id: exam
+      relationships: [venue, hall_ticket]
+      states: [scheduled, completed]
+      invariants:
+        - id: one-ticket-per-student
+          rule: At most one valid hall ticket per student per exam
+  dependencies:
+    - id: download-requires-payment
+      from: workflow.download-ticket
+      requires: entity.payment
+      in_state: confirmed
+      failure: unreachable
+
+actors:
+  - id: student
+    permissions: [download_ticket]
+
+workflows:
+  - id: download-ticket
+    requires: [download-requires-payment]
+    steps:
+      - operation: open ticket page
+      - operation: download pdf
+        invariant_ref: payment-confirmed
+
+scenarios:
+  - id: unpaid-blocked
+    category: permission
+    trigger:
+      operation: download ticket
+      when: forbidden
+    invariant_ref: payment-confirmed
+
+screens:
+  - id: ticket-download
+    status: new
+    source: null
+
+findings: []
+evidence: []
+```
+
+## domain
+
+### domain.entities[]
+
+| Field | Description |
+|-------|-------------|
+| `id` | Entity identifier |
+| `description` | What this entity represents |
+| `relationships` | Related entity ids |
+| `states` | Valid states (strings or objects with transitions) |
+| `attributes` | Key fields on the entity |
+| `invariants` | Rules that must always hold |
+
+### domain.dependencies[]
+
+The reachability graph — single source of truth for cross-feature prerequisites.
+
+| Field | Description |
+|-------|-------------|
+| `id` | Dependency identifier |
+| `from` | Workflow or feature that depends on something |
+| `requires` | Entity or workflow that must be reachable |
+| `in_state` | Required state of the dependency |
+| `failure` | What happens when unmet (typically `unreachable`) |
+
+<Callout type="info">
+**Advanced:** If feature A depends on B and B is unreachable, A is a failure — not an ad-hoc edge case. Reference dependency ids in `workflows[].requires` and `scenarios[].dependency_ref`. Do not use free-text precondition lists.
+</Callout>
+
+## actors[]
+
+| Field | Description |
+|-------|-------------|
+| `id` | Actor identifier (matches `personas.yaml` when referenced) |
+| `permissions` | Operations this actor may perform |
+
+Actors may reference the global cast in `.lamina/personas.yaml`. Permissions live here or in personas.
+
+## workflows[]
+
+| Field | Description |
+|-------|-------------|
+| `id` | Workflow identifier |
+| `requires` | List of `domain.dependencies[]` ids |
+| `steps` | Ordered operations an actor performs |
+| `steps[].operation` | Human-readable action |
+| `steps[].invariant_ref` | Invariant checked at this step |
+
+Workflows are user journeys over operations and states — not UI wireframes.
+
+## scenarios[]
+
+| Field | Description |
+|-------|-------------|
+| `id` | Scenario identifier |
+| `category` | `permission`, `precondition`, or invariant violation type |
+| `trigger.operation` | Operation that triggers the scenario |
+| `trigger.when` | Condition (`forbidden`, `dependency_unmet`, etc.) |
+| `invariant_ref` | Related invariant id |
+| `dependency_ref` | Related dependency id |
+
+Scenarios cover permission denials, unmet dependencies, invariant violations, conflicts, and recovery UX.
+
+## screens[]
+
+| Field | Description |
+|-------|-------------|
+| `id` | Screen identifier |
+| `status` | `new` (to build) or `existing` (brownfield) |
+| `source` | Repo path for existing screens (brownfield only) |
+
+Screens are structural UX surfaces tied to workflows. No colors, typography, or component libraries.
+
+## findings[]
+
+Written during `/lamina-verify`. Each finding documents a behavior gap.
+
+| Field | Description |
+|-------|-------------|
+| `id` | Finding identifier |
+| `severity` | Impact level |
+| `actor` | Which persona encountered the gap |
+| `workflow` | Which workflow was being walked |
+| `expected` | Behavior per the contract |
+| `observed` | Behavior on the live app |
+| `fix` | Suggested correction |
+| `fix_target` | `product` (default) or `contract` |
+
+| `fix_target` | Action |
+|--------------|--------|
+| `product` or unset | Your coding agent fixes app code from `fix.md` |
+| `contract` | Re-run `/lamina-design` with a scoped contract update |
+
+## Status transitions
+
+```text
+designing → ready_to_build → verifying → complete
+                ↑                              |
+                └──── fix_target: contract ────┘
+```
+
+Product fixes (`fix_target: product`) loop through implement → verify without changing the contract.
+
+## Validation
+
+Validate a contract against the schema:
+
+```bash
+node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+```
+
+See [Validation](/docs/reference/validation) for details and CI integration.
+
+## Real-world example
+
+The HavenStay demo contract is at `.lamina/runs/havenstay-platform-2026-07-10/run.yaml` in the [hotel-booking-with-lamina](https://github.com/aryaniyaps/lamina/tree/main/demo/hotel-booking-with-lamina) demo. It includes 15+ entities, 30+ workflows, and full dependency graphs for a production marketplace.
+
+## Next steps
+
+- [Per-run artifacts](/docs/reference/artifacts) — what each file in a run directory does
+- [Glossary](/docs/reference/glossary) — key terms used in contracts
+- [Working with findings](/docs/guides/working-with-findings) — fix loop after verify

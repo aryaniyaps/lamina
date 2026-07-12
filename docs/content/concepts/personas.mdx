@@ -1,43 +1,95 @@
 ---
 title: Personas
-description: Parallel subagents walk your app as real actors
+description: Parallel subagents walk your app as real actors with distinct goals
 ---
+
+import { Callout } from 'nextra/components'
 
 # Personas
 
-Lamina verification doesn't use one generic "user." It dispatches **parallel subagents** that walk your application as real actors with distinct goals and permissions.
+Lamina verification does not use one generic "user." It dispatches **parallel subagents** that walk your application as real actors with distinct goals and permissions.
+
+## Quick path
+
+1. `/lamina-init` writes `.lamina/personas.yaml` — the actor cast
+2. `/lamina-design` references personas in `run.yaml` actors
+3. `/lamina-verify` dispatches one subagent per primary actor at `base_url`
 
 ## Why personas matter
 
 A single test user misses:
 
 - **Permission gaps** — admin actions available to guests
-- **Role-specific flows** — partner onboarding vs guest checkout
+- **Role-specific flows** — hotel onboarding vs traveler checkout
 - **Cross-actor conflicts** — two users booking the same held inventory
-- **Recovery paths** — what happens when a payment fails mid-checkout
+- **Recovery paths** — what happens when payment fails mid-checkout
 
 Persona walks surface these by simulating how each actor actually uses the product.
 
-## Example actors
+## personas.yaml
 
-For a short-term rental marketplace:
+The global actor cast lives at `.lamina/personas.yaml`, written by `/lamina-init`:
 
-| Persona | Goal | Key flows |
-|---------|------|-----------|
-| **Guest** | Book and pay for a stay | Search → hold → pay → confirm |
-| **Host** | List and manage property | Onboard → publish → manage bookings |
-| **Admin** | Approve and moderate | Review listing → approve/reject → handle disputes |
+```yaml
+personas:
+  - id: leisure_traveler
+    primary: true
+    surface: traveler_web
+    summary: Plans leisure stays; wants clear search and fast booking.
+    goals:
+      end:
+        - find a suitable hotel for trip dates
+        - complete a paid booking and receive confirmation
+    permissions:
+      - register_and_authenticate
+      - search_and_filter_hotels
+      - create_booking
+      - pay_for_booking
+```
 
-Each persona walks independently. Lamina checks that the contract's permission matrix and state transitions hold for every actor.
+See [Global artifacts](/docs/reference/global-artifacts) for the full field reference.
+
+## Example actors (HavenStay)
+
+| Persona | Surface | Key flows |
+|---------|---------|-----------|
+| **leisure_traveler** | Traveler web | Search → book → pay → manage reservation |
+| **hotel_operator** | Hotel dashboard | Onboard → manage property → handle reservations |
+| **platform_admin** | Admin console | Approve properties → handle trust reports → manage payouts |
+
+Each persona walks independently. Lamina checks that the permission matrix and state transitions hold for every actor.
+
+<Callout type="info">
+**Advanced:** Negative personas (`negative: true`) document who the product explicitly does not serve — vacation rental hosts, enterprise chain admins, etc. They prevent scope creep during design.
+</Callout>
 
 ## How verification works
 
-1. `/lamina-verify` reads the contract from `run.yaml` and `implement.md`
-2. Subagents are assigned personas with roles and goals
-3. Each subagent navigates your **live application** (not mocks)
-4. Visual flow capture records what each persona sees
-5. Invariants from the contract are checked against observed behavior
-6. Findings aggregate into `fix.md`
+1. `/lamina-verify` reads the contract and `personas.yaml`
+2. One subagent is assigned per `primary: true` actor
+3. Each subagent navigates your **live application** at `base_url`
+4. Visual evidence captures to `walkthrough/`
+5. Invariant and reachability probes run against the contract
+6. Findings aggregate into `findings[]` and `fix.md`
+
+### Probe types during verify
+
+| Probe | Checks |
+|-------|--------|
+| Actor walks | Each persona completes their workflows |
+| Invariant probes | Business rules from `domain.entities[].invariants` |
+| Reachability probes | Unmet `domain.dependencies[]` |
+| Accessibility | Critical flow steps against a11y standards |
+
+## base_url requirement
+
+Persona walks require a running product. Start your dev server before verify:
+
+```
+/lamina-verify http://localhost:3000
+```
+
+Without a live app, walks cannot capture real behavior.
 
 ## What personas catch
 
@@ -54,6 +106,12 @@ These are product behavior gaps — not UI bugs.
 
 - Define actors clearly in `/lamina-init` — vague roles produce vague verification
 - Run verify against a running dev server, not static mocks
+- Provide demo accounts for each actor type on brownfield projects
 - Re-verify after every fix cycle until findings reach zero
+- Inspect `walkthrough/` for visual evidence per actor
 
-See [Demo: HavenStay](/docs/guides/demo-havenstay) for concrete examples.
+## Next steps
+
+- [Global artifacts](/docs/reference/global-artifacts) — `personas.yaml` reference
+- [/lamina-verify](/docs/commands/lamina-verify) — run persona walks
+- [Demo: HavenStay](/docs/guides/demo-havenstay) — concrete examples

@@ -1,0 +1,175 @@
+---
+title: Global artifacts
+description: Project-wide files in .lamina/ written by /lamina-init and updated across runs
+---
+
+import { Callout } from 'nextra/components'
+
+# Global artifacts
+
+Lamina writes three project-wide files at `.lamina/` root. These persist across runs and ground every design and verify cycle.
+
+## Quick path
+
+1. Run `/lamina-init` before any design or verify
+2. Inspect `.lamina/business-context.md` and `.lamina/personas.yaml`
+3. Reference these files in every run via `business_context_ref` and `personas_ref`
+
+<Callout type="info">
+**Advanced:** `/lamina-design` and `/lamina-verify` are blocked until a valid `.lamina/business-context.md` exists from `/lamina-init`. This init gate cannot be bypassed.
+</Callout>
+
+## Directory layout
+
+```text
+.lamina/
+├── business-context.md   # Domain charter
+├── personas.yaml         # Actor cast
+├── decisions.md          # Conflict resolution log
+└── runs/
+    └── <run_id>/         # Per-run artifacts
+```
+
+## business-context.md
+
+Domain charter from `/lamina-init`. Scopes the problem space before flow design.
+
+### Sections
+
+| Section | Purpose |
+|---------|---------|
+| Problem statement | What problem the product solves |
+| Business goals | Success criteria and time horizon |
+| Success metrics | Measurable targets |
+| Scope | In-scope and out-of-scope for v1 |
+| Users & market | Segments served and alternatives |
+| Product posture | Platform, density, role in user's workflow |
+| Constraints | Team, timeline, compliance, integrations |
+| Stakeholders | Who cares and known tensions |
+| Risks & unknowns | Open delivery and market risks |
+| Open questions | Decisions not yet made |
+| Changelog | Updates from `/lamina-init update` |
+
+### Frontmatter
+
+```yaml
+---
+lamina:
+  maturity: greenfield | brownfield
+  platform: [web]
+  last_updated: 2026-07-10
+---
+```
+
+### Example excerpt (HavenStay)
+
+```markdown
+# Business context
+
+**HavenStay** — two-sided marketplace connecting leisure and business
+travelers with independent and boutique hotels in the United States.
+
+## Problem statement
+Travelers face cluttered, opaque OTA experiences optimized for inventory
+scale rather than clarity and trust. Independent and boutique hotels
+struggle to compete with large chains on incumbent platforms...
+
+## Scope
+
+**In for first production release:**
+- Traveler: registration/auth, discovery & search, booking flow, payments
+- Hotel: dashboard, property management, room inventory, pricing
+
+**Explicitly out of v1:**
+- Vacation rentals, flights, cars, packages
+- Full PMS, channel managers, native mobile apps
+```
+
+**Written by:** `/lamina-init` (modes: `establish` or `update`)  
+**Read by:** `/lamina-design`, `/lamina-verify`, you
+
+## personas.yaml
+
+Actor cast — roles, goals, permissions, and constraints for everyone who interacts with the product.
+
+### Structure
+
+```yaml
+personas:
+  - id: leisure_traveler
+    primary: true
+    surface: traveler_web
+    summary: Plans leisure stays; wants clear search and fast booking.
+    goals:
+      end:
+        - find a suitable hotel for trip dates
+        - complete a paid booking and receive confirmation
+      experience:
+        - feel the process is transparent on price and policies
+    permissions:
+      - register_and_authenticate
+      - search_and_filter_hotels
+      - create_booking
+      - pay_for_booking
+    constraints:
+      - english_only
+      - usd_only
+    technical_literacy: medium
+    confidence: medium
+    evidence: stakeholder input
+```
+
+### Field reference
+
+| Field | Description |
+|-------|-------------|
+| `id` | Stable actor identifier used in `run.yaml` and verify walks |
+| `primary` | Whether this actor is a core design target |
+| `negative` | Explicitly out-of-scope persona (design guardrail) |
+| `surface` | Where the actor interacts (e.g. `traveler_web`, `hotel_dashboard`) |
+| `summary` | One-line role description |
+| `goals.end` | Outcomes the actor must achieve |
+| `goals.experience` | How the actor should feel during flows |
+| `permissions` | Operations this actor may perform |
+| `constraints` | Scope limits and platform restrictions |
+| `technical_literacy` | `low`, `medium`, or `high` — affects verify walk depth |
+| `confidence` | How well-grounded this persona is (`low` / `medium` / `high`) |
+| `evidence` | Source for persona definition |
+
+<Callout type="info">
+**Advanced:** Negative personas (`negative: true`) document who the product explicitly does **not** serve. They prevent scope creep during design.
+</Callout>
+
+**Written by:** `/lamina-init`, updated by `/lamina-design`  
+**Read by:** `/lamina-verify` (one subagent per primary actor)
+
+## decisions.md
+
+Conflict resolution log. When design choices conflict — scope vs timeline, actor goals vs invariants — Lamina records the decision, rationale, and affected `run_id`.
+
+Typical entry:
+
+```markdown
+## 2026-07-10 — cancellation policy defaults
+
+- **Decision:** Platform-mandated cancellation tiers; hotels select one at onboarding
+- **Rationale:** Traveler trust requires predictable policy language
+- **Runs affected:** havenstay-platform-2026-07-10
+- **Skill:** lamina-decision-making
+```
+
+**Written by:** Lamina during design when conflicts arise  
+**Read by:** You, future design runs
+
+## Init modes
+
+| Mode | Command | Behavior |
+|------|---------|----------|
+| `establish` | `/lamina-init` (default) | Create `business-context.md` and `personas.yaml` from scratch |
+| `update` | `/lamina-init update` | Merge changelog when domain pivots; preserve prior decisions |
+
+## Next steps
+
+- [/lamina-init command](/docs/commands/lamina-init) — how to bootstrap domain context
+- [Personas concept](/docs/concepts/personas) — how actors drive verification
+- [Per-run artifacts](/docs/reference/artifacts) — files inside `.lamina/runs/<id>/`

@@ -1,11 +1,21 @@
 ---
-title: The Loop
-description: Design → Implement → Verify → Fix
+title: The loop
+description: Design, implement, verify, and fix — the Lamina workflow cycle
 ---
 
-# The Loop
+import { Callout } from 'nextra/components'
+
+# The loop
 
 Lamina's workflow is a closed loop: design the contract, implement with your agent, verify against the live app, fix gaps, re-verify.
+
+## Quick path
+
+```text
+/lamina-init → /lamina-design → [implement] → /lamina-verify → [fix] → /lamina-verify
+```
+
+## Workflow diagram
 
 ```text
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -18,45 +28,72 @@ Lamina's workflow is a closed loop: design the contract, implement with your age
 
 ## Ownership
 
-| Step | Owner | Command / action |
-|------|-------|------------------|
-| Design | **Lamina** | `/lamina-init`, `/lamina-design` |
-| Implement | **Your agent** | Build from `implement.md` |
-| Verify | **Lamina** | `/lamina-verify` |
-| Fix | **Your agent** | Apply `fix.md` |
-| Re-verify | **Lamina** | `/lamina-verify` again |
+| Step | Owner | Command / action | Writes |
+|------|-------|------------------|--------|
+| Charter | **Lamina** | `/lamina-init` | `.lamina/business-context.md`, `personas.yaml` |
+| Design | **Lamina** | `/lamina-design` | `run.yaml`, `implement.md`, `report.md` |
+| Implement | **Your agent** | Build from `implement.md` | App source |
+| Verify | **Lamina** | `/lamina-verify` | `findings[]`, `fix.md`, `walkthrough/` |
+| Fix | **Your agent** | Apply `fix.md` | App source |
+| Re-verify | **Lamina** | `/lamina-verify` again | Updated findings |
+
+<Callout type="info">
+**Advanced:** Lamina writes only under `.lamina/` during slash commands. Your coding agent writes app source in separate coding sessions. This is Mode B — the non-negotiable write boundary.
+</Callout>
 
 ## Design phase
 
 Lamina models the domain:
 
-1. **Entities and states** — what exists and what state it's in
+1. **Entities and states** — what exists and what state it is in
 2. **Actors and roles** — who interacts with the product
-3. **Workflows** — primary paths, alternate paths, side effects
-4. **UX surfaces** — flows tied to domain rules, not pixel specs
+3. **Dependencies** — reachability graph for cross-feature prerequisites
+4. **Workflows** — primary paths, alternate paths, operations over states
 5. **Scenarios** — violations, edge cases, recovery paths
+6. **Screens** — structural UX surfaces (no styling)
 
 Output: `run.yaml` + `implement.md` with status `ready_to_build`.
 
 ## Implement phase
 
-Your coding agent reads `implement.md` and writes app source. Lamina does not participate in implementation — it stays headless.
+Your coding agent reads `implement.md` and writes app source. Lamina does not participate in implementation — it stays headless. Use any stack, framework, database, and UI library.
 
 ## Verify phase
 
-`/lamina-verify` runs parallel persona walks:
+`/lamina-verify` runs parallel persona walks at `base_url`:
 
-- Subagents act as real users (travelers, admins, partners)
-- Walks capture visual flows against your live app
-- Invariants are checked against the contract
-- Findings write to `fix.md`
+- One subagent per primary actor
+- Visual walkthrough capture in `walkthrough/`
+- Invariant probes against `domain.entities[].invariants`
+- Reachability probes against `domain.dependencies[]`
+- Accessibility checks on captured steps
+- Findings written to `findings[]` with `fix_target` per item
 
 ## Fix phase
 
-Your agent applies product fixes from `fix.md` — not cosmetic changes, but behavior corrections: missing states, broken transitions, permission gaps.
+Your agent applies fixes from `fix.md`:
+
+| `fix_target` | Action |
+|--------------|--------|
+| `product` (default) | Fix app code in a normal coding session |
+| `contract` | Re-run `/lamina-design` with scoped update |
+
+Lamina does not implement fixes — it writes the brief.
+
+## Contract delta path
+
+When verify reveals the contract itself is wrong (not just the app), findings have `fix_target: contract`. This loops back to design instead of implementation:
+
+```text
+verify → fix_target: contract → /lamina-design (scoped) → implement → verify
+```
 
 ## When the loop ends
 
-The loop completes when `/lamina-verify` reports zero open findings and the contract holds.
+The loop completes when `/lamina-verify` reports zero open findings in `findings[]` and the contract holds on the live build. `status: complete` with empty findings is the exit condition.
 
-See [Commands](/docs/commands) for per-command reference.
+## Next steps
+
+- [Commands overview](/docs/commands) — per-command reference
+- [Working with findings](/docs/guides/working-with-findings) — fix loop deep dive
+- [Contracts and runs](/docs/concepts/contracts-and-runs) — artifact model

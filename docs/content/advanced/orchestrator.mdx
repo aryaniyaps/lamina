@@ -1,0 +1,117 @@
+---
+title: Orchestrator
+description: How Lamina coordinates skills, workflows, audit profiles, and subagent patterns
+---
+
+import { Callout } from 'nextra/components'
+
+# Orchestrator
+
+The Lamina orchestrator coordinates design → `ready_to_build` → external build → verify. It routes slash commands to workflows, selects capability skills via audit profiles, and manages subagent patterns during verify.
+
+## Quick path
+
+| Mode | When | Loads |
+|------|------|-------|
+| **Workflow** | Slash commands (`/lamina-design`, etc.) | Orchestrator → workflow → audit profiles → skills |
+| **Direct** | `/lamina <focused question>` | `lamina-core` → one skill |
+
+## Architecture
+
+```text
+/lamina* command
+    ↓
+lamina-orchestrator
+    ↓
+workflow (router | init | design | verify)
+    ↓
+audit-profiles.yaml → capability skills
+    ↓
+.lamina/ artifacts
+```
+
+Mode B guardrail: the orchestrator writes only under `.lamina/`. Never app source.
+
+## Workflows
+
+| Workflow | File | Purpose |
+|----------|------|---------|
+| Router | `workflows/router.md` | Intent parsing for `/lamina` |
+| Init | `workflows/init.md` | Domain charter bootstrap |
+| Design | `workflows/design.md` | Contract → `ready_to_build` |
+| Verify | `workflows/verify.md` | Persona walks → `findings[]` |
+
+## Orchestrator steps
+
+1. **Select** — pick skills from audit profiles for the current workflow section
+2. **Apply** — load each skill; write `run.yaml` incrementally
+3. **Deliver** — output contract; design ends at `ready_to_build` + `implement.md`; verify ends at `findings[]` + `fix.md`
+
+## Audit profiles
+
+`audit-profiles.yaml` maps workflow sections to capability skills. Examples:
+
+| Profile section | Skills loaded |
+|-----------------|---------------|
+| `design-domain` | system-structure, invariants, dependencies |
+| `design-scenarios` | edge-cases, error-handling |
+| `design-intake` | problem-framing, feature-discovery |
+| `verify-contract` | usability-evaluation, research-synthesis |
+
+During design, the orchestrator loads profiles sequentially or in parallel (when the host supports it) to build the contract section by section.
+
+## Subagent patterns
+
+Used during verify and brownfield design:
+
+| Pattern | Purpose | When |
+|---------|---------|------|
+| **persona-panel** | One subagent per actor | `/lamina-verify` |
+| **visual-walkthrough** | Browser capture at `base_url` | Verify and brownfield |
+| **parallel-review** | Multiple expert lenses in parallel | Design review, a11y |
+| **fresh-context** | Bounded brownfield repo scan | Init and design on existing code |
+
+<Callout type="info">
+**Advanced:** Subagents return fragments to the orchestrator — they do not write files directly. This enforces the `.lamina/` write boundary.
+</Callout>
+
+### Persona panel
+
+One subagent per `primary: true` actor in `personas.yaml`. Each walks the live app independently, checking their workflows and permissions.
+
+### Visual walkthrough
+
+Captures screenshots and step annotations at `base_url`. Evidence lands in `walkthrough/` and informs findings.
+
+### Parallel review
+
+During design, loads accessibility and heuristic review skills in parallel when supported — catching issues before implementation.
+
+### Fresh context
+
+Bounded repo scan for brownfield projects. Reads source files and may walk live UI to ground contracts in existing behavior.
+
+## Init gate
+
+Before design or verify workflows run, the orchestrator checks `prerequisites/init-required.md`. Without valid `business-context.md`, it returns the init-blocked output and stops.
+
+## Merge rules
+
+`merge-rules.md` defines how skill outputs combine into `run.yaml` — grounding requirements, conflict resolution via `decisions.md`, and incremental writes.
+
+## Key files in the repo
+
+| File | Purpose |
+|------|---------|
+| `skills/lamina-orchestrator/SKILL.md` | Orchestrator entry point |
+| `skills/lamina-orchestrator/artifacts.md` | Schema and lifecycle |
+| `skills/lamina-orchestrator/audit-profiles.yaml` | Section → skill mapping |
+| `skills/lamina-orchestrator/workflows/*.md` | Command behavior |
+| `skills/lamina-orchestrator/patterns/*.md` | Subagent patterns |
+| `skills/lamina-core/guardrails.md` | Write boundaries |
+
+## Next steps
+
+- [Skill map](/docs/reference/skill-map) — all capability skills
+- [Validation](/docs/reference/validation) — validate contracts
+- [LaminaBench](/docs/advanced/lamina-bench) — benchmark methodology

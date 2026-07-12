@@ -1,0 +1,123 @@
+---
+title: Working with findings
+description: Read fix.md, implement product fixes, handle contract deltas, and re-verify
+---
+
+import { Callout } from 'nextra/components'
+
+# Working with findings
+
+After `/lamina-verify`, findings tell you what does not match the contract. This guide covers how to read `fix.md`, fix product gaps, handle contract deltas, and know when to re-verify vs re-design.
+
+## Quick path
+
+1. Read `fix.md` and `findings[]` in `run.yaml`
+2. For `fix_target: product` → your agent fixes app code
+3. For `fix_target: contract` → re-run `/lamina-design`
+4. Re-verify until `findings[]` is empty
+
+## Where findings live
+
+| Location | Content |
+|----------|---------|
+| `run.yaml` `findings[]` | Machine-readable finding list with `fix_target` |
+| `fix.md` | Human and agent-readable fix brief |
+| `walkthrough/` | Visual evidence per actor |
+| `report.md` | Verify narrative and summary |
+
+## Reading a finding
+
+Each finding includes:
+
+| Field | Meaning |
+|-------|---------|
+| `id` | Unique identifier |
+| `severity` | Impact level |
+| `actor` | Which persona encountered the gap |
+| `workflow` | Which workflow was being walked |
+| `expected` | Behavior per the contract |
+| `observed` | Behavior on the live app |
+| `fix` | Suggested correction |
+| `fix_target` | `product` (default) or `contract` |
+
+## Product fixes (fix_target: product)
+
+When the app does not match the contract, your coding agent fixes app code in a **normal coding session** — not during a Lamina command.
+
+1. Open `fix.md` in `.lamina/runs/<id>/`
+2. Prompt your agent:
+
+```
+Fix the product issues listed in .lamina/runs/<id>/fix.md.
+Address each finding by id. Do not change styling — fix behavior only.
+```
+
+3. Re-verify:
+
+```
+/lamina-verify http://localhost:3000
+```
+
+<Callout type="info">
+**Advanced:** Lamina does not implement fixes. The write boundary means app source changes happen outside Lamina slash commands.
+</Callout>
+
+## Contract deltas (fix_target: contract)
+
+When the contract itself is wrong — missing workflow, incorrect invariant, wrong permission — the finding has `fix_target: contract`.
+
+1. Do **not** change app code to work around a contract gap
+2. Re-run design with a scoped update:
+
+```
+/lamina-design Update checkout workflow — add email verification gate
+before payment per finding checkout-email-gate-001
+```
+
+3. Review updated `implement.md`
+4. Your agent implements the contract change
+5. Re-verify
+
+## Prioritization
+
+Address findings in this order:
+
+1. **Severity** — critical permission gaps and data integrity issues first
+2. **Dependencies** — fix reachability issues before dependent workflows
+3. **Actor coverage** — ensure all primary personas can complete core flows
+4. **Edge cases** — scenarios and recovery paths after happy paths pass
+
+## Partial fixes
+
+Re-verify after every fix batch, not just at the end. Partial fixes often reveal new gaps:
+
+```text
+fix 3 findings → verify → 2 resolved, 1 new finding → fix → verify → clean
+```
+
+## When to re-design vs re-implement
+
+| Signal | Action |
+|--------|--------|
+| App behavior wrong, contract correct | Fix app code (`fix_target: product`) |
+| Contract missing a rule or workflow | Re-design (`fix_target: contract`) |
+| Scope grew beyond original design | `/lamina-init update` then `/lamina-design` |
+| UI skill broke a behavior | Fix app code, then re-verify |
+
+## Exit condition
+
+The fix loop ends when:
+
+- `findings[]` is empty in `run.yaml`
+- `/lamina-verify` reports no open gaps
+- `status: complete` with zero findings
+
+## Example from HavenStay
+
+Verify caught that properties could go live without admin approval — a `fix_target: product` finding. The fix brief specified adding an approval gate to the publish workflow. After the coding agent implemented the fix, re-verify confirmed the gate held for all actor walks.
+
+## Next steps
+
+- [/lamina-verify](/docs/commands/lamina-verify) — run verification
+- [The loop](/docs/concepts/the-loop) — full workflow cycle
+- [Troubleshooting](/docs/getting-started/troubleshooting) — common verify issues

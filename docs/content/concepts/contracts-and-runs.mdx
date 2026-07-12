@@ -1,72 +1,99 @@
 ---
-title: Contracts & Runs
-description: The .lamina/ directory and run artifacts
+title: Contracts and runs
+description: The .lamina/ directory structure, artifact model, and run lifecycle
 ---
 
-# Contracts & Runs
+import { Callout } from 'nextra/components'
 
-Lamina writes design artifacts to `.lamina/` in your project root. This directory is **never app source** — it's the product design contract your agent implements against.
+# Contracts and runs
+
+Lamina writes design artifacts to `.lamina/` in your project root. This directory is **never app source** — it is the product design contract your agent implements and Lamina verifies against.
+
+## Quick path
+
+1. `/lamina-init` writes global files: `business-context.md`, `personas.yaml`
+2. `/lamina-design` creates `.lamina/runs/<id>/` with `run.yaml` and `implement.md`
+3. Your coding agent implements from `implement.md`
+4. `/lamina-verify` adds findings and `fix.md`
 
 ## Directory structure
 
 ```text
 .lamina/
+├── business-context.md       # Domain charter (/lamina-init)
+├── personas.yaml             # Actor cast (/lamina-init)
+├── decisions.md              # Conflict resolution log
 └── runs/
-    └── a3f2/              # Run ID (short hash)
-        ├── run.yaml       # Contract metadata
-        ├── implement.md   # Build handoff
-        ├── fix.md         # Verification findings (after /lamina-verify)
-        └── session.jsonl  # Agent session transcript
+    └── <run_id>/
+        ├── run.yaml          # Machine contract
+        ├── implement.md      # Build handoff
+        ├── fix.md            # Verification findings
+        ├── report.md         # Human narrative
+        ├── walkthrough/      # Live-app evidence
+        └── evidence.md       # Optional evidence ledger
 ```
 
-## Artifacts
+<Callout type="info">
+**Advanced:** `run.yaml` is the machine contract — not metadata. It contains entities, workflows, scenarios, dependencies, and findings. See [run.yaml schema](/docs/reference/run-yaml-schema).
+</Callout>
 
-### `run.yaml`
+## Global vs per-run artifacts
 
-Contract metadata and status:
+| Scope | Files | Written by |
+|-------|-------|------------|
+| Global | `business-context.md`, `personas.yaml`, `decisions.md` | `/lamina-init`, updated across runs |
+| Per-run | `run.yaml`, `implement.md`, `fix.md`, `report.md`, `walkthrough/` | `/lamina-design`, `/lamina-verify` |
 
-- Domain summary and scope
-- Actor list
-- Status: `draft` → `ready_to_build` → `verified`
-- Timestamps and run ID
+See [Global artifacts](/docs/reference/global-artifacts) and [Per-run artifacts](/docs/reference/artifacts) for field-level detail.
 
-### `implement.md`
+## What is a contract?
 
-The build handoff for your coding agent. Contains:
+A contract is the complete product behavior specification for one run:
 
-- Entity and state definitions
-- Actor roles and permission matrix
-- Workflow descriptions (primary and alternate paths)
-- UX surface requirements tied to domain rules
-- Edge cases and recovery paths
-- Invariants the implementation must satisfy
+- **`run.yaml`** — machine-readable rules: entities, states, invariants, dependencies, workflows, scenarios, screens, findings
+- **`implement.md`** — human and agent-readable build brief at `ready_to_build`
 
-### `fix.md`
+Your coding agent implements from `implement.md`. Lamina verifies the live build against `run.yaml`.
 
-Written by `/lamina-verify` when persona walks find gaps:
+## Contract status lifecycle
 
-- Finding ID and severity
-- Expected behavior vs observed behavior
-- Affected actor and flow
-- Suggested product fix (not code patches)
+| Status | Meaning | Set by |
+|--------|---------|--------|
+| `designing` | Contract in progress | `/lamina-design` |
+| `ready_to_build` | Safe to implement | `/lamina-design` |
+| `verifying` | Persona walks in progress | `/lamina-verify` |
+| `complete` | Verify finished | `/lamina-verify` |
 
-### `session.jsonl`
+```text
+/lamina-design → designing → ready_to_build
+                                    ↓
+                            [your agent implements]
+                                    ↓
+/lamina-verify → verifying → complete
+                                    ↓
+                    [findings? → fix → re-verify]
+```
 
-JSONL transcript of the agent session for this run — useful for debugging and audit trails.
+A run with `status: complete` may still have open findings. Zero open findings means the contract holds on the live build.
 
-## Contract states
+## Init gate
 
-| Status | Meaning |
-|--------|---------|
-| `draft` | Design in progress |
-| `ready_to_build` | Contract complete — safe to implement |
-| `verified` | All persona walks passed, zero open findings |
+`/lamina-design` and `/lamina-verify` require a valid `.lamina/business-context.md` from `/lamina-init`. Run init first — always.
 
 ## Rules
 
-- **Never commit `.lamina/` as app code** — treat it like design docs
-- **One run per design scope** — a new `/lamina-design` creates a new run ID
-- **Implement from `implement.md`** — don't cherry-pick sections
+- **Never treat `.lamina/` as app code** — it is design artifacts, like specs
+- **One run per design scope** — a new `/lamina-design` creates a new run id
+- **Implement from `implement.md`** — do not cherry-pick sections
 - **Fix from `fix.md`** — address product behavior, not styling
+- **Preserve artifacts** — Lamina reuses existing outputs before regenerating
 
-See [Artifacts reference](/docs/reference/artifacts) for field-level detail.
+## Contract deltas
+
+When verify finds a gap in the contract itself (not the app), the finding has `fix_target: contract`. Re-run `/lamina-design` with a scoped update instead of changing app code.
+
+## Next steps
+
+- [Per-run artifacts](/docs/reference/artifacts) — file-by-file reference
+- [The loop](/docs/concepts/the-loop) — design → implement → verify workflow
+- [Quickstart](/docs/getting-started/quickstart) — run your first cycle

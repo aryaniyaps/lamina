@@ -1,50 +1,137 @@
 ---
 title: Glossary
-description: Key terms in the Lamina workflow
+description: Key terms in the Lamina design-verify workflow
 ---
 
 # Glossary
 
+Definitions for terms used across Lamina documentation. Terms link to deeper pages where available.
+
 ## Actor
 
-A role that interacts with the product — e.g. guest, host, admin. Actors have goals, permissions, and distinct flows. Defined during `/lamina-init` and expanded in `/lamina-design`.
+A role that interacts with the product — e.g. traveler, hotel operator, admin. Actors have goals, permissions, and distinct workflows. Defined in `.lamina/personas.yaml` during `/lamina-init` and referenced in `run.yaml`.
+
+See [Personas](/docs/concepts/personas) and [Global artifacts](/docs/reference/global-artifacts).
+
+## Brownfield
+
+An existing codebase with a running product. Lamina reads the repo, walks the live UI, and may verify without a prior design run. Contrast with [greenfield](#greenfield).
+
+See [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield).
+
+## Business context
+
+The domain charter in `.lamina/business-context.md`. Output of `/lamina-init`. Scopes problem statement, goals, scope boundaries, and constraints before any flow design.
+
+## Complete
+
+Run status set by `/lamina-verify` when persona walks finish. A run can be `complete` with open findings — check `findings[]` in `run.yaml`.
 
 ## Contract
 
-The complete product behavior specification for a run. Composed of `run.yaml` (metadata) and `implement.md` (build handoff). The contract is what your agent implements and Lamina verifies against.
+The complete product behavior specification for a run. Composed of `run.yaml` (machine contract) and `implement.md` (build handoff). Your agent implements the contract; Lamina verifies against it.
 
-## Domain charter
+See [Contracts & runs](/docs/concepts/contracts-and-runs).
 
-Output of `/lamina-init`. Scopes the product domain — entities, actors, and boundaries — before any flow design begins.
+## Dependency
+
+A reachability rule in `domain.dependencies[]`. If workflow A requires entity B in state X and B is unreachable, A fails — not as an ad-hoc edge case but as a structural dependency violation.
+
+See [run.yaml schema](/docs/reference/run-yaml-schema).
+
+## Designing
+
+Initial run status during `/lamina-design`. The contract is in progress — entities, workflows, and scenarios are being written.
+
+## Direct mode
+
+Invoking `/lamina` with a focused question routes to a single capability skill (e.g. invariants, error handling) without a full design run.
+
+See [/lamina command](/docs/commands/lamina).
 
 ## Domain
 
-The problem space you're designing for — e.g. "exam hall ticket system" or "short-term rental marketplace." Broader than a single feature or flow.
+The problem space you are designing for — e.g. "hotel booking marketplace" or "exam hall ticket system." Broader than a single feature or workflow.
+
+## Domain charter
+
+Synonym for [business context](#business-context). The output of `/lamina-init`.
 
 ## Finding
 
-A product behavior gap discovered during `/lamina-verify`. Documented in `fix.md` with expected vs observed behavior and a suggested fix.
+A product behavior gap discovered during `/lamina-verify`. Recorded in `findings[]` on `run.yaml` and summarized in `fix.md` with expected vs observed behavior.
+
+See [Working with findings](/docs/guides/working-with-findings).
+
+## fix_target
+
+Per-finding field indicating who fixes the gap:
+
+- `product` (default) — your coding agent fixes app code
+- `contract` — re-run `/lamina-design` with a scoped update
+
+## Greenfield
+
+A new product with no existing app. Lamina designs from stakeholder input via `/lamina-init` and `/lamina-design`. Contrast with [brownfield](#brownfield).
+
+## Hook
+
+Field on `run.yaml` indicating which phase started the run: `design` or `verify`.
+
+## Implement brief
+
+The `implement.md` file written at `ready_to_build`. Stack-agnostic build handoff for your coding agent.
 
 ## Invariant
 
-A rule that must always hold in the product — e.g. "a cancelled booking cannot also be confirmed" or "payment requires an active hold." Violations are caught during verification.
+A rule that must always hold — e.g. "at most one active booking hold per room-night" or "payment requires a confirmed hold." Defined on entities in `domain.entities[].invariants`.
+
+## Init gate
+
+Prerequisite enforced by Lamina: `/lamina-design` and `/lamina-verify` require a valid `.lamina/business-context.md` from `/lamina-init`. Cannot be bypassed.
 
 ## Persona walk
 
-A verification pass where a subagent navigates your live application as a specific actor, checking flows and invariants against the contract.
+A verification pass where a subagent navigates your live application as a specific actor, checking workflows and invariants against the contract. One subagent per primary actor during `/lamina-verify`.
+
+See [Personas](/docs/concepts/personas).
 
 ## ready_to_build
 
-Contract status indicating the design is complete enough for your agent to implement. Set by `/lamina-design` when actors, states, flows, and edge cases are specified.
+Contract status indicating the design is complete enough for your agent to implement. Set by `/lamina-design` when actors, states, workflows, scenarios, and dependencies are specified.
 
 ## Run
 
-A single design-verify cycle identified by a short hash (e.g. `a3f2`). All artifacts for one scope live in `.lamina/runs/<id>/`.
+A single design-verify cycle identified by a run id (e.g. `havenstay-platform-2026-07-10`). All per-run artifacts live in `.lamina/runs/<id>/`.
+
+## Scenario
+
+An edge case in `run.yaml` `scenarios[]` — permission denial, unmet dependency, invariant violation, or conflict recovery. Categories include `permission` and `precondition`.
+
+## Screen
+
+A structural UX surface in `run.yaml` `screens[]`. Tied to workflows but contains no styling — only `new` vs `existing` status and optional repo `source` path.
 
 ## State
 
-A condition an entity can be in — e.g. `pending`, `confirmed`, `cancelled`. States have defined transitions and may have recovery paths when transitions fail.
+A condition an entity can be in — e.g. `pending_payment`, `confirmed`, `cancelled`. States have defined transitions and may have recovery paths when transitions fail.
+
+## Verifying
+
+Run status during `/lamina-verify`. Persona walks, accessibility checks, invariant probes, and reachability probes are in progress.
+
+## Walkthrough
+
+Evidence captured in `.lamina/runs/<id>/walkthrough/` during verify — screenshots and annotations from live-app navigation at `base_url`.
 
 ## Workflow
 
-A sequence of steps an actor follows to accomplish a goal — e.g. guest checkout: search → hold → pay → confirm. Workflows include primary paths, alternate paths, and error recovery.
+A sequence of operations an actor follows to accomplish a goal — e.g. traveler checkout: search → select room → hold → pay → confirm. Workflows reference dependencies via `requires[]` and steps via `operation`.
+
+See [The loop](/docs/concepts/the-loop).
+
+## Next steps
+
+- [Per-run artifacts](/docs/reference/artifacts) — file reference
+- [run.yaml schema](/docs/reference/run-yaml-schema) — complete field reference
+- [Skill map](/docs/reference/skill-map) — capability skills behind Lamina

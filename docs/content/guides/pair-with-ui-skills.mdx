@@ -1,18 +1,29 @@
 ---
-title: Pair with UI Skills
-description: Lamina for behavior, UI skills for pixels
+title: Pair with UI skills
+description: Lamina for behavior, UI skills for pixels — recommended workflow
 ---
 
-# Pair with UI Skills
+import { Callout } from 'nextra/components'
+
+# Pair with UI skills
 
 Lamina and UI design skills solve different problems. Use them together — Lamina owns product behavior, UI skills own how it looks.
 
+## Quick path
+
+1. `/lamina-design` → behavior contract
+2. Implement and `/lamina-verify`
+3. UI skill pass → visual polish
+4. `/lamina-verify` again → confirm behavior still holds
+
 ## The split
 
-| Layer | Skill examples | Lamina's role |
-|-------|---------------|---------------|
+| Layer | Skill examples | Output |
+|-------|---------------|--------|
 | **Behavior** | Lamina | States, roles, flows, invariants, verification |
 | **Pixels** | Impeccable, UI UX Pro Max, frontend-design | Typography, spacing, components, visual polish |
+
+Lamina never writes styling, colors, typography, or component libraries. UI skills never define permission matrices or state machines.
 
 ## Recommended workflow
 
@@ -32,18 +43,29 @@ Lamina and UI design skills solve different problems. Use them together — Lami
 | **UI UX Pro Max** | UX patterns, accessibility, responsive layouts |
 | **frontend-design** | Visual design, typography, color systems |
 
-Lamina stays out of pixels during all of these. It never conflicts with UI skill output because it doesn't write styling or components.
-
 ## Why not UI skills alone?
 
-UI skills polish how it looks. They don't:
+UI skills polish how it looks. They do not:
 
 - Define permission matrices across actors
 - Specify state machines with recovery paths
-- Catch impossible states (cancelled + confirmed)
+- Catch impossible states (cancelled + confirmed simultaneously)
 - Verify behavior on a live running app
 
-That's Lamina's job.
+That is Lamina's job.
+
+## Conflict resolution
+
+<Callout type="info">
+**Advanced:** If a UI skill changes behavior while polishing — adding a step, removing a gate, or altering a flow — re-verify immediately. Styling passes can accidentally break invariants.
+</Callout>
+
+When UI changes affect behavior:
+
+1. Run `/lamina-verify` to catch regressions
+2. If findings appear, fix behavior first (from `fix.md`)
+3. Then continue visual polish
+4. Re-verify after each significant UI pass
 
 ## Example pairing
 
@@ -53,6 +75,10 @@ Design guest checkout with Lamina:
 /lamina-design Guest checkout with hold, pay, cancel
 ```
 
-Implement and verify. Then run Impeccable on the checkout UI for visual polish. Re-verify with `/lamina-verify` to confirm behavior wasn't broken by styling changes.
+Implement and verify. Then run your UI skill on the checkout page for visual polish. Re-verify with `/lamina-verify` to confirm behavior was not broken by styling changes.
 
-See also [What is Lamina?](/docs/concepts/what-is-lamina) for the full comparison.
+## Next steps
+
+- [What is Lamina?](/docs/concepts/what-is-lamina) — full comparison with UI skills
+- [What to pair](/docs/guides/pair-with) — broader pairing guide
+- [Demo: HavenStay](/docs/guides/demo-havenstay) — behavior gaps UI skills miss

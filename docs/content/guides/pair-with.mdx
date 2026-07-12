@@ -1,41 +1,42 @@
 ---
 title: What to pair
-description: Tools that help Lamina see your codebase, remember decisions, and run the loop
+description: Tools and skills that complement Lamina in your AI coding stack
 ---
+
+import { Callout } from 'nextra/components'
 
 # What to pair
 
-Lamina designs and verifies **product behavior** — states, roles, flows, invariants. It works best alongside the **tools and skills** in your AI coding stack: indexing, memory, UI design skills, spec workflows, and implementation helpers.
+Lamina designs and verifies **product behavior** — states, roles, flows, invariants. It works best alongside tools and skills in your AI coding stack: indexing, memory, UI design skills, spec workflows, and implementation helpers.
 
-Lamina is not another coding agent. Your agent implements; Lamina designs the behavior contract and verifies it on the live app. Pair skills and tools around that loop — not a second agent.
+## Quick path
+
+| Situation | Minimum pairing |
+|-----------|-----------------|
+| Brownfield (existing codebase) | Codebase indexing + persistent memory |
+| Greenfield (new product) | Persistent memory (indexing optional at first) |
+| Full loop | Lamina + your coding agent + optional UI skill |
+
+Lamina is not another coding agent. Your agent implements; Lamina designs the behavior contract and verifies it on the live app.
 
 ## See and remember
 
 | Need | What it gives Lamina |
 |------|----------------------|
-| **See** | A queryable view of architecture, behavior, and gaps — without rescanning the whole project every session |
-| **Remember** | Design decisions, assumptions, discoveries, and prior verification results carried forward |
+| **See** | Queryable view of architecture and behavior without rescanning every session |
+| **Remember** | Design decisions, assumptions, and prior verification results across sessions |
 
-Most brownfield setups need both. Everything else layers on top.
-
-## Brownfield minimum
-
-On an existing codebase, start with:
-
-1. **Codebase indexing** — semantic code graph or indexing tool
-2. **Persistent memory** — agent memory that survives across sessions
-
-That pair is enough to run `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` without repeating discovery work every time.
+Most brownfield setups need both.
 
 ## Tool categories
 
 | Category | Examples | Why pair it |
 |----------|----------|-------------|
-| **Codebase indexing / semantic code graph** | Graphify, Sourcegraph, code graph tools | Gives Lamina a queryable view of an existing codebase so it can reason about architecture, trace behavior, and verify designs without repeatedly scanning the entire project |
-| **Persistent memory** | Claude-Mem, Mem0, agent memory systems | Preserves design decisions, assumptions, discoveries, and previous verification results across sessions, reducing repeated work |
-| **Implementation workflows** | obra/superpowers, Claude Code workflows, Cursor background agents | Turns Lamina's design artifacts (`implement.md`, `fix.md`) into structured implementation, testing, and review workflows |
-| **UI/UX design tools and skills** | Impeccable, UI UX Pro Max, frontend-design | Produces polished interfaces while Lamina focuses on interaction states, behavior, edge cases, and verification |
-| **Specification-driven engineering** | Spec Kit, Kiro, specification-first workflows | Converts verified designs into implementation plans, tasks, and engineering specifications |
+| **Codebase indexing** | Graphify, Sourcegraph, code graph tools | Queryable view of existing code for architecture tracing and brownfield design |
+| **Persistent memory** | Claude-Mem, Mem0, agent memory systems | Preserves decisions and verification results across sessions |
+| **Implementation workflows** | obra/superpowers, mattpocock/skills, everything-claude-code | Turns `implement.md` and `fix.md` into structured implementation and review |
+| **UI/UX design skills** | Impeccable, UI UX Pro Max, frontend-design | Polished interfaces while Lamina owns behavior and verification |
+| **Spec-driven engineering** | Spec Kit, Kiro | Converts verified designs into engineering plans and task breakdowns |
 
 ## Recommended stack by situation
 
@@ -48,9 +49,11 @@ Codebase indexing + persistent memory
   → Optional: UI skill for polish, Spec Kit for task breakdown
 ```
 
+See [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield).
+
 ### Greenfield
 
-You can skip indexing at first. Add persistent memory early so design decisions from `/lamina-init` and `/lamina-design` survive the first implementation sprint.
+Skip indexing at first. Add persistent memory early so decisions from `/lamina-init` and `/lamina-design` survive the first implementation sprint.
 
 ### Full loop
 
@@ -63,11 +66,26 @@ UI skill pass           → pixels only
 /lamina-verify again    → confirm behavior still holds
 ```
 
+## Stack compatibility
+
+Lamina is unopinionated on framework, database, and UI library. See [Any stack](/docs/concepts/what-is-lamina#any-stack) for the full compatibility table.
+
 ## Deeper guides
 
-- [Pair with UI Skills](/docs/guides/pair-with-ui-skills) — behavior vs pixels, recommended order
+- [Pair with UI skills](/docs/guides/pair-with-ui-skills) — behavior vs pixels
 - [Pair with Spec Kit](/docs/guides/pair-with-spec-kit) — product contract before engineering plans
 
-## What Lamina does not pair with
+## What Lamina does not replace
 
-Lamina is unopinionated on framework, database, and UI library — see [Your stack](/docs/concepts/what-is-lamina#any-stack). It does not generate app source or pick your styling system. Pair any stack; Lamina reads `implement.md` and verifies the live app.
+- Your coding agent (implementation)
+- UI skills (visual polish)
+- Spec tools (engineering task breakdown)
+- App builders (v0, Lovable, Bolt)
+
+Lamina fills the gap: **product behavior contracts and live-app verification**.
+
+## Next steps
+
+- [Pair with UI skills](/docs/guides/pair-with-ui-skills)
+- [Pair with Spec Kit](/docs/guides/pair-with-spec-kit)
+- [Installation](/docs/getting-started/installation)

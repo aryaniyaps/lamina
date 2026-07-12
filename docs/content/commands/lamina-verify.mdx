@@ -1,66 +1,112 @@
 ---
 title: /lamina-verify
-description: Post-build persona walks → fix.md
+description: Walk the live product against the contract — persona walks to fix.md
 ---
+
+import { Callout } from 'nextra/components'
 
 # /lamina-verify
 
-Verify your live application against the design contract. Lamina runs parallel persona walks and writes findings to `fix.md`.
+Pre-merge verification: walk the live product against `run.yaml` contracts. Lamina checks actor permissions, invariants, dependency reachability, UX flows, and accessibility — then writes findings to `fix.md`.
+
+## Quick path
+
+1. Start your dev server
+2. Run `/lamina-verify` with the `base_url`
+3. Read `fix.md` if findings exist
+4. Your agent fixes product issues, then re-verify
+
+## Prerequisites
+
+- Valid `.lamina/business-context.md` from `/lamina-init`
+- A running product at `base_url` (e.g. `http://localhost:3000`)
+- Prefer an existing design run with `status: ready_to_build` or `complete`
+
+<Callout type="info">
+**Advanced:** Brownfield verify may infer domain from repo and walkthrough without a prior design run. See [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield).
+</Callout>
 
 ## When to use
 
 - After your agent implements from `implement.md`
 - After applying fixes from a previous `fix.md`
-- Any time you want to check product behavior against the contract
+- Pre-merge / pre-PR product behavior check
+- Brownfield integrity audit on an existing app
 
-## Example
+## Examples
+
+```
+/lamina-verify http://localhost:3000
+```
 
 ```
 /lamina-verify
 ```
 
-No arguments needed — Lamina reads the latest run from `.lamina/runs/`.
+When no URL is provided, Lamina uses the last known `base_url` or prompts you for one.
 
 ## What Lamina does
 
-1. Reads the contract from `run.yaml` and `implement.md`
-2. Assigns personas (actors with roles and goals)
-3. Walks your **live application** in parallel
-4. Captures visual flows and checks invariants
-5. Writes findings to `fix.md` (if any gaps exist)
+1. Loads the contract from `run.yaml` and `implement.md` (or infers from repo in brownfield)
+2. Sets `status: verifying`
+3. Captures `walkthrough/` evidence at `base_url`
+4. Dispatches parallel subagents — one per primary actor
+5. Runs probe types:
+   - **Actor walks** — each persona navigates their workflows
+   - **Invariant probes** — business rules from `domain.entities[].invariants`
+   - **Reachability probes** — unmet `domain.dependencies[]`
+   - **Accessibility checks** — against captured walkthrough steps
+6. Writes `findings[]` to `run.yaml` with `fix_target` per finding
+7. Sets `status: complete`; writes `report.md` and `fix.md`
 
 ## Output
 
 | Result | Meaning |
 |--------|---------|
-| `0 open findings` | Contract holds — verification passed |
-| `fix.md` with findings | Product behavior gaps to address |
+| Empty `findings[]` | Contract holds — verification passed |
+| `fix.md` with findings | Product or contract gaps to address |
 
-Example finding categories:
+### Finding categories
 
-- Impossible states allowed (cancelled + confirmed simultaneously)
-- Missing transitions (no way out of a loading state)
+- Impossible states (cancelled and confirmed simultaneously)
+- Missing transitions (no recovery from error state)
 - Permission gaps (guest can access admin actions)
 - Skipped dependencies (pay without hold, publish without approval)
+- Unmet reachability (feature exists but prerequisite is unreachable)
+- Accessibility violations on critical flows
+
+### fix_target
+
+| Value | Action |
+|-------|--------|
+| `product` (default) | Your coding agent fixes app code from `fix.md` |
+| `contract` | Re-run `/lamina-design` with a scoped contract update |
 
 ## What to do next
 
 If findings exist, hand `fix.md` to your coding agent:
 
 ```
-Fix from .lamina/runs/<id>/fix.md
+Fix the product issues in .lamina/runs/<id>/fix.md
 ```
 
 Then re-verify:
 
 ```
-/lamina-verify
+/lamina-verify http://localhost:3000
 ```
 
-Loop until zero open findings.
+Loop until `findings[]` is empty.
 
 ## Tips
 
 - Run against a live dev server — verification reads real UI, not mocks
 - Fix product behavior from `fix.md`, not styling
 - Re-verify after every fix cycle — partial fixes often reveal new gaps
+- Inspect `walkthrough/` for visual evidence of what each persona encountered
+
+## Next steps
+
+- [Working with findings](/docs/guides/working-with-findings) — fix loop deep dive
+- [Personas](/docs/concepts/personas) — how actor walks work
+- [Troubleshooting](/docs/getting-started/troubleshooting) — common verify issues

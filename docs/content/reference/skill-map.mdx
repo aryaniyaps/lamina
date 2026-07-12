@@ -1,0 +1,111 @@
+---
+title: Skill map
+description: Capability skills behind Lamina — systems thinking, UX, and agent simulation
+---
+
+import { Callout } from 'nextra/components'
+
+# Skill map
+
+Lamina includes ~60 capability skills organized into three taxonomies. The orchestrator routes design and verify sections to the right skill via [audit profiles](/docs/advanced/orchestrator).
+
+## Quick path
+
+- **Focused question?** `/lamina <question>` routes to one skill (direct mode)
+- **Full workflow?** `/lamina-design` or `/lamina-verify` loads multiple skills via audit profiles
+- **Deep dive?** Each skill has a `SKILL.md` in the [Lamina repo](https://github.com/aryaniyaps/lamina/tree/main/skills)
+
+## Systems thinking
+
+The structural spine — entities, rules, dependencies, and traps.
+
+| Problem signal | Skill |
+|----------------|-------|
+| Entities, relationships, purpose | `lamina-system-structure` |
+| Feedback, delays, oscillation | `lamina-feedback-loops` |
+| Fixes keep failing, structural traps | `lamina-system-traps` |
+| Where to intervene (rules vs UI) | `lamina-leverage-points` |
+| Impossible states, business rules | `lamina-invariants` |
+| Feature reachability, unmet prerequisites | `lamina-dependencies` |
+| Domain boundaries, hide complexity | `lamina-modularity-boundaries` |
+| What users see when (stale data) | `lamina-consistency-guarantees` |
+| Double-submit, concurrent edits | `lamina-idempotency-concurrency` |
+| Name trade-offs before mechanisms | `lamina-tradeoffs` |
+| Multi-actor views stay consistent | `lamina-multi-view-integrity` |
+| Evolving rules safely | `lamina-evolutionary-rules` |
+| Notifications, downstream updates | `lamina-side-effects` |
+
+## UX and product expression
+
+How domain rules become user-facing behavior.
+
+| Problem signal | Skill |
+|----------------|-------|
+| Bootstrap context | `lamina-business-context` |
+| Inclusive design | `lamina-accessibility` |
+| Copy, labels, errors | `lamina-content-design` |
+| Prioritize, resolve conflicts | `lamina-decision-making` |
+| Affordances, signifiers | `lamina-discoverability` |
+| Domain-empty screens | `lamina-empty-states` |
+| Violation recovery UX | `lamina-error-handling` |
+| Permission/conflict scenarios | `lamina-edge-cases` |
+| Async feedback, status | `lamina-feedback-and-status` |
+| User journeys over state | `lamina-flow-design` |
+| Forms under rules | `lamina-forms` |
+| Entity organization | `lamina-information-architecture` |
+| Wayfinding | `lamina-navigation` |
+| First-run paths | `lamina-onboarding` |
+| UI reflects domain truth | `lamina-product-behavior` |
+| Operations actors perform | `lamina-task-analysis` |
+| Actors, roles, permissions | `lamina-user-modeling` |
+
+## Agent simulation
+
+Replaces human labs and workshops with contract + live-product simulation.
+
+| Problem signal | Skill |
+|----------------|-------|
+| Design→build→verify loop | `lamina-design-process` |
+| Scope the design target | `lamina-problem-framing` |
+| Map ask → workflows | `lamina-feature-discovery` |
+| What evidence vs assumption | `lamina-research-scoping` |
+| Plan verify actor walks | `lamina-research-planning` |
+| Merge walk results | `lamina-research-synthesis` |
+| Report verify findings | `lamina-research-communication` |
+| Actor-walk scripts | `lamina-interview-design` |
+| Walkthrough evidence | `lamina-interview-documentation` |
+| Repo + live UI grounding | `lamina-field-research` |
+| Simulated usability (verify) | `lamina-usability-evaluation` |
+| Real metrics only | `lamina-quantitative-validation` |
+| Conflicting actor goals | `lamina-stakeholder-alignment` |
+| User-cited references | `lamina-competitive-analysis` |
+| Workflow priority | `lamina-feature-prioritization` |
+| Group permissions / shared state | `lamina-persuasion-and-groups` |
+| Parallel expert lenses | `lamina-heuristic-review` |
+| Complexity budget / disclosure | `lamina-platform-posture`, `lamina-progressive-disclosure` |
+| Payment / sensitive action honesty | `lamina-trust` |
+| Testable acceptance criteria | `lamina-requirements-definition` |
+
+<Callout type="info">
+**Advanced:** Skill files live at `skills/lamina-<name>/SKILL.md` in the repo. The orchestrator's `audit-profiles.yaml` maps workflow sections to specific skills during design and verify.
+</Callout>
+
+## Direct mode examples
+
+```
+/lamina What invariants should a booking hold enforce?
+```
+
+```
+/lamina How should permission denial appear during checkout?
+```
+
+```
+/lamina What dependencies exist between hotel onboarding and booking?
+```
+
+## Next steps
+
+- [/lamina command](/docs/commands/lamina) — router and direct mode
+- [Orchestrator](/docs/advanced/orchestrator) — how skills are coordinated
+- [Glossary](/docs/reference/glossary) — key terms

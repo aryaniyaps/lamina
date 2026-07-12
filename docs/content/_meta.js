@@ -5,4 +5,5 @@ export default {
   commands: "Commands",
   guides: "Guides",
   reference: "Reference",
+  advanced: "Advanced",
 };

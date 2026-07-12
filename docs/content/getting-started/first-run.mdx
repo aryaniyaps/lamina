@@ -1,60 +1,103 @@
 ---
-title: First Run
-description: What to expect on your first Lamina run
+title: First run
+description: What to expect on your first Lamina design-verify cycle
 ---
 
-# First Run
+import { Callout } from 'nextra/components'
 
-Your first Lamina run should take minutes, not hours. Here's what happens when you design a guest checkout flow.
+# First run
 
-## Example domain
+Your first Lamina run should take minutes, not hours. This page sets expectations for what appears in `.lamina/` and how long each step takes.
+
+## Quick path
+
+1. `/lamina-init` — ~1–2 minutes
+2. `/lamina-design` — ~3–10 minutes
+3. Your agent implements — varies by stack
+4. `/lamina-verify` — ~2–5 minutes
+5. Fix and re-verify — repeat until clean
+
+## Example prompts
+
+Start with one flow, not the whole product:
 
 ```
 /lamina-init Short-term rental marketplace for property hosts
+
 /lamina-design Guest checkout with inventory hold, payment, and cancellation
 ```
 
+For a full marketplace example, see [Demo: HavenStay](/docs/guides/demo-havenstay).
+
 ## What appears in `.lamina/`
 
-After `/lamina-design`, inspect `.lamina/runs/<id>/`:
+### After `/lamina-init`
 
 | File | Purpose |
 |------|---------|
-| `run.yaml` | Contract metadata, status, domain summary |
-| `implement.md` | Build handoff — actors, states, flows, invariants |
-| `session.jsonl` | Agent session transcript for this run |
+| `business-context.md` | Domain charter — problem, scope, constraints |
+| `personas.yaml` | Actor cast — roles, goals, permissions |
 
-After `/lamina-verify`:
+### After `/lamina-design`
 
 | File | Purpose |
 |------|---------|
-| `fix.md` | Product gaps found during persona walks (if any) |
+| `runs/<id>/run.yaml` | Machine contract (`status: ready_to_build`) |
+| `runs/<id>/implement.md` | Build handoff for your coding agent |
+| `runs/<id>/report.md` | Design narrative and rationale |
+
+### After `/lamina-verify`
+
+| File | Purpose |
+|------|---------|
+| `runs/<id>/fix.md` | Product gaps found during persona walks |
+| `runs/<id>/walkthrough/` | Screenshots and live-app evidence |
+| `runs/<id>/run.yaml` | Updated with `findings[]`, `status: complete` |
+
+<Callout type="info">
+**Advanced:** Lamina does not write `session.jsonl` or other agent transcripts to `.lamina/`. The artifact model uses `report.md` for narrative and `walkthrough/` for evidence.
+</Callout>
 
 ## What `ready_to_build` means
 
 When `run.yaml` status is `ready_to_build`, the contract is complete enough for your agent to implement:
 
 - Actors and roles are defined
-- States and transitions are specified
-- Edge cases and recovery paths are enumerated
-- Permission matrix covers who can do what
+- Entities, states, and transitions are specified
+- Workflows cover primary and alternate paths
+- Scenarios enumerate edge cases and recovery
+- Dependencies map feature reachability
+- Invariants state rules that must always hold
 
-You don't need a perfect spec — you need a contract your agent can implement and Lamina can verify against.
+You do not need a perfect spec — you need a contract your agent can implement and Lamina can verify against.
 
 ## Expected timeline
 
-| Step | Time |
-|------|------|
-| `/lamina-init` | ~1–2 minutes |
-| `/lamina-design` | ~3–10 minutes depending on domain complexity |
-| Your agent implements | Varies by stack |
-| `/lamina-verify` | ~2–5 minutes |
-| Fix + re-verify | Repeat until clean |
+| Step | Time | Notes |
+|------|------|-------|
+| `/lamina-init` | 1–2 min | More if domain is complex or brownfield |
+| `/lamina-design` | 3–10 min | Scales with scope; start with one flow |
+| Agent implements | 30 min – hours | Depends on stack and scope |
+| `/lamina-verify` | 2–5 min | Requires running dev server |
+| Fix + re-verify | 5–30 min | Repeat until zero open findings |
 
-## Tips
+## Tips for beginners
 
-- Start with one flow (e.g. guest checkout), not the whole product
-- Use natural language — Lamina understands domain descriptions, not just feature lists
-- Keep `.lamina/` out of your app source — it's design artifacts, not application code
+- **Start small** — design guest checkout before the entire marketplace
+- **Use natural language** — describe domains and flows, not ticket lists
+- **Keep `.lamina/` separate** — treat it like design docs, not application code
+- **Run init first** — design and verify are blocked without `business-context.md`
+- **Start your dev server** before verify — persona walks need a live `base_url`
 
-See [Contracts & Runs](/docs/concepts/contracts-and-runs) for artifact details.
+## Tips for advanced users
+
+- Reference dependency ids in workflows, not free-text preconditions
+- Use `fix_target: contract` findings to trigger scoped re-design
+- Validate contracts: `node lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
+- Preserve `.lamina/` between runs — Lamina reuses existing artifacts
+
+## Next steps
+
+- [Contracts and runs](/docs/concepts/contracts-and-runs) — full artifact model
+- [Troubleshooting](/docs/getting-started/troubleshooting) — common issues
+- [Personas](/docs/concepts/personas) — how verify walks work

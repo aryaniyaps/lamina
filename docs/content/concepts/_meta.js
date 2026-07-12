@@ -3,4 +3,5 @@ export default {
   "the-loop": "The Loop",
   "contracts-and-runs": "Contracts & Runs",
   personas: "Personas",
+  "brownfield-and-greenfield": "Brownfield & Greenfield",
 };

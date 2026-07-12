@@ -1,0 +1,114 @@
+---
+title: Brownfield and greenfield
+description: Designing and verifying on new vs existing codebases
+---
+
+import { Callout } from 'nextra/components'
+
+# Brownfield and greenfield
+
+Lamina works on both new products and existing codebases. The workflow differs mainly in how domain context is gathered and how screens are referenced in the contract.
+
+## Quick path
+
+| Maturity | Start with | Verify |
+|----------|------------|--------|
+| Greenfield (new) | `/lamina-init` → `/lamina-design` | After your agent implements |
+| Brownfield (existing) | `/lamina-init` (with repo scan) | With or without prior design run |
+
+## Greenfield
+
+A new product with no existing app. Lamina designs from stakeholder input.
+
+### Workflow
+
+1. `/lamina-init <domain description>` — creates `business-context.md` with `maturity: greenfield`
+2. `/lamina-design <flow>` — full contract with `screens[].status: new`
+3. Your agent implements from `implement.md`
+4. `/lamina-verify <base_url>` — persona walks on the new build
+
+### Example
+
+```
+/lamina-init Boutique hotel booking marketplace in the United States
+
+/lamina-design Guest search, booking checkout, and reservation management
+```
+
+All screens in `run.yaml` are marked `new` — nothing exists yet.
+
+## Brownfield
+
+An existing codebase with a running product. Lamina reads the repo and walks the live UI to ground design and verify in what already exists.
+
+### Workflow
+
+1. `/lamina-init` — bounded repo scan infers domain; `maturity: brownfield`
+2. Option A: `/lamina-design` — contract references existing screens via `screens[].source`
+3. Option B: `/lamina-verify` directly — infer domain from repo + walkthrough (no prior design run)
+4. Fix product gaps from `fix.md` or contract gaps via `/lamina-design`
+
+<Callout type="info">
+**Advanced:** Brownfield references are read-only. Lamina cites repo paths in `run.yaml` but never edits app source during Lamina commands.
+</Callout>
+
+### Field research pattern
+
+Brownfield init and design use a bounded repo scan:
+
+- Read source files to infer entities, routes, and actor surfaces
+- Walk the live UI at `base_url` when available
+- Mark existing screens with `status: existing` and `source: <repo-path>`
+- Ground `business-context.md` in observed behavior, not assumptions
+
+### Verify without prior design
+
+On brownfield projects, you can run verify before any design run:
+
+```
+/lamina-verify http://localhost:3000
+```
+
+Lamina infers domain from the repo and walkthrough, then walks the live app checking permissions, invariants, and reachability. This is useful for pre-PR audits on existing apps.
+
+### Example
+
+```
+/lamina-init Existing Next.js hotel booking app — audit and improve checkout flows
+
+/lamina-verify http://localhost:3000
+```
+
+## Comparing approaches
+
+| Aspect | Greenfield | Brownfield |
+|--------|------------|------------|
+| Init input | Stakeholder description | Description + repo context |
+| `business-context.md` | `maturity: greenfield` | `maturity: brownfield` |
+| Screens in contract | All `new` | Mix of `new` and `existing` |
+| Design required before verify | Yes (typical) | Optional |
+| Repo access during Lamina | Read-only if scanned | Read-only |
+| Risk | Over-scoping v1 | Missing hidden dependencies |
+
+## Pairing for brownfield
+
+Brownfield projects benefit from codebase indexing and memory tools alongside Lamina:
+
+- **Codebase indexing** — Cursor, Claude Code, or similar for repo awareness
+- **Memory tools** — Graphify, Claude-Mem, or Mem0 for cross-session context
+- **Lamina** — product behavior contracts and live-app verification
+
+See [What to pair](/docs/guides/pair-with) for integration guidance.
+
+## Tips
+
+- Mention your stack in init: "existing Next.js app with Prisma and Stripe"
+- For brownfield verify, ensure demo accounts exist for each actor type
+- Start with one flow audit before redesigning the entire product
+- Use `/lamina-init update` when pivoting scope on an existing project
+
+## Next steps
+
+- [/lamina-init](/docs/commands/lamina-init) — bootstrap domain context
+- [/lamina-verify](/docs/commands/lamina-verify) — verify existing or new builds
+- [What to pair](/docs/guides/pair-with) — tools for brownfield projects

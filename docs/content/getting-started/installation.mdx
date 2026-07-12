@@ -3,9 +3,17 @@ title: Installation
 description: Install the Lamina skill in your AI coding agent
 ---
 
+import { Callout } from 'nextra/components'
+
 # Installation
 
 Lamina works with any AI coding agent and any stack. Install once, then invoke with slash commands or natural language.
+
+## Quick path
+
+1. Run the install command for your agent
+2. Start a new agent session
+3. Run `/lamina` to confirm the skill loaded
 
 ## Quick install
 
@@ -27,7 +35,7 @@ npx skills add https://github.com/aryaniyaps/lamina -a cursor -y
 npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y
 ```
 
-### Codex / Pi / Generic
+### Codex / Pi / generic
 
 ```bash
 npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
@@ -38,6 +46,8 @@ npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
 - An AI coding agent (Cursor, Claude Code, Codex, Gemini, Pi, or similar)
 - Any framework, database, and UI library — Lamina is stack-agnostic
 
+No Node.js version requirement for skill install. Node.js 20+ is only needed if you run contract validation (`lib/validate-run.mjs`) locally.
+
 ## Verify the install
 
 Run the router command in your agent session:
@@ -46,10 +56,45 @@ Run the router command in your agent session:
 /lamina
 ```
 
-You should see available Lamina commands. Then try [Quickstart](/docs/getting-started/quickstart) or read [First Run](/docs/getting-started/first-run).
+You should see available Lamina commands. Then try [Quickstart](/docs/getting-started/quickstart).
+
+## Update
+
+Re-run the install command to pull the latest skill version:
+
+```bash
+npx skills install aryaniyaps/lamina
+```
+
+Start a new agent session after updating.
+
+## .gitignore guidance
+
+Lamina writes to `.lamina/` in your project. Whether to commit it depends on your team:
+
+| Approach | When |
+|----------|------|
+| Commit `.lamina/` | Team wants shared contracts and verify history |
+| Gitignore `.lamina/` | Personal experiments; regenerate locally |
+
+To exclude:
+
+```gitignore
+.lamina/
+```
+
+## Uninstall
+
+Remove the Lamina skill using your agent's skill management tooling, or delete the installed skill directory. `.lamina/` artifacts in your project are not removed automatically.
 
 ## Source
 
 Lamina is MIT-licensed and open source: [github.com/aryaniyaps/lamina](https://github.com/aryaniyaps/lamina)
 
-Command behavior may evolve — the repo is the authoritative reference for the latest skill definitions.
+Full documentation: [lamina.dev](https://lamina.dev)
+
+## Next steps
+
+- [Quickstart](/docs/getting-started/quickstart) — run your first cycle
+- [Troubleshooting](/docs/getting-started/troubleshooting) — if the skill does not load
+- [What is Lamina?](/docs/concepts/what-is-lamina) — understand what you installed

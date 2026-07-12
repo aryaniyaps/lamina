@@ -1,26 +1,40 @@
 ---
 title: /lamina-design
-description: Design contract → ready_to_build
+description: Design how the product works — contract to ready_to_build plus implement.md
 ---
+
+import { Callout } from 'nextra/components'
 
 # /lamina-design
 
-Turn a domain into a build-ready contract. This is Lamina's core command — it models product behavior and writes the handoff your agent implements.
+Turn a domain into a build-ready contract. Lamina models product behavior at the intersection of UX, product rules, and systems thinking — then writes `implement.md` for your coding agent.
+
+## Quick path
+
+1. Confirm `/lamina-init` has run (init gate)
+2. Run `/lamina-design` with a specific flow or feature
+3. Check `run.yaml` status is `ready_to_build`
+4. Hand `implement.md` to your coding agent
+
+## Prerequisites
+
+Valid `.lamina/business-context.md` from `/lamina-init`. Without it, design is blocked.
 
 ## When to use
 
-- After `/lamina-init` (or directly if the domain is already clear)
+- After `/lamina-init` on a new or brownfield project
 - When starting a new feature or flow
-- When you need states, roles, and edge cases specified before coding
+- When you need states, roles, dependencies, and edge cases specified before coding
+- When verify finds `fix_target: contract` gaps
 
-## Example
+## Examples
 
 ```
 /lamina-design Guest checkout with inventory hold, payment, and cancellation
 ```
 
 ```
-/lamina-design Build a settings page for a team collaboration app
+/lamina-design Hotel onboarding with property review and admin approval gate
 ```
 
 ```
@@ -29,11 +43,16 @@ Turn a domain into a build-ready contract. This is Lamina's core command — it 
 
 ## What Lamina does
 
-1. **Models the domain** — entities, states, invariants, permissions
-2. **Defines actors** — roles, goals, and what they can do
-3. **Maps workflows** — primary paths, alternate paths, side effects
-4. **Specifies UX surfaces** — flows, forms, error/empty recovery tied to domain rules
-5. **Enumerates scenarios** — violations, edge cases, recovery paths
+1. **Models the domain** — entities, states, invariants, dependencies (reachability graph)
+2. **Defines actors** — roles, goals, permissions (references `personas.yaml`)
+3. **Maps workflows** — primary paths, alternate paths, operations over states
+4. **Enumerates scenarios** — permission denials, unmet dependencies, invariant violations
+5. **Specifies screens** — structural UX surfaces tied to workflows (no styling)
+6. **Writes `implement.md`** — stack-agnostic build brief at `ready_to_build`
+
+<Callout type="info">
+**Advanced:** Design uses audit profiles to route sections to capability skills — invariants, dependencies, error handling, accessibility, and more. See [Orchestrator](/docs/advanced/orchestrator).
+</Callout>
 
 ## What it writes
 
@@ -41,9 +60,13 @@ Output lands in `.lamina/runs/<id>/`:
 
 | File | Content |
 |------|---------|
-| `run.yaml` | Contract metadata, status (`ready_to_build`) |
+| `run.yaml` | Machine contract (`status: designing` → `ready_to_build`) |
 | `implement.md` | Full build handoff for your coding agent |
-| `session.jsonl` | Session transcript |
+| `report.md` | Design narrative and rationale |
+
+## Brownfield design
+
+On existing codebases, Lamina performs a bounded repo scan to ground the contract in what already exists. Existing screens are marked `status: existing` with repo `source` paths in `screens[]`.
 
 ## What to do next
 
@@ -55,10 +78,17 @@ Implement from .lamina/runs/<id>/implement.md
 
 Lamina never writes app source. Your agent builds using your stack, framework, and UI library.
 
-After implementation, run `/lamina-verify`.
+After implementation, run `/lamina-verify` with your dev server URL.
 
 ## Tips
 
 - Scope one flow per design call — "guest checkout" not "the entire app"
 - Include constraints in natural language: "hold expires after 15 minutes"
 - Check `run.yaml` status is `ready_to_build` before implementing
+- Reference dependency ids in workflows, not free-text preconditions
+
+## Next steps
+
+- [run.yaml schema](/docs/reference/run-yaml-schema) — full contract reference
+- [/lamina-verify](/docs/commands/lamina-verify) — verify after implementation
+- [Per-run artifacts](/docs/reference/artifacts) — file-by-file reference

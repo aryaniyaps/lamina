@@ -1,34 +1,74 @@
 ---
 title: /lamina-init
-description: Domain charter — scope the product before design
+description: Establish or update the domain charter and actor cast
 ---
+
+import { Callout } from 'nextra/components'
 
 # /lamina-init
 
-Scope the product domain before any design work. This command creates a domain charter — entities, actors, and boundaries.
+Answer the business questions product design depends on and persist them in `.lamina/`. Run once per project, or again when the business use case changes.
+
+## Quick path
+
+1. Run `/lamina-init` with your domain description
+2. Inspect `.lamina/business-context.md` and `.lamina/personas.yaml`
+3. Proceed to `/lamina-design`
 
 ## When to use
 
 - Starting a new project or major feature area
 - Before `/lamina-design` on an unfamiliar domain
-- When you need to clarify actors and scope before specifying flows
+- When pivoting scope, market, or actor cast (`update` mode)
+- Before any verify on a greenfield project
 
-## Example
+## Modes
+
+| Mode | Command | Behavior |
+|------|---------|----------|
+| `establish` (default) | `/lamina-init <domain>` | First-time bootstrap |
+| `update` | `/lamina-init update <what changed>` | Merge changelog on pivot; preserve prior decisions |
+
+### Establish
 
 ```
 /lamina-init Exam hall ticket system for universities
 ```
 
 ```
-/lamina-init Short-term rental marketplace for property hosts
+/lamina-init Boutique hotel booking marketplace in the United States
 ```
+
+### Update
+
+Use when the business use case changes — new market, scope pivot, or actor cast shift:
+
+```
+/lamina-init update Expanding to business travelers with corporate billing
+```
+
+Update mode appends to the changelog in `business-context.md` and revises affected sections without discarding prior work.
 
 ## What it produces
 
-- Domain summary with key entities
-- Actor list (roles that interact with the product)
-- Scope boundaries (what's in and out of this design)
-- Foundation for the next `/lamina-design` call
+| File | Content |
+|------|---------|
+| `.lamina/business-context.md` | Domain charter — problem, goals, scope, constraints |
+| `.lamina/personas.yaml` | Actor cast — roles, goals, permissions, constraints |
+
+See [Global artifacts](/docs/reference/global-artifacts) for field-level detail.
+
+## Brownfield scanning
+
+On existing codebases, `/lamina-init` may perform a bounded repo scan to infer domain context. The scan is read-only — Lamina never edits app source during init.
+
+<Callout type="info">
+**Advanced:** Brownfield scanning follows the field-research pattern. It reads source files and may walk the live UI to ground `business-context.md` in what already exists.
+</Callout>
+
+## Init gate
+
+`/lamina-design` and `/lamina-verify` are blocked until a valid `business-context.md` exists. This gate cannot be bypassed.
 
 ## What to do next
 
@@ -40,6 +80,13 @@ Run `/lamina-design` with a specific feature or flow within the chartered domain
 
 ## Tips
 
-- Be specific about the domain — "e-commerce" is too broad; "university exam hall ticketing" is right
-- Include the primary actors if you know them: "for students, invigilators, and admin staff"
-- One init per domain — don't re-init for every feature; design flows within the charter
+- Be specific — "e-commerce" is too broad; "university exam hall ticketing" is right
+- Include primary actors: "for students, invigilators, and admin staff"
+- One init per domain — design individual flows with `/lamina-design`, not repeated inits
+- For brownfield projects, mention the existing app: "init for our existing Next.js booking app"
+
+## Next steps
+
+- [/lamina-design](/docs/commands/lamina-design) — design a contract
+- [Global artifacts](/docs/reference/global-artifacts) — `business-context.md` and `personas.yaml` reference
+- [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield) — existing vs new projects

@@ -1,0 +1,102 @@
+---
+title: Validation
+description: Validate run.yaml contracts with node lib/validate-run.mjs
+---
+
+import { Callout } from 'nextra/components'
+
+# Validation
+
+Lamina provides a contract validator to check `run.yaml` against the expected schema. Use it after design, in CI, or when manually editing contracts.
+
+## Quick path
+
+```bash
+node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+```
+
+Expected output on success:
+
+```text
+run.yaml valid
+```
+
+## Prerequisites
+
+- Node.js 20 or later
+- Lamina repo cloned (validator lives in `lib/`)
+
+<Callout type="info">
+**Advanced:** The validator is part of the Lamina repository, not the installed skill bundle. Clone the repo or copy `lib/run.mjs`, `lib/validate-run.mjs`, and `lib/scenarios.mjs` into your project if you want local validation.
+</Callout>
+
+## Usage
+
+From the Lamina repo root:
+
+```bash
+node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+```
+
+From your project (if you copied the lib files):
+
+```bash
+node lib/validate-run.mjs path/to/.lamina/runs/<run_id>/run.yaml
+```
+
+On failure, the validator prints specific errors:
+
+```text
+run.yaml: missing required field 'status'
+run.yaml: invalid status 'verified' (expected designing|ready_to_build|verifying|complete)
+```
+
+## What it checks
+
+| Area | Validation |
+|------|------------|
+| Top-level fields | `id`, `status`, `hook`, `target`, `command` |
+| Status values | `designing`, `ready_to_build`, `verifying`, `complete` |
+| Hook values | `design`, `verify` |
+| Flows | Structure, transitions, graph integrity |
+| Screens | `new` or `existing` status |
+| Scenarios | Category, trigger, references |
+| Findings | Priority, `fix_target` (`product` or `contract`) |
+| Evidence | Structure and references |
+
+The validator uses a minimal YAML parser in `lib/run.mjs` focused on Lamina contract structure.
+
+## When to validate
+
+| When | Why |
+|------|-----|
+| After `/lamina-design` | Confirm contract is well-formed before implementing |
+| After manual `run.yaml` edits | Catch schema errors before verify |
+| In CI | Block merges when contract is invalid |
+| Before publishing artifacts | Ensure shared contracts are valid |
+
+## CI integration example
+
+```yaml
+- name: Validate Lamina contract
+  run: node lib/validate-run.mjs .lamina/runs/${{ env.RUN_ID }}/run.yaml
+```
+
+## Programmatic use
+
+Import from `lib/run.mjs` in tests:
+
+```javascript
+import { validateRunYaml } from './lib/run.mjs';
+
+const result = validateRunYaml('.lamina/runs/my-run/run.yaml');
+if (!result.ok) {
+  for (const e of result.errors) console.error(e);
+}
+```
+
+## Next steps
+
+- [run.yaml schema](/docs/reference/run-yaml-schema) — full field reference
+- [Per-run artifacts](/docs/reference/artifacts) — artifact lifecycle
+- [/lamina-design](/docs/commands/lamina-design) — generate valid contracts

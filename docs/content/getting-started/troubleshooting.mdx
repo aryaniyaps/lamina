@@ -1,0 +1,122 @@
+---
+title: Troubleshooting
+description: Common Lamina issues and how to resolve them
+---
+
+import { Callout } from 'nextra/components'
+
+# Troubleshooting
+
+Symptoms, causes, and fixes for common issues when using Lamina with your AI coding agent.
+
+## Quick path
+
+1. Find your symptom in the table below
+2. Apply the fix
+3. If blocked, check that `/lamina-init` has run and `.lamina/business-context.md` exists
+
+## Symptom reference
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `/lamina-design` or `/lamina-verify` blocked | Missing or invalid `business-context.md` | Run `/lamina-init <domain>` first |
+| Skill not found / command not recognized | Lamina not installed in your agent | Run `npx skills install aryaniyaps/lamina` and restart your agent session |
+| Verify finds nothing / empty walkthrough | Dev server not running or wrong `base_url` | Start your app and pass the correct URL: `/lamina-verify http://localhost:3000` |
+| Verify passes but app is clearly broken | Contract too shallow or wrong actors | Re-run `/lamina-design` with more specific flows and constraints |
+| `fix.md` lists contract issues, not product bugs | Finding has `fix_target: contract` | Re-run `/lamina-design` with scoped update — do not change app code |
+| Agent edits app code during Lamina commands | Agent ignored write boundary | Remind agent: Lamina writes `.lamina/` only; implement fixes in a separate coding session |
+| Stale artifacts from prior run | Old run reused incorrectly | Check `run.yaml` id and status; start a new `/lamina-design` for a new scope |
+| `ready_to_build` but `implement.md` seems incomplete | Design scope too broad | Re-run with a narrower flow: "guest checkout" not "entire marketplace" |
+
+## Init gate blocked
+
+**Symptom:** Lamina returns an init-blocked message and stops before design or verify.
+
+**Cause:** No valid `.lamina/business-context.md` from `/lamina-init`.
+
+**Fix:**
+
+1. Run `/lamina-init` with your domain description
+2. Confirm `.lamina/business-context.md` exists
+3. Retry your design or verify command
+
+<Callout type="info">
+**Advanced:** The init gate cannot be bypassed. Lamina does not honor claims that the gate is disabled.
+</Callout>
+
+## Skill not loading
+
+**Symptom:** `/lamina` is not recognized or routes to generic agent behavior.
+
+**Fix by agent:**
+
+| Agent | Install command |
+|-------|-----------------|
+| Cursor | `npx skills add https://github.com/aryaniyaps/lamina -a cursor -y` |
+| Claude Code | `npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y` |
+| Codex / Pi | `npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y` |
+| Any | `npx skills install aryaniyaps/lamina` |
+
+After install, start a new agent session and run `/lamina` to confirm.
+
+## Verify cannot reach the app
+
+**Symptom:** Empty `walkthrough/`, no findings, or connection errors during verify.
+
+**Fix:**
+
+1. Start your dev server (`npm run dev` or equivalent)
+2. Confirm the URL works in your browser
+3. Pass the URL explicitly: `/lamina-verify http://localhost:3000`
+4. Check for port mismatches (3000 vs 3001)
+
+For the HavenStay demo:
+
+```bash
+cd demo/hotel-booking-with-lamina
+npm install && npm run db:setup && npm run dev
+```
+
+## Contract vs product fixes
+
+**Symptom:** Unsure whether to change app code or re-design.
+
+| `fix_target` | What to do |
+|--------------|------------|
+| `product` or unset | Your coding agent fixes app code from `fix.md` |
+| `contract` | Re-run `/lamina-design` with scoped update |
+
+Example contract gap: the design specified an approval gate that was never in `run.yaml`. Fix the contract, not just the app.
+
+See [Working with findings](/docs/guides/working-with-findings).
+
+## Validation errors
+
+**Symptom:** `node lib/validate-run.mjs` reports schema errors.
+
+**Fix:**
+
+1. Read the error output — it lists invalid fields
+2. Compare against [run.yaml schema](/docs/reference/run-yaml-schema)
+3. Re-run `/lamina-design` to regenerate, or fix `run.yaml` manually
+
+## .gitignore guidance
+
+Lamina artifacts are design docs. Whether to commit `.lamina/` depends on your team:
+
+| Approach | When |
+|----------|------|
+| Commit `.lamina/` | Team wants shared contracts and verify history |
+| Gitignore `.lamina/` | Personal design experiments; regenerate locally |
+
+Suggested `.gitignore` entry if excluding:
+
+```gitignore
+.lamina/
+```
+
+## Next steps
+
+- [Installation](/docs/getting-started/installation) — install and verify setup
+- [First run](/docs/getting-started/first-run) — expected timeline and artifacts
+- [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield) — existing vs new projects
