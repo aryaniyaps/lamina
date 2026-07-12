@@ -62,9 +62,11 @@ The site is served under `/docs` via `basePath` in `next.config.mjs`, so product
 
 ### Multi-zone (landing + docs)
 
-The marketing homepage lives in a **separate** Next.js repo that routes `/docs/*` to this app. After deploying docs, apply landing-zone changes documented in [`LANDING_ZONE.md`](./LANDING_ZONE.md) (sitemap index, `llms.txt` / `llms-full.txt`, performance, headers).
+The marketing homepage lives in a **separate** Next.js repo that routes `/docs/*` to this app. It also proxies `/llms.txt` and `/llms-full.txt` to this deployment via `beforeFiles` rewrites.
 
-`pnpm build` generates `generated/llms.txt` and `generated/llms-full.txt` — copy both to the landing app `public/` directory.
+`pnpm build` runs `scripts/generate-llms.mjs` first, writing `public/llms.txt` and `public/llms-full.txt`. With `basePath: /docs`, they are served at `/docs/llms.txt` and `/docs/llms-full.txt`. The landing zone proxies `lamina.dev/llms.txt` to those paths — no copy step on landing.
+
+Other landing-zone changes (sitemap index, performance, headers): [`LANDING_ZONE.md`](./LANDING_ZONE.md).
 
 ## Notes
 

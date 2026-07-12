@@ -1,2 +1,4 @@
 .vercel
 generated
+public/llms.txt
+public/llms-full.txt

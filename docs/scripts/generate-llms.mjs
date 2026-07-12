@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Generates llms.txt and llms-full.txt for the landing-page zone.
- * Output lands in docs/generated/ — copy to the landing app public/ directory.
+ * Generates llms.txt and llms-full.txt into docs/public/.
+ * Served at /docs/llms*.txt via basePath. Landing zone proxies lamina.dev/llms*.txt here.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const contentDir = path.join(root, "content");
-const outDir = path.join(root, "generated");
+const publicDir = path.join(root, "public");
 
 const DOMAIN = "https://lamina.dev";
 
@@ -161,8 +161,10 @@ ${page.body}
   .join("\n\n")}
 `;
 
-fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, "llms.txt"), llmsTxt);
-fs.writeFileSync(path.join(outDir, "llms-full.txt"), llmsFullTxt);
+fs.mkdirSync(publicDir, { recursive: true });
+fs.writeFileSync(path.join(publicDir, "llms.txt"), llmsTxt);
+fs.writeFileSync(path.join(publicDir, "llms-full.txt"), llmsFullTxt);
 
-console.log(`Wrote ${pages.length} pages to ${outDir}/llms.txt and llms-full.txt`);
+console.log(
+  `Wrote ${pages.length} pages to public/llms.txt and public/llms-full.txt`,
+);

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
-    "build": "next build",
-    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind && node scripts/generate-llms.mjs",
+    "dev": "node scripts/generate-llms.mjs && next dev --port 3001",
+    "build": "node scripts/generate-llms.mjs && next build",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
     "start": "next start --port 3001",
     "lint": "eslint",
     "postinstall": "patch-package"
