@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # Per-run artifacts
 
-Each Lamina run writes artifacts to `.lamina/runs/<run_id>/`. This page describes per-run files. For project-wide files, see [Global artifacts](/docs/reference/global-artifacts).
+Each Lamina run writes artifacts to `.lamina/runs/<run_id>/`. This page describes per-run files. For project-wide files, see [Global artifacts](/reference/global-artifacts).
 
 ## Quick path
 
@@ -29,7 +29,7 @@ Each Lamina run writes artifacts to `.lamina/runs/<run_id>/`. This page describe
 ```
 
 <Callout type="info">
-**Advanced:** `run.yaml` is the machine contract — not metadata. It holds entities, workflows, scenarios, dependencies, and findings. See [run.yaml schema](/docs/reference/run-yaml-schema) for the full field reference.
+**Advanced:** `run.yaml` is the machine contract — not metadata. It holds entities, workflows, scenarios, dependencies, and findings. See [run.yaml schema](/reference/run-yaml-schema) for the full field reference.
 </Callout>
 
 ## run.yaml
@@ -145,6 +145,6 @@ A run with `status: complete` and open findings in `findings[]` still needs prod
 
 ## Next steps
 
-- [Global artifacts](/docs/reference/global-artifacts) — `business-context.md`, `personas.yaml`, `decisions.md`
-- [run.yaml schema](/docs/reference/run-yaml-schema) — full field reference
-- [Validation](/docs/reference/validation) — validate contracts with `node lib/validate-run.mjs`
+- [Global artifacts](/reference/global-artifacts) — `business-context.md`, `personas.yaml`, `decisions.md`
+- [run.yaml schema](/reference/run-yaml-schema) — full field reference
+- [Validation](/reference/validation) — validate contracts with `node lib/validate-run.mjs`

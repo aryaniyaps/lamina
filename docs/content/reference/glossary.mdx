@@ -11,13 +11,13 @@ Definitions for terms used across Lamina documentation. Terms link to deeper pag
 
 A role that interacts with the product — e.g. traveler, hotel operator, admin. Actors have goals, permissions, and distinct workflows. Defined in `.lamina/personas.yaml` during `/lamina-init` and referenced in `run.yaml`.
 
-See [Personas](/docs/concepts/personas) and [Global artifacts](/docs/reference/global-artifacts).
+See [Personas](/concepts/personas) and [Global artifacts](/reference/global-artifacts).
 
 ## Brownfield
 
 An existing codebase with a running product. Lamina reads the repo, walks the live UI, and may verify without a prior design run. Contrast with [greenfield](#greenfield).
 
-See [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield).
+See [Brownfield and greenfield](/concepts/brownfield-and-greenfield).
 
 ## Business context
 
@@ -31,13 +31,13 @@ Run status set by `/lamina-verify` when persona walks finish. A run can be `comp
 
 The complete product behavior specification for a run. Composed of `run.yaml` (machine contract) and `implement.md` (build handoff). Your agent implements the contract; Lamina verifies against it.
 
-See [Contracts & runs](/docs/concepts/contracts-and-runs).
+See [Contracts & runs](/concepts/contracts-and-runs).
 
 ## Dependency
 
 A reachability rule in `domain.dependencies[]`. If workflow A requires entity B in state X and B is unreachable, A fails — not as an ad-hoc edge case but as a structural dependency violation.
 
-See [run.yaml schema](/docs/reference/run-yaml-schema).
+See [run.yaml schema](/reference/run-yaml-schema).
 
 ## Designing
 
@@ -47,7 +47,7 @@ Initial run status during `/lamina-design`. The contract is in progress — enti
 
 Invoking `/lamina` with a focused question routes to a single capability skill (e.g. invariants, error handling) without a full design run.
 
-See [/lamina command](/docs/commands/lamina).
+See [/lamina command](/commands/lamina).
 
 ## Domain
 
@@ -61,7 +61,7 @@ Synonym for [business context](#business-context). The output of `/lamina-init`.
 
 A product behavior gap discovered during `/lamina-verify`. Recorded in `findings[]` on `run.yaml` and summarized in `fix.md` with expected vs observed behavior.
 
-See [Working with findings](/docs/guides/working-with-findings).
+See [Working with findings](/guides/working-with-findings).
 
 ## fix_target
 
@@ -94,7 +94,7 @@ Prerequisite enforced by Lamina: `/lamina-design` and `/lamina-verify` require a
 
 A verification pass where a subagent navigates your live application as a specific actor, checking workflows and invariants against the contract. One subagent per primary actor during `/lamina-verify`.
 
-See [Personas](/docs/concepts/personas).
+See [Personas](/concepts/personas).
 
 ## ready_to_build
 
@@ -128,10 +128,10 @@ Evidence captured in `.lamina/runs/<id>/walkthrough/` during verify — screensh
 
 A sequence of operations an actor follows to accomplish a goal — e.g. traveler checkout: search → select room → hold → pay → confirm. Workflows reference dependencies via `requires[]` and steps via `operation`.
 
-See [The loop](/docs/concepts/the-loop).
+See [The loop](/concepts/the-loop).
 
 ## Next steps
 
-- [Per-run artifacts](/docs/reference/artifacts) — file reference
-- [run.yaml schema](/docs/reference/run-yaml-schema) — complete field reference
-- [Skill map](/docs/reference/skill-map) — capability skills behind Lamina
+- [Per-run artifacts](/reference/artifacts) — file reference
+- [run.yaml schema](/reference/run-yaml-schema) — complete field reference
+- [Skill map](/reference/skill-map) — capability skills behind Lamina

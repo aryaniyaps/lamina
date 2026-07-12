@@ -4,6 +4,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { getPageMap } from "nextra/page-map";
 import { Head } from "nextra/components";
+import { JsonLd } from "@/components/json-ld";
+import { OG_IMAGE, buildSiteJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 import "nextra-theme-docs/style.css";
@@ -22,11 +24,42 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE.domain),
   title: {
-    default: `Docs — ${SITE.name}`,
+    default: `${SITE.name} Docs — Product design skill for AI coding agents`,
     template: `%s — ${SITE.name} docs`,
   },
   description: SITE.description,
+  alternates: {
+    canonical: "/docs",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    siteName: `${SITE.name} docs`,
+    title: `${SITE.name} Docs — Product design skill for AI coding agents`,
+    description: SITE.description,
+    url: "/docs",
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: `${SITE.name}: Design how it works.`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@aryaniyaps",
+    creator: "@aryaniyaps",
+    title: `${SITE.name} Docs — Product design skill for AI coding agents`,
+    description: SITE.description,
+    images: [OG_IMAGE],
+  },
   icons: {
     icon: "/brand/favicon-16.svg",
   },
@@ -49,7 +82,7 @@ const navbar = (
   >
     <a
       href={SITE.domain}
-      className="text-sm font-medium text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink)]"
+      className="docs-nav-home text-sm font-medium text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink)]"
     >
       Home
     </a>
@@ -77,8 +110,11 @@ export default async function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} nextra-docs h-full`}
       suppressHydrationWarning
     >
-      <Head faviconGlyph="◆" />
+      <Head faviconGlyph="◆">
+        <link rel="llms-txt" href={`${SITE.domain}/llms.txt`} />
+      </Head>
       <body className="min-h-full antialiased">
+        <JsonLd data={buildSiteJsonLd()} />
         <Layout
           navbar={navbar}
           footer={footer}

@@ -60,6 +60,12 @@ Leave the framework preset as **Next.js**. Vercel will pick up `next` from `docs
 
 The site is served under `/docs` via `basePath` in `next.config.mjs`, so production URLs look like `https://lamina.dev/docs/getting-started/quickstart`.
 
+### Multi-zone (landing + docs)
+
+The marketing homepage lives in a **separate** Next.js repo that routes `/docs/*` to this app. After deploying docs, apply landing-zone changes documented in [`LANDING_ZONE.md`](./LANDING_ZONE.md) (sitemap index, `llms.txt` / `llms-full.txt`, performance, headers).
+
+`pnpm build` generates `generated/llms.txt` and `generated/llms-full.txt` — copy both to the landing app `public/` directory.
+
 ## Notes
 
 - `postinstall` applies `patches/nextra-theme-docs+4.6.1.patch` via [patch-package](https://github.com/ds300/patch-package).

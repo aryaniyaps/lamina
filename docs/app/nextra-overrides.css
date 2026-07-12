@@ -103,3 +103,32 @@
   color: var(--ink);
   font-weight: 500;
 }
+
+/* WCAG 2.5.5 — minimum 44px tap targets on mobile header controls */
+.nextra-navbar nav a,
+.nextra-navbar nav button,
+.nextra-navbar .docs-nav-home {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.75rem;
+}
+
+.nextra-navbar nav a:has(svg[height="24"]) {
+  padding-inline: 0.625rem;
+}
+
+.nextra-content :is(button, [role="button"]) {
+  min-height: 44px;
+  padding-block: 0.625rem;
+  padding-inline: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .nextra-content h1 + div :is(button, [role="button"]) {
+    min-height: 36px;
+    padding-block: 0.375rem;
+  }
+}

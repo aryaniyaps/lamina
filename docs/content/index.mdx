@@ -1,6 +1,6 @@
 ---
-title: Introduction
-description: Headless product-design skill for AI coding agents — design how it works
+title: Product design skill for AI coding agents
+description: Lamina is a headless product-design skill for AI coding agents. Spec states, edges, and flows into a contract your agent implements, then verifies with persona walks.
 ---
 
 # Design how it works.
@@ -8,6 +8,18 @@ description: Headless product-design skill for AI coding agents — design how i
 Lamina is a headless product-design skill for AI coding agents. It specs how your app **works** — states, roles, flows, edge cases, permission matrices — into a contract your agent implements, then verifies your live build with parallel persona walks.
 
 UI skills dress the app. Lamina designs how it behaves.
+
+## Who it's for
+
+Lamina is for developers who build with AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi) and want product behavior designed before app code ships. You keep your stack, UI library, and agent — Lamina adds a design → implement → verify loop that catches impossible states, skipped dependencies, and dead-end flows that UI-only skills miss.
+
+**Outcomes you should expect:**
+
+- A machine-readable contract (`run.yaml`) your agent implements from `implement.md`
+- Parallel persona walks that surface product gaps before users do
+- A fix loop (`fix.md` → agent fixes → re-verify) until the contract holds
+
+See the [HavenStay demo](/guides/demo-havenstay) for a side-by-side build with and without Lamina.
 
 ## Quick path
 
@@ -40,12 +52,12 @@ npx skills install aryaniyaps/lamina
 
 | You are… | Start here |
 |----------|------------|
-| New to Lamina | [Quickstart](/docs/getting-started/quickstart) |
-| Installing in your agent | [Installation](/docs/getting-started/installation) |
-| Working on an existing app | [Brownfield and greenfield](/docs/concepts/brownfield-and-greenfield) |
-| Need schema details | [run.yaml schema](/docs/reference/run-yaml-schema) |
-| Exploring the demo | [Demo: HavenStay](/docs/guides/demo-havenstay) |
-| Pairing with other tools | [What to pair](/docs/guides/pair-with) |
+| New to Lamina | [Quickstart](/getting-started/quickstart) |
+| Installing in your agent | [Installation](/getting-started/installation) |
+| Working on an existing app | [Brownfield and greenfield](/concepts/brownfield-and-greenfield) |
+| Need schema details | [run.yaml schema](/reference/run-yaml-schema) |
+| Exploring the demo | [Demo: HavenStay](/guides/demo-havenstay) |
+| Pairing with other tools | [What to pair](/guides/pair-with) |
 
 ## What Lamina is not
 
@@ -55,12 +67,12 @@ npx skills install aryaniyaps/lamina
 
 ## Fits your stack
 
-Lamina slots into whatever you already use — any AI coding tool, framework, database, language, and UI library. See [Any stack](/docs/concepts/what-is-lamina#any-stack).
+Lamina slots into whatever you already use — any AI coding tool, framework, database, language, and UI library. See [Any stack](/concepts/what-is-lamina#any-stack).
 
 ## Get started
 
-- [Installation](/docs/getting-started/installation) — install in Cursor, Claude Code, Codex, or Pi
-- [Quickstart](/docs/getting-started/quickstart) — run the full loop in minutes
-- [What is Lamina?](/docs/concepts/what-is-lamina) — behavior vs pixels, comparisons
+- [Installation](/getting-started/installation) — install in Cursor, Claude Code, Codex, or Pi
+- [Quickstart](/getting-started/quickstart) — run the full loop in minutes
+- [What is Lamina?](/concepts/what-is-lamina) — behavior vs pixels, comparisons
 
 Source: [github.com/aryaniyaps/lamina](https://github.com/aryaniyaps/lamina) (MIT)
