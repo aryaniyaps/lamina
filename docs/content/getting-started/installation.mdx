@@ -1,0 +1,55 @@
+---
+title: Installation
+description: Install the Lamina skill in your AI coding agent
+---
+
+# Installation
+
+Lamina works with any AI coding agent and any stack. Install once, then invoke with slash commands or natural language.
+
+## Quick install
+
+```bash
+npx skills install aryaniyaps/lamina
+```
+
+## Agent-specific installs
+
+### Cursor
+
+```bash
+npx skills add https://github.com/aryaniyaps/lamina -a cursor -y
+```
+
+### Claude Code
+
+```bash
+npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y
+```
+
+### Codex / Pi / Generic
+
+```bash
+npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
+```
+
+## Prerequisites
+
+- An AI coding agent (Cursor, Claude Code, Codex, Gemini, Pi, or similar)
+- Any framework, database, and UI library — Lamina is stack-agnostic
+
+## Verify the install
+
+Run the router command in your agent session:
+
+```
+/lamina
+```
+
+You should see available Lamina commands. Then try [Quickstart](/docs/getting-started/quickstart) or read [First Run](/docs/getting-started/first-run).
+
+## Source
+
+Lamina is MIT-licensed and open source: [github.com/aryaniyaps/lamina](https://github.com/aryaniyaps/lamina)
+
+Command behavior may evolve — the repo is the authoritative reference for the latest skill definitions.

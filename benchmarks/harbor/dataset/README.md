@@ -2,8 +2,8 @@
 
 LaminaBench v1 — SkillsBench-paired product implementation benchmark.
 
-- **25 tasks** across greenfield, OSS feature, OSS audit, workflow edge, and resilience categories
-- **50 Harbor tasks** (`taskNNN-control` + `taskNNN-treatment`) for paired evaluation
+- **10 tasks** across greenfield, OSS feature, OSS audit, workflow edge, and resilience categories (2 per category)
+- **20 Harbor tasks** (`taskNNN-control` + `taskNNN-treatment`) for paired evaluation
 - **Control:** fixture + `instruction.md` only (no Lamina skills)
 - **Treatment:** same brief + Lamina skills + workflow `AGENTS.md`/`CLAUDE.md`
 
@@ -26,4 +26,4 @@ npm run bench:harbor:publish
 
 Answer `y` when Harbor asks to confirm making tasks public.
 
-The publish script uploads tasks from `benchmarks/harbor/tasks/`, then publishes `dataset.toml` (no symlinks — Harbor rejects out-of-tree paths).
+The publish script uploads tasks from `benchmarks/harbor/tasks/`, refreshes `dataset.toml` digests from the registry (`harbor sync --upgrade`), then publishes the dataset manifest.

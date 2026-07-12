@@ -1,0 +1,8 @@
+<svg width="200" height="48" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="lamina">
+  <title>lamina</title>
+  <g transform="translate(4 6) scale(0.047244)" fill="none" stroke="#09090B" stroke-width="64">
+    <path d="M384.428 107.547C448.953 142.948 472.564 223.954 437.163 288.48L277.114 580.197L160.28 516.097C95.7552 480.696 72.1457 399.69 107.547 335.165L267.595 43.4471L384.428 107.547Z"/>
+    <path d="M586.919 602.257C550.447 666.183 469.059 688.44 405.132 651.969L156.324 510.02L222.361 394.27C258.832 330.344 340.221 308.087 404.148 344.558L652.955 486.508L586.919 602.257Z"/>
+  </g>
+  <text x="46.8" y="32" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="600" letter-spacing="-0.04em" fill="#09090B">lamina</text>
+</svg>

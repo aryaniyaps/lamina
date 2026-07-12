@@ -1,0 +1,100 @@
+---
+title: Quickstart
+description: Run the Lamina design → implement → verify loop
+---
+
+# Quickstart
+
+This walkthrough uses an exam hall ticket system as the domain. The same loop applies to any product.
+
+## 1. Domain charter
+
+Scope the product domain before design:
+
+```
+/lamina-init Exam hall ticket system for universities
+```
+
+Lamina writes a domain charter — entities, actors, and boundaries for what you're building.
+
+## 2. Design contract
+
+Turn the domain into a build-ready contract:
+
+```
+/lamina-design Hall ticket download with payment gate and venue assignment
+```
+
+Output lands in `.lamina/runs/<id>/`:
+
+- `run.yaml` — contract metadata and status
+- `implement.md` — handoff for your coding agent
+
+Status becomes `ready_to_build` when the contract is complete.
+
+## 3. Implement
+
+Hand `implement.md` to your coding agent. **Lamina never writes app source** — your agent builds from the contract using your stack.
+
+```
+# … build with your coding agent from implement.md …
+```
+
+## 4. Verify
+
+Run persona walks against your live app:
+
+```
+/lamina-verify
+```
+
+Lamina dispatches parallel subagents as real actors. Findings go to `fix.md` when behavior doesn't match the contract.
+
+## 5. Fix
+
+Hand `fix.md` to your coding agent:
+
+```
+# … fix product issues from fix.md with your coding agent …
+```
+
+## 6. Re-verify
+
+```
+/lamina-verify
+```
+
+Loop until the contract holds and there are zero open findings.
+
+## Session shape
+
+A typical agent session looks like this:
+
+```json
+{
+  "role": "user",
+  "message": {
+    "content": [{ "type": "text", "text": "/lamina-design guest checkout — hold, pay, cancel" }]
+  }
+}
+```
+
+```json
+{
+  "role": "assistant",
+  "message": {
+    "content": [{ "type": "text", "text": "Contract ready → .lamina/runs/a3f2/" }]
+  }
+}
+```
+
+```json
+{
+  "role": "user",
+  "message": {
+    "content": [{ "type": "text", "text": "/lamina-verify" }]
+  }
+}
+```
+
+Next: [First Run](/docs/getting-started/first-run) for a deeper walkthrough of what appears in `.lamina/`.

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HARBOR_TASKS = path.join(ROOT, 'benchmarks/harbor/tasks');
 
-const r = spawnSync('node', ['benchmarks/scripts/harbor-sync.mjs', '--tasks', 'task001,task006'], {
+const r = spawnSync('node', ['benchmarks/scripts/harbor-sync.mjs', '--tasks', 'task001,task003'], {
   cwd: ROOT,
   encoding: 'utf8',
 });
@@ -32,7 +32,7 @@ if (fs.existsSync(controlAgents)) {
 const treatmentAgents = fs.readFileSync(path.join(treatment, 'environment/workspace/AGENTS.md'), 'utf8');
 assert.ok(/\/lamina-init/i.test(treatmentAgents), 'treatment AGENTS.md must prescribe workflow');
 
-const ossTreatment = path.join(HARBOR_TASKS, 'task006-treatment', 'environment/workspace/AGENTS.md');
+const ossTreatment = path.join(HARBOR_TASKS, 'task003-treatment', 'environment/workspace/AGENTS.md');
 if (fs.existsSync(ossTreatment)) {
   const ossAgents = fs.readFileSync(ossTreatment, 'utf8');
   assert.ok(/\/lamina-init/i.test(ossAgents), 'OSS treatment must prepend Lamina workflow');
@@ -58,6 +58,8 @@ const testSh = fs.readFileSync(path.join(control, 'tests/test.sh'), 'utf8');
 assert.ok(/rewardkit/.test(testSh), 'test.sh must invoke rewardkit');
 
 const taskToml = fs.readFileSync(path.join(control, 'task.toml'), 'utf8');
+assert.ok(/\[task\]/.test(taskToml), 'task.toml must include [task] section for Harbor publish');
+assert.ok(/name = "aryaniyaps\/task001-control"/.test(taskToml), 'task.toml must set Harbor task name');
 assert.ok(/\[verifier\.env\]/.test(taskToml), 'task.toml must pass verifier env for Rewardkit judge');
 
 const dockerfile = fs.readFileSync(path.join(control, 'environment/Dockerfile'), 'utf8');
@@ -71,6 +73,6 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_b_skillsbench_paired');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "1.1.0"'));
+assert.ok(release.includes('results_contract_version: "1.2.0"'));
 
 console.log('harbor_sync_test: ok');

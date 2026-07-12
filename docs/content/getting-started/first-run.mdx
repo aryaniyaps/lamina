@@ -1,0 +1,60 @@
+---
+title: First Run
+description: What to expect on your first Lamina run
+---
+
+# First Run
+
+Your first Lamina run should take minutes, not hours. Here's what happens when you design a guest checkout flow.
+
+## Example domain
+
+```
+/lamina-init Short-term rental marketplace for property hosts
+/lamina-design Guest checkout with inventory hold, payment, and cancellation
+```
+
+## What appears in `.lamina/`
+
+After `/lamina-design`, inspect `.lamina/runs/<id>/`:
+
+| File | Purpose |
+|------|---------|
+| `run.yaml` | Contract metadata, status, domain summary |
+| `implement.md` | Build handoff — actors, states, flows, invariants |
+| `session.jsonl` | Agent session transcript for this run |
+
+After `/lamina-verify`:
+
+| File | Purpose |
+|------|---------|
+| `fix.md` | Product gaps found during persona walks (if any) |
+
+## What `ready_to_build` means
+
+When `run.yaml` status is `ready_to_build`, the contract is complete enough for your agent to implement:
+
+- Actors and roles are defined
+- States and transitions are specified
+- Edge cases and recovery paths are enumerated
+- Permission matrix covers who can do what
+
+You don't need a perfect spec — you need a contract your agent can implement and Lamina can verify against.
+
+## Expected timeline
+
+| Step | Time |
+|------|------|
+| `/lamina-init` | ~1–2 minutes |
+| `/lamina-design` | ~3–10 minutes depending on domain complexity |
+| Your agent implements | Varies by stack |
+| `/lamina-verify` | ~2–5 minutes |
+| Fix + re-verify | Repeat until clean |
+
+## Tips
+
+- Start with one flow (e.g. guest checkout), not the whole product
+- Use natural language — Lamina understands domain descriptions, not just feature lists
+- Keep `.lamina/` out of your app source — it's design artifacts, not application code
+
+See [Contracts & Runs](/docs/concepts/contracts-and-runs) for artifact details.

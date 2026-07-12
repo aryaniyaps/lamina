@@ -1,0 +1,7 @@
+# LaminaBench composite scoring (Design B).
+# Dimensions: golden_coverage/ + llm_judge/ (equal reward_weight via [judge].weight).
+# finalize_reward.py applies artifact_valid + clarify_stall gates on top of composite.
+
+[[reward]]
+name = "composite"
+aggregation = "weighted_mean"

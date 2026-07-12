@@ -1,55 +1,60 @@
 # LaminaBench judge context
 
 ## Task description
-Design and implement saved searches in the catalog as a complete feature: domain model, illegal states, actors and permissions, save/rerun/alert workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.
+Design and implement a complete product for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.
 
 ## Golden reference checklist
 Concepts to look for in code; identifiers, comments, logic, and tests all count.
 
 ### required_entities
-- saved_search
-- filter
-- product
-- notification
+- document
+- edit_operation
+- sync_queue
+- conflict
 
 ### required_invariants
-- max_saved_searches_enforced
-- filter_snapshot_immutable_until_edit
+- no_data_loss_on_reconnect
+- conflict_resolution_policy_defined
+- offline_indicator_always_visible
 
 ### required_personas
-- frequent_shopper
-- b2b_buyer
+- frequent_editor
+- occasional_viewer
 
 ### required_flows
-- save_search
-- run_saved_search
-- edit_saved_search
-- notification_opt_in
+- edit_offline
+- reconnect_sync
+- conflict_resolution
+- view_offline
 
 ### required_rules
-- max_saved_searches
-- notification_frequency
+- offline_indicator
+- sync_queue
+- conflict_policy
 
 ### required_scenarios
-- no_new_matches_notification
-- filter_deprecated_handling
-- duplicate_name_prevention
+- extended_offline_queue_overflow
+- conflicting_edits_merge
+- auth_expired_offline_recovery
 
 ### required_edge_cases
-- no_new_matches
-- filter_deprecated
-- duplicate_name
+- extended_offline
+- conflicting_edits
+- storage_full
+- auth_expired_offline
 
 ### required_a11y
-- search_results_announcement
-- filter_state_persistence
+- status_announcements
+- offline_mode_screen_reader
 
 ### required_tradeoffs
-- notification_frequency_vs_relevance
+- last_write_wins_vs_manual_merge
+- queue_size_vs_storage
 
 ### required_sections
 - domain model and illegal states
 - actors and permissions
 - workflows and decision points
 - edge cases and recovery
+- recovery paths
 - implementation brief

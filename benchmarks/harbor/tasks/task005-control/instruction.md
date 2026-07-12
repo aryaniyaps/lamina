@@ -1,32 +1,29 @@
-# Habit-Focused Fitness Tracker
+# Checkout Flow Audit
 
-Design and implement a full fitness product that prioritizes sustainable habits over competitive metrics — not a streak counter demo. Cover habit setup, daily check-ins, forgiving streaks, opt-in accountability, and recovery flows as one product.
+Audit the Vercel Commerce checkout path for product-behavior gaps, then implement the highest-priority fixes in code.
 
-## Requirements
+## Scope
 
-- Domain: habit, check-in, streak, friend connection, challenge, notification preference
-- No public leaderboards; social features are opt-in only
-- Streaks use a forgiveness policy (missed days recoverable) — never punitive wipeouts as the default
-- Primary flows: habit setup, daily check-in, streak recovery, optional friend challenge, pause/resume habit
-- Secondary surfaces: habit detail, friend list, declined-request handling, health-sync failure recovery, accessibility settings
-- Handle health-sync failures and declined friend requests gracefully
-- No weight-focused default dashboards; support reduced-motion and VoiceOver labels
+- Cart review → shipping → payment → order confirmation
+- Guest and authenticated checkout
+- Totals consistency, payment-before-confirm, address validation, declined payment recovery
+- Session timeout mid-checkout, idempotency risks, form accessibility (labels, errors, keyboard)
 
 ## Deliverable
 
-A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable habit + social surface. Do not stop at a single-screen or thin demo stub.
+- Findings covering invariant violations, state consistency, permission gaps, error recovery, and idempotency
+- Prioritized fixes; implement the highest-priority fixes that harden checkout behavior across the audit scope
 
 ## Context
 
 ## Business goals
-60-day retention above 40%; differentiate from metric-heavy competitors through low-pressure habit formation.
+Reduce checkout abandonment and payment-support tickets caused by inconsistent totals, failed recovery, and unclear errors.
 
 ## Users
-- Beginners intimidated by gym culture (25–55)
-- Returning athletes rebuilding consistency
-- Accountability partners (close friends only)
+- First-time buyers (often guest checkout)
+- Returning customers with saved details
 
 ## Constraints
-- Integrates with Apple Health / Google Fit
-- No public leaderboards; privacy-first social
-- Trade-offs: accountability vs pressure; streak motivation vs forgiveness
+- Brownfield Next.js Commerce; review source and any `.lamina/` flow inventory if present
+- Do not redesign the entire storefront — fix checkout behavior gaps
+- Payment must be required before confirmation; order total must match line items

@@ -1,30 +1,29 @@
-# Recurring Tasks for Plane
+# Document Sharing Audit
 
-Design and implement recurring issues in Plane that fit existing projects, cycles, assignees, and permissions.
+Audit Outline document sharing and permissions for product-behavior gaps, then implement the highest-priority fixes in code.
 
-## Requirements
+## Scope
 
-- Create a recurring issue series (daily, weekly, monthly, custom) that spawns occurrences
-- Complete vs skip a single occurrence; edit series vs single occurrence; end recurrence
-- One occurrence per schedule slot; assignees inherit from the series; respect project permissions
-- Handle timezone display, cycle-boundary conflicts, deleted projects, and permission-denied occurrences
-- Show recurrence clearly in list and detail views without breaking Kanban/List patterns
-- Keyboard shortcuts and screen-reader-friendly recurrence descriptions
+- Share dialog, permission levels, collection vs document permissions, public links
+- Inheritance bounds (document permissions bounded by collection), immediate revocation
+- Permission downgrade propagation, link leak after revoke, access after document move
+- Share-dialog focus and visible permission status
 
 ## Deliverable
 
-A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
+- Findings on inheritance gaps, invariant violations, revocation failures, multi-view inconsistency
+- Prioritized fixes; implement the highest-priority fixes that harden sharing invariants across the audit scope
 
 ## Context
 
 ## Business goals
-Reduce repetitive issue creation for team leads running standup rituals, releases, and ops checklists inside Plane.
+Stop accidental data exposure from sharing/permission bugs while keeping collaboration usable.
 
 ## Users
-- Team leads creating and managing series
-- Individual contributors completing or skipping occurrences
+- Authors sharing documents
+- Viewers and workspace admins managing access
 
 ## Constraints
-- Brownfield: must fit Plane's issue states, cycles, modules, labels, and project permissions
-- See product-context.md in the workspace for existing UX (sidebar, Kanban/List)
-- Trade-offs: series edit vs single-occurrence edit; timezone consistency vs local display
+- Brownfield Outline collections, documents, and granular permissions
+- Revoked access and expired/public links must not continue to work
+- Audit inheritance conflicts between collection and document levels

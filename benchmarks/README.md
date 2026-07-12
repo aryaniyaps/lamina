@@ -89,7 +89,7 @@ benchmarks/
 
 ## Corpus (v1)
 
-25 tasks × 2 arms × **1 run** (dev default) = **50 Harbor trials**. For publishable replication use `--runs 3` (150 trials). See [METHODOLOGY.md](METHODOLOGY.md) for scoring and aggregation.
+10 tasks × 2 arms × **1 run** (dev default) = **20 Harbor trials**. For publishable replication use `--runs 3` (60 trials). See [METHODOLOGY.md](METHODOLOGY.md) for scoring and aggregation.
 
 ## Harbor runner flags
 

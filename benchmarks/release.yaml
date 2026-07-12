@@ -3,7 +3,7 @@ release_tag: bench-v1
 created: "2026-07-11"
 harness_version: "1.0.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "1.1.0"
+results_contract_version: "1.2.0"
 
 # Harbor runner — see benchmarks/METHODOLOGY.md (Design B)
 runner: harbor
@@ -18,10 +18,10 @@ max_tokens: 8192
 runs_per_arm: 1
 # Target for publishable results (SkillsBench-style replication); use --runs 3 at release time.
 runs_per_arm_publish: 3
-tasks_total: 25
+tasks_total: 10
 trials_per_task: 2
-# 25 tasks × 2 arms × runs_per_arm (default 1 → 50 trials; publish with 3 → 150)
-trials_total: 50
+# 10 tasks × 2 arms × runs_per_arm (default 1 → 20 trials; publish with 3 → 60)
+trials_total: 20
 
 # Agent timeout for one continuous rollout (seconds)
 agent_timeout_sec: 5400

@@ -1,8 +1,0 @@
-{
-  "task_id": "task018",
-  "arm": "control",
-  "category": "workflow_edge",
-  "workflow": "design",
-  "prompt": "Design and implement a complete product for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
-  "fixture": null
-}

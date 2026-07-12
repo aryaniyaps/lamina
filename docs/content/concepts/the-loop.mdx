@@ -1,0 +1,62 @@
+---
+title: The Loop
+description: Design → Implement → Verify → Fix
+---
+
+# The Loop
+
+Lamina's workflow is a closed loop: design the contract, implement with your agent, verify against the live app, fix gaps, re-verify.
+
+```text
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   DESIGN    │ ──▶ │  IMPLEMENT  │ ──▶ │   VERIFY    │ ──▶ │     FIX     │
+│   Lamina    │     │  Your agent │     │   Lamina    │     │  Your agent │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+       ▲                                                            │
+       └──────────────────── RE-VERIFY ◀────────────────────────────┘
+```
+
+## Ownership
+
+| Step | Owner | Command / action |
+|------|-------|------------------|
+| Design | **Lamina** | `/lamina-init`, `/lamina-design` |
+| Implement | **Your agent** | Build from `implement.md` |
+| Verify | **Lamina** | `/lamina-verify` |
+| Fix | **Your agent** | Apply `fix.md` |
+| Re-verify | **Lamina** | `/lamina-verify` again |
+
+## Design phase
+
+Lamina models the domain:
+
+1. **Entities and states** — what exists and what state it's in
+2. **Actors and roles** — who interacts with the product
+3. **Workflows** — primary paths, alternate paths, side effects
+4. **UX surfaces** — flows tied to domain rules, not pixel specs
+5. **Scenarios** — violations, edge cases, recovery paths
+
+Output: `run.yaml` + `implement.md` with status `ready_to_build`.
+
+## Implement phase
+
+Your coding agent reads `implement.md` and writes app source. Lamina does not participate in implementation — it stays headless.
+
+## Verify phase
+
+`/lamina-verify` runs parallel persona walks:
+
+- Subagents act as real users (travelers, admins, partners)
+- Walks capture visual flows against your live app
+- Invariants are checked against the contract
+- Findings write to `fix.md`
+
+## Fix phase
+
+Your agent applies product fixes from `fix.md` — not cosmetic changes, but behavior corrections: missing states, broken transitions, permission gaps.
+
+## When the loop ends
+
+The loop completes when `/lamina-verify` reports zero open findings and the contract holds.
+
+See [Commands](/docs/commands) for per-command reference.

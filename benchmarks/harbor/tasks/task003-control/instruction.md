@@ -1,32 +1,30 @@
-# Volunteer Management Platform
+# Recurring Tasks for Plane
 
-Design and implement a full volunteer coordination product for nonprofit coordinators — not a signup form demo. Cover posting opportunities, staffing shifts, check-in, hours tracking, and certification/background-check gates as one product.
+Design and implement recurring issues in Plane that fit existing projects, cycles, assignees, and permissions.
 
 ## Requirements
 
-- Domain: organization, opportunity, shift, volunteer, certification, background-check status, hours record
-- Enforce shift capacity, minimum age, and background-check-before-assignment
-- Primary flows: post opportunity, volunteer signup, on-site check-in, hours reporting, certification renewal, coordinator staffing
-- Secondary surfaces: volunteer profile, shift roster, no-show handling, expired-certification blocks, org policy settings
-- Handle no-shows, last-minute cancels, expired certifications, and overbook prevention
-- Mobile-friendly for volunteers on-site; simple language and screen-reader support
-- Balance coordinator control vs volunteer self-serve flexibility
+- Create a recurring issue series (daily, weekly, monthly, custom) that spawns occurrences
+- Complete vs skip a single occurrence; edit series vs single occurrence; end recurrence
+- One occurrence per schedule slot; assignees inherit from the series; respect project permissions
+- Handle timezone display, cycle-boundary conflicts, deleted projects, and permission-denied occurrences
+- Show recurrence clearly in list and detail views without breaking Kanban/List patterns
+- Keyboard shortcuts and screen-reader-friendly recurrence descriptions
 
 ## Deliverable
 
-A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and usable coordinator + volunteer surfaces. Do not stop at a single-screen or thin demo stub.
+A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
 
 ## Context
 
 ## Business goals
-Increase volunteer retention by 30% and cut coordinator admin time by making signup and hours tracking self-serve.
+Reduce repetitive issue creation for team leads running standup rituals, releases, and ops checklists inside Plane.
 
 ## Users
-- Nonprofit coordinators posting and staffing shifts
-- Volunteers (ages 16–70) discovering and completing shifts
-- Organization admins setting policy (age, background checks)
+- Team leads creating and managing series
+- Individual contributors completing or skipping occurrences
 
 ## Constraints
-- Third-party background-check API; SMS shift reminders
-- Free tier for small nonprofits
-- Certifications can expire and must block assignment until renewed
+- Brownfield: must fit Plane's issue states, cycles, modules, labels, and project permissions
+- See product-context.md in the workspace for existing UX (sidebar, Kanban/List)
+- Trade-offs: series edit vs single-occurrence edit; timezone consistency vs local display

@@ -1,8 +1,0 @@
-{
-  "task_id": "task013",
-  "arm": "treatment",
-  "category": "oss_audit",
-  "workflow": "audit",
-  "prompt": "Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
-  "fixture": "outline-audit-ready"
-}

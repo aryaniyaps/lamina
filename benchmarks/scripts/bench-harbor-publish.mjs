@@ -49,8 +49,8 @@ function main() {
   run('node', ['benchmarks/scripts/harbor-sync.mjs']);
   removeDatasetTaskSymlinks();
   publishAllTasks();
-  console.log('\nRefreshing dataset task digests...');
-  run('harbor', ['sync', 'benchmarks/harbor/dataset']);
+  console.log('\nRefreshing dataset task digests from registry...');
+  run('harbor', ['sync', 'benchmarks/harbor/dataset', '--upgrade']);
   console.log(`\nPublishing dataset manifest aryaniyaps/lamina-bench@${TAG}...`);
   run('harbor', ['publish', 'benchmarks/harbor/dataset', '-t', TAG, '--public', '--no-tasks']);
   console.log(`\nPublished aryaniyaps/lamina-bench@${TAG}`);

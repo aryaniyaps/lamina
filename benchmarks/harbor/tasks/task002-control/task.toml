@@ -1,4 +1,11 @@
-version = "1.0"
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "aryaniyaps/task002-control"
+description = "LaminaBench task002 control arm (greenfield)"
+authors = [{ name = "LaminaBench" }]
+keywords = ["lamina", "skillsbench-paired", "control", "greenfield"]
 
 [metadata]
 author_name = "LaminaBench"
@@ -11,19 +18,27 @@ lamina_workflow = "design"
 
 [verifier]
 timeout_sec = 600.0
+collect = []
 
 [verifier.env]
 ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
 ANTHROPIC_AUTH_TOKEN = "${ANTHROPIC_AUTH_TOKEN}"
 ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL}"
 REWARDKIT_JUDGE = "${REWARDKIT_JUDGE}"
+LAMINA_BENCH_RUN = "${LAMINA_BENCH_RUN}"
 
 [agent]
 timeout_sec = 5400.0
 
 [environment]
+network_mode = "public"
 build_timeout_sec = 1800.0
+os = "linux"
 cpus = 2
-memory = "4G"
-storage = "10G"
-allow_internet = true
+memory_mb = 4096
+storage_mb = 10240
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]

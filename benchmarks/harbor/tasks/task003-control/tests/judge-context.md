@@ -1,65 +1,62 @@
 # LaminaBench judge context
 
 ## Task description
-Design and implement a full volunteer coordination product — not a signup demo: domain model, illegal states, actors and permissions, post/fill/check-in/hours/certification workflows, edge cases, named trade-offs, and buildable coordinator + volunteer surfaces.
+Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.
 
 ## Golden reference checklist
 Concepts to look for in code; identifiers, comments, logic, and tests all count.
 
 ### required_entities
-- opportunity
-- shift
-- volunteer
-- certification
-- organization
-- hours_record
-- background_check
+- recurring_issue
+- occurrence
+- issue
+- project
+- cycle
 
 ### required_invariants
-- shift_capacity_not_exceeded
-- background_check_before_assignment
-- min_age_enforced
+- one_occurrence_per_schedule_slot
+- assignee_inheritance_on_series
+- recurrence_respects_project_permissions
 
 ### required_personas
-- coordinator
-- volunteer
-- org_admin
+- team_lead
+- individual_contributor
 
 ### required_flows
-- post_opportunity
-- volunteer_signup
-- shift_checkin
-- hours_reporting
-- certification_renewal
-- coordinator_staffing
+- create_recurrence
+- complete_occurrence
+- skip_occurrence
+- edit_series
+- end_recurrence
 
 ### required_rules
-- background_check_required
-- min_age_requirement
-- shift_capacity
+- recurrence_end_conditions
+- timezone_handling
+- assignee_inheritance
 
 ### required_scenarios
-- no_show_handling
-- certification_expired_block
-- overbooked_shift_prevention
-- expired_cert_blocks_assignment
+- deleted_project_series_handling
+- permission_denied_occurrence
+- cycle_boundary_conflict
 
 ### required_edge_cases
-- no_show
-- certification_expired
-- overbooked_shift
-- last_minute_cancel
+- deleted_project
+- permission_denied
+- cycle_boundary
+- duplicate_occurrence
 
 ### required_a11y
-- screen_reader_support
-- simple_language_mode
+- keyboard_shortcuts
+- screen_reader_recurrence_description
 
 ### required_tradeoffs
-- coordinator_control_vs_volunteer_flexibility
+- series_edit_vs_single_occurrence_edit
+- timezone_consistency_vs_user_local_display
 
 ### required_sections
 - domain model and illegal states
 - actors and permissions
 - workflows and decision points
 - edge cases and recovery
+- tradeoffs and decisions
 - implementation brief

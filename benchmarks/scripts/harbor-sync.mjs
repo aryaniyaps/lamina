@@ -23,6 +23,7 @@ const HARBOR_ROOT = path.join(ROOT, 'benchmarks/harbor');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
 const OVERLAY_TREATMENT = path.join(HARBOR_ROOT, 'overlays/treatment');
 const VERIFIER_SRC = path.join(HARBOR_ROOT, 'verifier');
+const HARBOR_TASK_ORG = 'aryaniyaps';
 
 function parseArgs() {
   const opts = { tasks: null, agent: 'claude-code' };
@@ -35,7 +36,16 @@ function parseArgs() {
 
 function writeTaskToml(dest, { task, arm, release }) {
   const fixtureLine = task.fixture == null ? '' : `lamina_fixture = "${task.fixture}"\n`;
-  const content = `version = "1.0"
+  const taskName = `${HARBOR_TASK_ORG}/${task.id}-${arm}`;
+  const description = `LaminaBench ${task.id} ${arm} arm (${task.category})`;
+  const content = `schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "${taskName}"
+description = "${description}"
+authors = [{ name = "LaminaBench" }]
+keywords = ["lamina", "skillsbench-paired", "${arm}", "${task.category}"]
 
 [metadata]
 author_name = "LaminaBench"
@@ -48,6 +58,7 @@ lamina_workflow = "${task.workflow}"
 ${fixtureLine}
 [verifier]
 timeout_sec = ${release.verifier_timeout_sec || 600}.0
+collect = []
 
 [verifier.env]
 ANTHROPIC_API_KEY = "\${ANTHROPIC_API_KEY}"
@@ -60,11 +71,17 @@ LAMINA_BENCH_RUN = "\${LAMINA_BENCH_RUN}"
 timeout_sec = ${release.agent_timeout_sec || 5400}.0
 
 [environment]
+network_mode = "public"
 build_timeout_sec = 1800.0
+os = "linux"
 cpus = 2
-memory = "4G"
-storage = "10G"
-allow_internet = true
+memory_mb = 4096
+storage_mb = 10240
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]
 `;
   fs.writeFileSync(path.join(dest, 'task.toml'), content);
 }

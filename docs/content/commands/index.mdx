@@ -1,0 +1,38 @@
+---
+title: Commands Overview
+description: Lamina slash command reference
+---
+
+# Commands
+
+Lamina exposes four slash commands. Each maps to a phase in the design → implement → verify loop.
+
+| Command | Phase | Purpose |
+|---------|-------|---------|
+| [`/lamina`](/docs/commands) | Router | List available commands |
+| [`/lamina-init`](/docs/commands/lamina-init) | Design | Domain charter — scope the product |
+| [`/lamina-design`](/docs/commands/lamina-design) | Design | Design contract → `ready_to_build` |
+| [`/lamina-verify`](/docs/commands/lamina-verify) | Verify | Persona walks → `fix.md` |
+
+## Typical sequence
+
+```text
+/lamina-init <domain description>
+/lamina-design <feature or flow description>
+# … your agent implements from implement.md …
+/lamina-verify
+# … your agent fixes from fix.md …
+/lamina-verify
+```
+
+## Natural language
+
+You can also invoke Lamina without slash commands:
+
+> "Use Lamina to design the onboarding flow for a team collaboration app."
+
+The skill router (`/lamina`) helps discover available commands in your agent.
+
+## Authoritative source
+
+Command behavior is defined in the [Lamina skill repo](https://github.com/aryaniyaps/lamina). This docs site summarizes the workflow; the repo has the latest skill definitions.

@@ -1,8 +1,8 @@
 {
   "task_id": "task009",
   "arm": "treatment",
-  "category": "oss_feature",
+  "category": "resilience",
   "workflow": "design",
-  "prompt": "Design and implement saved searches in the catalog as a complete feature: domain model, illegal states, actors and permissions, save/rerun/alert workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.",
-  "fixture": "commerce-with-init"
+  "prompt": "Design and implement a complete product for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
+  "fixture": null
 }

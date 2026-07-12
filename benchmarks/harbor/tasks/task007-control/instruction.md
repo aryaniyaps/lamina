@@ -1,31 +1,31 @@
-# Wishlist Feature
+# Healthcare Scheduling with Insurance Rules
 
-Design and implement a wishlist on the Vercel Commerce storefront for guests and registered shoppers.
+Design and implement a complete insurance-gated scheduling product — not general clinic booking. Eligibility, prior auth, network status, and copay disclosure control whether and how a patient can book.
 
 ## Requirements
 
-- Add/remove products from wishlist while browsing; view wishlist; move items to cart (single or bulk)
-- Guest wishlist persists across the session and merges into the account wishlist on login
-- Share wishlist via link with optional privacy; support gift-buyer browsing
-- Out-of-stock items are not purchasable from wishlist; show price at add-time; notify on material price changes
-- Handle discontinued products, expired guest sessions, empty wishlist, and duplicate-add idempotency
-- Accessible wishlist controls and bulk-action feedback
+- Verify eligibility before booking; prior auth can block scheduling until approved (24–72h)
+- Distinct flows: in-network book, out-of-network option, prior-auth wait, eligibility retry on timeout
+- Display estimated copay before confirm; never guarantee coverage — show disclaimers
+- Handle partial coverage messaging, auth denial with alternatives, and plan change mid-booking
+- Plain-language insurance copy and recoverable error paths
+- Trade-off: real-time eligibility wait vs booking speed; in-network restriction vs patient choice
 
 ## Deliverable
 
-A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.
 
 ## Context
 
 ## Business goals
-Increase return visits and conversion by letting shoppers save products without committing to cart.
+Reduce no-shows and day-of insurance surprises; stay compliant while keeping scheduling usable.
 
 ## Users
-- Guest shoppers saving items before account creation
-- Registered users managing a persistent wishlist
-- Gift buyers shopping from a shared list
+- Patients booking under insurance constraints
+- Scheduling staff assisting when automation blocks
+- Insurance coordinators working prior-auth queues
 
 ## Constraints
-- Brownfield Next.js Commerce storefront — fit product listing, PDP, cart, and checkout
-- Guest persistence vs privacy; price notifications vs notification noise
-- Existing flows to extend: product listing, product detail, cart, checkout
+- This task is about insurance rules as the workflow edge — not multi-provider calendar UX broadly
+- Cannot guarantee coverage; prior auth may take 24–72 hours
+- Eligibility APIs can time out and must be retryable

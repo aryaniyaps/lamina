@@ -1,8 +1,8 @@
 {
   "task_id": "task003",
   "arm": "control",
-  "category": "greenfield",
+  "category": "oss_feature",
   "workflow": "design",
-  "prompt": "Design and implement a full volunteer coordination product — not a signup demo: domain model, illegal states, actors and permissions, post/fill/check-in/hours/certification workflows, edge cases, named trade-offs, and buildable coordinator + volunteer surfaces.",
-  "fixture": null
+  "prompt": "Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.",
+  "fixture": "plane-with-init"
 }

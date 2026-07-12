@@ -1,58 +1,59 @@
 # LaminaBench judge context
 
 ## Task description
-Design and implement bulk issue actions in Plane as a complete feature: domain model, illegal states, actors and permissions, multi-select/bulk workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.
+Design and implement a complete product for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.
 
 ## Golden reference checklist
 Concepts to look for in code; identifiers, comments, logic, and tests all count.
 
 ### required_entities
-- issue
-- bulk_selection
-- permission
-- project
+- session
+- auth_token
+- unsaved_work
+- sso_provider
 
 ### required_invariants
-- permission_check_per_issue
-- undo_window_for_destructive
-- max_selection_enforced
+- unsaved_work_preserved_on_reauth
+- warning_before_expiry
+- mid_action_graceful_recovery
 
 ### required_personas
-- team_lead
-- project_manager
+- active_user
+- idle_user
 
 ### required_flows
-- multi_select
-- bulk_state_change
-- bulk_assign
-- bulk_delete_confirm
+- idle_warning
+- extend_session
+- reauth_preserve_work
+- expired_mid_submit
 
 ### required_rules
-- permission_check_per_issue
-- undo_window
-- max_selection
+- warning_timing
+- work_preservation
+- sso_redirect
 
 ### required_scenarios
-- partial_permission_denied_feedback
-- mixed_project_selection_block
-- selection_across_pages
+- sso_failure_recovery
+- concurrent_session_conflict
+- unsaved_form_data_preservation
 
 ### required_edge_cases
-- partial_permission_denied
-- mixed_project_selection
-- selection_across_pages
+- sso_failure
+- concurrent_sessions
+- unsaved_form_data
 
 ### required_a11y
-- selection_count_announced
-- keyboard_multi_select
+- timeout_warning_announced
+- focus_on_modal
 
 ### required_tradeoffs
-- bulk_speed_vs_per_item_confirmation
-- cross_page_selection_vs_performance
+- security_timeout_vs_workflow_disruption
+- extend_session_vs_force_reauth
 
 ### required_sections
 - domain model and illegal states
 - actors and permissions
 - workflows and decision points
 - edge cases and recovery
+- recovery paths
 - implementation brief

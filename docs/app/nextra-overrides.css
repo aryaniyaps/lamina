@@ -1,0 +1,105 @@
+/* Lamina token overrides for Nextra docs theme */
+
+:root {
+  --nextra-primary-hue: 220deg;
+  --nextra-primary-saturation: 8%;
+}
+
+.nextra-content :is(a, summary) {
+  color: var(--accent);
+}
+
+.nextra-content :is(a, summary):hover {
+  color: var(--ink);
+}
+
+.nextra-docs {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+.nextra-docs code,
+.nextra-docs pre,
+.nextra-docs kbd {
+  font-family: var(--font-mono);
+}
+
+.nextra-docs pre {
+  background: var(--canvas-soft) !important;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.nextra-docs :not(pre) > code {
+  background: var(--canvas-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.875em;
+}
+
+.nextra-navbar,
+.nextra-sidebar-container {
+  border-color: var(--line) !important;
+}
+
+.nextra-sidebar-container a[data-active="true"] {
+  color: var(--ink) !important;
+  font-weight: 600;
+  background: var(--accent-muted);
+}
+
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3,
+.nextra-content h4 {
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.nextra-content p,
+.nextra-content li {
+  color: var(--ink-secondary);
+}
+
+.nextra-content table {
+  border-color: var(--line);
+}
+
+.nextra-content th,
+.nextra-content td {
+  border-color: var(--line);
+}
+
+.nextra-content th {
+  background: var(--canvas-soft);
+  color: var(--ink);
+}
+
+.nextra-footer {
+  border-color: var(--line);
+  color: var(--ink-secondary);
+}
+
+.nextra-footer a {
+  color: var(--accent);
+}
+
+.nextra-footer a:hover {
+  color: var(--ink);
+}
+
+.nextra-search input {
+  border-color: var(--line) !important;
+  background: var(--canvas-soft) !important;
+}
+
+.nextra-toc a {
+  color: var(--ink-secondary);
+}
+
+.nextra-toc a[data-active="true"] {
+  color: var(--ink);
+  font-weight: 500;
+}

@@ -1,8 +1,0 @@
-{
-  "task_id": "task015",
-  "arm": "treatment",
-  "category": "oss_audit",
-  "workflow": "audit",
-  "prompt": "Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
-  "fixture": "plane-audit-ready"
-}

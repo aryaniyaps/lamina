@@ -1,63 +1,54 @@
 # LaminaBench judge context
 
 ## Task description
-Design and implement a full sustainable-habits fitness product — not a streak-counter demo: domain model, illegal states, actors and permissions, check-in/streak/accountability/pause workflows, edge cases, named trade-offs, and a buildable habit + social product surface.
+Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.
 
 ## Golden reference checklist
 Concepts to look for in code; identifiers, comments, logic, and tests all count.
 
 ### required_entities
-- habit
-- checkin
-- streak
-- friend_connection
-- challenge
-- notification_preference
+- cart
+- order
+- payment
+- shipping_address
 
 ### required_invariants
-- no_public_leaderboard
-- opt_in_social_only
-- streak_forgiveness_policy
+- order_total_matches_line_items
+- payment_required_before_confirmation
 
 ### required_personas
-- beginner
-- returning_athlete
-- accountability_partner
+- first_time_buyer
+- returning_customer
 
 ### required_flows
-- daily_checkin
-- habit_setup
-- streak_recovery
-- friend_challenge
-- pause_resume_habit
+- cart_review
+- shipping_entry
+- payment
+- confirmation
 
-### required_rules
-- no_public_leaderboard
-- opt_in_social
-- streak_forgiveness
+### required_findings
+- invariant_violation
+- state_consistency
+- permission_gap
+- error_recovery
+- idempotency_risk
 
 ### required_scenarios
-- missed_day_recovery
-- health_sync_failure
-- friend_request_declined
-- health_sync_failure_recovery
+- payment_declined_recovery
+- address_validation_failure
+- session_timeout_mid_checkout
 
 ### required_edge_cases
-- missed_day
-- health_sync_failure
-- friend_request_declined
+- payment_declined
+- address_validation_failure
+- session_timeout
 
 ### required_a11y
-- motion_reduced_mode
-- voiceover_labels
-
-### required_tradeoffs
-- accountability_vs_pressure
-- streak_motivation_vs_forgiveness
+- form_labels
+- error_announcement
+- keyboard_checkout
 
 ### required_sections
-- domain model and illegal states
-- actors and permissions
-- workflows and decision points
-- edge cases and recovery
-- implementation brief
+- executive summary
+- findings
+- prioritized improvements

@@ -13,6 +13,7 @@ from criteria import (  # noqa: E402
     VERIFIER_META_PATH,
     capture_implementation_artifact,
     is_artifact_valid,
+    is_clarify_output,
     read_agent_output,
 )
 
@@ -23,11 +24,13 @@ workspace = Path("/app")
 agent_output = read_agent_output()
 artifact = capture_implementation_artifact(workspace, agent_output)
 artifact_valid = is_artifact_valid(artifact)
+clarify_stall = not artifact_valid and is_clarify_output(agent_output)
 
 ARTIFACT_OUT.write_text(artifact, encoding="utf-8")
 
 meta = {
     "artifact_valid": artifact_valid,
+    "clarify_stall": clarify_stall,
     "artifact_chars": len(artifact),
 }
 if VERIFIER_META_PATH.exists():

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Apply LaminaBench reward gate and enrich reward.json for ingest."""
+"""Apply LaminaBench gates and enrich reward.json for Harbor ingest / metric.py."""
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -10,14 +11,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from criteria import (  # noqa: E402
     CRITERIA_KEYS,
+    META_PATH,
     REWARD_DETAILS_PATH,
     REWARD_PATH,
     VERIFIER_META_PATH,
     likert_norm_to_mean,
 )
 
-GOLDEN_WEIGHT = 0.5
-LLM_WEIGHT = 0.5
 PASS_THRESHOLD = 0.5
 
 
@@ -48,20 +48,24 @@ def extract_llm_scores(details: dict) -> dict[str, float]:
     return scores
 
 
+def resolve_composite(rewards: dict) -> float:
+    if "composite" in rewards:
+        return float(rewards["composite"] or 0.0)
+    golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
+    llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
+    return golden_norm * 0.5 + llm_norm * 0.5
+
+
 def main() -> int:
     rewards = load_json(REWARD_PATH)
     details = load_json(REWARD_DETAILS_PATH)
     meta = load_json(VERIFIER_META_PATH)
+    task_meta = load_json(META_PATH)
 
-    golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
-    llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
-
+    composite = resolve_composite(rewards)
     artifact_valid = bool(meta.get("artifact_valid"))
     clarify_stall = bool(meta.get("clarify_stall"))
-    if "clarify_stall" in rewards and float(rewards.get("clarify_stall") or 0.0) < 0.5:
-        clarify_stall = True
 
-    composite = golden_norm * GOLDEN_WEIGHT + llm_norm * LLM_WEIGHT
     if clarify_stall or not artifact_valid:
         final_reward = 0.0
     else:
@@ -71,11 +75,15 @@ def main() -> int:
     if llm_scores:
         llm_mean = round(sum(llm_scores.values()) / len(llm_scores), 2)
     else:
+        llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
         llm_mean = likert_norm_to_mean(llm_norm) if llm_norm else None
 
     golden_pct = meta.get("golden_coverage_pct")
     if golden_pct is None:
+        golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
         golden_pct = round(golden_norm * 100)
+
+    run_attempt = int(os.environ.get("LAMINA_BENCH_RUN", "1") or "1")
 
     feedback = (
         f"Golden {golden_pct}%, LLM mean {llm_mean:.2f}"
@@ -99,6 +107,10 @@ def main() -> int:
         "checks_total": meta.get("golden_checks_total"),
         "feedback": feedback,
         "llm_scores": {key: llm_scores.get(key) for key in CRITERIA_KEYS if key in llm_scores},
+        "lamina_task_id": task_meta.get("task_id"),
+        "lamina_arm": task_meta.get("arm"),
+        "lamina_category": task_meta.get("category"),
+        "lamina_run": run_attempt,
     }
 
     REWARD_PATH.parent.mkdir(parents=True, exist_ok=True)

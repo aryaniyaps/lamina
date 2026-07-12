@@ -1,0 +1,82 @@
+---
+title: Artifacts
+description: File-by-file reference for .lamina/ run outputs
+---
+
+# Artifacts
+
+Reference for files written to `.lamina/runs/<id>/` during the Lamina workflow.
+
+## run.yaml
+
+Contract metadata and lifecycle status.
+
+| Field | Description |
+|-------|-------------|
+| `id` | Short run identifier (e.g. `a3f2`) |
+| `status` | `draft`, `ready_to_build`, or `verified` |
+| `domain` | Domain summary from init/design |
+| `actors` | List of defined personas |
+| `created_at` | Run creation timestamp |
+| `updated_at` | Last modification timestamp |
+
+**Read by:** Lamina (verify), you (status check)
+**Written by:** `/lamina-init`, `/lamina-design`
+
+## implement.md
+
+Build handoff for your coding agent. The primary artifact of the design phase.
+
+Contains:
+
+- **Entities** — domain objects and their states
+- **Actors** — roles, goals, permissions
+- **Workflows** — step-by-step flows with alternate paths
+- **Invariants** — rules the implementation must always satisfy
+- **Edge cases** — failure modes and recovery paths
+- **UX surfaces** — screens/forms tied to domain rules (not pixel specs)
+
+**Read by:** Your coding agent (implement), Lamina (verify)
+**Written by:** `/lamina-design`
+
+## fix.md
+
+Verification findings from persona walks.
+
+Each finding includes:
+
+- **ID** — unique finding identifier
+- **Severity** — impact level
+- **Actor** — which persona encountered the gap
+- **Flow** — which workflow was being walked
+- **Expected** — behavior per the contract
+- **Observed** — behavior on the live app
+- **Fix** — suggested product correction
+
+**Read by:** Your coding agent (fix)
+**Written by:** `/lamina-verify`
+
+## session.jsonl
+
+JSONL transcript of the agent session for this run. Each line is a JSON object with role, message, and timestamps.
+
+Useful for:
+
+- Debugging why a design decision was made
+- Audit trails across team sessions
+- Understanding the design conversation history
+
+**Read by:** You (debug/audit)
+**Written by:** All Lamina commands during the run
+
+## Lifecycle
+
+```text
+/lamina-init     →  run.yaml (draft)
+/lamina-design   →  run.yaml (ready_to_build) + implement.md
+/lamina-verify   →  fix.md (if findings)
+agent fixes      →  app source updated
+/lamina-verify   →  run.yaml (verified) or fix.md (more findings)
+```
+
+See [Contracts & Runs](/docs/concepts/contracts-and-runs) for conceptual overview.

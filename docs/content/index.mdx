@@ -1,0 +1,36 @@
+---
+title: Introduction
+description: Headless product-design skill for AI coding agents
+---
+
+# Design how it works.
+
+Lamina is a headless product-design skill for AI coding agents. It specs how your app **works** — states, roles, flows, edge cases, permission matrices — into a contract your agent implements, then verifies your application with parallel persona walks.
+
+UI skills dress the app. Lamina designs how it behaves.
+
+## The loop
+
+```text
+/lamina-init     →  domain charter
+/lamina-design   →  run.yaml + implement.md (ready_to_build)
+       ↓
+  Your agent implements (any stack)
+       ↓
+/lamina-verify   →  persona walks → fix.md when needed
+       ↓
+  Your agent fixes → /lamina-verify again until contract holds
+```
+
+## What Lamina is not
+
+- **Not a UI library** — Lamina never writes app source or picks your component library
+- **Not an app builder** — it doesn't generate stack-locked apps like v0 or Lovable
+- **Not a pixel skill** — Impeccable and frontend-design polish how it looks; Lamina designs how it works
+
+## Get started
+
+- [Installation](/docs/getting-started/installation) — install the skill in Cursor, Claude Code, Codex, or Pi
+- [Quickstart](/docs/getting-started/quickstart) — run the full design → implement → verify loop in minutes
+
+For authoritative command behavior, see the [Lamina skill repo](https://github.com/aryaniyaps/lamina) on GitHub.

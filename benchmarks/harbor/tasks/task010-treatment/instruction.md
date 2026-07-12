@@ -1,30 +1,30 @@
-# Bulk Issue Actions
+# Session Expiration UX
 
-Design and implement multi-select bulk actions for Plane issues across List and Kanban views.
+Design and implement complete session timeout and re-authentication that preserves unsaved work and recovers mid-action failures — including SSO.
 
 ## Requirements
 
-- Multi-select issues; bulk change state, assignee, labels, cycle, module; confirm destructive actions
-- Permission checked per issue; partial failures reported clearly; undo window for destructive bulk ops
-- Enforce max selection size; block mixed-project selections that would violate project boundaries
-- Handle selection across pages and partial permission denial without silent skips
-- Announce selection count; support keyboard multi-select
-- Trade-off: bulk speed vs per-item confirmation; cross-page selection vs performance
+- Warn before idle expiry with an extend option; 30-minute idle timeout
+- Preserve unsaved form work across re-auth; recover gracefully if session dies mid-submit
+- Flows: idle warning, extend session, re-auth with work preservation, expired mid-submit
+- Handle SSO (Okta) failure, concurrent session conflicts, and focus management on the warning modal
+- Timeout warning must be announced to assistive tech
+- Trade-off: security timeout vs workflow disruption; extend session vs force re-auth
 
 ## Deliverable
 
-A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.
 
 ## Context
 
 ## Business goals
-Let team leads and PMs triage large backlogs without opening issues one-by-one.
+Meet security compliance for idle timeout without destroying in-progress work or spiking support tickets.
 
 ## Users
-- Team leads doing weekly triage
-- Project managers running sprint hygiene
+- Active users in form-heavy workflows
+- Idle users who stepped away
 
 ## Constraints
-- Brownfield Plane: List, Kanban, Calendar views; existing issue permissions and project scoping
-- Destructive bulk actions need confirmation + short undo window
-- See product-context.md in the workspace for navigation and issue model
+- 30-minute idle timeout; SSO via Okta
+- Concurrent sessions may conflict — define product behavior
+- Never silently discard unsaved form data on re-auth

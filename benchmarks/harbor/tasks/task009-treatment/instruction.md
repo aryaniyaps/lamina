@@ -1,30 +1,30 @@
-# Saved Searches
+# Offline Editing
 
-Design and implement saved catalog searches on Vercel Commerce: save filters, re-run, edit, and optional match notifications.
+Design and implement complete offline editing for a collaborative document editor: edit while offline, visible status, queued sync, and defined conflict resolution on reconnect.
 
 ## Requirements
 
-- Save named filter combinations (category, price, attributes); enforce a max number of saved searches
-- Filter snapshot stays immutable until the user explicitly edits it
-- Flows: save, run, edit, notification opt-in with frequency limits
-- Prevent duplicate names; handle deprecated filters and "no new matches" notification states
-- Entry points: account settings and search bar
-- Announce search results and persist filter state accessibly
+- Continue editing when connectivity drops; offline/online indicator always visible
+- Queue edits and sync on reconnect with no silent data loss; define conflict policy (merge vs manual)
+- Flows: edit offline, view offline, reconnect sync, conflict resolution
+- Handle extended offline (queue overflow), storage full, conflicting edits, and auth expiry while offline
+- Status announcements for screen readers
+- Trade-off: last-write-wins vs manual merge; queue size vs storage
 
 ## Deliverable
 
-A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
+A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.
 
 ## Context
 
 ## Business goals
-Help frequent and B2B shoppers return to complex filter sets and discover new matching inventory without re-building searches.
+Support low-connectivity users (field, travel, remote) without data loss or silent overwrite.
 
 ## Users
-- Frequent shoppers with repeat filter patterns
-- B2B buyers monitoring catalog changes
+- Frequent editors working through flaky networks
+- Occasional viewers who may open docs offline
 
 ## Constraints
-- Brownfield Commerce catalog with existing search, filters, and collections
-- Cap saved searches; throttle notification frequency vs relevance
-- Notifications are optional and must degrade cleanly when filters become invalid
+- Assume a CRDT-based sync engine exists — design product behavior around it, do not reimplement CRDTs
+- Mobile and desktop clients
+- Auth can expire while offline; recovery must preserve queued work

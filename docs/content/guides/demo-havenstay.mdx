@@ -1,0 +1,54 @@
+---
+title: "Demo: HavenStay"
+description: Inspectable product behaviors from the Lamina demo
+---
+
+# Demo: HavenStay
+
+HavenStay is a short-term rental marketplace built with Lamina's design → implement → verify loop. The demo shows concrete product behaviors that persona walks caught and fixed.
+
+Source: [github.com/aryaniyaps/lamina/tree/main/demo](https://github.com/aryaniyaps/lamina/tree/main/demo)
+
+## Behaviors covered
+
+### Guest checkout — inventory hold with countdown
+
+15-minute hold and hold-aware availability. A room can't stay bookable while someone else is paying.
+
+**Why it matters:** Without hold logic, two guests can checkout the same room simultaneously — an impossible state that AI agents commonly ship.
+
+### Cancellation — policy locked at booking
+
+Flexible / Moderate / Strict per property, snapshotted immutably when the guest books.
+
+**Why it matters:** Cancellation rules must be frozen at booking time. Agents often reference live policy, which can change retroactively.
+
+### Partner go-live — admin gate before publish
+
+Property goes live only after approve, reject, or request-changes — not on submit alone.
+
+**Why it matters:** Skipping approval gates lets incomplete or non-compliant listings reach guests.
+
+### Partner onboarding — wizard with readiness checklist
+
+Multi-step setup that tracks what's still missing before a property can accept guests.
+
+**Why it matters:** Partners get stuck mid-flow without clear progress indicators and missing-field recovery.
+
+### Guest cancel — reason required, refund automatic
+
+Cancel path asks why, then triggers the guest refund from the snapshotted policy.
+
+**Why it matters:** Cancel without reason loses audit data; refund without policy snapshot creates billing disputes.
+
+## How to explore
+
+1. Clone the [demo repo](https://github.com/aryaniyaps/lamina/tree/main/demo)
+2. Compare the with-Lamina and without-Lamina builds
+3. Run `/lamina-verify` on your own fork to see persona walks in action
+
+## What this proves
+
+These aren't UI polish issues — they're product behavior gaps that Lamina's contract + verification loop catches before they reach users.
+
+See [Personas](/docs/concepts/personas) for how verification walks work.

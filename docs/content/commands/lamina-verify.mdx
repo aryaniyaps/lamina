@@ -1,0 +1,66 @@
+---
+title: /lamina-verify
+description: Post-build persona walks → fix.md
+---
+
+# /lamina-verify
+
+Verify your live application against the design contract. Lamina runs parallel persona walks and writes findings to `fix.md`.
+
+## When to use
+
+- After your agent implements from `implement.md`
+- After applying fixes from a previous `fix.md`
+- Any time you want to check product behavior against the contract
+
+## Example
+
+```
+/lamina-verify
+```
+
+No arguments needed — Lamina reads the latest run from `.lamina/runs/`.
+
+## What Lamina does
+
+1. Reads the contract from `run.yaml` and `implement.md`
+2. Assigns personas (actors with roles and goals)
+3. Walks your **live application** in parallel
+4. Captures visual flows and checks invariants
+5. Writes findings to `fix.md` (if any gaps exist)
+
+## Output
+
+| Result | Meaning |
+|--------|---------|
+| `0 open findings` | Contract holds — verification passed |
+| `fix.md` with findings | Product behavior gaps to address |
+
+Example finding categories:
+
+- Impossible states allowed (cancelled + confirmed simultaneously)
+- Missing transitions (no way out of a loading state)
+- Permission gaps (guest can access admin actions)
+- Skipped dependencies (pay without hold, publish without approval)
+
+## What to do next
+
+If findings exist, hand `fix.md` to your coding agent:
+
+```
+Fix from .lamina/runs/<id>/fix.md
+```
+
+Then re-verify:
+
+```
+/lamina-verify
+```
+
+Loop until zero open findings.
+
+## Tips
+
+- Run against a live dev server — verification reads real UI, not mocks
+- Fix product behavior from `fix.md`, not styling
+- Re-verify after every fix cycle — partial fixes often reveal new gaps

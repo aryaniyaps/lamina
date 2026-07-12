@@ -1,47 +1,47 @@
 task_id: task008
 # reference_checklist: not ground truth — concepts to look for, any wording OK
 required_entities:
-  - document
-  - guest_invite
-  - collection
-  - permission
-  - share_link
+  - subscription
+  - plan
+  - invoice
+  - payment_method
+  - usage_addon
 required_invariants:
-  - expired_link_denies_access
-  - guest_permissions_subset_of_document
-  - revocation_immediate
+  - downgrade_effective_end_of_period
+  - proration_on_upgrade
+  - grace_period_before_suspension
 required_personas:
-  - document_author
-  - team_member
-  - external_guest
+  - account_owner
+  - team_admin
 required_flows:
-  - share_with_guest
-  - guest_access
-  - revoke_access
-  - comment_as_guest
+  - upgrade_plan
+  - downgrade_plan
+  - payment_failed_recovery
+  - view_invoice
 required_rules:
-  - expiration_policy
-  - permission_levels
-  - audit_trail
+  - proration_policy
+  - downgrade_timing
+  - grace_period
 required_scenarios:
-  - expired_link_access_denied
-  - guest_email_mismatch
-  - collection_permission_conflict
+  - card_expired_recovery
+  - chargeback_handling
+  - plan_discontinued_migration
+  - usage_overage_billing
 required_edge_cases:
-  - expired_link
-  - guest_email_mismatch
-  - document_moved
-  - collection_permission_conflict
+  - card_expired
+  - chargeback
+  - plan_discontinued
+  - usage_overage
 required_a11y:
-  - permission_status_visible
-  - guest_mode_indicator
+  - billing_status_clear
+  - charge_preview
 required_tradeoffs:
-  - link_sharing_convenience_vs_security
-  - comment_access_vs_read_only
+  - immediate_upgrade_revenue_vs_user_surprise
+  - grace_period_length_vs_churn_risk
 required_sections:
   - domain model and illegal states
   - actors and permissions
   - workflows and decision points
   - edge cases and recovery
-  - tradeoffs and decisions
+  - error handling
   - implementation brief

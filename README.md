@@ -32,6 +32,7 @@ Lamina slots into whatever you already use. Unopinionated on your tech stack/ AI
 | **Any Language**  | Javascript, Python, Go, Rust, Elixir, PHP, C#, etc |
 | **Any UI library** | TailwindCSS, Chakra UI, shadcn, MUI, etc |
 | **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, etc |
+| **Any Workflow skill** | obra/superpowers, mattpocock/skills, everything-claude-code, etc |
 | **Any interface** | Websites, Mobile Apps, Desktop, PWAs, Chat Bots, CLIs, etc |
 
 ---
@@ -123,11 +124,11 @@ See the [design report](demo/hotel-booking-with-lamina/.lamina/runs/havenstay-pl
 
 Lamina designs and verifies product behavior. It works best when your agent can **see the system cheaply** and **remember prior decisions**:
 
-| Tool category | Examples | Why |
+| Tool/ skill category | Examples | Why |
 |---------------|----------|-----|
 | **Codebase indexing / semantic code graph** | Graphify, Sourcegraph, code graph/indexing tools | Gives Lamina a queryable view of an existing codebase so it can reason about architecture, trace behavior, and verify designs without repeatedly scanning the entire project. |
 | **Persistent memory** | Claude-Mem, Mem0, agent memory systems | Preserves design decisions, assumptions, discoveries, and previous verification results across sessions, reducing repeated work. |
-| **Implementation workflow / coding agents** | obra/superpowers, Claude Code workflows, Cursor background agents | Turns Lamina's design artifacts (such as `implement.md` and `fix.md`) into structured implementation, testing, and review workflows. |
+| **Implementation workflows** | obra/superpowers, mattpocock/skills, everything-claude-code | Turns Lamina's design artifacts (such as `implement.md` and `fix.md`) into structured implementation, testing, and review workflows. |
 | **UI/UX design tools and skills** | Impeccable, UI UX Pro Max, `frontend-design`, design-focused agents | Produces polished interfaces while Lamina focuses on interaction states, behavior, edge cases, and verification. |
 | **Specification-driven engineering** | Spec Kit, Kiro, specification-first workflows | Converts verified designs into implementation plans, tasks, and engineering specifications. |
 

@@ -1,0 +1,65 @@
+---
+title: Pair with Spec Kit
+description: Lamina for product behavior, Spec Kit for engineering plans
+---
+
+# Pair with Spec Kit
+
+Lamina structures **product behavior**. Spec Kit and Kiro structure **engineering work**. They complement each other when used in sequence.
+
+## The split
+
+| Tool | Focus | Output |
+|------|-------|--------|
+| **Lamina** | Product behavior | `implement.md` — states, roles, flows, invariants |
+| **Spec Kit / Kiro** | Engineering implementation | Task breakdown, API specs, test plans |
+
+## Recommended workflow
+
+```text
+1. /lamina-init <domain>         → domain charter
+2. /lamina-design <flow>         → implement.md (product contract)
+3. Feed implement.md to Spec Kit → engineering plan
+4. Your agent implements          → app source
+5. /lamina-verify                → behavior verification
+```
+
+## Why Lamina first?
+
+Spec tools structure engineering work from requirements. But requirements often miss:
+
+- Actor permission matrices
+- State transition rules
+- Edge case recovery paths
+- Cross-actor interaction conflicts
+
+Lamina front-loads these into `implement.md` — a product contract Spec Kit can decompose into engineering tasks.
+
+## Example
+
+```
+/lamina-design Team settings with role-based access and invite flow
+```
+
+`implement.md` specifies:
+
+- Three roles: owner, admin, member
+- Invite flow with pending → accepted → expired states
+- Permission matrix: who can change roles, who can invite
+- Edge cases: last owner can't demote themselves
+
+Feed this to Spec Kit:
+
+> "Create an implementation plan from this product contract."
+
+Spec Kit breaks it into API endpoints, database schema, and test cases. Lamina verifies the final product behavior matches the original contract.
+
+## When to use which
+
+| Situation | Use |
+|-----------|-----|
+| "What should this product do?" | Lamina |
+| "How should we build it?" | Spec Kit |
+| "Does the built product match the design?" | Lamina verify |
+
+See [What is Lamina?](/docs/concepts/what-is-lamina) for comparison with other approaches.

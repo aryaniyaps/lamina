@@ -38,3 +38,8 @@ packages/lamina-studio/skills-lock.json
 # generated promptfoo skill context
 evals/promptfoo/skill-context.txt
 evals/fixtures/.vendor-tmp-*/
+
+# docs site (Nextra)
+docs/.next/
+docs/public/_pagefind/
+docs/node_modules/

@@ -1,0 +1,72 @@
+---
+title: Contracts & Runs
+description: The .lamina/ directory and run artifacts
+---
+
+# Contracts & Runs
+
+Lamina writes design artifacts to `.lamina/` in your project root. This directory is **never app source** — it's the product design contract your agent implements against.
+
+## Directory structure
+
+```text
+.lamina/
+└── runs/
+    └── a3f2/              # Run ID (short hash)
+        ├── run.yaml       # Contract metadata
+        ├── implement.md   # Build handoff
+        ├── fix.md         # Verification findings (after /lamina-verify)
+        └── session.jsonl  # Agent session transcript
+```
+
+## Artifacts
+
+### `run.yaml`
+
+Contract metadata and status:
+
+- Domain summary and scope
+- Actor list
+- Status: `draft` → `ready_to_build` → `verified`
+- Timestamps and run ID
+
+### `implement.md`
+
+The build handoff for your coding agent. Contains:
+
+- Entity and state definitions
+- Actor roles and permission matrix
+- Workflow descriptions (primary and alternate paths)
+- UX surface requirements tied to domain rules
+- Edge cases and recovery paths
+- Invariants the implementation must satisfy
+
+### `fix.md`
+
+Written by `/lamina-verify` when persona walks find gaps:
+
+- Finding ID and severity
+- Expected behavior vs observed behavior
+- Affected actor and flow
+- Suggested product fix (not code patches)
+
+### `session.jsonl`
+
+JSONL transcript of the agent session for this run — useful for debugging and audit trails.
+
+## Contract states
+
+| Status | Meaning |
+|--------|---------|
+| `draft` | Design in progress |
+| `ready_to_build` | Contract complete — safe to implement |
+| `verified` | All persona walks passed, zero open findings |
+
+## Rules
+
+- **Never commit `.lamina/` as app code** — treat it like design docs
+- **One run per design scope** — a new `/lamina-design` creates a new run ID
+- **Implement from `implement.md`** — don't cherry-pick sections
+- **Fix from `fix.md`** — address product behavior, not styling
+
+See [Artifacts reference](/docs/reference/artifacts) for field-level detail.

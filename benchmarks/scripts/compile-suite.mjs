@@ -140,6 +140,7 @@ function discoverHarborTasks() {
     .filter((n) => parseHarborDirName(n));
 
   const registry = loadRegistry();
+  const registryIds = new Set(registry.map((e) => e.id));
   const tasks = [];
   for (const entry of registry) {
     const validated = validateHarborTask(entry);
@@ -149,6 +150,12 @@ function discoverHarborTasks() {
       if (!dirs.includes(name)) {
         errors.push(`${name}: listed in registry but directory missing`);
       }
+    }
+  }
+  for (const name of dirs) {
+    const parsed = parseHarborDirName(name);
+    if (parsed && !registryIds.has(parsed.id)) {
+      errors.push(`${name}: directory exists but not listed in registry`);
     }
   }
   return tasks;

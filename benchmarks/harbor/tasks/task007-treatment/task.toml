@@ -1,30 +1,44 @@
-version = "1.0"
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "aryaniyaps/task007-treatment"
+description = "LaminaBench task007 treatment arm (workflow_edge)"
+authors = [{ name = "LaminaBench" }]
+keywords = ["lamina", "skillsbench-paired", "treatment", "workflow_edge"]
 
 [metadata]
 author_name = "LaminaBench"
-category = "oss_feature"
+category = "workflow_edge"
 difficulty = "hard"
 tags = ["lamina", "skillsbench-paired", "treatment"]
 lamina_task_id = "task007"
 lamina_arm = "treatment"
 lamina_workflow = "design"
-lamina_fixture = "commerce-with-init"
 
 [verifier]
 timeout_sec = 600.0
+collect = []
 
 [verifier.env]
 ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
 ANTHROPIC_AUTH_TOKEN = "${ANTHROPIC_AUTH_TOKEN}"
 ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL}"
 REWARDKIT_JUDGE = "${REWARDKIT_JUDGE}"
+LAMINA_BENCH_RUN = "${LAMINA_BENCH_RUN}"
 
 [agent]
 timeout_sec = 5400.0
 
 [environment]
+network_mode = "public"
 build_timeout_sec = 1800.0
+os = "linux"
 cpus = 2
-memory = "4G"
-storage = "10G"
-allow_internet = true
+memory_mb = 4096
+storage_mb = 10240
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]

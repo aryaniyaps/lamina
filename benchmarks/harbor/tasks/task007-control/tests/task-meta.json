@@ -1,8 +1,8 @@
 {
   "task_id": "task007",
   "arm": "control",
-  "category": "oss_feature",
+  "category": "workflow_edge",
   "workflow": "design",
-  "prompt": "Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.",
-  "fixture": "commerce-with-init"
+  "prompt": "Design and implement a complete product for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
+  "fixture": null
 }

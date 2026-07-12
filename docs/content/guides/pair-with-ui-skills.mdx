@@ -1,0 +1,58 @@
+---
+title: Pair with UI Skills
+description: Lamina for behavior, UI skills for pixels
+---
+
+# Pair with UI Skills
+
+Lamina and UI design skills solve different problems. Use them together — Lamina owns product behavior, UI skills own how it looks.
+
+## The split
+
+| Layer | Skill examples | Lamina's role |
+|-------|---------------|---------------|
+| **Behavior** | Lamina | States, roles, flows, invariants, verification |
+| **Pixels** | Impeccable, UI UX Pro Max, frontend-design | Typography, spacing, components, visual polish |
+
+## Recommended workflow
+
+```text
+1. /lamina-design <flow>        → implement.md (behavior contract)
+2. Your agent implements         → app source from contract
+3. /lamina-verify               → fix behavior gaps
+4. UI skill pass                 → polish interface
+5. /lamina-verify again         → confirm behavior still holds
+```
+
+## Compatible UI skills
+
+| Skill | What it adds |
+|-------|-------------|
+| **Impeccable** | Design system enforcement, component quality |
+| **UI UX Pro Max** | UX patterns, accessibility, responsive layouts |
+| **frontend-design** | Visual design, typography, color systems |
+
+Lamina stays out of pixels during all of these. It never conflicts with UI skill output because it doesn't write styling or components.
+
+## Why not UI skills alone?
+
+UI skills polish how it looks. They don't:
+
+- Define permission matrices across actors
+- Specify state machines with recovery paths
+- Catch impossible states (cancelled + confirmed)
+- Verify behavior on a live running app
+
+That's Lamina's job.
+
+## Example pairing
+
+Design guest checkout with Lamina:
+
+```
+/lamina-design Guest checkout with hold, pay, cancel
+```
+
+Implement and verify. Then run Impeccable on the checkout UI for visual polish. Re-verify with `/lamina-verify` to confirm behavior wasn't broken by styling changes.
+
+See also [What is Lamina?](/docs/concepts/what-is-lamina) for the full comparison.

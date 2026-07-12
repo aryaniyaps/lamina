@@ -14,140 +14,50 @@ tasks:
     prompt: "Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface."
     runs: 1
   - id: task003
-    category: greenfield
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a full volunteer coordination product — not a signup demo: domain model, illegal states, actors and permissions, post/fill/check-in/hours/certification workflows, edge cases, named trade-offs, and buildable coordinator + volunteer surfaces."
-    runs: 1
-  - id: task004
-    category: greenfield
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a full collaborative trip planner — not a packing-list stub: domain model, illegal states, actors and permissions, itinerary/voting/expense/invite/offline workflows, edge cases, named trade-offs, and a buildable collaborative product surface."
-    runs: 1
-  - id: task005
-    category: greenfield
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a full sustainable-habits fitness product — not a streak-counter demo: domain model, illegal states, actors and permissions, check-in/streak/accountability/pause workflows, edge cases, named trade-offs, and a buildable habit + social product surface."
-    runs: 1
-  - id: task006
     category: oss_feature
     workflow: design
     fixture: plane-with-init
     prompt: "Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane."
     runs: 1
-  - id: task007
+  - id: task004
     category: oss_feature
     workflow: design
     fixture: commerce-with-init
     prompt: "Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce."
     runs: 1
-  - id: task008
-    category: oss_feature
-    workflow: design
-    fixture: outline-with-init
-    prompt: "Design and implement guest document sharing in Outline as a complete feature: domain model, illegal states, actors and permissions, share/revoke workflows, edge cases, named trade-offs, and a buildable product surface that fits Outline."
-    runs: 1
-  - id: task009
-    category: oss_feature
-    workflow: design
-    fixture: commerce-with-init
-    prompt: "Design and implement saved searches in the catalog as a complete feature: domain model, illegal states, actors and permissions, save/rerun/alert workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce."
-    runs: 1
-  - id: task010
-    category: oss_feature
-    workflow: design
-    fixture: plane-with-init
-    prompt: "Design and implement bulk issue actions in Plane as a complete feature: domain model, illegal states, actors and permissions, multi-select/bulk workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane."
-    runs: 1
-  - id: task011
+  - id: task005
     category: oss_audit
     workflow: audit
     fixture: commerce-audit-ready
     prompt: "Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
     runs: 1
-  - id: task012
-    category: oss_audit
-    workflow: audit
-    fixture: plane-audit-ready
-    prompt: "Audit project settings and configuration in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
-    runs: 1
-  - id: task013
+  - id: task006
     category: oss_audit
     workflow: audit
     fixture: outline-audit-ready
     prompt: "Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
     runs: 1
-  - id: task014
-    category: oss_audit
-    workflow: audit
-    fixture: commerce-audit-ready
-    prompt: "Audit the cart experience for product-behavior friction and abandonment risks: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
-    runs: 1
-  - id: task015
-    category: oss_audit
-    workflow: audit
-    fixture: plane-audit-ready
-    prompt: "Audit new-user onboarding in Plane for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
-    runs: 1
-  - id: task016
+  - id: task007
     category: workflow_edge
     workflow: design
     fixture: null
     prompt: "Design and implement a complete product for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
-  - id: task017
-    category: workflow_edge
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for an expense reimbursement approval workflow: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task018
+  - id: task008
     category: workflow_edge
     workflow: design
     fixture: null
     prompt: "Design and implement a complete product for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
-  - id: task019
-    category: workflow_edge
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for enterprise RBAC in a multi-tenant admin console: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task020
-    category: workflow_edge
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for multi-stage employee onboarding across HR, IT, and team leads: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task021
+  - id: task009
     category: resilience
     workflow: design
     fixture: null
     prompt: "Design and implement a complete product for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
-  - id: task022
-    category: resilience
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for screen-reader support on a data-heavy analytics dashboard: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task023
-    category: resilience
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for empty states across a project management application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task024
+  - id: task010
     category: resilience
     workflow: design
     fixture: null
     prompt: "Design and implement a complete product for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
-    runs: 1
-  - id: task025
-    category: resilience
-    workflow: design
-    fixture: null
-    prompt: "Design and implement a complete product for slow-network conditions in a media-rich web application: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1

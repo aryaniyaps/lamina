@@ -1,0 +1,64 @@
+---
+title: /lamina-design
+description: Design contract → ready_to_build
+---
+
+# /lamina-design
+
+Turn a domain into a build-ready contract. This is Lamina's core command — it models product behavior and writes the handoff your agent implements.
+
+## When to use
+
+- After `/lamina-init` (or directly if the domain is already clear)
+- When starting a new feature or flow
+- When you need states, roles, and edge cases specified before coding
+
+## Example
+
+```
+/lamina-design Guest checkout with inventory hold, payment, and cancellation
+```
+
+```
+/lamina-design Build a settings page for a team collaboration app
+```
+
+```
+/lamina-design Hall ticket download with payment gate and venue assignment
+```
+
+## What Lamina does
+
+1. **Models the domain** — entities, states, invariants, permissions
+2. **Defines actors** — roles, goals, and what they can do
+3. **Maps workflows** — primary paths, alternate paths, side effects
+4. **Specifies UX surfaces** — flows, forms, error/empty recovery tied to domain rules
+5. **Enumerates scenarios** — violations, edge cases, recovery paths
+
+## What it writes
+
+Output lands in `.lamina/runs/<id>/`:
+
+| File | Content |
+|------|---------|
+| `run.yaml` | Contract metadata, status (`ready_to_build`) |
+| `implement.md` | Full build handoff for your coding agent |
+| `session.jsonl` | Session transcript |
+
+## What to do next
+
+Hand `implement.md` to your coding agent:
+
+```
+Implement from .lamina/runs/<id>/implement.md
+```
+
+Lamina never writes app source. Your agent builds using your stack, framework, and UI library.
+
+After implementation, run `/lamina-verify`.
+
+## Tips
+
+- Scope one flow per design call — "guest checkout" not "the entire app"
+- Include constraints in natural language: "hold expires after 15 minutes"
+- Check `run.yaml` status is `ready_to_build` before implementing

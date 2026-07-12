@@ -1,0 +1,50 @@
+---
+title: Glossary
+description: Key terms in the Lamina workflow
+---
+
+# Glossary
+
+## Actor
+
+A role that interacts with the product — e.g. guest, host, admin. Actors have goals, permissions, and distinct flows. Defined during `/lamina-init` and expanded in `/lamina-design`.
+
+## Contract
+
+The complete product behavior specification for a run. Composed of `run.yaml` (metadata) and `implement.md` (build handoff). The contract is what your agent implements and Lamina verifies against.
+
+## Domain charter
+
+Output of `/lamina-init`. Scopes the product domain — entities, actors, and boundaries — before any flow design begins.
+
+## Domain
+
+The problem space you're designing for — e.g. "exam hall ticket system" or "short-term rental marketplace." Broader than a single feature or flow.
+
+## Finding
+
+A product behavior gap discovered during `/lamina-verify`. Documented in `fix.md` with expected vs observed behavior and a suggested fix.
+
+## Invariant
+
+A rule that must always hold in the product — e.g. "a cancelled booking cannot also be confirmed" or "payment requires an active hold." Violations are caught during verification.
+
+## Persona walk
+
+A verification pass where a subagent navigates your live application as a specific actor, checking flows and invariants against the contract.
+
+## ready_to_build
+
+Contract status indicating the design is complete enough for your agent to implement. Set by `/lamina-design` when actors, states, flows, and edge cases are specified.
+
+## Run
+
+A single design-verify cycle identified by a short hash (e.g. `a3f2`). All artifacts for one scope live in `.lamina/runs/<id>/`.
+
+## State
+
+A condition an entity can be in — e.g. `pending`, `confirmed`, `cancelled`. States have defined transitions and may have recovery paths when transitions fail.
+
+## Workflow
+
+A sequence of steps an actor follows to accomplish a goal — e.g. guest checkout: search → hold → pay → confirm. Workflows include primary paths, alternate paths, and error recovery.

@@ -1,0 +1,45 @@
+---
+title: /lamina-init
+description: Domain charter — scope the product before design
+---
+
+# /lamina-init
+
+Scope the product domain before any design work. This command creates a domain charter — entities, actors, and boundaries.
+
+## When to use
+
+- Starting a new project or major feature area
+- Before `/lamina-design` on an unfamiliar domain
+- When you need to clarify actors and scope before specifying flows
+
+## Example
+
+```
+/lamina-init Exam hall ticket system for universities
+```
+
+```
+/lamina-init Short-term rental marketplace for property hosts
+```
+
+## What it produces
+
+- Domain summary with key entities
+- Actor list (roles that interact with the product)
+- Scope boundaries (what's in and out of this design)
+- Foundation for the next `/lamina-design` call
+
+## What to do next
+
+Run `/lamina-design` with a specific feature or flow within the chartered domain:
+
+```
+/lamina-design Hall ticket download with payment gate and venue assignment
+```
+
+## Tips
+
+- Be specific about the domain — "e-commerce" is too broad; "university exam hall ticketing" is right
+- Include the primary actors if you know them: "for students, invigilators, and admin staff"
+- One init per domain — don't re-init for every feature; design flows within the charter

@@ -1,8 +1,8 @@
 {
   "task_id": "task005",
   "arm": "control",
-  "category": "greenfield",
-  "workflow": "design",
-  "prompt": "Design and implement a full sustainable-habits fitness product — not a streak-counter demo: domain model, illegal states, actors and permissions, check-in/streak/accountability/pause workflows, edge cases, named trade-offs, and a buildable habit + social product surface.",
-  "fixture": null
+  "category": "oss_audit",
+  "workflow": "audit",
+  "prompt": "Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
+  "fixture": "commerce-audit-ready"
 }

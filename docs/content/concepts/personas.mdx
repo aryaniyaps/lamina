@@ -1,0 +1,59 @@
+---
+title: Personas
+description: Parallel subagents walk your app as real actors
+---
+
+# Personas
+
+Lamina verification doesn't use one generic "user." It dispatches **parallel subagents** that walk your application as real actors with distinct goals and permissions.
+
+## Why personas matter
+
+A single test user misses:
+
+- **Permission gaps** — admin actions available to guests
+- **Role-specific flows** — partner onboarding vs guest checkout
+- **Cross-actor conflicts** — two users booking the same held inventory
+- **Recovery paths** — what happens when a payment fails mid-checkout
+
+Persona walks surface these by simulating how each actor actually uses the product.
+
+## Example actors
+
+For a short-term rental marketplace:
+
+| Persona | Goal | Key flows |
+|---------|------|-----------|
+| **Guest** | Book and pay for a stay | Search → hold → pay → confirm |
+| **Host** | List and manage property | Onboard → publish → manage bookings |
+| **Admin** | Approve and moderate | Review listing → approve/reject → handle disputes |
+
+Each persona walks independently. Lamina checks that the contract's permission matrix and state transitions hold for every actor.
+
+## How verification works
+
+1. `/lamina-verify` reads the contract from `run.yaml` and `implement.md`
+2. Subagents are assigned personas with roles and goals
+3. Each subagent navigates your **live application** (not mocks)
+4. Visual flow capture records what each persona sees
+5. Invariants from the contract are checked against observed behavior
+6. Findings aggregate into `fix.md`
+
+## What personas catch
+
+From the HavenStay demo:
+
+- Guest checkout allows booking while another guest holds the same room
+- Cancellation policy not snapshotted at booking time
+- Property goes live on submit without admin approval
+- Cancel path missing required reason field
+
+These are product behavior gaps — not UI bugs.
+
+## Tips
+
+- Define actors clearly in `/lamina-init` — vague roles produce vague verification
+- Run verify against a running dev server, not static mocks
+- Re-verify after every fix cycle until findings reach zero
+
+See [Demo: HavenStay](/docs/guides/demo-havenstay) for concrete examples.

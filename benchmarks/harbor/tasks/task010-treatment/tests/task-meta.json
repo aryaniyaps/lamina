@@ -1,8 +1,8 @@
 {
   "task_id": "task010",
   "arm": "treatment",
-  "category": "oss_feature",
+  "category": "resilience",
   "workflow": "design",
-  "prompt": "Design and implement bulk issue actions in Plane as a complete feature: domain model, illegal states, actors and permissions, multi-select/bulk workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.",
-  "fixture": "plane-with-init"
+  "prompt": "Design and implement a complete product for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.",
+  "fixture": null
 }

@@ -1,63 +1,58 @@
 # LaminaBench judge context
 
 ## Task description
-Design and implement a full collaborative trip planner — not a packing-list stub: domain model, illegal states, actors and permissions, itinerary/voting/expense/invite/offline workflows, edge cases, named trade-offs, and a buildable collaborative product surface.
+Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.
 
 ## Golden reference checklist
 Concepts to look for in code; identifiers, comments, logic, and tests all count.
 
 ### required_entities
-- trip
-- itinerary_item
-- expense
-- member
-- vote
-- invite
-- settlement
+- wishlist
+- wishlist_item
+- product
+- cart
+- guest_session
 
 ### required_invariants
-- invite_only_trip_access
-- organizer_approval_for_changes
-- expense_currency_consistency
+- guest_wishlist_merge_on_login
+- out_of_stock_not_purchasable
+- price_at_add_time_displayed
 
 ### required_personas
-- trip_organizer
-- contributor
-- passive_member
+- guest_shopper
+- registered_user
+- gift_buyer
 
 ### required_flows
-- create_trip
-- add_activity
-- vote_on_option
-- split_expense
-- settle_up
-- invite_members
-- leave_trip
+- add_to_wishlist
+- view_wishlist
+- move_to_cart
+- share_wishlist
+- guest_merge
 
 ### required_rules
-- invite_only_access
-- organizer_approval
-- expense_currency
+- guest_persistence
+- out_of_stock_handling
+- price_change_notification
 
 ### required_scenarios
-- member_leaves_group_settlement
-- conflicting_votes_resolution
-- offline_sync_reconciliation
-- offline_edit_conflict
+- guest_session_expired_recovery
+- product_discontinued_removal
+- duplicate_add_idempotency
 
 ### required_edge_cases
-- member_leaves_group
-- conflicting_votes
-- offline_sync
-- timezone_changes
+- product_discontinued
+- guest_session_expired
+- empty_wishlist
+- duplicate_add
 
 ### required_a11y
-- readable_maps_alternative
-- notification_preferences
+- wishlist_button_label
+- bulk_action_feedback
 
 ### required_tradeoffs
-- collaboration_vs_organizer_control
-- offline_access_vs_live_sync
+- guest_persistence_vs_privacy
+- price_notification_vs_noise
 
 ### required_sections
 - domain model and illegal states
