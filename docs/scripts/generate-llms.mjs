@@ -6,17 +6,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { SITE } from "../lib/site-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const contentDir = path.join(root, "content");
 const publicDir = path.join(root, "public");
 
-const DOMAIN = "https://lamina.dev";
-const GITHUB = "https://github.com/aryaniyaps/lamina";
-const INSTALL = "npx skills install aryaniyaps/lamina";
-const DISAMBIGUATION =
-  "Lamina (lamina.dev) is an open-source product-design skill for AI coding agents — not uselamina.ai (creative API for media generation).";
+const { domain: DOMAIN, github: GITHUB, install: INSTALL, disambiguation: DISAMBIGUATION } =
+  SITE;
 
 const SECTION_ORDER = [
   "index",
@@ -117,6 +115,35 @@ function absolutizeMarkdownLinks(text) {
     );
 }
 
+function bulletList(items) {
+  return items.map((item) => `- ${item}`).join("\n");
+}
+
+function buildLlmsFreeBody() {
+  return `${SITE.productSummary}
+
+Positioning: ${SITE.positioning}
+
+Who it's for: ${SITE.icp}
+
+The loop: ${SITE.loop}. Slash commands produce \`.lamina/\` artifacts; your coding agent implements app source; Lamina verifies the live build.
+
+${DISAMBIGUATION}
+
+Key facts:
+
+${bulletList([
+  ...SITE.whatIsNot,
+  `Open-source ${SITE.license} — ${GITHUB}`,
+  `Install: \`${INSTALL}\``,
+  `Commands: ${SITE.commands.join(", ")}`,
+  ...SITE.outcomes,
+  "Fits any stack — framework, database, language, UI library, and AI coding tool",
+  `Creator: ${SITE.creator.name} (${SITE.creator.url})`,
+  `Contact: ${GITHUB}/issues`,
+])}`;
+}
+
 const files = sortFiles(collectMdxFiles(contentDir));
 const pages = files.map(({ rel, full }) => {
   const source = fs.readFileSync(full, "utf8");
@@ -132,55 +159,47 @@ const pages = files.map(({ rel, full }) => {
   };
 });
 
-const llmsTxt = `# Lamina
+function buildLlmsPreamble(title) {
+  return `# ${title}
 
-> Design how it works. Headless product-design skill for AI coding agents. Specs how your app works (states, edges, flows) into a contract your agent implements, then verifies with persona walks.
+> ${SITE.tagline} ${SITE.description}
 
-## About
+${buildLlmsFreeBody()}`;
+}
 
-Lamina is an open-source skill for developers who build with AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi). It designs product behavior, not pixels, before your agent writes app source. The loop: design → implement → verify → fix.
+const llmsTxt = `${buildLlmsPreamble(SITE.name)}
 
-${DISAMBIGUATION}
+## Product
 
-## Install
-
-\`\`\`bash
-${INSTALL}
-\`\`\`
-
-## License
-
-MIT — ${GITHUB}
-
-## Contact
-
-- Issues: ${GITHUB}/issues
-- Creator: https://aryaniyappan.com
-- X: https://x.com/aryaniyaps
-
-## Key pages
-
-- Homepage: ${DOMAIN}
-- Documentation: ${DOMAIN}/docs
-- Full docs dump: ${DOMAIN}/llms-full.txt
+- [Homepage](${DOMAIN}): Product overview, positioning, and install command
+- [What is Lamina?](${DOMAIN}/docs/concepts/what-is-lamina): Behavior vs pixels, comparisons, core principles
+- [HavenStay demo](${DOMAIN}/docs/guides/demo-havenstay): Side-by-side build with and without Lamina
+- [Quickstart](${DOMAIN}/docs/getting-started/quickstart): Run the full design → implement → verify loop
+- [Installation](${DOMAIN}/docs/getting-started/installation): Install in Cursor, Claude Code, Codex, Gemini, or Pi
 
 ## Documentation
 
 ${pages
   .map((page) => {
     const line = page.description
-      ? `- ${page.title}: ${page.url} — ${page.description}`
-      : `- ${page.title}: ${page.url}`;
+      ? `- [${page.title}](${page.url}): ${page.description}`
+      : `- [${page.title}](${page.url})`;
     return line;
   })
   .join("\n")}
+
+## Optional
+
+- [Full docs dump](${DOMAIN}/llms-full.txt): Complete markdown export of all docs — skip if per-page URLs suffice
+- [GitHub](${GITHUB}): Source, issues, and contributions
+- [Creator](${SITE.creator.url}): ${SITE.creator.name}
 `;
 
-const llmsFullTxt = `# Lamina — full documentation export
+const llmsFullTxt = `${buildLlmsPreamble(`${SITE.name} — full documentation export`)}
+
+---
 
 Generated from docs/content. Prefer per-page URLs for citations when possible.
-
-${DISAMBIGUATION}
 
 ${pages
   .map(
