@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import { authConfig } from "@/lib/auth.config";
 import { db } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
 
@@ -30,12 +31,8 @@ declare module "@auth/core/jwt" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/sign-in",
-    newUser: "/sign-up",
-  },
   providers: [
     Credentials({
       name: "credentials",

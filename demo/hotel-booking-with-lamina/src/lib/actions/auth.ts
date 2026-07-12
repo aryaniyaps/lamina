@@ -14,16 +14,16 @@ export async function signUpAction(formData: FormData) {
   const role = (formData.get("role") as UserRole) || UserRole.TRAVELER;
 
   try {
-    const user = await registerUser({ email, password, name, role });
-    if (role === UserRole.TRAVELER) {
-      await loginUser(email, password);
-      redirect("/account?verify=1");
-    }
+    await registerUser({ email, password, name, role });
     await loginUser(email, password);
-    redirect(role === UserRole.HOTEL_STAFF ? "/hotel/onboarding" : "/admin");
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Sign up failed" };
   }
+
+  if (role === UserRole.TRAVELER) {
+    redirect("/account?verify=1");
+  }
+  redirect(role === UserRole.HOTEL_STAFF ? "/hotel/onboarding" : "/admin");
 }
 
 export async function signInAction(formData: FormData) {
@@ -31,18 +31,20 @@ export async function signInAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const redirectTo = String(formData.get("redirect") ?? "/");
 
+  let user;
   try {
-    const user = await loginUser(email, password);
-    if (user.role === UserRole.PLATFORM_ADMIN || user.role === UserRole.SUPPORT_AGENT) {
-      redirect("/admin");
-    }
-    if (user.role === UserRole.HOTEL_STAFF) {
-      redirect("/hotel");
-    }
-    redirect(redirectTo);
+    user = await loginUser(email, password);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Sign in failed" };
   }
+
+  if (user.role === UserRole.PLATFORM_ADMIN || user.role === UserRole.SUPPORT_AGENT) {
+    redirect("/admin");
+  }
+  if (user.role === UserRole.HOTEL_STAFF) {
+    redirect("/hotel");
+  }
+  redirect(redirectTo);
 }
 
 export async function signOutAction() {
