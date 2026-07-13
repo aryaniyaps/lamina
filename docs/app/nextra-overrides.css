@@ -90,6 +90,19 @@
   color: var(--ink);
 }
 
+body:has(.not-found-shell) .nextra-sidebar-container,
+body:has(.not-found-shell) .nextra-navbar,
+body:has(.not-found-shell) .nextra-footer,
+body:has(.not-found-shell) .nextra-toc {
+  display: none !important;
+}
+
+body:has(.not-found-shell) .nextra-body {
+  margin: 0 !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+
 .nextra-search input {
   border-color: var(--line) !important;
   background: var(--canvas-soft) !important;

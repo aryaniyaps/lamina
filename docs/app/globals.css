@@ -8,11 +8,19 @@
   --line: #d2d2d7;
   --accent: #212225;
   --accent-muted: rgba(33, 34, 37, 0.12);
+  --ring: var(--accent);
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
     Monaco, Consolas, monospace;
@@ -30,4 +38,43 @@ body {
 ::selection {
   background: var(--accent-muted);
   color: var(--ink);
+}
+
+@keyframes not-found-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.not-found-rise {
+  animation: not-found-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 80ms;
+}
+
+@keyframes not-found-block-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.not-found-block {
+  animation: not-found-block-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .not-found-rise,
+  .not-found-block {
+    animation: none;
+  }
 }
