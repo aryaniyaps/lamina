@@ -28,7 +28,7 @@ const model = resolveBenchModel(release);
 const llmJudges = release.llm_judges || [];
 const harbor = which('harbor');
 
-console.log('LaminaBench environment check (Harbor / Design B)\n');
+console.log('LaminaBench environment check (Harbor / Design C)\n');
 console.log(`  benchmarks/.env: ${loaded ? `loaded (${envPath})` : 'not found (using shell env only)'}`);
 console.log(`  Model pin: ${model || '(none)'}`);
 console.log(`  ANTHROPIC_BASE_URL: ${process.env.ANTHROPIC_BASE_URL || '(default api.anthropic.com)'}`);

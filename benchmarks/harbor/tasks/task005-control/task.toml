@@ -5,13 +5,13 @@ artifacts = []
 name = "aryaniyaps/task005-control"
 description = "LaminaBench task005 control arm (oss_audit)"
 authors = [{ name = "LaminaBench" }]
-keywords = ["lamina", "skillsbench-paired", "control", "oss_audit"]
+keywords = ["lamina", "ecological-matched-phases", "control", "oss_audit"]
 
 [metadata]
 author_name = "LaminaBench"
 category = "oss_audit"
 difficulty = "hard"
-tags = ["lamina", "skillsbench-paired", "control"]
+tags = ["lamina", "ecological-matched-phases", "control"]
 lamina_task_id = "task005"
 lamina_arm = "control"
 lamina_workflow = "audit"

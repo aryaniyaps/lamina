@@ -1,7 +1,7 @@
 {
   "id": "design_c_ecological_matched_phases",
   "name": "Ecological Lamina loop with matched-phase control",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "claim_surface": "golden_coverage + llm_judge on implemented source",
   "research_question": "On the same product brief, does the real Lamina loop (init → design → implement → verify → fix) produce better implemented product behavior than an equally scaffolded generic loop (plan → implement → review → fix), under the same agent, model, phase count, and budgets?",
   "runner": {
@@ -14,7 +14,7 @@
   "control": {
     "label": "Generic plan → review loop",
     "harbor_task_suffix": "-control",
-    "description": "Five phases: bench-plan.md → bench-build-order.md → implement → bench-review.md + bench-fix-list.md → fix. No Lamina skills or workflow AGENTS.md.",
+    "description": "Five phases: product-plan.md → product-build-order.md → implement → product-review.md + product-fix-list.md → fix. No Lamina skills or workflow AGENTS.md.",
     "skills_installed": false,
     "workflow_hint": false,
     "phases": ["plan", "build_order", "implement", "review", "fix"]
@@ -36,7 +36,9 @@
     "Same instruction.md product brief for both arms (no Lamina skill names in instructions).",
     "Same coding agent, model pin, temperature, task, fixture, phase count, and per-phase turn budget.",
     "Control receives no Lamina skills and no workflow AGENTS.md/CLAUDE.md.",
-    "Both arms score the same artifact type: bundled application source (.lamina/, bench-plan.md, bench-build-order.md, bench-review.md, bench-fix-list.md excluded).",
+    "Both arms score the same artifact type: bundled application source (.lamina/, product-plan.md, product-build-order.md, product-review.md, product-fix-list.md excluded).",
+    "Task brief text is injected into every phased prompt for both arms (parity with treatment /lamina-init).",
+    "Control planning artifacts use product-* names (not bench-*) to avoid meta-priming toward a benchmark harness product.",
     "Control phase prompts are generic and budget-matched — not weaker implement/fix coaching than treatment.",
     "Audit tasks use audit-matched phase prompts on both arms (verify-first treatment vs audit checklist control)."
   ],

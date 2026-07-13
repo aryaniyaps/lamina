@@ -17,7 +17,7 @@ This directory is **not** [`evals/`](../evals/). Those are internal skill-compli
 | **Control** | `taskNNN-control` | plan → build order → implement → review → fix |
 | **Treatment** | `taskNNN-treatment` | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` → fix |
 
-`instruction.md` never names Lamina skills. Planning artifacts (`bench-*.md`, `.lamina/`) are excluded from scoring.
+`instruction.md` never names Lamina skills. Planning artifacts (`product-*.md`, `.lamina/`) are excluded from scoring.
 
 ## Workflow
 

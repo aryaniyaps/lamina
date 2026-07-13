@@ -52,8 +52,22 @@ def resolve_composite(rewards: dict) -> float:
     if "composite" in rewards:
         return float(rewards["composite"] or 0.0)
     golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
+    if golden_norm > 1.0:
+        golden_norm /= 100.0
     llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
     return golden_norm * 0.5 + llm_norm * 0.5
+
+
+def build_fallback_rewards(meta: dict) -> dict:
+    golden_pct = int(meta.get("golden_coverage_pct") or 0)
+    golden_norm = golden_pct / 100.0 if golden_pct else 0.0
+    return {
+        "golden_coverage": golden_norm,
+        "llm_judge": 0.0,
+        "composite": round(golden_norm * 0.5, 4),
+        "llm_judge_degraded": True,
+        "llm_judge_error": "unavailable_after_retries",
+    }
 
 
 def main() -> int:
@@ -61,6 +75,9 @@ def main() -> int:
     details = load_json(REWARD_DETAILS_PATH)
     meta = load_json(VERIFIER_META_PATH)
     task_meta = load_json(META_PATH)
+
+    if not rewards and meta.get("golden_coverage_pct") is not None:
+        rewards = build_fallback_rewards(meta)
 
     composite = resolve_composite(rewards)
     artifact_valid = bool(meta.get("artifact_valid"))
@@ -87,7 +104,9 @@ def main() -> int:
 
     feedback = (
         f"Golden {golden_pct}%, LLM mean {llm_mean:.2f}"
-        if artifact_valid and llm_mean is not None
+        if artifact_valid and llm_mean is not None and not rewards.get("llm_judge_degraded")
+        else f"Golden {golden_pct}% (LLM judge unavailable after retries)"
+        if artifact_valid and rewards.get("llm_judge_degraded")
         else "Clarify stall — incomplete deliverables"
         if clarify_stall
         else "Missing or invalid implementation artifact"
@@ -117,7 +136,11 @@ def main() -> int:
     REWARD_PATH.write_text(json.dumps(enriched, indent=2) + "\n", encoding="utf-8")
     (REWARD_PATH.parent / "reward.txt").write_text(f"{enriched['reward']}\n", encoding="utf-8")
 
-    if not artifact_valid or final_reward < PASS_THRESHOLD:
+    if not artifact_valid or clarify_stall:
+        return 1
+    if rewards.get("llm_judge_degraded"):
+        return 0
+    if final_reward < PASS_THRESHOLD:
         return 1
     return 0
 

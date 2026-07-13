@@ -167,6 +167,7 @@ function copyVerifierBundle(dest, task, arm) {
   if (fs.existsSync(testsDir)) rmPath(testsDir);
   copyDirRecursive(VERIFIER_SRC, testsDir);
   fs.chmodSync(path.join(testsDir, 'test.sh'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'run_rewardkit.sh'), 0o755);
   fs.chmodSync(path.join(testsDir, 'capture_artifact.py'), 0o755);
   fs.chmodSync(path.join(testsDir, 'finalize_reward.py'), 0o755);
 

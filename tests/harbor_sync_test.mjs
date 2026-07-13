@@ -62,6 +62,7 @@ assert.ok(fs.existsSync(path.join(ROOT, 'benchmarks/harbor/registry.yaml')));
 
 const testSh = fs.readFileSync(path.join(control, 'tests/test.sh'), 'utf8');
 assert.ok(/rewardkit/.test(testSh), 'test.sh must invoke rewardkit');
+assert.ok(fs.existsSync(path.join(control, 'tests/run_rewardkit.sh')), 'run_rewardkit.sh must be synced');
 
 const taskToml = fs.readFileSync(path.join(control, 'task.toml'), 'utf8');
 assert.ok(/\[task\]/.test(taskToml), 'task.toml must include [task] section for Harbor publish');
@@ -80,10 +81,15 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_c_ecological_matched_phases');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "1.3.0"'));
+assert.ok(release.includes('results_contract_version: "1.4.0"'));
+assert.ok(release.includes('harness_version: "1.2.0"'));
 assert.ok(release.includes('phases_per_trial: 5'));
 
 assert.ok(fs.existsSync(path.join(control, 'tests/matched-phased-agent.sh')));
+const harness = fs.readFileSync(path.join(ROOT, 'benchmarks/harbor/verifier/matched-phased-agent.sh'), 'utf8');
+assert.ok(harness.includes('product-plan.md'), 'harness must use product-plan.md for control');
+assert.ok(harness.includes('BRIEF_BLOCK'), 'harness must inject brief block into control phases');
+assert.ok(harness.includes('unattended trial'), 'harness must say unattended trial not benchmark');
 assert.ok(!fs.existsSync(path.join(ROOT, 'benchmarks/harbor/verifier/treatment-phased-agent.sh')));
 
 console.log('harbor_sync_test: ok');

@@ -61,10 +61,10 @@ LaminaBench went through several design iterations. The primary methodology is *
 
 | Phase | Control | Treatment |
 |-------|---------|-------------|
-| 1 | `bench-plan.md` | `/lamina-init` |
-| 2 | `bench-build-order.md` | `/lamina-design` (or `/lamina-verify` for audit) |
+| 1 | `product-plan.md` | `/lamina-init` |
+| 2 | `product-build-order.md` | `/lamina-design` (or `/lamina-verify` for audit) |
 | 3 | Implement | Implement from `implement.md` + `run.yaml` |
-| 4 | `bench-review.md` + `bench-fix-list.md` | `/lamina-verify` |
+| 4 | `product-review.md` + `product-fix-list.md` | `/lamina-verify` |
 | 5 | Fix | Fix from `fix.md` |
 
 **Why we chose it:**
@@ -74,14 +74,16 @@ LaminaBench went through several design iterations. The primary methodology is *
 3. **Claimable question** — Is Lamina’s contract/verify machinery better than “just plan and code and review” when both sides get equal process?
 4. **Survives skeptical review** — We admit Lamina is a **workflow product**, not a magic skill pack. Lift, if any, comes from Lamina artifacts vs generic planning artifacts — not from giving treatment extra lives.
 
-**Intentional difference only:** Lamina command skills + `.lamina/` contracts vs generic `bench-*.md` planning artifacts. Not phase count, not implement prompt verbosity, not turn budget.
+**Intentional difference only:** Lamina command skills + `.lamina/` contracts vs generic `product-*.md` planning artifacts. Not phase count, not implement prompt verbosity, not turn budget.
 
 ### Other rejected mechanisms
 
 | Mechanism | Why rejected |
 |-----------|--------------|
 | **Clarify auto-reply** | Synthetic mid-run user replies = harness babysitting; muddies unattended loop claim |
-| **Scoring `.lamina/` or `bench-plan.md`** | Outcome claim is **implemented product behavior**; planning artifacts are inputs, not deliverables |
+| **Scoring `.lamina/` or planning markdown** | Outcome claim is **implemented product behavior**; `product-*.md` / `.lamina/` are inputs, not deliverables |
+| **Brief injection parity** | Every phased prompt includes the task brief for both arms; control no longer references brief without text |
+| **Meta-priming (`bench-*` filenames)** | Control artifacts renamed to `product-*`; harness says "unattended trial" not "benchmark" |
 | **Mixing ablation results into Design C aggregates** | Each methodology id must have its own runner and honest claim surface |
 
 ### Optional ablations (separate methodology ids)
@@ -104,14 +106,14 @@ Machine-readable design history: [`methodology.json`](methodology.json) → `con
 | **Instruction** | `instruction.md` (product brief only) | Same `instruction.md` |
 | **Lamina skills** | Not installed | Installed under agent skill path |
 | **Workflow** | Generic 5-phase loop | Lamina 5-phase loop |
-| **Phase 1** | `bench-plan.md` (product plan) | `/lamina-init` |
-| **Phase 2** | `bench-build-order.md` | `/lamina-design` (or `/lamina-verify` for audit) |
+| **Phase 1** | `product-plan.md` (product plan) | `/lamina-init` |
+| **Phase 2** | `product-build-order.md` | `/lamina-design` (or `/lamina-verify` for audit) |
 | **Phase 3** | Implement from plan | Implement from `implement.md` + `run.yaml` |
-| **Phase 4** | `bench-review.md` + `bench-fix-list.md` | `/lamina-verify` |
-| **Phase 5** | Fix from `bench-fix-list.md` | Fix from `fix.md` |
+| **Phase 4** | `product-review.md` + `product-fix-list.md` | `/lamina-verify` |
+| **Phase 5** | Fix from `product-fix-list.md` | Fix from `fix.md` |
 | **Scored output** | Application source at trial end | Application source at trial end |
 
-`instruction.md` **never names Lamina skills**. Planning artifacts (`bench-*.md`, `.lamina/`) are excluded from scoring.
+`instruction.md` **never names Lamina skills**. Planning artifacts (`product-*.md`, legacy `bench-*.md`, `.lamina/`) are excluded from scoring.
 
 ## How trials run
 

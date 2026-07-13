@@ -5,13 +5,13 @@ artifacts = []
 name = "aryaniyaps/task002-treatment"
 description = "LaminaBench task002 treatment arm (greenfield)"
 authors = [{ name = "LaminaBench" }]
-keywords = ["lamina", "skillsbench-paired", "treatment", "greenfield"]
+keywords = ["lamina", "ecological-matched-phases", "treatment", "greenfield"]
 
 [metadata]
 author_name = "LaminaBench"
 category = "greenfield"
 difficulty = "hard"
-tags = ["lamina", "skillsbench-paired", "treatment"]
+tags = ["lamina", "ecological-matched-phases", "treatment"]
 lamina_task_id = "task002"
 lamina_arm = "treatment"
 lamina_workflow = "design"

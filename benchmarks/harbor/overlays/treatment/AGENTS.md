@@ -21,11 +21,12 @@ Lamina slash commands (`/lamina-init`, `/lamina-design`, `/lamina-verify`) write
 
 Use Lamina run layout: `.lamina/runs/<run_id>/` with `run.yaml`, `implement.md`, `report.md`, and `fix.md`. Do not use `.lamina/ready_to_build/` as a directory.
 
-## Unattended benchmark
+## Unattended trial
 
 The user **cannot respond** during this run.
 
 - Treat `instruction.md` and fixture context as authoritative.
+- Build the **product in the brief** — never a benchmark runner, evaluation harness, or meta-tool about trials.
 - During Lamina commands: if a skill would clarify-and-STOP, document assumptions under **Open questions** and continue the Lamina command to completion.
 - During **implement** and **fix** (host coding phases): do **not** wait for the user to say proceed. Do **not** end with a task list or roadmap. Finish the full product from `run.yaml` + `implement.md` (then from `fix.md`) in this session.
 - Never emit a clarification-only or plan-only response without also producing the required deliverables for that phase.

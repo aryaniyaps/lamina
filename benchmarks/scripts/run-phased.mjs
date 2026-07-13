@@ -25,6 +25,25 @@ function workflowForTask(taskId) {
   return task?.workflow === 'audit' ? 'audit' : 'design';
 }
 
+function fixOwnership(targetPath) {
+  if (!fs.existsSync(targetPath)) return;
+  const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+  const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
+  docker(
+    'docker',
+    ['run', '--rm', '-v', `${targetPath}:/work`, 'alpine', 'chown', '-R', `${uid}:${gid}`, '/work'],
+    { stdio: 'ignore' }
+  );
+}
+
+function fixWorkspaceOwnership(workspacePath) {
+  fixOwnership(workspacePath);
+}
+
+function fixTrialOwnership(trialDir) {
+  fixOwnership(trialDir);
+}
+
 function runPhasedBenchmark(harborName, release, attempt) {
   const parsed = parseHarborDirName(harborName);
   if (!parsed) {
@@ -113,6 +132,9 @@ function runPhasedBenchmark(harborName, release, attempt) {
     console.warn(`WARNING: matched phased agent exited ${agent.status}`);
   }
 
+  fixWorkspaceOwnership(path.join(envDir, 'workspace'));
+  fixTrialOwnership(trialDir);
+
   const verifier = docker('docker', [
     'run',
     '--rm',
@@ -132,6 +154,8 @@ function runPhasedBenchmark(harborName, release, attempt) {
   if (verifier.status !== 0) {
     console.warn(`WARNING: verifier exited ${verifier.status}`);
   }
+
+  fixTrialOwnership(trialDir);
 
   const rewardPath = path.join(trialDir, 'verifier', 'reward.json');
   const started = new Date().toISOString();
