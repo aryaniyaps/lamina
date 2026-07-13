@@ -1,43 +1,48 @@
 {
-  "id": "design_b_skillsbench_paired",
-  "name": "SkillsBench-style paired comparison",
+  "id": "design_c_ecological_matched_phases",
+  "name": "Ecological Lamina loop with matched-phase control",
   "version": "1.0.0",
   "claim_surface": "golden_coverage + llm_judge on implemented source",
-  "research_question": "When the same coding agent receives the same product brief, does Lamina (skills installed + project workflow conventions) produce better implemented product behavior than no Lamina skills and no workflow hint?",
+  "research_question": "On the same product brief, does the real Lamina loop (init → design → implement → verify → fix) produce better implemented product behavior than an equally scaffolded generic loop (plan → implement → review → fix), under the same agent, model, phase count, and budgets?",
   "runner": {
     "framework": "harbor",
     "agent": "claude-code",
+    "phases_per_trial": 5,
     "rollouts_per_trial": 1,
-    "description": "One continuous agent rollout per trial via harbor run. No harness-forced slash-command phases."
+    "description": "Matched multi-phase harness for both arms via claude --resume. Same phase count, per-phase turn budget, and unattended contract."
   },
   "control": {
-    "label": "No Lamina skills",
+    "label": "Generic plan → review loop",
     "harbor_task_suffix": "-control",
-    "description": "Fixture + instruction.md only. No Lamina skills, no AGENTS.md/CLAUDE.md workflow hint.",
+    "description": "Five phases: bench-plan.md → bench-build-order.md → implement → bench-review.md + bench-fix-list.md → fix. No Lamina skills or workflow AGENTS.md.",
     "skills_installed": false,
-    "workflow_hint": false
+    "workflow_hint": false,
+    "phases": ["plan", "build_order", "implement", "review", "fix"]
   },
   "treatment": {
-    "label": "Lamina skills + workflow hint",
+    "label": "Lamina ecological loop",
     "harbor_task_suffix": "-treatment",
-    "description": "Same fixture and instruction.md. Lamina skills in agent skill path plus AGENTS.md/CLAUDE.md prescribing init → design → implement → verify → fix.",
+    "description": "Five phases: /lamina-init → /lamina-design (or /lamina-verify for audit) → implement → /lamina-verify → fix. Lamina skills installed plus AGENTS.md/CLAUDE.md workflow conventions.",
     "skills_installed": true,
-    "workflow_hint": true
+    "workflow_hint": true,
+    "phases": ["init", "design_or_audit", "implement", "verify", "fix"]
   },
   "unattended_policy": {
-    "prevention": "Harbor prompt_template.j2 and treatment AGENTS.md/CLAUDE.md include unattended contract: brief is authoritative; no clarify-and-STOP.",
+    "prevention": "Matched phased prompts and treatment AGENTS.md/CLAUDE.md include unattended contract: brief is authoritative; no clarify-and-STOP.",
     "recovery": "none",
     "on_stall": "Verifier reward 0; clarify_stall logged in reward output (not in composite)."
   },
   "fairness_constraints": [
-    "Same instruction.md product brief for both arms (no Lamina skill names in instructions — SkillsBench rule).",
-    "Same coding agent, model pin, temperature, task, fixture, and Harbor prompt_template wrapper per paired trial.",
+    "Same instruction.md product brief for both arms (no Lamina skill names in instructions).",
+    "Same coding agent, model pin, temperature, task, fixture, phase count, and per-phase turn budget.",
     "Control receives no Lamina skills and no workflow AGENTS.md/CLAUDE.md.",
-    "Both arms score the same artifact type: bundled application source (.lamina/ and bench process files excluded).",
-    "Workflow hint lives only in treatment project conventions, not in task instructions."
+    "Both arms score the same artifact type: bundled application source (.lamina/, bench-plan.md, bench-build-order.md, bench-review.md, bench-fix-list.md excluded).",
+    "Control phase prompts are generic and budget-matched — not weaker implement/fix coaching than treatment.",
+    "Audit tasks use audit-matched phase prompts on both arms (verify-first treatment vs audit checklist control)."
   ],
   "explicit_non_claims": [
-    "Does not claim the agent discovered Lamina skills without hints — treatment includes AGENTS.md/CLAUDE.md workflow guidance.",
+    "Does not claim Lamina beat a single-shot unaided agent — control receives equal multi-phase scaffolding.",
+    "Does not claim the agent discovered Lamina without hints — treatment includes AGENTS.md/CLAUDE.md and harness-prescribed slash commands.",
     "Does not claim runtime/test pass rates from post-hoc local analysis — scoring is in-container via Harbor Rewardkit only.",
     "Does not claim model independence from a single agent pin.",
     "Clarify stall rate is diagnostic only — not part of the claim composite."
@@ -50,20 +55,80 @@
     "confidence_method": "bootstrap_over_tasks",
     "metric_script": "benchmarks/harbor/dataset/metric.py"
   },
+  "corpus": {
+    "version": "v1-core",
+    "tasks_published": 5,
+    "tasks_total": 10,
+    "published_task_ids": ["task001", "task003", "task005", "task007", "task009"],
+    "rationale": "First public iteration; reduced task set keeps agent + LLM-judge replication affordable while preserving paired methodology."
+  },
   "secondary_metrics": [
     "clarify_stall_rate",
     "cost_time",
-    "skill_invocation_rate"
+    "skill_invocation_rate",
+    "phase_completion"
+  ],
+  "considered_designs": [
+    {
+      "id": "design_a_ecological_asymmetric",
+      "name": "Asymmetric phased treatment vs single-shot control",
+      "status": "rejected",
+      "shape": "5-phase harness-forced Lamina slash commands (treatment) vs 1 continuous Harbor rollout (control)",
+      "claim_it_would_support": "Lamina wins (confounded with extra process)",
+      "why_rejected": "Unequal phase count, turn budgets, and orchestration coaching. Measures scaffolding advantage, not Lamina contract machinery. Not claimable under skeptical review."
+    },
+    {
+      "id": "design_b_skillsbench_paired",
+      "name": "SkillsBench-style single continuous rollout",
+      "status": "optional_ablation",
+      "shape": "Same Harbor harness; skills on/off; one rollout; agent chooses skill invocation",
+      "claim_it_would_support": "Skill files alone improve agent outcomes",
+      "why_not_primary": "Does not match real Lamina usage (users run slash commands in order, not skill discovery in one session). Valid as separate ablation only."
+    },
+    {
+      "id": "prefix_lamina_router",
+      "name": "Bare brief vs /lamina <brief> prefix",
+      "status": "rejected",
+      "shape": "Control: instruction.md only. Treatment: /lamina + brief, skills installed",
+      "claim_it_would_support": "Forcing /lamina router entry helps",
+      "why_rejected": "Incomplete loop (/lamina does not implement app source); confounds forced prefix with skills; instruction text differs (not SkillsBench-paired)."
+    },
+    {
+      "id": "design_c_ecological_matched_phases",
+      "name": "Ecological Lamina loop with matched-phase control",
+      "status": "primary",
+      "shape": "5-phase Lamina loop (treatment) vs 5-phase generic plan→review (control); same harness, budgets, unattended contract",
+      "claim_it_supports": "Lamina loop produces better implemented product behavior than equally scaffolded generic loop on same brief",
+      "why_chosen": "Matches real user workflow; control gets equal process scaffolding; isolates Lamina contracts/verify machinery as the intentional difference."
+    }
+  ],
+  "optional_ablations": [
+    {
+      "id": "design_b_skillsbench_single_session",
+      "description": "One continuous Harbor rollout; skills on/off. Does not represent real slash-command usage."
+    },
+    {
+      "id": "naive_single_shot",
+      "description": "Lamina loop vs one continuous just-build-it session. Process vs no-process demo only."
+    }
   ],
   "rejected_alternatives": [
     {
-      "id": "design_a_ecological_5_phase_harness",
-      "why_rejected": "Harness-forced slash-command phases measure pipeline efficacy when scripted, not SkillsBench-style paired skills evaluation. Removed in v1 Harbor-only migration."
+      "id": "design_a_ecological_asymmetric",
+      "why_rejected": "5-phase treatment vs 1-shot control confounds Lamina with extra process scaffolding; not claimable as loop efficacy."
+    },
+    {
+      "id": "prefix_lamina_router",
+      "why_rejected": "Forced /lamina prefix is incomplete vs full loop and confounds router entry with skill install; instruction text differs."
+    },
+    {
+      "id": "asymmetric_phased_treatment_vs_single_shot_control",
+      "why_rejected": "Alias for design_a_ecological_asymmetric — same confound."
     },
     {
       "id": "clarify_auto_reply_recovery",
-      "why_rejected": "Harbor has no native mid-run Q&A recovery; custom auto-reply reintroduces harness babysitting and muddies the skills claim."
+      "why_rejected": "Custom auto-reply reintroduces harness babysitting and muddies the loop claim."
     }
   ],
-  "supersedes": "design_a_ecological"
+  "supersedes": ["design_b_skillsbench_paired", "design_a_ecological"]
 }

@@ -31,4 +31,14 @@ export function installLaminaSkills(workspace, agent) {
     if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
     copyTree(src, target);
   }
+
+  // Benchmark treatment: allow Skill-tool invocation for command skills.
+  // Production skills keep disable-model-invocation; bench copies are patched in-workspace only.
+  for (const skillId of ['lamina-init', 'lamina-design', 'lamina-verify']) {
+    const skillMd = path.join(dest, skillId, 'SKILL.md');
+    if (!fs.existsSync(skillMd)) continue;
+    const text = fs.readFileSync(skillMd, 'utf8');
+    const patched = text.replace(/^disable-model-invocation:\s*true\s*\n/m, '');
+    if (patched !== text) fs.writeFileSync(skillMd, patched);
+  }
 }

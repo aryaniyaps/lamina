@@ -40,6 +40,10 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 10
+    },
+    "suite": {
+      "type": "string",
+      "enum": ["core", "extended"]
     }
   },
   "additionalProperties": false

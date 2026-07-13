@@ -1,13 +1,13 @@
 ---
 title: LaminaBench
-description: Public product-behavior benchmark comparing agents with and without Lamina
+description: Public product-behavior benchmark comparing the Lamina loop to a matched generic loop
 ---
 
 import { Callout } from 'nextra/components'
 
 # LaminaBench
 
-LaminaBench is a public product-behavior implementation benchmark. It compares the same coding agent with and without Lamina on realistic tasks, measuring whether Lamina improves implemented product behavior in code.
+LaminaBench is a public product-behavior implementation benchmark. It compares the real Lamina workflow (init → design → implement → verify → fix) against an equally scaffolded generic plan→review loop on the same product briefs.
 
 ## Quick path
 
@@ -20,20 +20,24 @@ LaminaBench is for evaluators and researchers, not end users running Lamina day 
 | **LaminaBench** (`benchmarks/`) | Product behavior outcomes — does the implemented code match domain rules? |
 | **Skill evals** (`evals/`) | Skill compliance — does Lamina follow its own workflow rules? |
 
-LaminaBench answers: "Does using Lamina produce better product behavior in AI-generated code?"
+LaminaBench answers: "Does the Lamina design→verify loop produce better product behavior than a matched generic loop?"
 
-## Methodology (Design B)
+## Methodology (Design C)
 
-SkillsBench-style paired comparison:
+Ecological matched-phase comparison:
 
-| Arm | What the agent gets |
+| Arm | Five-phase workflow |
 |-----|---------------------|
-| **Control** | Task instruction only — no Lamina skills |
-| **Treatment** | Same instruction + Lamina skills + `AGENTS.md` workflow hint |
+| **Control** | plan → build order → implement → review → fix |
+| **Treatment** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` → fix |
 
-Both arms receive the same `instruction.md`. The treatment arm has access to Lamina skills and workflow conventions. One continuous agent rollout per trial.
+Both arms receive the same `instruction.md`, the same phase count, and equal per-phase turn budgets. The treatment arm has Lamina skills and workflow conventions. Planning artifacts are excluded from scoring; only implemented application source is judged.
 
 Scoring uses checklist coverage and LLM rubric on implemented source via Harbor Rewardkit.
+
+<Callout type="info">
+**Why this design?** LaminaBench primary methodology is Design C (matched 5-phase harness). We rejected asymmetric phased treatment vs single-shot control, `/lamina`-prefix-only comparison, and demoted SkillsBench single-session skills-on/off to an optional ablation. See [Design evolution](#design-evolution) below.
+</Callout>
 
 <Callout type="info">
 **Advanced:** v1 status — no live published results yet. The benchmark infrastructure is in place; results will be published when replication runs complete.
@@ -41,25 +45,26 @@ Scoring uses checklist coverage and LLM rubric on implemented source via Harbor 
 
 ## Corpus (v1)
 
-10 tasks × 2 arms (control + treatment) = 20 Harbor trials per run. Tasks cover realistic product scenarios with golden checklists for scoring.
+10 tasks × 2 arms (control + treatment) = 20 trials per run. Tasks cover realistic product scenarios with golden checklists for scoring.
 
-## What is compared
+## Design evolution
 
-Example task categories:
+LaminaBench went through several design iterations before landing on Design C.
 
-- Marketplace flows with multi-actor permissions
-- State machines with edge case recovery
-- Dependency reachability between features
-- Admin governance and approval gates
+| Design | Status | Why |
+|--------|--------|-----|
+| **A — Asymmetric phased** (5-phase treatment vs 1-shot control) | Rejected | Confounds Lamina with extra process; not fair |
+| **B — SkillsBench single session** (skills on/off, one rollout) | Optional ablation | Does not match real slash-command usage |
+| **Prefix — `/lamina <brief>`** | Rejected | Incomplete loop; confounds prefix + skills |
+| **C — Matched phases** (5-phase Lamina vs 5-phase generic) | **Primary** | Real usage + equal control scaffolding |
 
-Each task has a `taskNNN-control` and `taskNNN-treatment` Harbor workspace.
+Full rationale: [benchmarks/METHODOLOGY.md — Design evolution](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md#design-evolution--what-we-considered-and-why-we-landed-here).
 
 ## Running the benchmark
 
 Prerequisites:
 
 - Node.js 20+
-- Harbor CLI (`uv tool install harbor`)
 - Docker
 - Anthropic API credentials
 
@@ -75,9 +80,9 @@ Key scripts:
 
 | Script | Purpose |
 |--------|---------|
-| `npm run bench:env-check` | Verify credentials, Docker, Harbor |
+| `npm run bench:env-check` | Verify credentials and Docker |
 | `npm run bench:harbor:sync` | Sync Harbor task workspaces |
-| `npm run bench:run` | Run benchmark trials |
+| `npm run bench:run` | Run matched phased trials |
 | `npm run bench:aggregate` | Paired metrics → `results/aggregated/benchmark.json` |
 
 ## HavenStay as evidence
@@ -87,11 +92,11 @@ The [HavenStay demo](/guides/demo-havenstay) provides qualitative evidence of th
 ## Further reading
 
 - [benchmarks/README.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/README.md) — full benchmark documentation
-- [benchmarks/METHODOLOGY.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md) — Design B methodology
+- [benchmarks/METHODOLOGY.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md) — Design C methodology
 - [evals/README.md](https://github.com/aryaniyaps/lamina/blob/main/evals/README.md) — internal skill compliance evals
 
 ## Next steps
 
 - [Demo: HavenStay](/guides/demo-havenstay) — qualitative with/without comparison
 - [What is Lamina?](/concepts/what-is-lamina) — what Lamina does
-- [Orchestrator](/advanced/orchestrator) — how Lamina works internally
+- [The loop](/concepts/the-loop) — design → implement → verify cycle

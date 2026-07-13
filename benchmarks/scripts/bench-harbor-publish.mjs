@@ -14,11 +14,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
-import { HARBOR_TASKS_DIR, listHarborTaskDirs } from './harbor-tasks.mjs';
+import { HARBOR_TASKS_DIR, listHarborTaskDirs, loadRegistryBySuite } from './harbor-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATASET_DIR = path.join(ROOT, 'benchmarks/harbor/dataset');
 const TAG = process.env.BENCH_HARBOR_TAG || 'v1';
+const SUITE = process.argv.includes('--suite')
+  ? process.argv[process.argv.indexOf('--suite') + 1]
+  : 'core';
 
 function run(cmd, args, { optional = false } = {}) {
   const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env });
@@ -36,11 +39,17 @@ function removeDatasetTaskSymlinks() {
   }
 }
 
-function publishAllTasks() {
-  const taskPaths = listHarborTaskDirs().map((name) =>
-    path.relative(ROOT, path.join(HARBOR_TASKS_DIR, name))
-  );
-  console.log(`\nPublishing ${taskPaths.length} tasks from benchmarks/harbor/tasks/...`);
+function publishTasks() {
+  const coreIds = new Set(loadRegistryBySuite('core').map((t) => t.id));
+  const allDirs = listHarborTaskDirs();
+  const taskPaths = allDirs
+    .filter((name) => {
+      if (SUITE === 'full') return true;
+      const taskId = name.match(/^(task\d{3})-/)?.[1];
+      return taskId && coreIds.has(taskId);
+    })
+    .map((name) => path.relative(ROOT, path.join(HARBOR_TASKS_DIR, name)));
+  console.log(`\nPublishing ${taskPaths.length} tasks (${SUITE} suite) from benchmarks/harbor/tasks/...`);
   run('harbor', ['publish', ...taskPaths, '-t', TAG, '--public', '-c', '10']);
 }
 
@@ -48,11 +57,13 @@ function main() {
   console.log('Publish LaminaBench dataset to Harbor (task definitions only — no results needed)\n');
   run('node', ['benchmarks/scripts/harbor-sync.mjs']);
   removeDatasetTaskSymlinks();
-  publishAllTasks();
+  publishTasks();
+  const datasetDir =
+    SUITE === 'full' ? 'benchmarks/harbor/dataset-full' : 'benchmarks/harbor/dataset';
   console.log('\nRefreshing dataset task digests from registry...');
-  run('harbor', ['sync', 'benchmarks/harbor/dataset', '--upgrade']);
-  console.log(`\nPublishing dataset manifest aryaniyaps/lamina-bench@${TAG}...`);
-  run('harbor', ['publish', 'benchmarks/harbor/dataset', '-t', TAG, '--public', '--no-tasks']);
+  run('harbor', ['sync', datasetDir, '--upgrade']);
+  console.log(`\nPublishing dataset manifest aryaniyaps/lamina-bench@${TAG} (${SUITE})...`);
+  run('harbor', ['publish', datasetDir, '-t', TAG, '--public', '--no-tasks']);
   console.log(`\nPublished aryaniyaps/lamina-bench@${TAG}`);
   console.log('Others can run the dataset with:');
   console.log(`  harbor run -d "aryaniyaps/lamina-bench@${TAG}" -a claude-code -m "<model>"`);

@@ -26,6 +26,15 @@ export function loadRegistry() {
   return doc.tasks || [];
 }
 
+export const CORE_SUITE = 'core';
+export const EXTENDED_SUITE = 'extended';
+
+export function loadRegistryBySuite(suite) {
+  const tasks = loadRegistry();
+  if (!suite || suite === 'full') return tasks;
+  return tasks.filter((t) => (t.suite || CORE_SUITE) === suite);
+}
+
 export function writeRegistry(tasks, releaseTag) {
   const lines = ['version: "1.0"', `release_tag: ${releaseTag}`, 'tasks:'];
   for (const t of tasks) {
@@ -35,6 +44,7 @@ export function writeRegistry(tasks, releaseTag) {
     lines.push(`    fixture: ${t.fixture == null ? 'null' : t.fixture}`);
     lines.push(`    prompt: ${JSON.stringify(t.prompt)}`);
     lines.push(`    runs: ${t.runs ?? 1}`);
+    if (t.suite) lines.push(`    suite: ${t.suite}`);
   }
   fs.mkdirSync(path.dirname(REGISTRY_PATH), { recursive: true });
   fs.writeFileSync(REGISTRY_PATH, lines.join('\n') + '\n');

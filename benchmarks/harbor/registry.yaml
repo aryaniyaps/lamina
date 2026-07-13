@@ -5,59 +5,69 @@ tasks:
     category: greenfield
     workflow: design
     fixture: null
+    suite: core
     prompt: "Design and implement a full household budgeting product — not a demo stub: domain model, illegal states, actors and permissions, all primary workflows (onboarding, linking, weekly review, alerts, partner invite, settings), edge cases, named trade-offs, and a buildable multi-surface product."
     runs: 1
   - id: task002
     category: greenfield
     workflow: design
     fixture: null
+    suite: extended
     prompt: "Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface."
     runs: 1
   - id: task003
     category: oss_feature
     workflow: design
     fixture: plane-with-init
+    suite: core
     prompt: "Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane."
     runs: 1
   - id: task004
     category: oss_feature
     workflow: design
     fixture: commerce-with-init
+    suite: extended
     prompt: "Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce."
     runs: 1
   - id: task005
     category: oss_audit
     workflow: audit
     fixture: commerce-audit-ready
+    suite: core
     prompt: "Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
     runs: 1
   - id: task006
     category: oss_audit
     workflow: audit
     fixture: outline-audit-ready
+    suite: extended
     prompt: "Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes."
     runs: 1
   - id: task007
     category: workflow_edge
     workflow: design
     fixture: null
+    suite: core
     prompt: "Design and implement a complete product for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
   - id: task008
     category: workflow_edge
     workflow: design
     fixture: null
+    suite: extended
     prompt: "Design and implement a complete product for subscription billing with upgrades, downgrades, and proration: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
   - id: task009
     category: resilience
     workflow: design
     fixture: null
+    suite: core
     prompt: "Design and implement a complete product for offline editing in a collaborative document editor: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1
   - id: task010
     category: resilience
     workflow: design
     fixture: null
+    suite: extended
     prompt: "Design and implement a complete product for session expiration and re-authentication: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub."
     runs: 1

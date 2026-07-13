@@ -1,41 +1,40 @@
 # LaminaBench v1
 
-**Public product-behavior implementation benchmark** comparing the same coding agent with and without Lamina, run via [Harbor](https://www.harborframework.com/) in a **SkillsBench-style paired** design.
+**Public product-behavior implementation benchmark** comparing the real Lamina workflow against a matched generic loop, using Harbor task format and Rewardkit scoring.
 
-This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests. LaminaBench measures whether Lamina (skills + workflow conventions) improves **implemented product behavior** in code on realistic tasks.
+This directory is **not** [`evals/`](../evals/). Those are internal skill-compliance regression tests. LaminaBench measures whether the **Lamina design→verify loop** improves **implemented product behavior** vs an equally scaffolded plan→review loop.
 
-> **Status (v1):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design B (`design_b_skillsbench_paired`). Scoring runs in-container via Harbor Rewardkit. **No live results are published yet.**
+> **Status (v1):** Claim surface is **checklist coverage + LLM rubric on implemented source** under Design C (`design_c_ecological_matched_phases`). Scoring runs in-container via Harbor Rewardkit. **No live results are published yet.**
 
-**Methodology:** [Design B — SkillsBench-style paired comparison](METHODOLOGY.md). Same `instruction.md` for both arms; one continuous Harbor agent rollout each. Control = no skills, no AGENTS.md. Treatment = Lamina skills + AGENTS.md/CLAUDE.md workflow hint.
+**Methodology:** [Design C — ecological matched phases](METHODOLOGY.md). Same `instruction.md` for both arms; **five matched phases** each with equal turn budgets. Control = generic plan→review loop. Treatment = Lamina init→design→verify loop.
+
+**Why Design C?** We considered asymmetric phased treatment, SkillsBench single-session skills-on/off, and `/lamina`-prefix comparisons — all rejected or demoted to ablations. See [Design evolution](METHODOLOGY.md#design-evolution--what-we-considered-and-why-we-landed-here) for the full rationale.
 
 ## What is compared
 
-| Arm | Harbor task | Environment |
-|-----|-------------|-------------|
-| **Control** | `taskNNN-control` | Fixture + `instruction.md` only |
-| **Treatment** | `taskNNN-treatment` | Same brief + Lamina skills + `AGENTS.md`/`CLAUDE.md` |
+| Arm | Harbor task | Five-phase workflow |
+|-----|-------------|---------------------|
+| **Control** | `taskNNN-control` | plan → build order → implement → review → fix |
+| **Treatment** | `taskNNN-treatment` | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` → fix |
 
-`instruction.md` never names Lamina skills (SkillsBench rule). Workflow guidance lives only in treatment project conventions.
+`instruction.md` never names Lamina skills. Planning artifacts (`bench-*.md`, `.lamina/`) are excluded from scoring.
 
-## Workflow (Harbor + Rewardkit)
+## Workflow
 
-1. `npm run bench:harbor:sync` — refresh Harbor workspaces, [Rewardkit](https://www.harborframework.com/docs/rewardkit) verifier bundles, and `task.toml`
-2. `harbor run -a claude-code` with `prompt_template.j2` (unattended contract)
-3. Agent completes product work in one continuous rollout
-4. Verifier (`rewardkit /tests` + `reward.toml` + `finalize_reward.py`) → enriched `reward.json`
-5. `npm run bench:ingest` + `bench:aggregate` → paired summary in `results/aggregated/benchmark.json`
-6. Inspect per-trial detail via `harbor view` or job directories under `results/harbor/jobs/`
+1. `npm run bench:harbor:sync` — refresh Harbor workspaces, Rewardkit verifier bundles, and `task.toml`
+2. `npm run bench:run` — matched phased agent for **both** arms (`matched-phased-agent.sh`)
+3. Verifier (`rewardkit` + `finalize_reward.py`) → `reward.json`
+4. `npm run bench:ingest` + `bench:aggregate` → paired summary in `results/aggregated/benchmark.json`
+5. Inspect per-trial detail under `results/harbor/jobs/`
 
-**Unattended policy:** No mid-run user. No harness auto-reply on clarify. Stalls → reward 0 + `clarify_stall` flag in verifier output.
-
-Use `harbor view` → Verifier Logs → Rewards to inspect per-criterion judge reasoning.
+**Unattended policy:** No mid-run user. No harness auto-reply on clarify. Stalls → reward 0 + `clarify_stall` flag.
 
 ## Quick start
 
 ```bash
 npm install
-uv tool install harbor   # Harbor CLI
-npm run bench:env-check  # Anthropic + Docker + Harbor
+uv tool install harbor   # optional — for harbor view / publish
+npm run bench:env-check  # Anthropic + Docker
 npm run bench:validate
 npm run bench:harbor:sync -- --tasks task001
 npm run bench:all
@@ -45,12 +44,12 @@ npm run bench:all
 
 | Script | Purpose |
 |--------|---------|
-| `npm run bench:env-check` | Verify Anthropic credentials, Docker, Harbor CLI |
+| `npm run bench:env-check` | Verify Anthropic credentials, Docker |
 | `npm run bench:harbor:sync` | Sync Harbor task workspaces + Rewardkit verifier bundles |
 | `npm run bench:harbor:publish` | Publish dataset + tasks to Harbor registry (no results needed) |
 | `npm run bench:validate` | Validate registry + Harbor tasks + goldens |
-| `npm run bench:run` | Harbor sync + run (`--pilot`, `--tasks`, `--runs`, `--fresh`) |
-| `npm run bench:ingest` | Harbor jobs → `results/raw/` JSONL |
+| `npm run bench:run` | Harbor sync + matched phased run (`--pilot`, `--tasks`, `--runs`, `--fresh`) |
+| `npm run bench:ingest` | Job dirs → `results/raw/` JSONL |
 | `npm run bench:aggregate` | Paired metrics via `metric.py` → `results/aggregated/benchmark.json` |
 | `npm run bench:report` | ingest (fresh) + aggregate |
 | `npm run bench:pilot` | Sync task001 and validate structure |
@@ -63,42 +62,38 @@ benchmarks/
   METHODOLOGY.md
   methodology.json
   release.yaml
-  goldens/              # golden.yaml per task (synced into task tests/)
-  fixtures/             # OSS/greenfield workspace manifests
-  schemas/              # golden + task JSON schemas
   harbor/
-    registry.yaml       # task metadata (category, fixture, prompt)
-    prompt_template.j2
-    verifier/           # canonical Rewardkit verifier (synced into each task tests/)
-    overlays/treatment/ AGENTS.md, CLAUDE.md
-    tasks/              # canonical Harbor tasks (instruction.md committed; workspace gitignored)
-      taskNNN-control/
-      taskNNN-treatment/
+    verifier/
+      matched-phased-agent.sh   # canonical 5-phase harness (both arms)
+    overlays/treatment/         AGENTS.md, CLAUDE.md
+    tasks/                      taskNNN-{control,treatment}/
   scripts/
-    harbor-sync.mjs
-    harbor-tasks.mjs
-    ingest-harbor-results.mjs
-    aggregate-bench-results.mjs
-    bench-results-lib.mjs
-  harbor/dataset/       # dataset.toml + metric.py for Harbor registry
+    run-phased.mjs              # matched phased Docker runner
+    run-harbor-bench.mjs        # sync + run + ingest
   results/
-    raw/                # index.jsonl + rewards.jsonl (ingested trials)
-    aggregated/         # benchmark.json (paired summary)
-    harbor/jobs/        # Harbor job output (gitignored)
+    raw/
+    aggregated/
+    harbor/jobs/
 ```
 
 ## Corpus (v1)
 
-10 tasks × 2 arms × **1 run** (dev default) = **20 Harbor trials**. For publishable replication use `--runs 3` (60 trials). See [METHODOLOGY.md](METHODOLOGY.md) for scoring and aggregation.
+**Published (v1 core):** 5 tasks × 2 arms = **10 trials** per run.
 
-## Harbor runner flags
+**Full corpus:** 10 tasks × 2 arms = 20 trials.
+
+Run core only: `npm run bench:run -- --suite core`
+
+## Runner flags
 
 | Flag | Purpose |
 |------|---------|
 | `--pilot` | First 3 tasks only |
+| `--suite core\|full` | Filter to published core (5) or full corpus (10) |
+| `--arm control\|treatment` | Run one arm only |
 | `--tasks task001` | Filter task ids |
 | `--runs N` | Attempts per arm (default from `release.yaml`) |
 | `--fresh` | Wipe `results/harbor/jobs/` before run |
 | `--sync-only` | Refresh Harbor workspaces without running |
 
-**LLM judge:** Requires `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in `benchmarks/.env` (passed via `[verifier.env]` in `task.toml`). Override model with `REWARDKIT_JUDGE` if needed.
+**LLM judge:** Requires `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in `benchmarks/.env`.

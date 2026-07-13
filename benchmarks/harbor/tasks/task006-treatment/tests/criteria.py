@@ -38,6 +38,9 @@ SKIP_DIRS = {
 SKIP_ROOT_FILES = {
     "bench-context.md",
     "bench-plan.md",
+    "bench-build-order.md",
+    "bench-review.md",
+    "bench-fix-list.md",
     "bench-product-brief.md",
     "bench-audit-report.md",
     "bench-post-verify-report.md",

@@ -65,7 +65,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     model: result.agent_info?.model_info?.name ?? release.model,
     harness_version: release.harness_version,
     results_contract_version: release.results_contract_version,
-    runner: 'harbor',
+    runner: result.runner ?? 'harbor',
     harbor_job: path.basename(jobDir),
     harbor_trial: result.trial_name ?? path.basename(trialDir),
     artifact_path: null,

@@ -13,14 +13,15 @@
 Lamina **never writes app source**. The loop:
 
 1. **Design** (`/lamina-design`) → `run.yaml` contract + `implement.md` → `status: ready_to_build`
-2. **External build** — user or coding agent implements using any stack
+2. **External build** — user or coding agent implements using any stack from **`run.yaml` + `implement.md`**
 3. **Verify** (`/lamina-verify`) → walkthrough, actor walks, invariant checks → `findings[]` + `fix.md`
 4. **External fix** — coding agent implements product fixes from `fix.md` (not Lamina)
 5. **Re-verify** — `/lamina-verify` on updated build; contract deltas → `/lamina-design`
 
 - `/lamina`, `/lamina-init`, `/lamina-design`, `/lamina-verify` write `.lamina/` only.
-- After `ready_to_build`, tell the user to implement from `implement.md`, then run `/lamina-verify`.
-- After verify, tell the user to implement product fixes from `fix.md`, then re-run `/lamina-verify`.
+- **Write allowlist ≠ session end.** Mode B forbids app-source edits *during* a Lamina command. It does **not** mean the host agent must stop and wait for a human when the host will implement next.
+- **Interactive:** after `ready_to_build` / verify, hand off — implement from `implement.md`/`fix.md`, then `/lamina-verify`.
+- **Agent-primary / unattended:** after the Lamina command finishes `.lamina/` artifacts, the same host **continues immediately** into app-source implementation. Do not emit a task list and wait for “proceed.” Complete the full contract before ending.
 - Do not set `status: implemented` during design; use `ready_to_build`, `verifying`, `complete`.
 
 ## Non-negotiable

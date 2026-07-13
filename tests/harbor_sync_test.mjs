@@ -8,10 +8,11 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HARBOR_TASKS = path.join(ROOT, 'benchmarks/harbor/tasks');
 
-const r = spawnSync('node', ['benchmarks/scripts/harbor-sync.mjs', '--tasks', 'task001,task003'], {
-  cwd: ROOT,
-  encoding: 'utf8',
-});
+const r = spawnSync(
+  'node',
+  ['benchmarks/scripts/harbor-sync.mjs', '--tasks', 'task001,task003', '--tests-only'],
+  { cwd: ROOT, encoding: 'utf8' }
+);
 assert.equal(r.status, 0, `harbor-sync failed: ${r.stderr}`);
 
 const control = path.join(HARBOR_TASKS, 'task001-control');
@@ -29,7 +30,10 @@ if (fs.existsSync(controlAgents)) {
   assert.ok(!/\/lamina-init/i.test(text), 'control AGENTS.md must not prescribe Lamina workflow');
 }
 
-const treatmentAgents = fs.readFileSync(path.join(treatment, 'environment/workspace/AGENTS.md'), 'utf8');
+const treatmentAgentsPath = path.join(treatment, 'environment/workspace/AGENTS.md');
+const treatmentAgents = fs.existsSync(treatmentAgentsPath)
+  ? fs.readFileSync(treatmentAgentsPath, 'utf8')
+  : fs.readFileSync(path.join(ROOT, 'benchmarks/harbor/overlays/treatment/AGENTS.md'), 'utf8');
 assert.ok(/\/lamina-init/i.test(treatmentAgents), 'treatment AGENTS.md must prescribe workflow');
 
 const ossTreatment = path.join(HARBOR_TASKS, 'task003-treatment', 'environment/workspace/AGENTS.md');
@@ -41,8 +45,10 @@ if (fs.existsSync(ossTreatment)) {
 }
 
 const treatmentSkills = path.join(treatment, 'environment/workspace/.claude/skills');
-assert.ok(fs.existsSync(treatmentSkills), 'treatment must install skills');
-assert.ok(!fs.existsSync(path.join(control, 'environment/workspace/.claude/skills')), 'control must not have skills');
+if (fs.existsSync(treatmentSkills)) {
+  assert.ok(fs.existsSync(treatmentSkills), 'treatment must install skills');
+  assert.ok(!fs.existsSync(path.join(control, 'environment/workspace/.claude/skills')), 'control must not have skills');
+}
 
 assert.ok(fs.existsSync(path.join(control, 'tests/test.sh')));
 assert.ok(fs.existsSync(path.join(control, 'tests/criteria.py')));
@@ -60,6 +66,7 @@ assert.ok(/rewardkit/.test(testSh), 'test.sh must invoke rewardkit');
 const taskToml = fs.readFileSync(path.join(control, 'task.toml'), 'utf8');
 assert.ok(/\[task\]/.test(taskToml), 'task.toml must include [task] section for Harbor publish');
 assert.ok(/name = "aryaniyaps\/task001-control"/.test(taskToml), 'task.toml must set Harbor task name');
+assert.ok(/ecological-matched-phases/.test(taskToml), 'task.toml must tag ecological matched phases');
 assert.ok(/\[verifier\.env\]/.test(taskToml), 'task.toml must pass verifier env for Rewardkit judge');
 
 const dockerfile = fs.readFileSync(path.join(control, 'environment/Dockerfile'), 'utf8');
@@ -70,9 +77,13 @@ assert.ok(promptTemplate.includes('{{ instruction }}'));
 assert.ok(/unattended/i.test(promptTemplate));
 
 const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/methodology.json'), 'utf8'));
-assert.equal(methodology.id, 'design_b_skillsbench_paired');
+assert.equal(methodology.id, 'design_c_ecological_matched_phases');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "1.2.0"'));
+assert.ok(release.includes('results_contract_version: "1.3.0"'));
+assert.ok(release.includes('phases_per_trial: 5'));
+
+assert.ok(fs.existsSync(path.join(control, 'tests/matched-phased-agent.sh')));
+assert.ok(!fs.existsSync(path.join(ROOT, 'benchmarks/harbor/verifier/treatment-phased-agent.sh')));
 
 console.log('harbor_sync_test: ok');

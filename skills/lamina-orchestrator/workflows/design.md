@@ -39,9 +39,11 @@ Load skills from [audit-profiles.yaml](../audit-profiles.yaml) per section.
 8. **Dependencies** — write `domain.dependencies[]`; set `workflows[].requires` per edge. Load [lamina-dependencies](../../lamina-dependencies/SKILL.md). Do not use free-text `preconditions`.
 9. **Scenarios** — write `scenarios[]` tied to dependencies, invariants, and permissions.
 10. **UX surfaces** — optional `screens[]` tied to workflow steps; brownfield: `status: existing` + `source`.
-11. **Implement brief** — write `implement.md` (include build order from dependency graph); set `status: ready_to_build`.
+11. **Implement brief** — write `implement.md` (include build order from dependency graph and a done-when checklist tied to `run.yaml` ids); set `status: ready_to_build`.
 12. Write `report.md`; validate run if validator available.
-13. **STOP** — tell user to implement with any stack, then `/lamina-verify`.
+13. **End Lamina command** — `.lamina/` only; do not write app source in this command.
+    - **Interactive:** hand off — implement from `run.yaml` + `implement.md`, then `/lamina-verify`.
+    - **Agent-primary / unattended:** do not wait for the user. Tell the host to implement the **full** contract from `run.yaml` + `implement.md` now (every workflow, scenario, and `screens[]` with `status: new`), then `/lamina-verify`.
 
 ## Subagent hints
 

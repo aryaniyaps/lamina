@@ -1,11 +1,11 @@
 # Lamina workflow (benchmark treatment arm)
 
-When doing product-related work in this workspace, use the Lamina loop:
+Lamina commands write `.lamina/` contracts only (`/lamina-init` → `/lamina-design` or `/lamina-verify` → …). They do not edit app source.
 
-`/lamina-init` → `/lamina-design` (or `/lamina-verify` for audits) → implement → `/lamina-verify` → fix from `fix.md`.
+After design: implement app source from `run.yaml` + `implement.md` + the task brief. After verify: fix app source from `fix.md`.
 
-**Unattended run:** the user cannot answer questions. Treat the task brief as authoritative. Do not clarify-and-STOP — use labeled assumptions under Open questions and continue.
+**Unattended:** the user cannot answer. During implement/fix, finish the full product in this session — do not wait for proceed, do not stop at a scaffold or task list.
 
-Write under `.lamina/runs/<run_id>/` only (not `.lamina/ready_to_build/`). Deliver full product source, not a plan-only response.
+Write under `.lamina/runs/<run_id>/` for Lamina artifacts (not `.lamina/ready_to_build/`).
 
 See `AGENTS.md` for full workflow detail.

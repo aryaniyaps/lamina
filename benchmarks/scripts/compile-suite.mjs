@@ -52,7 +52,14 @@ function validateHarborTask(task) {
       errors.push(`${label}: missing Harbor task directory`);
       continue;
     }
-    const required = ['instruction.md', 'task.toml', 'environment/Dockerfile', 'tests/test.sh', 'tests/golden.yaml'];
+    const required = [
+      'instruction.md',
+      'task.toml',
+      'environment/Dockerfile',
+      'tests/test.sh',
+      'tests/golden.yaml',
+      'tests/matched-phased-agent.sh',
+    ];
     for (const rel of required) {
       if (!fs.existsSync(path.join(dest, rel))) {
         errors.push(`${label}: missing ${rel}`);
@@ -195,7 +202,16 @@ function main() {
 
   const tasks = discoverHarborTasks();
   const release = readRelease();
+  const coreCount = tasks.filter((t) => t.suite === 'core').length;
+  const extendedCount = tasks.filter((t) => t.suite === 'extended').length;
+  const expectedPublished = Number(release.tasks_published ?? 5);
 
+  if (coreCount !== expectedPublished) {
+    errors.push(`Expected ${expectedPublished} core tasks, found ${coreCount}`);
+  }
+  if (coreCount + extendedCount !== tasks.length) {
+    errors.push('Every task must declare suite: core or suite: extended');
+  }
   if (tasks.length !== Number(release.tasks_total)) {
     errors.push(`Expected ${release.tasks_total} tasks, found ${tasks.length}`);
   }
@@ -207,6 +223,9 @@ function main() {
   }
 
   const suite = compileSuite(tasks, release);
+  suite.published_task_ids = tasks.filter((t) => t.suite === 'core').map((t) => t.id);
+  suite.tasks_total = tasks.length;
+  suite.tasks_published = suite.published_task_ids.length;
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(suite, null, 2) + '\n');
 

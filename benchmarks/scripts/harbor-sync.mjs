@@ -8,6 +8,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { stageBenchFixture } from './stage-bench-fixture.mjs';
@@ -16,6 +17,7 @@ import {
   HARBOR_TASKS_DIR,
   harborPath,
   loadRegistry,
+  loadRegistryBySuite,
 } from './harbor-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -26,11 +28,13 @@ const VERIFIER_SRC = path.join(HARBOR_ROOT, 'verifier');
 const HARBOR_TASK_ORG = 'aryaniyaps';
 
 function parseArgs() {
-  const opts = { tasks: null, agent: 'claude-code' };
+  const opts = { tasks: null, agent: 'claude-code', suite: null, testsOnly: process.argv.includes('--tests-only') };
   const tasksIdx = process.argv.indexOf('--tasks');
   if (tasksIdx !== -1) opts.tasks = process.argv[tasksIdx + 1].split(',');
   const agentIdx = process.argv.indexOf('--agent');
   if (agentIdx !== -1) opts.agent = process.argv[agentIdx + 1];
+  const suiteIdx = process.argv.indexOf('--suite');
+  if (suiteIdx !== -1) opts.suite = process.argv[suiteIdx + 1];
   return opts;
 }
 
@@ -45,13 +49,13 @@ artifacts = []
 name = "${taskName}"
 description = "${description}"
 authors = [{ name = "LaminaBench" }]
-keywords = ["lamina", "skillsbench-paired", "${arm}", "${task.category}"]
+keywords = ["lamina", "ecological-matched-phases", "${arm}", "${task.category}"]
 
 [metadata]
 author_name = "LaminaBench"
 category = "${task.category}"
 difficulty = "hard"
-tags = ["lamina", "skillsbench-paired", "${arm}"]
+tags = ["lamina", "ecological-matched-phases", "${arm}"]
 lamina_task_id = "${task.id}"
 lamina_arm = "${arm}"
 lamina_workflow = "${task.workflow}"
@@ -95,6 +99,7 @@ RUN apt-get update \\
   && apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv \\
   && rm -rf /var/lib/apt/lists/* \\
   && npm install -g @anthropic-ai/claude-code \\
+  && node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs" \\
   && curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ENV PATH="/root/.local/bin:\${PATH}"
@@ -113,7 +118,10 @@ function rmPath(target) {
   try {
     fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   } catch (err) {
-    if (err?.code === 'EBUSY' || err?.errno === -4094) {
+    if (err?.code === 'EBUSY' || err?.errno === -4094 || err?.code === 'EACCES') {
+      spawnSync('chmod', ['-R', 'u+rwX', target], { stdio: 'ignore' });
+      const shellRm = spawnSync('rm', ['-rf', target], { stdio: 'ignore' });
+      if (shellRm.status === 0) return;
       fs.rmSync(target, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
       return;
     }
@@ -185,6 +193,8 @@ function copyVerifierBundle(dest, task, arm) {
   for (const legacy of ['harbor-score.mjs', 'deps', 'artifact']) {
     rmPath(path.join(testsDir, legacy));
   }
+  const matchedPhased = path.join(testsDir, 'matched-phased-agent.sh');
+  if (fs.existsSync(matchedPhased)) fs.chmodSync(matchedPhased, 0o755);
 }
 
 function readOverlay(name) {
@@ -229,6 +239,8 @@ function syncHarborTask(task, arm, opts, release) {
   writeDockerfile(dest);
   copyVerifierBundle(dest, task, arm);
 
+  if (opts.testsOnly) return;
+
   const workspaceDest = path.join(dest, 'environment', 'workspace');
   rmPath(workspaceDest);
   const workspaceSrc = buildWorkspace(task, arm, opts.agent);
@@ -239,7 +251,7 @@ function syncHarborTask(task, arm, opts, release) {
 function main() {
   const opts = parseArgs();
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
-  let tasks = loadRegistry();
+  let tasks = opts.suite ? loadRegistryBySuite(opts.suite) : loadRegistry();
   if (opts.tasks) tasks = tasks.filter((t) => opts.tasks.includes(t.id));
 
   fs.mkdirSync(HARBOR_TASKS_DIR, { recursive: true });

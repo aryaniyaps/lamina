@@ -1,0 +1,95 @@
+# Full corpus manifest — not published until resources allow.
+# Publish via: npm run bench:harbor:publish -- --suite full
+
+[dataset]
+name = "aryaniyaps/lamina-bench"
+description = "LaminaBench v1 full: 10-task paired benchmark (all categories). Draft manifest for future expanded release."
+keywords = []
+[[dataset.authors]]
+name = "Aryan Iyappan"
+
+
+[[tasks]]
+name = "aryaniyaps/task001-control"
+digest = "sha256:d9d6749fa0564e040c9b4705df24e3cd7a0a7123dedc250d60fa84d72ba55818"
+
+[[tasks]]
+name = "aryaniyaps/task001-treatment"
+digest = "sha256:1b70f4865f7d7d8332a2c3a78ae983d7688759bda930065e9b447504f934bd83"
+
+[[tasks]]
+name = "aryaniyaps/task002-control"
+digest = "sha256:ae7e8f0a9ada99114cc08e59c6ee941afe7ab3aead3ba2b9b83e2fa05c2ddd14"
+
+[[tasks]]
+name = "aryaniyaps/task002-treatment"
+digest = "sha256:d933a915bf874d1e7a9f896967fba47a7299ec9770f1c7faa9330f22b63f15eb"
+
+[[tasks]]
+name = "aryaniyaps/task003-control"
+digest = "sha256:9dff3c7db33fb0e5e4f1cdcedd2beb6676b662ac44d7a09d2b636b4bee109c87"
+
+[[tasks]]
+name = "aryaniyaps/task003-treatment"
+digest = "sha256:7221e5a7f09af8a21cc1211fcf7cdb9932f3aee0bff4cc92d5b539f43eb8c388"
+
+[[tasks]]
+name = "aryaniyaps/task004-control"
+digest = "sha256:d4fe1b7d87cb84086b4ec8605bba0579045535d7b7a02a68fa0718c4b0d7ffef"
+
+[[tasks]]
+name = "aryaniyaps/task004-treatment"
+digest = "sha256:caf5e470c8fc97aeef21dab8f5b567a564ebad8069178b879480dccbf5e222b0"
+
+[[tasks]]
+name = "aryaniyaps/task005-control"
+digest = "sha256:09ad6039a15cf1a7be2efce0316dbc7f208fb94a4c8f18bb1371b81be9016d79"
+
+[[tasks]]
+name = "aryaniyaps/task005-treatment"
+digest = "sha256:477ea29f7443ea9678440a8572230758230672b48b9a58a3906bdc10105fc8e7"
+
+[[tasks]]
+name = "aryaniyaps/task006-control"
+digest = "sha256:54657695f7c5f63332ec6d961ac0638fbcf1f9378c552aa347471a2dee0b09b6"
+
+[[tasks]]
+name = "aryaniyaps/task006-treatment"
+digest = "sha256:ac598ab0e50df08f0af16acc5254ea16d437c83b13cef77c78950d506674fd6c"
+
+[[tasks]]
+name = "aryaniyaps/task007-control"
+digest = "sha256:b6dfcf71172240e74f428e0ee77b91441f5990a978739ccc185f749a284ab75a"
+
+[[tasks]]
+name = "aryaniyaps/task007-treatment"
+digest = "sha256:fbf329dd5545c941926e94f5845705e6bc622ccbfa34031da24baab03e4f3459"
+
+[[tasks]]
+name = "aryaniyaps/task008-control"
+digest = "sha256:7e95d0d418608c02288c3125b3c2ff9534cd84e47a4b363b35a20c29bd49078c"
+
+[[tasks]]
+name = "aryaniyaps/task008-treatment"
+digest = "sha256:83562a41238679771d9892c8ff08434c20b6c16cc531bb78ad8a8ebb293353e9"
+
+[[tasks]]
+name = "aryaniyaps/task009-control"
+digest = "sha256:d1d60a91b5a78b2478102191423586a91075b08398804ff9c26bc5c70cfa799f"
+
+[[tasks]]
+name = "aryaniyaps/task009-treatment"
+digest = "sha256:d3339e2d797fc9ab0bb798b71aaecdde8c94db093ce251fd14e92c44c5bcce53"
+
+[[tasks]]
+name = "aryaniyaps/task010-control"
+digest = "sha256:7140464459216c03df10f817f4ed80bc286f7efe45cdbcecf91c4dc611577ea0"
+
+[[tasks]]
+name = "aryaniyaps/task010-treatment"
+digest = "sha256:e17ac14a501afe018f38cb39449c2587330edeb96dd0e6b94633f6dc5a286575"
+
+
+[[files]]
+path = "metric.py"
+digest = "sha256:f4ac0c18401a0106fb0399824e610f6493be0de50dc6d98fba6a6fcb1c0b2e69"
