@@ -190,7 +190,6 @@ function buildJudgeContext(task, golden) {
   ];
   for (const [field, items] of Object.entries(golden)) {
     if (!field.startsWith('required_') || !Array.isArray(items) || !items.length) continue;
-    if (field === 'required_sections') continue;
     lines.push(`### ${field}`);
     for (const item of items) lines.push(`- ${item}`);
     lines.push('');

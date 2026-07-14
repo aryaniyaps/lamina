@@ -7,8 +7,6 @@ results_contract_version: "1.8.0"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
-# Legacy Harbor prompt templates are unused by matched-phased; kept for reference only.
-harbor_prompt_template: benchmarks/harbor/prompt_template.j2
 
 agent: claude-code
 # Authoritative model pin. Env ANTHROPIC_MODEL must match unless LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1.
@@ -48,23 +46,9 @@ methodology:
   ecological_loop: true
 
 scoring_weights:
-  # Option D — claim score is judge-only. Phrase golden stays diagnostic (weight 0).
-  golden_coverage: 0.0
   llm_judge: 1.0
 
 claim_surface: "llm_judge on implemented source (checklist as behavioral rubric; Design C Option D)"
-
-golden_field_weights:
-  required_invariants: 2
-  required_entities: 2
-  required_scenarios: 2
-  required_tradeoffs: 2
-  required_personas: 1
-  required_flows: 1
-  required_rules: 1
-  required_edge_cases: 1
-  required_a11y: 1
-  required_findings: 1
 
 llm_judges:
   - "anthropic/lx1-sonnet-4.6"

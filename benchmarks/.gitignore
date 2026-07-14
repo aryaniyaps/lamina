@@ -4,6 +4,8 @@
 tmp/
 results/harbor/
 results/aggregated/
+results/raw/workspaces/
+results/raw/artifacts/
 harbor/dataset/task*/
 harbor/tasks/**/environment/workspace/
 *.pyc

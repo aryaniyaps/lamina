@@ -43,3 +43,7 @@ evals/fixtures/.vendor-tmp-*/
 docs/.next/
 docs/public/_pagefind/
 docs/node_modules/
+# LaminaBench — do not track ephemeral trial dumps
+benchmarks/results/raw/workspaces/
+benchmarks/results/raw/artifacts/
+benchmarks/tmp/

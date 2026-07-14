@@ -8,7 +8,6 @@ weight = 1.0
 
 # Design C Option D — judge-only claim score.
 # Checklist concepts are folded into these dimensions (see prompt.md + judge-context).
-# Phrase golden_coverage is diagnostic only (weight 0) and must not drive claims.
 
 [[criterion]]
 name = "domain_system_structure"

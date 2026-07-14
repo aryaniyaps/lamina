@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Apply LaminaBench gates and enrich reward.json for Harbor ingest / metric.py.
 
-Design C Option D: claim composite = llm_judge only. Phrase golden_coverage is
-diagnostic (recorded, not claim-weighted).
+Design C Option D: claim composite = llm_judge only.
 """
 from __future__ import annotations
 
@@ -53,22 +52,13 @@ def extract_llm_scores(details: dict) -> dict[str, float]:
 
 
 def resolve_composite(rewards: dict) -> float:
-    """Claim score = LLM judge only (Option D). Ignore golden in composite."""
-    if "llm_judge" in rewards:
-        return float(rewards.get("llm_judge") or 0.0)
-    # Legacy blobs may only expose composite from older weighted_mean runs.
-    if "composite" in rewards and rewards.get("judge_mode") != "rewardkit_phrase_mix":
-        # Prefer not to trust mixed composites after Option D.
-        pass
+    """Claim score = LLM judge only."""
     return float(rewards.get("llm_judge", 0.0) or 0.0)
 
 
-def build_fallback_rewards(meta: dict) -> dict:
+def build_fallback_rewards(_meta: dict) -> dict:
     """Mark scoring incomplete when LLM judge is unavailable — not a claimable score."""
-    golden_pct = int(meta.get("golden_coverage_pct") or 0)
-    golden_norm = golden_pct / 100.0 if golden_pct else 0.0
     return {
-        "golden_coverage": golden_norm,
         "llm_judge": 0.0,
         "composite": 0.0,
         "llm_judge_degraded": True,
@@ -83,10 +73,9 @@ def main() -> int:
     meta = load_json(VERIFIER_META_PATH)
     task_meta = load_json(META_PATH)
 
-    if not rewards and meta.get("golden_coverage_pct") is not None:
+    if not rewards and meta.get("artifact_valid") is not None:
         rewards = build_fallback_rewards(meta)
 
-    # Judge degraded with a partial rewardkit blob still counts as incomplete.
     if rewards.get("llm_judge_degraded"):
         rewards["scoring_incomplete"] = True
         rewards["composite"] = 0.0
@@ -108,20 +97,12 @@ def main() -> int:
         llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
         llm_mean = likert_norm_to_mean(llm_norm) if llm_norm else None
 
-    golden_pct = meta.get("golden_coverage_pct")
-    if golden_pct is None:
-        golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
-        if golden_norm > 1.0:
-            golden_pct = round(golden_norm)
-        else:
-            golden_pct = round(golden_norm * 100)
-
     run_attempt = int(os.environ.get("LAMINA_BENCH_RUN", "1") or "1")
 
     feedback = (
-        f"LLM mean {llm_mean:.2f} (judge-only claim); golden diagnostic {golden_pct}%"
+        f"LLM mean {llm_mean:.2f} (judge-only claim)"
         if artifact_valid and llm_mean is not None and not scoring_incomplete
-        else f"Golden diagnostic {golden_pct}% — LLM judge unavailable (scoring incomplete; excluded from claim)"
+        else "LLM judge unavailable (scoring incomplete; excluded from claim)"
         if artifact_valid and scoring_incomplete
         else "Clarify stall — incomplete deliverables"
         if clarify_stall
@@ -133,8 +114,6 @@ def main() -> int:
         "reward": round(final_reward, 4),
         "max_reward": 1,
         "composite": round(0.0 if scoring_incomplete else composite, 4),
-        "golden_coverage": golden_pct,
-        "golden_role": "diagnostic",
         "llm_judge_mean": llm_mean,
         "judge_mode": "rewardkit_judge_only",
         "claim_surface": "llm_judge",
@@ -142,8 +121,6 @@ def main() -> int:
         "clarify_stall": clarify_stall,
         "scoring_incomplete": scoring_incomplete,
         "llm_judge_degraded": bool(rewards.get("llm_judge_degraded")),
-        "checks_passed": meta.get("golden_checks_passed"),
-        "checks_total": meta.get("golden_checks_total"),
         "feedback": feedback,
         "llm_scores": {key: llm_scores.get(key) for key in CRITERIA_KEYS if key in llm_scores},
         "lamina_task_id": task_meta.get("task_id"),
@@ -151,6 +128,9 @@ def main() -> int:
         "lamina_category": task_meta.get("category"),
         "lamina_run": run_attempt,
     }
+    # Drop legacy phrase-golden fields from claim payload if present.
+    for legacy in ("golden_coverage", "checks_passed", "checks_total", "golden_role"):
+        enriched.pop(legacy, None)
 
     REWARD_PATH.parent.mkdir(parents=True, exist_ok=True)
     REWARD_PATH.write_text(json.dumps(enriched, indent=2) + "\n", encoding="utf-8")

@@ -1,6 +1,5 @@
 task_id: task005
 # Behavioral reference checklist for the LLM judge rubric (Design C Option D).
-# Phrase smoke may still be computed diagnostically — not part of claim composite.
 # Score product behavior, not exact wording / checklist id echo.
 required_entities:
   - cart
@@ -36,7 +35,3 @@ required_a11y:
   - form_labels
   - error_announcement
   - keyboard_checkout
-required_sections:
-  - executive summary
-  - findings
-  - prioritized improvements

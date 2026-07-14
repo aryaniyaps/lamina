@@ -68,12 +68,6 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
       ? 0
       : Number(rewardFile.reward ?? rewardFile.composite ?? 0);
 
-  const goldenCoverage = hasVerifierReward
-    ? typeof rewardFile.golden_coverage === 'number'
-      ? rewardFile.golden_coverage
-      : Math.round(Number(rewardFile.golden_coverage_norm ?? 0) * 100)
-    : null;
-
   const { total_tokens, cost_usd } = tokenTotals(result);
   const duration_ms = trialDurationMs(result);
 
@@ -119,12 +113,9 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     failed_gate,
     clarify_stall: Boolean(rewardFile?.clarify_stall),
     harbor_reward: harborReward,
-    golden_coverage: goldenCoverage,
-    golden_checks_passed: rewardFile?.checks_passed ?? null,
-    golden_checks_total: rewardFile?.checks_total ?? null,
     llm_judge_mean: rewardFile?.llm_judge_mean ?? null,
     llm_scores: rewardFile?.llm_scores ?? null,
-    judge_mode: rewardFile?.judge_mode ?? 'rewardkit',
+    judge_mode: rewardFile?.judge_mode ?? 'rewardkit_judge_only',
     judge_evidence: null,
     rewardkit_details: null,
     interaction: {

@@ -14,21 +14,10 @@ from criteria import (  # noqa: E402
     capture_implementation_artifact,
     is_artifact_valid,
     is_clarify_output,
-    score_golden,
 )
 
 
 class CriteriaTests(unittest.TestCase):
-    def test_golden_phrase_matching(self) -> None:
-        golden = {
-            "required_invariants": ["one_active_budget_per_household"],
-            "required_entities": ["budget"],
-        }
-        artifact = "function enforceSingleActiveBudget() { /* one budget per household */ }"
-        result = score_golden(golden, artifact)
-        self.assertGreater(result["coverage_score"], 0)
-        self.assertGreater(result["coverage_norm"], 0.0)
-
     def test_artifact_capture_and_validity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

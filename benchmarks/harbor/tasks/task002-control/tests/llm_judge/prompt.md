@@ -19,8 +19,6 @@ The reference checklist lists **concepts** the product should realize. Use it as
 5. For **a11y**: look for accessible names, adequate targets, non-color-only status — not the strings `screen_reader_labels` / `large_touch_targets`.
 6. Cite **evidence** in your reasoning (file path, symbol, or concrete control). Vague vibes without evidence → lower score.
 
-Ignore checklist section titles meant for planning docs (`required_sections`) unless they clearly map to implemented behavior.
-
 {criteria}
 
 Return your evaluation for each criterion. Be strict but fair. Prefer under-scoring stubs and comment-only “coverage.”

@@ -1,6 +1,6 @@
 """
-Shared LaminaBench verifier logic for Harbor Rewardkit.
-Canonical weights match benchmarks/release.yaml golden_field_weights.
+Shared LaminaBench verifier logic for Harbor Rewardkit (Design C Option D).
+Claim score is llm_judge; this module captures implementation artifacts.
 """
 from __future__ import annotations
 
@@ -9,10 +9,6 @@ import json
 import re
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover
-    yaml = None
 
 MAX_ARTIFACT_CHARS = 96_000
 MAX_FILE_BYTES = 48_000
@@ -77,72 +73,6 @@ SOURCE_EXT = {
     ".html",
 }
 
-GOLDEN_FIELD_WEIGHTS = {
-    "required_invariants": 2,
-    "required_entities": 2,
-    "required_scenarios": 2,
-    "required_tradeoffs": 2,
-    "required_personas": 1,
-    "required_flows": 1,
-    "required_rules": 1,
-    "required_edge_cases": 1,
-    "required_a11y": 1,
-    "required_findings": 1,
-}
-
-ALIASES = {
-    "one_active_budget_per_household": [
-        "single active budget",
-        "one budget per household",
-        "only one active budget",
-    ],
-    "partner_privacy_boundary": [
-        "partner privacy",
-        "privacy between partners",
-        "partner data boundary",
-    ],
-    "no_investment_advice_display": [
-        "no investment advice",
-        "exclude investment advice",
-        "without investment advice",
-    ],
-    "sync_failure_recovery": [
-        "sync failure",
-        "when sync fails",
-        "recover from sync",
-    ],
-    "zero_income_month": [
-        "zero income",
-        "no income month",
-        "month with no income",
-    ],
-    "duplicate_transaction_handling": [
-        "duplicate transaction",
-        "dedupe transaction",
-        "duplicate transactions",
-    ],
-    "order_total_matches_line_items": [
-        "order total matches",
-        "total equals line items",
-        "line item total",
-    ],
-    "payment_required_before_confirmation": [
-        "payment before confirm",
-        "pay before confirmation",
-        "payment required",
-    ],
-    "payment_declined_recovery": [
-        "payment declined",
-        "card declined",
-        "declined payment",
-    ],
-    "session_timeout_mid_checkout": [
-        "session timeout",
-        "session expired",
-        "timeout mid checkout",
-    ],
-}
-
 CLARIFY_MARKERS = [
     re.compile(r"##\s*lamina:\s*clarification needed", re.I),
     re.compile(r"blocked before artifact generation", re.I),
@@ -166,37 +96,9 @@ CRITERIA_KEYS = [
 ARTIFACT_OUT = Path("/logs/verifier/implementation.md")
 ARTIFACT_MANIFEST_OUT = Path("/logs/verifier/artifact-manifest.json")
 META_PATH = Path("/tests/task-meta.json")
-GOLDEN_PATH = Path("/tests/golden.yaml")
 REWARD_PATH = Path("/logs/verifier/reward.json")
 REWARD_DETAILS_PATH = Path("/logs/verifier/reward-details.json")
 VERIFIER_META_PATH = Path("/logs/verifier/verifier-meta.json")
-
-
-def normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", text.lower().replace("_", " ").replace("-", " ")).strip()
-
-
-def read_yaml(path: Path) -> dict:
-    if yaml is not None:
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    text = path.read_text(encoding="utf-8")
-    return json.loads(json.dumps(_parse_simple_yaml(text)))
-
-
-def _parse_simple_yaml(text: str) -> dict:
-    """Minimal YAML reader for golden checklists when PyYAML is unavailable."""
-    out: dict[str, list[str]] = {}
-    current: str | None = None
-    for line in text.splitlines():
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        if not line.startswith(" ") and line.endswith(":"):
-            current = line[:-1].strip()
-            out[current] = []
-            continue
-        if current and line.strip().startswith("- "):
-            out[current].append(line.strip()[2:].strip().strip('"').strip("'"))
-    return out
 
 
 def path_priority(rel: str) -> int:
@@ -377,91 +279,8 @@ def is_clarify_output(output: str) -> bool:
     return hits >= 2 or bool(re.search(r"##\s*lamina:\s*clarification needed", output, re.I))
 
 
-def phrases_for(item: str) -> list[str]:
-    key = str(item)
-    phrases = [normalize(key)]
-    if key in ALIASES:
-        phrases.extend(normalize(alias) for alias in ALIASES[key])
-    return phrases
-
-
-def phrase_matches(phrase: str, text: str) -> bool:
-    words = [word for word in phrase.split() if len(word) > 2]
-    if not words:
-        return bool(phrase) and phrase in text
-    if phrase in text:
-        return True
-    matched = sum(1 for word in words if word in text)
-    return matched >= (len(words) + 1) // 2
-
-
-def item_matches(item: str, text: str) -> bool:
-    return any(phrase_matches(phrase, text) for phrase in phrases_for(item))
-
-
-def score_golden(golden: dict, artifact_text: str) -> dict:
-    text = normalize(artifact_text)
-    checks: list[dict] = []
-    total_weight = 0.0
-    passed_weight = 0.0
-
-    for field, weight in GOLDEN_FIELD_WEIGHTS.items():
-        items = golden.get(field) or []
-        if not items:
-            continue
-        for item in items:
-            total_weight += weight
-            passed = item_matches(str(item), text)
-            if passed:
-                passed_weight += weight
-            checks.append(
-                {
-                    "field": field,
-                    "item": item,
-                    "pass": passed,
-                    "weight": weight,
-                    "method": "phrase",
-                }
-            )
-
-    coverage_score = round((passed_weight / total_weight) * 100) if total_weight else 0
-    coverage_norm = passed_weight / total_weight if total_weight else 0.0
-    return {
-        "coverage_score": coverage_score,
-        "coverage_norm": coverage_norm,
-        "checks": checks,
-        "passed": passed_weight,
-        "total": total_weight,
-    }
-
 
 def likert_norm_to_mean(norm: float) -> float:
     return round(1.0 + max(0.0, min(1.0, norm)) * 4.0, 2)
 
 
-def build_judge_context(task_meta: dict, golden: dict) -> str:
-    lines = [
-        "# LaminaBench judge context",
-        "",
-        "## Task description",
-        task_meta.get("prompt") or task_meta.get("task_id") or "",
-        "",
-        "## Behavioral reference checklist",
-        "Use as a **rubric for product behavior**, not a phrase hunt.",
-        "Credit implemented behavior (types, handlers, UI, validation, filters, empty/error states).",
-        "Do **not** require checklist id strings or slogan comments.",
-        "Negations/bans: absence or explicit rejection counts — the ban phrase need not appear.",
-        "Trade-offs/a11y: look for chosen behavior and accessible hooks, not snake_case labels.",
-        "Cite evidence (path/symbol/control) in criterion reasoning.",
-        "",
-    ]
-    for field, items in golden.items():
-        if not field.startswith("required_") or not isinstance(items, list) or not items:
-            continue
-        if field == "required_sections":
-            continue  # planning-era hints; not behavioral claim surface
-        lines.append(f"### {field}")
-        for item in items:
-            lines.append(f"- {item}")
-        lines.append("")
-    return "\n".join(lines).strip() + "\n"

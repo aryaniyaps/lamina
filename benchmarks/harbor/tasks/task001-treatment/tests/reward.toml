@@ -1,7 +1,6 @@
 # LaminaBench composite scoring (Design C — Option D).
 # Claim score = llm_judge only (checklist folded into judge rubric).
-# golden_coverage/ remains diagnostic (weight 0) for smoke/debug — not claim.
-# finalize_reward.py applies artifact_valid + clarify_stall gates on top of composite.
+# finalize_reward.py applies artifact_valid + clarify_stall gates.
 
 [[reward]]
 name = "composite"

@@ -131,7 +131,7 @@ Both arms use the same matched phased harness (`matched-phased-agent.sh`): five 
 
 ## Scoring pipeline (per trial)
 
-1. **Rewardkit dimensions** — `llm_judge/` is the **claim score** (checklist concepts folded into the judge rubric with evidence requirements). `golden_coverage/` still runs as a **diagnostic** phrase smoke (weight 0; recorded in meta, not claim). [`reward.toml`](harbor/verifier/reward.toml) aggregates; [`finalize_reward.py`](harbor/verifier/finalize_reward.py) sets `composite = llm_judge`.
+1. **Rewardkit dimensions** — `llm_judge/` is the **claim score** (checklist concepts folded into the judge rubric with evidence requirements). [`reward.toml`](harbor/verifier/reward.toml) aggregates; [`finalize_reward.py`](harbor/verifier/finalize_reward.py) sets `composite = llm_judge`.
 2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the LLM judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
 3. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`. Agent harness failures (`agent_failed`) are recorded with `artifact_valid: false` (not treated as soft verifier passes).
 4. **Model pin** — Runner uses `release.yaml` `model`; `ANTHROPIC_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Temperature/top_p are intent-only (Claude Code print mode does not expose them).
@@ -168,7 +168,7 @@ Product skills already define agent-primary behavior after `ready_to_build` / ve
 - Treatment receives Lamina skills only; workflow is harness-sent `/lamina-*` user messages (no AGENTS.md/CLAUDE.md overlay)
 - Control implement/fix prompts are **budget-matched** to treatment (same completeness requirements)
 - Implement framing (both arms) asks for a **working product codebase** for scored behaviors; CI/CD and production ops are explicitly out of scope — reduces scope-refusals without weakening product requirements
-- Blind LLM judging of source code via Harbor Rewardkit in-container verifier (checklist as behavioral rubric; phrase golden diagnostic only)
+- Blind LLM judging of source code via Harbor Rewardkit in-container verifier (checklist as behavioral rubric; judge-only claim)
 - `claim_ready: false` until live paired runs with replication
 
 ## How to cite results honestly

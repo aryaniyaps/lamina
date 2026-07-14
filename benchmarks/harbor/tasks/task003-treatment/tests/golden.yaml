@@ -1,6 +1,5 @@
 task_id: task003
 # Behavioral reference checklist for the LLM judge rubric (Design C Option D).
-# Phrase smoke may still be computed diagnostically — not part of claim composite.
 # Score product behavior, not exact wording / checklist id echo.
 required_entities:
   - recurring_issue
@@ -40,10 +39,3 @@ required_a11y:
 required_tradeoffs:
   - series_edit_vs_single_occurrence_edit
   - timezone_consistency_vs_user_local_display
-required_sections:
-  - domain model and illegal states
-  - actors and permissions
-  - workflows and decision points
-  - edge cases and recovery
-  - tradeoffs and decisions
-  - implementation brief
