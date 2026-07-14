@@ -211,6 +211,37 @@ function runPhasedBenchmark(harborName, release, attempt) {
 
   fixTrialOwnership(trialDir);
 
+  // Snapshot scored workspace beside verifier artifacts so raw/debug exports
+  // match implementation.md (host task workspace may be refreshed later).
+  const workspaceSrc = path.join(envDir, 'workspace');
+  const workspaceSnap = path.join(trialDir, 'workspace');
+  try {
+    fs.rmSync(workspaceSnap, { recursive: true, force: true });
+    fs.cpSync(workspaceSrc, workspaceSnap, {
+      recursive: true,
+      filter: (src) => {
+        const base = path.basename(src);
+        return ![
+          'node_modules',
+          '.git',
+          '.next',
+          'dist',
+          'build',
+          '.cache',
+          '.venv',
+          'coverage',
+        ].includes(base);
+      },
+    });
+    const manifestSrc = path.join(trialDir, 'verifier', 'artifact-manifest.json');
+    if (fs.existsSync(manifestSrc)) {
+      fs.copyFileSync(manifestSrc, path.join(workspaceSnap, 'artifact-manifest.json'));
+    }
+    console.log(`[matched-phased] snapped workspace → ${workspaceSnap}`);
+  } catch (err) {
+    console.warn(`[matched-phased] workspace snapshot failed: ${err.message}`);
+  }
+
   const rewardPath = path.join(trialDir, 'verifier', 'reward.json');
   const started = new Date().toISOString();
   fs.writeFileSync(
@@ -228,6 +259,7 @@ function runPhasedBenchmark(harborName, release, attempt) {
         phases_per_trial: phasesPerTrial,
         max_turns_per_phase: maxTurnsPerPhase,
         reward_present: fs.existsSync(rewardPath),
+        workspace_snapshot: fs.existsSync(workspaceSnap),
       },
       null,
       2

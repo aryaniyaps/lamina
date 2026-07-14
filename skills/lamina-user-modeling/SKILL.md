@@ -33,6 +33,19 @@ metadata:
 
 Link `actors[]` in `run.yaml` to persona ids; permissions may extend per workflow.
 
+**Resource filters (required for privacy / ownership):**
+
+```yaml
+actors:
+  - id: partner
+    permissions: [read_transaction, create_personal_transaction]
+    resource_filters:
+      - resource: transaction
+        filter: "is_personal = false OR owner_id = self"
+```
+
+Entities referenced by filters must declare the fields used (e.g. `owner_id`, `is_personal`). Do not cite `visible_to` unless it exists on the entity.
+
 ## Cast rules
 
 1. One **primary** actor per interface — design target for conflicts (`decision-making`).
@@ -40,13 +53,18 @@ Link `actors[]` in `run.yaml` to persona ids; permissions may extend per workflo
 3. **Negative persona**: actor explicitly not served — prevents elastic-user drift.
 4. Provisional cast from brownfield: `confidence: low` until user confirms.
 
-## Simulation (verify only)
+## Simulation (design + verify)
 
-Personas run as **isolated subagents** during `/lamina-verify` — not pre-build empathy theater.
+Personas run as **isolated subagents** in two modes — not averaged empathy theater.
+
+| Mode | When | Grounding | Output |
+|------|------|-----------|--------|
+| Design | Before `ready_to_build` | Contract: workflows, screens, scenarios, permissions | Gaps → `scenarios[]` / `screens[]` with `acceptance` |
+| Verify | `/lamina-verify` | Live product or static source + contract | Gaps → `findings[]` |
 
 1. Orchestrator picks panel (primary + relevant actors).
-2. Spawn one subagent per persona via `persona-panel-spawn.md`.
-3. Reconcile conflicts with Primary User Filter → `findings[]` or `decisions.md`.
+2. Spawn one subagent per persona via `persona-panel-spawn.md` (`mode: design` or `mode: verify`).
+3. Reconcile conflicts with Primary User Filter → contract updates or `findings[]` / `decisions.md`.
 
 **Situational context** in spawn prompt only: scenario, device, time pressure, stakes.
 

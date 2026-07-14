@@ -40,9 +40,12 @@ screens:
 findings:
   - id: shipping-visibility
     priority: high
+    fix_target: product
     finding: Shipping costs not visible on cart
     impact: high
     effort: low
     recommendation: Show shipping estimate on cart
     screen_id: cart
     flow_id: checkout
+    evidence: walkthrough/steps — cart capture lacks shipping estimate
+    acceptance: "Cart shows shipping estimate or explicit shipping-TBD before checkout CTA"

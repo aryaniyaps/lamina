@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from criteria import (  # noqa: E402
+    ARTIFACT_MANIFEST_OUT,
     ARTIFACT_OUT,
     VERIFIER_META_PATH,
     capture_implementation_artifact,
@@ -36,6 +37,13 @@ meta = {
 if VERIFIER_META_PATH.exists():
     meta.update(json.loads(VERIFIER_META_PATH.read_text(encoding="utf-8")))
 meta["artifact_valid"] = artifact_valid
+if ARTIFACT_MANIFEST_OUT.exists():
+    try:
+        manifest = json.loads(ARTIFACT_MANIFEST_OUT.read_text(encoding="utf-8"))
+        meta["artifact_tree_sha256"] = manifest.get("tree_sha256")
+        meta["artifact_file_count"] = manifest.get("file_count")
+    except (OSError, json.JSONDecodeError):
+        pass
 VERIFIER_META_PATH.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
 print(f"Captured implementation artifact ({len(artifact)} chars, valid={artifact_valid})")

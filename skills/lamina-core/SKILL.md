@@ -27,7 +27,7 @@ Load one capability skill per problem.
 | Fixes keep failing, structural traps | [system-traps](../lamina-system-traps/SKILL.md) |
 | Where to intervene (rules vs UI) | [leverage-points](../lamina-leverage-points/SKILL.md) |
 | Impossible states, business rules | [invariants](../lamina-invariants/SKILL.md) |
-| Feature reachability, unmet prerequisites | [dependencies](../lamina-dependencies/SKILL.md) |
+| Feature reachability, unmet prerequisites, degraded modes | [dependencies](../lamina-dependencies/SKILL.md) — **first-class** |
 | Domain boundaries, hide complexity | [modularity-boundaries](../lamina-modularity-boundaries/SKILL.md) |
 | What users see when (stale data) | [consistency-guarantees](../lamina-consistency-guarantees/SKILL.md) |
 | Double-submit, concurrent edits | [idempotency-concurrency](../lamina-idempotency-concurrency/SKILL.md) |
@@ -48,7 +48,7 @@ Load one capability skill per problem.
 | Domain-empty screens | [empty-states](../lamina-empty-states/SKILL.md) |
 | Violation recovery UX | [error-handling](../lamina-error-handling/SKILL.md) |
 | Permission/conflict scenarios | [edge-cases](../lamina-edge-cases/SKILL.md) |
-| Unreachable prerequisites | [dependencies](../lamina-dependencies/SKILL.md) |
+| Unreachable or silently broken prerequisites | [dependencies](../lamina-dependencies/SKILL.md) |
 | Async feedback, status | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
 | User journeys over state | [flow-design](../lamina-flow-design/SKILL.md) |
 | Forms under rules | [forms](../lamina-forms/SKILL.md) |

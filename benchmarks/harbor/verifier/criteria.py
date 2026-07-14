@@ -4,6 +4,7 @@ Canonical weights match benchmarks/release.yaml golden_field_weights.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -163,6 +164,7 @@ CRITERIA_KEYS = [
 ]
 
 ARTIFACT_OUT = Path("/logs/verifier/implementation.md")
+ARTIFACT_MANIFEST_OUT = Path("/logs/verifier/artifact-manifest.json")
 META_PATH = Path("/tests/task-meta.json")
 GOLDEN_PATH = Path("/tests/golden.yaml")
 REWARD_PATH = Path("/logs/verifier/reward.json")
@@ -240,6 +242,37 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
     return files
 
 
+def file_sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def build_artifact_manifest(workspace: Path, included_rels: list[str] | None = None) -> dict:
+    """Content-addressed snapshot of scored source — compare to exported workspaces."""
+    files = walk_implementation(workspace)
+    by_rel = {rel: text for rel, text in files}
+    entries = []
+    if included_rels is None:
+        included_rels = [rel for rel, _ in files]
+    for rel in included_rels:
+        text = by_rel.get(rel)
+        if text is None:
+            continue
+        entries.append(
+            {
+                "path": rel,
+                "sha256": file_sha256(text),
+                "chars": len(text),
+            }
+        )
+    digest_src = "\n".join(f"{e['path']}:{e['sha256']}" for e in entries)
+    return {
+        "schema": "lamina-bench-artifact-manifest/v1",
+        "file_count": len(entries),
+        "files": entries,
+        "tree_sha256": hashlib.sha256(digest_src.encode("utf-8")).hexdigest(),
+    }
+
+
 def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> str:
     """Bundle source for scoring with stratified path coverage (not src/app-only)."""
     files = walk_implementation(workspace)
@@ -295,6 +328,15 @@ def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> 
     out = "".join(parts)
     if len(out) > MAX_ARTIFACT_CHARS:
         out = out[:MAX_ARTIFACT_CHARS] + "\n\n[truncated for scoring]"
+
+    # Side-channel provenance for host export / debug (not part of scored text).
+    try:
+        ARTIFACT_MANIFEST_OUT.parent.mkdir(parents=True, exist_ok=True)
+        manifest = build_artifact_manifest(workspace, included)
+        ARTIFACT_MANIFEST_OUT.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
     return out
 
 

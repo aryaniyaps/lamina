@@ -18,7 +18,7 @@ Before emitting a work plan or writing any `.lamina/` artifact, classify missing
 **Design (`/lamina-design`):**
 
 ```
-domain + invariants → actors + permissions → workflows → dependencies → scenarios → UX surfaces (screens/nav/forms) → ready_to_build + implement.md
+domain + invariants → actors + resource_filters → workflows → **dependencies (modes + requires)** → scenarios (acceptance + dependency_ref) → screens → seed/out_of_scope → contract simulation → validate-run → ready_to_build + ship-pack implement.md (Reachability graph first)
 ```
 
 **Verify (`/lamina-verify`):**

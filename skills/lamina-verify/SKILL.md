@@ -8,36 +8,47 @@ disable-model-invocation: true
 
 ## Product
 
-Pre-merge gate: walk the live product against `run.yaml` contracts — actor permissions, invariants, dependency reachability, UX flows, and accessibility. Emits `findings[]`, `report.md`, and `fix.md`. Lamina never writes app source and does not run code review.
+Pre-merge gate: walk the product (live `base_url` or static source) against `run.yaml` contracts — actor permissions, invariants, dependency reachability, UX flows, and accessibility. Always emits `findings[]`, `report.md`, and `fix.md` (ops omitted from the fix brief). Lamina never writes app source and does not run code review.
 
-## Load
+## Required reads (do this before anything else)
 
-- `../lamina-orchestrator/SKILL.md`
-- `../lamina-orchestrator/workflows/verify.md`
-- `../lamina-orchestrator/audit-profiles.yaml`
-- `../lamina-orchestrator/artifacts.md`
-- `../lamina-orchestrator/prerequisites/init-required.md`
-- Output contract: `../lamina-orchestrator/prompts/outputs/verify.md`
-- Fix brief contract: `../lamina-orchestrator/prompts/outputs/fix.md`
-- Blocked output: `../lamina-orchestrator/prompts/outputs/init-blocked.md`
+You are already inside this slash skill. **Do not** call `Skill` for `lamina-verify`.
+
+The skill base directory is printed above this body. Resolve paths from that base.
+
+**Your first tool calls must be `Read` on each of these files, in order. Do not Write under `.lamina/` until all of them are read.**
+
+1. `../lamina-orchestrator/load-protocol.md`
+2. `../lamina-orchestrator/SKILL.md`
+3. `../lamina-orchestrator/workflows/verify.md`
+4. `../lamina-orchestrator/artifacts.md`
+5. `../lamina-orchestrator/audit-profiles.yaml`
+6. `../lamina-orchestrator/prerequisites/init-required.md`
+7. `../lamina-orchestrator/prompts/outputs/verify.md`
+8. `../lamina-orchestrator/prompts/outputs/fix.md`
+9. `../lamina-dependencies/SKILL.md` — reachability probes are first-class
+
+Then follow `workflows/verify.md`. When a section names a profile in `audit-profiles.yaml`, **Read** or Skill-invoke each listed supporting skill before applying that section (actors, integrity, a11y, simulation, synthesis). Supporting skills are model-loadable; this slash skill is not.
+
+**Do not invent artifact paths.** Only `.lamina/runs/<run_id>/` names from `artifacts.md`. Never `verify-report.md` or root-only `findings.md` as substitutes.
+
+**Completion gate:** Do not set `status: complete` until ticket-shaped `findings[]` are written (may be empty only if probes passed) and both `report.md` + `fix.md` exist under `.lamina/runs/<run_id>/`.
+
+**Do not** spawn Agent/Task to “run lamina-verify” with a homemade file list. Agent/Task only for persona walks / walkthrough after the files above are loaded.
 
 ## Prerequisite
 
-Requires valid `.lamina/business-context.md` from `/lamina-init`. Prefer an existing design run with `status: ready_to_build` or `complete` design phase; brownfield may infer domain from repo + walkthrough.
+Requires valid `.lamina/business-context.md` from `/lamina-init`. Prefer an existing design run with `status: ready_to_build` or `complete`; brownfield may infer domain from repo + walkthrough.
 
 ## Guardrail
 
-Writes: `.lamina/` only. Repo: read-only. Never modify app source. See [guardrails](../lamina-core/guardrails.md).
+Writes: `.lamina/` only. Repo: read-only. See [guardrails](../lamina-core/guardrails.md).
 
 ## Routing
 
-Use for: user signals implementation done; pre-merge / pre-PR product check; brownfield integrity check; checking live product against domain, actors, workflows, dependencies, scenarios.
+Use for: implementation done; pre-merge product check; brownfield integrity; live/static check against domain, actors, workflows, dependencies, scenarios.
 
 ## Subagent hints
 
-- **Visual walkthrough:** capture live product at `base_url` — `../lamina-orchestrator/patterns/visual-walkthrough.md`
-- **Actor walks:** one subagent per actor — see [persona-panel](../lamina-orchestrator/patterns/persona-panel.md), [interview-design](../lamina-interview-design/SKILL.md), [usability-evaluation](../lamina-usability-evaluation/SKILL.md)
-- **Reachability probes:** load [lamina-dependencies](../lamina-dependencies/SKILL.md) — unmet `domain.dependencies[]` per edge
-- **Synthesis:** merge walks into `findings[]` — [research-synthesis](../lamina-research-synthesis/SKILL.md), [research-communication](../lamina-research-communication/SKILL.md)
-- **Accessibility:** `../lamina-accessibility/SKILL.md` against captured steps
-- **Parallel review:** invariant, reachability, and permission checks inline or parallel when host supports it
+- Walkthrough / persona panel / a11y / synthesis — only after Required reads complete; follow paths named in the loaded workflow
+- Ops (CI/deploy/push) are non-findings unless the brief requires them

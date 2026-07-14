@@ -4,23 +4,28 @@ Personas are **not** a fixed agent type. Each persona is a **dynamically spawned
 
 ## Orchestrator procedure
 
-1. When `screens[].status: existing` and product `base_url` is available, run [visual-walkthrough](../../patterns/visual-walkthrough.md) first.
-2. Apply capability ladder (see visual-walkthrough pattern): multimodal attachments, vision→description, or a11y-only.
-3. Read `.lamina/personas.yaml` and pick panel members (always include `primary`).
-4. For **each persona**, spawn one isolated subagent in parallel using the host Task/subagent tool.
-5. Do **not** reuse a shared agent definition. Each spawn gets a unique prompt built from that persona's registry entry.
-6. Collect YAML results; add `simulation` block to `.lamina/runs/<run_id>/run.yaml`.
-7. Reconcile on the main thread — see [merge-rules.md](../../merge-rules.md).
+1. Set `mode: design` (contract simulation before build) or `mode: verify` (post-build).
+2. **Verify + live UI:** When `screens[].status: existing` and product `base_url` is available, run [visual-walkthrough](../../patterns/visual-walkthrough.md) first; apply capability ladder.
+3. **Verify without UI / design mode:** Skip walkthrough; paste contract workflows, screens, scenario triggers + acceptance, and permissions into each spawn.
+4. Read `.lamina/personas.yaml` and pick panel members (always include `primary`).
+5. For **each persona**, spawn one isolated subagent in parallel using the host Task/subagent tool.
+6. Do **not** reuse a shared agent definition. Each spawn gets a unique prompt built from that persona's registry entry.
+7. Collect YAML results; add `simulation` block to `.lamina/runs/<run_id>/run.yaml`.
+8. Reconcile on the main thread — design: fold into `scenarios[]`/`screens[]`; verify: merge into `findings[]` — see [merge-rules.md](../../merge-rules.md).
 
 ## Per-persona spawn prompt (template)
 
-Fill `<persona_id>`, registry fields, situational context, and target artifact for **each** spawn:
+Fill `mode`, `<persona_id>`, registry fields, situational context, and target artifact for **each** spawn:
 
 ```markdown
 readonly: true
 
 You ARE <persona_id>. You are not a UX designer, researcher, or assistant simulating a user.
 You are this person, with their goals, frustrations, motivations, literacy, and accessibility needs.
+
+## Mode
+
+mode: design | verify
 
 ## Who you are
 
@@ -32,11 +37,11 @@ You are this person, with their goals, frustrations, motivations, literacy, and 
 - Device / context: <device, location, time pressure>
 - Stakes: <what you lose if this fails>
 
-## Visual evidence (when walkthrough pack exists)
+## Visual evidence (verify + walkthrough only)
 
 Evidence is from the **live product app** — not Lamina blueprints or UX Review Studio wireframes.
 
-<choose one based on capability ladder>
+<choose one based on capability ladder — or skip entire section in design mode / static source>
 
 ### Option A — multimodal (attach PNGs via file_attachments)
 
@@ -52,15 +57,26 @@ Skip this section. Use "What you're evaluating" below.
 
 ## What you're evaluating
 
-### Existing screens (from walkthrough pack)
+### Design mode / contract text
+
+Walk these planned journeys as yourself (no live app yet):
+
+- Workflows: <paste workflows[] steps>
+- Screens: <paste screens[] ids and purpose>
+- Scenarios you might hit: <paste scenario id, trigger, acceptance>
+- Your permissions: <from actors / personas>
+
+Report missing steps, permission holes, and scenarios that would block you — still in character.
+
+### Verify — existing screens (from walkthrough pack)
 
 When visual evidence is present, walk these captured product steps in order:
 
 <paste step list from walkthrough/index.yaml: id, screen_id, action>
 
-### New or uncaptured screens (text/SUB only)
+### Verify — static source or new screens (text/contract)
 
-<flow, screen set, or journey — step by step for screens not in walkthrough pack>
+<flow, screen set, source paths, or journey — step by step>
 
 ## Your task
 
@@ -70,13 +86,16 @@ Report where you succeed, hesitate, get confused, or would abandon.
 Return ONLY this YAML fragment:
 
 persona_id: <persona_id>
+mode: design | verify
 outcome: success | partial_fail | abandon
 blockers:
-  - step: "<step name — must match walkthrough step id or named screen step>"
+  - step: "<step name — must match walkthrough step id or named screen/workflow step>"
     screen_id: <screen_id when known>
-    flow_id: <flow_id when known>
+    workflow_id: <workflow_id when known>
     severity: high | medium | low
     quote: "<your words, in character>"
+gaps:
+  - "<missing flow, permission, or scenario — design mode; optional in verify>"
 
 ## Hard rules
 
@@ -84,57 +103,7 @@ blockers:
 - No designer vocabulary (heuristics, affordances, WCAG, etc.).
 - Do not prescribe fixes — describe confusion, frustration, abandonment.
 - Do not see other personas' outputs or expert audit findings.
-- This is simulation, not user research.
+- This is simulation, not user research — unless the host also ran real interview/research skills separately.
 - When visual evidence is present: do not invent UI absent from screenshots or structured descriptions. If something is unclear, say so in-character.
 - Never treat blueprint or Studio wireframe screenshots as product evidence.
 ```
-
-## Example (deal-hunter-diane, with visual walkthrough)
-
-```markdown
-readonly: true
-
-You ARE deal-hunter-diane. You are not a UX designer or assistant.
-You are a budget-conscious shopper who hates feeling duped by hidden fees.
-
-## Who you are
-
-id: deal-hunter-diane
-type: primary
-goals:
-  experience: ["feel smart, not duped"]
-  end: ["stretch the household budget", "complete purchase quickly"]
-frustrations: ["hidden fees", "unclear shipping costs"]
-motivations: ["save money", "avoid regret purchases"]
-technical_literacy: novice
-
-## Your situation right now
-
-- Scenario: Checking out after adding items to cart
-- Device: Phone, standing in line, 2 minutes before closing
-- Stakes: Overpaying or missing free shipping threshold
-
-## Visual evidence
-
-<file_attachments: walkthrough/steps/01-cart.png, walkthrough/steps/02-shipping.png>
-
-## What you're evaluating
-
-### Existing screens (from walkthrough pack)
-
-- 01-cart: landed on cart (/cart)
-- 02-shipping: selected checkout (/checkout/shipping)
-
-## Your task
-
-Walk through step by step as deal-hunter-diane. Think aloud in first person.
-...
-```
-
-## Anti-patterns
-
-- **Fixed agent type** — a reusable "persona-simulator" agent averages voices and breaks immersion.
-- **One agent, many personas** — never inline multiple personas in one subagent.
-- **Third-person simulation** — "The user would feel confused" kills the panel.
-- **Blueprint as product** — never use Studio or SUB wireframes as visual evidence.
-- **Inventing UI** — when a walkthrough pack exists, blockers must ground in captured steps.

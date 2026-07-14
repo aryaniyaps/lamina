@@ -125,14 +125,37 @@ function rmPath(target) {
   try {
     fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   } catch (err) {
-    if (err?.code === 'EBUSY' || err?.errno === -4094 || err?.code === 'EACCES') {
+    if (err?.code === 'EBUSY' || err?.errno === -4094 || err?.code === 'EACCES' || err?.code === '') {
       spawnSync('chmod', ['-R', 'u+rwX', target], { stdio: 'ignore' });
       const shellRm = spawnSync('rm', ['-rf', target], { stdio: 'ignore' });
-      if (shellRm.status === 0) return;
-      fs.rmSync(target, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
+      if (shellRm.status === 0 && !fs.existsSync(target)) return;
+      // Leftover sandbox bind-mounts (e.g. skills/*/evals/evals.json) can make
+      // recursive rm fail. Delete everything we can; leave busy nodes in place.
+      bestEffortClear(target);
       return;
     }
     throw err;
+  }
+}
+
+/** Depth-first delete; skip EBUSY/EACCES nodes so sync can proceed. */
+function bestEffortClear(target) {
+  if (!fs.existsSync(target)) return;
+  let st;
+  try {
+    st = fs.lstatSync(target);
+  } catch {
+    return;
+  }
+  if (st.isDirectory() && !st.isSymbolicLink()) {
+    for (const name of fs.readdirSync(target)) {
+      bestEffortClear(path.join(target, name));
+    }
+  }
+  try {
+    fs.rmSync(target, { recursive: true, force: true });
+  } catch {
+    // leave busy mount / permission-denied node
   }
 }
 

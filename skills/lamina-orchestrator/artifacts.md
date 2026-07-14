@@ -16,18 +16,20 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 | `.lamina/personas.yaml` | Actors — roles, goals, permissions, constraints |
 | `.lamina/decisions.md` | Conflict resolution log with `run_id` refs |
 
-### Per-run
+### Per-run (canonical paths only)
 
 | Path | Purpose |
 |------|---------|
-| `.lamina/runs/<run_id>/run.yaml` | **Machine contract** — domain, actors, workflows, scenarios, screens, findings |
-| `.lamina/runs/<run_id>/implement.md` | Stack-agnostic build brief at `ready_to_build` |
-| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief (coding session handoff) |
-| `.lamina/runs/<run_id>/report.md` | Human narrative only |
-| `.lamina/runs/<run_id>/walkthrough/` | Live-app evidence (verify / brownfield) |
+| `.lamina/runs/<run_id>/run.yaml` | **Machine contract** — domain (incl. **dependencies graph**), actors, workflows, scenarios, screens, seed, scope, findings |
+| `.lamina/runs/<run_id>/implement.md` | Ship pack at `ready_to_build` — [prompts/outputs/implement.md](prompts/outputs/implement.md) |
+| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief — always written after verify |
+| `.lamina/runs/<run_id>/report.md` | Human narrative only (design or verify) |
+| `.lamina/runs/<run_id>/walkthrough/` | Live-app evidence when `base_url` available |
 | `.lamina/runs/<run_id>/evidence.md` | Optional evidence ledger |
 
-**Removed:** blueprints, `preview-state.yaml`, `handoff.md` pipeline, artifact-catalog packs. Post-verify handoff uses `fix.md` instead.
+**Do not write:** `handoff.md`, `verify-report.md`, blueprints, freestyle `edge_cases` / `illegal_states` / `preconditions` as substitutes for the machine schema, or ship packs outside `runs/<run_id>/`.
+
+Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must pass** before `ready_to_build`.
 
 ---
 
@@ -36,24 +38,25 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 ### Design (`/lamina-design`)
 
 1. Create `run.yaml` — `status: designing`, `hook: design`
-2. Write `domain` (entities, invariants, `dependencies`), `actors` (or update `personas.yaml`), `workflows`, `scenarios`, optional `screens`
-3. Set `status: ready_to_build`; write `implement.md`
-4. Write `report.md` (narrative)
+2. Write `domain.entities`, `domain.invariants`, **`domain.dependencies[]` (first-class)**, `actors` (+ `resource_filters`), `workflows` (+ `requires` / `standalone` / `provides`), `screens` (+ **`a11y`** on every `status: new`), `scenarios` (each with `acceptance`), `tradeoffs[]`, `out_of_scope`, `forbidden_content`, `seed`
+3. **Contract simulation** — persona panel including **unmet-dependency walks**; fold gaps into scenarios/screens/**dependency modes**
+4. **Validate** — `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` must pass. On failure: stay `designing`; never invent alternate paths.
+5. Set `status: ready_to_build` **only after** validation passes; write ship-pack `implement.md` with **Must-implement checklist**
+6. Write `report.md`
+
+**Completion gate:** Design is incomplete until (a) validator passes and (b) both `.lamina/runs/<run_id>/run.yaml` and `implement.md` exist. Never `.lamina/ready_to_build/`, `contract.md`, `verify-report.md`, or freestyle `edge_cases` / `preconditions` / `illegal_states`.
 
 ### Verify (`/lamina-verify`)
 
-1. Load design run or infer domain from repo
-2. Set `status: verifying`
-3. Capture `walkthrough/` when `base_url` available
-4. Run actor walks, a11y, invariant probes, reachability probes → `findings[]` with `fix_target` per finding
-5. Set `status: complete` (or loop back with gaps in findings)
-6. Write `report.md` and `fix.md`
-
-Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` (or import from `lib/run.mjs` in tests).
+1. Load design run or infer domain
+2. `status: verifying`
+3. Live walkthrough or **static source** (never STOP for missing `base_url`)
+4. **Reachability probes for every dependency edge** + actor walks → ticket-shaped `findings[]`
+5. `status: complete` → `report.md` + **always** `fix.md` (omit `ops`)
 
 ---
 
-## `run.yaml` schema
+## `run.yaml` schema (machine contract)
 
 ```yaml
 id: hall-ticket-2026-07-09
@@ -65,104 +68,141 @@ started_at: 2026-07-09
 
 domain:
   entities:
-    - id: exam
-      relationships: [venue, hall_ticket]
-      states: [scheduled, completed]
-      invariants:
-        - id: one-ticket-per-student
-          rule: At most one valid hall ticket per student per exam
-  dependencies:
+    - id: payment
+    - id: hall_ticket
+      attributes: [owner_id]          # declare ownership fields used by filters
+  invariants:
+    - id: one-ticket-per-student
+      rule: At most one valid hall ticket per student per exam
+  dependencies:                         # FIRST-CLASS reachability graph
     - id: download-requires-payment
       from: workflow.download-ticket
       requires: entity.payment
       in_state: confirmed
-      failure: unreachable
+      mode: unreachable               # unreachable | degraded | blocked_ui | recover
+      scenario_ref: payment-not-confirmed
 
 actors:
   - id: student
     permissions: [download_ticket]
-  - id: exam_cell
-    permissions: [assign_venue, regenerate_ticket]
+    resource_filters:
+      - resource: hall_ticket
+        filter: "owner_id = self"
+  - id: partner
+    permissions: [read_transaction]
+    resource_filters:
+      - resource: transaction
+        filter: "is_personal = false OR owner_id = self"
 
 workflows:
+  - id: pay-fees
+    standalone: true
+    provides: [entity.payment]
+    steps:
+      - operation: confirm payment
   - id: download-ticket
     requires: [download-requires-payment]
+    success: "PDF downloaded"
+    failure: "Blocked until payment confirmed"
     steps:
-      - operation: open ticket page
       - operation: download pdf
-        invariant_ref: payment-confirmed
 
 scenarios:
-  - id: unpaid-blocked
-    category: permission
-    trigger:
-      operation: download ticket
-      when: forbidden
-    invariant_ref: payment-confirmed
   - id: payment-not-confirmed
+    title: Payment pending blocks download
+    screen: ticket-download
     category: precondition
+    ux: alert
     trigger:
       operation: download ticket
+      subject: payment
       when: dependency_unmet
     dependency_ref: download-requires-payment
+    acceptance: "UI shows payment-required alert; download control disabled; no PDF bytes"
+    # optional structured hints:
+    # http_status: 403
+    # error_code: PAYMENT_REQUIRED
 
 screens:
   - id: ticket-download
-    status: new | existing
-    source: null
+    status: new
+    workflow_ref: download-ticket
+    a11y:
+      labels: every primary control has accessible name (aria-label or visible label)
+      touch_min_px: 48
+      color_not_only: true
+      keyboard: primary path completable without pointer
 
-findings: []   # verify phase — each item may include fix_target: product | contract
+tradeoffs:
+  - id: clarity_vs_granularity          # stable snake_id — reuse brief/golden wording when present
+    choice: Prefer clear weekly totals over per-merchant drill-down by default
+    cost: Power users need an explicit expand / view-all path
+    surfaces: [ticket-download]
+
+out_of_scope:
+  - CI/CD pipelines
+  - Push notification vendors
+  - Production bank OAuth unless brief requires
+
+forbidden_content:
+  - investment advice                   # must become a rejection / absent surface in product
+  - tax advice presented as guidance
+
+seed:
+  summary: Student with unpaid fees; student with confirmed payment
+  - unpaid student cannot download
+  - paid student can download
+
+findings: []   # verify tickets — see below
 
 evidence: []
 ```
 
-**Notes:**
-- `domain` holds entities, relationships, states, transitions, invariants, and `dependencies` (reachability graph).
-- `domain.dependencies[]` is the single source of truth for cross-feature reachability. If feature A depends on B and B is unreachable, A is a failure — not an ad-hoc edge case.
-- `workflows[].requires` lists `domain.dependencies[]` ids the workflow depends on. Do **not** use free-text `preconditions` lists.
-- `actors` may reference `.lamina/personas.yaml` cast; permissions live here or in personas.
-- `workflows` are user journeys over operations/states.
-- `scenarios` cover invariant violations, unmet dependencies, permissions, conflicts, recovery UX.
-- `screens` are structural UX surfaces tied to workflows — no styling.
+### `ready_to_build` gates (validator)
+
+Must have: `scenarios[]` (with `acceptance`), `screens[]` (each `status: new` has `a11y` with `labels` + `touch_min_px`), **`domain.dependencies[]`**, `tradeoffs[]` (each with `id` + `choice`), `forbidden_content[]`, `out_of_scope[]`, `seed`, valid dependency graph (modes, scenario links, no orphans, no freestyle `edge_cases` / `preconditions` / `illegal_states`).
+
+### Findings (verify tickets)
+
+```yaml
+findings:
+  - id: partner-personal-tx-leak
+    fix_target: product          # product | contract | ops — required
+    priority: high
+    summary: Partner can read personal transactions
+    verify_mode: static_source   # static_source | live_app | mixed
+    evidence: src/routes/transaction.ts GET list
+    acceptance: "Partner list omits is_personal=true where owner_id!=self"
+    scenario_ref: partner-cannot-see-personal-txn
+    recommendation: Filter by resource_filters
+```
+
+`ops` findings stay in `report.md` only — never Product fixes in `fix.md`.
 
 ---
 
-## `implement.md`
+## `implement.md` (ship pack)
 
-Written when `status: ready_to_build`. Brief for external coding agent:
+Projection of the machine contract for a coding session — [prompts/outputs/implement.md](prompts/outputs/implement.md).
 
-- What to build (workflows, screens)
-- **Build/setup order** implied by `domain.dependencies[]` (e.g. property setup before booking)
-- Invariants that must hold (ids from `domain`)
-- Actors and permissions
-- Scenarios to handle (including unmet-dependency failures via `dependency_ref`)
-- Explicit: any stack, any UI library
+Must include **Reachability graph**, invariants→enforcement, permissions **with filters**, workflows→surfaces, scenarios→acceptance (verbatim), **Must-implement checklist** (`scenario.*`, `forbidden.*`, `a11y.*`, `tradeoff.*`), seed notes, out of scope.
 
-Do not dump free-text precondition prose — reference dependency ids and invariant ids from the contract.
+Not a vendor blueprint. **Forbidden content and a11y hooks are code requirements**, not narrative.
 
 ---
 
 ## `fix.md`
 
-Written when verify completes with non-empty `findings[]`. Brief for external coding agent to fix the live product:
-
-- **Product fixes** — prioritized from `findings[]` where `fix_target` is `product` or unset
-- **Contract deltas** — findings with `fix_target: contract` → scoped `/lamina-design` prompts (not app code)
-- Acceptance criteria per finding id
-- Implementation session prompt and re-verify instruction
-
-Supersedes the removed `handoff.md` pipeline for post-verify work.
-
-## Actor simulation (verify only)
-
-One subagent per actor during `/lamina-verify` — not mid-design. See `patterns/visual-walkthrough.md` and verify workflow.
-
-Load [lamina-user-modeling](../lamina-user-modeling/SKILL.md) for actor cast.
+Always written after verify — [prompts/outputs/fix.md](prompts/outputs/fix.md). Mechanical projection of `findings[]` where `fix_target != ops`.
 
 ---
 
-## Checkpoints
+## Actor / persona simulation
 
-Removed: blueprint preview, UX Review Studio, artifact-pack subagents, mid-design persona panel.
+Design-time: walk contract including **dependency modes** (what happens when unmet). Verify-time: live or static. Simulation must write holes back as dependency/scenario/screen ids — not more prose `handling`.
 
-Optional: clarify gate, continue-or-revise (human pacing only — skip for agent-primary flows).
+---
+
+## Ops non-findings
+
+Unless brief/`out_of_scope` says otherwise: CI/CD, deploy, push vendors, monitoring, production IdP scaffolding are `ops` or omitted — not product ship gates.

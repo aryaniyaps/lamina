@@ -41,7 +41,7 @@ workflows:
         invariant_ref: payment-confirmed
 ```
 
-Link each step to `screens[]` and `scenarios[]` for non-happy paths. Cross-feature reachability lives in `domain.dependencies[]` + `workflows[].requires` — not free-text `preconditions` or opaque step `guards`.
+Link each step to `screens[]` and `scenarios[]` for non-happy paths. Cross-feature reachability lives in **`domain.dependencies[]` (first-class modes)** + `workflows[].requires` — not free-text `preconditions` or opaque step `guards`. Declare `success` / `degraded` / `failure` on workflows that participate in degraded edges.
 
 ## Frameworks
 

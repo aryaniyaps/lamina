@@ -17,41 +17,43 @@ metadata:
 ---
 # Tradeoffs
 
-There are no perfect solutions — only trade-offs. Name them in product language before committing to rules, workflows, or guarantees.
+There are no perfect solutions — only trade-offs. Name them in product language before committing to rules, workflows, or guarantees — then encode them as **`tradeoffs[]` in `run.yaml`**.
+
+## Machine contract
+
+```yaml
+tradeoffs:
+  - id: clarity_vs_granularity    # stable snake_case — prefer brief/golden wording verbatim
+    choice: Prefer clear weekly totals over per-merchant drill-down by default
+    cost: Power users need an explicit expand / view-all path
+    surfaces: [weekly-review]     # screens or workflows that realize the choice + mitigation
+```
+
+**Id rules:**
+1. Use brief or checklist language when it already names the trade-off (`clarity_vs_granularity`, `shared_view_vs_partner_privacy`).
+2. **Do not rename** to a synonym (`clarity_vs_detail` is wrong if the brief says granularity).
+3. Each trade-off must ship both the `choice` and the mitigating surface implied by `cost`.
+
+Also record material decisions in global `decisions.md` with `run_id` when debate warrants narrative.
 
 ## Decision frameworks
 
-- **Trade-off articulation**: Every significant choice optimizes some properties at the expense of others (strict ticket rules vs flexible admin overrides; instant download vs payment verification delay).
-  - When to use: Any non-obvious design decision.
-  - How: Document context, choice, consequences, and rejected alternatives in `decisions.md` or run narrative.
-
-- **Operational vs analytical paths**: Live user actions vs reporting/aggregates — often different freshness and correctness needs.
-  - When to use: Products with dashboards and live flows sharing data.
-  - How: Separate guarantees per path in `domain`.
-
-- **Reversibility**: Prefer choices you can undo until the cost of delay exceeds the cost of change.
-  - When to use: Uncertain requirements, greenfield features.
+- **Trade-off articulation**: Every significant choice optimizes some properties at the expense of others.
+- **Operational vs analytical paths**: Live actions vs reporting — different freshness/correctness.
+- **Reversibility**: Prefer undoable choices until delay costs more than change.
 
 ## Checklists
 
 1. State the trade-off before the mechanism ("we choose X because Y at cost of Z").
-2. Link trade-offs to primary actor and business outcome.
-3. Avoid false "best practice" — match guarantee to actual user risk.
-4. Record material trade-offs in global `decisions.md` with `run_id`.
-
-## Heuristics
-
-- **Name it before you build it**: Teams fight when trade-offs were never explicit.
-- **Primary user filter**: When actors disagree, whose outcome matters most for this decision?
+2. Write `tradeoffs[]` with stable `id`, `choice`, `cost`, and `surfaces`.
+3. Link to primary actor and business outcome.
+4. Implement.md Must-implement includes every `tradeoff.*` id; verify probes the mitigating control.
 
 ## Anti-patterns
 
-- **Solution-first**: Picking a workflow because it is familiar, not because trade-offs were weighed.
-- **Hidden costs**: Flexible overrides that erode invariants over time.
-
-## Examples
-
-- **Ticket availability**: Trade-off — strict 48h window (fairness, less support) vs anytime download (convenience, more invalid attempts). Document choice and scenarios for violations.
+- **Solution-first**: Familiar workflow without named trade-offs.
+- **Hidden costs**: Overrides that erode invariants.
+- **Synonym ids**: Renaming brief trade-off names so phrase checks and handoffs diverge.
 
 ## Related capabilities
 

@@ -22,7 +22,7 @@ const files = [
   'skills/lamina-core/SKILL.md',
   'skills/lamina-orchestrator/artifact-catalog.yaml',
   'skills/lamina-orchestrator/prompts/outputs/artifact-pack.md',
-  'skills/lamina-orchestrator/prompts/outputs/handoff.md',
+  'skills/lamina-orchestrator/prompts/outputs/fix.md',
   'skills/lamina-orchestrator/workflows/router.md',
   'skills/lamina-orchestrator/workflows/verify.md',
   'skills/lamina-orchestrator/merge-rules.md',

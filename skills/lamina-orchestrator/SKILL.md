@@ -1,7 +1,6 @@
 ---
 name: lamina-orchestrator
-description: "Product design workflows — domain contracts, implement brief, verify loop. Loaded by /lamina* commands."
-disable-model-invocation: true
+description: "Product design workflows — domain contracts, implement brief, verify loop. Load via Read or Skill tool when /lamina-* workflows need it."
 ---
 
 # Lamina Orchestrator
@@ -9,6 +8,8 @@ disable-model-invocation: true
 Coordinates design → `ready_to_build` → external build → verify. Mode B: never writes app source.
 
 **Guardrail:** `.lamina/` only. See [guardrails](../lamina-core/guardrails.md).
+
+**Load protocol:** [load-protocol.md](load-protocol.md) — traverse Load lists; never invent artifact filenames.
 
 ## Modes
 
@@ -29,13 +30,14 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 ## Steps
 
 1. **Select** — skills from audit-profiles for workflow section
-2. **Apply** — load each skill; write `run.yaml` incrementally
-3. **Deliver** — output contract; design ends at `ready_to_build` + `implement.md`; verify ends at `findings[]` + `fix.md`
+2. **Apply** — **Read/Skill-load** each skill; write `run.yaml` incrementally under `.lamina/runs/<run_id>/`
+3. **Deliver** — output contract; design ends at validated `ready_to_build` + ship-pack `implement.md`; verify ends at `findings[]` + always `fix.md`
 
 ## Files
 
 | File | Purpose |
 |------|---------|
+| [load-protocol.md](load-protocol.md) | How slash + supporting skills load |
 | [artifacts.md](artifacts.md) | `run.yaml` schema, lifecycle |
 | [merge-rules.md](merge-rules.md) | Merge order, grounding |
 | [audit-profiles.yaml](audit-profiles.yaml) | Section → skills |
