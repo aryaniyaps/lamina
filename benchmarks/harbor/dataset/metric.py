@@ -73,14 +73,21 @@ def aggregate_rewards(rewards: list[dict[str, Any]]) -> dict[str, Any]:
         lambda: defaultdict(list)
     )
     categories: dict[str, str] = {}
+    excluded = 0
+    included = 0
 
     for row in rewards:
+        # Incomplete / failed-agent trials are diagnostic only — not claim scores.
+        if row.get("scoring_incomplete") or row.get("agent_failed") or row.get("llm_judge_degraded"):
+            excluded += 1
+            continue
         task_id = row.get("lamina_task_id")
         arm = row.get("lamina_arm")
         if not task_id or arm not in ("control", "treatment"):
             continue
         run = int(row.get("lamina_run") or 1)
         by_cell[(task_id, arm)][run].append(trial_score(row))
+        included += 1
         if row.get("lamina_category"):
             categories[task_id] = row["lamina_category"]
 
@@ -136,6 +143,8 @@ def aggregate_rewards(rewards: list[dict[str, Any]]) -> dict[str, Any]:
         "methodology": "design_c_ecological_matched_phases",
         "inference_unit": "task",
         "cell_aggregation": "median_across_runs",
+        "trials_included": included,
+        "trials_excluded_incomplete": excluded,
         "tasks_paired": len(paired_deltas),
         "tasks_total": len(task_ids),
         "runs_per_arm_observed_max": runs_per_arm,

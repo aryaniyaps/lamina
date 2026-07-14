@@ -1,5 +1,5 @@
 [judge]
-judge = "anthropic/claude-sonnet-4-20250514"
+judge = "anthropic/lx1-sonnet-4.6"
 files = ["/logs/verifier/implementation.md"]
 reference = "/tests/judge-context.md"
 prompt_template = "/tests/llm_judge/prompt.md"

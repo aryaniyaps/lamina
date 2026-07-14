@@ -13,7 +13,11 @@ Design and implement complete offline editing for a collaborative document edito
 
 ## Deliverable
 
-A coherent, buildable **full-product** implementation of the brief: domain model, all primary workflows end-to-end, edge/recovery paths, and a usable product surface. Do not stop at a single-screen or thin demo stub.
+A coherent, **buildable application codebase** that implements the product behaviors in this brief: domain model, primary workflows end-to-end, edge/recovery paths, and a usable product surface in source.
+
+Prefer one pragmatic stack you can finish (TypeScript/Node + simple web UI is fine for mobile-first briefs — keep the UI mobile-friendly). Scoring judges **application source**, not CI/CD, app-store packaging, push infrastructure, or production ops — those are out of scope.
+
+Do not stop at a single-screen or thin demo stub. Do not refuse for scope or only write plans.
 
 ## Context
 

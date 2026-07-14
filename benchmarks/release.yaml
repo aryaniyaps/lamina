@@ -3,18 +3,20 @@ release_tag: bench-v1
 created: "2026-07-11"
 harness_version: "1.2.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "1.4.0"
+results_contract_version: "1.7.0"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
+# Legacy Harbor prompt templates are unused by matched-phased; kept for reference only.
 harbor_prompt_template: benchmarks/harbor/prompt_template.j2
 
 agent: claude-code
-model: claude-sonnet-4-20250514
+# Authoritative model pin. Env ANTHROPIC_MODEL must match unless LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1.
+model: lx1-sonnet-4.6
+# Intent only — Claude Code CLI does not expose temperature/top_p/max_tokens in print mode.
 temperature: 0
 top_p: 1.0
 max_tokens: 8192
-
 runs_per_arm: 1
 # Target for publishable results; use --runs 3 at release time.
 runs_per_arm_publish: 3
@@ -27,12 +29,12 @@ trials_total: 20
 trials_total_published: 10
 trials_total_publish: 30
 
-# Matched multi-phase harness (5 phases × per-phase turns)
+# Matched multi-phase harness (5 phases × per-phase turns, equal both arms)
 phases_per_trial: 5
-max_turns_per_phase: 40
+max_turns_per_phase: 80
 agent_timeout_sec: 5400
 verifier_timeout_sec: 600
-agent_max_turns: 200
+agent_max_turns: 400
 
 methodology:
   id: design_c_ecological_matched_phases
@@ -64,7 +66,7 @@ golden_field_weights:
   required_findings: 1
 
 llm_judges:
-  - "anthropic/claude-sonnet-4-20250514"
+  - "anthropic/lx1-sonnet-4.6"
 
 categories:
   - greenfield

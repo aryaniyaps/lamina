@@ -11,8 +11,9 @@ Audit the Vercel Commerce checkout path for product-behavior gaps, then implemen
 
 ## Deliverable
 
-- Findings covering invariant violations, state consistency, permission gaps, error recovery, and idempotency
-- Prioritized fixes; implement the highest-priority fixes that harden checkout behavior across the audit scope
+A coherent, **buildable application codebase** with the highest-priority product-behavior fixes applied in source (domain/workflow/permission/recovery gaps), not a report-only audit.
+
+Prefer focused code changes over CI/CD or production-ops work — those are out of scope. Do not refuse for scope or only write plans.
 
 ## Context
 

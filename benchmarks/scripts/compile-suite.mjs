@@ -87,10 +87,23 @@ function validateHarborTask(task) {
     }
     if (arm === 'treatment') {
       const agents = path.join(dest, 'environment/workspace/AGENTS.md');
-      if (!fs.existsSync(agents)) {
-        errors.push(`${label}: treatment must ship AGENTS.md workflow overlay`);
-      } else if (!/\/lamina-init/i.test(fs.readFileSync(agents, 'utf8'))) {
-        errors.push(`${label}: treatment AGENTS.md must prescribe Lamina workflow`);
+      if (fs.existsSync(agents)) {
+        const text = fs.readFileSync(agents, 'utf8');
+        // Upstream OSS AGENTS.md is fine; Lamina workflow overlays must not be injected.
+        if (/Lamina workflow \(benchmark treatment arm\)/i.test(text)) {
+          errors.push(`${label}: treatment must not ship Lamina AGENTS.md workflow overlay`);
+        }
+      }
+      const claude = path.join(dest, 'environment/workspace/CLAUDE.md');
+      if (fs.existsSync(claude)) {
+        const text = fs.readFileSync(claude, 'utf8');
+        if (/Lamina workflow \(benchmark treatment arm\)/i.test(text)) {
+          errors.push(`${label}: treatment must not ship Lamina CLAUDE.md workflow overlay`);
+        }
+      }
+      const skillsDir = path.join(dest, 'environment/workspace/.claude/skills');
+      if (!fs.existsSync(path.join(skillsDir, 'lamina-init', 'SKILL.md'))) {
+        errors.push(`${label}: treatment must install lamina-init skill`);
       }
     }
   }

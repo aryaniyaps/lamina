@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * Verify treatment-arm Harbor trials invoked required Lamina slash-command skills.
+ * Verify treatment-arm Harbor trials actually invoked required Lamina slash skills.
+ *
+ * Evidence: Claude Code skillUsage in agent/home/.claude.json only.
+ * Harness "we sent /lamina-*" markers are not proof the skill loaded.
  *
  * Usage:
  *   node benchmarks/scripts/check-treatment-skills.mjs [--jobs-dir PATH]
@@ -31,73 +34,42 @@ function parseArgs() {
 function findClaudeJson(trialDir) {
   const candidates = [
     path.join(trialDir, 'agent', 'home', '.claude.json'),
-    path.join(trialDir, 'environment', 'workspace', '.claude', '.claude.json'),
+    path.join(trialDir, 'agent', '.claude.json'),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
-  for (const root of [trialDir, path.join(trialDir, 'agent')]) {
-    if (!fs.existsSync(root)) continue;
-    const stack = [root];
-    while (stack.length) {
-      const dir = stack.pop();
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) stack.push(full);
-        else if (entry.name === '.claude.json') return full;
-      }
+  const agentRoot = path.join(trialDir, 'agent');
+  if (!fs.existsSync(agentRoot)) return null;
+  const stack = [agentRoot];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.name === '.claude.json') return full;
     }
   }
   return null;
 }
 
-function skillUsageFromAgentLog(trialDir) {
-  const logPath = path.join(trialDir, 'agent', 'claude-code.txt');
-  if (!fs.existsSync(logPath)) return {};
-  const usage = {};
-  for (const skill of ['lamina-init', 'lamina-design', 'lamina-verify']) {
-    let count = 0;
-    for (const line of fs.readFileSync(logPath, 'utf8').split('\n')) {
-      if (!line.trim()) continue;
-      let row;
-      try {
-        row = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      const toolInput = row?.message?.content?.find?.((c) => c.type === 'tool_use')?.input;
-      if (toolInput?.skill === skill) {
-        const toolUseId = row?.message?.content?.find?.((c) => c.type === 'tool_use')?.id;
-        count += 1;
-        continue;
-      }
-      const textBlocks = row?.message?.content?.filter?.((c) => c.type === 'text') ?? [];
-      for (const block of textBlocks) {
-        if (typeof block.text === 'string' && new RegExp(`/${skill}\\b`).test(block.text)) {
-          count += 1;
-        }
-      }
-      if (typeof row?.result === 'string' && new RegExp(`/${skill}\\b`).test(row.result)) {
-        count += 1;
-      }
-    }
-    if (count > 0) usage[skill] = { usageCount: count };
-  }
-  return usage;
-}
-
 function skillUsageFromTrial(trialDir) {
   const claudeJson = findClaudeJson(trialDir);
-  if (claudeJson) {
-    const doc = readJsonSafe(claudeJson) ?? {};
-    if (doc.skillUsage && Object.keys(doc.skillUsage).length) {
-      return { path: claudeJson, usage: doc.skillUsage };
-    }
+  if (!claudeJson) {
+    return { path: null, usage: {}, error: 'missing .claude.json under agent/' };
   }
-  const fromLog = skillUsageFromAgentLog(trialDir);
+  const doc = readJsonSafe(claudeJson) ?? {};
+  if (!doc.skillUsage || typeof doc.skillUsage !== 'object') {
+    return {
+      path: path.relative(ROOT, claudeJson),
+      usage: {},
+      error: 'no skillUsage object in .claude.json',
+    };
+  }
   return {
-    path: claudeJson ? path.relative(ROOT, claudeJson) : null,
-    usage: fromLog,
+    path: path.relative(ROOT, claudeJson),
+    usage: doc.skillUsage,
+    error: null,
   };
 }
 
@@ -120,7 +92,7 @@ function checkTrial({ jobName, trialDir }) {
 
   const required =
     workflowForJob(jobMeta) === 'audit' ? REQUIRED_AUDIT : REQUIRED_DESIGN;
-  const { path: claudePath, usage } = skillUsageFromTrial(trialDir);
+  const { path: claudePath, usage, error } = skillUsageFromTrial(trialDir);
   const missing = required.filter((skill) => !(usage[skill]?.usageCount > 0));
   const counts = Object.fromEntries(
     required.map((skill) => [skill, usage[skill]?.usageCount ?? 0])
@@ -130,11 +102,12 @@ function checkTrial({ jobName, trialDir }) {
     job: jobName,
     trial: path.basename(trialDir),
     workflow: workflowForJob(jobMeta),
-    claude_json: claudePath ? path.relative(ROOT, claudePath) : null,
+    claude_json: claudePath,
     required,
     counts,
-    ok: missing.length === 0,
+    ok: missing.length === 0 && !error,
     missing,
+    error,
   };
 }
 
@@ -163,18 +136,21 @@ function main() {
     );
     if (!row.ok) {
       failed++;
-      console.log(`       missing: ${row.missing.join(', ')}`);
+      if (row.error) console.log(`       error: ${row.error}`);
+      if (row.missing.length) console.log(`       missing: ${row.missing.join(', ')}`);
       if (row.claude_json) console.log(`       claude: ${row.claude_json}`);
-      else console.log('       claude: .claude.json not found in trial artifacts');
+      else console.log('       claude: .claude.json not found under agent/');
     }
   }
 
   if (failed) {
-    console.error(`\n${failed}/${results.length} treatment trial(s) missing required skill invocations.`);
+    console.error(
+      `\n${failed}/${results.length} treatment trial(s) missing required skillUsage in .claude.json.`
+    );
     process.exit(1);
   }
 
-  console.log(`\nAll ${results.length} treatment trial(s) invoked required Lamina skills.`);
+  console.log(`\nAll ${results.length} treatment trial(s) recorded required Lamina skillUsage.`);
 }
 
 main();

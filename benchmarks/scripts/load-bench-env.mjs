@@ -48,9 +48,31 @@ export function loadBenchEnv() {
   return { loaded: true, path: ENV_PATH };
 }
 
-/** Resolved model pin: env override → release.yaml → null */
-export function resolveBenchModel(release) {
-  return process.env.ANTHROPIC_MODEL || release?.model || null;
+/** Resolved model pin: release.yaml is authoritative.
+ * Env ANTHROPIC_MODEL may only differ when LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1.
+ */
+export function resolveBenchModel(release, { allowOverride } = {}) {
+  const pinned = release?.model || null;
+  const envModel = process.env.ANTHROPIC_MODEL || null;
+  const override =
+    allowOverride === true ||
+    allowOverride === false
+      ? allowOverride
+      : process.env.LAMINA_BENCH_ALLOW_MODEL_OVERRIDE === '1';
+
+  if (envModel && pinned && envModel !== pinned) {
+    if (!override) {
+      throw new Error(
+        `ANTHROPIC_MODEL=${envModel} differs from release.yaml model=${pinned}. ` +
+          `Update release.yaml to the model you intend to pin, or set LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1.`
+      );
+    }
+    console.warn(
+      `[bench] model override: using ${envModel} (release pin was ${pinned}; LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1)`
+    );
+    return envModel;
+  }
+  return envModel || pinned;
 }
 
 /** True when Anthropic credentials are available (direct API key or gateway token). */

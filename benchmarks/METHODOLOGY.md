@@ -57,7 +57,7 @@ LaminaBench went through several design iterations. The primary methodology is *
 
 ### Design C — Ecological matched phases (`design_c_ecological_matched_phases`) ✓
 
-**Shape:** Both arms use the **same** matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases, equal per-phase turn budgets, shared unattended contract.
+**Shape:** Both arms use the **same** matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases in **one session**, equal per-phase turn budgets, shared unattended contract. Treatment Lamina command skills keep `disable-model-invocation: true` — the harness sends `/lamina-*` as user slash-command messages; the following user turn asks for implement/fix from `implement.md` / `fix.md` (ordinary coding). Subagent spawning (Agent/Task) is allowed.
 
 | Phase | Control | Treatment |
 |-------|---------|-------------|
@@ -74,7 +74,11 @@ LaminaBench went through several design iterations. The primary methodology is *
 3. **Claimable question** — Is Lamina’s contract/verify machinery better than “just plan and code and review” when both sides get equal process?
 4. **Survives skeptical review** — We admit Lamina is a **workflow product**, not a magic skill pack. Lift, if any, comes from Lamina artifacts vs generic planning artifacts — not from giving treatment extra lives.
 
-**Intentional difference only:** Lamina command skills + `.lamina/` contracts vs generic `product-*.md` planning artifacts. Not phase count, not implement prompt verbosity, not turn budget.
+**Intentional difference only:** Lamina skills + `.lamina/` contracts vs generic `product-*.md` planning artifacts. Not phase count, not implement prompt verbosity, not turn budget.
+
+**Equal budgets ≠ equal phase workload (documented):** Both arms get the same phase count and `max_turns_per_phase`. Treatment phases that run `/lamina-*` (and subagent walks) are cognitively heavier than control markdown plan/review phases — that asymmetry is the ecological product under test, not a fairness bug. Fairness claim is equal scaffolding opportunity (phases + turn caps), not equal tool-call volume.
+
+**Independent replications:** Every `(task, arm, run)` cell starts from a freshly synced workspace. `--runs N` trials do not reuse prior agent artifacts.
 
 ### Other rejected mechanisms
 
@@ -105,6 +109,7 @@ Machine-readable design history: [`methodology.json`](methodology.json) → `con
 | **Harbor task** | `taskNNN-control` | `taskNNN-treatment` |
 | **Instruction** | `instruction.md` (product brief only) | Same `instruction.md` |
 | **Lamina skills** | Not installed | Installed under agent skill path |
+| **Workflow docs** | None | None (harness sends `/lamina-*`) |
 | **Workflow** | Generic 5-phase loop | Lamina 5-phase loop |
 | **Phase 1** | `product-plan.md` (product plan) | `/lamina-init` |
 | **Phase 2** | `product-build-order.md` | `/lamina-design` (or `/lamina-verify` for audit) |
@@ -122,13 +127,14 @@ npm run bench:harbor:sync
 npm run bench:run
 ```
 
-Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases with equal per-phase turn budgets (`max_turns_per_phase` in `release.yaml`). Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
+Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases with equal per-phase turn budgets (`max_turns_per_phase` in `release.yaml`). Treatment slash commands are harness-sent user messages (`disable-model-invocation` preserved); implement/fix are the next user turns in the same session. Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
 
 ## Scoring pipeline (per trial)
 
 1. **Rewardkit dimensions** — `golden_coverage/` + `llm_judge/` scored in-container; [`reward.toml`](harbor/verifier/reward.toml) aggregates them into `composite`.
-2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false or `clarify_stall` is true; otherwise `reward = composite`.
-3. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`.
+2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the LLM judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
+3. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`. Agent harness failures (`agent_failed`) are recorded with `artifact_valid: false` (not treated as soft verifier passes).
+4. **Model pin** — Runner uses `release.yaml` `model`; `ANTHROPIC_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Temperature/top_p are intent-only (Claude Code print mode does not expose them).
 
 ## Aggregation (cross-trial, publishable)
 
@@ -149,16 +155,19 @@ Paired metrics: [`harbor/dataset/metric.py`](harbor/dataset/metric.py). Output: 
 
 ## Unattended runs (no mid-run user)
 
-1. **Prevent** — phased prompts + treatment `AGENTS.md`/`CLAUDE.md` state the user cannot respond; proceed with labeled assumptions.
-2. **Do not recover** — No synthetic auto-reply.
-3. **Fail** — Verifier assigns reward `0` when deliverables are missing.
-4. **Measure** — `clarify_stall` flag (diagnostic, not in composite).
+1. **Do not recover** — No synthetic auto-reply if a Lamina skill clarify-and-STOPs.
+2. **Fail** — Verifier assigns reward `0` on clarify stall / missing deliverables; agent phase errors (non-zero exit, max-turns) fail the trial (no soft complete).
+3. **Measure** — `clarify_stall` flag (diagnostic, not in composite).
+
+Product skills already define agent-primary behavior after `ready_to_build` / verify (Mode B). The harness does not override clarify-and-STOP.
 
 ## Fairness constraints
 
 - Same agent, model pin, task brief, fixture, **phase count**, and **per-phase turn budget**
-- Control receives **no** Lamina skills and **no** workflow AGENTS.md/CLAUDE.md
+- Control receives **no** Lamina skills and **no** Lamina workflow AGENTS.md/CLAUDE.md
+- Treatment receives Lamina skills only; workflow is harness-sent `/lamina-*` user messages (no AGENTS.md/CLAUDE.md overlay)
 - Control implement/fix prompts are **budget-matched** to treatment (same completeness requirements)
+- Implement framing (both arms) asks for a **working product codebase** for scored behaviors; CI/CD and production ops are explicitly out of scope — reduces scope-refusals without weakening product requirements
 - Blind LLM judging of source code via Harbor Rewardkit in-container verifier
 - `claim_ready: false` until live paired runs with replication
 
@@ -174,7 +183,7 @@ Paired metrics: [`harbor/dataset/metric.py`](harbor/dataset/metric.py). Output: 
 
 > Skills alone make agents better in one continuous session (that is Design B — optional ablation, not primary).
 
-> The agent autonomously discovered Lamina — treatment includes AGENTS.md and harness-prescribed slash commands.
+> The agent autonomously discovered Lamina — treatment is driven by harness-prescribed slash commands.
 
 ## Optional ablations (not primary)
 

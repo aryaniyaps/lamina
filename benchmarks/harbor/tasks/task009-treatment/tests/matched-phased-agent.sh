@@ -1,21 +1,33 @@
 #!/bin/bash
 # Matched multi-phase trial harness (Design C — ecological loop).
-# Both arms: 5 sequential claude --resume phases, equal structure and budgets.
+# Both arms: 5 sequential claude --resume phases in ONE session, equal budgets.
+# Treatment: harness sends /lamina-* as user slash-command messages (disable-model-invocation).
+# During slash turns Mode B writes .lamina/ only; next user turn is ordinary implement/fix.
+# Subagent spawning (Agent/Task) is allowed — required for Lamina verify walks.
+# Any phase failure (non-zero exit or max-turns) fails the trial.
 # LAMINA_BENCH_ARM=control|treatment  LAMINA_BENCH_WORKFLOW=design|audit
-set -euo pipefail
+set -uo pipefail
 
 export PATH="$HOME/.local/bin:${PATH}"
 mkdir -p /logs/agent
+mkdir -p "${HOME:-/root}"
 LOG=/logs/agent/claude-code.txt
 : >"$LOG"
 
 ARM="${LAMINA_BENCH_ARM:-treatment}"
 WORKFLOW="${LAMINA_BENCH_WORKFLOW:-design}"
-MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-40}"
+MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-80}"
+
+# Wait for background subagents in print mode (Lamina persona walks / parallel review).
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-600000}"
 
 CLAUDE_FLAGS=(
   --dangerously-skip-permissions
   --permission-mode=bypassPermissions
+  --tools
+  default
+  --allowedTools
+  Agent,Task
   --output-format
   json
   --max-turns
@@ -23,30 +35,142 @@ CLAUDE_FLAGS=(
 )
 
 SESSION_ID=""
+PHASE_FAILURES=0
+
+# Extract last Claude --output-format json result object from mixed stdout/stderr.
+last_result_json() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import json, sys
+path = sys.argv[1]
+last = None
+with open(path, "r", errors="replace") as f:
+    for line in f:
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and "session_id" in obj:
+            last = obj
+if last is None:
+    sys.exit(1)
+print(json.dumps(last))
+PY
+}
+
+result_field() {
+  local json="$1"
+  local field="$2"
+  python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2],"") or "")' "$json" "$field"
+}
+
+result_is_true() {
+  local json="$1"
+  local field="$2"
+  python3 -c 'import json,sys; v=json.loads(sys.argv[1]).get(sys.argv[2]); sys.exit(0 if v is True else 1)' "$json" "$field"
+}
 
 run_phase() {
-  local prompt="$1"
-  local out
+  local label="$1"
+  local prompt="$2"
+  local tmp
+  tmp=$(mktemp)
+
+  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS}" | tee -a "$LOG"
+
+  local status=0
   if [ -z "$SESSION_ID" ]; then
-    out=$(claude "${CLAUDE_FLAGS[@]}" -p "$prompt" 2>&1 | tee -a "$LOG" | tail -n 1)
+    claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
   else
-    out=$(claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" 2>&1 | tee -a "$LOG" | tail -n 1)
+    claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
   fi
-  if echo "$out" | jq -e .session_id >/dev/null 2>&1; then
-    SESSION_ID=$(echo "$out" | jq -r .session_id)
+  cat "$tmp" | tee -a "$LOG" >/dev/null
+
+  local result=""
+  if result=$(last_result_json "$tmp"); then
+    local sid
+    sid=$(result_field "$result" session_id)
+    if [ -n "$sid" ]; then
+      if [ -n "$SESSION_ID" ] && [ "$sid" != "$SESSION_ID" ]; then
+        PHASE_FAILURES=$((PHASE_FAILURES + 1))
+        echo "ERROR: phase ${label} resumed session ${SESSION_ID} but result session_id=${sid} (resume broken)" | tee -a "$LOG"
+      fi
+      SESSION_ID="$sid"
+    else
+      PHASE_FAILURES=$((PHASE_FAILURES + 1))
+      echo "ERROR: phase ${label} result missing session_id" | tee -a "$LOG"
+    fi
+  else
+    PHASE_FAILURES=$((PHASE_FAILURES + 1))
+    echo "ERROR: phase ${label} produced no parseable JSON result with session_id" | tee -a "$LOG"
+    result=""
+  fi
+  rm -f "$tmp"
+
+  if [ -z "$SESSION_ID" ]; then
+    PHASE_FAILURES=$((PHASE_FAILURES + 1))
+    echo "ERROR: phase ${label} left SESSION_ID empty — cannot continue same-session trial" | tee -a "$LOG"
+  fi
+
+  if [ "$status" -ne 0 ]; then
+    PHASE_FAILURES=$((PHASE_FAILURES + 1))
+    echo "ERROR: phase ${label} exited ${status}" | tee -a "$LOG"
+    if [ -n "$result" ] && [ "$(result_field "$result" subtype)" = "error_max_turns" ]; then
+      echo "ERROR: phase ${label} hit max turns (${MAX_TURNS})" | tee -a "$LOG"
+    fi
+  elif [ -n "$result" ] && result_is_true "$result" is_error; then
+    PHASE_FAILURES=$((PHASE_FAILURES + 1))
+    echo "ERROR: phase ${label} reported is_error=true subtype=$(result_field "$result" subtype)" | tee -a "$LOG"
   fi
 }
 
-UNATTENDED="This is an unattended trial — the user cannot respond.
-- Treat the task brief below and workspace artifacts as authoritative.
-- Do not ask clarifying questions or wait for the user to say proceed.
-- Do not end with a task list, roadmap, or \"next steps\" — finish the work in this phase.
-- If information is missing, document assumptions and continue."
+# Factual: no mid-turn user. Do not override Lamina clarify-and-STOP — stalls score 0.
+UNATTENDED="This is an unattended trial — the user cannot respond mid-turn.
+Treat the task brief below and workspace artifacts as authoritative."
 
 PRODUCT_GUARD="Deliverable scope:
 - Build the end-user **product application** described in the task brief.
-- Do **not** build a benchmark runner, evaluation harness, test framework, CLI for running trials, or any meta-tool about benchmarks or agent evaluation.
-- The outer LaminaBench harness is separate; your job is the product in the brief."
+- Do **not** build a trial runner, evaluation harness, test framework, CLI for running trials, or any meta-tool about agent evaluation.
+- Your job is the product in the brief."
+
+# Keep plans scorable (product behavior) without expanding into ops that trigger implement refusals.
+PLAN_SCOPE="Plan for **product behavior** only: domain model, actors/permissions, primary workflows, edge cases, and UI/API surfaces.
+Do **not** make CI/CD, app-store packaging, production deployment, push-notification infrastructure, or observability required deliverables."
+
+# Explicit handoff: prior phases may say "docs only" — this turn overrides that.
+# Framing avoids "production-ready everything in one turn" refusals while keeping real-code expectations.
+IMPLEMENT_HANDOFF="This turn is implementation — not planning.
+- Earlier turns may have said not to write application source / to write plans or contracts only. Those restrictions ended. They do not apply now.
+- Write real application source files in the workspace now. Markdown plans/contracts alone do not count.
+- Goal: a **working product codebase** that expresses the brief's domain and primary workflows in code — not a launch-ready production system.
+- Out of scope for this turn (skip without blocking): CI/CD, app-store packaging, production deploy, push infra, perfect test coverage, multi-native mobile shells.
+- Prefer one pragmatic stack you can finish in-session (TypeScript/Node + simple web UI is fine even if the brief says mobile-first — make the UI mobile-friendly).
+- Do not refuse for scope. Do not ask which slice to start. Start coding immediately and keep writing files."
+
+IMPLEMENT_BODY="${IMPLEMENT_HANDOFF}
+
+Requirements for this turn:
+- Implement the domain model and primary workflows from the plan/brief in application source.
+- Realize main user journeys end-to-end with real UI or API behavior — not types-only, stubs, or placeholder screens.
+- Cover important edge/recovery paths from the brief where they affect product behavior.
+- Keep going until product behaviors are represented in source. Partial real code beats a refusal or a remaining-task list.
+- Do not wait for the user. Do not emit a remaining-task list and stop.
+
+${PRODUCT_GUARD}
+
+${UNATTENDED}"
+
+FIX_BODY="${IMPLEMENT_HANDOFF}
+
+Apply critical/high product-behavior fixes in application source this turn.
+Skip ops/CI items. Do not stop after partial scaffolding or claim files exist that were not written.
+
+${PRODUCT_GUARD}
+
+${UNATTENDED}"
 
 BRIEF="$(cat /tmp/lamina-bench-instruction.md)"
 
@@ -54,42 +178,30 @@ BRIEF_BLOCK="## Task brief (authoritative)
 
 ${BRIEF}"
 
-IMPLEMENT_BODY="Requirements for this phase:
-- Complete every build-order step end-to-end.
-- Realize every workflow, scenario, and screen the plan covers — not a scaffold or stub.
-- Do not stop after types/slices/navigation alone. Write the real UI and domain behavior.
-- Do not wait for the user. Do not emit a remaining-task list and stop.
-
-${PRODUCT_GUARD}
-
-${UNATTENDED}"
-
-FIX_BODY="Finish all critical/high product findings in this phase — do not stop after partial scaffolding or claim files exist that were not written.
-
-${PRODUCT_GUARD}
-
-${UNATTENDED}"
-
 run_control_design() {
-  run_phase "Phase 1 — product plan. Write a complete product plan and acceptance criteria in \`product-plan.md\` at the workspace root (not application source).
+  run_phase "control-plan" "Phase 1 — product plan (this phase only). Write a product plan and acceptance criteria in \`product-plan.md\` at the workspace root. Defer application source to a later phase.
 
 ${BRIEF_BLOCK}
 
 ${PRODUCT_GUARD}
+
+${PLAN_SCOPE}
 
 Cover domain model, actors, permissions, primary workflows, edge cases, and success criteria for the product in the brief.
 
 ${UNATTENDED}"
 
-  run_phase "Phase 2 — build order. Expand \`product-plan.md\` into a detailed build order and requirements document in \`product-build-order.md\` at the workspace root.
+  run_phase "control-build-order" "Phase 2 — build order (this phase only). Expand \`product-plan.md\` into a build order focused on product source milestones in \`product-build-order.md\` at the workspace root. Defer application source to the next phase.
 
 ${BRIEF_BLOCK}
 
-Do not write application source in this phase. Stay aligned with the product in the task brief.
+${PLAN_SCOPE}
+
+Order work so an implementer can code domain + primary workflows first. Stay aligned with the product in the task brief.
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent. Implement the full product in application source.
+  run_phase "control-implement" "Phase 3 — implement the product now. Write application source following \`product-plan.md\` and \`product-build-order.md\`. Planning is done; code the product behaviors.
 
 ${BRIEF_BLOCK}
 
@@ -100,15 +212,15 @@ Authoritative inputs — use all:
 
 ${IMPLEMENT_BODY}"
 
-  run_phase "Phase 4 — self-review. Review the implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief.
+  run_phase "control-review" "Phase 4 — self-review (this phase only). Review the implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Defer code edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-Write \`product-review.md\` (findings) and \`product-fix-list.md\` (prioritized fixes) at the workspace root. Do not edit application source during this phase.
+Write \`product-review.md\` (findings) and \`product-fix-list.md\` (prioritized **product-behavior** fixes) at the workspace root. Prefer fixes to domain/workflows/UI over ops/CI.
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent. Apply all prioritized product fixes from \`product-fix-list.md\` to application source.
+  run_phase "control-fix" "Phase 5 — implement product fixes now. Apply prioritized product-behavior fixes from \`product-fix-list.md\` to application source.
 
 ${BRIEF_BLOCK}
 
@@ -118,7 +230,7 @@ ${FIX_BODY}"
 }
 
 run_control_audit() {
-  run_phase "Phase 1 — audit scope. Write an audit scope and success criteria in \`product-plan.md\` at the workspace root.
+  run_phase "control-audit-scope" "Phase 1 — audit scope (this phase only). Write an audit scope and success criteria in \`product-plan.md\` at the workspace root. Defer application source edits to a later phase.
 
 ${BRIEF_BLOCK}
 
@@ -128,29 +240,29 @@ Cover invariants, permissions, workflows, error recovery, and prioritized fix ar
 
 ${UNATTENDED}"
 
-  run_phase "Phase 2 — audit checklist. Expand \`product-plan.md\` into a detailed audit checklist and prioritized fix plan in \`product-build-order.md\` at the workspace root.
+  run_phase "control-audit-checklist" "Phase 2 — audit checklist (this phase only). Expand \`product-plan.md\` into an audit checklist and prioritized **product-behavior** fix plan in \`product-build-order.md\` at the workspace root. Defer application source edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-Do not edit application source in this phase.
+${PLAN_SCOPE}
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent. Apply product-behavior fixes to application source per \`product-build-order.md\` and the task brief.
+  run_phase "control-implement" "Phase 3 — implement product-behavior fixes now. Apply fixes from \`product-build-order.md\` and the task brief to application source.
 
 ${BRIEF_BLOCK}
 
 ${IMPLEMENT_BODY}"
 
-  run_phase "Phase 4 — self-review. Review the updated implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief.
+  run_phase "control-review" "Phase 4 — self-review (this phase only). Review the updated implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Defer code edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-Write \`product-review.md\` and \`product-fix-list.md\` at the workspace root. Do not edit application source during this phase.
+Write \`product-review.md\` and \`product-fix-list.md\` (prioritized product-behavior fixes) at the workspace root.
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent. Apply all prioritized fixes from \`product-fix-list.md\` to application source.
+  run_phase "control-fix" "Phase 5 — implement product fixes now. Apply prioritized product-behavior fixes from \`product-fix-list.md\` to application source.
 
 ${BRIEF_BLOCK}
 
@@ -159,8 +271,9 @@ Re-read \`product-plan.md\` and \`product-build-order.md\` if needed.
 ${FIX_BODY}"
 }
 
+# Slash turns: first line is the slash command (Claude Code expands it). Body is user args + brief.
 run_treatment_design() {
-  run_phase "/lamina-init
+  run_phase "treatment-init" "/lamina-init
 
 ${BRIEF}
 
@@ -168,42 +281,41 @@ ${PRODUCT_GUARD}
 
 ${UNATTENDED}"
 
-  run_phase "/lamina-design — complete the design contract (run.yaml) and implement.md for this task under .lamina/ only. Do not write application source.
+  run_phase "treatment-design" "/lamina-design
 
 ${BRIEF_BLOCK}
 
 ${PRODUCT_GUARD}
 
+${PLAN_SCOPE}
+
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent (not a Lamina command). Implement the full product in application source outside .lamina/.
+  run_phase "treatment-implement" "Phase 3 — implement the product now following \`implement.md\` and \`run.yaml\`. Contracts are inputs; write a working product codebase outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
 
-Authoritative inputs — use all:
-1. The latest \`.lamina/runs/*/run.yaml\` — machine contract.
-2. The matching \`implement.md\` — build order and acceptance brief.
-3. The task brief above.
+Use the latest \`.lamina/runs/*/run.yaml\` and matching \`implement.md\` as the build contract. If the contract lists CI/deploy/push infra, skip those and implement product behavior first.
 
 ${IMPLEMENT_BODY}"
 
-  run_phase "/lamina-verify — verify the implementation against the design contract. Write report.md and fix.md under .lamina/runs/<run_id>/ only. Do not edit application source during this command.
+  run_phase "treatment-verify" "/lamina-verify
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent (not a Lamina command). Apply all prioritized product fixes from \`.lamina/runs/*/fix.md\` to application source (outside .lamina/).
+  run_phase "treatment-fix" "Phase 5 — implement product fixes now following \`fix.md\`. Apply prioritized product-behavior fixes to application source outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
 
-Re-read \`run.yaml\` and \`implement.md\` if needed so fixes satisfy the contract and brief.
+Re-read \`run.yaml\` and \`implement.md\` if needed. Skip ops/CI findings.
 
 ${FIX_BODY}"
 }
 
 run_treatment_audit() {
-  run_phase "/lamina-init
+  run_phase "treatment-init" "/lamina-init
 
 ${BRIEF}
 
@@ -211,29 +323,31 @@ ${PRODUCT_GUARD}
 
 ${UNATTENDED}"
 
-  run_phase "/lamina-verify — brownfield audit of the existing product. Write report.md and fix.md under .lamina/runs/<run_id>/ only. Do not edit application source during this command.
+  run_phase "treatment-verify-1" "/lamina-verify
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent (not a Lamina command). Apply prioritized product fixes from \`.lamina/runs/*/fix.md\` to application source (outside .lamina/).
+  run_phase "treatment-implement" "Phase 3 — implement product fixes now following \`fix.md\`. Write application source — not more planning markdown alone.
 
 ${BRIEF_BLOCK}
 
-Use the task brief and audit findings as authoritative.
+Apply prioritized product-behavior fixes from \`.lamina/runs/*/fix.md\` to application source (outside \`.lamina/\`). Use the task brief and audit findings as authoritative. Skip ops/CI items.
 
 ${IMPLEMENT_BODY}"
 
-  run_phase "/lamina-verify — re-verify the implementation after fixes. Update report.md and fix.md under .lamina/runs/<run_id>/ only. Do not edit application source during this command.
+  run_phase "treatment-verify-2" "/lamina-verify
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "You are the coding agent (not a Lamina command). Apply all remaining prioritized fixes from \`.lamina/runs/*/fix.md\` to application source.
+  run_phase "treatment-fix" "Phase 5 — implement remaining product fixes now following \`fix.md\`. Apply them to application source outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
+
+Skip ops/CI findings. Prefer domain/workflow/UI fixes.
 
 ${FIX_BODY}"
 }
@@ -249,4 +363,10 @@ case "${ARM}:${WORKFLOW}" in
     ;;
 esac
 
+if [ "$PHASE_FAILURES" -gt 0 ]; then
+  echo "Matched phased agent FAILED arm=${ARM} workflow=${WORKFLOW} session=${SESSION_ID:-none} phase_failures=${PHASE_FAILURES}" >&2
+  exit 1
+fi
+
 echo "Matched phased agent complete arm=${ARM} workflow=${WORKFLOW} session=${SESSION_ID:-none}"
+exit 0

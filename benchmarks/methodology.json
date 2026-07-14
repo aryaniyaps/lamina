@@ -1,7 +1,7 @@
 {
   "id": "design_c_ecological_matched_phases",
   "name": "Ecological Lamina loop with matched-phase control",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "claim_surface": "golden_coverage + llm_judge on implemented source",
   "research_question": "On the same product brief, does the real Lamina loop (init → design → implement → verify → fix) produce better implemented product behavior than an equally scaffolded generic loop (plan → implement → review → fix), under the same agent, model, phase count, and budgets?",
   "runner": {
@@ -9,7 +9,7 @@
     "agent": "claude-code",
     "phases_per_trial": 5,
     "rollouts_per_trial": 1,
-    "description": "Matched multi-phase harness for both arms via claude --resume. Same phase count, per-phase turn budget, and unattended contract."
+    "description": "Matched multi-phase harness for both arms via claude --resume (one session). Same phase count, per-phase turn budget, and unattended contract. Treatment slash commands are harness-sent user messages (disable-model-invocation preserved); implement/fix are ordinary follow-up turns. Agent/Task subagents allowed."
   },
   "control": {
     "label": "Generic plan → review loop",
@@ -22,29 +22,34 @@
   "treatment": {
     "label": "Lamina ecological loop",
     "harbor_task_suffix": "-treatment",
-    "description": "Five phases: /lamina-init → /lamina-design (or /lamina-verify for audit) → implement → /lamina-verify → fix. Lamina skills installed plus AGENTS.md/CLAUDE.md workflow conventions.",
+    "description": "Five phases: /lamina-init → /lamina-design (or /lamina-verify for audit) → implement → /lamina-verify → fix. Lamina skills installed; harness sends slash-command user messages (no AGENTS.md/CLAUDE.md overlay).",
     "skills_installed": true,
-    "workflow_hint": true,
+    "workflow_hint": false,
     "phases": ["init", "design_or_audit", "implement", "verify", "fix"]
   },
   "unattended_policy": {
-    "prevention": "Matched phased prompts and treatment AGENTS.md/CLAUDE.md include unattended contract: brief is authoritative; no clarify-and-STOP.",
+    "prevention": "none — clarify-and-STOP is product behavior; brief must be sufficient. Harness does not auto-answer or override STOP.",
     "recovery": "none",
-    "on_stall": "Verifier reward 0; clarify_stall logged in reward output (not in composite)."
+    "on_stall": "Verifier reward 0; clarify_stall logged in reward output (not in composite). Agent phase errors fail the trial."
   },
   "fairness_constraints": [
     "Same instruction.md product brief for both arms (no Lamina skill names in instructions).",
-    "Same coding agent, model pin, temperature, task, fixture, phase count, and per-phase turn budget.",
-    "Control receives no Lamina skills and no workflow AGENTS.md/CLAUDE.md.",
+    "Same coding agent and enforced model pin (release.yaml; env override requires LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1). Temperature/top_p are intent-only — Claude Code print mode does not expose them.",
+    "Control receives no Lamina skills and no Lamina workflow AGENTS.md/CLAUDE.md.",
+    "Treatment receives Lamina skills; no AGENTS.md/CLAUDE.md workflow overlay — harness sends /lamina-* user messages.",
     "Both arms score the same artifact type: bundled application source (.lamina/, product-plan.md, product-build-order.md, product-review.md, product-fix-list.md excluded).",
     "Task brief text is injected into every phased prompt for both arms (parity with treatment /lamina-init).",
     "Control planning artifacts use product-* names (not bench-*) to avoid meta-priming toward a benchmark harness product.",
     "Control phase prompts are generic and budget-matched — not weaker implement/fix coaching than treatment.",
-    "Audit tasks use audit-matched phase prompts on both arms (verify-first treatment vs audit checklist control)."
+    "Implement/fix framing (both arms): working product codebase for scored behaviors; CI/CD and production ops explicitly out of scope to avoid scope-refusals without weakening product requirements.",
+    "Audit tasks use audit-matched phase prompts on both arms (verify-first treatment vs audit checklist control).",
+    "Equal phase count and max_turns_per_phase; unequal slash/subagent workload on treatment is intentional ecological difference.",
+    "Each (task, arm, run) starts from a freshly synced workspace — replications are independent.",
+    "LLM judge degradation marks scoring_incomplete (reward 0); those trials are excluded from claim aggregates."
   ],
   "explicit_non_claims": [
     "Does not claim Lamina beat a single-shot unaided agent — control receives equal multi-phase scaffolding.",
-    "Does not claim the agent discovered Lamina without hints — treatment includes AGENTS.md/CLAUDE.md and harness-prescribed slash commands.",
+    "Does not claim the agent discovered Lamina without hints — treatment is driven by harness-prescribed slash commands.",
     "Does not claim runtime/test pass rates from post-hoc local analysis — scoring is in-container via Harbor Rewardkit only.",
     "Does not claim model independence from a single agent pin.",
     "Clarify stall rate is diagnostic only — not part of the claim composite."

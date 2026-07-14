@@ -65,7 +65,7 @@ benchmarks/
   harbor/
     verifier/
       matched-phased-agent.sh   # canonical 5-phase harness (both arms)
-    overlays/treatment/         AGENTS.md, CLAUDE.md
+    overlays/                   (removed — no treatment AGENTS.md/CLAUDE.md hint)
     tasks/                      taskNNN-{control,treatment}/
   scripts/
     run-phased.mjs              # matched phased Docker runner

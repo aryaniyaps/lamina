@@ -1,7 +1,7 @@
 FROM node:20-bookworm-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv \
+  && apt-get install -y --no-install-recommends ca-certificates curl git jq python3 python3-venv \
   && rm -rf /var/lib/apt/lists/* \
   && npm install -g @anthropic-ai/claude-code \
   && node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs" \

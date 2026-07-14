@@ -6,7 +6,7 @@ LaminaBench v1 — ecological matched-phase product implementation benchmark.
 - **10 Harbor tasks** in the published dataset (`taskNNN-control` + `taskNNN-treatment`)
 - **10 additional tasks** maintained in-repo as `suite: extended` for future full-corpus release
 - **Control:** five-phase generic plan → review loop (no Lamina skills)
-- **Treatment:** five-phase Lamina init → design → verify loop (skills + `AGENTS.md`/`CLAUDE.md`)
+- **Treatment:** five-phase Lamina init → design → verify loop (skills installed; harness sends `/lamina-*`)
 
 ## Run locally
 

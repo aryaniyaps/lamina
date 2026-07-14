@@ -40,25 +40,63 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
   const result = readJsonSafe(path.join(trialDir, 'result.json'));
   if (!result) return null;
 
-  const reward = readJsonSafe(path.join(trialDir, 'verifier', 'reward.json')) ?? {};
+  const rewardPath = path.join(trialDir, 'verifier', 'reward.json');
+  const rewardFile = fs.existsSync(rewardPath) ? readJsonSafe(rewardPath) : null;
   const jobMeta = parseHarborJobName(jobName);
   const taskMeta = parseHarborTaskName(result.task_name || '');
-  const task_id = reward.lamina_task_id || jobMeta?.task_id || taskMeta?.task_id;
-  const arm = reward.lamina_arm || jobMeta?.arm || taskMeta?.arm;
-  const run = reward.lamina_run || jobMeta?.run || 1;
+  const agentFailed = Boolean(result.agent_failed);
+  const task_id =
+    rewardFile?.lamina_task_id || jobMeta?.task_id || taskMeta?.task_id || result.lamina_task_id;
+  const arm = rewardFile?.lamina_arm || jobMeta?.arm || taskMeta?.arm || result.lamina_arm;
+  const run = rewardFile?.lamina_run || jobMeta?.run || result.lamina_run || 1;
   if (!task_id || !arm) return null;
 
-  const harborReward = Number(reward.reward ?? reward.composite ?? 0);
-  const goldenCoverage =
-    typeof reward.golden_coverage === 'number'
-      ? reward.golden_coverage
-      : Math.round(Number(reward.golden_coverage_norm ?? 0) * 100);
+  // No verifier output (agent failed or verifier skipped) → not a valid artifact.
+  const hasVerifierReward = Boolean(rewardFile) && typeof rewardFile === 'object';
+  const scoringIncomplete = Boolean(
+    rewardFile?.scoring_incomplete || rewardFile?.llm_judge_degraded
+  );
+  const artifact_valid = agentFailed
+    ? false
+    : hasVerifierReward
+      ? rewardFile.artifact_valid === true
+      : false;
+
+  const harborReward = agentFailed || !hasVerifierReward
+    ? 0
+    : scoringIncomplete
+      ? 0
+      : Number(rewardFile.reward ?? rewardFile.composite ?? 0);
+
+  const goldenCoverage = hasVerifierReward
+    ? typeof rewardFile.golden_coverage === 'number'
+      ? rewardFile.golden_coverage
+      : Math.round(Number(rewardFile.golden_coverage_norm ?? 0) * 100)
+    : null;
+
   const { total_tokens, cost_usd } = tokenTotals(result);
   const duration_ms = trialDurationMs(result);
 
+  let failed_gate = null;
+  if (agentFailed) failed_gate = 'agent_failed';
+  else if (!hasVerifierReward) failed_gate = 'no_verifier';
+  else if (scoringIncomplete) failed_gate = 'llm_judge_degraded';
+  else if (rewardFile?.clarify_stall) failed_gate = 'clarify_stall';
+  else if (!artifact_valid) failed_gate = 'artifact_invalid';
+  else if (harborReward < 0.5) failed_gate = 'harbor_verifier';
+
+  const status =
+    !agentFailed &&
+    hasVerifierReward &&
+    !scoringIncomplete &&
+    artifact_valid &&
+    harborReward >= 0.5
+      ? 'passed'
+      : 'failed';
+
   const indexRow = {
     task_id,
-    category: reward.lamina_category ?? null,
+    category: rewardFile?.lamina_category ?? null,
     run,
     arm,
     agent: result.agent_info?.name ?? release.agent,
@@ -74,27 +112,56 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     cost_usd,
     timestamp: result.finished_at ?? result.started_at ?? new Date().toISOString(),
     scoring_target: 'implementation',
-    status: harborReward >= 0.5 && reward.artifact_valid !== false ? 'passed' : 'failed',
-    artifact_valid: reward.artifact_valid !== false,
-    failed_gate: harborReward >= 0.5 ? null : reward.clarify_stall ? 'clarify_stall' : 'harbor_verifier',
-    clarify_stall: Boolean(reward.clarify_stall),
+    status,
+    artifact_valid,
+    agent_failed: agentFailed,
+    scoring_incomplete: scoringIncomplete || agentFailed || !hasVerifierReward,
+    failed_gate,
+    clarify_stall: Boolean(rewardFile?.clarify_stall),
     harbor_reward: harborReward,
     golden_coverage: goldenCoverage,
-    golden_checks_passed: reward.checks_passed ?? null,
-    golden_checks_total: reward.checks_total ?? null,
-    llm_judge_mean: reward.llm_judge_mean ?? null,
-    llm_scores: reward.llm_scores ?? null,
-    judge_mode: reward.judge_mode ?? 'rewardkit',
+    golden_checks_passed: rewardFile?.checks_passed ?? null,
+    golden_checks_total: rewardFile?.checks_total ?? null,
+    llm_judge_mean: rewardFile?.llm_judge_mean ?? null,
+    llm_scores: rewardFile?.llm_scores ?? null,
+    judge_mode: rewardFile?.judge_mode ?? 'rewardkit',
     judge_evidence: null,
     rewardkit_details: null,
     interaction: {
-      clarify_detected: Boolean(reward.clarify_stall),
-      clarify_stalled: Boolean(reward.clarify_stall),
+      clarify_detected: Boolean(rewardFile?.clarify_stall),
+      clarify_stalled: Boolean(rewardFile?.clarify_stall),
       auto_replied: false,
     },
   };
 
-  return { indexRow, reward };
+  const rewardRow = hasVerifierReward
+    ? {
+        ...rewardFile,
+        reward: harborReward,
+        artifact_valid,
+        scoring_incomplete: scoringIncomplete,
+        agent_failed: agentFailed,
+        lamina_task_id: task_id,
+        lamina_arm: arm,
+        lamina_run: run,
+      }
+    : {
+        reward: 0,
+        composite: 0,
+        artifact_valid: false,
+        scoring_incomplete: true,
+        agent_failed: agentFailed,
+        failed_gate,
+        lamina_task_id: task_id,
+        lamina_arm: arm,
+        lamina_run: run,
+        lamina_category: null,
+        feedback: agentFailed
+          ? `Agent harness failed (exit ${result.agent_exit_status ?? '?'})`
+          : 'No verifier reward.json',
+      };
+
+  return { indexRow, reward: rewardRow };
 }
 
 function main() {
@@ -111,6 +178,7 @@ function main() {
   const indexRows = [];
   const rewardRows = [];
   let skipped = 0;
+  let excluded = 0;
 
   for (const jobDir of listJobDirs(opts.jobsDir)) {
     const jobName = path.basename(jobDir);
@@ -124,6 +192,9 @@ function main() {
       if (!ingested) {
         skipped++;
         continue;
+      }
+      if (ingested.reward.scoring_incomplete || ingested.reward.agent_failed) {
+        excluded++;
       }
       indexRows.push(ingested.indexRow);
       rewardRows.push(ingested.reward);
@@ -143,7 +214,8 @@ function main() {
 
   console.log(
     `Ingested ${indexRows.length} trial(s) from ${listJobDirs(opts.jobsDir).length} job dir(s)` +
-      (skipped ? ` (${skipped} skipped)` : '')
+      (skipped ? ` (${skipped} skipped)` : '') +
+      (excluded ? ` (${excluded} scoring_incomplete/agent_failed — excluded from claim aggregate)` : '')
   );
   console.log(`  index  → ${RAW_INDEX}`);
   console.log(`  rewards → ${RAW_REWARDS}`);

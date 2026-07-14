@@ -13,7 +13,11 @@ Design and implement recurring issues in Plane that fit existing projects, cycle
 
 ## Deliverable
 
-A coherent, buildable **complete feature** implementation that fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI that matches the host app patterns. Do not stop at a stub or single-path demo.
+A coherent, **buildable application codebase** that implements the feature behaviors in this brief and fits the existing product: domain model, primary workflows end-to-end, edge/recovery paths, and UI matching host-app patterns in source.
+
+Prefer extending the fixture with one pragmatic approach. Scoring judges **application source**, not CI/CD or production ops — those are out of scope.
+
+Do not stop at a stub or single-path demo. Do not refuse for scope or only write plans.
 
 ## Context
 

@@ -59,13 +59,15 @@ def resolve_composite(rewards: dict) -> float:
 
 
 def build_fallback_rewards(meta: dict) -> dict:
+    """Mark scoring incomplete when LLM judge is unavailable — not a claimable score."""
     golden_pct = int(meta.get("golden_coverage_pct") or 0)
     golden_norm = golden_pct / 100.0 if golden_pct else 0.0
     return {
         "golden_coverage": golden_norm,
         "llm_judge": 0.0,
-        "composite": round(golden_norm * 0.5, 4),
+        "composite": 0.0,
         "llm_judge_degraded": True,
+        "scoring_incomplete": True,
         "llm_judge_error": "unavailable_after_retries",
     }
 
@@ -79,11 +81,17 @@ def main() -> int:
     if not rewards and meta.get("golden_coverage_pct") is not None:
         rewards = build_fallback_rewards(meta)
 
+    # Judge degraded with a partial rewardkit blob still counts as incomplete.
+    if rewards.get("llm_judge_degraded"):
+        rewards["scoring_incomplete"] = True
+        rewards["composite"] = 0.0
+
     composite = resolve_composite(rewards)
     artifact_valid = bool(meta.get("artifact_valid"))
     clarify_stall = bool(meta.get("clarify_stall"))
+    scoring_incomplete = bool(rewards.get("scoring_incomplete") or rewards.get("llm_judge_degraded"))
 
-    if clarify_stall or not artifact_valid:
+    if clarify_stall or not artifact_valid or scoring_incomplete:
         final_reward = 0.0
     else:
         final_reward = composite
@@ -104,9 +112,9 @@ def main() -> int:
 
     feedback = (
         f"Golden {golden_pct}%, LLM mean {llm_mean:.2f}"
-        if artifact_valid and llm_mean is not None and not rewards.get("llm_judge_degraded")
-        else f"Golden {golden_pct}% (LLM judge unavailable after retries)"
-        if artifact_valid and rewards.get("llm_judge_degraded")
+        if artifact_valid and llm_mean is not None and not scoring_incomplete
+        else f"Golden {golden_pct}% — LLM judge unavailable (scoring incomplete; excluded from claim)"
+        if artifact_valid and scoring_incomplete
         else "Clarify stall — incomplete deliverables"
         if clarify_stall
         else "Missing or invalid implementation artifact"
@@ -116,12 +124,14 @@ def main() -> int:
         **rewards,
         "reward": round(final_reward, 4),
         "max_reward": 1,
-        "composite": round(composite, 4),
+        "composite": round(0.0 if scoring_incomplete else composite, 4),
         "golden_coverage": golden_pct,
         "llm_judge_mean": llm_mean,
         "judge_mode": "rewardkit",
         "artifact_valid": artifact_valid,
         "clarify_stall": clarify_stall,
+        "scoring_incomplete": scoring_incomplete,
+        "llm_judge_degraded": bool(rewards.get("llm_judge_degraded")),
         "checks_passed": meta.get("golden_checks_passed"),
         "checks_total": meta.get("golden_checks_total"),
         "feedback": feedback,
@@ -136,10 +146,8 @@ def main() -> int:
     REWARD_PATH.write_text(json.dumps(enriched, indent=2) + "\n", encoding="utf-8")
     (REWARD_PATH.parent / "reward.txt").write_text(f"{enriched['reward']}\n", encoding="utf-8")
 
-    if not artifact_valid or clarify_stall:
+    if not artifact_valid or clarify_stall or scoring_incomplete:
         return 1
-    if rewards.get("llm_judge_degraded"):
-        return 0
     if final_reward < PASS_THRESHOLD:
         return 1
     return 0

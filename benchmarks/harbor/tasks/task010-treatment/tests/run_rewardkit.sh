@@ -1,13 +1,19 @@
 #!/bin/bash
 # Retry rewardkit on transient gateway / LLM judge failures (502, 503, 504, 429).
-# Always exits 0 so finalize_reward.py can apply golden-only fallback if needed.
+# Exits 0 after exhausted retries so finalize_reward.py can mark scoring_incomplete
+# (reward=0; trial excluded from claim aggregates — not a golden-only pass).
 set -uo pipefail
+
+# Gateway / remapped models (e.g. lx1-sonnet-4.6) reject params litellm auto-adds
+# for Anthropic Sonnet 4.6 (reasoning_effort). Drop unsupported params instead of failing.
+export LITELLM_DROP_PARAMS="${LITELLM_DROP_PARAMS:-1}"
 
 MAX_ATTEMPTS="${REWARDKIT_MAX_ATTEMPTS:-5}"
 BASE_DELAY_SEC="${REWARDKIT_RETRY_DELAY_SEC:-5}"
 REWARD_PATH="/logs/verifier/reward.json"
 DETAILS_PATH="/logs/verifier/reward-details.json"
 TRANSIENT_RE='502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|429 Too Many|BadGatewayError|api_error.*[Rr]etry|did not return a response|connection (reset|refused|error)|timed out|Temporary failure|overloaded'
+FATAL_RE='UnsupportedParamsError|AuthenticationError|invalid_api_key|permission_denied'
 
 rewardkit_succeeded() {
   [[ -f "$REWARD_PATH" ]] || [[ -f "$DETAILS_PATH" ]]
@@ -31,6 +37,11 @@ while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
 
   if [[ "$status" -eq 0 ]] && rewardkit_succeeded; then
     echo "rewardkit succeeded on attempt ${attempt}/${MAX_ATTEMPTS}"
+    exit 0
+  fi
+
+  if grep -Eiq "$FATAL_RE" "$log"; then
+    echo "rewardkit fatal error (not retrying): see ${log}" >&2
     exit 0
   fi
 

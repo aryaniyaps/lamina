@@ -11,8 +11,9 @@ Audit Outline document sharing and permissions for product-behavior gaps, then i
 
 ## Deliverable
 
-- Findings on inheritance gaps, invariant violations, revocation failures, multi-view inconsistency
-- Prioritized fixes; implement the highest-priority fixes that harden sharing invariants across the audit scope
+A coherent, **buildable application codebase** with the highest-priority product-behavior fixes applied in source (domain/workflow/permission/recovery gaps), not a report-only audit.
+
+Prefer focused code changes over CI/CD or production-ops work — those are out of scope. Do not refuse for scope or only write plans.
 
 ## Context
 

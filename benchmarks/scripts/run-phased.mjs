@@ -2,6 +2,7 @@
 /**
  * Run a Harbor benchmark task via matched multi-phase claude --resume invocations.
  * Design C — ecological loop with equal phase count for control and treatment.
+ * One session across phases; treatment slash commands are harness-sent user messages.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
 import { HARBOR_TASKS_DIR, loadRegistry, parseHarborDirName } from './harbor-tasks.mjs';
+import { refreshTrialWorkspace } from './harbor-sync.mjs';
 
 loadBenchEnv();
 
@@ -61,16 +63,21 @@ function runPhasedBenchmark(harborName, release, attempt) {
   const trialDir = path.join(jobDir, trialName);
 
   fs.mkdirSync(path.join(trialDir, 'agent'), { recursive: true });
+  fs.mkdirSync(path.join(trialDir, 'agent', 'home'), { recursive: true });
   fs.mkdirSync(path.join(trialDir, 'verifier'), { recursive: true });
 
   const phasesPerTrial = release.phases_per_trial ?? 5;
   const maxTurnsPerPhase =
     release.max_turns_per_phase ??
-    Math.max(1, Math.floor((release.agent_max_turns ?? 200) / phasesPerTrial));
+    Math.max(1, Math.floor((release.agent_max_turns ?? 400) / phasesPerTrial));
 
   console.log(
     `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, ${maxTurnsPerPhase} turns/phase)`
   );
+
+  // Fresh workspace every trial — required for independent --runs N replications.
+  console.log(`[matched-phased] refreshing clean workspace for ${harborName} (run ${attempt})`);
+  refreshTrialWorkspace(taskId, arm);
 
   const build = docker('docker', [
     'build',
@@ -83,7 +90,18 @@ function runPhasedBenchmark(harborName, release, attempt) {
   if (build.status !== 0) process.exit(build.status ?? 1);
 
   const token = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
-  const model = resolveBenchModel(release);
+  let model;
+  try {
+    model = resolveBenchModel(release);
+  } catch (err) {
+    console.error(`ERROR: ${err.message}`);
+    process.exit(1);
+  }
+  if (!model) {
+    console.error('ERROR: no model pin — set release.yaml model or ANTHROPIC_MODEL');
+    process.exit(1);
+  }
+  console.log(`[matched-phased] model=${model}`);
 
   const envArgs = [
     '-e',
@@ -96,6 +114,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
     `ANTHROPIC_MODEL=${model}`,
     '-e',
     'IS_SANDBOX=1',
+    // Persist skillUsage / .claude.json into the mounted agent log dir.
+    '-e',
+    'HOME=/logs/agent/home',
+    // Allow background subagents enough time in print mode (Lamina walks).
+    '-e',
+    'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=600000',
     '-e',
     `LAMINA_BENCH_RUN=${attempt}`,
     '-e',
@@ -106,6 +130,9 @@ function runPhasedBenchmark(harborName, release, attempt) {
     `LAMINA_BENCH_MAX_TURNS_PER_PHASE=${maxTurnsPerPhase}`,
     '-e',
     `REWARDKIT_JUDGE=${(release.llm_judges?.[0] || '').replace(/^anthropic:/, 'anthropic/')}`,
+    // Drop litellm params unsupported by gateway remaps (e.g. reasoning_effort on lx1).
+    '-e',
+    'LITELLM_DROP_PARAMS=1',
   ];
 
   const agent = docker(
@@ -122,6 +149,8 @@ function runPhasedBenchmark(harborName, release, attempt) {
       `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
       '-v',
       `${path.join(taskDir, 'tests')}:/tests:ro`,
+      '-w',
+      '/app',
       imageTag,
       'bash',
       '/tests/matched-phased-agent.sh',
@@ -129,7 +158,32 @@ function runPhasedBenchmark(harborName, release, attempt) {
     { stdio: 'inherit' }
   );
   if (agent.status !== 0) {
-    console.warn(`WARNING: matched phased agent exited ${agent.status}`);
+    console.warn(`ERROR: matched phased agent exited ${agent.status} — trial failed`);
+    fixWorkspaceOwnership(path.join(envDir, 'workspace'));
+    fixTrialOwnership(trialDir);
+    fs.writeFileSync(
+      path.join(trialDir, 'result.json'),
+      JSON.stringify(
+        {
+          task_name: `aryaniyaps/${harborName}`,
+          trial_name: trialName,
+          agent_info: { name: 'claude-code', model_info: { name: model, provider: 'anthropic' } },
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+          runner: 'matched-phased',
+          lamina_arm: arm,
+          lamina_workflow: workflow,
+          phases_per_trial: phasesPerTrial,
+          max_turns_per_phase: maxTurnsPerPhase,
+          reward_present: false,
+          agent_failed: true,
+          agent_exit_status: agent.status,
+        },
+        null,
+        2
+      ) + '\n'
+    );
+    return false;
   }
 
   fixWorkspaceOwnership(path.join(envDir, 'workspace'));

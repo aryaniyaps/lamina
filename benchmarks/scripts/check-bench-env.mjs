@@ -24,13 +24,26 @@ function isDockerAvailable() {
 
 const { loaded, path: envPath } = loadBenchEnv();
 const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
-const model = resolveBenchModel(release);
+let model;
+try {
+  model = resolveBenchModel(release);
+} catch (err) {
+  console.error(`\n  Model pin error: ${err.message}`);
+  process.exit(1);
+}
 const llmJudges = release.llm_judges || [];
 const harbor = which('harbor');
 
 console.log('LaminaBench environment check (Harbor / Design C)\n');
 console.log(`  benchmarks/.env: ${loaded ? `loaded (${envPath})` : 'not found (using shell env only)'}`);
 console.log(`  Model pin: ${model || '(none)'}`);
+if (
+  process.env.ANTHROPIC_MODEL &&
+  release.model &&
+  process.env.ANTHROPIC_MODEL !== release.model
+) {
+  console.log('  (env override allowed via LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1)');
+}
 console.log(`  ANTHROPIC_BASE_URL: ${process.env.ANTHROPIC_BASE_URL || '(default api.anthropic.com)'}`);
 console.log(
   `  Anthropic credentials: ${hasAnthropicCredentials() ? 'yes' : 'MISSING — set ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY'}`
@@ -73,7 +86,7 @@ async function fetchGatewayModels() {
 async function probeGateway() {
   const url = `${baseUrl}/v1/messages`;
   const body = JSON.stringify({
-    model: model || 'claude-sonnet-4-20250514',
+    model: model || 'lx1-sonnet-4.6',
     max_tokens: 8,
     messages: [{ role: 'user', content: 'OK' }],
   });

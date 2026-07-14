@@ -13,8 +13,10 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-MAX_ARTIFACT_CHARS = 48_000
-MAX_FILE_BYTES = 32_000
+MAX_ARTIFACT_CHARS = 96_000
+MAX_FILE_BYTES = 48_000
+# Oversized source files contribute a truncated head instead of being skipped.
+TRUNCATED_FILE_CHARS = 12_000
 
 SKIP_DIRS = {
     ".lamina",
@@ -196,7 +198,10 @@ def _parse_simple_yaml(text: str) -> dict:
 
 
 def path_priority(rel: str) -> int:
-    if re.match(r"^(src|app|lib|pkg|internal|server|api)/", rel):
+    if re.match(
+        r"^(src|app|apps|lib|pkg|internal|server|api|backend|packages|web|mobile|frontend)/",
+        rel,
+    ):
         return 0
     if re.search(r"(^|/)tests?/", rel, re.I) or re.search(r"\.(test|spec)\.", rel, re.I):
         return 2
@@ -221,11 +226,12 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
             if entry.suffix.lower() not in SOURCE_EXT:
                 continue
             try:
-                if entry.stat().st_size > MAX_FILE_BYTES:
-                    continue
                 text = entry.read_text(encoding="utf-8", errors="replace")
-                if text.strip():
-                    files.append((rel, text))
+                if not text.strip():
+                    continue
+                if entry.stat().st_size > MAX_FILE_BYTES or len(text) > MAX_FILE_BYTES:
+                    text = text[:TRUNCATED_FILE_CHARS] + "\n/* … truncated for scoring … */\n"
+                files.append((rel, text))
             except OSError:
                 continue
 
@@ -235,18 +241,43 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
 
 
 def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> str:
+    """Bundle source for scoring with stratified path coverage (not src/app-only)."""
     files = walk_implementation(workspace)
+    bands: dict[int, list[tuple[str, str]]] = {0: [], 1: [], 2: []}
+    for rel, text in files:
+        bands[path_priority(rel)].append((rel, text))
+
     parts = ["# LaminaBench implementation capture\n"]
     included: list[str] = []
     total = len(parts[0])
+    # Round-robin across priority bands so OSS trees outside src/app still score.
+    indices = {0: 0, 1: 0, 2: 0}
+    order = (0, 1, 2)
 
-    for rel, text in files:
-        block = f"## {rel}\n```\n{text}\n```\n\n"
-        if total + len(block) > MAX_ARTIFACT_CHARS:
+    while True:
+        progressed = False
+        for band in order:
+            i = indices[band]
+            if i >= len(bands[band]):
+                continue
+            rel, text = bands[band][i]
+            indices[band] = i + 1
+            block = f"## {rel}\n```\n{text}\n```\n\n"
+            if total + len(block) > MAX_ARTIFACT_CHARS:
+                # Try a truncated slice of this file before giving up on the band.
+                room = MAX_ARTIFACT_CHARS - total - len(f"## {rel}\n```\n\n```\n\n") - 40
+                if room < 400:
+                    continue
+                text = text[:room] + "\n/* … truncated for scoring … */\n"
+                block = f"## {rel}\n```\n{text}\n```\n\n"
+                if total + len(block) > MAX_ARTIFACT_CHARS:
+                    continue
+            parts.append(block)
+            total += len(block)
+            included.append(rel)
+            progressed = True
+        if not progressed:
             break
-        parts.append(block)
-        total += len(block)
-        included.append(rel)
 
     if included:
         preview = ", ".join(included[:10])

@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'node:child_process';
 import { readYamlSync } from './yaml.mjs';
-import { loadBenchEnv } from './load-bench-env.mjs';
+import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
 import { loadRegistry, parseHarborDirName, loadRegistryBySuite } from './harbor-tasks.mjs';
 import { runPhasedBenchmark } from './run-phased.mjs';
 
@@ -49,6 +49,7 @@ function syncHarbor(opts) {
   const args = ['benchmarks/scripts/harbor-sync.mjs'];
   if (opts.tasks) args.push('--tasks', opts.tasks.join(','));
   if (opts.suite) args.push('--suite', opts.suite);
+  if (opts.arm) args.push('--arm', opts.arm);
   const r = spawnSync('node', args, { cwd: ROOT, stdio: 'inherit' });
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
@@ -91,10 +92,21 @@ function clearJobsDir() {
 function main() {
   const opts = parseArgs();
 
+  // Initial sync (fixtures, Dockerfiles, verifier). Each trial also refreshes its
+  // own workspace so --runs N replications stay independent.
   syncHarbor(opts);
   if (opts.syncOnly) return;
 
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
+  try {
+    const model = resolveBenchModel(release);
+    if (!model) throw new Error('no model pin in release.yaml or ANTHROPIC_MODEL');
+    console.log(`Model pin: ${model}`);
+  } catch (err) {
+    console.error(`ERROR: ${err.message}`);
+    process.exit(1);
+  }
+
   const suite = loadSuite();
   const runs = opts.runs ?? release.runs_per_arm ?? 1;
   const harborTasks = listHarborTasks(opts, suite);
@@ -129,17 +141,32 @@ function main() {
     { cwd: ROOT, stdio: 'inherit' }
   );
   if (ingest.status === 0) {
-    spawnSync('node', ['benchmarks/scripts/aggregate-bench-results.mjs'], {
+    const agg = spawnSync('node', ['benchmarks/scripts/aggregate-bench-results.mjs'], {
       cwd: ROOT,
       stdio: 'inherit',
     });
+    if (agg.status !== 0) {
+      console.warn('WARNING: aggregation failed');
+      failed++;
+    }
     const hasTreatment = harborTasks.some((name) => name.endsWith('-treatment'));
     if (hasTreatment) {
-      spawnSync('node', ['benchmarks/scripts/check-treatment-skills.mjs'], {
+      const skillCheck = spawnSync('node', ['benchmarks/scripts/check-treatment-skills.mjs'], {
         cwd: ROOT,
         stdio: 'inherit',
       });
+      if (skillCheck.status !== 0) {
+        console.error('ERROR: treatment skillUsage check failed');
+        process.exit(skillCheck.status ?? 1);
+      }
     }
+  } else {
+    process.exit(ingest.status ?? 1);
+  }
+
+  if (failed > 0) {
+    console.warn(`\n${failed} trial(s) failed — see jobs under ${HARBOR_JOBS}`);
+    process.exit(1);
   }
 
   console.log('Inspect results: harbor view (if Harbor CLI installed) or results/harbor/jobs/');

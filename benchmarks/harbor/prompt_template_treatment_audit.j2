@@ -8,25 +8,18 @@
 
 ## Lamina treatment workflow (required — slash commands only)
 
-Lamina command skills have **disable-model-invocation**. You **cannot** invoke them with the Skill tool. Send each step as a **slash-command user message**.
+Lamina command skills have **disable-model-invocation**. The harness (or user) must send each step as a **slash-command user message**.
 
 **This session already started with `/lamina-init` above.** Complete init, then continue in order:
 
-1. **`/lamina-verify`** — audit the existing product for behavior gaps; write findings under `.lamina/runs/<run_id>/` only (no app source).
-2. **Fix (coding agent, not a Lamina command)** — apply prioritized product fixes from `fix.md` (and `run.yaml` findings) in application source. Finish in this session; do not wait for proceed.
+1. **`/lamina-verify`** — audit the existing product; write findings under `.lamina/runs/<run_id>/` only (no app source).
+2. **Fix (next user turn, not a Lamina command)** — apply prioritized product fixes from `fix.md` in application source.
 3. **`/lamina-verify`** again — post-fix verification under `.lamina/` only.
 
-Use `.lamina/runs/<run_id>/` layout. Do **not** use `.lamina/ready_to_build/` as a directory.
-
-See `AGENTS.md` for full workflow detail.
+Use `.lamina/runs/<run_id>/` layout.
 
 ---
 
-## Unattended benchmark contract
+## Unattended trial contract
 
-This is an **unattended** benchmark run — the user cannot respond to questions.
-
-- Treat the task brief and any fixture context in this workspace as **authoritative user input**.
-- If information is missing, proceed with **labeled assumptions** documented under **Open questions** — do not ask clarifying questions or stop waiting for user input.
-- If a Lamina skill would normally clarify and STOP, **do not STOP** — document assumptions and continue the workflow.
-- Deliver a **complete product implementation** in this workspace: write application source files. Do not only plan, describe, or ask what to do next.
+This is an **unattended** trial — the user cannot respond mid-turn. Treat the task brief and fixture context as authoritative.

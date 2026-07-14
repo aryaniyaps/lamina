@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { stageBenchFixture } from './stage-bench-fixture.mjs';
 import { installLaminaSkills } from './bench-skills.mjs';
@@ -23,18 +23,25 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HARBOR_ROOT = path.join(ROOT, 'benchmarks/harbor');
 const GOLDENS_DIR = path.join(ROOT, 'benchmarks/goldens');
-const OVERLAY_TREATMENT = path.join(HARBOR_ROOT, 'overlays/treatment');
 const VERIFIER_SRC = path.join(HARBOR_ROOT, 'verifier');
 const HARBOR_TASK_ORG = 'aryaniyaps';
 
 function parseArgs() {
-  const opts = { tasks: null, agent: 'claude-code', suite: null, testsOnly: process.argv.includes('--tests-only') };
+  const opts = {
+    tasks: null,
+    agent: 'claude-code',
+    suite: null,
+    arm: null,
+    testsOnly: process.argv.includes('--tests-only'),
+  };
   const tasksIdx = process.argv.indexOf('--tasks');
   if (tasksIdx !== -1) opts.tasks = process.argv[tasksIdx + 1].split(',');
   const agentIdx = process.argv.indexOf('--agent');
   if (agentIdx !== -1) opts.agent = process.argv[agentIdx + 1];
   const suiteIdx = process.argv.indexOf('--suite');
   if (suiteIdx !== -1) opts.suite = process.argv[suiteIdx + 1];
+  const armIdx = process.argv.indexOf('--arm');
+  if (armIdx !== -1) opts.arm = process.argv[armIdx + 1];
   return opts;
 }
 
@@ -96,7 +103,7 @@ function writeDockerfile(dest) {
     `FROM node:20-bookworm-slim
 
 RUN apt-get update \\
-  && apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv \\
+  && apt-get install -y --no-install-recommends ca-certificates curl git jq python3 python3-venv \\
   && rm -rf /var/lib/apt/lists/* \\
   && npm install -g @anthropic-ai/claude-code \\
   && node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs" \\
@@ -162,7 +169,7 @@ function buildJudgeContext(task, golden) {
   return `${lines.join('\n').trim()}\n`;
 }
 
-function copyVerifierBundle(dest, task, arm) {
+function copyVerifierBundle(dest, task, arm, release) {
   const testsDir = path.join(dest, 'tests');
   if (fs.existsSync(testsDir)) rmPath(testsDir);
   copyDirRecursive(VERIFIER_SRC, testsDir);
@@ -196,21 +203,14 @@ function copyVerifierBundle(dest, task, arm) {
   }
   const matchedPhased = path.join(testsDir, 'matched-phased-agent.sh');
   if (fs.existsSync(matchedPhased)) fs.chmodSync(matchedPhased, 0o755);
-}
 
-function readOverlay(name) {
-  return fs.readFileSync(path.join(OVERLAY_TREATMENT, name), 'utf8').trimEnd();
-}
-
-/** Prepend Lamina overlay; preserve upstream OSS AGENTS.md/CLAUDE.md body below a separator. */
-function applyTreatmentOverlay(ctxDir, name) {
-  const destPath = path.join(ctxDir, name);
-  const overlay = readOverlay(name);
-  if (fs.existsSync(destPath)) {
-    const existing = fs.readFileSync(destPath, 'utf8').trim();
-    fs.writeFileSync(destPath, `${overlay}\n\n---\n\n${existing}\n`);
-  } else {
-    fs.writeFileSync(destPath, `${overlay}\n`);
+  // Keep LLM judge model aligned with release.yaml (REWARDKIT_JUDGE also overrides at runtime).
+  const judgeToml = path.join(testsDir, 'llm_judge', 'product-behavior.toml');
+  if (fs.existsSync(judgeToml) && release?.llm_judges?.[0]) {
+    const judgeModel = String(release.llm_judges[0]).replace(/^anthropic:/, 'anthropic/');
+    let text = fs.readFileSync(judgeToml, 'utf8');
+    text = text.replace(/^judge\s*=\s*".*"/m, `judge = "${judgeModel}"`);
+    fs.writeFileSync(judgeToml, text);
   }
 }
 
@@ -219,11 +219,10 @@ function buildWorkspace(task, arm, agent) {
   rmPath(ctxDir);
   fs.mkdirSync(ctxDir, { recursive: true });
   if (task.fixture) stageBenchFixture(task.fixture, ctxDir);
+  // Treatment: install Lamina skills only. No AGENTS.md/CLAUDE.md workflow overlay —
+  // the harness sends /lamina-* user messages; skills carry Mode B behavior.
   if (arm === 'treatment') {
     installLaminaSkills(ctxDir, agent);
-    for (const name of ['AGENTS.md', 'CLAUDE.md']) {
-      applyTreatmentOverlay(ctxDir, name);
-    }
   }
   return ctxDir;
 }
@@ -238,7 +237,7 @@ function syncHarborTask(task, arm, opts, release) {
 
   writeTaskToml(dest, { task, arm, release });
   writeDockerfile(dest);
-  copyVerifierBundle(dest, task, arm);
+  copyVerifierBundle(dest, task, arm, release);
 
   if (opts.testsOnly) return;
 
@@ -249,20 +248,40 @@ function syncHarborTask(task, arm, opts, release) {
   rmPath(workspaceSrc);
 }
 
+/**
+ * Rebuild a single (task, arm) workspace from fixture + skills.
+ * Call before every trial so --runs N replications are independent.
+ */
+export function refreshTrialWorkspace(taskId, arm, { agent = 'claude-code' } = {}) {
+  const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
+  const task = loadRegistry().find((t) => t.id === taskId);
+  if (!task) throw new Error(`Unknown task id for workspace refresh: ${taskId}`);
+  if (arm !== 'control' && arm !== 'treatment') {
+    throw new Error(`Invalid arm for workspace refresh: ${arm}`);
+  }
+  syncHarborTask(task, arm, { agent, testsOnly: false }, release);
+}
+
 function main() {
   const opts = parseArgs();
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
   let tasks = opts.suite ? loadRegistryBySuite(opts.suite) : loadRegistry();
   if (opts.tasks) tasks = tasks.filter((t) => opts.tasks.includes(t.id));
+  const arms = opts.arm ? [opts.arm] : ['control', 'treatment'];
 
   fs.mkdirSync(HARBOR_TASKS_DIR, { recursive: true });
   for (const task of tasks) {
-    for (const arm of ['control', 'treatment']) {
+    for (const arm of arms) {
       syncHarborTask(task, arm, opts, release);
       console.log(`  synced ${task.id}-${arm}`);
     }
   }
-  console.log(`\nHarbor sync: ${tasks.length * 2} task dirs refreshed`);
+  console.log(`\nHarbor sync: ${tasks.length * arms.length} task dirs refreshed`);
 }
 
-main();
+const isDirectRun =
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+if (isDirectRun) {
+  main();
+}
