@@ -16,7 +16,7 @@ You are already inside this slash skill. **Do not** call `Skill` for `lamina-ver
 
 The skill base directory is printed above this body. Resolve paths from that base.
 
-**Your first tool calls must be `Read` on each of these files, in order. Do not Write under `.lamina/` until all of them are read.**
+**Your first tool calls must be `Read` on each of these files. Issue them in parallel in one turn when the host allows. Do not Write under `.lamina/` until all of them are read.**
 
 1. `../lamina-orchestrator/load-protocol.md`
 2. `../lamina-orchestrator/SKILL.md`
@@ -32,7 +32,17 @@ Then follow `workflows/verify.md`. When a section names a profile in `audit-prof
 
 **Do not invent artifact paths.** Only `.lamina/runs/<run_id>/` names from `artifacts.md`. Never `verify-report.md` or root-only `findings.md` as substitutes.
 
-**Completion gate:** Do not set `status: complete` until ticket-shaped `findings[]` are written (may be empty only if probes passed) and both `report.md` + `fix.md` exist under `.lamina/runs/<run_id>/`.
+**Disk emission (hard):** `report.md` and `fix.md` must be created with the **Write** tool under `.lamina/runs/<run_id>/`. Pasting their contents into the chat reply (fenced markdown, “Report – …”, “Fix brief – …”) does **not** count — the next coding turn looks for files on disk. After `findings[]` are on `run.yaml`, **Write both files before** any long chat summary. Prefer emitting the files even if a later polish pass would improve wording.
+
+**Finishing sequence:** After probes + `findings[]` on `run.yaml`:
+1. `Write` `report.md`
+2. `Write` `fix.md` (always — even when Product fixes is `_No product findings._`; still fill Unticked contract checklist)
+3. `Bash` existence gate (must exit 0): `test -f .lamina/runs/<run_id>/report.md && test -f .lamina/runs/<run_id>/fix.md`
+4. Only then set `status: complete` and emit the verify output contract
+
+**Do not rubber-stamp:** broken imports, missing brief-named flows/screens, or missing contracted `screens[]` → product (or contract) findings. Empty `findings[]` + “all good” while `App` imports a missing module is a **failed verify**.
+
+**Completion gate:** Do not set `status: complete` and do not end the verify turn until ticket-shaped `findings[]` are on `run.yaml` (may be empty only if probes passed) **and** both `report.md` + `fix.md` exist on disk under `.lamina/runs/<run_id>/`.
 
 **Fix-brief emission:** When writing `fix.md`, follow `prompts/outputs/fix.md` structure. **Never** put Mode B / “do not edit app source” / “Command boundary” / “start a separate coding session” text into `fix.md` — that constraint applies only to **this** `/lamina-verify` command (see Guardrail below). The fix brief is for the implementer and must assume app source will be written.
 

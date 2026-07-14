@@ -4,7 +4,7 @@ import {
   buildOrderFromDependencies,
   resolveDependencyMode,
   validateDependencyGraph,
-} from '../lib/dependencies.mjs';
+} from '../skills/lamina-orchestrator/lib/dependencies.mjs';
 
 {
   assert.equal(resolveDependencyMode({ failure: 'unreachable' }), 'unreachable');

@@ -23,7 +23,13 @@ Persona-panel gaps folded into deps/scenarios/screens (ids touched) — includin
 Machine-readable: `tradeoffs[]` with **stable brief-aligned ids** (`choice`, `cost`, `surfaces`). Do not list CI/CD, deploy, or push infra as design decisions unless the brief requires them.
 
 ### Implement brief
-`.lamina/runs/<run_id>/implement.md` — ship pack with **Reachability graph** + **Must-implement checklist**. Validator passed. **Status: ready_to_build.**
+**Only emit this section after disk emission is done.** Required on disk under `.lamina/runs/<run_id>/`:
+1. `implement.md` written with the Write tool (Reachability graph + Must-implement checklist)
+2. `run.yaml` line `status: ready_to_build` (validator already passed)
+
+Then cite the path: `.lamina/runs/<run_id>/implement.md` — **Status: ready_to_build.**
+
+**Forbidden:** ending with `status: designing`, or prose like “will become ready_to_build after validation,” or pasting a ship pack only in chat. If those artifacts are missing, keep working (validate → Write `implement.md` → flip status) — do not produce this output contract yet.
 
 ### Open questions
 Unresolved gaps only.

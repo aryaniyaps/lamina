@@ -17,10 +17,11 @@ LOG=/logs/agent/claude-code.txt
 
 ARM="${LAMINA_BENCH_ARM:-treatment}"
 WORKFLOW="${LAMINA_BENCH_WORKFLOW:-design}"
-MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-80}"
+MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-35}"
+PHASE_TIMEOUT_SEC="${LAMINA_BENCH_PHASE_TIMEOUT_SEC:-300}"
 
-# Wait for background subagents in print mode (Lamina persona walks / parallel review).
-export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-600000}"
+# Cap background-subagent waits in print mode — high values caused ~10m API hangs.
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-30000}"
 
 CLAUDE_FLAGS=(
   --dangerously-skip-permissions
@@ -80,15 +81,21 @@ run_phase() {
   local tmp
   tmp=$(mktemp)
 
-  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS}" | tee -a "$LOG"
+  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS} phase_timeout_sec=${PHASE_TIMEOUT_SEC}" | tee -a "$LOG"
 
   local status=0
+  # Hard per-phase wall clock so a single hung API call cannot burn the trial.
   if [ -z "$SESSION_ID" ]; then
-    claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
+      claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
   else
-    claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
+      claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
   fi
   cat "$tmp" | tee -a "$LOG" >/dev/null
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    echo "ERROR: phase ${label} killed after ${PHASE_TIMEOUT_SEC}s wall clock (status=${status})" | tee -a "$LOG"
+  fi
 
   local result=""
   if result=$(last_result_json "$tmp"); then
@@ -217,25 +224,29 @@ ${UNATTENDED}"
 
   run_phase "treatment-design" "/lamina-design
 
+Do not end this phase while \`status\` is still \`designing\` or while \`.lamina/runs/*/implement.md\` is missing on disk. Finish validate → Write \`implement.md\` → \`status: ready_to_build\` before your final reply. Cover every brief-named primary flow, persona, edge case, and tradeoff in the contract — do not ship a thinner MVP subset.
+
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/run.yaml\` and the matching \`implement.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-implement" "Phase 3 — This phase is the application-coding turn. Read \`.lamina/runs/*/implement.md\` and the matching \`run.yaml\` first. If \`run.yaml\` is missing, invalid, or \`implement.md\` is missing: fix the contract (e.g. required \`recovery\` / scenario triggers), run validate-run until exit 0, Write \`implement.md\`, set \`status: ready_to_build\`, then continue into application source in this same phase — do not stop to wait for another design turn. Implement the ship pack end to end completely in application source (outside \`.lamina/\`). Complete every Must-implement checklist item from \`implement.md\` in this phase — do not leave contracted surfaces for a later session. Ship every brief-named primary flow on the checklist (including settings, invite partner, category adjustment when present). Ensure the app is buildable (no missing imported modules). Do not stop after package manifests, type stubs, or empty shells. Do not claim the checklist is only \"represented\" or \"ready for a coding session.\"
 
 ${BRIEF_BLOCK}
 
-If no \`.lamina/runs/*/run.yaml\` exists, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file.
+If no \`.lamina/runs/*/run.yaml\` exists and you cannot create a valid one from the brief + business context, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file.
 
 ${UNATTENDED}"
 
   run_phase "treatment-verify" "/lamina-verify
 
+Probe build integrity (broken imports) and brief-named flows/edges — do not rubber-stamp empty findings. Always Write both \`report.md\` and \`fix.md\` under the run dir before ending (existence gate).
+
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-fix" "Phase 5 — This phase is the product-fix coding turn. Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`). Edit app source to close Product fixes and Unticked checklist ids — including missing screens/modules that would break the build. Do not end after only rewriting \`fix.md\`. Do not stop at scaffolding.
 
 ${BRIEF_BLOCK}
 
@@ -257,7 +268,7 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-implement" "Phase 3 — This phase is the product-fix coding turn. Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`). Edit app source to close Product fixes and Unticked checklist ids. Do not end after only rewriting \`fix.md\`. Do not stop at scaffolding.
 
 ${BRIEF_BLOCK}
 
@@ -271,7 +282,7 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-fix" "Phase 5 — This phase is the product-fix coding turn. Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`). Edit app source to close Product fixes and Unticked checklist ids. Do not end after only rewriting \`fix.md\`. Do not stop at scaffolding.
 
 ${BRIEF_BLOCK}
 

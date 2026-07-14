@@ -74,6 +74,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
@@ -93,6 +95,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
@@ -112,9 +116,26 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
+      ]
+    },
+    {
+      "id": "design-emits-ready-to-build",
+      "prompt": "/lamina-design — Design a household budgeting app for young US families: weekly review, partner privacy, spending alerts, account linking. Brief is complete — do not clarify-and-STOP.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design contract headings",
+        "design completion on disk",
+        "not left designing",
+        "implement.md exists",
+        "run.yaml valid",
+        "domain contract present"
       ]
     },
     {
@@ -131,6 +152,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
@@ -283,6 +306,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
@@ -315,6 +340,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
@@ -345,6 +372,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
@@ -378,6 +407,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"

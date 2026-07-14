@@ -228,6 +228,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
@@ -265,6 +267,8 @@
         "domain contract present",
         "artifact pack exists",
         "artifact contains diagram",
+        "design completion on disk",
+        "not left designing",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",

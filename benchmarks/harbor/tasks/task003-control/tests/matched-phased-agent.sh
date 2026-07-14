@@ -17,10 +17,11 @@ LOG=/logs/agent/claude-code.txt
 
 ARM="${LAMINA_BENCH_ARM:-treatment}"
 WORKFLOW="${LAMINA_BENCH_WORKFLOW:-design}"
-MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-80}"
+MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-20}"
+PHASE_TIMEOUT_SEC="${LAMINA_BENCH_PHASE_TIMEOUT_SEC:-120}"
 
-# Wait for background subagents in print mode (Lamina persona walks / parallel review).
-export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-600000}"
+# Cap background-subagent waits in print mode — high values caused ~10m API hangs.
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-30000}"
 
 CLAUDE_FLAGS=(
   --dangerously-skip-permissions
@@ -80,15 +81,21 @@ run_phase() {
   local tmp
   tmp=$(mktemp)
 
-  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS}" | tee -a "$LOG"
+  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS} phase_timeout_sec=${PHASE_TIMEOUT_SEC}" | tee -a "$LOG"
 
   local status=0
+  # Hard per-phase wall clock so a single hung API call cannot burn the trial.
   if [ -z "$SESSION_ID" ]; then
-    claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
+      claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
   else
-    claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
+      claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
   fi
   cat "$tmp" | tee -a "$LOG" >/dev/null
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    echo "ERROR: phase ${label} killed after ${PHASE_TIMEOUT_SEC}s wall clock (status=${status})" | tee -a "$LOG"
+  fi
 
   local result=""
   if result=$(last_result_json "$tmp"); then

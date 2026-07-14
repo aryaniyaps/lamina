@@ -7,7 +7,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "pnpm --dir docs build",
-    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node tests/check_lamina_init_test.mjs && node tests/check_lamina_personas_test.mjs && node tests/lamina_write_boundary_test.mjs && node tests/harbor_sync_test.mjs && node tests/bench_aggregate_test.mjs && python3 tests/rewardkit_criteria_test.py && node tests/validate_run_yaml_test.mjs && node tests/coverage_insights_test.mjs && node tests/coverage_per_flow_test.mjs",
+    "test": "node scripts/verify_lamina_bundle.mjs --check structure && node tests/check_lamina_init_test.mjs && node tests/check_lamina_personas_test.mjs && node tests/lamina_write_boundary_test.mjs && node tests/harbor_sync_test.mjs && node tests/bench_aggregate_test.mjs && python3 tests/rewardkit_criteria_test.py && node tests/validate_run_yaml_test.mjs && node tests/coverage_insights_test.mjs && node tests/coverage_per_flow_test.mjs && node tests/grade_lamina_design_completion_test.mjs",
     "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure",
     "test:eval:spec": "node evals/hooks/validate-plugin.mjs && node evals/hooks/validate-skills-strict.mjs",
     "test:eval:validate": "node evals/scripts/merge-evals.mjs && node evals/scripts/validate-evals.mjs",

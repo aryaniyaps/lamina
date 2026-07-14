@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { validateRunYaml, validateWalkthroughPack } from '../lib/run.mjs';
+import { validateRunYaml, validateWalkthroughPack } from '../skills/lamina-orchestrator/lib/run.mjs';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-run-yaml-'));

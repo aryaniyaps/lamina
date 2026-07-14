@@ -69,25 +69,40 @@ function runPhasedBenchmark(harborName, release, attempt) {
   const phasesPerTrial = release.phases_per_trial ?? 5;
   const maxTurnsPerPhase =
     release.max_turns_per_phase ??
-    Math.max(1, Math.floor((release.agent_max_turns ?? 400) / phasesPerTrial));
+    Math.max(1, Math.floor((release.agent_max_turns ?? 100) / phasesPerTrial));
+  const agentTimeoutSec = release.agent_timeout_sec ?? 600;
+  const phaseTimeoutSec = release.phase_timeout_sec ?? 120;
+  const bgWaitCeilingMs = release.bg_wait_ceiling_ms ?? 30000;
+  const rewardkitMaxAttempts = release.rewardkit_max_attempts ?? 2;
+  const rewardkitRetryDelaySec = release.rewardkit_retry_delay_sec ?? 2;
 
   console.log(
-    `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, ${maxTurnsPerPhase} turns/phase)`
+    `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, ${maxTurnsPerPhase} turns/phase, phase_timeout=${phaseTimeoutSec}s, agent_timeout=${agentTimeoutSec}s)`
   );
 
   // Fresh workspace every trial — required for independent --runs N replications.
   console.log(`[matched-phased] refreshing clean workspace for ${harborName} (run ${attempt})`);
   refreshTrialWorkspace(taskId, arm);
 
-  const build = docker('docker', [
-    'build',
-    '-t',
-    imageTag,
-    '-f',
-    path.join(envDir, 'Dockerfile'),
-    envDir,
-  ]);
-  if (build.status !== 0) process.exit(build.status ?? 1);
+  // Workspace is bind-mounted at runtime — rebuild only when the image is missing
+  // (or LAMINA_BENCH_FORCE_BUILD=1). Avoids reinstalling claude-code every trial.
+  const forceBuild = process.env.LAMINA_BENCH_FORCE_BUILD === '1';
+  const imageExists =
+    spawnSync('docker', ['image', 'inspect', imageTag], { stdio: 'ignore' }).status === 0;
+  if (forceBuild || !imageExists) {
+    console.log(`[matched-phased] building image ${imageTag}${forceBuild ? ' (forced)' : ''}`);
+    const build = docker('docker', [
+      'build',
+      '-t',
+      imageTag,
+      '-f',
+      path.join(envDir, 'Dockerfile'),
+      envDir,
+    ]);
+    if (build.status !== 0) process.exit(build.status ?? 1);
+  } else {
+    console.log(`[matched-phased] reusing image ${imageTag}`);
+  }
 
   const token = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
   let model;
@@ -117,9 +132,9 @@ function runPhasedBenchmark(harborName, release, attempt) {
     // Persist skillUsage / .claude.json into the mounted agent log dir.
     '-e',
     'HOME=/logs/agent/home',
-    // Allow background subagents enough time in print mode (Lamina walks).
+    // Fail fast on hung print-mode subagents / API stalls (was 600000).
     '-e',
-    'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=600000',
+    `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=${bgWaitCeilingMs}`,
     '-e',
     `LAMINA_BENCH_RUN=${attempt}`,
     '-e',
@@ -129,15 +144,26 @@ function runPhasedBenchmark(harborName, release, attempt) {
     '-e',
     `LAMINA_BENCH_MAX_TURNS_PER_PHASE=${maxTurnsPerPhase}`,
     '-e',
+    `LAMINA_BENCH_PHASE_TIMEOUT_SEC=${phaseTimeoutSec}`,
+    '-e',
+    `REWARDKIT_MAX_ATTEMPTS=${rewardkitMaxAttempts}`,
+    '-e',
+    `REWARDKIT_RETRY_DELAY_SEC=${rewardkitRetryDelaySec}`,
+    '-e',
     `REWARDKIT_JUDGE=${(release.llm_judges?.[0] || '').replace(/^anthropic:/, 'anthropic/')}`,
     // Drop litellm params unsupported by gateway remaps (e.g. reasoning_effort on lx1).
     '-e',
     'LITELLM_DROP_PARAMS=1',
   ];
 
+  // Hard wall-clock for the whole agent trial (prevents 20–60m ECONNRESET hangs).
   const agent = docker(
-    'docker',
+    'timeout',
     [
+      '--signal=TERM',
+      '--kill-after=30',
+      String(agentTimeoutSec),
+      'docker',
       'run',
       '--rm',
       ...envArgs,
@@ -157,6 +183,11 @@ function runPhasedBenchmark(harborName, release, attempt) {
     ],
     { stdio: 'inherit' }
   );
+  if (agent.status === 124) {
+    console.warn(
+      `ERROR: agent trial hit hard wall-clock timeout (${agentTimeoutSec}s) — trial failed`
+    );
+  }
   if (agent.status !== 0) {
     console.warn(`ERROR: matched phased agent exited ${agent.status} — trial failed`);
     fixWorkspaceOwnership(path.join(envDir, 'workspace'));

@@ -29,6 +29,8 @@ const FEATURE_EDGE_ASSERTIONS = [
   'domain contract present',
   'artifact pack exists',
   'artifact contains diagram',
+  'design completion on disk',
+  'not left designing',
   'implement.md exists',
   'handoff maps checklist ids',
   'report.md narrative only',
@@ -383,6 +385,19 @@ const laminaDesignEvals = {
     e('design-2fa', '/lamina-design — Add two-factor authentication to settings.', featureFx()),
     e('design-wishlist', '/lamina-design — Add wishlist feature to e-commerce.', featureFx()),
     e('design-edge-cases', '/lamina-design — Add offline mode to mobile app.', featureFx()),
+    // Regression: agent must not end with status: designing and no implement.md on disk
+    // (bench failure mode — draft run.yaml + chat "will become ready_to_build").
+    e('design-emits-ready-to-build', '/lamina-design — Design a household budgeting app for young US families: weekly review, partner privacy, spending alerts, account linking. Brief is complete — do not clarify-and-STOP.', {
+      ...fx('greenfield-with-init'),
+      assertions: [
+        'design contract headings',
+        'design completion on disk',
+        'not left designing',
+        'implement.md exists',
+        'run.yaml valid',
+        'domain contract present',
+      ],
+    }),
     e('design-edge-cases-brownfield', '/lamina-design — Add offline cart sync for our commerce storefront.', {
       ...fx('brownfield-audit-ready'),
       assertions: [

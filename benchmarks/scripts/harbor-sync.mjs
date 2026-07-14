@@ -68,7 +68,7 @@ lamina_arm = "${arm}"
 lamina_workflow = "${task.workflow}"
 ${fixtureLine}
 [verifier]
-timeout_sec = ${release.verifier_timeout_sec || 600}.0
+timeout_sec = ${release.verifier_timeout_sec || 180}.0
 collect = []
 
 [verifier.env]
@@ -79,11 +79,11 @@ REWARDKIT_JUDGE = "\${REWARDKIT_JUDGE}"
 LAMINA_BENCH_RUN = "\${LAMINA_BENCH_RUN}"
 
 [agent]
-timeout_sec = ${release.agent_timeout_sec || 5400}.0
+timeout_sec = ${release.agent_timeout_sec || 600}.0
 
 [environment]
 network_mode = "public"
-build_timeout_sec = 1800.0
+build_timeout_sec = 300.0
 os = "linux"
 cpus = 2
 memory_mb = 4096

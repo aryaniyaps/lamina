@@ -8,8 +8,8 @@ set -uo pipefail
 # for Anthropic Sonnet 4.6 (reasoning_effort). Drop unsupported params instead of failing.
 export LITELLM_DROP_PARAMS="${LITELLM_DROP_PARAMS:-1}"
 
-MAX_ATTEMPTS="${REWARDKIT_MAX_ATTEMPTS:-5}"
-BASE_DELAY_SEC="${REWARDKIT_RETRY_DELAY_SEC:-5}"
+MAX_ATTEMPTS="${REWARDKIT_MAX_ATTEMPTS:-2}"
+BASE_DELAY_SEC="${REWARDKIT_RETRY_DELAY_SEC:-2}"
 REWARD_PATH="/logs/verifier/reward.json"
 DETAILS_PATH="/logs/verifier/reward-details.json"
 TRANSIENT_RE='502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|429 Too Many|BadGatewayError|api_error.*[Rr]etry|did not return a response|connection (reset|refused|error)|timed out|Temporary failure|overloaded'

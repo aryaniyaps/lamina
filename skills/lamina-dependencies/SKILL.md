@@ -144,7 +144,7 @@ scenarios:
 4. Set `workflows[].requires: [<dependency_id>, ...]`. Mark true roots `standalone: true` and optional `provides: [entity.x]`.
 5. Declare workflow `success` / `degraded` / `failure` outcomes when mode includes degraded.
 6. For each edge, add `scenarios[]` with `dependency_ref`, `trigger.when: dependency_unmet`, and **observable `acceptance`**. Set `scenario_ref` on the edge.
-7. Derive **build order** for `implement.md` from the graph (`provides` → dependents). Run `node lib/validate-run.mjs`.
+7. Derive **build order** for `implement.md` from the graph (`provides` → dependents). Run `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml`.
 
 ## Procedure (verify)
 

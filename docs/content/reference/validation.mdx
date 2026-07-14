@@ -1,18 +1,26 @@
 ---
 title: Validation
-description: Validate run.yaml contracts with node lib/validate-run.mjs
+description: Validate run.yaml contracts with the orchestrator skill validator
 ---
 
 import { Callout } from 'nextra/components'
 
 # Validation
 
-Lamina provides a contract validator to check `run.yaml` against the expected schema. Use it after design, in CI, or when manually editing contracts.
+Lamina provides a contract validator to check `run.yaml` against the expected schema. Use it after design, in CI, or when manually editing contracts. The validator **ships with the `lamina-orchestrator` skill** (`lib/`).
 
 ## Quick path
 
+With skills installed under `.claude/skills` (Claude Code default):
+
 ```bash
-node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+```
+
+From the Lamina repo (skills checked out at `skills/`):
+
+```bash
+node skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
 ```
 
 Expected output on success:
@@ -24,24 +32,18 @@ run.yaml valid
 ## Prerequisites
 
 - Node.js 20 or later
-- Lamina repo cloned (validator lives in `lib/`)
+- `lamina-orchestrator` skill installed (includes `lib/validate-run.mjs`, `run.mjs`, `scenarios.mjs`, `dependencies.mjs`, `parse-contract-extras.mjs`)
 
 <Callout type="info">
-**Advanced:** The validator is part of the Lamina repository, not the installed skill bundle. Clone the repo or copy `lib/run.mjs`, `lib/validate-run.mjs`, and `lib/scenarios.mjs` into your project if you want local validation.
+**Skill-bundled:** The validator ships with `lamina-orchestrator`. Adjust the path if your agent uses `.codex/skills` or `.opencode/skills` instead of `.claude/skills`.
 </Callout>
 
 ## Usage
 
-From the Lamina repo root:
+From your project workspace:
 
 ```bash
-node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
-```
-
-From your project (if you copied the lib files):
-
-```bash
-node lib/validate-run.mjs path/to/.lamina/runs/<run_id>/run.yaml
+node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
 ```
 
 On failure, the validator prints specific errors:
@@ -64,7 +66,7 @@ run.yaml: invalid status 'verified' (expected designing|ready_to_build|verifying
 | Findings | Priority, `fix_target` (`product` or `contract`) |
 | Evidence | Structure and references |
 
-The validator uses a minimal YAML parser in `lib/run.mjs` focused on Lamina contract structure.
+The validator uses a minimal YAML parser in the orchestrator skill `lib/run.mjs` focused on Lamina contract structure.
 
 ## When to validate
 
@@ -79,15 +81,16 @@ The validator uses a minimal YAML parser in `lib/run.mjs` focused on Lamina cont
 
 ```yaml
 - name: Validate Lamina contract
-  run: node lib/validate-run.mjs .lamina/runs/${{ env.RUN_ID }}/run.yaml
+  run: node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/${{ env.RUN_ID }}/run.yaml
 ```
 
 ## Programmatic use
 
-Import from `lib/run.mjs` in tests:
+Import from the skill:
 
 ```javascript
-import { validateRunYaml } from './lib/run.mjs';
+import { validateRunYaml } from './.claude/skills/lamina-orchestrator/lib/run.mjs';
+// or from the Lamina repo: import { validateRunYaml } from './skills/lamina-orchestrator/lib/run.mjs';
 
 const result = validateRunYaml('.lamina/runs/my-run/run.yaml');
 if (!result.ok) {

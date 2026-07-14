@@ -3,7 +3,7 @@ release_tag: bench-v1
 created: "2026-07-11"
 harness_version: "1.2.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "1.8.0"
+results_contract_version: "1.9.0"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
@@ -27,12 +27,25 @@ trials_total: 20
 trials_total_published: 10
 trials_total_publish: 30
 
-# Matched multi-phase harness (5 phases × per-phase turns, equal both arms)
+# Matched multi-phase harness (5 phases × per-phase turns, equal both arms).
+# Tight budgets: trials must finish in minutes, not hang on API/subagent waits.
+# 20 turns/phase burned on design required-reads before emit; 35 keeps the trial
+# fast under the 600s hard wall while remaining achievable for ready_to_build.
 phases_per_trial: 5
-max_turns_per_phase: 80
-agent_timeout_sec: 5400
-verifier_timeout_sec: 600
-agent_max_turns: 400
+max_turns_per_phase: 35
+# Hard wall-clock for the whole agent container (GNU timeout).
+# Brief-full design (all primary flows + ship pack) regularly exceeds 240s/phase;
+# 900s keeps ~15m trials while leaving room for implement/verify/fix.
+agent_timeout_sec: 900
+# Per-phase wall-clock inside the harness (kills hung claude print turns).
+phase_timeout_sec: 300
+# Background-subagent wait ceiling in Claude Code print mode (was 600000 → 10m hangs).
+bg_wait_ceiling_ms: 30000
+verifier_timeout_sec: 180
+agent_max_turns: 175
+# Rewardkit judge retries (transient gateway only).
+rewardkit_max_attempts: 2
+rewardkit_retry_delay_sec: 2
 
 methodology:
   id: design_c_ecological_matched_phases

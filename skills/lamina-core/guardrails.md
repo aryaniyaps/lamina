@@ -21,7 +21,7 @@ Lamina **never writes app source**. The loop:
 - `/lamina`, `/lamina-init`, `/lamina-design`, `/lamina-verify` write `.lamina/` only.
 - **Write allowlist ≠ session end.** Mode B forbids app-source edits *during* a Lamina command. It does **not** mean the host agent must stop and wait for a human when the host will implement next.
 - **Interactive:** after `ready_to_build` / verify, hand off — implement from `implement.md`/`fix.md` end to end, then `/lamina-verify`.
-- **Agent-primary / unattended:** after the Lamina command finishes `.lamina/` artifacts, the same host’s **next turn** implements app source from those artifacts end to end. Do not emit a task list and wait for “proceed.” Do not implement app source *during* the slash command.
+- **Agent-primary / unattended:** after the Lamina command finishes `.lamina/` artifacts, the same host’s **next turn** implements app source from those artifacts end to end. That next turn must ship contracted product behavior in application source — not manifests/types alone, and not “ready for a later coding session.” Do not emit a task list and wait for “proceed.” Do not implement app source *during* the slash command.
 - Do not set `status: implemented` during design; use `ready_to_build`, `verifying`, `complete`.
 
 ## Non-negotiable

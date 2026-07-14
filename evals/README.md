@@ -88,7 +88,7 @@ Workflow artifact quality is tested inside `lamina-design` and `lamina-verify` s
 | Persona simulation | `design-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
 | Blueprint checkpoint | (removed) | Studio/blueprint evals deprecated — skipped in grade hook |
 
-Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `lib/run.mjs` for run.yaml validation).
+Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `skills/lamina-orchestrator/lib/run.mjs` for run.yaml validation).
 
 ## Regenerating evals
 

@@ -4,7 +4,7 @@ import {
   formatGapSummary,
   flowCoverageInsights,
   gapCountByScreenForFlow,
-} from '../lib/coverage-insights.mjs';
+} from '../skills/lamina-orchestrator/lib/coverage-insights.mjs';
 
 const coverage = {
   score: 75,

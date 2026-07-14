@@ -22,14 +22,15 @@ Always preserve `.lamina/` outputs between runs and reuse existing artifacts bef
 |------|---------|
 | `.lamina/runs/<run_id>/run.yaml` | **Machine contract** — domain (incl. **dependencies graph**), actors, workflows, scenarios, screens, seed, scope, findings |
 | `.lamina/runs/<run_id>/implement.md` | Ship pack at `ready_to_build` — [prompts/outputs/implement.md](prompts/outputs/implement.md) |
-| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief — always written after verify |
+| `.lamina/runs/<run_id>/report.md` | Verify narrative — must be a real file (Write tool), not chat-only |
+| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief — always written to disk after verify |
 | `.lamina/runs/<run_id>/report.md` | Human narrative only (design or verify) |
 | `.lamina/runs/<run_id>/walkthrough/` | Live-app evidence when `base_url` available |
 | `.lamina/runs/<run_id>/evidence.md` | Optional evidence ledger |
 
 **Do not write:** `handoff.md`, `verify-report.md`, blueprints, freestyle `edge_cases` / `illegal_states` / `preconditions` as substitutes for the machine schema, or ship packs outside `runs/<run_id>/`.
 
-Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must pass** before `ready_to_build`.
+Validate: `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must pass** before `ready_to_build`. Validator lives in the orchestrator skill (`lib/`). If missing, STOP (infra) — do not invent a substitute or skip the gate.
 
 ---
 
@@ -40,8 +41,8 @@ Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must 
 1. Create `run.yaml` — `status: designing`, `hook: design`
 2. Write `domain.entities`, `domain.invariants`, **`domain.dependencies[]` (first-class)**, `actors` (+ `resource_filters`), `workflows` (+ `requires` / `standalone` / `provides`), `screens` (+ **`a11y`** on every `status: new`), `scenarios` (each with `acceptance`), `tradeoffs[]`, `out_of_scope`, `forbidden_content`, `seed`
 3. **Contract simulation** — persona panel including **unmet-dependency walks**; fold gaps into scenarios/screens/**dependency modes**
-4. **Validate** — `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` must pass. On failure: stay `designing`; never invent alternate paths.
-5. Set `status: ready_to_build` **only after** validation passes; write ship-pack `implement.md` with **Must-implement checklist**
+4. **Validate** — `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` must pass. On failure: stay `designing`; never invent alternate paths. If the skill `lib/validate-run.mjs` is missing: STOP and report — do not write `implement.md` or set `ready_to_build`.
+5. **Write** ship-pack `implement.md` on disk (Must-implement checklist), then set `status: ready_to_build` — never end the command while still `designing` or with only a chat-pasted ship pack
 6. Write `report.md`
 
 **Completion gate:** Design is incomplete until (a) validator passes and (b) both `.lamina/runs/<run_id>/run.yaml` and `implement.md` exist. Never `.lamina/ready_to_build/`, `contract.md`, `verify-report.md`, or freestyle `edge_cases` / `preconditions` / `illegal_states`.
@@ -52,7 +53,7 @@ Validate: `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must 
 2. `status: verifying`
 3. Live walkthrough or **static source** (never STOP for missing `base_url`)
 4. **Reachability probes for every dependency edge** + actor walks → ticket-shaped `findings[]`
-5. `status: complete` → `report.md` + **always** `fix.md` (omit `ops`)
+5. `status: complete` → `report.md` + **always** `fix.md` on disk via Write (chat paste does not count)
 
 ---
 

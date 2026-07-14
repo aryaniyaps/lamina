@@ -60,13 +60,20 @@ If none: write `_No contract deltas._`
 - Do not excuse missing `screens[]` with `status: new` as “UI not required” when those screens remain unticked
 - <run-specific non-goals>
 
+## When applying this brief
+
+1. **This turn writes app source** — edit files outside `.lamina/` to close Product fixes and Unticked contract checklist ids.
+2. **Rewriting `fix.md` is not a fix** — do not claim complete after only editing `.lamina/` artifacts. Evidence of done is changed application source (and, when feasible, a local re-check).
+3. **Scaffold still does not count** — adding types-only or empty shells for missing screens/APIs does not close `screen.*` / `scenario.*` ids.
+
 ## Implementation session prompt
 
 Copy into a coding session (or use as the post-verify user turn):
 
-> Implement product fixes from `.lamina/runs/<run_id>/fix.md` end to end completely.
+> Implement product fixes from `.lamina/runs/<run_id>/fix.md` end to end completely in application source (outside `.lamina/`).
 > Read `run.yaml` for machine-readable `findings[]` and close Unticked contract checklist ids (including `screen.*` / `a11y.*` when present).
 > Prioritize high-priority product findings and missing checklist ids first.
+> Do not end after only rewriting `fix.md`. Do not stop at scaffolding.
 > Do not modify `.lamina/`. After fixes, re-run `/lamina-verify`.
 ```
 
@@ -85,4 +92,4 @@ Findings with `fix_target: ops` belong in `report.md` only — **do not list the
 
 If required narrative inputs are missing, write `confidence: blocked`, explain what is missing, still emit `fix.md`, and do not invent implementation details.
 
-**Refuse `status: complete` without writing this file** under `.lamina/runs/<run_id>/fix.md`.
+**Refuse `status: complete` without writing this file** under `.lamina/runs/<run_id>/fix.md` with the Write tool. A chat reply that only *shows* a fix brief is not delivery — the implementer and harness look for the path on disk.

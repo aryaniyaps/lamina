@@ -93,7 +93,7 @@ You do not need a perfect spec — you need a contract your agent can implement 
 
 - Reference dependency ids in workflows, not free-text preconditions
 - Use `fix_target: contract` findings to trigger scoped re-design
-- Validate contracts: `node lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
+- Validate contracts: `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
 - Preserve `.lamina/` between runs — Lamina reuses existing artifacts
 
 ## Next steps

@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
-import { validateRunYaml } from '../../lib/run.mjs';
+import { validateRunYaml } from '../../skills/lamina-orchestrator/lib/run.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -495,15 +495,54 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, true, 'Assertion deprecated — use domain contract present');
   }
 
-  if (lower.includes('ready_to_build')) {
-    const runFiles = findRunYamlFiles(workspace);
-    const ok = runFiles.some((f) => fs.readFileSync(f, 'utf8').includes('ready_to_build'));
-    return hookResult(text, ok, ok ? 'status ready_to_build' : 'Missing ready_to_build status');
+  if (lower.includes('ready_to_build') || lower.includes('design completion on disk')) {
+    const runDirs = findRunDirs(workspace);
+    let ok = false;
+    let evidence = 'No run dirs under .lamina/runs/';
+    for (const dir of runDirs) {
+      const runFile = path.join(dir, 'run.yaml');
+      const implFile = path.join(dir, 'implement.md');
+      if (!fs.existsSync(runFile)) continue;
+      const yaml = fs.readFileSync(runFile, 'utf8');
+      const statusReady = /^\s*status:\s*ready_to_build\s*$/m.test(yaml);
+      const statusDesigning = /^\s*status:\s*designing\s*$/m.test(yaml);
+      const hasImpl = fs.existsSync(implFile) && fs.statSync(implFile).size > 0;
+      if (statusReady && hasImpl) {
+        ok = true;
+        evidence = `${path.basename(dir)}: status ready_to_build + implement.md`;
+        break;
+      }
+      if (statusDesigning && !hasImpl) {
+        evidence = `${path.basename(dir)}: stuck status designing without implement.md`;
+      } else if (statusReady && !hasImpl) {
+        evidence = `${path.basename(dir)}: ready_to_build but missing implement.md`;
+      } else if (statusDesigning && hasImpl) {
+        evidence = `${path.basename(dir)}: implement.md present but status still designing`;
+      }
+    }
+    return hookResult(text, ok, ok ? evidence : evidence || 'Missing ready_to_build + implement.md');
   }
 
-  if (lower.includes('implement.md')) {
-    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md'));
-    return hookResult(text, impl.length > 0, impl.length ? 'implement.md written' : 'No implement.md');
+  if (lower.includes('not left designing') || lower.includes('status not designing')) {
+    const runFiles = findRunYamlFiles(workspace);
+    if (!runFiles.length) {
+      return hookResult(text, false, 'No run.yaml found');
+    }
+    const stuck = runFiles.filter((f) => /^\s*status:\s*designing\s*$/m.test(fs.readFileSync(f, 'utf8')));
+    const passed = stuck.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No run left in status designing' : `Still designing: ${stuck.map((f) => path.basename(path.dirname(f))).join(', ')}`,
+    );
+  }
+
+  if (lower.includes('implement.md') && !lower.includes('handoff maps')) {
+    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md') || f.includes('/implement.md'));
+    // Prefer run-dir implement.md
+    const runImpl = findRunDirs(workspace).map((d) => path.join(d, 'implement.md')).filter((f) => fs.existsSync(f));
+    const ok = runImpl.length > 0 || impl.length > 0;
+    return hookResult(text, ok, ok ? 'implement.md written' : 'No implement.md');
   }
 
   if (lower.includes('blueprint validate passes') || lower.includes('blueprint offer made') || lower.includes('no styling in blueprint') || lower.includes('no blueprint without consent')) {
@@ -821,4 +860,10 @@ function main() {
   process.exit(0);
 }
 
-main();
+export { gradeAssertion, findRunYamlFiles, findRunDirs };
+
+const isMain =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main();
+}

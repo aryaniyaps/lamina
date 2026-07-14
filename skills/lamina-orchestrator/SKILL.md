@@ -38,6 +38,7 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 | File | Purpose |
 |------|---------|
 | [load-protocol.md](load-protocol.md) | How slash + supporting skills load |
+| [lib/validate-run.mjs](lib/validate-run.mjs) | Contract validator (ships with this skill) |
 | [artifacts.md](artifacts.md) | `run.yaml` schema, lifecycle |
 | [merge-rules.md](merge-rules.md) | Merge order, grounding |
 | [audit-profiles.yaml](audit-profiles.yaml) | Section → skills |
