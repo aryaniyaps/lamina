@@ -291,11 +291,11 @@ ${PLAN_SCOPE}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — implement the product now following \`implement.md\` and \`run.yaml\`. Contracts are inputs; write a working product codebase outside \`.lamina/\`.
+  run_phase "treatment-implement" "Phase 3 — implement the product now following the Lamina ship pack. Contracts are inputs; write a working product codebase outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
 
-Use the latest \`.lamina/runs/*/run.yaml\` and matching \`implement.md\` as the build contract. If the contract lists CI/deploy/push infra, skip those and implement product behavior first.
+Use \`.lamina/runs/*/run.yaml\` and the matching \`implement.md\` in that same run directory as the build contract. If no \`.lamina/runs/*/run.yaml\` exists, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file. If the contract lists CI/deploy/push infra, skip those and implement product behavior first.
 
 ${IMPLEMENT_BODY}"
 
@@ -305,11 +305,11 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — implement product fixes now following \`fix.md\`. Apply prioritized product-behavior fixes to application source outside \`.lamina/\`.
+  run_phase "treatment-fix" "Phase 5 — implement product fixes now following \`.lamina/runs/*/fix.md\`. Apply prioritized product-behavior fixes to application source outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
 
-Re-read \`run.yaml\` and \`implement.md\` if needed. Skip ops/CI findings.
+If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings. Re-read \`run.yaml\` and \`implement.md\` if needed. Skip ops/CI findings.
 
 ${FIX_BODY}"
 }
@@ -329,11 +329,11 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — implement product fixes now following \`fix.md\`. Write application source — not more planning markdown alone.
+  run_phase "treatment-implement" "Phase 3 — implement product fixes now following \`.lamina/runs/*/fix.md\`. Write application source — not more planning markdown alone.
 
 ${BRIEF_BLOCK}
 
-Apply prioritized product-behavior fixes from \`.lamina/runs/*/fix.md\` to application source (outside \`.lamina/\`). Use the task brief and audit findings as authoritative. Skip ops/CI items.
+Apply prioritized product-behavior fixes from \`.lamina/runs/*/fix.md\` to application source (outside \`.lamina/\`). If missing, stop and report verify did not emit a canonical fix brief. Use the task brief and audit findings as authoritative. Skip ops/CI items.
 
 ${IMPLEMENT_BODY}"
 
@@ -343,11 +343,11 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — implement remaining product fixes now following \`fix.md\`. Apply them to application source outside \`.lamina/\`.
+  run_phase "treatment-fix" "Phase 5 — implement remaining product fixes now following \`.lamina/runs/*/fix.md\`. Apply them to application source outside \`.lamina/\`.
 
 ${BRIEF_BLOCK}
 
-Skip ops/CI findings. Prefer domain/workflow/UI fixes.
+If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report — do not invent findings. Skip ops/CI findings. Prefer domain/workflow/UI fixes.
 
 ${FIX_BODY}"
 }

@@ -1,5 +1,7 @@
 task_id: task007
-# reference_checklist: not ground truth — concepts to look for, any wording OK
+# Behavioral reference checklist for the LLM judge rubric (Design C Option D).
+# Phrase smoke may still be computed diagnostically — not part of claim composite.
+# Score product behavior, not exact wording / checklist id echo.
 required_entities:
   - patient
   - appointment

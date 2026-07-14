@@ -179,12 +179,18 @@ function buildJudgeContext(task, golden) {
     '## Task description',
     task.prompt || task.id,
     '',
-    '## Golden reference checklist',
-    'Concepts to look for in code; identifiers, comments, logic, and tests all count.',
+    '## Behavioral reference checklist',
+    'Use as a **rubric for product behavior**, not a phrase hunt.',
+    'Credit implemented behavior (types, handlers, UI, validation, filters, empty/error states).',
+    'Do **not** require checklist id strings or slogan comments.',
+    'Negations/bans: absence or explicit rejection counts — the ban phrase need not appear.',
+    'Trade-offs/a11y: look for chosen behavior and accessible hooks, not snake_case labels.',
+    'Cite evidence (path/symbol/control) in criterion reasoning.',
     '',
   ];
   for (const [field, items] of Object.entries(golden)) {
     if (!field.startsWith('required_') || !Array.isArray(items) || !items.length) continue;
+    if (field === 'required_sections') continue;
     lines.push(`### ${field}`);
     for (const item of items) lines.push(`- ${item}`);
     lines.push('');

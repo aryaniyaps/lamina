@@ -3,8 +3,13 @@
 ## Task description
 Design and implement a full household budgeting product — not a demo stub: domain model, illegal states, actors and permissions, all primary workflows (onboarding, linking, weekly review, alerts, partner invite, settings), edge cases, named trade-offs, and a buildable multi-surface product.
 
-## Golden reference checklist
-Concepts to look for in code; identifiers, comments, logic, and tests all count.
+## Behavioral reference checklist
+Use as a **rubric for product behavior**, not a phrase hunt.
+Credit implemented behavior (types, handlers, UI, validation, filters, empty/error states).
+Do **not** require checklist id strings or slogan comments.
+Negations/bans: absence or explicit rejection counts — the ban phrase need not appear.
+Trade-offs/a11y: look for chosen behavior and accessible hooks, not snake_case labels.
+Cite evidence (path/symbol/control) in criterion reasoning.
 
 ### required_entities
 - household
@@ -59,10 +64,3 @@ Concepts to look for in code; identifiers, comments, logic, and tests all count.
 ### required_tradeoffs
 - clarity_vs_granularity
 - shared_view_vs_partner_privacy
-
-### required_sections
-- domain model and illegal states
-- actors and permissions
-- workflows and decision points
-- edge cases and recovery
-- implementation brief

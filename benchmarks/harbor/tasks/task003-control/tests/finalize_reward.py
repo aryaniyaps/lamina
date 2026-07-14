@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Apply LaminaBench gates and enrich reward.json for Harbor ingest / metric.py."""
+"""Apply LaminaBench gates and enrich reward.json for Harbor ingest / metric.py.
+
+Design C Option D: claim composite = llm_judge only. Phrase golden_coverage is
+diagnostic (recorded, not claim-weighted).
+"""
 from __future__ import annotations
 
 import json
@@ -49,13 +53,14 @@ def extract_llm_scores(details: dict) -> dict[str, float]:
 
 
 def resolve_composite(rewards: dict) -> float:
-    if "composite" in rewards:
-        return float(rewards["composite"] or 0.0)
-    golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
-    if golden_norm > 1.0:
-        golden_norm /= 100.0
-    llm_norm = float(rewards.get("llm_judge", 0.0) or 0.0)
-    return golden_norm * 0.5 + llm_norm * 0.5
+    """Claim score = LLM judge only (Option D). Ignore golden in composite."""
+    if "llm_judge" in rewards:
+        return float(rewards.get("llm_judge") or 0.0)
+    # Legacy blobs may only expose composite from older weighted_mean runs.
+    if "composite" in rewards and rewards.get("judge_mode") != "rewardkit_phrase_mix":
+        # Prefer not to trust mixed composites after Option D.
+        pass
+    return float(rewards.get("llm_judge", 0.0) or 0.0)
 
 
 def build_fallback_rewards(meta: dict) -> dict:
@@ -106,14 +111,17 @@ def main() -> int:
     golden_pct = meta.get("golden_coverage_pct")
     if golden_pct is None:
         golden_norm = float(rewards.get("golden_coverage", 0.0) or 0.0)
-        golden_pct = round(golden_norm * 100)
+        if golden_norm > 1.0:
+            golden_pct = round(golden_norm)
+        else:
+            golden_pct = round(golden_norm * 100)
 
     run_attempt = int(os.environ.get("LAMINA_BENCH_RUN", "1") or "1")
 
     feedback = (
-        f"Golden {golden_pct}%, LLM mean {llm_mean:.2f}"
+        f"LLM mean {llm_mean:.2f} (judge-only claim); golden diagnostic {golden_pct}%"
         if artifact_valid and llm_mean is not None and not scoring_incomplete
-        else f"Golden {golden_pct}% — LLM judge unavailable (scoring incomplete; excluded from claim)"
+        else f"Golden diagnostic {golden_pct}% — LLM judge unavailable (scoring incomplete; excluded from claim)"
         if artifact_valid and scoring_incomplete
         else "Clarify stall — incomplete deliverables"
         if clarify_stall
@@ -126,8 +134,10 @@ def main() -> int:
         "max_reward": 1,
         "composite": round(0.0 if scoring_incomplete else composite, 4),
         "golden_coverage": golden_pct,
+        "golden_role": "diagnostic",
         "llm_judge_mean": llm_mean,
-        "judge_mode": "rewardkit",
+        "judge_mode": "rewardkit_judge_only",
+        "claim_surface": "llm_judge",
         "artifact_valid": artifact_valid,
         "clarify_stall": clarify_stall,
         "scoring_incomplete": scoring_incomplete,

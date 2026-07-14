@@ -6,51 +6,55 @@ prompt_template = "/tests/llm_judge/prompt.md"
 timeout = 300
 weight = 1.0
 
+# Design C Option D — judge-only claim score.
+# Checklist concepts are folded into these dimensions (see prompt.md + judge-context).
+# Phrase golden_coverage is diagnostic only (weight 0) and must not drive claims.
+
 [[criterion]]
 name = "domain_system_structure"
-description = "Domain / system structure — entities and relationships expressed in code (types, models, modules); not a UI shell without domain logic"
+description = "Domain / system structure — checklist entities and relationships expressed in code (types, models, modules); not a UI shell without domain logic. Evidence: concrete types/modules, not checklist id strings."
 type = "likert"
 points = 5
 weight = 1.0
 
 [[criterion]]
 name = "invariants_product_rules"
-description = "Invariants and product rules — illegal states prevented or rejected in code; guards, validation, or state machines — not comments alone"
+description = "Invariants and product rules — illegal states prevented or rejected in code; brief bans (e.g. no investment advice) as absence or explicit rejection. Guards/validation/state machines — not comments or phrase echoes alone."
 type = "likert"
 points = 5
-weight = 1.0
+weight = 1.2
 
 [[criterion]]
 name = "actors_permissions"
-description = "Actors and permissions — role checks, authorization boundaries, or data scoping visible in implementation"
+description = "Actors and permissions — checklist personas/roles with authorization boundaries or data scoping visible in implementation (filters, role checks). Evidence required."
 type = "likert"
 points = 5
-weight = 1.0
+weight = 1.1
 
 [[criterion]]
 name = "workflow_quality"
-description = "Workflow quality — a primary journey implemented end-to-end with coherent state transitions"
+description = "Workflow quality — primary checklist journeys implemented end-to-end with coherent state transitions (not navigation stubs)."
 type = "likert"
 points = 5
-weight = 1.0
+weight = 1.1
 
 [[criterion]]
 name = "scenario_edge_coverage"
-description = "Scenario / edge coverage — failure, recovery, or edge paths handled (errors, retries, empty states, idempotency where relevant)"
+description = "Scenario / edge coverage — checklist failure, recovery, empty, and edge paths handled in product behavior (errors, retries, empty states, unmet dependencies). Not scenario id comments."
 type = "likert"
 points = 5
-weight = 1.0
+weight = 1.2
 
 [[criterion]]
 name = "systems_judgment"
-description = "Systems judgment — structure reflects sensible trade-offs; avoids obvious product traps (e.g. silent data loss, permission leaks)"
+description = "Systems judgment — sensible product trade-offs realized in behavior (chosen default + mitigating control); avoids traps like silent data loss or permission leaks. Do not require tradeoff checklist ids in source."
 type = "likert"
 points = 5
 weight = 1.0
 
 [[criterion]]
 name = "ux_expression_under_rules"
-description = "UX expression under rules — UI or API surfaces reflect domain rules (errors, empty states, a11y hooks where present)"
+description = "UX expression under rules — UI or API surfaces reflect domain rules: errors, empty states, accessible names, adequate touch targets, non-color-only status where UI exists. Score hooks/behavior, not a11y slogan phrases."
 type = "likert"
 points = 5
 weight = 1.0
@@ -60,21 +64,21 @@ name = "brownfield_fit"
 description = "Brownfield fit — integrates sensibly with existing fixture code (N/A for greenfield → score internal consistency)"
 type = "likert"
 points = 5
-weight = 1.0
+weight = 0.8
 
 [[criterion]]
 name = "implementation_readiness"
 description = "Implementation readiness — product implementation is coherent and buildable; clear entry points; not a stub-only scaffold"
 type = "likert"
 points = 5
-weight = 1.0
+weight = 0.9
 
 [[criterion]]
 name = "overall_product_behavior"
-description = "Overall product-behavior quality — holistic judgment of product behavior as expressed in code"
+description = "Overall product-behavior quality — holistic judgment of product behavior vs brief + checklist concepts as realized in code (not documentation theater)"
 type = "likert"
 points = 5
-weight = 1.0
+weight = 1.2
 
 [scoring]
 aggregation = "weighted_mean"

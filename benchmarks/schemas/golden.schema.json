@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LaminaBench Golden Specification",
+  "description": "Behavioral reference checklist for the LLM judge rubric (Design C Option D). Phrase smoke may be computed diagnostically but is not part of the claim composite.",
   "type": "object",
   "required": ["task_id"],
   "properties": {

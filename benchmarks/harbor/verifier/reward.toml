@@ -1,5 +1,6 @@
-# LaminaBench composite scoring (Design B).
-# Dimensions: golden_coverage/ + llm_judge/ (equal reward_weight via [judge].weight).
+# LaminaBench composite scoring (Design C — Option D).
+# Claim score = llm_judge only (checklist folded into judge rubric).
+# golden_coverage/ remains diagnostic (weight 0) for smoke/debug — not claim.
 # finalize_reward.py applies artifact_valid + clarify_stall gates on top of composite.
 
 [[reward]]

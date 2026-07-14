@@ -3,8 +3,13 @@
 ## Task description
 Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.
 
-## Golden reference checklist
-Concepts to look for in code; identifiers, comments, logic, and tests all count.
+## Behavioral reference checklist
+Use as a **rubric for product behavior**, not a phrase hunt.
+Credit implemented behavior (types, handlers, UI, validation, filters, empty/error states).
+Do **not** require checklist id strings or slogan comments.
+Negations/bans: absence or explicit rejection counts — the ban phrase need not appear.
+Trade-offs/a11y: look for chosen behavior and accessible hooks, not snake_case labels.
+Cite evidence (path/symbol/control) in criterion reasoning.
 
 ### required_entities
 - document
@@ -45,8 +50,3 @@ Concepts to look for in code; identifiers, comments, logic, and tests all count.
 ### required_a11y
 - permission_status
 - share_dialog_focus
-
-### required_sections
-- executive summary
-- findings
-- prioritized improvements

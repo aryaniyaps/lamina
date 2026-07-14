@@ -3,7 +3,7 @@ release_tag: bench-v1
 created: "2026-07-11"
 harness_version: "1.2.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "1.7.0"
+results_contract_version: "1.8.0"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
@@ -48,10 +48,11 @@ methodology:
   ecological_loop: true
 
 scoring_weights:
-  golden_coverage: 0.5
-  llm_judge: 0.5
+  # Option D — claim score is judge-only. Phrase golden stays diagnostic (weight 0).
+  golden_coverage: 0.0
+  llm_judge: 1.0
 
-claim_surface: "golden_coverage + llm_judge on implemented source (Design C)"
+claim_surface: "llm_judge on implemented source (checklist as behavioral rubric; Design C Option D)"
 
 golden_field_weights:
   required_invariants: 2

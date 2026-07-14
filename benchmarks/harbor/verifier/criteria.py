@@ -446,13 +446,20 @@ def build_judge_context(task_meta: dict, golden: dict) -> str:
         "## Task description",
         task_meta.get("prompt") or task_meta.get("task_id") or "",
         "",
-        "## Golden reference checklist",
-        "Concepts to look for in code; identifiers, comments, logic, and tests all count.",
+        "## Behavioral reference checklist",
+        "Use as a **rubric for product behavior**, not a phrase hunt.",
+        "Credit implemented behavior (types, handlers, UI, validation, filters, empty/error states).",
+        "Do **not** require checklist id strings or slogan comments.",
+        "Negations/bans: absence or explicit rejection counts — the ban phrase need not appear.",
+        "Trade-offs/a11y: look for chosen behavior and accessible hooks, not snake_case labels.",
+        "Cite evidence (path/symbol/control) in criterion reasoning.",
         "",
     ]
     for field, items in golden.items():
         if not field.startswith("required_") or not isinstance(items, list) or not items:
             continue
+        if field == "required_sections":
+            continue  # planning-era hints; not behavioral claim surface
         lines.append(f"### {field}")
         for item in items:
             lines.append(f"- {item}")

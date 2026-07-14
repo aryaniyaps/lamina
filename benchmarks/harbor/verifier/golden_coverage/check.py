@@ -1,4 +1,8 @@
-"""Golden checklist coverage against bundled implementation artifact."""
+"""Golden checklist phrase coverage — diagnostic smoke only (Design C Option D).
+
+Claim composite is llm_judge. This criterion keeps weight 0 in rewardkit but still
+writes golden_* fields to verifier-meta for debugging.
+"""
 from __future__ import annotations
 
 import sys
@@ -29,8 +33,9 @@ def golden_checklist_coverage(workspace: Path) -> float:
         meta["golden_coverage_pct"] = result["coverage_score"]
         meta["golden_checks_passed"] = result["passed"]
         meta["golden_checks_total"] = result["total"]
+        meta["golden_role"] = "diagnostic"
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return result["coverage_norm"]
 
 
-rk.golden_checklist_coverage(weight=1.0)
+rk.golden_checklist_coverage(weight=0.0)  # diagnostic only — claim score is llm_judge
