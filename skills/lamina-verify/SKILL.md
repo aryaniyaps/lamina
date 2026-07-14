@@ -34,6 +34,8 @@ Then follow `workflows/verify.md`. When a section names a profile in `audit-prof
 
 **Completion gate:** Do not set `status: complete` until ticket-shaped `findings[]` are written (may be empty only if probes passed) and both `report.md` + `fix.md` exist under `.lamina/runs/<run_id>/`.
 
+**Fix-brief emission:** When writing `fix.md`, follow `prompts/outputs/fix.md` structure. **Never** put Mode B / “do not edit app source” / “Command boundary” / “start a separate coding session” text into `fix.md` — that constraint applies only to **this** `/lamina-verify` command (see Guardrail below). The fix brief is for the implementer and must assume app source will be written.
+
 **Do not** spawn Agent/Task to “run lamina-verify” with a homemade file list. Agent/Task only for persona walks / walkthrough after the files above are loaded.
 
 ## Prerequisite

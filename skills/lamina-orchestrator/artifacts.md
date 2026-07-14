@@ -1,6 +1,6 @@
 # Lamina Artifacts
 
-**Guardrail:** Write only under `.lamina/`. Never edit app source.
+**Guardrail:** During Lamina slash commands, write only under `.lamina/`. Never edit app source in those commands. Coding sessions that implement `implement.md` / `fix.md` write app source outside `.lamina/`.
 
 Always preserve `.lamina/` outputs between runs and reuse existing artifacts before regenerating.
 
@@ -183,9 +183,11 @@ findings:
 
 ## `implement.md` (ship pack)
 
-Projection of the machine contract for a coding session — [prompts/outputs/implement.md](prompts/outputs/implement.md).
+Projection of the machine contract for implementing in application source — [prompts/outputs/implement.md](prompts/outputs/implement.md).
 
-Must include **Reachability graph**, invariants→enforcement, permissions **with filters**, workflows→surfaces, scenarios→acceptance (verbatim), **Must-implement checklist** (`scenario.*`, `forbidden.*`, `a11y.*`, `tradeoff.*`), seed notes, out of scope.
+**Never** emit Mode B language (“do not edit app source”, “Command boundary”, “start a separate coding session”) inside `implement.md`. Mode B applies only while a Lamina slash command is running; the ship pack is consumed after that command ends.
+
+Must include **Reachability graph**, invariants→enforcement, permissions **with filters**, workflows→surfaces, scenarios→acceptance (verbatim), **Must-implement checklist** (`screen.*`, `scenario.*`, `forbidden.*`, `a11y.*`, `tradeoff.*`), seed notes, out of scope.
 
 Not a vendor blueprint. **Forbidden content and a11y hooks are code requirements**, not narrative.
 
@@ -194,6 +196,8 @@ Not a vendor blueprint. **Forbidden content and a11y hooks are code requirements
 ## `fix.md`
 
 Always written after verify — [prompts/outputs/fix.md](prompts/outputs/fix.md). Mechanical projection of `findings[]` where `fix_target != ops`.
+
+**Never** emit Mode B language inside `fix.md`. Mode B applies only while `/lamina-verify` is running.
 
 ---
 

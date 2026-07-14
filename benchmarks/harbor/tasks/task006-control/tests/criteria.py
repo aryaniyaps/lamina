@@ -101,7 +101,6 @@ REWARD_DETAILS_PATH = Path("/logs/verifier/reward-details.json")
 VERIFIER_META_PATH = Path("/logs/verifier/verifier-meta.json")
 
 
-
 def path_priority(rel: str) -> int:
     if re.match(
         r"^(src|app|apps|lib|pkg|internal|server|api|backend|packages|web|mobile|frontend)/",

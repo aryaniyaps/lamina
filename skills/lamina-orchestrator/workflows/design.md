@@ -44,11 +44,11 @@ Load skills from [audit-profiles.yaml](../audit-profiles.yaml) per section. Keep
 13. **Scope + seed** — `out_of_scope[]`, `forbidden_content[]` (every brief ban → list entry), `seed` (fixture world including negative cases used by scenarios).
 14. **Contract simulation** — persona panel including **unmet-dependency walks** and forbidden-content absence; fold gaps into deps/scenarios/screens/a11y.
 15. **Validate (hard gate)** — run `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml`. On failure: fix contract; **do not** set `ready_to_build`; **do not** write freestyle paths.
-16. **Implement brief** — ship pack with Reachability graph + **Must-implement checklist**; set `status: ready_to_build` only after step 15 passes and both `run.yaml` + `implement.md` exist under `.lamina/runs/<run_id>/`.
+16. **Implement brief** — write ship-pack `implement.md` from [prompts/outputs/implement.md](../prompts/outputs/implement.md) (Reachability graph + **Must-implement checklist**). **Do not** copy Mode B / “do not edit app source” into that file — Mode B is this slash command only. Set `status: ready_to_build` only after step 15 passes and both `run.yaml` + `implement.md` exist under `.lamina/runs/<run_id>/`.
 17. Write `report.md`.
-18. **End Lamina command** — `.lamina/` only.
-    - **Interactive:** hand off — implement from `run.yaml` + `implement.md`, then `/lamina-verify`.
-    - **Agent-primary / unattended:** implement the **full** contract now (tick Must-implement), then `/lamina-verify`.
+18. **End Lamina command** — `.lamina/` only. Do **not** write app source or tick Must-implement as if shipped during this command.
+    - **Interactive:** hand off — implement from `run.yaml` + `implement.md` end to end in a coding session, then `/lamina-verify`.
+    - **Agent-primary / unattended:** after this command finishes `.lamina/` artifacts, the **host’s next user turn** implements the full contract from `run.yaml` + `implement.md` (app source allowed). Do not implement app source inside `/lamina-design`.
 
 ## Subagent hints
 

@@ -1,6 +1,6 @@
 Use this exact structure for `.lamina/runs/<run_id>/implement.md`.
 
-`implement.md` is the **ship pack** for a separate coding session. It is a **projection** of `run.yaml` — especially the **dependency reachability graph** — not a second architecture. Stack-agnostic. Not permission to edit app source in the Lamina command.
+`implement.md` is the **ship pack** for implementing `run.yaml` in application source. It is a **projection** of `run.yaml` — especially the **dependency reachability graph** — not a second architecture. Stack-agnostic.
 
 Do **not** set `status: ready_to_build` until `node lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` passes and this file matches the sections below.
 
@@ -14,12 +14,6 @@ confidence: <high|medium|low|blocked>
 ---
 
 # Ship pack: <target>
-
-## Command boundary
-
-This Lamina command produced `.lamina/` artifacts only. **Do not edit app source in this session.**
-
-Start a coding-agent session to implement the full contract from `run.yaml` + this brief. That session may edit app source; do not modify `.lamina/` while building.
 
 ## Stack
 
@@ -51,7 +45,7 @@ From `domain.dependencies[]` + `workflows[].requires` / `provides` / `standalone
 
 ## Invariants → enforcement
 
-For each `domain.invariants[]` id: where it must hold (data constraint and/or request/handler check) and the **rejection shape** (status/body or UI) when violated.
+For each `domain.invariants[]` id: where it must hold (data constraint and/or request/handler check) and the **rejection shape** when violated. Match the brief’s channel: if `screens[]` with `status: new` exist for that flow, name a UI (or UI+API) rejection surface; if the contract is API/headless only, an API rejection shape is enough.
 
 ## Permissions matrix
 
@@ -73,10 +67,11 @@ Copy `seed.summary` and fixture bullets — the world verify/persona walks assum
 
 Generate from the contract — **every row must be realized in application source** (not comments alone). Tick while coding:
 
-1. **Scenarios** — one checkbox per `scenarios[].id` with its `acceptance` copied verbatim.
-2. **Forbidden content** — one checkbox per `forbidden_content[]` entry: name the **rejection / absence surface** (API error, missing UI module, content filter). Brief bans like “investment advice” become enforceable product behavior.
-3. **A11y** — for each `screens[]` with `status: new`, tick `a11y.labels`, `a11y.touch_min_px` (primary controls ≥ that px), and `a11y.color_not_only`.
-4. **Tradeoffs** — for each `tradeoffs[].id`, ship the `choice` and the mitigating surface named in `cost` / `surfaces` (stable ids — do not rename `clarity_vs_granularity` to a synonym).
+1. **Screens** — one checkbox per `screens[].id` with `status: new` (cite the app path that will realize it).
+2. **Scenarios** — one checkbox per `scenarios[].id` with its `acceptance` copied verbatim.
+3. **Forbidden content** — one checkbox per `forbidden_content[]` entry: name the **rejection / absence surface** matching the brief channel (UI and/or API as contracted — not “API error” by default when screens exist).
+4. **A11y** — for each `screens[]` with `status: new`, tick `a11y.labels`, `a11y.touch_min_px` (primary controls ≥ that px), and `a11y.color_not_only`.
+5. **Tradeoffs** — for each `tradeoffs[].id`, ship the `choice` and the mitigating surface named in `cost` / `surfaces` (stable ids — do not rename `clarity_vs_granularity` to a synonym).
 
 ## Done-when
 
@@ -92,11 +87,11 @@ Copy `out_of_scope[]` and `forbidden_content[]` from `run.yaml`. Plus default op
 
 ## Implementation session prompt
 
-Copy into a new coding session:
+Copy into a coding session (or use as the post-design user turn):
 
-> Implement the full product from `.lamina/runs/<run_id>/run.yaml` and `implement.md`.
+> Implement the full product from `.lamina/runs/<run_id>/run.yaml` and `implement.md` end to end completely.
 > Honor the reachability graph: every dependency mode and scenario acceptance.
-> Complete the Must-implement checklist (scenarios, forbidden_content, a11y, tradeoffs).
+> Complete the Must-implement checklist (screens, scenarios, forbidden_content, a11y, tradeoffs).
 > Load seed fixtures. Ship every workflow and `screens[]` with `status: new`.
 > Choose any stack that fits the brief. Do not modify `.lamina/`.
 > Skip items in out_of_scope. After the product runs locally, run `/lamina-verify`.

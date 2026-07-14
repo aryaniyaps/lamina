@@ -28,19 +28,20 @@ Pre-merge verification against design contracts — actor walks, invariants, rea
 0. **Init gate** — [init-required](../prerequisites/init-required.md).
 1. Load design run (`ready_to_build` or prior complete) or brownfield context.
 2. Set `status: verifying` on run (create verify run if brownfield-only).
-3. **Grounding**
+3. **Grounding** — record mode in `report.md` / `fix.md` as `live_app` | `static_source` | `mixed`.
     - When `base_url` available: [visual-walkthrough](../patterns/visual-walkthrough.md).
-    - When no runnable UI: **static source walk** — probe `workflows[]`, `scenarios[].acceptance`, invariants, and permissions against repo paths/symbols. **Never** ask the user how to proceed or STOP for missing `base_url` in agent-primary flows.
-4. **Actor walks** — one subagent per actor; attempt operations from `workflows` and `actors.permissions` (live or against source+contract).
-5. **Reachability probes (first-class)** — for **each** `domain.dependencies[]` edge, put the product in the unmet state (seed/fixtures or live); attempt `from` workflow; assert linked scenario `acceptance` and that `mode` matches (unreachable / degraded / blocked_ui / recover). Silent happy path → product finding.
-6. **Invariant / scenario probes** — test remaining `scenarios[]` against live UI or source. **Also probe client-bypassable invariants** (query flags that skip filters, client-supplied roles, include_private-style overrides) — bypass → high product finding.
-7. **Forbidden content + a11y** — for each `forbidden_content[]` entry, confirm absence / rejection surface in source or UI. For each `screens[].a11y`, check labels, `touch_min_px`, and color-not-only. Load [lamina-accessibility](../../lamina-accessibility/SKILL.md).
-8. **Tradeoff surfaces** — for each `tradeoffs[]`, confirm the chosen behavior and named mitigating control exist in source.
-9. Write ticket-shaped `findings[]`: `fix_target`, `priority`, `summary`/`finding`, `evidence`, `acceptance` (for product|contract). Classify CI/deploy/push as `ops` or omit. Empty `findings[]` is allowed only when probes passed — still emit `fix.md`.
-10. Set `status: complete` **only after** `report.md` and **`fix.md`** exist under `.lamina/runs/<run_id>/`.
-11. Write `report.md` and **always** write `fix.md` (include Unticked contract checklist). **STOP** Lamina writes.
+    - When no runnable UI: **static source walk** — probe `workflows[]`, `scenarios[].acceptance`, invariants, permissions, and **`screens[]` with `status: new`** against repo paths/symbols. **Never** ask the user how to proceed or STOP for missing `base_url` in agent-primary flows.
+4. **Screen surface probes** — for **each** `screens[]` entry with `status: new`, require a corresponding app path (route/component/template) or emit a product finding + unticked `screen.*` / `a11y.*` ids. Do **not** clear the contract or write that UI changes are out of scope while those screens are missing — including under `static_source` grounding.
+5. **Actor walks** — one subagent per actor; attempt operations from `workflows` and `actors.permissions` (live or against source+contract).
+6. **Reachability probes (first-class)** — for **each** `domain.dependencies[]` edge, put the product in the unmet state (seed/fixtures or live); attempt `from` workflow; assert linked scenario `acceptance` and that `mode` matches (unreachable / degraded / blocked_ui / recover). Silent happy path → product finding.
+7. **Invariant / scenario probes** — test remaining `scenarios[]` against live UI or source. **Also probe client-bypassable invariants** (query flags that skip filters, client-supplied roles, include_private-style overrides) — bypass → high product finding.
+8. **Forbidden content + a11y** — for each `forbidden_content[]` entry, confirm absence / rejection surface in source or UI (channel must match the brief / contracted screens). For each `screens[].a11y` on `status: new`, check labels, `touch_min_px`, and color-not-only against the realizing surface — missing surface → unticked `a11y.*`. Load [lamina-accessibility](../../lamina-accessibility/SKILL.md).
+9. **Tradeoff surfaces** — for each `tradeoffs[]`, confirm the chosen behavior and named mitigating control exist in source.
+10. Write ticket-shaped `findings[]`: `fix_target`, `priority`, `summary`/`finding`, `evidence`, `acceptance` (for product|contract). Classify CI/deploy/push as `ops` or omit. Empty `findings[]` is allowed only when probes passed **and** every `status: new` screen is observed in source — still emit `fix.md`.
+11. Set `status: complete` **only after** `report.md` and **`fix.md`** exist under `.lamina/runs/<run_id>/`.
+12. Write `report.md` and **always** write `fix.md` from [prompts/outputs/fix.md](../prompts/outputs/fix.md) (include Unticked contract checklist with `screen.*` when applicable). **Do not** copy Mode B / “do not edit app source” into `fix.md` — Mode B is this slash command only. **STOP** Lamina writes.
 
-Tell the host: implement **product fixes** from `fix.md` in a coding session, then re-run `/lamina-verify`. Route **contract deltas** to `/lamina-design`.
+Tell the host: implement **product fixes** from `fix.md` end to end in a coding session, then re-run `/lamina-verify`. Route **contract deltas** to `/lamina-design`.
 
 ## Subagent hints
 

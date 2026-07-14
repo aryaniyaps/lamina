@@ -1,6 +1,6 @@
 Use this exact structure for `.lamina/runs/<run_id>/fix.md`.
 
-`fix.md` is the post-verify implementation brief for a **separate coding session**. It is not permission for the current Lamina command to edit app source code.
+`fix.md` is the post-verify brief for applying product fixes in application source.
 
 **Always write this file** when `/lamina-verify` completes — even if `findings[]` is empty (empty Product fixes section).
 
@@ -12,6 +12,7 @@ run_id: <run_id>
 source_run: .lamina/runs/<run_id>/run.yaml
 verify_report: .lamina/runs/<run_id>/report.md
 confidence: <high|medium|low|blocked>
+grounding: <live_app|static_source|mixed>
 sources:
   - .lamina/runs/<run_id>/run.yaml
   - .lamina/runs/<run_id>/report.md
@@ -19,12 +20,6 @@ sources:
 ---
 
 # Fix brief: <target>
-
-## Command boundary
-
-This Lamina command produced UX artifacts only. **Do not edit app source in this session.**
-
-Start a coding-agent session to implement the **product fixes** below. That session may edit app source; do not modify `.lamina/` while fixing.
 
 ## Product fixes
 
@@ -43,9 +38,11 @@ For each finding:
 
 ## Unticked contract checklist
 
-Re-read `implement.md` Must-implement / Done-when. List every `scenario.*`, `forbidden.*`, `a11y.*`, and `tradeoff.*` id that is **still missing or weak in source** after this verify — even if not yet a formal finding. Fix phase must close these before polish.
+Re-read `implement.md` Must-implement / Done-when. List every `screen.*`, `scenario.*`, `forbidden.*`, `a11y.*`, and `tradeoff.*` id that is **still missing or weak in source** after this verify — even if not yet a formal finding. Fix phase must close these before polish.
 
-If none: write `_All must-implement ids observed in source._`
+For each unticked id, cite evidence (`missing` or a weak path/symbol). Every `screens[]` entry with `status: new` that has no corresponding app path (route/component/template) **must** appear here — do not write that UI changes are out of scope when those screens are missing.
+
+Only write `_All must-implement ids observed in source._` when every `screen.*` with `status: new` has a cited app path **and** remaining checklist ids are observed in source.
 
 ## Contract deltas
 
@@ -60,15 +57,16 @@ If none: write `_No contract deltas._`
 - Do not change `.lamina/` during product fixes
 - Do not implement contract-delta items without a design pass
 - Do not chase ops items (CI/CD, deploy, push vendors, monitoring) unless the brief requires them — those are omitted from this brief even if mentioned in `report.md`
+- Do not excuse missing `screens[]` with `status: new` as “UI not required” when those screens remain unticked
 - <run-specific non-goals>
 
 ## Implementation session prompt
 
-Copy into a new coding session:
+Copy into a coding session (or use as the post-verify user turn):
 
-> Implement product fixes from `.lamina/runs/<run_id>/fix.md`.
-> Read `run.yaml` for machine-readable `findings[]` and close Unticked contract checklist ids.
-> Prioritize high-priority product findings and missing scenario/forbidden/a11y/tradeoff ids first.
+> Implement product fixes from `.lamina/runs/<run_id>/fix.md` end to end completely.
+> Read `run.yaml` for machine-readable `findings[]` and close Unticked contract checklist ids (including `screen.*` / `a11y.*` when present).
+> Prioritize high-priority product findings and missing checklist ids first.
 > Do not modify `.lamina/`. After fixes, re-run `/lamina-verify`.
 ```
 
@@ -79,6 +77,7 @@ Copy into a new coding session:
 - Each finding classified with `fix_target: product | contract | ops` (default `product` when unset)
 - Evidence per product finding: walkthrough step, repo path, or symbol
 - Ticket shape: `fix_target` + `evidence` + `acceptance` for every product|contract finding
+- `grounding` set to how verify observed the product
 
 ## Ops findings
 

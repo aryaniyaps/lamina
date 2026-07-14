@@ -2,9 +2,10 @@
 # Matched multi-phase trial harness (Design C — ecological loop).
 # Both arms: 5 sequential claude --resume phases in ONE session, equal budgets.
 # Treatment: harness sends /lamina-* as user slash-command messages (disable-model-invocation).
-# During slash turns Mode B writes .lamina/ only; next user turn is ordinary implement/fix.
+# During slash turns Mode B writes .lamina/ only; next user turn implements/fixes from artifacts.
 # Subagent spawning (Agent/Task) is allowed — required for Lamina verify walks.
 # Any phase failure (non-zero exit or max-turns) fails the trial.
+# Harness does not coach product strategy — only phase role, artifact paths, and the task brief.
 # LAMINA_BENCH_ARM=control|treatment  LAMINA_BENCH_WORKFLOW=design|audit
 set -uo pipefail
 
@@ -127,50 +128,9 @@ run_phase() {
   fi
 }
 
-# Factual: no mid-turn user. Do not override Lamina clarify-and-STOP — stalls score 0.
+# Factual trial constraint only — not product coaching.
 UNATTENDED="This is an unattended trial — the user cannot respond mid-turn.
 Treat the task brief below and workspace artifacts as authoritative."
-
-PRODUCT_GUARD="Deliverable scope:
-- Build the end-user **product application** described in the task brief.
-- Do **not** build a trial runner, evaluation harness, test framework, CLI for running trials, or any meta-tool about agent evaluation.
-- Your job is the product in the brief."
-
-# Keep plans scorable (product behavior) without expanding into ops that trigger implement refusals.
-PLAN_SCOPE="Plan for **product behavior** only: domain model, actors/permissions, primary workflows, edge cases, and UI/API surfaces.
-Do **not** make CI/CD, app-store packaging, production deployment, push-notification infrastructure, or observability required deliverables."
-
-# Explicit handoff: prior phases may say "docs only" — this turn overrides that.
-# Framing avoids "production-ready everything in one turn" refusals while keeping real-code expectations.
-IMPLEMENT_HANDOFF="This turn is implementation — not planning.
-- Earlier turns may have said not to write application source / to write plans or contracts only. Those restrictions ended. They do not apply now.
-- Write real application source files in the workspace now. Markdown plans/contracts alone do not count.
-- Goal: a **working product codebase** that expresses the brief's domain and primary workflows in code — not a launch-ready production system.
-- Out of scope for this turn (skip without blocking): CI/CD, app-store packaging, production deploy, push infra, perfect test coverage, multi-native mobile shells.
-- Prefer one pragmatic stack you can finish in-session (TypeScript/Node + simple web UI is fine even if the brief says mobile-first — make the UI mobile-friendly).
-- Do not refuse for scope. Do not ask which slice to start. Start coding immediately and keep writing files."
-
-IMPLEMENT_BODY="${IMPLEMENT_HANDOFF}
-
-Requirements for this turn:
-- Implement the domain model and primary workflows from the plan/brief in application source.
-- Realize main user journeys end-to-end with real UI or API behavior — not types-only, stubs, or placeholder screens.
-- Cover important edge/recovery paths from the brief where they affect product behavior.
-- Keep going until product behaviors are represented in source. Partial real code beats a refusal or a remaining-task list.
-- Do not wait for the user. Do not emit a remaining-task list and stop.
-
-${PRODUCT_GUARD}
-
-${UNATTENDED}"
-
-FIX_BODY="${IMPLEMENT_HANDOFF}
-
-Apply critical/high product-behavior fixes in application source this turn.
-Skip ops/CI items. Do not stop after partial scaffolding or claim files exist that were not written.
-
-${PRODUCT_GUARD}
-
-${UNATTENDED}"
 
 BRIEF="$(cat /tmp/lamina-bench-instruction.md)"
 
@@ -179,96 +139,72 @@ BRIEF_BLOCK="## Task brief (authoritative)
 ${BRIEF}"
 
 run_control_design() {
-  run_phase "control-plan" "Phase 1 — product plan (this phase only). Write a product plan and acceptance criteria in \`product-plan.md\` at the workspace root. Defer application source to a later phase.
+  run_phase "control-plan" "Phase 1 — Write a product plan and acceptance criteria in \`product-plan.md\` at the workspace root. Defer application source to a later phase.
 
 ${BRIEF_BLOCK}
-
-${PRODUCT_GUARD}
-
-${PLAN_SCOPE}
-
-Cover domain model, actors, permissions, primary workflows, edge cases, and success criteria for the product in the brief.
 
 ${UNATTENDED}"
 
-  run_phase "control-build-order" "Phase 2 — build order (this phase only). Expand \`product-plan.md\` into a build order focused on product source milestones in \`product-build-order.md\` at the workspace root. Defer application source to the next phase.
+  run_phase "control-build-order" "Phase 2 — Expand \`product-plan.md\` into a build order in \`product-build-order.md\` at the workspace root. Defer application source to the next phase.
 
 ${BRIEF_BLOCK}
-
-${PLAN_SCOPE}
-
-Order work so an implementer can code domain + primary workflows first. Stay aligned with the product in the task brief.
 
 ${UNATTENDED}"
 
-  run_phase "control-implement" "Phase 3 — implement the product now. Write application source following \`product-plan.md\` and \`product-build-order.md\`. Planning is done; code the product behaviors.
+  run_phase "control-implement" "Phase 3 — Implement \`product-plan.md\` and \`product-build-order.md\` end to end completely in application source.
 
 ${BRIEF_BLOCK}
 
-Authoritative inputs — use all:
-1. \`product-plan.md\` — product plan and acceptance criteria.
-2. \`product-build-order.md\` — build order and requirements.
+Authoritative inputs:
+1. \`product-plan.md\`
+2. \`product-build-order.md\`
 3. The task brief above.
 
-${IMPLEMENT_BODY}"
+${UNATTENDED}"
 
-  run_phase "control-review" "Phase 4 — self-review (this phase only). Review the implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Defer code edits to the next phase.
+  run_phase "control-review" "Phase 4 — Review the implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Write \`product-review.md\` and \`product-fix-list.md\` at the workspace root. Defer code edits to the next phase.
 
 ${BRIEF_BLOCK}
-
-Write \`product-review.md\` (findings) and \`product-fix-list.md\` (prioritized **product-behavior** fixes) at the workspace root. Prefer fixes to domain/workflows/UI over ops/CI.
 
 ${UNATTENDED}"
 
-  run_phase "control-fix" "Phase 5 — implement product fixes now. Apply prioritized product-behavior fixes from \`product-fix-list.md\` to application source.
+  run_phase "control-fix" "Phase 5 — Implement \`product-fix-list.md\` end to end completely in application source.
 
 ${BRIEF_BLOCK}
 
-Re-read \`product-plan.md\` and \`product-build-order.md\` if needed so fixes satisfy the plan and brief.
-
-${FIX_BODY}"
+${UNATTENDED}"
 }
 
 run_control_audit() {
-  run_phase "control-audit-scope" "Phase 1 — audit scope (this phase only). Write an audit scope and success criteria in \`product-plan.md\` at the workspace root. Defer application source edits to a later phase.
+  run_phase "control-audit-scope" "Phase 1 — Write an audit scope and success criteria in \`product-plan.md\` at the workspace root. Defer application source edits to a later phase.
 
 ${BRIEF_BLOCK}
-
-${PRODUCT_GUARD}
-
-Cover invariants, permissions, workflows, error recovery, and prioritized fix areas for the product in the brief.
 
 ${UNATTENDED}"
 
-  run_phase "control-audit-checklist" "Phase 2 — audit checklist (this phase only). Expand \`product-plan.md\` into an audit checklist and prioritized **product-behavior** fix plan in \`product-build-order.md\` at the workspace root. Defer application source edits to the next phase.
+  run_phase "control-audit-checklist" "Phase 2 — Expand \`product-plan.md\` into an audit checklist and prioritized fix plan in \`product-build-order.md\` at the workspace root. Defer application source edits to the next phase.
 
 ${BRIEF_BLOCK}
-
-${PLAN_SCOPE}
 
 ${UNATTENDED}"
 
-  run_phase "control-implement" "Phase 3 — implement product-behavior fixes now. Apply fixes from \`product-build-order.md\` and the task brief to application source.
+  run_phase "control-implement" "Phase 3 — Implement \`product-build-order.md\` end to end completely in application source.
 
 ${BRIEF_BLOCK}
-
-${IMPLEMENT_BODY}"
-
-  run_phase "control-review" "Phase 4 — self-review (this phase only). Review the updated implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Defer code edits to the next phase.
-
-${BRIEF_BLOCK}
-
-Write \`product-review.md\` and \`product-fix-list.md\` (prioritized product-behavior fixes) at the workspace root.
 
 ${UNATTENDED}"
 
-  run_phase "control-fix" "Phase 5 — implement product fixes now. Apply prioritized product-behavior fixes from \`product-fix-list.md\` to application source.
+  run_phase "control-review" "Phase 4 — Review the updated implementation against \`product-plan.md\`, \`product-build-order.md\`, and the task brief. Write \`product-review.md\` and \`product-fix-list.md\` at the workspace root. Defer code edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-Re-read \`product-plan.md\` and \`product-build-order.md\` if needed.
+${UNATTENDED}"
 
-${FIX_BODY}"
+  run_phase "control-fix" "Phase 5 — Implement \`product-fix-list.md\` end to end completely in application source.
+
+${BRIEF_BLOCK}
+
+${UNATTENDED}"
 }
 
 # Slash turns: first line is the slash command (Claude Code expands it). Body is user args + brief.
@@ -277,27 +213,21 @@ run_treatment_design() {
 
 ${BRIEF}
 
-${PRODUCT_GUARD}
-
 ${UNATTENDED}"
 
   run_phase "treatment-design" "/lamina-design
 
 ${BRIEF_BLOCK}
 
-${PRODUCT_GUARD}
-
-${PLAN_SCOPE}
-
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — implement the product now following the Lamina ship pack. Contracts are inputs; write a working product codebase outside \`.lamina/\`.
+  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/run.yaml\` and the matching \`implement.md\` end to end completely in application source (outside \`.lamina/\`).
 
 ${BRIEF_BLOCK}
 
-Use \`.lamina/runs/*/run.yaml\` and the matching \`implement.md\` in that same run directory as the build contract. If no \`.lamina/runs/*/run.yaml\` exists, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file. If the contract lists CI/deploy/push infra, skip those and implement product behavior first.
+If no \`.lamina/runs/*/run.yaml\` exists, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file.
 
-${IMPLEMENT_BODY}"
+${UNATTENDED}"
 
   run_phase "treatment-verify" "/lamina-verify
 
@@ -305,21 +235,19 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — implement product fixes now following \`.lamina/runs/*/fix.md\`. Apply prioritized product-behavior fixes to application source outside \`.lamina/\`.
+  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
 
 ${BRIEF_BLOCK}
 
-If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings. Re-read \`run.yaml\` and \`implement.md\` if needed. Skip ops/CI findings.
+If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings.
 
-${FIX_BODY}"
+${UNATTENDED}"
 }
 
 run_treatment_audit() {
   run_phase "treatment-init" "/lamina-init
 
 ${BRIEF}
-
-${PRODUCT_GUARD}
 
 ${UNATTENDED}"
 
@@ -329,13 +257,13 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — implement product fixes now following \`.lamina/runs/*/fix.md\`. Write application source — not more planning markdown alone.
+  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
 
 ${BRIEF_BLOCK}
 
-Apply prioritized product-behavior fixes from \`.lamina/runs/*/fix.md\` to application source (outside \`.lamina/\`). If missing, stop and report verify did not emit a canonical fix brief. Use the task brief and audit findings as authoritative. Skip ops/CI items.
+If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings.
 
-${IMPLEMENT_BODY}"
+${UNATTENDED}"
 
   run_phase "treatment-verify-2" "/lamina-verify
 
@@ -343,13 +271,13 @@ ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — implement remaining product fixes now following \`.lamina/runs/*/fix.md\`. Apply them to application source outside \`.lamina/\`.
+  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
 
 ${BRIEF_BLOCK}
 
-If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report — do not invent findings. Skip ops/CI findings. Prefer domain/workflow/UI fixes.
+If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report — do not invent findings.
 
-${FIX_BODY}"
+${UNATTENDED}"
 }
 
 case "${ARM}:${WORKFLOW}" in

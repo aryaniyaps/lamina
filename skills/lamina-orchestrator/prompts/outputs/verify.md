@@ -32,6 +32,6 @@ What to fix in product or design contract.
 
 ### Next steps
 
-1. Implement product fixes from `.lamina/runs/<run_id>/fix.md` in a coding session (app source allowed; do not modify `.lamina/`). `fix.md` is always written.
+1. Implement product fixes from `.lamina/runs/<run_id>/fix.md` end to end in a coding session (app source allowed; do not modify `.lamina/`). `fix.md` is always written.
 2. Re-run `/lamina-verify` after fixes are deployed.
 3. For contract deltas listed in `fix.md`, run `/lamina-design` with the scoped prompt — do not implement those in app code without a design pass.

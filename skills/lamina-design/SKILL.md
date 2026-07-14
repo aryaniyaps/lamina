@@ -33,6 +33,8 @@ Then follow `workflows/design.md`. When a section names a profile in `audit-prof
 
 **Completion gate:** Do not set `status: ready_to_build` until `node lib/validate-run.mjs` passes and both `run.yaml` + ship-pack `implement.md` (with Must-implement checklist) exist under `.lamina/runs/<run_id>/`.
 
+**Ship-pack emission:** When writing `implement.md`, follow `prompts/outputs/implement.md` structure. **Never** put Mode B / “do not edit app source” / “Command boundary” / “start a separate coding session” text into `implement.md` — that constraint applies only to **this** `/lamina-design` command (see Guardrail below). The ship pack is for the implementer and must assume app source will be written.
+
 **Do not** spawn Agent/Task to “run lamina-design” with a homemade file list. Agent/Task only when a **loaded** skill requests persona panel / parallel review.
 
 ## Prerequisite
@@ -45,7 +47,7 @@ Writes: `.lamina/` only. Never app source. See [guardrails](../lamina-core/guard
 
 ## Routing
 
-Improve/fix shipped UI → `/lamina-verify`. After design completes, user implements externally, then `/lamina-verify`.
+Improve/fix shipped UI → `/lamina-verify`. After design completes (`ready_to_build` + `implement.md`), a **coding session** (or the host’s next user turn) implements `run.yaml` + `implement.md` end to end — not this slash command — then `/lamina-verify`. See [guardrails](../lamina-core/guardrails.md) agent-primary vs interactive.
 
 ## Subagent hints
 
