@@ -115,7 +115,7 @@ def main() -> int:
         "max_reward": 1,
         "composite": round(0.0 if scoring_incomplete else composite, 4),
         "llm_judge_mean": llm_mean,
-        "judge_mode": "rewardkit_judge_only",
+        "judge_mode": "codex_subscription_judge_only",
         "claim_surface": "llm_judge",
         "artifact_valid": artifact_valid,
         "clarify_stall": clarify_stall,

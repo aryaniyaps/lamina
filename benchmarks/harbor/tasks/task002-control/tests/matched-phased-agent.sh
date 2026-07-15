@@ -1,7 +1,7 @@
 #!/bin/bash
 # Matched multi-phase trial harness (Design C — ecological loop).
-# Both arms: 5 sequential claude --resume phases in ONE session, equal budgets.
-# Treatment: harness sends /lamina-* as user slash-command messages (disable-model-invocation).
+# Both arms: 5 sequential codex exec/resume phases in ONE session, equal budgets.
+# Treatment: harness explicitly invokes installed Lamina skills with Codex's $skill syntax.
 # During slash turns Mode B writes .lamina/ only; next user turn implements/fixes from artifacts.
 # Subagent spawning (Agent/Task) is allowed — required for Lamina verify walks.
 # Any phase failure (non-zero exit or max-turns) fails the trial.
@@ -12,40 +12,36 @@ set -uo pipefail
 export PATH="$HOME/.local/bin:${PATH}"
 mkdir -p /logs/agent
 mkdir -p "${HOME:-/root}"
-LOG=/logs/agent/claude-code.txt
+mkdir -p "${CODEX_HOME:-/logs/agent/codex-home}"
+cp /tmp/codex-auth.json "${CODEX_HOME:-/logs/agent/codex-home}/auth.json"
+chmod 600 "${CODEX_HOME:-/logs/agent/codex-home}/auth.json"
+trap 'rm -f "${CODEX_HOME:-/logs/agent/codex-home}/auth.json"' EXIT
+LOG=/logs/agent/codex.txt
 : >"$LOG"
 
 ARM="${LAMINA_BENCH_ARM:-treatment}"
 WORKFLOW="${LAMINA_BENCH_WORKFLOW:-design}"
-MAX_TURNS="${LAMINA_BENCH_MAX_TURNS_PER_PHASE:-20}"
-PHASE_TIMEOUT_SEC="${LAMINA_BENCH_PHASE_TIMEOUT_SEC:-120}"
 
-# Cap background-subagent waits in print mode — high values caused ~10m API hangs.
-export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-30000}"
-
-CLAUDE_FLAGS=(
-  --dangerously-skip-permissions
-  --permission-mode=bypassPermissions
-  --tools
-  default
-  --allowedTools
-  Agent,Task
-  --output-format
-  json
-  --max-turns
-  "$MAX_TURNS"
+CODEX_FLAGS=(
+  --dangerously-bypass-approvals-and-sandbox
+  --skip-git-repo-check
+  --model
+  "${CODEX_MODEL:-gpt-5.6-sol}"
+  --json
+  -c
+  model_reasoning_effort=high
 )
 
 SESSION_ID=""
 PHASE_FAILURES=0
 
-# Extract last Claude --output-format json result object from mixed stdout/stderr.
-last_result_json() {
+# Extract the Codex thread id from JSONL output.
+thread_id_from_jsonl() {
   local file="$1"
   python3 - "$file" <<'PY'
 import json, sys
 path = sys.argv[1]
-last = None
+thread_id = None
 with open(path, "r", errors="replace") as f:
     for line in f:
         line = line.strip()
@@ -55,24 +51,16 @@ with open(path, "r", errors="replace") as f:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(obj, dict) and "session_id" in obj:
-            last = obj
-if last is None:
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("type") == "thread.started":
+            thread_id = obj.get("thread_id")
+        elif obj.get("thread_id"):
+            thread_id = obj.get("thread_id")
+if not thread_id:
     sys.exit(1)
-print(json.dumps(last))
+print(thread_id)
 PY
-}
-
-result_field() {
-  local json="$1"
-  local field="$2"
-  python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2],"") or "")' "$json" "$field"
-}
-
-result_is_true() {
-  local json="$1"
-  local field="$2"
-  python3 -c 'import json,sys; v=json.loads(sys.argv[1]).get(sys.argv[2]); sys.exit(0 if v is True else 1)' "$json" "$field"
 }
 
 run_phase() {
@@ -81,40 +69,27 @@ run_phase() {
   local tmp
   tmp=$(mktemp)
 
-  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new} max_turns=${MAX_TURNS} phase_timeout_sec=${PHASE_TIMEOUT_SEC}" | tee -a "$LOG"
+  echo "[matched-phased] phase=${label} session=${SESSION_ID:-new}" | tee -a "$LOG"
 
   local status=0
-  # Hard per-phase wall clock so a single hung API call cannot burn the trial.
   if [ -z "$SESSION_ID" ]; then
-    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
-      claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    codex exec "${CODEX_FLAGS[@]}" -- "$prompt" >"$tmp" 2>&1 </dev/null || status=$?
   else
-    timeout --signal=TERM --kill-after=15 "${PHASE_TIMEOUT_SEC}" \
-      claude "${CLAUDE_FLAGS[@]}" --resume "$SESSION_ID" -p "$prompt" >"$tmp" 2>&1 || status=$?
+    codex exec resume "$SESSION_ID" "${CODEX_FLAGS[@]}" -- "$prompt" >"$tmp" 2>&1 </dev/null || status=$?
   fi
   cat "$tmp" | tee -a "$LOG" >/dev/null
-  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
-    echo "ERROR: phase ${label} killed after ${PHASE_TIMEOUT_SEC}s wall clock (status=${status})" | tee -a "$LOG"
-  fi
-
-  local result=""
-  if result=$(last_result_json "$tmp"); then
-    local sid
-    sid=$(result_field "$result" session_id)
+  local sid=""
+  if sid=$(thread_id_from_jsonl "$tmp"); then
     if [ -n "$sid" ]; then
       if [ -n "$SESSION_ID" ] && [ "$sid" != "$SESSION_ID" ]; then
         PHASE_FAILURES=$((PHASE_FAILURES + 1))
-        echo "ERROR: phase ${label} resumed session ${SESSION_ID} but result session_id=${sid} (resume broken)" | tee -a "$LOG"
+        echo "ERROR: phase ${label} resumed thread ${SESSION_ID} but output thread_id=${sid} (resume broken)" | tee -a "$LOG"
       fi
       SESSION_ID="$sid"
-    else
-      PHASE_FAILURES=$((PHASE_FAILURES + 1))
-      echo "ERROR: phase ${label} result missing session_id" | tee -a "$LOG"
     fi
   else
     PHASE_FAILURES=$((PHASE_FAILURES + 1))
-    echo "ERROR: phase ${label} produced no parseable JSON result with session_id" | tee -a "$LOG"
-    result=""
+    echo "ERROR: phase ${label} produced no parseable Codex thread_id" | tee -a "$LOG"
   fi
   rm -f "$tmp"
 
@@ -126,12 +101,6 @@ run_phase() {
   if [ "$status" -ne 0 ]; then
     PHASE_FAILURES=$((PHASE_FAILURES + 1))
     echo "ERROR: phase ${label} exited ${status}" | tee -a "$LOG"
-    if [ -n "$result" ] && [ "$(result_field "$result" subtype)" = "error_max_turns" ]; then
-      echo "ERROR: phase ${label} hit max turns (${MAX_TURNS})" | tee -a "$LOG"
-    fi
-  elif [ -n "$result" ] && result_is_true "$result" is_error; then
-    PHASE_FAILURES=$((PHASE_FAILURES + 1))
-    echo "ERROR: phase ${label} reported is_error=true subtype=$(result_field "$result" subtype)" | tee -a "$LOG"
   fi
 }
 
@@ -214,75 +183,75 @@ ${BRIEF_BLOCK}
 ${UNATTENDED}"
 }
 
-# Slash turns: first line is the slash command (Claude Code expands it). Body is user args + brief.
+# Codex skill turns: $skill-name explicitly loads the installed workflow skill.
 run_treatment_design() {
-  run_phase "treatment-init" "/lamina-init
+  run_phase "treatment-init" "\$lamina-init
 
 ${BRIEF}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-design" "/lamina-design
+  run_phase "treatment-design" "\$lamina-design
+
+Phase 2 — Complete the Lamina design workflow and its canonical implementation contract. Defer application source to the next phase.
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/run.yaml\` and the matching \`implement.md\` end to end completely in application source (outside \`.lamina/\`).
-
-${BRIEF_BLOCK}
-
-If no \`.lamina/runs/*/run.yaml\` exists, stop and report that design did not produce a canonical contract — do **not** invent a replacement plan file.
-
-${UNATTENDED}"
-
-  run_phase "treatment-verify" "/lamina-verify
+  run_phase "treatment-implement" "Phase 3 — Implement the canonical \`.lamina/runs/*/implement.md\` contract end to end in application source.
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-verify" "\$lamina-verify
+
+Phase 4 — Verify the implementation and produce the canonical report and fix artifacts. Defer application source edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings.
+${UNATTENDED}"
+
+  run_phase "treatment-fix" "Phase 5 — Implement the canonical \`.lamina/runs/*/fix.md\` end to end in application source.
+
+${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 }
 
 run_treatment_audit() {
-  run_phase "treatment-init" "/lamina-init
+  run_phase "treatment-init" "\$lamina-init
 
 ${BRIEF}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-verify-1" "/lamina-verify
+  run_phase "treatment-verify-1" "\$lamina-verify
+
+Phase 2 — Verify the current implementation and produce the canonical report and fix artifacts. Defer application source edits to the next phase.
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-implement" "Phase 3 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
-
-${BRIEF_BLOCK}
-
-If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report that verify did not emit a canonical fix brief — do not invent findings.
-
-${UNATTENDED}"
-
-  run_phase "treatment-verify-2" "/lamina-verify
+  run_phase "treatment-implement" "Phase 3 — Implement the canonical \`.lamina/runs/*/fix.md\` end to end in application source.
 
 ${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 
-  run_phase "treatment-fix" "Phase 5 — Implement \`.lamina/runs/*/fix.md\` end to end completely in application source (outside \`.lamina/\`).
+  run_phase "treatment-verify-2" "\$lamina-verify
+
+Phase 4 — Re-verify the implementation and refresh the canonical report and fix artifacts. Defer application source edits to the next phase.
 
 ${BRIEF_BLOCK}
 
-If \`fix.md\` is missing under \`.lamina/runs/\`, stop and report — do not invent findings.
+${UNATTENDED}"
+
+  run_phase "treatment-fix" "Phase 5 — Implement the canonical \`.lamina/runs/*/fix.md\` end to end in application source.
+
+${BRIEF_BLOCK}
 
 ${UNATTENDED}"
 }

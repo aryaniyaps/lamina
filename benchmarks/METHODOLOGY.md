@@ -29,13 +29,13 @@ LaminaBench went through several design iterations. The primary methodology is *
 
 **Shape:** Treatment runs a harness-forced 5-phase slash-command pipeline (`/lamina-init` → `/lamina-design` → implement → `/lamina-verify` → fix). Control runs a single continuous Harbor rollout with only the product brief.
 
-**Why we tried it:** Matches how users run Lamina in practice (multi-session slash commands). Harbor’s default `claude --print` mode exits after the first skill sub-turn, so a phased harness was the pragmatic way to run the full loop.
+**Why we tried it:** Matches how users run Lamina in practice (multi-phase skill invocations). A phased Codex resume harness preserves one conversation while running the full loop.
 
 **Why we rejected it as primary:** The control arm gets **one shot**; treatment gets **five phases plus verify/fix scaffolding**. A skeptical reviewer correctly reads this as “more process wins,” not “Lamina wins.” Any lift confounds Lamina’s contract machinery with extra orchestration, richer implement coaching, and unequal turn budgets. **Not claimable** as a fair A/B on Lamina.
 
 ### Design B — SkillsBench-style paired (`design_b_skillsbench_paired`)
 
-**Shape:** Same Harbor harness for both arms. Same `instruction.md`. One continuous agent rollout per trial. Treatment = Lamina skills installed + `AGENTS.md`/`CLAUDE.md` workflow hint. Control = no skills, no workflow docs. Agent chooses when (or whether) to invoke skills.
+**Shape:** Same Harbor harness for both arms. Same `instruction.md`. One continuous agent rollout per trial. Treatment = Lamina skills installed + workflow hint. Control = no skills and no workflow hint. Agent chooses when (or whether) to invoke skills.
 
 **Why we tried it:** Aligns with [SkillsBench](https://arxiv.org/abs/2602.12670) — the closest published standard for “do skills help?” Same task, paired conditions, skills as the only intentional difference.
 
@@ -57,7 +57,7 @@ LaminaBench went through several design iterations. The primary methodology is *
 
 ### Design C — Ecological matched phases (`design_c_ecological_matched_phases`) ✓
 
-**Shape:** Both arms use the **same** matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases in **one session**, equal per-phase turn budgets, shared unattended contract. Treatment Lamina command skills keep `disable-model-invocation: true` — the harness sends `/lamina-*` as user slash-command messages; the following user turn asks for implement/fix from `implement.md` / `fix.md` (ordinary coding). Subagent spawning (Agent/Task) is allowed.
+**Shape:** Both arms use the **same** matched phased harness (`matched-phased-agent.sh`): five sequential `codex exec` / `codex exec resume` phases in **one session**, with one shared whole-trial safety timeout and no per-phase timeout. The harness explicitly invokes treatment skills with Codex `$skill` syntax; the following user turn asks for implement/fix from `implement.md` / `fix.md` (ordinary coding).
 
 | Phase | Control | Treatment |
 |-------|---------|-------------|
@@ -74,9 +74,9 @@ LaminaBench went through several design iterations. The primary methodology is *
 3. **Claimable question** — Is Lamina’s contract/verify machinery better than “just plan and code and review” when both sides get equal process?
 4. **Survives skeptical review** — We admit Lamina is a **workflow product**, not a magic skill pack. Lift, if any, comes from Lamina artifacts vs generic planning artifacts — not from giving treatment extra lives.
 
-**Intentional difference only:** Lamina skills + `.lamina/` contracts vs generic `product-*.md` planning artifacts. Not phase count, not implement prompt verbosity, not turn budget.
+**Intentional difference only:** Lamina skills + `.lamina/` contracts vs generic `product-*.md` planning artifacts. Not phase count, model, whole-trial timeout, or implement opportunity.
 
-**Equal budgets ≠ equal phase workload (documented):** Both arms get the same phase count and `max_turns_per_phase`. Treatment phases that run `/lamina-*` (and subagent walks) are cognitively heavier than control markdown plan/review phases — that asymmetry is the ecological product under test, not a fairness bug. Fairness claim is equal scaffolding opportunity (phases + turn caps), not equal tool-call volume.
+**Equal opportunity ≠ equal phase workload (documented):** Both arms get the same five phases and the same two-hour whole-trial safety timeout; neither has a per-phase cap. Treatment skill phases are cognitively heavier than control plan/review phases — that asymmetry is the ecological product under test, not a fairness bug. Fairness means the same agent, model, task, phase count, and total time opportunity, not equal tool-call volume.
 
 **Independent replications:** Every `(task, arm, run)` cell starts from a freshly synced workspace. `--runs N` trials do not reuse prior agent artifacts.
 
@@ -127,14 +127,14 @@ npm run bench:harbor:sync
 npm run bench:run
 ```
 
-Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential `claude --resume` phases with equal per-phase turn budgets (`max_turns_per_phase` in `release.yaml`). Treatment slash commands are harness-sent user messages (`disable-model-invocation` preserved); implement/fix are the next user turns in the same session. Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
+Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential Codex exec/resume phases with equal phase timeouts. Treatment skills are harness-invoked with `$lamina-*`; implement/fix are the next user turns in the same session. Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
 
 ## Scoring pipeline (per trial)
 
 1. **Rewardkit dimensions** — `llm_judge/` is the **claim score** (checklist concepts folded into the judge rubric with evidence requirements). [`reward.toml`](harbor/verifier/reward.toml) aggregates; [`finalize_reward.py`](harbor/verifier/finalize_reward.py) sets `composite = llm_judge`.
 2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the LLM judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
 3. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`. Agent harness failures (`agent_failed`) are recorded with `artifact_valid: false` (not treated as soft verifier passes).
-4. **Model pin** — Runner uses `release.yaml` `model`; `ANTHROPIC_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Temperature/top_p are intent-only (Claude Code print mode does not expose them).
+4. **Model pin** — Runner uses `release.yaml` `model`; `CODEX_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Codex reasoning effort is pinned high; temperature/top_p remain intent-only.
 
 ## Aggregation (cross-trial, publishable)
 
@@ -163,9 +163,9 @@ Product skills already define agent-primary behavior after `ready_to_build` / ve
 
 ## Fairness constraints
 
-- Same agent, model pin, task brief, fixture, **phase count**, and **per-phase turn budget**
-- Control receives **no** Lamina skills and **no** Lamina workflow AGENTS.md/CLAUDE.md
-- Treatment receives Lamina skills only; workflow is harness-sent `/lamina-*` user messages (no AGENTS.md/CLAUDE.md overlay)
+- Same agent, model pin, task brief, fixture, **phase count**, and **whole-trial timeout**
+- Control receives **no** Lamina skills and **no** Lamina workflow overlay
+- Treatment receives Lamina skills only; workflow is harness-sent `$lamina-*` invocations (no workflow overlay)
 - Control implement/fix prompts are **budget-matched** to treatment (same completeness requirements)
 - Implement framing (both arms) asks for a **working product codebase** for scored behaviors; CI/CD and production ops are explicitly out of scope — reduces scope-refusals without weakening product requirements
 - Blind LLM judging of source code via Harbor Rewardkit in-container verifier (checklist as behavioral rubric; judge-only claim)

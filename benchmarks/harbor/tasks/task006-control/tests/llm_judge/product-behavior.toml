@@ -1,5 +1,5 @@
 [judge]
-judge = "anthropic/lx1-sonnet-4.6"
+judge = "openai/gpt-5.6-sol"
 files = ["/logs/verifier/implementation.md"]
 reference = "/tests/judge-context.md"
 prompt_template = "/tests/llm_judge/prompt.md"

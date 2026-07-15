@@ -6,10 +6,10 @@
   "research_question": "On the same product brief, does the real Lamina loop (init → design → implement → verify → fix) produce better implemented product behavior than an equally scaffolded generic loop (plan → implement → review → fix), under the same agent, model, phase count, and budgets?",
   "runner": {
     "framework": "harbor",
-    "agent": "claude-code",
+    "agent": "codex",
     "phases_per_trial": 5,
     "rollouts_per_trial": 1,
-    "description": "Matched multi-phase harness for both arms via claude --resume (one session). Same phase count, per-phase turn budget, and unattended contract. Treatment slash commands are harness-sent user messages (disable-model-invocation preserved); implement/fix are ordinary follow-up turns. Agent/Task subagents allowed."
+    "description": "Matched multi-phase harness for both arms via codex exec resume (one session). Same phase count, one whole-trial safety timeout, no per-phase timeout, and the same unattended contract. Treatment skills are explicitly invoked with Codex $skill syntax; implement/fix are ordinary follow-up turns."
   },
   "control": {
     "label": "Generic plan → review loop",
@@ -22,7 +22,7 @@
   "treatment": {
     "label": "Lamina ecological loop",
     "harbor_task_suffix": "-treatment",
-    "description": "Five phases: /lamina-init → /lamina-design (or /lamina-verify for audit) → implement → /lamina-verify → fix. Lamina skills installed; harness sends slash-command user messages (no AGENTS.md/CLAUDE.md overlay).",
+    "description": "Five phases: $lamina-init → $lamina-design (or $lamina-verify for audit) → implement → $lamina-verify → fix. Lamina skills installed; harness explicitly invokes them (no workflow overlay).",
     "skills_installed": true,
     "workflow_hint": false,
     "phases": ["init", "design_or_audit", "implement", "verify", "fix"]
@@ -34,16 +34,16 @@
   },
   "fairness_constraints": [
     "Same instruction.md product brief for both arms (no Lamina skill names in instructions).",
-    "Same coding agent and enforced model pin (release.yaml; env override requires LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1). Temperature/top_p are intent-only — Claude Code print mode does not expose them.",
-    "Control receives no Lamina skills and no Lamina workflow AGENTS.md/CLAUDE.md.",
-    "Treatment receives Lamina skills; no AGENTS.md/CLAUDE.md workflow overlay — harness sends /lamina-* user messages.",
+    "Same Codex coding agent and enforced model pin (release.yaml; CODEX_MODEL override requires LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1). Temperature/top_p are intent-only; reasoning effort is pinned high.",
+    "Control receives no Lamina skills and no Lamina workflow overlay.",
+    "Treatment receives Lamina skills; no workflow overlay — harness sends explicit $lamina-* invocations.",
     "Both arms score the same artifact type: bundled application source (.lamina/, product-plan.md, product-build-order.md, product-review.md, product-fix-list.md excluded).",
     "Task brief text is injected into every phased prompt for both arms (parity with treatment /lamina-init).",
     "Control planning artifacts use product-* names (not bench-*) to avoid meta-priming toward a benchmark harness product.",
     "Control phase prompts are generic and budget-matched — not weaker implement/fix coaching than treatment.",
     "Implement/fix framing (both arms): working product codebase for scored behaviors; CI/CD and production ops explicitly out of scope to avoid scope-refusals without weakening product requirements.",
     "Audit tasks use audit-matched phase prompts on both arms (verify-first treatment vs audit checklist control).",
-    "Equal phase count and max_turns_per_phase; unequal slash/subagent workload on treatment is intentional ecological difference.",
+    "Equal phase count and whole-trial timeout with no per-phase cap; unequal skill workload on treatment is the intentional ecological difference.",
     "Each (task, arm, run) starts from a freshly synced workspace — replications are independent.",
     "LLM judge degradation marks scoring_incomplete (reward 0); those trials are excluded from claim aggregates."
   ],

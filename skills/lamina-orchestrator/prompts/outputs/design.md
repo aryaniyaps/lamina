@@ -1,3 +1,6 @@
+### Domain and invariants
+Brief summary of the domain model, state transitions, governing rules, and invariants. Machine-readable: `run.yaml` `domain` and linked workflow/scenario constraints.
+
 ### Dependencies / reachability
 First-class. Machine-readable: `run.yaml` `domain.dependencies[]` with `mode`, linked scenarios, `workflows[].requires`.
 

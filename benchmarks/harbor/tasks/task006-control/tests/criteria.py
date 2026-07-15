@@ -14,6 +14,10 @@ MAX_ARTIFACT_CHARS = 96_000
 MAX_FILE_BYTES = 48_000
 # Oversized source files contribute a truncated head instead of being skipped.
 TRUNCATED_FILE_CHARS = 12_000
+# Bound every captured file, not only oversized source files. A few 15–30 KB
+# modules otherwise consume the artifact cap before peer UI/workflow subtrees
+# receive any evidence.
+CAPTURE_FILE_CHARS = 3_500
 
 SKIP_DIRS = {
     ".lamina",
@@ -22,8 +26,9 @@ SKIP_DIRS = {
     ".next",
     "dist",
     "build",
-    ".claude",
     ".codex",
+    ".agents",
+    ".claude",
     ".opencode",
     "coverage",
     "__pycache__",
@@ -71,6 +76,13 @@ SOURCE_EXT = {
     ".php",
     ".cs",
     ".html",
+    ".css",
+    ".scss",
+}
+
+ROOT_SOURCE_FILES = {
+    "package.json",
+    "tsconfig.json",
 }
 
 CLARIFY_MARKERS = [
@@ -102,14 +114,37 @@ VERIFIER_META_PATH = Path("/logs/verifier/verifier-meta.json")
 
 
 def path_priority(rel: str) -> int:
+    if re.search(r"(^|/)tests?/", rel, re.I) or re.search(r"\.(test|spec)\.", rel, re.I):
+        return 2
     if re.match(
         r"^(src|app|apps|lib|pkg|internal|server|api|backend|packages|web|mobile|frontend)/",
         rel,
     ):
         return 0
-    if re.search(r"(^|/)tests?/", rel, re.I) or re.search(r"\.(test|spec)\.", rel, re.I):
-        return 2
     return 1
+
+
+def coverage_bucket(rel: str) -> str:
+    """Group source by logical subtree so large captures stay representative."""
+    parts = Path(rel).parts
+    if not parts:
+        return "root"
+    if len(parts) > 2 and parts[0] in {"src", "app", "web", "mobile", "frontend"} and parts[1] in {
+        "screen",
+        "screens",
+        "page",
+        "pages",
+        "route",
+        "routes",
+        "view",
+        "views",
+    }:
+        # Each user-facing surface gets first-round representation instead of
+        # one alphabetically early screen standing in for the whole product.
+        return "/".join(parts[:3])
+    if parts[0] in {"src", "app", "apps", "lib", "pkg", "internal", "server", "api", "backend", "packages", "web", "mobile", "frontend"}:
+        return "/".join(parts[:2]) if len(parts) > 1 else parts[0]
+    return parts[0]
 
 
 def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
@@ -127,7 +162,9 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
                 continue
             if not prefix and entry.name in SKIP_ROOT_FILES:
                 continue
-            if entry.suffix.lower() not in SOURCE_EXT:
+            if entry.suffix.lower() not in SOURCE_EXT and not (
+                not prefix and entry.name in ROOT_SOURCE_FILES
+            ):
                 continue
             try:
                 text = entry.read_text(encoding="utf-8", errors="replace")
@@ -176,30 +213,37 @@ def build_artifact_manifest(workspace: Path, included_rels: list[str] | None = N
 
 
 def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> str:
-    """Bundle source for scoring with stratified path coverage (not src/app-only)."""
+    """Bundle source for scoring with representative logical-subtree coverage."""
     files = walk_implementation(workspace)
-    bands: dict[int, list[tuple[str, str]]] = {0: [], 1: [], 2: []}
+    buckets: dict[tuple[int, str], list[tuple[str, str]]] = {}
     for rel, text in files:
-        bands[path_priority(rel)].append((rel, text))
+        key = (path_priority(rel), coverage_bucket(rel))
+        buckets.setdefault(key, []).append((rel, text))
 
     parts = ["# LaminaBench implementation capture\n"]
     included: list[str] = []
     total = len(parts[0])
-    # Round-robin across priority bands so OSS trees outside src/app still score.
-    indices = {0: 0, 1: 0, 2: 0}
-    order = (0, 1, 2)
+    # Round-robin across logical subtrees. Alphabetical file walking alone can
+    # exhaust the cap on early folders (for example auth/domain) and omit the
+    # UI, workflow engine, or entry point that proves the product is buildable.
+    # Priority still determines the bucket order; every bucket gets a chance
+    # before a second file is taken from any bucket.
+    order = sorted(buckets)
+    indices = {key: 0 for key in order}
 
     while True:
         progressed = False
-        for band in order:
-            i = indices[band]
-            if i >= len(bands[band]):
+        for key in order:
+            i = indices[key]
+            if i >= len(buckets[key]):
                 continue
-            rel, text = bands[band][i]
-            indices[band] = i + 1
+            rel, text = buckets[key][i]
+            indices[key] = i + 1
+            if len(text) > CAPTURE_FILE_CHARS:
+                text = text[:CAPTURE_FILE_CHARS] + "\n/* … truncated for broad source coverage … */\n"
             block = f"## {rel}\n```\n{text}\n```\n\n"
             if total + len(block) > MAX_ARTIFACT_CHARS:
-                # Try a truncated slice of this file before giving up on the band.
+                # Try a truncated slice of this file before giving up on the bucket.
                 room = MAX_ARTIFACT_CHARS - total - len(f"## {rel}\n```\n\n```\n\n") - 40
                 if room < 400:
                     continue
@@ -250,7 +294,7 @@ def read_agent_output(logs_dir: Path = Path("/logs")) -> str:
     candidates = [
         logs_dir / "agent" / "stdout.txt",
         logs_dir / "agent" / "output.txt",
-        logs_dir / "agent" / "claude-code.txt",
+        logs_dir / "agent" / "codex.txt",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -282,5 +326,3 @@ def is_clarify_output(output: str) -> bool:
 
 def likert_norm_to_mean(norm: float) -> float:
     return round(1.0 + max(0.0, min(1.0, norm)) * 4.0, 2)
-
-

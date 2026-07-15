@@ -25,6 +25,8 @@ State any **hard constraints from the brief** (e.g. mobile-first, offline-capabl
 
 Where domain rules, auth/permissions, primary workflows, and seed/fixture data should live — as a logical map the implementer can map onto their stack.
 
+The map must describe a **behavioral core**, not only types and screens: mutable product state/persistence, invariant enforcement, actor-scoped selectors/authorization, workflow transitions, and scenario/recovery handling. A context containing only an id, type-only domain files, no-op event handlers, and placeholder comments are not an implementation architecture.
+
 ## Run locally
 
 ≤3 commands (or equivalent) to install, **load seed**, and run the product for verify. Adapt to the chosen stack; do not invent cloud deploy steps.
@@ -67,11 +69,15 @@ Copy `seed.summary` and fixture bullets — the world verify/persona walks assum
 
 Generate from the contract — **every row must be realized in application source** (not comments alone). Tick while coding:
 
-1. **Screens** — one checkbox per `screens[].id` with `status: new` (cite the app path that will realize it).
-2. **Scenarios** — one checkbox per `scenarios[].id` with its `acceptance` copied verbatim.
-3. **Forbidden content** — one checkbox per `forbidden_content[]` entry: name the **rejection / absence surface** matching the brief channel (UI and/or API as contracted — not “API error” by default when screens exist).
-4. **A11y** — for each `screens[]` with `status: new`, tick `a11y.labels`, `a11y.touch_min_px` (primary controls ≥ that px), and `a11y.color_not_only`.
-5. **Tradeoffs** — for each `tradeoffs[].id`, ship the `choice` and the mitigating surface named in `cost` / `surfaces` (stable ids — do not rename `clarity_vs_granularity` to a synonym).
+1. **Entities and state** — one checkbox per required `domain.entities[].id`, including its relationships and mutable state path; a TypeScript interface alone is not complete.
+2. **Invariants and permissions** — one checkbox per `domain.invariants[].id` and actor resource filter, naming executable enforcement and rejection/filter behavior.
+3. **Screens and workflows** — one checkbox per `screens[].id` with `status: new` and each `workflows[].id` (cite the app path that will realize it and the state transition it invokes).
+4. **Scenarios** — one checkbox per `scenarios[].id` with its `acceptance` copied verbatim and the state/trigger used to exercise it.
+5. **Forbidden content** — one checkbox per `forbidden_content[]` entry: name the **rejection / absence surface** matching the brief channel (UI and/or API as contracted — not “API error” by default when screens exist).
+6. **A11y** — for each `screens[]` with `status: new`, emit separate screen-qualified checkboxes for `a11y.labels`, `a11y.touch_min_px` (primary controls ≥ that px), and `a11y.color_not_only`; never use one shared a11y checkbox for all screens.
+7. **Tradeoffs** — for each `tradeoffs[].id`, ship the `choice` and the mitigating surface named in `cost` / `surfaces` (stable ids — do not rename `clarity_vs_granularity` to a synonym).
+
+Every checkbox must end with **expected evidence** (`Expected evidence: <planned path/symbol>`). This is a read-only target for the external coding agent; implementation must not rewrite the ship pack. Do not treat a comment, import, route registration, type declaration, or nonexistent path as satisfying that target.
 
 ## Done-when
 
@@ -94,6 +100,8 @@ Copy `out_of_scope[]` and `forbidden_content[]` from `run.yaml`. Plus default op
 5. **Buildable before done** — every module imported by entrypoints/routers/screens must exist on disk. Do not claim complete while any imported path is missing (e.g. `Settings` screen referenced but not written). Prefer a quick compile or import-path check before ending.
 6. **Brief-named surfaces** — if the task brief names primary flows (settings, invite partner, category adjustment, etc.), ship those surfaces in this session when they appear on the Must-implement checklist — do not omit them as “phase 2.”
 7. **Do not burn this turn on `.lamina/`** — if `implement.md` / `ready_to_build` are already present, do not regenerate the ship pack; implement the product. If they are missing, finish design artifacts only long enough to unblock, then immediately continue into application source in the same turn.
+8. **Behavior before breadth claims** — build the smallest coherent vertical core first: seeded state → invariant/permission functions → workflow transitions/recovery → screens bound to that behavior. Then complete the remaining checklist. A screen whose button has a no-op/placeholder handler or whose data is hard-coded independently of product state is still unticked.
+9. **Evidence-based finish** — before claiming completion, inspect every checklist evidence path, search for placeholder/TODO/no-op handlers, run the available typecheck/build, and verify imported paths exist. If time remains insufficient, report the exact unticked rows; never convert partial work into a completion claim.
 
 ## Implementation session prompt
 

@@ -115,7 +115,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     harbor_reward: harborReward,
     llm_judge_mean: rewardFile?.llm_judge_mean ?? null,
     llm_scores: rewardFile?.llm_scores ?? null,
-    judge_mode: rewardFile?.judge_mode ?? 'rewardkit_judge_only',
+    judge_mode: rewardFile?.judge_mode ?? 'codex_subscription_judge_only',
     judge_evidence: null,
     rewardkit_details: null,
     interaction: {

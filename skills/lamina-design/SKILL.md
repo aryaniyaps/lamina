@@ -29,7 +29,7 @@ The skill base directory is printed above this body (`Base directory for this sk
 
 Then follow `workflows/design.md`. When a section names a profile in `audit-profiles.yaml`, **Read** (or Skill-invoke) supporting skill `SKILL.md` files **as needed to write that section’s fields** — prefer the one or two most relevant skills; do **not** sequentially pre-read every skill in every profile before drafting.
 
-**Speed / emit-first:** After the required reads above, draft a brief-covering `run.yaml` within the next few tool turns. Iterate with `validate-run` until exit 0, then Write `implement.md` and flip `ready_to_build`. Defer long chat summaries. Skip Agent/Task persona panels when a short inline contract simulation is enough — **disk emission beats elaborate review**. Do not burn the phase re-reading skills after a validating draft exists.
+**Speed / emit-first:** After the required reads above, draft a brief-covering `run.yaml` within the next few tool turns. Before calling it complete, compare the draft directly to the original brief: required domain nouns → entities, rules → invariants/permissions, primary flows → workflows/screens, secondary surfaces → concrete screen behavior, and edge cases → scenarios. Validator success checks schema, not semantic completeness. Iterate with `validate-run` until exit 0, then Write `implement.md` and flip `ready_to_build`. Defer long chat summaries. Skip Agent/Task persona panels when a short inline contract simulation is enough — **disk emission beats elaborate review**. Do not burn the phase re-reading skills after a validating draft exists.
 
 **Do not invent artifact paths.** Only names in `artifacts.md` (`.lamina/runs/<run_id>/run.yaml`, `implement.md`, …). Never `contract.md`, `persona-simulation.md`, or `.lamina/ready_to_build/`.
 
@@ -56,6 +56,7 @@ Leaving `status: designing` and narrating “will become ready_to_build after va
 ## Prerequisite
 
 Valid `.lamina/business-context.md` from `/lamina-init`.
+On failure, emit `../lamina-orchestrator/prompts/outputs/init-blocked.md` verbatim and stop.
 
 ## Guardrail
 

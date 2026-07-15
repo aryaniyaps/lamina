@@ -82,11 +82,22 @@ function listHarborTasks(opts, suite) {
   return harborNames;
 }
 
-function clearJobsDir() {
-  if (fs.existsSync(HARBOR_JOBS)) {
-    fs.rmSync(HARBOR_JOBS, { recursive: true, force: true });
-  }
+function clearSelectedJobs(harborTasks, runs) {
   fs.mkdirSync(HARBOR_JOBS, { recursive: true });
+  for (const harborName of harborTasks) {
+    for (let run = 1; run <= runs; run++) {
+      const jobDir = path.join(HARBOR_JOBS, `${harborName}__run${run}`);
+      if (!fs.existsSync(jobDir)) continue;
+      const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+      const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
+      spawnSync(
+        'docker',
+        ['run', '--rm', '-v', `${jobDir}:/work`, 'alpine', 'chown', '-R', `${uid}:${gid}`, '/work'],
+        { cwd: ROOT, stdio: 'ignore' }
+      );
+      fs.rmSync(jobDir, { recursive: true, force: true });
+    }
+  }
 }
 
 function main() {
@@ -100,7 +111,7 @@ function main() {
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
   try {
     const model = resolveBenchModel(release);
-    if (!model) throw new Error('no model pin in release.yaml or ANTHROPIC_MODEL');
+    if (!model) throw new Error('no model pin in release.yaml or CODEX_MODEL');
     console.log(`Model pin: ${model}`);
   } catch (err) {
     console.error(`ERROR: ${err.message}`);
@@ -112,7 +123,7 @@ function main() {
   const harborTasks = listHarborTasks(opts, suite);
 
   if (opts.fresh) {
-    clearJobsDir();
+    clearSelectedJobs(harborTasks, runs);
   } else {
     fs.mkdirSync(HARBOR_JOBS, { recursive: true });
   }

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Run a Harbor benchmark task via matched multi-phase claude --resume invocations.
+ * Run a Harbor benchmark task via matched multi-phase codex exec resume invocations.
  * Design C — ecological loop with equal phase count for control and treatment.
  * One session across phases; treatment slash commands are harness-sent user messages.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { readYamlSync } from './yaml.mjs';
 import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
@@ -56,7 +57,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
   const workflow = workflowForTask(taskId);
   const taskDir = path.join(HARBOR_TASKS_DIR, harborName);
   const envDir = path.join(taskDir, 'environment');
-  const imageTag = `lamina-bench-${harborName}:local`;
+  const dockerfilePath = path.join(envDir, 'Dockerfile');
+  const imageFingerprint = createHash('sha256')
+    .update(fs.readFileSync(dockerfilePath))
+    .digest('hex')
+    .slice(0, 12);
+  const imageTag = `lamina-bench-${harborName}-${imageFingerprint}:local`;
   const jobName = `${harborName}__run${attempt}`;
   const jobDir = path.join(HARBOR_JOBS, jobName);
   const trialName = `${harborName}__phased`;
@@ -67,17 +73,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
   fs.mkdirSync(path.join(trialDir, 'verifier'), { recursive: true });
 
   const phasesPerTrial = release.phases_per_trial ?? 5;
-  const maxTurnsPerPhase =
-    release.max_turns_per_phase ??
-    Math.max(1, Math.floor((release.agent_max_turns ?? 100) / phasesPerTrial));
   const agentTimeoutSec = release.agent_timeout_sec ?? 600;
-  const phaseTimeoutSec = release.phase_timeout_sec ?? 120;
-  const bgWaitCeilingMs = release.bg_wait_ceiling_ms ?? 30000;
-  const rewardkitMaxAttempts = release.rewardkit_max_attempts ?? 2;
-  const rewardkitRetryDelaySec = release.rewardkit_retry_delay_sec ?? 2;
+  const judgeMaxAttempts = release.judge_max_attempts ?? 2;
+  const judgeRetryDelaySec = release.judge_retry_delay_sec ?? 2;
 
   console.log(
-    `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, ${maxTurnsPerPhase} turns/phase, phase_timeout=${phaseTimeoutSec}s, agent_timeout=${agentTimeoutSec}s)`
+    `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, trial_timeout=${agentTimeoutSec}s)`
   );
 
   // Fresh workspace every trial — required for independent --runs N replications.
@@ -85,7 +86,7 @@ function runPhasedBenchmark(harborName, release, attempt) {
   refreshTrialWorkspace(taskId, arm);
 
   // Workspace is bind-mounted at runtime — rebuild only when the image is missing
-  // (or LAMINA_BENCH_FORCE_BUILD=1). Avoids reinstalling claude-code every trial.
+  // (or LAMINA_BENCH_FORCE_BUILD=1). Avoids reinstalling Codex every trial.
   const forceBuild = process.env.LAMINA_BENCH_FORCE_BUILD === '1';
   const imageExists =
     spawnSync('docker', ['image', 'inspect', imageTag], { stdio: 'ignore' }).status === 0;
@@ -104,7 +105,11 @@ function runPhasedBenchmark(harborName, release, attempt) {
     console.log(`[matched-phased] reusing image ${imageTag}`);
   }
 
-  const token = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
+  const codexAuthPath = process.env.CODEX_AUTH_JSON_PATH || path.join(process.env.HOME || '', '.codex', 'auth.json');
+  if (!fs.existsSync(codexAuthPath)) {
+    console.error(`ERROR: Codex ChatGPT credentials not found at ${codexAuthPath}. Run \`codex login\` first or set CODEX_AUTH_JSON_PATH.`);
+    return false;
+  }
   let model;
   try {
     model = resolveBenchModel(release);
@@ -113,28 +118,18 @@ function runPhasedBenchmark(harborName, release, attempt) {
     process.exit(1);
   }
   if (!model) {
-    console.error('ERROR: no model pin — set release.yaml model or ANTHROPIC_MODEL');
+    console.error('ERROR: no model pin — set release.yaml model or CODEX_MODEL');
     process.exit(1);
   }
   console.log(`[matched-phased] model=${model}`);
 
   const envArgs = [
     '-e',
-    `ANTHROPIC_API_KEY=${token}`,
-    '-e',
-    `ANTHROPIC_AUTH_TOKEN=${token}`,
-    '-e',
-    `ANTHROPIC_BASE_URL=${process.env.ANTHROPIC_BASE_URL || ''}`,
-    '-e',
-    `ANTHROPIC_MODEL=${model}`,
+    `CODEX_MODEL=${model}`,
     '-e',
     'IS_SANDBOX=1',
-    // Persist skillUsage / .claude.json into the mounted agent log dir.
     '-e',
-    'HOME=/logs/agent/home',
-    // Fail fast on hung print-mode subagents / API stalls (was 600000).
-    '-e',
-    `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=${bgWaitCeilingMs}`,
+    'CODEX_HOME=/logs/agent/codex-home',
     '-e',
     `LAMINA_BENCH_RUN=${attempt}`,
     '-e',
@@ -142,18 +137,9 @@ function runPhasedBenchmark(harborName, release, attempt) {
     '-e',
     `LAMINA_BENCH_WORKFLOW=${workflow}`,
     '-e',
-    `LAMINA_BENCH_MAX_TURNS_PER_PHASE=${maxTurnsPerPhase}`,
+    `JUDGE_MAX_ATTEMPTS=${judgeMaxAttempts}`,
     '-e',
-    `LAMINA_BENCH_PHASE_TIMEOUT_SEC=${phaseTimeoutSec}`,
-    '-e',
-    `REWARDKIT_MAX_ATTEMPTS=${rewardkitMaxAttempts}`,
-    '-e',
-    `REWARDKIT_RETRY_DELAY_SEC=${rewardkitRetryDelaySec}`,
-    '-e',
-    `REWARDKIT_JUDGE=${(release.llm_judges?.[0] || '').replace(/^anthropic:/, 'anthropic/')}`,
-    // Drop litellm params unsupported by gateway remaps (e.g. reasoning_effort on lx1).
-    '-e',
-    'LITELLM_DROP_PARAMS=1',
+    `JUDGE_RETRY_DELAY_SEC=${judgeRetryDelaySec}`,
   ];
 
   // Hard wall-clock for the whole agent trial (prevents 20–60m ECONNRESET hangs).
@@ -171,6 +157,8 @@ function runPhasedBenchmark(harborName, release, attempt) {
       `${path.join(envDir, 'workspace')}:/app`,
       '-v',
       `${path.join(trialDir, 'agent')}:/logs/agent`,
+      '-v',
+      `${codexAuthPath}:/tmp/codex-auth.json:ro`,
       '-v',
       `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
       '-v',
@@ -198,14 +186,13 @@ function runPhasedBenchmark(harborName, release, attempt) {
         {
           task_name: `aryaniyaps/${harborName}`,
           trial_name: trialName,
-          agent_info: { name: 'claude-code', model_info: { name: model, provider: 'anthropic' } },
+          agent_info: { name: 'codex', model_info: { name: model, provider: 'openai' } },
           started_at: new Date().toISOString(),
           finished_at: new Date().toISOString(),
           runner: 'matched-phased',
           lamina_arm: arm,
           lamina_workflow: workflow,
           phases_per_trial: phasesPerTrial,
-          max_turns_per_phase: maxTurnsPerPhase,
           reward_present: false,
           agent_failed: true,
           agent_exit_status: agent.status,
@@ -224,12 +211,16 @@ function runPhasedBenchmark(harborName, release, attempt) {
     'run',
     '--rm',
     ...envArgs,
+    '-e',
+    'CODEX_HOME=/logs/verifier/codex-home',
     '-v',
     `${path.join(envDir, 'workspace')}:/app`,
     '-v',
     `${path.join(trialDir, 'verifier')}:/logs/verifier`,
     '-v',
     `${path.join(trialDir, 'agent')}:/logs/agent`,
+    '-v',
+    `${codexAuthPath}:/tmp/codex-auth.json:ro`,
     '-v',
     `${path.join(taskDir, 'tests')}:/tests:ro`,
     imageTag,
@@ -281,14 +272,13 @@ function runPhasedBenchmark(harborName, release, attempt) {
       {
         task_name: `aryaniyaps/${harborName}`,
         trial_name: trialName,
-        agent_info: { name: 'claude-code', model_info: { name: model, provider: 'anthropic' } },
+        agent_info: { name: 'codex', model_info: { name: model, provider: 'openai' } },
         started_at: started,
         finished_at: new Date().toISOString(),
         runner: 'matched-phased',
         lamina_arm: arm,
         lamina_workflow: workflow,
         phases_per_trial: phasesPerTrial,
-        max_turns_per_phase: maxTurnsPerPhase,
         reward_present: fs.existsSync(rewardPath),
         workspace_snapshot: fs.existsSync(workspaceSnap),
       },

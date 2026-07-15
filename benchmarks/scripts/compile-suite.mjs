@@ -77,13 +77,6 @@ function validateHarborTask(task) {
           errors.push(`${label}: control must not ship Lamina workflow AGENTS.md`);
         }
       }
-      const claude = path.join(dest, 'environment/workspace/CLAUDE.md');
-      if (fs.existsSync(claude)) {
-        const text = fs.readFileSync(claude, 'utf8');
-        if (/\/lamina-init/i.test(text) || /lamina-design/i.test(text)) {
-          errors.push(`${label}: control must not ship Lamina workflow CLAUDE.md`);
-        }
-      }
     }
     if (arm === 'treatment') {
       const agents = path.join(dest, 'environment/workspace/AGENTS.md');
@@ -94,14 +87,7 @@ function validateHarborTask(task) {
           errors.push(`${label}: treatment must not ship Lamina AGENTS.md workflow overlay`);
         }
       }
-      const claude = path.join(dest, 'environment/workspace/CLAUDE.md');
-      if (fs.existsSync(claude)) {
-        const text = fs.readFileSync(claude, 'utf8');
-        if (/Lamina workflow \(benchmark treatment arm\)/i.test(text)) {
-          errors.push(`${label}: treatment must not ship Lamina CLAUDE.md workflow overlay`);
-        }
-      }
-      const skillsDir = path.join(dest, 'environment/workspace/.claude/skills');
+      const skillsDir = path.join(dest, 'environment/workspace/.agents/skills');
       if (!fs.existsSync(path.join(skillsDir, 'lamina-init', 'SKILL.md'))) {
         errors.push(`${label}: treatment must install lamina-init skill`);
       }

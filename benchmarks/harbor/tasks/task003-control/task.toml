@@ -22,14 +22,10 @@ timeout_sec = 180.0
 collect = []
 
 [verifier.env]
-ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
-ANTHROPIC_AUTH_TOKEN = "${ANTHROPIC_AUTH_TOKEN}"
-ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL}"
-REWARDKIT_JUDGE = "${REWARDKIT_JUDGE}"
 LAMINA_BENCH_RUN = "${LAMINA_BENCH_RUN}"
 
 [agent]
-timeout_sec = 600.0
+timeout_sec = 7200.0
 
 [environment]
 network_mode = "public"

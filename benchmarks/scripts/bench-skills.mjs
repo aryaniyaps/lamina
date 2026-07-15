@@ -24,12 +24,8 @@ export function installLaminaSkills(workspace, agent) {
     throw new Error(`Lamina skills source missing: ${SKILLS_SRC}`);
   }
 
-  const agentDirs = {
-    'claude-code': '.claude/skills',
-    codex: '.codex/skills',
-    opencode: '.opencode/skills',
-  };
-  const rel = agentDirs[agent] || '.claude/skills';
+  const agentDirs = { codex: '.agents/skills' };
+  const rel = agentDirs[agent] || '.agents/skills';
   const dest = path.join(workspace, rel);
   fs.mkdirSync(dest, { recursive: true });
 

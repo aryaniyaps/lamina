@@ -27,6 +27,8 @@ Prioritized from `run.yaml` `findings[]` where `fix_target` is `product` or unse
 
 If none: write `_No product findings._`
 
+`_No product findings._` is valid only when the Unticked contract checklist is also empty. Every missing/weak checklist id is a product defect (unless it demonstrates a wrong contract, in which case it is a contract delta) and must map to a ticket below. Related ids may share one ticket, but its Acceptance must enumerate all covered ids.
+
 For each finding:
 
 - **`<finding-id>`** — `<priority>` — `<one-line summary>`
@@ -40,9 +42,11 @@ For each finding:
 
 Re-read `implement.md` Must-implement / Done-when. List every `screen.*`, `scenario.*`, `forbidden.*`, `a11y.*`, and `tradeoff.*` id that is **still missing or weak in source** after this verify — even if not yet a formal finding. Fix phase must close these before polish.
 
+Also list required entity/state, invariant, permission/resource-filter, and workflow ids that are represented only by interfaces, imports/routes, placeholder comments, hard-coded display data, or no-op handlers.
+
 For each unticked id, cite evidence (`missing` or a weak path/symbol). Every `screens[]` entry with `status: new` that has no corresponding app path (route/component/template) **must** appear here — do not write that UI changes are out of scope when those screens are missing.
 
-Only write `_All must-implement ids observed in source._` when every `screen.*` with `status: new` has a cited app path **and** remaining checklist ids are observed in source.
+Only write `_All must-implement ids observed in source._` when every `screen.*` with `status: new` has a cited app path, every interactive path is backed by real product state/transitions, and remaining checklist ids are observed in executable source.
 
 ## Contract deltas
 

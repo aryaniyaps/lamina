@@ -60,7 +60,8 @@ assert.ok(/ecological-matched-phases/.test(taskToml), 'task.toml must tag ecolog
 assert.ok(/\[verifier\.env\]/.test(taskToml), 'task.toml must pass verifier env for Rewardkit judge');
 
 const dockerfile = fs.readFileSync(path.join(control, 'environment/Dockerfile'), 'utf8');
-assert.ok(/uv/.test(dockerfile), 'Dockerfile must install uv for rewardkit');
+assert.ok(/@openai\/codex/.test(dockerfile), 'Dockerfile must install Codex for the subscription-auth runner');
+assert.ok(!/@anthropic-ai\/claude-code/.test(dockerfile), 'Dockerfile must not retain the removed Claude Code agent');
 
 assert.ok(
   !fs.existsSync(path.join(ROOT, 'benchmarks/harbor/prompt_template.j2')),
@@ -75,7 +76,7 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_c_ecological_matched_phases');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "1.8.0"'));
+assert.ok(release.includes('results_contract_version: "1.9.0"'));
 assert.ok(release.includes('harness_version: "1.2.0"'));
 assert.ok(release.includes('phases_per_trial: 5'));
 assert.ok(!/golden_field_weights|golden_coverage:|harbor_prompt_template/.test(release));

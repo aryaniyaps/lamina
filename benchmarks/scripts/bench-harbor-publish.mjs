@@ -66,7 +66,7 @@ function main() {
   run('harbor', ['publish', datasetDir, '-t', TAG, '--public', '--no-tasks']);
   console.log(`\nPublished aryaniyaps/lamina-bench@${TAG}`);
   console.log('Others can run the dataset with:');
-  console.log(`  harbor run -d "aryaniyaps/lamina-bench@${TAG}" -a claude-code -m "<model>"`);
+  console.log(`  CODEX_FORCE_AUTH_JSON=1 harbor run -d "aryaniyaps/lamina-bench@${TAG}" -a codex -m "gpt-5.6-sol"`);
   console.log('\nTo run benchmarks yourself later: npm run bench:run');
 }
 

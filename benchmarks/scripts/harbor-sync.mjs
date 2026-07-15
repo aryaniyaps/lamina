@@ -29,7 +29,7 @@ const HARBOR_TASK_ORG = 'aryaniyaps';
 function parseArgs() {
   const opts = {
     tasks: null,
-    agent: 'claude-code',
+    agent: 'codex',
     suite: null,
     arm: null,
     testsOnly: process.argv.includes('--tests-only'),
@@ -72,10 +72,6 @@ timeout_sec = ${release.verifier_timeout_sec || 180}.0
 collect = []
 
 [verifier.env]
-ANTHROPIC_API_KEY = "\${ANTHROPIC_API_KEY}"
-ANTHROPIC_AUTH_TOKEN = "\${ANTHROPIC_AUTH_TOKEN}"
-ANTHROPIC_BASE_URL = "\${ANTHROPIC_BASE_URL}"
-REWARDKIT_JUDGE = "\${REWARDKIT_JUDGE}"
 LAMINA_BENCH_RUN = "\${LAMINA_BENCH_RUN}"
 
 [agent]
@@ -103,13 +99,9 @@ function writeDockerfile(dest) {
     `FROM node:20-bookworm-slim
 
 RUN apt-get update \\
-  && apt-get install -y --no-install-recommends ca-certificates curl git jq python3 python3-venv \\
+  && apt-get install -y --no-install-recommends ca-certificates git jq python3 \\
   && rm -rf /var/lib/apt/lists/* \\
-  && npm install -g @anthropic-ai/claude-code \\
-  && node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs" \\
-  && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-ENV PATH="/root/.local/bin:\${PATH}"
+  && npm install -g @openai/codex
 
 WORKDIR /app
 
@@ -203,6 +195,7 @@ function copyVerifierBundle(dest, task, arm, release) {
   copyDirRecursive(VERIFIER_SRC, testsDir);
   fs.chmodSync(path.join(testsDir, 'test.sh'), 0o755);
   fs.chmodSync(path.join(testsDir, 'run_rewardkit.sh'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'subscription_judge.py'), 0o755);
   fs.chmodSync(path.join(testsDir, 'capture_artifact.py'), 0o755);
   fs.chmodSync(path.join(testsDir, 'finalize_reward.py'), 0o755);
 
@@ -232,10 +225,10 @@ function copyVerifierBundle(dest, task, arm, release) {
   const matchedPhased = path.join(testsDir, 'matched-phased-agent.sh');
   if (fs.existsSync(matchedPhased)) fs.chmodSync(matchedPhased, 0o755);
 
-  // Keep LLM judge model aligned with release.yaml (REWARDKIT_JUDGE also overrides at runtime).
+  // Keep the documented judge model aligned with release.yaml.
   const judgeToml = path.join(testsDir, 'llm_judge', 'product-behavior.toml');
   if (fs.existsSync(judgeToml) && release?.llm_judges?.[0]) {
-    const judgeModel = String(release.llm_judges[0]).replace(/^anthropic:/, 'anthropic/');
+    const judgeModel = String(release.llm_judges[0]).replace(/^openai:/, 'openai/');
     let text = fs.readFileSync(judgeToml, 'utf8');
     text = text.replace(/^judge\s*=\s*".*"/m, `judge = "${judgeModel}"`);
     fs.writeFileSync(judgeToml, text);
@@ -247,7 +240,10 @@ function buildWorkspace(task, arm, agent) {
   rmPath(ctxDir);
   fs.mkdirSync(ctxDir, { recursive: true });
   if (task.fixture) stageBenchFixture(task.fixture, ctxDir);
-  // Treatment: install Lamina skills only. No AGENTS.md/CLAUDE.md workflow overlay —
+  // The benchmark is Codex-only; do not carry fixture-local configuration for
+  // another coding-agent host into either arm.
+  rmPath(path.join(ctxDir, '.claude'));
+  // Treatment: install Lamina skills only. No workflow overlay —
   // the harness sends /lamina-* user messages; skills carry Mode B behavior.
   if (arm === 'treatment') {
     installLaminaSkills(ctxDir, agent);
@@ -280,7 +276,7 @@ function syncHarborTask(task, arm, opts, release) {
  * Rebuild a single (task, arm) workspace from fixture + skills.
  * Call before every trial so --runs N replications are independent.
  */
-export function refreshTrialWorkspace(taskId, arm, { agent = 'claude-code' } = {}) {
+export function refreshTrialWorkspace(taskId, arm, { agent = 'codex' } = {}) {
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
   const task = loadRegistry().find((t) => t.id === taskId);
   if (!task) throw new Error(`Unknown task id for workspace refresh: ${taskId}`);
