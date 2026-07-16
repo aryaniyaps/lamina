@@ -4,5 +4,7 @@
   "category": "oss_audit",
   "workflow": "audit",
   "prompt": "Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
-  "fixture": "outline-audit-ready"
+  "fixture": "outline-audit-ready",
+  "harness_version": "1.5.1",
+  "results_contract_version": "2.1.0"
 }

@@ -38,7 +38,7 @@ Also capture in screen elements when useful:
 
 In verify `findings[]`: a11y failures with `fix_target: product` and observable `acceptance`.
 
-**Phrase discipline:** Prefer brief/checklist wording in ids and notes (`screen_reader_labels`, `large_touch_targets`, `color_not_only_indicator`) so implement/fix and golden phrase checks align — do not invent synonyms.
+**Identifier discipline:** Derive ids from the current brief and observed product behavior. Never optimize ids or notes for an external evaluator, golden file, or phrase match.
 
 ## Verify procedure
 

@@ -17,7 +17,7 @@ lamina_arm = "control"
 lamina_workflow = "design"
 
 [verifier]
-timeout_sec = 180.0
+timeout_sec = 900.0
 collect = []
 
 [verifier.env]

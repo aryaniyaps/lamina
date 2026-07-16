@@ -4,5 +4,7 @@
   "category": "oss_feature",
   "workflow": "design",
   "prompt": "Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.",
-  "fixture": "plane-with-init"
+  "fixture": "plane-with-init",
+  "harness_version": "1.5.1",
+  "results_contract_version": "2.1.0"
 }

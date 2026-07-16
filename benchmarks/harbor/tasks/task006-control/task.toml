@@ -18,7 +18,7 @@ lamina_workflow = "audit"
 lamina_fixture = "outline-audit-ready"
 
 [verifier]
-timeout_sec = 180.0
+timeout_sec = 900.0
 collect = []
 
 [verifier.env]

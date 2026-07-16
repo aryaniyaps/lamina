@@ -117,37 +117,21 @@ function rmPath(target) {
   try {
     fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   } catch (err) {
-    if (err?.code === 'EBUSY' || err?.errno === -4094 || err?.code === 'EACCES' || err?.code === '') {
-      spawnSync('chmod', ['-R', 'u+rwX', target], { stdio: 'ignore' });
-      const shellRm = spawnSync('rm', ['-rf', target], { stdio: 'ignore' });
-      if (shellRm.status === 0 && !fs.existsSync(target)) return;
-      // Leftover sandbox bind-mounts (e.g. skills/*/evals/evals.json) can make
-      // recursive rm fail. Delete everything we can; leave busy nodes in place.
-      bestEffortClear(target);
-      return;
+    if (err?.code === 'EBUSY' || err?.errno === -4094 || err?.code === 'EACCES' || err?.code === 'EPERM' || err?.code === '') {
+      // Trial containers create root-owned dependency trees. Clean ownership in
+      // a short-lived container, then retry atomically. Never continue with a
+      // partially cleared workspace: that leaks prior-arm state into a trial.
+      const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
+      const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
+      spawnSync(
+        'docker',
+        ['run', '--rm', '-v', `${target}:/work`, 'alpine', 'chown', '-R', `${uid}:${gid}`, '/work'],
+        { stdio: 'ignore' }
+      );
+      fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      if (!fs.existsSync(target)) return;
     }
     throw err;
-  }
-}
-
-/** Depth-first delete; skip EBUSY/EACCES nodes so sync can proceed. */
-function bestEffortClear(target) {
-  if (!fs.existsSync(target)) return;
-  let st;
-  try {
-    st = fs.lstatSync(target);
-  } catch {
-    return;
-  }
-  if (st.isDirectory() && !st.isSymbolicLink()) {
-    for (const name of fs.readdirSync(target)) {
-      bestEffortClear(path.join(target, name));
-    }
-  }
-  try {
-    fs.rmSync(target, { recursive: true, force: true });
-  } catch {
-    // leave busy mount / permission-denied node
   }
 }
 
@@ -197,6 +181,8 @@ function copyVerifierBundle(dest, task, arm, release) {
   fs.chmodSync(path.join(testsDir, 'run_rewardkit.sh'), 0o755);
   fs.chmodSync(path.join(testsDir, 'subscription_judge.py'), 0o755);
   fs.chmodSync(path.join(testsDir, 'capture_artifact.py'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'write_baseline_manifest.py'), 0o755);
+  fs.chmodSync(path.join(testsDir, 'quality_checks.py'), 0o755);
   fs.chmodSync(path.join(testsDir, 'finalize_reward.py'), 0o755);
 
   const golden = readYamlSync(path.join(GOLDENS_DIR, task.id, 'golden.yaml'));
@@ -212,6 +198,8 @@ function copyVerifierBundle(dest, task, arm, release) {
         workflow: task.workflow,
         prompt: task.prompt,
         fixture: task.fixture ?? null,
+        harness_version: release.harness_version,
+        results_contract_version: release.results_contract_version,
       },
       null,
       2
@@ -251,6 +239,24 @@ function buildWorkspace(task, arm, agent) {
   return ctxDir;
 }
 
+function writeBaselineManifest(dest, workspace) {
+  const testsDir = path.join(dest, 'tests');
+  const result = spawnSync(
+    'python3',
+    [
+      path.join(testsDir, 'write_baseline_manifest.py'),
+      workspace,
+      path.join(testsDir, 'baseline-manifest.json'),
+    ],
+    { cwd: ROOT, encoding: 'utf8' }
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `Failed to write baseline manifest for ${dest}: ${result.stderr || result.stdout}`
+    );
+  }
+}
+
 function syncHarborTask(task, arm, opts, release) {
   const dest = harborPath(task.id, arm);
   fs.mkdirSync(path.join(dest, 'environment'), { recursive: true });
@@ -263,13 +269,20 @@ function syncHarborTask(task, arm, opts, release) {
   writeDockerfile(dest);
   copyVerifierBundle(dest, task, arm, release);
 
-  if (opts.testsOnly) return;
-
   const workspaceDest = path.join(dest, 'environment', 'workspace');
+  if (opts.testsOnly) {
+    if (fs.existsSync(workspaceDest)) writeBaselineManifest(dest, workspaceDest);
+    return;
+  }
+
   rmPath(workspaceDest);
+  if (fs.existsSync(workspaceDest)) {
+    throw new Error(`Refusing to reuse uncleared benchmark workspace: ${workspaceDest}`);
+  }
   const workspaceSrc = buildWorkspace(task, arm, opts.agent);
   fs.cpSync(workspaceSrc, workspaceDest, { recursive: true });
   rmPath(workspaceSrc);
+  writeBaselineManifest(dest, workspaceDest);
 }
 
 /**

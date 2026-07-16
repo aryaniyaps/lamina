@@ -162,12 +162,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
       '-v',
       `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
       '-v',
-      `${path.join(taskDir, 'tests')}:/tests:ro`,
+      `${path.join(taskDir, 'tests', 'matched-phased-agent.sh')}:/tmp/matched-phased-agent.sh:ro`,
       '-w',
       '/app',
       imageTag,
       'bash',
-      '/tests/matched-phased-agent.sh',
+      '/tmp/matched-phased-agent.sh',
     ],
     { stdio: 'inherit' }
   );

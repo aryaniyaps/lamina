@@ -46,7 +46,7 @@ Also list required entity/state, invariant, permission/resource-filter, and work
 
 For each unticked id, cite evidence (`missing` or a weak path/symbol). Every `screens[]` entry with `status: new` that has no corresponding app path (route/component/template) **must** appear here — do not write that UI changes are out of scope when those screens are missing.
 
-Only write `_All must-implement ids observed in source._` when every `screen.*` with `status: new` has a cited app path, every interactive path is backed by real product state/transitions, and remaining checklist ids are observed in executable source.
+Only write `_All must-implement ids observed in source._` when every `screen.*` with `status: new` has a cited app path, every interactive path traces through trusted enforcement, mutation/persistence, actor-scoped projection, and visible feedback/recovery, and remaining checklist ids are observed in executable source. Passing agent-authored tests or matching scenario names alone is insufficient.
 
 ## Contract deltas
 
@@ -69,6 +69,11 @@ If none: write `_No contract deltas._`
 1. **This turn writes app source** — edit files outside `.lamina/` to close Product fixes and Unticked contract checklist ids.
 2. **Rewriting `fix.md` is not a fix** — do not claim complete after only editing `.lamina/` artifacts. Evidence of done is changed application source (and, when feasible, a local re-check).
 3. **Scaffold still does not count** — adding types-only or empty shells for missing screens/APIs does not close `screen.*` / `scenario.*` ids.
+4. **Re-run the action inventory** — exercise every changed mutation family through its production route/control against a deterministic seed or isolated store. A build plus agent-authored tests is insufficient: no 5xx, `ReferenceError`, undefined symbol/import, unhandled rejection, or mutation that fails to persist and re-project may remain.
+5. **Close findings literally and downstream** — implement every acceptance clause through the normal product path, then inspect adjacent trust boundaries and consumers. A verification-only handoff credential, seeded-only recovery record, implicit privileged session, renamed plaintext field, or UI-only workaround does not close delivery, organic-state, identity, confidentiality, or concurrency findings.
+6. **Re-probe cross-actor and integrity chains** — for changed handoffs, execute sender → delivery → authenticated recipient → durable response → both projections. For changed ingestion/state code, create recovery records organically, attempt stale/concurrent writes, and verify every live/offline projection refreshes.
+7. **Close trust and durability bypasses** — prove identity control rather than accepting an identifier, run every changed mutation against every disallowed role, and failure-inject changed persistence so live memory is not published before durable commit.
+8. **Preserve the independent build gate** — add/fix and run a discoverable clean build/compile/typecheck command; do not finish with only tests, start, or smoke checks.
 
 ## Implementation session prompt
 

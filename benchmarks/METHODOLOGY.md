@@ -127,14 +127,18 @@ npm run bench:harbor:sync
 npm run bench:run
 ```
 
-Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential Codex exec/resume phases with equal phase timeouts. Treatment skills are harness-invoked with `$lamina-*`; implement/fix are the next user turns in the same session. Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
+Both arms use the same matched phased harness (`matched-phased-agent.sh`): five sequential Codex exec/resume phases with one equal whole-trial timeout and no per-phase cap. Treatment skills are harness-invoked with `$lamina-*`; implement/fix are the next user turns in the same session. Harbor task dirs supply fixtures, instructions, and the Rewardkit verifier; Docker runs agent + verifier.
 
 ## Scoring pipeline (per trial)
 
-1. **Rewardkit dimensions** — `llm_judge/` is the **claim score** (checklist concepts folded into the judge rubric with evidence requirements). [`reward.toml`](harbor/verifier/reward.toml) aggregates; [`finalize_reward.py`](harbor/verifier/finalize_reward.py) sets `composite = llm_judge`.
-2. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the LLM judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
-3. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`. Agent harness failures (`agent_failed`) are recorded with `artifact_valid: false` (not treated as soft verifier passes).
-4. **Model pin** — Runner uses `release.yaml` `model`; `CODEX_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Codex reasoning effort is pinned high; temperature/top_p remain intent-only.
+1. **Hidden verifier boundary** — the agent receives the task brief and phase harness, but not `/tests`, the golden checklist, judge prompt, or scoring code. Verifier files are mounted only after the agent exits.
+2. **Independent quality probe** — the verifier runs a bounded discovered build/typecheck and, when declared, the product test command. It records every command, exit status, and output. A declared test failure is counterevidence; a pass is never treated as product proof. Any failed quality step caps reward at `0.45`; a greenfield product with no discoverable required build/typecheck is capped at `0.70`.
+3. **Calibrated behavior judge** — agent-authored tests and planning files are excluded. The blind judge scores executable application source on strict 1–5 anchors (a solid implementation is 4; 5 is exceptional), and separately scores every hidden checklist item `0/1/2` with real-path evidence and counterevidence.
+4. **Complete-when-bounded capture** — when the application source fits within the bounded judge context, every eligible source file is captured in full. Larger repositories use content-addressed representative excerpts across file interiors/tails and logical subtrees so neither monoliths nor alphabetically early folders dominate evidence.
+5. **Composite** — `65%` weighted behavior dimensions + `35%` item-level coverage. A missing critical invariant, persona, rule, primary flow, or scenario caps reward at `0.55`.
+6. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
+7. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`, including dimension score, checklist coverage, missing critical items, and quality caps. Only the exact current results contract and rubric version are claim-compatible.
+8. **Model pin** — Runner uses `release.yaml` `model`; `CODEX_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Codex reasoning effort is pinned high; temperature/top_p remain intent-only.
 
 ## Aggregation (cross-trial, publishable)
 
@@ -168,14 +172,14 @@ Product skills already define agent-primary behavior after `ready_to_build` / ve
 - Treatment receives Lamina skills only; workflow is harness-sent `$lamina-*` invocations (no workflow overlay)
 - Control implement/fix prompts are **budget-matched** to treatment (same completeness requirements)
 - Implement framing (both arms) asks for a **working product codebase** for scored behaviors; CI/CD and production ops are explicitly out of scope — reduces scope-refusals without weakening product requirements
-- Blind LLM judging of source code via Harbor Rewardkit in-container verifier (checklist as behavioral rubric; judge-only claim)
+- Blind calibrated judging of application source plus verifier-produced build evidence; hidden checklist and verifier files are never available to the coding agent
 - `claim_ready: false` until live paired runs with replication
 
 ## How to cite results honestly
 
 **Do say:**
 
-> Under Design C (matched multi-phase harness), the Lamina init→design→verify loop scored higher on LLM rubric scores of implemented source (checklist as behavioral rubric) than the generic plan→review loop on the same brief.
+> Under Design C (matched multi-phase harness), compare the Lamina init→design→verify loop against the generic plan→review loop only when both cells use the exact same current results contract and rubric version. Report the observed paired delta; do not mix legacy scores into the claim.
 
 **Do not say:**
 

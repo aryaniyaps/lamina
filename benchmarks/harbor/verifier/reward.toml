@@ -1,6 +1,6 @@
-# LaminaBench composite scoring (Design C — Option D).
-# Claim score = llm_judge only (checklist folded into judge rubric).
-# finalize_reward.py applies artifact_valid + clarify_stall gates.
+# Calibrated behavior score: 65% strict dimensions + 35% item-level behavioral
+# coverage, both produced by the blind judge from application source. Build
+# failures and missing critical items apply caps in subscription_judge.py.
 
 [[reward]]
 name = "composite"

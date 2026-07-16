@@ -41,7 +41,7 @@ Map operations to **scenarios** in `run.yaml` — permission denials, conflicts,
 5. Link to `invariant_ref` where applicable
 6. **Acceptance** — every scenario must include `acceptance`: an observable pass condition in product behavior (status/body, UI copy/state, field absent). Reject vibes like “handle gracefully.” Optional: `http_status`, `error_code`, `ui_copy_key`.
 7. **Dependency modes** — unmet-dependency scenarios must match the edge `mode` (`unreachable` → blocked; `degraded` → degraded_view/banner; etc.).
-8. **Brief empty / zero-domain cases** — scan the brief and seed for empty collections, zero totals, and “no income / no data month” style edges. Encode each as a `scenarios[]` row with a **stable id matching brief wording** (e.g. `zero_income_month`, not `zero_income_without_budget` when the brief says zero-income month). Seed must include fixtures that make the scenario exercisable.
+8. **Brief empty / zero-domain cases** — scan the current brief and seed for empty collections, zero values, missing dependencies, and no-data states. Encode each as a `scenarios[]` row with a stable id derived from that brief's wording. Seed must include fixtures that make the scenario exercisable.
 9. Verify: probe each scenario on live product or static source against `acceptance`
 
 ## Scenario shape

@@ -8,5 +8,6 @@ results/raw/workspaces/
 results/raw/artifacts/
 harbor/dataset/task*/
 harbor/tasks/**/environment/workspace/
+harbor/tasks/*/tests/baseline-manifest.json
 *.pyc
 __pycache__/

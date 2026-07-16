@@ -23,15 +23,15 @@ There are no perfect solutions — only trade-offs. Name them in product languag
 
 ```yaml
 tradeoffs:
-  - id: clarity_vs_granularity    # stable snake_case — prefer brief/golden wording verbatim
-    choice: Prefer clear weekly totals over per-merchant drill-down by default
-    cost: Power users need an explicit expand / view-all path
-    surfaces: [weekly-review]     # screens or workflows that realize the choice + mitigation
+  - id: <concern_a>_vs_<concern_b>
+    choice: <chosen product behavior from the current brief/context>
+    cost: <what the choice makes harder>
+    surfaces: [<workflow-or-screen-that-realizes-choice-and-mitigation>]
 ```
 
 **Id rules:**
-1. Use brief or checklist language when it already names the trade-off (`clarity_vs_granularity`, `shared_view_vs_partner_privacy`).
-2. **Do not rename** to a synonym (`clarity_vs_detail` is wrong if the brief says granularity).
+1. Derive the id from the current brief and product context only.
+2. Preserve brief terminology when it explicitly names the tension; never consult or anticipate evaluator identifiers.
 3. Each trade-off must ship both the `choice` and the mitigating surface implied by `cost`.
 
 Also record material decisions in global `decisions.md` with `run_id` when debate warrants narrative.

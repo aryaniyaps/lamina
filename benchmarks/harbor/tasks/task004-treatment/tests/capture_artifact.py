@@ -15,6 +15,7 @@ from criteria import (  # noqa: E402
     capture_implementation_artifact,
     is_artifact_valid,
     is_clarify_output,
+    load_baseline_hashes,
     read_agent_output,
 )
 
@@ -23,7 +24,11 @@ VERIFIER_META_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 workspace = Path("/app")
 agent_output = read_agent_output()
-artifact = capture_implementation_artifact(workspace, agent_output)
+artifact = capture_implementation_artifact(
+    workspace,
+    agent_output,
+    baseline_hashes=load_baseline_hashes(),
+)
 artifact_valid = is_artifact_valid(artifact)
 clarify_stall = not artifact_valid and is_clarify_output(agent_output)
 

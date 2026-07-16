@@ -56,13 +56,17 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
   const scoringIncomplete = Boolean(
     rewardFile?.scoring_incomplete || rewardFile?.llm_judge_degraded
   );
+  const contractCompatible = Boolean(
+    rewardFile?.results_contract_version === release.results_contract_version &&
+    rewardFile?.rubric_version === 'calibrated-behavior-v3'
+  );
   const artifact_valid = agentFailed
     ? false
     : hasVerifierReward
       ? rewardFile.artifact_valid === true
       : false;
 
-  const harborReward = agentFailed || !hasVerifierReward
+  const harborReward = agentFailed || !hasVerifierReward || !contractCompatible
     ? 0
     : scoringIncomplete
       ? 0
@@ -74,6 +78,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
   let failed_gate = null;
   if (agentFailed) failed_gate = 'agent_failed';
   else if (!hasVerifierReward) failed_gate = 'no_verifier';
+  else if (!contractCompatible) failed_gate = 'results_contract_mismatch';
   else if (scoringIncomplete) failed_gate = 'llm_judge_degraded';
   else if (rewardFile?.clarify_stall) failed_gate = 'clarify_stall';
   else if (!artifact_valid) failed_gate = 'artifact_invalid';
@@ -82,6 +87,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
   const status =
     !agentFailed &&
     hasVerifierReward &&
+    contractCompatible &&
     !scoringIncomplete &&
     artifact_valid &&
     harborReward >= 0.5
@@ -109,13 +115,18 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     status,
     artifact_valid,
     agent_failed: agentFailed,
-    scoring_incomplete: scoringIncomplete || agentFailed || !hasVerifierReward,
+    scoring_incomplete: scoringIncomplete || agentFailed || !hasVerifierReward || !contractCompatible,
     failed_gate,
     clarify_stall: Boolean(rewardFile?.clarify_stall),
     harbor_reward: harborReward,
     llm_judge_mean: rewardFile?.llm_judge_mean ?? null,
     llm_scores: rewardFile?.llm_scores ?? null,
-    judge_mode: rewardFile?.judge_mode ?? 'codex_subscription_judge_only',
+    judge_mode: rewardFile?.judge_mode ?? 'codex_subscription_calibrated_behavior_v3',
+    dimension_score: rewardFile?.dimension_score ?? null,
+    checklist_coverage: rewardFile?.checklist_coverage ?? null,
+    critical_missing: rewardFile?.critical_missing ?? [],
+    quality_cap: rewardFile?.quality_cap ?? null,
+    quality_cap_reason: rewardFile?.quality_cap_reason ?? null,
     judge_evidence: null,
     rewardkit_details: null,
     interaction: {
@@ -130,7 +141,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
         ...rewardFile,
         reward: harborReward,
         artifact_valid,
-        scoring_incomplete: scoringIncomplete,
+        scoring_incomplete: scoringIncomplete || !contractCompatible,
         agent_failed: agentFailed,
         lamina_task_id: task_id,
         lamina_arm: arm,
