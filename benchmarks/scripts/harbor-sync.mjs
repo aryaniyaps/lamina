@@ -93,19 +93,17 @@ mcp_servers = []
   fs.writeFileSync(path.join(dest, 'task.toml'), content);
 }
 
-function writeDockerfile(dest) {
+function writeDockerfile(dest, release) {
   fs.writeFileSync(
     path.join(dest, 'environment', 'Dockerfile'),
-    `FROM node:20-bookworm-slim
+    `FROM ${release.container_base_image}
 
 RUN apt-get update \\
   && apt-get install -y --no-install-recommends ca-certificates git jq python3 \\
   && rm -rf /var/lib/apt/lists/* \\
-  && npm install -g @openai/codex
+  && npm install -g @openai/codex@${release.codex_cli_version}
 
 WORKDIR /app
-
-COPY workspace/ /app/
 
 CMD ["bash"]
 `
@@ -150,7 +148,7 @@ function copyDirRecursive(src, dest) {
 
 function buildJudgeContext(task, golden) {
   const lines = [
-    '# LaminaBench judge context',
+    '# Product behavior judge context',
     '',
     '## Task description',
     task.prompt || task.id,
@@ -200,6 +198,8 @@ function copyVerifierBundle(dest, task, arm, release) {
         fixture: task.fixture ?? null,
         harness_version: release.harness_version,
         results_contract_version: release.results_contract_version,
+        rubric_version: release.rubric_version,
+        codex_cli_version: release.codex_cli_version,
       },
       null,
       2
@@ -266,7 +266,7 @@ function syncHarborTask(task, arm, opts, release) {
   }
 
   writeTaskToml(dest, { task, arm, release });
-  writeDockerfile(dest);
+  writeDockerfile(dest, release);
   copyVerifierBundle(dest, task, arm, release);
 
   const workspaceDest = path.join(dest, 'environment', 'workspace');

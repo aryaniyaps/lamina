@@ -1,45 +1,58 @@
-# LaminaBench Final Core Benchmark Report
+# LaminaBench Exploratory Development Results (Not Claim-Ready)
 
 Date: 2026-07-16
 
 Release: `bench-v1`
 
-Harness: `1.5.1`
+Historical harness label: `1.5.1`
 
-Results contract: `2.1.0`
+Historical results contract: `2.1.0` (superseded by frozen-forward contract `2.3.0`)
 
 Model: `gpt-5.6-sol` through Codex subscription authentication
 
 Methodology: `design_c_ecological_matched_phases`
 
-## Executive summary
+## Claim status
 
-The completed published-core benchmark contains five paired tasks and ten valid
-trials: one control and one treatment run for each task. All ten artifacts were
-valid, all ten scores were complete, and no agent trial failed.
+**`claim_ready: false` — exploratory development evidence only. Do not cite this
+file as the LaminaBench core publication result.**
+
+The observed rows cover Tasks 001–005. That is a mixed convenience set, not the
+predeclared core (`001`, `003`, `005`, `007`, `009`). It has one run per arm,
+while the frozen publish requirement is three. It also lacks per-trial protocol,
+clean-worktree, runtime-image, and schedule attestations required by contract
+`2.3.0`.
+
+More importantly, Tasks 001–003 were agent-run before the structured scorer was
+finalized and were rescored later from sealed artifacts; benchmark verifier and
+Lamina skill hardening were committed after outputs were available. All observed
+pairs also ran control before treatment. Those facts make this a useful
+retrospective development analysis, but not a frozen-protocol causal comparison.
+
+## Exploratory summary
 
 Treatment achieved a mean reward of **0.8452**, compared with **0.6439** for
 control, for an exploratory mean lift of **+0.2013 (+20.13 percentage points)**.
 Treatment won four of five task pairs. The task-level bootstrap 95% interval for
 the mean lift was **+3.74 to +36.52 percentage points**.
 
-This is a strong exploratory result, not yet the publication result. The release
-target is three runs per arm; this report contains one run per arm. It therefore
-does not establish run-to-run stability. Treatment also did not win uniformly:
+These numbers are descriptive and hypothesis-generating, not the publication
+result. They do not establish run-to-run stability or generalization. Treatment
+also did not win uniformly:
 Task 004 was an effective tie, with treatment lower by 0.15 points on a
 100-point scale.
 
-## Aggregate results
+## Observed development aggregate
 
 | Metric | Result |
 |---|---:|
 | Paired tasks | 5/5 |
 | Included trials | 10 |
-| Incomplete/excluded trials | 0 |
+| Judge-incomplete rows | 0 |
 | Control mean reward | 0.6439 |
 | Treatment mean reward | 0.8452 |
 | Mean treatment lift | +0.2013 (+20.13pp) |
-| Task-level bootstrap 95% interval | +3.74pp to +36.52pp |
+| Descriptive task bootstrap interval | +3.74pp to +36.52pp |
 | Treatment win rate | 80% (4/5 tasks) |
 | Agent failures | 0 |
 | Invalid artifacts | 0 |
@@ -119,7 +132,7 @@ confirmation, payment-decline recovery, and address-validation recovery. The
 general critical-behavior rule applied a 0.55 ceiling; the calculated reward was
 already below that ceiling at 0.4333.
 
-## Benchmark hardening delivered
+## Historical scoring contract used for this retrospective analysis
 
 The benchmark changes in this release make the result harder to game and more
 focused on implemented product behavior:
@@ -137,12 +150,13 @@ focused on implemented product behavior:
    and capture every changed application file plus representative context.
    Generated outputs, dependencies, caches, plans, and verifier-owned files are
    excluded from the scored application artifact.
-4. **Artifact-first, score-blind execution.** Each arm gets one agent invocation
+4. **Artifact-first scoring.** Each arm gets one agent invocation
    and its first sealed artifact is judged. Judge retries are permitted only for
    provider/infrastructure failure; low scores do not trigger agent reruns.
-5. **Matched resources.** Both arms use the same model pin, five phases, whole-
-   trial timeout, task fixture, and independent judge. Treatment changes the
-   workflow/skills, not the resource ceiling.
+5. **Nominally matched resources.** Both arms used the same model name, five
+   phases, whole-trial timeout, task fixture, and judge contract. The historical
+   run did not attest one pinned runtime image or counterbalanced schedule, so
+   runtime/order equality cannot be claimed from these rows alone.
 6. **Generic skill hardening.** Lamina skills now emphasize complete executable
    chains, trusted enforcement, multi-actor handoffs, production-shaped local
    adapters, identity proof, concurrency and durable-commit safety, organically
@@ -176,7 +190,7 @@ from those records, with an explicit recovery marker and
 `workspace_snapshot: false`; the artifact and score were not changed, and the
 agent was not rerun.
 
-## Validation
+## Historical validation record
 
 The repository-level validation completed successfully:
 
@@ -185,23 +199,43 @@ The repository-level validation completed successfully:
 - `python3 -m unittest tests/rewardkit_criteria_test.py`
 - `python3 -m py_compile benchmarks/harbor/verifier/*.py`
 - `git diff --check`
-- `npm run bench:report` ingested 10/10 trials and rebuilt a 5/5 paired aggregate
+- Under contract 2.1.0, `npm run bench:report` ingested 10/10 historical trials
+  and rebuilt this mixed-set 5/5 paired aggregate
 
-## Interpretation and limitations
+## Adversarial audit findings
+
+- **Wrong published sample:** observed Tasks 001–005 do not equal the declared
+  core Tasks 001, 003, 005, 007, and 009.
+- **Post-hoc contract evolution:** early artifacts were rescored after verifier,
+  capture, quality-cap, and skill changes. This is legitimate exploratory
+  reanalysis but not preregistered evaluation.
+- **Fixed arm order:** control always preceded treatment, confounding assignment
+  with temporal service and repository drift.
+- **Insufficient replication:** one run per arm cannot estimate run variance.
+- **Historical survivorship risk:** the old aggregator excluded agent failures;
+  contract 2.2.0 uses intention-to-treat zeroes and blocks claims on judge
+  missingness.
+- **No immutable provenance:** the old rows record version strings but not a
+  clean commit, protocol digest, runtime image, or schedule position.
+- **Judge scope:** the score is one model-based structured rubric, not an
+  empirically human-calibrated measure or objective proof of product quality.
+- **Small public corpus:** the five-task interval is descriptive, and benchmark-
+  guided product development limits out-of-sample claims.
+
+## Interpretation and limitations of the observed rows
 
 - The treatment workflow materially outperformed control on this five-task
   sample, with the largest gains on clinic scheduling and checkout auditing.
 - The Wishlist tie shows that stronger strict-dimension judgment does not
   guarantee a higher composite when brief-item coverage falls. The benchmark is
   sensitive to both depth and breadth, as intended.
-- One run per arm is insufficient for a publishable stability claim. The next
-  valid release step is three fresh runs per arm under the frozen harness and
-  results contract, with no score-contingent prompt or skill changes.
+- The next valid release step is `npm run bench:run -- --publish --fresh` from a
+  committed clean tree. It runs the exact core three times per arm under the
+  frozen protocol, pinned runtime, and counterbalanced schedule.
 - The positive bootstrap interval is exploratory because it is based on only
   five task pairs and does not capture within-task model variance.
-- The completed scope is the five-task published core. The repository's broader
-  ten-task development corpus was synchronized to the same verifier contract but
-  Tasks 006–010 were not run and are not part of this result.
+- The completed historical scope is the convenience set Tasks 001–005. It is not
+  the declared five-task core and must not be relabeled as such.
 
 ## Reproduction and result files
 
@@ -211,8 +245,12 @@ The repository-level validation completed successfully:
 - Methodology: `benchmarks/METHODOLOGY.md`
 - Release configuration: `benchmarks/release.yaml`
 
-Regenerate the committed raw-result report and ignored aggregate with:
+Recompute the exploratory aggregate from the preserved raw rows without
+re-ingesting old jobs under the new contract:
 
 ```bash
-npm run bench:report
+npm run bench:aggregate
 ```
+
+`npm run bench:report` is reserved for new contract-2.3.0 jobs; old artifacts do
+not satisfy its provenance and rubric gates.

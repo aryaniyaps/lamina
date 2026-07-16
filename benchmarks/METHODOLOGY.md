@@ -131,12 +131,12 @@ Both arms use the same matched phased harness (`matched-phased-agent.sh`): five 
 
 ## Scoring pipeline (per trial)
 
-1. **Hidden verifier boundary** — the agent receives the task brief and phase harness, but not `/tests`, the golden checklist, judge prompt, or scoring code. Verifier files are mounted only after the agent exits.
-2. **Independent quality probe** — the verifier runs a bounded discovered build/typecheck and, when declared, the product test command. It records every command, exit status, and output. A declared test failure is counterevidence; a pass is never treated as product proof. Any failed quality step caps reward at `0.45`; a greenfield product with no discoverable required build/typecheck is capped at `0.70`.
-3. **Calibrated behavior judge** — agent-authored tests and planning files are excluded. The blind judge scores executable application source on strict 1–5 anchors (a solid implementation is 4; 5 is exceptional), and separately scores every hidden checklist item `0/1/2` with real-path evidence and counterevidence.
+1. **Withheld verifier boundary** — the agent receives the task brief and its phase stream, but not `/tests`, the checklist, judge prompt, or scoring code. These files are not mounted until after the agent exits. Because the benchmark corpus is public, “withheld” means runtime isolation, not a claim that the rubric is globally secret.
+2. **Isolated clean quality probe** — a disposable pre-verifier container copies source into a clean temporary workspace, excludes agent dependencies/caches, installs only from a declared lockfile, and runs a bounded discovered build/typecheck plus any declared product test. The original workspace is read-only and the probe has neither checklist/verifier files nor access to scoring outputs. A declared test failure is counterevidence; a pass is never treated as product proof. Any failed required quality step caps reward at `0.45`; a greenfield product without a reproducible lockfile/build path is capped at `0.70`.
+3. **Arm-blind structured behavior judge** — agent-authored tests and planning files are excluded. The scoring invocation is not told the arm, workflow, or Lamina name. It scores executable application source on strict 1–5 anchors (a solid implementation is 4; 5 is exceptional), and separately scores every hidden checklist item `0/1/2` with real-path evidence and counterevidence. “Structured” describes the anchored rubric; it does not imply empirical calibration against human raters.
 4. **Complete-when-bounded capture** — when the application source fits within the bounded judge context, every eligible source file is captured in full. Larger repositories use content-addressed representative excerpts across file interiors/tails and logical subtrees so neither monoliths nor alphabetically early folders dominate evidence.
 5. **Composite** — `65%` weighted behavior dimensions + `35%` item-level coverage. A missing critical invariant, persona, rule, primary flow, or scenario caps reward at `0.55`.
-6. **Gates** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false, `clarify_stall` is true, or the judge is degraded (`scoring_incomplete`). Incomplete trials are excluded from claim aggregates.
+6. **Gates and estimand** — `finalize_reward.py` sets `reward = 0` when `artifact_valid` is false or `clarify_stall` is true. Agent and artifact failures remain zero-valued outcomes in the intention-to-treat estimate. An unavailable judge or quality-probe infrastructure failure is missingness, not an outcome: it makes the release `claim_ready: false` instead of silently shrinking the denominator.
 7. **Ingest** — `npm run bench:ingest` reads job dirs → `results/raw/index.jsonl` + `rewards.jsonl`, including dimension score, checklist coverage, missing critical items, and quality caps. Only the exact current results contract and rubric version are claim-compatible.
 8. **Model pin** — Runner uses `release.yaml` `model`; `CODEX_MODEL` may only differ when `LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1`. Codex reasoning effort is pinned high; temperature/top_p remain intent-only.
 
@@ -148,14 +148,26 @@ Both arms use the same matched phased harness (`matched-phased-agent.sh`): five 
 | Within (task, arm) cell | median across runs | median across runs |
 | Primary inference unit | task | task |
 | Treatment effect | mean paired Δ (treatment − control) | same |
-| Uncertainty | bootstrap 95% CI over tasks | same |
+| Uncertainty | bootstrap 95% interval over tasks | same; descriptive with five tasks |
 
 ```bash
-npm run bench:run -- --runs 3    # publish replication
+npm run bench:run -- --publish --fresh  # fixed core, 3 runs/arm, clean tree required
 npm run bench:report             # ingest + aggregate (also runs automatically after bench:run)
 ```
 
-Paired metrics: [`harbor/dataset/metric.py`](harbor/dataset/metric.py). Output: `results/aggregated/benchmark.json`.
+Paired metrics: [`harbor/dataset/metric.py`](harbor/dataset/metric.py). Output: `results/aggregated/benchmark.json`. Duplicate `(task, arm, run)` rows are a hard error.
+
+### Frozen publish execution
+
+`--publish --fresh` is the only path that can produce `claim_ready: true`. It enforces the exact `core` task IDs, both arms, and `runs_per_arm_publish`; forbids model overrides and prior job reuse; requires a clean benchmark worktree (including untracked protocol files); records one git commit, protocol SHA-256, runtime image ID, and schedule position on every trial; and uses the frozen `schedule_seed` to randomize task order and counterbalance which arm runs first within each pair. The Node base image and Codex CLI version are pinned.
+
+Run `npm run bench:preflight` after committing the frozen protocol to validate the clean-tree gate and print the complete schedule without deleting or executing jobs.
+
+Aggregation independently verifies all scheduled cells, exact contract/rubric versions, unique run IDs, clean-tree attestations, common provenance, snapshots for valid artifacts, and absence of reconstructed metadata. A positive score or interval cannot override a failed readiness gate.
+
+### Task-scoped publication checks
+
+An explicit `--publish-task taskNNN --fresh` run may produce `claim_ready: true` for one registered task after three unique runs per arm. This is a publishable task-level result only; it is not evidence for the five-task core or broader generalization. `--parallel-pairs` starts control and treatment together within each replication, while replications remain sequential so same-arm workspaces never collide.
 
 ## Unattended runs (no mid-run user)
 
@@ -172,14 +184,18 @@ Product skills already define agent-primary behavior after `ready_to_build` / ve
 - Treatment receives Lamina skills only; workflow is harness-sent `$lamina-*` invocations (no workflow overlay)
 - Control implement/fix prompts are **budget-matched** to treatment (same completeness requirements)
 - Implement framing (both arms) asks for a **working product codebase** for scored behaviors; CI/CD and production ops are explicitly out of scope — reduces scope-refusals without weakening product requirements
-- Blind calibrated judging of application source plus verifier-produced build evidence; hidden checklist and verifier files are never available to the coding agent
-- `claim_ready: false` until live paired runs with replication
+- Arm-blind structured judging of application source plus verifier-produced clean-build evidence; checklist and verifier files are never mounted into the coding-agent container
+- Deterministic counterbalanced execution prevents control from always preceding treatment
+- Intention-to-treat aggregation retains agent/artifact failures at zero; judge infrastructure missingness blocks the claim
+- `claim_ready: false` until the frozen core completes three unique runs per arm with matching provenance
 
 ## How to cite results honestly
 
 **Do say:**
 
-> Under Design C (matched multi-phase harness), compare the Lamina init→design→verify loop against the generic plan→review loop only when both cells use the exact same current results contract and rubric version. Report the observed paired delta; do not mix legacy scores into the claim.
+> Under Design C (matched multi-phase harness), the arm-blind structured judge observed a paired difference on the declared five-task core under one pinned Codex model/runtime. Report the effect, task-level results, three-run cell medians, and `claim_ready` status together. Do not generalize beyond this task set, model, judge, or workflow contrast.
+
+The five-task bootstrap interval is descriptive, not a substitute for broad task sampling or model-level replication. Public tasks and benchmark-guided Lamina development also limit claims of out-of-sample generalization; this benchmark supports a scoped performance claim on its declared corpus, not a universal product-quality claim.
 
 **Do not say:**
 

@@ -1,8 +1,8 @@
 {
   "id": "design_c_ecological_matched_phases",
   "name": "Ecological Lamina loop with matched-phase control",
-  "version": "1.5.0",
-  "claim_surface": "calibrated blind behavior judge: 65% strict dimensions plus 35% item coverage, with independent quality caps",
+  "version": "1.7.0",
+  "claim_surface": "arm-blind structured behavior judge: 65% strict dimensions plus 35% item coverage, with independent quality caps",
   "research_question": "On the same product brief, does the real Lamina loop (init → design → implement → verify → fix) produce better implemented product behavior than an equally scaffolded generic loop (plan → implement → review → fix), under the same agent, model, phase count, and budgets?",
   "runner": {
     "framework": "harbor",
@@ -48,7 +48,11 @@
     "The agent container receives only the phase harness and task brief; verifier code, hidden checklist, and judge prompt are mounted only after the agent exits.",
     "Agent-authored tests and planning artifacts are excluded from judged source; only application code plus verifier-produced quality evidence is scored. A declared test failure is counterevidence, while a pass is not affirmative product proof.",
     "Application source is captured in full when it fits the bounded judge context; larger repositories use content-addressed representative sampling across each file and logical subtree.",
-    "LLM judge degradation marks scoring_incomplete (reward 0); those trials are excluded from claim aggregates."
+    "The judge prompt never identifies the arm or names Lamina; process assignment is hidden from the scoring invocation.",
+    "Agent/artifact failures remain zero-valued outcomes in the intention-to-treat aggregate; judge infrastructure failures make the release not claim-ready rather than silently changing its denominator.",
+    "Publish runs require a clean tracked worktree, one recorded protocol digest and git commit, deterministic counterbalanced ordering, the exact core task set, and three unique runs per arm.",
+    "Explicit task-scoped publish runs require one registered task, both arms, three unique runs per arm, paired concurrent execution, and the same provenance gates; they support claims for that task only, never the core corpus.",
+    "LLM judge degradation marks scoring_incomplete (reward 0); any such trial prevents claim_ready until the frozen scoring attempt is completed under the declared retry policy."
   ],
   "explicit_non_claims": [
     "Does not claim Lamina beat a single-shot unaided agent — control receives equal multi-phase scaffolding.",
@@ -62,7 +66,7 @@
     "runs_per_arm_publish": 3,
     "cell_aggregation": "median_across_runs",
     "inference_unit": "task",
-    "confidence_method": "bootstrap_over_tasks",
+    "confidence_method": "bootstrap_over_tasks (descriptive with five tasks)",
     "metric_script": "benchmarks/harbor/dataset/metric.py"
   },
   "corpus": {

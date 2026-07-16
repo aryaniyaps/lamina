@@ -26,9 +26,15 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function parseArgs() {
-  const opts = { jobsDir: HARBOR_JOBS, fresh: process.argv.includes('--fresh') };
+  const opts = {
+    jobsDir: HARBOR_JOBS,
+    fresh: process.argv.includes('--fresh'),
+    jobNames: null,
+  };
   const idx = process.argv.indexOf('--jobs-dir');
   if (idx !== -1) opts.jobsDir = path.resolve(process.argv[idx + 1]);
+  const namesIdx = process.argv.indexOf('--job-names');
+  if (namesIdx !== -1) opts.jobNames = new Set(process.argv[namesIdx + 1].split(','));
   return opts;
 }
 
@@ -58,7 +64,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
   );
   const contractCompatible = Boolean(
     rewardFile?.results_contract_version === release.results_contract_version &&
-    rewardFile?.rubric_version === 'calibrated-behavior-v3'
+    rewardFile?.rubric_version === release.rubric_version
   );
   const artifact_valid = agentFailed
     ? false
@@ -74,6 +80,7 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
 
   const { total_tokens, cost_usd } = tokenTotals(result);
   const duration_ms = trialDurationMs(result);
+  const provenance = result.benchmark_provenance || {};
 
   let failed_gate = null;
   if (agentFailed) failed_gate = 'agent_failed';
@@ -115,13 +122,13 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
     status,
     artifact_valid,
     agent_failed: agentFailed,
-    scoring_incomplete: scoringIncomplete || agentFailed || !hasVerifierReward || !contractCompatible,
+    scoring_incomplete: scoringIncomplete || (!agentFailed && (!hasVerifierReward || !contractCompatible)),
     failed_gate,
     clarify_stall: Boolean(rewardFile?.clarify_stall),
     harbor_reward: harborReward,
     llm_judge_mean: rewardFile?.llm_judge_mean ?? null,
     llm_scores: rewardFile?.llm_scores ?? null,
-    judge_mode: rewardFile?.judge_mode ?? 'codex_subscription_calibrated_behavior_v3',
+    judge_mode: rewardFile?.judge_mode ?? 'codex_subscription_structured_behavior_v4',
     dimension_score: rewardFile?.dimension_score ?? null,
     checklist_coverage: rewardFile?.checklist_coverage ?? null,
     critical_missing: rewardFile?.critical_missing ?? [],
@@ -134,6 +141,17 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
       clarify_stalled: Boolean(rewardFile?.clarify_stall),
       auto_replied: false,
     },
+    rubric_version: rewardFile?.rubric_version ?? null,
+    benchmark_git_commit: provenance.git_commit ?? null,
+    protocol_sha256: provenance.protocol_sha256 ?? null,
+    worktree_clean: provenance.worktree_clean === true,
+    publish_mode: result.publish_mode === true,
+    schedule_position: Number.isInteger(result.schedule_position) ? result.schedule_position : null,
+    workspace_snapshot: result.workspace_snapshot === true,
+    recovered_metadata: result.recovered_metadata === true,
+    runtime_image_id: result.runtime_image?.id ?? null,
+    quality_isolated: result.quality_isolated === true,
+    claim_scope: result.claim_scope ?? null,
   };
 
   const rewardRow = hasVerifierReward
@@ -146,12 +164,22 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
         lamina_task_id: task_id,
         lamina_arm: arm,
         lamina_run: run,
+        benchmark_git_commit: provenance.git_commit ?? null,
+        protocol_sha256: provenance.protocol_sha256 ?? null,
+        worktree_clean: provenance.worktree_clean === true,
+        publish_mode: result.publish_mode === true,
+        schedule_position: Number.isInteger(result.schedule_position) ? result.schedule_position : null,
+        workspace_snapshot: result.workspace_snapshot === true,
+        recovered_metadata: result.recovered_metadata === true,
+        runtime_image_id: result.runtime_image?.id ?? null,
+        quality_isolated: result.quality_isolated === true,
+        claim_scope: result.claim_scope ?? null,
       }
     : {
         reward: 0,
         composite: 0,
         artifact_valid: false,
-        scoring_incomplete: true,
+        scoring_incomplete: !agentFailed,
         agent_failed: agentFailed,
         failed_gate,
         lamina_task_id: task_id,
@@ -161,6 +189,19 @@ function ingestTrial({ jobDir, jobName, trialDir, release }) {
         feedback: agentFailed
           ? `Agent harness failed (exit ${result.agent_exit_status ?? '?'})`
           : 'No verifier reward.json',
+        harness_version: release.harness_version,
+        results_contract_version: release.results_contract_version,
+        rubric_version: release.rubric_version,
+        benchmark_git_commit: provenance.git_commit ?? null,
+        protocol_sha256: provenance.protocol_sha256 ?? null,
+        worktree_clean: provenance.worktree_clean === true,
+        publish_mode: result.publish_mode === true,
+        schedule_position: Number.isInteger(result.schedule_position) ? result.schedule_position : null,
+        workspace_snapshot: result.workspace_snapshot === true,
+        recovered_metadata: result.recovered_metadata === true,
+        runtime_image_id: result.runtime_image?.id ?? null,
+        quality_isolated: result.quality_isolated === true,
+        claim_scope: result.claim_scope ?? null,
       };
 
   return { indexRow, reward: rewardRow };
@@ -182,7 +223,10 @@ function main() {
   let skipped = 0;
   let excluded = 0;
 
-  for (const jobDir of listJobDirs(opts.jobsDir)) {
+  const jobDirs = listJobDirs(opts.jobsDir).filter(
+    (jobDir) => !opts.jobNames || opts.jobNames.has(path.basename(jobDir))
+  );
+  for (const jobDir of jobDirs) {
     const jobName = path.basename(jobDir);
     for (const trialDir of listTrialDirs(jobDir)) {
       const ingested = ingestTrial({
@@ -215,7 +259,7 @@ function main() {
   }
 
   console.log(
-    `Ingested ${indexRows.length} trial(s) from ${listJobDirs(opts.jobsDir).length} job dir(s)` +
+    `Ingested ${indexRows.length} trial(s) from ${jobDirs.length} job dir(s)` +
       (skipped ? ` (${skipped} skipped)` : '') +
       (excluded ? ` (${excluded} scoring_incomplete/agent_failed — excluded from claim aggregate)` : '')
   );

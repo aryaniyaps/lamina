@@ -1,4 +1,4 @@
-# LaminaBench judge context
+# Product behavior judge context
 
 ## Task description
 Design and implement recurring issues in Plane as a complete feature: domain model, illegal states, actors and permissions, series/occurrence workflows, edge cases, named trade-offs, and a buildable product surface that fits Plane.

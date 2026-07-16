@@ -94,6 +94,51 @@ function validateHarborTask(task) {
     }
   }
 
+  const controlInstruction = fs.readFileSync(
+    path.join(harborPath(task.id, 'control'), 'instruction.md'),
+    'utf8'
+  );
+  const treatmentInstruction = fs.readFileSync(
+    path.join(harborPath(task.id, 'treatment'), 'instruction.md'),
+    'utf8'
+  );
+  if (controlInstruction !== treatmentInstruction) {
+    errors.push(`${task.id}: control and treatment instruction.md must be byte-identical`);
+  }
+  const controlDockerfile = fs.readFileSync(
+    path.join(harborPath(task.id, 'control'), 'environment/Dockerfile'),
+    'utf8'
+  );
+  const treatmentDockerfile = fs.readFileSync(
+    path.join(harborPath(task.id, 'treatment'), 'environment/Dockerfile'),
+    'utf8'
+  );
+  if (controlDockerfile !== treatmentDockerfile) {
+    errors.push(`${task.id}: control and treatment Dockerfiles must be byte-identical`);
+  }
+  const sharedVerifierFiles = [
+    'capture_artifact.py', 'criteria.py', 'finalize_reward.py', 'quality_checks.py',
+    'reward.toml', 'run_rewardkit.sh', 'subscription_judge.py', 'test.sh',
+    'write_baseline_manifest.py', 'llm_judge/prompt.md',
+    'llm_judge/product-behavior.toml', 'golden.yaml', 'judge-context.md',
+    'matched-phased-agent.sh',
+  ];
+  for (const rel of sharedVerifierFiles) {
+    const controlFile = fs.readFileSync(path.join(harborPath(task.id, 'control'), 'tests', rel));
+    const treatmentFile = fs.readFileSync(path.join(harborPath(task.id, 'treatment'), 'tests', rel));
+    if (!controlFile.equals(treatmentFile)) {
+      errors.push(`${task.id}: verifier file differs across arms: ${rel}`);
+    }
+    if (!['golden.yaml', 'judge-context.md'].includes(rel)) {
+      const canonicalFile = fs.readFileSync(
+        path.join(ROOT, 'benchmarks/harbor/verifier', rel)
+      );
+      if (!controlFile.equals(canonicalFile)) {
+        errors.push(`${task.id}: generated verifier is stale versus canonical file: ${rel}`);
+      }
+    }
+  }
+
   const goldenPath = path.join(GOLDENS_DIR, task.id, 'golden.yaml');
   if (!fs.existsSync(goldenPath)) {
     errors.push(`${task.id}: missing goldens/${task.id}/golden.yaml`);
@@ -201,6 +246,9 @@ function main() {
 
   const tasks = discoverHarborTasks();
   const release = readRelease();
+  const methodology = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'benchmarks/methodology.json'), 'utf8')
+  );
   const coreCount = tasks.filter((t) => t.suite === 'core').length;
   const extendedCount = tasks.filter((t) => t.suite === 'extended').length;
   const expectedPublished = Number(release.tasks_published ?? 5);
@@ -213,6 +261,26 @@ function main() {
   }
   if (tasks.length !== Number(release.tasks_total)) {
     errors.push(`Expected ${release.tasks_total} tasks, found ${tasks.length}`);
+  }
+  const coreIds = tasks.filter((t) => t.suite === 'core').map((t) => t.id);
+  const declaredCoreIds = methodology.corpus?.published_task_ids || [];
+  if (JSON.stringify(coreIds) !== JSON.stringify(declaredCoreIds)) {
+    errors.push(
+      `Registry core IDs ${coreIds.join(',')} do not match methodology corpus ${declaredCoreIds.join(',')}`
+    );
+  }
+  if ((release.publish_suite || 'core') !== 'core') {
+    errors.push('release.publish_suite must be core for the v1 claim');
+  }
+  const expectedPublishTrials = coreCount * 2 * Number(release.runs_per_arm_publish || 0);
+  if (Number(release.trials_total_publish) !== expectedPublishTrials) {
+    errors.push(`trials_total_publish must equal ${expectedPublishTrials}`);
+  }
+  if (!String(release.container_base_image || '').includes('@sha256:')) {
+    errors.push('container_base_image must be digest-pinned');
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(String(release.codex_cli_version || ''))) {
+    errors.push('codex_cli_version must be an exact semver pin');
   }
 
   if (errors.length) {

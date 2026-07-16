@@ -1,4 +1,4 @@
-# LaminaBench judge context
+# Product behavior judge context
 
 ## Task description
 Audit the checkout flow for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.

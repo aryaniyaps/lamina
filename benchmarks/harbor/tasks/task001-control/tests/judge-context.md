@@ -1,4 +1,4 @@
-# LaminaBench judge context
+# Product behavior judge context
 
 ## Task description
 Design and implement a full household budgeting product — not a demo stub: domain model, illegal states, actors and permissions, all primary workflows (onboarding, linking, weekly review, alerts, partner invite, settings), edge cases, named trade-offs, and a buildable multi-surface product.

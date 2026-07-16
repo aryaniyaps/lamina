@@ -77,8 +77,10 @@ def aggregate_rewards(rewards: list[dict[str, Any]]) -> dict[str, Any]:
     included = 0
 
     for row in rewards:
-        # Incomplete / failed-agent trials are diagnostic only — not claim scores.
-        if row.get("scoring_incomplete") or row.get("agent_failed") or row.get("llm_judge_degraded"):
+        # Judge/infrastructure missingness cannot be scored. Agent and artifact
+        # failures are outcomes, however, and remain in the intention-to-treat
+        # estimate at their finalized zero reward.
+        if row.get("scoring_incomplete") or row.get("llm_judge_degraded"):
             excluded += 1
             continue
         task_id = row.get("lamina_task_id")
@@ -86,6 +88,8 @@ def aggregate_rewards(rewards: list[dict[str, Any]]) -> dict[str, Any]:
         if not task_id or arm not in ("control", "treatment"):
             continue
         run = int(row.get("lamina_run") or 1)
+        if by_cell[(task_id, arm)].get(run):
+            raise ValueError(f"Duplicate trial for {task_id}:{arm}:run{run}")
         by_cell[(task_id, arm)][run].append(trial_score(row))
         included += 1
         if row.get("lamina_category"):

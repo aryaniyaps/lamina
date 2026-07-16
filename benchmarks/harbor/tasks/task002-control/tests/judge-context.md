@@ -1,4 +1,4 @@
-# LaminaBench judge context
+# Product behavior judge context
 
 ## Task description
 Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface.

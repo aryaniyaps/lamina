@@ -1,4 +1,4 @@
-# LaminaBench judge context
+# Product behavior judge context
 
 ## Task description
 Design and implement a complete product for healthcare appointment scheduling with complex insurance rules: domain entities, illegal states, actors and permissions, workflows, edge-case scenarios, named trade-offs, and a buildable full-product surface — not a stub.

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
-WORKSPACE = Path("/app")
-META_PATH = Path("/tests/task-meta.json")
-OUT = Path("/logs/verifier/quality-checks.json")
+WORKSPACE = Path(os.environ.get("LAMINA_QUALITY_WORKSPACE", "/app"))
+META_PATH = Path(os.environ.get("LAMINA_QUALITY_META", "/tests/task-meta.json"))
+OUT = Path(os.environ.get("LAMINA_QUALITY_OUT", "/logs/verifier/quality-checks.json"))
 COMMAND_TIMEOUT_SEC = 240
 
 
@@ -20,10 +23,27 @@ def load_json(path: Path) -> dict:
         return {}
 
 
-def select_checks() -> tuple[list[tuple[list[str], str, str]], dict]:
-    package = load_json(WORKSPACE / "package.json")
+def dependency_install(workspace: Path, package: dict) -> tuple[list[str] | None, str | None]:
+    if (workspace / "package-lock.json").exists() or (workspace / "npm-shrinkwrap.json").exists():
+        return ["npm", "ci", "--no-audit", "--no-fund"], "npm_lockfile"
+    if (workspace / "pnpm-lock.yaml").exists():
+        return ["corepack", "pnpm", "install", "--frozen-lockfile"], "pnpm_lockfile"
+    if (workspace / "yarn.lock").exists():
+        return ["corepack", "yarn", "install", "--immutable"], "yarn_lockfile"
+    dependencies = package.get("dependencies") or {}
+    dev_dependencies = package.get("devDependencies") or {}
+    if not dependencies and not dev_dependencies:
+        return [], "no_dependencies"
+    return None, None
+
+
+def select_checks(workspace: Path) -> tuple[list[tuple[list[str], str, str]], dict, dict]:
+    package = load_json(workspace / "package.json")
     scripts = package.get("scripts") if isinstance(package.get("scripts"), dict) else {}
     checks: list[tuple[list[str], str, str]] = []
+    install, install_source = dependency_install(workspace, package)
+    if install:
+        checks.append((install, install_source or "lockfile", "required_dependency_install"))
     if scripts.get("build"):
         checks.append((["npm", "run", "build"], "package.json#scripts.build", "required_build"))
     elif scripts.get("typecheck"):
@@ -33,18 +53,51 @@ def select_checks() -> tuple[list[tuple[list[str], str, str]], dict]:
         # declared suite is useful counterevidence and must not be hidden by a
         # syntax-only build.
         checks.append((["npm", "test"], "package.json#scripts.test", "supplemental_declared_test"))
-    if not checks and ((WORKSPACE / "pyproject.toml").exists() or (WORKSPACE / "setup.py").exists()):
+    if not checks and ((workspace / "pyproject.toml").exists() or (workspace / "setup.py").exists()):
         checks.append((["python3", "-m", "compileall", "-q", "."], "python_compileall", "required_compile"))
-    if not checks and (WORKSPACE / "go.mod").exists():
+    if not checks and (workspace / "go.mod").exists():
         checks.append((["go", "test", "./..."], "go_test_compile", "required_compile_and_test"))
-    if not checks and (WORKSPACE / "Cargo.toml").exists():
+    if not checks and (workspace / "Cargo.toml").exists():
         checks.append((["cargo", "check", "--quiet"], "cargo_check", "required_compile"))
-    return checks, scripts
+    return checks, scripts, {"install_command": install, "install_source": install_source}
+
+
+def clean_workspace_copy(destination: Path) -> None:
+    skip = {
+        "node_modules", ".git", ".lamina", ".agents", ".codex", ".next",
+        "dist", "build", "coverage", ".cache", ".turbo", ".pnpm-store",
+    }
+    def ignored(root: str, names: list[str]) -> list[str]:
+        return [
+            name
+            for name in names
+            if name in skip or (Path(root) / name).is_symlink()
+        ]
+
+    shutil.copytree(
+        WORKSPACE,
+        destination,
+        dirs_exist_ok=True,
+        ignore=ignored,
+    )
 
 
 def main() -> int:
     task_meta = load_json(META_PATH)
-    checks, scripts = select_checks()
+    with tempfile.TemporaryDirectory(prefix="lamina-quality-") as tmp:
+        clean_workspace = Path(tmp) / "workspace"
+        clean_workspace_copy(clean_workspace)
+        checks, scripts, dependency = select_checks(clean_workspace)
+        return run_checks(task_meta, clean_workspace, checks, scripts, dependency)
+
+
+def run_checks(
+    task_meta: dict,
+    clean_workspace: Path,
+    checks: list[tuple[list[str], str, str]],
+    scripts: dict,
+    dependency: dict,
+) -> int:
     required = task_meta.get("category") == "greenfield"
     result = {
         "schema": "lamina-bench-quality/v2",
@@ -56,7 +109,13 @@ def main() -> int:
         "exit_code": None,
         "output_tail": "",
         "checks": [],
+        "clean_workspace": True,
+        **dependency,
     }
+    if (clean_workspace / "package.json").exists() and dependency.get("install_command") is None:
+        result["status"] = "missing" if required else "not_applicable"
+        result["output_tail"] = "No lockfile for declared Node dependencies; clean build not reproducible."
+        checks = []
     if checks:
         failed = False
         outputs: list[str] = []
@@ -72,7 +131,7 @@ def main() -> int:
             try:
                 proc = subprocess.run(
                     command,
-                    cwd=WORKSPACE,
+                    cwd=clean_workspace,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,

@@ -170,6 +170,10 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
             return
         for entry in sorted(dir_path.iterdir()):
             rel = f"{prefix}/{entry.name}" if prefix else entry.name
+            # Never follow agent-created links into verifier mounts or other
+            # container paths when capturing the scored artifact.
+            if entry.is_symlink():
+                continue
             if entry.is_dir():
                 if entry.name in SKIP_DIRS:
                     continue
@@ -335,7 +339,7 @@ def capture_implementation_artifact(
         else:
             unchanged.append((rel, text))
 
-    parts = ["# LaminaBench implementation capture\n"]
+    parts = ["# Application source capture\n"]
     included: list[str] = []
     total = len(parts[0])
 

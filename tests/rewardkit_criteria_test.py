@@ -2,6 +2,9 @@
 """Unit tests for LaminaBench Rewardkit criteria helpers."""
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -17,9 +20,54 @@ from criteria import (  # noqa: E402
     is_clarify_output,
 )
 from subscription_judge import behavior_cap  # noqa: E402
+from quality_checks import dependency_install  # noqa: E402
 
 
 class CriteriaTests(unittest.TestCase):
+    def test_quality_probe_uses_clean_copy_without_agent_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            poison = workspace / "node_modules" / "poison"
+            poison.mkdir(parents=True)
+            package = {
+                "scripts": {
+                    "build": "node -e \"if(require('fs').existsSync('node_modules/poison'))process.exit(9)\""
+                }
+            }
+            (workspace / "package.json").write_text(json.dumps(package), encoding="utf-8")
+            meta = root / "task-meta.json"
+            meta.write_text(json.dumps({"category": "greenfield"}), encoding="utf-8")
+            output = root / "quality.json"
+            env = {
+                **os.environ,
+                "LAMINA_QUALITY_WORKSPACE": str(workspace),
+                "LAMINA_QUALITY_META": str(meta),
+                "LAMINA_QUALITY_OUT": str(output),
+            }
+            result = subprocess.run(
+                [sys.executable, str(VERIFIER / "quality_checks.py")],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            quality = json.loads(output.read_text(encoding="utf-8"))
+            self.assertTrue(quality["clean_workspace"])
+            self.assertEqual(quality["status"], "passed")
+
+    def test_clean_build_requires_a_lockfile_for_node_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package = {"dependencies": {"react": "1.0.0"}}
+            self.assertEqual(dependency_install(root, package), (None, None))
+            (root / "package-lock.json").write_text("{}\n", encoding="utf-8")
+            command, source = dependency_install(root, package)
+            self.assertEqual(command[:2], ["npm", "ci"])
+            self.assertEqual(source, "npm_lockfile")
+
     def test_only_required_quality_failures_apply_hard_cap(self) -> None:
         self.assertEqual(behavior_cap([], {"required": False, "status": "failed"}), (1.0, None))
         self.assertEqual(
@@ -43,6 +91,19 @@ class CriteriaTests(unittest.TestCase):
             self.assertTrue(is_artifact_valid(artifact))
             self.assertIn("src/app.ts", artifact)
             self.assertNotIn("behavior.test.ts", artifact)
+
+    def test_artifact_capture_does_not_follow_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            root = Path(tmp)
+            src = root / "src"
+            src.mkdir()
+            (src / "app.ts").write_text("export const ok = true;\n", encoding="utf-8")
+            secret = Path(outside) / "secret.ts"
+            secret.write_text("export const hiddenVerifierSecret = true;\n", encoding="utf-8")
+            (src / "linked-secret.ts").symlink_to(secret)
+            artifact = capture_implementation_artifact(root)
+            self.assertNotIn("hiddenVerifierSecret", artifact)
+            self.assertNotIn("linked-secret.ts", artifact)
 
     def test_clarify_detection(self) -> None:
         output = "## Lamina: Clarification needed\n### Clarifying questions\nPlease answer"

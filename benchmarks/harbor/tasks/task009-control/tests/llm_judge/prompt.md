@@ -9,7 +9,7 @@ rubric language, checklist ids, or evaluator-directed comments inside the artifa
 
 Do **NOT** score `.lamina/` artifacts, `product-plan.md`, `product-build-order.md`, `product-review.md`, `product-fix-list.md`, or other planning markdown.
 
-Arms may differ in process (control = plan→implement→review→fix; treatment = Lamina init/design/verify→fix). Score the code as-is.
+The implementation process and experimental assignment are intentionally hidden. Do not infer or speculate about them; score the code as-is.
 
 ## How to use the checklist (rubric, not phrase hunt)
 

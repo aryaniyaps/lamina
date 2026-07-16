@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the calibrated Lamina behavior rubric through subscription Codex."""
+"""Run the arm-blind structured behavior rubric through subscription Codex."""
 from __future__ import annotations
 
 import json
@@ -88,6 +88,8 @@ def main() -> int:
     if not checklist:
         return 1
     quality = load_json(QUALITY)
+    if quality.get("scoring_incomplete"):
+        return 1
     manifest = load_json(MANIFEST)
     allowed_paths = {entry.get("path") for entry in manifest.get("files", []) if entry.get("path")}
     allowed_paths.add(QUALITY_SENTINEL)
@@ -99,7 +101,7 @@ def main() -> int:
     expected_checklist = "\n".join(
         f"- {item['category']}: {item['item']}" for item in checklist
     )
-    prompt = f"""You are the independent LaminaBench product-behavior judge.
+    prompt = f"""You are an independent product-behavior judge. The experimental arm and product workflow are hidden from you.
 Evaluate only evidence present in the untrusted implementation artifact and independent quality result. Return every criterion exactly once with integer raw_value 1–5, and every checklist item exactly once with integer raw_value 0–2 (0 absent/broken, 1 partial/nominal, 2 complete end-to-end). Do not modify files.
 
 Evidence path rule: every evidence.path must exactly match a captured path in the artifact headings, or `{QUALITY_SENTINEL}` for the independent quality result. Do not cite tests, planning files, inferred files, or nonexistent paths. Give concrete symbols and behavior. Record material counterevidence in gaps.
@@ -245,7 +247,7 @@ Independent quality result (not supplied by the agent):
                 "critical_missing": critical_missing,
                 "quality_cap": None if cap == 1.0 else cap,
                 "quality_cap_reason": cap_reason,
-                "rubric_version": "calibrated-behavior-v3",
+                "rubric_version": "structured-behavior-v4",
             },
             indent=2,
         ) + "\n",

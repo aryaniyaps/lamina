@@ -16,6 +16,7 @@ import {
   METRIC_SCRIPT,
   RAW_REWARDS,
 } from './bench-results-lib.mjs';
+import { evaluateClaimReadiness } from './claim-readiness.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -59,6 +60,12 @@ function main() {
   }
 
   const summary = JSON.parse(fs.readFileSync(opts.output, 'utf8'));
+  const rawRows = fs
+    .readFileSync(opts.input, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const claimReadiness = evaluateClaimReadiness(rawRows, release);
   const header = {
     release_tag: release.release_tag,
     harness_version: release.harness_version,
@@ -67,6 +74,7 @@ function main() {
     runs_per_arm_publish: release.runs_per_arm_publish ?? null,
     aggregated_at: new Date().toISOString(),
     input: path.relative(ROOT, opts.input),
+    ...claimReadiness,
     ...summary,
   };
   fs.writeFileSync(opts.output, JSON.stringify(header, null, 2) + '\n');
@@ -77,6 +85,10 @@ function main() {
       `mean Δ ${header.mean_delta_pp}pp ` +
       `(95% CI ${header.bootstrap_95_ci_delta_pp?.join('–')}pp)`
   );
+  console.log(`  claim ready: ${header.claim_ready ? 'YES' : 'NO — exploratory only'}`);
+  if (!header.claim_ready) {
+    for (const reason of header.reasons) console.log(`    - ${reason}`);
+  }
 }
 
 main();

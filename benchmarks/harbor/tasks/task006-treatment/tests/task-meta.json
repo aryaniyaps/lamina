@@ -5,6 +5,8 @@
   "workflow": "audit",
   "prompt": "Audit document sharing and permissions in Outline for product-behavior gaps: invariant violations, state consistency failures, permission issues, error recovery, and prioritized fixes.",
   "fixture": "outline-audit-ready",
-  "harness_version": "1.5.1",
-  "results_contract_version": "2.1.0"
+  "harness_version": "1.7.0",
+  "results_contract_version": "2.3.0",
+  "rubric_version": "structured-behavior-v4",
+  "codex_cli_version": "0.144.5"
 }

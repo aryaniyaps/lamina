@@ -56,7 +56,7 @@ assert.ok(/rewardkit/.test(testSh), 'test.sh must invoke rewardkit');
 assert.ok(fs.existsSync(path.join(control, 'tests/run_rewardkit.sh')), 'run_rewardkit.sh must be synced');
 
 const finalize = fs.readFileSync(path.join(control, 'tests/finalize_reward.py'), 'utf8');
-assert.ok(/calibrated behavior|item coverage/i.test(finalize), 'finalize must describe calibrated behavior scoring');
+assert.ok(/structured_behavior_v4|item coverage/i.test(finalize), 'finalize must describe structured behavior scoring');
 assert.ok(!/score_golden|golden_coverage_pct/.test(finalize), 'finalize must not score phrase golden');
 
 const criteria = fs.readFileSync(path.join(control, 'tests/criteria.py'), 'utf8');
@@ -72,11 +72,14 @@ assert.ok(/name = "aryaniyaps\/task001-control"/.test(taskToml), 'task.toml must
 assert.ok(/ecological-matched-phases/.test(taskToml), 'task.toml must tag ecological matched phases');
 assert.ok(/\[verifier\.env\]/.test(taskToml), 'task.toml must pass verifier env for Rewardkit judge');
 const taskMeta = JSON.parse(fs.readFileSync(path.join(control, 'tests/task-meta.json'), 'utf8'));
-assert.equal(taskMeta.harness_version, '1.5.1');
-assert.equal(taskMeta.results_contract_version, '2.1.0');
+assert.equal(taskMeta.harness_version, '1.7.0');
+assert.equal(taskMeta.results_contract_version, '2.3.0');
+assert.equal(taskMeta.rubric_version, 'structured-behavior-v4');
 
 const dockerfile = fs.readFileSync(path.join(control, 'environment/Dockerfile'), 'utf8');
 assert.ok(/@openai\/codex/.test(dockerfile), 'Dockerfile must install Codex for the subscription-auth runner');
+assert.ok(/@openai\/codex@0\.144\.5/.test(dockerfile), 'Dockerfile must pin the Codex CLI');
+assert.ok(/node:20-bookworm-slim@sha256:/.test(dockerfile), 'Dockerfile must pin its base image digest');
 assert.ok(!/@anthropic-ai\/claude-code/.test(dockerfile), 'Dockerfile must not retain the removed Claude Code agent');
 
 assert.ok(
@@ -92,8 +95,8 @@ const methodology = JSON.parse(fs.readFileSync(path.join(ROOT, 'benchmarks/metho
 assert.equal(methodology.id, 'design_c_ecological_matched_phases');
 
 const release = fs.readFileSync(path.join(ROOT, 'benchmarks/release.yaml'), 'utf8');
-assert.ok(release.includes('results_contract_version: "2.1.0"'));
-assert.ok(release.includes('harness_version: "1.5.1"'));
+assert.ok(release.includes('results_contract_version: "2.3.0"'));
+assert.ok(release.includes('harness_version: "1.7.0"'));
 assert.ok(release.includes('phases_per_trial: 5'));
 assert.ok(!/golden_field_weights|golden_coverage:|harbor_prompt_template/.test(release));
 
@@ -133,10 +136,13 @@ const harness = fs.readFileSync(path.join(ROOT, 'benchmarks/harbor/verifier/matc
 assert.ok(harness.includes('product-plan.md'), 'harness must use product-plan.md for control');
 assert.ok(harness.includes('BRIEF_BLOCK'), 'harness must inject brief block into control phases');
 assert.ok(harness.includes('unattended trial'), 'harness must say unattended trial not benchmark');
+const judgePrompt = fs.readFileSync(path.join(ROOT, 'benchmarks/harbor/verifier/llm_judge/prompt.md'), 'utf8');
+assert.ok(!/control\s*=|treatment\s*=|Lamina init/i.test(judgePrompt), 'judge prompt must be blind to arm workflow');
 const runner = fs.readFileSync(path.join(ROOT, 'benchmarks/scripts/run-phased.mjs'), 'utf8');
 assert.ok(
-  runner.includes(':/tmp/matched-phased-agent.sh:ro'),
-  'agent must receive only its harness script, not the verifier bundle'
+  runner.includes("{ stdio: ['pipe', 'inherit', 'inherit'], input: agentDriver }") &&
+    !runner.includes(':/tmp/matched-phased-agent.sh:ro'),
+  'agent harness must be streamed over stdin, not left readable as a cross-arm file'
 );
 const syncSource = fs.readFileSync(path.join(ROOT, 'benchmarks/scripts/harbor-sync.mjs'), 'utf8');
 assert.ok(!syncSource.includes('bestEffortClear'), 'workspace cleanup must never continue partially');
@@ -146,10 +152,16 @@ assert.equal(
   1,
   'only the post-agent verifier container may receive hidden verifier files'
 );
+assert.ok(
+  runner.includes("${path.join(envDir, 'workspace')}:/app:ro") &&
+    runner.includes("${qualityDir}:/logs/verifier") &&
+    runner.includes('LAMINA_BENCH_QUALITY_PRECOMPUTED=1'),
+  'agent-authored quality commands must run separately from the read-only scoring container'
+);
 assert.ok(!fs.existsSync(path.join(ROOT, 'benchmarks/harbor/verifier/treatment-phased-agent.sh')));
 const ingestSource = fs.readFileSync(path.join(ROOT, 'benchmarks/scripts/ingest-harbor-results.mjs'), 'utf8');
 assert.ok(
-  ingestSource.includes("rewardFile?.rubric_version === 'calibrated-behavior-v3'") &&
+  ingestSource.includes('rewardFile?.rubric_version === release.rubric_version') &&
     ingestSource.includes('rewardFile?.results_contract_version === release.results_contract_version &&'),
   'ingest must require the exact current contract and rubric together'
 );

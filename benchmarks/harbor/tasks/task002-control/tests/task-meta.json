@@ -5,6 +5,8 @@
   "workflow": "design",
   "prompt": "Design and implement a full multi-specialty clinic scheduling product — not a booking stub: domain model, illegal states, actors and permissions, book/reschedule/cancel/waitlist/front-desk workflows, edge cases, named trade-offs, and a buildable patient + staff product surface.",
   "fixture": null,
-  "harness_version": "1.5.1",
-  "results_contract_version": "2.1.0"
+  "harness_version": "1.7.0",
+  "results_contract_version": "2.3.0",
+  "rubric_version": "structured-behavior-v4",
+  "codex_cli_version": "0.144.5"
 }

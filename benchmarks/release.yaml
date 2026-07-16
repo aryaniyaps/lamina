@@ -1,9 +1,10 @@
 version: "1.0.0"
 release_tag: bench-v1
 created: "2026-07-11"
-harness_version: "1.5.1"
+harness_version: "1.7.0"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "2.1.0"
+results_contract_version: "2.3.0"
+rubric_version: "structured-behavior-v4"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
@@ -12,13 +13,19 @@ agent: codex
 # Authoritative Codex model pin. CODEX_MODEL must match unless
 # LAMINA_BENCH_ALLOW_MODEL_OVERRIDE=1.
 model: gpt-5.6-sol
+codex_cli_version: "0.144.5"
+container_base_image: "node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0"
 # Intent only — the Codex CLI exposes reasoning effort, not sampling controls.
 temperature: 0
 top_p: 1.0
 max_tokens: 8192
 runs_per_arm: 1
-# Target for publishable results; use --runs 3 at release time.
+# Target for publishable core or explicitly task-scoped results.
 runs_per_arm_publish: 3
+publish_suite: core
+# Frozen deterministic seed for task order and within-pair arm order. Publish
+# runs are counterbalanced rather than always running control first.
+schedule_seed: "bench-v1-design-c-2026-07-16"
 tasks_total: 10
 tasks_published: 5
 trials_per_task: 2
@@ -36,6 +43,7 @@ phases_per_trial: 5
 # smoke test was still productively editing when a one-hour ceiling fired.
 agent_timeout_sec: 7200
 verifier_timeout_sec: 900
+quality_timeout_sec: 900
 # Subscription judge retries.
 judge_max_attempts: 2
 judge_retry_delay_sec: 2
@@ -55,7 +63,7 @@ scoring_weights:
   strict_dimensions: 0.65
   item_coverage: 0.35
 
-claim_surface: "calibrated blind behavior judge on application source: 65% strict dimensions + 35% item coverage, with independent quality caps"
+claim_surface: "arm-blind structured behavior judge on application source: 65% strict dimensions + 35% item coverage, with independent quality caps"
 
 llm_judges:
   - "openai/gpt-5.6-sol"

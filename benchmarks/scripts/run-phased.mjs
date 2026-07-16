@@ -13,6 +13,7 @@ import { readYamlSync } from './yaml.mjs';
 import { loadBenchEnv, resolveBenchModel } from './load-bench-env.mjs';
 import { HARBOR_TASKS_DIR, loadRegistry, parseHarborDirName } from './harbor-tasks.mjs';
 import { refreshTrialWorkspace } from './harbor-sync.mjs';
+import { benchmarkProvenance } from './benchmark-provenance.mjs';
 
 loadBenchEnv();
 
@@ -47,7 +48,8 @@ function fixTrialOwnership(trialDir) {
   fixOwnership(trialDir);
 }
 
-function runPhasedBenchmark(harborName, release, attempt) {
+function runPhasedBenchmark(harborName, release, attempt, execution = {}) {
+  const trialStartedAt = new Date().toISOString();
   const parsed = parseHarborDirName(harborName);
   if (!parsed) {
     throw new Error(`Invalid harbor task name: ${harborName}`);
@@ -62,20 +64,29 @@ function runPhasedBenchmark(harborName, release, attempt) {
     .update(fs.readFileSync(dockerfilePath))
     .digest('hex')
     .slice(0, 12);
-  const imageTag = `lamina-bench-${harborName}-${imageFingerprint}:local`;
+  const imageTag = `lamina-bench-runtime-${imageFingerprint}:local`;
   const jobName = `${harborName}__run${attempt}`;
   const jobDir = path.join(HARBOR_JOBS, jobName);
   const trialName = `${harborName}__phased`;
   const trialDir = path.join(jobDir, trialName);
 
+  // A trial invocation is never a resume. Remove every prior log/reward so an
+  // infrastructure failure cannot accidentally inherit a stale success.
+  if (fs.existsSync(trialDir)) {
+    fixTrialOwnership(trialDir);
+    fs.rmSync(trialDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(path.join(trialDir, 'agent'), { recursive: true });
   fs.mkdirSync(path.join(trialDir, 'agent', 'home'), { recursive: true });
   fs.mkdirSync(path.join(trialDir, 'verifier'), { recursive: true });
+  fs.mkdirSync(path.join(trialDir, 'quality'), { recursive: true });
 
   const phasesPerTrial = release.phases_per_trial ?? 5;
   const agentTimeoutSec = release.agent_timeout_sec ?? 600;
   const judgeMaxAttempts = release.judge_max_attempts ?? 2;
   const judgeRetryDelaySec = release.judge_retry_delay_sec ?? 2;
+  const verifierTimeoutSec = release.verifier_timeout_sec ?? 900;
+  const qualityTimeoutSec = release.quality_timeout_sec ?? 900;
 
   console.log(
     `\n[matched-phased] ${harborName} arm=${arm} workflow=${workflow} attempt ${attempt} (${phasesPerTrial} phases, trial_timeout=${agentTimeoutSec}s)`
@@ -104,6 +115,11 @@ function runPhasedBenchmark(harborName, release, attempt) {
   } else {
     console.log(`[matched-phased] reusing image ${imageTag}`);
   }
+  const runtimeImageId = spawnSync(
+    'docker',
+    ['image', 'inspect', imageTag, '--format', '{{.Id}}'],
+    { encoding: 'utf8' }
+  ).stdout?.trim() || null;
 
   const codexAuthPath = process.env.CODEX_AUTH_JSON_PATH || path.join(process.env.HOME || '', '.codex', 'auth.json');
   if (!fs.existsSync(codexAuthPath)) {
@@ -141,6 +157,10 @@ function runPhasedBenchmark(harborName, release, attempt) {
     '-e',
     `JUDGE_RETRY_DELAY_SEC=${judgeRetryDelaySec}`,
   ];
+  const agentDriver = fs.readFileSync(
+    path.join(taskDir, 'tests', 'matched-phased-agent.sh'),
+    'utf8'
+  );
 
   // Hard wall-clock for the whole agent trial (prevents 20–60m ECONNRESET hangs).
   const agent = docker(
@@ -161,15 +181,13 @@ function runPhasedBenchmark(harborName, release, attempt) {
       `${codexAuthPath}:/tmp/codex-auth.json:ro`,
       '-v',
       `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
-      '-v',
-      `${path.join(taskDir, 'tests', 'matched-phased-agent.sh')}:/tmp/matched-phased-agent.sh:ro`,
       '-w',
       '/app',
       imageTag,
       'bash',
-      '/tmp/matched-phased-agent.sh',
+      '-s',
     ],
-    { stdio: 'inherit' }
+    { stdio: ['pipe', 'inherit', 'inherit'], input: agentDriver }
   );
   if (agent.status === 124) {
     console.warn(
@@ -187,7 +205,7 @@ function runPhasedBenchmark(harborName, release, attempt) {
           task_name: `aryaniyaps/${harborName}`,
           trial_name: trialName,
           agent_info: { name: 'codex', model_info: { name: model, provider: 'openai' } },
-          started_at: new Date().toISOString(),
+          started_at: trialStartedAt,
           finished_at: new Date().toISOString(),
           runner: 'matched-phased',
           lamina_arm: arm,
@@ -196,6 +214,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
           reward_present: false,
           agent_failed: true,
           agent_exit_status: agent.status,
+          benchmark_provenance: execution.provenance ?? benchmarkProvenance(),
+          publish_mode: Boolean(execution.publishMode),
+          schedule_position: execution.schedulePosition ?? null,
+          runtime_image: { tag: imageTag, id: runtimeImageId },
+          quality_isolated: false,
+          claim_scope: execution.claimScope ?? null,
         },
         null,
         2
@@ -207,18 +231,60 @@ function runPhasedBenchmark(harborName, release, attempt) {
   fixWorkspaceOwnership(path.join(envDir, 'workspace'));
   fixTrialOwnership(trialDir);
 
-  const verifier = docker('docker', [
-    'run',
-    '--rm',
+  // Agent-authored build/test commands execute in a disposable container with
+  // source mounted read-only and a separate output directory. They cannot
+  // mutate the scored workspace, implementation capture, judge, or reward.
+  const qualityDir = path.join(trialDir, 'quality');
+  const quality = docker('timeout', [
+    '--signal=TERM',
+    '--kill-after=30',
+    String(qualityTimeoutSec),
+    'docker', 'run', '--rm',
+    '-v', `${path.join(envDir, 'workspace')}:/app:ro`,
+    '-v', `${qualityDir}:/logs/verifier`,
+    '-v', `${path.join(taskDir, 'tests', 'quality_checks.py')}:/opt/quality_checks.py:ro`,
+    '-v', `${path.join(taskDir, 'tests', 'task-meta.json')}:/opt/task-meta.json:ro`,
+    '-e', 'LAMINA_QUALITY_META=/opt/task-meta.json',
+    imageTag,
+    'python3', '/opt/quality_checks.py',
+  ]);
+  fixTrialOwnership(trialDir);
+  const isolatedQuality = path.join(qualityDir, 'quality-checks.json');
+  const verifierQuality = path.join(trialDir, 'verifier', 'quality-checks.json');
+  if (quality.status === 0 && fs.existsSync(isolatedQuality)) {
+    fs.copyFileSync(isolatedQuality, verifierQuality);
+  } else {
+    const category = loadRegistry().find((task) => task.id === taskId)?.category;
+    fs.writeFileSync(
+      verifierQuality,
+      JSON.stringify({
+        schema: 'lamina-bench-quality/v2',
+        required: category === 'greenfield',
+        status: 'infrastructure_error',
+        scoring_incomplete: true,
+        clean_workspace: true,
+        failure_reason: `isolated_quality_probe_exit_${quality.status ?? 'unknown'}`,
+        checks: [],
+      }, null, 2) + '\n'
+    );
+  }
+
+  const verifier = docker('timeout', [
+    '--signal=TERM',
+    '--kill-after=30',
+    String(verifierTimeoutSec),
+    'docker', 'run', '--rm',
     ...envArgs,
     '-e',
     'CODEX_HOME=/logs/verifier/codex-home',
+    '-e',
+    'LAMINA_BENCH_QUALITY_PRECOMPUTED=1',
     '-v',
-    `${path.join(envDir, 'workspace')}:/app`,
+    `${path.join(envDir, 'workspace')}:/app:ro`,
     '-v',
     `${path.join(trialDir, 'verifier')}:/logs/verifier`,
     '-v',
-    `${path.join(trialDir, 'agent')}:/logs/agent`,
+    `${path.join(trialDir, 'agent')}:/logs/agent:ro`,
     '-v',
     `${codexAuthPath}:/tmp/codex-auth.json:ro`,
     '-v',
@@ -265,7 +331,6 @@ function runPhasedBenchmark(harborName, release, attempt) {
   }
 
   const rewardPath = path.join(trialDir, 'verifier', 'reward.json');
-  const started = new Date().toISOString();
   fs.writeFileSync(
     path.join(trialDir, 'result.json'),
     JSON.stringify(
@@ -273,7 +338,7 @@ function runPhasedBenchmark(harborName, release, attempt) {
         task_name: `aryaniyaps/${harborName}`,
         trial_name: trialName,
         agent_info: { name: 'codex', model_info: { name: model, provider: 'openai' } },
-        started_at: started,
+        started_at: trialStartedAt,
         finished_at: new Date().toISOString(),
         runner: 'matched-phased',
         lamina_arm: arm,
@@ -281,6 +346,12 @@ function runPhasedBenchmark(harborName, release, attempt) {
         phases_per_trial: phasesPerTrial,
         reward_present: fs.existsSync(rewardPath),
         workspace_snapshot: fs.existsSync(workspaceSnap),
+        benchmark_provenance: execution.provenance ?? benchmarkProvenance(),
+        publish_mode: Boolean(execution.publishMode),
+        schedule_position: execution.schedulePosition ?? null,
+        runtime_image: { tag: imageTag, id: runtimeImageId },
+        quality_isolated: true,
+        claim_scope: execution.claimScope ?? null,
       },
       null,
       2
@@ -296,6 +367,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const harborName = process.argv[2];
   const attempt = Number(process.argv[3] || '1');
   const release = readYamlSync(path.join(ROOT, 'benchmarks/release.yaml'));
-  const ok = runPhasedBenchmark(harborName, release, attempt);
+  let execution = {};
+  try {
+    execution = JSON.parse(process.env.LAMINA_BENCH_EXECUTION_JSON || '{}');
+  } catch {
+    console.error('ERROR: invalid LAMINA_BENCH_EXECUTION_JSON');
+    process.exit(1);
+  }
+  const ok = runPhasedBenchmark(harborName, release, attempt, execution);
   process.exit(ok ? 0 : 1);
 }

@@ -28,6 +28,9 @@
     "bench:harbor:publish": "node benchmarks/scripts/bench-harbor-publish.mjs",
     "bench:pilot": "node benchmarks/scripts/pilot-harbor.mjs",
     "bench:run": "node benchmarks/scripts/run-harbor-bench.mjs",
+    "bench:run:publish": "node benchmarks/scripts/run-harbor-bench.mjs --publish --fresh",
+    "bench:preflight": "node benchmarks/scripts/run-harbor-bench.mjs --publish --fresh --preflight",
+    "bench:run:task001:publish": "node benchmarks/scripts/run-harbor-bench.mjs --publish-task task001 --fresh --parallel-pairs",
     "bench:ingest": "node benchmarks/scripts/ingest-harbor-results.mjs",
     "bench:aggregate": "node benchmarks/scripts/aggregate-bench-results.mjs",
     "bench:report": "npm run bench:ingest -- --fresh && npm run bench:aggregate",
@@ -42,4 +45,3 @@
   },
   "license": "MIT"
 }
-
