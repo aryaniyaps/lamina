@@ -24,6 +24,12 @@ function docker(cmd, args, opts = {}) {
   return spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env, ...opts });
 }
 
+function dockerRunWithStdinArgs(args) {
+  // `docker run` closes stdin unless -i is present. The phase driver is streamed
+  // to `bash -s`, so omitting this flag produces a false-success empty trial.
+  return ['run', '--rm', '-i', ...args];
+}
+
 function workflowForTask(taskId) {
   const task = loadRegistry().find((t) => t.id === taskId);
   return task?.workflow === 'audit' ? 'audit' : 'design';
@@ -170,22 +176,22 @@ function runPhasedBenchmark(harborName, release, attempt, execution = {}) {
       '--kill-after=30',
       String(agentTimeoutSec),
       'docker',
-      'run',
-      '--rm',
-      ...envArgs,
-      '-v',
-      `${path.join(envDir, 'workspace')}:/app`,
-      '-v',
-      `${path.join(trialDir, 'agent')}:/logs/agent`,
-      '-v',
-      `${codexAuthPath}:/tmp/codex-auth.json:ro`,
-      '-v',
-      `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
-      '-w',
-      '/app',
-      imageTag,
-      'bash',
-      '-s',
+      ...dockerRunWithStdinArgs([
+        ...envArgs,
+        '-v',
+        `${path.join(envDir, 'workspace')}:/app`,
+        '-v',
+        `${path.join(trialDir, 'agent')}:/logs/agent`,
+        '-v',
+        `${codexAuthPath}:/tmp/codex-auth.json:ro`,
+        '-v',
+        `${path.join(taskDir, 'instruction.md')}:/tmp/lamina-bench-instruction.md:ro`,
+        '-w',
+        '/app',
+        imageTag,
+        'bash',
+        '-s',
+      ]),
     ],
     { stdio: ['pipe', 'inherit', 'inherit'], input: agentDriver }
   );
@@ -361,7 +367,7 @@ function runPhasedBenchmark(harborName, release, attempt, execution = {}) {
   return fs.existsSync(rewardPath);
 }
 
-export { runPhasedBenchmark };
+export { dockerRunWithStdinArgs, runPhasedBenchmark };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const harborName = process.argv[2];
