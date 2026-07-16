@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
-import { validateRunYaml } from '../../skills/lamina-orchestrator/lib/run.mjs';
+import { validateRunJson } from '../../skills/lamina-orchestrator/lib/run.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -142,13 +142,13 @@ function findBlueprintDirs(workspace, newFiles = []) {
   return [...dirs];
 }
 
-function findRunYamlFiles(workspace) {
+function findRunJsonFiles(workspace) {
   const runsRoot = path.join(workspace, '.lamina/runs');
   if (!fs.existsSync(runsRoot)) return [];
   const files = [];
   for (const entry of fs.readdirSync(runsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const runFile = path.join(runsRoot, entry.name, 'run.yaml');
+    const runFile = path.join(runsRoot, entry.name, 'run.json');
     if (fs.existsSync(runFile)) files.push(runFile);
   }
   return files;
@@ -212,10 +212,10 @@ function validateArtifactMarkdownText(text) {
 }
 
 function readScenariosText(workspace, blueprintDirs) {
-  for (const runFile of findRunYamlFiles(workspace)) {
+  for (const runFile of findRunJsonFiles(workspace)) {
     try {
       const text = fs.readFileSync(runFile, 'utf8');
-      if (text.includes('scenarios:')) return text;
+      if (text.includes('"scenarios"')) return text;
     } catch {
       /* ignore */
     }
@@ -240,20 +240,11 @@ function countEdgeCategories(text) {
 }
 
 function loadPersonaIds(workspace) {
-  const file = path.join(workspace, '.lamina/personas.yaml');
+  const file = path.join(workspace, '.lamina/personas.json');
   if (!fs.existsSync(file)) return [];
   try {
-    const data = fs.readFileSync(file, 'utf8');
-    const ids = [];
-    for (const line of data.split('\n')) {
-      const m = line.match(/^\s*-\s*id:\s*(\S+)/);
-      if (m) ids.push(m[1]);
-    }
-    if (!ids.length && /^\s*id:\s*(\S+)/m.test(data)) {
-      const m = data.match(/^\s*id:\s*(\S+)/m);
-      if (m) ids.push(m[1]);
-    }
-    return ids;
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return (data.personas || []).map((persona) => persona.id).filter(Boolean);
   } catch {
     return [];
   }
@@ -338,7 +329,7 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, result.ok, result.ok ? 'checkLaminaInit passed' : result.errors.join('; '));
   }
 
-  if (lower.includes('personas.yaml valid') || lower.includes('valid personas')) {
+  if (lower.includes('personas.json valid') || lower.includes('valid personas')) {
     const result = checkLaminaPersonas(workspace);
     return hookResult(text, result.ok, result.ok ? 'checkLaminaPersonas passed' : result.errors.join('; '));
   }
@@ -355,10 +346,10 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'No .lamina/runs files changed' : `Changed run files: ${runChanged.join(', ')}`);
   }
 
-  if (lower.includes('no run.yaml before clarification')) {
-    const runYamlChanged = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/run\.yaml$/i.test(normalizePath(f)));
-    const passed = runYamlChanged.length === 0;
-    return hookResult(text, passed, passed ? 'No run.yaml changed' : `Changed run.yaml files: ${runYamlChanged.join(', ')}`);
+  if (lower.includes('no run.json before clarification')) {
+    const runJsonChanged = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/run\.yaml$/i.test(normalizePath(f)));
+    const passed = runJsonChanged.length === 0;
+    return hookResult(text, passed, passed ? 'No run.json changed' : `Changed run.json files: ${runJsonChanged.join(', ')}`);
   }
 
   if (
@@ -479,16 +470,16 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('domain contract present') || lower.includes('domain required')) {
-    const runFiles = findRunYamlFiles(workspace);
+    const runFiles = findRunJsonFiles(workspace);
     const hasDomain = runFiles.some((f) => {
       try {
-        const t = fs.readFileSync(f, 'utf8');
-        return /\ndomain:/m.test(t) || /^domain:/m.test(t);
+        const run = JSON.parse(fs.readFileSync(f, 'utf8'));
+        return Array.isArray(run.entities) && Array.isArray(run.operations) && Array.isArray(run.workflows);
       } catch {
         return false;
       }
     });
-    return hookResult(text, hasDomain, hasDomain ? 'domain block present in run.yaml' : 'Missing domain in run.yaml');
+    return hookResult(text, hasDomain, hasDomain ? 'domain block present in run.json' : 'Missing domain in run.json');
   }
 
   if (lower.includes('domain contract present')) {
@@ -500,12 +491,12 @@ function gradeAssertion(text, ctx) {
     let ok = false;
     let evidence = 'No run dirs under .lamina/runs/';
     for (const dir of runDirs) {
-      const runFile = path.join(dir, 'run.yaml');
+      const runFile = path.join(dir, 'run.json');
       const implFile = path.join(dir, 'implement.md');
       if (!fs.existsSync(runFile)) continue;
-      const yaml = fs.readFileSync(runFile, 'utf8');
-      const statusReady = /^\s*status:\s*ready_to_build\s*$/m.test(yaml);
-      const statusDesigning = /^\s*status:\s*designing\s*$/m.test(yaml);
+      const run = readJsonSafe(runFile) || {};
+      const statusReady = run.status === 'ready_to_build';
+      const statusDesigning = run.status === 'draft' || run.status === 'needs_input';
       const hasImpl = fs.existsSync(implFile) && fs.statSync(implFile).size > 0;
       if (statusReady && hasImpl) {
         ok = true;
@@ -513,27 +504,27 @@ function gradeAssertion(text, ctx) {
         break;
       }
       if (statusDesigning && !hasImpl) {
-        evidence = `${path.basename(dir)}: stuck status designing without implement.md`;
+        evidence = `${path.basename(dir)}: stuck status draft without implement.md`;
       } else if (statusReady && !hasImpl) {
         evidence = `${path.basename(dir)}: ready_to_build but missing implement.md`;
       } else if (statusDesigning && hasImpl) {
-        evidence = `${path.basename(dir)}: implement.md present but status still designing`;
+        evidence = `${path.basename(dir)}: implement.md present but status still draft`;
       }
     }
     return hookResult(text, ok, ok ? evidence : evidence || 'Missing ready_to_build + implement.md');
   }
 
-  if (lower.includes('not left designing') || lower.includes('status not designing')) {
-    const runFiles = findRunYamlFiles(workspace);
+  if (lower.includes('not left draft') || lower.includes('status not draft') || lower.includes('not left designing') || lower.includes('status not designing')) {
+    const runFiles = findRunJsonFiles(workspace);
     if (!runFiles.length) {
-      return hookResult(text, false, 'No run.yaml found');
+      return hookResult(text, false, 'No run.json found');
     }
-    const stuck = runFiles.filter((f) => /^\s*status:\s*designing\s*$/m.test(fs.readFileSync(f, 'utf8')));
+    const stuck = runFiles.filter((f) => ['draft', 'needs_input'].includes(readJsonSafe(f)?.status));
     const passed = stuck.length === 0;
     return hookResult(
       text,
       passed,
-      passed ? 'No run left in status designing' : `Still designing: ${stuck.map((f) => path.basename(path.dirname(f))).join(', ')}`,
+      passed ? 'No run left in draft or needs_input' : `Still draft: ${stuck.map((f) => path.basename(path.dirname(f))).join(', ')}`,
     );
   }
 
@@ -550,7 +541,7 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('no implementation vocabulary')) {
-    const runText = findRunYamlFiles(workspace).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const runText = findRunJsonFiles(workspace).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const edgeSection = `${runText}\n${output.split(/### Edge cases/i)[1] ?? output}`;
     const passed = !IMPL_VOCAB_PATTERNS.test(edgeSection);
     return hookResult(
@@ -560,45 +551,45 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('scenarios.yaml valid') || lower.includes('run.yaml scenarios valid')) {
-    const runFiles = findRunYamlFiles(workspace);
+  if (lower.includes('scenarios.yaml valid') || lower.includes('run.json scenarios valid')) {
+    const runFiles = findRunJsonFiles(workspace);
     for (const runFile of runFiles) {
-      const result = validateRunYaml(runFile);
+      const result = validateRunJson(runFile);
       if (result.run.scenarios?.length) {
         return hookResult(
           text,
           result.ok,
-          result.ok ? `run.yaml scenarios valid (${path.basename(path.dirname(runFile))})` : result.errors.join('; '),
+          result.ok ? `run.json scenarios valid (${path.basename(path.dirname(runFile))})` : result.errors.join('; '),
         );
       }
     }
-    return hookResult(text, false, 'No scenarios in run.yaml');
+    return hookResult(text, false, 'No scenarios in run.json');
   }
 
-  if (lower.includes('run.yaml valid') || lower.includes('run.yaml structured')) {
-    const runFiles = findRunYamlFiles(workspace);
+  if (lower.includes('run.json valid') || lower.includes('run.json structured')) {
+    const runFiles = findRunJsonFiles(workspace);
     if (!runFiles.length) {
-      return hookResult(text, false, 'No run.yaml found under .lamina/runs/');
+      return hookResult(text, false, 'No run.json found under .lamina/runs/');
     }
     const latest = runFiles.sort().at(-1);
-    const result = validateRunYaml(latest);
+    const result = validateRunJson(latest);
     return hookResult(
       text,
       result.ok,
-      result.ok ? `run.yaml valid (${path.basename(path.dirname(latest))})` : result.errors.join('; '),
+      result.ok ? `run.json valid (${path.basename(path.dirname(latest))})` : result.errors.join('; '),
     );
   }
 
-  if (lower.includes('run.yaml flows')) {
-    const runFiles = findRunYamlFiles(workspace);
+  if (lower.includes('run.json flows') || lower.includes('run.json workflows')) {
+    const runFiles = findRunJsonFiles(workspace);
     const hasFlows = runFiles.some((f) => {
       try {
-        return fs.readFileSync(f, 'utf8').includes('\nflows:');
+        return (readJsonSafe(f)?.workflows || []).length > 0;
       } catch {
         return false;
       }
     });
-    return hookResult(text, hasFlows, hasFlows ? 'run.yaml flows[] present' : 'No flows[] in run.yaml');
+    return hookResult(text, hasFlows, hasFlows ? 'run.json workflows[] present' : 'No workflows[] in run.json');
   }
 
   if (lower.includes('artifact pack exists') || lower.includes('artifact packs exist')) {
@@ -658,12 +649,12 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('handoff maps checklist ids') || lower.includes('handoff maps findings')) {
     const dir = latestRunDir(workspace);
     if (!dir) return hookResult(text, false, 'No run directory found');
-    const runFile = path.join(dir, 'run.yaml');
+    const runFile = path.join(dir, 'run.json');
     const handoffFile = path.join(dir, 'handoff.md');
     if (!fs.existsSync(runFile) || !fs.existsSync(handoffFile)) {
-      return hookResult(text, false, 'Missing run.yaml or handoff.md');
+      return hookResult(text, false, 'Missing run.json or handoff.md');
     }
-    const result = validateRunYaml(runFile);
+    const result = validateRunJson(runFile);
     const ids = [
       ...((result.run.checklist ?? []).map((item) => item.id)),
       ...((result.run.findings ?? []).map((item) => item.id)),
@@ -706,32 +697,26 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('persona simulation file exists')) {
     const simNew = newFiles.filter((f) => {
       const p = normalizePath(f);
-      return /\.lamina\/runs\/.+\/run\.yaml$/i.test(p) || /\.lamina\/runs\/.+\/simulation\.yaml$/i.test(p);
+      return /\.lamina\/runs\/.+\/run\.json$/i.test(p);
     });
-    const runYamlExists = workspaceFiles.some((f) => f.includes('/runs/') && f.endsWith('/run.yaml'));
-    const legacySimExists = workspaceFiles.some(
-      (f) => f.includes('/runs/') && f.endsWith('/simulation.yaml'),
-    );
-    const legacyPersonasSim = workspaceFiles.some(
-      (f) => f.includes('personas/simulations/') && f.endsWith('.yaml'),
-    );
-    const runYamlHasSimulation =
-      runYamlExists &&
+    const runJsonExists = workspaceFiles.some((f) => f.includes('/runs/') && f.endsWith('/run.json'));
+    const runJsonHasSimulation =
+      runJsonExists &&
       workspaceFiles
-        .filter((f) => f.endsWith('/run.yaml'))
+        .filter((f) => f.endsWith('/run.json'))
         .some((f) => {
           try {
-            return fs.readFileSync(f, 'utf8').includes('simulation:');
+            return (readJsonSafe(f)?.persona_findings || []).length > 0;
           } catch {
             return false;
           }
         });
     const passed =
-      simNew.length > 0 || runYamlHasSimulation || legacySimExists || legacyPersonasSim;
+      simNew.length > 0 || runJsonHasSimulation;
     return hookResult(
       text,
       passed,
-      passed ? 'Persona simulation data found' : 'No simulation in .lamina/runs/*/run.yaml',
+      passed ? 'Persona findings found' : 'No persona_findings in .lamina/runs/*/run.json',
     );
   }
 
@@ -768,9 +753,9 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('edge cases section present')) {
-    const runHasScenarios = findRunYamlFiles(workspace).some((f) => {
+    const runHasScenarios = findRunJsonFiles(workspace).some((f) => {
       try {
-        return fs.readFileSync(f, 'utf8').includes('scenarios:');
+        return (readJsonSafe(f)?.scenarios || []).length > 0;
       } catch {
         return false;
       }
@@ -779,7 +764,7 @@ function gradeAssertion(text, ctx) {
     return hookResult(
       text,
       passed,
-      passed ? 'scenarios in run.yaml or ### Edge cases in report' : 'Missing run.yaml scenarios and ### Edge cases section',
+      passed ? 'scenarios in run.json or ### Edge cases in report' : 'Missing run.json scenarios and ### Edge cases section',
     );
   }
 
@@ -860,7 +845,7 @@ function main() {
   process.exit(0);
 }
 
-export { gradeAssertion, findRunYamlFiles, findRunDirs };
+export { gradeAssertion, findRunJsonFiles, findRunDirs };
 
 const isMain =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -1,0 +1,72 @@
+---
+title: Contract v2 product graph
+description: The canonical JSON contract produced by Lamina Design.
+---
+
+# Contract v2 product graph
+
+`run.json` is the canonical machine contract. `run.md` and `implement.md` are generated views and must not become competing sources of truth.
+
+## Product stages
+
+| Stage | Purpose |
+|---|---|
+| `spark` | Shape the critical promise, actors, and consequential unknowns |
+| `shape` | Define the minimum coherent product slice for the next build |
+| `harden` | Complete release-relevant lifecycle, authority, recovery, accessibility, and concurrency behavior |
+
+The stage controls depth. Lamina does not require exhaustive release behavior from an early idea.
+
+## Core structure
+
+```json
+{
+  "contract_version": "2.0",
+  "id": "household-invites",
+  "status": "draft",
+  "stage": "shape",
+  "hook": "design",
+  "intent": {
+    "problem": "A household cannot safely add another member",
+    "outcome": "An invited person can join the intended household",
+    "users": ["owner", "invitee"],
+    "critical_promises": [],
+    "success_signals": [],
+    "constraints": [],
+    "scope": { "in": [], "out": [] }
+  },
+  "decisions": { "assumptions": [], "forks": [] },
+  "actors": [],
+  "entities": [],
+  "operations": [],
+  "workflows": [],
+  "invariants": [],
+  "dependencies": [],
+  "surfaces": [],
+  "scenarios": [],
+  "persona_findings": [],
+  "traceability": [],
+  "findings": [],
+  "evidence": []
+}
+```
+
+## Node metadata
+
+Every ready graph node includes `criticality`, `source`, `confidence`, and `relevance_reason`. Generated implementation contracts omit nodes marked `deferred`.
+
+## Typed references
+
+Use references such as `actor.member`, `entity.invitation`, `operation.accept-invite`, `workflow.join-household`, `invariant.one-active-membership`, and `scenario.expired-invite`. The validator rejects broken references and invalid state transitions.
+
+## Decisions and distinct risks
+
+Classify assumptions and forks as structural, safety/integrity, reversible default, policy fork, desirability hypothesis, or evidence-backed. Only unresolved consequential policy forks block readiness.
+
+Each scenario has a unique `risk_key`, so an exhaustive Cartesian edge-case list cannot win through volume. Derive scenarios only for meaningfully different failure, dependency, authority, concurrency, destructive, and recovery behavior.
+
+## Readiness
+
+A ready contract traces each critical promise through its actors, entities, operations, workflows, invariants, and scenarios. Blocking forks are resolved; references and state transitions validate; persona preferences remain explicitly simulated hypotheses.
+
+The complete JSON Schema ships at `skills/lamina-orchestrator/references/run.schema.json`.

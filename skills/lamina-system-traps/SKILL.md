@@ -44,7 +44,7 @@ Structural failure modes that persist despite local fixes. Recognize the trap be
 2. Identify shared resources and who pays the cost of overuse.
 3. List workarounds users or admins rely on — are they shifting burden?
 4. Check whether exceptions have become the default path.
-5. Write scenarios in `run.yaml` for each trap the product must prevent.
+5. Write scenarios in `run.json` for each trap the product must prevent.
 
 ## Anti-patterns
 

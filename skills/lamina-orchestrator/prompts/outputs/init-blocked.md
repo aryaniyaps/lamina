@@ -20,7 +20,7 @@ Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this c
 ### Do not
 - Proceed with workflow steps or create `.lamina/` artifacts
 - Auto-run init without the user invoking `/lamina-init`
-- Treat personas, blueprints, or flows inventory as a substitute for business context
+- Treat personas or prior product graphs as a substitute for business context
 ```
 
 Keep **What's missing** concrete — cite the exact failed checks (missing file, empty file, missing section name, placeholder answer, invalid frontmatter field, personas offered as init substitute).

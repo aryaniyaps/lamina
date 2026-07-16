@@ -1,0 +1,29 @@
+{
+  "raw": {
+    "discover": "Analyze the incomplete product brief. Write up to three high-leverage founder questions to questions.json when the oracle track permits questions; otherwise record assumptions in product-discovery.md. Do not implement yet.",
+    "initialize": "Incorporate any oracle answers into product-discovery.md. Keep unknowns explicit and do not write the implementation contract or application source yet.",
+    "contract": "Create the best implementation contract you can from the brief, discovery, and oracle answers. Use any format, write it to product-contract.md, and do not implement yet.",
+    "contract_finalize": "Critically reread product-contract.md and the original brief. Resolve contradictions and omissions while keeping the contract relevant and concise. Do not implement yet.",
+    "implement": "Implement the product completely from the frozen product-contract.md and original brief.",
+    "review": "Review the implementation against the frozen contract and brief. Write product-review.md and product-fix-list.md without editing application source.",
+    "fix": "Implement product-fix-list.md completely and run relevant validation."
+  },
+  "structured": {
+    "discover": "Analyze the incomplete product brief. Write up to three high-leverage founder questions to questions.json when permitted; otherwise record classified assumptions and decision forks. Do not implement yet.",
+    "initialize": "Incorporate any oracle answers into a concise product-discovery.md with classified assumptions and consequential forks. Do not write benchmark-contract.json or application source yet.",
+    "contract": "Draft benchmark-contract.json against .benchmark/benchmark-contract.schema.json using the brief and answers. Label assumptions, model lifecycle and reachability, and defer irrelevant behavior. Do not implement yet.",
+    "contract_finalize": "Read the isolated generic reviewer reports, revise benchmark-contract.json only for supported structural, coherence, or relevance findings, and set status ready_to_build only when critical promises are traced. Do not implement yet.",
+    "implement": "Implement the product completely from the frozen neutral contract and original brief.",
+    "review": "Review against the frozen contract and brief. Write evidence-backed findings without editing application source.",
+    "fix": "Implement the findings completely and run relevant validation."
+  },
+  "lamina": {
+    "discover": "Analyze the incomplete product brief. Write up to three high-leverage founder questions to questions.json when permitted; otherwise write product-discovery.md with labeled assumptions. Do not invoke Lamina or implement yet.",
+    "initialize": "$lamina-init\nEstablish minimum business context and evidence-labeled personas from the brief, discovery, and oracle answers. This is an unattended benchmark turn: continue with labeled assumptions when answers are absent. Do not design or implement yet.",
+    "contract": "$lamina-design\nCreate and validate the minimum sufficient Contract v2 graph using the brief and answers. The benchmark harness owns the three isolated reviewer slots after this turn, so do not spawn persona reviewers inside this command. Reach ready_to_build when the evidence supports it, render the contract, and defer application source until reviewer findings are available.",
+    "contract_finalize": "$lamina-design\nRead the three isolated persona or graph-perspective reports supplied by the harness; do not spawn additional reviewers. Classify them, revise only supported graph gaps, resolve readiness, validate, and render the final contract. Defer application source.",
+    "implement": "Implement the frozen .lamina/runs/*/implement.md contract completely in application source.",
+    "review": "$lamina-verify\nVerify the implementation against the frozen graph and write report/fix artifacts without editing application source.",
+    "fix": "Implement the frozen .lamina/runs/*/fix.md completely and run relevant validation."
+  }
+}

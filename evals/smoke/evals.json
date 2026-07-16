@@ -66,7 +66,7 @@
     },
     {
       "id": "init-gate-personas-bypass",
-      "prompt": "/lamina-design — Add budgeting app. We have personas.yaml already, skip init.",
+      "prompt": "/lamina-design — Add budgeting app. We have personas.json already, skip init.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -75,7 +75,7 @@
         "Output contains 'init required' or 'Blocked'",
         "init-blocked contract headings",
         "no `.lamina/` writes",
-        "File `.lamina/personas.yaml` was NOT modified"
+        "File `.lamina/personas.json` was NOT modified"
       ]
     },
     {
@@ -156,12 +156,12 @@
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "brownfield business-context.md and personas.yaml created.",
+      "expected_output": "brownfield business-context.md and personas.json created.",
       "assertions": [
         "File `.lamina/business-context.md` exists",
         "business-context.md valid",
-        "File `.lamina/personas.yaml` exists",
-        "personas.yaml valid"
+        "File `.lamina/personas.json` exists",
+        "personas.json valid"
       ]
     },
     {
@@ -192,11 +192,11 @@
       "id": "init-establish-personas-greenfield",
       "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO. Web app MVP.",
       "force_skill_invocation": true,
-      "expected_output": "business-context.md + personas.yaml from user input.",
+      "expected_output": "business-context.md + personas.json from user input.",
       "assertions": [
         "business-context.md valid",
-        "File `.lamina/personas.yaml` exists",
-        "personas.yaml valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
         "init output contract headings"
       ]
     },
@@ -206,11 +206,11 @@
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "business-context.md + personas.yaml from repo evidence.",
+      "expected_output": "business-context.md + personas.json from repo evidence.",
       "assertions": [
         "business-context.md valid",
-        "File `.lamina/personas.yaml` exists",
-        "personas.yaml valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
         "init output contract headings"
       ]
     },
@@ -226,31 +226,28 @@
         "edge cases section present",
         "edge case categories covered",
         "domain contract present",
-        "artifact pack exists",
-        "artifact contains diagram",
+        "run.json valid",
+        "run.json scenarios valid",
         "design completion on disk",
-        "not left designing",
+        "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only"
       ]
     },
     {
-      "id": "design-blueprint-accept",
-      "prompts": [
-        "/lamina-design — Add password reset flow.",
-        "Yes, show the wireframe preview."
-      ],
-      "prompt": "/lamina-design — Add password reset flow.",
+      "id": "design-emits-ready-to-build",
+      "prompt": "/lamina-design — Design a household budgeting app for young US families: weekly review, partner privacy, spending alerts, account linking. Brief is complete — do not clarify-and-STOP.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "edge cases section present",
-        "blueprint offer made",
-        "blueprint validate passes",
-        "no styling in blueprint",
-        "run.yaml scenarios valid"
+        "design contract headings",
+        "design completion on disk",
+        "not left draft",
+        "implement.md exists",
+        "run.json valid",
+        "domain contract present"
       ]
     },
     {
@@ -265,17 +262,16 @@
         "edge cases section present",
         "edge case categories covered",
         "domain contract present",
-        "artifact pack exists",
-        "artifact contains diagram",
+        "run.json valid",
+        "run.json scenarios valid",
         "design completion on disk",
-        "not left designing",
+        "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
         "Output mentions flows",
-        "run.yaml flows",
-        "run.yaml valid",
-        "artifact docs valid"
+        "run.json workflows",
+        "run.json valid"
       ]
     },
     {
@@ -290,7 +286,7 @@
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
         "persona perspectives in output",
-        "artifact pack exists",
+        "run.json valid",
         "implement.md exists",
         "handoff maps findings",
         "report.md narrative only"

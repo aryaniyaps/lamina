@@ -48,6 +48,11 @@ export function benchmarkProtocolSha256() {
     const absolute = path.join(ROOT, rel);
     digest.update(rel);
     digest.update('\0');
+    if (!fs.existsSync(absolute)) {
+      digest.update('deleted');
+      digest.update('\0');
+      continue;
+    }
     const stat = fs.lstatSync(absolute);
     if (stat.isSymbolicLink()) {
       digest.update(`symlink:${fs.readlinkSync(absolute)}`);

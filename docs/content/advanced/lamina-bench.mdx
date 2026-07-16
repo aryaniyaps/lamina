@@ -1,102 +1,66 @@
 ---
 title: LaminaBench
-description: Public product-behavior benchmark comparing the Lamina loop to a matched generic loop
+description: Contract-quality, transfer, and iteration-efficiency benchmark for Lamina Contract v2
 ---
 
 import { Callout } from 'nextra/components'
 
 # LaminaBench
 
-LaminaBench is a public product-behavior implementation benchmark. It compares the real Lamina workflow (init → design → implement → verify → fix) against an equally scaffolded generic plan→review loop on the same product briefs.
+LaminaBench v2 tests the actual Lamina thesis: can an agent turn an incomplete idea into a more coherent product contract, and does that contract improve later implementation?
 
-## Quick path
-
-LaminaBench is for evaluators and researchers, not end users running Lamina day to day. To try Lamina yourself, start with [Quickstart](/getting-started/quickstart).
-
-## What it measures
-
-| System | Measures |
-|--------|----------|
-| **LaminaBench** (`benchmarks/`) | Product behavior outcomes — does the implemented code match domain rules? |
-| **Skill evals** (`evals/`) | Skill compliance — does Lamina follow its own workflow rules? |
-
-LaminaBench answers: "Does the Lamina design→verify loop produce better product behavior than a matched generic loop?"
-
-## Methodology (Design C)
-
-Ecological matched-phase comparison:
-
-| Arm | Five-phase workflow |
-|-----|---------------------|
-| **Control** | plan → build order → implement → review → fix |
-| **Treatment** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` → fix |
-
-Both arms receive the same `instruction.md`, the same phase count, and equal per-phase turn budgets. The treatment arm has Lamina skills and workflow conventions. Planning artifacts are excluded from scoring; only implemented application source is judged.
-
-Scoring uses checklist coverage and LLM rubric on implemented source via Harbor Rewardkit.
-
-<Callout type="info">
-**Why this design?** LaminaBench primary methodology is Design C (matched 5-phase harness). We rejected asymmetric phased treatment vs single-shot control, `/lamina`-prefix-only comparison, and demoted SkillsBench single-session skills-on/off to an optional ablation. See [Design evolution](#design-evolution) below.
+<Callout type="warning">
+No v2 publication result exists yet. The development protocol and claim gates are implemented; held-out packages, blinded ratings, confirmatory runs, and the human iteration study must finish before marketing claims are made.
 </Callout>
 
-<Callout type="info">
-**Advanced:** v1 status — no live published results yet. The benchmark infrastructure is in place; results will be published when replication runs complete.
-</Callout>
+## Linked studies
 
-## Corpus (v1)
+| Study | Primary question | Claim gate |
+|---|---|---|
+| Contract quality | Is the frozen product graph materially better? | Blinded human quality, task-level effect, omission and failure guardrails |
+| Fresh-builder transfer | Can a new agent build a better product from the frozen native contract? | Downstream quality and critical-omission reduction |
+| Agent iteration efficiency | Does the full loop reach trusted behavior with less time or rework? | Efficiency gain with quality non-inferiority |
+| Human iteration study | Do real builders spend less active effort shaping a trusted contract? | Powered randomized crossover; separate from agent wall time |
 
-10 tasks × 2 arms (control + treatment) = 20 trials per run. Tasks cover realistic product scenarios with golden checklists for scoring.
+Passing a contract-quality benchmark does not automatically prove faster human iteration. The claim-gate tool exposes each claim separately and reports human iteration speed as `not_tested` until the crossover study passes.
 
-## Design evolution
+## Arms and tracks
 
-LaminaBench went through several design iterations before landing on Design C.
+| Arm | Contract method |
+|---|---|
+| `raw` | Best free-form contract, no required reviewers |
+| `structured` | Strong neutral graph schema plus three isolated generic critics |
+| `lamina` | Contract v2 plus isolated, bounded persona perspectives |
 
-| Design | Status | Why |
-|--------|--------|-----|
-| **A — Asymmetric phased** (5-phase treatment vs 1-shot control) | Rejected | Confounds Lamina with extra process; not fair |
-| **B — SkillsBench single session** (skills on/off, one rollout) | Optional ablation | Does not match real slash-command usage |
-| **Prefix — `/lamina <brief>`** | Rejected | Incomplete loop; confounds prefix + skills |
-| **C — Matched phases** (5-phase Lamina vs 5-phase generic) | **Primary** | Real usage + equal control scaffolding |
+The autonomous track continues with classified assumptions. The oracle track permits at most three high-leverage questions through a deterministic topic-indexed broker. Tracks are analyzed separately.
 
-Full rationale: [benchmarks/METHODOLOGY.md — Design evolution](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md#design-evolution--what-we-considered-and-why-we-landed-here).
+Lamina versus raw estimates ecological value. Lamina versus the strong structured arm estimates method value without credit for schema compliance, Lamina terminology, or persona artifacts themselves.
 
-## Running the benchmark
+## Analysis unit and size
 
-Prerequisites:
+The task—not a repeat—is the independent unit. Publication uses 12 held-out tasks, two tracks, three arms, two repeats, and four model cohorts: 144 primary-cohort trial cells and 576 cells across confirmatory plus replication cohorts. Each cell also runs its assigned isolated reviewers and a fresh transfer builder. Repeats estimate within-task model variance; they never inflate the task sample size.
 
-- Node.js 20+
-- Docker
-- Anthropic API credentials
+## Development commands
 
 ```bash
-npm install
-npm run bench:env-check
-npm run bench:validate
-npm run bench:harbor:sync -- --tasks task001
-npm run bench:all
+npm run bench:v2:preflight
+npm run bench:v2:matrix -- --mode development --cohort openai-gpt-5.6-sol
+npm run bench:v2:run -- --mode development --cohort openai-gpt-5.6-sol --limit 1
 ```
 
-Key scripts:
+The bundled host runner is development-only. Publication matrices are exported after corpus, model, runtime, scoring, and skill freezes, then executed by an external custodian that prevents access to goldens, oracle facts, other briefs, and previous cells.
 
-| Script | Purpose |
-|--------|---------|
-| `npm run bench:env-check` | Verify credentials and Docker |
-| `npm run bench:harbor:sync` | Sync Harbor task workspaces |
-| `npm run bench:run` | Run matched phased trials |
-| `npm run bench:aggregate` | Paired metrics → `results/aggregated/benchmark.json` |
+## Claim discipline
 
-## HavenStay as evidence
-
-The [HavenStay demo](/guides/demo-havenstay) provides qualitative evidence of the with/without Lamina gap — same prompt, two builds, measurable behavior differences. LaminaBench provides quantitative paired comparison across a task corpus.
+- Human ratings are primary; frozen model ratings are sensitivity evidence.
+- Score coherent alternatives and propagated consequences, not verbosity or match to an unstated author preference.
+- Report task medians and paired effects for every task.
+- Calibrate the minimum meaningful effect before publication scoring.
+- Do not market a tiny point lift merely because it is positive.
 
 ## Further reading
 
-- [benchmarks/README.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/README.md) — full benchmark documentation
-- [benchmarks/METHODOLOGY.md](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/METHODOLOGY.md) — Design C methodology
-- [evals/README.md](https://github.com/aryaniyaps/lamina/blob/main/evals/README.md) — internal skill compliance evals
-
-## Next steps
-
-- [Demo: HavenStay](/guides/demo-havenstay) — qualitative with/without comparison
-- [What is Lamina?](/concepts/what-is-lamina) — what Lamina does
-- [The loop](/concepts/the-loop) — design → implement → verify cycle
+- [v2 methodology](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/METHODOLOGY.md)
+- [publication custody](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/EXECUTION_CUSTODY.md)
+- [blinded judging](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/JUDGING.md)
+- [human study](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/HUMAN_STUDY.md)

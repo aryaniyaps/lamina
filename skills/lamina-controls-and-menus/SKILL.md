@@ -22,7 +22,7 @@ Specify **action semantics** in screen and workflow contracts — destructive, r
 
 ## Contract encoding
 
-Per action on `screens[]`:
+Per action on `surfaces[]`:
 - `id`, `label`, `destructive: true|false`
 - `reversible: true|false` → if true, confirmation usually unnecessary
 - `confirmation_required` only when undo impossible + scenario documents

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/run-v2.json",
+  "title": "Lamina minimum sufficient product graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "id", "status", "stage", "hook", "intent", "decisions", "actors", "entities", "operations", "workflows", "invariants", "dependencies", "surfaces", "scenarios", "persona_findings", "traceability", "findings", "evidence"],
+  "properties": {
+    "contract_version": { "const": "2.0" },
+    "id": { "$ref": "#/$defs/id" },
+    "status": { "enum": ["draft", "needs_input", "ready_to_build", "verifying", "complete"] },
+    "stage": { "enum": ["spark", "shape", "harden"] },
+    "hook": { "enum": ["design", "verify", "audit"] },
+    "target": { "type": "string" },
+    "intent": {
+      "type": "object",
+      "required": ["problem", "outcome", "users", "critical_promises", "success_signals", "constraints", "scope"],
+      "properties": {
+        "problem": { "type": "string", "minLength": 1 },
+        "outcome": { "type": "string", "minLength": 1 },
+        "users": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "critical_promises": { "type": "array", "items": { "$ref": "#/$defs/promise" } },
+        "success_signals": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "scope": { "type": "object", "required": ["in", "out"], "properties": { "in": { "type": "array", "items": { "type": "string" } }, "out": { "type": "array", "items": { "type": "string" } } } }
+      }
+    },
+    "decisions": { "type": "object", "required": ["assumptions", "forks"], "properties": { "assumptions": { "type": "array", "items": { "$ref": "#/$defs/decision" } }, "forks": { "type": "array", "items": { "$ref": "#/$defs/decision" } } } },
+    "actors": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "operations": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "workflows": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "invariants": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "surfaces": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "scenarios": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "persona_findings": { "type": "array", "items": { "type": "object" } },
+    "traceability": { "type": "array", "items": { "type": "object" } },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "evidence": { "type": "array", "items": { "type": "object" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+    "metadata": {
+      "type": "object",
+      "required": ["criticality", "source", "confidence", "relevance_reason"],
+      "properties": {
+        "criticality": { "enum": ["critical", "supporting", "deferred"] },
+        "source": { "enum": ["user", "repository", "derived", "assumed", "persona_hypothesis"] },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "relevance_reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "node": {
+      "allOf": [
+        { "$ref": "#/$defs/metadata" },
+        { "type": "object", "required": ["id"], "properties": { "id": { "$ref": "#/$defs/id" } }, "additionalProperties": true }
+      ]
+    },
+    "promise": {
+      "allOf": [
+        { "$ref": "#/$defs/metadata" },
+        { "type": "object", "required": ["id", "promise"], "properties": { "id": { "$ref": "#/$defs/id" }, "promise": { "type": "string", "minLength": 1 } } }
+      ]
+    },
+    "decision": {
+      "type": "object",
+      "required": ["id", "class", "source", "confidence", "statement"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "class": { "enum": ["structural", "safety_integrity", "reversible_default", "policy_fork", "desirability_hypothesis", "evidence_backed"] },
+        "source": { "enum": ["user", "repository", "derived", "assumed", "persona_hypothesis"] },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "statement": { "type": "string", "minLength": 1 },
+        "blocking": { "type": "boolean" },
+        "status": { "enum": ["proposed", "confirmed", "resolved", "unresolved"] }
+      }
+    }
+  }
+}

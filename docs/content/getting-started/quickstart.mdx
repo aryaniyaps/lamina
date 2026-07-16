@@ -44,7 +44,7 @@ Scope the product domain before design. This step is required — design and ver
 ```text
 .lamina/
 ├── business-context.md
-└── personas.yaml
+└── personas.json
 ```
 
 Example personas from the HavenStay demo include `leisure_traveler`, `hotel_operator`, and `platform_admin`.
@@ -62,7 +62,7 @@ hotel onboarding, and reservation management
 
 ```text
 .lamina/runs/<run_id>/
-├── run.yaml          # status: ready_to_build
+├── run.json          # status: ready_to_build
 ├── implement.md      # build handoff
 └── report.md         # design narrative
 ```
@@ -73,7 +73,7 @@ Open `implement.md` — this is what your coding agent implements. Example openi
 # HavenStay — Implement Brief
 
 **Status:** `ready_to_build`
-**Contract:** `.lamina/runs/havenstay-platform-2026-07-10/run.yaml`
+**Contract:** `.lamina/runs/havenstay-platform-2026-07-10/run.json`
 
 Build a production-ready US hotel booking marketplace.
 Use any stack, any UI library, any database.
@@ -107,7 +107,7 @@ Start your dev server, then run verify against the live app:
 .lamina/runs/<run_id>/
 ├── fix.md            # product fix brief
 ├── walkthrough/      # screenshots and evidence
-└── run.yaml          # findings[] populated, status: complete
+└── run.json          # findings[] populated, status: complete
 ```
 
 ## 6. Fix and re-verify
@@ -133,8 +133,8 @@ After one full cycle:
 | Artifact | Purpose |
 |----------|---------|
 | `.lamina/business-context.md` | Domain scope and constraints |
-| `.lamina/personas.yaml` | Actor cast with permissions |
-| `.lamina/runs/<id>/run.yaml` | Machine contract |
+| `.lamina/personas.json` | Actor cast with permissions |
+| `.lamina/runs/<id>/run.json` | Machine contract |
 | `.lamina/runs/<id>/implement.md` | What your agent built |
 | `.lamina/runs/<id>/fix.md` | Gaps found (if any) |
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task_id", "arm", "track", "cohort_id", "repeat", "contract_score", "transfer_score", "critical_omissions", "critical_failures", "incomplete", "time_to_threshold", "rework_tokens"],
+  "properties": {
+    "task_id": { "type": "string" },
+    "arm": { "enum": ["raw", "structured", "lamina"] },
+    "track": { "enum": ["autonomous", "oracle"] },
+    "cohort_id": { "type": "string" },
+    "repeat": { "type": "integer", "minimum": 1 },
+    "contract_score": { "type": "number" },
+    "contract_model_score": { "type": ["number", "null"] },
+    "transfer_score": { "type": "number" },
+    "critical_omissions": { "type": "integer", "minimum": 0 },
+    "critical_failures": { "type": "integer", "minimum": 0 },
+    "incomplete": { "type": "boolean" },
+    "time_to_threshold": { "type": ["number", "null"], "minimum": 0 },
+    "rework_tokens": { "type": ["integer", "null"], "minimum": 0 },
+    "rework_tool_calls": { "type": ["integer", "null"], "minimum": 0 }
+  }
+}

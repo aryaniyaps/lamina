@@ -21,4 +21,4 @@ Entry point for developers using AI coding agents — know what to build, design
 
 ## Guardrail
 
-Writes: `.lamina/` only. Never app source. See [guardrails](../lamina-core/guardrails.md).
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source. See [guardrails](../lamina-core/guardrails.md).

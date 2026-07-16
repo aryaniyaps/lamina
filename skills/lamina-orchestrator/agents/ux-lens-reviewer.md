@@ -2,7 +2,7 @@
 name: ux-lens-reviewer
 description: >-
   Single-lens contract/product review subagent for Lamina parallel-review pattern.
-  Spawn one instance per lens on the same run.yaml target or live walkthrough;
+  Spawn one instance per lens on the same run.json target or live walkthrough;
   run in parallel. Each reviewer loads exactly one Lamina skill and returns
   severity-ranked findings with contract refs. readonly.
 readonly: true
@@ -28,7 +28,7 @@ Example verify spawns:
 | Field | Required | Description |
 |---|---|---|
 | **Lens** | Yes | One skill id, e.g. `lamina-invariants` |
-| **Target** | Yes | `run.yaml` section, workflow, screen list, walkthrough pack, or live URL steps |
+| **Target** | Yes | `run.json` section, workflow, screen list, walkthrough pack, or live URL steps |
 | **Context** | No | Primary actor, `base_url`, brownfield vs greenfield |
 | **Scope boundary** | No | Exclusions |
 

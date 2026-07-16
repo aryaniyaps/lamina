@@ -62,85 +62,34 @@ function checkCommandSkills() {
   }
 }
 
-function checkArtifactCatalog() {
-  const catalogPath = 'skills/lamina-orchestrator/artifact-catalog.yaml';
-  if (!exists(catalogPath)) {
-    errors.push(`Missing artifact catalog: ${catalogPath}`);
-    return;
-  }
-  const catalog = read(catalogPath);
-  const allowedPacks = new Set(['research', 'ia', 'flow', 'journey', 'interaction', 'wireframe', 'validation', 'accessibility', 'strategy', 'handoff']);
-  const allowedEvidenceModes = new Set(['evidence_required', 'assumption_allowed', 'simulation_or_evidence', 'run_yaml_required']);
-  const allowedDiagrams = new Set(['flowchart', 'flowchart_with_subgraphs', 'journey', 'timeline', 'stateDiagram-v2', 'sequenceDiagram', 'classDiagram', 'quadrantChart', 'mindmap']);
-  let inArtifacts = false;
-  let artifactCount = 0;
-  for (const [idx, line] of catalog.split('\n').entries()) {
-    if (line.trim() === 'artifacts:') {
-      inArtifacts = true;
-      continue;
-    }
-    if (!inArtifacts || !line.trim() || line.trim().startsWith('#')) continue;
-    const artifact = line.match(/^  ([a-z0-9_]+):\s+\{\s*pack:\s+([a-z_]+),\s+required_inputs:\s+\[[^\]]*\],\s+evidence_mode:\s+([a-z_]+),\s+skills:\s+\[[^\]]+\],\s+diagram:\s+([A-Za-z0-9_-]+)\s*\}\s*$/);
-    if (!artifact) {
-      errors.push(`artifact-catalog malformed artifact row at line ${idx + 1}: ${line}`);
-      continue;
-    }
-    const [, artifactId, pack, evidenceMode, diagram] = artifact;
-    if (!allowedPacks.has(pack)) errors.push(`artifact-catalog ${artifactId} invalid pack: ${pack}`);
-    if (!allowedEvidenceModes.has(evidenceMode)) errors.push(`artifact-catalog ${artifactId} invalid evidence_mode: ${evidenceMode}`);
-    if (!allowedDiagrams.has(diagram)) errors.push(`artifact-catalog ${artifactId} invalid diagram: ${diagram}`);
-    artifactCount++;
-  }
-  if (artifactCount < 80) {
-    errors.push(`artifact-catalog has too few artifacts: ${artifactCount}`);
-  }
-  for (const required of [
-    'evidence_required',
-    'assumption_allowed',
-    'simulation_or_evidence',
-    'run_yaml_required',
-    'developer_handoff',
-    'affinity_diagram',
-    'user_journey_map',
-    'accessibility_audit',
-  ]) {
-    if (!catalog.includes(required)) {
-      errors.push(`artifact-catalog missing required entry: ${required}`);
-    }
-  }
-  const skills = [...catalog.matchAll(/lamina-[a-z-]+/g)].map((m) => m[0]);
-  for (const skill of new Set(skills)) {
-    if (!exists(`skills/${skill}/SKILL.md`)) {
-      errors.push(`artifact-catalog references missing skill: skills/${skill}/SKILL.md`);
-    }
+function checkProductGraphTooling() {
+  for (const rel of [
+    'skills/lamina-orchestrator/lib/run.mjs',
+    'skills/lamina-orchestrator/lib/graph.mjs',
+    'skills/lamina-orchestrator/lib/graph-tool.mjs',
+    'skills/lamina-orchestrator/references/run.schema.json',
+    'skills/lamina-orchestrator/references/personas.schema.json',
+    'skills/lamina-orchestrator/references/product-graph.md',
+  ]) if (!exists(rel)) errors.push(`Missing Contract v2 resource: ${rel}`);
+  if (exists('skills/lamina-orchestrator/references/run.schema.json')) {
+    const schema = JSON.parse(read('skills/lamina-orchestrator/references/run.schema.json'));
+    if (schema?.properties?.contract_version?.const !== '2.0') errors.push('run.schema.json must require Contract v2');
   }
 }
 
 function checkOutputContracts() {
   const contracts = {
     'skills/lamina-orchestrator/prompts/outputs/design.md': [
-      'Problem framing',
-      'Users and jobs',
-      'Assumptions and evidence',
-      'Journey and information architecture',
-      'Flows',
-      'Screens',
-      'Interactions and copy',
-      'Edge cases and recovery',
-      'Risks and decisions',
-      'Accessibility review',
-      'Metrics and validation',
-      'Artifact packs',
-      'Developer handoff',
-      'Persona simulation notes',
-      'Open questions',
+      'Product stage',
+      'Graph validation',
+      'run.json',
+      'implement.md',
     ],
     'skills/lamina-orchestrator/prompts/outputs/verify.md': [
-      'Executive summary',
-      'Contract checked',
-      'Actor walk results',
-      'Findings',
-      'Open questions',
+      'critical product findings',
+      'contract drift',
+      'report.md',
+      'fix.md',
     ],
     'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
       'Status',
@@ -169,7 +118,7 @@ function checkOutputContracts() {
 
 function checkPromptManifest() {
   const manifest = read('skills/lamina-orchestrator/prompts/manifest.yaml');
-  for (const id of ['outputs/clarify', 'outputs/artifact-template', 'outputs/artifact-pack', 'outputs/handoff']) {
+  for (const id of ['outputs/clarify', 'outputs/design', 'outputs/implement', 'outputs/verify', 'outputs/fix', 'subagents/persona-panel-spawn']) {
     if (!manifest.includes(`${id}:`)) {
       errors.push(`Prompt manifest missing ${id}`);
     }
@@ -178,14 +127,8 @@ function checkPromptManifest() {
 
 function checkArtifactSubagents() {
   for (const rel of [
-    'skills/lamina-orchestrator/patterns/artifact-subagents.md',
-    'skills/lamina-orchestrator/agents/research-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/ia-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/journey-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/interaction-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/validation-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/strategy-artifact-writer.md',
-    'skills/lamina-orchestrator/agents/handoff-compiler.md',
+    'skills/lamina-orchestrator/patterns/persona-panel.md',
+    'skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
   ]) {
     if (!exists(rel)) errors.push(`Missing artifact subagent file: ${rel}`);
     else if (rel.includes('/agents/') && !read(rel).includes('readonly: true')) errors.push(`Artifact subagent must be readonly: ${rel}`);
@@ -211,7 +154,7 @@ function checkMetadataAlignment() {
 }
 
 checkAuditProfiles();
-checkArtifactCatalog();
+checkProductGraphTooling();
 checkProblemRouterLinks();
 checkCommandSkills();
 checkOutputContracts();

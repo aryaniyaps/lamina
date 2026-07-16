@@ -30,7 +30,7 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 ## Steps
 
 1. **Select** — skills from audit-profiles for workflow section
-2. **Apply** — **Read/Skill-load** each skill; write `run.yaml` incrementally under `.lamina/runs/<run_id>/`
+2. **Apply** — **Read/Skill-load** each skill; write `run.json` incrementally under `.lamina/runs/<run_id>/`
 3. **Deliver** — output contract; design ends at validated `ready_to_build` + ship-pack `implement.md`; verify ends at `findings[]` + always `fix.md`
 
 ## Files
@@ -39,7 +39,7 @@ Coordinates design → `ready_to_build` → external build → verify. Mode B: n
 |------|---------|
 | [load-protocol.md](load-protocol.md) | How slash + supporting skills load |
 | [lib/validate-run.mjs](lib/validate-run.mjs) | Contract validator (ships with this skill) |
-| [artifacts.md](artifacts.md) | `run.yaml` schema, lifecycle |
+| [artifacts.md](artifacts.md) | `run.json` schema, lifecycle |
 | [merge-rules.md](merge-rules.md) | Merge order, grounding |
 | [audit-profiles.yaml](audit-profiles.yaml) | Section → skills |
 | [prerequisites/init-required.md](prerequisites/init-required.md) | Init gate |

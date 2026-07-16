@@ -1,213 +1,52 @@
-# Lamina Artifacts
+# Lamina artifacts
 
-**Guardrail:** During Lamina slash commands, write only under `.lamina/`. Never edit app source in those commands. Coding sessions that implement `implement.md` / `fix.md` write app source outside `.lamina/`.
+During Lamina slash commands, write only below `.lamina/`. Implementation and fix turns may write application source.
 
-Always preserve `.lamina/` outputs between runs and reuse existing artifacts before regenerating.
-
----
-
-## Artifact model
-
-### Global
+## Canonical paths
 
 | Path | Purpose |
-|------|---------|
-| `.lamina/business-context.md` | Domain charter from `/lamina-init` |
-| `.lamina/personas.yaml` | Actors — roles, goals, permissions, constraints |
-| `.lamina/decisions.md` | Conflict resolution log with `run_id` refs |
+|---|---|
+| `.lamina/business-context.md` | Product and business context |
+| `.lamina/personas.json` | Evidence-grounded actors and provisional perspectives |
+| `.lamina/decisions.md` | Cross-run decision history |
+| `.lamina/runs/<run_id>/run.json` | Canonical Contract v2 product graph |
+| `.lamina/runs/<run_id>/run.md` | Generated readable graph |
+| `.lamina/runs/<run_id>/implement.md` | Generated task-scoped implementation contract |
+| `.lamina/runs/<run_id>/report.md` | Human-readable verification report |
+| `.lamina/runs/<run_id>/fix.md` | Product and contract fixes |
+| `.lamina/runs/<run_id>/walkthrough/` | Optional live-product evidence |
 
-### Per-run (canonical paths only)
+Never create alternative contract, handoff, blueprint, or edge-case files. `run.md` and `implement.md` are generated projections; edit `run.json`, then render again.
 
-| Path | Purpose |
-|------|---------|
-| `.lamina/runs/<run_id>/run.yaml` | **Machine contract** — domain (incl. **dependencies graph**), actors, workflows, scenarios, screens, seed, scope, findings |
-| `.lamina/runs/<run_id>/implement.md` | Ship pack at `ready_to_build` — [prompts/outputs/implement.md](prompts/outputs/implement.md) |
-| `.lamina/runs/<run_id>/report.md` | Verify narrative — must be a real file (Write tool), not chat-only |
-| `.lamina/runs/<run_id>/fix.md` | Post-verify product fix brief — always written to disk after verify |
-| `.lamina/runs/<run_id>/report.md` | Human narrative only (design or verify) |
-| `.lamina/runs/<run_id>/walkthrough/` | Live-app evidence when `base_url` available |
-| `.lamina/runs/<run_id>/evidence.md` | Optional evidence ledger |
+## Lifecycle
 
-**Do not write:** `handoff.md`, `verify-report.md`, blueprints, freestyle `edge_cases` / `illegal_states` / `preconditions` as substitutes for the machine schema, or ship packs outside `runs/<run_id>/`.
+### Design
 
-Validate: `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` — **must pass** before `ready_to_build`. Validator lives in the orchestrator skill (`lib/`). If missing, STOP (infra) — do not invent a substitute or skip the gate.
+1. Create `run.json` at `status: draft` and choose `stage: spark | shape | harden`.
+2. Build the minimum sufficient graph for the current iteration.
+3. Classify assumptions and decision forks.
+4. Derive distinct risks and conduct up to three materially different persona walks.
+5. Validate with the `graph-tool.mjs` bundled in the loaded `lamina-orchestrator` skill.
+6. Resolve validation failures, set `status: ready_to_build`, validate again, then render.
+7. Confirm `run.md` and `implement.md` exist before completing the command.
 
----
+### Verify
 
-## Run lifecycle
+1. Load a ready contract or create a brownfield verification graph.
+2. Set `status: verifying`.
+3. Compare live behavior or static source to critical promises, workflows, rules, and scenarios.
+4. Write ticket-shaped `findings[]` with evidence and acceptance.
+5. Write `report.md` and `fix.md`, set `status: complete`, and validate.
 
-### Design (`/lamina-design`)
+## Tooling
 
-1. Create `run.yaml` — `status: designing`, `hook: design`
-2. Write `domain.entities`, `domain.invariants`, **`domain.dependencies[]` (first-class)**, `actors` (+ `resource_filters`), `workflows` (+ `requires` / `standalone` / `provides`), `screens` (+ **`a11y`** on every `status: new`), `scenarios` (each with `acceptance`), `tradeoffs[]`, `out_of_scope`, `forbidden_content`, `seed`
-3. **Contract simulation** — persona panel including **unmet-dependency walks**; fold gaps into scenarios/screens/**dependency modes**
-4. **Validate** — `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml` must pass. On failure: stay `designing`; never invent alternate paths. If the skill `lib/validate-run.mjs` is missing: STOP and report — do not write `implement.md` or set `ready_to_build`.
-5. **Write** ship-pack `implement.md` on disk (Must-implement checklist), then set `status: ready_to_build` — never end the command while still `designing` or with only a chat-pasted ship pack
-6. Write `report.md`
-
-**Completion gate:** Design is incomplete until (a) validator passes and (b) both `.lamina/runs/<run_id>/run.yaml` and `implement.md` exist. Never `.lamina/ready_to_build/`, `contract.md`, `verify-report.md`, or freestyle `edge_cases` / `preconditions` / `illegal_states`.
-
-### Verify (`/lamina-verify`)
-
-1. Load design run or infer domain
-2. `status: verifying`
-3. Live walkthrough or **static source** (never STOP for missing `base_url`)
-4. **Reachability probes for every dependency edge** + actor walks → ticket-shaped `findings[]`
-5. `status: complete` → `report.md` + **always** `fix.md` on disk via Write (chat paste does not count)
-
----
-
-## `run.yaml` schema (machine contract)
-
-```yaml
-id: hall-ticket-2026-07-09
-status: designing | ready_to_build | verifying | complete
-hook: design | verify
-target: hall ticket download
-command: /lamina-design
-started_at: 2026-07-09
-
-domain:
-  entities:
-    - id: payment
-    - id: hall_ticket
-      attributes: [owner_id]          # declare ownership fields used by filters
-  invariants:
-    - id: one-ticket-per-student
-      rule: At most one valid hall ticket per student per exam
-  dependencies:                         # FIRST-CLASS reachability graph
-    - id: download-requires-payment
-      from: workflow.download-ticket
-      requires: entity.payment
-      in_state: confirmed
-      mode: unreachable               # unreachable | degraded | blocked_ui | recover
-      scenario_ref: payment-not-confirmed
-
-actors:
-  - id: student
-    permissions: [download_ticket]
-    resource_filters:
-      - resource: hall_ticket
-        filter: "owner_id = self"
-  - id: partner
-    permissions: [read_transaction]
-    resource_filters:
-      - resource: transaction
-        filter: "is_personal = false OR owner_id = self"
-
-workflows:
-  - id: pay-fees
-    standalone: true
-    provides: [entity.payment]
-    steps:
-      - operation: confirm payment
-  - id: download-ticket
-    requires: [download-requires-payment]
-    success: "PDF downloaded"
-    failure: "Blocked until payment confirmed"
-    steps:
-      - operation: download pdf
-
-scenarios:
-  - id: payment-not-confirmed
-    title: Payment pending blocks download
-    screen: ticket-download
-    category: precondition
-    ux: alert
-    trigger:
-      operation: download ticket
-      subject: payment
-      when: dependency_unmet
-    dependency_ref: download-requires-payment
-    acceptance: "UI shows payment-required alert; download control disabled; no PDF bytes"
-    # optional structured hints:
-    # http_status: 403
-    # error_code: PAYMENT_REQUIRED
-
-screens:
-  - id: ticket-download
-    status: new
-    workflow_ref: download-ticket
-    a11y:
-      labels: every primary control has accessible name (aria-label or visible label)
-      touch_min_px: 48
-      color_not_only: true
-      keyboard: primary path completable without pointer
-
-tradeoffs:
-  - id: <concern_a>_vs_<concern_b>      # stable snake_id derived from this run's brief/context
-    choice: <chosen product behavior>
-    cost: <what the choice makes harder>
-    surfaces: [<realizing-workflow-or-screen>]
-
-out_of_scope:
-  - CI/CD pipelines
-  - Push notification vendors
-  - Production bank OAuth unless brief requires
-
-forbidden_content:
-  - investment advice                   # must become a rejection / absent surface in product
-  - tax advice presented as guidance
-
-seed:
-  summary: Student with unpaid fees; student with confirmed payment
-  - unpaid student cannot download
-  - paid student can download
-
-findings: []   # verify tickets — see below
-
-evidence: []
+```text
+node <skill>/lib/graph-tool.mjs create <run.json> id=<id> target=<target> problem=<problem> outcome=<outcome> users=<ids> stage=<stage>
+node <skill>/lib/graph-tool.mjs derive <run.json> [--write]
+node <skill>/lib/graph-tool.mjs validate <run.json>
+node <skill>/lib/graph-tool.mjs render <run.json>
+node <skill>/lib/graph-tool.mjs coverage <run.json>
+node <skill>/lib/graph-tool.mjs scope <run.json> <typed-ref>...
 ```
 
-### `ready_to_build` gates (validator)
-
-Must have: `scenarios[]` (with `acceptance`), `screens[]` (each `status: new` has `a11y` with `labels` + `touch_min_px`), **`domain.dependencies[]`**, `tradeoffs[]` (each with `id` + `choice`), `forbidden_content[]`, `out_of_scope[]`, `seed`, valid dependency graph (modes, scenario links, no orphans, no freestyle `edge_cases` / `preconditions` / `illegal_states`).
-
-### Findings (verify tickets)
-
-```yaml
-findings:
-  - id: partner-personal-tx-leak
-    fix_target: product          # product | contract | ops — required
-    priority: high
-    summary: Partner can read personal transactions
-    verify_mode: static_source   # static_source | live_app | mixed
-    evidence: src/routes/transaction.ts GET list
-    acceptance: "Partner list omits is_personal=true where owner_id!=self"
-    scenario_ref: partner-cannot-see-personal-txn
-    recommendation: Filter by resource_filters
-```
-
-`ops` findings stay in `report.md` only — never Product fixes in `fix.md`.
-
----
-
-## `implement.md` (ship pack)
-
-Projection of the machine contract for implementing in application source — [prompts/outputs/implement.md](prompts/outputs/implement.md).
-
-**Never** emit Mode B language (“do not edit app source”, “Command boundary”, “start a separate coding session”) inside `implement.md`. Mode B applies only while a Lamina slash command is running; the ship pack is consumed after that command ends.
-
-Must include **Reachability graph**, invariants→enforcement, permissions **with filters**, workflows→surfaces, scenarios→acceptance (verbatim), **Must-implement checklist** (`screen.*`, `scenario.*`, `forbidden.*`, `a11y.*`, `tradeoff.*`), seed notes, out of scope.
-
-Not a vendor blueprint. **Forbidden content and a11y hooks are code requirements**, not narrative.
-
----
-
-## `fix.md`
-
-Always written after verify — [prompts/outputs/fix.md](prompts/outputs/fix.md). Mechanical projection of `findings[]` where `fix_target != ops`.
-
-**Never** emit Mode B language inside `fix.md`. Mode B applies only while `/lamina-verify` is running.
-
----
-
-## Actor / persona simulation
-
-Design-time: walk contract including **dependency modes** (what happens when unmet). Verify-time: live or static. Simulation must write holes back as dependency/scenario/screen ids — not more prose `handling`.
-
----
-
-## Ops non-findings
-
-Unless brief/`out_of_scope` says otherwise: CI/CD, deploy, push vendors, monitoring, production IdP scaffolding are `ops` or omitted — not product ship gates.
+Read [references/product-graph.md](references/product-graph.md) for graph depth and typed references. The JSON Schemas are `references/run.schema.json` and `references/personas.schema.json`.

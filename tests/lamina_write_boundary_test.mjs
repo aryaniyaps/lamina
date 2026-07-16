@@ -18,7 +18,7 @@ function tmpDir() {
 }
 
 // isLaminaArtifactPath
-assert.equal(isLaminaArtifactPath('.lamina/runs/x/run.yaml'), true);
+assert.equal(isLaminaArtifactPath('.lamina/runs/x/run.json'), true);
 assert.equal(isLaminaArtifactPath('.lamina'), true);
 assert.equal(isLaminaArtifactPath('lib/CheckoutForm.tsx'), false);
 assert.equal(isLaminaArtifactPath('preview/App.tsx'), false);
@@ -54,7 +54,7 @@ assert.equal(isLaminaArtifactPath('packages/foo/src/index.ts'), false);
   const dir = tmpDir();
   fs.mkdirSync(path.join(dir, '.lamina', 'runs', 'test'), { recursive: true });
   const pre = { file_hashes: buildFileHashMap(dir) };
-  fs.writeFileSync(path.join(dir, '.lamina', 'runs', 'test', 'run.yaml'), 'id: test\n');
+  fs.writeFileSync(path.join(dir, '.lamina', 'runs', 'test', 'run.json'), 'id: test\n');
   const post = { file_hashes: buildFileHashMap(dir) };
   const violations = diffOutsideLamina(pre, post);
   assert.equal(violations.length, 0, `unexpected violations: ${violations}`);

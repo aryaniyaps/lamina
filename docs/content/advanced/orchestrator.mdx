@@ -44,7 +44,7 @@ Mode B guardrail: the orchestrator writes only under `.lamina/`. Never app sourc
 ## Orchestrator steps
 
 1. **Select** — pick skills from audit profiles for the current workflow section
-2. **Apply** — load each skill; write `run.yaml` incrementally
+2. **Apply** — load each skill; write `run.json` incrementally
 3. **Deliver** — output contract; design ends at `ready_to_build` + `implement.md`; verify ends at `findings[]` + `fix.md`
 
 ## Audit profiles
@@ -77,7 +77,7 @@ Used during verify and brownfield design:
 
 ### Persona panel
 
-One subagent per `primary: true` actor in `personas.yaml`. Each walks the live app independently, checking their workflows and permissions.
+One subagent per `primary: true` actor in `personas.json`. Each walks the live app independently, checking their workflows and permissions.
 
 ### Visual walkthrough
 
@@ -97,7 +97,7 @@ Before design or verify workflows run, the orchestrator checks `prerequisites/in
 
 ## Merge rules
 
-`merge-rules.md` defines how skill outputs combine into `run.yaml` — grounding requirements, conflict resolution via `decisions.md`, and incremental writes.
+`merge-rules.md` defines how skill outputs combine into `run.json` — grounding requirements, conflict resolution via `decisions.md`, and incremental writes.
 
 ## Key files in the repo
 

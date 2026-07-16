@@ -21,7 +21,7 @@ Trust is **observable honesty in product behavior** — specified in scenarios a
 ## Contract encoding
 
 For payment, PII, and irreversible operations:
-- `screens[]`: show fees, consequences, and final state before commit
+- `surfaces[]`: show fees, consequences, and final state before commit
 - `scenarios[]`: false success, hidden charges, unclear irreversibility → category `failure` or finding
 - `workflows[]`: confirmation only when undo impossible (`controls-and-menus`)
 - Side effects visible before actor commits (`side-effects`)

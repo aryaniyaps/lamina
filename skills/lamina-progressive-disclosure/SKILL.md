@@ -19,7 +19,7 @@ Defer **advanced operations** in screen contracts — primary path stays minimal
 
 ## Contract encoding
 
-Per `screens[]`:
+Per `surfaces[]`:
 - `primary_actions[]` — required for primary actor working set
 - `secondary_actions[]` — advanced, behind expand/settings/more
 - `disclosure_level`: essential | standard | advanced

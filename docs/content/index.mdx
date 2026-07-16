@@ -15,7 +15,7 @@ Lamina is for developers who build with AI coding agents (Cursor, Claude Code, C
 
 **Outcomes you should expect:**
 
-- A machine-readable contract (`run.yaml`) your agent implements from `implement.md`
+- A machine-readable contract (`run.json`) your agent implements from `implement.md`
 - Parallel persona walks that surface product gaps before users do
 - A fix loop (`fix.md` → agent fixes → re-verify) until the contract holds
 
@@ -38,8 +38,8 @@ npx skills install aryaniyaps/lamina
 ## The loop
 
 ```text
-/lamina-init     →  business-context.md + personas.yaml
-/lamina-design   →  run.yaml + implement.md (ready_to_build)
+/lamina-init     →  business-context.md + personas.json
+/lamina-design   →  run.json + implement.md (ready_to_build)
        ↓
   Your agent implements (any stack)
        ↓
@@ -55,7 +55,7 @@ npx skills install aryaniyaps/lamina
 | New to Lamina | [Quickstart](/getting-started/quickstart) |
 | Installing in your agent | [Installation](/getting-started/installation) |
 | Working on an existing app | [Brownfield and greenfield](/concepts/brownfield-and-greenfield) |
-| Need schema details | [run.yaml schema](/reference/run-yaml-schema) |
+| Need schema details | [run.json schema](/reference/run-json-schema) |
 | Exploring the demo | [Demo: HavenStay](/guides/demo-havenstay) |
 | Pairing with other tools | [What to pair](/guides/pair-with) |
 

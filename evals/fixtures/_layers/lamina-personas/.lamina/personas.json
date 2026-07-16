@@ -1,0 +1,14 @@
+{
+  "contract_version": "2.0",
+  "personas": [
+    {
+      "id": "primary-member",
+      "role": "Primary member",
+      "goals": ["Complete the main workflow confidently"],
+      "constraints": ["Limited time"],
+      "evidence": ["business-context.md"],
+      "confidence": "medium",
+      "primary": true
+    }
+  ]
+}

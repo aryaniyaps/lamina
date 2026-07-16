@@ -15,13 +15,13 @@ metadata:
 ---
 # Information Architecture (agent-native)
 
-Organize **`domain.entities`** for actor retrieval — recency, search, hierarchy — not filesystem or schema shape.
+Organize **`entities[]`** for actor retrieval — recency, search, hierarchy — not filesystem or schema shape.
 
 ## Contract encoding
 
-- Entity list drives nav sections and `screens[]` groupings
+- Entity list drives nav sections and `surfaces[]` groupings
 - Retrieval patterns per entity type: list, search, timeline, facets — in screen spec
-- `domain.relationships` inform parent/child nav — not foreign keys in UI copy
+- `entities[].relationships` inform parent/child nav — not foreign keys in UI copy
 
 ## Frameworks
 

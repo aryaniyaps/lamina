@@ -25,7 +25,7 @@ One product, many actor views — each role sees what they need, but all views m
 
 - **Actor view**: What this role sees, can do, and must not see — derived from permissions, not separate products.
   - When to use: Any product with more than one role.
-  - How: `actors` in `run.yaml` + `personas.yaml` goals and permissions.
+  - How: `actors` in `run.json` + `personas.json` goals and permissions.
 
 - **Frontstage vs backstage**: User-visible flow vs operations another role performs (student downloads ticket; exam cell assigns venue; payment gateway confirms fee).
   - When to use: Service-style workflows with handoffs.

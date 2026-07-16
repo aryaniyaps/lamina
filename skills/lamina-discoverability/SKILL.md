@@ -22,7 +22,7 @@ Specify **what actors can perceive and do** on each screen — signifiers, prima
 
 ## Contract encoding
 
-Per `screens[]`:
+Per `surfaces[]`:
 - `primary_actions[]` — visible, labeled
 - `secondary_actions[]` — deferred or progressive disclosure
 - `disabled_when` — guards linking to scenarios

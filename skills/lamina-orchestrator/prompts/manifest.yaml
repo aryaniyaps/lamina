@@ -1,5 +1,3 @@
-work-plan:
-  path: work-plan.md
 outputs/design:
   path: outputs/design.md
 outputs/implement:

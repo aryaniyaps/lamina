@@ -1,105 +1,22 @@
 ---
-title: Validation
-description: Validate run.yaml contracts with the orchestrator skill validator
+title: Contract validation
+description: Validate, derive, render, scope, and inspect Contract v2 graphs.
 ---
 
-import { Callout } from 'nextra/components'
+# Contract validation
 
-# Validation
-
-Lamina provides a contract validator to check `run.yaml` against the expected schema. Use it after design, in CI, or when manually editing contracts. The validator **ships with the `lamina-orchestrator` skill** (`lib/`).
-
-## Quick path
-
-With skills installed under `.claude/skills` (Claude Code default):
+The orchestrator bundles a zero-dependency JSON parser, semantic validator, deterministic risk derivation, renderer, scoper, and coverage reporter.
 
 ```bash
-node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
+node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
+node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs derive .lamina/runs/<run_id>/run.json
+node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
+node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs coverage .lamina/runs/<run_id>/run.json
+node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs scope .lamina/runs/<run_id>/run.json workflow.<id>
 ```
 
-From the Lamina repo (skills checked out at `skills/`):
+Validation checks Contract v2, product stage, node metadata, typed references, unique ids and risk keys, entity states and relationships, operation transitions, workflow reachability, prerequisite cycles, blocking decisions, persona provenance, and critical-promise traceability.
 
-```bash
-node skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
-```
+The ready gate is stage-sensitive. Draft graphs may be incomplete; `ready_to_build` graphs must contain the minimum critical chain needed for implementation. Optional schema fields do not become mandatory merely because they exist.
 
-Expected output on success:
-
-```text
-run.yaml valid
-```
-
-## Prerequisites
-
-- Node.js 20 or later
-- `lamina-orchestrator` skill installed (includes `lib/validate-run.mjs`, `run.mjs`, `scenarios.mjs`, `dependencies.mjs`, `parse-contract-extras.mjs`)
-
-<Callout type="info">
-**Skill-bundled:** The validator ships with `lamina-orchestrator`. Adjust the path if your agent uses `.codex/skills` or `.opencode/skills` instead of `.claude/skills`.
-</Callout>
-
-## Usage
-
-From your project workspace:
-
-```bash
-node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<run_id>/run.yaml
-```
-
-On failure, the validator prints specific errors:
-
-```text
-run.yaml: missing required field 'status'
-run.yaml: invalid status 'verified' (expected designing|ready_to_build|verifying|complete)
-```
-
-## What it checks
-
-| Area | Validation |
-|------|------------|
-| Top-level fields | `id`, `status`, `hook`, `target`, `command` |
-| Status values | `designing`, `ready_to_build`, `verifying`, `complete` |
-| Hook values | `design`, `verify` |
-| Flows | Structure, transitions, graph integrity |
-| Screens | `new` or `existing` status |
-| Scenarios | Category, trigger, references |
-| Findings | Priority, `fix_target` (`product` or `contract`) |
-| Evidence | Structure and references |
-
-The validator uses a minimal YAML parser in the orchestrator skill `lib/run.mjs` focused on Lamina contract structure.
-
-## When to validate
-
-| When | Why |
-|------|-----|
-| After `/lamina-design` | Confirm contract is well-formed before implementing |
-| After manual `run.yaml` edits | Catch schema errors before verify |
-| In CI | Block merges when contract is invalid |
-| Before publishing artifacts | Ensure shared contracts are valid |
-
-## CI integration example
-
-```yaml
-- name: Validate Lamina contract
-  run: node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/${{ env.RUN_ID }}/run.yaml
-```
-
-## Programmatic use
-
-Import from the skill:
-
-```javascript
-import { validateRunYaml } from './.claude/skills/lamina-orchestrator/lib/run.mjs';
-// or from the Lamina repo: import { validateRunYaml } from './skills/lamina-orchestrator/lib/run.mjs';
-
-const result = validateRunYaml('.lamina/runs/my-run/run.yaml');
-if (!result.ok) {
-  for (const e of result.errors) console.error(e);
-}
-```
-
-## Next steps
-
-- [run.yaml schema](/reference/run-yaml-schema) — full field reference
-- [Per-run artifacts](/reference/artifacts) — artifact lifecycle
-- [/lamina-design](/commands/lamina-design) — generate valid contracts
+`render` overwrites generated `run.md` and, for ready contracts, `implement.md`. Edit `run.json`, never the generated view.

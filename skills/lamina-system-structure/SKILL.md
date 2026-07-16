@@ -20,7 +20,7 @@ metadata:
 ---
 # System Structure
 
-Map the product as a system in `run.yaml` `domain` — elements, interconnections, purpose — before screens or external implementation.
+Map the product as a system in `run.json` `domain` — elements, interconnections, purpose — before screens or external implementation.
 
 ## Verify
 

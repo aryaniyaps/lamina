@@ -23,7 +23,7 @@ A new product with no existing app. Lamina designs from stakeholder input.
 ### Workflow
 
 1. `/lamina-init <domain description>` — creates `business-context.md` with `maturity: greenfield`
-2. `/lamina-design <flow>` — full contract with `screens[].status: new`
+2. `/lamina-design <flow>` — full contract with `surfaces[].status: new`
 3. Your agent implements from `implement.md`
 4. `/lamina-verify <base_url>` — persona walks on the new build
 
@@ -35,7 +35,7 @@ A new product with no existing app. Lamina designs from stakeholder input.
 /lamina-design Guest search, booking checkout, and reservation management
 ```
 
-All screens in `run.yaml` are marked `new` — nothing exists yet.
+All screens in `run.json` are marked `new` — nothing exists yet.
 
 ## Brownfield
 
@@ -44,12 +44,12 @@ An existing codebase with a running product. Lamina reads the repo and walks the
 ### Workflow
 
 1. `/lamina-init` — bounded repo scan infers domain; `maturity: brownfield`
-2. Option A: `/lamina-design` — contract references existing screens via `screens[].source`
+2. Option A: `/lamina-design` — contract references existing screens via `surfaces[].source`
 3. Option B: `/lamina-verify` directly — infer domain from repo + walkthrough (no prior design run)
 4. Fix product gaps from `fix.md` or contract gaps via `/lamina-design`
 
 <Callout type="info">
-**Advanced:** Brownfield references are read-only. Lamina cites repo paths in `run.yaml` but never edits app source during Lamina commands.
+**Advanced:** Brownfield references are read-only. Lamina cites repo paths in `run.json` but never edits app source during Lamina commands.
 </Callout>
 
 ### Field research pattern

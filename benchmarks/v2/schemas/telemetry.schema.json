@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["provider", "model", "session_id", "phase", "started_at", "ended_at", "exit_code"],
+  "properties": {
+    "provider": { "enum": ["codex", "claude-code"] },
+    "model": { "type": "string" },
+    "resolved_model": { "type": ["string", "null"] },
+    "cli_version": { "type": "string" },
+    "session_id": { "type": "string" },
+    "phase": { "type": "string" },
+    "started_at": { "type": "string" },
+    "ended_at": { "type": "string" },
+    "exit_code": { "type": "integer" },
+    "input_tokens": { "type": ["integer", "null"] },
+    "output_tokens": { "type": ["integer", "null"] },
+    "tool_calls": { "type": ["integer", "null"] },
+    "retries": { "type": "integer" }
+  }
+}

@@ -24,7 +24,7 @@ Rules the product must never violate. Design so illegal states are unrepresentab
 
 ## Verify
 
-Each `domain.invariants[]` id gets a probe in `/lamina-verify` — attempt violation on live product; UI must prevent or recover per linked `scenarios[]`.
+Each `invariants[]` id gets a probe in `/lamina-verify` — attempt violation on live product; UI must prevent or recover per linked `scenarios[]`.
 
 **Invariants vs dependencies:** Invariants are predicates that must hold in valid states. Dependencies are reachability edges — what must exist before a workflow can succeed. Do not collapse them; use [Dependencies](../lamina-dependencies/SKILL.md) for cross-feature setup.
 
@@ -32,7 +32,7 @@ Each `domain.invariants[]` id gets a probe in `/lamina-verify` — attempt viola
 
 - **Invariant**: A predicate that must hold for every valid system state (one hall ticket per student per exam; venue capacity not exceeded; cancelled tickets cannot be downloaded).
   - When to use: Any entity with uniqueness, capacity, lifecycle, or permission constraints.
-  - How: Write in user language in `run.yaml` `domain`; link scenarios to violation attempts.
+  - How: Write in user language in `run.json` `domain`; link scenarios to violation attempts.
 
 - **Define errors out of existence**: Redesign flows so invalid actions are unavailable, not allowed-then-rejected (disable download when unpaid; hide regenerate when exam completed).
   - When to use: High-frequency violations that produce support load.
@@ -47,7 +47,7 @@ Each `domain.invariants[]` id gets a probe in `/lamina-verify` — attempt viola
 1. List invariants per entity before screens.
 2. For each invariant, define: violation attempt, expected system response, recovery UX.
 3. Prefer preventing violation over catching it.
-4. Write each invariant with an id in `run.yaml` for verify-phase checks.
+4. Write each invariant with an id in `run.json` for verify-phase checks.
 5. Check UI does not imply states that violate invariants (showing "active" on cancelled ticket).
 
 ## Heuristics

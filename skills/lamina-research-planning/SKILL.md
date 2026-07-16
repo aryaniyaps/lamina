@@ -18,7 +18,7 @@ Plan the **verify pass** before spawning subagents.
 
 ## Checklist
 
-1. Which actors from `personas.yaml` / `actors` get a walk subagent?
+1. Which actors from `personas.json` / `actors` get a walk subagent?
 2. Which workflows and operations must each attempt (allowed + forbidden)?
 3. Which invariants get explicit probe scenarios?
 4. Is `base_url` available for walkthrough?
@@ -26,7 +26,7 @@ Plan the **verify pass** before spawning subagents.
 
 ## Output
 
-Verify work-plan prose or section in `report.md` — not a human study protocol.
+Verify the research-plan section in `report.md` — not a product implementation checklist.
 
 ## Related
 

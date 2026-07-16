@@ -1,0 +1,48 @@
+{
+  "contract_version": "2.0",
+  "id": "checkout-verify-walkthrough-fixture",
+  "status": "draft",
+  "stage": "harden",
+  "hook": "verify",
+  "target": "checkout flow",
+  "intent": {
+    "problem": "Shoppers cannot tell the full order cost before checkout",
+    "outcome": "A shopper understands the expected cost before committing",
+    "users": ["deal-hunter-diane"],
+    "critical_promises": [],
+    "success_signals": ["Shipping cost or its uncertainty is visible before checkout"],
+    "constraints": [],
+    "scope": { "in": ["Cart review"], "out": ["Payment processing"] }
+  },
+  "decisions": { "assumptions": [], "forks": [] },
+  "actors": [],
+  "entities": [],
+  "operations": [],
+  "workflows": [],
+  "invariants": [],
+  "dependencies": [],
+  "surfaces": [],
+  "scenarios": [],
+  "persona_findings": [],
+  "traceability": [],
+  "findings": [
+    {
+      "id": "shipping-visibility",
+      "priority": "high",
+      "fix_target": "product",
+      "finding": "Shipping costs are not visible on the cart",
+      "recommendation": "Show a shipping estimate or explicit uncertainty before checkout",
+      "evidence": "walkthrough/steps/01-cart.png",
+      "acceptance": ["The cart shows a shipping estimate or explicit uncertainty before checkout"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "live-app-walkthrough",
+      "path": "walkthrough/index.yaml",
+      "source": "product",
+      "kind": "visual_walkthrough",
+      "summary": "Captured the existing cart at http://localhost:3000"
+    }
+  ]
+}

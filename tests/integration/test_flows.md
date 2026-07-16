@@ -40,7 +40,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 - Input: problem statement for a mobile budgeting app
 - Expect: unified output per `skills/lamina-orchestrator/prompts/outputs/design.md`
 - Expect: step 0 init gate passes; reads `business-context.md`
-- Expect: `.lamina/personas.yaml` cast when missing or stale
+- Expect: `.lamina/personas.json` cast when missing or stale
 - Optional: persona panel when flows or a journey exist
 - **Without init:** expect init-blocked output; no personas or other artifacts created
 

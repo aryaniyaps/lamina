@@ -59,20 +59,20 @@ npm run test:eval:spec
 Workflow evals use **natural user requests** — never telegraph expected workflow steps:
 
 - Feature design: plain feature asks (`Add wishlist`) — edge cases are asserted automatically via `lamina-edge-cases` hooks
-- Persona panel: runs when `personas.yaml` exists — prompts do not mention persona panel
-- Blueprint / UX Review Studio: **multi-turn** checkpoint — turn 1 is the workflow request; turn 2 is user consent (`Yes, show the wireframe preview.` or `Yes, open UX Review Studio.`)
+- Persona panel: runs when `personas.json` exists — prompts do not mention persona panel
+- Consequential ambiguity: **multi-turn** checkpoint — turn 1 identifies a blocking fork; turn 2 supplies founder intent so the graph can proceed.
 
 ### Multi-turn schema
 
 ```json
 {
-  "id": "design-blueprint-accept",
+  "id": "design-clarify-then-proceed",
   "prompts": [
-    "/lamina-design — Add password reset flow.",
-    "Yes, show the wireframe preview."
+    "/lamina-design — Design a vague productivity tool.",
+    "Target solo consultants; scope task capture and review; exclude collaboration."
   ],
   "fixture": "greenfield-with-init",
-  "assertions": ["blueprint offer made", "blueprint validate passes"]
+  "assertions": ["run.json valid", "design completion on disk"]
 }
 ```
 
@@ -86,9 +86,9 @@ Workflow artifact quality is tested inside `lamina-design` and `lamina-verify` s
 |------|----------|-----------------|
 | Edge case mapping | `design-*`, `design-edge-cases*` | `edge cases section present`, `edge case categories covered`, `domain contract present` |
 | Persona simulation | `design-persona-walkthrough`, `audit-checkout`, `audit-persona-panel` | `persona simulation file exists`, `persona perspectives in output` |
-| Blueprint checkpoint | (removed) | Studio/blueprint evals deprecated — skipped in grade hook |
+| Contract readiness | `design-*` | `run.json valid`, `run.json scenarios valid`, `design completion on disk` |
 
-Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `skills/lamina-orchestrator/lib/run.mjs` for run.yaml validation).
+Programmatic grading lives in `evals/hooks/grade-lamina.mjs` (uses `skills/lamina-orchestrator/lib/run.mjs` for run.json validation).
 
 ## Regenerating evals
 

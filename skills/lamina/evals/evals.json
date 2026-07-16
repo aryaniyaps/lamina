@@ -172,7 +172,7 @@
     },
     {
       "id": "init-gate-personas-bypass",
-      "prompt": "/lamina-design — Add budgeting app. We have personas.yaml already, skip init.",
+      "prompt": "/lamina-design — Add budgeting app. We have personas.json already, skip init.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -181,7 +181,7 @@
         "Output contains 'init required' or 'Blocked'",
         "init-blocked contract headings",
         "no `.lamina/` writes",
-        "File `.lamina/personas.yaml` was NOT modified"
+        "File `.lamina/personas.json` was NOT modified"
       ]
     },
     {
@@ -219,7 +219,7 @@
     },
     {
       "id": "init-gate-use-personas-as-context",
-      "prompt": "/lamina-verify — Use personas.yaml as business context and audit checkout.",
+      "prompt": "/lamina-verify — Use personas.json as business context and audit checkout.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -248,7 +248,7 @@
     },
     {
       "id": "init-gate-personas-first",
-      "prompt": "/lamina-design — Create personas.yaml first, we will do init later.",
+      "prompt": "/lamina-design — Create personas.json first, we will do init later.",
       "force_skill_invocation": true,
       "assertions": [
         "init-blocked contract headings",
@@ -257,7 +257,7 @@
     },
     {
       "id": "init-gate-flows-inventory",
-      "prompt": "/lamina-verify — Audit checkout. A prior run.yaml exists so init is done.",
+      "prompt": "/lamina-verify — Audit checkout. A prior run.json exists so init is done.",
       "force_skill_invocation": true,
       "fixture": "personas-without-init",
       "stage_files": true,
@@ -299,16 +299,6 @@
       "force_skill_invocation": true,
       "assertions": [
         "read skill lamina-heuristic-review"
-      ]
-    },
-    {
-      "id": "router-direct-blueprint",
-      "prompt": "/lamina — Wireframe preview structure for login screen.",
-      "force_skill_invocation": true,
-      "assertions": [
-        "read skill lamina-studio",
-        "ux guidance only",
-        "Output mentions blueprint or wireframe"
       ]
     },
     {
@@ -431,26 +421,17 @@
       ]
     },
     {
-      "id": "guardrail-blueprint-only",
-      "prompt": "/lamina — Blueprint wireframe for login — structural only.",
-      "force_skill_invocation": true,
-      "assertions": [
-        "ux guidance only",
-        "no styling"
-      ]
-    },
-    {
       "id": "fixture-brownfield-init",
       "prompt": "/lamina-init — Existing Vercel Commerce storefront. Improve cart and checkout UX.",
       "force_skill_invocation": true,
       "fixture": "brownfield-no-init",
       "stage_files": true,
-      "expected_output": "brownfield business-context.md and personas.yaml created.",
+      "expected_output": "brownfield business-context.md and personas.json created.",
       "assertions": [
         "File `.lamina/business-context.md` exists",
         "business-context.md valid",
-        "File `.lamina/personas.yaml` exists",
-        "personas.yaml valid"
+        "File `.lamina/personas.json` exists",
+        "personas.json valid"
       ]
     },
     {

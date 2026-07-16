@@ -17,7 +17,7 @@ metadata:
 ---
 # Navigation (agent-native)
 
-Encode **wayfinding** in `screens[]` and IA notes — site identity, section, local nav, breadcrumbs — so implementers and verify subagents test orientation.
+Encode **wayfinding** in `surfaces[]` and IA notes — site identity, section, local nav, breadcrumbs — so implementers and verify subagents test orientation.
 
 ## Contract encoding
 

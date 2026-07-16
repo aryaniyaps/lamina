@@ -17,7 +17,7 @@ metadata:
 ---
 # Content Design (agent-native)
 
-Specify **user-visible text** in `screens[]` — labels, headings, errors, empty states — so implementers and verify subagents share one source of truth.
+Specify **user-visible text** in `surfaces[]` — labels, headings, errors, empty states — so implementers and verify subagents share one source of truth.
 
 ## Contract encoding
 
@@ -40,7 +40,7 @@ Per screen:
 
 1. Page/screen title matches link that leads there.
 2. Error copy: what happened → why → what to do next.
-3. Labels use actor vocabulary from `domain.entities`, not internal jargon.
+3. Labels use actor vocabulary from `entities[]`, not internal jargon.
 4. Home/landing answers: what site, what can I do, why here, why trust — if applicable.
 5. Halve marketing copy on task screens.
 

@@ -12,7 +12,7 @@ Lamina writes three project-wide files at `.lamina/` root. These persist across 
 ## Quick path
 
 1. Run `/lamina-init` before any design or verify
-2. Inspect `.lamina/business-context.md` and `.lamina/personas.yaml`
+2. Inspect `.lamina/business-context.md` and `.lamina/personas.json`
 3. Reference these files in every run via `business_context_ref` and `personas_ref`
 
 <Callout type="info">
@@ -24,7 +24,7 @@ Lamina writes three project-wide files at `.lamina/` root. These persist across 
 ```text
 .lamina/
 ├── business-context.md   # Domain charter
-├── personas.yaml         # Actor cast
+├── personas.json         # Actor cast
 ├── decisions.md          # Conflict resolution log
 └── runs/
     └── <run_id>/         # Per-run artifacts
@@ -88,7 +88,7 @@ struggle to compete with large chains on incumbent platforms...
 **Written by:** `/lamina-init` (modes: `establish` or `update`)  
 **Read by:** `/lamina-design`, `/lamina-verify`, you
 
-## personas.yaml
+## personas.json
 
 Actor cast — roles, goals, permissions, and constraints for everyone who interacts with the product.
 
@@ -123,7 +123,7 @@ personas:
 
 | Field | Description |
 |-------|-------------|
-| `id` | Stable actor identifier used in `run.yaml` and verify walks |
+| `id` | Stable actor identifier used in `run.json` and verify walks |
 | `primary` | Whether this actor is a core design target |
 | `negative` | Explicitly out-of-scope persona (design guardrail) |
 | `surface` | Where the actor interacts (e.g. `traveler_web`, `hotel_dashboard`) |
@@ -165,7 +165,7 @@ Typical entry:
 
 | Mode | Command | Behavior |
 |------|---------|----------|
-| `establish` | `/lamina-init` (default) | Create `business-context.md` and `personas.yaml` from scratch |
+| `establish` | `/lamina-init` (default) | Create `business-context.md` and `personas.json` from scratch |
 | `update` | `/lamina-init update` | Merge changelog when domain pivots; preserve prior decisions |
 
 ## Next steps

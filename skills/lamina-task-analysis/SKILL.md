@@ -19,7 +19,7 @@ Decompose actor goals into **operations** — verbs on domain entities — that 
 
 ## Procedure
 
-1. From primary actor goals (`personas.yaml`), list operations: "download ticket", "assign venue".
+1. From primary actor goals (`personas.json`), list operations: "download ticket", "assign venue".
 2. Group operations into workflows by outcome, not by backend module.
 3. Rank **deal-breaker** operations — if blocked, actor abandons product.
 4. Map working-set (daily) operations to shortest nav path in screen specs.
@@ -27,7 +27,7 @@ Decompose actor goals into **operations** — verbs on domain entities — that 
 
 ## Contract encoding
 
-- `workflows[].steps` = ordered operations; use `requires` + `domain.dependencies[]` for prerequisites
+- `workflows[].steps` = ordered operations; use `requires` + `dependencies[]` for prerequisites
 - `task-analysis` prose optional in `report.md` for complex domains
 - Navigation labels = operation vocabulary, not org chart
 

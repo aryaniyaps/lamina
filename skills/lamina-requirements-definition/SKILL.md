@@ -1,46 +1,17 @@
 ---
 name: lamina-requirements-definition
-description: "Behavioral acceptance — scenarios and operations as testable criteria in run.yaml and implement.md. Not narrative screenplay handoffs."
-metadata:
-  lamina:
-    id: requirements-definition
-    problems:
-      - "acceptance criteria"
-      - "testable requirements"
-    related:
-      - lamina-orchestrator/artifacts
-      - lamina-verify
-      - lamina-edge-cases
+description: "Translate product intent into traceable critical promises, graph nodes, observable scenarios, assumptions, and scope without prescribing unnecessary implementation details."
 ---
-# Behavioral Acceptance (agent-native)
 
-Requirements live in **`run.yaml` + `implement.md`** — each scenario is verify-ready acceptance criteria.
+# Requirements definition
 
-## Mapping
+Write requirements as traceable product behavior:
 
-| Artifact | Requirement form |
-|----------|------------------|
-| `domain.dependencies[]` | **First-class reachability** — mode + unmet acceptance via scenarios |
-| `workflows[]` | Ordered operations with `requires` / `standalone` / `provides` |
-| `scenarios[]` | Given/when/then with actor + data state; `dependency_ref` / `invariant_ref`; required **`acceptance`** |
-| `actors[].resource_filters` | Ownership/privacy filters — fields must exist on entities |
-| `invariants[]` | Must always hold — verify probes |
-| `seed` / `out_of_scope` / `forbidden_content` | Fixture world + brief bans |
-| `implement.md` | Ship pack — **Reachability graph** + scenarios→acceptance + done-when |
+- `intent.critical_promises[]`: outcomes the product must preserve.
+- Actors, entities, operations, workflows, invariants, and dependencies: how the product stays coherent.
+- `scenarios[]`: observable distinct risks and recovery.
+- `decisions`: confirmed choices, assumptions, and policy forks.
+- `intent.scope`: current in/out boundaries.
+- `traceability[]`: promise-to-graph links.
 
-No separate requirements doc that drifts from contract.
-
-## Acceptance rule
-
-`scenarios[].acceptance` must be observable in the product (API status/body, UI copy/state, filtered field absent). Reject “handle gracefully.”
-
-## Anti-patterns
-
-- **Screenplay handoff** — narrative user stories without scenarios
-- **Duplicate spec** — PRD parallel to `run.yaml`
-- **Vibe acceptance** — non-observable pass conditions
-
-## Related
-
-- [Artifacts](../lamina-orchestrator/artifacts.md)
-- [Verify](../lamina-verify/SKILL.md)
+Mark every node's criticality, provenance, confidence, and relevance. Keep stack and vendor choices out unless the user explicitly constrained them. Defer non-current behavior instead of padding the contract.

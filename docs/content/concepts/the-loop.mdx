@@ -30,8 +30,8 @@ Lamina's workflow is a closed loop: design the contract, implement with your age
 
 | Step | Owner | Command / action | Writes |
 |------|-------|------------------|--------|
-| Charter | **Lamina** | `/lamina-init` | `.lamina/business-context.md`, `personas.yaml` |
-| Design | **Lamina** | `/lamina-design` | `run.yaml`, `implement.md`, `report.md` |
+| Charter | **Lamina** | `/lamina-init` | `.lamina/business-context.md`, `personas.json` |
+| Design | **Lamina** | `/lamina-design` | `run.json`, `implement.md`, `report.md` |
 | Implement | **Your agent** | Build from `implement.md` | App source |
 | Verify | **Lamina** | `/lamina-verify` | `findings[]`, `fix.md`, `walkthrough/` |
 | Fix | **Your agent** | Apply `fix.md` | App source |
@@ -52,7 +52,7 @@ Lamina models the domain:
 5. **Scenarios** — violations, edge cases, recovery paths
 6. **Screens** — structural UX surfaces (no styling)
 
-Output: `run.yaml` + `implement.md` with status `ready_to_build`.
+Output: `run.json` + `implement.md` with status `ready_to_build`.
 
 ## Implement phase
 
@@ -64,8 +64,8 @@ Your coding agent reads `implement.md` and writes app source. Lamina does not pa
 
 - One subagent per primary actor
 - Visual walkthrough capture in `walkthrough/`
-- Invariant probes against `domain.entities[].invariants`
-- Reachability probes against `domain.dependencies[]`
+- Invariant probes against `invariants[]`
+- Reachability probes against `dependencies[]`
 - Accessibility checks on captured steps
 - Findings written to `findings[]` with `fix_target` per item
 

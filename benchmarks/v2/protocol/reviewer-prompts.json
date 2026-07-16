@@ -1,0 +1,4 @@
+{
+  "structured": "Independently critique this contract for missing reachability, authority, state lifecycle, contradictory decisions, failure recovery, and irrelevant specification. Cite contract node IDs where available. Do not assume user preferences and do not edit files.",
+  "lamina": "Walk only the supplied bounded perspective and graph slice. Report structural defects, contradictions, missing recovery, reversible UX observations, policy forks, and research hypotheses with graph references. Persona preference is not user evidence. Do not edit files."
+}

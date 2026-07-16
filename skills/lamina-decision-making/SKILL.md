@@ -19,7 +19,7 @@ Rank **contract changes and verify findings** by impact on primary actor goals a
 
 ## Fix target classification
 
-Before writing `fix.md`, set `fix_target` on each finding in `run.yaml`:
+Before writing `fix.md`, set `fix_target` on each finding in `run.json`:
 
 | Signal | `fix_target` |
 |--------|---------------|

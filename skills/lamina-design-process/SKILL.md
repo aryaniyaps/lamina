@@ -19,7 +19,7 @@ The loop for coding agents: **design contract → implement (external) → verif
 ## Loop
 
 1. `/lamina-init` — domain charter
-2. `/lamina-design` — `run.yaml` + `implement.md` at `ready_to_build`
+2. `/lamina-design` — `run.json` + `implement.md` at `ready_to_build`
 3. External implementation (any stack)
 4. `/lamina-verify` — actor walks, invariants, a11y → `findings[]` + `fix.md`
 5. External fix — coding agent implements product fixes from `fix.md`

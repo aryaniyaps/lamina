@@ -21,10 +21,10 @@ const cases = [
     name: 'no .lamina directory',
     root: fixture('no-lamina-dir'),
     ok: false,
-    includes: ['Missing `.lamina/personas.yaml`'],
+    includes: ['Missing `.lamina/personas.json`'],
   },
   {
-    name: 'empty personas.yaml',
+    name: 'empty personas.json',
     root: fixture('empty-file'),
     ok: false,
     includes: ['empty'],
@@ -33,7 +33,7 @@ const cases = [
     name: 'missing primary',
     root: fixture('missing-primary'),
     ok: false,
-    includes: ['Missing `primary`'],
+    includes: ['primary: true'],
   },
   {
     name: 'missing required persona field',
@@ -45,7 +45,7 @@ const cases = [
     name: 'missing nested persona sections',
     root: fixture('missing-nested'),
     ok: false,
-    includes: ['missing required field: goals', 'missing required field: accessibility'],
+    includes: ['missing required field: goals', 'missing required field: constraints'],
   },
 ];
 

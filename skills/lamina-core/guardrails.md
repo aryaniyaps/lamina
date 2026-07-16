@@ -2,18 +2,18 @@
 
 **Product design artifacts only.** Lamina owns how the app works — domain, actors, workflows, invariants, and UX expression. Do not implement product code or visual styling specs (colors, typography, component libraries, Tailwind, shadcn, CSS classes). Stay unopinionated on frameworks, databases, and UI libraries.
 
-**Agent-native:** Every skill encodes behavior in `.lamina/` contracts (`run.yaml`, `personas.yaml`, ship-pack `implement.md`) and validates via `/lamina-verify` — live product when available, otherwise static source against scenario `acceptance`. Design uses contract-time persona simulation. Stack-agnostic: do not prescribe a default framework. No invented analytics or app source edits.
+**Agent-native:** Every skill encodes behavior in `.lamina/` contracts (`run.json`, `personas.json`, ship-pack `implement.md`) and validates via `/lamina-verify` — live product when available, otherwise static source against scenario `acceptance`. Design uses contract-time persona simulation. Stack-agnostic: do not prescribe a default framework. No invented analytics or app source edits.
 
 **Write allowlist:** During Lamina slash commands, **only write under `.lamina/`**. Everything else in the repo is **read-only**.
 
-**Brownfield references:** Repo files cited in `screens[].source`, routes, or evidence are **read-only** — cite paths in `run.yaml`, never edit them during a Lamina command.
+**Brownfield references:** Repo files cited in `surfaces[].source`, routes, or evidence are **read-only** — cite paths in `run.json`, never edit them during a Lamina command.
 
 ## Command boundary (Mode B)
 
 Lamina **never writes app source**. The loop:
 
-1. **Design** (`/lamina-design`) → `run.yaml` (scenarios with `acceptance`) + validated ship-pack `implement.md` → `status: ready_to_build`
-2. **External build** — user or coding agent implements using any stack from **`run.yaml` + `implement.md`**
+1. **Design** (`/lamina-design`) → `run.json` (scenarios with `acceptance`) + validated ship-pack `implement.md` → `status: ready_to_build`
+2. **External build** — user or coding agent implements using any stack from **`run.json` + `implement.md`**
 3. **Verify** (`/lamina-verify`) → live or static probes → `findings[]` + always `fix.md` (ops omitted from product fixes)
 4. **External fix** — coding agent implements product fixes from `fix.md` (not Lamina)
 5. **Re-verify** — `/lamina-verify` on updated build; contract deltas → `/lamina-design`

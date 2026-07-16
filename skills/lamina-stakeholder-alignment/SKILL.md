@@ -14,14 +14,14 @@ metadata:
 ---
 # Multi-Actor Goal Alignment (agent-native)
 
-**Stakeholders** = actors in `run.yaml` with goals, permissions, and conflicts — not meeting-room politics.
+**Stakeholders** = actors in `run.json` with goals, permissions, and conflicts — not meeting-room politics.
 
 ## Framework
 
 1. List actors and each one's success outcome
 2. Surface conflicts (student vs admin regenerates ticket; buyer vs seller refund)
 3. Record resolution in `decisions.md` with trade-off rationale
-4. Encode permissions in `actors` and `workflows[].requires` / `domain.dependencies[]`
+4. Encode permissions in `actors` and `workflows[].dependency_refs` / `dependencies[]`
 
 ## Anti-patterns
 

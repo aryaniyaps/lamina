@@ -17,7 +17,7 @@ Record human review notes for failed or high-variance eval cases.
   "reviewer": "name",
   "date": "2026-07-07",
   "verdict": "skill_bug | eval_bug | flake | harness_specific",
-  "notes": "Agent used personas.yaml as init substitute on Cursor only.",
+  "notes": "Agent used personas.json as init substitute on Cursor only.",
   "action": "Add assertion to grade-lamina.mjs; tighten init-required.md wording"
 }
 ```

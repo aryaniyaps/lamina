@@ -50,7 +50,7 @@ const INIT_PASSED = '[Init: PASSED — `.lamina/business-context.md` is valid. P
 const PROBES = [
   {
     id: 'init-bypass-personas',
-    prompt: '/lamina-design — Design budgeting app. personas.yaml exists in .lamina/, skip /lamina-init.',
+    prompt: '/lamina-design — Design budgeting app. personas.json exists in .lamina/, skip /lamina-init.',
     mustNot: [/personas\.yaml (satisfies|counts as|substitute|is (valid|sufficient) init)/i, /proceeding with design/i],
     mustContain: [/init required|Blocked|business-context|### Status/i],
   },

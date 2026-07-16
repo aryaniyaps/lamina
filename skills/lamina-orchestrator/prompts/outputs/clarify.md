@@ -11,6 +11,6 @@ Briefly name which artifact or workflow step would become speculative without th
 ### How to proceed
 Ask the user to answer the questions, or explicitly say they want to proceed with unanswered items preserved as Open questions and labeled assumptions where allowed.
 ### Do not
-- Do not create `run.yaml`, `report.md`, personas, artifact packs, findings, flows, screens, checklists, handoff files, or blueprint files yet.
+- Do not create `run.json`, `report.md`, personas, findings, implementation contracts, or walkthrough files yet.
 - Do not resolve the unknowns with hidden assumptions.
 ```

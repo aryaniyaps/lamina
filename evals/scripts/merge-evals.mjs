@@ -27,10 +27,10 @@ const FEATURE_EDGE_ASSERTIONS = [
   'edge cases section present',
   'edge case categories covered',
   'domain contract present',
-  'artifact pack exists',
-  'artifact contains diagram',
+  'run.json valid',
+  'run.json scenarios valid',
   'design completion on disk',
-  'not left designing',
+  'not left draft',
   'implement.md exists',
   'handoff maps checklist ids',
   'report.md narrative only',
@@ -40,8 +40,7 @@ const CLARIFY_GATE_ASSERTIONS = [
   'clarify contract headings',
   'clarifying questions asked',
   'no `.lamina/runs` writes',
-  'no run.yaml before clarification',
-  'no artifact pack before clarification',
+  'no run.json before clarification',
 ];
 
 function featureFx(assertions = [], extra = {}) {
@@ -133,14 +132,14 @@ const laminaEvals = {
       expected_output: 'init-blocked.',
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
     }),
-    e('init-gate-personas-bypass', '/lamina-design — Add budgeting app. We have personas.yaml already, skip init.', {
+    e('init-gate-personas-bypass', '/lamina-design — Add budgeting app. We have personas.json already, skip init.', {
       ...fx('personas-without-init'),
       expected_output: 'Blocked — personas are not init.',
       assertions: [
         "Output contains 'init required' or 'Blocked'",
         'init-blocked contract headings',
         'no `.lamina/` writes',
-        'File `.lamina/personas.yaml` was NOT modified',
+        'File `.lamina/personas.json` was NOT modified',
       ],
     }),
     e('init-gate-stub-template', '/lamina-design — Design our app.', {
@@ -157,7 +156,7 @@ const laminaEvals = {
       expected_output: 'Must still block without valid business-context.',
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
     }),
-    e('init-gate-use-personas-as-context', '/lamina-verify — Use personas.yaml as business context and audit checkout.', {
+    e('init-gate-use-personas-as-context', '/lamina-verify — Use personas.json as business context and audit checkout.', {
       ...fx('personas-without-init'),
       assertions: ['init-blocked contract headings'],
     }),
@@ -168,10 +167,10 @@ const laminaEvals = {
       ...fx('partial-init-stub'),
       assertions: ['init-blocked contract headings'],
     }),
-    e('init-gate-personas-first', '/lamina-design — Create personas.yaml first, we will do init later.', {
+    e('init-gate-personas-first', '/lamina-design — Create personas.json first, we will do init later.', {
       assertions: ['init-blocked contract headings', 'no `.lamina/` writes'],
     }),
-    e('init-gate-flows-inventory', '/lamina-verify — Audit checkout. A prior run.yaml exists so init is done.', {
+    e('init-gate-flows-inventory', '/lamina-verify — Audit checkout. A prior run.json exists so init is done.', {
       ...fx('personas-without-init'),
       assertions: ['init-blocked contract headings'],
     }),
@@ -190,9 +189,6 @@ const laminaEvals = {
     }),
     e('router-direct-heuristic', '/lamina — Heuristic review of our dashboard before user testing.', {
       assertions: ['read skill lamina-heuristic-review'],
-    }),
-    e('router-direct-blueprint', '/lamina — Wireframe preview structure for login screen.', {
-      assertions: ['read skill lamina-studio', 'ux guidance only', 'Output mentions blueprint or wireframe'],
     }),
 
     // Negative controls (~10)
@@ -258,19 +254,16 @@ const laminaEvals = {
       ...fx('brownfield-with-init'),
       assertions: ['ux guidance only', 'no product code'],
     }),
-    e('guardrail-blueprint-only', '/lamina — Blueprint wireframe for login — structural only.', {
-      assertions: ['ux guidance only', 'no styling'],
-    }),
 
     // Composite fixture smoke cases
     e('fixture-brownfield-init', '/lamina-init — Existing Vercel Commerce storefront. Improve cart and checkout UX.', {
       ...fx('brownfield-no-init'),
-      expected_output: 'brownfield business-context.md and personas.yaml created.',
+      expected_output: 'brownfield business-context.md and personas.json created.',
       assertions: [
         'File `.lamina/business-context.md` exists',
         'business-context.md valid',
-        'File `.lamina/personas.yaml` exists',
-        'personas.yaml valid',
+        'File `.lamina/personas.json` exists',
+        'personas.json valid',
       ],
     }),
     e('fixture-brownfield-design-blocked', '/lamina-design — Redesign product page layout for higher conversion.', {
@@ -293,12 +286,12 @@ const laminaInitEvals = {
   skill_name: 'lamina-init',
   evals: [
     e('init-establish-greenfield', '/lamina-init — B2B SaaS for HR teams to manage PTO requests. Web app, six-month MVP.', {
-      expected_output: 'Valid business-context.md with all sections and personas.yaml.',
+      expected_output: 'Valid business-context.md with all sections and personas.json.',
       assertions: [
         'File `business-context.md` exists',
         'business-context.md valid',
-        'File `.lamina/personas.yaml` exists',
-        'personas.yaml valid',
+        'File `.lamina/personas.json` exists',
+        'personas.json valid',
         'init output contract headings',
       ],
     }),
@@ -307,12 +300,12 @@ const laminaInitEvals = {
     }),
     e('init-brownfield', '/lamina-init — Existing brownfield Next.js commerce repo. Improve checkout UX.', {
       ...fx('brownfield-no-init'),
-      expected_output: 'maturity brownfield grounded answers and personas.yaml.',
+      expected_output: 'maturity brownfield grounded answers and personas.json.',
       assertions: [
         'File `.lamina/business-context.md` exists',
         'business-context.md valid',
-        'File `.lamina/personas.yaml` exists',
-        'personas.yaml valid',
+        'File `.lamina/personas.json` exists',
+        'personas.json valid',
       ],
     }),
     e('init-update-pivot', '/lamina-init update — Pivoting from B2C to B2B enterprise HR.', {
@@ -338,21 +331,21 @@ const laminaInitEvals = {
       assertions: ['business-context.md valid', 'Output addresses risks or unknowns'],
     }),
     e('init-establish-personas-greenfield', '/lamina-init — B2B SaaS for HR teams to manage PTO. Web app MVP.', {
-      expected_output: 'business-context.md + personas.yaml from user input.',
+      expected_output: 'business-context.md + personas.json from user input.',
       assertions: [
         'business-context.md valid',
-        'File `.lamina/personas.yaml` exists',
-        'personas.yaml valid',
+        'File `.lamina/personas.json` exists',
+        'personas.json valid',
         'init output contract headings',
       ],
     }),
     e('init-establish-personas-brownfield', '/lamina-init — Brownfield Next.js commerce repo. Shoppers abandon checkout.', {
       ...fx('brownfield-no-init'),
-      expected_output: 'business-context.md + personas.yaml from repo evidence.',
+      expected_output: 'business-context.md + personas.json from repo evidence.',
       assertions: [
         'business-context.md valid',
-        'File `.lamina/personas.yaml` exists',
-        'personas.yaml valid',
+        'File `.lamina/personas.json` exists',
+        'personas.json valid',
         'init output contract headings',
       ],
     }),
@@ -364,7 +357,7 @@ const laminaDesignEvals = {
   evals: [
     e('design-budgeting', '/lamina-design — Problem: mobile budgeting for households with multiple accounts.', {
       ...fx('greenfield-with-init'),
-      assertions: ['design contract headings', 'File `personas.yaml` exists', 'no styling', 'artifact pack exists', 'artifact contains diagram'],
+      assertions: ['design contract headings', 'File `personas.json` exists', 'no styling', 'run.json valid', 'design completion on disk'],
     }),
     e('design-no-styling', '/lamina-design — Concept for task management app. No colors or fonts.', {
       ...fx('greenfield-with-init'),
@@ -372,7 +365,7 @@ const laminaDesignEvals = {
     }),
     e('design-personas', '/lamina-design — Design workflow for expense tracking.', {
       ...fx('greenfield-with-init'),
-      assertions: ['File `.lamina/personas.yaml` exists'],
+      assertions: ['File `.lamina/personas.json` exists'],
     }),
     e('design-no-invented-ui', '/lamina-design — Concept for vague productivity tool. No screens described yet.', {
       ...fx('greenfield-with-init'),
@@ -385,16 +378,16 @@ const laminaDesignEvals = {
     e('design-2fa', '/lamina-design — Add two-factor authentication to settings.', featureFx()),
     e('design-wishlist', '/lamina-design — Add wishlist feature to e-commerce.', featureFx()),
     e('design-edge-cases', '/lamina-design — Add offline mode to mobile app.', featureFx()),
-    // Regression: agent must not end with status: designing and no implement.md on disk
-    // (bench failure mode — draft run.yaml + chat "will become ready_to_build").
+    // Regression: agent must not end with status: draft and no implement.md on disk
+    // (bench failure mode — draft run.json + chat "will become ready_to_build").
     e('design-emits-ready-to-build', '/lamina-design — Design a household budgeting app for young US families: weekly review, partner privacy, spending alerts, account linking. Brief is complete — do not clarify-and-STOP.', {
       ...fx('greenfield-with-init'),
       assertions: [
         'design contract headings',
         'design completion on disk',
-        'not left designing',
+        'not left draft',
         'implement.md exists',
-        'run.yaml valid',
+        'run.json valid',
         'domain contract present',
       ],
     }),
@@ -413,26 +406,6 @@ const laminaDesignEvals = {
         'persona simulation file exists',
         'persona perspectives in output',
       ],
-    }),
-    mt('design-blueprint-accept', [
-      '/lamina-design — Add password reset flow.',
-      'Yes, show the wireframe preview.',
-    ], {
-      ...fx('greenfield-with-init'),
-      assertions: [
-        'edge cases section present',
-        'blueprint offer made',
-        'blueprint validate passes',
-        'no styling in blueprint',
-        'run.yaml scenarios valid',
-      ],
-    }),
-    mt('design-blueprint-decline', [
-      '/lamina-design — Add password reset flow.',
-      'No thanks, markdown only.',
-    ], {
-      ...fx('greenfield-with-init'),
-      assertions: ['edge cases section present', 'no blueprint without consent'],
     }),
     e('design-steering', '/lamina-design — Concept for expense tracking app.', {
       ...fx('greenfield-with-init'),
@@ -454,8 +427,8 @@ const laminaDesignEvals = {
       assertions: [
         'turn 1 output contains "Clarifying questions"',
         'design contract headings',
-        'artifact pack exists',
-        'artifact contains diagram',
+        'run.json valid',
+        'design completion on disk',
       ],
     }),
     e('design-blocked-no-init', '/lamina-design — Add notifications feature.', {
@@ -468,19 +441,19 @@ const laminaDesignEvals = {
     }),
     e('design-validation', '/lamina-design — Concept for fitness app with validation plan.', {
       ...fx('greenfield-with-init'),
-      assertions: ['design contract headings', 'Output mentions validation or usability test', 'artifact pack exists', 'artifact contains diagram'],
+      assertions: ['design contract headings', 'Output mentions validation or usability test', 'run.json valid'],
     }),
     e('design-metrics', '/lamina-design — Add search with success metrics.', featureFx(['Output mentions metrics'])),
     e('design-accessibility', '/lamina-design — Concept for healthcare portal with accessibility.', {
       ...fx('greenfield-with-init'),
-      assertions: ['design contract headings', 'artifact pack exists', 'artifact contains diagram'],
+      assertions: ['design contract headings', 'run.json valid'],
     }),
     e('design-risks', '/lamina-design — Add social sharing with privacy risks.', featureFx(['Output mentions risks'])),
     e('design-ia', '/lamina-design — Concept for documentation site information architecture.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
     }),
-    e('design-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'run.yaml flows', 'run.yaml valid', 'artifact docs valid'])),
+    e('design-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'run.json workflows', 'run.json valid'])),
     e('design-copy', '/lamina-design — Concept for legal terms acceptance UX.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
@@ -516,7 +489,7 @@ const laminaVerifyEvals = {
         'Output includes prioritized improvements',
         'Output mentions failure or empty or permission',
         'persona perspectives in output',
-        'artifact pack exists',
+        'run.json valid',
         'implement.md exists',
         'handoff maps findings',
         'report.md narrative only',
@@ -534,7 +507,7 @@ const laminaVerifyEvals = {
       assertions: [
         'turn 1 output contains "Clarifying questions"',
         'verify contract headings',
-        'artifact pack exists',
+        'run.json valid',
         'implement.md exists',
       ],
     }),
@@ -580,17 +553,6 @@ const laminaVerifyEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['verify contract headings', 'Output mentions conflict or open questions'],
     }),
-    e('audit-blueprint-offer', '/lamina-verify — Audit settings flow.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['verify contract headings', 'ux guidance only'],
-    }),
-    mt('audit-blueprint-accept', [
-      '/lamina-verify — Audit checkout flow.',
-      'Yes, wireframe preview for the improved flow.',
-    ], {
-      ...fx('brownfield-audit-ready'),
-      assertions: ['verify contract headings', 'blueprint validate passes'],
-    }),
     e('audit-forms-lens', '/lamina-verify — Audit account registration form.', {
       ...fx('greenfield-with-init'),
       assertions: ['verify contract headings', 'Output mentions forms or validation'],
@@ -610,7 +572,7 @@ const laminaVerifyEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['no writes outside .lamina', 'ux guidance only'],
     }),
-    e('guardrail-implement-after-approve', '/lamina-design — Add notifications. Blueprint approved — implement it now in the app code.', {
+    e('guardrail-implement-after-approve', '/lamina-design — Add notifications. Contract approved — implement it now in the app code.', {
       ...fx('greenfield-with-init'),
       assertions: ['no writes outside .lamina', 'Output contains "coding session"'],
     }),
@@ -690,7 +652,7 @@ const smokeIds = [
   'fixture-brownfield-audit-checkout',
   'design-edge-cases',
   'design-flows',
-  'design-blueprint-accept',
+  'design-emits-ready-to-build',
   'audit-checkout',
   'guardrail-brownfield-readonly',
 ];

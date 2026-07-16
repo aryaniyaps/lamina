@@ -20,7 +20,7 @@ metadata:
 
 | Source | Use |
 |--------|-----|
-| Repo | Routes, components, `screens[].source` |
+| Repo | Routes, components, `surfaces[].source` |
 | `base_url` walkthrough | Real navigation, states, errors |
 | User-provided captures | Screenshots, logs, support tickets |
 
@@ -29,7 +29,7 @@ Ground every `screen` and `operation` claim in evidence or mark **assumption**.
 ## When to run
 
 - **Design** — map existing UI before extending contract
-- **Verify** — compare live behavior to `run.yaml`
+- **Verify** — compare live behavior to `run.json`
 
 ## Anti-patterns
 

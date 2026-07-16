@@ -15,7 +15,7 @@ export const SITE = {
   loop: "design → implement → verify → fix",
   commands: ["/lamina-init", "/lamina-design", "/lamina-verify"],
   outcomes: [
-    "Machine-readable contract (`run.yaml`) your agent implements from `implement.md`",
+    "Machine-readable contract (`run.json`) your agent implements from `implement.md`",
     "Parallel persona walks that surface product gaps on the live app",
     "Fix loop (`fix.md` → agent fixes → re-verify) until the contract holds",
   ],

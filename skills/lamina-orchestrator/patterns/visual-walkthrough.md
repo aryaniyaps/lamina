@@ -1,21 +1,19 @@
 # Visual walkthrough
 
-**When:** Audit of existing UI, or brownfield design where `screens[].status: existing` screens need grounded understanding — and a **product** `base_url` is available (user-provided URL or local dev server).
+**When:** Audit of existing UI, or brownfield design where `surfaces[].status: existing` screens need grounded understanding — and a **product** `base_url` is available (user-provided URL or local dev server).
 
-**What:** One shared live-app capture per flow. Screenshots + a11y/DOM dumps saved under `.lamina/runs/<run_id>/walkthrough/`. Persona panel and (v1) orchestrator consume the pack — personas do **not** each drive a browser.
+**What:** One shared live-app capture per workflow. Screenshots plus accessibility/DOM dumps are saved under `.lamina/runs/<run_id>/walkthrough/`. Persona reviewers consume the shared evidence; they do **not** each drive a browser.
 
 **Never when:**
-- Evaluating only Lamina blueprints or UX Review Studio wireframes
-- Target URL is Studio preview / blueprint render
-- Run has only `screens[].status: new` with no live counterpart
+- Run has only `surfaces[].status: new` with no live counterpart
 - No product `base_url` or app is unreachable
 
-**Hard rule:** Capture source is always the **product app** — never Studio, never `.lamina/blueprints/` SUB render.
+**Hard rule:** Capture source is always the product app under verification.
 
 ## Orchestrator procedure
 
-1. **Gate:** Confirm product `base_url` (e.g. `http://localhost:3000`). If user offers Studio/blueprint URL, refuse and ask for product URL. If routes exist but no `base_url`, ask once; on skip → `evidence.visual.status: unavailable`, text path only.
-2. **Identify steps:** From `run.yaml` `workflows[]` and `screens[]` where `status: existing`. Legacy `flows[]` may exist in older runs — prefer `workflows[]`. Mixed flows: capture **existing** steps only; `new` screens stay text/SUB.
+1. **Gate:** Confirm product `base_url` (e.g. `http://localhost:3000`). If routes exist but no `base_url`, ask once; on skip, record unavailable visual evidence and continue with static evidence.
+2. **Identify steps:** From `run.json` `workflows[]` and `surfaces[]` where `status: existing`. Capture existing steps only; `new` surfaces stay text-only until implemented.
 3. **Capture:** Spawn walkthrough capturer from `prompts/subagents/walkthrough-capturer.md` (or run inline with host browser tools). One pass per flow.
 4. **Write pack:** Save `walkthrough/index.yaml` + `walkthrough/steps/*`. Add `evidence[]` entry with `kind: visual_walkthrough`.
 5. **Capability ladder** (pick once per run before persona panel):
@@ -34,6 +32,6 @@ In audit, order is: **capture → (describe if needed) → persona panel + exper
 | Screen status | Persona evidence |
 |---------------|------------------|
 | `existing` + in walkthrough pack | Live screenshot or `.desc.yaml` from pack |
-| `new` / not captured | Text/SUB "What you're evaluating" block (today's path) |
+| `new` / not captured | Contract text only |
 
 Load [artifacts.md](../artifacts.md) for pack schema and [merge-rules.md](../merge-rules.md) for grounding rules.

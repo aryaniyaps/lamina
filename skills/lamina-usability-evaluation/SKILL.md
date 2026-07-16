@@ -18,7 +18,7 @@ metadata:
 
 ## Method
 
-1. Load personas + `run.yaml` workflows
+1. Load personas + `run.json` workflows
 2. Spawn parallel actor-walk subagents (persona-panel)
 3. Each attempts happy path + edge probes
 4. Record blockers: cannot find affordance, wrong feedback, dead end

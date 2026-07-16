@@ -41,7 +41,7 @@ Divide the product into cohesive parts with clear ownership. Users see simple su
 2. List what each actor type can see and do — nothing else.
 3. Avoid pass-through screens that expose another boundary's internals.
 4. When two features share an entity, define which boundary owns writes.
-5. Document boundaries in `run.yaml` `domain` relationships and `actors` permissions.
+5. Document boundaries in `run.json` `domain` relationships and `actors` permissions.
 
 ## Anti-patterns
 

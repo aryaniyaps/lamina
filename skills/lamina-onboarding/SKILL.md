@@ -20,7 +20,7 @@ Onboarding = **primary actor completes first valuable workflow** without documen
 ## Contract encoding
 
 - First-run workflow flagged in `workflows[]` (e.g. `onboarding: true`)
-- `empty_states` + `screens[]` for first dashboard visit
+- `empty_states` + `surfaces[]` for first dashboard visit
 - Power features in `secondary_actions` / progressive disclosure notes
 - Optional `scenarios[]` for skipped onboarding — actor still reaches goal
 

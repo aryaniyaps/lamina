@@ -1,4 +1,4 @@
-import { SCENARIO_CATEGORIES } from './scenarios.mjs';
+const SCENARIO_CATEGORIES = ['empty', 'failure', 'permission', 'conflict', 'boundary', 'precondition', 'external'];
 
 /** @typedef {{ id: string; operation: string; subject: string; screenId: string; kind: 'read_collection' | 'read_resource' | 'mutate' | 'navigate'; flowId?: string }} DerivedOperation */
 /** @typedef {{ operationId: string; category: string; required: boolean; scenarioId: string | null; covered: boolean; flowId?: string }} MatrixCell */
@@ -196,7 +196,51 @@ export function loadCoverageForRun(laminaRoot, runId, fs, runMod) {
   if (!fs.existsSync(runPath)) {
     return { ok: false, error: 'run not found', runId };
   }
-  const run = runMod.parseRunYaml(fs.readFileSync(runPath, 'utf8'));
+  const run = runMod.parseRunJson(fs.readFileSync(runPath, 'utf8'));
+  if (run.contract_version === '2.0') {
+    const scenarios = run.scenarios ?? [];
+    const scenarioRefs = new Set(scenarios.flatMap((scenario) => scenario.covers ?? []));
+    const operations = (run.operations ?? []).map((operation) => ({
+      id: operation.id,
+      operation: operation.id,
+      subject: operation.id,
+      screenId: operation.surface_ref?.replace(/^surface\./, '') || '',
+      kind: 'mutate',
+    }));
+    const gaps = (run.operations ?? [])
+      .filter((operation) => operation.criticality === 'critical' && !scenarioRefs.has(`operation.${operation.id}`))
+      .map((operation) => ({
+        flowId: (run.workflows ?? []).find((workflow) =>
+          (workflow.steps ?? []).some((step) => step.operation_ref === `operation.${operation.id}`),
+        )?.id || 'default',
+        operationId: operation.id,
+        operation: operation.id,
+        category: 'distinct_risk',
+        screenId: operation.surface_ref?.replace(/^surface\./, '') || '',
+        reason: `Missing distinct risk scenario for "${operation.id}"`,
+      }));
+    const flows = (run.workflows ?? []).map((workflow) => {
+      const workflowGaps = gaps.filter((gap) => gap.flowId === workflow.id);
+      const workflowOperations = (workflow.steps ?? []).length;
+      return {
+        id: workflow.id,
+        score: workflowOperations ? Math.round(((workflowOperations - workflowGaps.length) / workflowOperations) * 100) : 100,
+        gapCount: workflowGaps.length,
+      };
+    });
+    return {
+      ok: true,
+      runId,
+      run: { id: run.id, hook: run.hook, stage: run.stage },
+      screens: run.surfaces ?? [],
+      scenarios,
+      flows,
+      gaps,
+      cells: [],
+      operations,
+      score: operations.length ? Math.round(((operations.length - gaps.length) / operations.length) * 100) : 100,
+    };
+  }
   const screens = /** @type {import('./run.mjs').RunScreen[]} */ (run.screens ?? []);
   const scenarios = /** @type {ScenarioLike[]} */ (run.scenarios ?? []);
   const runFlows = /** @type {import('./run.mjs').RunFlow[]} */ (run.flows ?? []);

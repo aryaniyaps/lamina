@@ -36,13 +36,13 @@ For a full marketplace example, see [Demo: HavenStay](/guides/demo-havenstay).
 | File | Purpose |
 |------|---------|
 | `business-context.md` | Domain charter — problem, scope, constraints |
-| `personas.yaml` | Actor cast — roles, goals, permissions |
+| `personas.json` | Actor cast — roles, goals, permissions |
 
 ### After `/lamina-design`
 
 | File | Purpose |
 |------|---------|
-| `runs/<id>/run.yaml` | Machine contract (`status: ready_to_build`) |
+| `runs/<id>/run.json` | Machine contract (`status: ready_to_build`) |
 | `runs/<id>/implement.md` | Build handoff for your coding agent |
 | `runs/<id>/report.md` | Design narrative and rationale |
 
@@ -52,7 +52,7 @@ For a full marketplace example, see [Demo: HavenStay](/guides/demo-havenstay).
 |------|---------|
 | `runs/<id>/fix.md` | Product gaps found during persona walks |
 | `runs/<id>/walkthrough/` | Screenshots and live-app evidence |
-| `runs/<id>/run.yaml` | Updated with `findings[]`, `status: complete` |
+| `runs/<id>/run.json` | Updated with `findings[]`, `status: complete` |
 
 <Callout type="info">
 **Advanced:** Lamina does not write `session.jsonl` or other agent transcripts to `.lamina/`. The artifact model uses `report.md` for narrative and `walkthrough/` for evidence.
@@ -60,7 +60,7 @@ For a full marketplace example, see [Demo: HavenStay](/guides/demo-havenstay).
 
 ## What `ready_to_build` means
 
-When `run.yaml` status is `ready_to_build`, the contract is complete enough for your agent to implement:
+When `run.json` status is `ready_to_build`, the contract is complete enough for your agent to implement:
 
 - Actors and roles are defined
 - Entities, states, and transitions are specified
@@ -93,7 +93,7 @@ You do not need a perfect spec — you need a contract your agent can implement 
 
 - Reference dependency ids in workflows, not free-text preconditions
 - Use `fix_target: contract` findings to trigger scoped re-design
-- Validate contracts: `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<id>/run.yaml`
+- Validate contracts: `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs .lamina/runs/<id>/run.json`
 - Preserve `.lamina/` between runs — Lamina reuses existing artifacts
 
 ## Next steps

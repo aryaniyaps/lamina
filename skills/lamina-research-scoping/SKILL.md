@@ -18,7 +18,7 @@ Before design or verify, list **what evidence exists** and what must be captured
 | Evidence | Source |
 |----------|--------|
 | Domain rules | User input, `business-context.md` |
-| Existing UI | Repo `screens[].source`, walkthrough pack |
+| Existing UI | Repo `surfaces[].source`, walkthrough pack |
 | Actor behavior | Verify actor walks on live product |
 | Metrics | User-provided only — never invented |
 

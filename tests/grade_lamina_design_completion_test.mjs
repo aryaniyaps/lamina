@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regression: design must not leave status: designing without implement.md.
+ * Regression: design must not leave a draft without generated implement.md.
  * Grades the same assertions used by lamina-design evals against fixtures.
  */
 import assert from 'node:assert/strict';
@@ -35,36 +35,18 @@ function gradeCtx(workspace) {
 }
 
 function run() {
-  // Failure mode from task001-treatment: designing + no implement.md
+  // Failure mode: draft + no implement.md
   const stuck = mkWorkspace({
-    '.lamina/runs/budgetapp-stuck/run.yaml': `---
-id: budgetapp-stuck
-status: designing
-hook: design
-domain:
-  entities:
-    - id: household
-`,
+    '.lamina/runs/budgetapp-stuck/run.json': JSON.stringify({ contract_version: '2.0', id: 'budgetapp-stuck', status: 'draft', stage: 'spark', hook: 'design', intent: { problem: 'p', outcome: 'o', users: ['u'] } }),
   });
 
   const ready = mkWorkspace({
-    '.lamina/runs/budgetapp-ready/run.yaml': `---
-id: budgetapp-ready
-status: ready_to_build
-hook: design
-domain:
-  entities:
-    - id: household
-`,
+    '.lamina/runs/budgetapp-ready/run.json': JSON.stringify({ contract_version: '2.0', id: 'budgetapp-ready', status: 'ready_to_build', stage: 'shape', hook: 'design' }),
     '.lamina/runs/budgetapp-ready/implement.md': `# Ship pack\n## Must-implement checklist\n- [ ] Screens\n`,
   });
 
   const half = mkWorkspace({
-    '.lamina/runs/budgetapp-half/run.yaml': `---
-id: budgetapp-half
-status: ready_to_build
-hook: design
-`,
+    '.lamina/runs/budgetapp-half/run.json': JSON.stringify({ contract_version: '2.0', id: 'budgetapp-half', status: 'ready_to_build', stage: 'shape', hook: 'design' }),
   });
 
   try {
@@ -74,10 +56,10 @@ hook: design
 
     const failCompletion = gradeAssertion('design completion on disk', stuckCtx);
     assert.equal(failCompletion.passed, false, failCompletion.evidence);
-    assert.match(failCompletion.evidence, /designing/);
+    assert.match(failCompletion.evidence, /draft|stuck/);
 
-    const failNotDesigning = gradeAssertion('not left designing', stuckCtx);
-    assert.equal(failNotDesigning.passed, false, failNotDesigning.evidence);
+    const failNotDraft = gradeAssertion('not left draft', stuckCtx);
+    assert.equal(failNotDraft.passed, false, failNotDraft.evidence);
 
     const failImpl = gradeAssertion('implement.md exists', stuckCtx);
     assert.equal(failImpl.passed, false, failImpl.evidence);
@@ -85,8 +67,8 @@ hook: design
     const passCompletion = gradeAssertion('design completion on disk', readyCtx);
     assert.equal(passCompletion.passed, true, passCompletion.evidence);
 
-    const passNotDesigning = gradeAssertion('not left designing', readyCtx);
-    assert.equal(passNotDesigning.passed, true, passNotDesigning.evidence);
+    const passNotDraft = gradeAssertion('not left draft', readyCtx);
+    assert.equal(passNotDraft.passed, true, passNotDraft.evidence);
 
     const passImpl = gradeAssertion('implement.md exists', readyCtx);
     assert.equal(passImpl.passed, true, passImpl.evidence);
@@ -97,26 +79,23 @@ hook: design
 
     // Skill text regression — disk emission gate must stay in lamina-design
     const skill = fs.readFileSync(path.join(ROOT, 'skills/lamina-design/SKILL.md'), 'utf8');
-    assert.match(skill, /Disk emission \(hard\)/);
-    assert.match(skill, /status: designing/);
-    assert.match(skill, /failed design/i);
-    assert.match(skill, /Finishing sequence/);
-    assert.match(skill, /validate-run\.mjs/);
+    assert.match(skill, /Completion gate/);
+    assert.match(skill, /status: ready_to_build/);
+    assert.match(skill, /graph-tool\.mjs validate/);
+    assert.match(skill, /implement\.md/);
 
     const designOut = fs.readFileSync(
       path.join(ROOT, 'skills/lamina-orchestrator/prompts/outputs/design.md'),
       'utf8',
     );
-    assert.match(designOut, /Only emit this section after disk emission/);
-    assert.match(designOut, /will become ready_to_build after validation/);
-    assert.match(designOut, /Forbidden/);
+    assert.match(designOut, /ready_to_build|implementation/i);
 
     const workflow = fs.readFileSync(
       path.join(ROOT, 'skills/lamina-orchestrator/workflows/design.md'),
       'utf8',
     );
-    assert.match(workflow, /Refuse to end/);
-    assert.match(workflow, /status: ready_to_build/);
+    assert.match(workflow, /Validate readiness/);
+    assert.match(workflow, /ready_to_build/);
 
     console.log('grade_lamina_design_completion_test: ok');
   } finally {

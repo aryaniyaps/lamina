@@ -1,777 +1,360 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { validateScenarioFields } from './scenarios.mjs';
-import { validateDependencyGraph } from './dependencies.mjs';
-import { extractContractExtras } from './parse-contract-extras.mjs';
 
-/** @typedef {{ trigger: string; from?: string; target: string }} RunTransition */
-/** @typedef {{ id: string; entry_screen?: string; transitions: RunTransition[] }} RunFlowGraph */
-/** @typedef {{ id: string; name?: string; status?: string; routes?: string[]; priority?: string; evidence?: string[]; graphs?: RunFlowGraph[] }} RunFlow */
-/** @typedef {{ component: string; text?: string; label?: string; name?: string; trigger?: string; columns?: string[]; source?: string; level?: number; type?: string }} RunScreenElement */
-/** @typedef {{ id: string; title?: string; status?: string; source?: string; regions?: string[]; elements?: RunScreenElement[]; a11y?: Record<string, unknown> }} RunScreen */
-/** @typedef {{ id: string; priority: string; title: string; acceptance?: string[]; screens?: string[]; flows?: string[] }} ChecklistItem */
-/** @typedef {'product' | 'contract' | 'ops'} FindingFixTarget */
-/** @typedef {{ id: string; priority: string; finding: string; impact?: string; effort?: string; recommendation?: string; screen_id?: string; flow_id?: string; fix_target?: FindingFixTarget; severity?: string; description?: string; summary?: string; acceptance?: string; evidence?: string; category?: string; screen?: string; workflow_ref?: string; invariant_ref?: string; scenario_ref?: string; status?: string; verify_mode?: string }} FindingItem */
-/** @typedef {{ id: string; source?: string; kind?: string; summary?: string }} EvidenceItem */
+export const CONTRACT_VERSION = '2.0';
+export const RUN_STATUSES = new Set(['draft', 'needs_input', 'ready_to_build', 'verifying', 'complete']);
+export const PRODUCT_STAGES = new Set(['spark', 'shape', 'harden']);
+export const CRITICALITIES = new Set(['critical', 'supporting', 'deferred']);
+export const SOURCES = new Set(['user', 'repository', 'derived', 'assumed', 'persona_hypothesis']);
+export const CONFIDENCES = new Set(['low', 'medium', 'high']);
+export const DECISION_CLASSES = new Set([
+  'structural',
+  'safety_integrity',
+  'reversible_default',
+  'policy_fork',
+  'desirability_hypothesis',
+  'evidence_backed',
+]);
+export const FINDING_FIX_TARGETS = new Set(['product', 'contract', 'ops']);
+const KIND_BY_COLLECTION = Object.freeze({
+  actors: 'actor',
+  entities: 'entity',
+  operations: 'operation',
+  workflows: 'workflow',
+  invariants: 'invariant',
+  dependencies: 'dependency',
+  surfaces: 'surface',
+  scenarios: 'scenario',
+});
+const COLLECTION_BY_KIND = Object.freeze(Object.fromEntries(Object.entries(KIND_BY_COLLECTION).map(([collection, kind]) => [kind, collection])));
 
-const HOOKS = new Set(['design', 'verify', 'audit']);
-const FLOW_STATUS = new Set(['shipped', 'draft', 'planned', 'unknown']);
-const SCREEN_STATUS = new Set(['new', 'existing']);
-const CHECKLIST_PRIORITY = new Set(['P0', 'P1', 'P2']);
-const FINDING_PRIORITY = new Set(['high', 'medium', 'low']);
-const FINDING_FIX_TARGET = new Set(['product', 'contract', 'ops']);
-const RUN_STATUS = new Set(['designing', 'ready_to_build', 'verifying', 'complete']);
-const WALKTHROUGH_MODES = new Set(['live_app']);
-const WALKTHROUGH_SOURCES = new Set(['product']);
-const INVALID_WALKTHROUGH_SOURCES = new Set(['blueprint', 'studio']);
-
-/**
- * @param {string} raw
- */
-function stripYamlScalar(raw) {
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed === 'null') return undefined;
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
+function array(value) {
+  return Array.isArray(value) ? value : [];
 }
 
-/**
- * @param {string} raw
- * @returns {string[]}
- */
-function parseInlineArray(raw) {
-  const inner = raw.trim().replace(/^\[/, '').replace(/\]$/, '');
-  if (!inner.trim()) return [];
-  return inner.split(',').map((s) => stripYamlScalar(s.trim())).filter(Boolean);
+function object(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-/**
- * Minimal parser for run.yaml structured sections.
- * @param {string} source
- */
-export function parseRunYaml(source) {
-  /** @type {Record<string, unknown>} */
-  const run = {};
-  /** @type {RunFlow[]} */
-  const flows = [];
-  /** @type {RunScreen[]} */
-  const screens = [];
-  /** @type {import('./scenarios.mjs').ScenarioEntry[]} */
-  const scenarios = [];
-  /** @type {ChecklistItem[]} */
-  const checklist = [];
-  /** @type {FindingItem[]} */
-  const findings = [];
-  /** @type {EvidenceItem[]} */
-  const evidence = [];
+function refParts(ref) {
+  const match = String(ref || '').match(/^(promise|actor|entity|operation|workflow|invariant|dependency|surface|scenario)\.([A-Za-z0-9_-]+)$/);
+  return match ? { kind: match[1], id: match[2] } : null;
+}
 
-  /** @type {RunFlow | null} */
-  let currentFlow = null;
-  /** @type {RunFlowGraph | null} */
-  let currentGraph = null;
-  /** @type {RunTransition | null} */
-  let currentTransition = null;
-  /** @type {RunScreen | null} */
-  let currentScreen = null;
-  /** @type {RunScreenElement | null} */
-  let currentElement = null;
-  /** @type {import('./scenarios.mjs').ScenarioEntry | null} */
-  let currentScenario = null;
-  /** @type {ChecklistItem | null} */
-  let currentChecklist = null;
-  /** @type {FindingItem | null} */
-  let currentFinding = null;
-  /** @type {EvidenceItem | null} */
-  let currentEvidence = null;
-
-  let section = 'root';
-  let inTrigger = false;
-  let inAcceptance = false;
-  let inRoutes = false;
-  let inEvidence = false;
-  let inTransitions = false;
-  let inScreenA11y = false;
-
-  for (const line of source.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    if (/^flows:\s*$/.test(line)) {
-      section = 'flows';
-      continue;
-    }
-    if (/^workflows:\s*$/.test(line)) {
-      section = 'workflows';
-      continue;
-    }
-    if (/^screens:\s*$/.test(line)) {
-      section = 'screens';
-      continue;
-    }
-    if (/^scenarios:\s*$/.test(line)) {
-      section = 'scenarios';
-      continue;
-    }
-    if (/^checklist:\s*$/.test(line)) {
-      section = 'checklist';
-      continue;
-    }
-    if (/^findings:\s*$/.test(line)) {
-      section = 'findings';
-      continue;
-    }
-    if (/^evidence:\s*$/.test(line)) {
-      section = 'evidence';
-      continue;
-    }
-    // Leave list sections when extras-only top-level keys begin (parsed via extractContractExtras).
-    if (
-      /^(domain|actors|out_of_scope|forbidden_content|tradeoffs|seed):\s*/.test(line)
-    ) {
-      section = 'other';
-      continue;
-    }
-
-    if (section === 'other') continue;
-
-    if (section === 'root') {
-      const kv = line.match(/^(\w+):\s*(.*)$/);
-      if (!kv) continue;
-      const key = kv[1];
-      const val = stripYamlScalar(kv[2]);
-      if (val !== undefined) run[key] = val;
-      continue;
-    }
-
-    if (section === 'workflows') {
-      const workflowItem = line.match(/^\s{2}-\s+id:\s*(.+)$/);
-      if (workflowItem) {
-        if (!run.workflows) run.workflows = [];
-        /** @type {Record<string, unknown>} */
-        const workflow = { id: stripYamlScalar(workflowItem[1]) };
-        /** @type {Record<string, unknown>[]} */ (run.workflows).push(workflow);
-        continue;
-      }
-      const workflows = /** @type {Record<string, unknown>[]} */ (run.workflows ?? []);
-      const currentWorkflow = workflows[workflows.length - 1];
-      if (!currentWorkflow) continue;
-      const requiresKey = line.match(/^\s{4}requires:\s*\[(.*)\]\s*$/);
-      if (requiresKey) {
-        currentWorkflow.requires = parseInlineArray(requiresKey[1]);
-        continue;
-      }
-      const kv = line.match(/^\s{4,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const val = stripYamlScalar(kv[2]);
-        if (val) currentWorkflow[kv[1]] = val;
-      }
-      continue;
-    }
-
-    if (section === 'flows') {
-      const flowItem = line.match(/^\s{2}-\s+id:\s*(.+)$/);
-      if (flowItem) {
-        if (currentFlow) flows.push(currentFlow);
-        currentFlow = { id: stripYamlScalar(flowItem[1]), graphs: [] };
-        currentGraph = null;
-        inRoutes = false;
-        inEvidence = false;
-        continue;
-      }
-      if (!currentFlow) continue;
-
-      if (/^\s+routes:\s*$/.test(line)) {
-        inRoutes = true;
-        currentFlow.routes = [];
-        continue;
-      }
-      if (/^\s+evidence:\s*$/.test(line)) {
-        inEvidence = true;
-        currentFlow.evidence = [];
-        continue;
-      }
-      const listItem = line.match(/^\s+-\s+(.+)$/);
-      if (listItem && (inRoutes || inEvidence)) {
-        const v = stripYamlScalar(listItem[1]);
-        if (inRoutes && v) currentFlow.routes.push(v);
-        else if (inEvidence && v) currentFlow.evidence.push(v);
-        continue;
-      }
-      if (!/^\s{2,}/.test(line)) {
-        inRoutes = false;
-        inEvidence = false;
-      }
-
-      const graphStart = line.match(/^\s+-\s+id:\s*(.+)$/);
-      if (graphStart && /graphs:/.test(source.slice(0, source.indexOf(line)))) {
-        // handled below via graphs key
-      }
-
-      const graphsKey = line.match(/^\s+graphs:\s*$/);
-      if (graphsKey) continue;
-
-      const graphItem = line.match(/^\s{4,}-\s+id:\s*(.+)$/);
-      if (graphItem) {
-        if (currentGraph && currentFlow.graphs) currentFlow.graphs.push(currentGraph);
-        currentGraph = { id: stripYamlScalar(graphItem[1]), transitions: [] };
-        inTransitions = false;
-        continue;
-      }
-
-      const entryScreen = line.match(/^\s{6,}entry_screen:\s*(.+)$/);
-      if (entryScreen && currentGraph) {
-        currentGraph.entry_screen = stripYamlScalar(entryScreen[1]);
-        continue;
-      }
-
-      const transList = line.match(/^\s{6,}transitions:\s*$/);
-      if (transList && currentGraph) {
-        inTransitions = true;
-        continue;
-      }
-
-      const transItem = line.match(/^\s{8,}-\s+trigger:\s*(.+)$/);
-      if (transItem && currentGraph && inTransitions) {
-        if (currentTransition) currentGraph.transitions.push(currentTransition);
-        currentTransition = { trigger: stripYamlScalar(transItem[1]) };
-        continue;
-      }
-
-      if (currentTransition && currentGraph) {
-        const from = line.match(/^\s{10,}from:\s*(.+)$/);
-        const target = line.match(/^\s{10,}target:\s*(.+)$/);
-        if (from) currentTransition.from = stripYamlScalar(from[1]);
-        if (target) {
-          currentTransition.target = stripYamlScalar(target[1]);
-          currentGraph.transitions.push(currentTransition);
-          currentTransition = null;
-        }
-        continue;
-      }
-
-      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const val = stripYamlScalar(kv[2]);
-        if (val) currentFlow[kv[1]] = val;
-      }
-      continue;
-    }
-
-    if (section === 'screens') {
-      const screenItem = line.match(/^\s*-\s+id:\s*(.+)$/);
-      if (screenItem) {
-        if (currentElement && currentScreen) currentScreen.elements.push(currentElement);
-        currentElement = null;
-        if (currentScreen) screens.push(currentScreen);
-        currentScreen = { id: stripYamlScalar(screenItem[1]), elements: [], regions: [] };
-        inScreenA11y = false;
-        continue;
-      }
-      if (!currentScreen) continue;
-
-      if (/^\s{2,}a11y:\s*$/.test(line)) {
-        inScreenA11y = true;
-        currentScreen.a11y = {};
-        continue;
-      }
-      if (inScreenA11y) {
-        const a11yKv = line.match(/^\s{4,}(\w+):\s*(.*)$/);
-        if (a11yKv) {
-          const val = stripYamlScalar(a11yKv[2]);
-          if (val !== undefined) currentScreen.a11y[a11yKv[1]] = val;
-          continue;
-        }
-        if (/^\s{2}\w+:/.test(line) || /^\s*-\s+/.test(line)) {
-          inScreenA11y = false;
-        } else {
-          continue;
-        }
-      }
-
-      const elemItem = line.match(/^\s+-\s+component:\s*(.+)$/);
-      if (elemItem) {
-        if (currentElement && currentScreen) currentScreen.elements.push(currentElement);
-        currentElement = { component: stripYamlScalar(elemItem[1]) };
-        continue;
-      }
-      if (currentElement) {
-        const kv = line.match(/^\s{4,}(\w+):\s*(.*)$/);
-        if (kv) {
-          const val = stripYamlScalar(kv[2]);
-          if (val) currentElement[kv[1]] = val;
-        }
-        continue;
-      }
-
-      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const key = kv[1];
-        const val = stripYamlScalar(kv[2]);
-        if (key === 'regions' && val?.startsWith('[')) {
-          currentScreen.regions = parseInlineArray(val);
-        } else if (val) {
-          currentScreen[key] = val;
-        }
-      }
-      continue;
-    }
-
-    if (section === 'scenarios') {
-      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
-      if (item) {
-        if (currentScenario) scenarios.push(currentScenario);
-        currentScenario = { id: stripYamlScalar(item[1]) };
-        inTrigger = false;
-        continue;
-      }
-      if (!currentScenario) continue;
-
-      if (inTrigger) {
-        const nested = line.match(/^\s{6,}(\w+):\s*(.*)$/);
-        if (nested) {
-          const val = stripYamlScalar(nested[2]);
-          if (val) {
-            if (!currentScenario.trigger) currentScenario.trigger = {};
-            currentScenario.trigger[nested[1]] = val;
-          }
-          continue;
-        }
-        if (/^\s{4,5}\S/.test(line)) inTrigger = false;
-      }
-
-      const kv = line.match(/^\s{4,}(\w+):\s*(.*)$/);
-      if (!kv) continue;
-      const key = kv[1];
-      const val = stripYamlScalar(kv[2]);
-      if (key === 'trigger' && !val) {
-        inTrigger = true;
-        currentScenario.trigger = {};
-        continue;
-      }
-      inTrigger = false;
-      if (val) currentScenario[key] = val;
-      continue;
-    }
-
-    if (section === 'checklist') {
-      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
-      if (item) {
-        if (currentChecklist) checklist.push(currentChecklist);
-        currentChecklist = { id: stripYamlScalar(item[1]), priority: 'P1', title: '' };
-        inAcceptance = false;
-        continue;
-      }
-      if (!currentChecklist) continue;
-
-      if (/^\s+acceptance:\s*$/.test(line)) {
-        inAcceptance = true;
-        currentChecklist.acceptance = [];
-        continue;
-      }
-      const accItem = line.match(/^\s+-\s+(.+)$/);
-      if (inAcceptance && accItem) {
-        const v = stripYamlScalar(accItem[1]);
-        if (v) currentChecklist.acceptance.push(v);
-        continue;
-      }
-      if (!/^\s{2,}/.test(line)) inAcceptance = false;
-
-      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const val = stripYamlScalar(kv[2]);
-        if (val) currentChecklist[kv[1]] = val;
-      }
-      continue;
-    }
-
-    if (section === 'findings') {
-      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
-      if (item) {
-        if (currentFinding) findings.push(currentFinding);
-        currentFinding = { id: stripYamlScalar(item[1]), priority: 'medium', finding: '' };
-        continue;
-      }
-      if (!currentFinding) continue;
-      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const val = stripYamlScalar(kv[2]);
-        if (val) currentFinding[kv[1]] = val;
-      }
-      continue;
-    }
-
-    if (section === 'evidence') {
-      const item = line.match(/^\s*-\s+id:\s*(.+)$/);
-      if (item) {
-        if (currentEvidence) evidence.push(currentEvidence);
-        currentEvidence = { id: stripYamlScalar(item[1]) };
-        continue;
-      }
-      if (!currentEvidence) continue;
-      const kv = line.match(/^\s{2,}(\w+):\s*(.*)$/);
-      if (kv) {
-        const val = stripYamlScalar(kv[2]);
-        if (val) currentEvidence[kv[1]] = val;
-      }
-      continue;
-    }
-  }
-
-  if (currentFlow) flows.push(currentFlow);
-  if (currentGraph && currentFlow?.graphs) currentFlow.graphs.push(currentGraph);
-  if (currentTransition && currentGraph) currentGraph.transitions.push(currentTransition);
-  if (currentScreen) screens.push(currentScreen);
-  if (currentElement && currentScreen) currentScreen.elements.push(currentElement);
-  if (currentScenario) scenarios.push(currentScenario);
-  if (currentChecklist) checklist.push(currentChecklist);
-  if (currentFinding) findings.push(currentFinding);
-  if (currentEvidence) evidence.push(currentEvidence);
-
-  if (flows.length) run.flows = flows;
-  if (screens.length) run.screens = screens;
-  if (scenarios.length) run.scenarios = scenarios;
-  if (checklist.length) run.checklist = checklist;
-  if (findings.length) run.findings = findings;
-  if (evidence.length) run.evidence = evidence;
-
-  // Merge nested domain / actors / scope from full-source extract
-  const extras = extractContractExtras(source);
-  run.domain = {
-    ...(/** @type {Record<string, unknown>} */ (run.domain) || {}),
-    entities: extras.domain.entities,
-    invariants: extras.domain.invariants,
-    dependencies: extras.domain.dependencies,
+function nodeIndex(run) {
+  const intent = object(run.intent);
+  return {
+    promise: new Set(array(intent.critical_promises).map((item) => item?.id).filter(Boolean)),
+    actor: new Set(array(run.actors).map((item) => item?.id).filter(Boolean)),
+    entity: new Set(array(run.entities).map((item) => item?.id).filter(Boolean)),
+    operation: new Set(array(run.operations).map((item) => item?.id).filter(Boolean)),
+    workflow: new Set(array(run.workflows).map((item) => item?.id).filter(Boolean)),
+    invariant: new Set(array(run.invariants).map((item) => item?.id).filter(Boolean)),
+    dependency: new Set(array(run.dependencies).map((item) => item?.id).filter(Boolean)),
+    surface: new Set(array(run.surfaces).map((item) => item?.id).filter(Boolean)),
+    scenario: new Set(array(run.scenarios).map((item) => item?.id).filter(Boolean)),
   };
-  if (extras.actors.length) run.actors = extras.actors;
-  if (extras.out_of_scope.length) run.out_of_scope = extras.out_of_scope;
-  if (extras.forbidden_content.length) run.forbidden_content = extras.forbidden_content;
-  if (extras.tradeoffs.length) run.tradeoffs = extras.tradeoffs;
-  if (extras.seed) run.seed = extras.seed;
-  run._freestyle = extras.freestyle;
-
-  return run;
 }
 
-/**
- * @param {Record<string, unknown>} run
- * @param {string} [rel]
- * @returns {string[]}
- */
-export function validateRunFields(run, rel = 'run.yaml') {
+function validateUniqueIds(items, label, rel, errors) {
+  const seen = new Set();
+  for (const item of array(items)) {
+    if (!item?.id) {
+      errors.push(`${rel}: ${label} node missing id`);
+      continue;
+    }
+    if (seen.has(item.id)) errors.push(`${rel}: duplicate ${label} id "${item.id}"`);
+    seen.add(item.id);
+  }
+}
+
+function validateNodeMetadata(item, label, rel, errors, { require = false } = {}) {
+  const prefix = `${rel}: ${label} "${item?.id || '?'}"`;
+  for (const key of ['criticality', 'source', 'confidence', 'relevance_reason']) {
+    if (require && !item?.[key]) errors.push(`${prefix} missing ${key}`);
+  }
+  if (item?.criticality && !CRITICALITIES.has(item.criticality)) {
+    errors.push(`${prefix} invalid criticality "${item.criticality}"`);
+  }
+  if (item?.source && !SOURCES.has(item.source)) errors.push(`${prefix} invalid source "${item.source}"`);
+  if (item?.confidence && !CONFIDENCES.has(item.confidence)) {
+    errors.push(`${prefix} invalid confidence "${item.confidence}"`);
+  }
+}
+
+function validateRef(ref, indexes, rel, owner, errors) {
+  const parsed = refParts(ref);
+  if (!parsed) {
+    errors.push(`${rel}: ${owner} has invalid ref "${ref}"`);
+    return;
+  }
+  if (!indexes[parsed.kind]?.has(parsed.id)) {
+    errors.push(`${rel}: ${owner} references unknown ${parsed.kind}.${parsed.id}`);
+  }
+}
+
+function validatePrerequisiteCycles(run, rel, errors) {
+  const edges = new Map();
+  for (const dependency of array(run.dependencies)) {
+    if (dependency?.type !== 'prerequisite') continue;
+    const from = String(dependency.from || '');
+    const to = String(dependency.to || '');
+    if (!edges.has(from)) edges.set(from, []);
+    edges.get(from).push(to);
+  }
+  const active = new Set();
+  const visited = new Set();
+  const visit = (node) => {
+    if (active.has(node)) return true;
+    if (visited.has(node)) return false;
+    visited.add(node);
+    active.add(node);
+    for (const next of edges.get(node) || []) {
+      if (visit(next)) return true;
+    }
+    active.delete(node);
+    return false;
+  };
+  for (const node of edges.keys()) {
+    if (visit(node)) {
+      errors.push(`${rel}: prerequisite dependency cycle includes ${node}`);
+      break;
+    }
+  }
+}
+
+export function parseRunJson(source, rel = 'run.json') {
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('root must be an object');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(`${rel}: invalid JSON: ${error.message}`);
+  }
+}
+
+export function validateRunFields(run, rel = 'run.json') {
   const errors = [];
-
-  if (!run.id) errors.push(`${rel}: missing id`);
-  if (!run.hook) errors.push(`${rel}: missing hook`);
-  else if (!HOOKS.has(String(run.hook))) {
-    errors.push(`${rel}: invalid hook "${run.hook}" (expected: ${[...HOOKS].join(', ')})`);
-  }
-
-  const hook = String(run.hook || '');
-
-  if (run.status && !RUN_STATUS.has(String(run.status))) {
-    errors.push(
-      `${rel}: invalid status "${run.status}" (expected: ${[...RUN_STATUS].join(', ')})`,
-    );
-  }
-
-  if (hook === 'design') {
-    const hasWorkflows = /** @type {unknown[]} */ (run.workflows ?? []).length > 0;
-    const hasFlows = /** @type {unknown[]} */ (run.flows ?? []).length > 0;
-    if (!hasWorkflows && !hasFlows) {
-      errors.push(`${rel}: missing workflows[] or flows[] (required for design)`);
-    }
-  }
-
   const status = String(run.status || '');
-  const shipGate =
-    status === 'ready_to_build' || status === 'verifying' || status === 'complete';
+  const stage = String(run.stage || '');
+  const ready = ['ready_to_build', 'verifying', 'complete'].includes(status);
 
-  if (status === 'ready_to_build') {
-    const scenarios = /** @type {import('./scenarios.mjs').ScenarioEntry[]} */ (run.scenarios ?? []);
-    if (!scenarios.length) {
-      errors.push(`${rel}: status ready_to_build requires scenarios[]`);
+  if (run.contract_version !== CONTRACT_VERSION) {
+    errors.push(`${rel}: contract_version must be "${CONTRACT_VERSION}"`);
+  }
+  if (!run.id) errors.push(`${rel}: missing id`);
+  if (!RUN_STATUSES.has(status)) errors.push(`${rel}: invalid or missing status "${status}"`);
+  if (!PRODUCT_STAGES.has(stage)) errors.push(`${rel}: invalid or missing stage "${stage}"`);
+  if (!['design', 'verify', 'audit'].includes(run.hook)) errors.push(`${rel}: invalid or missing hook`);
+
+  const intent = object(run.intent);
+  if (!intent.problem) errors.push(`${rel}: intent.problem is required`);
+  if (!intent.outcome) errors.push(`${rel}: intent.outcome is required`);
+  if (!array(intent.users).length) errors.push(`${rel}: intent.users[] is required`);
+  validateUniqueIds(intent.critical_promises, 'promise', rel, errors);
+  for (const promise of array(intent.critical_promises)) validateNodeMetadata(promise, 'promise', rel, errors, { require: ready });
+
+  const collections = Object.entries(KIND_BY_COLLECTION).map(([key, kind]) => [key, kind, run[key]]);
+  for (const [, kind, items] of collections) {
+    validateUniqueIds(items, kind, rel, errors);
+    for (const item of array(items)) validateNodeMetadata(item, kind, rel, errors, { require: ready });
+  }
+
+  for (const decision of [...array(run.decisions?.assumptions), ...array(run.decisions?.forks)]) {
+    if (!decision?.id) errors.push(`${rel}: decision missing id`);
+    if (!DECISION_CLASSES.has(decision?.class)) {
+      errors.push(`${rel}: decision "${decision?.id || '?'}" has invalid class "${decision?.class || ''}"`);
     }
-    const screens = /** @type {unknown[]} */ (run.screens ?? []);
-    if (!screens.length) {
-      errors.push(`${rel}: status ready_to_build requires screens[]`);
-    }
-    const deps = /** @type {unknown[]} */ (
-      (/** @type {Record<string, unknown>} */ (run.domain ?? {})).dependencies ?? []
-    );
-    if (!deps.length) {
-      errors.push(
-        `${rel}: status ready_to_build requires domain.dependencies[] (first-class reachability graph)`,
-      );
-    }
-    if (!run.out_of_scope || !(/** @type {unknown[]} */ (run.out_of_scope)).length) {
-      errors.push(
-        `${rel}: status ready_to_build requires out_of_scope[] (brief constraints / ops bans)`,
-      );
-    }
-    if (!run.forbidden_content || !(/** @type {unknown[]} */ (run.forbidden_content)).length) {
-      errors.push(
-        `${rel}: status ready_to_build requires forbidden_content[] (brief content bans → rejection surfaces)`,
-      );
-    }
-    if (!run.seed) {
-      errors.push(
-        `${rel}: status ready_to_build requires seed (fixture world summary or fixtures list)`,
-      );
-    }
-    const tradeoffs = /** @type {Record<string, unknown>[]} */ (run.tradeoffs ?? []);
-    if (!tradeoffs.length) {
-      errors.push(
-        `${rel}: status ready_to_build requires tradeoffs[] (stable ids + choice; prefer brief wording)`,
-      );
-    }
-    for (const t of tradeoffs) {
-      if (!t.id) errors.push(`${rel}: tradeoff missing id`);
-      if (!t.choice) errors.push(`${rel}: tradeoff "${t.id || '?'}" missing choice`);
+    if (!SOURCES.has(decision?.source)) errors.push(`${rel}: decision "${decision?.id || '?'}" missing valid source`);
+    if (!CONFIDENCES.has(decision?.confidence)) errors.push(`${rel}: decision "${decision?.id || '?'}" missing valid confidence`);
+  }
+  for (const fork of array(run.decisions?.forks)) {
+    if (ready && fork?.blocking && fork?.status !== 'resolved') {
+      errors.push(`${rel}: blocking decision fork "${fork.id || '?'}" is unresolved`);
     }
   }
 
-  // Refuse freestyle substitutes for machine contract
-  const freestyle = /** @type {{ edge_cases?: boolean; preconditions?: boolean; illegal_states?: boolean }} */ (
-    run._freestyle ?? {}
-  );
-  if (shipGate) {
-    if (freestyle.edge_cases) {
-      errors.push(
-        `${rel}: freestyle edge_cases: is forbidden at ${status || 'ship'} — use scenarios[] with acceptance`,
-      );
+  const indexes = nodeIndex(run);
+  for (const actor of array(run.actors)) {
+    if (ready && actor.criticality === 'critical' && !actor.goal) errors.push(`${rel}: critical actor "${actor.id}" requires goal`);
+  }
+  for (const entity of array(run.entities)) {
+    const states = new Set(array(entity.states));
+    for (const relationship of array(entity.relationships)) {
+      validateRef(relationship.to, indexes, rel, `entity "${entity.id}" relationship`, errors);
+      if (!relationship.cardinality) errors.push(`${rel}: entity "${entity.id}" relationship missing cardinality`);
+      if (!relationship.lifecycle) errors.push(`${rel}: entity "${entity.id}" relationship missing lifecycle`);
     }
-    if (freestyle.preconditions) {
-      errors.push(
-        `${rel}: freestyle preconditions: is forbidden — use domain.dependencies[] + workflows[].requires`,
-      );
-    }
-    if (freestyle.illegal_states) {
-      errors.push(
-        `${rel}: freestyle illegal_states: is forbidden — use domain.invariants[] with stable ids`,
-      );
+    if (ready && entity.criticality === 'critical' && !states.size) {
+      errors.push(`${rel}: critical entity "${entity.id}" requires states[]`);
     }
   }
 
-  errors.push(...validateDependencyGraph(run, rel));
-
-  if ((hook === 'verify' || hook === 'audit') && !run.findings?.length) {
-    errors.push(`${rel}: missing findings[] (required for ${hook})`);
-  }
-
-  const screenIds = new Set();
-  for (const screen of /** @type {RunScreen[]} */ (run.screens ?? [])) {
-    if (!screen.id) errors.push(`${rel}: screen missing id`);
-    else screenIds.add(screen.id);
-    if (screen.status && !SCREEN_STATUS.has(screen.status)) {
-      errors.push(`${rel}: screen "${screen.id}" invalid status "${screen.status}"`);
-    }
-    if (screen.status === 'existing' && !screen.source) {
-      errors.push(`${rel}: screen "${screen.id}" status existing requires source`);
-    }
-    if (shipGate && screen.status === 'new') {
-      const a11y = screen.a11y || {};
-      if (!a11y.labels) {
-        errors.push(`${rel}: screen "${screen.id}" status new requires a11y.labels`);
+  for (const operation of array(run.operations)) {
+    for (const actor of array(operation.actor_refs)) validateRef(actor, indexes, rel, `operation "${operation.id}"`, errors);
+    for (const transition of array(operation.transitions)) {
+      validateRef(transition.entity_ref, indexes, rel, `operation "${operation.id}" transition`, errors);
+      const entityId = refParts(transition.entity_ref)?.id;
+      const entity = array(run.entities).find((item) => item.id === entityId);
+      const states = new Set(array(entity?.states));
+      if (transition.from && transition.from !== '*' && !states.has(transition.from)) {
+        errors.push(`${rel}: operation "${operation.id}" transition has unknown from state "${transition.from}"`);
       }
-      if (a11y.touch_min_px === undefined || a11y.touch_min_px === '') {
-        errors.push(`${rel}: screen "${screen.id}" status new requires a11y.touch_min_px`);
-      }
-      if (a11y.color_not_only === undefined || a11y.color_not_only === '') {
-        errors.push(`${rel}: screen "${screen.id}" status new requires a11y.color_not_only`);
+      if (transition.to && !states.has(transition.to)) {
+        errors.push(`${rel}: operation "${operation.id}" transition has unknown to state "${transition.to}"`);
       }
     }
+    for (const ref of array(operation.enforces)) validateRef(ref, indexes, rel, `operation "${operation.id}"`, errors);
+    if (ready && operation.criticality === 'critical') {
+      if (!array(operation.actor_refs).length) errors.push(`${rel}: critical operation "${operation.id}" requires actor_refs[]`);
+      if (!operation.outcome) errors.push(`${rel}: critical operation "${operation.id}" requires outcome`);
+      if (!array(operation.transitions).length && !array(operation.effects).length) errors.push(`${rel}: critical operation "${operation.id}" requires transitions[] or effects[]`);
+    }
   }
 
-  for (const flow of /** @type {RunFlow[]} */ (run.flows ?? [])) {
-    if (!flow.id) errors.push(`${rel}: flow missing id`);
-    if (flow.status && !FLOW_STATUS.has(flow.status)) {
-      errors.push(`${rel}: flow "${flow.id}" invalid status "${flow.status}"`);
+  for (const workflow of array(run.workflows)) {
+    validateRef(workflow.actor_ref, indexes, rel, `workflow "${workflow.id}"`, errors);
+    if (!array(workflow.steps).length) errors.push(`${rel}: workflow "${workflow.id}" requires steps[]`);
+    for (const step of array(workflow.steps)) validateRef(step.operation_ref, indexes, rel, `workflow "${workflow.id}" step`, errors);
+    for (const ref of array(workflow.dependency_refs)) validateRef(ref, indexes, rel, `workflow "${workflow.id}"`, errors);
+    if (ready && workflow.criticality === 'critical' && !array(workflow.terminal_outcomes).length) {
+      errors.push(`${rel}: critical workflow "${workflow.id}" requires terminal_outcomes[]`);
     }
-    for (const graph of flow.graphs ?? []) {
-      for (const t of graph.transitions ?? []) {
-        if (t.from && !screenIds.has(t.from)) {
-          errors.push(`${rel}: transition from unknown screen "${t.from}"`);
-        }
-        if (t.target && !screenIds.has(t.target)) {
-          errors.push(`${rel}: transition to unknown screen "${t.target}"`);
-        }
+  }
+
+  for (const dependency of array(run.dependencies)) {
+    if (!['prerequisite', 'data', 'lifecycle', 'reachability'].includes(dependency.type)) {
+      errors.push(`${rel}: dependency "${dependency.id}" has invalid type "${dependency.type || ''}"`);
+    }
+    validateRef(dependency.from, indexes, rel, `dependency "${dependency.id}"`, errors);
+    validateRef(dependency.to, indexes, rel, `dependency "${dependency.id}"`, errors);
+    if (!dependency.unmet_behavior) errors.push(`${rel}: dependency "${dependency.id}" missing unmet_behavior`);
+  }
+  validatePrerequisiteCycles(run, rel, errors);
+
+  for (const invariant of array(run.invariants)) {
+    if (ready && invariant.criticality === 'critical' && !invariant.rule) errors.push(`${rel}: critical invariant "${invariant.id}" requires rule`);
+  }
+
+  const riskKeys = new Set();
+  for (const scenario of array(run.scenarios)) {
+    validateRef(scenario.when?.operation_ref, indexes, rel, `scenario "${scenario.id}"`, errors);
+    for (const ref of array(scenario.covers)) validateRef(ref, indexes, rel, `scenario "${scenario.id}"`, errors);
+    if (!array(scenario.then).length) errors.push(`${rel}: scenario "${scenario.id}" requires then[]`);
+    if (!scenario.risk_key) errors.push(`${rel}: scenario "${scenario.id}" missing risk_key`);
+    else if (riskKeys.has(scenario.risk_key)) errors.push(`${rel}: duplicate scenario risk_key "${scenario.risk_key}"`);
+    else riskKeys.add(scenario.risk_key);
+  }
+
+  for (const finding of array(run.persona_findings)) {
+    if (!finding.id || !finding.persona_ref || !finding.classification) {
+      errors.push(`${rel}: persona finding requires id, persona_ref, and classification`);
+    }
+    if (finding.source !== 'persona_hypothesis') errors.push(`${rel}: persona finding "${finding.id || '?'}" must use source persona_hypothesis`);
+    for (const ref of array(finding.graph_refs)) validateRef(ref, indexes, rel, `persona finding "${finding.id}"`, errors);
+  }
+
+  for (const link of array(run.traceability)) {
+    if (!link.promise_ref) errors.push(`${rel}: traceability item missing promise_ref`);
+    else validateRef(link.promise_ref, indexes, rel, 'traceability item', errors);
+    for (const ref of array(link.graph_refs)) validateRef(ref, indexes, rel, `traceability for ${link.promise_ref}`, errors);
+  }
+
+  if (ready) {
+    if (!array(intent.critical_promises).length) errors.push(`${rel}: ready contract requires intent.critical_promises[]`);
+    for (const key of ['actors', 'entities', 'operations', 'workflows', 'invariants', 'scenarios']) {
+      if (!array(run[key]).some((item) => item.criticality === 'critical')) {
+        errors.push(`${rel}: ready contract requires at least one critical ${KIND_BY_COLLECTION[key]}`);
       }
     }
-  }
-
-  for (const s of /** @type {import('./scenarios.mjs').ScenarioEntry[]} */ (run.scenarios ?? [])) {
-    errors.push(...validateScenarioFields(s).map((e) => e.replace('scenarios.yaml', rel)));
-    if (s.screen && screenIds.size && !screenIds.has(s.screen)) {
-      errors.push(`${rel}: scenario "${s.id}" references unknown screen "${s.screen}"`);
-    }
-  }
-
-  for (const item of /** @type {ChecklistItem[]} */ (run.checklist ?? [])) {
-    if (!item.id) errors.push(`${rel}: checklist item missing id`);
-    if (!item.title) errors.push(`${rel}: checklist "${item.id || '?'}" missing title`);
-    if (!CHECKLIST_PRIORITY.has(item.priority)) {
-      errors.push(`${rel}: checklist "${item.id}" invalid priority "${item.priority}"`);
-    }
-  }
-
-  for (const f of /** @type {FindingItem[]} */ (run.findings ?? [])) {
-    if (!f.id) errors.push(`${rel}: finding missing id`);
-    const findingText = f.finding || f.description || f.summary;
-    if (!findingText) {
-      errors.push(`${rel}: finding "${f.id || '?'}" missing finding, description, or summary`);
-    }
-    const priority = f.priority || f.severity;
-    if (priority && !FINDING_PRIORITY.has(priority)) {
-      errors.push(`${rel}: finding "${f.id}" invalid priority "${priority}"`);
-    }
-    if (f.fix_target && !FINDING_FIX_TARGET.has(f.fix_target)) {
-      errors.push(`${rel}: finding "${f.id}" invalid fix_target "${f.fix_target}"`);
-    }
-
-    // Ticket shape required on verify/complete findings
-    if (hook === 'verify' || hook === 'audit' || status === 'complete') {
-      if (!f.fix_target) {
-        errors.push(`${rel}: finding "${f.id}" missing required fix_target (product|contract|ops)`);
-      }
-      const tgt = f.fix_target || 'product';
-      if (tgt === 'product' || tgt === 'contract') {
-        if (!f.acceptance) {
-          errors.push(`${rel}: finding "${f.id}" missing required acceptance`);
-        }
-        if (!f.evidence) {
-          errors.push(
-            `${rel}: finding "${f.id}" missing required evidence (source path, symbol, or walkthrough step)`,
-          );
+    for (const promise of array(intent.critical_promises)) {
+      const linked = array(run.traceability).find((item) => item.promise_ref === `promise.${promise.id}`);
+      if (!linked || !array(linked.graph_refs).length) errors.push(`${rel}: critical promise "${promise.id}" lacks traceability`);
+      else {
+        for (const kind of ['actor', 'entity', 'operation', 'workflow', 'invariant', 'scenario']) {
+          const collection = COLLECTION_BY_KIND[kind];
+          const hasCriticalRef = array(linked.graph_refs).some((ref) => {
+            const parsed = refParts(ref);
+            return parsed?.kind === kind && array(run[collection]).some((item) => item.id === parsed.id && item.criticality === 'critical');
+          });
+          if (!hasCriticalRef) errors.push(`${rel}: critical promise "${promise.id}" lacks a critical ${kind} trace`);
         }
       }
     }
+    const covered = new Set(array(run.scenarios).flatMap((scenario) => array(scenario.covers)));
+    for (const key of ['operations', 'workflows', 'invariants', 'dependencies']) {
+      for (const item of array(run[key]).filter((node) => node.criticality === 'critical')) {
+        const ref = `${KIND_BY_COLLECTION[key]}.${item.id}`;
+        if (!covered.has(ref)) errors.push(`${rel}: critical ${ref} lacks scenario coverage`);
+      }
+    }
+    for (const deferred of collections.flatMap(([, , items]) => array(items)).filter((item) => item.criticality === 'deferred')) {
+      const refSuffix = `.${deferred.id}`;
+      if (array(run.traceability).some((item) => array(item.graph_refs).some((ref) => ref.endsWith(refSuffix)))) {
+        errors.push(`${rel}: deferred node "${deferred.id}" cannot satisfy ready traceability`);
+      }
+    }
   }
 
-  // Actors: resource_filters encouraged when permissions touch filtered resources
-  for (const actor of /** @type {Record<string, unknown>[]} */ (run.actors ?? [])) {
-    if (!actor.id) errors.push(`${rel}: actor missing id`);
+  if (['verify', 'audit'].includes(run.hook) || status === 'complete') {
+    for (const finding of array(run.findings)) {
+      if (!finding.id || !FINDING_FIX_TARGETS.has(finding.fix_target)) {
+        errors.push(`${rel}: verification finding requires id and fix_target`);
+      }
+      if (finding.fix_target !== 'ops' && (!finding.evidence || !array(finding.acceptance).length)) {
+        errors.push(`${rel}: finding "${finding.id || '?'}" requires evidence and acceptance[]`);
+      }
+    }
   }
-
-  for (const e of /** @type {EvidenceItem[]} */ (run.evidence ?? [])) {
-    if (!e.id) errors.push(`${rel}: evidence item missing id`);
-    if (!e.source) errors.push(`${rel}: evidence "${e.id || '?'}" missing source`);
-    if (!e.summary) errors.push(`${rel}: evidence "${e.id || '?'}" missing summary`);
-  }
-
   return errors;
 }
 
-/**
- * @param {string} runPath
- */
-export function loadRunYaml(runPath) {
+export function loadRunJson(runPath) {
   const file = path.resolve(runPath);
   if (!fs.existsSync(file)) throw new Error(`Not found: ${file}`);
-  return parseRunYaml(fs.readFileSync(file, 'utf8'));
+  return parseRunJson(fs.readFileSync(file, 'utf8'), path.basename(file));
 }
 
-/**
- * Validate walkthrough/index.yaml and referenced step files for live_app product captures.
- * @param {string} runDir
- * @param {string} indexRel
- * @param {string} rel
- * @returns {string[]}
- */
-export function validateWalkthroughPack(runDir, indexRel, rel) {
-  /** @type {string[]} */
+export function validateWalkthroughPack(runDir, indexRel, rel = 'run.json') {
   const errors = [];
-  const walkDir = path.dirname(path.resolve(runDir, indexRel));
   const indexPath = path.resolve(runDir, indexRel);
-  if (!indexPath.startsWith(runDir + path.sep) && indexPath !== runDir) {
-    errors.push(`${rel}: walkthrough index resolves outside run directory`);
-    return errors;
-  }
-  if (!fs.existsSync(indexPath)) {
-    errors.push(`${rel}: walkthrough index not found: ${indexRel}`);
-    return errors;
-  }
+  if (!indexPath.startsWith(path.resolve(runDir) + path.sep)) return [`${rel}: walkthrough index resolves outside run directory`];
+  if (!fs.existsSync(indexPath)) return [`${rel}: walkthrough index not found: ${indexRel}`];
   const content = fs.readFileSync(indexPath, 'utf8');
-  const modeMatch = content.match(/^mode:\s*(\S+)/m);
-  const sourceMatch = content.match(/^source:\s*(\S+)/m);
-  const mode = modeMatch?.[1] ?? '';
-  const source = sourceMatch?.[1] ?? '';
-  if (!WALKTHROUGH_MODES.has(mode)) {
-    errors.push(`${rel}: walkthrough invalid mode "${mode}" — must be live_app`);
-  }
-  if (INVALID_WALKTHROUGH_SOURCES.has(source)) {
-    errors.push(`${rel}: walkthrough source "${source}" is not allowed — use product only`);
-  } else if (!WALKTHROUGH_SOURCES.has(source)) {
-    errors.push(`${rel}: walkthrough invalid source "${source}" — must be product`);
-  }
-  const screenshotPaths = [...content.matchAll(/^\s+screenshot:\s*(\S+)/gm)].map((m) => m[1]);
-  for (const screenshotRel of screenshotPaths) {
-    const screenshotPath = path.resolve(walkDir, screenshotRel);
-    if (!screenshotPath.startsWith(runDir + path.sep)) {
-      errors.push(`${rel}: walkthrough screenshot resolves outside run directory: ${screenshotRel}`);
-      continue;
-    }
-    if (!fs.existsSync(screenshotPath)) {
-      errors.push(`${rel}: walkthrough screenshot not found: ${screenshotRel}`);
-    }
-  }
-  const stepIds = [...content.matchAll(/^\s+- id:\s*(\S+)/gm)].map((m) => m[1]);
-  const uniqueIds = new Set(stepIds);
-  if (stepIds.length !== uniqueIds.size) {
-    errors.push(`${rel}: walkthrough has duplicate step ids`);
+  if (!/^mode:\s*live_app\s*$/m.test(content)) errors.push(`${rel}: walkthrough mode must be live_app`);
+  if (!/^source:\s*product\s*$/m.test(content)) errors.push(`${rel}: walkthrough source must be product`);
+  const walkDir = path.dirname(indexPath);
+  for (const screenshot of [...content.matchAll(/^\s+screenshot:\s*(\S+)/gm)].map((match) => match[1])) {
+    const screenshotPath = path.resolve(walkDir, screenshot);
+    if (!screenshotPath.startsWith(path.resolve(runDir) + path.sep)) errors.push(`${rel}: walkthrough screenshot resolves outside run directory: ${screenshot}`);
+    else if (!fs.existsSync(screenshotPath)) errors.push(`${rel}: walkthrough screenshot not found: ${screenshot}`);
   }
   return errors;
 }
 
-/**
- * @param {string} runPath
- * @returns {{ ok: boolean; errors: string[]; run: Record<string, unknown> }}
- */
-export function validateRunYaml(runPath) {
-  const run = loadRunYaml(runPath);
-  const rel = path.basename(runPath);
-  const errors = validateRunFields(run, rel);
-  const runDir = path.dirname(path.resolve(runPath));
-  for (const e of /** @type {EvidenceItem[]} */ (run.evidence ?? [])) {
-    if (e.kind === 'visual_walkthrough' && e.source) {
-      errors.push(...validateWalkthroughPack(runDir, String(e.source), rel));
+export function validateRunJson(runPath) {
+  try {
+    const run = loadRunJson(runPath);
+    const rel = path.basename(runPath);
+    const errors = validateRunFields(run, rel);
+    const runDir = path.dirname(path.resolve(runPath));
+    for (const evidence of array(run.evidence)) {
+      if (evidence.kind === 'visual_walkthrough' && evidence.path) {
+        errors.push(...validateWalkthroughPack(runDir, evidence.path, rel));
+      }
     }
+    return { ok: errors.length === 0, errors, run };
+  } catch (error) {
+    return { ok: false, errors: [error.message], run: {} };
   }
-  return { ok: errors.length === 0, errors, run };
 }
 
-/**
- * @param {string} laminaRoot
- * @param {string} runId
- */
 export function resolveRunPath(laminaRoot, runId) {
-  return path.join(path.resolve(laminaRoot), 'runs', runId, 'run.yaml');
+  return path.join(path.resolve(laminaRoot), 'runs', runId, 'run.json');
 }
 
-/**
- * @param {string} laminaRoot
- * @param {string} runId
- * @returns {import('./scenarios.mjs').ScenarioEntry[]}
- */
 export function loadScenariosFromRun(laminaRoot, runId) {
-  const runPath = resolveRunPath(laminaRoot, runId);
-  if (!fs.existsSync(runPath)) return [];
-  const run = parseRunYaml(fs.readFileSync(runPath, 'utf8'));
-  return /** @type {import('./scenarios.mjs').ScenarioEntry[]} */ (run.scenarios ?? []);
-}
-
-/**
- * @param {string} laminaRoot
- * @param {string} runId
- * @returns {RunFlow[]}
- */
-export function loadFlowsFromRun(laminaRoot, runId) {
-  const runPath = resolveRunPath(laminaRoot, runId);
-  if (!fs.existsSync(runPath)) return [];
-  const run = parseRunYaml(fs.readFileSync(runPath, 'utf8'));
-  return /** @type {RunFlow[]} */ (run.flows ?? []);
+  return array(loadRunJson(resolveRunPath(laminaRoot, runId)).scenarios);
 }

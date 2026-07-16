@@ -4,16 +4,16 @@ Captures **live product UI** for existing screens. One capture pass per flow —
 
 ## Orchestrator procedure
 
-1. Confirm **product** `base_url` — not UX Review Studio, not blueprint preview.
-2. Read `run.yaml` for `flows[]`, `screens[]` where `status: existing`.
+1. Confirm the product `base_url` under verification.
+2. Read `run.json` for `workflows[]` and `surfaces[]` where `status: existing`.
 3. Spawn one subagent (or run inline) with host browser tools.
 4. Write output under `.lamina/runs/<run_id>/walkthrough/`.
-5. Add `evidence[]` entry to `run.yaml` with `kind: visual_walkthrough`.
+5. Add `evidence[]` entry to `run.json` with `kind: visual_walkthrough`.
 
 ## Spawn prompt (template)
 
 ```markdown
-You are capturing live product UI for a Lamina audit/design run. You are NOT reviewing Lamina blueprints or UX Review Studio wireframes.
+You are capturing live product UI for a Lamina verification run.
 
 ## Target
 
@@ -56,23 +56,16 @@ steps:
 ## Hard rules
 
 - mode must be `live_app`; source must be `product`.
-- Never navigate to UX Review Studio, blueprint preview, or `.lamina/blueprints/` URLs.
-- Never capture `screens[].status: new` unless a live implementation exists at the route.
+- Never capture `surfaces[].status: new` unless a live implementation exists at the route.
 - Do not edit files outside `.lamina/`.
 - If a step fails (404, auth wall, timeout), record the failure in index.yaml under that step's `capture_error` field and continue if possible.
 - Do not invent UI — capture what is on screen.
 
 ## Anti-patterns
 
-- Using Studio screenshot as product evidence
 - One browser session per persona
-- Capturing wireframe SUB instead of shipped product
 ```
 
 ## Invalid URL rejection
 
-Reject and ask for product `base_url` when the user provides:
-
-- `localhost` ports known to be UX Review Studio (from `.lamina/preview-state.yaml`)
-- URLs containing `/__lamina/`
-- Paths under `.lamina/blueprints/`
+Reject any target that is not the product under verification and ask for the product `base_url`.

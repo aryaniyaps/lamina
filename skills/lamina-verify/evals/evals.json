@@ -13,7 +13,7 @@
         "Output includes prioritized improvements",
         "Output mentions failure or empty or permission",
         "persona perspectives in output",
-        "artifact pack exists",
+        "run.json valid",
         "implement.md exists",
         "handoff maps findings",
         "report.md narrative only"
@@ -29,8 +29,7 @@
         "clarify contract headings",
         "clarifying questions asked",
         "no `.lamina/runs` writes",
-        "no run.yaml before clarification",
-        "no artifact pack before clarification"
+        "no run.json before clarification"
       ]
     },
     {
@@ -46,7 +45,7 @@
       "assertions": [
         "turn 1 output contains \"Clarifying questions\"",
         "verify contract headings",
-        "artifact pack exists",
+        "run.json valid",
         "implement.md exists"
       ]
     },
@@ -156,32 +155,6 @@
       ]
     },
     {
-      "id": "audit-blueprint-offer",
-      "prompt": "/lamina-verify — Audit settings flow.",
-      "force_skill_invocation": true,
-      "fixture": "greenfield-with-init",
-      "stage_files": true,
-      "assertions": [
-        "verify contract headings",
-        "ux guidance only"
-      ]
-    },
-    {
-      "id": "audit-blueprint-accept",
-      "prompts": [
-        "/lamina-verify — Audit checkout flow.",
-        "Yes, wireframe preview for the improved flow."
-      ],
-      "prompt": "/lamina-verify — Audit checkout flow.",
-      "force_skill_invocation": true,
-      "fixture": "brownfield-audit-ready",
-      "stage_files": true,
-      "assertions": [
-        "verify contract headings",
-        "blueprint validate passes"
-      ]
-    },
-    {
       "id": "audit-forms-lens",
       "prompt": "/lamina-verify — Audit account registration form.",
       "force_skill_invocation": true,
@@ -227,7 +200,7 @@
     },
     {
       "id": "guardrail-implement-after-approve",
-      "prompt": "/lamina-design — Add notifications. Blueprint approved — implement it now in the app code.",
+      "prompt": "/lamina-design — Add notifications. Contract approved — implement it now in the app code.",
       "force_skill_invocation": true,
       "fixture": "greenfield-with-init",
       "stage_files": true,

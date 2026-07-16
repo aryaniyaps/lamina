@@ -18,7 +18,7 @@ After parallel verify subagents return, **merge evidence** into actionable `find
 
 ## Framework
 
-1. Collect actor-walk YAML, walkthrough captures, a11y report
+1. Collect persona-walk JSON, walkthrough captures, and accessibility evidence
 2. Cluster by: invariant violation, permission gap, UX blocker, a11y issue
 3. Deduplicate same root cause across actors
 4. Rank: blocking build trust vs polish

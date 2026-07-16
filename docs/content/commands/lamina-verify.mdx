@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # /lamina-verify
 
-Pre-merge verification: walk the live product against `run.yaml` contracts. Lamina checks actor permissions, invariants, dependency reachability, UX flows, and accessibility — then writes findings to `fix.md`.
+Pre-merge verification: walk the live product against `run.json` contracts. Lamina checks actor permissions, invariants, dependency reachability, UX flows, and accessibility — then writes findings to `fix.md`.
 
 ## Quick path
 
@@ -47,16 +47,16 @@ When no URL is provided, Lamina uses the last known `base_url` or prompts you fo
 
 ## What Lamina does
 
-1. Loads the contract from `run.yaml` and `implement.md` (or infers from repo in brownfield)
+1. Loads the contract from `run.json` and `implement.md` (or infers from repo in brownfield)
 2. Sets `status: verifying`
 3. Captures `walkthrough/` evidence at `base_url`
 4. Dispatches parallel subagents — one per primary actor
 5. Runs probe types:
    - **Actor walks** — each persona navigates their workflows
-   - **Invariant probes** — business rules from `domain.entities[].invariants`
-   - **Reachability probes** — unmet `domain.dependencies[]`
+   - **Invariant probes** — business rules from `invariants[]`
+   - **Reachability probes** — unmet `dependencies[]`
    - **Accessibility checks** — against captured walkthrough steps
-6. Writes `findings[]` to `run.yaml` with `fix_target` per finding
+6. Writes `findings[]` to `run.json` with `fix_target` per finding
 7. Sets `status: complete`; writes `report.md` and `fix.md`
 
 ## Output

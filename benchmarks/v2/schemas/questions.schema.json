@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["questions"],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "topic", "question", "impact_refs", "reason"],
+        "properties": {
+          "id": { "type": "string" },
+          "topic": { "enum": ["users", "scope", "ownership", "authority", "identity", "lifecycle", "failure", "recovery", "notifications", "money", "privacy", "retention", "compliance", "platform", "success"] },
+          "question": { "type": "string" },
+          "impact_refs": { "type": "array", "items": { "type": "string" } },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

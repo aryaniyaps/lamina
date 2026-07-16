@@ -1,6 +1,6 @@
 ---
 name: lamina-product-behavior
-description: "Represented model matches domain — UI must not imply illegal states or permissions. Use when run.yaml domain and screens diverge from implementation shape."
+description: "Represented model matches domain — UI must not imply illegal states or permissions. Use when run.json domain and screens diverge from implementation shape."
 metadata:
   lamina:
     id: product-behavior
@@ -16,15 +16,15 @@ metadata:
 ---
 # Product Behavior (agent-native)
 
-The **represented model** in `run.yaml` must match how actors conceive tasks — simpler than implementation, aligned with domain invariants.
+The **represented model** in `run.json` must match how actors conceive tasks — simpler than implementation, aligned with domain invariants.
 
 ## Contract encoding
 
 | Layer | Artifact |
 |-------|----------|
-| Domain truth | `domain.entities`, `invariants` |
+| Domain truth | `entities[]`, `invariants[]` |
 | What actors can do | `actors.permissions`, `workflows` |
-| What UI shows | `screens[]` — no affordance for forbidden operations |
+| What UI shows | `surfaces[]` — no affordance for forbidden operations |
 | Illegal states | `scenarios[]` + disabled/hidden actions in screen spec |
 
 **Implementation model** stays in external code. Lamina specifies **represented model** only.
@@ -39,8 +39,8 @@ The **represented model** in `run.yaml` must match how actors conceive tasks —
 ## Design checklists
 
 1. No screen shows actions the actor cannot perform (or shows why disabled).
-2. Entity names in UI match `domain.entities` vocabulary.
-3. States visible to actors match `domain` state machine — no mystery modes.
+2. Entity names in UI match `entities[]` vocabulary.
+3. States visible to actors match the entity lifecycles — no mystery modes.
 4. Primary actor path optimized; edge cases in scenarios, not driving IA.
 5. Deviations from common patterns documented in `decisions.md`.
 

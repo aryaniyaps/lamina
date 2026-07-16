@@ -1,6 +1,6 @@
 ---
 name: lamina-init
-description: "Establish or update business context — goals, scope, users, metrics — for UX work."
+description: "Turn an incomplete product idea into usable business context and evidence-grounded personas, asking only high-leverage questions and labeling provisional assumptions for later product-graph design."
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Product
 
-Answer the business questions UX work depends on and persist them in `.lamina/business-context.md`. Establish mode also casts `.lamina/personas.yaml` from available evidence. Run once per project (or again when the business use case changes).
+Capture the minimum context needed to shape the product and persist it in `.lamina/business-context.md`. Establish mode also writes evidence-grounded `.lamina/personas.json` using Contract v2.
 
 ## Modes
 
@@ -31,7 +31,7 @@ The skill base directory is printed above this body. Resolve paths from that bas
 6. `../lamina-business-context/SKILL.md`
 7. `../lamina-orchestrator/prompts/outputs/init.md`
 
-Then follow `workflows/init.md`. When it (or the `init` profile in `audit-profiles.yaml`) names supporting skills, **Read** or Skill-invoke each — at minimum `lamina-user-modeling` before writing `personas.yaml`. Supporting skills are model-loadable; this slash skill is not.
+Then follow `workflows/init.md`. Load `lamina-user-modeling` before writing `personas.json`; load other supporting skills only when the product evidence requires them.
 
 **Do not invent artifact paths.** Only names in `artifacts.md`.
 
@@ -39,7 +39,7 @@ Then follow `workflows/init.md`. When it (or the `init` profile in `audit-profil
 
 ## Guardrail
 
-Writes: `.lamina/` only. Repo: read-only. See [guardrails](../lamina-core/guardrails.md).
+Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source. See [guardrails](../lamina-core/guardrails.md).
 
 ## Subagent hints
 

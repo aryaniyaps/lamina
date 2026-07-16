@@ -32,7 +32,7 @@ Small shifts in the right place outperform large UI changes in the wrong place. 
 2. List current rules governing the failing behavior.
 3. Identify who lacks information that would change decisions.
 4. Propose rule changes before screen changes when traps persist.
-5. Document leverage rationale in `run.yaml` domain or scenarios.
+5. Document leverage rationale in `run.json` domain or scenarios.
 
 ## Heuristics
 

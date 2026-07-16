@@ -24,7 +24,7 @@ Per step:
 - Screenshot or DOM snapshot ref (walkthrough pack)
 - Blocker flag if actor cannot proceed
 
-Actor walks output structured YAML per `persona-panel-spawn.md`.
+Persona perspective walks output structured JSON per `persona-panel-spawn.md`.
 
 ## Anti-patterns
 

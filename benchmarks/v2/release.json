@@ -1,0 +1,27 @@
+{
+  "protocol_version": "2.0.0",
+  "release_tag": "bench-v2-development",
+  "status": "development",
+  "contract_version": "2.0",
+  "task_unit": "task",
+  "arms": ["raw", "structured", "lamina"],
+  "tracks": ["autonomous", "oracle"],
+  "runs_per_cell": 2,
+  "development_tasks": 4,
+  "publication_tasks": 12,
+  "reviewers_per_contract": { "raw": 0, "structured": 3, "lamina": 3 },
+  "max_founder_questions": 3,
+  "phases": ["discover", "initialize", "contract", "contract_finalize", "implement", "review", "fix"],
+  "agent_timeout_sec": 7200,
+  "judge_timeout_sec": 900,
+  "publication_executor": "externally_isolated",
+  "primary_cohort": "openai-gpt-5.6-sol",
+  "cohorts": [
+    { "id": "openai-gpt-5.6-sol", "provider": "codex", "model": "gpt-5.6-sol", "status": "primary" },
+    { "id": "openai-gpt-5.6-terra", "provider": "codex", "model": "gpt-5.6-terra", "status": "replication" },
+    { "id": "anthropic-opus", "provider": "claude-code", "model_alias": "opus", "resolved_model": null, "status": "requires_freeze" },
+    { "id": "anthropic-sonnet", "provider": "claude-code", "model_alias": "sonnet", "resolved_model": null, "status": "requires_freeze" }
+  ],
+  "primary_cohort_trial_cells": 144,
+  "all_cohort_trial_cells": 576
+}

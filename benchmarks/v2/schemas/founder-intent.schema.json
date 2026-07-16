@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task_id", "facts"],
+  "properties": {
+    "task_id": { "type": "string" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "topic", "answer"],
+        "properties": {
+          "id": { "type": "string" },
+          "topic": { "type": "string" },
+          "answer": { "type": "string" },
+          "scope": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

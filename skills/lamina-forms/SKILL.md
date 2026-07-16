@@ -18,13 +18,13 @@ metadata:
 ---
 # Forms (agent-native)
 
-Specify **how data entry behaves** in `run.yaml` — field semantics, validation timing, and recovery — not CSS or component libraries.
+Specify **how data entry behaves** in `run.json` — field semantics, validation timing, and recovery — not CSS or component libraries.
 
 ## Contract encoding
 
 | Concern | Where |
 |---------|--------|
-| Fields per screen | `screens[].fields[]` or workflow step notes |
+| Fields per screen | `surfaces[].fields[]` or workflow step notes |
 | Validation timing | scenario `trigger.when: validation_failed` |
 | Recoverable vs blocking | scenario `category: partial` vs `failure` |
 | Data immunity vs integrity | `decisions.md` + form policy in `implement.md` |

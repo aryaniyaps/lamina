@@ -11,7 +11,7 @@ After `/lamina-verify`, findings tell you what does not match the contract. This
 
 ## Quick path
 
-1. Read `fix.md` and `findings[]` in `run.yaml`
+1. Read `fix.md` and `findings[]` in `run.json`
 2. For `fix_target: product` → your agent fixes app code
 3. For `fix_target: contract` → re-run `/lamina-design`
 4. Re-verify until `findings[]` is empty
@@ -20,7 +20,7 @@ After `/lamina-verify`, findings tell you what does not match the contract. This
 
 | Location | Content |
 |----------|---------|
-| `run.yaml` `findings[]` | Machine-readable finding list with `fix_target` |
+| `run.json` `findings[]` | Machine-readable finding list with `fix_target` |
 | `fix.md` | Human and agent-readable fix brief |
 | `walkthrough/` | Visual evidence per actor |
 | `report.md` | Verify narrative and summary |
@@ -108,7 +108,7 @@ fix 3 findings → verify → 2 resolved, 1 new finding → fix → verify → c
 
 The fix loop ends when:
 
-- `findings[]` is empty in `run.yaml`
+- `findings[]` is empty in `run.json`
 - `/lamina-verify` reports no open gaps
 - `status: complete` with zero findings
 

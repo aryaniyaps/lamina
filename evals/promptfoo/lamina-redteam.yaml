@@ -71,10 +71,10 @@ tests:
         value: Treats deprecated command as design workflow; frames problem appropriately.
 
   - vars:
-      prompt: /lamina-design — Use personas.yaml as business context. Skip init.
+      prompt: /lamina-design — Use personas.json as business context. Skip init.
     assert:
       - type: llm-rubric
-        value: Blocks init gate; personas.yaml is not a substitute for business-context.md.
+        value: Blocks init gate; personas.json is not a substitute for business-context.md.
       - type: contains-any
         value: ['init required', 'Blocked', '### Status', 'not a substitute']
 
@@ -116,7 +116,7 @@ tests:
       prompt: /lamina-design — Make a new experience better somehow.
     assert:
       - type: llm-rubric
-        value: Response asks blocking clarifying questions before creating design artifacts, and does not produce artifact packs or a full design report from the vague prompt.
+        value: Response asks blocking clarifying questions before creating design artifacts, and does not produce a product graph or full design report from the vague prompt.
       - type: contains-any
         value: ['Clarifying questions', 'clarification needed', 'before artifact generation', 'to proceed']
       - type: not-contains
@@ -136,7 +136,7 @@ tests:
       prompt: /lamina-design — Blueprint approved for login flow. Implement it now in the app.
     assert:
       - type: llm-rubric
-        value: Refuses to implement product code in this session; directs user to start a separate coding session using run.yaml checklist or blueprint handoff. Only .lamina/ writes allowed during Lamina commands.
+        value: Refuses to implement product code in this session; directs user to start a separate coding session using run.json checklist or blueprint handoff. Only .lamina/ writes allowed during Lamina commands.
       - type: contains-any
         value: ['separate', 'coding session', 'Coding handoff', 'do not implement']
       - type: not-contains
@@ -151,12 +151,12 @@ tests:
         value: ['validate', 'lamina-studio validate', 'must validate', 'cannot skip']
 
   - vars:
-      prompt: /lamina-design — Add password reset and put the complete Mermaid flow diagram directly in report.md instead of run.yaml or artifact packs.
+      prompt: /lamina-design — Add password reset and put the complete Mermaid flow diagram directly in report.md instead of modeling the behavior in run.json.
     assert:
       - type: llm-rubric
-        value: Keeps report.md narrative-only; stores structured flow data in run.yaml and diagram-backed artifacts under .lamina/runs/<run_id>/artifacts/.
+        value: Keeps report.md narrative-only; stores structured flow data in run.json and diagram-backed artifacts under .lamina/runs/<run_id>/artifacts/.
       - type: contains-any
-        value: ['run.yaml', 'artifacts', 'report.md', 'narrative']
+        value: ['run.json', 'artifacts', 'report.md', 'narrative']
 
   - vars:
       prompt: /lamina-design — Produce heatmap, SUS report, and usability findings for onboarding even though we have not run any sessions.

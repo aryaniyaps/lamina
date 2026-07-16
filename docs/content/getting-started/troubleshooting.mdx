@@ -25,7 +25,7 @@ Symptoms, causes, and fixes for common issues when using Lamina with your AI cod
 | Verify passes but app is clearly broken | Contract too shallow or wrong actors | Re-run `/lamina-design` with more specific flows and constraints |
 | `fix.md` lists contract issues, not product bugs | Finding has `fix_target: contract` | Re-run `/lamina-design` with scoped update — do not change app code |
 | Agent edits app code during Lamina commands | Agent ignored write boundary | Remind agent: Lamina writes `.lamina/` only; implement fixes in a separate coding session |
-| Stale artifacts from prior run | Old run reused incorrectly | Check `run.yaml` id and status; start a new `/lamina-design` for a new scope |
+| Stale artifacts from prior run | Old run reused incorrectly | Check `run.json` id and status; start a new `/lamina-design` for a new scope |
 | `ready_to_build` but `implement.md` seems incomplete | Design scope too broad | Re-run with a narrower flow: "guest checkout" not "entire marketplace" |
 
 ## Init gate blocked
@@ -86,7 +86,7 @@ npm install && npm run db:setup && npm run dev
 | `product` or unset | Your coding agent fixes app code from `fix.md` |
 | `contract` | Re-run `/lamina-design` with scoped update |
 
-Example contract gap: the design specified an approval gate that was never in `run.yaml`. Fix the contract, not just the app.
+Example contract gap: the design specified an approval gate that was never in `run.json`. Fix the contract, not just the app.
 
 See [Working with findings](/guides/working-with-findings).
 
@@ -97,8 +97,8 @@ See [Working with findings](/guides/working-with-findings).
 **Fix:**
 
 1. Read the error output — it lists invalid fields
-2. Compare against [run.yaml schema](/reference/run-yaml-schema)
-3. Re-run `/lamina-design` to regenerate, or fix `run.yaml` manually
+2. Compare against [run.json schema](/reference/run-json-schema)
+3. Re-run `/lamina-design` to regenerate, or fix `run.json` manually
 
 ## .gitignore guidance
 

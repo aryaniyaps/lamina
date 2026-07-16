@@ -18,7 +18,7 @@ Define **complexity budget** per actor and surface in the contract — when to e
 ## Framework
 
 1. Primary actor on each screen — what is essential vs advanced?
-2. Density signals in `screens[]`: primary actions, deferred settings
+2. Density signals in `surfaces[]`: primary actions, deferred settings
 3. Mobile vs desktop constraints from user context (not dogma)
 4. Verify: can simulated actor find primary path without training?
 

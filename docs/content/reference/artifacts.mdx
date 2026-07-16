@@ -1,150 +1,52 @@
 ---
 title: Per-run artifacts
-description: Reference for files written to .lamina/runs/<id>/ during design and verify
+description: Files written to .lamina/runs/<id>/ during design and verify
 ---
-
-import { Callout } from 'nextra/components'
 
 # Per-run artifacts
 
-Each Lamina run writes artifacts to `.lamina/runs/<run_id>/`. This page describes per-run files. For project-wide files, see [Global artifacts](/reference/global-artifacts).
-
-## Quick path
-
-1. `/lamina-design` creates `run.yaml`, `implement.md`, and `report.md`
-2. Your coding agent implements from `implement.md`
-3. `/lamina-verify` adds `fix.md`, `walkthrough/`, and updates `findings[]` in `run.yaml`
-4. Status moves: `designing` → `ready_to_build` → `verifying` → `complete`
+Each Lamina run lives under `.lamina/runs/<run_id>/`. `run.json` is the source of truth; readable files are generated or evidence-oriented views.
 
 ## Directory layout
 
 ```text
 .lamina/runs/<run_id>/
-├── run.yaml          # Machine contract
-├── implement.md      # Build handoff (at ready_to_build)
-├── fix.md            # Product fix brief (after verify)
-├── report.md         # Human narrative
-├── walkthrough/      # Live-app evidence (verify / brownfield)
-└── evidence.md       # Optional evidence ledger
+├── run.json          # Canonical Contract v2 graph
+├── run.md            # Generated readable graph
+├── implement.md      # Generated ready-to-build contract
+├── report.md         # Verification narrative
+├── fix.md            # Evidence-backed fix brief
+└── walkthrough/      # Optional live-product evidence
 ```
 
-<Callout type="info">
-**Advanced:** `run.yaml` is the machine contract — not metadata. It holds entities, workflows, scenarios, dependencies, and findings. See [run.yaml schema](/reference/run-yaml-schema) for the full field reference.
-</Callout>
+## `run.json`
 
-## run.yaml
+The graph records intent, classified decisions, actors, entity lifecycles, operations, workflows, invariants, dependencies, surfaces, distinct risk scenarios, persona findings, traceability, verification findings, and evidence. See the [Contract v2 schema](/reference/run-json-schema).
 
-The machine contract for one design-verify cycle.
+## Generated views
 
-| Field | Description |
-|-------|-------------|
-| `id` | Run identifier (e.g. `havenstay-platform-2026-07-10`) |
-| `status` | `designing`, `ready_to_build`, `verifying`, or `complete` |
-| `hook` | `design` or `verify` — which phase started the run |
-| `target` | Human-readable scope summary |
-| `command` | Slash command that created or last updated the run |
-| `started_at` | Run start date |
-| `domain` | Entities, invariants, and `dependencies` (reachability graph) |
-| `actors` | Roles and permissions (may reference `.lamina/personas.yaml`) |
-| `workflows` | User journeys over operations and states |
-| `scenarios` | Edge cases: permissions, preconditions, invariant violations |
-| `screens` | Structural UX surfaces (`new` or `existing`) — no styling |
-| `findings` | Verify output; each item may include `fix_target` |
-| `evidence` | Optional evidence references |
+- `run.md` explains the active graph to a human.
+- `implement.md` is emitted only at `ready_to_build`; it excludes deferred nodes and preserves typed acceptance references.
+- `report.md` explains verification evidence and remaining uncertainty.
+- `fix.md` turns open findings into product, contract, or operational fixes with acceptance criteria.
 
-**Read by:** Lamina (verify), you (status check), validators  
-**Written by:** `/lamina-design`, `/lamina-verify`
-
-## implement.md
-
-Stack-agnostic build brief written when `status` is `ready_to_build`.
-
-Contains:
-
-- What to build (workflows, screens)
-- Build order implied by `domain.dependencies[]`
-- Invariants that must hold (referenced by id from `domain`)
-- Actors and permissions
-- Scenarios to handle, including unmet-dependency failures
-- Explicit note: any stack, any UI library
-
-**Read by:** Your coding agent (implement), Lamina (verify)  
-**Written by:** `/lamina-design`
-
-Example opening from the HavenStay demo:
-
-```markdown
-# HavenStay — Implement Brief
-
-**Run:** `havenstay-platform-2026-07-10`
-**Status:** `ready_to_build`
-**Contract:** `.lamina/runs/havenstay-platform-2026-07-10/run.yaml`
-
-Build a production-ready US hotel booking marketplace. Use any stack,
-any UI library, any database. This brief is the source of truth for
-behavior — not visual styling.
-```
-
-## fix.md
-
-Post-verify brief for your coding agent when `findings[]` is non-empty.
-
-Contains:
-
-- **Product fixes** — prioritized from findings where `fix_target` is `product` or unset
-- **Contract deltas** — findings with `fix_target: contract` become scoped `/lamina-design` prompts
-- Acceptance criteria per finding id
-- Re-verify instruction
-
-**Read by:** Your coding agent (fix)  
-**Written by:** `/lamina-verify`
-
-<Callout type="info">
-**Advanced:** Lamina never writes app source during fix. Your coding agent implements product changes from `fix.md` in a normal coding session, then you re-run `/lamina-verify`.
-</Callout>
-
-## report.md
-
-Human-readable narrative for the run — design rationale, verify summary, and open questions. Not consumed by build automation.
-
-**Written by:** `/lamina-design` and `/lamina-verify`
-
-## walkthrough/
-
-Live-app evidence captured during verify when a `base_url` is available.
-
-Typical contents:
-
-- Screenshots per actor journey
-- Step annotations tied to workflow operations
-- Evidence of permission denials, error recovery, and invariant checks
-
-**Written by:** `/lamina-verify` (brownfield and post-build verify)
-
-## evidence.md
-
-Optional evidence ledger linking walkthrough captures, repo citations, and finding ids. Use when you need a structured audit trail beyond `report.md`.
+Edit `run.json`, validate it, and render again. Do not hand-edit generated views into a competing contract.
 
 ## Status lifecycle
 
-| Status | Meaning | Set by |
-|--------|---------|--------|
-| `designing` | Contract in progress | `/lamina-design` |
-| `ready_to_build` | Safe to implement | `/lamina-design` |
-| `verifying` | Persona walks in progress | `/lamina-verify` |
-| `complete` | Verify finished (findings may remain) | `/lamina-verify` |
+| Status | Meaning |
+|---|---|
+| `draft` | Graph is being shaped |
+| `needs_input` | A consequential product decision blocks readiness |
+| `ready_to_build` | Critical promises are traced and the implementation view exists |
+| `verifying` | The live product is being checked against the frozen graph |
+| `complete` | Verification artifacts are written; findings may still require fixes |
 
-A run with `status: complete` and open findings in `findings[]` still needs product fixes or contract updates. Zero open findings means the contract holds on the live build.
+## Validation
 
-## Rules
+```bash
+node <lamina-orchestrator>/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
+node <lamina-orchestrator>/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
+```
 
-- **One run per design scope** — a new `/lamina-design` creates a new run id
-- **Implement from `implement.md`** — do not cherry-pick sections
-- **Fix from `fix.md`** — address product behavior, not styling
-- **Preserve artifacts** — Lamina reuses existing `.lamina/` outputs before regenerating
-
-## Next steps
-
-- [Global artifacts](/reference/global-artifacts) — `business-context.md`, `personas.yaml`, `decisions.md`
-- [run.yaml schema](/reference/run-yaml-schema) — full field reference
-- [Validation](/reference/validation) — validate contracts with the orchestrator skill `lib/validate-run.mjs`
+See [Global artifacts](/reference/global-artifacts) for `business-context.md`, `personas.json`, and cross-run decisions.

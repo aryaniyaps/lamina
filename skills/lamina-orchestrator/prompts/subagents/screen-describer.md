@@ -7,7 +7,7 @@ Converts live-app screenshots into **structured text** for text-only persona sub
 1. Run only when `walkthrough/` pack exists with PNG screenshots.
 2. For each step missing `.desc.yaml`, spawn one describer (or batch inline if host supports multi-image vision).
 3. Write `walkthrough/steps/<step-id>.desc.yaml`.
-4. Update `run.yaml` evidence `visual.status: described`, `visual.capability: vision_described`.
+4. Update `run.json` evidence `visual.status: described`, `visual.capability: vision_described`.
 5. If no vision host exists anywhere, skip this step — build minimal descriptions from `.a11y.json` only (`structural_only`).
 
 ## Capability ladder (orchestrator picks once)
@@ -24,7 +24,7 @@ Converts live-app screenshots into **structured text** for text-only persona sub
 ```markdown
 readonly: true
 
-You describe what is visible on a live product screen. You are NOT describing Lamina blueprint wireframes.
+You describe only what is visible on a captured live product screen.
 
 ## Input
 

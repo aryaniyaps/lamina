@@ -23,8 +23,8 @@ Slash commands (`/lamina-init`, `/lamina-design`, `/lamina-verify`) inject only 
 | Path | Role |
 |------|------|
 | `.lamina/business-context.md` | Init |
-| `.lamina/personas.yaml` | Actors |
-| `.lamina/runs/<run_id>/run.yaml` | Machine contract |
+| `.lamina/personas.json` | Actors |
+| `.lamina/runs/<run_id>/run.json` | Machine contract |
 | `.lamina/runs/<run_id>/implement.md` | Ship pack |
 | `.lamina/runs/<run_id>/report.md` | Narrative |
 | `.lamina/runs/<run_id>/fix.md` | Post-verify product fixes |

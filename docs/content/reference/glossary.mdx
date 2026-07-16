@@ -9,7 +9,7 @@ Definitions for terms used across Lamina documentation. Terms link to deeper pag
 
 ## Actor
 
-A role that interacts with the product — e.g. traveler, hotel operator, admin. Actors have goals, permissions, and distinct workflows. Defined in `.lamina/personas.yaml` during `/lamina-init` and referenced in `run.yaml`.
+A role that interacts with the product — e.g. traveler, hotel operator, admin. Actors have goals, permissions, and distinct workflows. Defined in `.lamina/personas.json` during `/lamina-init` and referenced in `run.json`.
 
 See [Personas](/concepts/personas) and [Global artifacts](/reference/global-artifacts).
 
@@ -25,19 +25,19 @@ The domain charter in `.lamina/business-context.md`. Output of `/lamina-init`. S
 
 ## Complete
 
-Run status set by `/lamina-verify` when persona walks finish. A run can be `complete` with open findings — check `findings[]` in `run.yaml`.
+Run status set by `/lamina-verify` when persona walks finish. A run can be `complete` with open findings — check `findings[]` in `run.json`.
 
 ## Contract
 
-The complete product behavior specification for a run. Composed of `run.yaml` (machine contract) and `implement.md` (build handoff). Your agent implements the contract; Lamina verifies against it.
+The complete product behavior specification for a run. Composed of `run.json` (machine contract) and `implement.md` (build handoff). Your agent implements the contract; Lamina verifies against it.
 
 See [Contracts & runs](/concepts/contracts-and-runs).
 
 ## Dependency
 
-A reachability rule in `domain.dependencies[]`. If workflow A requires entity B in state X and B is unreachable, A fails — not as an ad-hoc edge case but as a structural dependency violation.
+A reachability rule in `dependencies[]`. If workflow A requires entity B in state X and B is unreachable, A fails — not as an ad-hoc edge case but as a structural dependency violation.
 
-See [run.yaml schema](/reference/run-yaml-schema).
+See [run.json schema](/reference/run-json-schema).
 
 ## Designing
 
@@ -59,7 +59,7 @@ Synonym for [business context](#business-context). The output of `/lamina-init`.
 
 ## Finding
 
-A product behavior gap discovered during `/lamina-verify`. Recorded in `findings[]` on `run.yaml` and summarized in `fix.md` with expected vs observed behavior.
+A product behavior gap discovered during `/lamina-verify`. Recorded in `findings[]` on `run.json` and summarized in `fix.md` with expected vs observed behavior.
 
 See [Working with findings](/guides/working-with-findings).
 
@@ -76,7 +76,7 @@ A new product with no existing app. Lamina designs from stakeholder input via `/
 
 ## Hook
 
-Field on `run.yaml` indicating which phase started the run: `design` or `verify`.
+Field on `run.json` indicating which phase started the run: `design` or `verify`.
 
 ## Implement brief
 
@@ -84,7 +84,7 @@ The `implement.md` file written at `ready_to_build`. Stack-agnostic build handof
 
 ## Invariant
 
-A rule that must always hold — e.g. "at most one active booking hold per room-night" or "payment requires a confirmed hold." Defined on entities in `domain.entities[].invariants`.
+A rule that must always hold — e.g. "at most one active booking hold per room-night" or "payment requires a confirmed hold." Defined in `invariants[]` and enforced by referenced operations.
 
 ## Init gate
 
@@ -106,11 +106,11 @@ A single design-verify cycle identified by a run id (e.g. `havenstay-platform-20
 
 ## Scenario
 
-An edge case in `run.yaml` `scenarios[]` — permission denial, unmet dependency, invariant violation, or conflict recovery. Categories include `permission` and `precondition`.
+An edge case in `run.json` `scenarios[]` — permission denial, unmet dependency, invariant violation, or conflict recovery. Categories include `permission` and `precondition`.
 
 ## Screen
 
-A structural UX surface in `run.yaml` `screens[]`. Tied to workflows but contains no styling — only `new` vs `existing` status and optional repo `source` path.
+A structural UX surface in `run.json` `surfaces[]`. Tied to workflows but contains no styling — only `new` vs `existing` status and optional repo `source` path.
 
 ## State
 
@@ -133,5 +133,5 @@ See [The loop](/concepts/the-loop).
 ## Next steps
 
 - [Per-run artifacts](/reference/artifacts) — file reference
-- [run.yaml schema](/reference/run-yaml-schema) — complete field reference
+- [run.json schema](/reference/run-json-schema) — complete field reference
 - [Skill map](/reference/skill-map) — capability skills behind Lamina
