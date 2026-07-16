@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Apply LaminaBench gates and enrich reward.json for Harbor ingest / metric.py.
-
-Design C Option D: claim composite = llm_judge only.
-"""
+"""Apply LaminaBench gates and enrich calibrated behavior rewards."""
 from __future__ import annotations
 
 import json
@@ -52,7 +49,7 @@ def extract_llm_scores(details: dict) -> dict[str, float]:
 
 
 def resolve_composite(rewards: dict) -> float:
-    """Claim score = LLM judge only."""
+    """The subscription judge already combines dimensions and item coverage."""
     return float(rewards.get("llm_judge", 0.0) or 0.0)
 
 
@@ -100,7 +97,7 @@ def main() -> int:
     run_attempt = int(os.environ.get("LAMINA_BENCH_RUN", "1") or "1")
 
     feedback = (
-        f"LLM mean {llm_mean:.2f} (judge-only claim)"
+        f"Calibrated behavior {composite:.3f}; dimension mean {llm_mean:.2f}/5"
         if artifact_valid and llm_mean is not None and not scoring_incomplete
         else "LLM judge unavailable (scoring incomplete; excluded from claim)"
         if artifact_valid and scoring_incomplete
@@ -115,8 +112,8 @@ def main() -> int:
         "max_reward": 1,
         "composite": round(0.0 if scoring_incomplete else composite, 4),
         "llm_judge_mean": llm_mean,
-        "judge_mode": "codex_subscription_judge_only",
-        "claim_surface": "llm_judge",
+        "judge_mode": "codex_subscription_calibrated_behavior_v3",
+        "claim_surface": "strict_dimensions_plus_item_coverage",
         "artifact_valid": artifact_valid,
         "clarify_stall": clarify_stall,
         "scoring_incomplete": scoring_incomplete,
@@ -127,6 +124,8 @@ def main() -> int:
         "lamina_arm": task_meta.get("arm"),
         "lamina_category": task_meta.get("category"),
         "lamina_run": run_attempt,
+        "harness_version": task_meta.get("harness_version"),
+        "results_contract_version": task_meta.get("results_contract_version"),
     }
     # Drop legacy phrase-golden fields from claim payload if present.
     for legacy in ("golden_coverage", "checks_passed", "checks_total", "golden_role"):

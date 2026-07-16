@@ -4,5 +4,7 @@
   "category": "oss_feature",
   "workflow": "design",
   "prompt": "Design and implement a storefront wishlist as a complete feature: domain model, illegal states, actors and permissions, guest/registered workflows, edge cases, named trade-offs, and a buildable product surface that fits Commerce.",
-  "fixture": "commerce-with-init"
+  "fixture": "commerce-with-init",
+  "harness_version": "1.5.1",
+  "results_contract_version": "2.1.0"
 }

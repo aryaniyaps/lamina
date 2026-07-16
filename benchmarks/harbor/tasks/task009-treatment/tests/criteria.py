@@ -10,22 +10,26 @@ import re
 from pathlib import Path
 
 
-MAX_ARTIFACT_CHARS = 96_000
-MAX_FILE_BYTES = 48_000
-# Oversized source files contribute a truncated head instead of being skipped.
-TRUNCATED_FILE_CHARS = 12_000
-# Bound every captured file, not only oversized source files. A few 15–30 KB
-# modules otherwise consume the artifact cap before peer UI/workflow subtrees
-# receive any evidence.
+MAX_ARTIFACT_CHARS = 180_000
+# Allocate a bounded but adaptive share to each source file. Large files are
+# sampled across their full length so agents cannot win by front-loading rubric
+# phrases, and monoliths are not judged only from their first component.
 CAPTURE_FILE_CHARS = 3_500
+MAX_CAPTURE_FILE_CHARS = 60_000
 
 SKIP_DIRS = {
     ".lamina",
     "node_modules",
     ".git",
     ".next",
+    ".react-router",
+    ".svelte-kit",
+    ".nuxt",
+    ".output",
     "dist",
     "build",
+    "out",
+    "target",
     ".codex",
     ".agents",
     ".claude",
@@ -37,6 +41,14 @@ SKIP_DIRS = {
     ".turbo",
     ".cache",
     ".pnpm-store",
+    # Agent-authored tests are not independent product evidence. Excluding
+    # them prevents assertion names, fixtures, and comments from standing in
+    # for reachable application behavior.
+    "test",
+    "tests",
+    "__tests__",
+    "spec",
+    "specs",
 }
 
 SKIP_ROOT_FILES = {
@@ -98,8 +110,10 @@ CRITERIA_KEYS = [
     "actors_permissions",
     "workflow_quality",
     "scenario_edge_coverage",
+    "data_state_integrity",
     "systems_judgment",
-    "ux_expression_under_rules",
+    "ux_workflow_expression",
+    "accessibility_quality",
     "brownfield_fit",
     "implementation_readiness",
     "overall_product_behavior",
@@ -107,6 +121,7 @@ CRITERIA_KEYS = [
 
 ARTIFACT_OUT = Path("/logs/verifier/implementation.md")
 ARTIFACT_MANIFEST_OUT = Path("/logs/verifier/artifact-manifest.json")
+BASELINE_MANIFEST_PATH = Path("/tests/baseline-manifest.json")
 META_PATH = Path("/tests/task-meta.json")
 REWARD_PATH = Path("/logs/verifier/reward.json")
 REWARD_DETAILS_PATH = Path("/logs/verifier/reward-details.json")
@@ -166,12 +181,14 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
                 not prefix and entry.name in ROOT_SOURCE_FILES
             ):
                 continue
+            if re.search(r"(^|[._-])(test|spec)([._-]|$)", entry.name, re.I):
+                continue
+            if re.search(r"(^|[._-])generated([._-]|$)", entry.name, re.I):
+                continue
             try:
                 text = entry.read_text(encoding="utf-8", errors="replace")
                 if not text.strip():
                     continue
-                if entry.stat().st_size > MAX_FILE_BYTES or len(text) > MAX_FILE_BYTES:
-                    text = text[:TRUNCATED_FILE_CHARS] + "\n/* … truncated for scoring … */\n"
                 files.append((rel, text))
             except OSError:
                 continue
@@ -183,6 +200,24 @@ def walk_implementation(workspace: Path) -> list[tuple[str, str]]:
 
 def file_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def representative_excerpt(text: str, limit: int) -> str:
+    """Sample head/interior/tail spans instead of trusting a large file's head."""
+    if len(text) <= limit:
+        return text
+    pieces = 4
+    marker_budget = 800
+    span = max(300, (limit - marker_budget) // pieces)
+    last = max(0, len(text) - span)
+    offsets = [0, last // 3, (2 * last) // 3, last]
+    blocks = []
+    for index, offset in enumerate(offsets, start=1):
+        blocks.append(
+            f"/* representative excerpt {index}/{pieces} at char {offset} */\n"
+            + text[offset : offset + span]
+        )
+    return "\n/* … omitted between representative excerpts … */\n".join(blocks)[:limit]
 
 
 def build_artifact_manifest(workspace: Path, included_rels: list[str] | None = None) -> dict:
@@ -212,22 +247,43 @@ def build_artifact_manifest(workspace: Path, included_rels: list[str] | None = N
     }
 
 
-def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> str:
-    """Bundle source for scoring with representative logical-subtree coverage."""
-    files = walk_implementation(workspace)
+def load_baseline_hashes(path: Path = BASELINE_MANIFEST_PATH) -> dict[str, str]:
+    """Load the hidden pre-agent source snapshot used for delta-aware capture."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return {
+        entry["path"]: entry["sha256"]
+        for entry in data.get("files", [])
+        if isinstance(entry, dict)
+        and isinstance(entry.get("path"), str)
+        and isinstance(entry.get("sha256"), str)
+    }
+
+
+def append_representative_files(
+    parts: list[str],
+    files: list[tuple[str, str]],
+    included: list[str],
+    total: int,
+    limit: int,
+) -> int:
+    """Append a round-robin, subtree-balanced group up to an absolute limit."""
     buckets: dict[tuple[int, str], list[tuple[str, str]]] = {}
     for rel, text in files:
         key = (path_priority(rel), coverage_bucket(rel))
         buckets.setdefault(key, []).append((rel, text))
 
-    parts = ["# LaminaBench implementation capture\n"]
-    included: list[str] = []
-    total = len(parts[0])
-    # Round-robin across logical subtrees. Alphabetical file walking alone can
-    # exhaust the cap on early folders (for example auth/domain) and omit the
-    # UI, workflow engine, or entry point that proves the product is buildable.
-    # Priority still determines the bucket order; every bucket gets a chance
-    # before a second file is taken from any bucket.
+    available = max(0, limit - total)
+    full_capture_estimate = sum(len(rel) + len(text) + 24 for rel, text in files)
+    if full_capture_estimate <= available:
+        per_file_budget = MAX_CAPTURE_FILE_CHARS
+    else:
+        per_file_budget = min(
+            MAX_CAPTURE_FILE_CHARS,
+            max(CAPTURE_FILE_CHARS, available // max(1, len(files))),
+        )
     order = sorted(buckets)
     indices = {key: 0 for key in order}
 
@@ -239,17 +295,16 @@ def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> 
                 continue
             rel, text = buckets[key][i]
             indices[key] = i + 1
-            if len(text) > CAPTURE_FILE_CHARS:
-                text = text[:CAPTURE_FILE_CHARS] + "\n/* … truncated for broad source coverage … */\n"
+            text = representative_excerpt(text, per_file_budget)
             block = f"## {rel}\n```\n{text}\n```\n\n"
-            if total + len(block) > MAX_ARTIFACT_CHARS:
+            if total + len(block) > limit:
                 # Try a truncated slice of this file before giving up on the bucket.
-                room = MAX_ARTIFACT_CHARS - total - len(f"## {rel}\n```\n\n```\n\n") - 40
+                room = limit - total - len(f"## {rel}\n```\n\n```\n\n") - 40
                 if room < 400:
                     continue
                 text = text[:room] + "\n/* … truncated for scoring … */\n"
                 block = f"## {rel}\n```\n{text}\n```\n\n"
-                if total + len(block) > MAX_ARTIFACT_CHARS:
+                if total + len(block) > limit:
                     continue
             parts.append(block)
             total += len(block)
@@ -257,6 +312,66 @@ def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> 
             progressed = True
         if not progressed:
             break
+    return total
+
+
+def capture_implementation_artifact(
+    workspace: Path,
+    agent_output: str = "",
+    baseline_hashes: dict[str, str] | None = None,
+) -> str:
+    """Bundle source with agent-modified files ahead of representative context."""
+    files = walk_implementation(workspace)
+    if baseline_hashes is None:
+        baseline_hashes = load_baseline_hashes()
+
+    changed: list[tuple[str, str]] = []
+    unchanged: list[tuple[str, str]] = []
+    for rel, text in files:
+        if baseline_hashes and baseline_hashes.get(rel) == file_sha256(text):
+            unchanged.append((rel, text))
+        elif baseline_hashes:
+            changed.append((rel, text))
+        else:
+            unchanged.append((rel, text))
+
+    parts = ["# LaminaBench implementation capture\n"]
+    included: list[str] = []
+    total = len(parts[0])
+
+    if changed:
+        heading = "\n# Agent-modified application source\n\n"
+        parts.append(heading)
+        total += len(heading)
+        # Reserve most of the context for the actual implementation delta.
+        # Unchanged fixture source still receives the remaining context so the
+        # judge can assess brownfield fit and connected call sites.
+        changed_limit = min(MAX_ARTIFACT_CHARS - 4_000, total + 132_000)
+        total = append_representative_files(
+            parts, changed, included, total, changed_limit
+        )
+
+        if unchanged and total < MAX_ARTIFACT_CHARS - 800:
+            heading = "\n# Representative existing application context\n\n"
+            parts.append(heading)
+            total += len(heading)
+            total = append_representative_files(
+                parts,
+                unchanged,
+                included,
+                total,
+                MAX_ARTIFACT_CHARS - 400,
+            )
+    else:
+        # No baseline is available for legacy/direct callers, or the agent made
+        # no source change. Preserve the prior subtree-balanced whole-tree mode.
+        total = append_representative_files(
+            parts,
+            unchanged,
+            included,
+            total,
+            MAX_ARTIFACT_CHARS - 400,
+        )
 
     if included:
         preview = ", ".join(included[:10])
@@ -279,6 +394,13 @@ def capture_implementation_artifact(workspace: Path, agent_output: str = "") -> 
     try:
         ARTIFACT_MANIFEST_OUT.parent.mkdir(parents=True, exist_ok=True)
         manifest = build_artifact_manifest(workspace, included)
+        manifest.update(
+            {
+                "capture_mode": "delta_plus_context" if changed else "representative_tree",
+                "changed_file_count": len(changed),
+                "changed_files_included": sum(1 for rel in included if rel in {p for p, _ in changed}),
+            }
+        )
         ARTIFACT_MANIFEST_OUT.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     except OSError:
         pass

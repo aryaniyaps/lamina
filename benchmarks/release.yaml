@@ -1,9 +1,9 @@
 version: "1.0.0"
 release_tag: bench-v1
 created: "2026-07-11"
-harness_version: "1.2.0"
+harness_version: "1.5.1"
 # Bump ONLY when successful prior results must be invalidated (gates/prompts/scoring contract).
-results_contract_version: "1.9.0"
+results_contract_version: "2.1.0"
 
 # Matched phased runner — see benchmarks/METHODOLOGY.md (Design C)
 runner: matched-phased
@@ -35,7 +35,7 @@ phases_per_trial: 5
 # individual planning, implementation, review, or fix phases. The Codex control
 # smoke test was still productively editing when a one-hour ceiling fired.
 agent_timeout_sec: 7200
-verifier_timeout_sec: 180
+verifier_timeout_sec: 900
 # Subscription judge retries.
 judge_max_attempts: 2
 judge_retry_delay_sec: 2
@@ -52,9 +52,10 @@ methodology:
   ecological_loop: true
 
 scoring_weights:
-  llm_judge: 1.0
+  strict_dimensions: 0.65
+  item_coverage: 0.35
 
-claim_surface: "llm_judge on implemented source (checklist as behavioral rubric; Design C Option D)"
+claim_surface: "calibrated blind behavior judge on application source: 65% strict dimensions + 35% item coverage, with independent quality caps"
 
 llm_judges:
   - "openai/gpt-5.6-sol"

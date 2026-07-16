@@ -135,10 +135,10 @@ screens:
       keyboard: primary path completable without pointer
 
 tradeoffs:
-  - id: clarity_vs_granularity          # stable snake_id — reuse brief/golden wording when present
-    choice: Prefer clear weekly totals over per-merchant drill-down by default
-    cost: Power users need an explicit expand / view-all path
-    surfaces: [ticket-download]
+  - id: <concern_a>_vs_<concern_b>      # stable snake_id derived from this run's brief/context
+    choice: <chosen product behavior>
+    cost: <what the choice makes harder>
+    surfaces: [<realizing-workflow-or-screen>]
 
 out_of_scope:
   - CI/CD pipelines
