@@ -167,10 +167,12 @@ function formattingOnlyCheckFailure(command, log) {
   if (command.kind !== 'check' || command.exit_code === 0) return false;
   const text = String(log || '').toLowerCase();
   if (!text) return false;
-  const formatterSignals = ['format', 'oxfmt', 'prettier', 'biome'];
-  const nonFormattingSignals = ['type error', 'typescript', 'oxlint', 'eslint', 'lint error', 'error ts', 'test failed', 'build failed'];
-  return formatterSignals.some((signal) => text.includes(signal))
-    && !nonFormattingSignals.some((signal) => text.includes(signal));
+  const failedFormatTask = /failed:\s+[^\n]*check:format/.test(text)
+    || /check:format[^\n]*(?:failed|exit code 1)/.test(text);
+  const failedNonFormatTask = /failed:\s+[^\n]*check:(?:lint|types|test|build)/.test(text)
+    || /check:(?:lint|types|test|build)[^\n]*(?:failed|exit code 1)/.test(text)
+    || /(?:type error|test failed|build failed)/.test(text);
+  return failedFormatTask && !failedNonFormatTask;
 }
 
 function productFileCount(workspace) {
