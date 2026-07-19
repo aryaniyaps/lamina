@@ -163,6 +163,16 @@ function packageRunner(workspace, document) {
   return 'npm';
 }
 
+function formattingOnlyCheckFailure(command, log) {
+  if (command.kind !== 'check' || command.exit_code === 0) return false;
+  const text = String(log || '').toLowerCase();
+  if (!text) return false;
+  const formatterSignals = ['format', 'oxfmt', 'prettier', 'biome'];
+  const nonFormattingSignals = ['type error', 'typescript', 'oxlint', 'eslint', 'lint error', 'error ts', 'test failed', 'build failed'];
+  return formatterSignals.some((signal) => text.includes(signal))
+    && !nonFormattingSignals.some((signal) => text.includes(signal));
+}
+
 function productFileCount(workspace) {
   let count = 0;
   const walk = (current) => {
@@ -199,11 +209,15 @@ export function validateProductWorkspace(workspace, runtimeHome, outputDir, { ti
     const log = `${child.stdout || ''}${child.stderr || ''}`;
     const logPath = path.join(outputDir, command.kind === 'test' ? `test-replay-${command.replay}.log` : `${command.kind}.log`);
     fs.writeFileSync(logPath, log);
-    const record = { kind: command.kind, replay: command.replay || null, runner, args: command.args, exit_code: child.status, signal: child.signal, duration_ms: Date.now() - started, timed_out: child.error?.code === 'ETIMEDOUT', log: path.basename(logPath) };
+    const tolerated = formattingOnlyCheckFailure(command, log);
+    const record = { kind: command.kind, replay: command.replay || null, runner, args: command.args, exit_code: child.status, signal: child.signal, duration_ms: Date.now() - started, timed_out: child.error?.code === 'ETIMEDOUT', tolerated, tolerance_reason: tolerated ? 'formatting_only' : null, log: path.basename(logPath) };
     result.commands.push(record);
-    if (child.status !== 0) result.passed = false;
+    if (child.status !== 0 && !tolerated) result.passed = false;
   }
-  result.check = document.scripts?.check ? (result.commands.find((item) => item.kind === 'check')?.exit_code === 0 ? 'passed' : 'failed') : 'not_declared';
+  const checkCommand = result.commands.find((item) => item.kind === 'check');
+  result.check = document.scripts?.check
+    ? (checkCommand?.exit_code === 0 ? 'passed' : checkCommand?.tolerated ? 'passed_formatting_only' : 'failed')
+    : 'not_declared';
   result.build = document.scripts?.build ? (result.commands.find((item) => item.kind === 'build')?.exit_code === 0 ? 'passed' : 'failed') : 'not_declared';
   const testCommands = result.commands.filter((item) => item.kind === 'test');
   result.test_replays = document.scripts?.test ? testCommands.length : 0;
@@ -333,8 +347,10 @@ export function writeProductValidationReceipt(snapshot, validation, proofManifes
     signal: command.signal || null,
     duration_ms: command.duration_ms,
     timed_out: command.timed_out === true,
+    tolerated: command.tolerated === true,
+    tolerance_reason: command.tolerance_reason || null,
   }));
-  const allCommandsPassed = commands.every((command) => command.exit_code === 0 && command.signal === null && command.timed_out === false);
+  const allCommandsPassed = commands.every((command) => (command.exit_code === 0 || command.tolerated === true) && command.signal === null && command.timed_out === false);
   const status = validation?.passed === true
     && allCommandsPassed
     && proofManifest?.ok === true

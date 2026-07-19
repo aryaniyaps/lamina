@@ -132,10 +132,19 @@ const providerPrompt = (prompt) => config.provider === 'claude-code'
 
 const PRODUCT_OUTPUT_HYGIENE = `Keep application source, tests, generated assets, and product documentation method-neutral. Do not mention the benchmark, oracle, reviewers, harness-owned directories, method names, or any contract artifact filename supplied by the harness. Product documentation may describe the implemented product requirements generically. This is an output-custody requirement: the native contract remains available for implementation but must not be copied or named in judge-visible product artifacts.`;
 
+const LAMINA_PROOF_OUTPUT_REQUIREMENTS = `
+
+## Mandatory proof execution outputs
+For the Lamina proof-carrying product, these are required deliverables, not optional documentation:
+- Include package.json with a declared scripts.test command that exercises every test file listed by product-proof-manifest.json. If no package.json exists, create the smallest truthful one for the chosen test runner.
+- Create root proof-execution-summary.json after actually running the proof suite. It must be valid JSON with result:"passed", a non-empty requirements[] containing result:"passed" for every declared proof requirement, and runtime_state with node, browser_executable when browser evidence is required, isolated_temporary_databases, test_concurrency, nested_timeout_ms, nested_timed_out:false, and skipped_tests_observed:false.
+- Report actual executions only; do not use planned, prose-only, or placeholder proof entries. Keep both files method-neutral.
+`;
+
 const runPhase = (phase, extra = '', workspace = config.workspace, options = {}) => {
   const invocationSessionId = Object.hasOwn(options, 'sessionId') ? options.sessionId : sessionId;
   const phaseRuntimeHome = options.runtimeHome || runtimeHome;
-  const outputHygiene = ['implement', 'fix'].includes(phase) ? `\n\n## Product artifact hygiene\n${PRODUCT_OUTPUT_HYGIENE}` : '';
+  const outputHygiene = ['implement', 'fix'].includes(phase) ? `\n\n## Product artifact hygiene\n${PRODUCT_OUTPUT_HYGIENE}${config.arm === 'lamina' ? LAMINA_PROOF_OUTPUT_REQUIREMENTS : ''}` : '';
   try {
     const result = invoke(adapter, invocationSessionId, providerPrompt(`${prompts[phase]}\n\n## Authoritative brief\n\n${brief}\n\n${extra}${outputHygiene}`), workspace, timeout, { phase, evidenceDir, runtimeHome: phaseRuntimeHome });
     if (options.adoptSession !== false) sessionId = result.normalized.session_id || result.telemetry.session_id;
