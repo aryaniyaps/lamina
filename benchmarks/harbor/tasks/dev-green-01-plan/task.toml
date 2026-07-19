@@ -1,0 +1,68 @@
+schema_version = "1.3"
+multi_step_reward_strategy = "final"
+artifacts = ["/app"]
+
+[task]
+name = "aryaniyaps/dev-green-01-plan"
+description = "LaminaBench dev-green-01 plan arm (greenfield)"
+authors = [{ name = "LaminaBench" }]
+keywords = ["lamina", "harbor", "claude-code", "sonnet", "plan", "greenfield"]
+
+[metadata]
+benchmark = "lamina-bench"
+benchmark_version = "harbor-v1"
+task_id = "dev-green-01"
+arm = "plan"
+kind = "greenfield"
+fixture = ""
+
+[agent]
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 900.0
+os = "linux"
+cpus = 4
+memory_mb = 8192
+storage_mb = 20480
+
+[[steps]]
+name = "plan"
+min_reward = 0
+[steps.agent]
+timeout_sec = 1800.0
+[steps.verifier]
+timeout_sec = 600.0
+
+[[steps]]
+name = "build-order"
+min_reward = 0
+[steps.agent]
+timeout_sec = 1800.0
+[steps.verifier]
+timeout_sec = 600.0
+
+[[steps]]
+name = "implement"
+min_reward = 0
+[steps.agent]
+timeout_sec = 1800.0
+[steps.verifier]
+timeout_sec = 600.0
+
+[[steps]]
+name = "review"
+min_reward = 0
+[steps.agent]
+timeout_sec = 1800.0
+[steps.verifier]
+timeout_sec = 600.0
+
+[[steps]]
+name = "fix"
+min_reward = 0.1
+[steps.agent]
+timeout_sec = 3600.0
+[steps.verifier]
+timeout_sec = 600.0

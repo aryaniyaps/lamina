@@ -1,8 +1,0 @@
-{
-  "name": "outline-with-init",
-  "description": "Outline full source with brownfield business context",
-  "layers": [
-    "evals:_base/outline",
-    "evals:_layers/lamina-outline-init"
-  ]
-}

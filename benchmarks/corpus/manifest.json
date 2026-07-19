@@ -1,0 +1,15 @@
+{
+  "version": "harbor-v1",
+  "arms": ["raw", "plan", "lamina"],
+  "tasks": [
+    { "id": "dev-green-01", "kind": "greenfield", "brief": "dev-green-01/brief.md", "founder_intent": "dev-green-01/founder-intent.json" },
+    { "id": "dev-green-02", "kind": "greenfield", "brief": "dev-green-02/brief.md", "founder_intent": "dev-green-02/founder-intent.json" },
+    { "id": "dev-brown-01", "kind": "brownfield", "fixture": "commerce", "fixture_repo": "https://github.com/vercel/commerce.git", "fixture_commit": "3761e52e60df9c6a316e067dbfd7032e494d3634", "brief": "dev-brown-01/brief.md", "founder_intent": "dev-brown-01/founder-intent.json" },
+    { "id": "dev-brown-02", "kind": "brownfield", "fixture": "payload-website", "fixture_repo": "https://github.com/payloadcms/reusable-content-example.git", "fixture_commit": "2d233564ca98ed48a0a118a3165c242150448436", "brief": "dev-brown-02/brief.md", "founder_intent": "dev-brown-02/founder-intent.json" }
+  ],
+  "publication": {
+    "status": "not-sealed",
+    "required_tasks": 12,
+    "note": "The checked-in v2 publication entries were placeholders. Add sealed Harbor task packages only after independent authoring and fixture validation."
+  }
+}

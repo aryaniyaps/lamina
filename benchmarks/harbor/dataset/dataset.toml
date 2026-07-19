@@ -1,56 +1,55 @@
-# Dataset manifest for aryaniyaps/lamina-bench (v1 core — published)
-# Add tasks using: harbor add <org>/<name>
-# Publish using: npm run bench:harbor:publish
-
 [dataset]
 name = "aryaniyaps/lamina-bench"
-description = "LaminaBench v1 core: 5-task paired benchmark (first public iteration). One task per category; full 10-task corpus maintained in-repo for future release."
-keywords = []
+description = "Lamina benchmark development corpus on Harbor with raw, plan, and Lamina arms using Claude Code and the latest Sonnet alias."
+keywords = [ "lamina", "harbor", "claude-code", "sonnet", "agent-evaluation",]
 [[dataset.authors]]
-name = "Aryan Iyappan"
+name = "LaminaBench"
 
 
 [[tasks]]
-name = "aryaniyaps/task001-control"
-digest = "sha256:d9d6749fa0564e040c9b4705df24e3cd7a0a7123dedc250d60fa84d72ba55818"
+name = "aryaniyaps/dev-brown-01-lamina"
+digest = "sha256:600cbfb3404be779cf130e3cd9117b57b08f96a432586573b776f4a1370f2936"
 
 [[tasks]]
-name = "aryaniyaps/task001-treatment"
-digest = "sha256:1b70f4865f7d7d8332a2c3a78ae983d7688759bda930065e9b447504f934bd83"
+name = "aryaniyaps/dev-brown-01-plan"
+digest = "sha256:749229d2a9e8b2140655b2168f9136d696cde4558e9fa55a2ac9996a3d224496"
 
 [[tasks]]
-name = "aryaniyaps/task003-control"
-digest = "sha256:9dff3c7db33fb0e5e4f1cdcedd2beb6676b662ac44d7a09d2b636b4bee109c87"
+name = "aryaniyaps/dev-brown-01-raw"
+digest = "sha256:56b4d2c548a1c7d61b94548ec820273aa79c68a26eb285111a5de452a5517ff4"
 
 [[tasks]]
-name = "aryaniyaps/task003-treatment"
-digest = "sha256:7221e5a7f09af8a21cc1211fcf7cdb9932f3aee0bff4cc92d5b539f43eb8c388"
+name = "aryaniyaps/dev-brown-02-lamina"
+digest = "sha256:4782132d552f4f6336946e2944eef79a847ba1c263d5260b473b768c7578221b"
 
 [[tasks]]
-name = "aryaniyaps/task005-control"
-digest = "sha256:09ad6039a15cf1a7be2efce0316dbc7f208fb94a4c8f18bb1371b81be9016d79"
+name = "aryaniyaps/dev-brown-02-plan"
+digest = "sha256:34a1afca5c5f1124a2bf695fa4b44077bf28fad77811515dc1bb7bdd1d684fbb"
 
 [[tasks]]
-name = "aryaniyaps/task005-treatment"
-digest = "sha256:477ea29f7443ea9678440a8572230758230672b48b9a58a3906bdc10105fc8e7"
+name = "aryaniyaps/dev-brown-02-raw"
+digest = "sha256:019d0f5bf5cf1296e63729c258ae3625adf1ae645fcf0a0323e057db8f6661c1"
 
 [[tasks]]
-name = "aryaniyaps/task007-control"
-digest = "sha256:b6dfcf71172240e74f428e0ee77b91441f5990a978739ccc185f749a284ab75a"
+name = "aryaniyaps/dev-green-01-lamina"
+digest = "sha256:fd5996fdbc0882418293cb378e9692180beffabe6e5b3a348b06c4d22500eeed"
 
 [[tasks]]
-name = "aryaniyaps/task007-treatment"
-digest = "sha256:fbf329dd5545c941926e94f5845705e6bc622ccbfa34031da24baab03e4f3459"
+name = "aryaniyaps/dev-green-01-plan"
+digest = "sha256:6b02cbcfbfc98a36c3a64e0831b04d0336fd33cf729cadf6ed34e944c57d9aa6"
 
 [[tasks]]
-name = "aryaniyaps/task009-control"
-digest = "sha256:d1d60a91b5a78b2478102191423586a91075b08398804ff9c26bc5c70cfa799f"
+name = "aryaniyaps/dev-green-01-raw"
+digest = "sha256:aba078d3f4810e9487d16b36af8afda3c5186695accb7c875d8a19a35d29dd97"
 
 [[tasks]]
-name = "aryaniyaps/task009-treatment"
-digest = "sha256:d3339e2d797fc9ab0bb798b71aaecdde8c94db093ce251fd14e92c44c5bcce53"
+name = "aryaniyaps/dev-green-02-lamina"
+digest = "sha256:9e0fd1586350c8f2bf3da33e2b8143cf7a8b133af83cab6c2b6e552854cc332a"
 
+[[tasks]]
+name = "aryaniyaps/dev-green-02-plan"
+digest = "sha256:ddbbafd05eaa17178d5aa8e3839e8e88b91b67daaf6da2e63b7f051049c95c1b"
 
-[[files]]
-path = "metric.py"
-digest = "sha256:f4ac0c18401a0106fb0399824e610f6493be0de50dc6d98fba6a6fcb1c0b2e69"
+[[tasks]]
+name = "aryaniyaps/dev-green-02-raw"
+digest = "sha256:31f42d37c61b398946a37f9c4e0e689a9c597026a0834f6dab643ba5c944710b"

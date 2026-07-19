@@ -1,4 +1,0 @@
-{
-  "structured": "Independently critique this contract for missing reachability, authority, identity proof, session-mutation protection, visible actor/time attribution, state and recurring lifecycle, temporal kind/timezone/DST semantics, operational runner and truthful delivery boundaries, contradictory decisions, failure recovery, and irrelevant specification. Cite contract node IDs where available. Do not assume user preferences and do not edit files.",
-  "lamina": "Walk only the supplied bounded perspective and graph slice. Report structural defects, contradictions, missing recovery, reversible UX observations, policy forks, and research hypotheses with graph references. When present in the slice, inspect identity proof, visible actor/time attribution, recurring lifecycle, local-time/timezone/DST semantics, operational runner ownership, and truthful delivery states. Persona preference is not user evidence. Do not edit files."
-}
