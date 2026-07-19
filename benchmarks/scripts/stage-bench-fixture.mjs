@@ -48,15 +48,38 @@ function stageToDir(manifest, outDir) {
   }
 }
 
-/** Stable cache key from manifest contents + resolved layer paths. */
-export function fixtureCacheKey(name, manifest) {
+function hashFixtureEntry(hash, absolute, relative) {
+  const stat = fs.lstatSync(absolute);
+  hash.update(relative.split(path.sep).join('/'));
+  hash.update('\0');
+  if (stat.isDirectory()) {
+    hash.update('dir\0');
+    for (const entry of fs.readdirSync(absolute).toSorted()) hashFixtureEntry(hash, path.join(absolute, entry), path.join(relative, entry));
+  } else if (stat.isSymbolicLink()) {
+    hash.update(`symlink\0${fs.readlinkSync(absolute)}\0`);
+  } else if (stat.isFile()) {
+    hash.update('file\0');
+    hash.update(fs.readFileSync(absolute));
+    hash.update('\0');
+  }
+}
+
+/** Stable fingerprint from manifest contents and the bytes of every resolved layer. */
+export function fixtureFingerprint(name, manifest = loadBenchManifest(name)) {
   const hash = crypto.createHash('sha256');
   hash.update(name);
+  hash.update('\0');
   hash.update(JSON.stringify(manifest.layers || []));
   for (const layer of manifest.layers || []) {
-    hash.update(resolveLayerRoot(layer));
+    const root = resolveLayerRoot(layer);
+    if (!fs.existsSync(root)) throw new Error(`Missing fixture layer: ${layer} (${root})`);
+    hashFixtureEntry(hash, root, layer);
   }
-  return hash.digest('hex').slice(0, 12);
+  return hash.digest('hex');
+}
+
+export function fixtureCacheKey(name, manifest) {
+  return fixtureFingerprint(name, manifest).slice(0, 12);
 }
 
 function ensureFixtureCache(name) {

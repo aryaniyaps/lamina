@@ -35,6 +35,7 @@ Load one capability skill per problem.
 | Multi-actor views stay consistent | [multi-view-integrity](../lamina-multi-view-integrity/SKILL.md) |
 | Evolving rules safely | [evolutionary-rules](../lamina-evolutionary-rules/SKILL.md) |
 | Notifications, downstream updates | [side-effects](../lamina-side-effects/SKILL.md) |
+| Dates, deadlines, expiry, recurrence, timezones | [time-semantics](../lamina-time-semantics/SKILL.md) |
 
 ## UX and product expression
 
@@ -52,6 +53,7 @@ Load one capability skill per problem.
 | Async feedback, status | [feedback-and-status](../lamina-feedback-and-status/SKILL.md) |
 | User journeys over state | [flow-design](../lamina-flow-design/SKILL.md) |
 | Forms under rules | [forms](../lamina-forms/SKILL.md) |
+| Local date/time input | [time-semantics](../lamina-time-semantics/SKILL.md) |
 | Entity organization | [information-architecture](../lamina-information-architecture/SKILL.md) |
 | Wayfinding | [navigation](../lamina-navigation/SKILL.md) |
 | First-run paths | [onboarding](../lamina-onboarding/SKILL.md) |

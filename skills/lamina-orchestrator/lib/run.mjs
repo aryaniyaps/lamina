@@ -16,6 +16,25 @@ export const DECISION_CLASSES = new Set([
   'evidence_backed',
 ]);
 export const FINDING_FIX_TARGETS = new Set(['product', 'contract', 'ops']);
+export const PROOF_BUDGET_LIMITS = Object.freeze({
+  critical_promises: 3,
+  active_operations: 10,
+  active_workflows: 6,
+  active_dependencies: 6,
+  active_surfaces: 6,
+  proofs: 12,
+});
+export const MAX_READY_CONTRACT_BYTES = 48 * 1024;
+export const PROOF_EVIDENCE_LEVELS = new Set(['domain', 'boundary', 'journey']);
+export const PROOF_TEST_REQUIREMENTS = new Set([
+  'controlled_clock',
+  'separate_actor_contexts',
+  'restart_or_reload',
+  'dependency_failure',
+  'replay_or_concurrency',
+  'responsive',
+  'accessibility',
+]);
 const KIND_BY_COLLECTION = Object.freeze({
   actors: 'actor',
   entities: 'entity',
@@ -123,6 +142,127 @@ function validatePrerequisiteCycles(run, rel, errors) {
   }
 }
 
+function validateProofPacket(run, rel, errors, indexes, { required = false } = {}) {
+  const budget = object(run.proof_budget);
+  const proofs = array(run.proofs);
+  if (!required && !Object.keys(budget).length && !proofs.length) return;
+
+  if (!Object.keys(budget).length) errors.push(`${rel}: proof_budget is required`);
+  if (required && !proofs.length) errors.push(`${rel}: proofs[] requires at least one proof obligation`);
+  if (budget.strategy !== 'smallest_complete_slice') errors.push(`${rel}: proof_budget.strategy must be "smallest_complete_slice"`);
+  if (!String(budget.rationale || '').trim()) errors.push(`${rel}: proof_budget.rationale is required`);
+
+  const declaredLimits = {
+    critical_promises: budget.max_critical_promises,
+    active_operations: budget.max_active_operations,
+    active_workflows: budget.max_active_workflows,
+    active_dependencies: budget.max_active_dependencies,
+    active_surfaces: budget.max_active_surfaces,
+    proofs: budget.max_proofs,
+  };
+  for (const [key, hardLimit] of Object.entries(PROOF_BUDGET_LIMITS)) {
+    const value = declaredLimits[key];
+    const minimum = key === 'active_dependencies' ? 0 : 1;
+    if (!Number.isInteger(value) || value < minimum || value > hardLimit) {
+      errors.push(`${rel}: proof_budget ${key} must be an integer from ${minimum} to ${hardLimit}`);
+    }
+  }
+
+  const active = (items) => array(items).filter((item) => item?.criticality !== 'deferred');
+  const actualCounts = {
+    critical_promises: array(run.intent?.critical_promises).length,
+    active_operations: active(run.operations).length,
+    active_workflows: active(run.workflows).length,
+    active_dependencies: active(run.dependencies).length,
+    active_surfaces: active(run.surfaces).length,
+    proofs: proofs.length,
+  };
+  for (const [key, actual] of Object.entries(actualCounts)) {
+    const declared = declaredLimits[key];
+    if (Number.isInteger(declared) && actual > declared) errors.push(`${rel}: ${key} count ${actual} exceeds declared proof budget ${declared}`);
+  }
+
+  const serializedBytes = Buffer.byteLength(JSON.stringify(run));
+  if (required && serializedBytes > MAX_READY_CONTRACT_BYTES) {
+    errors.push(`${rel}: ready proof-carrying contract is ${serializedBytes} bytes; maximum is ${MAX_READY_CONTRACT_BYTES}`);
+  }
+
+  const proofIds = new Set();
+  const covered = {
+    promise: new Set(),
+    operation: new Set(),
+    workflow: new Set(),
+    invariant: new Set(),
+    dependency: new Set(),
+    surface: new Set(),
+  };
+  const allRequirements = new Set();
+  for (const proof of proofs) {
+    const label = `proof "${proof?.id || '?'}"`;
+    if (!proof?.id) errors.push(`${rel}: proof obligation missing id`);
+    else if (proofIds.has(proof.id)) errors.push(`${rel}: duplicate proof id "${proof.id}"`);
+    else proofIds.add(proof.id);
+
+    const refsByKind = {
+      promise: array(proof?.promise_refs),
+      operation: array(proof?.operation_refs),
+      workflow: proof?.workflow_ref ? [proof.workflow_ref] : [],
+      invariant: array(proof?.invariant_refs),
+      dependency: array(proof?.dependency_refs),
+      surface: array(proof?.surface_refs),
+    };
+    for (const [kind, refs] of Object.entries(refsByKind)) {
+      if (['promise', 'operation', 'workflow', 'surface'].includes(kind) && !refs.length) errors.push(`${rel}: ${label} requires ${kind} refs`);
+      for (const ref of refs) {
+        validateRef(ref, indexes, rel, label, errors);
+        const parsed = refParts(ref);
+        if (parsed?.kind === kind) covered[kind].add(parsed.id);
+        else if (parsed) errors.push(`${rel}: ${label} expected ${kind} ref, received ${ref}`);
+      }
+    }
+
+    for (const key of ['given', 'then']) if (!array(proof?.[key]).length) errors.push(`${rel}: ${label} requires ${key}[]`);
+    for (const key of ['action', 'authoritative_state', 'visible_outcome', 'recovery']) {
+      if (!String(proof?.[key] || '').trim()) errors.push(`${rel}: ${label} requires ${key}`);
+    }
+
+    const evidenceLevels = array(proof?.evidence_levels);
+    if (!evidenceLevels.includes('boundary') || !evidenceLevels.includes('journey')) {
+      errors.push(`${rel}: ${label} must require both boundary and journey evidence`);
+    }
+    for (const level of evidenceLevels) if (!PROOF_EVIDENCE_LEVELS.has(level)) errors.push(`${rel}: ${label} has invalid evidence level "${level}"`);
+    for (const requirement of array(proof?.test_requirements)) {
+      if (!PROOF_TEST_REQUIREMENTS.has(requirement)) errors.push(`${rel}: ${label} has invalid test requirement "${requirement}"`);
+      else allRequirements.add(requirement);
+    }
+
+    const workflowId = refParts(proof?.workflow_ref)?.id;
+    const workflow = array(run.workflows).find((item) => item.id === workflowId);
+    const workflowOperations = new Set(array(workflow?.steps).map((step) => step.operation_ref));
+    for (const ref of refsByKind.operation) {
+      if (workflow && !workflowOperations.has(ref)) errors.push(`${rel}: ${label} operation ${ref} is not a step in ${proof.workflow_ref}`);
+    }
+  }
+
+  for (const requirement of ['restart_or_reload', 'responsive', 'accessibility']) {
+    if (required && !allRequirements.has(requirement)) errors.push(`${rel}: proof packet must include ${requirement} evidence`);
+  }
+
+  if (required) {
+    const criticalCollections = {
+      promise: array(run.intent?.critical_promises),
+      operation: array(run.operations).filter((item) => item.criticality === 'critical'),
+      workflow: array(run.workflows).filter((item) => item.criticality === 'critical'),
+      invariant: array(run.invariants).filter((item) => item.criticality === 'critical'),
+      dependency: array(run.dependencies).filter((item) => item.criticality === 'critical'),
+      surface: array(run.surfaces).filter((item) => item.criticality === 'critical'),
+    };
+    for (const [kind, items] of Object.entries(criticalCollections)) {
+      for (const item of items) if (!covered[kind].has(item.id)) errors.push(`${rel}: critical ${kind}.${item.id} lacks executable proof coverage`);
+    }
+  }
+}
+
 export function parseRunJson(source, rel = 'run.json') {
   try {
     const parsed = JSON.parse(source);
@@ -135,7 +275,7 @@ export function parseRunJson(source, rel = 'run.json') {
   }
 }
 
-export function validateRunFields(run, rel = 'run.json') {
+export function validateRunFields(run, rel = 'run.json', { requireProofPacket = false } = {}) {
   const errors = [];
   const status = String(run.status || '');
   const stage = String(run.stage || '');
@@ -177,8 +317,11 @@ export function validateRunFields(run, rel = 'run.json') {
   }
 
   const indexes = nodeIndex(run);
+  validateProofPacket(run, rel, errors, indexes, { required: ready && requireProofPacket });
   for (const actor of array(run.actors)) {
     if (ready && actor.criticality === 'critical' && !actor.goal) errors.push(`${rel}: critical actor "${actor.id}" requires goal`);
+    if (ready && actor.criticality === 'critical' && !actor.authority) errors.push(`${rel}: critical actor "${actor.id}" requires authority`);
+    if (ready && actor.criticality === 'critical' && !actor.entry_path) errors.push(`${rel}: critical actor "${actor.id}" requires entry_path`);
   }
   for (const entity of array(run.entities)) {
     const states = new Set(array(entity.states));
@@ -189,6 +332,15 @@ export function validateRunFields(run, rel = 'run.json') {
     }
     if (ready && entity.criticality === 'critical' && !states.size) {
       errors.push(`${rel}: critical entity "${entity.id}" requires states[]`);
+    }
+    if (ready && entity.criticality === 'critical' && !entity.identity) {
+      errors.push(`${rel}: critical entity "${entity.id}" requires identity`);
+    }
+    if (ready && entity.criticality === 'critical' && !array(entity.attributes).length) {
+      errors.push(`${rel}: critical entity "${entity.id}" requires attributes[]`);
+    }
+    if (ready && entity.criticality === 'critical' && !array(entity.lifecycle_consequences).length) {
+      errors.push(`${rel}: critical entity "${entity.id}" requires lifecycle_consequences[]`);
     }
   }
 
@@ -211,6 +363,10 @@ export function validateRunFields(run, rel = 'run.json') {
       if (!array(operation.actor_refs).length) errors.push(`${rel}: critical operation "${operation.id}" requires actor_refs[]`);
       if (!operation.outcome) errors.push(`${rel}: critical operation "${operation.id}" requires outcome`);
       if (!array(operation.transitions).length && !array(operation.effects).length) errors.push(`${rel}: critical operation "${operation.id}" requires transitions[] or effects[]`);
+      if (!array(operation.preconditions).length) errors.push(`${rel}: critical operation "${operation.id}" requires preconditions[]`);
+      if (!array(operation.enforces).length) errors.push(`${rel}: critical operation "${operation.id}" requires enforces[]`);
+      if (!array(operation.failures).length) errors.push(`${rel}: critical operation "${operation.id}" requires failures[]`);
+      if (!operation.recovery) errors.push(`${rel}: critical operation "${operation.id}" requires recovery`);
     }
   }
 
@@ -231,11 +387,27 @@ export function validateRunFields(run, rel = 'run.json') {
     validateRef(dependency.from, indexes, rel, `dependency "${dependency.id}"`, errors);
     validateRef(dependency.to, indexes, rel, `dependency "${dependency.id}"`, errors);
     if (!dependency.unmet_behavior) errors.push(`${rel}: dependency "${dependency.id}" missing unmet_behavior`);
+    if (ready && dependency.criticality === 'critical' && !dependency.condition) errors.push(`${rel}: critical dependency "${dependency.id}" requires condition`);
+    if (ready && dependency.criticality === 'critical' && !dependency.fulfillment) errors.push(`${rel}: critical dependency "${dependency.id}" requires fulfillment`);
+    if (ready && dependency.criticality === 'critical' && !dependency.verification) errors.push(`${rel}: critical dependency "${dependency.id}" requires verification`);
   }
   validatePrerequisiteCycles(run, rel, errors);
 
   for (const invariant of array(run.invariants)) {
     if (ready && invariant.criticality === 'critical' && !invariant.rule) errors.push(`${rel}: critical invariant "${invariant.id}" requires rule`);
+  }
+
+  for (const surface of array(run.surfaces)) {
+    for (const ref of [...array(surface.graph_refs), ...array(surface.workflow_refs), ...array(surface.operation_refs), ...array(surface.primary_actor_refs)]) {
+      validateRef(ref, indexes, rel, `surface "${surface.id}"`, errors);
+    }
+    if (ready && surface.criticality === 'critical') {
+      if (!surface.purpose) errors.push(`${rel}: critical surface "${surface.id}" requires purpose`);
+      if (!array(surface.primary_actor_refs).length) errors.push(`${rel}: critical surface "${surface.id}" requires primary_actor_refs[]`);
+      if (!array(surface.workflow_refs).length) errors.push(`${rel}: critical surface "${surface.id}" requires workflow_refs[]`);
+      if (!array(surface.operation_refs).length) errors.push(`${rel}: critical surface "${surface.id}" requires operation_refs[]`);
+      if (!array(surface.contract).length) errors.push(`${rel}: critical surface "${surface.id}" requires contract[]`);
+    }
   }
 
   const riskKeys = new Set();
@@ -264,7 +436,7 @@ export function validateRunFields(run, rel = 'run.json') {
 
   if (ready) {
     if (!array(intent.critical_promises).length) errors.push(`${rel}: ready contract requires intent.critical_promises[]`);
-    for (const key of ['actors', 'entities', 'operations', 'workflows', 'invariants', 'scenarios']) {
+    for (const key of ['actors', 'entities', 'operations', 'workflows', 'invariants', 'surfaces', 'scenarios']) {
       if (!array(run[key]).some((item) => item.criticality === 'critical')) {
         errors.push(`${rel}: ready contract requires at least one critical ${KIND_BY_COLLECTION[key]}`);
       }
@@ -273,7 +445,7 @@ export function validateRunFields(run, rel = 'run.json') {
       const linked = array(run.traceability).find((item) => item.promise_ref === `promise.${promise.id}`);
       if (!linked || !array(linked.graph_refs).length) errors.push(`${rel}: critical promise "${promise.id}" lacks traceability`);
       else {
-        for (const kind of ['actor', 'entity', 'operation', 'workflow', 'invariant', 'scenario']) {
+        for (const kind of ['actor', 'entity', 'operation', 'workflow', 'invariant', 'surface', 'scenario']) {
           const collection = COLLECTION_BY_KIND[kind];
           const hasCriticalRef = array(linked.graph_refs).some((ref) => {
             const parsed = refParts(ref);
@@ -334,11 +506,11 @@ export function validateWalkthroughPack(runDir, indexRel, rel = 'run.json') {
   return errors;
 }
 
-export function validateRunJson(runPath) {
+export function validateRunJson(runPath, { requireProofPacket = true } = {}) {
   try {
     const run = loadRunJson(runPath);
     const rel = path.basename(runPath);
-    const errors = validateRunFields(run, rel);
+    const errors = validateRunFields(run, rel, { requireProofPacket });
     const runDir = path.dirname(path.resolve(runPath));
     for (const evidence of array(run.evidence)) {
       if (evidence.kind === 'visual_walkthrough' && evidence.path) {

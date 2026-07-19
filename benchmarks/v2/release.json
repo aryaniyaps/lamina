@@ -13,15 +13,22 @@
   "max_founder_questions": 3,
   "phases": ["discover", "initialize", "contract", "contract_finalize", "implement", "review", "fix"],
   "agent_timeout_sec": 7200,
+  "agent_transient_retries": 2,
   "judge_timeout_sec": 900,
+  "model_judge": {
+    "id": "openai-gpt-5.5-secondary-judge",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "reasoning_effort": "high",
+    "status": "secondary_only"
+  },
+  "validation_test_replays": 3,
   "publication_executor": "externally_isolated",
   "primary_cohort": "openai-gpt-5.6-sol",
   "cohorts": [
     { "id": "openai-gpt-5.6-sol", "provider": "codex", "model": "gpt-5.6-sol", "status": "primary" },
-    { "id": "openai-gpt-5.6-terra", "provider": "codex", "model": "gpt-5.6-terra", "status": "replication" },
-    { "id": "anthropic-opus", "provider": "claude-code", "model_alias": "opus", "resolved_model": null, "status": "requires_freeze" },
-    { "id": "anthropic-sonnet", "provider": "claude-code", "model_alias": "sonnet", "resolved_model": null, "status": "requires_freeze" }
+    { "id": "openai-gpt-5.5", "provider": "codex", "model": "gpt-5.5", "status": "replication" }
   ],
   "primary_cohort_trial_cells": 144,
-  "all_cohort_trial_cells": 576
+  "all_cohort_trial_cells": 288
 }

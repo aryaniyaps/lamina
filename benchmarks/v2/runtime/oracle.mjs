@@ -10,13 +10,14 @@ export function answerQuestions(questionsDocument, founderIntent) {
   if (questions.length > 3) throw new Error('Founder oracle accepts at most three questions');
   const answers = [];
   for (const question of questions) {
-    if (!question.id || !TOPICS.has(question.topic) || !question.question) throw new Error(`Invalid question ${question.id || '(missing id)'}`);
-    const facts = (founderIntent.facts || []).filter((fact) => fact.topic === question.topic);
+    const topics = Array.isArray(question.topics) ? question.topics : [];
+    if (!question.id || !topics.length || topics.length > 3 || topics.some((topic) => !TOPICS.has(topic)) || new Set(topics).size !== topics.length || !question.question) throw new Error(`Invalid question ${question.id || '(missing id)'}`);
+    const facts = (founderIntent.facts || []).filter((fact) => topics.includes(fact.topic));
     answers.push({
       question_id: question.id,
-      topic: question.topic,
+      topics,
       answer: facts.length ? facts.map((fact) => fact.answer).join(' ') : 'No founder preference is specified. Choose and label a coherent assumption.',
-      fact_ids: facts.map((fact) => fact.id),
+      facts: facts.map((fact) => ({ id: fact.id, topic: fact.topic, answer: fact.answer })),
     });
   }
   return { task_id: founderIntent.task_id, answers };

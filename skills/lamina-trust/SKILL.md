@@ -33,6 +33,8 @@ For payment, PII, and irreversible operations:
 3. Error and delay copy honest — no fake urgency.
 4. Sensitive data: actor sees only what their role requires (`modularity-boundaries`).
 5. Support/recovery path in scenario when trust-breaking failure occurs.
+6. Consequential sign-in proves account control in the runnable current slice; a public email or client-selected role is not authentication.
+7. Cookie-authenticated state changes declare `HttpOnly`, appropriate `SameSite`/`Secure` posture, and CSRF token or trusted-origin validation. Development fallbacks are visibly limited and production fails closed without required identity configuration.
 
 ## Verify checks
 

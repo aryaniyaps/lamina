@@ -23,4 +23,4 @@ const normalized = adapter.normalize(`${run.stdout}\n${run.stderr}`);
 if (!normalized.resolved_model) throw new Error('Runtime did not report a resolved model');
 const cli = spawnSync(invocation.command, ['--version'], { encoding: 'utf8' });
 fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
-fs.writeFileSync(outputPath, `${JSON.stringify({ provider, requested_model: model, resolved_model: normalized.resolved_model, cli_version: `${cli.stdout || cli.stderr}`.trim().split('\n')[0], frozen_at: new Date().toISOString() }, null, 2)}\n`);
+fs.writeFileSync(outputPath, `${JSON.stringify({ provider, requested_model: model, resolved_model: normalized.resolved_model, resolution_kind: normalized.resolved_model === model ? 'provider_managed_alias' : 'provider_reported_resolved_id', immutable_snapshot_confirmed: normalized.resolved_model !== model, cli_version: `${cli.stdout || cli.stderr}`.trim().split('\n')[0], frozen_at: new Date().toISOString() }, null, 2)}\n`);

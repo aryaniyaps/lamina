@@ -36,13 +36,16 @@
     "bench:report": "npm run bench:ingest -- --fresh && npm run bench:aggregate",
     "bench:all": "npm run bench:validate && npm run bench:run",
     "bench:v2:validate": "node benchmarks/v2/runtime/validate-corpus.mjs",
-    "bench:v2:preflight": "node tests/bench_v2_protocol_test.mjs && node benchmarks/v2/runtime/validate-corpus.mjs",
+    "bench:v2:preflight": "node tests/bench_v2_protocol_test.mjs && node benchmarks/v2/runtime/validate-corpus.mjs && node benchmarks/v2/runtime/preflight-environment.mjs",
     "bench:v2:matrix": "node benchmarks/v2/runtime/compile-matrix.mjs",
     "bench:v2:run": "node benchmarks/v2/runtime/run-matrix.mjs",
     "bench:v2:freeze": "node benchmarks/v2/runtime/freeze-release.mjs",
     "bench:v2:freeze:validate": "node benchmarks/v2/runtime/validate-freeze.mjs",
     "bench:v2:publication:export": "node benchmarks/v2/runtime/export-publication.mjs",
+    "bench:v2:blind": "node benchmarks/v2/runtime/blind-artifacts.mjs",
+    "bench:v2:model-rate": "node benchmarks/v2/runtime/run-model-ratings.mjs",
     "bench:v2:score": "node benchmarks/v2/scoring/score-ratings.mjs",
+    "bench:v2:assemble": "node benchmarks/v2/scoring/assemble-scored-trials.mjs",
     "bench:v2:report": "node benchmarks/v2/scoring/aggregate-results.mjs"
   },
   "devDependencies": {

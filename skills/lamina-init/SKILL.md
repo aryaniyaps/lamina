@@ -1,7 +1,6 @@
 ---
 name: lamina-init
-description: "Turn an incomplete product idea into usable business context and evidence-grounded personas, asking only high-leverage questions and labeling provisional assumptions for later product-graph design."
-disable-model-invocation: true
+description: "Use only when explicitly invoked as lamina-init. Turn an incomplete product idea into usable business context and evidence-grounded personas, asking only high-leverage questions and labeling provisional assumptions for later product-graph design."
 ---
 
 # /lamina-init
@@ -32,6 +31,8 @@ The skill base directory is printed above this body. Resolve paths from that bas
 7. `../lamina-orchestrator/prompts/outputs/init.md`
 
 Then follow `workflows/init.md`. Load `lamina-user-modeling` before writing `personas.json`; load other supporting skills only when the product evidence requires them.
+
+`business-context.md` must use every canonical `##` section heading from `lamina-business-context` exactly once. Do not combine or rename required sections (for example, keep `## Business goals` separate from `## Problem statement`, and `## Success metrics` separate from narrative success signals). Run the init check when available before reporting success.
 
 **Do not invent artifact paths.** Only names in `artifacts.md`.
 

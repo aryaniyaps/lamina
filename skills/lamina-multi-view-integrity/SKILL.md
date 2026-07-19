@@ -40,6 +40,7 @@ One product, many actor views — each role sees what they need, but all views m
 3. Define what each actor sees after each state transition.
 4. Write scenarios when views can disagree and how product resolves.
 5. Verify phase: walk each actor path on live product.
+6. When actors coordinate around history, show compatible actor, action, and authoritative-time attribution in every permitted projection; do not keep the promised “who/when” only in backend fields.
 
 ## Anti-patterns
 

@@ -147,8 +147,11 @@ function checkCommandSkills() {
       continue;
     }
     const skill = read(skillPath);
-    if (!skill.includes('disable-model-invocation: true')) {
-      errors.push(`Command skill missing disable-model-invocation: ${skillPath}`);
+    if (skill.includes('disable-model-invocation:')) {
+      errors.push(`Command skill uses unsupported legacy disable-model-invocation frontmatter: ${skillPath}`);
+    }
+    if (!skill.includes(`Use only when explicitly invoked as ${name}`)) {
+      errors.push(`Command skill description must declare explicit invocation: ${skillPath}`);
     }
     if (!skill.includes(`name: ${name}`)) {
       errors.push(`Command skill name mismatch: ${skillPath}`);

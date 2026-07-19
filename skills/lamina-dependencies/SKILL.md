@@ -30,5 +30,6 @@ Use top-level `dependencies[]` when one product behavior relies on another node.
 4. State observable `unmet_behavior`; do not use vague precondition prose.
 5. Add one scenario with a distinct `risk_key` when the unmet behavior materially affects the product.
 6. During verification, force the unmet state and confirm the product blocks, degrades, or recovers exactly as contracted.
+7. For timezone data, schedulers, identity, delivery, storage, or runtime-version-specific APIs, name the current-slice adapter/runtime, owner, activation path, health check, cadence/tolerance, and fail-closed production posture.
 
 Avoid infrastructure/vendor dependencies unless they alter user-visible product behavior.

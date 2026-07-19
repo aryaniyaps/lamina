@@ -21,6 +21,13 @@ profiles:
       - lamina-side-effects
       - lamina-task-analysis
 
+  design-time:
+    skills:
+      - lamina-time-semantics
+      - lamina-dependencies
+      - lamina-side-effects
+      - lamina-idempotency-concurrency
+
   design-scenarios:
     skills:
       - lamina-edge-cases
@@ -76,6 +83,13 @@ profiles:
       - lamina-edge-cases
       - lamina-consistency-guarantees
 
+  verify-time:
+    skills:
+      - lamina-time-semantics
+      - lamina-side-effects
+      - lamina-consistency-guarantees
+      - lamina-idempotency-concurrency
+
   verify-a11y:
     skills:
       - lamina-accessibility
@@ -119,4 +133,3 @@ profiles:
       - lamina-research-communication
       - lamina-heuristic-review
       - lamina-persuasion-and-groups
-

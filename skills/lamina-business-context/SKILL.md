@@ -160,6 +160,8 @@ Skip scan. Rely on user input and any attached PRD/README.
 
 ## Artifact template
 
+The section names in the Section → skill mapping are the canonical artifact contract. Write each as its own level-two heading exactly: `Problem statement`, `Business goals`, `Success metrics`, `Scope`, `Users & market`, `Product posture`, `Constraints`, `Stakeholders`, `Risks & unknowns`, `Research posture`, and `Triad check`. Additional sections may follow, but must not replace, rename, or combine these headings. Before returning success, validate every canonical section has a non-placeholder `**Answer:**` line.
+
 ```markdown
 ---
 lamina:

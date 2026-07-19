@@ -1,7 +1,6 @@
 ---
 name: lamina
-description: "Route product design for developers building with AI — design, verify, or direct capability answers."
-disable-model-invocation: true
+description: "Use only when explicitly invoked as lamina. Route product design for developers building with AI — design, verify, or direct capability answers."
 ---
 
 # /lamina

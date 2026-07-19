@@ -31,6 +31,10 @@ State changes rarely stop at one screen. Document who and what else must update 
 - **Notification as product rule**: Who must be told, what channel, what content, when — not which email provider.
   - When to use: Venue change, payment failure, approval granted/denied.
 
+- **Delivery as an operational boundary**: Keep the authoritative in-product state separate from an append-only delivery-attempt lifecycle (`queued`, `delivered`, `delivery_failed`, retry/acknowledgement when applicable).
+  - Current slice: provide a runnable local capture/adapter and a concrete provider interface, configuration and health seam. Do not call local capture “sent.” Production mode fails closed when required provider configuration is absent.
+  - Recovery: preserve the original recipient binding for audit, route future attempts according to the declared current recipient policy, bound retries, and keep the urgent/in-product state visible when delivery fails.
+
 - **Compensating action**: What happens if side effect fails (payment succeeded but ticket not created → show support path, do not show success).
 
 ## Checklists
@@ -40,12 +44,15 @@ State changes rarely stop at one screen. Document who and what else must update 
 3. Write scenarios for partial failure (payment ok, ticket not ready).
 4. Ensure UI reflects in-flight side effects (pending, not false success).
 5. Map side effects to `workflows` steps and `scenarios` recovery UX.
+6. Name the independent runner, cadence/tolerance, idempotency key, retry/rebinding policy, provider health proof, and visible delivery state for time-sensitive delivery.
 
 ## Anti-patterns
 
 - **Fire-and-forget**: State change without notifying affected actors.
 - **Success before side effects complete**: User believes done while roster still stale.
 - **Unowned handoff**: No actor responsible when payment gateway and ticket system disagree.
+- **Adapter theater**: A log statement or in-memory array is described as external delivery, with no runnable invocation path or provider seam.
+- **Delivery erases truth**: The product remains non-urgent because a notification failed.
 
 ## Examples
 

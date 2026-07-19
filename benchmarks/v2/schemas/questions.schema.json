@@ -8,10 +8,10 @@
       "maxItems": 3,
       "items": {
         "type": "object",
-        "required": ["id", "topic", "question", "impact_refs", "reason"],
+        "required": ["id", "topics", "question", "impact_refs", "reason"],
         "properties": {
           "id": { "type": "string" },
-          "topic": { "enum": ["users", "scope", "ownership", "authority", "identity", "lifecycle", "failure", "recovery", "notifications", "money", "privacy", "retention", "compliance", "platform", "success"] },
+          "topics": { "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": { "enum": ["users", "scope", "ownership", "authority", "identity", "lifecycle", "failure", "recovery", "notifications", "money", "privacy", "retention", "compliance", "platform", "success"] } },
           "question": { "type": "string" },
           "impact_refs": { "type": "array", "items": { "type": "string" } },
           "reason": { "type": "string" }

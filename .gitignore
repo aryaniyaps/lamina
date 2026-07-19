@@ -47,3 +47,4 @@ docs/node_modules/
 benchmarks/results/raw/workspaces/
 benchmarks/results/raw/artifacts/
 benchmarks/tmp/
+benchmarks/results/v2/

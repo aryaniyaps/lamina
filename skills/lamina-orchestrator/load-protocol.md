@@ -2,12 +2,10 @@
 
 Slash commands (`/lamina-init`, `/lamina-design`, `/lamina-verify`) inject only the **command** `SKILL.md`. That file must list **Required reads** as the first tool actions. The real workflow lives in supporting files — **traverse them**; do not invent procedures or artifact filenames.
 
-## Who may use the Skill tool
+## Command and supporting skills
 
-| Skill kind | `disable-model-invocation` | How to load |
-|------------|------------------------------|-------------|
-| Command: `lamina-init`, `lamina-design`, `lamina-verify`, `lamina` | `true` | Slash / harness only. **Never** call Skill tool for these — you are already inside them. |
-| Supporting: `lamina-orchestrator`, `lamina-dependencies`, `lamina-edge-cases`, … | unset / false | **Read** the file, or Skill-invoke by name when the workflow says to load it. |
+- Command skills (`lamina-init`, `lamina-design`, `lamina-verify`, and `lamina`) are entered explicitly by the user or harness. Do not recursively invoke one after it has already been selected.
+- Supporting skills (`lamina-orchestrator`, `lamina-dependencies`, `lamina-edge-cases`, and peers) are read or skill-invoked only when the active workflow selects them.
 
 ## Mandatory order (every slash turn)
 

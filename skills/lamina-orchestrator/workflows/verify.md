@@ -17,6 +17,10 @@ For every critical workflow, trace:
 
 Probe graph scenarios and distinct risks, including unmet dependencies, forbidden roles, stale or concurrent writes, destructive actions, external failure, and replay when relevant.
 
+## Proof packet
+
+Load every `proofs[]` entry and the root `product-proof-manifest.json`. For each proof, confirm its mapped files exist, contain the exact `[proof:<id>]` marker, run under the declared test suite, and observe both trusted-boundary state and the user journey. Record a product finding for any missing mapping, stale pre-action assertion, prose-only evidence, unexercised test file, or failed proof. Do not broaden scope during verification; repair the smallest implementation gap that closes the frozen proof.
+
 ## Perspective walks
 
 Use at most three evidence-grounded persona perspectives with materially different authority or constraints. Follow [the persona panel protocol](../patterns/persona-panel.md), give each only its graph slice and observed product evidence, and isolate reviewer context. Persona preference is not proof; missing reachability, authority, recovery, or accessibility is actionable.

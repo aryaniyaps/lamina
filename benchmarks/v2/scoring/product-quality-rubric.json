@@ -1,0 +1,18 @@
+{
+  "version": "product-quality-v1",
+  "scale": { "min": 1, "max": 5 },
+  "dimensions": {
+    "critical_product_shape": 0.15,
+    "workflow_completion": 0.15,
+    "state_and_lifecycle_integrity": 0.1,
+    "authority_privacy_and_ownership": 0.1,
+    "failure_and_recovery": 0.1,
+    "usability_and_feedback": 0.1,
+    "integration_and_platform_fit": 0.1,
+    "implementation_correctness": 0.1,
+    "validation_evidence": 0.05,
+    "relevance_and_minimality": 0.05
+  },
+  "adjudicate_when_dimension_gap_exceeds": 1,
+  "note": "Judge observable product behavior and implementation evidence. Do not reward method terminology, contract format, code volume, visual polish alone, or unsupported golden matching."
+}

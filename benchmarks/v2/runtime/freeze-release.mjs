@@ -10,14 +10,17 @@ const V2 = path.join(ROOT, 'benchmarks', 'v2');
 const release = JSON.parse(fs.readFileSync(path.join(V2, 'release.json'), 'utf8'));
 if (release.status !== 'frozen') throw new Error('Set release.status to "frozen" and commit all protocol inputs before creating freeze.json');
 const locks = {};
-for (const cohort of release.cohorts) {
+const modelConfigs = [...release.cohorts, release.model_judge];
+if (!release.model_judge?.id) throw new Error('Frozen release requires model_judge');
+for (const cohort of modelConfigs) {
   const lockPath = path.join(V2, 'model-locks', `${cohort.id}.json`);
   if (!fs.existsSync(lockPath)) throw new Error(`Missing model lock: ${path.relative(ROOT, lockPath)}`);
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   if (!lock.resolved_model) throw new Error(`Model lock ${cohort.id} has no resolved_model`);
   const requested = cohort.model || cohort.model_alias;
   if (lock.requested_model !== requested) throw new Error(`Model lock ${cohort.id} requested_model does not match release`);
-  if (cohort.resolved_model && lock.resolved_model !== cohort.resolved_model) throw new Error(`Model lock ${cohort.id} resolved_model does not match release`);
+  if (!cohort.resolved_model) throw new Error(`Frozen model config ${cohort.id} must declare resolved_model in release.json`);
+  if (lock.resolved_model !== cohort.resolved_model) throw new Error(`Model lock ${cohort.id} resolved_model does not match release`);
   locks[cohort.id] = lock;
 }
 const git = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });

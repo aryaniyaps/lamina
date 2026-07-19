@@ -15,6 +15,8 @@ Give each reviewer only:
 - The actor's graph slice.
 - The workflow or verification evidence being walked.
 
+Within that bounded slice, inspect structural boundaries that affect the persona: reachable identity proof, visible actor/time attribution, temporal meaning and timezone ownership, recurring lifecycle continuity, delivery truth/recovery, and session/privacy consequences when present. Do not broaden into unrelated production backlog.
+
 Require this JSON result:
 
 ```json

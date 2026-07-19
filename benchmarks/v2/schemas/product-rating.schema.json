@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_id", "rater_id", "dimensions", "critical_omissions", "critical_failures", "confidence"],
+  "properties": {
+    "artifact_id": { "type": "string" },
+    "rater_id": { "type": "string" },
+    "rating_role": { "enum": ["primary", "adjudicator"] },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical_product_shape", "workflow_completion", "state_and_lifecycle_integrity", "authority_privacy_and_ownership", "failure_and_recovery", "usability_and_feedback", "integration_and_platform_fit", "implementation_correctness", "validation_evidence", "relevance_and_minimality"],
+      "properties": {
+        "critical_product_shape": { "$ref": "#/$defs/score" },
+        "workflow_completion": { "$ref": "#/$defs/score" },
+        "state_and_lifecycle_integrity": { "$ref": "#/$defs/score" },
+        "authority_privacy_and_ownership": { "$ref": "#/$defs/score" },
+        "failure_and_recovery": { "$ref": "#/$defs/score" },
+        "usability_and_feedback": { "$ref": "#/$defs/score" },
+        "integration_and_platform_fit": { "$ref": "#/$defs/score" },
+        "implementation_correctness": { "$ref": "#/$defs/score" },
+        "validation_evidence": { "$ref": "#/$defs/score" },
+        "relevance_and_minimality": { "$ref": "#/$defs/score" }
+      }
+    },
+    "critical_omissions": { "type": "array", "items": { "type": "object", "required": ["description", "severity"], "properties": { "description": { "type": "string", "minLength": 1 }, "severity": { "enum": ["critical", "major", "minor"] } } } },
+    "critical_failures": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "notes": { "type": "string" }
+  },
+  "$defs": { "score": { "type": "integer", "minimum": 1, "maximum": 5 } }
+}

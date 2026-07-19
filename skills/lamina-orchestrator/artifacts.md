@@ -9,7 +9,7 @@ During Lamina slash commands, write only below `.lamina/`. Implementation and fi
 | `.lamina/business-context.md` | Product and business context |
 | `.lamina/personas.json` | Evidence-grounded actors and provisional perspectives |
 | `.lamina/decisions.md` | Cross-run decision history |
-| `.lamina/runs/<run_id>/run.json` | Canonical Contract v2 product graph |
+| `.lamina/runs/<run_id>/run.json` | Canonical Contract v2 proof-budgeted product graph |
 | `.lamina/runs/<run_id>/run.md` | Generated readable graph |
 | `.lamina/runs/<run_id>/implement.md` | Generated task-scoped implementation contract |
 | `.lamina/runs/<run_id>/report.md` | Human-readable verification report |
@@ -23,12 +23,13 @@ Never create alternative contract, handoff, blueprint, or edge-case files. `run.
 ### Design
 
 1. Create `run.json` at `status: draft` and choose `stage: spark | shape | harden`.
-2. Build the minimum sufficient graph for the current iteration.
+2. Declare the proof budget and build the minimum sufficient graph for the current iteration, including only the trusted service/control structure and proof environment required by its critical promises.
 3. Classify assumptions and decision forks.
 4. Derive distinct risks and conduct up to three materially different persona walks.
-5. Validate with the `graph-tool.mjs` bundled in the loaded `lamina-orchestrator` skill.
-6. Resolve validation failures, set `status: ready_to_build`, validate again, then render.
-7. Confirm `run.md` and `implement.md` exist before completing the command.
+5. Compile executable `proofs[]` covering every critical promise, workflow, operation, invariant, dependency, and surface.
+6. Validate with the `graph-tool.mjs` bundled in the loaded `lamina-orchestrator` skill.
+7. Resolve validation failures, confirm the generated ship pack retains authority, lifecycle, enforcement, dependencies, surfaces, and proof obligations, set `status: ready_to_build`, validate again, then render.
+8. Confirm `run.md` and `implement.md` exist before completing the command.
 
 ### Verify
 

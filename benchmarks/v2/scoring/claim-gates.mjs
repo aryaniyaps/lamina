@@ -7,9 +7,11 @@ export function evaluateClaims(results, thresholds) {
   const transfer = results.transfer;
   const efficiency = results.efficiency;
   const lowerPositive = (interval) => Array.isArray(interval) && Number.isFinite(interval[0]) && interval[0] > 0;
-  const graphPassed = graph.effect_points >= thresholds.graph_quality_points && lowerPositive(graph.effect_ci95) && graph.favorable_tasks >= thresholds.favorable_tasks_required && graph.human_model_direction_agree && !graph.critical_failure_increase;
-  const transferPassed = transfer.effect_points >= thresholds.transfer_quality_points && lowerPositive(transfer.effect_ci95) && transfer.critical_omission_reduction >= thresholds.critical_omission_relative_reduction && transfer.favorable_tasks >= thresholds.favorable_tasks_required && !transfer.incomplete_trial_increase;
-  const efficiencyGain = (efficiency.time_to_threshold_reduction >= thresholds.efficiency_time_reduction && lowerPositive(efficiency.time_reduction_ci95)) || (efficiency.rework_reduction >= thresholds.efficiency_rework_reduction && lowerPositive(efficiency.rework_reduction_ci95));
+  const complete = results.analysis?.complete === true;
+  const graphPassed = complete && graph.effect_points >= thresholds.graph_quality_points && lowerPositive(graph.effect_ci95) && graph.favorable_tasks >= thresholds.favorable_tasks_required && graph.human_model_direction_agree && graph.model_rating_pairs_complete && !graph.critical_failure_increase;
+  const transferPassed = complete && transfer.effect_points >= thresholds.transfer_quality_points && lowerPositive(transfer.effect_ci95) && transfer.critical_omission_reduction >= thresholds.critical_omission_relative_reduction && transfer.favorable_tasks >= thresholds.favorable_tasks_required && !transfer.incomplete_trial_increase && !transfer.critical_failure_increase;
+  const requiredReduction = efficiency.selected_outcome === 'time_to_threshold' ? thresholds.efficiency_time_reduction : thresholds.efficiency_rework_reduction;
+  const efficiencyGain = efficiency.selected_reduction >= requiredReduction && lowerPositive(efficiency.selected_reduction_ci95);
   const efficiencyPassed = efficiencyGain && efficiency.quality_delta >= -thresholds.noninferiority_margin_points && efficiency.favorable_tasks >= thresholds.favorable_tasks_required;
   return {
     product_contract: graphPassed ? 'passed' : 'failed',

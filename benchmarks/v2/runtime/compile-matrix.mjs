@@ -21,13 +21,15 @@ export function compileMatrix(release, corpus, options = {}) {
   const cohorts = selected(release.cohorts, options.cohort);
   const repeats = options.repeat ? [Number(options.repeat)] : Array.from({ length: release.runs_per_cell }, (_, index) => index + 1);
   if (![tasks, arms, tracks, cohorts].every((items) => items.length)) throw new Error('Matrix filters selected zero cells');
+  if (repeats.some((repeat) => !Number.isInteger(repeat) || repeat < 1 || repeat > release.runs_per_cell)) throw new Error(`Repeat must be an integer from 1 to ${release.runs_per_cell}`);
 
   const cells = [];
   for (const task of tasks) {
     for (const arm of arms) {
       for (const track of tracks) {
         for (const cohort of cohorts) {
-          if (mode === 'publication' && cohort.model_alias && !cohort.resolved_model) throw new Error(`Publication cohort ${cohort.id} is not pinned to a resolved model`);
+          if (mode === 'publication' && !task.sealed_sha256) throw new Error(`Publication task ${task.id} has no sealed package hash`);
+          if (mode === 'publication' && !cohort.resolved_model) throw new Error(`Publication cohort ${cohort.id} is not pinned to a resolved model`);
           const model = cohort.resolved_model || cohort.model || cohort.model_alias;
           if (!model) throw new Error(`Cohort ${cohort.id} has no runnable model`);
           for (const repeat of repeats) {
@@ -38,11 +40,13 @@ export function compileMatrix(release, corpus, options = {}) {
               task_package: task.package || task.id,
               task_kind: task.kind,
               fixture_ref: task.fixture_ref || null,
+              sealed_sha256: task.sealed_sha256 || null,
               arm,
               track,
               cohort_id: cohort.id,
               provider: cohort.provider,
               model,
+              resolved_model: cohort.resolved_model || null,
               repeat,
             });
           }
