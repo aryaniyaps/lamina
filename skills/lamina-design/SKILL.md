@@ -33,11 +33,11 @@ Load two to four supporting skills selected from the risk signals in the design 
 4. Declare `proof_budget` before expanding the graph. Keep at most three critical promises, ten active operations, six active workflows, six active dependencies, six active surfaces, and twelve proofs; choose lower declared limits when the slice permits.
 5. Capture the critical promises, actors, smallest coherent workflows, rules, dependencies, assumptions, and consequential decision forks within that budget. `harden` increases rigor at active boundaries, not product breadth.
 6. Add only behavior that can be implemented and proved in the current iteration. Mark future behavior `deferred`; do not spend the active budget on an imagined production backlog.
-7. Derive one scenario per distinct risk; deduplicate by `risk_key`.
-8. Spawn up to three isolated, materially distinct persona perspective reviewers when the host supports subagents; otherwise run the same bounded reviews sequentially with separated context. Keep simulated preferences as `persona_hypothesis`.
+7. Run `graph-tool.mjs derive --write` once, then `graph-tool.mjs preflight` to surface coverage gaps and draft validation errors before persona walks.
+8. Run `graph-tool.mjs persona-packs`, then spawn all returned packs in **one parallel batch** when the host supports subagents; otherwise run the same bounded reviews sequentially with separated context. Keep simulated preferences as `persona_hypothesis`.
 9. Compile `proofs[]`: every critical promise, operation, workflow, invariant, dependency, and surface must be covered by a compact proof with authoritative-state, visible-outcome, recovery, boundary, and journey evidence. Include reload/restart, responsive, and accessibility evidence somewhere in the packet.
 10. Resolve structural contradictions and blocking policy forks. Do not block on reversible defaults.
-11. Validate, set `status: ready_to_build`, validate again, and render `run.md` plus `implement.md`.
+11. Run `graph-tool.mjs ready` once (validate → `ready_to_build` → re-validate → render `run.md` + `implement.md`).
 12. Confirm all three files exist on disk before completing.
 
 ## Hard rules
@@ -69,8 +69,7 @@ Load two to four supporting skills selected from the risk signals in the design 
 Run:
 
 ```text
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
+node <lamina-orchestrator-skill>/lib/graph-tool.mjs ready .lamina/runs/<run_id>/run.json
 test -f .lamina/runs/<run_id>/run.md && test -f .lamina/runs/<run_id>/implement.md
 ```
 

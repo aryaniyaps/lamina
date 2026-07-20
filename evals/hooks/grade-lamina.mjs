@@ -117,6 +117,44 @@ const DOMAIN_MODEL_PATTERNS = /domain-model|entity-catalog|operations-inventory|
 const IMPL_VOCAB_PATTERNS =
   /\b(users table|orders table|POST\s+\/|GET\s+\/|Prisma|SELECT\s+|INSERT\s+|ORM\b|graphql\s+mutation)\b/i;
 
+const IMPLEMENTABLE_CODE_FENCE =
+  /```(?:tsx?|jsx?|python|rust|go|java|kotlin|swift|php|ruby|cs|cpp|c)\n[\s\S]*?```/i;
+const IMPLEMENTABLE_CODE_PATTERNS = [
+  IMPLEMENTABLE_CODE_FENCE,
+  /\bexport\s+default\b/i,
+  /\bimport\s+.+\s+from\s+['"][^'"]+['"]/i,
+  /\bnpm\s+install\b/i,
+  /\bCREATE\s+TABLE\b/i,
+  /\bprisma\.\w+/i,
+];
+
+const APP_SOURCE_PATH_EDIT =
+  /\b(?:create|edit|modify|update|refactor|scaffold|implement)\b[^.\n]{0,80}\b(?:src\/|app\/|components\/|pages\/|lib\/)[^\s'"]+/i;
+
+/** Returns { hasCode, reasons[] } when text looks like implementable product source. */
+export function detectImplementableCode(text) {
+  const reasons = [];
+  if (!text) return { hasCode: false, reasons };
+  for (const pattern of IMPLEMENTABLE_CODE_PATTERNS) {
+    if (pattern.test(text)) reasons.push(pattern.source.slice(0, 40));
+  }
+  if (APP_SOURCE_PATH_EDIT.test(text)) reasons.push('app source path edit language');
+  return { hasCode: reasons.length > 0, reasons };
+}
+
+function collectArtifactTexts(workspace) {
+  const texts = [];
+  const runsRoot = path.join(workspace, '.lamina/runs');
+  if (!fs.existsSync(runsRoot)) return texts;
+  for (const runDir of findRunDirs(workspace)) {
+    for (const name of ['implement.md', 'fix.md', 'report.md', 'run.json']) {
+      const filePath = path.join(runDir, name);
+      if (fs.existsSync(filePath)) texts.push(readTextSafe(filePath));
+    }
+  }
+  return texts;
+}
+
 function normalizePath(p) {
   return p.replace(/\\/g, '/');
 }
@@ -355,8 +393,7 @@ function gradeAssertion(text, ctx) {
   if (
     lower.includes('no writes outside .lamina') ||
     lower.includes('repo unchanged') ||
-    lower.includes('no file was created under `src/`') ||
-    lower.includes('no product code')
+    lower.includes('no file was created under `src/`')
   ) {
     const violations = diffOutsideLamina(preState, postState, workspace);
     const passed = violations.length === 0;
@@ -366,6 +403,26 @@ function gradeAssertion(text, ctx) {
       passed
         ? 'No writes outside .lamina/'
         : `Files outside .lamina/ changed: ${violations.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('no product code in output') || lower.includes('no product code')) {
+    const { hasCode, reasons } = detectImplementableCode(allOutput);
+    return hookResult(
+      text,
+      !hasCode,
+      !hasCode ? 'No implementable product code in output' : `Implementable code in output: ${reasons.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('no app source in artifacts')) {
+    const artifactText = collectArtifactTexts(workspace).join('\n');
+    const { hasCode, reasons } = detectImplementableCode(artifactText);
+    const passed = !hasCode;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No implementable code in .lamina artifacts' : `Implementable code in artifacts: ${reasons.join(', ')}`,
     );
   }
 
@@ -451,10 +508,13 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'No styling specs detected' : 'Styling specs found in output');
   }
 
-  if (lower.includes('ux guidance only') || lower.includes('guardrail')) {
-    const codeBlocks = /```(?:tsx?|jsx?|python|rust|go)\n[\s\S]*?```/i.test(output);
-    const passed = !codeBlocks || /\.lamina\/blueprints/i.test(output);
-    return hookResult(text, passed, passed ? 'No implementable product code in output' : 'Product code blocks in output');
+  if (lower.includes('ux guidance only') || (lower.includes('guardrail') && !lower.includes('no app source'))) {
+    const { hasCode, reasons } = detectImplementableCode(allOutput);
+    return hookResult(
+      text,
+      !hasCode,
+      !hasCode ? 'No implementable product code in output' : `Product code in output: ${reasons.join(', ')}`,
+    );
   }
 
   if (lower.includes('edge case categories covered')) {

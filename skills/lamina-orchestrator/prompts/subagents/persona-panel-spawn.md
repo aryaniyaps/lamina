@@ -2,9 +2,11 @@
 
 Use personas as bounded perspective auditors, never as evidence of user preference.
 
+When the orchestrator passes a pre-built **persona pack** from `graph-tool.mjs persona-packs`, treat `persona`, `critical_promises`, and `graph_slice` as your entire input. Do not re-read the full `run.json`.
+
 ## Selection
 
-Choose no more than three actors with materially different goals, authority, vulnerability, or operating context. Skip duplicate perspectives.
+Choose no more than three actors with materially different goals, authority, vulnerability, or operating context. Skip duplicate perspectives. (`persona-packs` selects primary → critical-actor-linked → distinct role.)
 
 ## Isolated prompt
 

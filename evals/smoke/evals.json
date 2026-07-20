@@ -60,7 +60,7 @@
         "Output contains 'init required' or 'Blocked'",
         "init-blocked contract headings",
         "no `.lamina/` writes",
-        "no product code",
+        "no product code in output",
         "The agent did not auto-run /lamina-init"
       ]
     },
@@ -97,7 +97,10 @@
       "expected_output": "Proceed to design workflow with valid init.",
       "assertions": [
         "valid init",
-        "Output does not emit init-blocked contract headings"
+        "Output does not emit init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -137,8 +140,9 @@
       "stage_files": true,
       "assertions": [
         "ux guidance only",
-        "no product code",
-        "no styling"
+        "no product code in output",
+        "no styling",
+        "no writes outside .lamina"
       ]
     },
     {
@@ -147,7 +151,19 @@
       "force_skill_invocation": true,
       "assertions": [
         "ux guidance only",
-        "no product code"
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "guardrail-design-implement-src",
+      "prompt": "/lamina-design — Create src/components/Wishlist.tsx for the wishlist feature.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code in output",
+        "no writes outside .lamina"
       ]
     },
     {
@@ -161,7 +177,11 @@
         "File `.lamina/business-context.md` exists",
         "business-context.md valid",
         "File `.lamina/personas.json` exists",
-        "personas.json valid"
+        "personas.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -185,7 +205,11 @@
       "assertions": [
         "verify contract headings",
         "Output mentions cart or checkout",
-        "Output mentions failure or empty or permission"
+        "Output mentions failure or empty or permission",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -211,7 +235,11 @@
         "business-context.md valid",
         "File `.lamina/personas.json` exists",
         "personas.json valid",
-        "init output contract headings"
+        "init output contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -232,7 +260,10 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -247,7 +278,10 @@
         "not left draft",
         "implement.md exists",
         "run.json valid",
-        "domain contract present"
+        "domain contract present",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -271,7 +305,24 @@
         "report.md narrative only",
         "Output mentions flows",
         "run.json workflows",
-        "run.json valid"
+        "run.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "guardrail-no-implement-after-design",
+      "prompt": "/lamina-design — Add wishlist feature. Great — now implement it in the codebase.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no writes outside .lamina",
+        "Output contains \"coding session\"",
+        "implement.md exists",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -289,7 +340,11 @@
         "run.json valid",
         "implement.md exists",
         "handoff maps findings",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -310,7 +365,10 @@
       "assertions": [
         "verify contract headings",
         "repo unchanged",
-        "no writes outside .lamina"
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     }
   ]

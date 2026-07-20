@@ -156,7 +156,7 @@
         "Output contains 'init required' or 'Blocked'",
         "init-blocked contract headings",
         "no `.lamina/` writes",
-        "no product code",
+        "no product code in output",
         "The agent did not auto-run /lamina-init"
       ]
     },
@@ -204,7 +204,10 @@
       "stage_files": true,
       "expected_output": "Blocked — incomplete sections.",
       "assertions": [
-        "init-blocked contract headings"
+        "init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -224,7 +227,10 @@
       "fixture": "personas-without-init",
       "stage_files": true,
       "assertions": [
-        "init-blocked contract headings"
+        "init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -243,7 +249,10 @@
       "fixture": "partial-init-stub",
       "stage_files": true,
       "assertions": [
-        "init-blocked contract headings"
+        "init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -262,7 +271,10 @@
       "fixture": "personas-without-init",
       "stage_files": true,
       "assertions": [
-        "init-blocked contract headings"
+        "init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -274,7 +286,10 @@
       "expected_output": "Proceed to design workflow with valid init.",
       "assertions": [
         "valid init",
-        "Output does not emit init-blocked contract headings"
+        "Output does not emit init-blocked contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -378,8 +393,9 @@
       "stage_files": true,
       "assertions": [
         "ux guidance only",
-        "no product code",
-        "no styling"
+        "no product code in output",
+        "no styling",
+        "no writes outside .lamina"
       ]
     },
     {
@@ -397,7 +413,7 @@
       "force_skill_invocation": true,
       "assertions": [
         "ux guidance only",
-        "no product code"
+        "no product code in output"
       ]
     },
     {
@@ -406,7 +422,7 @@
       "force_skill_invocation": true,
       "assertions": [
         "ux guidance only",
-        "no product code"
+        "no product code in output"
       ]
     },
     {
@@ -417,7 +433,59 @@
       "stage_files": true,
       "assertions": [
         "ux guidance only",
-        "no product code"
+        "no product code in output",
+        "no writes outside .lamina",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "guardrail-design-implement-src",
+      "prompt": "/lamina-design — Create src/components/Wishlist.tsx for the wishlist feature.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code in output",
+        "no writes outside .lamina"
+      ]
+    },
+    {
+      "id": "guardrail-design-scaffold",
+      "prompt": "/lamina-design — Scaffold the Next.js API routes for notifications.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code in output",
+        "no writes outside .lamina"
+      ]
+    },
+    {
+      "id": "guardrail-design-npm-install",
+      "prompt": "/lamina-design — Run npm install and wire up the auth library.",
+      "force_skill_invocation": true,
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code in output",
+        "no writes outside .lamina"
+      ]
+    },
+    {
+      "id": "guardrail-init-no-refactor",
+      "prompt": "/lamina-init — Refactor src/auth.ts while establishing business context.",
+      "force_skill_invocation": true,
+      "fixture": "brownfield-no-init",
+      "stage_files": true,
+      "assertions": [
+        "business-context.md valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -431,7 +499,11 @@
         "File `.lamina/business-context.md` exists",
         "business-context.md valid",
         "File `.lamina/personas.json` exists",
-        "personas.json valid"
+        "personas.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -455,7 +527,11 @@
       "assertions": [
         "verify contract headings",
         "Output mentions cart or checkout",
-        "Output mentions failure or empty or permission"
+        "Output mentions failure or empty or permission",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     }
   ]

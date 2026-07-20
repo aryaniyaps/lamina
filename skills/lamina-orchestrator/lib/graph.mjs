@@ -431,6 +431,140 @@ export function scopeRun(run, refs) {
   return scoped;
 }
 
+function personaRef(persona) {
+  return `persona.${persona.id}`;
+}
+
+export function actorRefsForPersona(run, persona) {
+  const explicit = list(persona.actor_refs);
+  if (explicit.length) return explicit;
+  const fromActors = list(run.actors)
+    .filter((actor) =>
+      list(actor.persona_refs).some((ref) => ref === personaRef(persona) || ref.endsWith(`.${persona.id}`)),
+    )
+    .map((actor) => `actor.${actor.id}`);
+  if (fromActors.length) return fromActors;
+  const critical = list(run.actors).filter((actor) => actor.criticality === 'critical');
+  if (critical.length) return [`actor.${critical[0].id}`];
+  return list(run.actors)
+    .slice(0, 1)
+    .map((actor) => `actor.${actor.id}`);
+}
+
+export function selectPanelPersonas(personasDoc, run, max = 3) {
+  const personas = list(personasDoc?.personas);
+  if (!personas.length) return [];
+  const selected = [];
+  const used = new Set();
+
+  const primary = personas.find((item) => item.primary === true);
+  if (primary) {
+    selected.push(primary);
+    used.add(primary.id);
+  }
+
+  const criticalActorRefs = new Set(
+    list(run.actors)
+      .filter((actor) => actor.criticality === 'critical')
+      .map((actor) => `actor.${actor.id}`),
+  );
+  for (const persona of personas) {
+    if (selected.length >= max) break;
+    if (used.has(persona.id)) continue;
+    if (actorRefsForPersona(run, persona).some((ref) => criticalActorRefs.has(ref))) {
+      selected.push(persona);
+      used.add(persona.id);
+    }
+  }
+
+  for (const persona of personas) {
+    if (selected.length >= max) break;
+    if (used.has(persona.id)) continue;
+    const roleKey = String(persona.role || '').toLowerCase();
+    if (!selected.some((item) => String(item.role || '').toLowerCase() === roleKey)) {
+      selected.push(persona);
+      used.add(persona.id);
+    }
+  }
+
+  for (const persona of personas) {
+    if (selected.length >= max) break;
+    if (!used.has(persona.id)) {
+      selected.push(persona);
+      used.add(persona.id);
+    }
+  }
+
+  return selected.slice(0, max);
+}
+
+export function buildPersonaPack(run, persona) {
+  const actorRefs = actorRefsForPersona(run, persona);
+  const seedRefs = new Set(actorRefs);
+  for (const workflow of list(run.workflows)) {
+    if (actorRefs.includes(workflow.actor_ref)) seedRefs.add(`workflow.${workflow.id}`);
+  }
+  for (const promise of list(run.intent?.critical_promises)) {
+    if (promise.criticality !== 'deferred') seedRefs.add(`promise.${promise.id}`);
+  }
+
+  const graph_slice = scopeRun(run, [...seedRefs]);
+  return {
+    persona_ref: personaRef(persona),
+    persona: {
+      id: persona.id,
+      role: persona.role,
+      goals: list(persona.goals),
+      constraints: list(persona.constraints),
+      evidence: list(persona.evidence),
+      confidence: persona.confidence,
+      actor_refs: actorRefs,
+    },
+    critical_promises: list(run.intent?.critical_promises).filter((promise) => promise.criticality !== 'deferred'),
+    graph_slice,
+    output_contract: 'prompts/subagents/persona-panel-spawn.md',
+  };
+}
+
+export function buildPersonaPacks(run, personasDoc, max = 3) {
+  return selectPanelPersonas(personasDoc, run, max).map((persona) => buildPersonaPack(run, persona));
+}
+
+export function preflightRun(run, { includeDerive = true } = {}) {
+  const coverage = coverageReport(run);
+  const derive_suggestions = includeDerive ? deriveScenarioSuggestions(run) : [];
+  const validation_errors = validateRunFields(run, 'run.json', { requireProofPacket: false });
+  return {
+    coverage,
+    derive_suggestions,
+    validation_ok: validation_errors.length === 0,
+    validation_errors,
+    unresolved_blocking_forks: coverage.unresolved_blocking_forks,
+  };
+}
+
+export function finalizeReadyRun(runPath) {
+  const abs = path.resolve(runPath);
+  const run = loadRunJson(abs);
+  let errors = validateRunFields(run, abs, { requireProofPacket: false });
+  if (errors.length) return { ok: false, phase: 'draft', errors };
+
+  run.status = 'ready_to_build';
+  fs.writeFileSync(abs, `${JSON.stringify(run, null, 2)}\n`);
+
+  errors = validateRunFields(run, abs, { requireProofPacket: true });
+  if (errors.length) {
+    run.status = 'draft';
+    fs.writeFileSync(abs, `${JSON.stringify(run, null, 2)}\n`);
+    return { ok: false, phase: 'ready_to_build', errors };
+  }
+
+  const dir = path.dirname(abs);
+  fs.writeFileSync(path.join(dir, 'run.md'), renderRunMarkdown(run));
+  fs.writeFileSync(path.join(dir, 'implement.md'), renderImplementMarkdown(run));
+  return { ok: true, artifacts: ['run.md', 'implement.md'] };
+}
+
 export function writeGeneratedArtifacts(runPath) {
   const run = loadRunJson(runPath);
   const dir = path.dirname(path.resolve(runPath));

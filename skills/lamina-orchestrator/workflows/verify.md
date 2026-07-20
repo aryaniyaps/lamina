@@ -23,7 +23,7 @@ Load every `proofs[]` entry and the root `product-proof-manifest.json`. For each
 
 ## Perspective walks
 
-Use at most three evidence-grounded persona perspectives with materially different authority or constraints. Follow [the persona panel protocol](../patterns/persona-panel.md), give each only its graph slice and observed product evidence, and isolate reviewer context. Persona preference is not proof; missing reachability, authority, recovery, or accessibility is actionable.
+Run `graph-tool.mjs persona-packs` to build ≤3 scoped reviewer payloads. Spawn all packs in **one parallel batch** when the host supports subagents. Follow [the persona panel protocol](../patterns/persona-panel.md), give each only its graph slice and observed product evidence, and isolate reviewer context. Persona preference is not proof; missing reachability, authority, recovery, or accessibility is actionable.
 
 ## Contract drift
 

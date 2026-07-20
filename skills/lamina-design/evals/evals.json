@@ -12,7 +12,10 @@
         "File `personas.json` exists",
         "no styling",
         "run.json valid",
-        "design completion on disk"
+        "design completion on disk",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -23,7 +26,10 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "no styling"
+        "no styling",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -33,7 +39,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "File `.lamina/personas.json` exists"
+        "File `.lamina/personas.json` exists",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -46,7 +55,10 @@
         "clarify contract headings",
         "clarifying questions asked",
         "no `.lamina/runs` writes",
-        "no run.json before clarification"
+        "no run.json before clarification",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -56,7 +68,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "Output mentions conflict or open questions or decision-making"
+        "Output mentions conflict or open questions or decision-making",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -77,7 +92,10 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -98,7 +116,10 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -119,7 +140,10 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -134,7 +158,10 @@
         "not left draft",
         "implement.md exists",
         "run.json valid",
-        "domain contract present"
+        "domain contract present",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -156,7 +183,11 @@
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
-        "no implementation vocabulary"
+        "no implementation vocabulary",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -168,7 +199,11 @@
       "assertions": [
         "design contract headings",
         "persona simulation file exists",
-        "persona perspectives in output"
+        "persona perspectives in output",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -178,7 +213,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design contract headings"
+        "design contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -190,7 +228,10 @@
       "assertions": [
         "design contract headings",
         "read skill lamina-edge-cases",
-        "edge cases section present"
+        "edge cases section present",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -203,7 +244,10 @@
         "clarify contract headings",
         "clarifying questions asked",
         "no `.lamina/runs` writes",
-        "no run.json before clarification"
+        "no run.json before clarification",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -220,7 +264,10 @@
         "turn 1 output contains \"Clarifying questions\"",
         "design contract headings",
         "run.json valid",
-        "design completion on disk"
+        "design completion on disk",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -241,7 +288,8 @@
       "stage_files": true,
       "assertions": [
         "ux guidance only",
-        "no product code"
+        "no product code in output",
+        "no writes outside .lamina"
       ]
     },
     {
@@ -253,7 +301,10 @@
       "assertions": [
         "design contract headings",
         "Output mentions validation or usability test",
-        "run.json valid"
+        "run.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -275,7 +326,10 @@
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
-        "Output mentions metrics"
+        "Output mentions metrics",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -286,7 +340,10 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "run.json valid"
+        "run.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -308,7 +365,10 @@
         "implement.md exists",
         "handoff maps checklist ids",
         "report.md narrative only",
-        "Output mentions risks"
+        "Output mentions risks",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -318,7 +378,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design contract headings"
+        "design contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -342,7 +405,10 @@
         "report.md narrative only",
         "Output mentions flows",
         "run.json workflows",
-        "run.json valid"
+        "run.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -352,7 +418,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design contract headings"
+        "design contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -373,7 +442,10 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only"
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -383,7 +455,10 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "design contract headings"
+        "design contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -394,7 +469,11 @@
       "stage_files": true,
       "assertions": [
         "persona perspectives in output",
-        "Output mentions conflict or open questions"
+        "Output mentions conflict or open questions",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
       ]
     },
     {
@@ -406,7 +485,9 @@
       "assertions": [
         "no writes outside .lamina",
         "Output contains \"coding session\"",
-        "implement.md exists"
+        "implement.md exists",
+        "ux guidance only",
+        "no product code in output"
       ]
     },
     {
@@ -417,7 +498,8 @@
       "stage_files": true,
       "assertions": [
         "no writes outside .lamina",
-        "ux guidance only"
+        "ux guidance only",
+        "no product code in output"
       ]
     }
   ]
