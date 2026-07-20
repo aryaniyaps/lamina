@@ -1,0 +1,68 @@
+schema_version = "1.3"
+multi_step_reward_strategy = "final"
+
+[task]
+name = "aryaniyaps/pilot-review-room-lamina"
+description = "Lamina works behavior benchmark: pilot-review-room (lamina)"
+authors = [{ name = "LaminaBench" }]
+keywords = ["fuzzy-prompt", "product-shaping", "behavior-oracle", "lamina"]
+
+[metadata]
+benchmark = "lamina-product-shaping"
+benchmark_version = "harbor-v4"
+task_id = "pilot-review-room"
+arm = "lamina"
+kind = "greenfield-privacy"
+stage = "shape"
+
+[agent]
+timeout_sec = 4200.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 180.0
+workdir = "/app"
+os = "linux"
+cpus = 4
+memory_mb = 8192
+storage_mb = 20480
+
+[[steps]]
+name = "lamina_init"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 600.0
+[steps.verifier]
+timeout_sec = 60.0
+
+[[steps]]
+name = "lamina_design"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 1100.0
+[steps.verifier]
+timeout_sec = 60.0
+
+[[steps]]
+name = "implement"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 800.0
+[steps.verifier]
+timeout_sec = 60.0
+
+[[steps]]
+name = "lamina_verify"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 1100.0
+[steps.verifier]
+timeout_sec = 90.0
+
+[[steps]]
+name = "fix"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 600.0
+[steps.verifier]
+timeout_sec = 60.0

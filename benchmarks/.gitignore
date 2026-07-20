@@ -6,6 +6,10 @@ results/harbor/
 results/aggregated/
 results/raw/workspaces/
 results/raw/artifacts/
+results/iteration-*/
+results/harvested-*/
+results/publish-*.json
+results/v2/
 harbor/dataset/task*/
 harbor/tasks/**/environment/workspace/
 harbor/tasks/*/tests/baseline-manifest.json

@@ -9,4 +9,4 @@ Use after an initial graph exists and before readiness, or during evidence-groun
 5. Keep reversible UX observations, policy suggestions, and desirability claims explicitly classified.
 6. Never describe the result as user research or customer evidence.
 
-In benchmark runs, the harness owns reviewer spawning so structured control and Lamina receive matched reviewer counts and model budgets.
+In Harbor LaminaBench runs, the **agent** owns reviewer spawning (Task/Agent subagents) with the same persona-panel contract as normal Lamina. The harness does not pre-spawn reviewers.

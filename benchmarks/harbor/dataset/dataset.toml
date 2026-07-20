@@ -1,55 +1,72 @@
 [dataset]
-name = "aryaniyaps/lamina-bench"
-description = "Lamina benchmark development corpus on Harbor with raw, plan, and Lamina arms using Claude Code and the latest Sonnet alias."
-keywords = [ "lamina", "harbor", "claude-code", "sonnet", "agent-evaluation",]
+name = "aryaniyaps/lamina-product-shaping"
+description = "Harbor v4: prove Lamina works via behavior oracle and treatment gates"
+keywords = [ "fuzzy-prompt", "product-design", "behavior-oracle", "lamina-loop",]
 [[dataset.authors]]
 name = "LaminaBench"
 
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-01-lamina"
-digest = "sha256:600cbfb3404be779cf130e3cd9117b57b08f96a432586573b776f4a1370f2936"
+name = "aryaniyaps/control-simple-list-checklist"
+digest = "sha256:ba9e92c77e214edd7127ff62fdf8388a1e00ad3ba8662dae5b1a04bcc6c4c130"
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-01-plan"
-digest = "sha256:749229d2a9e8b2140655b2168f9136d696cde4558e9fa55a2ac9996a3d224496"
+name = "aryaniyaps/control-simple-list-direct"
+digest = "sha256:3650d90e319bfc0e56467248f9441fcdefcbf66ea473a81039246081920a99e1"
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-01-raw"
-digest = "sha256:56b4d2c548a1c7d61b94548ec820273aa79c68a26eb285111a5de452a5517ff4"
+name = "aryaniyaps/control-simple-list-lamina"
+digest = "sha256:ec8a3c70677eaff5a85be6f6f44993a8fd69063c44dcf169f6c0cace7b26b6a7"
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-02-lamina"
-digest = "sha256:4782132d552f4f6336946e2944eef79a847ba1c263d5260b473b768c7578221b"
+name = "aryaniyaps/control-simple-list-plan"
+digest = "sha256:c34af1f81e0e9fb794e76edb03cc1a0e54899808415072af448f4c2f16557cf3"
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-02-plan"
-digest = "sha256:34a1afca5c5f1124a2bf695fa4b44077bf28fad77811515dc1bb7bdd1d684fbb"
+name = "aryaniyaps/pilot-care-circle-checklist"
+digest = "sha256:335da49def0722a6202f5bcdfe552b5540c84674353f04372182d6d02cc55eb1"
 
 [[tasks]]
-name = "aryaniyaps/dev-brown-02-raw"
-digest = "sha256:019d0f5bf5cf1296e63729c258ae3625adf1ae645fcf0a0323e057db8f6661c1"
+name = "aryaniyaps/pilot-care-circle-direct"
+digest = "sha256:b1711a32df8745d23eda3e264b464920ce123e399476761c9b48106837809d07"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-01-lamina"
-digest = "sha256:fd5996fdbc0882418293cb378e9692180beffabe6e5b3a348b06c4d22500eeed"
+name = "aryaniyaps/pilot-care-circle-lamina"
+digest = "sha256:46ccba82c72eb551e32dbee43304f6af39455420670ded7f9674d19dd4c997ec"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-01-plan"
-digest = "sha256:6b02cbcfbfc98a36c3a64e0831b04d0336fd33cf729cadf6ed34e944c57d9aa6"
+name = "aryaniyaps/pilot-care-circle-plan"
+digest = "sha256:a9aa5123725bd97dc6b0cce8d4d4264ff17d1f6ae9711425a0e730e16086d246"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-01-raw"
-digest = "sha256:aba078d3f4810e9487d16b36af8afda3c5186695accb7c875d8a19a35d29dd97"
+name = "aryaniyaps/pilot-loan-library-checklist"
+digest = "sha256:4334152ca76e87bc122a7ec5c3e09fda2cc38f401c08f375858ff3fb4581bc27"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-02-lamina"
-digest = "sha256:9e0fd1586350c8f2bf3da33e2b8143cf7a8b133af83cab6c2b6e552854cc332a"
+name = "aryaniyaps/pilot-loan-library-direct"
+digest = "sha256:b4cb843dfd02b441c7cfe0847d270a8d744a118210c912d9563ed7c06bfb9415"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-02-plan"
-digest = "sha256:ddbbafd05eaa17178d5aa8e3839e8e88b91b67daaf6da2e63b7f051049c95c1b"
+name = "aryaniyaps/pilot-loan-library-lamina"
+digest = "sha256:76b4110ff913575ed49bad16a8623ef9dab9ab95ae33e83030c08b269d033aa5"
 
 [[tasks]]
-name = "aryaniyaps/dev-green-02-raw"
-digest = "sha256:31f42d37c61b398946a37f9c4e0e689a9c597026a0834f6dab643ba5c944710b"
+name = "aryaniyaps/pilot-loan-library-plan"
+digest = "sha256:b71f9f933da265cbd6d1c3f3760bd13463f4ed5936a78ec7311a2b8a248d20c7"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-checklist"
+digest = "sha256:57d1259f3d37bea303ff815b3406afde143d683d65b4e21f3d895b0a4bf30143"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-direct"
+digest = "sha256:7cb3562f5ae62ef82830ed3afd3a0adadfca63c9c791969d8a8aee1afc954d0c"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-lamina"
+digest = "sha256:70bff844cfc047278dc6f74a0f3ee57ab96dc3d88e1b42bb4fab4ee4ba7cdd20"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-plan"
+digest = "sha256:2fc026d54cf9295bba06b4b782edac184105b14726327978017e15b84b411c91"
+
