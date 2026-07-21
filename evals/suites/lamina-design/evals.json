@@ -21,7 +21,7 @@
     },
     {
       "id": "design-no-styling",
-      "prompt": "/lamina-design — Concept for task management app. No colors or fonts.",
+      "prompt": "/lamina-design — Concept for household budgeting app. No colors or fonts.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",

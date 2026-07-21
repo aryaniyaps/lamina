@@ -432,13 +432,155 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('no product code in output') || lower.includes('no product code')) {
+  if (
+    lower.includes('no product code in output') ||
+    lower.includes('no product code') ||
+    lower.includes('implementable product code') ||
+    (lower.includes('does not include') && lower.includes('product code')) ||
+    (lower.includes('does not jump to') && lower.includes('implementation code'))
+  ) {
     const { hasCode, reasons } = detectImplementableCode(allOutput);
     return hookResult(
       text,
       !hasCode,
       !hasCode ? 'No implementable product code in output' : `Implementable code in output: ${reasons.join(', ')}`,
     );
+  }
+
+  if (
+    lower.includes('addresses design or problem') ||
+    lower.includes('design or problem framing') ||
+    (lower.includes('addresses') && lower.includes('problem framing'))
+  ) {
+    const passed = /design\s+workflow|problem\s+fram|\/lamina-design|\/lamina-ideate|user\s+problem/i.test(allOutput);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Design/problem framing addressed' : 'No design or problem framing language',
+    );
+  }
+
+  if (lower.includes('scopes a feature') || (lower.includes('scopes') && lower.includes('feature'))) {
+    const passed = /\b(feature|wishlist|scope)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Feature scoping language found' : 'No feature scoping language');
+  }
+
+  if (lower.includes('mentions audit or improvements') || (lower.includes('audit') && lower.includes('improvement'))) {
+    const passed = /\b(audit|improv)/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Audit/improvements language found' : 'No audit/improvements language');
+  }
+
+  if (
+    (lower.includes('mentions') || lower.includes('includes') || lower.includes('frames') || lower.includes('follows')) &&
+    (lower.includes('design workflow') || lower.includes('user problem'))
+  ) {
+    const mentionsDesign =
+      /design\s+workflow|routes?\s+to\s+design|\/lamina-design|problem\s+fram|user\s+problem/i.test(allOutput);
+    const passed = mentionsDesign;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Design/problem framing language found' : 'No design workflow / problem framing language in output',
+    );
+  }
+
+  if (
+    (lower.includes('addresses') || lower.includes('scopes') || lower.includes('specific feature') || lower.includes('single feature')) &&
+    lower.includes('feature')
+  ) {
+    const featureNamed =
+      /\b(wishlist|feature|authentication|2fa|two-factor|budgeting|alerts?|checkout|onboarding|signup|login|settings)\b/i.test(
+        allOutput,
+      ) || /specific feature|single feature|feature request|for the \w+ feature/i.test(allOutput);
+    return hookResult(
+      text,
+      featureNamed,
+      featureNamed ? 'Specific feature language found' : 'No specific feature named in output',
+    );
+  }
+
+  if (lower.includes('flows or edge cases') || (lower.includes('flows') && lower.includes('edge'))) {
+    const passed = /\bflows?\b/i.test(allOutput) && /\bedge cases?\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Flows and edge cases mentioned' : 'Missing flows and/or edge cases');
+  }
+
+  if (lower.includes('mentions audit or review') || (lower.includes('audit') && lower.includes('review'))) {
+    const passed = /\b(audit|review|verify|\/lamina-verify)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Audit/review language found' : 'No audit/review language');
+  }
+
+  if (lower.includes('prioritized or findings') || (lower.includes('prioritized') && lower.includes('findings'))) {
+    const passed = /\b(prioritiz|findings?|severity)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Prioritized/findings language found' : 'No prioritized/findings language');
+  }
+
+  if (lower.includes('improving existing') || lower.includes('improve existing')) {
+    const passed =
+      /improv(e|ing)\s+existing|existing\s+(ux|ui|flow|feature|checkout)|not\s+(a\s+)?net-?new|audit\s+not\s+design|improve(?:s|ing)?\s+(?:the\s+)?(?:existing\s+)?(?:checkout|flow|ux)|audit(?:ing)?\s+(?:the\s+)?(?:existing\s+)?(?:checkout|flow)|redesign\s+of\s+an\s+existing/i.test(
+        allOutput,
+      );
+    return hookResult(text, passed, passed ? 'Improving-existing UX language found' : 'No improving-existing language');
+  }
+
+  if (lower.includes('does not start greenfield') || lower.includes('greenfield design from scratch')) {
+    const startsGreenfield =
+      /greenfield\s+design|from\s+scratch|net-?new\s+(product|app)|design\s+a\s+new\s+/i.test(allOutput) &&
+      !/not\s+(a\s+)?(greenfield|net-?new)|avoid\s+greenfield|not\s+start\s+greenfield/i.test(allOutput);
+    return hookResult(
+      text,
+      !startsGreenfield,
+      !startsGreenfield ? 'Did not start greenfield design' : 'Appears to start greenfield design from scratch',
+    );
+  }
+
+  if (lower.includes('does not emit audit output') || (lower.includes('does not emit') && lower.includes('audit'))) {
+    const emitted = /##\s*Audit\b|###\s*Executive summary/i.test(allOutput);
+    return hookResult(text, !emitted, !emitted ? 'No audit output contract' : 'Audit output contract detected');
+  }
+
+  if (lower.includes('discusses forms') || lower.includes('validation ux')) {
+    const passed = /\b(forms?|validation|signup|input)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Forms/validation UX discussed' : 'No forms/validation language');
+  }
+
+  if (lower.includes('navigation or wayfinding') || lower.includes('addresses navigation')) {
+    const passed = /\b(navigation|wayfinding|nav\b|menu|ia\b)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Navigation/wayfinding language found' : 'No navigation language');
+  }
+
+  if (lower.includes('research planning') || lower.includes('focuses on research')) {
+    const passed = /\b(research|usability\s+study|study\s+plan|interview|protocol)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Research planning language found' : 'No research planning language');
+  }
+
+  if (lower.includes('does not emit full design output') || (lower.includes('does not emit') && lower.includes('design output'))) {
+    const emitted = OUTPUT_CONTRACTS.design.some((h) => allOutput.includes(h));
+    return hookResult(text, !emitted, !emitted ? 'No full design output contract' : 'Design output contract headings present');
+  }
+
+  if (lower.includes('new ux, existing ux') || lower.includes('focused ux question') || lower.includes('clarifying question')) {
+    const passed =
+      /new\s+ux|existing\s+ux|focused\s+(ux\s+)?question|design\s+new|verify\s+existing|one\s+focused\s+question/i.test(
+        allOutput,
+      );
+    return hookResult(text, passed, passed ? 'Clarifying route question found' : 'No clarifying UX route question');
+  }
+
+  if (lower.includes('picks one primary workflow') || lower.includes('one primary workflow')) {
+    const routes = [
+      /\bdesign\s+workflow\b/i.test(allOutput),
+      /\b(audit|verify)\s+workflow\b|\b\/lamina-verify\b/i.test(allOutput),
+      /lamina-(forms|navigation|accessibility|onboarding|error-handling|research)/i.test(allOutput),
+    ].filter(Boolean).length;
+    const passed = routes >= 1;
+    return hookResult(text, passed, passed ? `Primary workflow signaled (${routes})` : 'No primary workflow signal');
+  }
+
+  if (lower.includes('does not invent ui without grounding') || lower.includes('without grounding')) {
+    const invents =
+      /here(?:'s| is) (?:a |the )?mockup|pixel-perfect|tailwind class|create src\//i.test(allOutput) &&
+      !/@[\w/-]+|insufficient detail|init required/i.test(allOutput);
+    return hookResult(text, !invents, !invents ? 'No ungrounded UI invention' : 'Appears to invent UI without grounding');
   }
 
   if (lower.includes('no app source in artifacts')) {
@@ -453,9 +595,18 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('did not auto-run') || lower.includes('did not auto-run /lamina-init')) {
-    const invoked = /lamina-init|\/lamina-init/i.test(logs) && evalMeta?.prompt && !/\/lamina-init/i.test(evalMeta.prompt);
-    const passed = !invoked;
-    return hookResult(text, passed, passed ? 'No auto-init detected' : 'lamina-init appears in logs without user request');
+    const claimedAutoInit =
+      /ran\s+`?\/lamina-init`?\s+automatically|automatically(?:\s+\w+){0,6}\s+\/lamina-init|bootstrapping.*business context|i(?:'m| am) (?:running|starting|invoking) (?:\/)?lamina-init/i.test(
+        allOutput,
+      );
+    const invokedInLogs =
+      /lamina-init|\/lamina-init/i.test(logs) && evalMeta?.prompt && !/\/lamina-init/i.test(evalMeta.prompt);
+    const passed = !claimedAutoInit && !invokedInLogs;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No auto-init detected' : claimedAutoInit ? 'Output claims auto-running lamina-init' : 'lamina-init appears in logs without user request',
+    );
   }
 
   if (lower.includes('design') && lower.includes('headings')) {
@@ -535,6 +686,24 @@ function gradeAssertion(text, ctx) {
       text,
       !hasCode,
       !hasCode ? 'No implementable product code in output' : `Product code in output: ${reasons.join(', ')}`,
+    );
+  }
+
+  if (
+    lower.includes('mentions changelog or stale artifacts') ||
+    (lower.includes('changelog') && lower.includes('stale'))
+  ) {
+    const artifactBlob = collectArtifactTexts(workspace).join('\n');
+    const combined = `${allOutput}\n${artifactBlob}`;
+    const hasChangelog = /\bchangelog\b/i.test(combined);
+    const hasStale = /\bstale\b/i.test(combined);
+    const passed = hasChangelog && hasStale;
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? 'Changelog and stale language present'
+        : `Missing update cues (changelog=${hasChangelog}, stale=${hasStale})`,
     );
   }
 

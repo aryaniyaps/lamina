@@ -61,8 +61,9 @@ Hard prerequisite for `/lamina-design`, `/lamina-verify`, and `/lamina` when rou
 1. **Do not** proceed with workflow steps.
 2. **Do not** create or update personas, product graphs, requirements, or other `.lamina/` artifacts.
 3. **Do not** auto-run `/lamina-init` — the user must invoke it explicitly. Do not say you will run init, are running init, or have initiated init.
-4. **Emit the blocked output contract verbatim** — copy the markdown block from `outputs/init-blocked.md` below. Use the exact headings `## Lamina: init required`, `### Status`, `### What's missing`, `### Next step`, `### Do not`. Do not paraphrase into prose-only refusals.
-5. List specific validation failures under **What's missing** (missing file, empty file, placeholder section, invalid frontmatter, or "personas/prior graph is not a substitute for business context").
+4. **If the caller is the `/lamina` router**, first emit one short **intended route** sentence (e.g. name `design workflow` or audit vocabulary) so the user knows which path resumes after init.
+5. **Emit the blocked output contract verbatim** — copy the markdown block from `outputs/init-blocked.md` below. Use the exact headings `## Lamina: init required`, `### Status`, `### What's missing`, `### Next step`, `### Do not`. Do not paraphrase into prose-only refusals.
+6. List specific validation failures under **What's missing** (missing file, empty file, placeholder section, invalid frontmatter, or "personas/prior graph is not a substitute for business context").
 
 ---
 

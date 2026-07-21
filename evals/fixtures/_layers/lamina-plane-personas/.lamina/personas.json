@@ -1,0 +1,59 @@
+{
+  "contract_version": "2.0",
+  "personas": [
+    {
+      "id": "engineer",
+      "type": "primary",
+      "goals": {
+        "experience": [
+          "triage and close issues quickly"
+        ],
+        "end": [
+          "ship cycle commitments on time"
+        ],
+        "life": []
+      },
+      "frustrations": [
+        "unclear issue states",
+        "missing assignee notifications"
+      ],
+      "motivations": [
+        "focus time",
+        "clear priorities"
+      ],
+      "technical_literacy": "high",
+      "accessibility": {
+        "needs": [],
+        "assistive_tech": []
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "product-manager",
+      "type": "secondary",
+      "goals": {
+        "experience": [
+          "track delivery across cycles"
+        ],
+        "end": [
+          "report status to stakeholders"
+        ],
+        "life": []
+      },
+      "frustrations": [
+        "scattered views",
+        "stale cycle data"
+      ],
+      "motivations": [
+        "visibility",
+        "predictable delivery"
+      ],
+      "technical_literacy": "intermediate",
+      "accessibility": {
+        "needs": [],
+        "assistive_tech": []
+      },
+      "confidence": "medium"
+    }
+  ]
+}

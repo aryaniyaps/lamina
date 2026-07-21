@@ -9,6 +9,51 @@ import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP = path.join(ROOT, 'evals/tmp');
+const VENV_ASE = path.join(ROOT, '.venv-eval/bin/agent-skill-eval');
+
+function resolveAgentSkillEval() {
+  if (fs.existsSync(VENV_ASE)) return VENV_ASE;
+  return 'agent-skill-eval';
+}
+
+/** Load repo `.env` into process.env without overriding existing values. */
+function loadDotEnv() {
+  const envPath = path.join(ROOT, '.env');
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+}
+
+/**
+ * ASE defaults grader traffic to OpenRouter. When only OPENAI_API_KEY is
+ * present, point the grader at OpenAI so rubric assertions are not skipped.
+ */
+function graderExtraArgs(existing = []) {
+  const hasFlag = (name) => existing.some((a) => a === name || a.startsWith(`${name}=`));
+  const args = [];
+  if (process.env.OPENROUTER_API_KEY) return args;
+  if (!process.env.OPENAI_API_KEY) return args;
+  if (!hasFlag('--grader-base-url')) {
+    args.push('--grader-base-url', process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1');
+  }
+  if (!hasFlag('--grader-model')) {
+    args.push('--grader-model', process.env.LAMINA_EVAL_GRADER_MODEL || 'gpt-4o-mini');
+  }
+  return args;
+}
 
 function parseArgs(argv) {
   const opts = {
@@ -74,6 +119,8 @@ function writeTempSuite(name, data, evalIds = []) {
 }
 
 function runAgentSkillEval(evalsFile, opts) {
+  loadDotEnv();
+  const extra = [...opts.extraArgs, ...graderExtraArgs(opts.extraArgs)];
   const args = [
     'run',
     '--skill',
@@ -87,11 +134,24 @@ function runAgentSkillEval(evalsFile, opts) {
     'bash evals/hooks/pre-run-eval.sh',
     '--post-grade-command',
     'node evals/hooks/grade-lamina.mjs',
-    ...opts.extraArgs,
+    ...extra,
   ];
   if (opts.baseline) args.push('--baseline');
 
-  const result = spawnSync('agent-skill-eval', args, { cwd: ROOT, encoding: 'utf8', stdio: 'inherit' });
+  const bin = resolveAgentSkillEval();
+  const env = { ...process.env };
+  // Cap hung without-skill baselines; with-skill design/init often needs longer.
+  if (!env.ASE_AGENT_TIMEOUT) env.ASE_AGENT_TIMEOUT = '900';
+  const result = spawnSync(bin, args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: 'inherit',
+    env,
+  });
+  if (result.error) {
+    console.error(`Failed to spawn ${bin}: ${result.error.message}`);
+    return 1;
+  }
   return result.status ?? 1;
 }
 

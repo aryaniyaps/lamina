@@ -152,7 +152,7 @@ const laminaEvals = {
     // Router dispatch (~20)
     e('router-concept-01', '/lamina — We do not know what problem to solve yet for a mobile budgeting app.', {
       expected_output: 'Routes to design workflow.',
-      assertions: ['Output mentions design workflow', 'Output does not include implementable product code blocks'],
+      assertions: ['Output includes "design workflow"', 'no product code in output'],
     }),
     e('router-concept-02', '/lamina — Early exploration: users struggle with household spending visibility.', {
       expected_output: 'Design workflow for greenfield problem.',
@@ -475,7 +475,7 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings', 'File `personas.json` exists', 'no styling', 'run.json valid', 'design completion on disk'],
     }),
-    e('design-no-styling', '/lamina-design — Concept for task management app. No colors or fonts.', {
+    e('design-no-styling', '/lamina-design — Concept for household budgeting app. No colors or fonts.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings', 'no styling'],
     }),

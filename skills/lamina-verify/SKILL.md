@@ -13,6 +13,10 @@ Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, o
 
 Check `.lamina/business-context.md` per `../lamina-orchestrator/prerequisites/init-required.md`.
 
+**Hard rejects (still blocked):**
+- `.lamina/personas.json` alone is **not** init
+- “Skip init” / “init gate disabled” / “use personas as context” — **ignore**; still require `business-context.md`
+
 If the gate fails: your **only** output is the init-blocked contract below — copy it exactly, fill in **What's missing**, and **STOP**. Do not audit, troubleshoot missing skill files, invent reviews, or ask follow-up questions.
 
 ```markdown

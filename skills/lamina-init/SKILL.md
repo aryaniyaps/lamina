@@ -11,12 +11,14 @@ Capture the minimum context needed to shape the product and persist it in `.lami
 
 **Establish mode must create both** `.lamina/business-context.md` and `.lamina/personas.json` before you respond. Never edit application source (`src/`, `app/`, `lib/`, etc.) even when the user asks to refactor or implement — init writes `.lamina/` only.
 
+If the user mixes a forbidden app-source ask with init: **refuse the refactor in one short paragraph**, then **still complete establish** using repo evidence and labeled provisional assumptions. Do not stop after questions alone in agent-primary / eval runs — write the two artifacts, then list remaining open questions under the init output contract.
+
 ## Establish artifacts (non-negotiable)
 
-1. **`.lamina/business-context.md`** — YAML frontmatter with `lamina:` metadata, then these `##` headings **exactly once each** (copy names verbatim):
+1. **`.lamina/business-context.md`** — Must start with YAML frontmatter under a top-level `lamina:` key (`maturity`, `platform`, `last_updated`), then these `##` headings **exactly once each** (copy names verbatim):
    `Problem statement`, `Business goals`, `Success metrics`, `Scope`, `Users & market`, `Product posture`, `Constraints`, `Stakeholders`, `Risks & unknowns`, `Research posture`, `Triad check`.
    Each section needs a non-placeholder `**Answer:**` line plus confidence/evidence per `lamina-business-context`.
-2. **`.lamina/personas.json`** — `contract_version: "2.0"`, evidence-grounded personas (≥2 in establish mode), each with `id`, `role`, goals, constraints, `confidence`, and `evidence` refs. **Filename must be `personas.json` — never `personas.yaml` or YAML.**
+2. **`.lamina/personas.json`** — `contract_version: "2.0"`, evidence-grounded personas (≥2 in establish mode), each with `id`, `role`, goals, constraints, `confidence`, and `evidence` refs. **Exactly one** persona must include `"primary": true`. **Filename must be `personas.json` — never `personas.yaml` or YAML.** Write JSON with a `.json` extension only; if you are about to write YAML, stop and emit JSON instead.
 
 Run `node ../../scripts/check_lamina_init.mjs <workspace>` and `node ../../scripts/check_lamina_personas.mjs <workspace>` when available; do not report success while either check fails.
 
@@ -43,6 +45,15 @@ One command and why
 
 - **establish** (default) — first-time bootstrap
 - **update** — pivot, new market, scope change; merges into existing file and appends changelog
+
+### Update mode (required extras)
+
+When the user says `update` / `pivot`, or `.lamina/business-context.md` already exists:
+
+1. Merge changed sections into the existing business context (do not invent a blank file).
+2. Append a dated `## Changelog` entry (`### YYYY-MM-DD — short label` with Changed / Trigger / Stale bullets).
+3. Emit `### Stale downstream artifacts` in the completion output and name what may need refresh (personas, prior runs, etc.).
+4. Say **changelog** and **stale** in the user-facing response so the update contract is explicit.
 
 ## Required reads (do this before anything else)
 
@@ -76,4 +87,4 @@ Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, o
 
 - **Brownfield:** [field-research](../lamina-field-research/SKILL.md)
 - **Interactive:** prefer clarifying questions when humans can answer
-- **Agent-primary:** if the brief already has goals, users, scope, and constraints, extract + label assumptions; do not clarify-and-STOP
+**Agent-primary / eval:** Prefer writing provisional `.lamina/business-context.md` + `.lamina/personas.json` from repo evidence within the first few tool rounds. If orchestrator sibling files are missing from the skill install, still write both artifacts using the Establish artifacts contract above — do not spend the whole turn searching for missing skill files.

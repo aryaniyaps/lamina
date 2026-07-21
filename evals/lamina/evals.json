@@ -7,8 +7,8 @@
       "force_skill_invocation": true,
       "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output mentions design workflow",
-        "Output does not include implementable product code blocks"
+        "Output includes \"design workflow\"",
+        "no product code in output"
       ]
     },
     {
@@ -309,7 +309,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -514,7 +514,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -640,7 +640,7 @@
         "files/brownfield-with-init/postcss.config.mjs",
         "files/brownfield-with-init/tsconfig.json",
         "files/brownfield-with-init/.lamina/business-context.md",
-        "files/brownfield-with-init/.lamina/personas.yaml"
+        "files/brownfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -656,7 +656,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -672,7 +672,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -688,7 +688,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1072,7 +1072,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -1213,7 +1212,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1403,12 +1402,12 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
       "id": "design-no-styling",
-      "prompt": "/lamina-design — Concept for task management app. No colors or fonts.",
+      "prompt": "/lamina-design — Concept for household budgeting app. No colors or fonts.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "stage_files": true,
@@ -1421,7 +1420,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1438,7 +1437,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1458,7 +1457,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1475,7 +1474,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1503,7 +1502,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1531,7 +1530,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1559,7 +1558,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1581,7 +1580,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1690,7 +1689,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -1791,7 +1789,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -1816,7 +1813,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1837,7 +1834,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1858,7 +1855,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1875,7 +1872,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1894,7 +1891,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1914,7 +1911,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1938,7 +1935,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1964,7 +1961,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -1983,7 +1980,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2012,7 +2009,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2030,7 +2027,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2059,7 +2056,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2076,7 +2073,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2107,7 +2104,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2124,7 +2121,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2152,7 +2149,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2169,7 +2166,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2267,7 +2264,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -2287,7 +2283,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2303,7 +2299,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2410,7 +2406,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -2432,7 +2427,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2536,7 +2531,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -2566,7 +2560,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2582,7 +2576,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2609,7 +2603,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2708,7 +2702,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -2808,7 +2801,7 @@
         "files/brownfield-with-init/postcss.config.mjs",
         "files/brownfield-with-init/tsconfig.json",
         "files/brownfield-with-init/.lamina/business-context.md",
-        "files/brownfield-with-init/.lamina/personas.yaml"
+        "files/brownfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -2908,7 +2901,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -3008,7 +3000,6 @@
         "files/brownfield-audit-ready/postcss.config.mjs",
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
-        "files/brownfield-audit-ready/.lamina/personas.yaml",
         "files/brownfield-audit-ready/.lamina/personas.json",
         "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
       ]
@@ -3027,7 +3018,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3045,7 +3036,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3063,7 +3054,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3081,7 +3072,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3098,7 +3089,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3196,7 +3187,7 @@
         "files/brownfield-with-product-code/postcss.config.mjs",
         "files/brownfield-with-product-code/tsconfig.json",
         "files/brownfield-with-product-code/.lamina/business-context.md",
-        "files/brownfield-with-product-code/.lamina/personas.yaml",
+        "files/brownfield-with-product-code/.lamina/personas.json",
         "files/brownfield-with-product-code/lib/CheckoutForm.tsx"
       ]
     },
@@ -3213,7 +3204,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3230,7 +3221,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     },
     {
@@ -3246,7 +3237,7 @@
       ],
       "files": [
         "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.yaml"
+        "files/greenfield-with-init/.lamina/personas.json"
       ]
     }
   ]

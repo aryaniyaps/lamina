@@ -7,8 +7,8 @@
       "force_skill_invocation": true,
       "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output mentions design workflow",
-        "Output does not include implementable product code blocks"
+        "Output includes \"design workflow\"",
+        "no product code in output"
       ]
     },
     {
