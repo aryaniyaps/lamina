@@ -1,0 +1,29 @@
+# pilot-review-room — lamina design
+
+Use the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel subagents, UI walkthrough capture, risk-skill loads, or authority/lifecycle modeling because this is a benchmark — those are part of how Lamina works.
+
+Run **only** `/lamina-design` via the `lamina-design` skill end-to-end: graph tool create → risk-skill loads → persona-panel subagents → proofs → validate → `ready_to_build` with `implement.md` + `run.md`. Do not implement application code in this step. Do not skip the persona panel or shrink the graph below published actions.
+
+## Lamina bench profile (required)
+
+- Contract stage: start from **`shape`**. Follow `/lamina-design` stage rules — apply harden-level rigor at in-scope authority, privacy, and lifecycle boundaries without expanding into production auth/infra.
+- Delivery posture: in-memory reducer + HTML UI in `/app` (no OAuth, CSRF productization, or server-clock infrastructure). **Still model** actor authority, revoke/deny, private vs shared projections, and lifecycle transitions as first-class `reduce`/`project` behavior — do not drop them because the delivery is a prototype.
+- `proof_budget`: use normal design ceilings (≤3 critical promises, ≤10 operations, ≤6 workflows, ≤12 proofs). Budget must cover **every published action type** and each critical multi-actor path; do not shrink below that to look “minimal.”
+- Design must run the persona-panel (isolated subagents when available) before `ready_to_build`, and `implement.md` must include acceptance for: each published action mutates state; actor-scoped projections; revoke/expire/deny paths when those actions exist.
+- Load supporting skills from `audit-profiles.yaml` when risk signals fire (multi-actor, trust, accessibility, time, empty/error, concurrency). Do not skip required risk skills to keep context small.
+- Verify (required full audit — live UI + persona panel):
+  1. Serve the product (`index.html` + `app.mjs`) on localhost (e.g. `python3 -m http.server 8765` in `/app`)
+  2. Run a **UI / visual walkthrough** per `lamina-orchestrator/patterns/visual-walkthrough.md` — write `.lamina/runs/<run>/walkthrough/` (`index.yaml` with `mode: live_app`, `source: product`, plus step screenshots and/or `.a11y.json` dumps). Chromium is at `/usr/bin/chromium`.
+  3. Spawn **isolated persona-panel subagents** (≥2 distinct personas) per `patterns/persona-panel.md` + `prompts/subagents/persona-panel-spawn.md`; merge into `persona_findings[]` (`source: persona_hypothesis`). The agent owns spawning — the Harbor harness does not spawn reviewers for you.
+  4. Prioritize findings about missing lifecycle transitions, authority changes, and actor-view divergence; still write `findings[]`, `report.md`, and `fix.md`
+- Mode B: during `/lamina-*` write only `.lamina/`; implement or fix app source in the next coding turn. You may Read skills and `.lamina/` freely in coding turns.
+- Harbor golden sequences are the scored proof oracle. `product-proof-manifest.json` is optional and unscored — do not burn the step trying to satisfy unmarked suite markers.
+
+
+## Founder brief
+
+# Lightweight document review
+
+I want a small product where someone can invite a trusted person to review one document and leave useful comments. It should feel safe and focused rather than like giving away access to a whole workspace. Please shape the product and build the next coherent version.
+
+

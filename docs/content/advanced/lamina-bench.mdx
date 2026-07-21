@@ -1,66 +1,86 @@
 ---
 title: LaminaBench
-description: Contract-quality, transfer, and iteration-efficiency benchmark for Lamina Contract v2
+description: Harbor v4 behavior benchmark that proves Lamina works under matched arms
 ---
 
 import { Callout } from 'nextra/components'
 
 # LaminaBench
 
-LaminaBench v2 tests the actual Lamina thesis: can an agent turn an incomplete idea into a more coherent product contract, and does that contract improve later implementation?
+LaminaBench v4 tests whether agents that complete the **design → implement → verify → fix** loop ship thin products that pass more held-out behavior checks than matched non-Lamina baselines.
 
 <Callout type="warning">
-No v2 publication result exists yet. The development protocol and claim gates are implemented; held-out packages, blinded ratings, confirmatory runs, and the human iteration study must finish before marketing claims are made.
+No publication result exists yet. Run the pilot matrix locally, confirm treatment gates and behavior lift, then expand before marketing claims.
 </Callout>
 
-## Linked studies
+## What this suite proves
 
-| Study | Primary question | Claim gate |
-|---|---|---|
-| Contract quality | Is the frozen product graph materially better? | Blinded human quality, task-level effect, omission and failure guardrails |
-| Fresh-builder transfer | Can a new agent build a better product from the frozen native contract? | Downstream quality and critical-omission reduction |
-| Agent iteration efficiency | Does the full loop reach trusted behavior with less time or rework? | Efficiency gain with quality non-inferiority |
-| Human iteration study | Do real builders spend less active effort shaping a trusted contract? | Powered randomized crossover; separate from agent wall time |
+**Claim (when gates + outcome both pass):** Agents that complete a full Lamina loop (`spark`/`shape` with in-scope harden rigor, UI walkthrough + persona-panel subagents) pass more authority / lifecycle / recovery behavior checks than `direct` / `checklist` on the same fuzzy brief.
 
-Passing a contract-quality benchmark does not automatically prove faster human iteration. The claim-gate tool exposes each claim separately and reports human iteration speed as `not_tested` until the crossover study passes.
+**Not claimed from this suite:**
 
-## Arms and tracks
+- Human “iterate faster” (deferred crossover study)
+- Full `harden` release rigor beyond the thin-slice prototype posture
+- Skill slash-command compliance alone (see `evals/`)
 
-| Arm | Contract method |
+## How it works
+
+| Piece | Detail |
 |---|---|
-| `raw` | Best free-form contract, no required reviewers |
-| `structured` | Strong neutral graph schema plus three isolated generic critics |
-| `lamina` | Contract v2 plus isolated, bounded persona perspectives |
+| Construct | Behavior integrity from a fuzzy founder brief |
+| Primary metric | `behavior_pass_rate` on `app.mjs` (`createInitialState` / `reduce` / `project`) |
+| Steps | Matched **4,200s** agent budget per arm. Baselines: `shape_build` + `verify_fix` (2,100s each). Lamina: `lamina_init` → `lamina_design` → `implement` → `lamina_verify` → `fix`; final step scores |
+| Oracle | `reduce`/`project` must change with actions; action ids must appear in reduced state (anti-gaming) |
+| Agent aid | Structural `selfcheck.mjs` on coding steps — public actions only, no graded expect substrings |
+| Anti-leak | `grade.mjs` keeps expects opaque (base64); agents must not decode/stuff oracle strings |
+| Lamina arm | Real skills (`/lamina-init`, `/lamina-design`, implement, `/lamina-verify`, fix) with bench profile |
+| Treatment gates | Lamina attempts without `.lamina/` charter + run + verify outputs + UI walkthrough + ≥2 `persona_findings` are disqualified (reward 0) |
+| Baselines | `direct`, `plan`, `checklist` — no Lamina skills injected |
+| Model (pilot) | Claude Sonnet (`sonnet`) |
 
-The autonomous track continues with classified assumptions. The oracle track permits at most three high-leverage questions through a deterministic topic-indexed broker. Tracks are analyzed separately.
+### Bench profile (lamina arm only)
 
-Lamina versus raw estimates ecological value. Lamina versus the strong structured arm estimates method value without credit for schema compliance, Lamina terminology, or persona artifacts themselves.
+- Stage starts at `shape` / `spark` per task; harden-level rigor still applies at in-scope authority/lifecycle boundaries
+- Delivery is an in-memory reducer + HTML UI (no OAuth/CSRF theater) — authority and lifecycle remain first-class in `reduce`/`project`
+- Normal design proof ceilings; budget must cover every published action type
+- Full skill risk loads from `audit-profiles.yaml` (accessibility, trust, concurrency, etc. injected)
+- Verify requires live UI walkthrough + ≥2 agent-spawned persona-panel findings
+- Harbor image includes Chromium at `/usr/bin/chromium`
 
-## Analysis unit and size
+## Arms
 
-The task—not a repeat—is the independent unit. Publication uses 12 held-out tasks, two tracks, three arms, two repeats, and four model cohorts: 144 primary-cohort trial cells and 576 cells across confirmatory plus replication cohorts. Each cell also runs its assigned isolated reviewers and a fresh transfer builder. Repeats estimate within-task model variance; they never inflate the task sample size.
+| Arm | Method |
+|---|---|
+| `direct` | Normal coding agent |
+| `plan` | Plan-first coding agent |
+| `checklist` | Generic product checklist before build |
+| `lamina` | Lamina loop with full risk-capability skill injection |
 
-## Development commands
+Lamina vs `checklist` estimates method value. `control-simple-list` is the negative control — Lamina should not dominate a trivial todo app.
+
+## Commands
 
 ```bash
-npm run bench:v2:preflight
-npm run bench:v2:matrix -- --mode development --cohort openai-gpt-5.6-sol
-npm run bench:v2:run -- --mode development --cohort openai-gpt-5.6-sol --limit 1
+npm run bench:build
+npm run bench:validate
+npm run bench:run:publish           # full 6-cell pilot matrix + harvest
+npm run bench:run:publish:dry       # print matrix without running
+npm run bench:run:pilot:lamina      # care-circle, lamina arm, 2 attempts
+npm run bench:run:pilot             # build + validate + full pilot matrix
+npm run bench:harvest               # copy .lamina trees from results if present
 ```
 
-The bundled host runner is development-only. Publication matrices are exported after corpus, model, runtime, scoring, and skill freezes, then executed by an external custodian that prevents access to goldens, oracle facts, other briefs, and previous cells.
+Pilot matrix: `pilot-care-circle` + `control-simple-list` × `{direct, checklist, lamina}` × 2 attempts on Sonnet.
+
+Set `ANTHROPIC_API_KEY` in the **repo root** `.env`. The runner loads that file and passes it to Harbor via `--env-file`.
 
 ## Claim discipline
 
-- Human ratings are primary; frozen model ratings are sensitivity evidence.
-- Score coherent alternatives and propagated consequences, not verbosity or match to an unstated author preference.
-- Report task medians and paired effects for every task.
-- Calibrate the minimum meaningful effect before publication scoring.
-- Do not market a tiny point lift merely because it is positive.
+- Reward is **behavior only** — no keyword, brief length, or `.lamina/` ceremony points
+- Report paired task-level pass rates and loop delta (final − mid behavior)
+- Do not cite legacy Harbor v1 file-marker results or v2 studies until those harnesses ship
+- Confirmatory cohort on `opus` only after Sonnet pilot shows valid treatment + directional lift
 
-## Further reading
+## Deferred studies
 
-- [v2 methodology](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/METHODOLOGY.md)
-- [publication custody](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/EXECUTION_CUSTODY.md)
-- [blinded judging](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/JUDGING.md)
-- [human study](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/v2/HUMAN_STUDY.md)
+LaminaBench v2 (contract quality, fresh-builder transfer, human iteration crossover) remains documented for future publication but is **not** the runnable harness in this repo today.

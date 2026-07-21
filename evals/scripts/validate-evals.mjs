@@ -13,12 +13,11 @@ const errors = [];
 
 const suites = [
   'evals/lamina/evals.json',
-  'evals/smoke/evals.json',
-  'skills/lamina/evals/evals.json',
-  'skills/lamina-init/evals/evals.json',
-  'skills/lamina-design/evals/evals.json',
-  'skills/lamina-verify/evals/evals.json',
-  'skills/lamina-capabilities/evals/evals.json',
+  'evals/suites/lamina/evals.json',
+  'evals/suites/lamina-init/evals.json',
+  'evals/suites/lamina-design/evals.json',
+  'evals/suites/lamina-verify/evals.json',
+  'evals/suites/lamina-capabilities/evals.json',
 ];
 
 function validateSuite(relPath) {
@@ -58,6 +57,9 @@ function validateSuite(relPath) {
     if (!ev.prompt && (!Array.isArray(ev.prompts) || ev.prompts.length < 2)) {
       errors.push(`${relPath}: ${ev.id} requires prompt (string) or prompts (string[], 2+)`);
     }
+    if (!ev.expected_output || typeof ev.expected_output !== 'string') {
+      errors.push(`${relPath}: ${ev.id} missing expected_output`);
+    }
     if (ev.prompts && (!Array.isArray(ev.prompts) || ev.prompts.length < 2)) {
       errors.push(`${relPath}: ${ev.id} prompts must be an array with 2+ entries`);
     }
@@ -86,10 +88,37 @@ function validateSuite(relPath) {
       }
     }
   }
+
+  return ids;
 }
 
+const mergedIds = new Set();
 for (const suite of suites) {
-  validateSuite(suite);
+  const ids = validateSuite(suite);
+  if (suite === 'evals/lamina/evals.json' && ids) {
+    for (const id of ids) mergedIds.add(id);
+  }
+}
+
+const smokeIdsPath = path.join(ROOT, 'evals/smoke/ids.json');
+if (!fs.existsSync(smokeIdsPath)) {
+  errors.push('Missing evals/smoke/ids.json');
+} else if (mergedIds.size > 0) {
+  let smoke;
+  try {
+    smoke = JSON.parse(fs.readFileSync(smokeIdsPath, 'utf8'));
+  } catch (err) {
+    errors.push(`evals/smoke/ids.json: invalid JSON — ${err.message}`);
+  }
+  if (smoke && Array.isArray(smoke.ids)) {
+    for (const id of smoke.ids) {
+      if (!mergedIds.has(id)) {
+        errors.push(`evals/smoke/ids.json: unknown smoke id ${id}`);
+      }
+    }
+  } else if (smoke) {
+    errors.push('evals/smoke/ids.json: ids must be an array');
+  }
 }
 
 if (errors.length) {
@@ -98,4 +127,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`OK — validated ${suites.length} eval suites`);
+console.log(`OK — validated ${suites.length} eval suites + smoke ids`);

@@ -50,8 +50,8 @@ function checkCommandSkills() {
       continue;
     }
     const skill = read(skillPath);
-    if (!skill.includes('disable-model-invocation: true')) {
-      errors.push(`Command skill missing disable-model-invocation: ${skillPath}`);
+    if (!skill.includes(`Use only when explicitly invoked as ${name}`)) {
+      errors.push(`Command skill description must declare explicit invocation: ${skillPath}`);
     }
     if (!skill.includes('Writes: `.lamina/` only') || !skill.includes('Repo: read-only')) {
       errors.push(`Command skill missing write boundary guardrail: ${skillPath}`);

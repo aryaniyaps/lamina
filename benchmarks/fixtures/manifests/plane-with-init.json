@@ -1,8 +1,0 @@
-{
-  "name": "plane-with-init",
-  "description": "Plane full source with brownfield business context",
-  "layers": [
-    "evals:_base/plane",
-    "evals:_layers/lamina-plane-init"
-  ]
-}

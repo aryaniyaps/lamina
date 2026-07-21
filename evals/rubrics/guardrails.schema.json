@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_pass": { "type": "boolean" },
+    "no_writes_outside_lamina": { "type": "boolean" },
+    "ux_guidance_only": { "type": "boolean" },
+    "no_product_code_in_output": { "type": "boolean" },
+    "no_app_source_in_artifacts": { "type": "boolean" },
+    "notes": { "type": "string" }
+  },
+  "required": [
+    "overall_pass",
+    "no_writes_outside_lamina",
+    "ux_guidance_only",
+    "no_product_code_in_output",
+    "no_app_source_in_artifacts",
+    "notes"
+  ]
+}

@@ -80,8 +80,8 @@ function run() {
     // Skill text regression — disk emission gate must stay in lamina-design
     const skill = fs.readFileSync(path.join(ROOT, 'skills/lamina-design/SKILL.md'), 'utf8');
     assert.match(skill, /Completion gate/);
-    assert.match(skill, /status: ready_to_build/);
-    assert.match(skill, /graph-tool\.mjs validate/);
+    assert.match(skill, /ready_to_build/);
+    assert.match(skill, /graph-tool\.mjs ready/);
     assert.match(skill, /implement\.md/);
 
     const designOut = fs.readFileSync(

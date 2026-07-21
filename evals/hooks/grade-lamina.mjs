@@ -10,6 +10,13 @@ import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
 import { validateRunJson } from '../../skills/lamina-orchestrator/lib/run.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
+import {
+  distinctPersonaRefs,
+  latestRunJson,
+  personaFindingErrors,
+  traceabilityErrors,
+  validateLatestRun,
+} from '../lib/run-assertions.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -40,6 +47,13 @@ const OUTPUT_CONTRACTS = {
 
 function hasInitContract(output) {
   return OUTPUT_CONTRACTS.init.some((h) => output.includes(h));
+}
+
+function hasInitBlockedContract(output) {
+  return (
+    /## Lamina: init required/i.test(output) &&
+    (/### Status/i.test(output) || /what's missing/i.test(output) || /### Do not/i.test(output))
+  );
 }
 
 const FULL_FLOW_SKILLS = [
@@ -116,6 +130,44 @@ const EDGE_CASE_CATEGORIES = ['empty', 'failure', 'permission', 'conflict', 'bou
 const DOMAIN_MODEL_PATTERNS = /domain-model|entity-catalog|operations-inventory|operation-inventory/i;
 const IMPL_VOCAB_PATTERNS =
   /\b(users table|orders table|POST\s+\/|GET\s+\/|Prisma|SELECT\s+|INSERT\s+|ORM\b|graphql\s+mutation)\b/i;
+
+const IMPLEMENTABLE_CODE_FENCE =
+  /```(?:tsx?|jsx?|python|rust|go|java|kotlin|swift|php|ruby|cs|cpp|c)\n[\s\S]*?```/i;
+const IMPLEMENTABLE_CODE_PATTERNS = [
+  IMPLEMENTABLE_CODE_FENCE,
+  /\bexport\s+default\b/i,
+  /\bimport\s+.+\s+from\s+['"][^'"]+['"]/i,
+  /\bnpm\s+install\b/i,
+  /\bCREATE\s+TABLE\b/i,
+  /\bprisma\.\w+/i,
+];
+
+const APP_SOURCE_PATH_EDIT =
+  /\b(?:create|edit|modify|update|refactor|scaffold|implement)\b[^.\n]{0,80}\b(?:src\/|app\/|components\/|pages\/|lib\/)[^\s'"]+/i;
+
+/** Returns { hasCode, reasons[] } when text looks like implementable product source. */
+export function detectImplementableCode(text) {
+  const reasons = [];
+  if (!text) return { hasCode: false, reasons };
+  for (const pattern of IMPLEMENTABLE_CODE_PATTERNS) {
+    if (pattern.test(text)) reasons.push(pattern.source.slice(0, 40));
+  }
+  if (APP_SOURCE_PATH_EDIT.test(text)) reasons.push('app source path edit language');
+  return { hasCode: reasons.length > 0, reasons };
+}
+
+function collectArtifactTexts(workspace) {
+  const texts = [];
+  const runsRoot = path.join(workspace, '.lamina/runs');
+  if (!fs.existsSync(runsRoot)) return texts;
+  for (const runDir of findRunDirs(workspace)) {
+    for (const name of ['implement.md', 'fix.md', 'report.md', 'run.json']) {
+      const filePath = path.join(runDir, name);
+      if (fs.existsSync(filePath)) texts.push(readTextSafe(filePath));
+    }
+  }
+  return texts;
+}
 
 function normalizePath(p) {
   return p.replace(/\\/g, '/');
@@ -288,18 +340,30 @@ function gradeAssertion(text, ctx) {
   const changedFiles = diffChangedFiles(preState, postState);
   const workspaceFiles = listFiles(workspace);
 
-  if (lower.includes('init required') || lower.includes('init-blocked') || lower.includes("'blocked'")) {
-    const hasBlocked =
-      (/init required|blocked/i.test(allOutput) || /## Lamina: init required/i.test(allOutput)) &&
-      (/### Status/i.test(allOutput) || /what's missing/i.test(allOutput) || /### Do not/i.test(allOutput));
-    return hookResult(text, hasBlocked, hasBlocked ? 'Output contains init-blocked signals' : 'No init-blocked contract in output');
+  if (lower.includes('does not emit') && (lower.includes('init-blocked') || lower.includes('init required'))) {
+    const hasBlocked = hasInitBlockedContract(allOutput);
+    return hookResult(
+      text,
+      !hasBlocked,
+      !hasBlocked ? 'Output does not emit init-blocked contract' : 'Output contains init-blocked contract',
+    );
   }
 
-  if (lower.includes('init-blocked contract') || (lower.includes('init') && lower.includes('contract') && lower.includes('heading'))) {
+  if (lower.includes('init output contract')) {
+    const passed = hasInitContract(output);
+    return hookResult(text, passed, passed ? 'Init output contract present' : 'Missing init contract headings');
+  }
+
+  if (lower.includes('init-blocked contract')) {
     const headings = OUTPUT_CONTRACTS['init-blocked'];
     const missing = headings.filter((h) => !output.includes(h));
     const passed = missing.length === 0 && /## Lamina: init required/i.test(output);
     return hookResult(text, passed, passed ? 'All init-blocked headings present' : `Missing: ${missing.join(', ') || 'title'}`);
+  }
+
+  if (lower.includes('init required') || lower.includes('init-blocked') || lower.includes("'blocked'")) {
+    const hasBlocked = hasInitBlockedContract(allOutput);
+    return hookResult(text, hasBlocked, hasBlocked ? 'Output contains init-blocked signals' : 'No init-blocked contract in output');
   }
 
   if (lower.includes('clarify contract') || lower.includes('clarification contract')) {
@@ -355,8 +419,7 @@ function gradeAssertion(text, ctx) {
   if (
     lower.includes('no writes outside .lamina') ||
     lower.includes('repo unchanged') ||
-    lower.includes('no file was created under `src/`') ||
-    lower.includes('no product code')
+    lower.includes('no file was created under `src/`')
   ) {
     const violations = diffOutsideLamina(preState, postState, workspace);
     const passed = violations.length === 0;
@@ -369,6 +432,26 @@ function gradeAssertion(text, ctx) {
     );
   }
 
+  if (lower.includes('no product code in output') || lower.includes('no product code')) {
+    const { hasCode, reasons } = detectImplementableCode(allOutput);
+    return hookResult(
+      text,
+      !hasCode,
+      !hasCode ? 'No implementable product code in output' : `Implementable code in output: ${reasons.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('no app source in artifacts')) {
+    const artifactText = collectArtifactTexts(workspace).join('\n');
+    const { hasCode, reasons } = detectImplementableCode(artifactText);
+    const passed = !hasCode;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'No implementable code in .lamina artifacts' : `Implementable code in artifacts: ${reasons.join(', ')}`,
+    );
+  }
+
   if (lower.includes('did not auto-run') || lower.includes('did not auto-run /lamina-init')) {
     const invoked = /lamina-init|\/lamina-init/i.test(logs) && evalMeta?.prompt && !/\/lamina-init/i.test(evalMeta.prompt);
     const passed = !invoked;
@@ -378,11 +461,6 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('design') && lower.includes('headings')) {
     const missing = OUTPUT_CONTRACTS.design.filter((h) => !output.includes(h));
     return hookResult(text, missing.length === 0, missing.length ? `Missing: ${missing.join(', ')}` : 'All design headings present');
-  }
-
-  if (lower.includes('init output contract') || (lower.includes('init') && lower.includes('headings'))) {
-    const passed = hasInitContract(output);
-    return hookResult(text, passed, passed ? 'Init output contract present' : 'Missing init contract headings');
   }
 
   if (lower.includes('verify') && lower.includes('headings')) {
@@ -451,10 +529,13 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'No styling specs detected' : 'Styling specs found in output');
   }
 
-  if (lower.includes('ux guidance only') || lower.includes('guardrail')) {
-    const codeBlocks = /```(?:tsx?|jsx?|python|rust|go)\n[\s\S]*?```/i.test(output);
-    const passed = !codeBlocks || /\.lamina\/blueprints/i.test(output);
-    return hookResult(text, passed, passed ? 'No implementable product code in output' : 'Product code blocks in output');
+  if (lower.includes('ux guidance only') || (lower.includes('guardrail') && !lower.includes('no app source'))) {
+    const { hasCode, reasons } = detectImplementableCode(allOutput);
+    return hookResult(
+      text,
+      !hasCode,
+      !hasCode ? 'No implementable product code in output' : `Product code in output: ${reasons.join(', ')}`,
+    );
   }
 
   if (lower.includes('edge case categories covered')) {
@@ -787,6 +868,97 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('mentions failure or empty or permission')) {
     const passed = /failure|empty|permission|session expired|not found|unavailable/i.test(allOutput);
     return hookResult(text, passed, passed ? 'Operational gap language found' : 'No failure/empty/permission mentions');
+  }
+
+  if (lower.includes('proofs[] present') || (lower.includes('proofs') && lower.includes('present'))) {
+    const { run, dir } = latestRunJson(workspace);
+    const count = run?.proofs?.length ?? 0;
+    const passed = count >= 1;
+    return hookResult(
+      text,
+      passed,
+      passed ? `${count} proof(s) in ${path.basename(dir)}` : 'proofs[] is empty or missing',
+    );
+  }
+
+  if (lower.includes('implement.md mentions proof manifest') || lower.includes('proof manifest')) {
+    const dir = latestRunDir(workspace);
+    if (!dir) return hookResult(text, false, 'No run directory found');
+    const implPath = path.join(dir, 'implement.md');
+    if (!fs.existsSync(implPath)) return hookResult(text, false, 'implement.md missing');
+    const impl = fs.readFileSync(implPath, 'utf8');
+    const passed = impl.includes('product-proof-manifest.json');
+    return hookResult(
+      text,
+      passed,
+      passed ? 'implement.md references product-proof-manifest.json' : 'implement.md missing product-proof-manifest.json',
+    );
+  }
+
+  if (lower.includes('proof packet complete')) {
+    const result = validateLatestRun(workspace, { requireProofPacket: true });
+    return hookResult(
+      text,
+      result.ok,
+      result.ok ? 'Proof packet validates with requireProofPacket' : result.errors.join('; '),
+    );
+  }
+
+  if (lower.includes('traceability complete')) {
+    const { run, runPath } = latestRunJson(workspace);
+    if (!run) return hookResult(text, false, 'No run.json found');
+    const rel = path.basename(path.dirname(runPath)) + '/run.json';
+    const errors = traceabilityErrors(run, rel);
+    const passed = errors.length === 0 && (run.traceability ?? []).length > 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'All critical promises traced' : errors.join('; ') || 'traceability[] empty',
+    );
+  }
+
+  if (lower.includes('persona findings count') || lower.includes('persona_findings count')) {
+    const { run } = latestRunJson(workspace);
+    const refs = distinctPersonaRefs(run);
+    const min = text.match(/>=\s*(\d+)/)?.[1] ?? text.match(/at least (\d+)/i)?.[1] ?? '2';
+    const passed = refs.length >= Number(min);
+    return hookResult(
+      text,
+      passed,
+      passed ? `${refs.length} distinct persona_ref values` : `Only ${refs.length} persona_ref (need ${min}+)`,
+    );
+  }
+
+  if (lower.includes('persona_findings valid') || lower.includes('persona findings valid')) {
+    const { run, runPath } = latestRunJson(workspace);
+    if (!run) return hookResult(text, false, 'No run.json found');
+    const rel = path.basename(path.dirname(runPath)) + '/run.json';
+    const errors = personaFindingErrors(run, rel);
+    const hasFindings = (run.persona_findings ?? []).length > 0;
+    const passed = hasFindings && errors.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'persona_findings schema valid' : errors.join('; ') || 'persona_findings[] empty',
+    );
+  }
+
+  if (lower.includes('fix.md exists')) {
+    const dirs = findRunDirs(workspace);
+    const fixFiles = dirs.map((d) => path.join(d, 'fix.md')).filter((f) => fs.existsSync(f) && fs.statSync(f).size > 0);
+    const passed = fixFiles.length > 0;
+    return hookResult(
+      text,
+      passed,
+      passed ? `fix.md at ${path.relative(workspace, fixFiles[0])}` : 'No fix.md under .lamina/runs/',
+    );
+  }
+
+  if (lower.includes('findings present')) {
+    const { run } = latestRunJson(workspace);
+    const count = run?.findings?.length ?? 0;
+    const passed = count > 0;
+    return hookResult(text, passed, passed ? `${count} finding(s) in run.json` : 'findings[] empty or missing');
   }
 
   const turnMatch = text.match(/turn (\d+) output contains ["'`]([^"'`]+)["'`]/i);

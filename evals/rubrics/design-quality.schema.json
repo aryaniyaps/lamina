@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_pass": { "type": "boolean" },
+    "edge_cases_present": { "type": "boolean" },
+    "edge_case_categories_covered": { "type": "boolean" },
+    "domain_contract_present": { "type": "boolean" },
+    "persona_panel_ok": { "type": "boolean" },
+    "run_json_valid": { "type": "boolean" },
+    "design_completion_on_disk": { "type": "boolean" },
+    "proofs_present": { "type": "boolean" },
+    "traceability_complete": { "type": "boolean" },
+    "notes": { "type": "string" }
+  },
+  "required": [
+    "overall_pass",
+    "edge_cases_present",
+    "edge_case_categories_covered",
+    "domain_contract_present",
+    "persona_panel_ok",
+    "run_json_valid",
+    "design_completion_on_disk",
+    "proofs_present",
+    "traceability_complete",
+    "notes"
+  ]
+}

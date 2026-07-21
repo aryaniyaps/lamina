@@ -1,5 +1,0 @@
-{
-  "name": "commerce-with-init",
-  "description": "Vercel Commerce with brownfield business context",
-  "layers": ["evals:_base/nextjs-commerce", "evals:_layers/lamina-brownfield-init"]
-}

@@ -1,0 +1,150 @@
+{
+  "skill_name": "lamina-init",
+  "evals": [
+    {
+      "id": "init-establish-greenfield",
+      "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO requests. Web app, six-month MVP.",
+      "force_skill_invocation": true,
+      "expected_output": "Valid business-context.md with all sections and personas.json.",
+      "assertions": [
+        "File `business-context.md` exists",
+        "business-context.md valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
+        "init output contract headings"
+      ]
+    },
+    {
+      "id": "init-establish-minimal",
+      "prompt": "/lamina-init — Mobile budgeting app for young families.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "File `.lamina/business-context.md` exists",
+        "business-context.md valid"
+      ]
+    },
+    {
+      "id": "init-brownfield",
+      "prompt": "/lamina-init — Existing brownfield Next.js commerce repo. Improve checkout UX.",
+      "force_skill_invocation": true,
+      "expected_output": "maturity brownfield grounded answers and personas.json.",
+      "fixture": "brownfield-no-init",
+      "stage_files": true,
+      "assertions": [
+        "File `.lamina/business-context.md` exists",
+        "business-context.md valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "init-update-pivot",
+      "prompt": "/lamina-init update — Pivoting from B2C to B2B enterprise HR.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "File `.lamina/business-context.md` exists",
+        "Output mentions changelog or stale artifacts",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "init-refused-scope",
+      "prompt": "/lamina-init — SaaS product. (refuses to answer scope questions)",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "Output lists open questions",
+        "File `.lamina/business-context.md` exists"
+      ]
+    },
+    {
+      "id": "init-no-fake-confidence",
+      "prompt": "/lamina-init — Vague idea about social app.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "Output uses confidence tags or flags assumptions",
+        "business-context.md valid"
+      ]
+    },
+    {
+      "id": "init-stakeholders",
+      "prompt": "/lamina-init — Fintech app; stakeholders are compliance and product.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "business-context.md valid",
+        "Output mentions stakeholders"
+      ]
+    },
+    {
+      "id": "init-competitive",
+      "prompt": "/lamina-init — Note-taking app competing with Notion.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "business-context.md valid",
+        "Output mentions market or alternatives"
+      ]
+    },
+    {
+      "id": "init-research-posture",
+      "prompt": "/lamina-init — Health app; need evaluative research before build.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "business-context.md valid"
+      ]
+    },
+    {
+      "id": "init-triad-check",
+      "prompt": "/lamina-init — Marketplace for local services.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "business-context.md valid",
+        "Output addresses risks or unknowns"
+      ]
+    },
+    {
+      "id": "init-establish-personas-greenfield",
+      "prompt": "/lamina-init — B2B SaaS for HR teams to manage PTO. Web app MVP.",
+      "force_skill_invocation": true,
+      "expected_output": "business-context.md + personas.json from user input.",
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
+        "init output contract headings"
+      ]
+    },
+    {
+      "id": "init-establish-personas-brownfield",
+      "prompt": "/lamina-init — Brownfield Next.js commerce repo. Shoppers abandon checkout.",
+      "force_skill_invocation": true,
+      "expected_output": "business-context.md + personas.json from repo evidence.",
+      "fixture": "brownfield-no-init",
+      "stage_files": true,
+      "assertions": [
+        "business-context.md valid",
+        "File `.lamina/personas.json` exists",
+        "personas.json valid",
+        "init output contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    }
+  ]
+}

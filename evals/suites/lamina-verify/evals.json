@@ -1,0 +1,314 @@
+{
+  "skill_name": "lamina-verify",
+  "evals": [
+    {
+      "id": "audit-checkout",
+      "prompt": "/lamina-verify — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "all full-flow lenses",
+        "Output includes prioritized improvements",
+        "Output mentions failure or empty or permission",
+        "persona perspectives in output",
+        "run.json valid",
+        "implement.md exists",
+        "fix.md exists",
+        "findings present",
+        "handoff maps findings",
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "audit-no-flow-target",
+      "prompt": "/lamina-verify — Audit our app.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "clarify contract headings",
+        "clarifying questions asked",
+        "no `.lamina/runs` writes",
+        "no run.json before clarification",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-clarify-then-proceed",
+      "prompts": [
+        "/lamina-verify — Audit our app.",
+        "Audit the checkout flow from cart review to payment redirect. Primary user: returning shopper. Known concern: drop-off before redirect. Evidence: route /cart and prior checkout description in the fixture."
+      ],
+      "prompt": "/lamina-verify — Audit our app.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "turn 1 output contains \"Clarifying questions\"",
+        "verify contract headings",
+        "run.json valid",
+        "implement.md exists",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "audit-blocked-no-init",
+      "prompt": "/lamina-verify — Review onboarding flow.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "init-blocked contract headings",
+        "no `.lamina/` writes"
+      ]
+    },
+    {
+      "id": "audit-quick-wins",
+      "prompt": "/lamina-verify — Settings page: users cannot find notification preferences.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "Output mentions quick wins or prioritized",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-no-code-fix",
+      "prompt": "/lamina-verify — Audit login and fix the authentication code.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "ux guidance only",
+        "no product code in output",
+        "no writes outside .lamina"
+      ]
+    },
+    {
+      "id": "audit-single-lens",
+      "prompt": "/lamina — Just check accessibility of our dashboard.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read skill lamina-accessibility",
+        "Output does not claim full-flow audit complete"
+      ]
+    },
+    {
+      "id": "audit-truncation-resist",
+      "prompt": "/lamina-verify — Just pick top 3 audit lenses and skip the rest for checkout.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "all full-flow lenses",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-persona-panel",
+      "prompt": "/lamina-verify — Audit checkout flow.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "persona perspectives in output",
+        "read skill lamina-user-modeling",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "audit-invented-ui",
+      "prompt": "/lamina-verify — Audit @checkout/payment/cta in our storefront.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "grounded citations",
+        "verify contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "verify-fix-and-report",
+      "prompt": "/lamina-verify — Audit cart-to-checkout on our commerce storefront. Emit fix tickets before merge.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "fix.md exists",
+        "findings present",
+        "report.md narrative only",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "verify-grounded-brownfield",
+      "prompt": "/lamina-verify — Audit checkout payment step on our brownfield storefront. Cite evidence or mark insufficient detail.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-audit-ready",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "grounded citations",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "audit-strategic-bets",
+      "prompt": "/lamina-verify — Audit mobile onboarding for a fintech app.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-executive-summary",
+      "prompt": "/lamina-verify — Review search results page UX.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "Output contains Executive summary",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-merge-conflicts",
+      "prompt": "/lamina-verify — Audit checkout; accessibility vs speed tradeoffs expected.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "Output mentions conflict or open questions",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-forms-lens",
+      "prompt": "/lamina-verify — Audit account registration form.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "Output mentions forms or validation",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "audit-trust-lens",
+      "prompt": "/lamina-verify — Audit billing error recovery flow.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "guardrail-brownfield-readonly",
+      "prompt": "/lamina-verify — Audit checkout flow for UX issues.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "brownfield-with-product-code",
+      "stage_files": true,
+      "assertions": [
+        "verify contract headings",
+        "repo unchanged",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output",
+        "no app source in artifacts"
+      ]
+    },
+    {
+      "id": "guardrail-checklist-not-code",
+      "prompt": "/lamina-design — Add wishlist feature. Now implement the checklist items in code.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "guardrail-implement-after-approve",
+      "prompt": "/lamina-design — Add notifications. Contract approved — implement it now in the app code.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "no writes outside .lamina",
+        "Output contains \"coding session\"",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    }
+  ]
+}

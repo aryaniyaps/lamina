@@ -1,56 +1,72 @@
-# Dataset manifest for aryaniyaps/lamina-bench (v1 core — published)
-# Add tasks using: harbor add <org>/<name>
-# Publish using: npm run bench:harbor:publish
-
 [dataset]
-name = "aryaniyaps/lamina-bench"
-description = "LaminaBench v1 core: 5-task paired benchmark (first public iteration). One task per category; full 10-task corpus maintained in-repo for future release."
-keywords = []
+name = "aryaniyaps/lamina-product-shaping"
+description = "Harbor v4: prove Lamina works via behavior oracle and treatment gates"
+keywords = [ "fuzzy-prompt", "product-design", "behavior-oracle", "lamina-loop",]
 [[dataset.authors]]
-name = "Aryan Iyappan"
+name = "LaminaBench"
 
 
 [[tasks]]
-name = "aryaniyaps/task001-control"
-digest = "sha256:d9d6749fa0564e040c9b4705df24e3cd7a0a7123dedc250d60fa84d72ba55818"
+name = "aryaniyaps/control-simple-list-checklist"
+digest = "sha256:ba9e92c77e214edd7127ff62fdf8388a1e00ad3ba8662dae5b1a04bcc6c4c130"
 
 [[tasks]]
-name = "aryaniyaps/task001-treatment"
-digest = "sha256:1b70f4865f7d7d8332a2c3a78ae983d7688759bda930065e9b447504f934bd83"
+name = "aryaniyaps/control-simple-list-direct"
+digest = "sha256:3650d90e319bfc0e56467248f9441fcdefcbf66ea473a81039246081920a99e1"
 
 [[tasks]]
-name = "aryaniyaps/task003-control"
-digest = "sha256:9dff3c7db33fb0e5e4f1cdcedd2beb6676b662ac44d7a09d2b636b4bee109c87"
+name = "aryaniyaps/control-simple-list-lamina"
+digest = "sha256:ec8a3c70677eaff5a85be6f6f44993a8fd69063c44dcf169f6c0cace7b26b6a7"
 
 [[tasks]]
-name = "aryaniyaps/task003-treatment"
-digest = "sha256:7221e5a7f09af8a21cc1211fcf7cdb9932f3aee0bff4cc92d5b539f43eb8c388"
+name = "aryaniyaps/control-simple-list-plan"
+digest = "sha256:c34af1f81e0e9fb794e76edb03cc1a0e54899808415072af448f4c2f16557cf3"
 
 [[tasks]]
-name = "aryaniyaps/task005-control"
-digest = "sha256:09ad6039a15cf1a7be2efce0316dbc7f208fb94a4c8f18bb1371b81be9016d79"
+name = "aryaniyaps/pilot-care-circle-checklist"
+digest = "sha256:335da49def0722a6202f5bcdfe552b5540c84674353f04372182d6d02cc55eb1"
 
 [[tasks]]
-name = "aryaniyaps/task005-treatment"
-digest = "sha256:477ea29f7443ea9678440a8572230758230672b48b9a58a3906bdc10105fc8e7"
+name = "aryaniyaps/pilot-care-circle-direct"
+digest = "sha256:b1711a32df8745d23eda3e264b464920ce123e399476761c9b48106837809d07"
 
 [[tasks]]
-name = "aryaniyaps/task007-control"
-digest = "sha256:b6dfcf71172240e74f428e0ee77b91441f5990a978739ccc185f749a284ab75a"
+name = "aryaniyaps/pilot-care-circle-lamina"
+digest = "sha256:46ccba82c72eb551e32dbee43304f6af39455420670ded7f9674d19dd4c997ec"
 
 [[tasks]]
-name = "aryaniyaps/task007-treatment"
-digest = "sha256:fbf329dd5545c941926e94f5845705e6bc622ccbfa34031da24baab03e4f3459"
+name = "aryaniyaps/pilot-care-circle-plan"
+digest = "sha256:a9aa5123725bd97dc6b0cce8d4d4264ff17d1f6ae9711425a0e730e16086d246"
 
 [[tasks]]
-name = "aryaniyaps/task009-control"
-digest = "sha256:d1d60a91b5a78b2478102191423586a91075b08398804ff9c26bc5c70cfa799f"
+name = "aryaniyaps/pilot-loan-library-checklist"
+digest = "sha256:4334152ca76e87bc122a7ec5c3e09fda2cc38f401c08f375858ff3fb4581bc27"
 
 [[tasks]]
-name = "aryaniyaps/task009-treatment"
-digest = "sha256:d3339e2d797fc9ab0bb798b71aaecdde8c94db093ce251fd14e92c44c5bcce53"
+name = "aryaniyaps/pilot-loan-library-direct"
+digest = "sha256:b4cb843dfd02b441c7cfe0847d270a8d744a118210c912d9563ed7c06bfb9415"
 
+[[tasks]]
+name = "aryaniyaps/pilot-loan-library-lamina"
+digest = "sha256:76b4110ff913575ed49bad16a8623ef9dab9ab95ae33e83030c08b269d033aa5"
 
-[[files]]
-path = "metric.py"
-digest = "sha256:f4ac0c18401a0106fb0399824e610f6493be0de50dc6d98fba6a6fcb1c0b2e69"
+[[tasks]]
+name = "aryaniyaps/pilot-loan-library-plan"
+digest = "sha256:b71f9f933da265cbd6d1c3f3760bd13463f4ed5936a78ec7311a2b8a248d20c7"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-checklist"
+digest = "sha256:57d1259f3d37bea303ff815b3406afde143d683d65b4e21f3d895b0a4bf30143"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-direct"
+digest = "sha256:7cb3562f5ae62ef82830ed3afd3a0adadfca63c9c791969d8a8aee1afc954d0c"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-lamina"
+digest = "sha256:70bff844cfc047278dc6f74a0f3ee57ab96dc3d88e1b42bb4fab4ee4ba7cdd20"
+
+[[tasks]]
+name = "aryaniyaps/pilot-review-room-plan"
+digest = "sha256:2fc026d54cf9295bba06b4b782edac184105b14726327978017e15b84b411c91"
+

@@ -1,11 +1,35 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRun, coverageReport, deriveScenarioSuggestions, renderImplementMarkdown, renderRunMarkdown, scopeRun } from './graph.mjs';
+import {
+  buildPersonaPacks,
+  coverageReport,
+  createRun,
+  deriveScenarioSuggestions,
+  finalizeReadyRun,
+  preflightRun,
+  renderImplementMarkdown,
+  renderRunMarkdown,
+  scopeRun,
+} from './graph.mjs';
 import { loadRunJson, validateRunJson } from './run.mjs';
 
 const [command, runPath, ...args] = process.argv.slice(2);
-const usage = 'Usage: graph-tool.mjs <create|validate|derive|render|scope|coverage> <run.json> [args]';
+const usage =
+  'Usage: graph-tool.mjs <create|validate|derive|render|scope|coverage|preflight|persona-packs|ready> <run.json> [args]';
+
+function readPersonasPath(runPath, args) {
+  const personasArg = args.find((arg) => arg.startsWith('--personas='))?.split('=').slice(1).join('=');
+  const runDir = path.dirname(path.resolve(runPath));
+  return personasArg ? path.resolve(runDir, personasArg) : path.resolve(runDir, '../../personas.json');
+}
+
+function readMaxPersonas(args) {
+  const maxArg = args.find((arg) => arg.startsWith('--max='))?.split('=')[1];
+  const max = Number(maxArg || 3);
+  return Number.isFinite(max) && max > 0 ? Math.min(max, 3) : 3;
+}
+
 if (!command || !runPath) {
   console.error(usage);
   process.exit(1);
@@ -31,6 +55,27 @@ if (command === 'create') {
     process.exit(1);
   }
   console.log('run.json valid');
+} else if (command === 'ready') {
+  const result = finalizeReadyRun(runPath);
+  if (!result.ok) {
+    console.error(`ready failed during ${result.phase}:`);
+    for (const error of result.errors) console.error(error);
+    process.exit(1);
+  }
+  console.log(`ready: wrote ${result.artifacts.join(', ')}`);
+} else if (command === 'preflight') {
+  const run = loadRunJson(runPath);
+  const includeDerive = !args.includes('--no-derive');
+  console.log(JSON.stringify(preflightRun(run, { includeDerive }), null, 2));
+} else if (command === 'persona-packs') {
+  const run = loadRunJson(runPath);
+  const personasPath = readPersonasPath(runPath, args);
+  if (!fs.existsSync(personasPath)) {
+    console.error(`personas file not found: ${personasPath}`);
+    process.exit(1);
+  }
+  const personasDoc = JSON.parse(fs.readFileSync(personasPath, 'utf8'));
+  console.log(JSON.stringify(buildPersonaPacks(run, personasDoc, readMaxPersonas(args)), null, 2));
 } else {
   const run = loadRunJson(runPath);
   if (command === 'derive') {

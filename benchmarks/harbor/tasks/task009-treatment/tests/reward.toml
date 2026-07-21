@@ -1,7 +1,0 @@
-# Calibrated behavior score: 65% strict dimensions + 35% item-level behavioral
-# coverage, both produced by the blind judge from application source. Build
-# failures and missing critical items apply caps in subscription_judge.py.
-
-[[reward]]
-name = "composite"
-aggregation = "weighted_mean"

@@ -49,11 +49,13 @@ When a persona maps to an actor, record `persona_refs` on the actor so a reviewe
 
 ## 5. Derive distinct risks
 
-Run `graph-tool.mjs derive`. Cover declared failures, unmet dependencies, destructive actions, authority boundaries, concurrency, and recovery. Add only risks that produce meaningfully different product behavior.
+Run `graph-tool.mjs derive --write` once after the minimum graph is stable. Cover declared failures, unmet dependencies, destructive actions, authority boundaries, concurrency, and recovery. Add only risks that produce meaningfully different product behavior.
+
+Before persona walks or readiness, run `graph-tool.mjs preflight` to get coverage gaps, derived scenario suggestions, and draft validation errors in one pass.
 
 ## 6. Walk perspectives
 
-Select the primary actor, most constrained actor, and operational actor when distinct. Use [the persona panel protocol](../patterns/persona-panel.md) and [its isolated reviewer contract](../prompts/subagents/persona-panel-spawn.md). Cite graph nodes and classify every finding. Promote structural, safety, contradiction, and evidence-backed findings; retain preference findings as research hypotheses.
+Run `graph-tool.mjs persona-packs` to build ≤3 scoped reviewer payloads. Spawn all packs in **one parallel batch** when the host supports subagents. Follow [the persona panel protocol](../patterns/persona-panel.md) and [its isolated reviewer contract](../prompts/subagents/persona-panel-spawn.md). Cite graph nodes and classify every finding. Promote structural, safety, contradiction, and evidence-backed findings; retain preference findings as research hypotheses.
 
 ## 7. Compile executable proofs
 
@@ -69,4 +71,4 @@ Every critical promise, operation, workflow, invariant, dependency, and surface 
 
 ## 8. Validate readiness
 
-Resolve contradictions and blocking policy forks. Confirm each critical promise traces through actor, entity, operation, workflow, invariant, surface, scenario, and executable proof. Confirm every critical actor can actually enter or activate the product with proof of identity when consequential; entering a public email alone is not authentication. Confirm every critical entity has implementable key fields and lifecycle outcomes, and every critical dependency has a current-slice fulfillment and proof path. Confirm “what happened” promises visibly attribute consequential events to an actor and authoritative time. Confirm the implementation projection preserves actor authority, entity identity/lifecycle, operation enforcement/effects/failures/recovery, dependencies, operational actors, surface behavior, and proof obligations. Validate `run.json`, switch to `ready_to_build`, validate again, and render generated artifacts.
+Resolve contradictions and blocking policy forks. Confirm each critical promise traces through actor, entity, operation, workflow, invariant, surface, scenario, and executable proof. Confirm every critical actor can actually enter or activate the product with proof of identity when consequential; entering a public email alone is not authentication. Confirm every critical entity has implementable key fields and lifecycle outcomes, and every critical dependency has a current-slice fulfillment and proof path. Confirm “what happened” promises visibly attribute consequential events to an actor and authoritative time. Confirm the implementation projection preserves actor authority, entity identity/lifecycle, operation enforcement/effects/failures/recovery, dependencies, operational actors, surface behavior, and proof obligations. Run `graph-tool.mjs ready` once to validate draft, flip `ready_to_build`, re-validate with proof packet, and render `run.md` plus `implement.md`.

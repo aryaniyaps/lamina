@@ -9,6 +9,72 @@ Create a coherent product contract without turning an early idea into an exhaust
 
 Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source.
 
+## Step 0 — Init gate (before anything else)
+
+Check `.lamina/business-context.md` per `../lamina-orchestrator/prerequisites/init-required.md`.
+
+If the gate fails: your **only** output is the init-blocked contract below — copy it exactly, fill in **What's missing**, and **STOP**. Do not design, troubleshoot missing skill files, or ask follow-up questions.
+
+```markdown
+## Lamina: init required
+
+### Status
+Blocked — `/lamina-init` has not been run on this project, or `.lamina/business-context.md` is incomplete.
+
+### What's missing
+- <specific validation failure>
+
+### Next step
+Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this command.
+
+### Do not
+- Proceed with workflow steps or create `.lamina/` artifacts
+- Auto-run init without the user invoking `/lamina-init`
+- Treat personas or prior product graphs as a substitute for business context
+```
+
+Do not proceed to Required reads or graph work until init passes.
+
+## Clarify gate (vague or incomplete brief)
+
+When the brief lacks target users, outcome, or scope **and** the user has not said “do not clarify” / “brief is complete”:
+
+1. Emit **only** the clarification contract below — **no** `run.json`, **no** `.lamina/runs/` writes, **no** graph-tool commands.
+2. After the user answers, proceed with Required reads and the graph-tool workflow.
+
+```markdown
+## Lamina: clarification needed
+### Status
+Blocked before artifact generation.
+### Clarifying questions
+<specific questions>
+### Why these block the artifact
+<which design step needs answers>
+### How to proceed
+<answer questions or proceed with labeled assumptions>
+### Do not
+- Do not create run.json or implement.md yet
+```
+
+## Hard rules (non-negotiable)
+
+- **Only** write under `.lamina/` using the bundled graph tool — never `.lamina/design/`, never prose specs outside `run.json`.
+- Resolve the tool as `../lamina-orchestrator/lib/graph-tool.mjs` from this skill's directory (or `.claude/skills/lamina-orchestrator/lib/graph-tool.mjs` when installed).
+- **Run these shell commands** (replace `<slug>` and intent fields from the brief):
+
+```text
+node ../lamina-orchestrator/lib/graph-tool.mjs create .lamina/runs/<slug>/run.json id=<slug> stage=shape problem="<problem>" outcome="<outcome>" users=<user-id>
+# Edit .lamina/runs/<slug>/run.json — fill graph, proof_budget, proofs[], persona_findings[], traceability[]
+node ../lamina-orchestrator/lib/graph-tool.mjs preflight .lamina/runs/<slug>/run.json
+node ../lamina-orchestrator/lib/graph-tool.mjs persona-packs .lamina/runs/<slug>/run.json
+node ../lamina-orchestrator/lib/graph-tool.mjs ready .lamina/runs/<slug>/run.json
+test -f .lamina/runs/<slug>/run.md && test -f .lamina/runs/<slug>/implement.md
+```
+
+- Load `lamina-edge-cases` when mapping scenarios; mention `lamina-edge-cases` in your response.
+- Finish with `ready` so `status: ready_to_build` and `implement.md` exist on disk **before** you respond with the output contract headings.
+- If orchestrator sibling files are missing from the skill install, still run the graph tool — do not substitute a markdown design doc.
+
 ## Required reads
 
 Read these files before writing:
@@ -33,12 +99,27 @@ Load two to four supporting skills selected from the risk signals in the design 
 4. Declare `proof_budget` before expanding the graph. Keep at most three critical promises, ten active operations, six active workflows, six active dependencies, six active surfaces, and twelve proofs; choose lower declared limits when the slice permits.
 5. Capture the critical promises, actors, smallest coherent workflows, rules, dependencies, assumptions, and consequential decision forks within that budget. `harden` increases rigor at active boundaries, not product breadth.
 6. Add only behavior that can be implemented and proved in the current iteration. Mark future behavior `deferred`; do not spend the active budget on an imagined production backlog.
-7. Derive one scenario per distinct risk; deduplicate by `risk_key`.
-8. Spawn up to three isolated, materially distinct persona perspective reviewers when the host supports subagents; otherwise run the same bounded reviews sequentially with separated context. Keep simulated preferences as `persona_hypothesis`.
+7. Run `graph-tool.mjs derive --write` once, then `graph-tool.mjs preflight` to surface coverage gaps and draft validation errors before persona walks.
+8. Run `graph-tool.mjs persona-packs`, then spawn all returned packs in **one parallel batch** when the host supports subagents; otherwise run the same bounded reviews sequentially with separated context. Keep simulated preferences as `persona_hypothesis`.
 9. Compile `proofs[]`: every critical promise, operation, workflow, invariant, dependency, and surface must be covered by a compact proof with authoritative-state, visible-outcome, recovery, boundary, and journey evidence. Include reload/restart, responsive, and accessibility evidence somewhere in the packet.
 10. Resolve structural contradictions and blocking policy forks. Do not block on reversible defaults.
-11. Validate, set `status: ready_to_build`, validate again, and render `run.md` plus `implement.md`.
+11. Run `graph-tool.mjs ready` once (validate → `ready_to_build` → re-validate → render `run.md` + `implement.md`).
 12. Confirm all three files exist on disk before completing.
+
+## Output contract (after `ready`)
+
+Your response must include these headings (fill from `run.json` / `implement.md`):
+
+```markdown
+### Domain and invariants
+### Actors and permissions
+### Workflows
+### Scenarios
+### Implement brief
+### Open questions
+```
+
+If the user also asked to implement in application source in the same message: finish design on disk first, then state that app implementation is a separate **coding session** using `implement.md` — do not edit `src/`, `app/`, or other application source during `/lamina-design`.
 
 ## Hard rules
 
@@ -69,8 +150,7 @@ Load two to four supporting skills selected from the risk signals in the design 
 Run:
 
 ```text
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
+node <lamina-orchestrator-skill>/lib/graph-tool.mjs ready .lamina/runs/<run_id>/run.json
 test -f .lamina/runs/<run_id>/run.md && test -f .lamina/runs/<run_id>/implement.md
 ```
 

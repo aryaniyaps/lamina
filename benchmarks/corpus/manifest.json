@@ -1,0 +1,139 @@
+{
+  "version": "harbor-v4",
+  "arms": ["direct", "plan", "checklist", "lamina"],
+  "construct": "behavior integrity of a thin product shaped from a fuzzy founder brief under matched arms",
+  "measurement": "behavior_pass_rate",
+  "tasks": [
+    {
+      "id": "pilot-care-circle",
+      "kind": "greenfield-high-risk",
+      "stage": "shape",
+      "brief": "pilot-care-circle/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "caregiver",
+            "actions": [
+              {"type": "add_task", "id": "med-1", "title": "Morning medication"},
+              {"type": "mark_missed", "id": "med-1"}
+            ],
+            "expect": [["med-1", "escalat"], ["missed"]]
+          },
+          {
+            "actor": "caregiver",
+            "actions": [
+              {"type": "add_task", "id": "med-1", "title": "Morning medication"},
+              {"type": "complete_task", "id": "med-1"}
+            ],
+            "expect": [["med-1", "done"]]
+          },
+          {
+            "actor": "caregiver",
+            "actions": [{"type": "add_note", "id": "n-1", "text": "Private note"}],
+            "expect": [["private", "note"]]
+          },
+          {
+            "actor": "revoked-caregiver",
+            "actions": [
+              {"type": "revoke_caregiver", "actor": "revoked-caregiver"},
+              {"type": "add_note", "id": "n-2", "text": "Should not be visible"}
+            ],
+            "expect": [["denied"], ["revok"]],
+            "must_not_include": ["should not be visible"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "pilot-loan-library",
+      "kind": "greenfield-multi-actor",
+      "stage": "shape",
+      "brief": "pilot-loan-library/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "borrower",
+            "actions": [{"type": "request_loan", "id": "loan-1", "item": "Projector"}],
+            "expect": [["requested", "pending"]]
+          },
+          {
+            "actor": "borrower",
+            "actions": [
+              {"type": "request_loan", "id": "loan-1", "item": "Projector"},
+              {"type": "confirm_handoff", "id": "loan-1", "actor": "borrower"},
+              {"type": "confirm_handoff", "id": "loan-1", "actor": "owner"}
+            ],
+            "expect": [["active"], ["confirm"]]
+          },
+          {
+            "actor": "owner",
+            "actions": [
+              {"type": "request_loan", "id": "loan-1", "item": "Projector"},
+              {"type": "report_damage", "id": "loan-1"}
+            ],
+            "expect": [["dispute"], ["pause"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "pilot-review-room",
+      "kind": "greenfield-privacy",
+      "stage": "shape",
+      "brief": "pilot-review-room/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "reviewer",
+            "actions": [
+              {"type": "invite", "id": "invite-1", "document": "doc-1"},
+              {"type": "accept_invite", "id": "invite-1", "email": "reviewer@example.com"},
+              {"type": "add_comment", "id": "c-1", "text": "Looks good"}
+            ],
+            "expect": [["comment", "looks good"]]
+          },
+          {
+            "actor": "reviewer",
+            "actions": [
+              {"type": "invite", "id": "invite-1", "document": "doc-1"},
+              {"type": "expire_invite", "id": "invite-1"}
+            ],
+            "expect": [["expir"], ["denied", "access"]]
+          },
+          {
+            "actor": "reviewer",
+            "actions": [
+              {"type": "invite", "id": "invite-1", "document": "doc-1"},
+              {"type": "revoke_invite", "id": "invite-1"}
+            ],
+            "expect": [["revok"], ["denied", "access"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "control-simple-list",
+      "kind": "greenfield-low-risk",
+      "stage": "spark",
+      "brief": "control-simple-list/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "owner",
+            "actions": [
+              {"type": "add_item", "id": "item-1", "title": "Buy milk"},
+              {"type": "complete_item", "id": "item-1"}
+            ],
+            "expect": [["item-1", "done"]]
+          }
+        ]
+      }
+    }
+  ],
+  "pilot": {
+    "tasks": ["pilot-care-circle", "control-simple-list"],
+    "arms": ["direct", "checklist", "lamina"],
+    "attempts_per_arm": 2,
+    "model": "sonnet"
+  }
+}

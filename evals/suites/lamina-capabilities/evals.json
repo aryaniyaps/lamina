@@ -1,0 +1,18 @@
+{
+  "skill_name": "lamina-capabilities",
+  "evals": [
+    {
+      "id": "cap-flow-design-framework",
+      "prompt": "/lamina — Users get lost resetting passwords.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "read skill lamina-flow-design",
+        "Output mentions flows",
+        "no implementation vocabulary"
+      ]
+    }
+  ]
+}

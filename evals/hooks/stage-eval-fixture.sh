@@ -10,8 +10,8 @@ if [[ -z "$EVAL_ID" ]]; then
   exit 0
 fi
 
-# Find eval case across suites (smoke + full merged)
-for suite in "$ROOT/evals/smoke/evals.json" "$ROOT/evals/lamina/evals.json"; do
+# Find eval case in merged suite
+for suite in "$ROOT/evals/lamina/evals.json"; do
   [[ -f "$suite" ]] || continue
   FIXTURE="$(node -e "
     const fs = require('fs');
