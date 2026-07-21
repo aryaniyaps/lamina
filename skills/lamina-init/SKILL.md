@@ -9,6 +9,36 @@ description: "Use only when explicitly invoked as lamina-init. Turn an incomplet
 
 Capture the minimum context needed to shape the product and persist it in `.lamina/business-context.md`. Establish mode also writes evidence-grounded `.lamina/personas.json` using Contract v2.
 
+**Establish mode must create both** `.lamina/business-context.md` and `.lamina/personas.json` before you respond. Never edit application source (`src/`, `app/`, `lib/`, etc.) even when the user asks to refactor or implement — init writes `.lamina/` only.
+
+## Establish artifacts (non-negotiable)
+
+1. **`.lamina/business-context.md`** — YAML frontmatter with `lamina:` metadata, then these `##` headings **exactly once each** (copy names verbatim):
+   `Problem statement`, `Business goals`, `Success metrics`, `Scope`, `Users & market`, `Product posture`, `Constraints`, `Stakeholders`, `Risks & unknowns`, `Research posture`, `Triad check`.
+   Each section needs a non-placeholder `**Answer:**` line plus confidence/evidence per `lamina-business-context`.
+2. **`.lamina/personas.json`** — `contract_version: "2.0"`, evidence-grounded personas (≥2 in establish mode), each with `id`, `role`, goals, constraints, `confidence`, and `evidence` refs. **Filename must be `personas.json` — never `personas.yaml` or YAML.**
+
+Run `node ../../scripts/check_lamina_init.mjs <workspace>` and `node ../../scripts/check_lamina_personas.mjs <workspace>` when available; do not report success while either check fails.
+
+## Completion output contract
+
+After writing artifacts, your response must use **these exact headings** from `../lamina-orchestrator/prompts/outputs/init.md`:
+
+```markdown
+## Init: <project or product name>
+### Mode
+establish | update
+### Business context summary
+Per section: answer, confidence (high | medium | low)
+### Open questions
+Only questions the user explicitly skipped, refused, or deferred
+### Artifacts
+- `.lamina/business-context.md` — created or updated
+- `.lamina/personas.json` — created or updated (establish mode)
+### Recommended next step
+One command and why
+```
+
 ## Modes
 
 - **establish** (default) — first-time bootstrap

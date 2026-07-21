@@ -9,6 +9,57 @@ Treat application source as read-only evidence. Write findings and reports only 
 
 Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source.
 
+## Step 0 — Init gate (before anything else)
+
+Check `.lamina/business-context.md` per `../lamina-orchestrator/prerequisites/init-required.md`.
+
+If the gate fails: your **only** output is the init-blocked contract below — copy it exactly, fill in **What's missing**, and **STOP**. Do not audit, troubleshoot missing skill files, invent reviews, or ask follow-up questions.
+
+```markdown
+## Lamina: init required
+
+### Status
+Blocked — `/lamina-init` has not been run on this project, or `.lamina/business-context.md` is incomplete.
+
+### What's missing
+- <specific validation failure>
+
+### Next step
+Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this command.
+
+### Do not
+- Proceed with workflow steps or create `.lamina/` artifacts
+- Auto-run init without the user invoking `/lamina-init`
+- Treat personas or prior product graphs as a substitute for business context
+```
+
+Do not proceed to Required reads or verification until init passes.
+
+## Shell workflow (brownfield / audit)
+
+When auditing existing product flows, create or load a verification run and finish on disk:
+
+```text
+node ../lamina-orchestrator/lib/graph-tool.mjs create .lamina/runs/<slug>/run.json id=<slug> stage=verify problem="<problem>" outcome="<outcome>" users=<user-id>
+# Set status verifying; populate findings[] in run.json; write report.md + fix.md beside run.json
+node ../lamina-orchestrator/lib/graph-tool.mjs validate .lamina/runs/<slug>/run.json
+test -f .lamina/runs/<slug>/fix.md && test -f .lamina/runs/<slug>/report.md
+```
+
+Mention **audit**, **findings**, and **prioritized** improvements in the response. Reference full-flow lenses (`lamina-flow-design`, `lamina-forms`, `lamina-error-handling`, etc.) or state that all lenses were applied.
+
+## Completion output contract (after verify)
+
+Only respond after `findings[]`, `report.md`, and `fix.md` exist under `.lamina/runs/<run_id>/` and `run.json` validates at `complete`.
+
+```markdown
+### Executive summary
+### Findings
+### Open questions
+```
+
+Summarize critical product findings, contract drift, and artifact paths. Do not paste full reports or edit application source.
+
 ## Required reads
 
 1. `../lamina-orchestrator/load-protocol.md`

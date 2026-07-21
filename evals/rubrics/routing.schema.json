@@ -2,8 +2,13 @@
   "type": "object",
   "properties": {
     "overall_pass": { "type": "boolean" },
-    "dispatch": { "type": "string", "enum": ["concept", "feature", "audit", "direct", "clarify", "blocked"] },
+    "dispatch": {
+      "type": "string",
+      "enum": ["concept", "feature", "verify", "direct", "clarify", "blocked", "init"]
+    },
+    "mentions_workflow": { "type": "boolean" },
+    "no_product_code": { "type": "boolean" },
     "notes": { "type": "string" }
   },
-  "required": ["overall_pass", "dispatch", "notes"]
+  "required": ["overall_pass", "dispatch", "mentions_workflow", "no_product_code", "notes"]
 }

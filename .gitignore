@@ -4,6 +4,7 @@ node_modules/
 .pnpm-store/
 evals/workspace/
 eval-workspace/
+.venv-eval/
 agent-skills-workspace/
 evals/reports/iteration-*/
 promptfoo-output/
@@ -38,6 +39,13 @@ packages/lamina-studio/skills-lock.json
 # generated promptfoo skill context
 evals/promptfoo/skill-context.txt
 evals/fixtures/.vendor-tmp-*/
+evals/lamina/files/
+evals/portable/
+evals/tmp/
+evals/reports/adversarial-stress-*.json
+evals/feedback/overnight-*.md
+evals/feedback/overnight-*.json
+evals/feedback/smoke-triage-*.md
 
 # docs site (Nextra)
 docs/.next/

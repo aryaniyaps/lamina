@@ -5,6 +5,7 @@
       "id": "design-budgeting",
       "prompt": "/lamina-design — Problem: mobile budgeting for households with multiple accounts.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -22,6 +23,7 @@
       "id": "design-no-styling",
       "prompt": "/lamina-design — Concept for task management app. No colors or fonts.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -36,6 +38,7 @@
       "id": "design-personas",
       "prompt": "/lamina-design — Design workflow for expense tracking.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -49,6 +52,7 @@
       "id": "design-no-invented-ui",
       "prompt": "/lamina-design — Concept for vague productivity tool. No screens described yet.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -65,6 +69,7 @@
       "id": "design-conflict",
       "prompt": "/lamina-design — Concept where power users want density and novices want simplicity.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -78,6 +83,7 @@
       "id": "design-2fa",
       "prompt": "/lamina-design — Add two-factor authentication to settings.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -102,6 +108,7 @@
       "id": "design-wishlist",
       "prompt": "/lamina-design — Add wishlist feature to e-commerce.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -126,6 +133,7 @@
       "id": "design-edge-cases",
       "prompt": "/lamina-design — Add offline mode to mobile app.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -150,6 +158,7 @@
       "id": "design-emits-ready-to-build",
       "prompt": "/lamina-design — Design a household budgeting app for young US families: weekly review, partner privacy, spending alerts, account linking. Brief is complete — do not clarify-and-STOP.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -168,6 +177,7 @@
       "id": "design-edge-cases-brownfield",
       "prompt": "/lamina-design — Add offline cart sync for our commerce storefront.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
@@ -194,6 +204,7 @@
       "id": "design-persona-walkthrough",
       "prompt": "/lamina-design — Problem: improve checkout conversion.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
@@ -207,9 +218,66 @@
       ]
     },
     {
+      "id": "design-proofs-and-manifest",
+      "prompt": "/lamina-design — Add password reset with email verification.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design contract headings",
+        "domain contract present",
+        "run.json valid",
+        "design completion on disk",
+        "proofs[] present",
+        "implement.md mentions proof manifest",
+        "proof packet complete",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "design-persona-panel-min-two",
+      "prompt": "/lamina-design — Add household budgeting alerts for partners.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design contract headings",
+        "design completion on disk",
+        "persona findings count >= 2",
+        "persona_findings valid",
+        "persona perspectives in output",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
+      "id": "design-traceability-ready",
+      "prompt": "/lamina-design — Design weekly spending review for young families. Brief is complete.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "fixture": "greenfield-with-init",
+      "stage_files": true,
+      "assertions": [
+        "design contract headings",
+        "design completion on disk",
+        "traceability complete",
+        "proofs[] present",
+        "proof packet complete",
+        "no writes outside .lamina",
+        "ux guidance only",
+        "no product code in output"
+      ]
+    },
+    {
       "id": "design-steering",
       "prompt": "/lamina-design — Concept for expense tracking app.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -223,6 +291,7 @@
       "id": "design-budgeting-alerts",
       "prompt": "/lamina-design — Add budgeting alerts feature for college students.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -238,6 +307,7 @@
       "id": "design-onboarding",
       "prompt": "/lamina-design — Add guided onboarding improvements feature. Problem only: users hate our onboarding.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -258,6 +328,7 @@
       ],
       "prompt": "/lamina-design — Concept for vague productivity tool. No screens described yet.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -284,6 +355,7 @@
       "id": "design-guardrail-react",
       "prompt": "/lamina-design — Design and implement React components for dashboard.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -296,6 +368,7 @@
       "id": "design-validation",
       "prompt": "/lamina-design — Concept for fitness app with validation plan.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -311,6 +384,7 @@
       "id": "design-metrics",
       "prompt": "/lamina-design — Add search with success metrics.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -336,6 +410,7 @@
       "id": "design-accessibility",
       "prompt": "/lamina-design — Concept for healthcare portal with accessibility.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -350,6 +425,7 @@
       "id": "design-risks",
       "prompt": "/lamina-design — Add social sharing with privacy risks.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -375,6 +451,7 @@
       "id": "design-ia",
       "prompt": "/lamina-design — Concept for documentation site information architecture.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -388,6 +465,7 @@
       "id": "design-flows",
       "prompt": "/lamina-design — Add password reset flow.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -415,6 +493,7 @@
       "id": "design-copy",
       "prompt": "/lamina-design — Concept for legal terms acceptance UX.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -428,6 +507,7 @@
       "id": "design-a11y",
       "prompt": "/lamina-design — Add keyboard shortcuts feature accessibly.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -452,6 +532,7 @@
       "id": "design-mobile",
       "prompt": "/lamina-design — Concept for mobile-first food delivery.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -465,6 +546,7 @@
       "id": "design-persona-conflict",
       "prompt": "/lamina-design — Add dashboard for power users and novices.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "brownfield-audit-ready",
       "stage_files": true,
       "assertions": [
@@ -480,6 +562,7 @@
       "id": "guardrail-no-implement-after-design",
       "prompt": "/lamina-design — Add wishlist feature. Great — now implement it in the codebase.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
@@ -494,6 +577,7 @@
       "id": "guardrail-design-checklist-not-code",
       "prompt": "/lamina-design — Add notifications. Implement the checklist items now.",
       "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [

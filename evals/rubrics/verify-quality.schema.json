@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_pass": { "type": "boolean" },
+    "fix_md_exists": { "type": "boolean" },
+    "findings_present": { "type": "boolean" },
+    "report_narrative_only": { "type": "boolean" },
+    "grounded_citations": { "type": "boolean" },
+    "notes": { "type": "string" }
+  },
+  "required": [
+    "overall_pass",
+    "fix_md_exists",
+    "findings_present",
+    "report_narrative_only",
+    "grounded_citations",
+    "notes"
+  ]
+}

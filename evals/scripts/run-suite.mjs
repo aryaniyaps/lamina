@@ -16,6 +16,9 @@ function parseArgs(argv) {
     agents: [],
     runs: 1,
     baseline: false,
+    evalIds: [],
+    smoke: false,
+    evalIdsFile: null,
     extraArgs: [],
   };
 
@@ -24,12 +27,27 @@ function parseArgs(argv) {
     if (arg === '--evals' && argv[i + 1]) opts.evals = argv[++i];
     else if (arg === '--agent' && argv[i + 1]) opts.agents.push(argv[++i]);
     else if (arg === '--runs' && argv[i + 1]) opts.runs = Number(argv[++i]);
+    else if (arg === '--eval-id' && argv[i + 1]) opts.evalIds.push(argv[++i]);
+    else if (arg === '--eval-ids-file' && argv[i + 1]) opts.evalIdsFile = argv[++i];
+    else if (arg === '--smoke') opts.smoke = true;
     else if (arg === '--baseline') opts.baseline = true;
+    else if (arg === '--no-baseline') opts.extraArgs.push(arg);
     else opts.extraArgs.push(arg);
+  }
+
+  if (opts.smoke) {
+    opts.evals = 'evals/lamina/evals.json';
+    if (!opts.evalIdsFile) opts.evalIdsFile = 'evals/smoke/ids.json';
   }
 
   if (opts.agents.length === 0) opts.agents = ['claude-code'];
   return opts;
+}
+
+function filterEvals(evals, evalIds) {
+  if (!evalIds.length) return evals;
+  const wanted = new Set(evalIds);
+  return evals.filter((ev) => wanted.has(ev.id));
 }
 
 function loadSuite(evalsPath) {
@@ -47,9 +65,10 @@ function splitSuite(data) {
   return { single, multi, skill_name: data.skill_name };
 }
 
-function writeTempSuite(name, data) {
+function writeTempSuite(name, data, evalIds = []) {
   fs.mkdirSync(TMP, { recursive: true });
-  const file = path.join(TMP, name);
+  const suffix = evalIds.length ? `-${evalIds.join('-')}-${process.pid}` : '';
+  const file = path.join(TMP, `${name}${suffix}.json`);
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
   return file;
 }
@@ -103,16 +122,30 @@ function main() {
 
   const opts = parseArgs(process.argv);
   const suite = loadSuite(opts.evals);
-  const { single, multi, skill_name } = splitSuite(suite);
+
+  let evalIds = opts.evalIds;
+  if (opts.evalIdsFile) {
+    const idsPath = path.isAbsolute(opts.evalIdsFile)
+      ? opts.evalIdsFile
+      : path.join(ROOT, opts.evalIdsFile);
+    const { ids } = JSON.parse(fs.readFileSync(idsPath, 'utf8'));
+    evalIds = [...evalIds, ...ids];
+  }
+
+  const filtered = filterEvals(suite.evals, evalIds);
+  const { single, multi, skill_name } = splitSuite({ ...suite, evals: filtered });
 
   console.log(`Suite: ${single.length} single-turn, ${multi.length} multi-turn`);
 
   let exitCode = 0;
 
   if (single.length > 0) {
-    const singleFile = writeTempSuite('single-turn.json', { skill_name, evals: single });
-    const rel = path.relative(ROOT, singleFile);
-    const code = runAgentSkillEval(rel, opts);
+    const evalsAbs = path.isAbsolute(opts.evals) ? opts.evals : path.join(ROOT, opts.evals);
+    const rel = path.relative(ROOT, evalsAbs);
+    const evalArgs = evalIds.length
+      ? evalIds.flatMap((id) => ['--eval-id', id])
+      : [];
+    const code = runAgentSkillEval(rel, { ...opts, extraArgs: [...opts.extraArgs, ...evalArgs] });
     if (code !== 0) exitCode = code;
   }
 

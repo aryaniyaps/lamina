@@ -1,9 +1,15 @@
-root: ./skills
-workspace: ./evals/workspace
+root: ./portable
+workspace: ./workspace
 baseline: true
+include:
+  - lamina
+  - lamina-init
+  - lamina-design
+  - lamina-verify
+  - lamina-capabilities
+concurrency: 2
 layout: iteration
 strict: true
-concurrency: 2
 report:
   enabled: true
   title: Lamina Agent Skills Report
