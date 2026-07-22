@@ -148,5 +148,5 @@ const personaNote =
 const codingSessionNote =
   ' If the user asked to implement app/source/code in this same turn: refuse app edits and include the exact phrase coding session (separate coding session from implement.md). Never write app.js/src/index.html.';
 console.log(
-  `Wrote run.json, run.md, implement.md (persona_findings=${run.persona_findings.length}). STOP: do not run graph-tool. Emit ### Domain and invariants, ### Actors and permissions, ### Workflows, ### Scenarios, ### Implement brief, ### Open questions. Mention lamina-edge-cases, flows, edge cases, empty/failure/permission.${personaNote}${codingSessionNote}`,
+  `Wrote run.json, run.md, implement.md (persona_findings=${run.persona_findings.length}). STOP: do not run graph-tool. Emit ### Domain and invariants, ### Actors and permissions, ### Workflows, ### Scenarios, ### Implement brief, ### Open questions. Mention lamina-edge-cases, flows, edge cases, empty/failure/permission. Also list every run.json checklist id and proof id in the reply (handoff maps).${personaNote}${codingSessionNote}`,
 );

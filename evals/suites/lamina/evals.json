@@ -290,7 +290,7 @@
       "fixture": "greenfield-with-init",
       "stage_files": true,
       "assertions": [
-        "valid init",
+        "business-context.md valid",
         "Output does not emit init-blocked contract headings",
         "no writes outside .lamina",
         "ux guidance only",

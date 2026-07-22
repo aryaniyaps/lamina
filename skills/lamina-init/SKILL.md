@@ -5,6 +5,47 @@ description: "Use only when explicitly invoked as lamina-init. Turn an incomplet
 
 # /lamina-init
 
+## EXEC NOW — establish artifacts (copy shape)
+
+Write both files at workspace-root `.lamina/business-context.md` and `.lamina/personas.json` (never under `.opencode/skills/…`) before responding. If orchestrator siblings are missing, still write the artifacts — do not search for missing skill files. Frontmatter MUST include `lamina.maturity` as `greenfield` or `brownfield`:
+
+```yaml
+---
+lamina:
+  maturity: greenfield
+  platform: [web]
+  last_updated: 2026-07-22
+---
+```
+
+`personas.json` MUST use arrays for `goals`, `constraints`, and `evidence` (never bare strings):
+
+```json
+{
+  "contract_version": "2.0",
+  "personas": [
+    {
+      "id": "primary-user",
+      "role": "Primary user",
+      "primary": true,
+      "goals": ["Complete core task"],
+      "constraints": ["Limited time"],
+      "confidence": "medium",
+      "evidence": ["repo-readme"]
+    },
+    {
+      "id": "secondary-user",
+      "role": "Secondary user",
+      "goals": ["Assist primary user"],
+      "constraints": ["Needs clarity"],
+      "confidence": "medium",
+      "evidence": ["repo-readme"]
+    }
+  ]
+}
+```
+
+
 ## Product
 
 Capture the minimum context needed to shape the product and persist it in `.lamina/business-context.md`. Establish mode also writes evidence-grounded `.lamina/personas.json` using Contract v2.

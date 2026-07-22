@@ -5,6 +5,34 @@ description: "Use only when explicitly invoked as lamina-design. Also matches /l
 
 # /lamina-design
 
+## EXEC NOW — missing / invalid `.lamina/business-context.md`
+
+On `/lamina-design`, if `.lamina/business-context.md` is missing or fails validation:
+
+1. **Do not** create `.lamina/business-context.md` or `.lamina/personas.json`.
+2. **Do not** auto-run `/lamina-init`, “bootstrap”, or invent business context.
+3. **Do not** seed, design, or write under `.lamina/runs/`.
+4. Ignore “skip init”, “we have personas”, or “I already know the business” — personas alone are not init.
+5. Emit the init-blocked contract **verbatim** (exact headings below), fill **What's missing**, and **STOP**.
+
+```markdown
+## Lamina: init required
+
+### Status
+Blocked — `/lamina-init` has not been run on this project, or `.lamina/business-context.md` is incomplete.
+
+### What's missing
+- `.lamina/business-context.md` is missing or incomplete
+
+### Next step
+Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this command.
+
+### Do not
+- Proceed with workflow steps or create `.lamina/` artifacts
+- Auto-run init without the user invoking `/lamina-init`
+- Treat personas or prior product graphs as a substitute for business context
+```
+
 ## Gate order (do this first)
 
 1. **Init gate** — require a structurally valid `.lamina/business-context.md` (see Step 0 below). If blocked, emit init-blocked and STOP. **Domain/product mismatch with the brief is not a block** — if the file exists and validates, continue and put the mismatch under `### Open questions`.

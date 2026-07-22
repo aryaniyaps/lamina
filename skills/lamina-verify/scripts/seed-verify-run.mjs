@@ -165,6 +165,16 @@ run.findings = [
   },
 ];
 
+// Keep template checklist/proofs (validators need proofs[]), but ensure every
+// checklist/finding/proof id appears in implement.md for handoff-maps grading.
+const handoffIds = [
+  ...new Set([
+    ...(run.checklist || []).map((item) => item.id).filter(Boolean),
+    ...run.findings.map((f) => f.id),
+    ...(run.proofs || []).map((p) => p.id).filter(Boolean),
+  ]),
+];
+
 const errors = [];
 if (run.contract_version !== '2.0') errors.push('contract_version');
 if (!run.findings?.length) errors.push('findings');
@@ -189,7 +199,7 @@ const implement = `# Implement / handoff — ${slug}
 Source: \`run.json\` audit contract ${run.contract_version}
 
 ## Must-implement checklist (maps findings)
-${findingIds.map((id) => `- [ ] ${id}`).join('\n')}
+${handoffIds.map((id) => `- [ ] ${id}`).join('\n')}
 
 ## Finding-linked work
 ${run.findings
