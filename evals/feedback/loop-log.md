@@ -495,3 +495,27 @@ design-blocked-no-init/codex
 - 2026-07-22 audit-no-flow-target/opencode: seed refuse vague Audit our app (REFUSE_SEED).
 
 - 2026-07-22 audit-clarify-then-proceed/codex FAIL: turn2 reminder forced design headings after verify seed. Fix: run-multiturn-case verify-specific EXEC NOW + seed-verify-run + Executive summary headings.
+- 2026-07-22T15:19:00+05:30 audit-quick-wins/opencode FAIL: ignored seed-verify EXEC NOW, explored node_modules; no headings. Fix: mandate seed as first shell for concrete surfaces. Files: skills/lamina/SKILL.md
+
+- 2026-07-22 audit-quick-wins/opencode FAIL: seeded but thrashed without verify headings/quick wins. Fix: seed stdout paste-ready ### Executive summary template + quick wins wording; broaden concrete-flow keywords.
+
+- 2026-07-22 audit-single-lens/opencode FAIL: seed paste claimed “Audit complete for the named flow” tripped negative full-flow assertion. Softened seed reply template.
+
+- 2026-07-22 audit-truncation-resist/codex FAIL: agent truncated to 3 lenses; hook only scanned chat output. Fix: hook scans logs+report.md; skill refuses truncation; seed report lists exact FULL_FLOW ids incl lamina-trust.
+- 2026-07-22T15:33:26+05:30 audit-truncation-resist/codex FAIL: obeyed top-3 skip; no full lens list. Fix: TRUNCATION_REFUSE in seed + skill. Files: seed-verify-run.mjs, lamina{,-verify}/SKILL.md
+
+- 2026-07-22 audit-persona-panel/opencode FAIL: false clarify/init on concrete checkout. Fix: EXEC NOW for named flows; read business-context before init-block; seed mentions lamina-user-modeling.
+
+- 2026-07-22 audit-invented-ui/opencode FAIL: missing @citations in reply. Fix: seed/skill require repeating @paths or insufficient detail; grounded hook also scans logs.
+
+- 2026-07-22 guardrail-implement-after-approve/codex FAIL: refused implement without saying “coding session”. Fix: lamina-design exact phrase mandate + implement-now trap.
+
+- 2026-07-22 guardrail-implement-after-approve/codex FAIL: wrote app.js instead of coding session refuse. Fix: EXEC NOW hard refuse + seed coding-session note when problem mentions implement.
+
+- 2026-07-22 guardrail-implement-after-approve: seed always reminds exact phrase coding session (agent omitted implement from --problem).
+
+- 2026-07-22 guardrail-implement-after-approve: agent-primary guardrails contradicted coding-session refuse; clarified same-message implement stays .lamina-only + coding session phrase.
+
+- 2026-07-22 cap-flow-design-framework/codex FAIL: routed to lamina-navigation; expect lamina-flow-design for password-reset flow. Fix: direct-mode table + prefer flow-design over navigation.
+
+- 2026-07-22 BATCH_DONE: active matrix green for remaining queue — verify counts then smoke+commit+push.

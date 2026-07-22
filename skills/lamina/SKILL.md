@@ -44,13 +44,15 @@ Name a flow/surface, or say proceed with labeled assumptions.
 - Do not create run.json, fix.md, or report.md yet
 ```
 
-After init passes **and** a concrete flow is named (or user said proceed with labeled assumptions):
+After init passes **and** a concrete flow/surface is named (settings/checkout/login/…, or user said proceed with labeled assumptions), **your first shell command must be seed-verify-run** — do not explore `node_modules` or invent init failures:
 
 ```bash
 SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-verify-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina-verify/scripts/seed-verify-run.mjs 2>/dev/null | head -1)
 node "$SEED" --slug <kebab-slug> --problem "<audit brief>" --outcome "<outcome>" --users primary-member,power-operator
 test -f .lamina/runs/<kebab-slug>/{run.json,fix.md,report.md,implement.md}
 ```
+
+**Truncation refuse:** If the user asks to “pick top N lenses”, “skip the rest”, or otherwise truncate full-flow audit, **refuse**. After seed, paste the seed `Full-flow lenses applied (do not truncate): …` line (all 11 lens ids) and say you **will not skip lenses** / **refuse truncation**. Never write “Remaining lenses skipped”.
 
 STOP after seed `status=complete`. Emit `### Executive summary`, `### Findings`, `### Open questions`. Mention audit, findings, prioritized, failure/empty/permission, full-flow lens ids (or refuse truncation), and persona ids. No `graph-tool.mjs`. No app source.
 
@@ -190,7 +192,8 @@ If the request is a **single focused UX topic**, go **direct** — do **not** ru
 | User signal | Skill id to name |
 |-------------|------------------|
 | forms, validation, signup fields | `lamina-forms` |
-| lost in nav, wayfinding, IA | `lamina-navigation` |
+| password reset, multi-step flow, journey steps, drop-off mid-flow | `lamina-flow-design` |
+| lost in nav, wayfinding, IA (information architecture) | `lamina-navigation` |
 | accessible, screen reader, a11y | `lamina-accessibility` |
 | get started, first-run, onboarding | `lamina-onboarding` |
 | error messages, empty/error states (copy/recovery) | `lamina-error-handling` |
@@ -199,7 +202,7 @@ If the request is a **single focused UX topic**, go **direct** — do **not** ru
 | empty state, no data yet, blank screen | `lamina-empty-states` |
 | heuristic review, Nielsen, expert review before testing | `lamina-heuristic-review` |
 
-Prefer the **most specific** skill: billing/trust anxiety → `lamina-trust` (not error-handling); blank/no-data UI → `lamina-empty-states` (not error-handling).
+Prefer the **most specific** skill: billing/trust anxiety → `lamina-trust` (not error-handling); blank/no-data UI → `lamina-empty-states` (not error-handling); **password-reset / multi-step procedure** → `lamina-flow-design` (not navigation). Always **write the skill id** (e.g. `lamina-flow-design`) in the response. If a sibling skill file is missing, still name the correct id and answer from router knowledge — do not substitute a different skill id.
 
 ## Step 0 — Init gate when routing to design or verify
 
