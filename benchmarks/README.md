@@ -20,6 +20,23 @@ npm run bench:run:pilot:lamina
 npm run bench:harvest
 ```
 
+## Web release (publication boundary)
+
+Export the current **running** public facts artifact for website vendoring. The explicit release manifest is the only selector — no result directory scanning.
+
+```bash
+npm run bench:release:export     # manifest → benchmarks/releases/current/release.json
+npm run bench:release:validate   # contract checks + determinism tests
+```
+
+| Path | Role |
+|---|---|
+| `releases/contract.md` | Versioned `running \| published \| withheld` contract |
+| `releases/harbor-v4-running/manifest.json` | Explicit Harbor v4 running release manifest |
+| `releases/current/release.json` | Generated running snapshot (vendored into website) |
+| `scripts/export-web-release.mjs` | Deterministic exporter |
+| `scripts/validate-web-release.mjs` | Contract validator |
+
 ## Pilot matrix
 
 - Tasks: `pilot-care-circle`, `control-simple-list`
