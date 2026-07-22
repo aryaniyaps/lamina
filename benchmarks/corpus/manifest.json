@@ -134,6 +134,8 @@
     "tasks": ["pilot-care-circle", "control-simple-list"],
     "arms": ["direct", "checklist", "lamina"],
     "attempts_per_arm": 2,
-    "model": "sonnet"
+    "agent": "cursor-cli",
+    "model": "composer-2.5",
+    "models": ["composer-2.5", "grok"]
   }
 }

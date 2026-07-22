@@ -13,6 +13,7 @@ function readFlag(name, fallback) {
 }
 
 const attempts = Number(readFlag('--attempts', String(manifest.pilot.attempts_per_arm)));
+const agent = readFlag('--agent', manifest.pilot.agent ?? 'cursor-cli');
 const model = readFlag('--model', manifest.pilot.model);
 const concurrency = Number(readFlag('--concurrency', '1'));
 const skipBuild = process.argv.includes('--skip-build');
@@ -28,7 +29,7 @@ for (const task of manifest.pilot.tasks) {
 if (dryRun) {
   console.log('Publish pilot matrix (dry run):');
   for (const cell of cells) {
-    console.log(`- ${cell.task} × ${cell.arm} × ${attempts} (${model})`);
+    console.log(`- ${cell.task} × ${cell.arm} × ${attempts} (${agent}/${model})`);
   }
   process.exit(0);
 }
@@ -50,6 +51,7 @@ for (const [index, cell] of cells.entries()) {
     '--task', cell.task,
     '--attempts', String(attempts),
     '--concurrency', String(concurrency),
+    '--agent', agent,
     '--model', model,
     '--job-name', `publish-${cell.task}-${cell.arm}-${Date.now()}`,
   ];
