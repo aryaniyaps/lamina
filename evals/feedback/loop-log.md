@@ -519,3 +519,22 @@ design-blocked-no-init/codex
 - 2026-07-22 cap-flow-design-framework/codex FAIL: routed to lamina-navigation; expect lamina-flow-design for password-reset flow. Fix: direct-mode table + prefer flow-design over navigation.
 
 - 2026-07-22 BATCH_DONE: active matrix green for remaining queue — verify counts then smoke+commit+push.
+- harness: run-suite.mjs ASE eval-ids now single-turn only (exclude prompts[] multiturn)
+- harness: pin process.execPath + evals/bin/node for post-grade PATH
+- skill: router feature route requires literal flows + edge cases tokens
+- RETRY_START router-feature-01 opencode
+- RETRY_END router-feature-01 opencode 4/4 exit=0
+- RETRY_START router-audit-01 codex
+- RETRY_END router-audit-01 codex parse-fail exit=0
+- RETRY_START router-audit-01 codex
+- RETRY_END router-audit-01 codex parse-fail exit=0
+- RETRY_START router-audit-01 codex
+- RETRY_END router-audit-01 codex parse-fail exit=0
+- RETRY_START router-direct-forms opencode
+- RETRY_END router-direct-forms opencode 3/4 exit=0
+- RETRY_START router-direct-forms opencode
+- RETRY_END router-direct-forms opencode 3/4 exit=0
+- RETRY_START router-direct-forms opencode
+- SKIP router-feature-01|opencode
+- SKIP router-audit-01|codex
+- RETRY_START router-direct-forms opencode

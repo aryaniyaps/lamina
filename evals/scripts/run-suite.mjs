@@ -172,7 +172,13 @@ function runAgentSkillEval(evalsFile, opts) {
   if (!env.ASE_AGENT_TIMEOUT) env.ASE_AGENT_TIMEOUT = '900';
   // Prefer evals/bin wrappers (e.g. opencode hides .git to avoid inotify ENOSPC;
   // claude routes through local LiteLLM→OpenAI when Anthropic is usage-capped).
-  env.PATH = `${path.join(ROOT, 'evals/bin')}${path.delimiter}${env.PATH || ''}`;
+  // Always put this process's Node first so post-grade `node evals/hooks/...`
+  // keeps working if nvm/global PATH was wiped mid-session.
+  env.PATH = [
+    path.dirname(process.execPath),
+    path.join(ROOT, 'evals/bin'),
+    env.PATH || '',
+  ].join(path.delimiter);
   if (!env.LITELLM_MASTER_KEY) env.LITELLM_MASTER_KEY = 'sk-lamina-eval-local';
   // Best-effort: ensure Anthropic-compatible OpenAI proxy is up for claude-code.
   spawnSync('bash', [path.join(ROOT, 'evals/bin/ensure-claude-proxy.sh')], {
@@ -241,8 +247,12 @@ function main() {
   if (single.length > 0) {
     const evalsAbs = path.isAbsolute(opts.evals) ? opts.evals : path.join(ROOT, opts.evals);
     const rel = path.relative(ROOT, evalsAbs);
-    const evalArgs = evalIds.length
-      ? evalIds.flatMap((id) => ['--eval-id', id])
+    // Only pass single-turn ids to agent-skill-eval. Multi-turn cases (prompts[])
+    // are graded by run-multiturn-case.mjs; including them here forces a broken
+    // single-prompt run and pollutes smoke/with_skill pass rates.
+    const singleIds = single.map((ev) => ev.id);
+    const evalArgs = singleIds.length
+      ? singleIds.flatMap((id) => ['--eval-id', id])
       : [];
     const code = runAgentSkillEval(rel, { ...opts, extraArgs: [...opts.extraArgs, ...evalArgs] });
     if (code !== 0) exitCode = code;
