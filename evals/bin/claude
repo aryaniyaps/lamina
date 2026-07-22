@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Route Claude Code through local LiteLLM → OpenAI when Anthropic is usage-capped.
+set -euo pipefail
+
+REAL_CLAUDE="${LAMINA_REAL_CLAUDE:-$HOME/.local/bin/claude}"
+PROXY_URL="${LAMINA_CLAUDE_PROXY_URL:-http://127.0.0.1:4000}"
+DEFAULT_MODEL="${LAMINA_EVAL_CLAUDE_MODEL:-gpt-4o-mini}"
+
+# Prefer OpenAI via LiteLLM Anthropic-compatible endpoint when available.
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  export ANTHROPIC_BASE_URL="$PROXY_URL"
+  export ANTHROPIC_AUTH_TOKEN="${LITELLM_MASTER_KEY:-sk-lamina-eval-local}"
+  unset ANTHROPIC_API_KEY || true
+  # OpenAI models reject Anthropic "thinking"/reasoning params.
+  export CLAUDE_CODE_DISABLE_THINKING=1
+  export CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1
+  export MAX_THINKING_TOKENS=0
+  # Force a model that exists in the local proxy unless caller already set one.
+  has_model=0
+  for arg in "$@"; do
+    if [[ "$arg" == "--model" || "$arg" == -m ]]; then has_model=1; break; fi
+  done
+  if [[ "$has_model" -eq 0 ]]; then
+    set -- --model "$DEFAULT_MODEL" "$@"
+  fi
+fi
+
+exec "$REAL_CLAUDE" "$@"

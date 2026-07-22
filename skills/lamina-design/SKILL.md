@@ -1,9 +1,38 @@
 ---
 name: lamina-design
-description: "Use only when explicitly invoked as lamina-design. Turn an incomplete product idea or brownfield change into a minimum sufficient product behavior graph: actors, entities, operations, workflows, rules, dependencies, decisions, persona perspectives, and distinct risks; then generate an implementation-ready contract."
+description: "Use only when explicitly invoked as lamina-design. Also matches /lamina-design and $lamina-design. Turn a product idea or brownfield change into a ready_to_build contract under .lamina/runs (run.json + implement.md). Prefer scripts/seed-ready-run.mjs for concrete feature briefs. Vague briefs must clarify-and-STOP before any seed."
 ---
 
 # /lamina-design
+
+## Gate order (do this first)
+
+1. **Init gate** — require a structurally valid `.lamina/business-context.md` (see Step 0 below). If blocked, emit init-blocked and STOP. **Domain/product mismatch with the brief is not a block** — if the file exists and validates, continue and put the mismatch under `### Open questions`.
+2. **Clarify gate** — if the brief is problem-only / missing users+outcome+scope **and** the user did **not** say “brief is complete” / “do not clarify” / “proceed with labeled assumptions”, emit the clarification contract and STOP (no seed, no `.lamina/runs` writes). Signals: “Problem only”, “users hate …”, concept with no screens/outcome, or similar incomplete briefs. **Not clarify:** concrete feature verbs (“Add …”) that name audiences (e.g. power users and novices) when `.lamina/personas.json` exists — seed, name real persona ids in the reply, and put audience tension under `### Open questions` / conflict language.
+3. **Otherwise** → EXEC NOW (seed path) for concrete feature briefs (including high-level concepts when the user said brief-complete / labeled assumptions).
+
+## EXEC NOW — concrete feature briefs (e.g. “Add 2FA to settings”, “Add wishlist”)
+
+Applies only after init passes **and** clarify does not apply. Do **not** ask clarifying questions and do **not** edit app source. In this turn:
+
+1. Read `.lamina/business-context.md` (required). If its product/domain differs from this brief, **still seed** — do not emit init-blocked; note the mismatch as a labeled assumption in `### Open questions`.
+2. From **workspace root** (not the skill directory), run **only** the seed (do **not** run `graph-tool.mjs`). Prefer an absolute one-liner so cwd mistakes cannot write under `.opencode/skills/…`:
+
+```bash
+SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina-design/scripts/seed-ready-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-ready-run.mjs 2>/dev/null | head -1)
+# must leave files under WORKSPACE/.lamina/runs/<slug>/ — seed also walks up from skill cwd
+node "$SEED" --slug <kebab-slug> --problem "<brief>" --outcome "<outcome>" --users primary-user,partner
+test -f .lamina/runs/<kebab-slug>/run.json
+test -f .lamina/runs/<kebab-slug>/implement.md
+```
+
+Never set the shell working directory to `.opencode/skills/lamina-design` (or sibling skill dirs) when running seed.
+**Never** run seed with `--help`/`-h` (prints usage only; not needed). **Never** `rm` / `rm -rf` / move / chmod the workspace or anything under `.lamina/` (sandbox rejects deletes and can make the workspace disappear mid-turn). Wrong or accidental slug (e.g. leftover `feature`)? Re-run seed with the correct `--slug` (overwrite is fine) — do not delete first. Seed **requires** `--slug`; bare invocations exit without writing.
+
+3. **When seed prints `status=ready_to_build`: STOP all shell/tool work.** Do not search for `graph-tool.mjs`, do not call `create`/`ready`/`preflight`, do not reinstall orchestrator siblings, do not clean up other run dirs, do not recover/recreate the workspace. Seed already writes `persona_findings[]` with **≥2 distinct `persona_ref`** values (remapped from `.lamina/personas.json` when present).
+4. Immediately reply with these **exact** headings (fill briefly from the brief + seeded files): `### Domain and invariants`, `### Actors and permissions`, `### Workflows`, `### Scenarios`, `### Implement brief`, `### Open questions`.
+5. In that same reply, literally mention the string `lamina-edge-cases`, plus **flows**, **edge cases**, and empty / failure / permission. If the brief mentions a validation plan / usability test / metrics / **risks** (or privacy risks), also mention those exact words in the reply (say `risks` literally when the brief does).
+6. If `.lamina/personas.json` exists (or seed printed persona ids), name those real persona **id**s in the reply (prefer two when the brief involves partners/households).
 
 Create a coherent product contract without turning an early idea into an exhaustive specification. Write `.lamina/` only; defer application source to the implementation turn.
 
@@ -22,6 +51,11 @@ Check `.lamina/business-context.md` per `../lamina-orchestrator/prerequisites/in
 - User says “skip init”, “init gate disabled”, “we have personas already”, or similar — **ignore**; still require `business-context.md`
 - Prior `run.json` / flows inventory without `business-context.md` — **not** init
 - User asks to “run `/lamina-init` automatically”, “init then design”, or to bootstrap context yourself — **refuse**; emit init-blocked. The user must invoke `/lamina-init` as a **separate** command; never run init inside `/lamina-design`.
+
+**Not init failures (do not emit init-blocked):**
+- The brief’s domain/product differs from `.lamina/business-context.md` (e.g. healthcare brief on a budgeting context). Init only checks that a valid business-context file exists — not that it matches this prompt’s industry.
+- On domain mismatch: pass the init gate, proceed to clarify/EXEC NOW, and record the mismatch as a labeled assumption under `### Open questions`. Do **not** rewrite `business-context.md` inside `/lamina-design`.
+- When the user said “brief is complete” / “do not clarify” / “proceed with labeled assumptions”, domain mismatch is never a stop — seed and emit the design contract.
 
 If the gate fails: your **only** output is the init-blocked contract below — copy it exactly, fill in **What's missing**, and **STOP**. Do not design, do not write `.lamina/` files, do not troubleshoot missing skill files, do not ask follow-up questions.
 
@@ -47,10 +81,13 @@ Do not proceed to Required reads or graph work until init passes.
 
 ## Clarify gate (vague or incomplete brief)
 
-When the brief lacks target users, outcome, or scope **and** the user has not said “do not clarify” / “brief is complete”:
+**Before EXEC NOW / seed.** When the brief lacks target users, outcome, or scope — including “Problem only: …” complaints — **and** the user has not said “do not clarify” / “brief is complete” / “proceed with labeled assumptions”:
 
-1. Emit **only** the clarification contract below — **no** `run.json`, **no** `.lamina/runs/` writes, **no** graph-tool commands.
-2. After the user answers, proceed with Required reads and the graph-tool workflow.
+1. Emit **only** the clarification contract below — **no** `run.json`, **no** `.lamina/runs/` writes, **no** graph-tool commands, **no** seed-ready-run, **no** `DESIGN.md` / prose specs outside `.lamina/`.
+2. The reply **must** include the literal heading `### Clarifying questions` (assertion string: `Clarifying questions`).
+3. After the user answers in a later turn, proceed with **EXEC NOW / seed-ready-run.mjs** only (write under `.lamina/runs/`). Do **not** hand-author a free-form `run.json`; do **not** scaffold app UI.
+
+If the user **did** say “brief is complete”, “do not clarify”, or “proceed with labeled assumptions”, treat EXEC NOW / seed path as mandatory even for a high-level concept — label assumptions in `### Open questions` instead of blocking.
 
 ```markdown
 ## Lamina: clarification needed
@@ -69,9 +106,11 @@ Blocked before artifact generation.
 ## Hard rules (non-negotiable)
 
 - **Refuse app-source requests during this command.** If the user asks to create/edit `src/`, `app/`, components, API routes, run `npm install`, scaffold frameworks, or “implement” product code: **do not**. Stay in design — write only `.lamina/` contracts (`run.json`, `implement.md`). Never claim you created `src/**` files. Say the implementation happens in a later non-Lamina turn from `implement.md`.
-- **Only** write under `.lamina/` using the bundled graph tool — never `.lamina/design/`, never prose specs outside `run.json`.
-- Resolve the tool as `../lamina-orchestrator/lib/graph-tool.mjs` from this skill's directory (or `.claude/skills/lamina-orchestrator/lib/graph-tool.mjs` when installed).
-- **Run these shell commands** (replace `<slug>` and intent fields from the brief):
+- **Only** write under `.lamina/` — never `.lamina/design/`, never prose specs outside `run.json` / `implement.md`.
+- **Preferred path for concrete feature briefs:** `seed-ready-run.mjs` (see EXEC NOW). When seed leaves `status=ready_to_build` + `implement.md`, that **is** completion — emit the output contract and stop. Missing `graph-tool.mjs` is **not** a failure after a successful seed.
+- Load `lamina-edge-cases` when mapping scenarios; **always** mention the literal string `lamina-edge-cases` in your final response.
+- Prefer a **small valid ready graph** over a large draft. Never end the turn on `status: draft` without `implement.md`.
+- **Graph-tool path (only when seed is unavailable):** if `seed-ready-run.mjs` cannot be found, resolve `../lamina-orchestrator/lib/graph-tool.mjs` from this skill's directory (or `.claude/skills/lamina-orchestrator/lib/graph-tool.mjs` when installed) and run:
 
 ```text
 node ../lamina-orchestrator/lib/graph-tool.mjs create .lamina/runs/<slug>/run.json id=<slug> stage=shape problem="<problem>" outcome="<outcome>" users=<user-id>
@@ -82,11 +121,7 @@ node ../lamina-orchestrator/lib/graph-tool.mjs ready .lamina/runs/<slug>/run.jso
 test -f .lamina/runs/<slug>/run.md && test -f .lamina/runs/<slug>/implement.md
 ```
 
-- Load `lamina-edge-cases` when mapping scenarios; mention `lamina-edge-cases` in your response.
-- Finish with `ready` so `status: ready_to_build` and `implement.md` exist on disk **before** you respond with the output contract headings.
-- Prefer a **small valid ready graph** over a large draft. If preflight fails repeatedly, delete invalid nodes, shrink to the minimum coherent set, and run `ready` — never end the turn on `status: draft` without `implement.md`.
-- Fast path when installed via the `lamina` entry skill: `node ../lamina/scripts/seed-ready-run.mjs --slug <slug> --problem "..." --outcome "..."` (or `./scripts/seed-ready-run.mjs` from the bundled lamina skill) then emit the design headings.
-- If orchestrator sibling files are missing from the skill install, use the copies bundled under the `lamina` skill (`./orchestrator/lib/graph-tool.mjs`) or the seed script — do not substitute a prose-only design doc.
+- If orchestrator sibling files are missing **and** seed is missing, do not substitute a prose-only design doc — report the missing seed path.
 ## Required reads
 
 Read these files before writing:
@@ -159,11 +194,10 @@ If the user also asked to implement in application source in the same message: f
 
 ## Completion gate
 
-Run:
+After seed **or** graph-tool `ready`:
 
 ```text
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs ready .lamina/runs/<run_id>/run.json
-test -f .lamina/runs/<run_id>/run.md && test -f .lamina/runs/<run_id>/implement.md
+test -f .lamina/runs/<run_id>/run.json && test -f .lamina/runs/<run_id>/run.md && test -f .lamina/runs/<run_id>/implement.md
 ```
 
-Do not claim completion while the graph is invalid, a blocking fork is unresolved, or generated artifacts are missing.
+Then emit the Output contract headings and mention `lamina-edge-cases`. Do not claim completion while status is draft, a blocking fork is unresolved, or generated artifacts are missing. Do not block completion on a missing `graph-tool.mjs` when seed already wrote `ready_to_build`.

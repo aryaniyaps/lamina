@@ -1,9 +1,58 @@
 ---
 name: lamina
-description: "Use only when explicitly invoked as lamina. Route product design for developers building with AI — design, verify, or direct capability answers."
+description: "Use only when explicitly invoked as lamina. Also handles /lamina-design, /lamina-verify, and /lamina-init. Route product design for developers building with AI — design, verify, init, or direct capability answers. For /lamina-design seed via seed-ready-run.mjs; for /lamina-verify seed via seed-verify-run.mjs."
 ---
 
 # /lamina
+
+## EXEC NOW — `/lamina-design` with a concrete feature (e.g. “Add 2FA to settings”)
+
+Do **not** re-run `/lamina-design` as a CLI. In this turn:
+
+1. Read `.lamina/business-context.md` (must exist).
+2. Run from workspace root:
+
+```bash
+SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-ready-run.mjs 2>/dev/null | head -1)
+node "$SEED" --slug <kebab-slug> --problem "<brief>" --outcome "<outcome>" --users primary-user
+```
+
+3. Reply with **exact** headings: `### Domain and invariants`, `### Actors and permissions`, `### Workflows`, `### Scenarios`, `### Implement brief`, `### Open questions`.
+4. Mention `lamina-edge-cases`, **flows**, **edge cases**, and empty / failure / permission.
+
+Then stop. No `graph-tool.mjs`. No app source. No clarifying questions for concrete “Add …” briefs.
+
+## EXEC NOW — `/lamina-verify` brownfield audit
+
+Do **not** re-run `/lamina-verify` as a CLI.
+
+**If the brief has no named flow/surface** (e.g. only “Audit our app” / “Audit the product”): copy this contract **verbatim** (exact heading spelling/casing) and **STOP** — no seed, no `.lamina/runs` writes:
+
+```markdown
+## Lamina: clarification needed
+### Status
+Blocked before artifact generation.
+### Clarifying questions
+1. Which flow or surface should be audited (e.g. checkout, login, settings)?
+2. What outcome or drop-off should the audit prioritize?
+3. What is in/out of scope for this pass?
+### Why these block the artifact
+Without a named flow, findings cannot be grounded.
+### How to proceed
+Name a flow/surface, or say proceed with labeled assumptions.
+### Do not
+- Do not create run.json, fix.md, or report.md yet
+```
+
+After init passes **and** a concrete flow is named (or user said proceed with labeled assumptions):
+
+```bash
+SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-verify-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina-verify/scripts/seed-verify-run.mjs 2>/dev/null | head -1)
+node "$SEED" --slug <kebab-slug> --problem "<audit brief>" --outcome "<outcome>" --users primary-member,power-operator
+test -f .lamina/runs/<kebab-slug>/{run.json,fix.md,report.md,implement.md}
+```
+
+STOP after seed `status=complete`. Emit `### Executive summary`, `### Findings`, `### Open questions`. Mention audit, findings, prioritized, failure/empty/permission, full-flow lens ids (or refuse truncation), and persona ids. No `graph-tool.mjs`. No app source.
 
 ## Product
 
@@ -38,12 +87,13 @@ Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, o
 
 ## Slash-command dispatch
 
-When the user message starts with `/lamina-design` or `/lamina-verify`, **load that skill** if present (`./design-skill/SKILL.md` or `./verify-skill/SKILL.md`, else `../lamina-design/SKILL.md` / `../lamina-verify/SKILL.md`) and follow it end-to-end.
+When the user message starts with `/lamina-design` or `/lamina-verify`, **do not** try to re-invoke a CLI slash command or spawn another agent turn for that token. Treat the rest of the message as the brief and execute the matching workflow **in this turn** using tools (Read/Bash/Write). If sibling files (`../lamina-design/SKILL.md` / `../lamina-verify/SKILL.md`) exist, load them; otherwise follow the inline gates below.
 
 ### `/lamina-design` — gates then artifacts
 
 1. **Init gate** — if `.lamina/business-context.md` is missing/invalid → emit init-blocked and STOP.
-2. **Clarify gate** — if the brief is vague (no target users, outcome, or screens) **and** the user did **not** say “brief is complete” / “do not clarify”: emit **only** the clarification contract and STOP. **Do not** run `seed-ready-run`, write `run.json`, or emit design headings yet.
+2. **Clarify gate** — only when the brief has **no** concrete feature/surface (e.g. “somehow improve UX”) **and** the user did **not** say “brief is complete” / “do not clarify”: emit **only** the clarification contract and STOP. **Do not** run `seed-ready-run`, write `run.json`, or emit design headings yet.
+   - Concrete “Add \<feature\> to \<settings/app/surface\>” briefs are **complete enough** — skip clarify and seed immediately.
 
 ```markdown
 ## Lamina: clarification needed
@@ -59,15 +109,36 @@ Blocked before artifact generation.
 - Do not create run.json or implement.md yet
 ```
 
-3. **Seed (only after clarify is not required):** refuse any `src/` / npm ask in one paragraph, then:
+3. **Seed (mandatory for concrete features):** refuse any `src/` / npm ask in one paragraph, then run **from the workspace root** (not from the skill dir):
 
 ```bash
-node ./scripts/seed-ready-run.mjs --slug <slug> --problem "<problem>" --outcome "<outcome>" --users "<id>"
+SEED=$(ls ./{.opencode,.codex,.claude,.agents}/skills/lamina/scripts/seed-ready-run.mjs 2>/dev/null | head -1)
+test -n "$SEED"
+node "$SEED" --slug <kebab-slug> --problem "<problem>" --outcome "<outcome>" --users "<id>"
+test -f .lamina/runs/<kebab-slug>/run.json
+test -f .lamina/runs/<kebab-slug>/implement.md
 ```
 
-4. Emit design headings (`### Domain and invariants`, `### Actors and permissions`, `### Workflows`, `### Scenarios`, `### Implement brief`, `### Open questions`). Mention **flows**, **edge cases**, `lamina-edge-cases`. No visual styling.
+4. **Response must use these exact `###` headings** (graders match literal strings — paraphrased “Summary” / “Key Details” fails):
 
-When `/lamina-design` siblings are missing, still follow the same gates — prefer `./scripts/seed-ready-run.mjs` over hand-authored graphs after clarify clears.
+```markdown
+### Domain and invariants
+…
+### Actors and permissions
+…
+### Workflows
+…
+### Scenarios
+…
+### Implement brief
+…
+### Open questions
+…
+```
+
+Mention **flows**, **edge cases**, `lamina-edge-cases`, and at least three of: empty / failure / permission / conflict / boundary. No visual styling. **Do not** end with a prose-only design doc when `run.json` is missing.
+
+When `/lamina-design` siblings are missing, still follow the same gates — prefer the seed script above over hand-authored graphs after clarify clears.
 
 When `/lamina-verify` sibling files are missing from the install, still emit the verify completion headings after writing `.lamina/runs/<id>/` artifacts:
 

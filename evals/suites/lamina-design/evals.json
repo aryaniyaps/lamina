@@ -98,7 +98,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output"
@@ -123,7 +122,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output"
@@ -148,7 +146,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output"
@@ -192,7 +189,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "no implementation vocabulary",
         "no writes outside .lamina",
         "ux guidance only",
@@ -275,7 +271,7 @@
     },
     {
       "id": "design-steering",
-      "prompt": "/lamina-design — Concept for expense tracking app.",
+      "prompt": "/lamina-design — Concept for expense tracking app. Brief is complete: dual-income households; outcome is weekly shared spending visibility; MVP scope is manual expense capture plus a shared household view. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -366,7 +362,7 @@
     },
     {
       "id": "design-validation",
-      "prompt": "/lamina-design — Concept for fitness app with validation plan.",
+      "prompt": "/lamina-design — Concept for fitness app with validation plan. Brief is complete: primary users are busy adults restarting exercise; outcome is complete a first guided workout in-app; MVP scope is onboarding + workout start + progress check-in; validation plan is a moderated usability test of first-run workout completion. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -399,7 +395,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "Output mentions metrics",
         "no writes outside .lamina",
         "ux guidance only",
@@ -408,7 +403,7 @@
     },
     {
       "id": "design-accessibility",
-      "prompt": "/lamina-design — Concept for healthcare portal with accessibility.",
+      "prompt": "/lamina-design — Concept for healthcare portal with accessibility. Brief is complete: primary users are patients managing appointments and records; outcome is book a visit and view recent results without assistance; MVP scope is sign-in, appointment booking, and results list; accessibility target WCAG 2.2 AA with keyboard and screen-reader paths. Existing `.lamina/business-context.md` may describe a different product — that is not an init failure; label the mismatch as an open question and proceed. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -440,7 +435,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "Output mentions risks",
         "no writes outside .lamina",
         "ux guidance only",
@@ -449,7 +443,7 @@
     },
     {
       "id": "design-ia",
-      "prompt": "/lamina-design — Concept for documentation site information architecture.",
+      "prompt": "/lamina-design — Concept for documentation site information architecture. Brief is complete: primary users are developers and integrators onboarding to an API product; outcome is find the right guide and complete first successful setup without support; MVP scope is top-level nav, getting-started path, and reference vs tutorials split. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -480,7 +474,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "Output mentions flows",
         "run.json workflows",
         "run.json valid",
@@ -491,7 +484,7 @@
     },
     {
       "id": "design-copy",
-      "prompt": "/lamina-design — Concept for legal terms acceptance UX.",
+      "prompt": "/lamina-design — Concept for legal terms acceptance UX. Brief is complete: primary users are new account creators; outcome is understand and accept required terms before account activation; MVP scope is terms summary, accept control, and decline/exit path. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -522,7 +515,6 @@
         "not left draft",
         "implement.md exists",
         "handoff maps checklist ids",
-        "report.md narrative only",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output"
@@ -530,7 +522,7 @@
     },
     {
       "id": "design-mobile",
-      "prompt": "/lamina-design — Concept for mobile-first food delivery.",
+      "prompt": "/lamina-design — Concept for mobile-first food delivery. Brief is complete: primary users are busy urban diners ordering lunch; outcome is place an order and track delivery ETA; MVP scope is browse nearby restaurants, cart, checkout, and live order status. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "greenfield-with-init",
@@ -544,7 +536,7 @@
     },
     {
       "id": "design-persona-conflict",
-      "prompt": "/lamina-design — Add dashboard for power users and novices.",
+      "prompt": "/lamina-design — Add dashboard for power users and novices. Brief is complete: primary users are power operators who need dense controls and novices who need a guided summary; outcome is both audiences complete core tasks from one dashboard without blocking each other; MVP scope is overview, key actions, and progressive disclosure. Use existing personas (e.g. primary-member) and explicitly label power-user vs novice conflicts as open questions. Proceed with labeled assumptions — do not clarify.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "fixture": "brownfield-audit-ready",

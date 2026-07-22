@@ -13,7 +13,9 @@ const DEFAULT_PHASE_TIMEOUT_MS = Number(process.env.BENCH_PHASE_TIMEOUT_MS) || 2
 
 const AGENT_COMMANDS = {
   'claude-code': ['claude', '-p'],
-  codex: ['codex', 'exec', '--full-auto'],
+  // --skip-git-repo-check: multiturn workspaces are not git repos
+  // --sandbox workspace-write: replaces deprecated --full-auto
+  codex: ['codex', 'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check'],
   opencode: ['opencode', 'run'],
 };
 
@@ -100,6 +102,50 @@ function parseClaudeJsonPayload(stdout, stderr) {
       usage: extractUsage(`${stdout}\n${stderr}`),
     };
   }
+}
+
+/** Parse opencode --format json NDJSON (ASE OpenCodeHarness.parse_output). */
+function parseOpencodeJsonPayload(stdout, stderr) {
+  const messages = [];
+  let sessionId = null;
+  let cost = null;
+  let input = 0;
+  let output = 0;
+  for (const line of (stdout || '').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const event = JSON.parse(line);
+      if (!sessionId && event.sessionID) sessionId = event.sessionID;
+      if (event.type === 'text') {
+        const text = event.part?.text ?? '';
+        if (text) messages.push(text);
+      } else if (event.type === 'step_finish') {
+        const tokens = event.part?.tokens ?? {};
+        input += Number(tokens.input || 0);
+        output += Number(tokens.output || 0);
+        if (event.part && 'cost' in event.part) {
+          cost = (cost || 0) + Number(event.part.cost || 0);
+        }
+      }
+    } catch {
+      // ignore non-JSON lines
+    }
+  }
+  const joined = messages.join('\n').trim();
+  if (joined) {
+    return {
+      output: joined,
+      session_id: sessionId,
+      cost_usd: cost,
+      usage: { input_tokens: input, output_tokens: output, total_tokens: input + output },
+    };
+  }
+  return {
+    output: (stdout || '').trim() || (stderr || '').trim(),
+    session_id: sessionId,
+    cost_usd: cost,
+    usage: extractUsage(`${stdout}\n${stderr}`),
+  };
 }
 
 function spawnWithTimeout(cmd, args, cwd, timeoutMs) {
@@ -198,6 +244,13 @@ export async function invokeAgent(agent, prompt, cwd, options = {}) {
       ? buildClaudeArgs(resolved.slice(1), prompt, { sessionId: options.sessionId, model })
       : (() => {
           const generic = [...resolved.slice(1)];
+          if (agent === 'opencode') {
+            // Match ASE OpenCodeHarness: pin dir, json events, unattended perms.
+            generic.push('--dir', cwd);
+            generic.push('--format', 'json');
+            // Current CLI flag (ASE still documents --dangerously-skip-permissions).
+            generic.push('--auto');
+          }
           if (model) generic.push('--model', model);
           generic.push(prompt);
           return generic;
@@ -210,12 +263,14 @@ export async function invokeAgent(agent, prompt, cwd, options = {}) {
   const parsed =
     agent === 'claude-code'
       ? parseClaudeJsonPayload(result.stdout, result.stderr)
-      : {
-          output: result.stdout.trim() || result.stderr.trim(),
-          session_id: null,
-          cost_usd: null,
-          usage: extractUsage(`${result.stdout}\n${result.stderr}`),
-        };
+      : agent === 'opencode'
+        ? parseOpencodeJsonPayload(result.stdout, result.stderr)
+        : {
+            output: result.stdout.trim() || result.stderr.trim(),
+            session_id: null,
+            cost_usd: null,
+            usage: extractUsage(`${result.stdout}\n${result.stderr}`),
+          };
 
   if (result.error) {
     throw new Error(`Agent ${agent} failed to start (${cmd}): ${result.error.message}`);

@@ -54,6 +54,8 @@ Hard prerequisite for `/lamina-design`, `/lamina-verify`, and `/lamina` when rou
 
 **Changelog footer** (update mode) is optional — its presence does not block; its absence does not satisfy init alone.
 
+**Domain mismatch is not an init failure.** If `business-context.md` is structurally valid but describes a different product/domain than the current brief (e.g. budgeting context vs healthcare prompt), init **passes**. Downstream design/audit should label the mismatch as an open question or assumption — do **not** emit init-blocked for alignment alone.
+
 ---
 
 ## On failure — STOP

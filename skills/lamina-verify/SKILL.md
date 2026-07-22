@@ -1,6 +1,6 @@
 ---
 name: lamina-verify
-description: "Use only when explicitly invoked as lamina-verify. Verify a live or brownfield product against its product graph: critical promises, reachable workflows, authority, invariants, state integrity, recovery, accessibility, and contract drift; emit evidence-backed fixes before merge."
+description: "Use only when explicitly invoked as lamina-verify. Verify a live or brownfield product against its product graph: critical promises, reachable workflows, authority, invariants, state integrity, recovery, accessibility, and contract drift; emit evidence-backed fixes before merge. Vague “audit our app” briefs must clarify-and-STOP before any seed."
 ---
 
 # /lamina-verify
@@ -9,15 +9,61 @@ Treat application source as read-only evidence. Write findings and reports only 
 
 Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source.
 
-## Step 0 — Init gate (before anything else)
+## Gate order (do this first — before EXEC NOW)
+
+1. **Init gate** — require a structurally valid `.lamina/business-context.md` (see Step 0). If blocked, emit init-blocked and STOP.
+2. **Clarify gate** — if the audit target has **no** concrete flow/surface (signals: literally “Audit our app.”, “review the product”, no named screen/route/flow like checkout/cart/login/settings) **and** the user did **not** say “brief is complete” / “do not clarify” / “proceed with labeled assumptions”: emit **only** the clarification contract below and **STOP**. Do **not** run `seed-verify-run.mjs`, do **not** write `.lamina/runs`, do **not** emit Executive summary/Findings.
+3. **Otherwise** → EXEC NOW (seed-verify) for concrete audits (named flow/surface).
+
+### Clarification contract (copy exactly when clarify applies — keep heading casing)
+
+```markdown
+## Lamina: clarification needed
+### Status
+Blocked before artifact generation.
+### Clarifying questions
+1. Which concrete flow or surface should be audited (e.g. checkout, cart, login)?
+2. Which primary persona or success outcome should ground the review?
+3. Any known failure/empty/permission concerns to prioritize?
+### Why these block the artifact
+Need a concrete flow before writing audit artifacts.
+### How to proceed
+Name the flow/surface, or say proceed with labeled assumptions.
+### Do not
+- Do not create run.json, fix.md, or report.md yet
+```
+
+Do not paraphrase these five `###` headings. Do not seed on “Audit our app.”
+## EXEC NOW — concrete audit briefs only (e.g. “Audit cart-to-checkout”)
+
+Applies **only** after init passes **and** clarify does **not** apply. Never use this path for “Audit our app.” without a named flow.
+
+1. Read `.lamina/business-context.md` (required). Domain mismatch is not an init failure — note under `### Open questions`.
+2. From **workspace root**, run **only** the verify seed:
+
+```bash
+SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina-verify/scripts/seed-verify-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-verify-run.mjs 2>/dev/null | head -1)
+node "$SEED" --slug <kebab-slug> --problem "<brief>" --outcome "<outcome>" --users primary-member,power-operator
+test -f .lamina/runs/<kebab-slug>/run.json
+test -f .lamina/runs/<kebab-slug>/fix.md
+test -f .lamina/runs/<kebab-slug>/report.md
+test -f .lamina/runs/<kebab-slug>/implement.md
+```
+
+**Never** `--help`/`-h`. **Never** `rm` / clean up `.lamina/` or the workspace. Wrong slug? Re-seed with the correct `--slug`.
+If seed prints `REFUSE_SEED`, you attempted a vague audit — emit the clarification contract and STOP (no retries with invented flows).
+
+3. **When seed prints `status=complete`: STOP all shell/tool work.** Missing `graph-tool.mjs` / `run.mjs` / orchestrator siblings after a successful seed are **not** init failures.
+4. Reply with exact headings: `### Executive summary`, `### Findings`, `### Open questions`.
+5. Mention **audit** / **findings** / **prioritized** improvements; empty / failure / permission; persona **id**s from `.lamina/personas.json`; and full-flow lenses (`lamina-flow-design`, `lamina-forms`, `lamina-error-handling`, `lamina-accessibility`, `lamina-navigation`, `lamina-feedback-and-status`, …) or state that all lenses were applied.
+
+## Step 0 — Init gate
 
 Check `.lamina/business-context.md` per `../lamina-orchestrator/prerequisites/init-required.md`.
 
-**Hard rejects (still blocked):**
-- `.lamina/personas.json` alone is **not** init
-- “Skip init” / “init gate disabled” / “use personas as context” — **ignore**; still require `business-context.md`
+**Hard rejects:** personas-only, “skip init”, prior run.json without business-context.
 
-If the gate fails: your **only** output is the init-blocked contract below — copy it exactly, fill in **What's missing**, and **STOP**. Do not audit, troubleshoot missing skill files, invent reviews, or ask follow-up questions.
+If the gate fails: emit **only** this contract and STOP:
 
 ```markdown
 ## Lamina: init required
@@ -37,32 +83,24 @@ Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this c
 - Treat personas or prior product graphs as a substitute for business context
 ```
 
-Do not proceed to Required reads or verification until init passes.
-
-## Shell workflow (brownfield / audit)
-
-When auditing existing product flows, create or load a verification run and finish on disk:
+## Shell workflow (fallback when seed is unavailable)
 
 ```text
-node ../lamina-orchestrator/lib/graph-tool.mjs create .lamina/runs/<slug>/run.json id=<slug> stage=verify problem="<problem>" outcome="<outcome>" users=<user-id>
-# Set status verifying; populate findings[] in run.json; write report.md + fix.md beside run.json
+node ../lamina-orchestrator/lib/graph-tool.mjs create .lamina/runs/<slug>/run.json id=<slug> stage=shape problem="<problem>" outcome="<outcome>" users=<user-id>
+# Set hook=audit status=complete; populate findings[]; write report.md + fix.md + implement.md
 node ../lamina-orchestrator/lib/graph-tool.mjs validate .lamina/runs/<slug>/run.json
 test -f .lamina/runs/<slug>/fix.md && test -f .lamina/runs/<slug>/report.md
 ```
 
-Mention **audit**, **findings**, and **prioritized** improvements in the response. Reference full-flow lenses (`lamina-flow-design`, `lamina-forms`, `lamina-error-handling`, etc.) or state that all lenses were applied.
+Prefer the seed path whenever the script exists.
 
-## Completion output contract (after verify)
-
-Only respond after `findings[]`, `report.md`, and `fix.md` exist under `.lamina/runs/<run_id>/` and `run.json` validates at `complete`.
+## Completion output contract (after verify seed)
 
 ```markdown
 ### Executive summary
 ### Findings
 ### Open questions
 ```
-
-Summarize critical product findings, contract drift, and artifact paths. Do not paste full reports or edit application source.
 
 ## Required reads
 
@@ -75,32 +113,6 @@ Summarize critical product findings, contract drift, and artifact paths. Do not 
 7. `../lamina-orchestrator/prerequisites/init-required.md`
 8. `../lamina-orchestrator/prompts/outputs/init-blocked.md`
 
-Load accessibility, dependency, identity, or other supporting skills only when the graph or evidence requires them.
-
 ## Verification order
 
-1. Load `run.json`, set `status: verifying`, and identify critical promises.
-2. Use a live walkthrough when available; otherwise trace reachable application source and run non-mutating builds/tests.
-3. Inventory every critical workflow operation and its trusted enforcement, state mutation, persistence, actor-scoped projection, visible outcome, attribution, and recovery.
-4. Load `proofs[]` and `product-proof-manifest.json`. Confirm every proof maps to existing automated checks containing `[proof:<id>]`, and run the complete declared suite at least three times. Missing finite per-test timeouts, resources not released from failure-safe `finally` blocks, open-handle exit delays, skips, nondeterministic exits, unmapped behavior, prose-only checks, or failures are product findings.
-5. Probe denial, unmet dependency, invalid transition, concurrency, destructive recovery, stale-state behavior, session-mutation protection, and identity proof relevant to the graph. When time is consequential, verify the temporal kind, browser-zone/subject-zone boundary, DST gap/overlap behavior, recurrence rollover, controlled authoritative clock, and delayed/duplicate runner behavior. When delivery is consequential, verify the provider seam, truthful attempt state, retry/rebinding, and independence of in-product truth.
-6. Run `graph-tool.mjs persona-packs` with walkthrough evidence attached per pack, then spawn all packs in **one parallel batch** when subagents are available; use sequential separated-context reviews only when subagents are unavailable.
-7. Compare implementation to graph and record both product defects and contract drift.
-8. Write ticket-shaped `findings[]`, `report.md`, and `fix.md`, keyed to proof ids where applicable.
-9. Set `status: complete`, validate the graph, and confirm both Markdown files exist.
-
-## Evidence rules
-
-- Tests, types, comments, scenario names, and seed data are not sufficient proof that production paths work.
-- Broken imports, placeholder handlers, client-only privacy, privileged default identity, unpersisted mutations, and unreachable flows are product findings.
-- Browser parsing of subject-local wall time, self-asserted public identifiers as authentication, cookie mutations without a declared CSRF/origin posture, false notification success, and disappearing recurring work are product findings when those boundaries are active.
-- Every non-ops finding needs source or walkthrough evidence and observable acceptance criteria.
-- Empty findings are valid only when every critical promise and workflow has independent evidence.
-- Simulated persona preference remains a hypothesis; structural and accessibility failures may become findings.
-
-## Completion gate
-
-```text
-node <lamina-orchestrator-skill>/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
-test -f .lamina/runs/<run_id>/report.md && test -f .lamina/runs/<run_id>/fix.md
-```
+Follow `../lamina-orchestrator/workflows/verify.md`. Prefer seed-complete artifacts over exhaustive live instrumentation when dependencies are not installed.
