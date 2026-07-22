@@ -1,0 +1,107 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Workflow",
+      "description": "Entry points for initializing, designing, verifying, and routing Lamina work.",
+      "skills": [
+        "lamina",
+        "lamina-core",
+        "lamina-init",
+        "lamina-design",
+        "lamina-verify",
+        "lamina-orchestrator"
+      ]
+    },
+    {
+      "title": "Research",
+      "description": "Skills for planning, running, synthesizing, and communicating UX research.",
+      "skills": [
+        "lamina-research-planning",
+        "lamina-research-scoping",
+        "lamina-research-synthesis",
+        "lamina-research-communication",
+        "lamina-field-research",
+        "lamina-interview-design",
+        "lamina-interview-documentation",
+        "lamina-competitive-analysis",
+        "lamina-user-modeling",
+        "lamina-task-analysis"
+      ]
+    },
+    {
+      "title": "Discovery",
+      "description": "Skills for framing problems, aligning stakeholders, and defining what to build.",
+      "skills": [
+        "lamina-problem-framing",
+        "lamina-business-context",
+        "lamina-stakeholder-alignment",
+        "lamina-feature-discovery",
+        "lamina-feature-prioritization",
+        "lamina-requirements-definition",
+        "lamina-tradeoffs",
+        "lamina-decision-making"
+      ]
+    },
+    {
+      "title": "Interaction",
+      "description": "Skills for flows, IA, UI patterns, content, accessibility, and edge cases.",
+      "skills": [
+        "lamina-design-process",
+        "lamina-flow-design",
+        "lamina-information-architecture",
+        "lamina-navigation",
+        "lamina-content-design",
+        "lamina-forms",
+        "lamina-controls-and-menus",
+        "lamina-empty-states",
+        "lamina-onboarding",
+        "lamina-feedback-and-status",
+        "lamina-error-handling",
+        "lamina-progressive-disclosure",
+        "lamina-discoverability",
+        "lamina-accessibility",
+        "lamina-persuasion-and-groups",
+        "lamina-trust",
+        "lamina-edge-cases"
+      ]
+    },
+    {
+      "title": "Product behavior",
+      "description": "Skills for behavioral contracts, invariants, and runtime product guarantees.",
+      "skills": [
+        "lamina-product-behavior",
+        "lamina-platform-posture",
+        "lamina-side-effects",
+        "lamina-invariants",
+        "lamina-consistency-guarantees",
+        "lamina-idempotency-concurrency",
+        "lamina-time-semantics",
+        "lamina-dependencies",
+        "lamina-modularity-boundaries",
+        "lamina-multi-view-integrity"
+      ]
+    },
+    {
+      "title": "Systems",
+      "description": "Skills for system structure, traps, leverage points, and evolutionary rules.",
+      "skills": [
+        "lamina-system-structure",
+        "lamina-system-traps",
+        "lamina-leverage-points",
+        "lamina-feedback-loops",
+        "lamina-evolutionary-rules"
+      ]
+    },
+    {
+      "title": "Evaluation",
+      "description": "Skills for reviewing usability, heuristics, and quantitative validation.",
+      "skills": [
+        "lamina-usability-evaluation",
+        "lamina-heuristic-review",
+        "lamina-quantitative-validation"
+      ]
+    }
+  ]
+}
