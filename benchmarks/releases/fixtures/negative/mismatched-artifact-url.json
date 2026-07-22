@@ -1,0 +1,220 @@
+{
+  "contractVersion": "1.0.0",
+  "releaseKey": "harbor-v4-2026-07",
+  "benchmarkId": "lamina-product-shaping",
+  "benchmarkVersion": "harbor-v4",
+  "status": "running",
+  "generatedAt": "2026-07-22T00:00:00.000Z",
+  "construct": "behavior integrity of a thin product shaped from a fuzzy founder brief under matched arms",
+  "measurement": "behavior_pass_rate",
+  "source": {
+    "repository": "https://github.com/aryaniyaps/lamina",
+    "commit": "e851d037199b189a9b98b7d807bbcfd427bf0c5c",
+    "protocolSha256": "4e91cd97f452067d0d4096bf8db754397a6bfe5510e54a4ad1fe7da1603dffa1"
+  },
+  "runtime": {
+    "agent": "claude-code",
+    "model": "sonnet",
+    "attemptsPerArm": 2,
+    "totalBudgetSecondsPerArm": 4200
+  },
+  "arms": [
+    {
+      "id": "checklist",
+      "label": "Checklist agent",
+      "description": "Normal coding agent with a generic product checklist before building. No Lamina skills.",
+      "workflowSteps": [
+        "shape_build",
+        "verify_fix"
+      ],
+      "totalBudgetSeconds": 4200,
+      "stepBudgets": [
+        {
+          "step": "shape_build",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "verify_fix",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "direct",
+      "label": "Direct agent",
+      "description": "Normal coding agent without Lamina skills. Implements from the founder brief with no plan-first or checklist workflow.",
+      "workflowSteps": [
+        "shape_build",
+        "verify_fix"
+      ],
+      "totalBudgetSeconds": 4200,
+      "stepBudgets": [
+        {
+          "step": "shape_build",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "verify_fix",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "lamina",
+      "label": "Lamina agent",
+      "description": "Full Lamina loop: init, design with persona panel, implement, verify with UI walkthrough, and fix.",
+      "workflowSteps": [
+        "lamina_init",
+        "lamina_design",
+        "implement",
+        "lamina_verify",
+        "fix"
+      ],
+      "totalBudgetSeconds": 4200,
+      "stepBudgets": [
+        {
+          "step": "lamina_init",
+          "agentTimeoutSeconds": 600,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "lamina_design",
+          "agentTimeoutSeconds": 1100,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "implement",
+          "agentTimeoutSeconds": 800,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "lamina_verify",
+          "agentTimeoutSeconds": 1100,
+          "verifierTimeoutSeconds": 90
+        },
+        {
+          "step": "fix",
+          "agentTimeoutSeconds": 600,
+          "verifierTimeoutSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "label": "Plan-first agent",
+      "description": "Normal coding agent using a plan-first workflow. Writes a short plan, then implements. No Lamina skills.",
+      "workflowSteps": [
+        "shape_build",
+        "verify_fix"
+      ],
+      "totalBudgetSeconds": 4200,
+      "stepBudgets": [
+        {
+          "step": "shape_build",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        },
+        {
+          "step": "verify_fix",
+          "agentTimeoutSeconds": 2100,
+          "verifierTimeoutSeconds": 60
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "control-simple-list",
+      "kind": "greenfield-low-risk",
+      "stage": "spark",
+      "briefPath": "benchmarks/corpus/control-simple-list/brief.md"
+    },
+    {
+      "id": "pilot-care-circle",
+      "kind": "greenfield-high-risk",
+      "stage": "shape",
+      "briefPath": "benchmarks/corpus/pilot-care-circle/brief.md"
+    },
+    {
+      "id": "pilot-loan-library",
+      "kind": "greenfield-multi-actor",
+      "stage": "shape",
+      "briefPath": "benchmarks/corpus/pilot-loan-library/brief.md"
+    },
+    {
+      "id": "pilot-review-room",
+      "kind": "greenfield-privacy",
+      "stage": "shape",
+      "briefPath": "benchmarks/corpus/pilot-review-room/brief.md"
+    }
+  ],
+  "controls": [
+    {
+      "id": "behavior-only-oracle",
+      "label": "Behavior-only scoring",
+      "description": "Final reward derives from behavior_pass_rate against golden sequences. Agents never receive graded expect substrings."
+    },
+    {
+      "id": "lamina-treatment-gates",
+      "label": "Lamina treatment validity gates",
+      "description": "The lamina arm must invoke required slash commands, persona-panel subagents, and UI walkthrough capture or the trial is marked invalid_treatment."
+    },
+    {
+      "id": "matched-arm-budget",
+      "label": "Matched agent budget",
+      "description": "Each arm receives 4,200 seconds (70 minutes) of agent time across its workflow steps."
+    },
+    {
+      "id": "structural-selfcheck",
+      "label": "Structural self-check",
+      "description": "Coding steps require a structural self-check that validates action mutability without revealing golden expects."
+    },
+    {
+      "id": "thin-slice-delivery",
+      "label": "Thin-slice delivery posture",
+      "description": "Products ship as in-memory reducers with HTML UI — no external services — while still modeling authority, lifecycle, and actor-scoped projections."
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "behavior-grade",
+      "label": "Behavior oracle and treatment gates",
+      "role": "grader",
+      "path": "benchmarks/lib/behavior-grade.mjs",
+      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/lib/behavior-grade.mjs"
+    },
+    {
+      "id": "build-script",
+      "label": "Harbor task generator",
+      "role": "protocol",
+      "path": "benchmarks/scripts/build-harbor-benchmark.mjs",
+      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/scripts/build-harbor-benchmark.mjs"
+    },
+    {
+      "id": "corpus-manifest",
+      "label": "Task corpus manifest",
+      "role": "methodology",
+      "path": "benchmarks/corpus/manifest.json",
+      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/README.md"
+    },
+    {
+      "id": "lamina-bench-skills",
+      "label": "Lamina arm skill allowlist",
+      "role": "methodology",
+      "path": "benchmarks/corpus/lamina-bench-skills.json",
+      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/corpus/lamina-bench-skills.json"
+    },
+    {
+      "id": "validate-script",
+      "label": "Harbor task validator",
+      "role": "protocol",
+      "path": "benchmarks/scripts/validate-harbor-benchmark.mjs",
+      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/scripts/validate-harbor-benchmark.mjs"
+    }
+  ],
+  "methodologyLockedAt": "2026-07-22T00:00:00.000Z"
+}

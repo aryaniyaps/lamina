@@ -1,0 +1,76 @@
+{
+  "manifestVersion": "1",
+  "releaseKey": "harbor-v4-2026-07",
+  "benchmarkId": "lamina-product-shaping",
+  "benchmarkVersion": "harbor-v4",
+  "status": "running",
+  "generatedAt": "2026-07-22T00:00:00.000Z",
+  "methodologyLockedAt": "2026-07-22T00:00:00.000Z",
+  "source": {
+    "repository": "https://github.com/aryaniyaps/lamina",
+    "commit": "e851d037199b189a9b98b7d807bbcfd427bf0c5c"
+  },
+  "protocol": {
+    "paths": [
+      "benchmarks/corpus/manifest.json",
+      "benchmarks/corpus/lamina-bench-skills.json",
+      "benchmarks/corpus/pilot-care-circle/brief.md",
+      "benchmarks/corpus/pilot-loan-library/brief.md",
+      "benchmarks/corpus/pilot-review-room/brief.md",
+      "benchmarks/corpus/control-simple-list/brief.md",
+      "benchmarks/lib/behavior-grade.mjs",
+      "benchmarks/lib/behavior-selfcheck.mjs",
+      "benchmarks/lib/action-schema.mjs",
+      "benchmarks/scripts/build-harbor-benchmark.mjs",
+      "benchmarks/scripts/validate-harbor-benchmark.mjs",
+      "benchmarks/harbor/tasks"
+    ],
+    "expectedSha256": "0fa45f7bbfd20cb5f2a1aaf09d2e24d034d757cf6532ba39d69771f75be23412"
+  },
+  "corpusManifest": "benchmarks/corpus/manifest.json",
+  "expectedTasks": [
+    "pilot-care-circle",
+    "pilot-loan-library",
+    "pilot-review-room",
+    "control-simple-list"
+  ],
+  "expectedArms": ["direct", "plan", "checklist", "lamina"],
+  "runtime": {
+    "agent": "claude-code",
+    "model": "sonnet",
+    "attemptsPerArm": 2,
+    "totalBudgetSecondsPerArm": 4200
+  },
+  "artifactRoles": [
+    {
+      "id": "corpus-manifest",
+      "label": "Task corpus manifest",
+      "path": "benchmarks/corpus/manifest.json",
+      "role": "methodology"
+    },
+    {
+      "id": "lamina-bench-skills",
+      "label": "Lamina arm skill allowlist",
+      "path": "benchmarks/corpus/lamina-bench-skills.json",
+      "role": "methodology"
+    },
+    {
+      "id": "behavior-grade",
+      "label": "Behavior oracle and treatment gates",
+      "path": "benchmarks/lib/behavior-grade.mjs",
+      "role": "grader"
+    },
+    {
+      "id": "build-script",
+      "label": "Harbor task generator",
+      "path": "benchmarks/scripts/build-harbor-benchmark.mjs",
+      "role": "protocol"
+    },
+    {
+      "id": "validate-script",
+      "label": "Harbor task validator",
+      "path": "benchmarks/scripts/validate-harbor-benchmark.mjs",
+      "role": "protocol"
+    }
+  ]
+}
