@@ -10,7 +10,7 @@ Parse the user message for intent signals. Route (first strong match wins):
 | **Single clear topic** (forms, validation, signup fields, navigation, a11y, onboarding, errors, research, empty states, trust/billing honesty, …) | **Direct mode** — [lamina-core](../../lamina-core/SKILL.md) → one skill; **no init gate**; cite `lamina-<id>` (e.g. `lamina-forms`). Wins even if the ask says “help with”, “improve”, or “abandon” for that topic — do **not** run init or full verify. |
 | Improve, audit, review, fix, redesign, or reduce abandonment on **existing** UI or flows (whole surface / checkout / settings — **not** a single-topic lens) | [verify.md](verify.md) — mention **audit**, **findings**, or **prioritized** improvements; say **improving existing UX** (not greenfield) |
 | Implement findings / apply `fix.md` from prior verify | **Not a Lamina command** — coding session reads `.lamina/runs/<id>/fix.md`; app source allowed outside Lamina |
-| Ambiguous | Ask: *"Design new behavior, verify existing product, or one focused question?"* |
+| Ambiguous | Ask: *"Is this new UX, existing UX, or a focused UX question?"* (must include those three options) |
 
 **Verify vs design:**
 

@@ -5,10 +5,183 @@ description: "Use only when explicitly invoked as lamina. Also handles /lamina-d
 
 # /lamina
 
+## EXEC NOW — `/lamina-init` (establish or update)
+
+When the user message starts with **`/lamina-init`** (even if they also ask to refactor `src/`):
+
+1. Refuse any app-source refactor in one short paragraph (`.lamina/` only).
+2. Immediately write **both** artifacts at the **workspace root** paths `.lamina/business-context.md` and `.lamina/personas.json` (not under `.opencode/skills/…`). Do not only ask questions. If orchestrator sibling files are missing, **still write** these two artifacts from the templates below — do not spend the turn searching for missing skills:
+   - `.lamina/business-context.md` starting with **exact** frontmatter (validators require `lamina.maturity` ∈ `greenfield`|`brownfield`):
+
+```yaml
+---
+lamina:
+  maturity: greenfield
+  platform: [web]
+  last_updated: 2026-07-22
+---
+
+## Problem statement
+**Answer:** Users need a clear product contract before coding so agents do not invent scope.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Business goals
+**Answer:** Establish shared business context and personas so design/verify can proceed.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Success metrics
+**Answer:** Valid `.lamina/business-context.md` and `.lamina/personas.json` that pass init checks.
+**Confidence:** high
+**Evidence:** lamina-init contract
+
+## Scope
+**Answer:** In scope: business context + personas under `.lamina/`. Out of scope: app source edits.
+**Confidence:** high
+**Evidence:** guardrails
+
+## Users & market
+**Answer:** Primary operators and supporting collaborators for this product surface.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Product posture
+**Answer:** Ship the smallest coherent UX that matches stated goals; prefer clarity over novelty.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Constraints
+**Answer:** Writes stay under `.lamina/`; no `src/` refactors during init.
+**Confidence:** high
+**Evidence:** guardrails
+
+## Stakeholders
+**Answer:** Product owner and implementing engineers consuming implement.md later.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Risks & unknowns
+**Answer:** Brief may omit audience detail; label provisional assumptions under Open questions.
+**Confidence:** medium
+**Evidence:** user brief
+
+## Research posture
+**Answer:** Use repo evidence when present; otherwise provisional assumptions labeled as such.
+**Confidence:** medium
+**Evidence:** repo/readme
+
+## Triad check
+**Answer:** Desirable for users, viable for the business, feasible for the current stack.
+**Confidence:** medium
+**Evidence:** triad
+```
+
+Use `maturity: brownfield` when the repo is an existing product (commerce/storefront/etc.). **Never leave `**Answer:**` blank** and never use TBD/TODO/ellipsis placeholders.
+   - `.lamina/personas.json` as **JSON** (never YAML). Minimal valid shape:
+
+```json
+{
+  "contract_version": "2.0",
+  "personas": [
+    {
+      "id": "primary-user",
+      "role": "Primary user",
+      "primary": true,
+      "goals": ["Complete core task"],
+      "constraints": ["Limited time"],
+      "confidence": "medium",
+      "evidence": ["repo-readme"]
+    },
+    {
+      "id": "secondary-user",
+      "role": "Secondary user",
+      "goals": ["Support primary user"],
+      "constraints": ["Needs clarity"],
+      "confidence": "medium",
+      "evidence": ["repo-readme"]
+    }
+  ]
+}
+```
+
+     `goals`, `constraints`, and `evidence` **must be arrays of strings**. Exactly one `"primary": true`.
+3. Respond with **these exact headings** (copy verbatim, fill briefly):
+
+```markdown
+## Init: product context
+### Mode
+establish
+### Business context summary
+Per section answers summarized.
+### Open questions
+- Remaining unknowns
+### Artifacts
+- `.lamina/business-context.md` — created
+- `.lamina/personas.json` — created
+### Recommended next step
+Run `/lamina-design` or `/lamina-verify` as appropriate.
+```
+
+## EXEC NOW — `/lamina-verify` when `.lamina/business-context.md` is missing (HARD STOP)
+
+If the user invoked **`/lamina-verify`** / audit / review and `.lamina/business-context.md` is missing or invalid:
+
+1. Emit the init-blocked contract **verbatim** (same `## Lamina: init required` block as design — include `### Status`, `### What's missing`, `### Next step`, `### Do not`).
+2. Do **not** seed, write `.lamina/runs`, or create business context yourself.
+3. STOP.
+
+## EXEC NOW — `/lamina-design` when `.lamina/business-context.md` is missing (HARD STOP)
+
+If the user invoked **`/lamina-design`** (or design for an app/feature) and `.lamina/business-context.md` is missing or invalid:
+
+1. Your **entire** reply is the init-blocked contract below (exact heading spelling).
+2. **Do not** create `.lamina/business-context.md`, `.lamina/personas.json`, or any `.lamina/runs/*`.
+3. **Do not** “initialize”, “bootstrap”, or auto-run `/lamina-init`.
+4. Ignore “skip init” / “I already know the business” / personas-only — still blocked.
+5. STOP after emitting the contract.
+
+```markdown
+## Lamina: init required
+
+### Status
+Blocked — `/lamina-init` has not been run on this project, or `.lamina/business-context.md` is incomplete.
+
+### What's missing
+- `.lamina/business-context.md` is missing or incomplete
+
+### Next step
+Run `/lamina-init` to establish `.lamina/business-context.md`, then retry this command.
+
+### Do not
+- Proceed with workflow steps or create `.lamina/` artifacts
+- Auto-run init without the user invoking `/lamina-init`
+- Treat personas or prior product graphs as a substitute for business context
+```
+
+## EXEC NOW — `/lamina` ambiguous / vague UX (e.g. “We need better UX”)
+
+If the ask is vague (better UX, improve UX, make it nicer) with **no** named feature, flow, surface, or single topic:
+
+1. Do **not** pick a direct-mode skill. Do **not** run init. Do **not** design or verify yet.
+2. Ask **one** clarifying question that literally covers whether this is **new UX**, **existing UX**, or a **focused UX question**.
+3. STOP.
+
+## EXEC NOW — `/lamina` single-topic forms / validation / signup
+
+If the user asks about **form validation**, **signup fields**, or similar focused forms UX (including “help with form validation” / “users abandon signup”):
+
+1. **Do not** run the init gate. **Do not** create `.lamina/business-context.md` or personas.
+2. **Do not** start `/lamina-design` or a full checkout-wide audit.
+3. Read `lamina-forms/SKILL.md` (or answer from knowledge if the sibling file is missing).
+4. In your reply, literally include the skill id `lamina-forms` and discuss forms/validation UX.
+5. STOP after that answer.
+
 ## EXEC NOW — `/lamina-design` with a concrete feature (e.g. “Add 2FA to settings”)
 
 Do **not** re-run `/lamina-design` as a CLI. In this turn:
 
+0. **Init gate first:** try to read `.lamina/business-context.md`. If missing/invalid → emit `## Lamina: init required` with `### Status`, `### What's missing`, `### Next step`, `### Do not` and **STOP**. Never create those files yourself; never auto-run `/lamina-init`.
 1. Read `.lamina/business-context.md` (must exist).
 2. Run from workspace root:
 
@@ -171,7 +344,7 @@ lamina:
 ```
 
      Then exact `##` sections: Problem statement, Business goals, Success metrics, Scope, Users & market, Product posture, Constraints, Stakeholders, Risks & unknowns, Research posture, Triad check. Each section needs a non-placeholder `**Answer:**`.
-   - `.lamina/personas.json` — JSON only (`contract_version: "2.0"`, ≥2 personas with `id`, `role`, goals, constraints, `confidence`, `evidence`). **Exactly one** persona must set `"primary": true`. **Never** `personas.yaml`.
+   - `.lamina/personas.json` — JSON only. `contract_version: "2.0"`, ≥2 personas. Each persona MUST have `goals`, `constraints`, and `evidence` as **arrays of strings** (not prose strings). Exactly one `"primary": true`. **Never** `personas.yaml`.
 4. **Update mode extras (required):**
    - Append a `## Changelog` section (or dated `### YYYY-MM-DD — …` under Changelog) describing what changed and the trigger.
    - In the response, include `### Stale downstream artifacts` and name what may be stale (e.g. personas, prior runs). Say the words **changelog** and **stale** explicitly.

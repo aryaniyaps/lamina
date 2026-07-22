@@ -538,3 +538,17 @@ design-blocked-no-init/codex
 - SKIP router-feature-01|opencode
 - SKIP router-audit-01|codex
 - RETRY_START router-direct-forms opencode
+- skill: EXEC NOW direct forms for /lamina; router-direct-forms opencode 4/4
+- SKIP router-feature-01|opencode
+- SKIP router-audit-01|codex
+- SKIP router-direct-forms|opencode
+- RETRY_START router-ambiguous opencode
+- skill: EXEC NOW ambiguous clarifying question; router-ambiguous opencode 2/2
+- skill: lamina-design EXEC NOW init-blocked; no auto-create context
+- eval: init-gate-valid-proceed assertion business-context.md valid (not vague valid init)
+- skill: HARD STOP init-blocked at top of lamina SKILL; empty-design opencode green
+- skill: init-gate opencode trio green after HARD STOP
+- harness: ASE post-grade prefers hook over LLM for same assertion text (false-fail fix)
+- seed-verify: clear template checklist/proofs so shared-view cannot fail handoff maps
+- skill: HARD STOP verify-without-init; init Answer non-placeholder; lamina-init templates
+- skill: filled business-context template + verbatim init headings for opencode init evals

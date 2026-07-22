@@ -268,7 +268,8 @@ const laminaEvals = {
     e('init-gate-valid-proceed', '/lamina — We do not know what problem to solve yet for budgeting.', {
       ...fx('greenfield-with-init'),
       expected_output: 'Proceed to design workflow with valid init.',
-      assertions: ['valid init', 'Output does not emit init-blocked contract headings'],
+      // Prefer structural wording so LLM rubric does not reinterpret "valid init" as "named a problem".
+      assertions: ['business-context.md valid', 'Output does not emit init-blocked contract headings'],
     }),
 
     // Direct capability (~10 more in lamina)
