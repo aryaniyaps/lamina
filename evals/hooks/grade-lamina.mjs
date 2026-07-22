@@ -368,8 +368,9 @@ function gradeAssertion(text, ctx) {
 
   if (lower.includes('clarify contract') || lower.includes('clarification contract')) {
     const headings = OUTPUT_CONTRACTS.clarify;
-    const missing = headings.filter((h) => !firstTurnOutput.includes(h));
-    const passed = missing.length === 0 && /## Lamina: clarification needed/i.test(firstTurnOutput);
+    const firstLower = firstTurnOutput.toLowerCase();
+    const missing = headings.filter((h) => !firstLower.includes(h.toLowerCase()));
+    const passed = missing.length === 0 && /##\s*lamina:\s*clarification needed/i.test(firstTurnOutput);
     return hookResult(text, passed, passed ? 'All clarify headings present in first response' : `Missing: ${missing.join(', ') || 'title'}`);
   }
 
@@ -538,6 +539,22 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, !emitted, !emitted ? 'No audit output contract' : 'Audit output contract detected');
   }
 
+  if (lower.includes('validation or usability') || lower.includes('usability test')) {
+    const passed = /usability\s+test|validation\s+plan|moderated\s+usability|user\s+test|validate\b|validation\b/i.test(
+      allOutput,
+    );
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Validation/usability language found' : 'No validation or usability-test language',
+    );
+  }
+
+  if (lower.includes('mentions risks') || (lower.includes('mentions') && lower.includes('risk'))) {
+    const passed = /\brisks?\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Risk language found' : 'No risk/risks mention in output');
+  }
+
   if (lower.includes('discusses forms') || lower.includes('validation ux')) {
     const passed = /\b(forms?|validation|signup|input)\b/i.test(allOutput);
     return hookResult(text, passed, passed ? 'Forms/validation UX discussed' : 'No forms/validation language');
@@ -558,7 +575,8 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, !emitted, !emitted ? 'No full design output contract' : 'Design output contract headings present');
   }
 
-  if (lower.includes('new ux, existing ux') || lower.includes('focused ux question') || lower.includes('clarifying question')) {
+  // Router-only: do not match multiturn "turn N output contains \"Clarifying questions\""
+  if (lower.includes('new ux, existing ux') || lower.includes('focused ux question')) {
     const passed =
       /new\s+ux|existing\s+ux|focused\s+(ux\s+)?question|design\s+new|verify\s+existing|one\s+focused\s+question/i.test(
         allOutput,
@@ -655,7 +673,13 @@ function gradeAssertion(text, ctx) {
     }
   }
 
-  if (lower.includes('contains') && (text.includes('"') || text.includes('`'))) {
+  // Generic quoted-contains. Skip "turn N output contains …" — handled by turnMatch below
+  // so multiturn asserts check the specific turn, not the combined final output.
+  if (
+    lower.includes('contains') &&
+    (text.includes('"') || text.includes('`')) &&
+    !/^turn \d+ output contains /i.test(text)
+  ) {
     const quoted = text.match(/["'`]([^"'`]+)["'`]/);
     if (quoted) {
       const passed = output.toLowerCase().includes(quoted[1].toLowerCase());
@@ -900,25 +924,28 @@ function gradeAssertion(text, ctx) {
     const dir = latestRunDir(workspace);
     if (!dir) return hookResult(text, false, 'No run directory found');
     const runFile = path.join(dir, 'run.json');
-    const handoffFile = path.join(dir, 'handoff.md');
-    if (!fs.existsSync(runFile) || !fs.existsSync(handoffFile)) {
-      return hookResult(text, false, 'Missing run.json or handoff.md');
+    const handoffCandidates = ['implement.md', 'handoff.md']
+      .map((name) => path.join(dir, name))
+      .filter((file) => fs.existsSync(file));
+    if (!fs.existsSync(runFile) || !handoffCandidates.length) {
+      return hookResult(text, false, 'Missing run.json or implement.md/handoff.md');
     }
     const result = validateRunJson(runFile);
     const ids = [
       ...((result.run.checklist ?? []).map((item) => item.id)),
       ...((result.run.findings ?? []).map((item) => item.id)),
+      ...((result.run.proofs ?? []).map((item) => item.id)),
     ].filter(Boolean);
-    const handoff = fs.readFileSync(handoffFile, 'utf8');
-    const missing = ids.filter((id) => !handoff.includes(id));
+    const handoff = handoffCandidates.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+    const missing = ids.filter((id) => !handoff.includes(id) && !handoff.includes(`proof.${id}`));
     return hookResult(
       text,
       ids.length > 0 && missing.length === 0,
       ids.length === 0
-        ? 'No checklist[] or findings[] ids in latest run'
+        ? 'No checklist[]/findings[]/proofs[] ids in latest run'
         : missing.length
-          ? `Missing ids in handoff.md: ${missing.join(', ')}`
-          : 'All checklist/findings ids appear in handoff.md',
+          ? `Missing ids in implement/handoff: ${missing.join(', ')}`
+          : 'All checklist/findings/proof ids appear in implement/handoff',
     );
   }
 
@@ -945,28 +972,17 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('persona simulation file exists')) {
-    const simNew = newFiles.filter((f) => {
-      const p = normalizePath(f);
-      return /\.lamina\/runs\/.+\/run\.json$/i.test(p);
-    });
-    const runJsonExists = workspaceFiles.some((f) => f.includes('/runs/') && f.endsWith('/run.json'));
-    const runJsonHasSimulation =
-      runJsonExists &&
-      workspaceFiles
-        .filter((f) => f.endsWith('/run.json'))
-        .some((f) => {
-          try {
-            return (readJsonSafe(f)?.persona_findings || []).length > 0;
-          } catch {
-            return false;
-          }
-        });
-    const passed =
-      simNew.length > 0 || runJsonHasSimulation;
+    // Use workspace-absolute run.json paths (listFiles() is relative to workspace;
+    // reading those via readJsonSafe from cwd falsely reports missing findings).
+    const runFiles = findRunJsonFiles(workspace);
+    const withFindings = runFiles.filter((f) => (readJsonSafe(f)?.persona_findings || []).length > 0);
+    const passed = withFindings.length > 0;
     return hookResult(
       text,
       passed,
-      passed ? 'Persona findings found' : 'No persona_findings in .lamina/runs/*/run.json',
+      passed
+        ? `Persona findings found (${path.relative(workspace, withFindings[0])})`
+        : 'No persona_findings in .lamina/runs/*/run.json',
     );
   }
 

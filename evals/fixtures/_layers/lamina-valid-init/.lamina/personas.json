@@ -30,6 +30,36 @@
         "assistive_tech": []
       },
       "confidence": "medium"
+    },
+    {
+      "id": "shared-budget-partner",
+      "type": "secondary",
+      "goals": {
+        "experience": [
+          "trust alerts without micromanaging every transaction"
+        ],
+        "end": [
+          "see shared budget status quickly",
+          "acknowledge partner-raised alerts"
+        ],
+        "life": [
+          "keep household money conversations low-friction"
+        ]
+      },
+      "frustrations": [
+        "surprise overspend alerts after the fact",
+        "unclear who already handled an alert"
+      ],
+      "motivations": [
+        "stay aligned with partner spending",
+        "avoid duplicate follow-ups"
+      ],
+      "technical_literacy": "intermediate",
+      "accessibility": {
+        "needs": [],
+        "assistive_tech": []
+      },
+      "confidence": "medium"
     }
   ]
 }

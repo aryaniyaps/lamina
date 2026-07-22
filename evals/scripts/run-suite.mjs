@@ -118,13 +118,41 @@ function writeTempSuite(name, data, evalIds = []) {
   return file;
 }
 
+function resolveSkillPath(evalIds) {
+  if (evalIds.length === 1) {
+    const id = evalIds[0];
+    if (id.startsWith('design-') || id.startsWith('guardrail-design') || id.startsWith('guardrail-no-implement')) {
+      return './skills/lamina-design';
+    }
+    if (id.startsWith('init-') && !id.startsWith('init-gate')) {
+      return './skills/lamina-init';
+    }
+    if (id.startsWith('verify-')) {
+      return './skills/lamina-verify';
+    }
+  }
+  return './skills/lamina';
+}
+
 function runAgentSkillEval(evalsFile, opts) {
   loadDotEnv();
   const extra = [...opts.extraArgs, ...graderExtraArgs(opts.extraArgs)];
+  // Anthropic is usage-capped; route opencode to OpenAI when available.
+  if (
+    process.env.OPENAI_API_KEY &&
+    !extra.some((a) => a === '--agent-model' || String(a).startsWith('opencode='))
+  ) {
+    extra.push('--agent-model', `opencode=${process.env.LAMINA_EVAL_OPENCODE_MODEL || 'openai/gpt-4o-mini'}`);
+  }
+  const evalIds = [];
+  for (let i = 0; i < extra.length; i++) {
+    if (extra[i] === '--eval-id' && extra[i + 1]) evalIds.push(extra[i + 1]);
+  }
+  const skillPath = resolveSkillPath(evalIds);
   const args = [
     'run',
     '--skill',
-    './skills/lamina',
+    skillPath,
     '--evals',
     evalsFile,
     ...opts.agents.flatMap((a) => ['--agent', a]),
@@ -142,6 +170,17 @@ function runAgentSkillEval(evalsFile, opts) {
   const env = { ...process.env };
   // Cap hung without-skill baselines; with-skill design/init often needs longer.
   if (!env.ASE_AGENT_TIMEOUT) env.ASE_AGENT_TIMEOUT = '900';
+  // Prefer evals/bin wrappers (e.g. opencode hides .git to avoid inotify ENOSPC;
+  // claude routes through local LiteLLM→OpenAI when Anthropic is usage-capped).
+  env.PATH = `${path.join(ROOT, 'evals/bin')}${path.delimiter}${env.PATH || ''}`;
+  if (!env.LITELLM_MASTER_KEY) env.LITELLM_MASTER_KEY = 'sk-lamina-eval-local';
+  // Best-effort: ensure Anthropic-compatible OpenAI proxy is up for claude-code.
+  spawnSync('bash', [path.join(ROOT, 'evals/bin/ensure-claude-proxy.sh')], {
+    cwd: ROOT,
+    env,
+    stdio: 'ignore',
+  });
+  console.log(`Skill path: ${skillPath}`);
   const result = spawnSync(bin, args, {
     cwd: ROOT,
     encoding: 'utf8',

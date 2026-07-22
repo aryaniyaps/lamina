@@ -14,14 +14,15 @@ if (!evalId || !agent) {
   process.exit(2);
 }
 
-const gradingPath = path.join(
-  ROOT,
-  'eval-workspace/lamina-workspace/iteration-1',
-  `eval-${evalId}`,
-  agent,
-  'with_skill',
-  'grading.json',
-);
+// Reject corrupted / non-eval ids (e.g. shell `$1` expanding empty → literal "0")
+const suitePath = path.join(ROOT, 'evals/lamina/evals.json');
+const suite = JSON.parse(fs.readFileSync(suitePath, 'utf8'));
+const known = new Set((suite.evals || []).map((e) => e.id));
+if (!known.has(evalId) || evalId === '0') {
+  console.error(JSON.stringify({ error: 'unknown_eval_id', evalId, agent }));
+  process.exit(2);
+}
+
 const statePath = path.join(ROOT, 'evals/tmp/loop-state.json');
 const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
 
@@ -43,14 +44,35 @@ function isPass(grading) {
   return byText.size > 0;
 }
 
+const gradingCandidates = [
+  path.join(
+    ROOT,
+    'eval-workspace/lamina-workspace/iteration-1',
+    `eval-${evalId}`,
+    agent,
+    'with_skill',
+    'grading.json',
+  ),
+  // Multi-turn harness writes report.json under evals/workspace/multiturn/<id>/<agent>/
+  path.join(ROOT, 'evals/workspace/multiturn', evalId, agent, 'report.json'),
+  path.join(ROOT, 'evals/workspace/multiturn', evalId, agent, 'output', 'grading.json'),
+];
+
+// Agent-scoped multiturn paths only (no legacy unscoped fallback).
+
 let status = 'fail';
 let detail = { missing: true };
-if (fs.existsSync(gradingPath)) {
+let gradingPath = null;
+for (const candidate of gradingCandidates) {
+  if (fs.existsSync(candidate)) {
+    gradingPath = candidate;
+    break;
+  }
+}
+if (gradingPath) {
   const grading = JSON.parse(fs.readFileSync(gradingPath, 'utf8'));
   status = isPass(grading) ? 'pass' : 'fail';
-  detail = grading.summary;
-} else {
-  status = 'fail';
+  detail = grading.summary ?? detail;
 }
 
 state.cases[evalId] = state.cases[evalId] || {};
@@ -63,5 +85,5 @@ if (status === 'fail') {
 }
 state.updated_at = new Date().toISOString();
 fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
-console.log(JSON.stringify({ evalId, agent, status, detail }));
+console.log(JSON.stringify({ evalId, agent, status, detail, gradingPath }));
 process.exit(status === 'pass' ? 0 : 1);

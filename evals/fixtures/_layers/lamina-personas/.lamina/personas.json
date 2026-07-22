@@ -3,12 +3,21 @@
   "personas": [
     {
       "id": "primary-member",
-      "role": "Primary member",
-      "goals": ["Complete the main workflow confidently"],
-      "constraints": ["Limited time"],
+      "role": "Primary member / novice",
+      "goals": ["Complete the main workflow confidently", "Understand the dashboard at a glance"],
+      "constraints": ["Limited time", "Low tolerance for dense controls"],
       "evidence": ["business-context.md"],
       "confidence": "medium",
       "primary": true
+    },
+    {
+      "id": "power-operator",
+      "role": "Power operator",
+      "goals": ["Scan dense metrics quickly", "Jump into advanced filters and bulk actions"],
+      "constraints": ["Needs keyboard density", "Frustrated by oversimplified views"],
+      "evidence": ["business-context.md"],
+      "confidence": "medium",
+      "primary": false
     }
   ]
 }

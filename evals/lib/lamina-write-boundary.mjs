@@ -17,6 +17,13 @@ export function isLaminaArtifactPath(relPath) {
   return norm === '.lamina' || norm.startsWith('.lamina/');
 }
 
+/** Agent harness / skill install noise — ignore for write-boundary grading. */
+export function isAgentHarnessPath(relPath) {
+  const norm = normalizePath(relPath);
+  const roots = ['.opencode/', '.codex/', '.claude/', '.agents/', '.cursor/'];
+  return roots.some((r) => norm === r.slice(0, -1) || norm.startsWith(r));
+}
+
 export function hashFileContent(filePath) {
   try {
     const data = fs.readFileSync(filePath);
@@ -73,7 +80,7 @@ export function diffOutsideLamina(preState, postState, workspace = '') {
     const allPaths = new Set([...Object.keys(preHashes), ...Object.keys(postHashes)]);
     const changed = [];
     for (const rel of allPaths) {
-      if (isLaminaArtifactPath(rel)) continue;
+      if (isLaminaArtifactPath(rel) || isAgentHarnessPath(rel)) continue;
       const pre = preHashes[rel];
       const post = postHashes[rel];
       if (pre !== post) changed.push(rel);
@@ -86,7 +93,7 @@ export function diffOutsideLamina(preState, postState, workspace = '') {
   const post = new Set((postState?.files ?? postState?.tracked_files ?? []).map(normalizePath));
   const added = [];
   for (const f of post) {
-    if (!pre.has(f) && !isLaminaArtifactPath(f)) added.push(f);
+    if (!pre.has(f) && !isLaminaArtifactPath(f) && !isAgentHarnessPath(f)) added.push(f);
   }
 
   // Without hashes we cannot detect modifications — caller should use file_hashes snapshots

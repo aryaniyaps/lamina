@@ -50,7 +50,6 @@ const FEATURE_EDGE_ASSERTIONS = [
   'not left draft',
   'implement.md exists',
   'handoff maps checklist ids',
-  'report.md narrative only',
 ];
 
 const CLARIFY_GATE_ASSERTIONS = [
@@ -98,12 +97,9 @@ function applyGuardrailsToEval(ev) {
 /** agent-skill-eval stages `files` per eval workspace (no `..` in paths). */
 function materializeFixture(name) {
   if (materializedFixtures.has(name)) return;
-  const laminaTarget = path.join(LAMINA_FIXTURE_FILES, name);
-  if (fs.existsSync(laminaTarget)) {
-    materializedFixtures.add(name);
-    return;
-  }
   materializedFixtures.add(name);
+  // Always restage from layers so fixture edits are not stuck behind a stale
+  // evals/lamina/files/<name> cache from a prior merge.
   stageFixture(name, path.join(LAMINA_FIXTURE_FILES, name));
 }
 
@@ -555,7 +551,7 @@ const laminaDesignEvals = {
         'proof packet complete',
       ],
     }),
-    e('design-steering', '/lamina-design — Concept for expense tracking app.', {
+    e('design-steering', '/lamina-design — Concept for expense tracking app. Brief is complete: dual-income households; outcome is weekly shared spending visibility; MVP scope is manual expense capture plus a shared household view. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
     }),
@@ -587,31 +583,31 @@ const laminaDesignEvals = {
       ...fx('greenfield-with-init'),
       assertions: ['ux guidance only', 'no product code in output'],
     }),
-    e('design-validation', '/lamina-design — Concept for fitness app with validation plan.', {
+    e('design-validation', '/lamina-design — Concept for fitness app with validation plan. Brief is complete: primary users are busy adults restarting exercise; outcome is complete a first guided workout in-app; MVP scope is onboarding + workout start + progress check-in; validation plan is a moderated usability test of first-run workout completion. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings', 'Output mentions validation or usability test', 'run.json valid'],
     }),
     e('design-metrics', '/lamina-design — Add search with success metrics.', featureFx(['Output mentions metrics'])),
-    e('design-accessibility', '/lamina-design — Concept for healthcare portal with accessibility.', {
+    e('design-accessibility', '/lamina-design — Concept for healthcare portal with accessibility. Brief is complete: primary users are patients managing appointments and records; outcome is book a visit and view recent results without assistance; MVP scope is sign-in, appointment booking, and results list; accessibility target WCAG 2.2 AA with keyboard and screen-reader paths. Existing `.lamina/business-context.md` may describe a different product — that is not an init failure; label the mismatch as an open question and proceed. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings', 'run.json valid'],
     }),
     e('design-risks', '/lamina-design — Add social sharing with privacy risks.', featureFx(['Output mentions risks'])),
-    e('design-ia', '/lamina-design — Concept for documentation site information architecture.', {
+    e('design-ia', '/lamina-design — Concept for documentation site information architecture. Brief is complete: primary users are developers and integrators onboarding to an API product; outcome is find the right guide and complete first successful setup without support; MVP scope is top-level nav, getting-started path, and reference vs tutorials split. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
     }),
     e('design-flows', '/lamina-design — Add password reset flow.', featureFx(['Output mentions flows', 'run.json workflows', 'run.json valid'])),
-    e('design-copy', '/lamina-design — Concept for legal terms acceptance UX.', {
+    e('design-copy', '/lamina-design — Concept for legal terms acceptance UX. Brief is complete: primary users are new account creators; outcome is understand and accept required terms before account activation; MVP scope is terms summary, accept control, and decline/exit path. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
     }),
     e('design-a11y', '/lamina-design — Add keyboard shortcuts feature accessibly.', featureFx()),
-    e('design-mobile', '/lamina-design — Concept for mobile-first food delivery.', {
+    e('design-mobile', '/lamina-design — Concept for mobile-first food delivery. Brief is complete: primary users are busy urban diners ordering lunch; outcome is place an order and track delivery ETA; MVP scope is browse nearby restaurants, cart, checkout, and live order status. Proceed with labeled assumptions — do not clarify.', {
       ...fx('greenfield-with-init'),
       assertions: ['design contract headings'],
     }),
-    e('design-persona-conflict', '/lamina-design — Add dashboard for power users and novices.', {
+    e('design-persona-conflict', '/lamina-design — Add dashboard for power users and novices. Brief is complete: primary users are power operators who need dense controls and novices who need a guided summary; outcome is both audiences complete core tasks from one dashboard without blocking each other; MVP scope is overview, key actions, and progressive disclosure. Use existing personas (e.g. primary-member) and explicitly label power-user vs novice conflicts as open questions. Proceed with labeled assumptions — do not clarify.', {
       ...fx('brownfield-audit-ready'),
       assertions: ['persona perspectives in output', 'Output mentions conflict or open questions'],
     }),

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ASE workspaces often hit inotify ENOSPC on .git; hide it for the agent process.
+# Also prefer OpenAI when Anthropic is usage-capped.
+set -euo pipefail
+REAL="/home/aryan/.nvm/versions/node/v24.18.0/lib/node_modules/opencode-ai/bin/opencode.exe"
+
+# Avoid Anthropic hard-cap when OpenAI is available.
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  unset ANTHROPIC_API_KEY || true
+  unset ANTHROPIC_AUTH_TOKEN || true
+fi
+
+if [[ -d .git && ! -e .git.__ase_bak ]]; then
+  mv .git .git.__ase_bak
+  restore_git() { mv .git.__ase_bak .git 2>/dev/null || true; }
+  trap restore_git EXIT
+fi
+exec "$REAL" "$@"

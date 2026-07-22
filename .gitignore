@@ -56,3 +56,6 @@ benchmarks/results/raw/workspaces/
 benchmarks/results/raw/artifacts/
 benchmarks/tmp/
 benchmarks/results/v2/
+
+# ASE eval harness temporarily renames .git here
+.git.__ase_bak/
