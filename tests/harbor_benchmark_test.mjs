@@ -12,7 +12,9 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/m
 assert.equal(manifest.version, 'harbor-v4');
 assert.deepEqual(manifest.pilot.tasks, ['pilot-care-circle', 'control-simple-list']);
 assert.equal(manifest.pilot.attempts_per_arm, 2);
-assert.equal(manifest.pilot.model, 'sonnet');
+assert.equal(manifest.pilot.agent, 'cursor-cli');
+assert.equal(manifest.pilot.model, 'composer-2.5');
+assert.deepEqual(manifest.pilot.models, ['composer-2.5', 'grok']);
 
 const skillsManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/lamina-bench-skills.json'), 'utf8'));
 assert.ok(skillsManifest.skills.length <= 40, 'bench skill allowlist should stay focused on loop + risk capabilities');

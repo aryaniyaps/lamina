@@ -5,11 +5,13 @@ Prove Lamina works: matched arms, behavior-only reward, Lamina treatment gates.
 ## Prerequisites
 
 1. `harbor` CLI installed
-2. `claude` CLI installed
-3. `ANTHROPIC_API_KEY` in the **repo root** `.env` file
+2. `cursor-agent` CLI installed (Harbor agent: `cursor-cli`)
+3. `CURSOR_API_KEY` in the **repo root** `.env` file
 4. Docker available for Harbor environments
 
-The runner loads root `.env`, runs a Claude auth preflight, and passes `--env-file` pointing at that file so the Harbor agent container inherits `ANTHROPIC_API_KEY`.
+Optional: `--agent claude-code` still works if `claude` + `ANTHROPIC_API_KEY` are configured.
+
+The runner loads root `.env`, runs a Cursor auth preflight, and passes `--env-file` pointing at that file so the Harbor agent container inherits `CURSOR_API_KEY`.
 
 ## Quick start
 
@@ -25,14 +27,16 @@ npm run bench:harvest
 - Tasks: `pilot-care-circle`, `control-simple-list`
 - Arms: `direct`, `checklist`, `lamina`
 - Attempts: 2 per arm
-- Model: Sonnet (`sonnet`)
+- Agent: Cursor CLI (`cursor-cli`)
+- Model: Composer (`composer-2.5`); overnight alt: `grok` via `npm run bench:run:publish:grok`
 - Agent budget: **4,200s (70 min) per arm** — baselines split `shape_build`/`verify_fix` 2,100s each; lamina: init 600 / design 1100 / implement 800 / verify 1100 / fix 600
 
 Full publish matrix:
 
 ```bash
 npm run bench:run:publish:dry   # list 6 cells
-npm run bench:run:publish       # build, validate, run all cells, harvest
+npm run bench:run:publish       # build, validate, run all cells, harvest (composer-2.5)
+npm run bench:run:publish:grok  # same matrix on grok
 ```
 
 ## Pilot smoke diagnosis (2026-07-20)
@@ -41,7 +45,7 @@ Job `lamina-v4-pilot-smoke-direct` validated the harness end-to-end:
 
 - Harbor v4 tasks build and register correctly
 - Grader runs after agent step (`behavior_pass_rate`, mid/final logging)
-- **Limiter (resolved):** set `ANTHROPIC_API_KEY` in the repo root `.env`; runner forwards it with `--env-file`
+- **Limiter (resolved):** set auth keys in the repo root `.env`; runner forwards them with `--env-file`
 
 ## Structure
 

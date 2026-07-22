@@ -44,6 +44,10 @@ export function resolveAnthropicCredential(env = process.env) {
   return env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN || '';
 }
 
+export function resolveCursorCredential(env = process.env) {
+  return env.CURSOR_API_KEY || env.CURSOR_AUTH_TOKEN || '';
+}
+
 export function pickEnvFile(root) {
   const filePath = rootEnvPath(root);
   return fs.existsSync(filePath) ? filePath : null;

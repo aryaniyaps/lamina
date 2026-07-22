@@ -36,7 +36,8 @@ No publication result exists yet. Run the pilot matrix locally, confirm treatmen
 | Lamina arm | Real skills (`/lamina-init`, `/lamina-design`, implement, `/lamina-verify`, fix) with bench profile |
 | Treatment gates | Lamina attempts without `.lamina/` charter + run + verify outputs + UI walkthrough + ≥2 `persona_findings` are disqualified (reward 0) |
 | Baselines | `direct`, `plan`, `checklist` — no Lamina skills injected |
-| Model (pilot) | Claude Sonnet (`sonnet`) |
+| Agent (pilot) | Harbor `cursor-cli` (Cursor agent) |
+| Model (pilot) | Composer (`composer-2.5`); alt overnight model `grok` |
 
 ### Bench profile (lamina arm only)
 
@@ -70,16 +71,16 @@ npm run bench:run:pilot             # build + validate + full pilot matrix
 npm run bench:harvest               # copy .lamina trees from results if present
 ```
 
-Pilot matrix: `pilot-care-circle` + `control-simple-list` × `{direct, checklist, lamina}` × 2 attempts on Sonnet.
+Pilot matrix: `pilot-care-circle` + `control-simple-list` × `{direct, checklist, lamina}` × 2 attempts on Cursor CLI + Composer (`composer-2.5`).
 
-Set `ANTHROPIC_API_KEY` in the **repo root** `.env`. The runner loads that file and passes it to Harbor via `--env-file`.
+Set `CURSOR_API_KEY` in the **repo root** `.env`. The runner loads that file and passes it to Harbor via `--env-file`. Overnight Grok cohort: `npm run bench:run:publish:grok`.
 
 ## Claim discipline
 
 - Reward is **behavior only** — no keyword, brief length, or `.lamina/` ceremony points
 - Report paired task-level pass rates and loop delta (final − mid behavior)
 - Do not cite legacy Harbor v1 file-marker results or v2 studies until those harnesses ship
-- Confirmatory cohort on `opus` only after Sonnet pilot shows valid treatment + directional lift
+- Confirmatory cohort on additional models only after the Composer pilot shows valid treatment + directional lift
 
 ## Deferred studies
 

@@ -20,7 +20,8 @@ function readFlag(name, fallback) {
 }
 
 const attempts = Number(readFlag('--attempts', '2'));
-const model = readFlag('--model', 'sonnet');
+const agent = readFlag('--agent', manifest.pilot?.agent ?? 'cursor-cli');
+const model = readFlag('--model', manifest.pilot?.model ?? 'composer-2.5');
 const concurrency = Number(readFlag('--concurrency', '1'));
 const onlyTask = readFlag('--only-task', null);
 const onlyArm = readFlag('--only-arm', null);
@@ -91,6 +92,7 @@ if (dryRun) {
 
 const state = {
   started_at: new Date().toISOString(),
+  agent,
   model,
   attempts,
   pending: pending.map((c) => `${c.task}×${c.arm}`),
@@ -112,6 +114,7 @@ for (const [index, cell] of pending.entries()) {
       '--task', cell.task,
       '--attempts', String(attempts),
       '--concurrency', String(concurrency),
+      '--agent', agent,
       '--model', model,
       '--job-name', jobName,
     ],
