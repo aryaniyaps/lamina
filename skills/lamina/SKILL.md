@@ -187,7 +187,7 @@ During `/lamina-design` / `/lamina-verify` / `/lamina`:
 
 ## Direct mode first (no init)
 
-If the request is a **single focused UX topic**, go **direct** — do **not** run the init gate and do **not** emit `## Lamina: init required`. Read the matching skill and **write its id** in the response:
+If the request is a **single focused UX topic**, go **direct** — do **not** run the init gate, do **not** emit `## Lamina: init required`, and do **not** start `/lamina-design` or full verify. Read the matching skill and **write its id** in the response (hooks look for the literal id like `lamina-forms`). Phrases like “help with form validation” / “users abandon signup” still map to `lamina-forms` when the topic is forms — not init, not checkout-wide audit:
 
 | User signal | Skill id to name |
 |-------------|------------------|
@@ -215,7 +215,7 @@ Before dispatching to [design.md](../lamina-orchestrator/workflows/design.md) or
 **Before claiming init is missing:** you **must** attempt to read `.lamina/business-context.md` with your file tool. Do not emit init-blocked based on assumptions or an empty listing alone — a failed read (ENOENT) is required evidence.
 
 - **Problem exploration** (“don't know what to build”, early ideation): route to design — frame the user problem, mention **design workflow**, **flows**, and **edge cases**; use design output headings when shaping (`### Domain and invariants`, etc.) or explicitly dispatch `/lamina-design`.
-- **Specific feature**: route to design with flows/edge cases vocabulary.
+- **Specific feature**: route to design; first reply must literally include the words `flows` and `edge cases` (hook graders match those tokens — “Workflows” alone is not enough).
 - **Verify/audit**: route to verify with **audit**, **findings**, **prioritized** improvements.
 
 **If init fails**, name the **intended route** in one short sentence (using [Router response cues](#router-response-cues)), then emit this contract and **STOP**. Do not run workflow steps.
