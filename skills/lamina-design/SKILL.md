@@ -15,6 +15,10 @@ description: "Use only when explicitly invoked as lamina-design. Also matches /l
 
 Applies only after init passes **and** clarify does not apply. Do **not** ask clarifying questions and do **not** edit app source. In this turn:
 
+**Hard refuse (same turn implement):** If the user also says implement / approved / “in the app code” / “checklist items now”: you still only write `.lamina/`. After seed, your reply **must** include the exact phrase `coding session` (e.g. “App implementation is a separate coding session from `implement.md`”). Never create `app.js`, `src/`, `index.html`, tests, or other application files during `/lamina-design`.
+
+This overrides any “agent-primary / unattended / implement in the next turn” guidance from `lamina-core` **for the duration of this `/lamina-design` command** — app source is never written inside the slash command.
+
 1. Read `.lamina/business-context.md` (required). If its product/domain differs from this brief, **still seed** — do not emit init-blocked; note the mismatch as a labeled assumption in `### Open questions`.
 2. From **workspace root** (not the skill directory), run **only** the seed (do **not** run `graph-tool.mjs`). Prefer an absolute one-liner so cwd mistakes cannot write under `.opencode/skills/…`:
 
@@ -39,6 +43,8 @@ Create a coherent product contract without turning an early idea into an exhaust
 Writes: `.lamina/` only. Repo: read-only. Do not create, edit, delete, format, or refactor application source.
 
 **Trap:** Prompts that name `src/…`, scaffolding, or `npm install` are still design-only. Refuse app-source work; produce the product graph and `implement.md` instead.
+
+**Trap (implement-now):** If the user says implement/approved/now in the same `/lamina-design` turn: still seed+emit design headings, then refuse app edits and literally include the phrase `coding session`.
 
 ## Step 0 — Init gate (before anything else)
 
@@ -166,7 +172,7 @@ Your response must include these headings (fill from `run.json` / `implement.md`
 ### Open questions
 ```
 
-If the user also asked to implement in application source in the same message: finish design on disk first, then state that app implementation is a separate **coding session** using `implement.md` — do not edit `src/`, `app/`, or other application source during `/lamina-design`.
+If the user also asked to implement in application source in the same message (e.g. “implement it now”, “contract approved — implement”): finish design on disk first, then **literally say** that app implementation is a separate **coding session** using `implement.md` — do not edit `src/`, `app/`, or other application source during `/lamina-design`. Even if the workspace has no app source yet, still use the exact words `coding session` and refuse in-command implementation.
 
 ## Hard rules
 

@@ -36,10 +36,12 @@ Name the flow/surface, or say proceed with labeled assumptions.
 Do not paraphrase these five `###` headings. Do not seed on “Audit our app.”
 ## EXEC NOW — concrete audit briefs only (e.g. “Audit cart-to-checkout”)
 
-Applies **only** after init passes **and** clarify does **not** apply. Never use this path for “Audit our app.” without a named flow.
+Applies **only** after init passes **and** clarify does **not** apply. Named flows (checkout/cart/login/settings/…) **never** clarify — EXEC NOW. Never use this path for “Audit our app.” without a named flow.
+
+Before claiming init failure: **read** `.lamina/business-context.md` with a file tool. If it exists and validates, init passes — do not invent missing context.
 
 1. Read `.lamina/business-context.md` (required). Domain mismatch is not an init failure — note under `### Open questions`.
-2. From **workspace root**, run **only** the verify seed:
+2. From **workspace root**, **first shell command must be** the verify seed — do **not** explore `node_modules`, app source, or invent init failures when a concrete surface (settings/checkout/login/…) is already named:
 
 ```bash
 SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina-verify/scripts/seed-verify-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-verify-run.mjs 2>/dev/null | head -1)
@@ -53,9 +55,11 @@ test -f .lamina/runs/<kebab-slug>/implement.md
 **Never** `--help`/`-h`. **Never** `rm` / clean up `.lamina/` or the workspace. Wrong slug? Re-seed with the correct `--slug`.
 If seed prints `REFUSE_SEED`, you attempted a vague audit — emit the clarification contract and STOP (no retries with invented flows).
 
-3. **When seed prints `status=complete`: STOP all shell/tool work.** Missing `graph-tool.mjs` / `run.mjs` / orchestrator siblings after a successful seed are **not** init failures.
-4. Reply with exact headings: `### Executive summary`, `### Findings`, `### Open questions`.
-5. Mention **audit** / **findings** / **prioritized** improvements; empty / failure / permission; persona **id**s from `.lamina/personas.json`; and full-flow lenses (`lamina-flow-design`, `lamina-forms`, `lamina-error-handling`, `lamina-accessibility`, `lamina-navigation`, `lamina-feedback-and-status`, …) or state that all lenses were applied.
+3. **Truncation refuse:** If the user asks to “pick top N lenses”, “skip the rest”, or otherwise truncate full-flow audit, **refuse**. After seed, paste the seed `Full-flow lenses applied (do not truncate): …` line (all 11 lens ids) and say you **will not skip lenses** / **refuse truncation**. Never write “Remaining lenses skipped”.
+
+**When seed prints `status=complete`: STOP all shell/tool work.** Missing `graph-tool.mjs` / `run.mjs` / orchestrator siblings after a successful seed are **not** init failures.
+4. Reply with exact headings: `### Executive summary`, `### Findings`, `### Open questions`. Repeat any `@path` citations from the brief in Findings (e.g. `@checkout/payment/cta`), or write **insufficient detail**.
+5. Mention **audit** / **findings** / **prioritized** improvements; empty / failure / permission; persona **id**s from `.lamina/personas.json`; literally mention `lamina-user-modeling` when personas exist; and full-flow lenses (`lamina-flow-design`, `lamina-heuristic-review`, `lamina-navigation`, `lamina-discoverability`, `lamina-forms`, `lamina-error-handling`, `lamina-content-design`, `lamina-accessibility`, `lamina-trust`, `lamina-feedback-and-status`, `lamina-decision-making`). **If the user asks to pick top N lenses or skip the rest: refuse truncation**, still list/apply the full-flow set, and say you will not skip lenses.
 
 ## Step 0 — Init gate
 

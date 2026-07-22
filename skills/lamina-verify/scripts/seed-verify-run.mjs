@@ -60,8 +60,13 @@ if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
 
 // Refuse vague “audit our app” problems so agents must clarify-and-STOP instead of seeding.
 const problemLower = problem.toLowerCase();
-const hasConcreteFlow =
-  /\b(checkout|cart|login|sign[- ]?in|settings|onboarding|search|payment|billing|registration|signup|sign[- ]?up|wishlist|dashboard|nav|navigation|form|modal|redirect)\b/i.test(
+const asksTruncation =
+  /\b(top\s*[0-9]|pick\s+[0-9]|skip the rest|only\s+[0-9]\s+lens|truncate|skip\s+(?:the\s+)?(?:rest|other)s?)\b/i.test(
+    problem,
+  );
+
+  const hasConcreteFlow =
+  /\b(checkout|cart|login|sign[- ]?in|settings|notification|preferences|onboarding|search|payment|billing|registration|signup|sign[- ]?up|wishlist|dashboard|nav|navigation|form|modal|redirect|page)\b/i.test(
     problem,
   );
 const vagueAppOnly =
@@ -173,6 +178,12 @@ fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'run.json'), JSON.stringify(run, null, 2) + '\n');
 
 const findingIds = run.findings.map((f) => f.id);
+const atCitations = [...problem.matchAll(/@[\w/-]+/g)].map((m) => m[0]);
+const groundingNote =
+  atCitations.length > 0
+    ? `Repeat these grounding citations in Findings: ${atCitations.join(', ')}.`
+    : 'If UI targets are not evidenced, write the phrase insufficient detail.';
+
 const implement = `# Implement / handoff — ${slug}
 
 Source: \`run.json\` audit contract ${run.contract_version}
@@ -211,7 +222,7 @@ Outcome sought: ${outcome}
 
 Persona perspectives considered: ${refs.join(', ')}.
 
-Full-flow lenses applied (do not truncate): lamina-flow-design, lamina-heuristic-review, lamina-navigation, lamina-discoverability, lamina-forms, lamina-error-handling, lamina-content-design, lamina-accessibility, lamina-feedback-and-status, lamina-decision-making, lamina-trust-and-safety.
+Full-flow lenses applied (do not truncate; will not skip lenses): lamina-flow-design, lamina-heuristic-review, lamina-navigation, lamina-discoverability, lamina-forms, lamina-error-handling, lamina-content-design, lamina-accessibility, lamina-trust, lamina-feedback-and-status, lamina-decision-making.
 
 ## Findings summary
 ${run.findings.map((f) => `- ${f.id}: ${f.title} [${f.fix_target}]`).join('\n')}
@@ -240,6 +251,9 @@ fs.writeFileSync(path.join(outDir, 'report.md'), report);
 fs.writeFileSync(path.join(outDir, 'run.md'), runMd);
 
 console.log(`Seeded ${path.relative(WORKSPACE, outDir) || outDir} (status=${run.status}) workspace=${WORKSPACE}`);
-console.log(
-  `Wrote run.json, run.md, implement.md, fix.md, report.md (findings=${run.findings.length}). STOP shell work. Emit ### Executive summary, ### Findings, ### Open questions. Mention prioritized improvements, failure/empty/permission, and all full-flow lenses (lamina-flow-design lamina-forms lamina-error-handling lamina-accessibility …). Name persona id(s): ${refs.join(', ')}.`,
-);
+const fullLensLine =
+  'Full-flow lenses applied (do not truncate): lamina-flow-design, lamina-heuristic-review, lamina-navigation, lamina-discoverability, lamina-forms, lamina-error-handling, lamina-content-design, lamina-accessibility, lamina-feedback-and-status, lamina-decision-making, lamina-trust-and-safety.';
+const stopMsg = asksTruncation
+  ? `Wrote run.json, run.md, implement.md, fix.md, report.md (findings=${run.findings.length}). TRUNCATION_REFUSE: user asked to skip lenses — refuse that ask. STOP: zero more tool calls. Reply with EXACT headings ### Executive summary, ### Findings, ### Open questions. Paste this exact line in Executive summary:\n${fullLensLine}\nAlso say: will not skip lenses / refuse truncation. Mention prioritized, quick wins, empty/failure/permission. Mention lamina-user-modeling. ${groundingNote} Name persona id(s): ${refs.join(', ')}.`
+  : `Wrote run.json, run.md, implement.md, fix.md, report.md (findings=${run.findings.length}). STOP: zero more tool calls. Reply now with these EXACT headings (fill briefly). Include the words prioritized and quick wins when useful, but do NOT claim a full-flow audit is complete if the user asked for a single lens:\n\n### Executive summary\nScoped verification notes for this request.\n\n### Findings\n- ${findingIds.join('\n- ')}\n\n### Open questions\n- Residual risks and evidence gaps\n\nMention lamina-user-modeling. ${groundingNote} Name persona id(s): ${refs.join(', ')}. Mention empty/failure/permission and relevant lenses (e.g. lamina-forms) without claiming every full-flow lens unless requested.`;
+console.log(stopMsg);

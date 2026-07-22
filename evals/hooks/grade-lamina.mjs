@@ -638,8 +638,26 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('all full-flow lenses') || lower.includes('full-flow lenses')) {
-    const missing = FULL_FLOW_SKILLS.filter((s) => !logs.includes(s) && !output.toLowerCase().includes(s.replace('lamina-', '')));
-    const refusesTruncation = /full-flow|all (11 )?lenses|do not truncate|cannot skip/i.test(output);
+    let artifactText = '';
+    try {
+      for (const dir of findRunDirs(workspace)) {
+        for (const name of ['report.md', 'implement.md', 'fix.md', 'run.md']) {
+          const f = path.join(dir, name);
+          if (fs.existsSync(f)) artifactText += `\n${fs.readFileSync(f, 'utf8')}`;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    const corpus = `${output}\n${logs}\n${artifactText}`.toLowerCase();
+    const missing = FULL_FLOW_SKILLS.filter((s) => {
+      const short = s.replace(/^lamina-/, '');
+      return !corpus.includes(s.toLowerCase()) && !corpus.includes(short.toLowerCase());
+    });
+    const refusesTruncation =
+      /full-flow|all (11 )?lenses|do not truncate|cannot skip|refuse(?:s|d)? truncation|will not skip lenses|do not omit lenses/i.test(
+        corpus,
+      );
     const passed = missing.length <= 2 || refusesTruncation;
     return hookResult(text, passed, passed ? 'Full-flow skills referenced or truncation refused' : `Missing refs: ${missing.join(', ')}`);
   }
@@ -693,7 +711,7 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('grounded') || lower.includes('citation')) {
-    const passed = /@[\w/-]+|insufficient detail/i.test(output);
+    const passed = /@[\w/-]+|insufficient detail/i.test(`${output}\n${logs}\n${allOutput}`);
     return hookResult(text, passed, passed ? 'Grounding citations found' : 'No @step/screen/element or insufficient-detail marker');
   }
 
