@@ -6,7 +6,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEVELOPMENT_FLAGS } from '../lib/constants.mjs';
+import {
+  DEVELOPMENT_FLAGS,
+  PILOT_SKILL_RERUN_JOB_RE,
+  SKILL_RERUN_CAMPAIGN_ID,
+  SKILL_RERUN_JOB_PREFIX,
+  parseSkillRerunPilotJobName,
+} from '../lib/constants.mjs';
+import {
+  collectHostLedgerEntries,
+  evaluatePreModelSkillGate,
+  readTrialLock,
+} from '../lib/pre-model-gate.mjs';
+import { loadSkillBundleManifest } from '../lib/skill-bundle.mjs';
 import {
   HARBOR_AGENT,
   HARBOR_MODEL,
@@ -20,7 +32,7 @@ const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
 
 const FORBIDDEN_CLAIM_RE =
   /\b(confirmatory\s+success|marketing\s+proof|sesoi\s+pass(?:ed)?|headline\s+gate\s+pass(?:ed)?|lamina\s+wins?|claim[- ]ready\s+result)\b/i;
-const PILOT_JOB_RE = /^lb6-pilot-(.+)-(direct|plan|lamina)-(\d+)$/;
+const PILOT_JOB_RE = PILOT_SKILL_RERUN_JOB_RE;
 const V4_JOB_RE = /^(?:lamina-v[34]|publish-)/i;
 const V4_PATH_RE = /(?:benchmarks\/harbor\/tasks|harbor-v4|lamina-v[34])/i;
 const FORBIDDEN_VERIFIER_PATH_RE =
@@ -43,9 +55,60 @@ export function listDirs(dir) {
 }
 
 export function parsePilotJobName(name) {
-  const match = String(name || '').match(PILOT_JOB_RE);
-  if (!match) return null;
-  return { taskId: match[1], arm: match[2], ts: match[3] };
+  const parsed = parseSkillRerunPilotJobName(name);
+  if (!parsed) return null;
+  return { ...parsed, campaignJobPrefix: SKILL_RERUN_JOB_PREFIX };
+}
+
+export function readTaskCampaignId(root, taskId, arm) {
+  const taskTomlPath = path.join(root, TASKS_REL, `${taskId}-${arm}`, 'task.toml');
+  if (!fs.existsSync(taskTomlPath)) {
+    return { campaignId: null, reason: `task metadata missing: ${taskTomlPath}` };
+  }
+  const toml = fs.readFileSync(taskTomlPath, 'utf8');
+  const match = toml.match(/^\s*campaign_id\s*=\s*"([^"]+)"/m);
+  if (!match) {
+    return { campaignId: null, reason: `task metadata missing campaign_id: ${taskTomlPath}` };
+  }
+  return { campaignId: match[1], reason: null };
+}
+
+export function validateCampaignCells(cells, root = DEFAULT_ROOT) {
+  const seen = new Set();
+  const campaignIds = new Set();
+
+  for (const cell of cells) {
+    if (!cell?.taskId || !cell?.arm) continue;
+    const key = `${cell.taskId}/${cell.arm}`;
+    if (seen.has(key)) {
+      return {
+        ok: false,
+        reason: `duplicate task/arm cell in aggregation set: ${key}`,
+      };
+    }
+    seen.add(key);
+
+    const metadata = readTaskCampaignId(root, cell.taskId, cell.arm);
+    if (!metadata.campaignId) {
+      return { ok: false, reason: metadata.reason };
+    }
+    if (metadata.campaignId !== SKILL_RERUN_CAMPAIGN_ID) {
+      return {
+        ok: false,
+        reason: `task ${key} campaign_id ${metadata.campaignId} does not match ${SKILL_RERUN_CAMPAIGN_ID}`,
+      };
+    }
+    campaignIds.add(metadata.campaignId);
+  }
+
+  if (campaignIds.size > 1) {
+    return {
+      ok: false,
+      reason: `mixed campaign IDs in aggregation set: ${[...campaignIds].join(', ')}`,
+    };
+  }
+
+  return { ok: true, reason: null, campaignId: campaignIds.values().next().value ?? null };
 }
 
 export function refuseLegacySource(label) {
@@ -147,6 +210,52 @@ function listFilesRecursive(root, targetName) {
     }
   }
   return found;
+}
+
+export function collectSkillEvidence({
+  root = DEFAULT_ROOT,
+  jobPath,
+  trialDir,
+  arm,
+  taskId,
+}) {
+  let manifest = null;
+  let stagedRoot = null;
+  try {
+    const loaded = loadSkillBundleManifest(root);
+    manifest = loaded.manifest;
+    stagedRoot = loaded.stagedRoot;
+  } catch (error) {
+    return {
+      passed: false,
+      treatmentValid: false,
+      priorNoSkill: arm === 'lamina',
+      gate: 'skill_bundle_missing',
+      reason: error.message,
+    };
+  }
+
+  const lock = readTrialLock(jobPath, trialDir ? path.basename(trialDir) : null);
+  const ledgerPath = trialDir ? path.join(trialDir, 'protocol', 'transition-ledger.jsonl') : null;
+  return evaluatePreModelSkillGate({
+    arm,
+    taskId,
+    lock,
+    ledgerEntries: collectHostLedgerEntries(ledgerPath),
+    stagedRoot,
+    manifest,
+    root,
+    requireLedgerEvidence: true,
+  });
+}
+
+export function laminaDeltaEligible(cell) {
+  if (!cell || cell.arm !== 'lamina') return true;
+  if (cell.skillEvidence?.priorNoSkill) return false;
+  if (cell.skillEvidence?.passed === false) return false;
+  if (cell.skillEvidence?.treatmentValid === false) return false;
+  if (cell.invalidTreatment) return false;
+  return cell.measurementValid === true;
 }
 
 export function detectVerifierIsolationBreach(trialDir) {
@@ -314,6 +423,13 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   const modelEvidence = collectModelEvidence(trialResult);
   const verifierIsolation = detectVerifierIsolationBreach(trialDir);
   const isolationEvidence = collectIsolationEvidence(trialDir, parsed.arm);
+  const skillEvidence = collectSkillEvidence({
+    root: jobsRoot ? path.resolve(jobsRoot, '..') : DEFAULT_ROOT,
+    jobPath,
+    trialDir,
+    arm: parsed.arm,
+    taskId: parsed.taskId,
+  });
 
   const exception = trialResult?.exception_info || null;
   const stepExceptions = (trialResult?.step_results || [])
@@ -327,6 +443,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   let state = cellMeta.state || 'completed';
   if (cellMeta.deadlineExceeded) state = 'campaign_deadline_exceeded';
   else if (verifierIsolation.breach) state = 'verifier_isolation_breach';
+  else if (!skillEvidence.passed) state = skillEvidence.gate || 'skill_injection_failure';
   else if (!isolationEvidence.passed && !exception && !stepExceptions.length) state = 'protocol_evidence_missing';
   else if (exception || stepExceptions.length) state = 'trial_exception';
   else if (cellMeta.exitCode && cellMeta.exitCode !== 0) state = cellMeta.state || 'harbor_nonzero_exit';
@@ -344,12 +461,14 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     && modelEvidence.modelMatch
     && !verifierIsolation.breach
     && isolationEvidence.passed
+    && skillEvidence.passed
     && !behaviorInfo.report?.invalid_treatment;
   const measurementValid =
     ok
     && state === 'completed'
     && !verifierIsolation.breach
     && isolationEvidence.passed
+    && skillEvidence.passed
     && !behaviorInfo.report?.invalid_treatment;
 
   return {
@@ -360,6 +479,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     trialPath: trialDir,
     taskId: parsed.taskId,
     arm: parsed.arm,
+    taskDirName: `${parsed.taskId}-${parsed.arm}`,
     state,
     exitCode: cellMeta.exitCode ?? null,
     signal: cellMeta.signal ?? null,
@@ -370,6 +490,9 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     reward: measurementValid ? observedReward : null,
     behavior: measurementValid ? observedBehavior : null,
     invalidTreatment: behaviorInfo.report?.invalid_treatment ?? false,
+    skillEvidence,
+    priorNoSkill: Boolean(skillEvidence.priorNoSkill),
+    treatmentInvalid: Boolean(skillEvidence.priorNoSkill || skillEvidence.treatmentValid === false),
     rewardPath: rewardInfo.path,
     behaviorReportPath: behaviorInfo.path,
     finalStep: rewardInfo.finalStep,
@@ -400,16 +523,22 @@ export function buildTaskCluster(taskId, cells) {
   const publicReward = (cell) => (cell?.ok && cell?.measurementValid ? cell.reward : null);
   const rewards = Object.fromEntries(PILOT_ARMS.map((arm) => [arm, publicReward(byArm[arm])]));
   const direct = rewards.direct;
+  const laminaEligible = laminaDeltaEligible(byArm.lamina);
   const deltas = {
     plan_minus_direct: direct !== null && rewards.plan !== null ? rewards.plan - direct : null,
-    lamina_minus_direct: direct !== null && rewards.lamina !== null ? rewards.lamina - direct : null,
-    lamina_minus_plan: rewards.plan !== null && rewards.lamina !== null ? rewards.lamina - rewards.plan : null,
+    lamina_minus_direct:
+      direct !== null && rewards.lamina !== null && laminaEligible ? rewards.lamina - direct : null,
+    lamina_minus_plan:
+      rewards.plan !== null && rewards.lamina !== null && laminaEligible
+        ? rewards.lamina - rewards.plan
+        : null,
   };
   const measurementValid = PILOT_ARMS.every((arm) => byArm[arm]?.ok && byArm[arm]?.measurementValid);
   return {
     taskId,
     rewards,
     deltas,
+    laminaDeltaSuppressed: Boolean(byArm.lamina && !laminaEligible),
     measurementValid,
     cells: PILOT_ARMS.map((arm) => byArm[arm]).filter(Boolean),
   };
@@ -539,6 +668,7 @@ export function buildPilotReport({
     ...DEVELOPMENT_FLAGS,
     not_claim_ready: true,
     distinct_from: 'lamina-bench-6',
+    campaignId: SKILL_RERUN_CAMPAIGN_ID,
     generatedAt,
     selectedTaskIds: taskIds,
     taskClusters,
@@ -569,7 +699,8 @@ export function buildPilotReport({
       'No effect-size gate, confidence interval, or product-win claim is computed or implied.',
       'Old Harbor V4 jobs/results are refused and never averaged into this report.',
       'Harbor publication remains a manual operator step.',
-      'Schedule order is deterministic makespan-aware optimization, not a confirmatory randomized arm schedule.',
+      'Schedule order is deterministic admission-aware optimization with at most one Lamina parent, not a confirmatory randomized arm schedule.',
+      'Prior Lamina efficacy deltas from no-skill Harbor locks are treatment-invalid and are suppressed from lamina_minus_* deltas.',
       ...(isolationBreaches.length
         ? ['Verifier isolation failed: agent phases accessed private evaluator implementation under `/tests`; all observed rewards are invalid for comparison or publication.']
         : []),
@@ -621,6 +752,16 @@ export async function aggregatePilotCampaign({
   const refused = extracted.filter((cell) => String(cell.state || '').startsWith('refused_'));
   if (refused.length) {
     throw new Error(refused[0].reason || 'refused legacy source during aggregation');
+  }
+
+  const invalidNames = extracted.filter((cell) => cell.state === 'invalid_pilot_job_name');
+  if (invalidNames.length) {
+    throw new Error(invalidNames[0].reason || 'invalid pilot job name during aggregation');
+  }
+
+  const campaignCheck = validateCampaignCells(extracted, root);
+  if (!campaignCheck.ok) {
+    throw new Error(campaignCheck.reason || 'campaign identity validation failed');
   }
 
   const taskIds = selectedTaskIds.length

@@ -9,6 +9,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pickEnvFile } from '../../../lib/load-env.mjs';
 import { assertCampaignSelectionAllowed } from '../lib/frozen-tasks.mjs';
+import {
+  CANARY_TASK_ID,
+  expectedPilotTaskDirName,
+  MAX_LAMINA_PARENTS,
+  parseSkillRerunPilotJobName,
+  SKILL_RERUN_CAMPAIGN_ID,
+  SKILL_RERUN_JOB_PREFIX,
+} from '../lib/constants.mjs';
+import { loadSkillBundleManifest, resolveHarnessGitProvenance, resolveStagedSkillPaths } from '../lib/skill-bundle.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -75,7 +84,7 @@ export function pilotPaths(root = DEFAULT_ROOT) {
   };
 }
 
-export function buildSupervisorEnv(root = DEFAULT_ROOT, baseEnv = process.env) {
+export function buildSupervisorEnv(root = DEFAULT_ROOT, baseEnv = process.env, skillManifestPath = null) {
   const forkRoot = path.join(root, HARBOR_FORK_REL);
   const existingPythonPath = baseEnv.PYTHONPATH ? `:${baseEnv.PYTHONPATH}` : '';
   return {
@@ -85,6 +94,9 @@ export function buildSupervisorEnv(root = DEFAULT_ROOT, baseEnv = process.env) {
     LB6_SEALED_ROOT: path.join(root, SEALED_STORE_REL),
     LB6_PRIVATE_VERIFIER_ROOT: path.join(root, PRIVATE_VERIFIER_REL),
     LB6_VERIFIER_IMAGE: baseEnv.LB6_VERIFIER_IMAGE || DEFAULT_VERIFIER_IMAGE,
+    LB6_SKILL_BUNDLE_MANIFEST: skillManifestPath || path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest.json'),
+    LB6_SKILL_BUNDLE_ROOT: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged'),
+    LB6_SKILL_RERUN_CAMPAIGN_ID: SKILL_RERUN_CAMPAIGN_ID,
   };
 }
 
@@ -112,32 +124,91 @@ export function readTasksFlag(argv, fallbackTaskIds = []) {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-/**
- * Deterministic makespan-aware schedule: all Lamina cells first, then a balanced
- * direct/plan prefix to fill wave one, remaining baseline cells in wave two.
- */
-export function schedulePilotCells(taskIds, maxConcurrency = MAX_CONCURRENCY) {
+export function orderCellsForAdmission(taskIds, canaryTaskId = CANARY_TASK_ID) {
   const sorted = [...taskIds].sort();
-  const laminaCells = sorted.map((taskId) => ({ taskId, arm: 'lamina' }));
-  const baselineCells = sorted.flatMap((taskId) => [
-    { taskId, arm: 'direct' },
-    { taskId, arm: 'plan' },
-  ]);
+  const cells = [];
+  if (sorted.includes(canaryTaskId)) {
+    cells.push({ taskId: canaryTaskId, arm: 'lamina' });
+  }
+  for (const taskId of sorted) {
+    for (const arm of PILOT_ARMS) {
+      if (taskId === canaryTaskId && arm === 'lamina') continue;
+      cells.push({ taskId, arm });
+    }
+  }
+  return cells;
+}
 
-  const waveOneBaselineCount = Math.max(
-    0,
-    Math.min(maxConcurrency - laminaCells.length, baselineCells.length),
+export function splitCampaignCells(cells, canaryTaskId = CANARY_TASK_ID) {
+  const canaryIndex = cells.findIndex(
+    (cell) => cell.taskId === canaryTaskId && cell.arm === 'lamina',
   );
-  const waveOneBaseline = baselineCells.slice(0, waveOneBaselineCount);
-  const waveTwoBaseline = baselineCells.slice(waveOneBaselineCount);
-  const ordered = [...laminaCells, ...waveOneBaseline, ...waveTwoBaseline];
+  if (canaryIndex === -1) {
+    return { canary: null, remaining: cells, hasCanary: false, canaryIndex: -1 };
+  }
+  return {
+    canary: cells[canaryIndex],
+    remaining: cells.filter((_, index) => index !== canaryIndex),
+    hasCanary: true,
+    canaryIndex,
+  };
+}
 
-  return ordered.map((cell, scheduleIndex) => ({
-    ...cell,
-    scheduleIndex,
-    wave: scheduleIndex < maxConcurrency ? 1 : 2,
-    taskDirName: `${cell.taskId}-${cell.arm}`,
-  }));
+export function isCanaryMeasurementValid(extractedCell) {
+  return extractedCell?.measurementValid === true;
+}
+
+/**
+ * Deterministic admission-aware schedule: global cap with at most one Lamina parent.
+ * Loan-library Lamina is ordered first as the campaign canary slot.
+ */
+export function schedulePilotCells(
+  taskIds,
+  maxConcurrency = MAX_CONCURRENCY,
+  maxLaminaParents = MAX_LAMINA_PARENTS,
+) {
+  const pending = orderCellsForAdmission(taskIds);
+  const schedule = [];
+  let scheduleIndex = 0;
+  let wave = 1;
+
+  while (pending.length) {
+    const waveCells = [];
+    let laminaInWave = 0;
+    const stillPending = [];
+
+    for (const cell of pending) {
+      if (waveCells.length >= maxConcurrency) {
+        stillPending.push(cell);
+        continue;
+      }
+      if (cell.arm === 'lamina' && laminaInWave >= maxLaminaParents) {
+        stillPending.push(cell);
+        continue;
+      }
+      waveCells.push(cell);
+      if (cell.arm === 'lamina') laminaInWave += 1;
+    }
+
+    if (!waveCells.length) {
+      throw new Error('admission schedule deadlock: no runnable cell with current Lamina cap');
+    }
+
+    for (const cell of waveCells) {
+      schedule.push({
+        ...cell,
+        scheduleIndex,
+        wave,
+        taskDirName: `${cell.taskId}-${cell.arm}`,
+      });
+      scheduleIndex += 1;
+    }
+
+    pending.splice(0, pending.length, ...stillPending);
+    wave += 1;
+  }
+
+  return schedule;
 }
 
 export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
@@ -246,8 +317,97 @@ export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
   };
 }
 
-export function makeJobName(taskId, arm, nowMs = Date.now()) {
-  return `lb6-pilot-${taskId}-${arm}-${nowMs}`;
+export function makeJobName(taskId, arm, nowMs = Date.now(), jobPrefix = SKILL_RERUN_JOB_PREFIX) {
+  return `lb6-pilot-${jobPrefix}-${taskId}-${arm}-${nowMs}`;
+}
+
+export function isFrozenPublicationTask(taskId) {
+  return taskId === 'dev-care-circle';
+}
+
+export function isPublicationEligibleCell(cell, { requireMeasurementValid = true } = {}) {
+  if (!cell?.taskId || !cell?.arm || isFrozenPublicationTask(cell.taskId)) return false;
+  if (!PILOT_ARMS.includes(cell.arm)) return false;
+  if (cell.priorNoSkill || cell.treatmentInvalid) return false;
+  if (cell.skillEvidence?.priorNoSkill) return false;
+  if (cell.skillEvidence?.passed !== true) return false;
+  if (cell.skillEvidence?.hasLedgerEvidence !== true) return false;
+  if (requireMeasurementValid && cell.measurementValid !== true) return false;
+
+  const expectedTaskDirName = expectedPilotTaskDirName(cell.taskId, cell.arm);
+  if (!cell.taskDirName || cell.taskDirName !== expectedTaskDirName) return false;
+
+  if (!cell.jobName) return false;
+  const parsedJob = parseSkillRerunPilotJobName(cell.jobName);
+  if (!parsedJob) return false;
+  if (parsedJob.taskId !== cell.taskId || parsedJob.arm !== cell.arm) return false;
+
+  return true;
+}
+
+export function validatePublicationBoundary({ taskIds, reportCells, report = null }) {
+  const runnableTaskIds = (taskIds || []).filter((taskId) => !isFrozenPublicationTask(taskId));
+  const expectedCells = runnableTaskIds.length * PILOT_ARMS.length;
+  const cells = Array.isArray(reportCells) ? reportCells : [];
+  const issues = [];
+
+  const reportCampaignId = report?.campaignId ?? report?.campaign?.campaignId ?? null;
+  if (reportCampaignId !== SKILL_RERUN_CAMPAIGN_ID) {
+    issues.push(`report campaign id must be ${SKILL_RERUN_CAMPAIGN_ID}`);
+  }
+
+  if (cells.length !== expectedCells) {
+    issues.push(`expected ${expectedCells} report cells, found ${cells.length}`);
+  }
+
+  const seen = new Set();
+  for (const cell of cells) {
+    const key = cell?.taskId && cell?.arm ? `${cell.taskId}/${cell.arm}` : null;
+    if (!key) {
+      issues.push('report cell missing taskId/arm');
+      continue;
+    }
+    if (seen.has(key)) {
+      issues.push(`duplicate task/arm cell: ${key}`);
+    }
+    seen.add(key);
+    if (!isPublicationEligibleCell(cell)) {
+      issues.push(`cell ${key} failed publication boundary checks`);
+    }
+  }
+
+  for (const taskId of runnableTaskIds) {
+    for (const arm of PILOT_ARMS) {
+      if (!seen.has(`${taskId}/${arm}`)) {
+        issues.push(`missing task/arm cell: ${taskId}/${arm}`);
+      }
+    }
+  }
+
+  const gateOk = report?.gate === 'three_arm_campaign_complete' || report?.gate === 'pilot_report_ready';
+  const isolatedCampaignResult = Boolean(
+    issues.length === 0
+    && report?.campaign?.ok
+    && gateOk
+    && cells.every((cell) => isPublicationEligibleCell(cell)),
+  );
+
+  const eligibleCells = isolatedCampaignResult
+    ? cells.map((cell) => ({
+      taskId: cell.taskId,
+      arm: cell.arm,
+      taskDirName: cell.taskDirName,
+      jobName: cell.jobName,
+    }))
+    : [];
+
+  return {
+    issues,
+    eligibleCells,
+    isolatedCampaignResult,
+    runnableTaskIds,
+    expectedCells,
+  };
 }
 
 export function buildHarborArgs({
@@ -258,6 +418,7 @@ export function buildHarborArgs({
   envFile,
   nConcurrent = 1,
   nConcurrentAgents = 1,
+  skillPaths = [],
 }) {
   if (!PILOT_ARMS.includes(arm)) {
     throw new Error(`unsupported arm: ${arm}`);
@@ -276,13 +437,22 @@ export function buildHarborArgs({
     '--yes',
   ];
   if (envFile) args.push('--env-file', envFile);
+  if (arm === 'lamina') {
+    for (const skillPath of skillPaths) {
+      args.push('--skills', skillPath);
+    }
+  }
   return args;
 }
 
 function spawnPromise(spawnImpl, command, args, options = {}) {
+  const requestedStdio = options.stdio ?? 'inherit';
+  const captureOutput = options.captureOutput !== false;
+  const stdio = captureOutput ? ['inherit', 'pipe', 'pipe'] : requestedStdio;
+
   return new Promise((resolve) => {
     const child = spawnImpl(command, args, {
-      stdio: options.stdio ?? 'inherit',
+      stdio,
       cwd: options.cwd,
       env: options.env ?? process.env,
     });
@@ -299,16 +469,16 @@ function spawnPromise(spawnImpl, command, args, options = {}) {
       killed: false,
       child,
     };
-    if (child.stdout) {
-      child.stdout.on('data', (chunk) => {
-        record.stdout += chunk;
+    const forward = (stream, target, field) => {
+      if (!stream) return;
+      stream.on('data', (chunk) => {
+        const text = chunk.toString();
+        record[field] += text;
+        if (target) target.write(chunk);
       });
-    }
-    if (child.stderr) {
-      child.stderr.on('data', (chunk) => {
-        record.stderr += chunk;
-      });
-    }
+    };
+    forward(child.stdout, process.stdout, 'stdout');
+    forward(child.stderr, process.stderr, 'stderr');
     child.on('error', (error) => {
       record.error = error.message;
       record.exitCode = record.exitCode ?? 1;
@@ -349,47 +519,134 @@ export async function runNodeScripts(scripts, { root, spawnImpl = defaultSpawn, 
   return { ok: true, gate: `${label}_passed`, reason: null, results };
 }
 
+function looksLikeResourceExhaustion(text) {
+  return /resource_exhausted|resource exhausted/i.test(text || '');
+}
+
 function looksLikeRateLimit(text) {
   return /rate[-\s]?limit|429|resource_exhausted|too many requests/i.test(text || '');
+}
+
+function looksLikeUsageLimit(text) {
+  return /usage.?limit|quota.?exceeded|billing.?limit|insufficient.?quota|api.?usage.?limit/i.test(text || '');
+}
+
+function looksLikeModelMismatch(text) {
+  return /model.?mismatch|unexpected.?model|wrong.?model|selected.?model|child_actual_model/i.test(text || '');
+}
+
+function looksLikeSkillInjectionFailure(text) {
+  return /skill.?injection|skill.?digest|skill.?bundle|missing.?skill|skills:\s*\[\]|pre_model_skill_gate/i.test(text || '');
 }
 
 function looksLikeProvenanceFailure(text) {
   return /provenance|child_actual_model|persona.?child|native.?child|protocol_invalid/i.test(text || '');
 }
 
-export function classifyCellFailure(record) {
-  const blob = `${record.stdout || ''}\n${record.stderr || ''}\n${record.error || ''}`;
-  if (record.deadlineExceeded) {
+export function classifyFromJobEvidence(extractedCell) {
+  if (!extractedCell) return null;
+  if (extractedCell.state === 'job_missing' || extractedCell.state === 'trial_missing') {
+    return null;
+  }
+  const blob = [
+    extractedCell.exception?.exception_message,
+    ...(extractedCell.stepExceptions || []).map((item) => item.message),
+    extractedCell.reason,
+    extractedCell.state,
+  ].filter(Boolean).join('\n');
+
+  if (extractedCell.state === 'campaign_deadline_exceeded') {
     return { state: 'campaign_deadline_exceeded', failFast: true };
   }
-  if (looksLikeRateLimit(blob)) {
+  if (!extractedCell.skillEvidence?.passed) {
+    return { state: extractedCell.skillEvidence?.gate || 'skill_injection_failure', failFast: true };
+  }
+  if (looksLikeSkillInjectionFailure(blob)) {
+    return { state: 'skill_injection_failure', failFast: true };
+  }
+  if (looksLikeResourceExhaustion(blob) || looksLikeRateLimit(blob) || looksLikeUsageLimit(blob)) {
     return { state: 'rate_limit_failure', failFast: true };
+  }
+  if (looksLikeModelMismatch(blob) || extractedCell.modelEvidence?.modelMatch === false) {
+    return { state: 'model_mismatch_failure', failFast: true };
   }
   if (looksLikeProvenanceFailure(blob)) {
     return { state: 'provenance_failure', failFast: true };
   }
+  if (extractedCell.state && extractedCell.state !== 'completed') {
+    return { state: extractedCell.state, failFast: looksLikeResourceExhaustion(blob) };
+  }
+  return null;
+}
+
+export function classifyCellFailure(record, jobEvidence = null) {
+  const blob = `${record.stdout || ''}\n${record.stderr || ''}\n${record.error || ''}`;
+  if (record.deadlineExceeded) {
+    return { state: 'campaign_deadline_exceeded', failFast: true };
+  }
+  if (looksLikeSkillInjectionFailure(blob)) {
+    return { state: 'skill_injection_failure', failFast: true };
+  }
+  if (looksLikeResourceExhaustion(blob) || looksLikeRateLimit(blob) || looksLikeUsageLimit(blob)) {
+    return { state: 'rate_limit_failure', failFast: true };
+  }
+  if (looksLikeModelMismatch(blob)) {
+    return { state: 'model_mismatch_failure', failFast: true };
+  }
+  if (looksLikeProvenanceFailure(blob)) {
+    return { state: 'provenance_failure', failFast: true };
+  }
+
+  const fromJob = classifyFromJobEvidence(jobEvidence?.extractedCell);
+  if (fromJob?.failFast) return fromJob;
+  if (fromJob) return fromJob;
   if (record.error) return { state: 'spawn_error', failFast: false };
   if (record.signal) return { state: 'signaled', failFast: false };
   if (record.exitCode === 0) return { state: 'completed', failFast: false };
   return { state: 'harbor_nonzero_exit', failFast: false };
 }
 
-async function runPool(items, concurrency, worker) {
+async function runAdmissionPool(items, concurrency, maxLaminaParents, worker) {
   const results = new Array(items.length);
-  let next = 0;
+  const pending = items.map((item, index) => ({ item, index }));
+  let active = 0;
+  let activeLamina = 0;
   let stop = false;
-  const runners = Array.from({ length: Math.max(1, concurrency) }, async () => {
-    while (!stop) {
-      const index = next;
-      next += 1;
-      if (index >= items.length) return;
-      const outcome = await worker(items[index], index);
-      results[index] = outcome;
-      if (outcome?.failFast) stop = true;
+
+  return new Promise((resolve) => {
+    function maybeFinish() {
+      if ((stop && active === 0) || (!pending.length && active === 0)) {
+        resolve(results.filter((item) => item !== undefined));
+      }
     }
+
+    function pump() {
+      if (stop) {
+        maybeFinish();
+        return;
+      }
+      for (let i = 0; i < pending.length; i += 1) {
+        const slot = pending[i];
+        if (active >= concurrency) break;
+        if (slot.item.arm === 'lamina' && activeLamina >= maxLaminaParents) continue;
+        pending.splice(i, 1);
+        active += 1;
+        if (slot.item.arm === 'lamina') activeLamina += 1;
+        worker(slot.item, slot.index).then((outcome) => {
+          results[slot.index] = outcome;
+          active -= 1;
+          if (slot.item.arm === 'lamina') activeLamina -= 1;
+          if (outcome?.failFast) stop = true;
+          pump();
+          maybeFinish();
+        });
+        i -= 1;
+      }
+      maybeFinish();
+    }
+
+    pump();
   });
-  await Promise.all(runners);
-  return results.filter((item) => item !== undefined);
 }
 
 function killChild(child) {
@@ -403,37 +660,45 @@ function killChild(child) {
 
 export function preparePublicationPlan({ root, taskIds, cells, reportPaths, report = null, write = true }) {
   const publicationDir = path.join(root, PUBLICATION_REL);
-  const expectedCells = (taskIds?.length || 0) * PILOT_ARMS.length;
-  const isolatedCampaignResult = Boolean(
-    report?.campaign?.ok
-      && (report?.gate === 'three_arm_campaign_complete' || report?.gate === 'pilot_report_ready')
-      && Array.isArray(report?.cells)
-      && report.cells.length === expectedCells
-      && report.cells.every((cell) => cell.ok && cell.measurementValid),
-  );
-  const selectedTaskDirs = [...new Set(cells.map((cell) => cell.taskDirName).filter(Boolean))].sort();
+  const reportCells = Array.isArray(report?.cells) ? report.cells : cells;
+  const boundary = validatePublicationBoundary({ taskIds, reportCells, report });
+  const { eligibleCells, isolatedCampaignResult, runnableTaskIds, issues } = boundary;
+  const selectedTaskDirs = [...new Set(
+    eligibleCells.map((cell) => cell.taskDirName).filter(Boolean),
+  )].sort();
+  const harborCommands = isolatedCampaignResult
+    ? [
+      ...selectedTaskDirs.map((taskDirName) => `harbor publish --public ${path.join(TASKS_REL, taskDirName)}`),
+      ...eligibleCells.map((cell) => `harbor upload --public ${path.join('jobs', cell.jobName)}`),
+    ]
+    : [];
   const commands = {
     note: 'Manual operator step only. This runner does not execute Harbor publication.',
-    publication_eligible: false,
+    campaign_id: SKILL_RERUN_CAMPAIGN_ID,
+    publication_eligible: isolatedCampaignResult,
     benchmark_upload_ready: isolatedCampaignResult,
     blocked_until: 'authenticated Harbor CLI + explicit approval to disclose a development-only package',
     blocked_reasons: [
       'development-only package; not eligible for a confirmatory or marketing claim',
       'Cursor persona child actual selected model is unverified',
       'Harbor registry authentication is required for publish/upload',
+      'frozen dev-care-circle package and prior no-skill Lamina jobs are excluded from this plan',
       ...(!isolatedCampaignResult
-        ? ['current campaign lacks a measurement-valid isolated multi-task result']
+        ? [
+          'current campaign lacks a measurement-valid isolated multi-task result with skill evidence',
+          ...issues,
+        ]
         : []),
     ],
-    commands: [
-      ...selectedTaskDirs.map((taskDirName) => `harbor publish --public ${path.join(TASKS_REL, taskDirName)}`),
-      ...cells.map((cell) => `harbor upload --public ${path.join('jobs', cell.jobName)}`),
-    ],
+    excluded_frozen_tasks: ['dev-care-circle'],
+    excluded_prior_no_skill_jobs: 'jobs/lb6-pilot-* without pre_model_skill_gate evidence are not enumerated',
+    commands: harborCommands,
     artifacts: {
       reportJson: reportPaths?.json || null,
       reportMarkdown: reportPaths?.markdown || null,
-      taskIds,
-      jobNames: cells.map((cell) => cell.jobName),
+      taskIds: runnableTaskIds,
+      jobNames: eligibleCells.map((cell) => cell.jobName),
+      campaignId: SKILL_RERUN_CAMPAIGN_ID,
     },
     development_only: true,
     confirmatory: false,
@@ -575,6 +840,45 @@ export async function runThreeArmCampaign(options = {}) {
     options.maxConcurrency ?? MAX_CONCURRENCY,
   );
 
+  let skillBundle = null;
+  let laminaSkillPaths = [];
+  try {
+    skillBundle = loadSkillBundleManifest(root);
+    laminaSkillPaths = resolveStagedSkillPaths(root, skillBundle.manifest);
+  } catch (error) {
+    if (!skipPackageScripts) {
+      return {
+        ok: false,
+        exitCode: 1,
+        gate: 'skill_bundle_missing',
+        reason: error.message,
+        gates,
+        report: null,
+      };
+    }
+  }
+
+  let harnessProvenance = null;
+  try {
+    harnessProvenance = resolveHarnessGitProvenance(root);
+  } catch (error) {
+    if (!skipPackageScripts) {
+      return {
+        ok: false,
+        exitCode: 1,
+        gate: 'harness_git_unavailable',
+        reason: error.message,
+        gates,
+        report: null,
+      };
+    }
+  }
+
+  const { canary, remaining, hasCanary } = splitCampaignCells(cells);
+  const remainingSchedule = hasCanary
+    ? schedulePilotCells([...new Set(remaining.map((cell) => cell.taskId))].sort())
+    : schedule;
+
   if (dryRun) {
     const planned = cells.map((cell) => ({
       ...cell,
@@ -586,6 +890,7 @@ export async function runThreeArmCampaign(options = {}) {
         envFile,
         nConcurrent: 1,
         nConcurrentAgents: 1,
+        skillPaths: cell.arm === 'lamina' ? laminaSkillPaths : [],
       }),
     }));
     return {
@@ -596,13 +901,48 @@ export async function runThreeArmCampaign(options = {}) {
       gates,
       concurrency,
       schedule,
+      canaryPhase: hasCanary ? [planned.find((cell) => cell.taskId === CANARY_TASK_ID && cell.arm === 'lamina')] : [],
+      remainingSchedule,
       cells: planned,
+      skillBundle: skillBundle?.manifest ?? null,
+      campaign: {
+        campaignId: SKILL_RERUN_CAMPAIGN_ID,
+        maxLaminaParents: MAX_LAMINA_PARENTS,
+        selectedTaskIds: discovery.selectedTaskIds,
+        sourceSkillCommit: skillBundle?.manifest?.source_skill_commit ?? null,
+        harnessGitCommit: harnessProvenance?.harness_git_commit ?? skillBundle?.manifest?.harness_git_commit ?? null,
+        harnessGitClean: harnessProvenance?.harness_git_clean ?? null,
+      },
       report: null,
     };
   }
 
+  if (
+    harnessProvenance
+    && !harnessProvenance.unavailable
+    && !harnessProvenance.harness_git_clean
+    && options.requireCleanHarness !== false
+  ) {
+    return {
+      ok: false,
+      exitCode: 1,
+      gate: 'harness_git_dirty',
+      reason: 'refusing paid campaign launch with uncommitted harness changes',
+      gates,
+      report: null,
+      campaign: {
+        harnessGitCommit: harnessProvenance.harness_git_commit,
+        harnessGitClean: false,
+      },
+    };
+  }
+
   const activeChildren = new Set();
-  const supervisorEnv = buildSupervisorEnv(root, options.env ?? process.env);
+  const supervisorEnv = buildSupervisorEnv(
+    root,
+    options.env ?? process.env,
+    skillBundle?.manifestPath ?? null,
+  );
   let deadlineExceeded = false;
   let deadlineTimer = null;
   if (deadlineMs > 0) {
@@ -613,7 +953,9 @@ export async function runThreeArmCampaign(options = {}) {
     if (typeof deadlineTimer.unref === 'function') deadlineTimer.unref();
   }
 
-  const cellResults = await runPool(cells, concurrency.effective, async (cell) => {
+  const { extractCellRecord } = await import('./aggregate-results.mjs');
+
+  async function runPilotCell(cell) {
     const args = buildHarborArgs({
       arm: cell.arm,
       taskDirName: cell.taskDirName,
@@ -622,6 +964,7 @@ export async function runThreeArmCampaign(options = {}) {
       envFile,
       nConcurrent: 1,
       nConcurrentAgents: 1,
+      skillPaths: cell.arm === 'lamina' ? laminaSkillPaths : [],
     });
     const started = Date.now();
     const finished = await spawnPromise(spawnImpl, 'harbor', args, {
@@ -632,30 +975,73 @@ export async function runThreeArmCampaign(options = {}) {
     });
     if (finished.child) activeChildren.delete(finished.child);
 
-    const classification = classifyCellFailure({
-      ...finished,
-      deadlineExceeded,
-    });
-    const output = `${finished.stdout || ''}\n${finished.stderr || ''}\n${finished.error || ''}`;
-    return {
+    const partial = {
       ...cell,
       args,
       exitCode: finished.exitCode,
       signal: finished.signal,
       error: finished.error,
       durationMs: Date.now() - started,
-      state: classification.state,
-      failFast: classification.failFast,
-      rateLimit: looksLikeRateLimit(output),
-      provenanceFailure: looksLikeProvenanceFailure(output),
       deadlineExceeded,
       jobPath: path.join(paths.jobsDir, cell.jobName),
     };
-  });
+    const extractedCell = extractCellRecord({
+      jobsRoot: paths.jobsDir,
+      jobName: cell.jobName,
+      cellMeta: partial,
+    });
+    const classification = classifyCellFailure(
+      { ...finished, deadlineExceeded },
+      { extractedCell },
+    );
+    const output = `${finished.stdout || ''}\n${finished.stderr || ''}\n${finished.error || ''}`;
+    return {
+      ...partial,
+      extractedCell,
+      state: classification.state,
+      failFast: classification.failFast,
+      measurementValid: extractedCell.measurementValid === true,
+      rateLimit: looksLikeRateLimit(output) || looksLikeResourceExhaustion(output),
+      provenanceFailure: looksLikeProvenanceFailure(output),
+    };
+  }
+
+  const resultsByKey = new Map();
+  let canaryGate = null;
+
+  if (hasCanary) {
+    const canaryOutcome = await runPilotCell(canary);
+    resultsByKey.set(`${canary.taskId}/${canary.arm}`, canaryOutcome);
+    if (canaryOutcome.failFast) {
+      canaryGate = canaryOutcome.state;
+    } else if (!isCanaryMeasurementValid(canaryOutcome.extractedCell)) {
+      canaryGate = 'canary_not_measurement_valid';
+    }
+  }
+
+  let remainingResults = [];
+  if (!canaryGate) {
+    remainingResults = await runAdmissionPool(
+      remaining,
+      concurrency.effective,
+      MAX_LAMINA_PARENTS,
+      async (cell) => {
+        const outcome = await runPilotCell(cell);
+        resultsByKey.set(`${cell.taskId}/${cell.arm}`, outcome);
+        return outcome;
+      },
+    );
+  }
 
   if (deadlineTimer) clearTimeout(deadlineTimer);
 
-  const failFastHit = cellResults.find((cell) => cell.failFast);
+  const cellResults = cells
+    .map((cell) => resultsByKey.get(`${cell.taskId}/${cell.arm}`))
+    .filter(Boolean);
+
+  const failFastHit = canaryGate
+    ? { state: canaryGate, taskId: canary?.taskId, arm: canary?.arm }
+    : cellResults.find((cell) => cell.failFast);
   const expectedCellCount = discovery.selectedTaskIds.length * PILOT_ARMS.length;
   const allCellsPresent =
     cellResults.length === expectedCellCount
@@ -742,6 +1128,13 @@ export async function runThreeArmCampaign(options = {}) {
       attemptsPerArm: ATTEMPTS_PER_ARM,
       maxRetries: MAX_RETRIES,
       selectedTaskIds: discovery.selectedTaskIds,
+      campaignId: SKILL_RERUN_CAMPAIGN_ID,
+      maxLaminaParents: MAX_LAMINA_PARENTS,
+      skillBundleDigest: skillBundle?.manifest?.aggregate_digest ?? null,
+      pinnedSkillCommit: skillBundle?.manifest?.source_skill_commit ?? skillBundle?.manifest?.pinned_commit ?? null,
+      sourceSkillCommit: skillBundle?.manifest?.source_skill_commit ?? skillBundle?.manifest?.pinned_commit ?? null,
+      harnessGitCommit: harnessProvenance?.harness_git_commit ?? skillBundle?.manifest?.harness_git_commit ?? null,
+      harnessGitClean: harnessProvenance?.harness_git_clean ?? null,
       development_only: true,
       confirmatory: false,
       child_actual_model_unverified: true,
@@ -798,6 +1191,9 @@ export async function main(argv = process.argv.slice(2), options = {}) {
     console.log(JSON.stringify({
       gate: result.gate,
       concurrency: result.concurrency,
+      campaignId: SKILL_RERUN_CAMPAIGN_ID,
+      maxLaminaParents: MAX_LAMINA_PARENTS,
+      skillBundleDigest: result.skillBundle?.aggregate_digest ?? null,
       selectedTaskIds: result.campaign?.selectedTaskIds || selectedTaskIds,
       schedule: result.schedule,
       cells: result.cells?.map((cell) => ({

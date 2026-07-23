@@ -23,6 +23,15 @@ from harbor.models.trial.result import ExceptionInfo, TimingInfo
 from harbor.models.verifier.result import VerifierResult
 from harbor.trial.multi_step import MultiStepTrial
 
+from lb6_skill_gate import (
+    ProtocolInvalidError as SkillGateError,
+    EMPTY_INVENTORY_DIGEST,
+    extract_lock_skill_sources,
+    parse_agent_skill_locks,
+    validate_agent_skill_locks,
+    verify_container_skill_capture,
+)
+
 
 PATCH_VERSION = "lb6-host-seal-v1"
 EXCLUDED_DIRS = {".git", ".agents", ".cursor", "node_modules", "dist", "build", "coverage"}
@@ -514,6 +523,139 @@ async def _isolated_verify(trial: MultiStepTrial, seal: dict, step_name: str) ->
     return VerifierResult(rewards=first["reward"])
 
 
+def _load_skill_bundle_manifest() -> dict:
+    manifest_path = os.environ.get("LB6_SKILL_BUNDLE_MANIFEST")
+    if not manifest_path:
+        raise ProtocolInvalidError("LB6_SKILL_BUNDLE_MANIFEST is required")
+    path = Path(manifest_path)
+    if not path.is_file():
+        raise ProtocolInvalidError("skill bundle manifest missing")
+    return json.loads(path.read_text())
+
+
+async def _resolve_container_skills_path(trial: MultiStepTrial) -> str:
+    result = await trial.agent_environment.exec('printf %s "$HOME/.cursor/skills"')
+    if result.return_code != 0:
+        raise ProtocolInvalidError("unable to resolve container Cursor skill root")
+    container_path = (result.stdout or "").strip()
+    if not container_path:
+        raise ProtocolInvalidError("container Cursor skill root is empty")
+    return container_path
+
+
+async def _inspect_container_skill_registration(
+    trial: MultiStepTrial,
+    manifest: dict,
+    *,
+    arm: str,
+) -> dict:
+    container_path = await _resolve_container_skills_path(trial)
+    container_id = await _container_id(trial)
+
+    with tempfile.TemporaryDirectory(prefix="lb6-skill-capture-") as temp_name:
+        capture_root = Path(temp_name) / "skills"
+        capture_root.mkdir()
+        cp_source = f"{container_id}:{container_path}/."
+        cp = subprocess.run(
+            ["docker", "cp", cp_source, str(capture_root)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if cp.returncode != 0:
+            stderr = (cp.stderr or cp.stdout or "").strip()
+            if "Could not find the file" in stderr or "No such file" in stderr:
+                if arm == "lamina":
+                    raise ProtocolInvalidError("container skill root missing for lamina arm")
+                return {
+                    "container_path": container_path,
+                    "container_file_count": 0,
+                    "container_aggregate_digest": EMPTY_INVENTORY_DIGEST,
+                    "lamina_skill_absent": True,
+                }
+            raise ProtocolInvalidError(f"container skill capture failed: {stderr[-500:]}")
+
+        details = verify_container_skill_capture(capture_root, manifest, require_present=(arm == "lamina"))
+        details["container_path"] = container_path
+        return details
+
+
+def _assert_host_pre_model_skill_gate(
+    trial: MultiStepTrial,
+    *,
+    arm: str,
+    manifest: dict,
+    lock: dict,
+) -> tuple[list[str], list[dict]]:
+    staged_root = Path(os.environ.get("LB6_SKILL_BUNDLE_ROOT", "")).resolve()
+    skill_sources = extract_lock_skill_sources(lock)
+    skill_locks = parse_agent_skill_locks(lock)
+    expected_digests = manifest.get("harbor_skill_digests") or {}
+    lock_check = validate_agent_skill_locks(
+        skill_locks,
+        arm=arm,
+        expected_skill_names=list(manifest.get("skills") or []),
+        expected_digests=expected_digests if arm == "lamina" else None,
+    )
+    if not lock_check["passed"]:
+        raise ProtocolInvalidError(f"pre_model_skill_gate: {lock_check['reason']}")
+
+    if arm == "lamina":
+        for skill_name in manifest.get("skills") or []:
+            skill_md = staged_root / skill_name / "SKILL.md"
+            if not skill_md.is_file():
+                raise ProtocolInvalidError(f"pre_model_skill_gate: staged skill missing {skill_name}")
+        if not manifest.get("aggregate_digest"):
+            raise ProtocolInvalidError("pre_model_skill_gate: skill bundle digest missing")
+
+    return skill_sources, skill_locks
+
+
+async def _assert_pre_model_skill_gate(trial: MultiStepTrial, *, step_name: str) -> None:
+    arm = str(trial.task.config.metadata.get("arm"))
+    task_id = str(trial.task.config.metadata.get("task_id"))
+    manifest = _load_skill_bundle_manifest()
+    lock_path = trial.paths.trial_dir / "lock.json"
+    if not lock_path.exists():
+        lock_path = trial.paths.job_dir / "lock.json"
+    lock = json.loads(lock_path.read_text()) if lock_path.exists() else {}
+
+    try:
+        skill_sources, skill_locks = _assert_host_pre_model_skill_gate(
+            trial,
+            arm=arm,
+            manifest=manifest,
+            lock=lock,
+        )
+        container_details = await _inspect_container_skill_registration(trial, manifest, arm=arm)
+    except SkillGateError as exc:
+        raise ProtocolInvalidError(str(exc)) from exc
+
+    _append_ledger(
+        trial,
+        "pre_model_skill_gate",
+        {
+            "arm": arm,
+            "task_id": task_id,
+            "phase": step_name,
+            "source_skill_commit": manifest.get("source_skill_commit") or manifest.get("pinned_commit"),
+            "bundle_commit": manifest.get("pinned_commit"),
+            "bundle_digest": manifest.get("aggregate_digest"),
+            "skill_sources": skill_sources,
+            "skill_locks": [
+                {"name": entry["name"], "source": entry["source"], "digest": entry["digest"]}
+                for entry in skill_locks
+                if entry.get("digest")
+            ],
+            "container_path": container_details["container_path"],
+            "container_file_count": container_details["container_file_count"],
+            "container_aggregate_digest": container_details["container_aggregate_digest"],
+            "lamina_skill_absent": container_details["lamina_skill_absent"],
+            "passed": True,
+        },
+    )
+
+
 async def _patched_run_step(self, step, step_result, *, index: int, total: int) -> None:
     arm = str(self.task.config.metadata.get("arm"))
     shaping_step = "implement" if arm == "lamina" else "shape_build"
@@ -534,6 +676,18 @@ async def _patched_run_step(self, step, step_result, *, index: int, total: int) 
         await self._stop_agent_environment()
         self._archive_step_outputs(step)
         return
+
+    if index == 0:
+        try:
+            await _assert_pre_model_skill_gate(self, step_name=step.name)
+        except Exception as exc:
+            step_result.exception_info = ExceptionInfo.from_exception(
+                exc if isinstance(exc, ProtocolInvalidError) else ProtocolInvalidError(str(exc))
+            )
+            _append_ledger(self, "protocol_invalid", {"step": step.name, "error_type": type(exc).__name__})
+            await self._stop_agent_environment()
+            self._archive_step_outputs(step)
+            return
 
     await self._run_step_agent(step, step_result)
     await self._upload_agent_logs()

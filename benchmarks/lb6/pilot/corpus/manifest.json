@@ -141,6 +141,46 @@
           }
         ]
       }
+    },
+    {
+      "id": "dev-toggle-preference",
+      "kind": "greenfield-negative-control",
+      "stage": "spark",
+      "brief": "dev-toggle-preference/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "user",
+            "actions": [
+              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-a1f8e2b9"},
+              {"type": "enable_focus_mode", "id": "pref-1"}
+            ],
+            "expect": [["focus", "on"], ["quiet"]],
+            "must_not_include": ["lb6-tgl-a1f8e2b9"]
+          },
+          {
+            "actor": "user",
+            "actions": [
+              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-c4d7e6f0"},
+              {"type": "enable_focus_mode", "id": "pref-1"},
+              {"type": "disable_focus_mode", "id": "pref-1"}
+            ],
+            "expect": [["focus", "off"], ["normal"]],
+            "must_not_include": ["lb6-tgl-c4d7e6f0"]
+          },
+          {
+            "actor": "user",
+            "actions": [
+              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-b8c3a5d1"},
+              {"type": "enable_focus_mode", "id": "pref-1"},
+              {"type": "toggle_focus_mode", "id": "pref-1"},
+              {"type": "toggle_focus_mode", "id": "pref-1"}
+            ],
+            "expect": [["focus", "on"]],
+            "must_not_include": ["lb6-tgl-b8c3a5d1"]
+          }
+        ]
+      }
     }
   ],
   "pilot": {
@@ -148,12 +188,14 @@
       "dev-care-circle",
       "dev-loan-library",
       "dev-review-room",
-      "dev-simple-list"
+      "dev-simple-list",
+      "dev-toggle-preference"
     ],
     "default_run_tasks": [
       "dev-loan-library",
       "dev-review-room",
-      "dev-simple-list"
+      "dev-simple-list",
+      "dev-toggle-preference"
     ],
     "published_frozen_task_ids": [
       "dev-care-circle"
