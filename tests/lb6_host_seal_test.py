@@ -6,10 +6,15 @@ from pathlib import Path
 
 from lb6_harbor_patch import (
     ProtocolInvalidError,
+    _is_first_harbor_step,
     _normalise,
     _run_verifier_once,
     _store_object,
 )
+
+assert _is_first_harbor_step(1)
+assert not _is_first_harbor_step(0)
+assert not _is_first_harbor_step(2)
 
 
 class FakePaths:

@@ -348,7 +348,7 @@ assert.equal(
   publication.plan.commands.filter((cmd) => cmd.startsWith('harbor publish')).length,
   selectedNewTasks.length * 3,
 );
-assert.ok(publication.plan.commands.every((cmd) => cmd.includes('skill-rerun-v1') || cmd.startsWith('harbor publish')));
+assert.ok(publication.plan.commands.every((cmd) => cmd.includes('skill-rerun-v2') || cmd.startsWith('harbor publish')));
 
 const mixedCells = [
   {

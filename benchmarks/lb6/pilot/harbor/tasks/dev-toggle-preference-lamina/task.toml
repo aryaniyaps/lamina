@@ -10,7 +10,7 @@ keywords = ["fuzzy-prompt", "development-pilot", "lb6", "lamina"]
 [metadata]
 benchmark = "lamina-lb6-pilot"
 benchmark_version = "lb6-dev-pilot"
-campaign_id = "lb6-dev-pilot-skill-rerun-v1"
+campaign_id = "lb6-dev-pilot-skill-rerun-v2"
 task_id = "dev-toggle-preference"
 arm = "lamina"
 kind = "greenfield-negative-control"

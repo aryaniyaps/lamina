@@ -656,6 +656,11 @@ async def _assert_pre_model_skill_gate(trial: MultiStepTrial, *, step_name: str)
     )
 
 
+def _is_first_harbor_step(index: int) -> bool:
+    """Harbor 0.18 MultiStepTrial enumerates steps with start=1."""
+    return index == 1
+
+
 async def _patched_run_step(self, step, step_result, *, index: int, total: int) -> None:
     arm = str(self.task.config.metadata.get("arm"))
     shaping_step = "implement" if arm == "lamina" else "shape_build"
@@ -677,7 +682,7 @@ async def _patched_run_step(self, step, step_result, *, index: int, total: int) 
         self._archive_step_outputs(step)
         return
 
-    if index == 0:
+    if _is_first_harbor_step(index):
         try:
             await _assert_pre_model_skill_gate(self, step_name=step.name)
         except Exception as exc:
