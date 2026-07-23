@@ -1,25 +1,25 @@
 ---
 title: /lamina
-description: Router command — auto-route to design, verify, or direct capability answers
+description: Router command — optional routing via /lamina <request> to design, verify, or direct answers
 ---
 
 import { Callout } from 'nextra/components'
 
 # /lamina
 
-The entry point for Lamina. Routes your request to design, verify, or a focused capability skill based on intent.
+The optional entry point when you are unsure which Lamina command to run. Routes an explicit `/lamina <request>` to design, verify, or a focused capability skill based on intent. It is not required setup and does not replace `/lamina-init`.
 
 ## Quick path
 
 1. Run `/lamina` with no args to see available commands
-2. Or describe what you need in natural language
+2. Or run `/lamina <what you need>` with your request in the same slash command
 3. Lamina routes to the right workflow or answers directly
 
 ## When to use
 
-- You are not sure which slash command to run
+- You are not sure which slash command to run (optional router — not a substitute for `/lamina-init`)
 - You have a focused product design question (direct mode)
-- You want Lamina to interpret intent from natural language
+- You want Lamina to interpret intent from an explicit `/lamina <request>` command
 
 ## Routing logic
 
@@ -75,7 +75,7 @@ Before routing to design or verify, Lamina checks for valid `.lamina/business-co
 ```
 
 ```
-/lamina Verify the live app at http://localhost:3000
+/lamina Verify guest checkout at http://localhost:3000
 ```
 
 ```

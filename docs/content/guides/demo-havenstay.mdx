@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # Demo: HavenStay
 
-HavenStay is a hotel booking marketplace built to demonstrate Lamina's design → implement → verify loop. The same prompt produced two builds — one with Lamina, one without — both from scratch by Cursor Composer 2.5 with no human-written app code.
+HavenStay is a hotel booking marketplace built to demonstrate Lamina's init → design → implement → verify loop. The same prompt produced two builds — one with Lamina, one without — both from scratch by Cursor Composer 2.5 with no human-written app code.
 
 ## Quick path
 
@@ -38,7 +38,7 @@ customer support, accessibility, edge cases, and system behavior.
 | | **With Lamina** | **Without Lamina** |
 |---|---|---|
 | **Folder** | [`demo/hotel-booking-with-lamina`](https://github.com/aryaniyaps/lamina/tree/main/demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](https://github.com/aryaniyaps/lamina/tree/main/demo/hotel-booking-without-lamina) |
-| **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor Plan mode → implement |
+| **Workflow** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` | Cursor Plan mode → implement |
 
 Both apps cover traveler search/booking, a hotel partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, ops depth, and edge cases — not whether a screen exists.
 
@@ -69,7 +69,7 @@ Password for all: `demo1234`
 With the dev server running:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest booking checkout at http://localhost:3000
 ```
 
 ## Behaviors Lamina covered
@@ -114,19 +114,23 @@ States include `PENDING_PAYMENT`, `CHECKED_IN`, `CANCELLED_BY_TRAVELER`, `CANCEL
 
 ## Inspect the artifacts
 
-The Lamina contract and verify output live in the demo repo:
+The bundled with-Lamina demo ships an **archived legacy artifact set** from before Contract v2. The paths below are what actually exist in the repo — not the current canonical filenames.
 
-| Artifact | Path |
-|----------|------|
+| Artifact | Legacy path (bundled demo) |
+|----------|----------------------------|
 | Business context | `.lamina/business-context.md` |
-| Personas | `.lamina/personas.json` |
-| Machine contract | `.lamina/runs/havenstay-platform-2026-07-10/run.json` |
+| Personas | `.lamina/personas.yaml` |
+| Machine contract | `.lamina/runs/havenstay-platform-2026-07-10/run.yaml` |
 | Implement brief | `.lamina/runs/havenstay-platform-2026-07-10/implement.md` |
 | Design report | `.lamina/runs/havenstay-platform-2026-07-10/report.md` |
 | Verify report | `.lamina/runs/havenstay-platform-2026-07-10/verify-report.md` |
+| Fix brief | `.lamina/runs/havenstay-platform-2026-07-10/fix.md` |
+| Walkthrough evidence | `.lamina/runs/havenstay-platform-2026-07-10/walkthrough/` (optional) |
+
+New Lamina runs use Contract v2 canonical names — `personas.json`, `run.json`, `run.md`, `report.md`, and optional `walkthrough/` — as documented in [Per-run artifacts](/reference/artifacts) and [Global artifacts](/reference/global-artifacts).
 
 <Callout type="info">
-**Advanced:** The HavenStay `run.json` includes 15+ entities, 30+ workflows, and a full dependency graph. Use it as a reference when authoring your own contracts.
+**Advanced:** The legacy `run.yaml` contract includes 18 entities, 23 workflows, 21 scenarios, and 15 invariants. Use it to see what a mature Lamina design looks like, but refer to the [run.json schema](/reference/run-json-schema) for the current contract format.
 </Callout>
 
 ## What this proves
@@ -136,5 +140,5 @@ These are not UI polish issues. They are product behavior gaps that Lamina's con
 ## Next steps
 
 - [Personas](/concepts/personas) — how verification walks work
-- [Quickstart](/getting-started/quickstart) — run your own cycle
-- [run.json schema](/reference/run-json-schema) — study the HavenStay contract structure
+- [Quickstart](/getting-started/quickstart) — run your own cycle with Contract v2 artifacts
+- [Per-run artifacts](/reference/artifacts) — canonical artifact model for new runs

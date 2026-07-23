@@ -15,10 +15,11 @@ Lamina is a **headless product-design skill for AI coding agents**. It designs h
 
 ## Quick path
 
-1. Lamina designs product behavior → `implement.md`
-2. Your coding agent implements → app source
-3. Lamina verifies the live app → `fix.md`
-4. Your agent fixes → re-verify
+1. `/lamina-init <domain>` → project context
+2. Lamina designs product behavior → `implement.md`
+3. Your coding agent implements → app source
+4. Lamina verifies the live app → `fix.md`
+5. Your agent fixes → re-verify
 
 ## Behavior over pixels
 
@@ -41,13 +42,13 @@ They polish how it looks. Lamina designs how it works — actors, flows, empty/e
 
 BMAD, ai-ux-skills, and design-skills teach design judgment — heuristics, critique, accessibility. Lamina runs a **workflow**: slash commands → `run.json` / `implement.md` → live-app verify.
 
-### Just ask your agent
+### Generic agent prompting
 
-Fine for happy paths. Weak on permission matrices, stale states, and mid-flow failures. Lamina structures behavior before build and walks the live app after.
+Fine for happy paths. Weak on permission matrices, stale states, and mid-flow failures. Lamina structures behavior before build and walks the live app after — but only when you invoke it with slash commands such as `/lamina-design` or route through `/lamina <request>`. It does not activate passively after install.
 
 ### Spec tools
 
-Spec Kit, Kiro, and spec-driven dev structure engineering work. Lamina structures **product behavior**. Run `/lamina-design`, then feed `implement.md` into Spec Kit. See [Pair with Spec Kit](/guides/pair-with-spec-kit).
+Spec Kit, Kiro, and spec-driven dev structure engineering work. Lamina structures **product behavior**. Run `/lamina-init`, then `/lamina-design`, then feed `implement.md` into Spec Kit. See [Pair with Spec Kit](/guides/pair-with-spec-kit).
 
 ### App builders
 

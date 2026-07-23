@@ -25,7 +25,7 @@ A new product with no existing app. Lamina designs from stakeholder input.
 1. `/lamina-init <domain description>` — creates `business-context.md` with `maturity: greenfield`
 2. `/lamina-design <flow>` — full contract with `surfaces[].status: new`
 3. Your agent implements from `implement.md`
-4. `/lamina-verify <base_url>` — persona walks on the new build
+4. `/lamina-verify guest checkout at http://localhost:3000` — persona walks on the new build
 
 ### Example
 
@@ -66,7 +66,7 @@ Brownfield init and design use a bounded repo scan:
 On brownfield projects, you can run verify before any design run:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 Lamina infers domain from the repo and walkthrough, then walks the live app checking permissions, invariants, and reachability. This is useful for pre-PR audits on existing apps.
@@ -76,7 +76,7 @@ Lamina infers domain from the repo and walkthrough, then walks the live app chec
 ```
 /lamina-init Existing Next.js hotel booking app — audit and improve checkout flows
 
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 ## Comparing approaches

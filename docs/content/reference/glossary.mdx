@@ -59,16 +59,17 @@ Synonym for [business context](#business-context). The output of `/lamina-init`.
 
 ## Finding
 
-A product behavior gap discovered during `/lamina-verify`. Recorded in `findings[]` on `run.json` and summarized in `fix.md` with expected vs observed behavior.
+A verification observation recorded during `/lamina-verify` — a product gap, contract gap, or operational note. Stored in `findings[]` on `run.json` with expected vs observed behavior. Product and contract findings appear in `fix.md`; `fix_target: ops` observations stay in `report.md` only.
 
 See [Working with findings](/guides/working-with-findings).
 
 ## fix_target
 
-Per-finding field indicating who fixes the gap:
+Required per-finding field naming who addresses the gap:
 
-- `product` (default) — your coding agent fixes app code
+- `product` — your coding agent fixes app code from `fix.md`
 - `contract` — re-run `/lamina-design` with a scoped update
+- `ops` — report-only observation in `report.md`; excluded from `fix.md`; does not block product/contract exit
 
 ## Greenfield
 
