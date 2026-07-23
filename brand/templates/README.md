@@ -15,7 +15,7 @@ Stop doing edge-case archaeology mid-sprint. Lamina front-loads product thinking
 | | |
 |---|---|
 | **Design is how it works** | The only AI skill for product behavior — not pixels or code |
-| **100% open source** | MIT. Inspect, fork, extend |
+| **100% open source** | Apache-2.0. Inspect, fork, extend |
 | **Any UI design skill** | Impeccable, UI UX Pro Max, your own |
 | **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter |
 | **Any UI library** | Tailwind, Chakra UI, shadcn, MUI |
@@ -101,4 +101,4 @@ Output is framework-agnostic. Hand it to your coding agent with shadcn, MUI, Tai
 
 ## License
 
-MIT
+Apache License 2.0
