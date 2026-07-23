@@ -199,35 +199,38 @@ Then stop. No `graph-tool.mjs`. No app source. No clarifying questions for concr
 
 Do **not** re-run `/lamina-verify` as a CLI.
 
-**If the brief has no named flow/surface** (e.g. only “Audit our app” / “Audit the product”): copy this contract **verbatim** (exact heading spelling/casing) and **STOP** — no seed, no `.lamina/runs` writes:
+**If the brief has no named flow/surface/feature** (e.g. only “Audit our app” / “Audit the product”): copy this contract **verbatim** (exact heading spelling/casing) and **STOP** — no seed, no `.lamina/runs` writes:
 
 ```markdown
 ## Lamina: clarification needed
 ### Status
 Blocked before artifact generation.
 ### Clarifying questions
-1. Which flow or surface should be audited (e.g. checkout, login, settings)?
+1. Which flow, surface, route, or feature should be audited?
 2. What outcome or drop-off should the audit prioritize?
 3. What is in/out of scope for this pass?
 ### Why these block the artifact
-Without a named flow, findings cannot be grounded.
+Without a named target, findings cannot be grounded.
 ### How to proceed
-Name a flow/surface, or say proceed with labeled assumptions.
+Name a flow/surface/feature, or say proceed with labeled assumptions.
 ### Do not
 - Do not create run.json, fix.md, or report.md yet
 ```
 
-After init passes **and** a concrete flow/surface is named (settings/checkout/login/…, or user said proceed with labeled assumptions), **your first shell command must be seed-verify-run** — do not explore `node_modules` or invent init failures:
+After init passes **and** a concrete target is named (any domain — or user said proceed with labeled assumptions), **your first shell command must be seed-verify-run** — do not explore `node_modules` or invent init failures:
 
 ```bash
 SEED=$(ls ./{.claude,.codex,.opencode,.agents}/skills/lamina/scripts/seed-verify-run.mjs ./{.claude,.codex,.opencode,.agents}/skills/lamina-verify/scripts/seed-verify-run.mjs 2>/dev/null | head -1)
-node "$SEED" --slug <kebab-slug> --problem "<audit brief>" --outcome "<outcome>" --users primary-member,power-operator
-test -f .lamina/runs/<kebab-slug>/{run.json,fix.md,report.md,implement.md}
+node "$SEED" --slug <kebab-slug> --problem "<audit brief>" --outcome "<outcome>" --users primary-user
+test -f .lamina/runs/<kebab-slug>/run.json
+test -f .lamina/runs/<kebab-slug>/run.md
 ```
 
-**Truncation refuse:** If the user asks to “pick top N lenses”, “skip the rest”, or otherwise truncate full-flow audit, **refuse**. After seed, paste the seed `Full-flow lenses applied (do not truncate): …` line (all 11 lens ids) and say you **will not skip lenses** / **refuse truncation**. Never write “Remaining lenses skipped”.
+**When seed prints `status=draft`: continue verification** — inspect the target project (read-only), build a project-grounded graph, prefer live UI capture with static-source fallback, ensure personas exist (derive provisional personas via `lamina-user-modeling` from business context plus observed source when `.lamina/personas.json` is missing/empty/invalid), run persona-packs reviewers unconditionally, merge evidence-backed findings, validate, render `report.md`/`fix.md`/`implement.md`, set `status: complete`.
 
-STOP after seed `status=complete`. Emit `### Executive summary`, `### Findings`, `### Open questions`. Mention audit, findings, prioritized, failure/empty/permission, full-flow lens ids (or refuse truncation), and persona ids. No `graph-tool.mjs`. No app source.
+**Truncation refuse:** If the user asks to “pick top N lenses”, “skip the rest”, or otherwise truncate full-flow audit, **refuse** and apply the full-flow lens set. Never write “Remaining lenses skipped”.
+
+Only after completion artifacts validate, emit `### Executive summary`, `### Findings`, `### Open questions`. Mention audit, findings, prioritized, failure/empty/permission, grounding mode disclosure, and persona ids from the validated persona set. Application source stays read-only during verify.
 
 ## Product
 
