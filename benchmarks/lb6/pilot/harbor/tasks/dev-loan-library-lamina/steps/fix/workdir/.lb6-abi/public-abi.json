@@ -1,0 +1,63 @@
+{
+  "contract_version": "lb6-pilot-abi-v1",
+  "task_id": "dev-loan-library",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `confirm_handoff`: payload shape example: `{\"type\":\"confirm_handoff\",\"id\":\"loan-1\",\"actor\":\"borrower\"}`\n- `report_damage`: payload shape example: `{\"type\":\"report_damage\",\"id\":\"loan-1\"}`\n- `request_loan`: payload shape example: `{\"type\":\"request_loan\",\"id\":\"loan-1\",\"item\":\"Example item\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "public_sequences": {
+    "sequences": [
+      {
+        "actor": "borrower",
+        "actions": [
+          {
+            "type": "request_loan",
+            "id": "loan-1",
+            "item": "Example item"
+          }
+        ]
+      },
+      {
+        "actor": "borrower",
+        "actions": [
+          {
+            "type": "request_loan",
+            "id": "loan-1",
+            "item": "Example item"
+          },
+          {
+            "type": "confirm_handoff",
+            "id": "loan-1",
+            "actor": "borrower"
+          },
+          {
+            "type": "confirm_handoff",
+            "id": "loan-1",
+            "actor": "owner"
+          }
+        ]
+      },
+      {
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "request_loan",
+            "id": "loan-1",
+            "item": "Example item"
+          },
+          {
+            "type": "confirm_handoff",
+            "id": "loan-1",
+            "actor": "borrower"
+          },
+          {
+            "type": "confirm_handoff",
+            "id": "loan-1",
+            "actor": "owner"
+          },
+          {
+            "type": "report_damage",
+            "id": "loan-1"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -2,7 +2,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildActionSchema } from '../../../lib/action-schema.mjs';
+import {
+  buildPublicActionSchema,
+  publicGolden,
+  writeTextFile,
+} from '../lib/public-golden.mjs';
+import {
+  assertBuildSelectionAllowed,
+  parseMigrateFrozen,
+  parseSelectedTaskIds,
+  publishedFrozenTaskIds,
+} from '../lib/frozen-tasks.mjs';
 import {
   AGENT_BUDGET_SEC,
   AGENT_RUNTIME_IMAGE,
@@ -18,14 +28,33 @@ import {
   REQUIRED_PERSONA_CHILDREN,
 } from '../lib/constants.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-const PILOT_ROOT = path.join(ROOT, 'benchmarks/lb6/pilot');
-const corpusRoot = path.join(PILOT_ROOT, 'corpus');
-const tasksRoot = path.join(PILOT_ROOT, 'harbor/tasks');
-const privateVerifierRoot = path.join(PILOT_ROOT, 'private-verifier');
-const libRoot = path.join(ROOT, 'benchmarks/lib');
-const pilotLibRoot = path.join(PILOT_ROOT, 'lib');
-const runtimeRoot = path.join(PILOT_ROOT, 'runtime');
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
+
+function pilotBuildPaths(root = DEFAULT_ROOT) {
+  const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
+  return {
+    root,
+    pilotRoot,
+    corpusRoot: path.join(pilotRoot, 'corpus'),
+    tasksRoot: path.join(pilotRoot, 'harbor/tasks'),
+    privateVerifierRoot: path.join(pilotRoot, 'private-verifier'),
+    libRoot: path.join(root, 'benchmarks/lib'),
+    pilotLibRoot: path.join(pilotRoot, 'lib'),
+    runtimeRoot: path.join(pilotRoot, 'runtime'),
+  };
+}
+
+function loadPilotManifest(corpusRoot) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(corpusRoot, 'manifest.json'), 'utf8'));
+  if (manifest.version !== BENCHMARK_VERSION) {
+    throw new Error(`expected manifest.version=${BENCHMARK_VERSION}`);
+  }
+  if (!manifest.development_only || manifest.confirmatory !== false) {
+    throw new Error('pilot manifest must declare development_only=true and confirmatory=false');
+  }
+  return manifest;
+}
 
 const LAMINA_BENCH_SKILLS = [
   'lamina',
@@ -221,9 +250,9 @@ function laminaStepCommand(phase) {
   return commands[phase] ?? '';
 }
 
-function instruction(task, arm, phase) {
-  const brief = fs.readFileSync(path.join(corpusRoot, task.brief), 'utf8');
-  const actionSchema = buildActionSchema(task.golden);
+function instruction(task, arm, phase, ctx) {
+  const brief = fs.readFileSync(path.join(ctx.corpusRoot, task.brief), 'utf8').replace(/\n+$/u, '');
+  const actionSchema = buildPublicActionSchema(task.golden);
   const contract = thinSliceContract(actionSchema);
 
   if (arm === 'lamina') {
@@ -243,52 +272,43 @@ function instruction(task, arm, phase) {
     if (phase === 'implement') body += `${shapingContract()}\n`;
     if (phase === 'fix') body += `${contract}\n`;
     if (phase !== 'fix') body += `## Founder brief\n\n${brief}\n\n`;
-    else body += `## Founder brief\n\n${brief}\n`;
+    else body += `## Founder brief\n\n${brief}\n\n`;
     if (phase === 'implement' || phase === 'fix') {
       body += 'Do not wait for clarification: this is unattended development-pilot work.\n';
     }
-    return body;
+    return writeTextFile('', body);
   }
 
   if (phase === 'shape_build') {
-    return (
+    return writeTextFile(
+      '',
       `# ${task.id} — shape and build\n\n` +
-      `${armPrompts[arm]}\n\n` +
-      `## Founder brief\n\n${brief}\n\n` +
-      `${shapingContract()}\n` +
-      'Do not wait for clarification: this is unattended development-pilot work.\n'
+        `${armPrompts[arm]}\n\n` +
+        `## Founder brief\n\n${brief}\n\n` +
+        `${shapingContract()}\n` +
+        'Do not wait for clarification: this is unattended development-pilot work.\n',
     );
   }
 
-  return (
+  return writeTextFile(
+    '',
     `# ${task.id} — verify and fix\n\n` +
-    'The host supervisor has sealed the shaping snapshot. Implement the newly injected public ABI, self-review behavior against the founder brief, and leave the product runnable.\n\n' +
-    `${contract}\n` +
-    `## Founder brief\n\n${brief}\n\n` +
-    'Do not expand scope. Prefer fixing incorrect state, authority, lifecycle, and recovery behavior.\n'
+      'The host supervisor has sealed the shaping snapshot. Implement the newly injected public ABI, self-review behavior against the founder brief, and leave the product runnable.\n\n' +
+      `${contract}\n` +
+      `## Founder brief\n\n${brief}\n\n` +
+      'Do not expand scope. Prefer fixing incorrect state, authority, lifecycle, and recovery behavior.\n',
   );
 }
 
-function publicGolden(golden) {
-  return {
-    sequences: (golden.sequences ?? []).map((sequence) => ({
-      actor: sequence.actor,
-      actions: (sequence.actions ?? []).map((action) => {
-        const copy = { ...action };
-        delete copy.expect;
-        delete copy.expects;
-        delete copy.must_not_include;
-        return copy;
-      }),
-    })),
-  };
+function publicGoldenForTask(task) {
+  return publicGolden(task.golden);
 }
 
 function selfcheckSource(task) {
   return `#!/usr/bin/env node
 import { runBehaviorSelfcheck } from './behavior-selfcheck.mjs';
 
-const golden = ${JSON.stringify(publicGolden(task.golden))};
+const golden = ${JSON.stringify(publicGoldenForTask(task))};
 const result = await runBehaviorSelfcheck({ root: '/app', golden });
 if (!result.ok) {
   console.error('Structural self-check FAILED:');
@@ -306,7 +326,7 @@ import fs from 'node:fs';
 import { checkPilotLaminaTreatment } from './pilot-treatment.mjs';
 import { runBehaviorSelfcheck } from './behavior-selfcheck.mjs';
 
-const golden = ${JSON.stringify(publicGolden(task.golden))};
+const golden = ${JSON.stringify(publicGoldenForTask(task))};
 const arm = ${JSON.stringify(arm)};
 const phase = ${JSON.stringify(phase)};
 
@@ -387,20 +407,20 @@ function publicAbi(task) {
   return {
     contract_version: 'lb6-pilot-abi-v1',
     task_id: task.id,
-    action_schema_markdown: buildActionSchema(task.golden),
-    public_sequences: publicGolden(task.golden),
+    action_schema_markdown: buildPublicActionSchema(task.golden),
+    public_sequences: publicGoldenForTask(task),
   };
 }
 
-function writeTask(task, arm) {
-  const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+function writeTask(task, arm, ctx) {
+  const dir = path.join(ctx.tasksRoot, `${task.id}-${arm}`);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'environment'), { recursive: true });
 
-  const behaviorGrade = fs.readFileSync(path.join(libRoot, 'behavior-grade.mjs'), 'utf8');
-  const behaviorSelfcheck = fs.readFileSync(path.join(libRoot, 'behavior-selfcheck.mjs'), 'utf8');
-  const pilotBehaviorGrade = fs.readFileSync(path.join(pilotLibRoot, 'pilot-behavior-grade.mjs'), 'utf8');
-  const pilotTreatment = fs.readFileSync(path.join(pilotLibRoot, 'pilot-treatment.mjs'), 'utf8');
+  const behaviorGrade = fs.readFileSync(path.join(ctx.libRoot, 'behavior-grade.mjs'), 'utf8');
+  const behaviorSelfcheck = fs.readFileSync(path.join(ctx.libRoot, 'behavior-selfcheck.mjs'), 'utf8');
+  const pilotBehaviorGrade = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-behavior-grade.mjs'), 'utf8');
+  const pilotTreatment = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-treatment.mjs'), 'utf8');
 
   const steps = stepsForArm(arm);
   const finalStep = finalStepForArm(arm);
@@ -408,7 +428,7 @@ function writeTask(task, arm) {
   for (const step of steps) {
     const stepDir = path.join(dir, 'steps', step.name, 'tests');
     fs.mkdirSync(stepDir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'steps', step.name, 'instruction.md'), instruction(task, arm, step.name));
+    fs.writeFileSync(path.join(dir, 'steps', step.name, 'instruction.md'), instruction(task, arm, step.name, ctx));
     fs.writeFileSync(
       path.join(stepDir, 'test.sh'),
       '#!/usr/bin/env bash\nset -euo pipefail\necho "protocol_invalid: stock Harbor verifier invoked" >&2\nexit 97\n',
@@ -422,7 +442,7 @@ function writeTask(task, arm) {
   fs.writeFileSync(path.join(abiDir, 'selfcheck.mjs'), selfcheckSource(task));
   fs.writeFileSync(path.join(abiDir, 'behavior-selfcheck.mjs'), behaviorSelfcheck);
 
-  const privateDir = path.join(privateVerifierRoot, task.id, arm);
+  const privateDir = path.join(ctx.privateVerifierRoot, task.id, arm);
   fs.rmSync(privateDir, { recursive: true, force: true });
   fs.mkdirSync(privateDir, { recursive: true });
   fs.writeFileSync(path.join(privateDir, 'grade.mjs'), finalGradeSource(task, arm, finalStep));
@@ -434,54 +454,120 @@ function writeTask(task, arm) {
   fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile());
 }
 
-const manifest = JSON.parse(fs.readFileSync(path.join(corpusRoot, 'manifest.json'), 'utf8'));
-if (manifest.version !== BENCHMARK_VERSION) {
-  throw new Error(`expected manifest.version=${BENCHMARK_VERSION}`);
+export { parseSelectedTaskIds } from '../lib/frozen-tasks.mjs';
+
+export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrateFrozen = false } = {}) {
+  const ctx = pilotBuildPaths(root);
+  const manifest = loadPilotManifest(ctx.corpusRoot);
+  const allTasks = manifest.tasks;
+  if (!allTasks.length) {
+    throw new Error('lb6 pilot manifest must declare at least one task');
+  }
+  const allTaskIds = allTasks.map((task) => task.id);
+  if (new Set(allTaskIds).size !== allTaskIds.length) {
+    throw new Error('lb6 pilot manifest contains duplicate task ids');
+  }
+  const frozenTaskIds = publishedFrozenTaskIds(manifest);
+  const frozenSet = new Set(frozenTaskIds);
+
+  const selective = Array.isArray(selectedTaskIds) && selectedTaskIds.length > 0;
+  if (selective) {
+    assertBuildSelectionAllowed(selectedTaskIds, manifest, { migrateFrozen });
+  }
+
+  const tasksToBuild = selective
+    ? allTasks.filter((task) => selectedTaskIds.includes(task.id))
+    : allTasks.filter((task) => !frozenSet.has(task.id));
+
+  if (selective) {
+    for (const taskId of selectedTaskIds) {
+      if (!allTaskIds.includes(taskId)) {
+        throw new Error(`selected task not present in manifest: ${taskId}`);
+      }
+    }
+  }
+
+  fs.mkdirSync(ctx.tasksRoot, { recursive: true });
+  fs.mkdirSync(ctx.runtimeRoot, { recursive: true });
+  fs.writeFileSync(path.join(ctx.runtimeRoot, 'Dockerfile'), writeTextFile('', dockerfile()));
+
+  if (!selective) {
+    fs.mkdirSync(ctx.privateVerifierRoot, { recursive: true });
+    for (const entry of fs.readdirSync(ctx.tasksRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const taskId = PILOT_ARMS.reduce((found, arm) => {
+        if (found) return found;
+        return entry.name.endsWith(`-${arm}`) ? entry.name.slice(0, -(arm.length + 1)) : null;
+      }, null);
+      if (taskId && frozenSet.has(taskId)) continue;
+      fs.rmSync(path.join(ctx.tasksRoot, entry.name), { recursive: true, force: true });
+    }
+    for (const entry of fs.readdirSync(ctx.privateVerifierRoot, { withFileTypes: true })) {
+      if (entry.isDirectory() && frozenSet.has(entry.name)) continue;
+      fs.rmSync(path.join(ctx.privateVerifierRoot, entry.name), { recursive: true, force: true });
+    }
+  } else {
+    fs.mkdirSync(ctx.privateVerifierRoot, { recursive: true });
+    for (const task of tasksToBuild) {
+      for (const arm of PILOT_ARMS) {
+        fs.rmSync(path.join(ctx.tasksRoot, `${task.id}-${arm}`), { recursive: true, force: true });
+        fs.rmSync(path.join(ctx.privateVerifierRoot, task.id, arm), { recursive: true, force: true });
+      }
+    }
+  }
+
+  for (const task of tasksToBuild) {
+    for (const arm of PILOT_ARMS) writeTask(task, arm, ctx);
+  }
+
+  if (!selective) {
+    fs.writeFileSync(
+      path.join(ctx.pilotRoot, 'package.manifest.json'),
+      writeTextFile(
+        '',
+        JSON.stringify(
+          {
+            kind: 'lb6-dev-pilot-package',
+            benchmark_version: BENCHMARK_VERSION,
+            harbor_version: HARBOR_VERSION,
+            agent: HARBOR_AGENT,
+            model: HARBOR_MODEL,
+            ...DEVELOPMENT_FLAGS,
+            task_ids: allTaskIds,
+            arms: [...PILOT_ARMS],
+            attempts_per_arm: manifest.attempts_per_arm ?? 1,
+            agent_budget_sec: AGENT_BUDGET_SEC,
+            skills: LAMINA_BENCH_SKILLS,
+            not_claim_ready: true,
+            distinct_from: 'lamina-bench-6',
+          },
+          null,
+          2,
+        ),
+      ),
+    );
+  }
+
+  return {
+    selective,
+    builtTaskIds: tasksToBuild.map((task) => task.id),
+    preservedTaskIds: selective
+      ? allTaskIds.filter((id) => !selectedTaskIds.includes(id))
+      : frozenTaskIds,
+  };
 }
-if (!manifest.development_only || manifest.confirmatory !== false) {
-  throw new Error('pilot manifest must declare development_only=true and confirmatory=false');
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const selectedTaskIds = parseSelectedTaskIds();
+  const migrateFrozen = parseMigrateFrozen();
+  const result = buildPilot({ selectedTaskIds, migrateFrozen });
+
+  console.log(
+    `${result.selective ? 'Selectively generated' : 'Generated'} ${result.builtTaskIds.length} tasks × ${PILOT_ARMS.length} arms ` +
+      `(${result.builtTaskIds.length * PILOT_ARMS.length} Harbor cells) ` +
+      `(${BASELINE_STEPS.length}-step baseline, ${LAMINA_STEPS.length}-step lamina) ` +
+      `with ${AGENT_BUDGET_SEC}s matched agent budget.` +
+      (result.preservedTaskIds.length ? ` Preserved: ${result.preservedTaskIds.join(', ')}.` : ''),
+  );
 }
-
-fs.mkdirSync(tasksRoot, { recursive: true });
-fs.rmSync(privateVerifierRoot, { recursive: true, force: true });
-fs.mkdirSync(runtimeRoot, { recursive: true });
-fs.writeFileSync(path.join(runtimeRoot, 'Dockerfile'), dockerfile());
-for (const entry of fs.readdirSync(tasksRoot, { withFileTypes: true })) {
-  fs.rmSync(path.join(tasksRoot, entry.name), { recursive: true, force: true });
-}
-
-const task = manifest.tasks[0];
-if (manifest.tasks.length !== 1) {
-  throw new Error('lb6 pilot package must contain exactly one disposable task');
-}
-
-for (const arm of PILOT_ARMS) writeTask(task, arm);
-
-fs.writeFileSync(
-  path.join(PILOT_ROOT, 'package.manifest.json'),
-  `${JSON.stringify(
-    {
-      kind: 'lb6-dev-pilot-package',
-      benchmark_version: BENCHMARK_VERSION,
-      harbor_version: HARBOR_VERSION,
-      agent: HARBOR_AGENT,
-      model: HARBOR_MODEL,
-      ...DEVELOPMENT_FLAGS,
-      task_id: task.id,
-      arms: [...PILOT_ARMS],
-      attempts_per_arm: manifest.attempts_per_arm ?? 1,
-      agent_budget_sec: AGENT_BUDGET_SEC,
-      skills: LAMINA_BENCH_SKILLS,
-      not_claim_ready: true,
-      distinct_from: 'lamina-bench-6',
-    },
-    null,
-    2,
-  )}\n`,
-);
-
-console.log(
-  `Generated ${PILOT_ARMS.length} lb6 development pilot tasks for ${task.id} ` +
-    `(${BASELINE_STEPS.length}-step baseline, ${LAMINA_STEPS.length}-step lamina) ` +
-    `with ${AGENT_BUDGET_SEC}s matched agent budget.`,
-);

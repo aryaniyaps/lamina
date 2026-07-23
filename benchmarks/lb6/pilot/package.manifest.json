@@ -7,7 +7,12 @@
   "development_only": true,
   "confirmatory": false,
   "child_actual_model_unverified": true,
-  "task_id": "dev-care-circle",
+  "task_ids": [
+    "dev-care-circle",
+    "dev-loan-library",
+    "dev-review-room",
+    "dev-simple-list"
+  ],
   "arms": [
     "direct",
     "plan",

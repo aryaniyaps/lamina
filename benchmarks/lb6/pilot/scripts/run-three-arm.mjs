@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pickEnvFile } from '../../../lib/load-env.mjs';
+import { assertCampaignSelectionAllowed } from '../lib/frozen-tasks.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -101,14 +102,53 @@ export function discoverBuildValidateScripts(scriptsDir) {
   return { build, validate };
 }
 
-export function discoverPilotTasks(tasksRoot) {
+export function readTasksFlag(argv, fallbackTaskIds = []) {
+  const index = argv.indexOf('--tasks');
+  if (index === -1) return [...fallbackTaskIds];
+  const value = argv[index + 1];
+  if (!value) {
+    throw new Error('--tasks requires a comma-separated task id list');
+  }
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+/**
+ * Deterministic makespan-aware schedule: all Lamina cells first, then a balanced
+ * direct/plan prefix to fill wave one, remaining baseline cells in wave two.
+ */
+export function schedulePilotCells(taskIds, maxConcurrency = MAX_CONCURRENCY) {
+  const sorted = [...taskIds].sort();
+  const laminaCells = sorted.map((taskId) => ({ taskId, arm: 'lamina' }));
+  const baselineCells = sorted.flatMap((taskId) => [
+    { taskId, arm: 'direct' },
+    { taskId, arm: 'plan' },
+  ]);
+
+  const waveOneBaselineCount = Math.max(
+    0,
+    Math.min(maxConcurrency - laminaCells.length, baselineCells.length),
+  );
+  const waveOneBaseline = baselineCells.slice(0, waveOneBaselineCount);
+  const waveTwoBaseline = baselineCells.slice(waveOneBaselineCount);
+  const ordered = [...laminaCells, ...waveOneBaseline, ...waveTwoBaseline];
+
+  return ordered.map((cell, scheduleIndex) => ({
+    ...cell,
+    scheduleIndex,
+    wave: scheduleIndex < maxConcurrency ? 1 : 2,
+    taskDirName: `${cell.taskId}-${cell.arm}`,
+  }));
+}
+
+export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
   if (!fs.existsSync(tasksRoot)) {
     return {
       ok: false,
       gate: 'pilot_tasks_missing',
       reason: `pilot tasks root missing: ${tasksRoot}`,
-      taskId: null,
-      byArm: {},
+      taskIds: [],
+      selectedTaskIds: selectedTaskIds || [],
+      byTaskArm: {},
     };
   }
 
@@ -117,56 +157,14 @@ export function discoverPilotTasks(tasksRoot) {
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
 
-  const byArm = {};
-  for (const arm of PILOT_ARMS) {
-    const matches = dirs.filter((name) => name.endsWith(`-${arm}`));
-    byArm[arm] = matches;
-  }
-
-  const missing = PILOT_ARMS.filter((arm) => byArm[arm].length === 0);
-  if (missing.length) {
-    return {
-      ok: false,
-      gate: 'pilot_arm_tasks_incomplete',
-      reason: `missing Harbor task directories for arms: ${missing.join(', ')}`,
-      taskId: null,
-      byArm,
-    };
-  }
-
-  const extras = PILOT_ARMS.filter((arm) => byArm[arm].length > 1);
-  if (extras.length) {
-    return {
-      ok: false,
-      gate: 'pilot_arm_tasks_ambiguous',
-      reason: `expected exactly one task per arm; ambiguous: ${extras
-        .map((arm) => `${arm}=[${byArm[arm].join(', ')}]`)
-        .join('; ')}`,
-      taskId: null,
-      byArm,
-    };
-  }
-
-  const taskIds = PILOT_ARMS.map((arm) => byArm[arm][0].slice(0, -(arm.length + 1)));
-  const unique = new Set(taskIds);
-  if (unique.size !== 1) {
-    return {
-      ok: false,
-      gate: 'pilot_task_id_mismatch',
-      reason: `arms do not share one task id: ${JSON.stringify(Object.fromEntries(PILOT_ARMS.map((arm, i) => [arm, taskIds[i]])))}`,
-      taskId: null,
-      byArm,
-    };
-  }
-
-  const taskId = taskIds[0];
-  if (/checklist/i.test(taskId) || dirs.some((name) => /checklist/i.test(name))) {
+  if (dirs.some((name) => /checklist/i.test(name))) {
     return {
       ok: false,
       gate: 'pilot_checklist_forbidden',
       reason: 'checklist arm/task is forbidden in the lb6 pilot package',
-      taskId,
-      byArm,
+      taskIds: [],
+      selectedTaskIds: selectedTaskIds || [],
+      byTaskArm: {},
     };
   }
 
@@ -175,17 +173,76 @@ export function discoverPilotTasks(tasksRoot) {
       ok: false,
       gate: 'pilot_v4_path_forbidden',
       reason: 'refusing V4 harbor task path; use benchmarks/lb6/pilot/harbor/tasks',
-      taskId,
-      byArm,
+      taskIds: [],
+      selectedTaskIds: selectedTaskIds || [],
+      byTaskArm: {},
     };
+  }
+
+  const byTaskArm = {};
+  for (const dirName of dirs) {
+    const arm = PILOT_ARMS.find((value) => dirName.endsWith(`-${value}`));
+    if (!arm) {
+      return {
+        ok: false,
+        gate: 'pilot_task_dir_unrecognized',
+        reason: `unrecognized Harbor task directory: ${dirName}`,
+        taskIds: [],
+        selectedTaskIds: selectedTaskIds || [],
+        byTaskArm: {},
+      };
+    }
+    const taskId = dirName.slice(0, -(arm.length + 1));
+    byTaskArm[taskId] ||= {};
+    if (byTaskArm[taskId][arm]) {
+      return {
+        ok: false,
+        gate: 'pilot_arm_tasks_ambiguous',
+        reason: `expected exactly one task per arm; duplicate ${taskId}-${arm}`,
+        taskIds: [],
+        selectedTaskIds: selectedTaskIds || [],
+        byTaskArm: {},
+      };
+    }
+    byTaskArm[taskId][arm] = dirName;
+  }
+
+  const discoveredTaskIds = Object.keys(byTaskArm).sort();
+  for (const taskId of discoveredTaskIds) {
+    const missingArms = PILOT_ARMS.filter((arm) => !byTaskArm[taskId][arm]);
+    if (missingArms.length) {
+      return {
+        ok: false,
+        gate: 'pilot_arm_tasks_incomplete',
+        reason: `task ${taskId} missing Harbor task directories for arms: ${missingArms.join(', ')}`,
+        taskIds: discoveredTaskIds,
+        selectedTaskIds: selectedTaskIds || [],
+        byTaskArm,
+      };
+    }
+  }
+
+  const effectiveSelected = selectedTaskIds?.length ? [...selectedTaskIds].sort() : discoveredTaskIds;
+  for (const taskId of effectiveSelected) {
+    if (!byTaskArm[taskId]) {
+      return {
+        ok: false,
+        gate: 'pilot_selected_task_missing',
+        reason: `selected task not present in pilot package: ${taskId}`,
+        taskIds: discoveredTaskIds,
+        selectedTaskIds: effectiveSelected,
+        byTaskArm,
+      };
+    }
   }
 
   return {
     ok: true,
     gate: 'pilot_tasks_ready',
     reason: null,
-    taskId,
-    byArm: Object.fromEntries(PILOT_ARMS.map((arm) => [arm, byArm[arm][0]])),
+    taskIds: discoveredTaskIds,
+    selectedTaskIds: effectiveSelected,
+    byTaskArm,
   };
 }
 
@@ -265,11 +322,11 @@ function spawnPromise(spawnImpl, command, args, options = {}) {
   });
 }
 
-export async function runNodeScripts(scripts, { root, spawnImpl = defaultSpawn, label }) {
+export async function runNodeScripts(scripts, { root, spawnImpl = defaultSpawn, label, scriptArgs = [] }) {
   const results = [];
   for (const scriptPath of scripts) {
     const rel = path.relative(root, scriptPath);
-    const result = await spawnPromise(spawnImpl, process.execPath, [scriptPath], {
+    const result = await spawnPromise(spawnImpl, process.execPath, [scriptPath, ...scriptArgs], {
       cwd: root,
       stdio: 'inherit',
     });
@@ -344,37 +401,38 @@ function killChild(child) {
   }
 }
 
-export function preparePublicationPlan({ root, taskId, cells, reportPaths, report = null }) {
+export function preparePublicationPlan({ root, taskIds, cells, reportPaths, report = null, write = true }) {
   const publicationDir = path.join(root, PUBLICATION_REL);
-  fs.mkdirSync(publicationDir, { recursive: true });
-  const isolatedThreeArmResult = Boolean(
+  const expectedCells = (taskIds?.length || 0) * PILOT_ARMS.length;
+  const isolatedCampaignResult = Boolean(
     report?.campaign?.ok
-      && report?.gate === 'three_arm_campaign_complete'
+      && (report?.gate === 'three_arm_campaign_complete' || report?.gate === 'pilot_report_ready')
       && Array.isArray(report?.cells)
-      && report.cells.length === PILOT_ARMS.length
+      && report.cells.length === expectedCells
       && report.cells.every((cell) => cell.ok && cell.measurementValid),
   );
+  const selectedTaskDirs = [...new Set(cells.map((cell) => cell.taskDirName).filter(Boolean))].sort();
   const commands = {
     note: 'Manual operator step only. This runner does not execute Harbor publication.',
     publication_eligible: false,
-    benchmark_upload_ready: isolatedThreeArmResult,
+    benchmark_upload_ready: isolatedCampaignResult,
     blocked_until: 'authenticated Harbor CLI + explicit approval to disclose a development-only package',
     blocked_reasons: [
       'development-only package; not eligible for a confirmatory or marketing claim',
       'Cursor persona child actual selected model is unverified',
       'Harbor registry authentication is required for publish/upload',
-      ...(!isolatedThreeArmResult
-        ? ['current campaign has no measurement-valid isolated three-arm result']
+      ...(!isolatedCampaignResult
+        ? ['current campaign lacks a measurement-valid isolated multi-task result']
         : []),
     ],
     commands: [
-      `harbor publish --public ${TASKS_REL}`,
+      ...selectedTaskDirs.map((taskDirName) => `harbor publish --public ${path.join(TASKS_REL, taskDirName)}`),
       ...cells.map((cell) => `harbor upload --public ${path.join('jobs', cell.jobName)}`),
     ],
     artifacts: {
       reportJson: reportPaths?.json || null,
       reportMarkdown: reportPaths?.markdown || null,
-      taskId,
+      taskIds,
       jobNames: cells.map((cell) => cell.jobName),
     },
     development_only: true,
@@ -382,8 +440,11 @@ export function preparePublicationPlan({ root, taskId, cells, reportPaths, repor
     child_actual_model_unverified: true,
   };
   const outPath = path.join(publicationDir, 'manual-publish-plan.json');
-  fs.writeFileSync(outPath, `${JSON.stringify(commands, null, 2)}\n`);
-  return { outPath, plan: commands };
+  if (write) {
+    fs.mkdirSync(publicationDir, { recursive: true });
+    fs.writeFileSync(outPath, `${JSON.stringify(commands, null, 2)}\n`);
+  }
+  return { outPath: write ? outPath : null, plan: commands };
 }
 
 export async function runThreeArmCampaign(options = {}) {
@@ -395,6 +456,7 @@ export async function runThreeArmCampaign(options = {}) {
   const dryRun = Boolean(options.dryRun);
   const skipPackageScripts = Boolean(options.skipPackageScripts);
   const aggregateImpl = options.aggregateImpl;
+  const selectedTaskIds = options.selectedTaskIds || null;
 
   const gates = [];
   const startedAt = new Date(nowMs).toISOString();
@@ -411,13 +473,37 @@ export async function runThreeArmCampaign(options = {}) {
     };
   }
 
+  if (selectedTaskIds?.length) {
+    const manifestPath = path.join(root, 'benchmarks/lb6/pilot/corpus/manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      try {
+        assertCampaignSelectionAllowed(selectedTaskIds, JSON.parse(
+          fs.readFileSync(manifestPath, 'utf8'),
+        ));
+      } catch (error) {
+        return {
+          ok: false,
+          exitCode: 1,
+          gate: 'pilot_frozen_task_forbidden',
+          reason: error.message,
+          gates,
+          report: null,
+        };
+      }
+    }
+  }
+
   if (!skipPackageScripts) {
     const scripts = discoverBuildValidateScripts(paths.scriptsDir);
     if (scripts.build.length) {
+      const buildArgs = selectedTaskIds?.length
+        ? ['--tasks', selectedTaskIds.join(',')]
+        : [];
       const build = await runNodeScripts(scripts.build, {
         root,
         spawnImpl,
         label: 'pilot_build',
+        scriptArgs: buildArgs,
       });
       gates.push(build);
       if (!build.ok) {
@@ -433,10 +519,14 @@ export async function runThreeArmCampaign(options = {}) {
     }
 
     if (scripts.validate.length) {
+      const validateArgs = selectedTaskIds?.length
+        ? ['--tasks', selectedTaskIds.join(',')]
+        : [];
       const validate = await runNodeScripts(scripts.validate, {
         root,
         spawnImpl,
         label: 'pilot_validate',
+        scriptArgs: validateArgs,
       });
       gates.push(validate);
       if (!validate.ok) {
@@ -459,7 +549,7 @@ export async function runThreeArmCampaign(options = {}) {
     }
   }
 
-  const discovery = discoverPilotTasks(paths.tasksRoot);
+  const discovery = discoverPilotTasks(paths.tasksRoot, selectedTaskIds);
   gates.push(discovery);
   if (!discovery.ok) {
     return {
@@ -472,11 +562,11 @@ export async function runThreeArmCampaign(options = {}) {
     };
   }
 
-  const cells = PILOT_ARMS.map((arm, index) => ({
-    arm,
-    taskId: discovery.taskId,
-    taskDirName: discovery.byArm[arm],
-    jobName: makeJobName(discovery.taskId, arm, nowMs + index),
+  const schedule = schedulePilotCells(discovery.selectedTaskIds);
+  const cells = schedule.map((slot, index) => ({
+    ...slot,
+    taskDirName: discovery.byTaskArm[slot.taskId][slot.arm],
+    jobName: makeJobName(slot.taskId, slot.arm, nowMs + index),
   }));
 
   const concurrency = resolveConcurrency(
@@ -505,6 +595,7 @@ export async function runThreeArmCampaign(options = {}) {
       reason: null,
       gates,
       concurrency,
+      schedule,
       cells: planned,
       report: null,
     };
@@ -565,12 +656,16 @@ export async function runThreeArmCampaign(options = {}) {
   if (deadlineTimer) clearTimeout(deadlineTimer);
 
   const failFastHit = cellResults.find((cell) => cell.failFast);
-  const allArmsPresent = PILOT_ARMS.every((arm) => cellResults.some((cell) => cell.arm === arm));
+  const expectedCellCount = discovery.selectedTaskIds.length * PILOT_ARMS.length;
+  const allCellsPresent =
+    cellResults.length === expectedCellCount
+    && discovery.selectedTaskIds.every((taskId) =>
+      PILOT_ARMS.every((arm) => cellResults.some((cell) => cell.taskId === taskId && cell.arm === arm)),
+    );
   const campaignOk =
     !deadlineExceeded
     && !failFastHit
-    && allArmsPresent
-    && cellResults.length === PILOT_ARMS.length
+    && allCellsPresent
     && cellResults.every((cell) => cell.exitCode === 0);
 
   let aggregate = null;
@@ -579,6 +674,8 @@ export async function runThreeArmCampaign(options = {}) {
       root,
       jobNames: cellResults.map((cell) => cell.jobName),
       cells: cellResults,
+      schedule,
+      selectedTaskIds: discovery.selectedTaskIds,
       concurrency,
       campaign: {
         startedAt,
@@ -612,7 +709,7 @@ export async function runThreeArmCampaign(options = {}) {
 
   const publication = preparePublicationPlan({
     root,
-    taskId: discovery.taskId,
+    taskIds: discovery.selectedTaskIds,
     cells: cellResults,
     reportPaths: aggregate?.paths || null,
     report: aggregate?.report || null,
@@ -623,7 +720,7 @@ export async function runThreeArmCampaign(options = {}) {
     exitCode: finalCampaignOk ? 0 : 1,
     gate: finalGate,
     reason: failFastHit
-      ? `fail-fast cell ${failFastHit.arm}: ${failFastHit.state}`
+      ? `fail-fast cell ${failFastHit.taskId}/${failFastHit.arm}: ${failFastHit.state}`
       : deadlineExceeded
         ? `campaign exceeded ${deadlineMs}ms deadline`
         : finalCampaignOk
@@ -631,6 +728,7 @@ export async function runThreeArmCampaign(options = {}) {
           : `one or more Harbor cells failed publication gates (${finalGate})`,
     gates,
     concurrency,
+    schedule,
     cells: cellResults,
     aggregate,
     publication,
@@ -643,6 +741,7 @@ export async function runThreeArmCampaign(options = {}) {
       model: HARBOR_MODEL,
       attemptsPerArm: ATTEMPTS_PER_ARM,
       maxRetries: MAX_RETRIES,
+      selectedTaskIds: discovery.selectedTaskIds,
       development_only: true,
       confirmatory: false,
       child_actual_model_unverified: true,
@@ -663,11 +762,23 @@ export async function main(argv = process.argv.slice(2), options = {}) {
   const concurrencyFlag = readFlag(argv, '--concurrency', undefined);
   const { aggregatePilotCampaign } = await import('./aggregate-results.mjs');
 
+  let selectedTaskIds = options.selectedTaskIds || null;
+  if (!selectedTaskIds) {
+    const manifestPath = path.join(root, 'benchmarks/lb6/pilot/corpus/manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const fallback =
+      manifest.pilot?.default_run_tasks
+      || manifest.pilot?.tasks
+      || manifest.tasks.map((task) => task.id);
+    selectedTaskIds = readTasksFlag(argv, fallback);
+  }
+
   const result = await runThreeArmCampaign({
     root,
     dryRun,
     skipPackageScripts,
     concurrency: concurrencyFlag,
+    selectedTaskIds,
     spawnImpl: options.spawnImpl,
     aggregateImpl: dryRun
       ? null
@@ -687,8 +798,13 @@ export async function main(argv = process.argv.slice(2), options = {}) {
     console.log(JSON.stringify({
       gate: result.gate,
       concurrency: result.concurrency,
+      selectedTaskIds: result.campaign?.selectedTaskIds || selectedTaskIds,
+      schedule: result.schedule,
       cells: result.cells?.map((cell) => ({
+        taskId: cell.taskId,
         arm: cell.arm,
+        scheduleIndex: cell.scheduleIndex,
+        wave: cell.wave,
         jobName: cell.jobName,
         taskDirName: cell.taskDirName,
         args: cell.args,

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { collectScoringSensitiveStrings } from './public-golden.mjs';
 
 const SECRET_PATTERNS = [
   /\bCURSOR_API_KEY\s*=\s*\S+/i,
@@ -44,7 +45,26 @@ function isAgentVisibleBeforeFinal(taskDir, filePath, finalStep) {
   return /instruction\.md$|selfcheck\.mjs$|grade\.mjs$|test\.sh$/.test(rel);
 }
 
-export function scanPilotTaskSecrets(taskDir, { finalStep }) {
+function isFinalAbiFile(taskDir, filePath, finalStep) {
+  const rel = path.relative(taskDir, filePath).replaceAll('\\', '/');
+  return rel === `steps/${finalStep}/workdir/.lb6-abi/public-abi.json`
+    || rel === `steps/${finalStep}/workdir/.lb6-abi/selfcheck.mjs`;
+}
+
+function scanHiddenTerms(text, scoringSensitiveStrings) {
+  const findings = [];
+  const haystack = String(text);
+  const haystackLower = haystack.toLowerCase();
+  for (const term of scoringSensitiveStrings) {
+    if (term.length < 4) continue;
+    if (haystack.includes(term) || haystackLower.includes(String(term).toLowerCase())) {
+      findings.push({ kind: 'graded_leak', pattern: `scoring-sensitive string "${term}"` });
+    }
+  }
+  return findings;
+}
+
+export function scanPilotTaskSecrets(taskDir, { finalStep, scoringSensitiveStrings = [] }) {
   const findings = [];
   for (const filePath of listFilesRecursive(taskDir)) {
     const rel = path.relative(taskDir, filePath).replaceAll('\\', '/');
@@ -61,7 +81,11 @@ export function scanPilotTaskSecrets(taskDir, { finalStep }) {
       }
     }
 
-    if (isAgentVisibleBeforeFinal(taskDir, filePath, finalStep) && !isFinalGradeFile(taskDir, filePath, finalStep)) {
+    const beforeFinal = isAgentVisibleBeforeFinal(taskDir, filePath, finalStep)
+      && !isFinalGradeFile(taskDir, filePath, finalStep);
+    const finalAbi = isFinalAbiFile(taskDir, filePath, finalStep);
+
+    if (beforeFinal) {
       for (const pattern of GRADED_LEAK_PATTERNS) {
         if (pattern.test(text)) {
           findings.push({ kind: 'graded_leak', file: rel, pattern: pattern.source });
@@ -71,18 +95,39 @@ export function scanPilotTaskSecrets(taskDir, { finalStep }) {
         findings.push({ kind: 'graded_leak', file: rel, pattern: 'base64 golden payload' });
       }
     }
+
+    if (finalAbi) {
+      for (const pattern of GRADED_LEAK_PATTERNS) {
+        if (pattern.test(text)) {
+          findings.push({ kind: 'graded_leak', file: rel, pattern: pattern.source });
+        }
+      }
+      for (const leak of scanHiddenTerms(text, scoringSensitiveStrings)) {
+        findings.push({ kind: leak.kind, file: rel, pattern: leak.pattern });
+      }
+    }
   }
   return findings;
 }
 
-export function scanPilotPackage(tasksRoot, taskSpecs) {
+export function scanPilotPackage(tasksRoot, taskSpecs, { scoringSensitiveStringsByTaskId = {} } = {}) {
   const all = [];
   for (const spec of taskSpecs) {
     const taskDir = path.join(tasksRoot, `${spec.taskId}-${spec.arm}`);
-    const findings = scanPilotTaskSecrets(taskDir, { finalStep: spec.finalStep });
+    const scoringSensitiveStrings = scoringSensitiveStringsByTaskId[spec.taskId] ?? [];
+    const findings = scanPilotTaskSecrets(taskDir, {
+      finalStep: spec.finalStep,
+      scoringSensitiveStrings,
+    });
     for (const finding of findings) {
       all.push({ task: `${spec.taskId}-${spec.arm}`, ...finding });
     }
   }
   return all;
+}
+
+export function scoringSensitiveStringsByTaskIdFromManifest(manifest) {
+  return Object.fromEntries(
+    (manifest.tasks ?? []).map((task) => [task.id, collectScoringSensitiveStrings(task.golden)]),
+  );
 }

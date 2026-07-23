@@ -14,7 +14,13 @@ import {
   PILOT_ARMS,
   REQUIRED_PERSONA_CHILDREN,
 } from '../lib/constants.mjs';
-import { scanPilotPackage } from '../lib/secret-scan.mjs';
+import { scanPilotPackage, scoringSensitiveStringsByTaskIdFromManifest } from '../lib/secret-scan.mjs';
+import {
+  assertBuildSelectionAllowed,
+  parseMigrateFrozen,
+  parseSelectedTaskIds,
+  publishedFrozenTaskIds,
+} from '../lib/frozen-tasks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const PILOT_ROOT = path.join(ROOT, 'benchmarks/lb6/pilot');
@@ -49,20 +55,37 @@ function validatePackageManifest(manifest) {
   if (pkg.not_claim_ready !== true) {
     errors.push('package.manifest.json must set not_claim_ready=true');
   }
+  const manifestTaskIds = manifest.tasks.map((task) => task.id).sort();
+  const packageTaskIds = [...(pkg.task_ids || [])].sort();
+  if (JSON.stringify(packageTaskIds) !== JSON.stringify(manifestTaskIds)) {
+    errors.push('package.manifest.json task_ids must match manifest.tasks');
+  }
 }
 
 function validateTaskCount(manifest) {
-  if (manifest.tasks.length !== 1) {
-    errors.push('manifest must contain exactly one task');
-  }
+  const expectedDirs = manifest.tasks.length * PILOT_ARMS.length;
   const dirs = fs.existsSync(tasksRoot)
     ? fs.readdirSync(tasksRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
     : [];
-  if (dirs.length !== PILOT_ARMS.length) {
-    errors.push(`expected ${PILOT_ARMS.length} task directories, found ${dirs.length}`);
+  if (dirs.length !== expectedDirs) {
+    errors.push(`expected ${expectedDirs} task directories, found ${dirs.length}`);
   }
   if (dirs.some((name) => /checklist/i.test(name))) {
     errors.push('checklist arm/task is forbidden');
+  }
+
+  const expectedNames = new Set(
+    manifest.tasks.flatMap((task) => PILOT_ARMS.map((arm) => `${task.id}-${arm}`)),
+  );
+  for (const name of dirs) {
+    if (!expectedNames.has(name)) {
+      errors.push(`unexpected task directory: ${name}`);
+    }
+  }
+  for (const name of expectedNames) {
+    if (!dirs.includes(name)) {
+      errors.push(`missing task directory: ${name}`);
+    }
   }
 }
 
@@ -183,16 +206,70 @@ function validateTaskDir(task, arm) {
   }
 }
 
+function validateFrozenTaskDirBasic(task, arm) {
+  const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+  for (const file of ['task.toml', 'environment/Dockerfile']) {
+    if (!fs.existsSync(path.join(dir, file))) errors.push(`${dir}: missing ${file}`);
+  }
+  const toml = fs.existsSync(path.join(dir, 'task.toml'))
+    ? fs.readFileSync(path.join(dir, 'task.toml'), 'utf8')
+    : '';
+  if (!toml.includes(`development_only = true`)) errors.push(`${dir}: missing development_only=true`);
+  if (!toml.includes(`confirmatory = false`)) errors.push(`${dir}: missing confirmatory=false`);
+  if (!toml.includes(`child_actual_model_unverified = true`)) {
+    errors.push(`${dir}: missing child_actual_model_unverified=true`);
+  }
+  if (/checklist|claude|sonnet|harbor-v4/i.test(toml)) {
+    errors.push(`${dir}: forbidden vocabulary in published frozen task.toml`);
+  }
+  const privateDir = path.join(privateVerifierRoot, task.id, arm);
+  if (!fs.existsSync(path.join(privateDir, 'grade.mjs'))) {
+    errors.push(`${dir}: missing published frozen private verifier grade.mjs`);
+  }
+}
+
 const manifest = readManifest();
+const selectedTaskIds = parseSelectedTaskIds(process.argv.slice(2));
+const migrateFrozen = parseMigrateFrozen(process.argv.slice(2));
+const frozenTaskIds = publishedFrozenTaskIds(manifest);
+const frozenSet = new Set(frozenTaskIds);
+
+if (selectedTaskIds?.length) {
+  assertBuildSelectionAllowed(selectedTaskIds, manifest, { migrateFrozen });
+}
+
 validatePackageManifest(manifest);
 validateTaskCount(manifest);
 
-const task = manifest.tasks[0];
-for (const arm of PILOT_ARMS) validateTaskDir(task, arm);
+for (const task of manifest.tasks) {
+  for (const arm of PILOT_ARMS) {
+    if (frozenSet.has(task.id)) {
+      validateFrozenTaskDirBasic(task, arm);
+      continue;
+    }
+    if (selectedTaskIds?.length && !selectedTaskIds.includes(task.id)) {
+      continue;
+    }
+    validateTaskDir(task, arm);
+  }
+}
+
+const secretScanTasks = manifest.tasks.filter((task) => {
+  if (frozenSet.has(task.id)) return false;
+  if (selectedTaskIds?.length) return selectedTaskIds.includes(task.id);
+  return true;
+});
 
 const secretFindings = scanPilotPackage(
   tasksRoot,
-  PILOT_ARMS.map((arm) => ({ taskId: task.id, arm, finalStep: finalStepForArm(arm) })),
+  secretScanTasks.flatMap((task) =>
+    PILOT_ARMS.map((arm) => ({
+      taskId: task.id,
+      arm,
+      finalStep: finalStepForArm(arm),
+    })),
+  ),
+  { scoringSensitiveStringsByTaskId: scoringSensitiveStringsByTaskIdFromManifest(manifest) },
 );
 for (const finding of secretFindings) {
   errors.push(`${finding.task}: ${finding.kind} in ${finding.file}`);
@@ -204,13 +281,18 @@ if (manifest.harbor_version !== HARBOR_VERSION) {
 if (manifest.agent !== HARBOR_AGENT || manifest.model !== HARBOR_MODEL) {
   errors.push(`manifest must pin ${HARBOR_AGENT} / ${HARBOR_MODEL}`);
 }
+if (JSON.stringify(frozenTaskIds) !== JSON.stringify(['dev-care-circle'])) {
+  errors.push('manifest.published_frozen_task_ids must include dev-care-circle');
+}
 
 if (errors.length) {
   for (const error of errors) console.error(error);
   process.exit(1);
 }
 
+const validatedCount = secretScanTasks.length;
 console.log(
-  `LB6 pilot valid: 1 task × ${PILOT_ARMS.length} arms (${PILOT_ARMS.join(', ')}), ` +
-    `final-only semantic grading, ${AGENT_BUDGET_SEC}s budget, development_only.`,
+  `LB6 pilot valid: ${manifest.tasks.length} tasks × ${PILOT_ARMS.length} arms (${PILOT_ARMS.join(', ')}), ` +
+    `full validation on ${validatedCount} task(s), frozen basic checks on ${frozenTaskIds.length}, ` +
+    `${AGENT_BUDGET_SEC}s budget, development_only.`,
 );

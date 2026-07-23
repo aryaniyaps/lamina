@@ -5,90 +5,1081 @@
   "child_actual_model_unverified": true,
   "not_claim_ready": true,
   "distinct_from": "lamina-bench-6",
-  "generatedAt": "2026-07-23T15:21:21.255Z",
-  "taskId": "dev-care-circle",
+  "generatedAt": "2026-07-23T16:35:10.892Z",
+  "selectedTaskIds": [
+    "dev-loan-library",
+    "dev-review-room",
+    "dev-simple-list"
+  ],
+  "taskClusters": [
+    {
+      "taskId": "dev-loan-library",
+      "rewards": {
+        "direct": 0,
+        "plan": 0.3333,
+        "lamina": null
+      },
+      "deltas": {
+        "plan_minus_direct": 0.3333,
+        "lamina_minus_direct": null,
+        "lamina_minus_plan": null
+      },
+      "measurementValid": false,
+      "cells": [
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-loan-library-direct-1784823875734",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734",
+          "trialName": "dev-loan-library-direct__yGSoGmv",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv",
+          "taskId": "dev-loan-library",
+          "arm": "direct",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 188735,
+          "startedAt": "2026-07-23T16:24:36.890538Z",
+          "finishedAt": "2026-07-23T16:27:45.023939Z",
+          "observedReward": 0,
+          "reward": 0,
+          "behavior": 0,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.10884390000000001,
+          "tokens": {
+            "input": 283016,
+            "cache": 228222,
+            "output": 14321
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/protocol/transition-ledger.jsonl",
+            "candidateDigest": "824b7674bf474e143ef779e68b756657b830f8865722f889472b091eb788939b",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 54421,
+                "tokensOut": 5505,
+                "costUsd": 0.0342146,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.008610Z",
+                "agentFinishedAt": "2026-07-23T16:25:39.346062Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 228595,
+                "tokensOut": 8816,
+                "costUsd": 0.07462930000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:25:53.844087Z",
+                "agentFinishedAt": "2026-07-23T16:27:32.165351Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "cdd0a64d78f254568b74052e5d0ffac3de2b4ff8c0928d606d92037d8992e04d",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-loan-library-plan-1784823875735",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735",
+          "trialName": "dev-loan-library-plan__JWYaqzq",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq",
+          "taskId": "dev-loan-library",
+          "arm": "plan",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 181137,
+          "startedAt": "2026-07-23T16:24:37.035768Z",
+          "finishedAt": "2026-07-23T16:27:37.423431Z",
+          "observedReward": 0.3333,
+          "reward": 0.3333,
+          "behavior": 0.3333333333333333,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.09596829999999999,
+          "tokens": {
+            "input": 268883,
+            "cache": 232869,
+            "output": 12555
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/protocol/transition-ledger.jsonl",
+            "candidateDigest": "44f777849defb63d1fd8f7ce6f258bcd71ed8aa47ed2236359a17c674f742c65",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 49074,
+                "tokensOut": 5275,
+                "costUsd": 0.0270961,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.210154Z",
+                "agentFinishedAt": "2026-07-23T16:25:45.051202Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 219809,
+                "tokensOut": 7280,
+                "costUsd": 0.0688722,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:25:59.622587Z",
+                "agentFinishedAt": "2026-07-23T16:27:24.557200Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "eb6339d0f40bbcf2b802b9629aef82a95aae75a51935afddd0a2a5168a2be558",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": false,
+          "jobName": "lb6-pilot-dev-loan-library-lamina-1784823875731",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731",
+          "trialName": "dev-loan-library-lamina__aLCiR6o",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731/dev-loan-library-lamina__aLCiR6o",
+          "taskId": "dev-loan-library",
+          "arm": "lamina",
+          "state": "trial_exception",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 634489,
+          "startedAt": "2026-07-23T16:24:36.875675Z",
+          "finishedAt": "2026-07-23T16:35:10.753119Z",
+          "observedReward": null,
+          "reward": null,
+          "behavior": null,
+          "invalidTreatment": false,
+          "rewardPath": null,
+          "behaviorReportPath": null,
+          "finalStep": "fix",
+          "costUsd": 0.1310736,
+          "tokens": {
+            "input": 471856,
+            "cache": 437223,
+            "output": 10525
+          },
+          "exception": null,
+          "stepExceptions": [
+            {
+              "step": "lamina_design",
+              "type": "AgentTimeoutError",
+              "message": "Agent execution timed out after 420.0 seconds"
+            }
+          ],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": false,
+            "reason": "host seal / isolated verifier evidence incomplete or inconsistent",
+            "sealPath": null,
+            "verifierAbiPath": null,
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731/dev-loan-library-lamina__aLCiR6o/protocol/transition-ledger.jsonl",
+            "candidateDigest": null,
+            "verifierImageDigest": null,
+            "doubleCaptureIdentical": false,
+            "networkMode": null,
+            "readOnlyRootfs": false,
+            "events": [
+              "agent_isolation_passed",
+              "agent_isolation_passed"
+            ]
+          },
+          "measurementValid": false,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "lamina_init",
+                "tokensIn": 471856,
+                "tokensOut": 10525,
+                "costUsd": 0.1310736,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.448556Z",
+                "agentFinishedAt": "2026-07-23T16:27:59.017700Z"
+              },
+              {
+                "step": "lamina_design",
+                "tokensIn": 0,
+                "tokensOut": 0,
+                "costUsd": null,
+                "exceptionType": "AgentTimeoutError",
+                "exceptionMessage": "Agent execution timed out after 420.0 seconds",
+                "agentStartedAt": "2026-07-23T16:27:59.635864Z",
+                "agentFinishedAt": "2026-07-23T16:34:59.636968Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "4b41a15c283db8c7dbe1c665d40e9f0c7727339496150b33633313e3f05ab5dc",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        }
+      ]
+    },
+    {
+      "taskId": "dev-review-room",
+      "rewards": {
+        "direct": 0.3333,
+        "plan": 0.6667,
+        "lamina": null
+      },
+      "deltas": {
+        "plan_minus_direct": 0.3334,
+        "lamina_minus_direct": null,
+        "lamina_minus_plan": null
+      },
+      "measurementValid": false,
+      "cells": [
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-review-room-direct-1784823875736",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736",
+          "trialName": "dev-review-room-direct__2K3xohb",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb",
+          "taskId": "dev-review-room",
+          "arm": "direct",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 199578,
+          "startedAt": "2026-07-23T16:24:36.798759Z",
+          "finishedAt": "2026-07-23T16:27:55.865080Z",
+          "observedReward": 0.3333,
+          "reward": 0.3333,
+          "behavior": 0.3333333333333333,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.1221643,
+          "tokens": {
+            "input": 308678,
+            "cache": 246324,
+            "output": 16689
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/protocol/transition-ledger.jsonl",
+            "candidateDigest": "3a9725604807d3fc7a7bacd756efb290fed65910fe9ebed3074cf5823334c5a9",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 54672,
+                "tokensOut": 5616,
+                "costUsd": 0.0359904,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.395809Z",
+                "agentFinishedAt": "2026-07-23T16:25:43.158820Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 254006,
+                "tokensOut": 11073,
+                "costUsd": 0.08617390000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:25:57.901557Z",
+                "agentFinishedAt": "2026-07-23T16:27:42.895940Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "ef3799c0b2875f68c3003c4424e25201d9b5d94eb6b997062d093ce0cd3bb59b",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-review-room-plan-1784823875737",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737",
+          "trialName": "dev-review-room-plan__aYgczGr",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr",
+          "taskId": "dev-review-room",
+          "arm": "plan",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 219265,
+          "startedAt": "2026-07-23T16:27:37.950242Z",
+          "finishedAt": "2026-07-23T16:31:16.689959Z",
+          "observedReward": 0.6667,
+          "reward": 0.6667,
+          "behavior": 0.6666666666666666,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.13590380000000002,
+          "tokens": {
+            "input": 381657,
+            "cache": 342124,
+            "output": 19085
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/protocol/transition-ledger.jsonl",
+            "candidateDigest": "eea0d2be914296d5cb5679a0123ca400a0c956116a24640b0ecab3c2093ac7b0",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 115317,
+                "tokensOut": 7572,
+                "costUsd": 0.0459267,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:27:40.689146Z",
+                "agentFinishedAt": "2026-07-23T16:29:00.884006Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 266340,
+                "tokensOut": 11513,
+                "costUsd": 0.0899771,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:29:15.280815Z",
+                "agentFinishedAt": "2026-07-23T16:31:03.771205Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "9a56fd7585d8428b3446a6afba8a83b9542f6c197f007d1056325c7c4d0a77b6",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": false,
+          "jobName": "lb6-pilot-dev-review-room-lamina-1784823875732",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732",
+          "trialName": "dev-review-room-lamina__joCp5wU",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732/dev-review-room-lamina__joCp5wU",
+          "taskId": "dev-review-room",
+          "arm": "lamina",
+          "state": "trial_exception",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 466862,
+          "startedAt": "2026-07-23T16:24:36.804564Z",
+          "finishedAt": "2026-07-23T16:32:23.137723Z",
+          "observedReward": null,
+          "reward": null,
+          "behavior": null,
+          "invalidTreatment": false,
+          "rewardPath": null,
+          "behaviorReportPath": null,
+          "finalStep": "fix",
+          "costUsd": 0.6594622000000001,
+          "tokens": {
+            "input": 2725680,
+            "cache": 2596126,
+            "output": 30184
+          },
+          "exception": null,
+          "stepExceptions": [
+            {
+              "step": "implement",
+              "type": "NonZeroAgentExitCodeError",
+              "message": "Command failed (exit 1): export PATH=\"$HOME/.local/bin:$PATH\"; cursor-agent --yolo --print --output-format=stream-json --model=composer-2.5 -- '# dev-review-room — implement\n\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\n\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\n\n## Pre-ABI shaping target\n\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small thin slice, use at most `index.html`, `styles.css`, and one application JavaScript file, and finish the response within six minutes. Include an `index.html` with a `<main>` landmark and enough real interaction to express the product you shaped. Do not start a server, browser, watcher, or background process. Do not search for or infer a benchmark API, hidden test, action vocabulary, or evaluator contract; none is available in this phase.\n\n## Founder brief\n\n# Lightweight document review\n\nI want a small product where someone can invite a trusted person to review one document and leave useful comments. It should feel safe and focused rather than like giving away access to a whole workspace. Please shape the product and build the next coherent version.\n\nDo not wait for clarification: this is unattended development-pilot work.\n' 2>&1 | stdbuf -oL tee /logs/agent/cursor-cli.txt\nstdout: {\"type\":\"system\",\"subtype\":\"init\",\"apiKeySource\":\"env\",\"cwd\":\"/app\",\"session_id\":\"777b3053-beb2-427c-8e3e-a42dfd0f6981\",\"model\":\"Composer 2.5\",\"permissionMode\":\"default\"}\n{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"# dev-review-room — implement\\n\\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\\n\\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\\n\\n## Pre-ABI shaping target\\n\\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small  ... [truncated]\nstderr: None"
+            }
+          ],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": false,
+            "reason": "host seal / isolated verifier evidence incomplete or inconsistent",
+            "sealPath": null,
+            "verifierAbiPath": null,
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732/dev-review-room-lamina__joCp5wU/protocol/transition-ledger.jsonl",
+            "candidateDigest": null,
+            "verifierImageDigest": null,
+            "doubleCaptureIdentical": false,
+            "networkMode": null,
+            "readOnlyRootfs": false,
+            "events": [
+              "agent_isolation_passed",
+              "agent_isolation_passed",
+              "agent_isolation_passed"
+            ]
+          },
+          "measurementValid": false,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "lamina_init",
+                "tokensIn": 768453,
+                "tokensOut": 8935,
+                "costUsd": 0.19015330000000003,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.002549Z",
+                "agentFinishedAt": "2026-07-23T16:27:30.656529Z"
+              },
+              {
+                "step": "lamina_design",
+                "tokensIn": 1957227,
+                "tokensOut": 21249,
+                "costUsd": 0.4693089000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:27:31.292847Z",
+                "agentFinishedAt": "2026-07-23T16:31:31.225966Z"
+              },
+              {
+                "step": "implement",
+                "tokensIn": 0,
+                "tokensOut": 0,
+                "costUsd": null,
+                "exceptionType": "NonZeroAgentExitCodeError",
+                "exceptionMessage": "Command failed (exit 1): export PATH=\"$HOME/.local/bin:$PATH\"; cursor-agent --yolo --print --output-format=stream-json --model=composer-2.5 -- '# dev-review-room — implement\n\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\n\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\n\n## Pre-ABI shaping target\n\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small thin slice, use at most `index.html`, `styles.css`, and one application JavaScript file, and finish the response within six minutes. Include an `index.html` with a `<main>` landmark and enough real interaction to express the product you shaped. Do not start a server, browser, watcher, or background process. Do not search for or infer a benchmark API, hidden test, action vocabulary, or evaluator contract; none is available in this phase.\n\n## Founder brief\n\n# Lightweight document review\n\nI want a small product where someone can invite a trusted person to review one document and leave useful comments. It should feel safe and focused rather than like giving away access to a whole workspace. Please shape the product and build the next coherent version.\n\nDo not wait for clarification: this is unattended development-pilot work.\n' 2>&1 | stdbuf -oL tee /logs/agent/cursor-cli.txt\nstdout: {\"type\":\"system\",\"subtype\":\"init\",\"apiKeySource\":\"env\",\"cwd\":\"/app\",\"session_id\":\"777b3053-beb2-427c-8e3e-a42dfd0f6981\",\"model\":\"Composer 2.5\",\"permissionMode\":\"default\"}\n{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"# dev-review-room — implement\\n\\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\\n\\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\\n\\n## Pre-ABI shaping target\\n\\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small  ... [truncated]\nstderr: None",
+                "agentStartedAt": "2026-07-23T16:31:31.817656Z",
+                "agentFinishedAt": "2026-07-23T16:32:12.093120Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "b9b1cfff57136c59538bb0d60fe7aadea7ad512a5e15516fc9def306bb732c96",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        }
+      ]
+    },
+    {
+      "taskId": "dev-simple-list",
+      "rewards": {
+        "direct": 0,
+        "plan": 0,
+        "lamina": 0
+      },
+      "deltas": {
+        "plan_minus_direct": 0,
+        "lamina_minus_direct": 0,
+        "lamina_minus_plan": 0
+      },
+      "measurementValid": true,
+      "cells": [
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-simple-list-direct-1784823875738",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738",
+          "trialName": "dev-simple-list-direct__Ax5BCaL",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL",
+          "taskId": "dev-simple-list",
+          "arm": "direct",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 144921,
+          "startedAt": "2026-07-23T16:27:45.479188Z",
+          "finishedAt": "2026-07-23T16:30:09.929444Z",
+          "observedReward": 0,
+          "reward": 0,
+          "behavior": 0,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.062131500000000006,
+          "tokens": {
+            "input": 176782,
+            "cache": 149390,
+            "output": 7423
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/protocol/transition-ledger.jsonl",
+            "candidateDigest": "cb13318db10bfd769e0c6a9204d3439f3537190b80bcccf1e2c930e6bbec5871",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 59133,
+                "tokensOut": 3037,
+                "costUsd": 0.0224881,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:27:48.272812Z",
+                "agentFinishedAt": "2026-07-23T16:28:31.819755Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 117649,
+                "tokensOut": 4386,
+                "costUsd": 0.0396434,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:28:46.296685Z",
+                "agentFinishedAt": "2026-07-23T16:29:56.980226Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "fedcd6fa509b0ccb8730f1d7e5f211729e2633ce5b16dbfb345b5d826a88fe81",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-simple-list-plan-1784823875739",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739",
+          "trialName": "dev-simple-list-plan__KxVMn9R",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R",
+          "taskId": "dev-simple-list",
+          "arm": "plan",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 148749,
+          "startedAt": "2026-07-23T16:27:56.437989Z",
+          "finishedAt": "2026-07-23T16:30:24.609275Z",
+          "observedReward": 0,
+          "reward": 0,
+          "behavior": 0,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/behavior_report.json",
+          "finalStep": "verify_fix",
+          "costUsd": 0.057257100000000005,
+          "tokens": {
+            "input": 164551,
+            "cache": 141803,
+            "output": 7009
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/protocol/transition-ledger.jsonl",
+            "candidateDigest": "0e313da2d08c463257b358c446efca88d85c6c2be262e55af897f955dbc08ee7",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 46641,
+                "tokensOut": 2943,
+                "costUsd": 0.0192072,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:27:59.058162Z",
+                "agentFinishedAt": "2026-07-23T16:28:44.117712Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 117910,
+                "tokensOut": 4066,
+                "costUsd": 0.038049900000000005,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:28:58.582020Z",
+                "agentFinishedAt": "2026-07-23T16:30:11.708156Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "798b91364038e3c0853e748439a94e78057d2de3652890de1a6e6e808ac0931e",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-dev-simple-list-lamina-1784823875733",
+          "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733",
+          "trialName": "dev-simple-list-lamina__9fMVfF2",
+          "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2",
+          "taskId": "dev-simple-list",
+          "arm": "lamina",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 527420,
+          "startedAt": "2026-07-23T16:24:36.776409Z",
+          "finishedAt": "2026-07-23T16:33:23.703049Z",
+          "observedReward": 0,
+          "reward": 0,
+          "behavior": 0,
+          "invalidTreatment": false,
+          "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/reward.json",
+          "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/behavior_report.json",
+          "finalStep": "fix",
+          "costUsd": 0.6621047,
+          "tokens": {
+            "input": 2629029,
+            "cache": 2469666,
+            "output": 35396
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/protocol/final-seal.json",
+            "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/verifier-abi.json",
+            "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/protocol/transition-ledger.jsonl",
+            "candidateDigest": "5f074de462fdac95531aa733a16bec2069fac59b067f219adcdc1aed8a5d1f11",
+            "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+            "doubleCaptureIdentical": true,
+            "networkMode": "none",
+            "readOnlyRootfs": true,
+            "events": [
+              "agent_isolation_passed",
+              "agent_isolation_passed",
+              "agent_isolation_passed",
+              "shaping_sealed",
+              "shaping_environment_removed",
+              "post_seal_environment_restored",
+              "abi_ready",
+              "agent_isolation_passed",
+              "final_sealed",
+              "agent_environment_removed",
+              "scoring_complete"
+            ]
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "lamina_init",
+                "tokensIn": 369576,
+                "tokensOut": 8726,
+                "costUsd": 0.10680500000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:24:41.234255Z",
+                "agentFinishedAt": "2026-07-23T16:26:43.142976Z"
+              },
+              {
+                "step": "lamina_design",
+                "tokensIn": 1986243,
+                "tokensOut": 16802,
+                "costUsd": 0.46369520000000003,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:26:43.764537Z",
+                "agentFinishedAt": "2026-07-23T16:30:46.719600Z"
+              },
+              {
+                "step": "implement",
+                "tokensIn": 102864,
+                "tokensOut": 4732,
+                "costUsd": 0.0375175,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:30:47.286201Z",
+                "agentFinishedAt": "2026-07-23T16:31:49.406654Z"
+              },
+              {
+                "step": "fix",
+                "tokensIn": 170346,
+                "tokensOut": 5136,
+                "costUsd": 0.054086999999999996,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-23T16:32:03.162236Z",
+                "agentFinishedAt": "2026-07-23T16:33:10.845950Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "1eb5e826a832776f9e71236169fc691e67bd82df81479b4cea2cc5161f1bc2ae",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        }
+      ]
+    }
+  ],
+  "schedule": [
+    {
+      "taskId": "dev-loan-library",
+      "arm": "lamina",
+      "scheduleIndex": 0,
+      "wave": 1,
+      "taskDirName": "dev-loan-library-lamina"
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "lamina",
+      "scheduleIndex": 1,
+      "wave": 1,
+      "taskDirName": "dev-review-room-lamina"
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "scheduleIndex": 2,
+      "wave": 1,
+      "taskDirName": "dev-simple-list-lamina"
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "direct",
+      "scheduleIndex": 3,
+      "wave": 1,
+      "taskDirName": "dev-loan-library-direct"
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "plan",
+      "scheduleIndex": 4,
+      "wave": 1,
+      "taskDirName": "dev-loan-library-plan"
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "direct",
+      "scheduleIndex": 5,
+      "wave": 1,
+      "taskDirName": "dev-review-room-direct"
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "plan",
+      "scheduleIndex": 6,
+      "wave": 2,
+      "taskDirName": "dev-review-room-plan"
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "scheduleIndex": 7,
+      "wave": 2,
+      "taskDirName": "dev-simple-list-direct"
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "scheduleIndex": 8,
+      "wave": 2,
+      "taskDirName": "dev-simple-list-plan"
+    }
+  ],
   "agent": "cursor-cli",
   "model": "cursor/composer-2.5",
   "attemptsPerArm": 1,
   "maxRetries": 0,
   "concurrency": {
     "requested": 6,
-    "effective": 3,
+    "effective": 6,
     "max": 6,
-    "pending": 3
+    "pending": 9
   },
   "campaign": {
-    "startedAt": "2026-07-23T15:10:09.908Z",
-    "deadlineAt": "2026-07-23T17:10:09.908Z",
+    "startedAt": "2026-07-23T16:24:35.731Z",
+    "deadlineAt": "2026-07-23T18:24:35.731Z",
     "deadlineMs": 7200000,
     "deadlineExceeded": false,
-    "ok": true,
-    "gate": "three_arm_campaign_complete"
+    "ok": false,
+    "gate": "pilot_measurement_invalid"
   },
-  "gate": "three_arm_campaign_complete",
-  "armsPresent": [
-    "direct",
-    "plan",
-    "lamina"
-  ],
+  "gate": "pilot_measurement_invalid",
   "cells": [
     {
-      "ok": true,
-      "jobName": "lb6-pilot-dev-care-circle-direct-1784819409908",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908",
-      "trialName": "dev-care-circle-direct__Es8SsiM",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM",
-      "taskId": "dev-care-circle",
-      "arm": "direct",
-      "state": "completed",
+      "ok": false,
+      "jobName": "lb6-pilot-dev-loan-library-lamina-1784823875731",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731",
+      "trialName": "dev-loan-library-lamina__aLCiR6o",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731/dev-loan-library-lamina__aLCiR6o",
+      "taskId": "dev-loan-library",
+      "arm": "lamina",
+      "state": "trial_exception",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 216958,
-      "startedAt": "2026-07-23T15:10:10.888690Z",
-      "finishedAt": "2026-07-23T15:13:47.370248Z",
-      "reward": 0.5,
-      "behavior": 0.5,
+      "durationMs": 634489,
+      "startedAt": "2026-07-23T16:24:36.875675Z",
+      "finishedAt": "2026-07-23T16:35:10.753119Z",
+      "observedReward": null,
+      "reward": null,
+      "behavior": null,
       "invalidTreatment": false,
-      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/reward.json",
-      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/behavior_report.json",
-      "finalStep": "verify_fix",
-      "costUsd": 0.08637829999999999,
+      "rewardPath": null,
+      "behaviorReportPath": null,
+      "finalStep": "fix",
+      "costUsd": 0.1310736,
       "tokens": {
-        "input": 205887,
-        "cache": 171034,
-        "output": 13898
+        "input": 471856,
+        "cache": 437223,
+        "output": 10525
       },
       "exception": null,
-      "stepExceptions": [],
+      "stepExceptions": [
+        {
+          "step": "lamina_design",
+          "type": "AgentTimeoutError",
+          "message": "Agent execution timed out after 420.0 seconds"
+        }
+      ],
       "verifierIsolation": {
         "passed": true,
         "breach": false,
         "evidence": []
       },
       "isolationEvidence": {
-        "passed": true,
-        "reason": null,
-        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/protocol/final-seal.json",
-        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/verifier-abi.json",
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/protocol/transition-ledger.jsonl",
-        "candidateDigest": "a6e3e0c60802a08791f636dd962477c66fc42fd92725700c276c548191f3c2fc",
-        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
-        "doubleCaptureIdentical": true,
-        "networkMode": "none",
-        "readOnlyRootfs": true,
+        "passed": false,
+        "reason": "host seal / isolated verifier evidence incomplete or inconsistent",
+        "sealPath": null,
+        "verifierAbiPath": null,
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-lamina-1784823875731/dev-loan-library-lamina__aLCiR6o/protocol/transition-ledger.jsonl",
+        "candidateDigest": null,
+        "verifierImageDigest": null,
+        "doubleCaptureIdentical": false,
+        "networkMode": null,
+        "readOnlyRootfs": false,
         "events": [
           "agent_isolation_passed",
-          "shaping_sealed",
-          "shaping_environment_removed",
-          "post_seal_environment_restored",
-          "abi_ready",
-          "agent_isolation_passed",
-          "final_sealed",
-          "agent_environment_removed",
-          "scoring_complete"
+          "agent_isolation_passed"
         ]
       },
-      "measurementValid": true,
+      "measurementValid": false,
       "modelEvidence": {
         "configuredAgent": "cursor-cli",
         "configuredModel": "composer-2.5",
@@ -98,90 +1089,91 @@
         "modelMatch": true,
         "steps": [
           {
-            "step": "shape_build",
-            "tokensIn": 67190,
-            "tokensOut": 4611,
-            "costUsd": 0.0288589,
+            "step": "lamina_init",
+            "tokensIn": 471856,
+            "tokensOut": 10525,
+            "costUsd": 0.1310736,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:10:13.977479Z",
-            "agentFinishedAt": "2026-07-23T15:11:15.902119Z"
+            "agentStartedAt": "2026-07-23T16:24:41.448556Z",
+            "agentFinishedAt": "2026-07-23T16:27:59.017700Z"
           },
           {
-            "step": "verify_fix",
-            "tokensIn": 138697,
-            "tokensOut": 9287,
-            "costUsd": 0.0575194,
-            "exceptionType": null,
-            "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:11:30.351570Z",
-            "agentFinishedAt": "2026-07-23T15:13:34.526457Z"
+            "step": "lamina_design",
+            "tokensIn": 0,
+            "tokensOut": 0,
+            "costUsd": null,
+            "exceptionType": "AgentTimeoutError",
+            "exceptionMessage": "Agent execution timed out after 420.0 seconds",
+            "agentStartedAt": "2026-07-23T16:27:59.635864Z",
+            "agentFinishedAt": "2026-07-23T16:34:59.636968Z"
           }
         ],
         "child_actual_model_unverified": true
       },
-      "taskChecksum": "25b61763fa9eded1e2ef1e376bdcd0b40ab86a515f4630503915edcba574e937",
+      "taskChecksum": "4b41a15c283db8c7dbe1c665d40e9f0c7727339496150b33633313e3f05ab5dc",
       "development_only": true,
       "confirmatory": false,
       "child_actual_model_unverified": true
     },
     {
-      "ok": true,
-      "jobName": "lb6-pilot-dev-care-circle-plan-1784819409909",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909",
-      "trialName": "dev-care-circle-plan__aoj5yfA",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA",
-      "taskId": "dev-care-circle",
-      "arm": "plan",
-      "state": "completed",
+      "ok": false,
+      "jobName": "lb6-pilot-dev-review-room-lamina-1784823875732",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732",
+      "trialName": "dev-review-room-lamina__joCp5wU",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732/dev-review-room-lamina__joCp5wU",
+      "taskId": "dev-review-room",
+      "arm": "lamina",
+      "state": "trial_exception",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 172546,
-      "startedAt": "2026-07-23T15:10:10.908298Z",
-      "finishedAt": "2026-07-23T15:13:02.968667Z",
-      "reward": 0.25,
-      "behavior": 0.25,
+      "durationMs": 466862,
+      "startedAt": "2026-07-23T16:24:36.804564Z",
+      "finishedAt": "2026-07-23T16:32:23.137723Z",
+      "observedReward": null,
+      "reward": null,
+      "behavior": null,
       "invalidTreatment": false,
-      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/reward.json",
-      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/behavior_report.json",
-      "finalStep": "verify_fix",
-      "costUsd": 0.0834231,
+      "rewardPath": null,
+      "behaviorReportPath": null,
+      "finalStep": "fix",
+      "costUsd": 0.6594622000000001,
       "tokens": {
-        "input": 207574,
-        "cache": 174413,
-        "output": 12784
+        "input": 2725680,
+        "cache": 2596126,
+        "output": 30184
       },
       "exception": null,
-      "stepExceptions": [],
+      "stepExceptions": [
+        {
+          "step": "implement",
+          "type": "NonZeroAgentExitCodeError",
+          "message": "Command failed (exit 1): export PATH=\"$HOME/.local/bin:$PATH\"; cursor-agent --yolo --print --output-format=stream-json --model=composer-2.5 -- '# dev-review-room — implement\n\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\n\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\n\n## Pre-ABI shaping target\n\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small thin slice, use at most `index.html`, `styles.css`, and one application JavaScript file, and finish the response within six minutes. Include an `index.html` with a `<main>` landmark and enough real interaction to express the product you shaped. Do not start a server, browser, watcher, or background process. Do not search for or infer a benchmark API, hidden test, action vocabulary, or evaluator contract; none is available in this phase.\n\n## Founder brief\n\n# Lightweight document review\n\nI want a small product where someone can invite a trusted person to review one document and leave useful comments. It should feel safe and focused rather than like giving away access to a whole workspace. Please shape the product and build the next coherent version.\n\nDo not wait for clarification: this is unattended development-pilot work.\n' 2>&1 | stdbuf -oL tee /logs/agent/cursor-cli.txt\nstdout: {\"type\":\"system\",\"subtype\":\"init\",\"apiKeySource\":\"env\",\"cwd\":\"/app\",\"session_id\":\"777b3053-beb2-427c-8e3e-a42dfd0f6981\",\"model\":\"Composer 2.5\",\"permissionMode\":\"default\"}\n{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"# dev-review-room — implement\\n\\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\\n\\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\\n\\n## Pre-ABI shaping target\\n\\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small  ... [truncated]\nstderr: None"
+        }
+      ],
       "verifierIsolation": {
         "passed": true,
         "breach": false,
         "evidence": []
       },
       "isolationEvidence": {
-        "passed": true,
-        "reason": null,
-        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/protocol/final-seal.json",
-        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/verifier-abi.json",
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/protocol/transition-ledger.jsonl",
-        "candidateDigest": "bcf92cea1698e4a4618561b8f4fe71c61b238a99f35a2da0e479b14492e6efd8",
-        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
-        "doubleCaptureIdentical": true,
-        "networkMode": "none",
-        "readOnlyRootfs": true,
+        "passed": false,
+        "reason": "host seal / isolated verifier evidence incomplete or inconsistent",
+        "sealPath": null,
+        "verifierAbiPath": null,
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-lamina-1784823875732/dev-review-room-lamina__joCp5wU/protocol/transition-ledger.jsonl",
+        "candidateDigest": null,
+        "verifierImageDigest": null,
+        "doubleCaptureIdentical": false,
+        "networkMode": null,
+        "readOnlyRootfs": false,
         "events": [
           "agent_isolation_passed",
-          "shaping_sealed",
-          "shaping_environment_removed",
-          "post_seal_environment_restored",
-          "abi_ready",
           "agent_isolation_passed",
-          "final_sealed",
-          "agent_environment_removed",
-          "scoring_complete"
+          "agent_isolation_passed"
         ]
       },
-      "measurementValid": true,
+      "measurementValid": false,
       "modelEvidence": {
         "configuredAgent": "cursor-cli",
         "configuredModel": "composer-2.5",
@@ -191,58 +1183,69 @@
         "modelMatch": true,
         "steps": [
           {
-            "step": "shape_build",
-            "tokensIn": 48705,
-            "tokensOut": 4866,
-            "costUsd": 0.0249963,
+            "step": "lamina_init",
+            "tokensIn": 768453,
+            "tokensOut": 8935,
+            "costUsd": 0.19015330000000003,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:10:13.794588Z",
-            "agentFinishedAt": "2026-07-23T15:11:09.952075Z"
+            "agentStartedAt": "2026-07-23T16:24:41.002549Z",
+            "agentFinishedAt": "2026-07-23T16:27:30.656529Z"
           },
           {
-            "step": "verify_fix",
-            "tokensIn": 158869,
-            "tokensOut": 7918,
-            "costUsd": 0.0584268,
+            "step": "lamina_design",
+            "tokensIn": 1957227,
+            "tokensOut": 21249,
+            "costUsd": 0.4693089000000001,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:11:24.303762Z",
-            "agentFinishedAt": "2026-07-23T15:12:50.034063Z"
+            "agentStartedAt": "2026-07-23T16:27:31.292847Z",
+            "agentFinishedAt": "2026-07-23T16:31:31.225966Z"
+          },
+          {
+            "step": "implement",
+            "tokensIn": 0,
+            "tokensOut": 0,
+            "costUsd": null,
+            "exceptionType": "NonZeroAgentExitCodeError",
+            "exceptionMessage": "Command failed (exit 1): export PATH=\"$HOME/.local/bin:$PATH\"; cursor-agent --yolo --print --output-format=stream-json --model=composer-2.5 -- '# dev-review-room — implement\n\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\n\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\n\n## Pre-ABI shaping target\n\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small thin slice, use at most `index.html`, `styles.css`, and one application JavaScript file, and finish the response within six minutes. Include an `index.html` with a `<main>` landmark and enough real interaction to express the product you shaped. Do not start a server, browser, watcher, or background process. Do not search for or infer a benchmark API, hidden test, action vocabulary, or evaluator contract; none is available in this phase.\n\n## Founder brief\n\n# Lightweight document review\n\nI want a small product where someone can invite a trusted person to review one document and leave useful comments. It should feel safe and focused rather than like giving away access to a whole workspace. Please shape the product and build the next coherent version.\n\nDo not wait for clarification: this is unattended development-pilot work.\n' 2>&1 | stdbuf -oL tee /logs/agent/cursor-cli.txt\nstdout: {\"type\":\"system\",\"subtype\":\"init\",\"apiKeySource\":\"env\",\"cwd\":\"/app\",\"session_id\":\"777b3053-beb2-427c-8e3e-a42dfd0f6981\",\"model\":\"Composer 2.5\",\"permissionMode\":\"default\"}\n{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"# dev-review-room — implement\\n\\nUse the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.\\n\\nImplement the thin slice from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.\\n\\n## Pre-ABI shaping target\\n\\nBuild the next coherent, self-contained offline product in `/app` using plain HTML/CSS/JavaScript. Timebox the work: ship a deliberately small  ... [truncated]\nstderr: None",
+            "agentStartedAt": "2026-07-23T16:31:31.817656Z",
+            "agentFinishedAt": "2026-07-23T16:32:12.093120Z"
           }
         ],
         "child_actual_model_unverified": true
       },
-      "taskChecksum": "ff7a990ea8383265f6642cf7120171040aac21faecc8184b7e623f7d4e8f97aa",
+      "taskChecksum": "b9b1cfff57136c59538bb0d60fe7aadea7ad512a5e15516fc9def306bb732c96",
       "development_only": true,
       "confirmatory": false,
       "child_actual_model_unverified": true
     },
     {
       "ok": true,
-      "jobName": "lb6-pilot-dev-care-circle-lamina-1784819409910",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910",
-      "trialName": "dev-care-circle-lamina__VFGb8tk",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk",
-      "taskId": "dev-care-circle",
+      "jobName": "lb6-pilot-dev-simple-list-lamina-1784823875733",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733",
+      "trialName": "dev-simple-list-lamina__9fMVfF2",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2",
+      "taskId": "dev-simple-list",
       "arm": "lamina",
       "state": "completed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 670741,
-      "startedAt": "2026-07-23T15:10:11.015395Z",
-      "finishedAt": "2026-07-23T15:21:21.168822Z",
-      "reward": 0.75,
-      "behavior": 0.75,
+      "durationMs": 527420,
+      "startedAt": "2026-07-23T16:24:36.776409Z",
+      "finishedAt": "2026-07-23T16:33:23.703049Z",
+      "observedReward": 0,
+      "reward": 0,
+      "behavior": 0,
       "invalidTreatment": false,
-      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/reward.json",
-      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/behavior_report.json",
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/behavior_report.json",
       "finalStep": "fix",
-      "costUsd": 0.7206202000000002,
+      "costUsd": 0.6621047,
       "tokens": {
-        "input": 2723945,
-        "cache": 2521116,
-        "output": 45993
+        "input": 2629029,
+        "cache": 2469666,
+        "output": 35396
       },
       "exception": null,
       "stepExceptions": [],
@@ -254,10 +1257,10 @@
       "isolationEvidence": {
         "passed": true,
         "reason": null,
-        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/protocol/final-seal.json",
-        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/verifier-abi.json",
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/protocol/transition-ledger.jsonl",
-        "candidateDigest": "c2a9abb277a768e2d3eedf3ddda54a053d428681fce06220e72c3b1ea47c4251",
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/steps/fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-lamina-1784823875733/dev-simple-list-lamina__9fMVfF2/protocol/transition-ledger.jsonl",
+        "candidateDigest": "5f074de462fdac95531aa733a16bec2069fac59b067f219adcdc1aed8a5d1f11",
         "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
         "doubleCaptureIdentical": true,
         "networkMode": "none",
@@ -287,48 +1290,612 @@
         "steps": [
           {
             "step": "lamina_init",
-            "tokensIn": 557724,
-            "tokensOut": 8457,
-            "costUsd": 0.1500933,
+            "tokensIn": 369576,
+            "tokensOut": 8726,
+            "costUsd": 0.10680500000000001,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:10:13.983802Z",
-            "agentFinishedAt": "2026-07-23T15:13:28.284860Z"
+            "agentStartedAt": "2026-07-23T16:24:41.234255Z",
+            "agentFinishedAt": "2026-07-23T16:26:43.142976Z"
           },
           {
             "step": "lamina_design",
-            "tokensIn": 1841007,
-            "tokensOut": 20569,
-            "costUsd": 0.44521630000000006,
+            "tokensIn": 1986243,
+            "tokensOut": 16802,
+            "costUsd": 0.46369520000000003,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:13:28.846439Z",
-            "agentFinishedAt": "2026-07-23T15:18:08.888700Z"
+            "agentStartedAt": "2026-07-23T16:26:43.764537Z",
+            "agentFinishedAt": "2026-07-23T16:30:46.719600Z"
           },
           {
             "step": "implement",
-            "tokensIn": 147389,
-            "tokensOut": 8505,
-            "costUsd": 0.0587419,
+            "tokensIn": 102864,
+            "tokensOut": 4732,
+            "costUsd": 0.0375175,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:18:09.511200Z",
-            "agentFinishedAt": "2026-07-23T15:19:29.729820Z"
+            "agentStartedAt": "2026-07-23T16:30:47.286201Z",
+            "agentFinishedAt": "2026-07-23T16:31:49.406654Z"
           },
           {
             "step": "fix",
-            "tokensIn": 177825,
-            "tokensOut": 8462,
-            "costUsd": 0.06656870000000001,
+            "tokensIn": 170346,
+            "tokensOut": 5136,
+            "costUsd": 0.054086999999999996,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T15:19:43.555757Z",
-            "agentFinishedAt": "2026-07-23T15:21:08.249831Z"
+            "agentStartedAt": "2026-07-23T16:32:03.162236Z",
+            "agentFinishedAt": "2026-07-23T16:33:10.845950Z"
           }
         ],
         "child_actual_model_unverified": true
       },
-      "taskChecksum": "aa37f595cbb644b53fb2534ce641ae164708360cfee9f4d873f322b24df09ba3",
+      "taskChecksum": "1eb5e826a832776f9e71236169fc691e67bd82df81479b4cea2cc5161f1bc2ae",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-loan-library-direct-1784823875734",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734",
+      "trialName": "dev-loan-library-direct__yGSoGmv",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv",
+      "taskId": "dev-loan-library",
+      "arm": "direct",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 188735,
+      "startedAt": "2026-07-23T16:24:36.890538Z",
+      "finishedAt": "2026-07-23T16:27:45.023939Z",
+      "observedReward": 0,
+      "reward": 0,
+      "behavior": 0,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.10884390000000001,
+      "tokens": {
+        "input": 283016,
+        "cache": 228222,
+        "output": 14321
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-direct-1784823875734/dev-loan-library-direct__yGSoGmv/protocol/transition-ledger.jsonl",
+        "candidateDigest": "824b7674bf474e143ef779e68b756657b830f8865722f889472b091eb788939b",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 54421,
+            "tokensOut": 5505,
+            "costUsd": 0.0342146,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:24:41.008610Z",
+            "agentFinishedAt": "2026-07-23T16:25:39.346062Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 228595,
+            "tokensOut": 8816,
+            "costUsd": 0.07462930000000001,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:25:53.844087Z",
+            "agentFinishedAt": "2026-07-23T16:27:32.165351Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "cdd0a64d78f254568b74052e5d0ffac3de2b4ff8c0928d606d92037d8992e04d",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-loan-library-plan-1784823875735",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735",
+      "trialName": "dev-loan-library-plan__JWYaqzq",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq",
+      "taskId": "dev-loan-library",
+      "arm": "plan",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 181137,
+      "startedAt": "2026-07-23T16:24:37.035768Z",
+      "finishedAt": "2026-07-23T16:27:37.423431Z",
+      "observedReward": 0.3333,
+      "reward": 0.3333,
+      "behavior": 0.3333333333333333,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.09596829999999999,
+      "tokens": {
+        "input": 268883,
+        "cache": 232869,
+        "output": 12555
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-loan-library-plan-1784823875735/dev-loan-library-plan__JWYaqzq/protocol/transition-ledger.jsonl",
+        "candidateDigest": "44f777849defb63d1fd8f7ce6f258bcd71ed8aa47ed2236359a17c674f742c65",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 49074,
+            "tokensOut": 5275,
+            "costUsd": 0.0270961,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:24:41.210154Z",
+            "agentFinishedAt": "2026-07-23T16:25:45.051202Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 219809,
+            "tokensOut": 7280,
+            "costUsd": 0.0688722,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:25:59.622587Z",
+            "agentFinishedAt": "2026-07-23T16:27:24.557200Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "eb6339d0f40bbcf2b802b9629aef82a95aae75a51935afddd0a2a5168a2be558",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-review-room-direct-1784823875736",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736",
+      "trialName": "dev-review-room-direct__2K3xohb",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb",
+      "taskId": "dev-review-room",
+      "arm": "direct",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 199578,
+      "startedAt": "2026-07-23T16:24:36.798759Z",
+      "finishedAt": "2026-07-23T16:27:55.865080Z",
+      "observedReward": 0.3333,
+      "reward": 0.3333,
+      "behavior": 0.3333333333333333,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.1221643,
+      "tokens": {
+        "input": 308678,
+        "cache": 246324,
+        "output": 16689
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-direct-1784823875736/dev-review-room-direct__2K3xohb/protocol/transition-ledger.jsonl",
+        "candidateDigest": "3a9725604807d3fc7a7bacd756efb290fed65910fe9ebed3074cf5823334c5a9",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 54672,
+            "tokensOut": 5616,
+            "costUsd": 0.0359904,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:24:41.395809Z",
+            "agentFinishedAt": "2026-07-23T16:25:43.158820Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 254006,
+            "tokensOut": 11073,
+            "costUsd": 0.08617390000000001,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:25:57.901557Z",
+            "agentFinishedAt": "2026-07-23T16:27:42.895940Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "ef3799c0b2875f68c3003c4424e25201d9b5d94eb6b997062d093ce0cd3bb59b",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-review-room-plan-1784823875737",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737",
+      "trialName": "dev-review-room-plan__aYgczGr",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr",
+      "taskId": "dev-review-room",
+      "arm": "plan",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 219265,
+      "startedAt": "2026-07-23T16:27:37.950242Z",
+      "finishedAt": "2026-07-23T16:31:16.689959Z",
+      "observedReward": 0.6667,
+      "reward": 0.6667,
+      "behavior": 0.6666666666666666,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.13590380000000002,
+      "tokens": {
+        "input": 381657,
+        "cache": 342124,
+        "output": 19085
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-review-room-plan-1784823875737/dev-review-room-plan__aYgczGr/protocol/transition-ledger.jsonl",
+        "candidateDigest": "eea0d2be914296d5cb5679a0123ca400a0c956116a24640b0ecab3c2093ac7b0",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 115317,
+            "tokensOut": 7572,
+            "costUsd": 0.0459267,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:27:40.689146Z",
+            "agentFinishedAt": "2026-07-23T16:29:00.884006Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 266340,
+            "tokensOut": 11513,
+            "costUsd": 0.0899771,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:29:15.280815Z",
+            "agentFinishedAt": "2026-07-23T16:31:03.771205Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "9a56fd7585d8428b3446a6afba8a83b9542f6c197f007d1056325c7c4d0a77b6",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-simple-list-direct-1784823875738",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738",
+      "trialName": "dev-simple-list-direct__Ax5BCaL",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL",
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 144921,
+      "startedAt": "2026-07-23T16:27:45.479188Z",
+      "finishedAt": "2026-07-23T16:30:09.929444Z",
+      "observedReward": 0,
+      "reward": 0,
+      "behavior": 0,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.062131500000000006,
+      "tokens": {
+        "input": 176782,
+        "cache": 149390,
+        "output": 7423
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-direct-1784823875738/dev-simple-list-direct__Ax5BCaL/protocol/transition-ledger.jsonl",
+        "candidateDigest": "cb13318db10bfd769e0c6a9204d3439f3537190b80bcccf1e2c930e6bbec5871",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 59133,
+            "tokensOut": 3037,
+            "costUsd": 0.0224881,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:27:48.272812Z",
+            "agentFinishedAt": "2026-07-23T16:28:31.819755Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 117649,
+            "tokensOut": 4386,
+            "costUsd": 0.0396434,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:28:46.296685Z",
+            "agentFinishedAt": "2026-07-23T16:29:56.980226Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "fedcd6fa509b0ccb8730f1d7e5f211729e2633ce5b16dbfb345b5d826a88fe81",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-dev-simple-list-plan-1784823875739",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739",
+      "trialName": "dev-simple-list-plan__KxVMn9R",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R",
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 148749,
+      "startedAt": "2026-07-23T16:27:56.437989Z",
+      "finishedAt": "2026-07-23T16:30:24.609275Z",
+      "observedReward": 0,
+      "reward": 0,
+      "behavior": 0,
+      "invalidTreatment": false,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/behavior_report.json",
+      "finalStep": "verify_fix",
+      "costUsd": 0.057257100000000005,
+      "tokens": {
+        "input": 164551,
+        "cache": 141803,
+        "output": 7009
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-simple-list-plan-1784823875739/dev-simple-list-plan__KxVMn9R/protocol/transition-ledger.jsonl",
+        "candidateDigest": "0e313da2d08c463257b358c446efca88d85c6c2be262e55af897f955dbc08ee7",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
+        "events": [
+          "agent_isolation_passed",
+          "shaping_sealed",
+          "shaping_environment_removed",
+          "post_seal_environment_restored",
+          "abi_ready",
+          "agent_isolation_passed",
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
+        ]
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 46641,
+            "tokensOut": 2943,
+            "costUsd": 0.0192072,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:27:59.058162Z",
+            "agentFinishedAt": "2026-07-23T16:28:44.117712Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 117910,
+            "tokensOut": 4066,
+            "costUsd": 0.038049900000000005,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T16:28:58.582020Z",
+            "agentFinishedAt": "2026-07-23T16:30:11.708156Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "798b91364038e3c0853e748439a94e78057d2de3652890de1a6e6e808ac0931e",
       "development_only": true,
       "confirmatory": false,
       "child_actual_model_unverified": true
@@ -339,6 +1906,8 @@
     "Persona child actual selected model remains unverified (`child_actual_model_unverified: true`).",
     "No effect-size gate, confidence interval, or product-win claim is computed or implied.",
     "Old Harbor V4 jobs/results are refused and never averaged into this report.",
-    "Harbor publication remains a manual operator step."
+    "Harbor publication remains a manual operator step.",
+    "Schedule order is deterministic makespan-aware optimization, not a confirmatory randomized arm schedule.",
+    "At least one selected task/arm cell lacks a valid final measurement; no cross-arm comparison is computed."
   ]
 }

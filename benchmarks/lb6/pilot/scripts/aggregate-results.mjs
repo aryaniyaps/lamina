@@ -332,15 +332,28 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   else if (cellMeta.exitCode && cellMeta.exitCode !== 0) state = cellMeta.state || 'harbor_nonzero_exit';
   else if (!trialResult) state = cellMeta.state || 'trial_missing';
 
+  const observedReward = rewardInfo.reward?.reward ?? behaviorInfo.report?.reward ?? null;
+  const observedBehavior = rewardInfo.reward?.behavior
+    ?? behaviorInfo.report?.behavior_pass_rate
+    ?? behaviorInfo.report?.scores?.behavior
+    ?? null;
+  const ok =
+    state === 'completed'
+    && observedReward !== undefined
+    && observedReward !== null
+    && modelEvidence.modelMatch
+    && !verifierIsolation.breach
+    && isolationEvidence.passed
+    && !behaviorInfo.report?.invalid_treatment;
+  const measurementValid =
+    ok
+    && state === 'completed'
+    && !verifierIsolation.breach
+    && isolationEvidence.passed
+    && !behaviorInfo.report?.invalid_treatment;
+
   return {
-    ok:
-      state === 'completed'
-      && rewardInfo.reward?.reward !== undefined
-      && rewardInfo.reward?.reward !== null
-      && modelEvidence.modelMatch
-      && !verifierIsolation.breach
-      && isolationEvidence.passed
-      && !behaviorInfo.report?.invalid_treatment,
+    ok,
     jobName,
     jobPath,
     trialName,
@@ -353,11 +366,9 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     durationMs: cellMeta.durationMs ?? durationBetween(trialResult?.started_at, trialResult?.finished_at),
     startedAt: trialResult?.started_at || jobResult?.started_at || null,
     finishedAt: trialResult?.finished_at || jobResult?.finished_at || null,
-    reward: rewardInfo.reward?.reward ?? behaviorInfo.report?.reward ?? null,
-    behavior: rewardInfo.reward?.behavior
-      ?? behaviorInfo.report?.behavior_pass_rate
-      ?? behaviorInfo.report?.scores?.behavior
-      ?? null,
+    observedReward,
+    reward: measurementValid ? observedReward : null,
+    behavior: measurementValid ? observedBehavior : null,
     invalidTreatment: behaviorInfo.report?.invalid_treatment ?? false,
     rewardPath: rewardInfo.path,
     behaviorReportPath: behaviorInfo.path,
@@ -374,14 +385,33 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     stepExceptions,
     verifierIsolation,
     isolationEvidence,
-    measurementValid:
-      state === 'completed'
-      && !verifierIsolation.breach
-      && isolationEvidence.passed
-      && !behaviorInfo.report?.invalid_treatment,
+    measurementValid,
     modelEvidence,
     taskChecksum: trialResult?.task_checksum || null,
     ...DEVELOPMENT_FLAGS,
+  };
+}
+
+export function buildTaskCluster(taskId, cells) {
+  const byArm = Object.fromEntries(PILOT_ARMS.map((arm) => [arm, null]));
+  for (const cell of cells) {
+    if (cell.taskId === taskId) byArm[cell.arm] = cell;
+  }
+  const publicReward = (cell) => (cell?.ok && cell?.measurementValid ? cell.reward : null);
+  const rewards = Object.fromEntries(PILOT_ARMS.map((arm) => [arm, publicReward(byArm[arm])]));
+  const direct = rewards.direct;
+  const deltas = {
+    plan_minus_direct: direct !== null && rewards.plan !== null ? rewards.plan - direct : null,
+    lamina_minus_direct: direct !== null && rewards.lamina !== null ? rewards.lamina - direct : null,
+    lamina_minus_plan: rewards.plan !== null && rewards.lamina !== null ? rewards.lamina - rewards.plan : null,
+  };
+  const measurementValid = PILOT_ARMS.every((arm) => byArm[arm]?.ok && byArm[arm]?.measurementValid);
+  return {
+    taskId,
+    rewards,
+    deltas,
+    measurementValid,
+    cells: PILOT_ARMS.map((arm) => byArm[arm]).filter(Boolean),
   };
 }
 
@@ -392,7 +422,7 @@ export function renderMarkdownReport(report) {
   lines.push('**Development-only / non-confirmatory.** Do not treat these cells as LaminaBench-6 evidence, a product-win advertisement, or a frozen statistical gate result.');
   lines.push('');
   lines.push(`- Generated: ${report.generatedAt}`);
-  lines.push(`- Task: \`${report.taskId || 'unknown'}\``);
+  lines.push(`- Selected tasks: ${(report.selectedTaskIds || []).map((id) => `\`${id}\``).join(', ') || '`unknown`'}`);
   lines.push(`- Agent: \`${report.agent}\``);
   lines.push(`- Model: \`${report.model}\``);
   lines.push(`- Attempts per arm: \`${report.attemptsPerArm}\``);
@@ -404,26 +434,46 @@ export function renderMarkdownReport(report) {
   lines.push(`- Campaign gate: \`${report.campaign?.gate || report.gate}\``);
   lines.push('- `child_actual_model_unverified: true`');
   lines.push('');
+  lines.push('## Schedule');
+  lines.push('');
+  lines.push('Deterministic makespan-aware order (development-only throughput optimization; not a confirmatory randomized schedule):');
+  lines.push('');
+  lines.push('| Index | Wave | Task | Arm | Job |');
+  lines.push('|---:|---:|---|---|---|');
+  for (const slot of report.schedule || []) {
+    const cell = (report.cells || []).find(
+      (item) => item.taskId === slot.taskId && item.arm === slot.arm,
+    );
+    lines.push(
+      `| ${slot.scheduleIndex} | ${slot.wave} | \`${slot.taskId}\` | ${slot.arm} | \`${cell?.jobName || 'pending'}\` |`,
+    );
+  }
+  lines.push('');
+  lines.push('## Task clusters');
+  lines.push('');
+  for (const cluster of report.taskClusters || []) {
+    lines.push(`### \`${cluster.taskId}\``);
+    lines.push('');
+    lines.push('| Arm | Reward | Valid measurement | Delta vs direct |');
+    lines.push('|---|---:|---|---|');
+    for (const arm of PILOT_ARMS) {
+      const cell = cluster.cells.find((item) => item.arm === arm);
+      const delta =
+        arm === 'direct'
+          ? '—'
+          : arm === 'plan'
+            ? cluster.deltas.plan_minus_direct
+            : cluster.deltas.lamina_minus_direct;
+      lines.push(
+        `| ${arm} | ${cluster.rewards[arm] ?? 'n/a'} | ${cell?.measurementValid ? 'yes' : 'no'} | ${delta ?? 'n/a'} |`,
+      );
+    }
+    lines.push('');
+  }
   lines.push('## Limitations and missing gates');
   lines.push('');
   for (const item of report.limitations || []) {
     lines.push(`- ${item}`);
-  }
-  lines.push('');
-  lines.push('## Arms');
-  lines.push('');
-  lines.push('| Arm | State | Observed reward | Valid measurement | Duration ms | Job | Model evidence |');
-  lines.push('|---|---|---:|---|---:|---|---|');
-  for (const arm of PILOT_ARMS) {
-    const cell = (report.cells || []).find((item) => item.arm === arm);
-    if (!cell) {
-      lines.push(`| ${arm} | missing |  | no |  |  |  |`);
-      continue;
-    }
-    const model = cell.modelEvidence?.configuredModel || 'unobserved';
-    lines.push(
-      `| ${arm} | ${cell.state} | ${cell.reward ?? 'n/a'} | ${cell.measurementValid ? 'yes' : 'no'} | ${cell.durationMs ?? 'n/a'} | \`${cell.jobName}\` | ${model}; child unverified |`,
-    );
   }
   lines.push('');
   lines.push('## Failure states');
@@ -433,21 +483,20 @@ export function renderMarkdownReport(report) {
     lines.push('- None recorded as non-completed (still development-only; not a product claim).');
   } else {
     for (const cell of failures) {
-      lines.push(`- **${cell.arm}**: ${cell.state}${cell.reason ? ` — ${cell.reason}` : ''}`);
+      lines.push(`- **${cell.taskId}/${cell.arm}**: ${cell.state}${cell.reason ? ` — ${cell.reason}` : ''}`);
     }
   }
   lines.push('');
   lines.push('## Job paths');
   lines.push('');
   for (const cell of report.cells || []) {
-    lines.push(`- ${cell.arm}: \`${cell.jobPath || 'missing'}\``);
+    lines.push(`- ${cell.taskId}/${cell.arm}: \`${cell.jobPath || 'missing'}\``);
   }
   lines.push('');
   lines.push('## Publication');
   lines.push('');
   lines.push('- Harbor publication was prepared but not executed by this runner.');
   lines.push('- Operator must publish manually only after reviewing development gates.');
-  lines.push('');
   const markdown = `${lines.join('\n')}\n`;
   assertDevelopmentCopy(markdown);
   return markdown;
@@ -457,21 +506,30 @@ export function buildPilotReport({
   cells,
   concurrency,
   campaign = {},
+  selectedTaskIds = [],
+  schedule = [],
   generatedAt = new Date().toISOString(),
 }) {
-  const taskId = cells.find((cell) => cell.taskId)?.taskId || null;
-  const armsPresent = PILOT_ARMS.filter((arm) => cells.some((cell) => cell.arm === arm));
+  const taskIds = selectedTaskIds.length
+    ? [...selectedTaskIds].sort()
+    : [...new Set(cells.map((cell) => cell.taskId).filter(Boolean))].sort();
+  const expectedCellCount = taskIds.length * PILOT_ARMS.length;
+  const taskClusters = taskIds.map((taskId) => buildTaskCluster(taskId, cells));
   const refused = cells.filter((cell) => String(cell.state || '').startsWith('refused_'));
   const isolationBreaches = cells.filter((cell) => cell.verifierIsolation?.breach);
-  const allCellsValid =
-    armsPresent.length === PILOT_ARMS.length
-    && cells.length === PILOT_ARMS.length
-    && cells.every((cell) => cell.ok && cell.measurementValid);
+  const allSelectedCellsPresent =
+    cells.length === expectedCellCount
+    && taskIds.every((taskId) =>
+      PILOT_ARMS.every((arm) => cells.some((cell) => cell.taskId === taskId && cell.arm === arm)),
+    );
+  const allCellsValid = allSelectedCellsPresent && cells.every((cell) => cell.ok && cell.measurementValid);
   const reportOk = Boolean(campaign.ok) && allCellsValid;
   const reportGate = refused.length
     ? 'refused_legacy_or_invalid_source'
     : isolationBreaches.length
       ? 'verifier_isolation_breach'
+      : !allSelectedCellsPresent
+        ? 'pilot_cells_incomplete'
       : !allCellsValid
         ? 'pilot_measurement_invalid'
         : campaign.gate || 'pilot_report_ready';
@@ -482,7 +540,9 @@ export function buildPilotReport({
     not_claim_ready: true,
     distinct_from: 'lamina-bench-6',
     generatedAt,
-    taskId,
+    selectedTaskIds: taskIds,
+    taskClusters,
+    schedule,
     agent: HARBOR_AGENT,
     model: HARBOR_MODEL,
     attemptsPerArm: 1,
@@ -502,7 +562,6 @@ export function buildPilotReport({
       gate: reportGate,
     },
     gate: reportGate,
-    armsPresent,
     cells,
     limitations: [
       'Development-only pilot; not LaminaBench-6 confirmatory evidence.',
@@ -510,10 +569,11 @@ export function buildPilotReport({
       'No effect-size gate, confidence interval, or product-win claim is computed or implied.',
       'Old Harbor V4 jobs/results are refused and never averaged into this report.',
       'Harbor publication remains a manual operator step.',
+      'Schedule order is deterministic makespan-aware optimization, not a confirmatory randomized arm schedule.',
       ...(isolationBreaches.length
         ? ['Verifier isolation failed: agent phases accessed private evaluator implementation under `/tests`; all observed rewards are invalid for comparison or publication.']
         : []),
-      ...(!allCellsValid ? ['At least one arm lacks a valid final measurement; no three-arm comparison is computed.'] : []),
+      ...(!allCellsValid ? ['At least one selected task/arm cell lacks a valid final measurement; no cross-arm comparison is computed.'] : []),
       ...(campaign.deadlineExceeded ? ['Campaign hit the two-hour outer deadline.'] : []),
       ...(refused.length ? refused.map((cell) => cell.reason).filter(Boolean) : []),
     ],
@@ -528,6 +588,8 @@ export async function aggregatePilotCampaign({
   jobsRoot = path.join(root, 'jobs'),
   jobNames = [],
   cells = [],
+  schedule = [],
+  selectedTaskIds = [],
   concurrency = null,
   campaign = {},
   write = false,
@@ -561,10 +623,27 @@ export async function aggregatePilotCampaign({
     throw new Error(refused[0].reason || 'refused legacy source during aggregation');
   }
 
+  const taskIds = selectedTaskIds.length
+    ? [...selectedTaskIds].sort()
+    : [...new Set(extracted.map((cell) => cell.taskId).filter(Boolean))].sort();
+  const missing = [];
+  for (const taskId of taskIds) {
+    for (const arm of PILOT_ARMS) {
+      if (!extracted.some((cell) => cell.taskId === taskId && cell.arm === arm)) {
+        missing.push(`${taskId}/${arm}`);
+      }
+    }
+  }
+  if (missing.length) {
+    throw new Error(`aggregatePilotCampaign missing selected task/arm cells: ${missing.join(', ')}`);
+  }
+
   const report = buildPilotReport({
     cells: extracted,
     concurrency,
     campaign,
+    selectedTaskIds: taskIds,
+    schedule,
   });
   const markdown = renderMarkdownReport(report);
 

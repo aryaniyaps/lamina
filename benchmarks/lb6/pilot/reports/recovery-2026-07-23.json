@@ -1,0 +1,48 @@
+{
+  "kind": "lb6_pilot_recovery_sensitivity_report",
+  "generated_at": "2026-07-23T16:47:07Z",
+  "development_only": true,
+  "confirmatory": false,
+  "primary_report_sha256": "199ce6a04d0f0044d2b6e5bea35d81e0fcfc95626ee18f2245f1fb2b0f504142",
+  "does_not_replace_primary": true,
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "attempts_per_cell": 1,
+  "max_retries": 0,
+  "cells": [
+    {
+      "task_id": "dev-loan-library",
+      "arm": "lamina",
+      "job_name": "lb6-recovery-dev-loan-library-lamina-1784824588927",
+      "state": "trial_exception",
+      "failed_step": "lamina_init",
+      "exception_type": "AgentTimeoutError",
+      "exception_message": "Agent execution timed out after 300.0 seconds",
+      "reward": null,
+      "measurement_valid": false,
+      "final_seal": false,
+      "verifier_abi": false,
+      "reported_cost_usd": null
+    },
+    {
+      "task_id": "dev-review-room",
+      "arm": "lamina",
+      "job_name": "lb6-recovery-dev-review-room-lamina-1784824588928",
+      "state": "trial_exception",
+      "failed_step": "implement",
+      "exception_type": "NonZeroAgentExitCodeError",
+      "exception_message": "Cursor emitted repeated connection/retry events and exited nonzero during implementation",
+      "reward": null,
+      "measurement_valid": false,
+      "final_seal": false,
+      "verifier_abi": false,
+      "reported_cost_usd": 1.0402773,
+      "tokens": {
+        "input": 4458502,
+        "cache": 4234654,
+        "output": 32569
+      }
+    }
+  ],
+  "disposition": "No further recovery attempts. Preserve the scheduled first attempts as primary; these records are sensitivity diagnostics only."
+}

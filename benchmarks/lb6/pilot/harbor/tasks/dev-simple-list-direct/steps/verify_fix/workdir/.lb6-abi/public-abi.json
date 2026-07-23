@@ -1,0 +1,23 @@
+{
+  "contract_version": "lb6-pilot-abi-v1",
+  "task_id": "dev-simple-list",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `add_item`: payload shape example: `{\"type\":\"add_item\",\"id\":\"item-1\",\"title\":\"Example title\"}`\n- `complete_item`: payload shape example: `{\"type\":\"complete_item\",\"id\":\"item-1\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "public_sequences": {
+    "sequences": [
+      {
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "add_item",
+            "id": "item-1",
+            "title": "Example title"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-1"
+          }
+        ]
+      }
+    ]
+  }
+}
