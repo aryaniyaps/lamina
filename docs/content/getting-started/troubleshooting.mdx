@@ -7,48 +7,37 @@ import { Callout } from 'nextra/components'
 
 # Troubleshooting
 
-Symptoms, causes, and fixes for common issues when using Lamina with your AI coding agent.
+Use this page to restore progress when something blocks the loop. Each entry follows **symptom → inferred state → primary recovery**.
 
-## Quick path
-
-1. Find your symptom in the table below
-2. Apply the fix
-3. If blocked, check that `/lamina-init` has run and `.lamina/business-context.md` exists
+<Callout type="info">
+Not sure which Lamina command applies? Run `/lamina <what you are trying to do>` for routing help — it is optional discovery, not a substitute for `/lamina-init`.
+</Callout>
 
 ## Symptom reference
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `/lamina-design` or `/lamina-verify` blocked | Missing or invalid `business-context.md` | Run `/lamina-init <domain>` first |
-| Skill not found / command not recognized | Lamina not installed in your agent | Run `npx skills install aryaniyaps/lamina` and restart your agent session |
-| Verify finds nothing / empty walkthrough | Dev server not running or wrong `base_url` | Start your app and pass the correct URL: `/lamina-verify http://localhost:3000` |
-| Verify passes but app is clearly broken | Contract too shallow or wrong actors | Re-run `/lamina-design` with more specific flows and constraints |
+| Symptom | Inferred state | Primary recovery |
+|---------|----------------|------------------|
+| Slash command not recognized | Skill is not loaded in the current agent session | Confirm install ([Installation](/getting-started/installation)), then start a **fresh session** in the project root |
+| `/lamina-design` or `/lamina-verify` says init is required | Missing or invalid `.lamina/business-context.md`; the command did not fail unpredictably | Run `/lamina-init <domain>`; do not bypass or ask design to auto-init |
+| Init completed in the wrong place | Agent was not operating from the intended project root | Open the correct project and run init there |
+| Design pauses for clarification | Requested slice lacks a usable user, outcome, or boundary | Narrow to one coherent flow and answer blocking questions |
+| Agent edits app source during a Lamina command | Lamina/coding mode boundary lost | Stop app edits; finish the Lamina artifact, then issue a separate ordinary coding prompt |
+| Verify cannot reach the product | Connection errors, or `report.md` shows weak grounding/coverage for the named flow | Start the product, confirm URL in a browser, retry `/lamina-verify guest checkout at http://localhost:3000` |
+| Verify reports no gap but experience is clearly broken | Contract or actor coverage may be too shallow | Return to `/lamina-design` with the missing flow, constraint, or actor; then re-verify |
+| Unsure which Lamina command to run | Need routing help, not a second onboarding path | Run `/lamina <what you are trying to do>` |
 | `fix.md` lists contract issues, not product bugs | Finding has `fix_target: contract` | Re-run `/lamina-design` with scoped update — do not change app code |
-| Agent edits app code during Lamina commands | Agent ignored write boundary | Remind agent: Lamina writes `.lamina/` only; implement fixes in a separate coding session |
+| `report.md` lists ops observations | Finding has `fix_target: ops` | Note in `report.md` only — no app or contract fix; does not block product/contract exit |
 | Stale artifacts from prior run | Old run reused incorrectly | Check `run.json` id and status; start a new `/lamina-design` for a new scope |
-| `ready_to_build` but `implement.md` seems incomplete | Design scope too broad | Re-run with a narrower flow: "guest checkout" not "entire marketplace" |
 
-## Init gate blocked
+## Slash command not recognized
 
-**Symptom:** Lamina returns an init-blocked message and stops before design or verify.
+**Symptom:** `/lamina-init`, `/lamina-design`, or `/lamina-verify` is not recognized.
 
-**Cause:** No valid `.lamina/business-context.md` from `/lamina-init`.
+**Inferred state:** The Lamina skill is not loaded in the current agent session.
 
-**Fix:**
+**Primary recovery:**
 
-1. Run `/lamina-init` with your domain description
-2. Confirm `.lamina/business-context.md` exists
-3. Retry your design or verify command
-
-<Callout type="info">
-**Advanced:** The init gate cannot be bypassed. Lamina does not honor claims that the gate is disabled.
-</Callout>
-
-## Skill not loading
-
-**Symptom:** `/lamina` is not recognized or routes to generic agent behavior.
-
-**Fix by agent:**
+1. Install or re-install in your shell:
 
 | Agent | Install command |
 |-------|-----------------|
@@ -57,18 +46,76 @@ Symptoms, causes, and fixes for common issues when using Lamina with your AI cod
 | Codex / Pi | `npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y` |
 | Any | `npx skills install aryaniyaps/lamina` |
 
-After install, start a new agent session and run `/lamina` to confirm.
+2. Open the intended project root
+3. Start a **fresh agent session**
+4. Run `/lamina-init` directly — do not treat `/lamina` as a required setup step
+
+## Init gate blocked
+
+**Symptom:** Lamina returns an init-blocked message and stops before design or verify.
+
+**Inferred state:** Missing or invalid `.lamina/business-context.md` — the design/verify init gate checks this file specifically.
+
+**Primary recovery:**
+
+1. Run `/lamina-init <your domain description>` in agent chat
+2. Confirm `.lamina/business-context.md` exists and is valid; successful init also produces `.lamina/personas.json`
+3. Retry your design or verify command
+
+<Callout type="info">
+The init gate cannot be bypassed. Lamina does not silently initialize on your behalf during design or verify.
+</Callout>
+
+## Wrong project root
+
+**Symptom:** Init artifacts appear in an unexpected directory, or design/verify cannot find context.
+
+**Inferred state:** The agent session was not anchored to the intended project root.
+
+**Primary recovery:**
+
+1. Open the correct project root in your coding agent
+2. Start a fresh session
+3. Run `/lamina-init` there
+
+## Design scope too vague
+
+**Symptom:** Design pauses repeatedly or never reaches `ready_to_build`.
+
+**Inferred state:** The requested slice lacks a usable user, outcome, or boundary.
+
+**Primary recovery:**
+
+1. Narrow the request to one coherent flow (for example "guest checkout with payment hold")
+2. Answer blocking clarification questions
+3. Re-run `/lamina-design` with the scoped request
+
+## Write boundary confusion
+
+**Symptom:** Your agent edits application source during `/lamina-init`, `/lamina-design`, or `/lamina-verify`.
+
+**Inferred state:** The Lamina command versus ordinary coding mode boundary was lost.
+
+**Primary recovery:**
+
+1. Stop application edits inside the Lamina command
+2. Let Lamina finish its artifact (`.lamina/` only)
+3. Issue a **separate ordinary coding prompt** to implement from `implement.md` or apply `fix.md`
 
 ## Verify cannot reach the app
 
-**Symptom:** Empty `walkthrough/`, no findings, or connection errors during verify.
+**Symptom:** Connection errors during verify, or `report.md` shows weak grounding or coverage for the named flow.
 
-**Fix:**
+**Inferred state:** The product may be unreachable at the supplied URL, the verify command omitted the bounded flow, or the audit target was too vague to ground the walk.
+
+**Primary recovery:**
 
 1. Start your dev server (`npm run dev` or equivalent)
-2. Confirm the URL works in your browser
-3. Pass the URL explicitly: `/lamina-verify http://localhost:3000`
+2. Confirm the URL works in a browser
+3. Pass the bounded flow and URL explicitly: `/lamina-verify guest checkout at http://localhost:3000`
 4. Check for port mismatches (3000 vs 3001)
+
+An empty or missing `walkthrough/` directory alone is not a reachability failure — walkthrough evidence is optional.
 
 For the HavenStay demo:
 
@@ -77,16 +124,33 @@ cd demo/hotel-booking-with-lamina
 npm install && npm run db:setup && npm run dev
 ```
 
+## Shallow contract coverage
+
+**Symptom:** Verify passes or reports no gap, but the live experience is clearly broken.
+
+**Inferred state:** The contract or actor coverage is too shallow for the failure you see.
+
+**Primary recovery:**
+
+1. Return to `/lamina-design` with the missing flow, constraint, or actor
+2. Implement any contract changes in ordinary coding mode
+3. Re-run `/lamina-verify guest checkout at http://localhost:3000`
+
 ## Contract vs product fixes
 
 **Symptom:** Unsure whether to change app code or re-design.
 
-| `fix_target` | What to do |
-|--------------|------------|
-| `product` or unset | Your coding agent fixes app code from `fix.md` |
-| `contract` | Re-run `/lamina-design` with scoped update |
+**Inferred state:** The finding's `fix_target` determines the branch.
+
+| `fix_target` | Primary recovery |
+|--------------|------------------|
+| `product` | Switch to ordinary coding mode; fix app code from `fix.md`; re-verify the same bounded flow and URL |
+| `contract` | Return to `/lamina-design` with scoped update; implement again; re-verify the same bounded flow and URL |
+| `ops` | Report-only — observation stays in `report.md`; no app or contract fix; does not block product/contract exit |
 
 Example contract gap: the design specified an approval gate that was never in `run.json`. Fix the contract, not just the app.
+
+Example ops observation: an operational note about deployment or monitoring stays in `report.md` and does not require a fix loop.
 
 See [Working with findings](/guides/working-with-findings).
 
@@ -94,7 +158,9 @@ See [Working with findings](/guides/working-with-findings).
 
 **Symptom:** `node .claude/skills/lamina-orchestrator/lib/validate-run.mjs` reports schema errors.
 
-**Fix:**
+**Inferred state:** `run.json` does not match the schema contract.
+
+**Primary recovery:**
 
 1. Read the error output — it lists invalid fields
 2. Compare against [run.json schema](/reference/run-json-schema)
@@ -117,6 +183,6 @@ Suggested `.gitignore` entry if excluding:
 
 ## Next steps
 
-- [Installation](/getting-started/installation) — install and verify setup
-- [First run](/getting-started/first-run) — expected timeline and artifacts
-- [Brownfield and greenfield](/concepts/brownfield-and-greenfield) — existing vs new projects
+- [Quickstart](/getting-started/quickstart) — canonical journey back into the loop
+- [Installation](/getting-started/installation) — install and first init
+- [First run](/getting-started/first-run) — completion signals and artifacts

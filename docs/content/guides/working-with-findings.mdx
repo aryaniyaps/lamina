@@ -11,19 +11,20 @@ After `/lamina-verify`, findings tell you what does not match the contract. This
 
 ## Quick path
 
-1. Read `fix.md` and `findings[]` in `run.json`
+1. Read `fix.md`, `report.md`, and `findings[]` in `run.json`
 2. For `fix_target: product` → your agent fixes app code
 3. For `fix_target: contract` → re-run `/lamina-design`
-4. Re-verify until `findings[]` is empty
+4. For `fix_target: ops` → note in `report.md` only — no app or contract fix
+5. Re-verify until zero open product or contract findings
 
 ## Where findings live
 
 | Location | Content |
 |----------|---------|
 | `run.json` `findings[]` | Machine-readable finding list with `fix_target` |
-| `fix.md` | Human and agent-readable fix brief |
-| `walkthrough/` | Visual evidence per actor |
-| `report.md` | Verify narrative and summary |
+| `fix.md` | Product and contract fix brief — excludes `fix_target: ops` |
+| `walkthrough/` | Optional visual evidence per actor |
+| `report.md` | Verify narrative, summary, and report-only `ops` observations |
 
 ## Reading a finding
 
@@ -38,7 +39,7 @@ Each finding includes:
 | `expected` | Behavior per the contract |
 | `observed` | Behavior on the live app |
 | `fix` | Suggested correction |
-| `fix_target` | `product` (default) or `contract` |
+| `fix_target` | `product`, `contract`, or report-only `ops` |
 
 ## Product fixes (fix_target: product)
 
@@ -55,7 +56,7 @@ Address each finding by id. Do not change styling — fix behavior only.
 3. Re-verify:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 <Callout type="info">
@@ -76,7 +77,11 @@ before payment per finding checkout-email-gate-001
 
 3. Review updated `implement.md`
 4. Your agent implements the contract change
-5. Re-verify
+5. Re-verify with the same bounded flow and URL
+
+## Ops observations (fix_target: ops)
+
+Some findings are operational observations — deployment gaps, monitoring hooks, or process notes that belong in `report.md` only. They are excluded from `fix.md` and do not require app or contract changes. They also do not block the product/contract exit condition.
 
 ## Prioritization
 
@@ -103,14 +108,15 @@ fix 3 findings → verify → 2 resolved, 1 new finding → fix → verify → c
 | Contract missing a rule or workflow | Re-design (`fix_target: contract`) |
 | Scope grew beyond original design | `/lamina-init update` then `/lamina-design` |
 | UI skill broke a behavior | Fix app code, then re-verify |
+| Ops or process observation | Note in `report.md` (`fix_target: ops`) — no fix loop required |
 
 ## Exit condition
 
 The fix loop ends when:
 
-- `findings[]` is empty in `run.json`
-- `/lamina-verify` reports no open gaps
-- `status: complete` with zero findings
+- No open product or contract findings remain in `findings[]` or `fix.md`
+- `/lamina-verify` reports no open product or contract gaps for the named flow
+- `fix_target: ops` observations may remain in `report.md` and do not block exit
 
 ## Example from HavenStay
 

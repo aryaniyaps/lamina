@@ -58,12 +58,13 @@ Skip indexing at first. Add persistent memory early so decisions from `/lamina-i
 ### Full loop
 
 ```text
-/lamina-design          → implement.md (behavior contract)
+/lamina-init <domain>   → business-context.md + personas.json
+/lamina-design          → run.json + run.md + implement.md (behavior contract)
 Your agent implements   → app source
-/lamina-verify          → fix.md when gaps appear
+/lamina-verify guest checkout at http://localhost:3000 → fix.md when gaps appear
 Your agent fixes        → product behavior patches
 UI skill pass           → pixels only
-/lamina-verify again    → confirm behavior still holds
+/lamina-verify guest checkout at http://localhost:3000 → confirm behavior still holds
 ```
 
 ## Stack compatibility

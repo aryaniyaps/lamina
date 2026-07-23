@@ -11,10 +11,11 @@ Lamina and UI design skills solve different problems. Use them together — Lami
 
 ## Quick path
 
-1. `/lamina-design` → behavior contract
-2. Implement and `/lamina-verify`
-3. UI skill pass → visual polish
-4. `/lamina-verify` again → confirm behavior still holds
+1. `/lamina-init <domain>` → domain charter
+2. `/lamina-design` → behavior contract
+3. Implement and `/lamina-verify`
+4. UI skill pass → visual polish
+5. `/lamina-verify` again → confirm behavior still holds
 
 ## The split
 
@@ -28,11 +29,12 @@ Lamina never writes styling, colors, typography, or component libraries. UI skil
 ## Recommended workflow
 
 ```text
-1. /lamina-design <flow>        → implement.md (behavior contract)
-2. Your agent implements         → app source from contract
-3. /lamina-verify               → fix behavior gaps
-4. UI skill pass                 → polish interface
-5. /lamina-verify again         → confirm behavior still holds
+1. /lamina-init <domain>        → domain charter
+2. /lamina-design <flow>        → implement.md (behavior contract)
+3. Your agent implements         → app source from contract
+4. /lamina-verify guest checkout at http://localhost:3000 → fix behavior gaps
+5. UI skill pass                 → polish interface
+6. /lamina-verify guest checkout at http://localhost:3000 → confirm behavior still holds
 ```
 
 ## Compatible UI skills
@@ -69,7 +71,7 @@ When UI changes affect behavior:
 
 ## Example pairing
 
-Design guest checkout with Lamina:
+Design guest checkout with Lamina (after `/lamina-init`):
 
 ```
 /lamina-design Guest checkout with hold, pay, cancel

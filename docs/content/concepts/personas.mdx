@@ -70,7 +70,7 @@ Each persona walks independently. Lamina checks that the permission matrix and s
 3. Each subagent navigates your **live application** at `base_url`
 4. Visual evidence captures to `walkthrough/`
 5. Invariant and reachability probes run against the contract
-6. Findings aggregate into `findings[]` and `fix.md`
+6. Product and contract findings aggregate into `findings[]` and `fix.md`; `fix_target: ops` observations stay in `report.md` only
 
 ### Probe types during verify
 
@@ -86,7 +86,7 @@ Each persona walks independently. Lamina checks that the permission matrix and s
 Persona walks require a running product. Start your dev server before verify:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 Without a live app, walks cannot capture real behavior.
@@ -107,7 +107,7 @@ These are product behavior gaps — not UI bugs.
 - Define actors clearly in `/lamina-init` — vague roles produce vague verification
 - Run verify against a running dev server, not static mocks
 - Provide demo accounts for each actor type on brownfield projects
-- Re-verify after every fix cycle until findings reach zero
+- Re-verify after every fix cycle until zero open product or contract findings
 - Inspect `walkthrough/` for visual evidence per actor
 
 ## Next steps

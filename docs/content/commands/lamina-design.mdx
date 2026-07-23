@@ -61,8 +61,8 @@ Output lands in `.lamina/runs/<id>/`:
 | File | Content |
 |------|---------|
 | `run.json` | Machine contract (`status: draft` → `ready_to_build`) |
+| `run.md` | Generated readable graph |
 | `implement.md` | Full build handoff for your coding agent |
-| `report.md` | Design narrative and rationale |
 
 ## Brownfield design
 
@@ -78,7 +78,7 @@ Implement from .lamina/runs/<id>/implement.md
 
 Lamina never writes app source. Your agent builds using your stack, framework, and UI library.
 
-After implementation, run `/lamina-verify` with your dev server URL.
+After implementation, run `/lamina-verify guest checkout at http://localhost:3000` (or the flow you designed).
 
 ## Tips
 

@@ -12,8 +12,8 @@ Pre-merge verification: walk the live product against `run.json` contracts. Lami
 ## Quick path
 
 1. Start your dev server
-2. Run `/lamina-verify` with the `base_url`
-3. Read `fix.md` if findings exist
+2. Run `/lamina-verify` with a concrete flow or surface and the live URL
+3. Read `fix.md` for product findings and `report.md` for the full narrative (including `fix_target: ops`)
 4. Your agent fixes product issues, then re-verify
 
 ## Prerequisites
@@ -36,14 +36,12 @@ Pre-merge verification: walk the live product against `run.json` contracts. Lami
 ## Examples
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 ```
-/lamina-verify
+/lamina-verify hotel partner onboarding at http://localhost:3000
 ```
-
-When no URL is provided, Lamina uses the last known `base_url` or prompts you for one.
 
 ## What Lamina does
 
@@ -56,15 +54,15 @@ When no URL is provided, Lamina uses the last known `base_url` or prompts you fo
    - **Invariant probes** — business rules from `invariants[]`
    - **Reachability probes** — unmet `dependencies[]`
    - **Accessibility checks** — against captured walkthrough steps
-6. Writes `findings[]` to `run.json` with `fix_target` per finding
-7. Sets `status: complete`; writes `report.md` and `fix.md`
+6. Writes `findings[]` to `run.json` with `fix_target` per finding (`product`, `contract`, or report-only `ops`)
+7. Sets `status: complete`; writes `report.md` and `fix.md` (ops findings excluded from `fix.md`)
 
 ## Output
 
 | Result | Meaning |
 |--------|---------|
-| Empty `findings[]` | Contract holds — verification passed |
-| `fix.md` with findings | Product or contract gaps to address |
+| No open product or contract findings | Verification passed for the named flow — `fix_target: ops` in `report.md` does not block exit |
+| `fix.md` with product or contract findings | Gaps to address in app code or via scoped re-design |
 
 ### Finding categories
 
@@ -79,8 +77,9 @@ When no URL is provided, Lamina uses the last known `base_url` or prompts you fo
 
 | Value | Action |
 |-------|--------|
-| `product` (default) | Your coding agent fixes app code from `fix.md` |
+| `product` | Your coding agent fixes app code from `fix.md` |
 | `contract` | Re-run `/lamina-design` with a scoped contract update |
+| `ops` | Report-only — observation stays in `report.md`; excluded from `fix.md`; does not block product/contract exit |
 
 ## What to do next
 
@@ -93,10 +92,10 @@ Fix the product issues in .lamina/runs/<id>/fix.md
 Then re-verify:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
-Loop until `findings[]` is empty.
+Loop until there are zero open product or contract findings. `fix_target: ops` observations may remain in `report.md`.
 
 ## Tips
 

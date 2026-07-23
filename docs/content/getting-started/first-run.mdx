@@ -7,15 +7,20 @@ import { Callout } from 'nextra/components'
 
 # First run
 
-Your first Lamina run should take minutes, not hours. This page sets expectations for what appears in `.lamina/` and how long each step takes.
+This page sets expectations for completion signals, artifacts, and common pauses. Lamina commands (`/lamina-init`, `/lamina-design`, `/lamina-verify`) run in **agent chat**. Implementation and fixes use **ordinary coding prompts** outside those commands.
 
 ## Quick path
 
-1. `/lamina-init` — ~1–2 minutes
-2. `/lamina-design` — ~3–10 minutes
-3. Your agent implements — varies by stack
-4. `/lamina-verify` — ~2–5 minutes
-5. Fix and re-verify — repeat until clean
+1. **Agent chat** — `/lamina-init` (~1–2 minutes)
+2. **Agent chat** — `/lamina-design` (~3–10 minutes for one bounded flow)
+3. **Ordinary coding mode** — your agent implements (time varies widely by stack and scope)
+4. Start the product and confirm the URL in a browser
+5. **Agent chat** — `/lamina-verify guest checkout at http://localhost:3000` (~2–5 minutes)
+6. **Ordinary coding mode** — apply `fix.md` when product findings remain; **agent chat** — re-verify the same bounded flow and URL until zero open product or contract findings
+
+<Callout type="info">
+Lamina commands alone typically take minutes. A full first cycle including implementation can take much longer — that time is outside Lamina's control.
+</Callout>
 
 ## Example prompts
 
@@ -27,36 +32,47 @@ Start with one flow, not the whole product:
 /lamina-design Guest checkout with inventory hold, payment, and cancellation
 ```
 
-For a full marketplace example, see [Demo: HavenStay](/guides/demo-havenstay).
+For a full marketplace reference, see [Demo: HavenStay](/guides/demo-havenstay).
 
 ## What appears in `.lamina/`
 
 ### After `/lamina-init`
+
+**Success state:** Lamina produces and validates both project-level artifacts.
 
 | File | Purpose |
 |------|---------|
 | `business-context.md` | Domain charter — problem, scope, constraints |
 | `personas.json` | Actor cast — roles, goals, permissions |
 
+**Next action:** `/lamina-design <one bounded flow>`
+
 ### After `/lamina-design`
+
+**Success state:** `run.json` status is `ready_to_build`.
 
 | File | Purpose |
 |------|---------|
 | `runs/<id>/run.json` | Machine contract (`status: ready_to_build`) |
+| `runs/<id>/run.md` | Readable rendering of the contract |
 | `runs/<id>/implement.md` | Build handoff for your coding agent |
-| `runs/<id>/report.md` | Design narrative and rationale |
+
+`report.md` is a verify artifact, not a design output.
+
+**Next action:** switch to ordinary coding mode and implement from `implement.md`.
 
 ### After `/lamina-verify`
 
+**Success state:** verification complete; open findings listed in `run.json`.
+
 | File | Purpose |
 |------|---------|
-| `runs/<id>/fix.md` | Product gaps found during persona walks |
-| `runs/<id>/walkthrough/` | Screenshots and live-app evidence |
-| `runs/<id>/run.json` | Updated with `findings[]`, `status: complete` |
+| `runs/<id>/run.json` | Updated with `findings[]` and status |
+| `runs/<id>/report.md` | Verification narrative |
+| `runs/<id>/fix.md` | Fix brief (written even when no product fixes remain) |
+| `runs/<id>/walkthrough/` | Optional screenshots and live-app evidence |
 
-<Callout type="info">
-**Advanced:** Lamina does not write `session.jsonl` or other agent transcripts to `.lamina/`. The artifact model uses `report.md` for narrative and `walkthrough/` for evidence.
-</Callout>
+**Next action:** apply product fixes from `fix.md`, return to `/lamina-design` for contract gaps, or note `fix_target: ops` observations in `report.md`; then re-verify the same bounded flow and URL.
 
 ## What `ready_to_build` means
 
@@ -73,21 +89,34 @@ You do not need a perfect spec — you need a contract your agent can implement 
 
 ## Expected timeline
 
-| Step | Time | Notes |
-|------|------|-------|
-| `/lamina-init` | 1–2 min | More if domain is complex or brownfield |
-| `/lamina-design` | 3–10 min | Scales with scope; start with one flow |
-| Agent implements | 30 min – hours | Depends on stack and scope |
-| `/lamina-verify` | 2–5 min | Requires running dev server |
-| Fix + re-verify | 5–30 min | Repeat until zero open findings |
+| Step | Context | Time | Notes |
+|------|---------|------|-------|
+| `/lamina-init` | Agent chat | 1–2 min | More if domain is complex or brownfield |
+| `/lamina-design` | Agent chat | 3–10 min | Scales with scope; start with one flow |
+| Agent implements | Ordinary coding mode | 30 min – hours | Depends on stack and scope — dominates total time |
+| Start product + confirm URL | Shell / browser | Minutes | Required before verify |
+| `/lamina-verify` | Agent chat | 2–5 min | Requires bounded flow + running dev server URL |
+| Fix + re-verify | Coding mode + agent chat | 5–30 min per loop | Repeat until zero open product or contract findings |
+
+## Common pauses and retries
+
+| Pause | What it means | Next action |
+|-------|---------------|-------------|
+| Init asks business questions | Consequential unknowns need answers | Answer blocking questions; retry init if needed |
+| Design asks for clarification | Scope lacks a usable user, outcome, or boundary | Narrow to one coherent flow |
+| Init gate blocks design or verify | Missing or invalid `.lamina/business-context.md` | Run `/lamina-init`; do not bypass |
+| Agent edits app source during a Lamina command | Lamina/coding mode boundary lost | Stop app edits; finish the Lamina artifact, then issue a separate coding prompt |
+| Verify cannot reach the product | Connection errors, or `report.md` shows weak grounding/coverage for the named flow | Start the product, confirm URL in browser, retry with bounded flow + URL |
+| Verify passes but experience is broken | Contract or actor coverage may be too shallow | Return to `/lamina-design` with missing flow or constraint |
 
 ## Tips for beginners
 
 - **Start small** — design guest checkout before the entire marketplace
-- **Use natural language** — describe domains and flows, not ticket lists
-- **Keep `.lamina/` separate** — treat it like design docs, not application code
-- **Run init first** — design and verify are blocked without `business-context.md`
-- **Start your dev server** before verify — persona walks need a live `base_url`
+- **Run init first** — successful init produces and validates both `business-context.md` and `personas.json`; design and verify are blocked without a valid `.lamina/business-context.md`
+- **Label your contexts** — shell install, agent chat commands, ordinary coding for app edits
+- **Name the flow at verify** — include the bounded target and URL, for example `/lamina-verify guest checkout at http://localhost:3000`
+- **Start your dev server** before verify — persona walks need a live, browser-reachable URL
+- **Check the exit condition** — zero open product and contract findings; `fix_target: ops` in `report.md` does not block exit
 
 ## Tips for advanced users
 
@@ -99,5 +128,5 @@ You do not need a perfect spec — you need a contract your agent can implement 
 ## Next steps
 
 - [Contracts and runs](/concepts/contracts-and-runs) — full artifact model
-- [Troubleshooting](/getting-started/troubleshooting) — common issues
+- [Troubleshooting](/getting-started/troubleshooting) — symptom-based recovery
 - [Personas](/concepts/personas) — how verify walks work

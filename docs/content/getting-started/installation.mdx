@@ -7,13 +7,19 @@ import { Callout } from 'nextra/components'
 
 # Installation
 
-Lamina works with any AI coding agent and any stack. Install once, then invoke with slash commands or natural language.
+Lamina works with any AI coding agent and any stack. Install once in your **shell**, then invoke Lamina with **slash commands in agent chat** — not with passive natural-language prompting.
+
+<Callout type="warning">
+Installation does not cause Lamina to activate. After install, open your project root and start a **fresh agent session**, then run `/lamina-init` directly.
+</Callout>
 
 ## Quick path
 
-1. Run the install command for your agent
-2. Start a new agent session
-3. Run `/lamina` to confirm the skill loaded
+1. **Shell** — run the install command for your agent
+2. Open your project root and start a **fresh agent session** so the skill loads
+3. **Agent chat** — run `/lamina-init <your product domain and primary users>`
+
+Continue with [Quickstart](/getting-started/quickstart) for the full design → implement → verify loop.
 
 ## Quick install
 
@@ -48,15 +54,21 @@ npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
 
 No Node.js version requirement for skill install. Node.js 20+ is only needed if you run contract validation (`lamina-orchestrator` skill `lib/validate-run.mjs`) locally.
 
-## Verify the install
+## After install
 
-Run the router command in your agent session:
+1. Open the intended **project root** in your coding agent
+2. Start a **fresh agent session** — skills load at session start
+3. Run init directly in agent chat:
 
 ```
-/lamina
+/lamina-init <your product domain and primary users>
 ```
 
-You should see available Lamina commands. Then try [Quickstart](/getting-started/quickstart).
+Successful init produces and validates both `.lamina/business-context.md` and `.lamina/personas.json`. Run init **once per project or domain**; use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
+
+<Callout type="info">
+Not sure which command to run? `/lamina <what you are trying to do>` is an optional router for discovery — not a required setup step and not a substitute for `/lamina-init`.
+</Callout>
 
 ## Update
 
@@ -96,5 +108,5 @@ Full documentation: [lamina.dev](https://lamina.dev)
 ## Next steps
 
 - [Quickstart](/getting-started/quickstart) — run your first cycle
-- [Troubleshooting](/getting-started/troubleshooting) — if the skill does not load
+- [Troubleshooting](/getting-started/troubleshooting) — if commands are not recognized or init is blocked
 - [What is Lamina?](/concepts/what-is-lamina) — understand what you installed

@@ -31,9 +31,9 @@ Lamina's workflow is a closed loop: design the contract, implement with your age
 | Step | Owner | Command / action | Writes |
 |------|-------|------------------|--------|
 | Charter | **Lamina** | `/lamina-init` | `.lamina/business-context.md`, `personas.json` |
-| Design | **Lamina** | `/lamina-design` | `run.json`, `implement.md`, `report.md` |
+| Design | **Lamina** | `/lamina-design` | `run.json`, `run.md`, `implement.md` |
 | Implement | **Your agent** | Build from `implement.md` | App source |
-| Verify | **Lamina** | `/lamina-verify` | `findings[]`, `fix.md`, `walkthrough/` |
+| Verify | **Lamina** | `/lamina-verify` | Updated `run.json` findings, `report.md`, `fix.md`, optional `walkthrough/` |
 | Fix | **Your agent** | Apply `fix.md` | App source |
 | Re-verify | **Lamina** | `/lamina-verify` again | Updated findings |
 
@@ -52,7 +52,7 @@ Lamina models the domain:
 5. **Scenarios** — violations, edge cases, recovery paths
 6. **Screens** — structural UX surfaces (no styling)
 
-Output: `run.json` + `implement.md` with status `ready_to_build`.
+Output: `run.json`, `run.md`, and `implement.md` with status `ready_to_build`.
 
 ## Implement phase
 
@@ -63,7 +63,7 @@ Your coding agent reads `implement.md` and writes app source. Lamina does not pa
 `/lamina-verify` runs parallel persona walks at `base_url`:
 
 - One subagent per primary actor
-- Visual walkthrough capture in `walkthrough/`
+- Optional visual walkthrough capture in `walkthrough/` when live capture is available
 - Invariant probes against `invariants[]`
 - Reachability probes against `dependencies[]`
 - Accessibility checks on captured steps
@@ -75,10 +75,11 @@ Your agent applies fixes from `fix.md`:
 
 | `fix_target` | Action |
 |--------------|--------|
-| `product` (default) | Fix app code in a normal coding session |
+| `product` | Fix app code in a normal coding session from `fix.md` |
 | `contract` | Re-run `/lamina-design` with scoped update |
+| `ops` | Report-only — observation stays in `report.md`; excluded from `fix.md`; does not block exit |
 
-Lamina does not implement fixes — it writes the brief.
+Lamina does not implement fixes — it writes the brief for product and contract gaps only.
 
 ## Contract delta path
 
@@ -90,7 +91,7 @@ verify → fix_target: contract → /lamina-design (scoped) → implement → ve
 
 ## When the loop ends
 
-The loop completes when `/lamina-verify` reports zero open findings in `findings[]` and the contract holds on the live build. `status: complete` with empty findings is the exit condition.
+The loop completes when `/lamina-verify` reports **zero open product or contract findings** and the contract holds on the live build. `fix_target: ops` observations may remain in `report.md` and do not block this exit.
 
 ## Next steps
 
