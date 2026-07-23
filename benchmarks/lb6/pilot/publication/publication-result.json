@@ -1,0 +1,53 @@
+{
+  "kind": "lb6_pilot_harbor_publication_receipt",
+  "published_at": "2026-07-23T15:44:27Z",
+  "publisher": "aryaniyaps",
+  "visibility": "public",
+  "harbor_version": "0.18.0",
+  "development_only": true,
+  "confirmatory": false,
+  "claim_ready": false,
+  "child_actual_model_unverified": true,
+  "tasks": [
+    {
+      "arm": "direct",
+      "revision": 1,
+      "url": "https://hub.harborframework.com/tasks/aryaniyaps/dev-care-circle-direct"
+    },
+    {
+      "arm": "plan",
+      "revision": 1,
+      "url": "https://hub.harborframework.com/tasks/aryaniyaps/dev-care-circle-plan"
+    },
+    {
+      "arm": "lamina",
+      "revision": 1,
+      "url": "https://hub.harborframework.com/tasks/aryaniyaps/dev-care-circle-lamina"
+    }
+  ],
+  "jobs": [
+    {
+      "arm": "direct",
+      "reward": 0.5,
+      "local_job": "lb6-pilot-dev-care-circle-direct-1784819409908",
+      "url": "https://hub.harborframework.com/jobs/5f99bde0-5342-4143-b230-61053c17defc"
+    },
+    {
+      "arm": "plan",
+      "reward": 0.25,
+      "local_job": "lb6-pilot-dev-care-circle-plan-1784819409909",
+      "url": "https://hub.harborframework.com/jobs/7abd3c68-8448-4fc3-bb39-11203aecb6d8"
+    },
+    {
+      "arm": "lamina",
+      "reward": 0.75,
+      "local_job": "lb6-pilot-dev-care-circle-lamina-1784819409910",
+      "url": "https://hub.harborframework.com/jobs/6f01900b-9f0e-4052-a24b-e572744dd4c0"
+    }
+  ],
+  "verification": {
+    "task_urls_http_status": 200,
+    "job_urls_http_status": 200,
+    "checked_at": "2026-07-23T15:44:27Z"
+  }
+}
