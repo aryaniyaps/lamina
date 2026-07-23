@@ -3,52 +3,85 @@ title: Product design skill for AI coding agents
 description: Lamina is a headless product-design skill for AI coding agents. Spec states, edges, and flows into a contract your agent implements, then verifies with persona walks.
 ---
 
+import { Callout } from 'nextra/components'
+
 # Design how it works.
 
 Lamina is a headless product-design skill for AI coding agents. It specs how your app **works** — states, roles, flows, edge cases, permission matrices — into a contract your agent implements, then verifies your live build with parallel persona walks.
 
 UI skills dress the app. Lamina designs how it behaves.
 
-## Who it's for
+<Callout type="warning">
+**Lamina does not activate passively.** Install it in your shell, run Lamina slash commands in your coding agent, and use ordinary coding prompts when it is time to edit app source.
+</Callout>
 
-Lamina is for developers who build with AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi) and want product behavior designed before app code ships. You keep your stack, UI library, and agent — Lamina adds a design → implement → verify loop that catches impossible states, skipped dependencies, and dead-end flows that UI-only skills miss.
+## Three interaction contexts
 
-**Outcomes you should expect:**
+| Context | Where | What you do |
+|---------|-------|-------------|
+| **Shell** | Terminal | Install Lamina once |
+| **Agent chat** | Cursor, Claude Code, Codex, Pi, etc. | Run `/lamina-init`, `/lamina-design`, `/lamina-verify` |
+| **Ordinary coding mode** | Same or new agent session | Implement from `implement.md`; apply fixes from `fix.md` |
 
-- A machine-readable contract (`run.json`) your agent implements from `implement.md`
-- Parallel persona walks that surface product gaps before users do
-- A fix loop (`fix.md` → agent fixes → re-verify) until the contract holds
+Lamina slash commands never edit application source. When a phase hands off to implementation or fixes, switch to an ordinary coding prompt — a fresh session is optional, but the mode change is required.
 
-See the [HavenStay demo](/guides/demo-havenstay) for a side-by-side build with and without Lamina.
+## Canonical journey
 
-## Quick path
-
-```bash
+```text
+SHELL
 npx skills install aryaniyaps/lamina
+
+AGENT CHAT — start a fresh session in your project
+/lamina-init <your product domain and primary users>
+/lamina-design <one feature or flow>
+
+ORDINARY CODING MODE
+Implement from .lamina/runs/<run_id>/implement.md
+Start the product
+
+AGENT CHAT
+/lamina-verify <one feature or flow> at <base_url>
+
+ORDINARY CODING MODE
+Apply fix.md when findings remain
+
+AGENT CHAT
+/lamina-verify <one feature or flow> at <base_url> again
 ```
 
-```
-/lamina-init <your domain>
-/lamina-design <feature or flow>
+Run `/lamina-init` **once per project or domain**. Use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
 
-# your agent implements from implement.md
-/lamina-verify http://localhost:3000
-```
-
-## The loop
+Not sure which command to run? `/lamina <what you are trying to do>` is an optional router — not a required setup step.
 
 ```text
 /lamina-init     →  business-context.md + personas.json
-/lamina-design   →  run.json + implement.md (ready_to_build)
+/lamina-design   →  run.json + run.md + implement.md (ready_to_build)
        ↓
-  Your agent implements (any stack)
+  Your agent implements (ordinary coding mode)
        ↓
-/lamina-verify   →  persona walks → fix.md when needed
+/lamina-verify guest checkout at http://localhost:3000   →  report.md + fix.md (+ optional walkthrough/)
        ↓
-  Your agent fixes → /lamina-verify again until contract holds
+  Your agent fixes (ordinary coding mode) → /lamina-verify guest checkout at http://localhost:3000 again (agent chat) until zero open product or contract findings
 ```
 
-## Choose your path
+| Step | Who | Output |
+|------|-----|--------|
+| 0. Init | **Lamina** | Validated `.lamina/business-context.md`, `.lamina/personas.json` |
+| 1. Design | **Lamina** | `.lamina/runs/<id>/run.json`, `run.md`, `implement.md` at `ready_to_build` |
+| 2. Build | **Your coding agent** | App source — any stack |
+| 3. Verify | **Lamina** | Updated `run.json`, `report.md`, `fix.md`; optional `walkthrough/` |
+| 4. Fix | **Your coding agent** | Product fixes from `fix.md` |
+| 5. Re-verify | **Lamina** | Confirm fixes; contract gaps → `/lamina-design`; `fix_target: ops` stays in `report.md` only |
+
+## Who it's for
+
+Lamina is for developers who build with AI coding agents and want product behavior designed before app code ships. You keep your stack, UI library, and agent — Lamina adds a design → implement → verify loop that catches impossible states, skipped dependencies, and dead-end flows that UI-only skills miss.
+
+See the [HavenStay demo](/guides/demo-havenstay) for a side-by-side build with and without Lamina.
+
+## Get started
+
+**Primary path:** [Quickstart](/getting-started/quickstart) — one bounded flow from init through verify.
 
 | You are… | Start here |
 |----------|------------|
@@ -68,11 +101,5 @@ npx skills install aryaniyaps/lamina
 ## Fits your stack
 
 Lamina slots into whatever you already use — any AI coding tool, framework, database, language, and UI library. See [Any stack](/concepts/what-is-lamina#any-stack).
-
-## Get started
-
-- [Installation](/getting-started/installation) — install in Cursor, Claude Code, Codex, or Pi
-- [Quickstart](/getting-started/quickstart) — run the full loop in minutes
-- [What is Lamina?](/concepts/what-is-lamina) — behavior vs pixels, comparisons
 
 Source: [github.com/aryaniyaps/lamina](https://github.com/aryaniyaps/lamina) (MIT)

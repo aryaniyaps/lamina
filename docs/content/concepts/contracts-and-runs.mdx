@@ -12,7 +12,7 @@ Lamina writes design artifacts to `.lamina/` in your project root. This director
 ## Quick path
 
 1. `/lamina-init` writes global files: `business-context.md`, `personas.json`
-2. `/lamina-design` creates `.lamina/runs/<id>/` with `run.json` and `implement.md`
+2. `/lamina-design` creates `.lamina/runs/<id>/` with `run.json`, `run.md`, and `implement.md`
 3. Your coding agent implements from `implement.md`
 4. `/lamina-verify` adds findings and `fix.md`
 
@@ -26,10 +26,11 @@ Lamina writes design artifacts to `.lamina/` in your project root. This director
 └── runs/
     └── <run_id>/
         ├── run.json          # Machine contract
+        ├── run.md            # Generated readable graph
         ├── implement.md      # Build handoff
         ├── fix.md            # Verification findings
-        ├── report.md         # Human narrative
-        └── walkthrough/      # Live-app evidence
+        ├── report.md         # Verification narrative
+        └── walkthrough/      # Optional live-app evidence
 ```
 
 <Callout type="info">
@@ -41,7 +42,8 @@ Lamina writes design artifacts to `.lamina/` in your project root. This director
 | Scope | Files | Written by |
 |-------|-------|------------|
 | Global | `business-context.md`, `personas.json`, `decisions.md` | `/lamina-init`, updated across runs |
-| Per-run | `run.json`, `implement.md`, `fix.md`, `report.md`, `walkthrough/` | `/lamina-design`, `/lamina-verify` |
+| Per-run (design) | `run.json`, `run.md`, `implement.md` | `/lamina-design` |
+| Per-run (verify) | Updated `run.json` findings, `report.md`, `fix.md`, optional `walkthrough/` | `/lamina-verify` |
 
 See [Global artifacts](/reference/global-artifacts) and [Per-run artifacts](/reference/artifacts) for field-level detail.
 
@@ -95,5 +97,5 @@ When verify finds a gap in the contract itself (not the app), the finding has `f
 ## Next steps
 
 - [Per-run artifacts](/reference/artifacts) — file-by-file reference
-- [The loop](/concepts/the-loop) — design → implement → verify workflow
+- [The loop](/concepts/the-loop) — init → design → implement → verify workflow
 - [Quickstart](/getting-started/quickstart) — run your first cycle

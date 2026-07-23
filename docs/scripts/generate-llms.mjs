@@ -93,12 +93,53 @@ function sortFiles(files) {
   });
 }
 
+function splitPreservingInlineCode(text) {
+  return text.split(/(`[^`\n]*`)/);
+}
+
+/** Remove JSX `{...}` expressions outside inline code spans. */
+function stripJsxExpressions(text) {
+  return splitPreservingInlineCode(text)
+    .map((part, index) =>
+      index % 2 === 1 ? part : part.replace(/\{[^}]*\}/g, ""),
+    )
+    .join("");
+}
+
+/** Strip MDX imports and rendered JSX from prose; preserve angle-bracket metavariables. */
+function stripMdxProse(text) {
+  let out = text.replace(/^import\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
+  out = out.replace(/<Callout[^>]*>([\s\S]*?)<\/Callout>/gi, "\n$1\n");
+  out = out.replace(/<span[^>]*\/>/g, "");
+  out = out.replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, "$1");
+  out = out.replace(/<[A-Z][A-Za-z0-9]*[^>]*\/>/g, "");
+  out = out.replace(
+    /<[A-Z][A-Za-z0-9]*[^>]*>([\s\S]*?)<\/[A-Z][A-Za-z0-9]*>/g,
+    "$1",
+  );
+  return stripJsxExpressions(out);
+}
+
+const FENCED_CODE_RE = /(```[\s\S]*?```)/g;
+
 function stripMdxBody(source) {
-  return source
-    .replace(/^---\n[\s\S]*?\n---\n/, "")
-    .replace(/\{[^}]+\}/g, "")
-    .replace(/<[^>]+>/g, "")
-    .trim();
+  const body = source.replace(/^---\n[\s\S]*?\n---\n/, "");
+  const segments = [];
+  let lastIndex = 0;
+
+  for (const match of body.matchAll(FENCED_CODE_RE)) {
+    if (match.index > lastIndex) {
+      segments.push(stripMdxProse(body.slice(lastIndex, match.index)));
+    }
+    segments.push(match[0]);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < body.length) {
+    segments.push(stripMdxProse(body.slice(lastIndex)));
+  }
+
+  return segments.join("").trim();
 }
 
 /** Rewrite relative markdown links to absolute lamina.dev URLs for out-of-context ingestion. */
@@ -126,7 +167,7 @@ Positioning: ${SITE.positioning}
 
 Who it's for: ${SITE.icp}
 
-The loop: ${SITE.loop}. Slash commands produce \`.lamina/\` artifacts; your coding agent implements app source; Lamina verifies the live build.
+The loop: ${SITE.loop}. Run slash commands explicitly in agent chat — Lamina does not activate passively after install. Slash commands produce \`.lamina/\` artifacts; your coding agent implements app source; Lamina verifies the live build.
 
 ${DISAMBIGUATION}
 
@@ -174,7 +215,7 @@ const llmsTxt = `${buildLlmsPreamble(SITE.name)}
 - [Homepage](${DOMAIN}): Product overview, positioning, and install command
 - [What is Lamina?](${DOMAIN}/docs/concepts/what-is-lamina): Behavior vs pixels, comparisons, core principles
 - [HavenStay demo](${DOMAIN}/docs/guides/demo-havenstay): Side-by-side build with and without Lamina
-- [Quickstart](${DOMAIN}/docs/getting-started/quickstart): Run the full design → implement → verify loop
+- [Quickstart](${DOMAIN}/docs/getting-started/quickstart): Run the full init → design → implement → verify loop
 - [Installation](${DOMAIN}/docs/getting-started/installation): Install in Cursor, Claude Code, Codex, Gemini, or Pi
 
 ## Documentation

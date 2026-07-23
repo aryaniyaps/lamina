@@ -10,15 +10,88 @@
   Headless product-design skill for AI coding agents. Specs how your app works — states, edges, UX gaps — into a contract your agent implements, then verifies the live build with parallel persona walks. Never writes app source.
 </p>
 
+<p align="center"><strong>Lamina does not activate passively.</strong> Install it in your shell, run Lamina slash commands in your coding agent, and use ordinary coding prompts when it is time to edit app source.</p>
+
 ---
 
 **Documentation:** [lamina.dev](https://lamina.dev)
 
-## Install
+## Quickstart
+
+**SHELL** — install once
 
 ```bash
 npx skills install aryaniyaps/lamina
 ```
+
+**AGENT CHAT** — open your project root and start a fresh session
+
+```
+/lamina-init <your product domain and primary users>
+/lamina-design <one feature or flow>
+```
+
+Successful init produces and validates `.lamina/business-context.md` and `.lamina/personas.json`. Later design and verify commands gate on valid `business-context.md`. Run init **once per project or domain**; use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
+
+**ORDINARY CODING MODE** — implement from the handoff
+
+```
+Implement from .lamina/runs/<run_id>/implement.md
+Start the product
+```
+
+**AGENT CHAT**
+
+```
+/lamina-verify hall ticket download at http://localhost:3000
+```
+
+**ORDINARY CODING MODE** — apply fixes when findings remain
+
+```
+Apply .lamina/runs/<run_id>/fix.md
+```
+
+**AGENT CHAT**
+
+```
+/lamina-verify hall ticket download at http://localhost:3000 again
+```
+
+**Design outputs:** `run.json`, `run.md`, `implement.md`. **Verify outputs:** `report.md`, `fix.md`; walkthrough evidence is optional. Open **product** findings go to `fix.md`; **contract** gaps return to `/lamina-design`. **Ops** observations stay in `report.md` only — not applied from `fix.md` and do not block the product/contract exit condition.
+
+Not sure which command to run? `/lamina <what you are trying to do>` is an optional router — not a required setup step.
+
+---
+
+## How it works
+
+Your coding agent writes app source. Optional UI skills handle look and feel. **Lamina owns product behavior** — what to build, how states and flows work, which edges to cover:
+
+```mermaid
+flowchart LR
+  INIT["/lamina-init"]
+  DESIGN["/lamina-design"]
+  IMPL["Implement"]
+  VERIFY["/lamina-verify"]
+  FIX["Apply fix.md"]
+
+  INIT -->|"business-context.md + personas.json"| DESIGN
+  DESIGN -->|"implement.md"| IMPL
+  IMPL -->|"live app"| VERIFY
+  VERIFY -->|"product: fix.md"| FIX
+  VERIFY -->|"contract delta"| DESIGN
+  FIX -->|"live app"| VERIFY
+```
+
+| Step | Who | Output |
+|------|-----|--------|
+| 0. Init | **Lamina** | Validated `.lamina/business-context.md`, `.lamina/personas.json` |
+| 1. Design | **Lamina** | `.lamina/runs/<id>/run.json`, `run.md`, `implement.md` |
+| 2. Build | **Your coding agent** | App source — any stack |
+| 3. Verify | **Lamina** | `report.md`, `fix.md`, optional `walkthrough/` evidence |
+| 4. Fix | **Your coding agent** | Product fixes from `fix.md` |
+| 5. Re-verify | **Lamina** | Confirm fixes; contract gaps → `/lamina-design`; ops notes stay in `report.md` |
 
 ---
 
@@ -36,31 +109,6 @@ Lamina slots into whatever you already use. Unopinionated on your tech stack/ AI
 | **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, etc |
 | **Any Workflow skill** | obra/superpowers, mattpocock/skills, everything-claude-code, etc |
 | **Any interface** | Websites, Mobile Apps, Desktop, PWAs, Chat Bots, CLIs, etc |
-
----
-
-## How it works
-
-Your coding agent writes app source. Optional UI skills handle look and feel. **Lamina owns product behavior** — what to build, how states and flows work, which edges to cover:
-
-```mermaid
-flowchart LR
-  DESIGN["/lamina-design"]
-  IMPL["Implement"]
-  VERIFY["/lamina-verify"]
-
-  DESIGN -->|"implement.md"| IMPL
-  IMPL -->|"live app"| VERIFY
-  VERIFY -->|"fix.md / contract delta"| DESIGN
-```
-
-| Step | Who | Output |
-|------|-----|--------|
-| 1. Charter + design | **Lamina** | `.lamina/runs/<id>/run.yaml`, `implement.md` |
-| 2. Build | **Your coding agent** | App source — any stack |
-| 3. Verify | **Lamina** | Parallel persona walks, `findings[]`, `fix.md` |
-| 4. Fix | **Your coding agent** | Product fixes from `fix.md` |
-| 5. Re-verify | **Lamina** | Confirm fixes; contract gaps → `/lamina-design` |
 
 ---
 
@@ -91,7 +139,7 @@ customer support, accessibility, edge cases, and system behavior.
 | | **With Lamina** | **Without Lamina** |
 |---|---|---|
 | **Folder** | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) |
-| **Workflow** | `/lamina-design` → implement → `/lamina-verify` | Cursor **Plan mode** → implement |
+| **Workflow** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` | Cursor **Plan mode** → implement |
 
 <p align="center">
   <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina (design + verify cycle)" width="48%" />
@@ -150,7 +198,7 @@ Most of these are complementary. Lamina is the contract + verify loop.
 
 **They teach design judgment** — heuristics, critique, a11y, PRDs. Collections like [BMAD](https://github.com/bmad-code-org/BMAD-METHOD), [ai-ux-skills](https://github.com/firassb/ai-ux-skills), and [design-skills](https://github.com/cuellarfr/design-skills) improve how your agent *thinks*.
 
-**Lamina runs a workflow** — slash commands → `run.yaml` / `implement.md` → live-app verify. Use craft skills for judgment; Lamina when you need an implementable contract and a post-build check.
+**Lamina runs a workflow** — slash commands → `run.json` / `implement.md` → live-app verify. Use craft skills for judgment; Lamina when you need an implementable contract and a post-build check.
 
 ### Just asking your coding agent
 
@@ -174,29 +222,13 @@ Mocks show one screen. They aren't agent instructions and don't verify the build
 
 ---
 
-## Quickstart
-
-```
-/lamina-init Exam hall ticket system for universities
-/lamina-design Hall ticket download with payment gate and venue assignment
-# … build with your coding agent from implement.md …
-/lamina-verify
-# … fix product issues from fix.md with your coding agent …
-/lamina-verify
-```
-
-Output: `.lamina/runs/<id>/`. Hand `implement.md` to build; hand `fix.md` to fix after verify.
-
----
-
 ## Commands
 
 | Command | What it does |
 |---------|--------------|
-| `/lamina` | Router |
-| `/lamina-init` | Domain charter |
-| `/lamina-design` | Design contract → `ready_to_build` |
-| `/lamina-verify` | Post-build check, persona walks, invariants → `fix.md` |
+| `/lamina-init` | Domain charter — once per project or domain; `/lamina-init update` for material pivots |
+| `/lamina-design` | Design contract → `ready_to_build` with `run.json`, `run.md`, `implement.md` |
+| `/lamina-verify` | Post-build check of a named flow/surface at a live URL → `report.md`, `fix.md`, optional walkthrough evidence |
+| `/lamina` | Optional router when you are unsure which command to run |
 
 Writes to `.lamina/` only. No app source. No visual styling.
-
