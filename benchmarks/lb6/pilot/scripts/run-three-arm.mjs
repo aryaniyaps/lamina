@@ -344,17 +344,28 @@ function killChild(child) {
   }
 }
 
-export function preparePublicationPlan({ root, taskId, cells, reportPaths }) {
+export function preparePublicationPlan({ root, taskId, cells, reportPaths, report = null }) {
   const publicationDir = path.join(root, PUBLICATION_REL);
   fs.mkdirSync(publicationDir, { recursive: true });
+  const isolatedThreeArmResult = Boolean(
+    report?.campaign?.ok
+      && report?.gate === 'three_arm_campaign_complete'
+      && Array.isArray(report?.cells)
+      && report.cells.length === PILOT_ARMS.length
+      && report.cells.every((cell) => cell.ok && cell.measurementValid),
+  );
   const commands = {
     note: 'Manual operator step only. This runner does not execute Harbor publication.',
     publication_eligible: false,
-    blocked_until: 'authenticated harbor CLI + valid isolated rerun with all three final measurements',
+    benchmark_upload_ready: isolatedThreeArmResult,
+    blocked_until: 'authenticated Harbor CLI + explicit approval to disclose a development-only package',
     blocked_reasons: [
-      'development-only package',
-      'current campaign has no publication-valid three-arm result',
-      'operator must review verifier isolation before any public upload',
+      'development-only package; not eligible for a confirmatory or marketing claim',
+      'Cursor persona child actual selected model is unverified',
+      'Harbor registry authentication is required for publish/upload',
+      ...(!isolatedThreeArmResult
+        ? ['current campaign has no measurement-valid isolated three-arm result']
+        : []),
     ],
     commands: [
       `harbor publish --public ${TASKS_REL}`,
@@ -604,6 +615,7 @@ export async function runThreeArmCampaign(options = {}) {
     taskId: discovery.taskId,
     cells: cellResults,
     reportPaths: aggregate?.paths || null,
+    report: aggregate?.report || null,
   });
 
   return {

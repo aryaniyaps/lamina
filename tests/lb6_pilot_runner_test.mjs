@@ -277,6 +277,8 @@ assert.equal(campaign.campaign.child_actual_model_unverified, true);
 assert.equal(campaign.campaign.confirmatory, false);
 assert.ok(campaign.publication?.outPath);
 assert.ok(fs.existsSync(campaign.publication.outPath));
+assert.equal(campaign.publication.plan.benchmark_upload_ready, true);
+assert.equal(campaign.publication.plan.publication_eligible, false);
 assert.ok(campaign.aggregate?.paths?.json);
 assert.ok(fs.existsSync(campaign.aggregate.paths.json));
 assert.ok(fs.existsSync(campaign.aggregate.paths.markdown));

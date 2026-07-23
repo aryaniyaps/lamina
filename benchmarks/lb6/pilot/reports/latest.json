@@ -5,7 +5,7 @@
   "child_actual_model_unverified": true,
   "not_claim_ready": true,
   "distinct_from": "lamina-bench-6",
-  "generatedAt": "2026-07-23T14:59:25.002Z",
+  "generatedAt": "2026-07-23T15:21:21.255Z",
   "taskId": "dev-care-circle",
   "agent": "cursor-cli",
   "model": "cursor/composer-2.5",
@@ -18,14 +18,14 @@
     "pending": 3
   },
   "campaign": {
-    "startedAt": "2026-07-23T14:47:47.499Z",
-    "deadlineAt": "2026-07-23T16:47:47.499Z",
+    "startedAt": "2026-07-23T15:10:09.908Z",
+    "deadlineAt": "2026-07-23T17:10:09.908Z",
     "deadlineMs": 7200000,
     "deadlineExceeded": false,
-    "ok": false,
-    "gate": "pilot_measurement_invalid"
+    "ok": true,
+    "gate": "three_arm_campaign_complete"
   },
-  "gate": "pilot_measurement_invalid",
+  "gate": "three_arm_campaign_complete",
   "armsPresent": [
     "direct",
     "plan",
@@ -34,29 +34,29 @@
   "cells": [
     {
       "ok": true,
-      "jobName": "lb6-pilot-dev-care-circle-direct-1784818067499",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499",
-      "trialName": "dev-care-circle-direct__z89EoLv",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv",
+      "jobName": "lb6-pilot-dev-care-circle-direct-1784819409908",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908",
+      "trialName": "dev-care-circle-direct__Es8SsiM",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM",
       "taskId": "dev-care-circle",
       "arm": "direct",
       "state": "completed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 175046,
-      "startedAt": "2026-07-23T14:47:48.603154Z",
-      "finishedAt": "2026-07-23T14:50:43.084100Z",
-      "reward": 0.25,
-      "behavior": 0.25,
+      "durationMs": 216958,
+      "startedAt": "2026-07-23T15:10:10.888690Z",
+      "finishedAt": "2026-07-23T15:13:47.370248Z",
+      "reward": 0.5,
+      "behavior": 0.5,
       "invalidTreatment": false,
-      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv/steps/verify_fix/verifier/reward.json",
-      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv/steps/verify_fix/verifier/behavior_report.json",
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/behavior_report.json",
       "finalStep": "verify_fix",
-      "costUsd": 0.0784709,
+      "costUsd": 0.08637829999999999,
       "tokens": {
-        "input": 186571,
-        "cache": 149207,
-        "output": 11979
+        "input": 205887,
+        "cache": 171034,
+        "output": 13898
       },
       "exception": null,
       "stepExceptions": [],
@@ -68,10 +68,10 @@
       "isolationEvidence": {
         "passed": true,
         "reason": null,
-        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv/protocol/final-seal.json",
-        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv/steps/verify_fix/verifier/verifier-abi.json",
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784818067499/dev-care-circle-direct__z89EoLv/protocol/transition-ledger.jsonl",
-        "candidateDigest": "69046cdc2ffdf76f3cafe802330df3e09f5580d31a0527beb279d7939be2830e",
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-direct-1784819409908/dev-care-circle-direct__Es8SsiM/protocol/transition-ledger.jsonl",
+        "candidateDigest": "a6e3e0c60802a08791f636dd962477c66fc42fd92725700c276c548191f3c2fc",
         "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
         "doubleCaptureIdentical": true,
         "networkMode": "none",
@@ -99,23 +99,23 @@
         "steps": [
           {
             "step": "shape_build",
-            "tokensIn": 53042,
-            "tokensOut": 4023,
-            "costUsd": 0.0252313,
+            "tokensIn": 67190,
+            "tokensOut": 4611,
+            "costUsd": 0.0288589,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:47:51.676890Z",
-            "agentFinishedAt": "2026-07-23T14:48:36.926742Z"
+            "agentStartedAt": "2026-07-23T15:10:13.977479Z",
+            "agentFinishedAt": "2026-07-23T15:11:15.902119Z"
           },
           {
             "step": "verify_fix",
-            "tokensIn": 133529,
-            "tokensOut": 7956,
-            "costUsd": 0.0532396,
+            "tokensIn": 138697,
+            "tokensOut": 9287,
+            "costUsd": 0.0575194,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:48:51.623234Z",
-            "agentFinishedAt": "2026-07-23T14:50:30.195128Z"
+            "agentStartedAt": "2026-07-23T15:11:30.351570Z",
+            "agentFinishedAt": "2026-07-23T15:13:34.526457Z"
           }
         ],
         "child_actual_model_unverified": true
@@ -127,29 +127,29 @@
     },
     {
       "ok": true,
-      "jobName": "lb6-pilot-dev-care-circle-plan-1784818067500",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500",
-      "trialName": "dev-care-circle-plan__k4oczMy",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy",
+      "jobName": "lb6-pilot-dev-care-circle-plan-1784819409909",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909",
+      "trialName": "dev-care-circle-plan__aoj5yfA",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA",
       "taskId": "dev-care-circle",
       "arm": "plan",
       "state": "completed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 187546,
-      "startedAt": "2026-07-23T14:47:48.514341Z",
-      "finishedAt": "2026-07-23T14:50:55.603635Z",
+      "durationMs": 172546,
+      "startedAt": "2026-07-23T15:10:10.908298Z",
+      "finishedAt": "2026-07-23T15:13:02.968667Z",
       "reward": 0.25,
       "behavior": 0.25,
       "invalidTreatment": false,
-      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy/steps/verify_fix/verifier/reward.json",
-      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy/steps/verify_fix/verifier/behavior_report.json",
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/behavior_report.json",
       "finalStep": "verify_fix",
-      "costUsd": 0.1016029,
+      "costUsd": 0.0834231,
       "tokens": {
-        "input": 269987,
-        "cache": 233602,
-        "output": 14676
+        "input": 207574,
+        "cache": 174413,
+        "output": 12784
       },
       "exception": null,
       "stepExceptions": [],
@@ -161,10 +161,10 @@
       "isolationEvidence": {
         "passed": true,
         "reason": null,
-        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy/protocol/final-seal.json",
-        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy/steps/verify_fix/verifier/verifier-abi.json",
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784818067500/dev-care-circle-plan__k4oczMy/protocol/transition-ledger.jsonl",
-        "candidateDigest": "7949f47e74df879551f445f2bd62af3fc5e0d94f7549b7346f5bb1824891cda9",
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/steps/verify_fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-plan-1784819409909/dev-care-circle-plan__aoj5yfA/protocol/transition-ledger.jsonl",
+        "candidateDigest": "bcf92cea1698e4a4618561b8f4fe71c61b238a99f35a2da0e479b14492e6efd8",
         "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
         "doubleCaptureIdentical": true,
         "networkMode": "none",
@@ -192,23 +192,23 @@
         "steps": [
           {
             "step": "shape_build",
-            "tokensIn": 69368,
-            "tokensOut": 5572,
-            "costUsd": 0.031140800000000003,
+            "tokensIn": 48705,
+            "tokensOut": 4866,
+            "costUsd": 0.0249963,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:47:51.608170Z",
-            "agentFinishedAt": "2026-07-23T14:48:53.506913Z"
+            "agentStartedAt": "2026-07-23T15:10:13.794588Z",
+            "agentFinishedAt": "2026-07-23T15:11:09.952075Z"
           },
           {
             "step": "verify_fix",
-            "tokensIn": 200619,
-            "tokensOut": 9104,
-            "costUsd": 0.0704621,
+            "tokensIn": 158869,
+            "tokensOut": 7918,
+            "costUsd": 0.0584268,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:49:08.175046Z",
-            "agentFinishedAt": "2026-07-23T14:50:42.674084Z"
+            "agentStartedAt": "2026-07-23T15:11:24.303762Z",
+            "agentFinishedAt": "2026-07-23T15:12:50.034063Z"
           }
         ],
         "child_actual_model_unverified": true
@@ -219,55 +219,49 @@
       "child_actual_model_unverified": true
     },
     {
-      "ok": false,
-      "jobName": "lb6-pilot-dev-care-circle-lamina-1784818067501",
-      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784818067501",
-      "trialName": "dev-care-circle-lamina__6iiyHm5",
-      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784818067501/dev-care-circle-lamina__6iiyHm5",
+      "ok": true,
+      "jobName": "lb6-pilot-dev-care-circle-lamina-1784819409910",
+      "jobPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910",
+      "trialName": "dev-care-circle-lamina__VFGb8tk",
+      "trialPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk",
       "taskId": "dev-care-circle",
       "arm": "lamina",
-      "state": "trial_exception",
+      "state": "completed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 696853,
-      "startedAt": "2026-07-23T14:47:48.531685Z",
-      "finishedAt": "2026-07-23T14:59:24.907473Z",
-      "reward": null,
-      "behavior": null,
+      "durationMs": 670741,
+      "startedAt": "2026-07-23T15:10:11.015395Z",
+      "finishedAt": "2026-07-23T15:21:21.168822Z",
+      "reward": 0.75,
+      "behavior": 0.75,
       "invalidTreatment": false,
-      "rewardPath": null,
-      "behaviorReportPath": null,
+      "rewardPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/reward.json",
+      "behaviorReportPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/behavior_report.json",
       "finalStep": "fix",
-      "costUsd": 0.5942985,
+      "costUsd": 0.7206202000000002,
       "tokens": {
-        "input": 2075382,
-        "cache": 1899775,
-        "output": 50616
+        "input": 2723945,
+        "cache": 2521116,
+        "output": 45993
       },
       "exception": null,
-      "stepExceptions": [
-        {
-          "step": "fix",
-          "type": "ProtocolInvalidError",
-          "message": "host command failed (1): docker cp: open /tmp/lb6-capture-3drgc7et/raw-a/.lamina/business-context.md: permission denied"
-        }
-      ],
+      "stepExceptions": [],
       "verifierIsolation": {
         "passed": true,
         "breach": false,
         "evidence": []
       },
       "isolationEvidence": {
-        "passed": false,
-        "reason": "host seal / isolated verifier evidence incomplete or inconsistent",
-        "sealPath": null,
-        "verifierAbiPath": null,
-        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784818067501/dev-care-circle-lamina__6iiyHm5/protocol/transition-ledger.jsonl",
-        "candidateDigest": null,
-        "verifierImageDigest": null,
-        "doubleCaptureIdentical": false,
-        "networkMode": null,
-        "readOnlyRootfs": false,
+        "passed": true,
+        "reason": null,
+        "sealPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/protocol/final-seal.json",
+        "verifierAbiPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/steps/fix/verifier/verifier-abi.json",
+        "ledgerPath": "/home/aryan/ai-projects/lamina/jobs/lb6-pilot-dev-care-circle-lamina-1784819409910/dev-care-circle-lamina__VFGb8tk/protocol/transition-ledger.jsonl",
+        "candidateDigest": "c2a9abb277a768e2d3eedf3ddda54a053d428681fce06220e72c3b1ea47c4251",
+        "verifierImageDigest": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+        "doubleCaptureIdentical": true,
+        "networkMode": "none",
+        "readOnlyRootfs": true,
         "events": [
           "agent_isolation_passed",
           "agent_isolation_passed",
@@ -277,10 +271,12 @@
           "post_seal_environment_restored",
           "abi_ready",
           "agent_isolation_passed",
-          "protocol_invalid"
+          "final_sealed",
+          "agent_environment_removed",
+          "scoring_complete"
         ]
       },
-      "measurementValid": false,
+      "measurementValid": true,
       "modelEvidence": {
         "configuredAgent": "cursor-cli",
         "configuredModel": "composer-2.5",
@@ -291,43 +287,43 @@
         "steps": [
           {
             "step": "lamina_init",
-            "tokensIn": 529344,
-            "tokensOut": 7851,
-            "costUsd": 0.1379811,
+            "tokensIn": 557724,
+            "tokensOut": 8457,
+            "costUsd": 0.1500933,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:47:51.748907Z",
-            "agentFinishedAt": "2026-07-23T14:51:01.533913Z"
+            "agentStartedAt": "2026-07-23T15:10:13.983802Z",
+            "agentFinishedAt": "2026-07-23T15:13:28.284860Z"
           },
           {
             "step": "lamina_design",
-            "tokensIn": 1120068,
-            "tokensOut": 19358,
-            "costUsd": 0.2929199,
+            "tokensIn": 1841007,
+            "tokensOut": 20569,
+            "costUsd": 0.44521630000000006,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:51:02.128231Z",
-            "agentFinishedAt": "2026-07-23T14:55:38.483918Z"
+            "agentStartedAt": "2026-07-23T15:13:28.846439Z",
+            "agentFinishedAt": "2026-07-23T15:18:08.888700Z"
           },
           {
             "step": "implement",
-            "tokensIn": 246025,
-            "tokensOut": 15600,
-            "costUsd": 0.0983288,
+            "tokensIn": 147389,
+            "tokensOut": 8505,
+            "costUsd": 0.0587419,
             "exceptionType": null,
             "exceptionMessage": null,
-            "agentStartedAt": "2026-07-23T14:55:39.100131Z",
-            "agentFinishedAt": "2026-07-23T14:57:32.682787Z"
+            "agentStartedAt": "2026-07-23T15:18:09.511200Z",
+            "agentFinishedAt": "2026-07-23T15:19:29.729820Z"
           },
           {
             "step": "fix",
-            "tokensIn": 179945,
-            "tokensOut": 7807,
-            "costUsd": 0.06506870000000001,
-            "exceptionType": "ProtocolInvalidError",
-            "exceptionMessage": "host command failed (1): docker cp: open /tmp/lb6-capture-3drgc7et/raw-a/.lamina/business-context.md: permission denied",
-            "agentStartedAt": "2026-07-23T14:57:46.581692Z",
-            "agentFinishedAt": "2026-07-23T14:59:12.977404Z"
+            "tokensIn": 177825,
+            "tokensOut": 8462,
+            "costUsd": 0.06656870000000001,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-23T15:19:43.555757Z",
+            "agentFinishedAt": "2026-07-23T15:21:08.249831Z"
           }
         ],
         "child_actual_model_unverified": true
@@ -343,7 +339,6 @@
     "Persona child actual selected model remains unverified (`child_actual_model_unverified: true`).",
     "No effect-size gate, confidence interval, or product-win claim is computed or implied.",
     "Old Harbor V4 jobs/results are refused and never averaged into this report.",
-    "Harbor publication remains a manual operator step.",
-    "At least one arm lacks a valid final measurement; no three-arm comparison is computed."
+    "Harbor publication remains a manual operator step."
   ]
 }
