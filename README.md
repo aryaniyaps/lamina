@@ -4,17 +4,13 @@
 
 <p align="center"><em>Design is how it works — not just how it looks.</em></p>
 
-<p align="center"><strong>Know what to build. Iterate faster.</strong></p>
-
 <p align="center">
   Headless product-design skill for AI coding agents. Specs how your app works — states, edges, UX gaps — into a contract your agent implements, then verifies the live build with parallel persona walks. Never writes app source.
 </p>
 
-<p align="center"><strong>Lamina does not activate passively.</strong> Install it in your shell, run Lamina slash commands in your coding agent, and use ordinary coding prompts when it is time to edit app source.</p>
-
 ---
 
-**Documentation:** [lamina.dev](https://lamina.dev)
+**Documentation:** [lamina.dev/docs](https://lamina.dev/docs)
 
 ## Quickstart
 
