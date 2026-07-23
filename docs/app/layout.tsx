@@ -91,7 +91,7 @@ const navbar = (
 
 const footer = (
   <Footer>
-    MIT {new Date().getFullYear()} ©{" "}
+    {SITE.license} {new Date().getFullYear()} ©{" "}
     <a href={SITE.domain} target="_blank" rel="noreferrer">
       {SITE.name}
     </a>

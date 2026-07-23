@@ -11,7 +11,7 @@ export const SITE = {
   disambiguation:
     "Lamina (lamina.dev) is an open-source product-design skill for AI coding agents — not uselamina.ai (creative API for media generation).",
   productSummary:
-    "Lamina is an open-source MIT skill that designs product behavior before your coding agent ships app source. Run slash commands explicitly — Lamina does not activate passively after install. UI skills dress the app; Lamina designs how it behaves — states, roles, flows, edge cases, and permission matrices.",
+    "Lamina is an open-source skill licensed under Apache-2.0 that designs product behavior before your coding agent ships app source. Run slash commands explicitly — Lamina does not activate passively after install. UI skills dress the app; Lamina designs how it behaves — states, roles, flows, edge cases, and permission matrices.",
   loop: "/lamina-init → /lamina-design → implement → /lamina-verify → fix",
   commands: ["/lamina-init", "/lamina-design", "/lamina-verify", "/lamina (optional router)"],
   outcomes: [
@@ -25,7 +25,7 @@ export const SITE = {
     "Not a pixel skill — Impeccable and frontend-design polish how it looks; Lamina designs how it works",
   ],
   install: "npx skills install aryaniyaps/lamina",
-  license: "MIT",
+  license: "Apache-2.0",
   github: "https://github.com/aryaniyaps/lamina",
   domain: "https://lamina.dev",
   creator: {
