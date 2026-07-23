@@ -1,0 +1,60 @@
+{
+  "version": "lb6-dev-pilot",
+  "development_only": true,
+  "confirmatory": false,
+  "child_actual_model_unverified": true,
+  "harbor_version": "0.18.0",
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "arms": ["direct", "plan", "lamina"],
+  "attempts_per_arm": 1,
+  "tasks": [
+    {
+      "id": "dev-care-circle",
+      "kind": "greenfield-high-risk",
+      "stage": "shape",
+      "brief": "dev-care-circle/brief.md",
+      "golden": {
+        "sequences": [
+          {
+            "actor": "caregiver",
+            "actions": [
+              {"type": "add_task", "id": "med-1", "title": "Morning medication"},
+              {"type": "mark_missed", "id": "med-1"}
+            ],
+            "expect": [["med-1", "escalat"], ["missed"]]
+          },
+          {
+            "actor": "caregiver",
+            "actions": [
+              {"type": "add_task", "id": "med-1", "title": "Morning medication"},
+              {"type": "complete_task", "id": "med-1"}
+            ],
+            "expect": [["med-1", "done"]]
+          },
+          {
+            "actor": "caregiver",
+            "actions": [{"type": "add_note", "id": "n-1", "text": "Private note"}],
+            "expect": [["private", "note"]]
+          },
+          {
+            "actor": "revoked-caregiver",
+            "actions": [
+              {"type": "revoke_caregiver", "actor": "revoked-caregiver"},
+              {"type": "add_note", "id": "n-2", "text": "Should not be visible"}
+            ],
+            "expect": [["denied"], ["revok"]],
+            "must_not_include": ["should not be visible"]
+          }
+        ]
+      }
+    }
+  ],
+  "pilot": {
+    "task_id": "dev-care-circle",
+    "arms": ["direct", "plan", "lamina"],
+    "attempts_per_arm": 1,
+    "agent": "cursor-cli",
+    "model": "cursor/composer-2.5"
+  }
+}

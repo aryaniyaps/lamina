@@ -1,26 +1,27 @@
 {
   "note": "Manual operator step only. This runner does not execute Harbor publication.",
   "publication_eligible": false,
-  "blocked_until": "authenticated harbor CLI + valid isolated rerun with all three final measurements",
+  "benchmark_upload_ready": true,
+  "blocked_until": "authenticated Harbor CLI + explicit approval to disclose a development-only package",
   "blocked_reasons": [
-    "development-only package",
-    "current campaign has no publication-valid three-arm result",
-    "operator must review verifier isolation before any public upload"
+    "development-only package; not eligible for a confirmatory or marketing claim",
+    "Cursor persona child actual selected model is unverified",
+    "Harbor registry authentication is required for publish/upload"
   ],
   "commands": [
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks",
-    "harbor upload --public jobs/lb6-pilot-dev-care-circle-direct-1784818067499",
-    "harbor upload --public jobs/lb6-pilot-dev-care-circle-plan-1784818067500",
-    "harbor upload --public jobs/lb6-pilot-dev-care-circle-lamina-1784818067501"
+    "harbor upload --public jobs/lb6-pilot-dev-care-circle-direct-1784819409908",
+    "harbor upload --public jobs/lb6-pilot-dev-care-circle-plan-1784819409909",
+    "harbor upload --public jobs/lb6-pilot-dev-care-circle-lamina-1784819409910"
   ],
   "artifacts": {
     "reportJson": "/home/aryan/ai-projects/lamina/benchmarks/lb6/pilot/reports/latest.json",
     "reportMarkdown": "/home/aryan/ai-projects/lamina/benchmarks/lb6/pilot/reports/latest.md",
     "taskId": "dev-care-circle",
     "jobNames": [
-      "lb6-pilot-dev-care-circle-direct-1784818067499",
-      "lb6-pilot-dev-care-circle-plan-1784818067500",
-      "lb6-pilot-dev-care-circle-lamina-1784818067501"
+      "lb6-pilot-dev-care-circle-direct-1784819409908",
+      "lb6-pilot-dev-care-circle-plan-1784819409909",
+      "lb6-pilot-dev-care-circle-lamina-1784819409910"
     ]
   },
   "development_only": true,
