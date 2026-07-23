@@ -1,14 +1,19 @@
 {
   "note": "Manual operator step only. This runner does not execute Harbor publication.",
-  "publication_eligible": false,
-  "benchmark_upload_ready": false,
+  "campaign_id": "lb6-dev-pilot-skill-rerun-v2",
+  "publication_eligible": true,
+  "benchmark_upload_ready": true,
   "blocked_until": "authenticated Harbor CLI + explicit approval to disclose a development-only package",
   "blocked_reasons": [
     "development-only package; not eligible for a confirmatory or marketing claim",
     "Cursor persona child actual selected model is unverified",
     "Harbor registry authentication is required for publish/upload",
-    "current campaign lacks a measurement-valid isolated multi-task result"
+    "frozen dev-care-circle package and prior no-skill Lamina jobs are excluded from this plan"
   ],
+  "excluded_frozen_tasks": [
+    "dev-care-circle"
+  ],
+  "excluded_prior_no_skill_jobs": "jobs/lb6-pilot-* without pre_model_skill_gate evidence are not enumerated",
   "commands": [
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-loan-library-direct",
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-loan-library-lamina",
@@ -19,15 +24,21 @@
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-simple-list-direct",
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-simple-list-lamina",
     "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-simple-list-plan",
-    "harbor upload --public jobs/lb6-pilot-dev-loan-library-lamina-1784823875731",
-    "harbor upload --public jobs/lb6-pilot-dev-review-room-lamina-1784823875732",
-    "harbor upload --public jobs/lb6-pilot-dev-simple-list-lamina-1784823875733",
-    "harbor upload --public jobs/lb6-pilot-dev-loan-library-direct-1784823875734",
-    "harbor upload --public jobs/lb6-pilot-dev-loan-library-plan-1784823875735",
-    "harbor upload --public jobs/lb6-pilot-dev-review-room-direct-1784823875736",
-    "harbor upload --public jobs/lb6-pilot-dev-review-room-plan-1784823875737",
-    "harbor upload --public jobs/lb6-pilot-dev-simple-list-direct-1784823875738",
-    "harbor upload --public jobs/lb6-pilot-dev-simple-list-plan-1784823875739"
+    "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-toggle-preference-direct",
+    "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-toggle-preference-lamina",
+    "harbor publish --public benchmarks/lb6/pilot/harbor/tasks/dev-toggle-preference-plan",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-loan-library-lamina-1784832080121",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-loan-library-direct-1784832080122",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-loan-library-plan-1784832080123",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-review-room-direct-1784832080124",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-review-room-plan-1784832080125",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-simple-list-direct-1784832080126",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-review-room-lamina-1784832080127",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-simple-list-plan-1784832080128",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-toggle-preference-direct-1784832080129",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-toggle-preference-plan-1784832080130",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-simple-list-lamina-1784832080131",
+    "harbor upload --public jobs/lb6-pilot-skill-rerun-v2-dev-toggle-preference-lamina-1784832080132"
   ],
   "artifacts": {
     "reportJson": "/home/aryan/ai-projects/lamina/benchmarks/lb6/pilot/reports/latest.json",
@@ -35,19 +46,24 @@
     "taskIds": [
       "dev-loan-library",
       "dev-review-room",
-      "dev-simple-list"
+      "dev-simple-list",
+      "dev-toggle-preference"
     ],
     "jobNames": [
-      "lb6-pilot-dev-loan-library-lamina-1784823875731",
-      "lb6-pilot-dev-review-room-lamina-1784823875732",
-      "lb6-pilot-dev-simple-list-lamina-1784823875733",
-      "lb6-pilot-dev-loan-library-direct-1784823875734",
-      "lb6-pilot-dev-loan-library-plan-1784823875735",
-      "lb6-pilot-dev-review-room-direct-1784823875736",
-      "lb6-pilot-dev-review-room-plan-1784823875737",
-      "lb6-pilot-dev-simple-list-direct-1784823875738",
-      "lb6-pilot-dev-simple-list-plan-1784823875739"
-    ]
+      "lb6-pilot-skill-rerun-v2-dev-loan-library-lamina-1784832080121",
+      "lb6-pilot-skill-rerun-v2-dev-loan-library-direct-1784832080122",
+      "lb6-pilot-skill-rerun-v2-dev-loan-library-plan-1784832080123",
+      "lb6-pilot-skill-rerun-v2-dev-review-room-direct-1784832080124",
+      "lb6-pilot-skill-rerun-v2-dev-review-room-plan-1784832080125",
+      "lb6-pilot-skill-rerun-v2-dev-simple-list-direct-1784832080126",
+      "lb6-pilot-skill-rerun-v2-dev-review-room-lamina-1784832080127",
+      "lb6-pilot-skill-rerun-v2-dev-simple-list-plan-1784832080128",
+      "lb6-pilot-skill-rerun-v2-dev-toggle-preference-direct-1784832080129",
+      "lb6-pilot-skill-rerun-v2-dev-toggle-preference-plan-1784832080130",
+      "lb6-pilot-skill-rerun-v2-dev-simple-list-lamina-1784832080131",
+      "lb6-pilot-skill-rerun-v2-dev-toggle-preference-lamina-1784832080132"
+    ],
+    "campaignId": "lb6-dev-pilot-skill-rerun-v2"
   },
   "development_only": true,
   "confirmatory": false,
