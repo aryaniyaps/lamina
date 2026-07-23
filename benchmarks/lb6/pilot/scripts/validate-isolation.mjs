@@ -18,7 +18,7 @@ function hashFile(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-for (const file of ['sitecustomize.py', 'lb6_harbor_patch.py']) {
+for (const file of ['sitecustomize.py', 'lb6_harbor_patch.py', 'lb6_skill_gate.py']) {
   const target = path.join(forkRoot, file);
   if (!fs.existsSync(target)) errors.push(`missing Harbor patch ${file}`);
 }
@@ -68,6 +68,7 @@ const manifest = {
   harbor_version: '0.18.0',
   patch_version: 'lb6-host-seal-v1',
   patch_sha256: hashFile(path.join(forkRoot, 'lb6_harbor_patch.py')),
+  skill_gate_sha256: hashFile(path.join(forkRoot, 'lb6_skill_gate.py')),
   sitecustomize_sha256: hashFile(path.join(forkRoot, 'sitecustomize.py')),
   verifier_image: verifierImage,
   verifier_image_id: verifierImageId,
