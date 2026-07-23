@@ -8,8 +8,17 @@ import { buildPilot } from '../benchmarks/lb6/pilot/scripts/build-pilot.mjs';
 import {
   buildTaskCluster,
   extractCellRecord,
+  laminaDeltaEligible,
 } from '../benchmarks/lb6/pilot/scripts/aggregate-results.mjs';
-import { preparePublicationPlan } from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
+import {
+  isFrozenPublicationTask,
+  isPublicationEligibleCell,
+  makeJobName,
+  preparePublicationPlan,
+  schedulePilotCells,
+} from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
+import { EMPTY_INVENTORY_DIGEST } from '../benchmarks/lb6/pilot/lib/pre-model-gate.mjs';
+import { SKILL_RERUN_CAMPAIGN_ID } from '../benchmarks/lb6/pilot/lib/constants.mjs';
 import {
   assertBuildSelectionAllowed,
   assertCampaignSelectionAllowed,
@@ -167,9 +176,13 @@ assert.equal(
   JSON.stringify(selfcheckFindings, null, 2),
 );
 
-const jobsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-launch-gate-jobs-'));
+const jobsRoot = path.join(tmpRoot, 'jobs');
+fs.mkdirSync(jobsRoot, { recursive: true });
+const skillBundleManifest = JSON.parse(
+  fs.readFileSync(path.join(tmpRoot, 'benchmarks/lb6/pilot/skill-bundle/manifest.json'), 'utf8'),
+);
 function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state = 'protocol_evidence_missing' } = {}) {
-  const jobName = `lb6-pilot-${taskId}-${arm}-9001`;
+  const jobName = makeJobName(taskId, arm, 9001);
   const jobDir = path.join(jobsRoot, jobName);
   const trialDir = path.join(jobDir, `${taskId}-${arm}__test`);
   const finalStep = arm === 'lamina' ? 'fix' : 'verify_fix';
@@ -181,6 +194,8 @@ function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state =
       datasets: [{ path: 'benchmarks/lb6/pilot/harbor/tasks', task_names: [`${taskId}-${arm}`] }],
     }),
   );
+  fs.writeFileSync(path.join(jobDir, 'lock.json'), JSON.stringify({ trials: [{ skills: [] }] }));
+  fs.writeFileSync(path.join(trialDir, 'lock.json'), JSON.stringify({ trials: [{ skills: [] }] }));
   fs.writeFileSync(
     path.join(trialDir, 'result.json'),
     JSON.stringify({
@@ -189,18 +204,36 @@ function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state =
     }),
   );
   fs.writeFileSync(path.join(verifierDir, 'reward.json'), JSON.stringify({ reward: 0.4 }));
+  const protocolDir = path.join(trialDir, 'protocol');
+  fs.mkdirSync(protocolDir, { recursive: true });
+  const ledgerEvents = [
+    {
+      sequence: 1,
+      event: 'pre_model_skill_gate',
+      details: {
+        arm,
+        task_id: taskId,
+        passed: true,
+        bundle_digest: skillBundleManifest.aggregate_digest,
+        container_path: '/home/agent/.cursor/skills',
+        container_file_count: 0,
+        container_aggregate_digest: arm === 'lamina'
+          ? skillBundleManifest.aggregate_digest
+          : EMPTY_INVENTORY_DIGEST,
+        lamina_skill_absent: arm !== 'lamina',
+      },
+    },
+  ];
   if (state !== 'protocol_evidence_missing') {
-    const protocolDir = path.join(trialDir, 'protocol');
-    fs.mkdirSync(protocolDir, { recursive: true });
     fs.writeFileSync(
       path.join(protocolDir, 'final-seal.json'),
       JSON.stringify({ double_capture_identical: true, candidate_digest: 'candidate-abc' }),
     );
-    fs.writeFileSync(
-      path.join(protocolDir, 'transition-ledger.jsonl'),
-      ['final_sealed', 'agent_environment_removed', 'scoring_complete']
-        .map((event, index) => JSON.stringify({ sequence: index + 1, event }))
-        .join('\n') + '\n',
+    ledgerEvents.push(
+      ...['final_sealed', 'agent_environment_removed', 'scoring_complete'].map((event, index) => ({
+        sequence: index + 2,
+        event,
+      })),
     );
     fs.writeFileSync(
       path.join(verifierDir, 'verifier-abi.json'),
@@ -211,6 +244,10 @@ function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state =
       }),
     );
   }
+  fs.writeFileSync(
+    path.join(protocolDir, 'transition-ledger.jsonl'),
+    `${ledgerEvents.map((entry) => JSON.stringify(entry)).join('\n')}\n`,
+  );
   return jobName;
 }
 
@@ -245,6 +282,28 @@ assert.equal(cluster.rewards.plan, null);
 assert.equal(cluster.deltas.plan_minus_direct, null);
 assert.equal(cluster.deltas.lamina_minus_direct, null);
 
+const noSkillCell = {
+  taskId: 'dev-loan-library',
+  arm: 'lamina',
+  taskDirName: 'dev-loan-library-lamina',
+  jobName: makeJobName('dev-loan-library', 'lamina', 42),
+  ok: true,
+  measurementValid: false,
+  reward: 0.5,
+  skillEvidence: { passed: false, priorNoSkill: true },
+  priorNoSkill: true,
+};
+const suppressed = buildTaskCluster('dev-loan-library', [
+  { taskId: 'dev-loan-library', arm: 'direct', ok: true, measurementValid: true, reward: 1 },
+  { taskId: 'dev-loan-library', arm: 'plan', ok: true, measurementValid: true, reward: 1 },
+  noSkillCell,
+]);
+assert.equal(suppressed.deltas.lamina_minus_direct, null);
+assert.equal(suppressed.laminaDeltaSuppressed, true);
+assert.equal(laminaDeltaEligible(noSkillCell), false);
+assert.equal(isFrozenPublicationTask('dev-care-circle'), true);
+assert.equal(isPublicationEligibleCell(noSkillCell), false);
+
 const publication = preparePublicationPlan({
   root: tmpRoot,
   taskIds: selectedNewTasks,
@@ -253,20 +312,91 @@ const publication = preparePublicationPlan({
       taskId,
       arm,
       taskDirName: `${taskId}-${arm}`,
-      jobName: `lb6-pilot-${taskId}-${arm}-1`,
+      jobName: makeJobName(taskId, arm, 1),
+      measurementValid: true,
+      skillEvidence: { passed: true, priorNoSkill: false, hasLedgerEvidence: true },
     })),
   ),
   reportPaths: null,
-  report: null,
+  report: {
+    campaignId: SKILL_RERUN_CAMPAIGN_ID,
+    campaign: { ok: true, campaignId: SKILL_RERUN_CAMPAIGN_ID },
+    gate: 'three_arm_campaign_complete',
+    cells: selectedNewTasks.flatMap((taskId) =>
+      ['direct', 'plan', 'lamina'].map((arm) => ({
+        taskId,
+        arm,
+        taskDirName: `${taskId}-${arm}`,
+        jobName: makeJobName(taskId, arm, 1),
+        ok: true,
+        measurementValid: true,
+        skillEvidence: { passed: true, hasLedgerEvidence: true },
+      })),
+    ),
+  },
   write: false,
 });
 assert.equal(publication.outPath, null);
 const TASKS_REL = 'benchmarks/lb6/pilot/harbor/tasks';
-assert.ok(publication.plan.commands.every((cmd) => cmd !== `harbor publish --public ${TASKS_REL}`));
 assert.ok(publication.plan.commands.every((cmd) => !cmd.includes('dev-care-circle')));
+assert.equal(publication.plan.campaign_id, SKILL_RERUN_CAMPAIGN_ID);
+assert.equal(publication.plan.benchmark_upload_ready, true);
+assert.equal(publication.plan.publication_eligible, true);
+assert.equal(publication.plan.development_only, true);
+assert.equal(publication.plan.confirmatory, false);
 assert.equal(
   publication.plan.commands.filter((cmd) => cmd.startsWith('harbor publish')).length,
   selectedNewTasks.length * 3,
+);
+assert.ok(publication.plan.commands.every((cmd) => cmd.includes('skill-rerun-v1') || cmd.startsWith('harbor publish')));
+
+const mixedCells = [
+  {
+    taskId: 'dev-loan-library',
+    arm: 'direct',
+    taskDirName: 'dev-loan-library-direct',
+    jobName: 'lb6-pilot-dev-loan-library-direct-100',
+    measurementValid: true,
+    skillEvidence: { passed: true, hasLedgerEvidence: true },
+  },
+  {
+    taskId: 'dev-loan-library',
+    arm: 'plan',
+    taskDirName: 'dev-loan-library-plan',
+    jobName: 'lb6-pilot-dev-loan-library-plan-101',
+    measurementValid: true,
+    skillEvidence: { passed: true, hasLedgerEvidence: true },
+  },
+  {
+    taskId: 'dev-loan-library',
+    arm: 'lamina',
+    taskDirName: 'dev-loan-library-lamina',
+    jobName: makeJobName('dev-loan-library', 'lamina', 102),
+    measurementValid: true,
+    skillEvidence: { passed: true, hasLedgerEvidence: true },
+  },
+];
+const mixedPublication = preparePublicationPlan({
+  root: tmpRoot,
+  taskIds: ['dev-loan-library'],
+  cells: mixedCells,
+  report: {
+    campaignId: SKILL_RERUN_CAMPAIGN_ID,
+    campaign: { ok: true },
+    gate: 'three_arm_campaign_complete',
+    cells: mixedCells,
+  },
+  write: false,
+});
+assert.equal(mixedPublication.plan.benchmark_upload_ready, false);
+assert.equal(mixedPublication.plan.publication_eligible, false);
+assert.equal(mixedPublication.plan.commands.length, 0);
+assert.equal(
+  mixedPublication.plan.commands.filter((cmd) => cmd.startsWith('harbor upload')).length,
+  0,
+);
+assert.ok(
+  mixedPublication.plan.blocked_reasons.some((reason) => /dev-loan-library\/direct|publication boundary/i.test(reason)),
 );
 if (manualPlanBefore === null) {
   assert.equal(fs.existsSync(manualPlanPath), false);
@@ -289,12 +419,22 @@ const dry = spawnSync(
 );
 assert.equal(dry.status, 0, dry.stderr);
 const dryPayload = JSON.parse(dry.stdout);
-assert.equal(dryPayload.cells.length, 9);
+assert.equal(dryPayload.cells.length, 12);
 assert.equal(dryPayload.concurrency.effective, 6);
-assert.deepEqual(
-  dryPayload.schedule.slice(0, 3).map((slot) => slot.arm),
-  ['lamina', 'lamina', 'lamina'],
-);
+assert.equal(dryPayload.campaignId, SKILL_RERUN_CAMPAIGN_ID);
+assert.equal(dryPayload.maxLaminaParents, 1);
+assert.equal(dryPayload.schedule[0].taskId, 'dev-loan-library');
+assert.equal(dryPayload.schedule[0].arm, 'lamina');
+const dryLaminaPerWave = new Map();
+for (const slot of dryPayload.schedule) {
+  dryLaminaPerWave.set(
+    slot.wave,
+    (dryLaminaPerWave.get(slot.wave) || 0) + (slot.arm === 'lamina' ? 1 : 0),
+  );
+}
+for (const count of dryLaminaPerWave.values()) {
+  assert.ok(count <= 1, `dry-run wave had ${count} Lamina parents`);
+}
 
 assertFrozenArtifactsUnchanged(root, manifest, sourceFrozenBefore);
 assertGitStatusUnchanged(root, sourceStatusBefore);

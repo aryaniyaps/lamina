@@ -10,6 +10,7 @@ keywords = ["fuzzy-prompt", "development-pilot", "lb6", "lamina"]
 [metadata]
 benchmark = "lamina-lb6-pilot"
 benchmark_version = "lb6-dev-pilot"
+campaign_id = "lb6-dev-pilot-skill-rerun-v1"
 task_id = "dev-simple-list"
 arm = "lamina"
 kind = "greenfield-low-risk"
@@ -39,7 +40,7 @@ storage_mb = 10240
 name = "lamina_init"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 300.0
+timeout_sec = 360.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -47,7 +48,7 @@ timeout_sec = 45.0
 name = "lamina_design"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 420.0
+timeout_sec = 480.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -55,7 +56,7 @@ timeout_sec = 45.0
 name = "implement"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 480.0
+timeout_sec = 420.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -63,6 +64,6 @@ timeout_sec = 45.0
 name = "fix"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 300.0
+timeout_sec = 240.0
 [steps.verifier]
 timeout_sec = 60.0

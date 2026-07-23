@@ -12,8 +12,10 @@ import {
   BENCHMARK_VERSION,
   HARBOR_AGENT,
   HARBOR_MODEL,
+  LAMINA_STEPS,
   PILOT_ARMS,
 } from '../benchmarks/lb6/pilot/lib/constants.mjs';
+import { verifyStagedSkillBundle } from '../benchmarks/lb6/pilot/lib/skill-bundle.mjs';
 import {
   buildHarborArgs,
   discoverPilotTasks,
@@ -53,9 +55,12 @@ assert.equal(pkg.child_actual_model_unverified, true);
 assert.equal(pkg.benchmark_version, BENCHMARK_VERSION);
 assert.deepEqual(pkg.arms, [...PILOT_ARMS]);
 assert.equal(pkg.not_claim_ready, true);
+assert.ok(pkg.skill_bundle_digest);
+assert.equal(verifyStagedSkillBundle(root).ok, true);
 assert.deepEqual(pkg.task_ids, manifest.tasks.map((task) => task.id));
+assert.equal(LAMINA_STEPS.reduce((sum, step) => sum + step.agentTimeout, 0), AGENT_BUDGET_SEC);
 
-assert.equal(manifest.tasks.length, 4);
+assert.equal(manifest.tasks.length, 5);
 assert.equal(manifest.agent, HARBOR_AGENT);
 assert.equal(manifest.model, HARBOR_MODEL);
 
@@ -72,12 +77,16 @@ for (const task of manifest.tasks) {
 const newTasks = manifest.pilot.default_run_tasks;
 const schedule = schedulePilotCells(newTasks);
 assert.equal(schedule.length, newTasks.length * PILOT_ARMS.length);
-assert.deepEqual(
-  schedule.slice(0, 3).map((slot) => slot.arm),
-  ['lamina', 'lamina', 'lamina'],
-);
+assert.equal(schedule[0].taskId, 'dev-loan-library');
+assert.equal(schedule[0].arm, 'lamina');
+const laminaPerWave = new Map();
+for (const slot of schedule) {
+  laminaPerWave.set(slot.wave, (laminaPerWave.get(slot.wave) || 0) + (slot.arm === 'lamina' ? 1 : 0));
+}
+for (const count of laminaPerWave.values()) {
+  assert.ok(count <= 1, `wave had ${count} Lamina parents`);
+}
 assert.ok(schedule.slice(0, 6).every((slot) => slot.wave === 1));
-assert.ok(schedule.slice(6).every((slot) => slot.wave === 2));
 
 const dryArgs = buildHarborArgs({
   arm: 'direct',
@@ -89,6 +98,16 @@ assert.ok(dryArgs.includes('cursor-cli'));
 assert.ok(dryArgs.includes('cursor/composer-2.5'));
 assert.ok(dryArgs.includes('--n-attempts'));
 assert.equal(dryArgs[dryArgs.indexOf('--n-attempts') + 1], '1');
+assert.ok(!dryArgs.includes('--skills'));
+
+const laminaDryArgs = buildHarborArgs({
+  arm: 'lamina',
+  taskDirName: 'dev-loan-library-lamina',
+  jobName: 'lb6-pilot-dev-loan-library-lamina-test',
+  envFile: path.join(root, '.env'),
+  skillPaths: ['benchmarks/lb6/pilot/skill-bundle/staged/lamina'],
+});
+assert.ok(laminaDryArgs.includes('--skills'));
 
 for (const task of manifest.tasks) {
   for (const arm of PILOT_ARMS) {

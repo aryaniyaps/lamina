@@ -23,10 +23,14 @@ import {
   HARBOR_MODEL,
   HARBOR_VERSION,
   CURSOR_CLI_VERSION,
+  LAMINA_BENCH_SKILLS,
   LAMINA_STEPS,
   PILOT_ARMS,
+  PINNED_SKILL_COMMIT,
   REQUIRED_PERSONA_CHILDREN,
+  SKILL_RERUN_CAMPAIGN_ID,
 } from '../lib/constants.mjs';
+import { stageSkillBundle, loadSkillBundleManifest, verifyStagedSkillBundle } from '../lib/skill-bundle.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -56,20 +60,7 @@ function loadPilotManifest(corpusRoot) {
   return manifest;
 }
 
-const LAMINA_BENCH_SKILLS = [
-  'lamina',
-  'lamina-init',
-  'lamina-design',
-  'lamina-verify',
-  'lamina-orchestrator',
-  'lamina-core',
-  'lamina-user-modeling',
-  'lamina-flow-design',
-  'lamina-edge-cases',
-  'lamina-trust',
-  'lamina-idempotency-concurrency',
-  'lamina-product-behavior',
-];
+const LAMINA_BENCH_SKILLS_LOCAL = LAMINA_BENCH_SKILLS;
 
 const armPrompts = {
   direct:
@@ -138,6 +129,7 @@ function taskToml(task, arm) {
     '[metadata]\n' +
     'benchmark = "lamina-lb6-pilot"\n' +
     `benchmark_version = "${BENCHMARK_VERSION}"\n` +
+    `campaign_id = "${SKILL_RERUN_CAMPAIGN_ID}"\n` +
     `task_id = "${task.id}"\n` +
     `arm = "${arm}"\n` +
     `kind = "${task.kind}"\n` +
@@ -520,6 +512,18 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
     for (const arm of PILOT_ARMS) writeTask(task, arm, ctx);
   }
 
+  const bundleManifestPath = path.join(ctx.pilotRoot, 'skill-bundle/manifest.json');
+  let skillBundle = null;
+  if (!selective || !fs.existsSync(bundleManifestPath)) {
+    skillBundle = stageSkillBundle(ctx.root, { pinnedCommit: PINNED_SKILL_COMMIT });
+  } else {
+    skillBundle = loadSkillBundleManifest(ctx.root);
+    const verified = verifyStagedSkillBundle(ctx.root, skillBundle.manifest);
+    if (!verified.ok) {
+      throw new Error(`existing skill bundle failed verification: ${verified.reason}`);
+    }
+  }
+
   if (!selective) {
     fs.writeFileSync(
       path.join(ctx.pilotRoot, 'package.manifest.json'),
@@ -529,6 +533,9 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
           {
             kind: 'lb6-dev-pilot-package',
             benchmark_version: BENCHMARK_VERSION,
+            campaign_id: SKILL_RERUN_CAMPAIGN_ID,
+            pinned_skill_commit: PINNED_SKILL_COMMIT,
+            skill_bundle_digest: skillBundle.manifest.aggregate_digest,
             harbor_version: HARBOR_VERSION,
             agent: HARBOR_AGENT,
             model: HARBOR_MODEL,
@@ -537,7 +544,7 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
             arms: [...PILOT_ARMS],
             attempts_per_arm: manifest.attempts_per_arm ?? 1,
             agent_budget_sec: AGENT_BUDGET_SEC,
-            skills: LAMINA_BENCH_SKILLS,
+            skills: [...LAMINA_BENCH_SKILLS_LOCAL],
             not_claim_ready: true,
             distinct_from: 'lamina-bench-6',
           },

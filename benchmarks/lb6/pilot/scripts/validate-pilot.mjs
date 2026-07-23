@@ -13,7 +13,9 @@ import {
   LAMINA_STEPS,
   PILOT_ARMS,
   REQUIRED_PERSONA_CHILDREN,
+  SKILL_RERUN_CAMPAIGN_ID,
 } from '../lib/constants.mjs';
+import { verifyStagedSkillBundle } from '../lib/skill-bundle.mjs';
 import { scanPilotPackage, scoringSensitiveStringsByTaskIdFromManifest } from '../lib/secret-scan.mjs';
 import {
   assertBuildSelectionAllowed,
@@ -54,6 +56,16 @@ function validatePackageManifest(manifest) {
   }
   if (pkg.not_claim_ready !== true) {
     errors.push('package.manifest.json must set not_claim_ready=true');
+  }
+  if (pkg.campaign_id !== SKILL_RERUN_CAMPAIGN_ID) {
+    errors.push(`package.manifest.json campaign_id must be ${SKILL_RERUN_CAMPAIGN_ID}`);
+  }
+  if (!pkg.skill_bundle_digest) {
+    errors.push('package.manifest.json must include skill_bundle_digest');
+  }
+  const bundleCheck = verifyStagedSkillBundle(ROOT);
+  if (!bundleCheck.ok) {
+    errors.push(`skill bundle verification failed: ${bundleCheck.reason}`);
   }
   const manifestTaskIds = manifest.tasks.map((task) => task.id).sort();
   const packageTaskIds = [...(pkg.task_ids || [])].sort();
@@ -115,6 +127,9 @@ function validateTaskDir(task, arm) {
   const toml = fs.readFileSync(path.join(dir, 'task.toml'), 'utf8');
   if (!toml.includes(`benchmark_version = "${BENCHMARK_VERSION}"`)) {
     errors.push(`${dir}: expected benchmark_version=${BENCHMARK_VERSION}`);
+  }
+  if (!toml.includes(`campaign_id = "${SKILL_RERUN_CAMPAIGN_ID}"`)) {
+    errors.push(`${dir}: expected campaign_id=${SKILL_RERUN_CAMPAIGN_ID}`);
   }
   if (/harbor-v4|lamina-bench-6/i.test(toml)) {
     errors.push(`${dir}: must not reference harbor-v4 or lamina-bench-6`);

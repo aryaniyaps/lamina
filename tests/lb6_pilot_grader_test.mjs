@@ -71,6 +71,89 @@ export function reduce(state,action){
 }
 export function project(state,actor){return {items:state.items,summary:Object.values(state.items).map((item)=>item.id+' '+item.status).join(' ')};}`;
 
+const toggleGood = `export function createInitialState(){return{preferences:{},internalContext:{}}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='register_device_context'){
+    s.internalContext=s.internalContext||{};
+    s.internalContext[action.id]=action.contextToken;
+    return s;
+  }
+  const pref=s.preferences[action.id]||{id:action.id,focus:false};
+  if(action.type==='enable_focus_mode'){pref.focus=true;s.preferences[action.id]=pref;return s}
+  if(action.type==='disable_focus_mode'){pref.focus=false;s.preferences[action.id]=pref;return s}
+  if(action.type==='toggle_focus_mode'){pref.focus=!pref.focus;s.preferences[action.id]=pref;return s}
+  return s;
+}
+export function project(state,actor){
+  const pref=Object.values(state.preferences)[0];
+  if(!pref) return {focus:'off',mode:'idle',quiet:'',configured:false};
+  return {
+    focus:pref.focus?'on':'off',
+    mode:pref.focus?'quiet focus on':'normal focus off',
+    quiet:pref.focus?'quiet':'',
+    configured:true,
+    prefId:pref.id,
+  };
+}`;
+
+const toggleKeywordOnly = `export function createInitialState(){return{}}
+export function reduce(s,a){return s}
+export function project(){return {focus:'on off',mode:'quiet normal focus off',quiet:'quiet'};}`;
+
+const toggleUnconditional = `export function createInitialState(){return{preferences:{},internalContext:{}}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='register_device_context'){
+    s.internalContext[action.id]=action.contextToken;
+    return s;
+  }
+  s.preferences[action.id||'pref-1']={id:action.id||'pref-1',focus:true};
+  return s;
+}
+export function project(){return {focus:'on',mode:'quiet focus on',quiet:'quiet'};}`;
+
+const toggleOneSided = `export function createInitialState(){return{preferences:{},internalContext:{}}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='register_device_context'){
+    s.internalContext[action.id]=action.contextToken;
+    return s;
+  }
+  const pref=s.preferences[action.id]||{id:action.id,focus:false};
+  if(action.type==='enable_focus_mode'){pref.focus=true;s.preferences[action.id]=pref}
+  return s;
+}
+export function project(state){
+  const pref=Object.values(state.preferences)[0];
+  return pref?{focus:pref.focus?'on':'off',mode:pref.focus?'quiet focus on':'normal focus off',quiet:pref.focus?'quiet':''}:{focus:'off',mode:'normal focus off'};
+}`;
+
+const toggleLeakage = `export function createInitialState(){return{preferences:{},internalContext:{}}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='register_device_context'){
+    s.internalContext[action.id]=action.contextToken;
+    return s;
+  }
+  const pref=s.preferences[action.id]||{id:action.id,focus:false};
+  if(action.type==='enable_focus_mode'){pref.focus=true;s.preferences[action.id]=pref;return s}
+  if(action.type==='disable_focus_mode'){pref.focus=false;s.preferences[action.id]=pref;return s}
+  if(action.type==='toggle_focus_mode'){pref.focus=!pref.focus;s.preferences[action.id]=pref;return s}
+  return s;
+}
+export function project(state,actor){
+  const pref=Object.values(state.preferences)[0];
+  const base=pref?{
+    focus:pref.focus?'on':'off',
+    mode:pref.focus?'quiet focus on':'normal focus off',
+    quiet:pref.focus?'quiet':'',
+    configured:true,
+    prefId:pref.id,
+  }:{focus:'off',mode:'normal focus off',quiet:'',configured:false};
+  return {...base,rawState:state,internalSecret:state.internalContext};
+}`;
+
 const noop = `export function createInitialState(){return{}}
 export function reduce(s){return s}
 export function project(){return {}}`;
@@ -94,6 +177,7 @@ for (const [taskId, body] of [
   ['dev-loan-library', loanGood],
   ['dev-review-room', reviewGood],
   ['dev-simple-list', listGood],
+  ['dev-toggle-preference', toggleGood],
 ]) {
   const dir = path.join(tmp, taskId, 'good');
   writeApp(dir, body);
@@ -113,6 +197,10 @@ for (const [taskId, body, label] of [
   ['dev-review-room', noop, 'noop'],
   ['dev-review-room', reviewLeakage, 'leakage'],
   ['dev-simple-list', noop, 'noop'],
+  ['dev-toggle-preference', noop, 'noop'],
+  ['dev-toggle-preference', toggleKeywordOnly, 'keyword-only'],
+  ['dev-toggle-preference', toggleUnconditional, 'unconditional'],
+  ['dev-toggle-preference', toggleLeakage, 'leaked-state'],
 ]) {
   const dir = path.join(tmp, taskId, label);
   writeApp(dir, body);
@@ -123,8 +211,22 @@ for (const [taskId, body, label] of [
     phase: 'verify_fix',
     taskId,
   });
-  assert.equal(result.reward, 0, `${taskId} ${label} mutant should fail`);
+  if (taskId === 'dev-toggle-preference' && label === 'leaked-state') {
+    assert.ok(result.reward < 1, `${taskId} ${label} mutant should fail for projection leakage`);
+  } else {
+    assert.equal(result.reward, 0, `${taskId} ${label} mutant should fail`);
+  }
 }
+
+writeApp(path.join(tmp, 'dev-toggle-preference', 'one-sided-toggle'), toggleOneSided);
+const toggleOneSidedResult = await gradePilotBehavior({
+  root: path.join(tmp, 'dev-toggle-preference', 'one-sided-toggle'),
+  golden: taskGolden('dev-toggle-preference'),
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-toggle-preference',
+});
+assert.ok(toggleOneSidedResult.reward < 1, 'dev-toggle-preference one-sided-toggle mutant should fail');
 
 const loanDamageWithoutActive = `export function createInitialState(){return{loans:{}}}
 export function reduce(state,action){
