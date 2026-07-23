@@ -1,0 +1,77 @@
+{
+  "contract_version": "lb6-pilot-abi-v1",
+  "task_id": "dev-review-room",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `accept_invite`: payload shape example: `{\"type\":\"accept_invite\",\"id\":\"invite-1\",\"email\":\"participant@example.org\"}`\n- `add_comment`: payload shape example: `{\"type\":\"add_comment\",\"id\":\"c-1\",\"text\":\"Example note text\"}`\n- `expire_invite`: payload shape example: `{\"type\":\"expire_invite\",\"id\":\"invite-1\"}`\n- `invite`: payload shape example: `{\"type\":\"invite\",\"id\":\"invite-1\",\"document\":\"example-document\"}`\n- `revoke_invite`: payload shape example: `{\"type\":\"revoke_invite\",\"id\":\"invite-1\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "public_sequences": {
+    "sequences": [
+      {
+        "actor": "reviewer",
+        "actions": [
+          {
+            "type": "invite",
+            "id": "invite-1",
+            "document": "example-document"
+          },
+          {
+            "type": "accept_invite",
+            "id": "invite-1",
+            "email": "participant@example.org"
+          },
+          {
+            "type": "add_comment",
+            "id": "c-1",
+            "text": "Example note text"
+          }
+        ]
+      },
+      {
+        "actor": "reviewer",
+        "actions": [
+          {
+            "type": "invite",
+            "id": "invite-1",
+            "document": "example-document"
+          },
+          {
+            "type": "accept_invite",
+            "id": "invite-1",
+            "email": "participant@example.org"
+          },
+          {
+            "type": "expire_invite",
+            "id": "invite-1"
+          },
+          {
+            "type": "add_comment",
+            "id": "c-expired",
+            "text": "Example note text"
+          }
+        ]
+      },
+      {
+        "actor": "reviewer",
+        "actions": [
+          {
+            "type": "invite",
+            "id": "invite-1",
+            "document": "example-document"
+          },
+          {
+            "type": "accept_invite",
+            "id": "invite-1",
+            "email": "participant@example.org"
+          },
+          {
+            "type": "revoke_invite",
+            "id": "invite-1"
+          },
+          {
+            "type": "add_comment",
+            "id": "c-revoked",
+            "text": "Example note text"
+          }
+        ]
+      }
+    ]
+  }
+}

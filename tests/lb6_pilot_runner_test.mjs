@@ -16,10 +16,12 @@ import {
   makeJobName,
   resolveConcurrency,
   runThreeArmCampaign,
+  schedulePilotCells,
 } from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
 import {
   aggregatePilotCampaign,
   assertDevelopmentCopy,
+  buildTaskCluster,
   detectVerifierIsolationBreach,
   extractCellRecord,
   parsePilotJobName,
@@ -214,7 +216,7 @@ writeEnv(tmp);
 
 const discovery = discoverPilotTasks(tasksRoot);
 assert.equal(discovery.ok, true);
-assert.equal(discovery.taskId, 'pilot-care-circle');
+assert.deepEqual(discovery.selectedTaskIds, ['pilot-care-circle']);
 
 fs.writeFileSync(
   path.join(scriptsDir, 'build-pilot-package.mjs'),
@@ -250,6 +252,7 @@ const spawnImpl = (command, spawnArgs) => {
 const campaign = await runThreeArmCampaign({
   root: tmp,
   spawnImpl,
+  selectedTaskIds: ['pilot-care-circle'],
   nowMs: 1_700_000_000_000,
   deadlineMs: 60_000,
   stdio: 'pipe',
@@ -306,6 +309,7 @@ const missing = await runThreeArmCampaign({
   root: emptyRoot,
   spawnImpl,
   skipPackageScripts: true,
+  selectedTaskIds: ['pilot-care-circle'],
   stdio: 'pipe',
 });
 assert.equal(missing.ok, false);
@@ -330,6 +334,7 @@ const rateCampaign = await runThreeArmCampaign({
   root: rateTmp,
   spawnImpl: rateSpawn,
   skipPackageScripts: true,
+  selectedTaskIds: ['pilot-care-circle'],
   nowMs: 1_700_000_000_100,
   deadlineMs: 30_000,
   stdio: 'pipe',
@@ -372,6 +377,8 @@ const standalone = await aggregatePilotCampaign({
   root: tmp,
   jobsRoot,
   jobNames: aggJobs,
+  selectedTaskIds: ['pilot-care-circle'],
+  schedule: schedulePilotCells(['pilot-care-circle']),
   concurrency: { requested: 6, effective: 3, max: 6, pending: 3 },
   campaign: {
     startedAt: '2026-07-23T10:00:00.000Z',
@@ -384,10 +391,17 @@ const standalone = await aggregatePilotCampaign({
   reportsDir: path.join(tmp, 'benchmarks/lb6/pilot/reports-standalone'),
 });
 assert.equal(standalone.report.cells.length, 3);
+assert.equal(standalone.report.taskClusters.length, 1);
 assert.equal(standalone.report.concurrency.requested, 6);
 assert.equal(standalone.report.concurrency.effective, 3);
 assert.ok(standalone.report.cells.every((cell) => cell.child_actual_model_unverified === true));
 assert.match(renderMarkdownReport(standalone.report), /Concurrency effective/);
+assert.match(renderMarkdownReport(standalone.report), /Schedule/);
+
+const cluster = buildTaskCluster('pilot-care-circle', standalone.report.cells);
+assert.equal(cluster.rewards.direct, 1);
+assert.equal(cluster.rewards.plan, 1);
+assert.equal(cluster.rewards.lamina, 0);
 
 // evaluator implementation access invalidates the entire report fail-closed
 const leakyJob = writeFixtureJob(jobsRoot, {
@@ -414,6 +428,8 @@ const dry = await runThreeArmCampaign({
   root: tmp,
   dryRun: true,
   skipPackageScripts: true,
+  selectedTaskIds: ['pilot-care-circle'],
+  concurrency: 6,
   spawnImpl: (command, spawnArgs) => {
     dryLaunched.push({ command, args: spawnArgs });
     return mockChild({ exitCode: 0 });
@@ -423,5 +439,8 @@ assert.equal(dry.ok, true);
 assert.equal(dry.gate, 'dry_run');
 assert.equal(dryLaunched.length, 0);
 assert.equal(dry.cells.length, 3);
+assert.equal(dry.concurrency.requested, 6);
+assert.equal(dry.concurrency.effective, 3);
+assert.equal(dry.schedule.length, 3);
 
 console.log('lb6 pilot runner tests passed');

@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { gradePilotBehavior } from '../benchmarks/lb6/pilot/lib/pilot-behavior-grade.mjs';
 import { checkPilotLaminaTreatment } from '../benchmarks/lb6/pilot/lib/pilot-treatment.mjs';
-import { scanPilotPackage } from '../benchmarks/lb6/pilot/lib/secret-scan.mjs';
+import { scanPilotPackage, scoringSensitiveStringsByTaskIdFromManifest } from '../benchmarks/lb6/pilot/lib/secret-scan.mjs';
 import {
   AGENT_BUDGET_SEC,
   BENCHMARK_VERSION,
@@ -19,8 +19,8 @@ import {
   discoverPilotTasks,
   HARBOR_MODEL as RUNNER_MODEL,
   PILOT_ARMS as RUNNER_ARMS,
+  schedulePilotCells,
 } from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
-import { gradeBehavior } from '../benchmarks/lib/behavior-grade.mjs';
 import { runBehaviorSelfcheck } from '../benchmarks/lib/behavior-selfcheck.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,17 +29,21 @@ const tasksRoot = path.join(pilotRoot, 'harbor/tasks');
 const privateVerifierRoot = path.join(pilotRoot, 'private-verifier');
 const manifest = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'corpus/manifest.json'), 'utf8'));
 
-function runNode(scriptRel) {
+function runNode(scriptRel, args = []) {
   const scriptPath = path.join(root, scriptRel);
-  const result = spawnSync(process.execPath, [scriptPath], { cwd: root, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [scriptPath, ...args], { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) {
     throw new Error(`${scriptRel} failed:\n${result.stdout}\n${result.stderr}`);
   }
   return `${result.stdout}${result.stderr}`.trim();
 }
 
-runNode('benchmarks/lb6/pilot/scripts/build-pilot.mjs');
-const validateOut = runNode('benchmarks/lb6/pilot/scripts/validate-pilot.mjs');
+const selectedNewTasks = manifest.pilot.default_run_tasks;
+runNode('benchmarks/lb6/pilot/scripts/build-pilot.mjs', ['--tasks', selectedNewTasks.join(',')]);
+const validateOut = runNode('benchmarks/lb6/pilot/scripts/validate-pilot.mjs', [
+  '--tasks',
+  selectedNewTasks.join(','),
+]);
 assert.match(validateOut, /LB6 pilot valid/);
 
 const pkg = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'package.manifest.json'), 'utf8'));
@@ -49,18 +53,31 @@ assert.equal(pkg.child_actual_model_unverified, true);
 assert.equal(pkg.benchmark_version, BENCHMARK_VERSION);
 assert.deepEqual(pkg.arms, [...PILOT_ARMS]);
 assert.equal(pkg.not_claim_ready, true);
+assert.deepEqual(pkg.task_ids, manifest.tasks.map((task) => task.id));
 
-assert.equal(manifest.tasks.length, 1);
-assert.equal(manifest.tasks[0].id, 'dev-care-circle');
+assert.equal(manifest.tasks.length, 4);
 assert.equal(manifest.agent, HARBOR_AGENT);
 assert.equal(manifest.model, HARBOR_MODEL);
 
 const discovery = discoverPilotTasks(tasksRoot);
 assert.equal(discovery.ok, true);
-assert.equal(discovery.taskId, 'dev-care-circle');
-for (const arm of RUNNER_ARMS) {
-  assert.equal(discovery.byArm[arm], `dev-care-circle-${arm}`);
+assert.deepEqual(discovery.taskIds, manifest.tasks.map((task) => task.id).sort());
+assert.deepEqual(discovery.selectedTaskIds, discovery.taskIds);
+for (const task of manifest.tasks) {
+  for (const arm of RUNNER_ARMS) {
+    assert.equal(discovery.byTaskArm[task.id][arm], `${task.id}-${arm}`);
+  }
 }
+
+const newTasks = manifest.pilot.default_run_tasks;
+const schedule = schedulePilotCells(newTasks);
+assert.equal(schedule.length, newTasks.length * PILOT_ARMS.length);
+assert.deepEqual(
+  schedule.slice(0, 3).map((slot) => slot.arm),
+  ['lamina', 'lamina', 'lamina'],
+);
+assert.ok(schedule.slice(0, 6).every((slot) => slot.wave === 1));
+assert.ok(schedule.slice(6).every((slot) => slot.wave === 2));
 
 const dryArgs = buildHarborArgs({
   arm: 'direct',
@@ -73,57 +90,70 @@ assert.ok(dryArgs.includes('cursor/composer-2.5'));
 assert.ok(dryArgs.includes('--n-attempts'));
 assert.equal(dryArgs[dryArgs.indexOf('--n-attempts') + 1], '1');
 
-for (const arm of PILOT_ARMS) {
-  const dir = path.join(tasksRoot, `dev-care-circle-${arm}`);
-  const toml = fs.readFileSync(path.join(dir, 'task.toml'), 'utf8');
-  assert.match(toml, new RegExp(`benchmark_version = "${BENCHMARK_VERSION}"`));
-  assert.match(toml, /development_only = true/);
-  assert.match(toml, /confirmatory = false/);
-  assert.match(toml, /child_actual_model_unverified = true/);
-  assert.match(toml, /host_sealed_supervisor_required = true/);
-  assert.match(toml, new RegExp(`timeout_sec = ${AGENT_BUDGET_SEC}\\.0`));
-  assert.doesNotMatch(toml, /checklist|claude|sonnet|harbor-v4/i);
+for (const task of manifest.tasks) {
+  for (const arm of PILOT_ARMS) {
+    const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+    const toml = fs.readFileSync(path.join(dir, 'task.toml'), 'utf8');
+    assert.match(toml, new RegExp(`benchmark_version = "${BENCHMARK_VERSION}"`));
+    assert.match(toml, /development_only = true/);
+    assert.match(toml, /confirmatory = false/);
+    assert.match(toml, /child_actual_model_unverified = true/);
+    assert.match(toml, /host_sealed_supervisor_required = true/);
+    assert.match(toml, new RegExp(`timeout_sec = ${AGENT_BUDGET_SEC}\\.0`));
+    assert.doesNotMatch(toml, /checklist|claude|sonnet|harbor-v4/i);
 
-  const finalStep = arm === 'lamina' ? 'fix' : 'verify_fix';
-  const allSteps = fs
-    .readdirSync(path.join(dir, 'steps'), { withFileTypes: true })
-    .map((entry) => entry.name);
+    const finalStep = arm === 'lamina' ? 'fix' : 'verify_fix';
+    const allSteps = fs
+      .readdirSync(path.join(dir, 'steps'), { withFileTypes: true })
+      .map((entry) => entry.name);
 
-  for (const step of allSteps) {
-    const testsDir = path.join(dir, 'steps', step, 'tests');
-    assert.deepEqual(fs.readdirSync(testsDir), ['test.sh']);
-    const tripwire = fs.readFileSync(path.join(testsDir, 'test.sh'), 'utf8');
-    assert.match(tripwire, /protocol_invalid/);
-    assert.match(tripwire, /exit 97/);
+    for (const step of allSteps) {
+      const testsDir = path.join(dir, 'steps', step, 'tests');
+      assert.deepEqual(fs.readdirSync(testsDir), ['test.sh']);
+      const tripwire = fs.readFileSync(path.join(testsDir, 'test.sh'), 'utf8');
+      assert.match(tripwire, /protocol_invalid/);
+      assert.match(tripwire, /exit 97/);
+    }
+
+    const finalGrade = fs.readFileSync(
+      path.join(privateVerifierRoot, task.id, arm, 'grade.mjs'),
+      'utf8',
+    );
+    assert.match(finalGrade, /gradePilotBehavior/);
+    assert.match(finalGrade, /base64/);
+    assert.doesNotMatch(finalGrade, /"expect"|must_not_include|"escalat"/);
+    assert.match(finalGrade, /root: '\/candidate'/);
+    assert.match(finalGrade, /treatmentRoot: '\/treatment'/);
+
+    const shapingStep = arm === 'lamina' ? 'implement' : 'shape_build';
+    const shapingInstruction = fs.readFileSync(
+      path.join(dir, 'steps', shapingStep, 'instruction.md'),
+      'utf8',
+    );
+    assert.doesNotMatch(shapingInstruction, /Published action schema|add_note|selfcheck\.mjs|\.lb6-abi/i);
   }
-
-  const finalGrade = fs.readFileSync(
-    path.join(privateVerifierRoot, 'dev-care-circle', arm, 'grade.mjs'),
-    'utf8',
-  );
-  assert.match(finalGrade, /gradePilotBehavior/);
-  assert.match(finalGrade, /base64/);
-  assert.doesNotMatch(finalGrade, /"expect"|must_not_include|"escalat"/);
-  assert.match(finalGrade, /root: '\/candidate'/);
-  assert.match(finalGrade, /treatmentRoot: '\/treatment'/);
-
-  const shapingStep = arm === 'lamina' ? 'implement' : 'shape_build';
-  const shapingInstruction = fs.readFileSync(
-    path.join(dir, 'steps', shapingStep, 'instruction.md'),
-    'utf8',
-  );
-  assert.doesNotMatch(shapingInstruction, /Published action schema|add_note|selfcheck\.mjs|\.lb6-abi/i);
 }
 
 const secretFindings = scanPilotPackage(
   tasksRoot,
-  PILOT_ARMS.map((arm) => ({
-    taskId: 'dev-care-circle',
-    arm,
-    finalStep: arm === 'lamina' ? 'fix' : 'verify_fix',
-  })),
+  manifest.tasks
+    .filter((task) => task.id !== 'dev-care-circle')
+    .flatMap((task) =>
+      PILOT_ARMS.map((arm) => ({
+        taskId: task.id,
+        arm,
+        finalStep: arm === 'lamina' ? 'fix' : 'verify_fix',
+      })),
+    ),
+  { scoringSensitiveStringsByTaskId: scoringSensitiveStringsByTaskIdFromManifest(manifest) },
 );
 assert.equal(secretFindings.length, 0);
+
+const reviewAbi = fs.readFileSync(
+  path.join(tasksRoot, 'dev-review-room-direct/steps/verify_fix/workdir/.lb6-abi/public-abi.json'),
+  'utf8',
+);
+assert.doesNotMatch(reviewAbi, /looks good|should not appear after/i);
 
 const laminaDesign = fs.readFileSync(
   path.join(tasksRoot, 'dev-care-circle-lamina/steps/lamina_design/instruction.md'),
@@ -132,7 +162,7 @@ const laminaDesign = fs.readFileSync(
 assert.match(laminaDesign, /taskToolCall|native Task/i);
 assert.match(laminaDesign, /child_actual_model_unverified/i);
 
-const golden = manifest.tasks[0].golden;
+const golden = manifest.tasks.find((task) => task.id === 'dev-care-circle').golden;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-pilot-'));
 
 function writeApp(dir, body) {
