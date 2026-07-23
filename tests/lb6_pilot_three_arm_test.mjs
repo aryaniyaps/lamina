@@ -1,0 +1,220 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { gradePilotBehavior } from '../benchmarks/lb6/pilot/lib/pilot-behavior-grade.mjs';
+import { checkPilotLaminaTreatment } from '../benchmarks/lb6/pilot/lib/pilot-treatment.mjs';
+import { scanPilotPackage } from '../benchmarks/lb6/pilot/lib/secret-scan.mjs';
+import {
+  AGENT_BUDGET_SEC,
+  BENCHMARK_VERSION,
+  HARBOR_AGENT,
+  HARBOR_MODEL,
+  PILOT_ARMS,
+} from '../benchmarks/lb6/pilot/lib/constants.mjs';
+import {
+  buildHarborArgs,
+  discoverPilotTasks,
+  HARBOR_MODEL as RUNNER_MODEL,
+  PILOT_ARMS as RUNNER_ARMS,
+} from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
+import { gradeBehavior } from '../benchmarks/lib/behavior-grade.mjs';
+import { runBehaviorSelfcheck } from '../benchmarks/lib/behavior-selfcheck.mjs';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
+const tasksRoot = path.join(pilotRoot, 'harbor/tasks');
+const privateVerifierRoot = path.join(pilotRoot, 'private-verifier');
+const manifest = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'corpus/manifest.json'), 'utf8'));
+
+function runNode(scriptRel) {
+  const scriptPath = path.join(root, scriptRel);
+  const result = spawnSync(process.execPath, [scriptPath], { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(`${scriptRel} failed:\n${result.stdout}\n${result.stderr}`);
+  }
+  return `${result.stdout}${result.stderr}`.trim();
+}
+
+runNode('benchmarks/lb6/pilot/scripts/build-pilot.mjs');
+const validateOut = runNode('benchmarks/lb6/pilot/scripts/validate-pilot.mjs');
+assert.match(validateOut, /LB6 pilot valid/);
+
+const pkg = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'package.manifest.json'), 'utf8'));
+assert.equal(pkg.development_only, true);
+assert.equal(pkg.confirmatory, false);
+assert.equal(pkg.child_actual_model_unverified, true);
+assert.equal(pkg.benchmark_version, BENCHMARK_VERSION);
+assert.deepEqual(pkg.arms, [...PILOT_ARMS]);
+assert.equal(pkg.not_claim_ready, true);
+
+assert.equal(manifest.tasks.length, 1);
+assert.equal(manifest.tasks[0].id, 'dev-care-circle');
+assert.equal(manifest.agent, HARBOR_AGENT);
+assert.equal(manifest.model, HARBOR_MODEL);
+
+const discovery = discoverPilotTasks(tasksRoot);
+assert.equal(discovery.ok, true);
+assert.equal(discovery.taskId, 'dev-care-circle');
+for (const arm of RUNNER_ARMS) {
+  assert.equal(discovery.byArm[arm], `dev-care-circle-${arm}`);
+}
+
+const dryArgs = buildHarborArgs({
+  arm: 'direct',
+  taskDirName: 'dev-care-circle-direct',
+  jobName: 'lb6-pilot-dev-care-circle-direct-test',
+  envFile: path.join(root, '.env'),
+});
+assert.ok(dryArgs.includes('cursor-cli'));
+assert.ok(dryArgs.includes('cursor/composer-2.5'));
+assert.ok(dryArgs.includes('--n-attempts'));
+assert.equal(dryArgs[dryArgs.indexOf('--n-attempts') + 1], '1');
+
+for (const arm of PILOT_ARMS) {
+  const dir = path.join(tasksRoot, `dev-care-circle-${arm}`);
+  const toml = fs.readFileSync(path.join(dir, 'task.toml'), 'utf8');
+  assert.match(toml, new RegExp(`benchmark_version = "${BENCHMARK_VERSION}"`));
+  assert.match(toml, /development_only = true/);
+  assert.match(toml, /confirmatory = false/);
+  assert.match(toml, /child_actual_model_unverified = true/);
+  assert.match(toml, /host_sealed_supervisor_required = true/);
+  assert.match(toml, new RegExp(`timeout_sec = ${AGENT_BUDGET_SEC}\\.0`));
+  assert.doesNotMatch(toml, /checklist|claude|sonnet|harbor-v4/i);
+
+  const finalStep = arm === 'lamina' ? 'fix' : 'verify_fix';
+  const allSteps = fs
+    .readdirSync(path.join(dir, 'steps'), { withFileTypes: true })
+    .map((entry) => entry.name);
+
+  for (const step of allSteps) {
+    const testsDir = path.join(dir, 'steps', step, 'tests');
+    assert.deepEqual(fs.readdirSync(testsDir), ['test.sh']);
+    const tripwire = fs.readFileSync(path.join(testsDir, 'test.sh'), 'utf8');
+    assert.match(tripwire, /protocol_invalid/);
+    assert.match(tripwire, /exit 97/);
+  }
+
+  const finalGrade = fs.readFileSync(
+    path.join(privateVerifierRoot, 'dev-care-circle', arm, 'grade.mjs'),
+    'utf8',
+  );
+  assert.match(finalGrade, /gradePilotBehavior/);
+  assert.match(finalGrade, /base64/);
+  assert.doesNotMatch(finalGrade, /"expect"|must_not_include|"escalat"/);
+  assert.match(finalGrade, /root: '\/candidate'/);
+  assert.match(finalGrade, /treatmentRoot: '\/treatment'/);
+
+  const shapingStep = arm === 'lamina' ? 'implement' : 'shape_build';
+  const shapingInstruction = fs.readFileSync(
+    path.join(dir, 'steps', shapingStep, 'instruction.md'),
+    'utf8',
+  );
+  assert.doesNotMatch(shapingInstruction, /Published action schema|add_note|selfcheck\.mjs|\.lb6-abi/i);
+}
+
+const secretFindings = scanPilotPackage(
+  tasksRoot,
+  PILOT_ARMS.map((arm) => ({
+    taskId: 'dev-care-circle',
+    arm,
+    finalStep: arm === 'lamina' ? 'fix' : 'verify_fix',
+  })),
+);
+assert.equal(secretFindings.length, 0);
+
+const laminaDesign = fs.readFileSync(
+  path.join(tasksRoot, 'dev-care-circle-lamina/steps/lamina_design/instruction.md'),
+  'utf8',
+);
+assert.match(laminaDesign, /taskToolCall|native Task/i);
+assert.match(laminaDesign, /child_actual_model_unverified/i);
+
+const golden = manifest.tasks[0].golden;
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-pilot-'));
+
+function writeApp(dir, body) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'app.mjs'), body);
+}
+
+const goodApp = `export function createInitialState(){return{tasks:{},notes:[],revoked:[]}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='add_task'){s.tasks[action.id]={id:action.id,title:action.title,status:'open'};return s}
+  if(action.type==='mark_missed'){if(s.tasks[action.id]) s.tasks[action.id].status='missed_escalated';return s}
+  if(action.type==='complete_task'){if(s.tasks[action.id]) s.tasks[action.id].status='done';return s}
+  if(action.type==='add_note'){s.notes.push({id:action.id,text:action.text,visibility:'private note'});return s}
+  if(action.type==='revoke_caregiver'){s.revoked.push(action.actor);return s}
+  return s;
+}
+export function project(state,actor){
+  if(state.revoked.includes(actor)) return {denied:'revoked',access:false};
+  return {tasks:state.tasks,notes:state.notes,private:'private note'};
+}`;
+
+writeApp(path.join(tmp, 'good'), goodApp);
+let directGood = await gradePilotBehavior({
+  root: path.join(tmp, 'good'),
+  golden,
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-care-circle',
+});
+assert.equal(directGood.reward, 1);
+
+writeApp(path.join(tmp, 'noop'), 'export function createInitialState(){return{}} export function reduce(s){return s} export function project(){return{}}');
+let noop = await gradePilotBehavior({
+  root: path.join(tmp, 'noop'),
+  golden,
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-care-circle',
+});
+assert.equal(noop.reward, 0);
+
+const laminaRoot = path.join(tmp, 'lamina-valid', '.lamina');
+fs.mkdirSync(path.join(laminaRoot, 'runs/run-1'), { recursive: true });
+fs.writeFileSync(path.join(laminaRoot, 'business-context.md'), '# charter');
+fs.writeFileSync(path.join(laminaRoot, 'personas.json'), '{"contract_version":"2.0","personas":[]}');
+fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/run.json'), JSON.stringify({ status: 'ready_to_build' }));
+fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/implement.md'), '# implement');
+writeApp(path.join(tmp, 'lamina-valid'), goodApp);
+
+let laminaTreatment = checkPilotLaminaTreatment(path.join(tmp, 'lamina-valid'), 'fix');
+assert.equal(laminaTreatment.valid, true);
+let laminaGood = await gradePilotBehavior({
+  root: path.join(tmp, 'lamina-valid'),
+  golden,
+  arm: 'lamina',
+  phase: 'fix',
+  taskId: 'dev-care-circle',
+});
+assert.equal(laminaGood.reward, 1);
+assert.equal(laminaGood.child_actual_model_unverified, true);
+
+let laminaMissing = await gradePilotBehavior({
+  root: path.join(tmp, 'good'),
+  golden,
+  arm: 'lamina',
+  phase: 'fix',
+  taskId: 'dev-care-circle',
+});
+assert.equal(laminaMissing.reward, 0);
+assert.equal(laminaMissing.invalid_treatment, true);
+
+let selfcheck = await runBehaviorSelfcheck({ root: path.join(tmp, 'good'), golden });
+assert.equal(selfcheck.ok, true);
+assert.ok(!JSON.stringify(selfcheck).includes('escalat'));
+
+const builtSelfcheck = fs.readFileSync(
+  path.join(tasksRoot, 'dev-care-circle-direct/steps/verify_fix/workdir/.lb6-abi/selfcheck.mjs'),
+  'utf8',
+);
+assert.doesNotMatch(builtSelfcheck, /"expect"|must_not_include|escalat/);
+
+assert.notEqual(RUNNER_MODEL, 'sonnet');
+
+console.log('lb6 pilot three-arm package tests passed');

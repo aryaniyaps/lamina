@@ -1,0 +1,34 @@
+{
+  "kind": "lb6-dev-pilot-package",
+  "benchmark_version": "lb6-dev-pilot",
+  "harbor_version": "0.18.0",
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "development_only": true,
+  "confirmatory": false,
+  "child_actual_model_unverified": true,
+  "task_id": "dev-care-circle",
+  "arms": [
+    "direct",
+    "plan",
+    "lamina"
+  ],
+  "attempts_per_arm": 1,
+  "agent_budget_sec": 1500,
+  "skills": [
+    "lamina",
+    "lamina-init",
+    "lamina-design",
+    "lamina-verify",
+    "lamina-orchestrator",
+    "lamina-core",
+    "lamina-user-modeling",
+    "lamina-flow-design",
+    "lamina-edge-cases",
+    "lamina-trust",
+    "lamina-idempotency-concurrency",
+    "lamina-product-behavior"
+  ],
+  "not_claim_ready": true,
+  "distinct_from": "lamina-bench-6"
+}

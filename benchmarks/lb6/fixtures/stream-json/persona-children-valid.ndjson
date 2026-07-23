@@ -1,0 +1,11 @@
+{"type":"system","subtype":"init","apiKeySource":"env","cwd":"/tmp/probe","session_id":"parent-1111","model":"Composer 2.5","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"launch persona children"}]},"session_id":"parent-1111"}
+{"type":"tool_call","subtype":"started","call_id":"task-alpha","tool_call":{"taskToolCall":{"args":{"description":"persona-alpha","prompt":"Reply ALPHA"}}},"session_id":"parent-1111","model_call_id":"mc-1","timestamp_ms":1}
+{"type":"system","subtype":"init","apiKeySource":"env","cwd":"/tmp/probe","session_id":"child-aaaa","model":"Composer 2.5","permissionMode":"default","parent_session_id":"parent-1111"}
+{"type":"result","subtype":"success","duration_ms":100,"duration_api_ms":100,"is_error":false,"result":"ALPHA","session_id":"child-aaaa","usage":{"inputTokens":10,"outputTokens":2,"cacheReadTokens":0,"cacheWriteTokens":0}}
+{"type":"tool_call","subtype":"completed","call_id":"task-alpha","tool_call":{"taskToolCall":{"args":{"description":"persona-alpha"},"result":{"success":{"agent_id":"child-aaaa","result":"ALPHA"}}}},"session_id":"parent-1111","model_call_id":"mc-1","timestamp_ms":2}
+{"type":"tool_call","subtype":"started","call_id":"task-beta","tool_call":{"taskToolCall":{"args":{"description":"persona-beta","prompt":"Reply BETA"}}},"session_id":"parent-1111","model_call_id":"mc-2","timestamp_ms":3}
+{"type":"system","subtype":"init","apiKeySource":"env","cwd":"/tmp/probe","session_id":"child-bbbb","model":"Composer 2.5","permissionMode":"default","parent_session_id":"parent-1111"}
+{"type":"result","subtype":"success","duration_ms":120,"duration_api_ms":120,"is_error":false,"result":"BETA","session_id":"child-bbbb","usage":{"inputTokens":12,"outputTokens":2,"cacheReadTokens":0,"cacheWriteTokens":0}}
+{"type":"tool_call","subtype":"completed","call_id":"task-beta","tool_call":{"taskToolCall":{"args":{"description":"persona-beta"},"result":{"success":{"agent_id":"child-bbbb","result":"BETA"}}}},"session_id":"parent-1111","model_call_id":"mc-2","timestamp_ms":4}
+{"type":"result","subtype":"success","duration_ms":500,"duration_api_ms":500,"is_error":false,"result":"done","session_id":"parent-1111","usage":{"inputTokens":50,"outputTokens":10,"cacheReadTokens":0,"cacheWriteTokens":0}}
