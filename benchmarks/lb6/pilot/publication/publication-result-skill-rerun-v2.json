@@ -1,0 +1,59 @@
+{
+  "kind": "lb6-publication-receipt",
+  "campaign_id": "lb6-dev-pilot-skill-rerun-v2",
+  "published_at": "2026-07-23T19:21:06Z",
+  "visibility": "public",
+  "harbor_version": "0.18.0",
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+  "harness_commit": "665152c4c21d4312f2653372b9fdc63e7a440bb3",
+  "development_only": true,
+  "confirmatory": false,
+  "marketing_claim_eligible": false,
+  "child_actual_model_unverified": true,
+  "attempts_per_cell": 1,
+  "harbor_retries": 0,
+  "measurement_valid_cells": 12,
+  "report_sha256": "e9a3f8800dd800fb36e4e5d70a17085c4cfe381c728a0e9833095e0fed28c9fd",
+  "results": {
+    "dev-loan-library": { "direct": 0, "plan": 0.6667, "lamina": 0 },
+    "dev-review-room": { "direct": 0, "plan": 0.3333, "lamina": 1 },
+    "dev-simple-list": { "direct": 0, "plan": 0, "lamina": 1 },
+    "dev-toggle-preference": { "direct": 0, "plan": 0, "lamina": 0 }
+  },
+  "task_urls": {
+    "dev-loan-library-direct": "https://hub.harborframework.com/tasks/aryaniyaps/dev-loan-library-direct",
+    "dev-loan-library-lamina": "https://hub.harborframework.com/tasks/aryaniyaps/dev-loan-library-lamina",
+    "dev-loan-library-plan": "https://hub.harborframework.com/tasks/aryaniyaps/dev-loan-library-plan",
+    "dev-review-room-direct": "https://hub.harborframework.com/tasks/aryaniyaps/dev-review-room-direct",
+    "dev-review-room-lamina": "https://hub.harborframework.com/tasks/aryaniyaps/dev-review-room-lamina",
+    "dev-review-room-plan": "https://hub.harborframework.com/tasks/aryaniyaps/dev-review-room-plan",
+    "dev-simple-list-direct": "https://hub.harborframework.com/tasks/aryaniyaps/dev-simple-list-direct",
+    "dev-simple-list-lamina": "https://hub.harborframework.com/tasks/aryaniyaps/dev-simple-list-lamina",
+    "dev-simple-list-plan": "https://hub.harborframework.com/tasks/aryaniyaps/dev-simple-list-plan",
+    "dev-toggle-preference-direct": "https://hub.harborframework.com/tasks/aryaniyaps/dev-toggle-preference-direct",
+    "dev-toggle-preference-lamina": "https://hub.harborframework.com/tasks/aryaniyaps/dev-toggle-preference-lamina",
+    "dev-toggle-preference-plan": "https://hub.harborframework.com/tasks/aryaniyaps/dev-toggle-preference-plan"
+  },
+  "job_urls": {
+    "dev-loan-library-lamina": "https://hub.harborframework.com/jobs/6ab8f869-590e-4f0f-b642-95c51a16acc1",
+    "dev-loan-library-direct": "https://hub.harborframework.com/jobs/2369e210-5b87-4328-9f32-0f580ad6d3c9",
+    "dev-loan-library-plan": "https://hub.harborframework.com/jobs/e98fed8b-e411-408f-8097-38bacdd89c93",
+    "dev-review-room-direct": "https://hub.harborframework.com/jobs/eeb6ef6b-b65b-45bd-9696-eb0ea9e6087b",
+    "dev-review-room-plan": "https://hub.harborframework.com/jobs/3f52b3e8-8184-4e90-90c2-94da504cd661",
+    "dev-simple-list-direct": "https://hub.harborframework.com/jobs/04248d06-7a21-453e-a85e-798a0903ea5c",
+    "dev-review-room-lamina": "https://hub.harborframework.com/jobs/29ed8faa-c817-48aa-a5c3-dfc771d1f275",
+    "dev-simple-list-plan": "https://hub.harborframework.com/jobs/931689d0-429f-4253-8476-7936c958b7cc",
+    "dev-toggle-preference-direct": "https://hub.harborframework.com/jobs/2d0918dc-c5b4-414f-8584-9676c10f0af7",
+    "dev-toggle-preference-plan": "https://hub.harborframework.com/jobs/a886bf3b-0479-44b8-866d-ea6520e55813",
+    "dev-simple-list-lamina": "https://hub.harborframework.com/jobs/2ea6e50d-5875-405d-ba93-3dedf38ba1a2",
+    "dev-toggle-preference-lamina": "https://hub.harborframework.com/jobs/de12c028-aec7-4211-adde-2baa860becf1"
+  },
+  "verification": {
+    "all_public_urls_http_200": true,
+    "verified_url_count": 24,
+    "frozen_dev_care_circle_unchanged": true,
+    "aborted_v1_and_pre_model_v2_jobs_excluded": true
+  }
+}
