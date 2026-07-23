@@ -59,3 +59,5 @@ benchmarks/results/v2/
 
 # ASE eval harness temporarily renames .git here
 .git.__ase_bak/
+# LaminaBench host-sealed runtime objects (never publish from the worktree)
+benchmarks/lb6/pilot/sealed-store/

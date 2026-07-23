@@ -1,0 +1,91 @@
+{
+  "gate": "persona_child_provenance",
+  "verdict": "failed",
+  "parentSessionId": "1d197123-8c53-419e-9ee5-b70153900dbf",
+  "singleSessionStream": true,
+  "taskToolCallsCompleted": 2,
+  "requiredPersonaChildren": 2,
+  "attributableChildren": 0,
+  "missingEvidence": {
+    "childSystemInit": 2,
+    "childSelectedModelInit": 2,
+    "independentChildSessionStream": 2,
+    "explicitParentSessionField": 2,
+    "childUsageOrCost": 2
+  },
+  "observedTaskToolFields": [
+    {
+      "callId": "tool_a907120e-f973-4271-afcd-ccde5bc4edc",
+      "eventSessionId": "1d197123-8c53-419e-9ee5-b70153900dbf",
+      "argsAgentId": "3855e5c8-8db5-4e5c-9405-2ce037bf6ffd",
+      "requestedModel": "composer-2.5",
+      "resultAgentId": "b8a24224-a242-4270-9a0e-13a6238b9aa9",
+      "resultSuccess": null,
+      "durationMs": "4177",
+      "conversationSteps": [
+        {
+          "assistantMessage": {
+            "text": "ALPHA"
+          }
+        }
+      ],
+      "providerFieldsObserved": {
+        "args": [
+          "description",
+          "prompt",
+          "subagentType",
+          "model",
+          "agentId",
+          "attachments",
+          "mode",
+          "respondingToMessageIds",
+          "environment"
+        ],
+        "success": [
+          "conversationSteps",
+          "agentId",
+          "isBackground",
+          "durationMs",
+          "backgroundReason"
+        ]
+      }
+    },
+    {
+      "callId": "tool_a5e1ddd2-98b1-4ee7-9bb0-9aab1f246cb",
+      "eventSessionId": "1d197123-8c53-419e-9ee5-b70153900dbf",
+      "argsAgentId": "7986dc68-1390-4ae4-be36-77f1276b6712",
+      "requestedModel": "composer-2.5",
+      "resultAgentId": "c4cd72c9-6b87-4da3-8572-1d397e10f21d",
+      "resultSuccess": null,
+      "durationMs": "4205",
+      "conversationSteps": [
+        {
+          "assistantMessage": {
+            "text": "BETA"
+          }
+        }
+      ],
+      "providerFieldsObserved": {
+        "args": [
+          "description",
+          "prompt",
+          "subagentType",
+          "model",
+          "agentId",
+          "attachments",
+          "mode",
+          "respondingToMessageIds",
+          "environment"
+        ],
+        "success": [
+          "conversationSteps",
+          "agentId",
+          "isBackground",
+          "durationMs",
+          "backgroundReason"
+        ]
+      }
+    }
+  ],
+  "conclusion": "Cursor stream-json exposes taskToolCall execution metadata in the parent session, but not attributable native child init/selected-model/lifecycle evidence required by LaminaBench-6."
+}

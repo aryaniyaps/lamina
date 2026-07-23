@@ -1,0 +1,61 @@
+{
+  "contract_version": "lb6-pilot-abi-v1",
+  "task_id": "dev-care-circle",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `add_note`: payload shape example: `{\"type\":\"add_note\",\"id\":\"n-1\",\"text\":\"Private note\"}`\n- `add_task`: payload shape example: `{\"type\":\"add_task\",\"id\":\"med-1\",\"title\":\"Morning medication\"}`\n- `complete_task`: payload shape example: `{\"type\":\"complete_task\",\"id\":\"med-1\"}`\n- `mark_missed`: payload shape example: `{\"type\":\"mark_missed\",\"id\":\"med-1\"}`\n- `revoke_caregiver`: payload shape example: `{\"type\":\"revoke_caregiver\",\"actor\":\"revoked-caregiver\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "public_sequences": {
+    "sequences": [
+      {
+        "actor": "caregiver",
+        "actions": [
+          {
+            "type": "add_task",
+            "id": "med-1",
+            "title": "Morning medication"
+          },
+          {
+            "type": "mark_missed",
+            "id": "med-1"
+          }
+        ]
+      },
+      {
+        "actor": "caregiver",
+        "actions": [
+          {
+            "type": "add_task",
+            "id": "med-1",
+            "title": "Morning medication"
+          },
+          {
+            "type": "complete_task",
+            "id": "med-1"
+          }
+        ]
+      },
+      {
+        "actor": "caregiver",
+        "actions": [
+          {
+            "type": "add_note",
+            "id": "n-1",
+            "text": "Private note"
+          }
+        ]
+      },
+      {
+        "actor": "revoked-caregiver",
+        "actions": [
+          {
+            "type": "revoke_caregiver",
+            "actor": "revoked-caregiver"
+          },
+          {
+            "type": "add_note",
+            "id": "n-2",
+            "text": "Should not be visible"
+          }
+        ]
+      }
+    ]
+  }
+}

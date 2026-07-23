@@ -1,0 +1,74 @@
+{
+  "kind": "lb6_pilot_preflight",
+  "acceptancePassed": true,
+  "ticketStatus": "static_checks_only_not_ticket_complete",
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "blocked": 3
+  },
+  "gates": [
+    {
+      "name": "cursor_cli",
+      "status": "passed",
+      "path": "/home/aryan/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/cursor-agent",
+      "version": "2026.07.20-8cc9c0b",
+      "sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831"
+    },
+    {
+      "name": "harbor_version",
+      "status": "passed",
+      "version": "0.18.0"
+    },
+    {
+      "name": "docker_capacity",
+      "status": "passed",
+      "version": "Docker version 29.1.3, build 29.1.3-0ubuntu4.1",
+      "serverVersion": "29.1.3"
+    },
+    {
+      "name": "cursor_local_auth",
+      "status": "passed",
+      "credentialSource": "repo_root_env",
+      "cursorApiKey": "present",
+      "transport": "process_env_only"
+    },
+    {
+      "name": "harbor_publication_auth",
+      "status": "blocked",
+      "reason": "Harbor registry authentication is not configured; publication remains blocked by operator choice",
+      "credentialSource": "none",
+      "harborApiKey": "absent",
+      "detail": "Not authenticated. Run `harbor auth login`.",
+      "distinctFrom": "cursor_local_auth"
+    },
+    {
+      "name": "composer_stream_probe",
+      "status": "blocked",
+      "reason": "live probe skipped (--static-only)"
+    },
+    {
+      "name": "persona_child_provenance",
+      "status": "blocked",
+      "reason": "live probe skipped (--static-only)"
+    }
+  ],
+  "binaries": {
+    "cursorCli": {
+      "path": "/home/aryan/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/cursor-agent",
+      "version": "2026.07.20-8cc9c0b",
+      "sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831"
+    }
+  },
+  "credentials": {
+    "cursorApiKey": "present",
+    "harborApiKey": "absent",
+    "source": "repo_root_env_only",
+    "workerProcessScrape": false
+  },
+  "liveProbes": {
+    "skipped": true,
+    "composerProbe": null,
+    "personaProvenanceFailure": null
+  }
+}

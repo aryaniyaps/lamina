@@ -1,0 +1,7 @@
+{
+  "image": "lb6-pilot-agent-runtime:cursor-20260720",
+  "image_id": "sha256:33a8871cefc1f26ae0a16c47c75f005f6d4509f5ff466183d0fb46ba59cfe9b2",
+  "dockerfile_sha256": "1ba9e20c1d0c3132158e6b752a7fc38c80c2cd81e8fc730a27ed51364156f9ff",
+  "cursor_cli_version": "2026.07.20-8cc9c0b",
+  "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831"
+}
