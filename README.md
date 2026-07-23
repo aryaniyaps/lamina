@@ -200,3 +200,8 @@ Output: `.lamina/runs/<id>/`. Hand `implement.md` to build; hand `fix.md` to fix
 
 Writes to `.lamina/` only. No app source. No visual styling.
 
+---
+
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Aryan Iyappan.
