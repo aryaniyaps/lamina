@@ -2,7 +2,7 @@
   "kind": "lb6-host-seal-runtime",
   "harbor_version": "0.18.0",
   "patch_version": "lb6-host-seal-v1",
-  "patch_sha256": "5ac64d6f0fc1048ac9bc6abc08ad9920425643ebdd9f408658d931780b128afa",
+  "patch_sha256": "295ba0196e8b26250172c909369fcbb65de5b61bde29ddfcc5e957acc32dccd6",
   "sitecustomize_sha256": "35a46c3235d9075116aa489196f288b0756f50cb3350d8a820f6d1311f169bf3",
   "verifier_image": "node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
   "verifier_image_id": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
