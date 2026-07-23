@@ -344,7 +344,7 @@ assert.equal(campaign.campaign.confirmatory, false);
 assert.ok(campaign.publication?.outPath);
 assert.ok(fs.existsSync(campaign.publication.outPath));
 assert.equal(campaign.publication.plan.benchmark_upload_ready, true);
-assert.equal(campaign.publication.plan.campaign_id, 'lb6-dev-pilot-skill-rerun-v1');
+assert.equal(campaign.publication.plan.campaign_id, 'lb6-dev-pilot-skill-rerun-v2');
 assert.ok(campaign.publication.plan.commands.every((cmd) => !cmd.includes('dev-care-circle')));
 assert.ok(campaign.aggregate?.paths?.json);
 assert.ok(fs.existsSync(campaign.aggregate.paths.json));
