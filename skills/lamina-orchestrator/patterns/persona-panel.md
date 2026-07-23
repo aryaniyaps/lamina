@@ -20,3 +20,12 @@ Sequential fallback: run the same packs one at a time with separated context. Ne
 5. Never describe the result as user research or customer evidence.
 
 In Harbor LaminaBench runs, the **agent** owns reviewer spawning (Task/Agent subagents) with the same persona-panel contract as normal Lamina. The harness does not pre-spawn reviewers.
+
+## Brownfield verify completion gate
+
+During `lamina-verify`, persona simulation is **unconditional**:
+
+1. Do **not** mark the run `complete` or write final `report.md` / `fix.md` until persona packs execute.
+2. When `.lamina/personas.json` is missing, empty, or invalid, load `lamina-user-modeling`, derive evidence-grounded provisional personas from `.lamina/business-context.md` plus observed brownfield source, write and validate `.lamina/personas.json`, then run persona packs. **Never skip the panel.**
+3. Populate `persona_findings[]` only from isolated reviewer JSON — never from seed scripts or parent-turn speculation.
+4. If reviewers cannot run (host limitation), record the gap under Open questions and do not fabricate persona findings.

@@ -2,7 +2,13 @@
 
 ## Grounding
 
-Load a ready design graph or create a brownfield verification graph. Prefer live product evidence; static source is acceptable when no runnable surface exists. Record the grounding mode and actual build/test results.
+Load a ready design graph or create a brownfield verification graph after `seed-verify-run.mjs` initializes a draft workspace. **Inspect the named target** in application source (read-only) and/or a runnable UI before populating the graph.
+
+Prefer live product evidence per [visual-walkthrough](../patterns/visual-walkthrough.md); static UI source is acceptable when no runnable surface exists. Record the grounding mode, actual build/test results, and evidence gaps in `report.md`.
+
+## Draft seed (not completion)
+
+`seed-verify-run.mjs` writes `run.json` at `status: draft` plus `run.md` only. It never fabricates findings, persona results, or completion artifacts. Do not emit verification completion headings until evidence-backed work finishes.
 
 ## Critical path trace
 
@@ -25,6 +31,8 @@ Load every `proofs[]` entry and the root `product-proof-manifest.json`. For each
 
 Run `graph-tool.mjs persona-packs` to build ≤3 scoped reviewer payloads. Spawn all packs in **one parallel batch** when the host supports subagents. Follow [the persona panel protocol](../patterns/persona-panel.md), give each only its graph slice and observed product evidence, and isolate reviewer context. Persona preference is not proof; missing reachability, authority, recovery, or accessibility is actionable.
 
+**Brownfield completion gate:** Persona simulation is mandatory. When `.lamina/personas.json` is missing, empty, or invalid, derive evidence-grounded provisional personas via `lamina-user-modeling` from business context plus observed brownfield source, validate them, then run persona packs. Verification cannot complete until persona packs run and `persona_findings[]` is populated only from isolated reviewer output.
+
 ## Contract drift
 
 Create a contract finding when the implementation reveals intended behavior missing or contradicted in `run.json`. Create a product finding when implementation fails the valid contract. Do not silently edit one to excuse the other.
@@ -39,4 +47,4 @@ Each non-ops finding contains:
 - Concrete source or walkthrough evidence.
 - Observable acceptance criteria.
 
-Ops-only findings stay in the report. Always write `report.md` and `fix.md`, even when no product fixes remain.
+Ops-only findings stay in the report. Write `report.md` and `fix.md` only after evidence-backed findings merge, validate the completed graph, and set `status: complete`.
