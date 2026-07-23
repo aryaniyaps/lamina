@@ -3,6 +3,7 @@
   "harbor_version": "0.18.0",
   "patch_version": "lb6-host-seal-v1",
   "patch_sha256": "9b48aa15ab2c364b5d534ebf629bc06395c3c98828190a1af092c05e8c53956d",
+  "skill_gate_sha256": "bb3f78c1eb0fadbcc6a52bf87a6c8c8633e734d21b69f35b0dfa153dcf5349c5",
   "sitecustomize_sha256": "35a46c3235d9075116aa489196f288b0756f50cb3350d8a820f6d1311f169bf3",
   "verifier_image": "node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
   "verifier_image_id": "sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",

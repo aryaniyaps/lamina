@@ -34,6 +34,11 @@ good_locks = [
     }
     for name in manifest["skills"]
 ]
+dual_shape_lock = {
+    "agent": {"skills": [str(staged_root / name) for name in manifest["skills"]]},
+    "skills": good_locks,
+}
+assert len(parse_agent_skill_locks(dual_shape_lock)) == len(manifest["skills"])
 assert validate_agent_skill_locks(
     good_locks,
     arm="lamina",

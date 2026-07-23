@@ -89,12 +89,16 @@ def parse_agent_skill_locks(lock: dict | None) -> list[dict]:
             if parsed:
                 entries.append(parsed)
 
+    # Harbor 0.18 trial locks contain resolved AgentSkillLock objects and also
+    # retain the raw source strings under agent.skills. Resolved objects are
+    # authoritative; raw strings are fallback-only or every skill is doubled.
     for trial in lock.get("trials") or []:
         if isinstance(trial, dict):
             push(trial.get("skills"))
     push(lock.get("skills"))
-    agent = lock.get("agent") or {}
-    push(agent.get("skills"))
+    if not entries:
+        agent = lock.get("agent") or {}
+        push(agent.get("skills"))
     return entries
 
 

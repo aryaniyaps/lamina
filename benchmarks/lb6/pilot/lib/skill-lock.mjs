@@ -71,11 +71,14 @@ export function parseAgentSkillLocks(lock) {
     }
   };
 
+  // Harbor 0.18 trial locks include resolved AgentSkillLock objects plus the
+  // original agent.skills source strings. Prefer resolved objects and use raw
+  // sources only as a fallback so valid skills are not duplicated as legacy.
   if (Array.isArray(lock.trials)) {
     for (const trial of lock.trials) push(trial?.skills);
   }
   push(lock.skills);
-  push(lock.agent?.skills);
+  if (!entries.length) push(lock.agent?.skills);
   return entries;
 }
 

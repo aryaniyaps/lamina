@@ -39,6 +39,11 @@ const goodLocks = manifest.skills.map((name) => ({
   source: `/tmp/staged/${name}`,
   digest: expectedDigests[name],
 }));
+const dualShapeLock = {
+  agent: { skills: manifest.skills.map((name) => path.join(stagedRoot, name)) },
+  skills: goodLocks,
+};
+assert.equal(parseAgentSkillLocks(dualShapeLock).length, manifest.skills.length);
 assert.equal(
   validateAgentSkillLocks({
     locks: goodLocks,
