@@ -1,45 +1,72 @@
 ---
 title: Quickstart
-description: Run the Lamina design, implement, and verify loop in under 15 minutes
+description: Run the Lamina design, implement, and verify loop with one bounded product flow
 ---
 
 import { Callout } from 'nextra/components'
 
 # Quickstart
 
-This walkthrough uses the HavenStay hotel booking domain from the Lamina demo. The same loop applies to any product on any stack.
+This walkthrough completes one coherent cycle: init → design → implement → verify → fix. The example uses a single bounded flow — guest checkout with payment hold — not an entire marketplace.
 
-## Quick path
+<Callout type="warning">
+**Lamina does not activate passively.** Run each slash command explicitly in agent chat. Use ordinary coding prompts when it is time to edit app source.
+</Callout>
 
-1. Install Lamina in your agent
-2. `/lamina-init` — domain charter
-3. `/lamina-design` — contract at `ready_to_build`
-4. Implement from `implement.md`
-5. `/lamina-verify` with your dev server running
-6. Fix from `fix.md` and re-verify
+## Canonical sequence
+
+```text
+SHELL
+npx skills install aryaniyaps/lamina
+
+AGENT CHAT — start a fresh session in your project
+/lamina-init <your product domain and primary users>
+/lamina-design <one feature or flow>
+
+ORDINARY CODING MODE
+Implement from .lamina/runs/<run_id>/implement.md
+Start the product
+
+AGENT CHAT
+/lamina-verify <one feature or flow> at <base_url>
+
+ORDINARY CODING MODE
+Apply fix.md when findings remain
+
+AGENT CHAT
+/lamina-verify <one feature or flow> at <base_url> again
+```
 
 ## Prerequisites
 
 - Lamina installed in your AI coding agent ([Installation](/getting-started/installation))
 - A project directory open in your agent
 
-## 1. Install
+## 1. Install (shell)
 
 ```bash
 npx skills install aryaniyaps/lamina
 ```
 
-Run `/lamina` in your agent to confirm the skill loaded.
+Open your project root and start a **fresh agent session** so the skill loads.
 
-## 2. Domain charter
+## 2. Initialize (agent chat)
 
-Scope the product domain before design. This step is required — design and verify are blocked without it.
+Run init directly — do not treat `/lamina` as a required setup step.
+
+<Callout type="info">
+**New product:** describe the domain and primary actors.
+
+**Existing product:** identify it as an existing app and describe its domain and primary actors.
+</Callout>
 
 ```
 /lamina-init Boutique hotel booking marketplace in the United States
 ```
 
-**Expected output:**
+If Lamina asks consequential business questions, answer them. Reversible unknowns may remain labeled as assumptions.
+
+**Success state:** init complete when Lamina produces and validates both project-level artifacts:
 
 ```text
 .lamina/
@@ -47,99 +74,110 @@ Scope the product domain before design. This step is required — design and ver
 └── personas.json
 ```
 
-Example personas from the HavenStay demo include `leisure_traveler`, `hotel_operator`, and `platform_admin`.
+Run init **once per project or domain**. Use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
 
-## 3. Design contract
+**Next action:** run one bounded design command.
 
-Turn the domain into a build-ready contract:
+## 3. Design (agent chat)
+
+Design **one feature or flow**, not an entire platform:
 
 ```
-/lamina-design Guest search, booking checkout with payment hold,
-hotel onboarding, and reservation management
+/lamina-design Guest checkout with inventory hold, payment, and cancellation
 ```
 
-**Expected output:**
+If the request is too vague, Lamina asks for clarification and does not present the flow as build-ready. If init is missing or invalid, Lamina stops and routes you back to `/lamina-init` — it never silently initializes on your behalf.
+
+**Success state:** `ready_to_build` with three run artifacts:
 
 ```text
 .lamina/runs/<run_id>/
 ├── run.json          # status: ready_to_build
-├── implement.md      # build handoff
-└── report.md         # design narrative
+├── run.md            # readable contract rendering
+└── implement.md      # implementation handoff
 ```
 
-Open `implement.md` — this is what your coding agent implements. Example opening:
+`report.md` is produced by verify, not design.
 
-```markdown
-# HavenStay — Implement Brief
-
-**Status:** `ready_to_build`
-**Contract:** `.lamina/runs/havenstay-platform-2026-07-10/run.json`
-
-Build a production-ready US hotel booking marketplace.
-Use any stack, any UI library, any database.
-```
-
-## 4. Implement
-
-Hand `implement.md` to your coding agent. **Lamina never writes app source** — your agent builds from the contract.
+**Next action:** switch to **ordinary coding mode** and implement from `implement.md`. A fresh implementation session is optional; the mode change is mandatory — application edits never happen inside `/lamina-design`.
 
 ```
-Implement the HavenStay booking platform from .lamina/runs/<run_id>/implement.md
+Implement from .lamina/runs/<run_id>/implement.md
 ```
 
 Use any framework, database, and UI library. Lamina is stack-agnostic.
 
-## 5. Verify
+## 4. Run the product (ordinary coding mode)
 
-Start your dev server, then run verify against the live app:
+Start your dev server and confirm the URL works in a browser before verify:
+
+```bash
+npm run dev
+```
+
+You need a running, browser-reachable product at a known `base_url` (for example `http://localhost:3000`).
+
+## 5. Verify (agent chat)
+
+Run verify with the bounded flow and live URL — verify requires both:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
-<Callout type="info">
-**Advanced:** Verify requires a running product at `base_url`. Lamina dispatches parallel subagents — one per primary actor — to walk the live app, check invariants, and probe reachability.
-</Callout>
-
-**Expected output when gaps exist:**
+Lamina compares the live product against the contract and produces:
 
 ```text
 .lamina/runs/<run_id>/
-├── fix.md            # product fix brief
-├── walkthrough/      # screenshots and evidence
-└── run.json          # findings[] populated, status: complete
+├── run.json          # findings[] populated, status updated
+├── report.md         # verification narrative
+├── fix.md            # fix brief (written even when no product fixes remain)
+└── walkthrough/      # optional live-capture evidence
 ```
 
 ## 6. Fix and re-verify
 
-Hand `fix.md` to your coding agent:
+Each open finding routes to one branch:
+
+| Finding | Action |
+|---------|--------|
+| `fix_target: product` | Switch to **ordinary coding mode** and apply `fix.md` |
+| `fix_target: contract` | Return to `/lamina-design` with a scoped contract correction, then implement again |
+| `fix_target: ops` | Report-only — observation stays in `report.md`; no app or contract fix required |
+
+**Ordinary coding mode** — product fixes:
 
 ```
-Fix the product issues listed in .lamina/runs/<run_id>/fix.md
+Apply the product fixes in .lamina/runs/<run_id>/fix.md
 ```
 
-Then re-run:
+Restart or refresh the product as needed, then re-verify in agent chat:
 
 ```
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
-Loop until `findings[]` is empty and the contract holds.
+**Exit condition:** the cycle is complete when there are **no open product or contract findings** — not merely when artifacts were created. `fix_target: ops` observations remain in `report.md` and do not block this exit.
 
 ## What you should have
 
 After one full cycle:
 
-| Artifact | Purpose |
-|----------|---------|
-| `.lamina/business-context.md` | Domain scope and constraints |
-| `.lamina/personas.json` | Actor cast with permissions |
-| `.lamina/runs/<id>/run.json` | Machine contract |
-| `.lamina/runs/<id>/implement.md` | What your agent built |
-| `.lamina/runs/<id>/fix.md` | Gaps found (if any) |
+| Artifact | Phase | Purpose |
+|----------|-------|---------|
+| `.lamina/business-context.md` | Init | Domain scope and constraints |
+| `.lamina/personas.json` | Init | Actor cast with permissions |
+| `.lamina/runs/<id>/run.json` | Design / verify | Machine contract and findings |
+| `.lamina/runs/<id>/run.md` | Design | Readable contract at `ready_to_build` |
+| `.lamina/runs/<id>/implement.md` | Design | Build handoff for your coding agent |
+| `.lamina/runs/<id>/report.md` | Verify | Verification narrative |
+| `.lamina/runs/<id>/fix.md` | Verify | Fix brief (written even when no product fixes remain) |
+| `.lamina/runs/<id>/walkthrough/` | Verify | Optional live-capture evidence |
+
+Not sure which command to run? `/lamina <what you are trying to do>` is an optional router — not a required setup step.
 
 ## Next steps
 
-- [First run](/getting-started/first-run) — timeline expectations and tips
-- [Demo: HavenStay](/guides/demo-havenstay) — explore the full reference implementation
+- [First run](/getting-started/first-run) — completion signals, pauses, and retries
+- [Demo: HavenStay](/guides/demo-havenstay) — explore a full reference implementation
 - [Contracts and runs](/concepts/contracts-and-runs) — artifact model deep dive

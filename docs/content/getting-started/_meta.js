@@ -1,6 +1,6 @@
 export default {
-  installation: "Installation",
   quickstart: "Quickstart",
+  installation: "Installation",
   "first-run": "First Run",
   troubleshooting: "Troubleshooting",
 };

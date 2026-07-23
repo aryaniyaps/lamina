@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # Commands
 
-Lamina exposes four slash commands. Each maps to a phase in the design → implement → verify loop.
+Lamina exposes four slash commands. Each maps to a phase in the init → design → implement → verify loop. Lamina does not activate passively — run each command explicitly in agent chat.
 
 ## Quick path
 
@@ -15,19 +15,19 @@ Lamina exposes four slash commands. Each maps to a phase in the design → imple
 /lamina-init <domain>
 /lamina-design <feature or flow>
 # your agent implements from implement.md
-/lamina-verify <base_url>
-# your agent fixes from fix.md
-/lamina-verify <base_url>
+/lamina-verify guest checkout at http://localhost:3000
+# your agent fixes from fix.md, then re-verify
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
 ## Command reference
 
 | Command | Phase | Purpose |
 |---------|-------|---------|
-| [`/lamina`](/commands/lamina) | Router | Auto-route to design, verify, or direct Q&A |
+| [`/lamina`](/commands/lamina) | Router | Optional — route explicit `/lamina <request>` to design, verify, or direct Q&A |
 | [`/lamina-init`](/commands/lamina-init) | Charter | Domain scope — required before design or verify |
-| [`/lamina-design`](/commands/lamina-design) | Design | Contract → `ready_to_build` + `implement.md` |
-| [`/lamina-verify`](/commands/lamina-verify) | Verify | Persona walks → `findings[]` + `fix.md` |
+| [`/lamina-design`](/commands/lamina-design) | Design | `run.json`, `run.md`, `implement.md` at `ready_to_build` |
+| [`/lamina-verify`](/commands/lamina-verify) | Verify | Updated `run.json` findings, `report.md`, `fix.md`, optional `walkthrough/` |
 
 ## Prerequisite gates
 
@@ -48,18 +48,20 @@ Lamina exposes four slash commands. Each maps to a phase in the design → imple
 /lamina-init Boutique hotel booking marketplace
 /lamina-design Guest checkout with payment hold and cancellation
 # … your agent implements from implement.md …
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 # … your agent fixes from fix.md …
-/lamina-verify http://localhost:3000
+/lamina-verify guest checkout at http://localhost:3000
 ```
 
-## Natural language
+## Optional routing
 
-You can invoke Lamina without slash commands:
+If you are unsure which command to run, use the optional router — still an explicit slash command, not passive invocation:
 
-> "Use Lamina to design the onboarding flow for a team collaboration app."
+```
+/lamina Design the onboarding flow for a team collaboration app
+```
 
-The `/lamina` router interprets intent and dispatches to the right workflow.
+`/lamina` interprets your request and dispatches to the right workflow. It does not replace `/lamina-init` on a new project.
 
 ## What Lamina does not do
 
@@ -72,6 +74,6 @@ The `/lamina` router interprets intent and dispatches to the right workflow.
 
 ## Next steps
 
-- [/lamina router](/commands/lamina) — how auto-routing works
+- [/lamina router](/commands/lamina) — optional routing via `/lamina <request>`
 - [Quickstart](/getting-started/quickstart) — full walkthrough
 - [The loop](/concepts/the-loop) — design → implement → verify cycle
