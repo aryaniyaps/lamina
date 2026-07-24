@@ -18,6 +18,7 @@ import {
   SKILL_RERUN_JOB_PREFIX,
 } from '../lib/constants.mjs';
 import { loadSkillBundleManifest, resolveHarnessGitProvenance, resolveStagedSkillPaths } from '../lib/skill-bundle.mjs';
+import { validateSemanticRows } from '../lib/semantic-measurement.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -327,23 +328,16 @@ export function isFrozenPublicationTask(taskId) {
 
 export function hasReconciledSemanticV3(cell) {
   const criteria = Array.isArray(cell?.criteria) ? cell.criteria : [];
-  const ids = criteria.map((criterion) => criterion?.id);
-  if (criteria.length !== 10 || ids.some((id) => !id) || new Set(ids).size !== 10) return false;
-  const earned = criteria.reduce((sum, criterion) => sum + Number(criterion?.earned || 0), 0);
-  const possible = criteria.reduce((sum, criterion) => sum + Number(criterion?.possible || 0), 0);
-  const raw = possible ? earned / possible : 0;
-  const reward = Number(((earned + 1) / (possible + 2)).toFixed(4));
-  const close = (a, b, tolerance = 1e-9) => Number.isFinite(Number(a))
-    && Number.isFinite(Number(b))
-    && Math.abs(Number(a) - Number(b)) <= tolerance;
-  return possible === 10
+  const rowCheck = validateSemanticRows(criteria, {
+    earned: cell?.earned,
+    possible: cell?.possible,
+    raw: cell?.rawBehavior,
+    reward: cell?.reward,
+  });
+  return rowCheck.passed
     && cell?.semanticEvidence?.passed === true
     && cell.semanticEvidence.measurement === 'semantic_criteria_v3'
     && cell.semanticEvidence.criteriaCount === 10
-    && close(cell.earned, earned)
-    && close(cell.possible, possible)
-    && close(cell.rawBehavior, raw)
-    && close(cell.reward, reward, 1e-4)
     && cell?.measurementInvalid === false
     && cell?.isolationEvidence?.campaignId === SKILL_RERUN_CAMPAIGN_ID
     && cell?.isolationEvidence?.measurementContract === 'semantic_criteria_v3';

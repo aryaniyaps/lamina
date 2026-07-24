@@ -342,6 +342,49 @@ assert.equal(isPublicationEligibleCell({
   skillEvidence: { passed: true, hasLedgerEvidence: true },
 }), false, 'asserted booleans without semantic-v3 evidence must not publish');
 
+const invalidRows = semanticFields(10);
+invalidRows.criteria[0] = { ...invalidRows.criteria[0], earned: 11 };
+invalidRows.criteria[1] = { ...invalidRows.criteria[1], earned: -1 };
+const invalidRowCell = {
+  taskId: 'dev-loan-library',
+  arm: 'direct',
+  taskDirName: expectedPilotTaskDirName('dev-loan-library', 'direct'),
+  jobName: makeJobName('dev-loan-library', 'direct', 2),
+  measurementValid: true,
+  skillEvidence: { passed: true, hasLedgerEvidence: true },
+  ...invalidRows,
+};
+assert.equal(
+  isPublicationEligibleCell(invalidRowCell),
+  false,
+  'over-earned and negative criterion rows must fail publication even when totals match',
+);
+const invalidRowCells = ['direct', 'plan', 'lamina'].map((arm) => ({
+  taskId: 'dev-loan-library',
+  arm,
+  taskDirName: expectedPilotTaskDirName('dev-loan-library', arm),
+  jobName: makeJobName('dev-loan-library', arm, 20 + ['direct', 'plan', 'lamina'].indexOf(arm)),
+  ok: true,
+  measurementValid: true,
+  skillEvidence: { passed: true, hasLedgerEvidence: true },
+  ...semanticFields(10),
+}));
+invalidRowCells[0] = { ...invalidRowCells[0], ...invalidRows };
+const invalidRowPlan = preparePublicationPlan({
+  root: tmpRoot,
+  taskIds: ['dev-loan-library'],
+  cells: invalidRowCells,
+  report: {
+    campaignId: SKILL_RERUN_CAMPAIGN_ID,
+    campaign: { ok: true },
+    gate: 'three_arm_campaign_complete',
+    cells: invalidRowCells,
+  },
+  write: false,
+});
+assert.equal(invalidRowPlan.plan.benchmark_upload_ready, false);
+assert.equal(invalidRowPlan.plan.commands.length, 0);
+
 const publication = preparePublicationPlan({
   root: tmpRoot,
   taskIds: selectedNewTasks,

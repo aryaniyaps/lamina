@@ -428,6 +428,7 @@ function writeTask(task, arm, ctx) {
   fs.mkdirSync(path.join(dir, 'environment'), { recursive: true });
 
   const behaviorGrade = fs.readFileSync(path.join(ctx.libRoot, 'behavior-grade.mjs'), 'utf8');
+  const behaviorReplayWorker = fs.readFileSync(path.join(ctx.libRoot, 'behavior-replay-worker.mjs'), 'utf8');
   const behaviorSelfcheck = fs.readFileSync(path.join(ctx.libRoot, 'behavior-selfcheck.mjs'), 'utf8');
   const pilotBehaviorGrade = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-behavior-grade.mjs'), 'utf8');
   const pilotTreatment = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-treatment.mjs'), 'utf8');
@@ -457,6 +458,7 @@ function writeTask(task, arm, ctx) {
   fs.mkdirSync(privateDir, { recursive: true });
   fs.writeFileSync(path.join(privateDir, 'grade.mjs'), finalGradeSource(task, arm, finalStep));
   fs.writeFileSync(path.join(privateDir, 'behavior-grade.mjs'), behaviorGrade);
+  fs.writeFileSync(path.join(privateDir, 'behavior-replay-worker.mjs'), behaviorReplayWorker);
   fs.writeFileSync(path.join(privateDir, 'pilot-behavior-grade.mjs'), pilotBehaviorGrade);
   fs.writeFileSync(path.join(privateDir, 'pilot-treatment.mjs'), pilotTreatment);
 

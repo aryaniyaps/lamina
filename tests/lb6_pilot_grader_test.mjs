@@ -183,6 +183,7 @@ export function reduce(state,action){
 export function project(state){return {items:state.items,projectedAt:Date.now()}}`;
 
 const moduleLoadClockList = `const loadedAt=Date.now();\n${listGood.replace('return{items:{}}', 'return{items:{},loadedAt}')}`;
+const dependencyClockList = `import { loadedAt } from './helper.mjs';\n${listGood.replace('return{items:{}}', 'return{items:{},loadedAt}')}`;
 const bigIntToggle = toggleGood.replace(
   'return{preferences:{},internalContext:{}}',
   'return{preferences:{},internalContext:{},nonJson:1n}',
@@ -322,6 +323,20 @@ for (const [taskId, body, label, reason] of [
   assert.equal(result.measurement_invalid_reason, reason);
   assert.equal(result.reward, 0);
 }
+
+const dependencyClockDir = path.join(tmp, 'dev-simple-list', 'dependency-clock');
+writeApp(dependencyClockDir, dependencyClockList);
+fs.writeFileSync(path.join(dependencyClockDir, 'helper.mjs'), 'export const loadedAt = Date.now();\n');
+const dependencyClockResult = await gradePilotBehavior({
+  root: dependencyClockDir,
+  golden: taskGolden('dev-simple-list'),
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-simple-list',
+});
+assert.equal(dependencyClockResult.measurement_invalid, true, 'imported helper clock must be replay-invalid');
+assert.equal(dependencyClockResult.measurement_invalid_reason, 'behavior_nondeterministic');
+assert.equal(dependencyClockResult.reward, 0);
 
 writeApp(path.join(tmp, 'dev-loan-library', 'unconditional-damage'), loanUnconditionalDamage);
 const unconditionalDamage = await gradePilotBehavior({

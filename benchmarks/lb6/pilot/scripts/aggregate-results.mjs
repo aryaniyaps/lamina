@@ -20,6 +20,8 @@ import {
   readTrialLock,
 } from '../lib/pre-model-gate.mjs';
 import { loadSkillBundleManifest } from '../lib/skill-bundle.mjs';
+import { validateSemanticMeasurement } from '../lib/semantic-measurement.mjs';
+export { validateSemanticMeasurement } from '../lib/semantic-measurement.mjs';
 import {
   HARBOR_AGENT,
   HARBOR_MODEL,
@@ -337,56 +339,6 @@ export function collectIsolationEvidence(trialDir, arm) {
   };
 }
 
-function nearlyEqual(a, b, tolerance = 1e-9) {
-  return Number.isFinite(Number(a))
-    && Number.isFinite(Number(b))
-    && Math.abs(Number(a) - Number(b)) <= tolerance;
-}
-
-export function validateSemanticMeasurement(rewardRecord, behaviorReport) {
-  const reasons = [];
-  if (!rewardRecord || !behaviorReport) reasons.push('reward/report pair missing');
-  if (behaviorReport?.measurement !== 'semantic_criteria_v3') reasons.push('behavior measurement contract mismatch');
-  if (rewardRecord?.measurement !== 'semantic_criteria_v3') reasons.push('reward measurement contract mismatch');
-  if (behaviorReport?.reward_transform !== '(earned + 1) / (possible + 2)') reasons.push('behavior reward transform mismatch');
-  if (rewardRecord?.reward_transform !== '(earned + 1) / (possible + 2)') reasons.push('reward transform mismatch');
-  if (behaviorReport?.measurement_invalid !== false || rewardRecord?.measurement_invalid !== false) {
-    reasons.push('measurement invalid flag set or missing');
-  }
-
-  const criteria = Array.isArray(behaviorReport?.criteria) ? behaviorReport.criteria : [];
-  const ids = criteria.map((criterion) => criterion?.id);
-  if (criteria.length !== 10 || ids.some((id) => !id) || new Set(ids).size !== 10) {
-    reasons.push('criteria must contain ten unique named outcomes');
-  }
-  if (criteria.some((criterion) => !Number.isFinite(Number(criterion?.possible)) || Number(criterion.possible) <= 0)) {
-    reasons.push('criterion possible weights invalid');
-  }
-  if (criteria.some((criterion) => !Number.isFinite(Number(criterion?.earned)) || Number(criterion.earned) < 0 || Number(criterion.earned) > Number(criterion.possible))) {
-    reasons.push('criterion earned weights invalid');
-  }
-
-  const earned = criteria.reduce((sum, criterion) => sum + Number(criterion?.earned || 0), 0);
-  const possible = criteria.reduce((sum, criterion) => sum + Number(criterion?.possible || 0), 0);
-  const raw = possible ? earned / possible : 0;
-  const reward = Number(((earned + 1) / (possible + 2)).toFixed(4));
-  if (!nearlyEqual(possible, 10)) reasons.push(`possible weight total ${possible} != 10`);
-  if (!nearlyEqual(behaviorReport?.earned, earned) || !nearlyEqual(rewardRecord?.earned, earned)) reasons.push('earned total mismatch');
-  if (!nearlyEqual(behaviorReport?.possible, possible) || !nearlyEqual(rewardRecord?.possible, possible)) reasons.push('possible total mismatch');
-  if (!nearlyEqual(behaviorReport?.raw_behavior, raw) || !nearlyEqual(rewardRecord?.raw_behavior, raw)) reasons.push('raw behavior mismatch');
-  if (!nearlyEqual(behaviorReport?.reward, reward, 1e-4) || !nearlyEqual(rewardRecord?.reward, reward, 1e-4)) reasons.push('smoothed reward mismatch');
-
-  return {
-    passed: reasons.length === 0,
-    reasons,
-    measurement: behaviorReport?.measurement ?? null,
-    criteriaCount: criteria.length,
-    earned,
-    possible,
-    raw,
-    reward,
-  };
-}
 
 export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   const legacy = refuseLegacySource(jobName);

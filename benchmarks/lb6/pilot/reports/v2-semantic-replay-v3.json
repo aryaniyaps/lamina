@@ -4,7 +4,7 @@
   "not_v3_benchmark_evidence": true,
   "source_campaign_id": "lb6-dev-pilot-skill-rerun-v2",
   "target_rubric": "semantic_criteria_v3",
-  "generated_at": "2026-07-24T02:14:31.028Z",
+  "generated_at": "2026-07-24T02:26:53.360Z",
   "cells": [
     {
       "taskId": "dev-loan-library",
