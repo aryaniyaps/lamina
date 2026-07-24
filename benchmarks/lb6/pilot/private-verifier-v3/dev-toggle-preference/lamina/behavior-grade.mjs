@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fork } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export function listRunJsonPaths(laminaRoot) {
   const runsDir = path.join(laminaRoot, 'runs');
@@ -328,15 +329,50 @@ function traceSnapshot(trace) {
   });
 }
 
+function executeSequenceInFreshProcess(root, sequence, timeoutMs = 15_000) {
+  const workerPath = fileURLToPath(new URL('./behavior-replay-worker.mjs', import.meta.url));
+  return new Promise((resolveTrace, rejectTrace) => {
+    const child = fork(workerPath, [], {
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      serialization: 'advanced',
+    });
+    let stderr = '';
+    child.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      rejectTrace(new Error(`fresh replay timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    const finish = (callback) => {
+      clearTimeout(timer);
+      callback();
+    };
+    child.once('error', (error) => finish(() => rejectTrace(error)));
+    child.once('message', (message) => finish(() => {
+      if (message?.ok) {
+        resolveTrace(message.trace);
+        return;
+      }
+      const error = new Error(message?.error || stderr || 'fresh replay worker failed');
+      if (message?.code) error.code = message.code;
+      rejectTrace(error);
+    }));
+    child.send({ root, sequence });
+  });
+}
+
 export async function evaluateSequence(mod, sequence, {
   determinismReplays = 3,
   determinismDelayMs = 3,
   freshModule = null,
+  freshProcessRoot = null,
 } = {}) {
   const errors = [];
   let trace;
   try {
-    trace = await executeSequence(mod, sequence);
+    trace = freshProcessRoot
+      ? await executeSequenceInFreshProcess(freshProcessRoot, sequence)
+      : await executeSequence(mod, sequence);
+    traceSnapshot(trace);
   } catch (error) {
     const reason = String(error?.message || error);
     return {
@@ -361,8 +397,9 @@ export async function evaluateSequence(mod, sequence, {
   for (let replay = 1; replay < determinismReplays; replay += 1) {
     if (determinismDelayMs > 0) await delay(determinismDelayMs);
     try {
-      const replayModule = freshModule ? await freshModule(replay) : mod;
-      const candidateTrace = await executeSequence(replayModule, sequence);
+      const candidateTrace = freshProcessRoot
+        ? await executeSequenceInFreshProcess(freshProcessRoot, sequence)
+        : await executeSequence(freshModule ? await freshModule(replay) : mod, sequence);
       if (traceSnapshot(candidateTrace) !== expectedTrace) {
         errors.push(`deterministic replay diverged on replay ${replay + 1}`);
         replayInvalidReason = 'behavior_nondeterministic';
@@ -456,7 +493,10 @@ export async function gradeBehavior({ root = '/app', golden, arm = 'direct', pha
   let traceInvalidReason = null;
   for (const sequence of golden.sequences ?? []) {
     try {
-      const outcome = await evaluateSequence(mod, sequence, { freshModule: importFresh });
+      const outcome = await evaluateSequence(mod, sequence, {
+        freshModule: importFresh,
+        freshProcessRoot: root,
+      });
       sequenceResults.push({ id: sequence.id, actor: sequence.actor, passed: outcome.passed, deterministic: outcome.deterministic, errors: outcome.errors, criteria: outcome.criteria });
       allCriteria.push(...outcome.criteria.map((criterion) => ({ ...criterion, sequence_id: sequence.id })));
       if (!outcome.deterministic) deterministic = false;

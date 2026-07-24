@@ -265,7 +265,7 @@ function validateTaskDir(task, arm) {
   }
 
   const privateDir = path.join(privateVerifierRoot, task.id, arm);
-  for (const file of ['grade.mjs', 'behavior-grade.mjs', 'pilot-behavior-grade.mjs', 'pilot-treatment.mjs']) {
+  for (const file of ['grade.mjs', 'behavior-grade.mjs', 'behavior-replay-worker.mjs', 'pilot-behavior-grade.mjs', 'pilot-treatment.mjs']) {
     if (!fs.existsSync(path.join(privateDir, file))) errors.push(`${dir}: missing private verifier ${file}`);
   }
   const finalGrade = fs.existsSync(path.join(privateDir, 'grade.mjs'))
