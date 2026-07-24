@@ -63,7 +63,7 @@ The verifier checks the following structured behavior contract. Equivalent value
 }
 ```
 
-The behavior rubric has ten equal semantic points. Valid rewards use arm-blind Laplace smoothing: `(earned + 1) / 12`; raw earned/10 is also reported. Deterministic replay is an eligibility gate.
+Final scoring uses Harbor RewardKit LLM-as-judge (no hardcoded semantic rubric). Keep the product coherent and runnable.
 
 ## Structural self-check (required before finishing this step)
 

@@ -1,0 +1,16 @@
+{
+  "note": "Manual operator step only. Collector does not execute Harbor publication.",
+  "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
+  "results_artifact": "local-v3-llm-judge-run",
+  "publication_eligible": false,
+  "commands": [],
+  "blocked_until": "authenticated Harbor CLI + explicit approval to disclose a development-only package",
+  "blocked_reasons": [
+    "development-only package; not eligible for a confirmatory or marketing claim",
+    "Cursor persona child actual selected model is unverified",
+    "Harbor registry authentication is required for publish/upload",
+    "frozen dev-care-circle package is excluded from this plan",
+    "claim surface is in-trial llm_judge_v3 (OpenAI host judge)",
+    "only 0/12 in-trial measurement-valid cells present"
+  ]
+}

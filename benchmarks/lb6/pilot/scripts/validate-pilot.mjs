@@ -189,13 +189,13 @@ function validateTaskDir(task, arm) {
     for (const file of [`steps/${step}/instruction.md`, `steps/${step}/tests/test.sh`]) {
       if (!fs.existsSync(path.join(dir, file))) errors.push(`${dir}: missing ${file}`);
     }
-    const testFiles = fs.readdirSync(path.join(dir, `steps/${step}/tests`));
-    if (testFiles.length !== 1 || testFiles[0] !== 'test.sh') {
-      errors.push(`${dir}: step ${step} agent package may contain only the stock-verifier tripwire`);
-    }
-    const tripwire = fs.readFileSync(path.join(dir, `steps/${step}/tests/test.sh`), 'utf8');
-    if (!/protocol_invalid/.test(tripwire) || !/exit 97/.test(tripwire)) {
-      errors.push(`${dir}: step ${step} must fail closed if stock Harbor verification runs`);
+    const testSh = fs.readFileSync(path.join(dir, `steps/${step}/tests/test.sh`), 'utf8');
+    if (step === finalStep) {
+      if (!/rewardkit/i.test(testSh)) {
+        errors.push(`${dir}: final step ${step} must run Harbor RewardKit`);
+      }
+    } else if (!/"reward": 1\.0/.test(testSh) && !/reward.: 1/.test(testSh)) {
+      errors.push(`${dir}: intermediate step ${step} must emit pass-through reward 1.0`);
     }
   }
 
@@ -221,8 +221,14 @@ function validateTaskDir(task, arm) {
   if (!toml.includes(`child_actual_model_unverified = true`)) {
     errors.push(`${dir}: missing child_actual_model_unverified=true`);
   }
-  if (!toml.includes('host_sealed_supervisor_required = true')) {
-    errors.push(`${dir}: missing host_sealed_supervisor_required=true`);
+  if (toml.includes('host_sealed_supervisor_required = true')) {
+    errors.push(`${dir}: host_sealed_supervisor_required must be false for RewardKit (issue #18)`);
+  }
+  if (!toml.includes('measurement_contract = "rewardkit_llm_judge_v3"')) {
+    errors.push(`${dir}: missing measurement_contract=rewardkit_llm_judge_v3`);
+  }
+  if (!/artifacts\s*=/.test(toml)) {
+    errors.push(`${dir}: missing Harbor artifacts = [...] for step artifact collection`);
   }
   if (!toml.includes(`agent = "${HARBOR_AGENT}"`)) errors.push(`${dir}: expected agent=${HARBOR_AGENT}`);
   if (!toml.includes(`model = "${HARBOR_MODEL}"`)) errors.push(`${dir}: expected model=${HARBOR_MODEL}`);
@@ -264,24 +270,24 @@ function validateTaskDir(task, arm) {
     }
   }
 
-  const privateDir = path.join(privateVerifierRoot, task.id, arm);
-  for (const file of ['grade.mjs', 'behavior-grade.mjs', 'behavior-replay-worker.mjs', 'pilot-behavior-grade.mjs', 'pilot-treatment.mjs']) {
-    if (!fs.existsSync(path.join(privateDir, file))) errors.push(`${dir}: missing private verifier ${file}`);
+  // Issue #18: claim verifier is RewardKit in the final step tests/ (not private-verifier-v3).
+  const finalTestsDir = path.join(dir, 'steps', finalStep, 'tests');
+  for (const file of ['test.sh', 'judge.toml', 'prompt.md', 'judge-context.md']) {
+    if (!fs.existsSync(path.join(finalTestsDir, file))) {
+      errors.push(`${dir}: missing RewardKit ${file} in steps/${finalStep}/tests`);
+    }
   }
-  const finalGrade = fs.existsSync(path.join(privateDir, 'grade.mjs'))
-    ? fs.readFileSync(path.join(privateDir, 'grade.mjs'), 'utf8')
+  const finalTestSh = fs.existsSync(path.join(finalTestsDir, 'test.sh'))
+    ? fs.readFileSync(path.join(finalTestsDir, 'test.sh'), 'utf8')
     : '';
-  if (!/gradePilotBehavior/.test(finalGrade)) {
-    errors.push(`${dir}: private final verifier must use gradePilotBehavior`);
+  if (!/rewardkit/i.test(finalTestSh)) {
+    errors.push(`${dir}: final test.sh must invoke harbor-rewardkit`);
   }
-  if (!/base64/.test(finalGrade)) {
-    errors.push(`${dir}: private final verifier must embed opaque golden payload`);
+  if (/exit 97|protocol_invalid: stock Harbor/.test(finalTestSh)) {
+    errors.push(`${dir}: final test.sh must not stub stock Harbor`);
   }
-  if (/"expect"|must_not_include|"escalat"/.test(finalGrade)) {
-    errors.push(`${dir}: private final verifier must not contain plaintext graded expects`);
-  }
-  if (!/root: '\/candidate'/.test(finalGrade) || !/treatmentRoot: '\/treatment'/.test(finalGrade)) {
-    errors.push(`${dir}: private verifier must score only isolated candidate/treatment mounts`);
+  if (fs.existsSync(path.join(privateVerifierRoot, task.id, arm, 'grade.mjs'))) {
+    errors.push(`${dir}: obsolete private-verifier-v3 grade.mjs still present (issue #18)`);
   }
 
   if (arm === 'lamina') {

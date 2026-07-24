@@ -61,3 +61,4 @@ benchmarks/results/v2/
 .git.__ase_bak/
 # LaminaBench host-sealed runtime objects (never publish from the worktree)
 benchmarks/lb6/pilot/sealed-store/
+benchmarks/lb6/pilot/logs/

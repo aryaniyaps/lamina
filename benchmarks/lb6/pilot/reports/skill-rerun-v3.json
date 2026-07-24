@@ -1,0 +1,2820 @@
+{
+  "kind": "lb6_pilot_semantic_v3_development_report",
+  "development_only": true,
+  "confirmatory": false,
+  "child_actual_model_unverified": true,
+  "not_claim_ready": true,
+  "distinct_from": "lamina-bench-6",
+  "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+  "generatedAt": "2026-07-24T13:05:00.350Z",
+  "selectedTaskIds": [
+    "dev-simple-list"
+  ],
+  "taskClusters": [
+    {
+      "taskId": "dev-simple-list",
+      "rewards": {
+        "direct": 0.318,
+        "plan": 0.5121,
+        "lamina": 0.5413
+      },
+      "deltas": {
+        "plan_minus_direct": 0.1941,
+        "lamina_minus_direct": 0.2233,
+        "lamina_minus_plan": 0.029200000000000004
+      },
+      "laminaDeltaSuppressed": false,
+      "measurementValid": true,
+      "cells": [
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050",
+          "trialName": "dev-simple-list-direct-v3__uFRPfSR",
+          "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR",
+          "taskId": "dev-simple-list",
+          "arm": "direct",
+          "taskDirName": "dev-simple-list-direct-v3",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 162515,
+          "startedAt": "2026-07-24T12:50:32.143928Z",
+          "finishedAt": "2026-07-24T12:53:14.124668Z",
+          "observedReward": 0.318,
+          "reward": 0.318,
+          "behavior": null,
+          "invalidTreatment": false,
+          "measurementInvalid": false,
+          "measurementInvalidReason": null,
+          "criteria": [],
+          "earned": null,
+          "possible": null,
+          "rawBehavior": null,
+          "semanticEvidence": {
+            "passed": true,
+            "reasons": [],
+            "measurement": "rewardkit_llm_judge_v3"
+          },
+          "skillEvidence": {
+            "passed": true,
+            "treatmentValid": true,
+            "priorNoSkill": false,
+            "gate": "pre_model_skill_gate_passed",
+            "reason": null,
+            "skillSources": [],
+            "skillLocks": [],
+            "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+            "ledgerEvent": {
+              "event": "pre_model_skill_gate",
+              "arm": "direct",
+              "task_id": "dev-simple-list",
+              "phase": null,
+              "harbor_version": "0.18.0",
+              "agent": "cursor-cli",
+              "model": "cursor/composer-2.5",
+              "cursor_cli_version": "2026.07.20-8cc9c0b",
+              "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+              "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+              "skill_sources": [],
+              "skill_locks": [],
+              "lamina_skill_absent": true,
+              "passed": true
+            },
+            "hasLedgerEvidence": false
+          },
+          "priorNoSkill": false,
+          "treatmentInvalid": false,
+          "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": null,
+          "finalStep": "verify_fix",
+          "costUsd": 0.0651322,
+          "tokens": {
+            "input": 179247,
+            "cache": 156121,
+            "output": 8938
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "mode": "rewardkit_llm_judge_v3",
+            "sealPath": null,
+            "verifierAbiPath": null,
+            "ledgerPath": null,
+            "candidateDigest": null,
+            "verifierImageDigest": null,
+            "doubleCaptureIdentical": null,
+            "networkMode": null,
+            "readOnlyRootfs": null,
+            "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+            "measurementContract": "rewardkit_llm_judge_v3",
+            "events": [],
+            "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR/steps/verify_fix/verifier/reward.json"
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 40954,
+                "tokensOut": 2759,
+                "costUsd": 0.017021500000000002,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:50:47.348057Z",
+                "agentFinishedAt": "2026-07-24T12:51:22.440807Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 138293,
+                "tokensOut": 6179,
+                "costUsd": 0.048110700000000006,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:51:23.542719Z",
+                "agentFinishedAt": "2026-07-24T12:52:18.112649Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "e33d705f7942198f69dbfd7f7238bd78f3437ccd37be31102567be67ac885361",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051",
+          "trialName": "dev-simple-list-plan-v3__U3E2Q9B",
+          "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B",
+          "taskId": "dev-simple-list",
+          "arm": "plan",
+          "taskDirName": "dev-simple-list-plan-v3",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 164825,
+          "startedAt": "2026-07-24T12:53:14.778167Z",
+          "finishedAt": "2026-07-24T12:55:58.970939Z",
+          "observedReward": 0.5121,
+          "reward": 0.5121,
+          "behavior": null,
+          "invalidTreatment": false,
+          "measurementInvalid": false,
+          "measurementInvalidReason": null,
+          "criteria": [],
+          "earned": null,
+          "possible": null,
+          "rawBehavior": null,
+          "semanticEvidence": {
+            "passed": true,
+            "reasons": [],
+            "measurement": "rewardkit_llm_judge_v3"
+          },
+          "skillEvidence": {
+            "passed": true,
+            "treatmentValid": true,
+            "priorNoSkill": false,
+            "gate": "pre_model_skill_gate_passed",
+            "reason": null,
+            "skillSources": [],
+            "skillLocks": [],
+            "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+            "ledgerEvent": {
+              "event": "pre_model_skill_gate",
+              "arm": "plan",
+              "task_id": "dev-simple-list",
+              "phase": null,
+              "harbor_version": "0.18.0",
+              "agent": "cursor-cli",
+              "model": "cursor/composer-2.5",
+              "cursor_cli_version": "2026.07.20-8cc9c0b",
+              "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+              "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+              "skill_sources": [],
+              "skill_locks": [],
+              "lamina_skill_absent": true,
+              "passed": true
+            },
+            "hasLedgerEvidence": false
+          },
+          "priorNoSkill": false,
+          "treatmentInvalid": false,
+          "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B/steps/verify_fix/verifier/reward.json",
+          "behaviorReportPath": null,
+          "finalStep": "verify_fix",
+          "costUsd": 0.0572007,
+          "tokens": {
+            "input": 154181,
+            "cache": 133366,
+            "output": 8048
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "mode": "rewardkit_llm_judge_v3",
+            "sealPath": null,
+            "verifierAbiPath": null,
+            "ledgerPath": null,
+            "candidateDigest": null,
+            "verifierImageDigest": null,
+            "doubleCaptureIdentical": null,
+            "networkMode": null,
+            "readOnlyRootfs": null,
+            "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+            "measurementContract": "rewardkit_llm_judge_v3",
+            "events": [],
+            "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B/steps/verify_fix/verifier/reward.json"
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "shape_build",
+                "tokensIn": 41370,
+                "tokensOut": 3276,
+                "costUsd": 0.0185139,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:53:29.489251Z",
+                "agentFinishedAt": "2026-07-24T12:53:55.096630Z"
+              },
+              {
+                "step": "verify_fix",
+                "tokensIn": 112811,
+                "tokensOut": 4772,
+                "costUsd": 0.0386868,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:53:56.205032Z",
+                "agentFinishedAt": "2026-07-24T12:54:42.153458Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "8b6d6bfd1383aa40462462d9ba1e67d44d2be9f9caa236d90992aa850b23cb3a",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        },
+        {
+          "ok": true,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052",
+          "trialName": "dev-simple-list-lamina-v3__VkPZUwC",
+          "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC",
+          "taskId": "dev-simple-list",
+          "arm": "lamina",
+          "taskDirName": "dev-simple-list-lamina-v3",
+          "state": "completed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 541248,
+          "startedAt": "2026-07-24T12:55:59.653489Z",
+          "finishedAt": "2026-07-24T13:05:00.220419Z",
+          "observedReward": 0.5413,
+          "reward": 0.5413,
+          "behavior": null,
+          "invalidTreatment": false,
+          "measurementInvalid": false,
+          "measurementInvalidReason": null,
+          "criteria": [],
+          "earned": null,
+          "possible": null,
+          "rawBehavior": null,
+          "semanticEvidence": {
+            "passed": true,
+            "reasons": [],
+            "measurement": "rewardkit_llm_judge_v3"
+          },
+          "skillEvidence": {
+            "passed": true,
+            "treatmentValid": true,
+            "priorNoSkill": false,
+            "gate": "pre_model_skill_gate_passed",
+            "reason": null,
+            "skillSources": [
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+              "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify"
+            ],
+            "skillLocks": [
+              {
+                "name": "lamina",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+                "digest": "sha256:4b950d610a7c8e9c21b254c3614c137d56765f87e9b786034dd49bf2daaa21ce",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-accessibility",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+                "digest": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-business-context",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+                "digest": "sha256:b113889b9ef94223fc195450671d436c6b6b72ba9399a6ad3199b11ca93ec8bf",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-competitive-analysis",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+                "digest": "sha256:ebc9d11b8995329c1abdf09e48e31a8f6a8402baa20c94f47b5f5b34914d86d5",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-consistency-guarantees",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+                "digest": "sha256:60fd90757c0169daec1d21cd6015075102ac5d590c20fb861b23e0c3ab5acb86",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-content-design",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+                "digest": "sha256:52e9721d1f90899c7214d590a490e96875c9a0e87e7f79e0f1cecf4168ba4e18",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-controls-and-menus",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+                "digest": "sha256:bc8cf79f1a28e5ea487e5c8541dd5418e642c357f16420e6788da1040dd86013",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-core",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+                "digest": "sha256:d0c3ac05a73c2e16d118f7c1ec082c8bb83e6ce705e17c14b22f824f3b57c62f",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-decision-making",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+                "digest": "sha256:20fd7ee10760c046f273054ace9fadf8f444b0e3fdacc97540ba710b8c013e1a",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-dependencies",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+                "digest": "sha256:e1c07f56162ad749e7abf197f26c4f2768fdebbf2023f5c568c4d1c1bfbafc6b",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-design",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+                "digest": "sha256:2bc84e1977d7e4705693f6e6061f173b9477adcf46eb0d35611a05afb60cf986",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-design-process",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+                "digest": "sha256:256d5c42e9abe6389bff157c85b532916ffc8423fc15a5cfdda6551ee7e786b5",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-discoverability",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+                "digest": "sha256:6df88a70b95fc60010a8e95defd9a812d6b8fca65dbe55dfb4404ea38ccf9683",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-edge-cases",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+                "digest": "sha256:85c4bec0029f3a176ec80f97e7485a6593081d22aaae8d58fbb355c352914432",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-empty-states",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+                "digest": "sha256:7ffa494601fbd043d411eb8572656e69f77ebd28f774a5194cfb233f09f9ca1f",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-error-handling",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+                "digest": "sha256:dfa10d483dab2dbe24917aa9d30b65e8c7e691c1aa17dd2a22cd10f795fbe113",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-evolutionary-rules",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+                "digest": "sha256:2a9761bd78870df4d3bfbbe524456d725ec23c863f9183f4772024d0eec5192c",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-feature-discovery",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+                "digest": "sha256:99e2f9d9b32586e8133e34ea4ab3ca3f90a18abe80c3b5a520b312707df2b29f",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-feature-prioritization",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+                "digest": "sha256:c7f3ac5d980791e763c1c2a301375c42bcb124d0dda3b2f7cb65684c99e849ec",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-feedback-and-status",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+                "digest": "sha256:4dc82db34afa6ee1c9fb8dc6c45d573e244744f91ffb138f137aa138c7e6c809",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-feedback-loops",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+                "digest": "sha256:09b8a95c992b877c4fc8602495f5975aa04a25fff8ef4445f0b9141cc121d805",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-field-research",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+                "digest": "sha256:671a44de68fbde7814640320d1efe17c0b7c5912f101749877e4b9687cfb6517",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-flow-design",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+                "digest": "sha256:08d6a9176340ad963df548a59b0bb30fef82c3462678e602bf2f824f35cb09b7",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-forms",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+                "digest": "sha256:d8849d2f8b31321bfab3e5be85a2385799f63633d33184832ccce2d21a11bf58",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-heuristic-review",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+                "digest": "sha256:b072b86eccd0c431b3ce816b2baa5b60fd5a26ce8c654e9a34a308a7250ffb94",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-idempotency-concurrency",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+                "digest": "sha256:192e74b3595c54a8a5db0e385f48168188910b21d0683691626f8d785fc76fcf",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-information-architecture",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+                "digest": "sha256:26ed61011f6eeeb8037b0be18dee67561e756560fdd23d7a9f8f303740b473b5",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-init",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+                "digest": "sha256:30961c3a49a21c57d42cf743a8a2fe8bc319565fb373659a70ddef938bda4c43",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-interview-design",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+                "digest": "sha256:f5651547fd3e9b8e53a6a9698b4689c258327909df6678cb6225477193137429",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-interview-documentation",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+                "digest": "sha256:a80624bf6dc0b3fd95b45a316121c22f9e77117836428fd8b932bc57545a75e9",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-invariants",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+                "digest": "sha256:a127111fa26a330e0f7b8c42cb37a305472fb5709908152c525505a4f673b7f3",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-leverage-points",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+                "digest": "sha256:4556384213165454f3dbbdb1a7f387c1dc23be8353957dff33412d62f76e0b24",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-modularity-boundaries",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+                "digest": "sha256:419b9fd1feeb61e9020fc8e6da5360d958b2654a29e741642e492e260237e648",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-multi-view-integrity",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+                "digest": "sha256:46bab15ce11359f82ef87921fadac95ca386bcce67818611bde79cdb2716b9bf",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-navigation",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+                "digest": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-onboarding",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+                "digest": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-orchestrator",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+                "digest": "sha256:20ace92bb6f03607f88685d4781be4b6e5e53f6a180c4008a1c61eb7223c8ef5",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-persuasion-and-groups",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+                "digest": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-platform-posture",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+                "digest": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-problem-framing",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+                "digest": "sha256:c76a48a764c9e3cd97f65070bfe52c7f16bd35179b21a7b4f95643f58d8581a1",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-product-behavior",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+                "digest": "sha256:502cb0d5a7dbbd58b93e0eb7cf3282f02b3a874a679b346bb9a26a33ed1f39a2",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-progressive-disclosure",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+                "digest": "sha256:9cd60a0fa3b4b757bb1d6f73041b9c463d61823e957dea7dadb353765abcca71",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-quantitative-validation",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+                "digest": "sha256:32737c46076f232775791fc0a6436d5fda1d889869a7471fbb377673afe3c5ae",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-requirements-definition",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+                "digest": "sha256:f632a4c7592e1c47ebca0946df4a66b1e746ecc7d8c148a871273460b0deabfd",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-research-communication",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+                "digest": "sha256:c52029c10361d09cf54d308c5f42098c475a7d38b5ba7f1550970b5face2e92e",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-research-planning",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+                "digest": "sha256:8cc6200226b75483dadef38f48a63f70aefd20b5a335549e32aa24cdf7668db9",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-research-scoping",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+                "digest": "sha256:f533a683aed936ac4dee0e3abf18a4d0a971e08a369a9bc96c626496087ad150",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-research-synthesis",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+                "digest": "sha256:92110a0472d88886b9136cf66022edbc7d2c40541f884eeb86e42e913c2ccfe9",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-side-effects",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+                "digest": "sha256:ab1b085c33d7dd00a45de45efd677c1d90c73ffc10c8678e4268c04419e23e3f",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-stakeholder-alignment",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+                "digest": "sha256:43832721285199548a450b72018e88d10b22ecc67ea36e1df703a21f74883a8d",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-system-structure",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+                "digest": "sha256:5e5cca713781fe6adcb6aa7f6e51188a3438177d7e5526b2db719a384181fe22",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-system-traps",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+                "digest": "sha256:df6d74cb28547c74df4fd30b0b9de57ba71d04a08589e29372937ba2d1ff8199",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-task-analysis",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+                "digest": "sha256:13089c779476a112c764d14f1b03824f681eef751045815957bbffad7671301c",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-time-semantics",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+                "digest": "sha256:fa6e2e1ae78c8252bf2f9104451f9b07b9ba688330fa8f35833bf3539512e1f6",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-tradeoffs",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+                "digest": "sha256:9d5992ad7f7ae388570efb73dde5cf5446a1e7c817ca579c599b2326a9eea1c0",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-trust",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+                "digest": "sha256:129faa888a2b1ac8f18a72fb7a82fa809468c72a19eba3e222646d2a4057198a",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-usability-evaluation",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+                "digest": "sha256:4dfe6581170b1880a6e87641ac2de8ce88ea80f9c27e056c2af3b5d2f9fadb2d",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-user-modeling",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+                "digest": "sha256:b2ebda5765e16cfb3701512f9d40e50ba8760bf9da5f7dd2cd8d0e07c5b22f92",
+                "git_url": null,
+                "git_commit_id": null
+              },
+              {
+                "name": "lamina-verify",
+                "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify",
+                "digest": "sha256:dadedfe1555e16a83688aeaa695db5a9f263d3b46cc4020ce3d5098cf5b86e21",
+                "git_url": null,
+                "git_commit_id": null
+              }
+            ],
+            "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+            "ledgerEvent": {
+              "event": "pre_model_skill_gate",
+              "arm": "lamina",
+              "task_id": "dev-simple-list",
+              "phase": null,
+              "harbor_version": "0.18.0",
+              "agent": "cursor-cli",
+              "model": "cursor/composer-2.5",
+              "cursor_cli_version": "2026.07.20-8cc9c0b",
+              "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+              "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+              "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+              "skill_sources": [
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+                "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify"
+              ],
+              "skill_locks": [
+                {
+                  "name": "lamina",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+                  "digest": "sha256:4b950d610a7c8e9c21b254c3614c137d56765f87e9b786034dd49bf2daaa21ce",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-accessibility",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+                  "digest": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-business-context",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+                  "digest": "sha256:b113889b9ef94223fc195450671d436c6b6b72ba9399a6ad3199b11ca93ec8bf",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-competitive-analysis",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+                  "digest": "sha256:ebc9d11b8995329c1abdf09e48e31a8f6a8402baa20c94f47b5f5b34914d86d5",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-consistency-guarantees",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+                  "digest": "sha256:60fd90757c0169daec1d21cd6015075102ac5d590c20fb861b23e0c3ab5acb86",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-content-design",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+                  "digest": "sha256:52e9721d1f90899c7214d590a490e96875c9a0e87e7f79e0f1cecf4168ba4e18",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-controls-and-menus",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+                  "digest": "sha256:bc8cf79f1a28e5ea487e5c8541dd5418e642c357f16420e6788da1040dd86013",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-core",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+                  "digest": "sha256:d0c3ac05a73c2e16d118f7c1ec082c8bb83e6ce705e17c14b22f824f3b57c62f",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-decision-making",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+                  "digest": "sha256:20fd7ee10760c046f273054ace9fadf8f444b0e3fdacc97540ba710b8c013e1a",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-dependencies",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+                  "digest": "sha256:e1c07f56162ad749e7abf197f26c4f2768fdebbf2023f5c568c4d1c1bfbafc6b",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-design",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+                  "digest": "sha256:2bc84e1977d7e4705693f6e6061f173b9477adcf46eb0d35611a05afb60cf986",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-design-process",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+                  "digest": "sha256:256d5c42e9abe6389bff157c85b532916ffc8423fc15a5cfdda6551ee7e786b5",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-discoverability",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+                  "digest": "sha256:6df88a70b95fc60010a8e95defd9a812d6b8fca65dbe55dfb4404ea38ccf9683",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-edge-cases",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+                  "digest": "sha256:85c4bec0029f3a176ec80f97e7485a6593081d22aaae8d58fbb355c352914432",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-empty-states",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+                  "digest": "sha256:7ffa494601fbd043d411eb8572656e69f77ebd28f774a5194cfb233f09f9ca1f",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-error-handling",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+                  "digest": "sha256:dfa10d483dab2dbe24917aa9d30b65e8c7e691c1aa17dd2a22cd10f795fbe113",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-evolutionary-rules",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+                  "digest": "sha256:2a9761bd78870df4d3bfbbe524456d725ec23c863f9183f4772024d0eec5192c",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-feature-discovery",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+                  "digest": "sha256:99e2f9d9b32586e8133e34ea4ab3ca3f90a18abe80c3b5a520b312707df2b29f",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-feature-prioritization",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+                  "digest": "sha256:c7f3ac5d980791e763c1c2a301375c42bcb124d0dda3b2f7cb65684c99e849ec",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-feedback-and-status",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+                  "digest": "sha256:4dc82db34afa6ee1c9fb8dc6c45d573e244744f91ffb138f137aa138c7e6c809",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-feedback-loops",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+                  "digest": "sha256:09b8a95c992b877c4fc8602495f5975aa04a25fff8ef4445f0b9141cc121d805",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-field-research",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+                  "digest": "sha256:671a44de68fbde7814640320d1efe17c0b7c5912f101749877e4b9687cfb6517",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-flow-design",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+                  "digest": "sha256:08d6a9176340ad963df548a59b0bb30fef82c3462678e602bf2f824f35cb09b7",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-forms",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+                  "digest": "sha256:d8849d2f8b31321bfab3e5be85a2385799f63633d33184832ccce2d21a11bf58",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-heuristic-review",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+                  "digest": "sha256:b072b86eccd0c431b3ce816b2baa5b60fd5a26ce8c654e9a34a308a7250ffb94",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-idempotency-concurrency",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+                  "digest": "sha256:192e74b3595c54a8a5db0e385f48168188910b21d0683691626f8d785fc76fcf",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-information-architecture",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+                  "digest": "sha256:26ed61011f6eeeb8037b0be18dee67561e756560fdd23d7a9f8f303740b473b5",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-init",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+                  "digest": "sha256:30961c3a49a21c57d42cf743a8a2fe8bc319565fb373659a70ddef938bda4c43",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-interview-design",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+                  "digest": "sha256:f5651547fd3e9b8e53a6a9698b4689c258327909df6678cb6225477193137429",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-interview-documentation",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+                  "digest": "sha256:a80624bf6dc0b3fd95b45a316121c22f9e77117836428fd8b932bc57545a75e9",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-invariants",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+                  "digest": "sha256:a127111fa26a330e0f7b8c42cb37a305472fb5709908152c525505a4f673b7f3",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-leverage-points",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+                  "digest": "sha256:4556384213165454f3dbbdb1a7f387c1dc23be8353957dff33412d62f76e0b24",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-modularity-boundaries",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+                  "digest": "sha256:419b9fd1feeb61e9020fc8e6da5360d958b2654a29e741642e492e260237e648",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-multi-view-integrity",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+                  "digest": "sha256:46bab15ce11359f82ef87921fadac95ca386bcce67818611bde79cdb2716b9bf",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-navigation",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+                  "digest": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-onboarding",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+                  "digest": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-orchestrator",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+                  "digest": "sha256:20ace92bb6f03607f88685d4781be4b6e5e53f6a180c4008a1c61eb7223c8ef5",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-persuasion-and-groups",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+                  "digest": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-platform-posture",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+                  "digest": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-problem-framing",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+                  "digest": "sha256:c76a48a764c9e3cd97f65070bfe52c7f16bd35179b21a7b4f95643f58d8581a1",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-product-behavior",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+                  "digest": "sha256:502cb0d5a7dbbd58b93e0eb7cf3282f02b3a874a679b346bb9a26a33ed1f39a2",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-progressive-disclosure",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+                  "digest": "sha256:9cd60a0fa3b4b757bb1d6f73041b9c463d61823e957dea7dadb353765abcca71",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-quantitative-validation",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+                  "digest": "sha256:32737c46076f232775791fc0a6436d5fda1d889869a7471fbb377673afe3c5ae",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-requirements-definition",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+                  "digest": "sha256:f632a4c7592e1c47ebca0946df4a66b1e746ecc7d8c148a871273460b0deabfd",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-research-communication",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+                  "digest": "sha256:c52029c10361d09cf54d308c5f42098c475a7d38b5ba7f1550970b5face2e92e",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-research-planning",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+                  "digest": "sha256:8cc6200226b75483dadef38f48a63f70aefd20b5a335549e32aa24cdf7668db9",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-research-scoping",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+                  "digest": "sha256:f533a683aed936ac4dee0e3abf18a4d0a971e08a369a9bc96c626496087ad150",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-research-synthesis",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+                  "digest": "sha256:92110a0472d88886b9136cf66022edbc7d2c40541f884eeb86e42e913c2ccfe9",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-side-effects",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+                  "digest": "sha256:ab1b085c33d7dd00a45de45efd677c1d90c73ffc10c8678e4268c04419e23e3f",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-stakeholder-alignment",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+                  "digest": "sha256:43832721285199548a450b72018e88d10b22ecc67ea36e1df703a21f74883a8d",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-system-structure",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+                  "digest": "sha256:5e5cca713781fe6adcb6aa7f6e51188a3438177d7e5526b2db719a384181fe22",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-system-traps",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+                  "digest": "sha256:df6d74cb28547c74df4fd30b0b9de57ba71d04a08589e29372937ba2d1ff8199",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-task-analysis",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+                  "digest": "sha256:13089c779476a112c764d14f1b03824f681eef751045815957bbffad7671301c",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-time-semantics",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+                  "digest": "sha256:fa6e2e1ae78c8252bf2f9104451f9b07b9ba688330fa8f35833bf3539512e1f6",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-tradeoffs",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+                  "digest": "sha256:9d5992ad7f7ae388570efb73dde5cf5446a1e7c817ca579c599b2326a9eea1c0",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-trust",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+                  "digest": "sha256:129faa888a2b1ac8f18a72fb7a82fa809468c72a19eba3e222646d2a4057198a",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-usability-evaluation",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+                  "digest": "sha256:4dfe6581170b1880a6e87641ac2de8ce88ea80f9c27e056c2af3b5d2f9fadb2d",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-user-modeling",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+                  "digest": "sha256:b2ebda5765e16cfb3701512f9d40e50ba8760bf9da5f7dd2cd8d0e07c5b22f92",
+                  "git_url": null,
+                  "git_commit_id": null
+                },
+                {
+                  "name": "lamina-verify",
+                  "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify",
+                  "digest": "sha256:dadedfe1555e16a83688aeaa695db5a9f263d3b46cc4020ce3d5098cf5b86e21",
+                  "git_url": null,
+                  "git_commit_id": null
+                }
+              ],
+              "lamina_skill_absent": false,
+              "passed": true
+            },
+            "hasLedgerEvidence": false
+          },
+          "priorNoSkill": false,
+          "treatmentInvalid": false,
+          "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC/steps/fix/verifier/reward.json",
+          "behaviorReportPath": null,
+          "finalStep": "fix",
+          "costUsd": 0.6227445,
+          "tokens": {
+            "input": 2480248,
+            "cache": 2335765,
+            "output": 33340
+          },
+          "exception": null,
+          "stepExceptions": [],
+          "verifierIsolation": {
+            "passed": true,
+            "breach": false,
+            "evidence": []
+          },
+          "isolationEvidence": {
+            "passed": true,
+            "reason": null,
+            "mode": "rewardkit_llm_judge_v3",
+            "sealPath": null,
+            "verifierAbiPath": null,
+            "ledgerPath": null,
+            "candidateDigest": null,
+            "verifierImageDigest": null,
+            "doubleCaptureIdentical": null,
+            "networkMode": null,
+            "readOnlyRootfs": null,
+            "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+            "measurementContract": "rewardkit_llm_judge_v3",
+            "events": [],
+            "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC/steps/fix/verifier/reward.json"
+          },
+          "measurementValid": true,
+          "modelEvidence": {
+            "configuredAgent": "cursor-cli",
+            "configuredModel": "composer-2.5",
+            "provider": "cursor",
+            "expectedAgent": "cursor-cli",
+            "expectedModel": "cursor/composer-2.5",
+            "modelMatch": true,
+            "steps": [
+              {
+                "step": "lamina_init",
+                "tokensIn": 430402,
+                "tokensOut": 6909,
+                "costUsd": 0.11212640000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:56:19.623334Z",
+                "agentFinishedAt": "2026-07-24T12:58:19.861187Z"
+              },
+              {
+                "step": "lamina_design",
+                "tokensIn": 1703277,
+                "tokensOut": 15180,
+                "costUsd": 0.3966483,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T12:58:20.887975Z",
+                "agentFinishedAt": "2026-07-24T13:01:26.668518Z"
+              },
+              {
+                "step": "implement",
+                "tokensIn": 125152,
+                "tokensOut": 5747,
+                "costUsd": 0.0467308,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T13:01:27.551850Z",
+                "agentFinishedAt": "2026-07-24T13:02:17.168540Z"
+              },
+              {
+                "step": "fix",
+                "tokensIn": 221417,
+                "tokensOut": 5504,
+                "costUsd": 0.06723900000000001,
+                "exceptionType": null,
+                "exceptionMessage": null,
+                "agentStartedAt": "2026-07-24T13:02:18.055344Z",
+                "agentFinishedAt": "2026-07-24T13:03:18.762170Z"
+              }
+            ],
+            "child_actual_model_unverified": true
+          },
+          "taskChecksum": "ce36f5c5f99f710e5198be57e909eb1a80ca5b179a536d08b0343d146290364a",
+          "development_only": true,
+          "confirmatory": false,
+          "child_actual_model_unverified": true
+        }
+      ]
+    }
+  ],
+  "schedule": [
+    {
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "scheduleIndex": 0,
+      "wave": 1,
+      "taskDirName": "dev-simple-list-direct-v3"
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "scheduleIndex": 1,
+      "wave": 1,
+      "taskDirName": "dev-simple-list-plan-v3"
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "scheduleIndex": 2,
+      "wave": 1,
+      "taskDirName": "dev-simple-list-lamina-v3"
+    }
+  ],
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "attemptsPerArm": 1,
+  "maxRetries": 0,
+  "scoring": {
+    "measurement": "semantic_criteria_v3",
+    "behaviorPoints": 10,
+    "raw": "earned / 10",
+    "reward": "(earned + 1) / 12",
+    "smoothing": {
+      "kind": "laplace",
+      "alpha": 1,
+      "beta": 1,
+      "armBlind": true
+    },
+    "deterministicReplay": "hard measurement-validity gate"
+  },
+  "concurrency": {
+    "requested": 1,
+    "effective": 1,
+    "max": 6,
+    "pending": 3
+  },
+  "campaign": {
+    "startedAt": "2026-07-24T12:50:31.050Z",
+    "deadlineAt": "2026-07-24T14:50:31.050Z",
+    "deadlineMs": 7200000,
+    "deadlineExceeded": false,
+    "ok": true,
+    "gate": "three_arm_campaign_complete"
+  },
+  "gate": "three_arm_campaign_complete",
+  "cells": [
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050",
+      "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050",
+      "trialName": "dev-simple-list-direct-v3__uFRPfSR",
+      "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR",
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "taskDirName": "dev-simple-list-direct-v3",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 162515,
+      "startedAt": "2026-07-24T12:50:32.143928Z",
+      "finishedAt": "2026-07-24T12:53:14.124668Z",
+      "observedReward": 0.318,
+      "reward": 0.318,
+      "behavior": null,
+      "invalidTreatment": false,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [],
+      "earned": null,
+      "possible": null,
+      "rawBehavior": null,
+      "semanticEvidence": {
+        "passed": true,
+        "reasons": [],
+        "measurement": "rewardkit_llm_judge_v3"
+      },
+      "skillEvidence": {
+        "passed": true,
+        "treatmentValid": true,
+        "priorNoSkill": false,
+        "gate": "pre_model_skill_gate_passed",
+        "reason": null,
+        "skillSources": [],
+        "skillLocks": [],
+        "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+        "ledgerEvent": {
+          "event": "pre_model_skill_gate",
+          "arm": "direct",
+          "task_id": "dev-simple-list",
+          "phase": null,
+          "harbor_version": "0.18.0",
+          "agent": "cursor-cli",
+          "model": "cursor/composer-2.5",
+          "cursor_cli_version": "2026.07.20-8cc9c0b",
+          "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+          "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+          "skill_sources": [],
+          "skill_locks": [],
+          "lamina_skill_absent": true,
+          "passed": true
+        },
+        "hasLedgerEvidence": false
+      },
+      "priorNoSkill": false,
+      "treatmentInvalid": false,
+      "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": null,
+      "finalStep": "verify_fix",
+      "costUsd": 0.0651322,
+      "tokens": {
+        "input": 179247,
+        "cache": 156121,
+        "output": 8938
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "mode": "rewardkit_llm_judge_v3",
+        "sealPath": null,
+        "verifierAbiPath": null,
+        "ledgerPath": null,
+        "candidateDigest": null,
+        "verifierImageDigest": null,
+        "doubleCaptureIdentical": null,
+        "networkMode": null,
+        "readOnlyRootfs": null,
+        "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+        "measurementContract": "rewardkit_llm_judge_v3",
+        "events": [],
+        "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050/dev-simple-list-direct-v3__uFRPfSR/steps/verify_fix/verifier/reward.json"
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 40954,
+            "tokensOut": 2759,
+            "costUsd": 0.017021500000000002,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:50:47.348057Z",
+            "agentFinishedAt": "2026-07-24T12:51:22.440807Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 138293,
+            "tokensOut": 6179,
+            "costUsd": 0.048110700000000006,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:51:23.542719Z",
+            "agentFinishedAt": "2026-07-24T12:52:18.112649Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "e33d705f7942198f69dbfd7f7238bd78f3437ccd37be31102567be67ac885361",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051",
+      "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051",
+      "trialName": "dev-simple-list-plan-v3__U3E2Q9B",
+      "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B",
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "taskDirName": "dev-simple-list-plan-v3",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 164825,
+      "startedAt": "2026-07-24T12:53:14.778167Z",
+      "finishedAt": "2026-07-24T12:55:58.970939Z",
+      "observedReward": 0.5121,
+      "reward": 0.5121,
+      "behavior": null,
+      "invalidTreatment": false,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [],
+      "earned": null,
+      "possible": null,
+      "rawBehavior": null,
+      "semanticEvidence": {
+        "passed": true,
+        "reasons": [],
+        "measurement": "rewardkit_llm_judge_v3"
+      },
+      "skillEvidence": {
+        "passed": true,
+        "treatmentValid": true,
+        "priorNoSkill": false,
+        "gate": "pre_model_skill_gate_passed",
+        "reason": null,
+        "skillSources": [],
+        "skillLocks": [],
+        "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+        "ledgerEvent": {
+          "event": "pre_model_skill_gate",
+          "arm": "plan",
+          "task_id": "dev-simple-list",
+          "phase": null,
+          "harbor_version": "0.18.0",
+          "agent": "cursor-cli",
+          "model": "cursor/composer-2.5",
+          "cursor_cli_version": "2026.07.20-8cc9c0b",
+          "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+          "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+          "skill_sources": [],
+          "skill_locks": [],
+          "lamina_skill_absent": true,
+          "passed": true
+        },
+        "hasLedgerEvidence": false
+      },
+      "priorNoSkill": false,
+      "treatmentInvalid": false,
+      "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B/steps/verify_fix/verifier/reward.json",
+      "behaviorReportPath": null,
+      "finalStep": "verify_fix",
+      "costUsd": 0.0572007,
+      "tokens": {
+        "input": 154181,
+        "cache": 133366,
+        "output": 8048
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "mode": "rewardkit_llm_judge_v3",
+        "sealPath": null,
+        "verifierAbiPath": null,
+        "ledgerPath": null,
+        "candidateDigest": null,
+        "verifierImageDigest": null,
+        "doubleCaptureIdentical": null,
+        "networkMode": null,
+        "readOnlyRootfs": null,
+        "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+        "measurementContract": "rewardkit_llm_judge_v3",
+        "events": [],
+        "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051/dev-simple-list-plan-v3__U3E2Q9B/steps/verify_fix/verifier/reward.json"
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "shape_build",
+            "tokensIn": 41370,
+            "tokensOut": 3276,
+            "costUsd": 0.0185139,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:53:29.489251Z",
+            "agentFinishedAt": "2026-07-24T12:53:55.096630Z"
+          },
+          {
+            "step": "verify_fix",
+            "tokensIn": 112811,
+            "tokensOut": 4772,
+            "costUsd": 0.0386868,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:53:56.205032Z",
+            "agentFinishedAt": "2026-07-24T12:54:42.153458Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "8b6d6bfd1383aa40462462d9ba1e67d44d2be9f9caa236d90992aa850b23cb3a",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    },
+    {
+      "ok": true,
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052",
+      "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052",
+      "trialName": "dev-simple-list-lamina-v3__VkPZUwC",
+      "trialPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC",
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "taskDirName": "dev-simple-list-lamina-v3",
+      "state": "completed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 541248,
+      "startedAt": "2026-07-24T12:55:59.653489Z",
+      "finishedAt": "2026-07-24T13:05:00.220419Z",
+      "observedReward": 0.5413,
+      "reward": 0.5413,
+      "behavior": null,
+      "invalidTreatment": false,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [],
+      "earned": null,
+      "possible": null,
+      "rawBehavior": null,
+      "semanticEvidence": {
+        "passed": true,
+        "reasons": [],
+        "measurement": "rewardkit_llm_judge_v3"
+      },
+      "skillEvidence": {
+        "passed": true,
+        "treatmentValid": true,
+        "priorNoSkill": false,
+        "gate": "pre_model_skill_gate_passed",
+        "reason": null,
+        "skillSources": [
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+          "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify"
+        ],
+        "skillLocks": [
+          {
+            "name": "lamina",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+            "digest": "sha256:4b950d610a7c8e9c21b254c3614c137d56765f87e9b786034dd49bf2daaa21ce",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-accessibility",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+            "digest": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-business-context",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+            "digest": "sha256:b113889b9ef94223fc195450671d436c6b6b72ba9399a6ad3199b11ca93ec8bf",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-competitive-analysis",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+            "digest": "sha256:ebc9d11b8995329c1abdf09e48e31a8f6a8402baa20c94f47b5f5b34914d86d5",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-consistency-guarantees",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+            "digest": "sha256:60fd90757c0169daec1d21cd6015075102ac5d590c20fb861b23e0c3ab5acb86",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-content-design",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+            "digest": "sha256:52e9721d1f90899c7214d590a490e96875c9a0e87e7f79e0f1cecf4168ba4e18",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-controls-and-menus",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+            "digest": "sha256:bc8cf79f1a28e5ea487e5c8541dd5418e642c357f16420e6788da1040dd86013",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-core",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+            "digest": "sha256:d0c3ac05a73c2e16d118f7c1ec082c8bb83e6ce705e17c14b22f824f3b57c62f",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-decision-making",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+            "digest": "sha256:20fd7ee10760c046f273054ace9fadf8f444b0e3fdacc97540ba710b8c013e1a",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-dependencies",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+            "digest": "sha256:e1c07f56162ad749e7abf197f26c4f2768fdebbf2023f5c568c4d1c1bfbafc6b",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-design",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+            "digest": "sha256:2bc84e1977d7e4705693f6e6061f173b9477adcf46eb0d35611a05afb60cf986",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-design-process",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+            "digest": "sha256:256d5c42e9abe6389bff157c85b532916ffc8423fc15a5cfdda6551ee7e786b5",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-discoverability",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+            "digest": "sha256:6df88a70b95fc60010a8e95defd9a812d6b8fca65dbe55dfb4404ea38ccf9683",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-edge-cases",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+            "digest": "sha256:85c4bec0029f3a176ec80f97e7485a6593081d22aaae8d58fbb355c352914432",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-empty-states",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+            "digest": "sha256:7ffa494601fbd043d411eb8572656e69f77ebd28f774a5194cfb233f09f9ca1f",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-error-handling",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+            "digest": "sha256:dfa10d483dab2dbe24917aa9d30b65e8c7e691c1aa17dd2a22cd10f795fbe113",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-evolutionary-rules",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+            "digest": "sha256:2a9761bd78870df4d3bfbbe524456d725ec23c863f9183f4772024d0eec5192c",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-feature-discovery",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+            "digest": "sha256:99e2f9d9b32586e8133e34ea4ab3ca3f90a18abe80c3b5a520b312707df2b29f",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-feature-prioritization",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+            "digest": "sha256:c7f3ac5d980791e763c1c2a301375c42bcb124d0dda3b2f7cb65684c99e849ec",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-feedback-and-status",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+            "digest": "sha256:4dc82db34afa6ee1c9fb8dc6c45d573e244744f91ffb138f137aa138c7e6c809",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-feedback-loops",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+            "digest": "sha256:09b8a95c992b877c4fc8602495f5975aa04a25fff8ef4445f0b9141cc121d805",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-field-research",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+            "digest": "sha256:671a44de68fbde7814640320d1efe17c0b7c5912f101749877e4b9687cfb6517",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-flow-design",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+            "digest": "sha256:08d6a9176340ad963df548a59b0bb30fef82c3462678e602bf2f824f35cb09b7",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-forms",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+            "digest": "sha256:d8849d2f8b31321bfab3e5be85a2385799f63633d33184832ccce2d21a11bf58",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-heuristic-review",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+            "digest": "sha256:b072b86eccd0c431b3ce816b2baa5b60fd5a26ce8c654e9a34a308a7250ffb94",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-idempotency-concurrency",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+            "digest": "sha256:192e74b3595c54a8a5db0e385f48168188910b21d0683691626f8d785fc76fcf",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-information-architecture",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+            "digest": "sha256:26ed61011f6eeeb8037b0be18dee67561e756560fdd23d7a9f8f303740b473b5",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-init",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+            "digest": "sha256:30961c3a49a21c57d42cf743a8a2fe8bc319565fb373659a70ddef938bda4c43",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-interview-design",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+            "digest": "sha256:f5651547fd3e9b8e53a6a9698b4689c258327909df6678cb6225477193137429",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-interview-documentation",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+            "digest": "sha256:a80624bf6dc0b3fd95b45a316121c22f9e77117836428fd8b932bc57545a75e9",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-invariants",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+            "digest": "sha256:a127111fa26a330e0f7b8c42cb37a305472fb5709908152c525505a4f673b7f3",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-leverage-points",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+            "digest": "sha256:4556384213165454f3dbbdb1a7f387c1dc23be8353957dff33412d62f76e0b24",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-modularity-boundaries",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+            "digest": "sha256:419b9fd1feeb61e9020fc8e6da5360d958b2654a29e741642e492e260237e648",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-multi-view-integrity",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+            "digest": "sha256:46bab15ce11359f82ef87921fadac95ca386bcce67818611bde79cdb2716b9bf",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-navigation",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+            "digest": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-onboarding",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+            "digest": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-orchestrator",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+            "digest": "sha256:20ace92bb6f03607f88685d4781be4b6e5e53f6a180c4008a1c61eb7223c8ef5",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-persuasion-and-groups",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+            "digest": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-platform-posture",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+            "digest": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-problem-framing",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+            "digest": "sha256:c76a48a764c9e3cd97f65070bfe52c7f16bd35179b21a7b4f95643f58d8581a1",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-product-behavior",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+            "digest": "sha256:502cb0d5a7dbbd58b93e0eb7cf3282f02b3a874a679b346bb9a26a33ed1f39a2",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-progressive-disclosure",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+            "digest": "sha256:9cd60a0fa3b4b757bb1d6f73041b9c463d61823e957dea7dadb353765abcca71",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-quantitative-validation",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+            "digest": "sha256:32737c46076f232775791fc0a6436d5fda1d889869a7471fbb377673afe3c5ae",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-requirements-definition",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+            "digest": "sha256:f632a4c7592e1c47ebca0946df4a66b1e746ecc7d8c148a871273460b0deabfd",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-research-communication",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+            "digest": "sha256:c52029c10361d09cf54d308c5f42098c475a7d38b5ba7f1550970b5face2e92e",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-research-planning",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+            "digest": "sha256:8cc6200226b75483dadef38f48a63f70aefd20b5a335549e32aa24cdf7668db9",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-research-scoping",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+            "digest": "sha256:f533a683aed936ac4dee0e3abf18a4d0a971e08a369a9bc96c626496087ad150",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-research-synthesis",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+            "digest": "sha256:92110a0472d88886b9136cf66022edbc7d2c40541f884eeb86e42e913c2ccfe9",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-side-effects",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+            "digest": "sha256:ab1b085c33d7dd00a45de45efd677c1d90c73ffc10c8678e4268c04419e23e3f",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-stakeholder-alignment",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+            "digest": "sha256:43832721285199548a450b72018e88d10b22ecc67ea36e1df703a21f74883a8d",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-system-structure",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+            "digest": "sha256:5e5cca713781fe6adcb6aa7f6e51188a3438177d7e5526b2db719a384181fe22",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-system-traps",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+            "digest": "sha256:df6d74cb28547c74df4fd30b0b9de57ba71d04a08589e29372937ba2d1ff8199",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-task-analysis",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+            "digest": "sha256:13089c779476a112c764d14f1b03824f681eef751045815957bbffad7671301c",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-time-semantics",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+            "digest": "sha256:fa6e2e1ae78c8252bf2f9104451f9b07b9ba688330fa8f35833bf3539512e1f6",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-tradeoffs",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+            "digest": "sha256:9d5992ad7f7ae388570efb73dde5cf5446a1e7c817ca579c599b2326a9eea1c0",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-trust",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+            "digest": "sha256:129faa888a2b1ac8f18a72fb7a82fa809468c72a19eba3e222646d2a4057198a",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-usability-evaluation",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+            "digest": "sha256:4dfe6581170b1880a6e87641ac2de8ce88ea80f9c27e056c2af3b5d2f9fadb2d",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-user-modeling",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+            "digest": "sha256:b2ebda5765e16cfb3701512f9d40e50ba8760bf9da5f7dd2cd8d0e07c5b22f92",
+            "git_url": null,
+            "git_commit_id": null
+          },
+          {
+            "name": "lamina-verify",
+            "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify",
+            "digest": "sha256:dadedfe1555e16a83688aeaa695db5a9f263d3b46cc4020ce3d5098cf5b86e21",
+            "git_url": null,
+            "git_commit_id": null
+          }
+        ],
+        "bundleDigest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+        "ledgerEvent": {
+          "event": "pre_model_skill_gate",
+          "arm": "lamina",
+          "task_id": "dev-simple-list",
+          "phase": null,
+          "harbor_version": "0.18.0",
+          "agent": "cursor-cli",
+          "model": "cursor/composer-2.5",
+          "cursor_cli_version": "2026.07.20-8cc9c0b",
+          "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
+          "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+          "bundle_digest": "b767320817a4001c634ce9dd8e69580bc8c63d68e621b9a02152f8094f8689c6",
+          "skill_sources": [
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+            "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify"
+          ],
+          "skill_locks": [
+            {
+              "name": "lamina",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina",
+              "digest": "sha256:4b950d610a7c8e9c21b254c3614c137d56765f87e9b786034dd49bf2daaa21ce",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-accessibility",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-accessibility",
+              "digest": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-business-context",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-business-context",
+              "digest": "sha256:b113889b9ef94223fc195450671d436c6b6b72ba9399a6ad3199b11ca93ec8bf",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-competitive-analysis",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-competitive-analysis",
+              "digest": "sha256:ebc9d11b8995329c1abdf09e48e31a8f6a8402baa20c94f47b5f5b34914d86d5",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-consistency-guarantees",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-consistency-guarantees",
+              "digest": "sha256:60fd90757c0169daec1d21cd6015075102ac5d590c20fb861b23e0c3ab5acb86",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-content-design",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-content-design",
+              "digest": "sha256:52e9721d1f90899c7214d590a490e96875c9a0e87e7f79e0f1cecf4168ba4e18",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-controls-and-menus",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-controls-and-menus",
+              "digest": "sha256:bc8cf79f1a28e5ea487e5c8541dd5418e642c357f16420e6788da1040dd86013",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-core",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-core",
+              "digest": "sha256:d0c3ac05a73c2e16d118f7c1ec082c8bb83e6ce705e17c14b22f824f3b57c62f",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-decision-making",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-decision-making",
+              "digest": "sha256:20fd7ee10760c046f273054ace9fadf8f444b0e3fdacc97540ba710b8c013e1a",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-dependencies",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-dependencies",
+              "digest": "sha256:e1c07f56162ad749e7abf197f26c4f2768fdebbf2023f5c568c4d1c1bfbafc6b",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-design",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design",
+              "digest": "sha256:2bc84e1977d7e4705693f6e6061f173b9477adcf46eb0d35611a05afb60cf986",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-design-process",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-design-process",
+              "digest": "sha256:256d5c42e9abe6389bff157c85b532916ffc8423fc15a5cfdda6551ee7e786b5",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-discoverability",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-discoverability",
+              "digest": "sha256:6df88a70b95fc60010a8e95defd9a812d6b8fca65dbe55dfb4404ea38ccf9683",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-edge-cases",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-edge-cases",
+              "digest": "sha256:85c4bec0029f3a176ec80f97e7485a6593081d22aaae8d58fbb355c352914432",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-empty-states",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-empty-states",
+              "digest": "sha256:7ffa494601fbd043d411eb8572656e69f77ebd28f774a5194cfb233f09f9ca1f",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-error-handling",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-error-handling",
+              "digest": "sha256:dfa10d483dab2dbe24917aa9d30b65e8c7e691c1aa17dd2a22cd10f795fbe113",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-evolutionary-rules",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-evolutionary-rules",
+              "digest": "sha256:2a9761bd78870df4d3bfbbe524456d725ec23c863f9183f4772024d0eec5192c",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-feature-discovery",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-discovery",
+              "digest": "sha256:99e2f9d9b32586e8133e34ea4ab3ca3f90a18abe80c3b5a520b312707df2b29f",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-feature-prioritization",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feature-prioritization",
+              "digest": "sha256:c7f3ac5d980791e763c1c2a301375c42bcb124d0dda3b2f7cb65684c99e849ec",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-feedback-and-status",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-and-status",
+              "digest": "sha256:4dc82db34afa6ee1c9fb8dc6c45d573e244744f91ffb138f137aa138c7e6c809",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-feedback-loops",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-feedback-loops",
+              "digest": "sha256:09b8a95c992b877c4fc8602495f5975aa04a25fff8ef4445f0b9141cc121d805",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-field-research",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-field-research",
+              "digest": "sha256:671a44de68fbde7814640320d1efe17c0b7c5912f101749877e4b9687cfb6517",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-flow-design",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-flow-design",
+              "digest": "sha256:08d6a9176340ad963df548a59b0bb30fef82c3462678e602bf2f824f35cb09b7",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-forms",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-forms",
+              "digest": "sha256:d8849d2f8b31321bfab3e5be85a2385799f63633d33184832ccce2d21a11bf58",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-heuristic-review",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-heuristic-review",
+              "digest": "sha256:b072b86eccd0c431b3ce816b2baa5b60fd5a26ce8c654e9a34a308a7250ffb94",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-idempotency-concurrency",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-idempotency-concurrency",
+              "digest": "sha256:192e74b3595c54a8a5db0e385f48168188910b21d0683691626f8d785fc76fcf",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-information-architecture",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-information-architecture",
+              "digest": "sha256:26ed61011f6eeeb8037b0be18dee67561e756560fdd23d7a9f8f303740b473b5",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-init",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-init",
+              "digest": "sha256:30961c3a49a21c57d42cf743a8a2fe8bc319565fb373659a70ddef938bda4c43",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-interview-design",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-design",
+              "digest": "sha256:f5651547fd3e9b8e53a6a9698b4689c258327909df6678cb6225477193137429",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-interview-documentation",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-interview-documentation",
+              "digest": "sha256:a80624bf6dc0b3fd95b45a316121c22f9e77117836428fd8b932bc57545a75e9",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-invariants",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-invariants",
+              "digest": "sha256:a127111fa26a330e0f7b8c42cb37a305472fb5709908152c525505a4f673b7f3",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-leverage-points",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-leverage-points",
+              "digest": "sha256:4556384213165454f3dbbdb1a7f387c1dc23be8353957dff33412d62f76e0b24",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-modularity-boundaries",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-modularity-boundaries",
+              "digest": "sha256:419b9fd1feeb61e9020fc8e6da5360d958b2654a29e741642e492e260237e648",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-multi-view-integrity",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-multi-view-integrity",
+              "digest": "sha256:46bab15ce11359f82ef87921fadac95ca386bcce67818611bde79cdb2716b9bf",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-navigation",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-navigation",
+              "digest": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-onboarding",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-onboarding",
+              "digest": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-orchestrator",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-orchestrator",
+              "digest": "sha256:20ace92bb6f03607f88685d4781be4b6e5e53f6a180c4008a1c61eb7223c8ef5",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-persuasion-and-groups",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-persuasion-and-groups",
+              "digest": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-platform-posture",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-platform-posture",
+              "digest": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-problem-framing",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-problem-framing",
+              "digest": "sha256:c76a48a764c9e3cd97f65070bfe52c7f16bd35179b21a7b4f95643f58d8581a1",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-product-behavior",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-product-behavior",
+              "digest": "sha256:502cb0d5a7dbbd58b93e0eb7cf3282f02b3a874a679b346bb9a26a33ed1f39a2",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-progressive-disclosure",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-progressive-disclosure",
+              "digest": "sha256:9cd60a0fa3b4b757bb1d6f73041b9c463d61823e957dea7dadb353765abcca71",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-quantitative-validation",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-quantitative-validation",
+              "digest": "sha256:32737c46076f232775791fc0a6436d5fda1d889869a7471fbb377673afe3c5ae",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-requirements-definition",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-requirements-definition",
+              "digest": "sha256:f632a4c7592e1c47ebca0946df4a66b1e746ecc7d8c148a871273460b0deabfd",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-research-communication",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-communication",
+              "digest": "sha256:c52029c10361d09cf54d308c5f42098c475a7d38b5ba7f1550970b5face2e92e",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-research-planning",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-planning",
+              "digest": "sha256:8cc6200226b75483dadef38f48a63f70aefd20b5a335549e32aa24cdf7668db9",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-research-scoping",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-scoping",
+              "digest": "sha256:f533a683aed936ac4dee0e3abf18a4d0a971e08a369a9bc96c626496087ad150",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-research-synthesis",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-research-synthesis",
+              "digest": "sha256:92110a0472d88886b9136cf66022edbc7d2c40541f884eeb86e42e913c2ccfe9",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-side-effects",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-side-effects",
+              "digest": "sha256:ab1b085c33d7dd00a45de45efd677c1d90c73ffc10c8678e4268c04419e23e3f",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-stakeholder-alignment",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-stakeholder-alignment",
+              "digest": "sha256:43832721285199548a450b72018e88d10b22ecc67ea36e1df703a21f74883a8d",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-system-structure",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-structure",
+              "digest": "sha256:5e5cca713781fe6adcb6aa7f6e51188a3438177d7e5526b2db719a384181fe22",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-system-traps",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-system-traps",
+              "digest": "sha256:df6d74cb28547c74df4fd30b0b9de57ba71d04a08589e29372937ba2d1ff8199",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-task-analysis",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-task-analysis",
+              "digest": "sha256:13089c779476a112c764d14f1b03824f681eef751045815957bbffad7671301c",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-time-semantics",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-time-semantics",
+              "digest": "sha256:fa6e2e1ae78c8252bf2f9104451f9b07b9ba688330fa8f35833bf3539512e1f6",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-tradeoffs",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-tradeoffs",
+              "digest": "sha256:9d5992ad7f7ae388570efb73dde5cf5446a1e7c817ca579c599b2326a9eea1c0",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-trust",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-trust",
+              "digest": "sha256:129faa888a2b1ac8f18a72fb7a82fa809468c72a19eba3e222646d2a4057198a",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-usability-evaluation",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-usability-evaluation",
+              "digest": "sha256:4dfe6581170b1880a6e87641ac2de8ce88ea80f9c27e056c2af3b5d2f9fadb2d",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-user-modeling",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-user-modeling",
+              "digest": "sha256:b2ebda5765e16cfb3701512f9d40e50ba8760bf9da5f7dd2cd8d0e07c5b22f92",
+              "git_url": null,
+              "git_commit_id": null
+            },
+            {
+              "name": "lamina-verify",
+              "source": "/Users/shiv/Desktop/code2/lamina/benchmarks/lb6/pilot/skill-bundle/staged/lamina-verify",
+              "digest": "sha256:dadedfe1555e16a83688aeaa695db5a9f263d3b46cc4020ce3d5098cf5b86e21",
+              "git_url": null,
+              "git_commit_id": null
+            }
+          ],
+          "lamina_skill_absent": false,
+          "passed": true
+        },
+        "hasLedgerEvidence": false
+      },
+      "priorNoSkill": false,
+      "treatmentInvalid": false,
+      "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC/steps/fix/verifier/reward.json",
+      "behaviorReportPath": null,
+      "finalStep": "fix",
+      "costUsd": 0.6227445,
+      "tokens": {
+        "input": 2480248,
+        "cache": 2335765,
+        "output": 33340
+      },
+      "exception": null,
+      "stepExceptions": [],
+      "verifierIsolation": {
+        "passed": true,
+        "breach": false,
+        "evidence": []
+      },
+      "isolationEvidence": {
+        "passed": true,
+        "reason": null,
+        "mode": "rewardkit_llm_judge_v3",
+        "sealPath": null,
+        "verifierAbiPath": null,
+        "ledgerPath": null,
+        "candidateDigest": null,
+        "verifierImageDigest": null,
+        "doubleCaptureIdentical": null,
+        "networkMode": null,
+        "readOnlyRootfs": null,
+        "campaignId": "lb6-dev-pilot-skill-rerun-v3",
+        "measurementContract": "rewardkit_llm_judge_v3",
+        "events": [],
+        "rewardPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052/dev-simple-list-lamina-v3__VkPZUwC/steps/fix/verifier/reward.json"
+      },
+      "measurementValid": true,
+      "modelEvidence": {
+        "configuredAgent": "cursor-cli",
+        "configuredModel": "composer-2.5",
+        "provider": "cursor",
+        "expectedAgent": "cursor-cli",
+        "expectedModel": "cursor/composer-2.5",
+        "modelMatch": true,
+        "steps": [
+          {
+            "step": "lamina_init",
+            "tokensIn": 430402,
+            "tokensOut": 6909,
+            "costUsd": 0.11212640000000001,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:56:19.623334Z",
+            "agentFinishedAt": "2026-07-24T12:58:19.861187Z"
+          },
+          {
+            "step": "lamina_design",
+            "tokensIn": 1703277,
+            "tokensOut": 15180,
+            "costUsd": 0.3966483,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T12:58:20.887975Z",
+            "agentFinishedAt": "2026-07-24T13:01:26.668518Z"
+          },
+          {
+            "step": "implement",
+            "tokensIn": 125152,
+            "tokensOut": 5747,
+            "costUsd": 0.0467308,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T13:01:27.551850Z",
+            "agentFinishedAt": "2026-07-24T13:02:17.168540Z"
+          },
+          {
+            "step": "fix",
+            "tokensIn": 221417,
+            "tokensOut": 5504,
+            "costUsd": 0.06723900000000001,
+            "exceptionType": null,
+            "exceptionMessage": null,
+            "agentStartedAt": "2026-07-24T13:02:18.055344Z",
+            "agentFinishedAt": "2026-07-24T13:03:18.762170Z"
+          }
+        ],
+        "child_actual_model_unverified": true
+      },
+      "taskChecksum": "ce36f5c5f99f710e5198be57e909eb1a80ca5b179a536d08b0343d146290364a",
+      "development_only": true,
+      "confirmatory": false,
+      "child_actual_model_unverified": true
+    }
+  ],
+  "limitations": [
+    "Development-only pilot; not LaminaBench-6 confirmatory evidence.",
+    "Persona child actual selected model remains unverified (`child_actual_model_unverified: true`).",
+    "No effect-size gate, confidence interval, or product-win claim is computed or implied.",
+    "Old Harbor V4 jobs/results are refused and never averaged into this report.",
+    "Harbor publication remains a manual operator step.",
+    "Schedule order is deterministic admission-aware optimization with at most one Lamina parent, not a confirmatory randomized arm schedule.",
+    "Prior Lamina efficacy deltas from no-skill Harbor locks are treatment-invalid and are suppressed from lamina_minus_* deltas."
+  ]
+}

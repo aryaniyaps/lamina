@@ -7,7 +7,7 @@ import { spawn as defaultSpawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pickEnvFile } from '../../../lib/load-env.mjs';
+import { parseEnvFile, pickEnvFile } from '../../../lib/load-env.mjs';
 import { assertCampaignSelectionAllowed } from '../lib/frozen-tasks.mjs';
 import {
   CANARY_TASK_ID,
@@ -85,16 +85,41 @@ export function pilotPaths(root = DEFAULT_ROOT) {
   };
 }
 
+function readOptionalEnvFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return {};
+  try {
+    return parseEnvFile(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
 export function buildSupervisorEnv(root = DEFAULT_ROOT, baseEnv = process.env, skillManifestPath = null) {
-  const forkRoot = path.join(root, HARBOR_FORK_REL);
-  const existingPythonPath = baseEnv.PYTHONPATH ? `:${baseEnv.PYTHONPATH}` : '';
+  // Issue #18: stock Harbor + RewardKit. Do not inject harbor-fork / LB6_HOST_SEAL.
+  const fileEnv = {
+    ...readOptionalEnvFile(path.join(root, '.env')),
+    ...readOptionalEnvFile(path.join(root, 'benchmarks/.env')),
+  };
+  const judgeModel =
+    fileEnv.REWARDKIT_JUDGE
+    || fileEnv.LB6_LLM_JUDGE_MODEL
+    || fileEnv.OPENAI_JUDGE_MODEL
+    || baseEnv.REWARDKIT_JUDGE
+    || 'openai/gpt-5.5';
+  // Prefer LB6_LLM_JUDGE_MODEL when REWARDKIT_JUDGE is an older default pin.
+  const preferred =
+    fileEnv.LB6_LLM_JUDGE_MODEL && (!fileEnv.REWARDKIT_JUDGE || /gpt-4\.1/.test(fileEnv.REWARDKIT_JUDGE))
+      ? fileEnv.LB6_LLM_JUDGE_MODEL
+      : judgeModel;
+  const rewardkitJudge = preferred.includes('/') ? preferred : `openai/${preferred}`;
   return {
     ...baseEnv,
-    PYTHONPATH: `${forkRoot}${existingPythonPath}`,
-    LB6_HOST_SEAL: '1',
-    LB6_SEALED_ROOT: path.join(root, SEALED_STORE_REL),
-    LB6_PRIVATE_VERIFIER_ROOT: path.join(root, PRIVATE_VERIFIER_REL),
-    LB6_VERIFIER_IMAGE: baseEnv.LB6_VERIFIER_IMAGE || DEFAULT_VERIFIER_IMAGE,
+    ...(fileEnv.OPENAI_API_KEY ? { OPENAI_API_KEY: fileEnv.OPENAI_API_KEY } : {}),
+    ...(fileEnv.OPENAI_BASE_URL ? { OPENAI_BASE_URL: fileEnv.OPENAI_BASE_URL } : {}),
+    OPENAI_API_KEY: fileEnv.OPENAI_API_KEY || baseEnv.OPENAI_API_KEY,
+    REWARDKIT_JUDGE: rewardkitJudge,
+    LITELLM_DROP_PARAMS: '1',
+    LB6_HOST_SEAL: '0',
     LB6_SKILL_BUNDLE_MANIFEST: skillManifestPath || path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'),
     LB6_SKILL_BUNDLE_ROOT: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged'),
     LB6_SKILL_RERUN_CAMPAIGN_ID: SKILL_RERUN_CAMPAIGN_ID,
@@ -346,12 +371,16 @@ export function hasReconciledSemanticV3(cell) {
 export function isPublicationEligibleCell(cell, { requireMeasurementValid = true } = {}) {
   if (!cell?.taskId || !cell?.arm || isFrozenPublicationTask(cell.taskId)) return false;
   if (!PILOT_ARMS.includes(cell.arm)) return false;
-  if (cell.priorNoSkill || cell.treatmentInvalid) return false;
-  if (cell.skillEvidence?.priorNoSkill) return false;
-  if (cell.skillEvidence?.passed !== true) return false;
-  if (cell.skillEvidence?.hasLedgerEvidence !== true) return false;
+  const rewardkitMode = cell.isolationEvidence?.mode === 'rewardkit_llm_judge_v3'
+    || cell.isolationEvidence?.measurementContract === 'rewardkit_llm_judge_v3';
+  if (!rewardkitMode) {
+    if (cell.priorNoSkill || cell.treatmentInvalid) return false;
+    if (cell.skillEvidence?.priorNoSkill) return false;
+    if (cell.skillEvidence?.passed !== true) return false;
+    if (cell.skillEvidence?.hasLedgerEvidence !== true) return false;
+    if (!hasReconciledSemanticV3(cell)) return false;
+  }
   if (requireMeasurementValid && cell.measurementValid !== true) return false;
-  if (!hasReconciledSemanticV3(cell)) return false;
 
   const expectedTaskDirName = expectedPilotTaskDirName(cell.taskId, cell.arm);
   if (!cell.taskDirName || cell.taskDirName !== expectedTaskDirName) return false;
@@ -577,7 +606,11 @@ export function classifyFromJobEvidence(extractedCell) {
   if (extractedCell.state === 'campaign_deadline_exceeded') {
     return { state: 'campaign_deadline_exceeded', failFast: true };
   }
-  if (!extractedCell.skillEvidence?.passed) {
+  // Issue #18 RewardKit path: stock Harbor --skills; no host pre_model_skill_gate ledger.
+  const rewardkitMode = extractedCell.isolationEvidence?.mode === 'rewardkit_llm_judge_v3'
+    || extractedCell.isolationEvidence?.measurementContract === 'rewardkit_llm_judge_v3'
+    || extractedCell.semanticEvidence?.measurement === 'rewardkit_llm_judge_v3';
+  if (!rewardkitMode && !extractedCell.skillEvidence?.passed) {
     return { state: extractedCell.skillEvidence?.gate || 'skill_injection_failure', failFast: true };
   }
   if (looksLikeSkillInjectionFailure(blob)) {
@@ -1171,6 +1204,7 @@ export async function main(argv = process.argv.slice(2), options = {}) {
   const root = options.root || DEFAULT_ROOT;
   const dryRun = hasFlag(argv, '--dry-run');
   const skipPackageScripts = hasFlag(argv, '--skip-package-scripts');
+  const allowDirtyHarness = hasFlag(argv, '--allow-dirty-harness');
   const concurrencyFlag = readFlag(argv, '--concurrency', undefined);
   const { aggregatePilotCampaign } = await import('./aggregate-results.mjs');
 
@@ -1189,6 +1223,7 @@ export async function main(argv = process.argv.slice(2), options = {}) {
     root,
     dryRun,
     skipPackageScripts,
+    requireCleanHarness: allowDirtyHarness ? false : options.requireCleanHarness,
     concurrency: concurrencyFlag,
     selectedTaskIds,
     spawnImpl: options.spawnImpl,

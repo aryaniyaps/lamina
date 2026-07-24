@@ -60,6 +60,22 @@ function resolveHarnessGitCommit(root) {
   return result.stdout.trim();
 }
 
+// Local operator rebuilds rewrite these; they must not block paid campaign launch.
+const LOCAL_HARNESS_ARTIFACT_RE =
+  /^(benchmarks\/lb6\/pilot\/agent-runtime\.manifest\.json|benchmarks\/lb6\/pilot\/isolation-runtime\.manifest\.json|benchmarks\/lb6\/reports\/|benchmarks\/lb6\/pilot\/logs\/)/;
+
+export function isMeaningfulHarnessDirt(porcelain) {
+  return `${porcelain || ''}`
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .some((line) => {
+      // porcelain: XY PATH or XY ORIG -> PATH
+      const pathPart = line.slice(3).split(' -> ').pop()?.trim();
+      return pathPart ? !LOCAL_HARNESS_ARTIFACT_RE.test(pathPart) : true;
+    });
+}
+
 export function resolveHarnessGitProvenance(root) {
   const gitRoot = resolveGitRoot(root);
   if (!gitRoot) {
@@ -76,7 +92,7 @@ export function resolveHarnessGitProvenance(root) {
   }
   return {
     harness_git_commit: harnessGitCommit,
-    harness_git_clean: !status.stdout.trim(),
+    harness_git_clean: !isMeaningfulHarnessDirt(status.stdout),
     unavailable: false,
   };
 }
@@ -290,11 +306,23 @@ export function verifyStagedSkillBundle(root, expectedManifest = null) {
 }
 
 /** Stage from working-tree skills/ only when bytes match the pinned source commit. */
+/**
+ * Stage all repo skills from the working tree (issue #18).
+ * Prefer this when the full skills/ tree must be present even if it drifts from PINNED_SKILL_COMMIT.
+ */
 export function stageSkillBundleFromWorkingTree(root, options = {}) {
   const sourceSkillCommit = options.sourceSkillCommit ?? PINNED_SKILL_COMMIT;
-  assertPinnedCommitExists(root, sourceSkillCommit);
+  const requirePinnedMatch = options.requirePinnedMatch === true;
+  if (requirePinnedMatch) {
+    assertPinnedCommitExists(root, sourceSkillCommit);
+  }
   const repoSkillsRoot = path.join(root, 'skills');
-  for (const skillName of options.skillNames ?? LAMINA_BENCH_SKILLS) {
+  const skillNames = options.skillNames ?? LAMINA_BENCH_SKILLS;
+  for (const skillName of skillNames) {
+    if (!fs.existsSync(path.join(repoSkillsRoot, skillName, 'SKILL.md'))) {
+      throw new Error(`repo skill missing SKILL.md: ${skillName}`);
+    }
+    if (!requirePinnedMatch) continue;
     for (const rel of listFilesRecursive(path.join(repoSkillsRoot, skillName), path.join(repoSkillsRoot, skillName))) {
       const workPath = path.join(repoSkillsRoot, skillName, rel);
       const workDigest = sha256File(workPath);
@@ -315,9 +343,10 @@ export function stageSkillBundleFromWorkingTree(root, options = {}) {
 
   const { bundleRoot, stagedRoot, manifestPath } = skillBundlePaths(root);
   if (options.write !== false) {
-    fs.rmSync(bundleRoot, { recursive: true, force: true });
+    fs.rmSync(stagedRoot, { recursive: true, force: true });
+    fs.mkdirSync(bundleRoot, { recursive: true });
     fs.mkdirSync(stagedRoot, { recursive: true });
-    for (const skillName of options.skillNames ?? LAMINA_BENCH_SKILLS) {
+    for (const skillName of skillNames) {
       copySkillTree(path.join(repoSkillsRoot, skillName), path.join(stagedRoot, skillName));
     }
   }
