@@ -6,11 +6,19 @@ The host supervisor has sealed the shaping snapshot. Implement the newly injecte
 
 Build a self-contained product in `/app` with no external services. Use plain HTML/CSS/JavaScript and Node ESM so it runs offline.
 
-Required files:
+Required files (these are what the judge scores — do **not** ship a parallel `app.js`):
 - `index.html`: minimal UI with a `<main>` landmark and controls for the core flow
 - `app.mjs`: exports `createInitialState()`, `reduce(state, action)`, and `project(state, actorId)`
+- `ui.mjs` (recommended): browser UI that imports from `app.mjs` — do not put domain rules only in the DOM layer
 
 `reduce()` must be deterministic and side-effect free. **Every published action type must actually mutate domain state** (no silent no-ops). `project()` must return JSON-serializable **actor-scoped** views.
+
+## Product-quality bar (beyond selfcheck)
+
+- Enforce authority and illegal transitions **inside `reduce`** (not only by hiding buttons in the UI).
+- Reject unknown ids / empty payloads; do not autovivify phantom domain records.
+- Cover failure, empty, and recovery paths that the founder brief implies.
+- Prefer durable invariants from design artifacts over comment slogans.
 
 ## Published action schema
 

@@ -246,27 +246,49 @@ function validateTaskDir(task, arm) {
     }
   }
 
-  const shapingStep = arm === 'lamina' ? 'implement' : 'shape_build';
-  const shapingInstruction = fs.readFileSync(path.join(dir, `steps/${shapingStep}/instruction.md`), 'utf8');
-  if (/Published action schema|add_note|selfcheck\.mjs|\.lb6-abi/i.test(shapingInstruction)) {
-    errors.push(`${dir}: pre-seal shaping instruction exposes future ABI material`);
+  // Baseline shape_build stays pre-ABI. Lamina implement intentionally ships the judged ABI
+  // (design → product conversion); only init/design must remain process-only.
+  if (arm !== 'lamina') {
+    const shapingInstruction = fs.readFileSync(path.join(dir, 'steps/shape_build/instruction.md'), 'utf8');
+    if (/Published action schema|add_note|selfcheck\.mjs|\.lb6-abi/i.test(shapingInstruction)) {
+      errors.push(`${dir}: pre-seal shaping instruction exposes future ABI material`);
+    }
+  } else {
+    const implementInstruction = fs.readFileSync(path.join(dir, 'steps/implement/instruction.md'), 'utf8');
+    if (!/Published action schema|app\.mjs|selfcheck\.mjs|\.lb6-abi/i.test(implementInstruction)) {
+      errors.push(`${dir}: lamina implement must include the published ABI ship contract`);
+    }
+    if (/one application JavaScript file|Pre-ABI shaping target/i.test(implementInstruction)) {
+      errors.push(`${dir}: lamina implement must not use the pre-ABI app.js shaping contract`);
+    }
+    for (const processStep of ['lamina_init', 'lamina_design']) {
+      const processInstruction = fs.readFileSync(path.join(dir, `steps/${processStep}/instruction.md`), 'utf8');
+      if (/Published action schema|selfcheck\.mjs|\.lb6-abi/i.test(processInstruction)) {
+        errors.push(`${dir}: ${processStep} must not expose ABI material`);
+      }
+    }
   }
 
-  const abiDir = path.join(dir, `steps/${finalStep}/workdir/.lb6-abi`);
-  for (const file of ['public-abi.json', 'selfcheck.mjs', 'behavior-selfcheck.mjs']) {
-    if (!fs.existsSync(path.join(abiDir, file))) errors.push(`${dir}: missing ABI payload ${file}`);
-  }
-  const publicAbiPath = path.join(abiDir, 'public-abi.json');
-  if (fs.existsSync(publicAbiPath)) {
-    const publicAbi = JSON.parse(fs.readFileSync(publicAbiPath, 'utf8'));
-    if (publicAbi.contract_version !== 'lb6-pilot-semantic-abi-v3') {
-      errors.push(`${dir}: expected semantic ABI v3`);
+  const abiSteps = arm === 'lamina' ? ['implement', finalStep] : [finalStep];
+  for (const abiStep of abiSteps) {
+    const abiDir = path.join(dir, `steps/${abiStep}/workdir/.lb6-abi`);
+    for (const file of ['public-abi.json', 'selfcheck.mjs', 'behavior-selfcheck.mjs']) {
+      if (!fs.existsSync(path.join(abiDir, file))) {
+        errors.push(`${dir}: missing ABI payload ${file} on step ${abiStep}`);
+      }
     }
-    if (publicAbi.scoring_protocol?.behavior_points !== 10) {
-      errors.push(`${dir}: public ABI must disclose ten behavior points`);
-    }
-    if (JSON.stringify(publicAbi).includes('__lb6_unknown_context_probe')) {
-      errors.push(`${dir}: public ABI leaked the hidden unknown-action probe`);
+    const publicAbiPath = path.join(abiDir, 'public-abi.json');
+    if (fs.existsSync(publicAbiPath)) {
+      const publicAbi = JSON.parse(fs.readFileSync(publicAbiPath, 'utf8'));
+      if (publicAbi.contract_version !== 'lb6-pilot-semantic-abi-v3') {
+        errors.push(`${dir}: expected semantic ABI v3 on step ${abiStep}`);
+      }
+      if (publicAbi.scoring_protocol?.behavior_points !== 10) {
+        errors.push(`${dir}: public ABI must disclose ten behavior points on step ${abiStep}`);
+      }
+      if (JSON.stringify(publicAbi).includes('__lb6_unknown_context_probe')) {
+        errors.push(`${dir}: public ABI leaked the hidden unknown-action probe on step ${abiStep}`);
+      }
     }
   }
 

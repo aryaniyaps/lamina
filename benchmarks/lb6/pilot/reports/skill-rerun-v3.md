@@ -2,8 +2,8 @@
 
 **Development-only / non-confirmatory.** Do not treat these cells as LaminaBench-6 evidence, a product-win advertisement, or a frozen statistical gate result.
 
-- Generated: 2026-07-24T13:05:00.350Z
-- Selected tasks: `dev-simple-list`
+- Generated: 2026-07-24T14:48:30.838Z
+- Selected tasks: `dev-toggle-preference`
 - Agent: `cursor-cli`
 - Model: `cursor/composer-2.5`
 - Attempts per arm: `1`
@@ -11,7 +11,7 @@
 - Concurrency requested: `1`
 - Concurrency effective: `1`
 - Concurrency hard max: `6`
-- Campaign deadline: `2026-07-24T14:50:31.050Z`
+- Campaign deadline: `2026-07-24T16:35:11.763Z`
 - Campaign gate: `three_arm_campaign_complete`
 - Behavior rubric: `10` equal semantic points; raw score = `earned / 10`.
 - Valid Harbor reward: arm-blind Laplace smoothing `(earned + 1) / 12` (ceiling `0.9167`).
@@ -24,19 +24,19 @@ Deterministic makespan-aware order (development-only throughput optimization; no
 
 | Index | Wave | Task | Arm | Job |
 |---:|---:|---|---|---|
-| 0 | 1 | `dev-simple-list` | direct | `lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050` |
-| 1 | 1 | `dev-simple-list` | plan | `lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051` |
-| 2 | 1 | `dev-simple-list` | lamina | `lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052` |
+| 0 | 1 | `dev-toggle-preference` | direct | `lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784903711763` |
+| 1 | 1 | `dev-toggle-preference` | plan | `lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784903711764` |
+| 2 | 1 | `dev-toggle-preference` | lamina | `lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784903711765` |
 
 ## Task clusters
 
-### `dev-simple-list`
+### `dev-toggle-preference`
 
 | Arm | Reward | Raw | Earned | Valid measurement | Delta vs direct |
 |---|---:|---:|---:|---|---|
-| direct | 0.318 | n/a | n/a/n/a | yes | — |
-| plan | 0.5121 | n/a | n/a/n/a | yes | 0.1941 |
-| lamina | 0.5413 | n/a | n/a/n/a | yes | 0.2233 |
+| direct | 0.5 | n/a | n/a/n/a | yes | — |
+| plan | 0.5413 | n/a | n/a/n/a | yes | 0.0413 |
+| lamina | 0.6165 | n/a | n/a/n/a | yes | 0.11650000000000005 |
 
 ## Limitations and missing gates
 
@@ -54,9 +54,9 @@ Deterministic makespan-aware order (development-only throughput optimization; no
 
 ## Job paths
 
-- dev-simple-list/direct: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784897431050`
-- dev-simple-list/plan: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784897431051`
-- dev-simple-list/lamina: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784897431052`
+- dev-toggle-preference/direct: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784903711763`
+- dev-toggle-preference/plan: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784903711764`
+- dev-toggle-preference/lamina: `/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784903711765`
 
 ## Publication
 

@@ -193,11 +193,17 @@ function thinSliceContract(actionSchema, projectionContract) {
   return (
     '## Required thin-slice ship target\n\n' +
     'Build a self-contained product in `/app` with no external services. Use plain HTML/CSS/JavaScript and Node ESM so it runs offline.\n\n' +
-    'Required files:\n' +
+    'Required files (these are what the judge scores — do **not** ship a parallel `app.js`):\n' +
     '- `index.html`: minimal UI with a `<main>` landmark and controls for the core flow\n' +
-    '- `app.mjs`: exports `createInitialState()`, `reduce(state, action)`, and `project(state, actorId)`\n\n' +
+    '- `app.mjs`: exports `createInitialState()`, `reduce(state, action)`, and `project(state, actorId)`\n' +
+    '- `ui.mjs` (recommended): browser UI that imports from `app.mjs` — do not put domain rules only in the DOM layer\n\n' +
     '`reduce()` must be deterministic and side-effect free. **Every published action type must actually mutate domain state** (no silent no-ops). ' +
     '`project()` must return JSON-serializable **actor-scoped** views.\n\n' +
+    '## Product-quality bar (beyond selfcheck)\n\n' +
+    '- Enforce authority and illegal transitions **inside `reduce`** (not only by hiding buttons in the UI).\n' +
+    '- Reject unknown ids / empty payloads; do not autovivify phantom domain records.\n' +
+    '- Cover failure, empty, and recovery paths that the founder brief implies.\n' +
+    '- Prefer durable invariants from design artifacts over comment slogans.\n\n' +
     '## Published action schema\n\n' +
     actionSchema +
     '\n\n' +
@@ -206,6 +212,16 @@ function thinSliceContract(actionSchema, projectionContract) {
     '```json\n' + JSON.stringify(projectionContract ?? {}, null, 2) + '\n```\n\n' +
     'Final scoring uses Harbor RewardKit LLM-as-judge (no hardcoded semantic rubric). Keep the product coherent and runnable.\n\n' +
     selfCheckBlock()
+  );
+}
+
+function laminaImplementQualityBlock() {
+  return (
+    '## Lamina implement mandate\n\n' +
+    'Translate `.lamina/` design (`implement.md`, personas, authority/lifecycle notes) into the **published ABI files** above.\n' +
+    '- Write `/app/app.mjs` (+ `ui.mjs` / `index.html` / `styles.css` as needed). **Never** create `/app/app.js` as the product.\n' +
+    '- Run `node /app/.lb6-abi/selfcheck.mjs` until it exits 0 before finishing this step.\n' +
+    '- Spend the budget on domain correctness in `reduce`/`project`, not a throwaway non-ABI prototype.\n'
   );
 }
 
@@ -259,13 +275,16 @@ function laminaStepCommand(phase) {
       'Do not implement application code in this step.',
     lamina_design:
       'Run **only** `/lamina-design` via the `lamina-design` skill end-to-end through `ready_to_build` with `implement.md`. ' +
-      `Spawn **≥${REQUIRED_PERSONA_CHILDREN} native Task persona children** during design — do not inline-fake the panel in parent text when Task is available.`,
+      `Spawn **≥${REQUIRED_PERSONA_CHILDREN} native Task persona children** during design — do not inline-fake the panel in parent text when Task is available. ` +
+      'In `implement.md`, specify reducer-enforced authority, illegal-state bans, and edge/recovery paths the next coding step must ship in `app.mjs` (not UI-only).',
     implement:
-      'Implement the thin slice from the latest `implement.md` in a normal coding turn. ' +
-      'You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.',
+      'Implement the **published ABI** (`app.mjs` / `ui.mjs`) from the latest `implement.md` in a normal coding turn. ' +
+      'You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step. ' +
+      'Do not build a non-ABI `app.js` prototype first.',
     fix:
-      'Apply fixes from the latest design artifacts in a normal coding turn. Leave the product runnable. ' +
-      '**Do not** invoke `/lamina-*` slash commands in this step.',
+      'Harden the already-shipped ABI product using the latest design artifacts. ' +
+      'Fix authority gaps, edge/recovery paths, and runtime bugs in `app.mjs`/`ui.mjs`. Leave the product runnable. ' +
+      '**Do not** rewrite from scratch or invent a parallel `app.js`. **Do not** invoke `/lamina-*` slash commands in this step.',
   };
   return commands[phase] ?? '';
 }
@@ -289,7 +308,11 @@ function instruction(task, arm, phase, ctx) {
     if (phase === 'lamina_init' || phase === 'lamina_design') {
       body += `${laminaBenchProfile(task)}\n\n`;
     }
-    if (phase === 'implement') body += `${shapingContract()}\n`;
+    // Ship the judged ABI during implement (not only in fix) so design time converts to product code.
+    if (phase === 'implement') {
+      body += `${contract}\n`;
+      body += `${laminaImplementQualityBlock()}\n`;
+    }
     if (phase === 'fix') body += `${contract}\n`;
     if (phase !== 'fix') body += `## Founder brief\n\n${brief}\n\n`;
     else body += `## Founder brief\n\n${brief}\n\n`;
@@ -493,11 +516,16 @@ function writeTask(task, arm, ctx) {
   }
 
   // Keep public ABI/selfcheck as agent aids only — not the claim verifier (issue #18).
-  const abiDir = path.join(dir, 'steps', finalStep, 'workdir', '.lb6-abi');
-  fs.mkdirSync(abiDir, { recursive: true });
-  fs.writeFileSync(path.join(abiDir, 'public-abi.json'), `${JSON.stringify(publicAbi(task), null, 2)}\n`);
-  fs.writeFileSync(path.join(abiDir, 'selfcheck.mjs'), selfcheckSource(task));
-  fs.writeFileSync(path.join(abiDir, 'behavior-selfcheck.mjs'), behaviorSelfcheck);
+  // For lamina, inject ABI on implement (primary ship) and fix (harden), not only on the final step.
+  const abiSteps =
+    arm === 'lamina' ? ['implement', finalStep] : [finalStep];
+  for (const abiStep of [...new Set(abiSteps)]) {
+    const abiDir = path.join(dir, 'steps', abiStep, 'workdir', '.lb6-abi');
+    fs.mkdirSync(abiDir, { recursive: true });
+    fs.writeFileSync(path.join(abiDir, 'public-abi.json'), `${JSON.stringify(publicAbi(task), null, 2)}\n`);
+    fs.writeFileSync(path.join(abiDir, 'selfcheck.mjs'), selfcheckSource(task));
+    fs.writeFileSync(path.join(abiDir, 'behavior-selfcheck.mjs'), behaviorSelfcheck);
+  }
 
   // Remove obsolete private verifier fixtures for rebuilt tasks.
   const privateDir = path.join(ctx.privateVerifierRoot, task.id, arm);

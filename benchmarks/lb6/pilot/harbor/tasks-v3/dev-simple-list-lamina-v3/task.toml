@@ -50,7 +50,7 @@ storage_mb = 10240
 name = "lamina_init"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 360.0
+timeout_sec = 240.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -58,7 +58,7 @@ timeout_sec = 45.0
 name = "lamina_design"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 480.0
+timeout_sec = 360.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -66,7 +66,7 @@ timeout_sec = 45.0
 name = "implement"
 min_reward = 0.0
 [steps.agent]
-timeout_sec = 420.0
+timeout_sec = 600.0
 [steps.verifier]
 timeout_sec = 45.0
 
@@ -75,6 +75,6 @@ name = "fix"
 min_reward = 0.0
 artifacts = ["/app/app.mjs", "/app/index.html", "/app/ui.mjs", "/app/styles.css"]
 [steps.agent]
-timeout_sec = 240.0
+timeout_sec = 300.0
 [steps.verifier]
 timeout_sec = 300.0

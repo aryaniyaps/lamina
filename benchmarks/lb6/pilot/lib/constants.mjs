@@ -64,11 +64,12 @@ export const BASELINE_STEPS = Object.freeze([
   { name: 'verify_fix', agentTimeout: 750, verifierTimeout: 300 },
 ]);
 
+/** Coding-heavy split: process steps stay lean; implement ships the judged ABI. */
 export const LAMINA_STEPS = Object.freeze([
-  { name: 'lamina_init', agentTimeout: 360, verifierTimeout: 45 },
-  { name: 'lamina_design', agentTimeout: 480, verifierTimeout: 45 },
-  { name: 'implement', agentTimeout: 420, verifierTimeout: 45 },
-  { name: 'fix', agentTimeout: 240, verifierTimeout: 300 },
+  { name: 'lamina_init', agentTimeout: 240, verifierTimeout: 45 },
+  { name: 'lamina_design', agentTimeout: 360, verifierTimeout: 45 },
+  { name: 'implement', agentTimeout: 600, verifierTimeout: 45 },
+  { name: 'fix', agentTimeout: 300, verifierTimeout: 300 },
 ]);
 
 export const REQUIRED_PERSONA_CHILDREN = 2;
