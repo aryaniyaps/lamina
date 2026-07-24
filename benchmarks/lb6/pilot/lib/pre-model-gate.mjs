@@ -210,7 +210,7 @@ export function evaluateJobPreModelGate({
   const { manifest: loadedManifest, stagedRoot } = manifest
     ? { manifest, stagedRoot: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged') }
     : (() => {
-        const manifestPath = path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest.json');
+        const manifestPath = path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json');
         const parsed = readJson(manifestPath);
         return {
           manifest: parsed,

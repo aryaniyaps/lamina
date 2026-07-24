@@ -52,6 +52,7 @@ authors = [{ name = "LaminaBench" }]
 [metadata]
 task_id = "isolation-smoke"
 arm = "direct"
+campaign_id = "lb6-dev-pilot-skill-rerun-v3"
 host_sealed_supervisor_required = true
 [environment]
 network_mode = "public"
@@ -78,6 +79,9 @@ const env = {
   LB6_SEALED_ROOT: sealed,
   LB6_PRIVATE_VERIFIER_ROOT: privateRoot,
   LB6_VERIFIER_IMAGE: image,
+  LB6_SKILL_BUNDLE_MANIFEST: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'),
+  LB6_SKILL_BUNDLE_ROOT: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged'),
+  LB6_SKILL_RERUN_CAMPAIGN_ID: 'lb6-dev-pilot-skill-rerun-v3',
 };
 const result = spawnSync('harbor', [
   'run', '--path', task, '--agent', 'nop', '--job-name', 'lb6-isolation-smoke',
@@ -114,6 +118,8 @@ const verifierAbi = JSON.parse(fs.readFileSync(
 assert.equal(verifierAbi.network_mode, 'none');
 assert.equal(verifierAbi.read_only_rootfs, true);
 assert.equal(verifierAbi.candidate_digest, sealRecord.candidate_digest);
+assert.equal(verifierAbi.campaign_id, 'lb6-dev-pilot-skill-rerun-v3');
+assert.equal(verifierAbi.measurement_contract, 'semantic_criteria_v3');
 assert.ok(!fs.existsSync(path.join(trial, 'steps/verify_fix/agent/tests')));
 
 console.log('lb6 Harbor isolation smoke passed');

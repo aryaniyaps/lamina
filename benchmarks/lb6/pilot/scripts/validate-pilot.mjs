@@ -26,11 +26,28 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const PILOT_ROOT = path.join(ROOT, 'benchmarks/lb6/pilot');
-const tasksRoot = path.join(PILOT_ROOT, 'harbor/tasks');
-const privateVerifierRoot = path.join(PILOT_ROOT, 'private-verifier');
+const tasksRoot = path.join(PILOT_ROOT, 'harbor/tasks-v3');
+const privateVerifierRoot = path.join(PILOT_ROOT, 'private-verifier-v3');
+const legacyTasksRoot = path.join(PILOT_ROOT, 'harbor/tasks');
+const legacyPrivateVerifierRoot = path.join(PILOT_ROOT, 'private-verifier');
 const manifestPath = path.join(PILOT_ROOT, 'corpus/manifest.json');
-const packageManifestPath = path.join(PILOT_ROOT, 'package.manifest.json');
+const packageManifestPath = path.join(PILOT_ROOT, 'package.manifest-v3.json');
 const errors = [];
+const SEMANTIC_CRITERION_KINDS = new Set([
+  'entity_present',
+  'entity_absent',
+  'entities_present',
+  'field_equals',
+  'field_not_equals',
+  'capability_paused',
+  'state_unchanged_or_field_equals',
+  'field_contains',
+  'state_contains',
+  'secret_absent',
+  'view_changed',
+  'state_unchanged',
+  'view_unchanged',
+]);
 
 function finalStepForArm(arm) {
   return arm === 'lamina' ? 'fix' : 'verify_fix';
@@ -42,26 +59,26 @@ function readManifest() {
 
 function validatePackageManifest(manifest) {
   if (!fs.existsSync(packageManifestPath)) {
-    errors.push('missing package.manifest.json — run build-pilot.mjs first');
+    errors.push('missing package.manifest-v3.json — run build-pilot.mjs first');
     return;
   }
   const pkg = JSON.parse(fs.readFileSync(packageManifestPath, 'utf8'));
   for (const key of ['development_only', 'confirmatory', 'child_actual_model_unverified']) {
     if (pkg[key] !== manifest[key]) {
-      errors.push(`package.manifest.json ${key} mismatch`);
+      errors.push(`package.manifest-v3.json ${key} mismatch`);
     }
   }
   if (pkg.benchmark_version !== BENCHMARK_VERSION) {
-    errors.push(`package.manifest.json benchmark_version must be ${BENCHMARK_VERSION}`);
+    errors.push(`package.manifest-v3.json benchmark_version must be ${BENCHMARK_VERSION}`);
   }
   if (pkg.not_claim_ready !== true) {
-    errors.push('package.manifest.json must set not_claim_ready=true');
+    errors.push('package.manifest-v3.json must set not_claim_ready=true');
   }
   if (pkg.campaign_id !== SKILL_RERUN_CAMPAIGN_ID) {
-    errors.push(`package.manifest.json campaign_id must be ${SKILL_RERUN_CAMPAIGN_ID}`);
+    errors.push(`package.manifest-v3.json campaign_id must be ${SKILL_RERUN_CAMPAIGN_ID}`);
   }
   if (!pkg.skill_bundle_digest) {
-    errors.push('package.manifest.json must include skill_bundle_digest');
+    errors.push('package.manifest-v3.json must include skill_bundle_digest');
   }
   const bundleCheck = verifyStagedSkillBundle(ROOT);
   if (!bundleCheck.ok) {
@@ -70,12 +87,14 @@ function validatePackageManifest(manifest) {
   const manifestTaskIds = manifest.tasks.map((task) => task.id).sort();
   const packageTaskIds = [...(pkg.task_ids || [])].sort();
   if (JSON.stringify(packageTaskIds) !== JSON.stringify(manifestTaskIds)) {
-    errors.push('package.manifest.json task_ids must match manifest.tasks');
+    errors.push('package.manifest-v3.json task_ids must match manifest.tasks');
   }
 }
 
 function validateTaskCount(manifest) {
-  const expectedDirs = manifest.tasks.length * PILOT_ARMS.length;
+  const expectedDirs = manifest.tasks.filter(
+    (task) => !publishedFrozenTaskIds(manifest).includes(task.id),
+  ).length * PILOT_ARMS.length;
   const dirs = fs.existsSync(tasksRoot)
     ? fs.readdirSync(tasksRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
     : [];
@@ -87,7 +106,9 @@ function validateTaskCount(manifest) {
   }
 
   const expectedNames = new Set(
-    manifest.tasks.flatMap((task) => PILOT_ARMS.map((arm) => `${task.id}-${arm}`)),
+    manifest.tasks
+      .filter((task) => !publishedFrozenTaskIds(manifest).includes(task.id))
+      .flatMap((task) => PILOT_ARMS.map((arm) => `${task.id}-${arm}-v3`)),
   );
   for (const name of dirs) {
     if (!expectedNames.has(name)) {
@@ -101,8 +122,66 @@ function validateTaskCount(manifest) {
   }
 }
 
+function validateSemanticRubric(task) {
+  if (!task.projection_contract || !Array.isArray(task.projection_contract.actors)) {
+    errors.push(`${task.id}: missing typed projection_contract actors`);
+  }
+  const sequences = task.golden?.sequences ?? [];
+  const sequenceIds = sequences.map((sequence) => sequence.id);
+  if (sequenceIds.some((id) => !id) || new Set(sequenceIds).size !== sequenceIds.length) {
+    errors.push(`${task.id}: semantic sequence ids must be present and unique`);
+  }
+  const criteria = sequences.flatMap((sequence) => sequence.criteria ?? []);
+  const total = criteria.reduce((sum, criterion) => sum + Number(criterion.weight ?? 1), 0);
+  if (total !== 10) errors.push(`${task.id}: semantic criterion weights total ${total}; expected 10`);
+  const ids = criteria.map((criterion) => criterion.id);
+  if (ids.some((id) => !id) || new Set(ids).size !== ids.length) {
+    errors.push(`${task.id}: semantic criterion ids must be present and unique`);
+  }
+  for (const criterion of criteria) {
+    if (!SEMANTIC_CRITERION_KINDS.has(criterion.kind)) {
+      errors.push(`${task.id}: unsupported semantic criterion kind ${criterion.kind}`);
+    }
+    const weight = Number(criterion.weight ?? 1);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      errors.push(`${task.id}/${criterion.id}: criterion weight must be positive and finite`);
+    }
+  }
+  for (const sequence of sequences) {
+    const actionCount = sequence.actions?.length ?? 0;
+    for (const criterion of sequence.criteria ?? []) {
+      if (!Number.isInteger(criterion.after) || criterion.after < 1 || criterion.after > actionCount) {
+        errors.push(`${task.id}/${criterion.id}: checkpoint after must be within 1..${actionCount}`);
+      }
+      if (['entity_present', 'entity_absent'].includes(criterion.kind) && !criterion.entity_id) {
+        errors.push(`${task.id}/${criterion.id}: ${criterion.kind} requires entity_id`);
+      }
+      if (criterion.kind === 'entities_present' && (!Array.isArray(criterion.entity_ids) || !criterion.entity_ids.length)) {
+        errors.push(`${task.id}/${criterion.id}: entities_present requires entity_ids`);
+      }
+      if (['field_equals', 'field_not_equals', 'state_unchanged_or_field_equals'].includes(criterion.kind)) {
+        if (!Array.isArray(criterion.fields) || !criterion.fields.length || !Array.isArray(criterion.accepted) || !criterion.accepted.length) {
+          errors.push(`${task.id}/${criterion.id}: ${criterion.kind} requires fields and accepted values`);
+        }
+      }
+      if (criterion.kind === 'capability_paused') {
+        const fields = [...(criterion.paused_fields ?? []), ...(criterion.enabled_fields ?? [])];
+        if (!criterion.entity_id || !fields.length) {
+          errors.push(`${task.id}/${criterion.id}: capability_paused requires entity_id and capability fields`);
+        }
+      }
+      if (['state_contains', 'secret_absent'].includes(criterion.kind) && criterion.value === undefined) {
+        errors.push(`${task.id}/${criterion.id}: ${criterion.kind} requires value`);
+      }
+    }
+  }
+  if ((task.golden?.sequences ?? []).some((sequence) => sequence.expect || sequence.must_not_include)) {
+    errors.push(`${task.id}: v3 rubric must not use substring expect/must_not_include scoring`);
+  }
+}
+
 function validateTaskDir(task, arm) {
-  const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+  const dir = path.join(tasksRoot, `${task.id}-${arm}-v3`);
   const steps = arm === 'lamina' ? LAMINA_STEPS.map((s) => s.name) : BASELINE_STEPS.map((s) => s.name);
   const finalStep = finalStepForArm(arm);
 
@@ -171,6 +250,19 @@ function validateTaskDir(task, arm) {
   for (const file of ['public-abi.json', 'selfcheck.mjs', 'behavior-selfcheck.mjs']) {
     if (!fs.existsSync(path.join(abiDir, file))) errors.push(`${dir}: missing ABI payload ${file}`);
   }
+  const publicAbiPath = path.join(abiDir, 'public-abi.json');
+  if (fs.existsSync(publicAbiPath)) {
+    const publicAbi = JSON.parse(fs.readFileSync(publicAbiPath, 'utf8'));
+    if (publicAbi.contract_version !== 'lb6-pilot-semantic-abi-v3') {
+      errors.push(`${dir}: expected semantic ABI v3`);
+    }
+    if (publicAbi.scoring_protocol?.behavior_points !== 10) {
+      errors.push(`${dir}: public ABI must disclose ten behavior points`);
+    }
+    if (JSON.stringify(publicAbi).includes('__lb6_unknown_context_probe')) {
+      errors.push(`${dir}: public ABI leaked the hidden unknown-action probe`);
+    }
+  }
 
   const privateDir = path.join(privateVerifierRoot, task.id, arm);
   for (const file of ['grade.mjs', 'behavior-grade.mjs', 'pilot-behavior-grade.mjs', 'pilot-treatment.mjs']) {
@@ -222,7 +314,7 @@ function validateTaskDir(task, arm) {
 }
 
 function validateFrozenTaskDirBasic(task, arm) {
-  const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+  const dir = path.join(legacyTasksRoot, `${task.id}-${arm}`);
   for (const file of ['task.toml', 'environment/Dockerfile']) {
     if (!fs.existsSync(path.join(dir, file))) errors.push(`${dir}: missing ${file}`);
   }
@@ -237,7 +329,7 @@ function validateFrozenTaskDirBasic(task, arm) {
   if (/checklist|claude|sonnet|harbor-v4/i.test(toml)) {
     errors.push(`${dir}: forbidden vocabulary in published frozen task.toml`);
   }
-  const privateDir = path.join(privateVerifierRoot, task.id, arm);
+  const privateDir = path.join(legacyPrivateVerifierRoot, task.id, arm);
   if (!fs.existsSync(path.join(privateDir, 'grade.mjs'))) {
     errors.push(`${dir}: missing published frozen private verifier grade.mjs`);
   }
@@ -257,6 +349,7 @@ validatePackageManifest(manifest);
 validateTaskCount(manifest);
 
 for (const task of manifest.tasks) {
+  if (!frozenSet.has(task.id)) validateSemanticRubric(task);
   for (const arm of PILOT_ARMS) {
     if (frozenSet.has(task.id)) {
       validateFrozenTaskDirBasic(task, arm);
@@ -281,6 +374,7 @@ const secretFindings = scanPilotPackage(
     PILOT_ARMS.map((arm) => ({
       taskId: task.id,
       arm,
+      taskDirName: `${task.id}-${arm}-v3`,
       finalStep: finalStepForArm(arm),
     })),
   ),

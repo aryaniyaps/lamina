@@ -41,8 +41,8 @@ function pilotBuildPaths(root = DEFAULT_ROOT) {
     root,
     pilotRoot,
     corpusRoot: path.join(pilotRoot, 'corpus'),
-    tasksRoot: path.join(pilotRoot, 'harbor/tasks'),
-    privateVerifierRoot: path.join(pilotRoot, 'private-verifier'),
+    tasksRoot: path.join(pilotRoot, 'harbor/tasks-v3'),
+    privateVerifierRoot: path.join(pilotRoot, 'private-verifier-v3'),
     libRoot: path.join(root, 'benchmarks/lib'),
     pilotLibRoot: path.join(pilotRoot, 'lib'),
     runtimeRoot: path.join(pilotRoot, 'runtime'),
@@ -122,7 +122,7 @@ function taskToml(task, arm) {
     'schema_version = "1.3"\n' +
     'multi_step_reward_strategy = "final"\n\n' +
     '[task]\n' +
-    `name = "aryaniyaps/${task.id}-${arm}"\n` +
+    `name = "aryaniyaps/${task.id}-${arm}-v3"\n` +
     `description = "LB6 development pilot: ${task.id} (${arm}) — not claim-ready LaminaBench-6"\n` +
     'authors = [{ name = "LaminaBench" }]\n' +
     `keywords = ["fuzzy-prompt", "development-pilot", "lb6", "${arm}"]\n\n` +
@@ -165,7 +165,7 @@ function selfCheckBlock() {
   );
 }
 
-function thinSliceContract(actionSchema) {
+function thinSliceContract(actionSchema, projectionContract) {
   return (
     '## Required thin-slice ship target\n\n' +
     'Build a self-contained product in `/app` with no external services. Use plain HTML/CSS/JavaScript and Node ESM so it runs offline.\n\n' +
@@ -177,6 +177,10 @@ function thinSliceContract(actionSchema) {
     '## Published action schema\n\n' +
     actionSchema +
     '\n\n' +
+    '## Published typed projection contract\n\n' +
+    'The verifier checks the following structured behavior contract. Equivalent values listed here are accepted; arbitrary UI wording is not graded.\n\n' +
+    '```json\n' + JSON.stringify(projectionContract ?? {}, null, 2) + '\n```\n\n' +
+    'The behavior rubric has ten equal semantic points. Valid rewards use arm-blind Laplace smoothing: `(earned + 1) / 12`; raw earned/10 is also reported. Deterministic replay is an eligibility gate.\n\n' +
     selfCheckBlock()
   );
 }
@@ -245,7 +249,7 @@ function laminaStepCommand(phase) {
 function instruction(task, arm, phase, ctx) {
   const brief = fs.readFileSync(path.join(ctx.corpusRoot, task.brief), 'utf8').replace(/\n+$/u, '');
   const actionSchema = buildPublicActionSchema(task.golden);
-  const contract = thinSliceContract(actionSchema);
+  const contract = thinSliceContract(actionSchema, task.projection_contract);
 
   if (arm === 'lamina') {
     const titles = {
@@ -383,10 +387,17 @@ const taskId = ${JSON.stringify(task.id)};
 const result = await gradePilotBehavior({ root: '/candidate', treatmentRoot: '/treatment', golden, arm, phase, taskId });
 const harborRewards = {
   reward: result.reward,
+  measurement: result.measurement,
+  reward_transform: result.reward_transform,
   behavior: result.scores?.behavior ?? 0,
+  raw_behavior: result.raw_behavior ?? 0,
+  earned: result.earned ?? 0,
+  possible: result.possible ?? 0,
+  measurement_invalid: result.measurement_invalid ?? false,
+  measurement_invalid_reason: result.measurement_invalid_reason ?? null,
   import_ok: result.scores?.import ?? 0,
 };
-if (result.invalid_treatment) harborRewards.reward = 0;
+if (result.invalid_treatment || result.measurement_invalid) harborRewards.reward = 0;
 
 fs.mkdirSync('/output', { recursive: true });
 fs.writeFileSync('/output/reward.json', JSON.stringify(harborRewards, null, 2) + '\\n');
@@ -397,15 +408,22 @@ console.log(JSON.stringify(result));
 
 function publicAbi(task) {
   return {
-    contract_version: 'lb6-pilot-abi-v1',
+    contract_version: 'lb6-pilot-semantic-abi-v3',
     task_id: task.id,
     action_schema_markdown: buildPublicActionSchema(task.golden),
+    projection_contract: task.projection_contract ?? null,
+    scoring_protocol: {
+      behavior_points: 10,
+      raw_score: 'earned / 10',
+      valid_reward: '(earned + 1) / 12',
+      determinism: 'hard measurement-validity gate',
+    },
     public_sequences: publicGoldenForTask(task),
   };
 }
 
 function writeTask(task, arm, ctx) {
-  const dir = path.join(ctx.tasksRoot, `${task.id}-${arm}`);
+  const dir = path.join(ctx.tasksRoot, `${task.id}-${arm}-v3`);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'environment'), { recursive: true });
 
@@ -489,7 +507,9 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
       if (!entry.isDirectory()) continue;
       const taskId = PILOT_ARMS.reduce((found, arm) => {
         if (found) return found;
-        return entry.name.endsWith(`-${arm}`) ? entry.name.slice(0, -(arm.length + 1)) : null;
+        return entry.name.endsWith(`-${arm}-v3`)
+          ? entry.name.slice(0, -(`-${arm}-v3`.length))
+          : null;
       }, null);
       if (taskId && frozenSet.has(taskId)) continue;
       fs.rmSync(path.join(ctx.tasksRoot, entry.name), { recursive: true, force: true });
@@ -502,7 +522,7 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
     fs.mkdirSync(ctx.privateVerifierRoot, { recursive: true });
     for (const task of tasksToBuild) {
       for (const arm of PILOT_ARMS) {
-        fs.rmSync(path.join(ctx.tasksRoot, `${task.id}-${arm}`), { recursive: true, force: true });
+        fs.rmSync(path.join(ctx.tasksRoot, `${task.id}-${arm}-v3`), { recursive: true, force: true });
         fs.rmSync(path.join(ctx.privateVerifierRoot, task.id, arm), { recursive: true, force: true });
       }
     }
@@ -512,7 +532,7 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
     for (const arm of PILOT_ARMS) writeTask(task, arm, ctx);
   }
 
-  const bundleManifestPath = path.join(ctx.pilotRoot, 'skill-bundle/manifest.json');
+  const bundleManifestPath = path.join(ctx.pilotRoot, 'skill-bundle/manifest-v3.json');
   let skillBundle = null;
   if (!selective || !fs.existsSync(bundleManifestPath)) {
     skillBundle = stageSkillBundle(ctx.root, { pinnedCommit: PINNED_SKILL_COMMIT });
@@ -526,7 +546,7 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
 
   if (!selective) {
     fs.writeFileSync(
-      path.join(ctx.pilotRoot, 'package.manifest.json'),
+      path.join(ctx.pilotRoot, 'package.manifest-v3.json'),
       writeTextFile(
         '',
         JSON.stringify(

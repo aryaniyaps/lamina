@@ -19,7 +19,7 @@ from lb6_skill_gate import (
 
 root = Path(__file__).resolve().parents[1]
 staged_root = root / "benchmarks/lb6/pilot/skill-bundle/staged"
-manifest = json.loads((root / "benchmarks/lb6/pilot/skill-bundle/manifest.json").read_text())
+manifest = json.loads((root / "benchmarks/lb6/pilot/skill-bundle/manifest-v3.json").read_text())
 expected_digests = manifest["harbor_skill_digests"]
 
 assert compute_harbor_skill_digest(staged_root / "lamina") == expected_digests["lamina"]

@@ -141,7 +141,7 @@ export function skillBundlePaths(root) {
   return {
     bundleRoot,
     stagedRoot: path.join(bundleRoot, STAGED_SKILLS_DIR),
-    manifestPath: path.join(bundleRoot, 'manifest.json'),
+    manifestPath: path.join(bundleRoot, 'manifest-v3.json'),
   };
 }
 
@@ -183,7 +183,8 @@ export function stageSkillBundle(root, {
   const { bundleRoot, stagedRoot, manifestPath } = skillBundlePaths(root);
 
   if (write && !skipArchive) {
-    fs.rmSync(bundleRoot, { recursive: true, force: true });
+    fs.rmSync(stagedRoot, { recursive: true, force: true });
+    fs.mkdirSync(bundleRoot, { recursive: true });
     fs.mkdirSync(stagedRoot, { recursive: true });
     for (const skillName of skillNames) {
       extractSkillArchive(root, pinnedCommit, skillName, path.join(stagedRoot, skillName));

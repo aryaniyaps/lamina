@@ -1,5 +1,5 @@
 {
-  "version": "lb6-dev-pilot",
+  "version": "lb6-dev-pilot-v3",
   "development_only": true,
   "confirmatory": false,
   "child_actual_model_unverified": true,
@@ -54,23 +54,43 @@
       "kind": "greenfield-multi-actor",
       "stage": "shape",
       "brief": "dev-loan-library/brief.md",
+      "projection_contract": {
+        "actors": ["borrower", "owner"],
+        "shape": "{ loans: [{ id, status, handoff?: { borrower, owner }, borrowerConfirmed?, ownerConfirmed?, damageReported?, lendingPaused: boolean }] }; `canLend: boolean` is an accepted inverse capability; damage is accepted only after both handoff confirmations, then future lending is explicitly paused",
+        "typed_equivalents": {
+          "requested": ["requested", "pending", "open"],
+          "active": ["active"],
+          "damaged": ["damaged", "damage_reported", "damage_review", "dispute"],
+          "boolean_true": [true, "true", "yes", "confirmed"]
+        }
+      },
       "golden": {
         "sequences": [
           {
+            "id": "request",
             "actor": "borrower",
             "actions": [{"type": "request_loan", "id": "loan-1", "item": "Projector"}],
-            "expect": [["requested", "pending"]]
+            "criteria": [
+              {"id": "request.visible", "kind": "entity_present", "after": 1, "entity_id": "loan-1", "weight": 1},
+              {"id": "request.lifecycle", "kind": "field_equals", "after": 1, "entity_id": "loan-1", "fields": ["status", "state"], "accepted": ["requested", "pending", "open"], "weight": 1}
+            ]
           },
           {
+            "id": "handoff",
             "actor": "borrower",
             "actions": [
               {"type": "request_loan", "id": "loan-1", "item": "Projector"},
               {"type": "confirm_handoff", "id": "loan-1", "actor": "borrower"},
               {"type": "confirm_handoff", "id": "loan-1", "actor": "owner"}
             ],
-            "expect": [["active"], ["confirm"]]
+            "criteria": [
+              {"id": "handoff.borrower", "kind": "field_equals", "after": 2, "entity_id": "loan-1", "fields": ["borrowerConfirmed", "borrower_confirmed", "borrower"], "accepted": [true, "confirmed", "yes"], "weight": 1},
+              {"id": "handoff.owner", "kind": "field_equals", "after": 3, "entity_id": "loan-1", "fields": ["ownerConfirmed", "owner_confirmed", "owner"], "accepted": [true, "confirmed", "yes"], "weight": 1},
+              {"id": "handoff.active", "kind": "field_equals", "after": 3, "entity_id": "loan-1", "fields": ["status", "state"], "accepted": ["active"], "weight": 1}
+            ]
           },
           {
+            "id": "damage",
             "actor": "owner",
             "actions": [
               {"type": "request_loan", "id": "loan-1", "item": "Projector"},
@@ -78,7 +98,33 @@
               {"type": "confirm_handoff", "id": "loan-1", "actor": "owner"},
               {"type": "report_damage", "id": "loan-1"}
             ],
-            "expect": [["dispute"], ["pause"]]
+            "criteria": [
+              {"id": "damage.recorded", "kind": "field_equals", "after": 4, "entity_id": "loan-1", "fields": ["status", "state", "damageReported", "damaged"], "accepted": [true, "damaged", "damage_reported", "damage_review", "dispute"], "weight": 1},
+              {"id": "damage.lending_paused", "kind": "capability_paused", "after": 4, "entity_id": "loan-1", "paused_fields": ["lendingPaused", "paused"], "enabled_fields": ["canLend", "lendingEnabled"], "weight": 1},
+              {"id": "damage.owner_visibility", "kind": "entity_present", "after": 4, "entity_id": "loan-1", "weight": 1}
+            ]
+          },
+          {
+            "id": "premature-damage",
+            "actor": "owner",
+            "actions": [
+              {"type": "request_loan", "id": "loan-early", "item": "Camera"},
+              {"type": "report_damage", "id": "loan-early"}
+            ],
+            "criteria": [
+              {"id": "damage.requires_active_handoff", "kind": "state_unchanged_or_field_equals", "after": 2, "entity_id": "loan-early", "fields": ["status", "state", "outcome", "error"], "accepted": ["rejected", "denied", "invalid", "requires_handoff"], "weight": 1}
+            ]
+          },
+          {
+            "id": "loan-isolation",
+            "actor": "borrower",
+            "actions": [
+              {"type": "request_loan", "id": "loan-a", "item": "Projector"},
+              {"type": "request_loan", "id": "loan-b", "item": "Camera"}
+            ],
+            "criteria": [
+              {"id": "loan.multi_entity_isolation", "kind": "entities_present", "after": 2, "entity_ids": ["loan-a", "loan-b"], "weight": 1}
+            ]
           }
         ]
       }
@@ -88,18 +134,33 @@
       "kind": "greenfield-privacy",
       "stage": "shape",
       "brief": "dev-review-room/brief.md",
+      "projection_contract": {
+        "actors": ["reviewer", "owner"],
+        "shape": "{ invites: [{ id, status, access, comments?: [{ id, text }] }] }",
+        "typed_equivalents": {
+          "granted": ["granted", "active", "accepted"],
+          "denied": ["denied", "expired", "revoked", false]
+        }
+      },
       "golden": {
         "sequences": [
           {
+            "id": "accepted-comment",
             "actor": "reviewer",
             "actions": [
               {"type": "invite", "id": "invite-1", "document": "doc-1"},
               {"type": "accept_invite", "id": "invite-1", "email": "reviewer@example.com"},
               {"type": "add_comment", "id": "c-1", "text": "Looks good"}
             ],
-            "expect": [["comment", "looks good"]]
+            "criteria": [
+              {"id": "invite.visible", "kind": "entity_present", "after": 1, "entity_id": "invite-1", "weight": 1},
+              {"id": "accept.access_granted", "kind": "field_equals", "after": 2, "fields": ["access", "allowed", "canComment"], "accepted": [true, "granted", "active", "accepted"], "weight": 1},
+              {"id": "comment.visible", "kind": "entity_present", "after": 3, "entity_id": "c-1", "weight": 1},
+              {"id": "comment.content_visible", "kind": "field_equals", "after": 3, "entity_id": "c-1", "fields": ["text", "content", "body"], "accepted": ["Looks good"], "weight": 1}
+            ]
           },
           {
+            "id": "expiry",
             "actor": "reviewer",
             "actions": [
               {"type": "invite", "id": "invite-1", "document": "doc-1"},
@@ -107,10 +168,14 @@
               {"type": "expire_invite", "id": "invite-1"},
               {"type": "add_comment", "id": "c-expired", "text": "Should not appear after expiry"}
             ],
-            "expect": [["expir"], ["denied", "access"]],
-            "must_not_include": ["should not appear after expiry"]
+            "criteria": [
+              {"id": "expiry.lifecycle", "kind": "field_equals", "after": 3, "fields": ["status", "state", "access"], "accepted": ["expired", "denied", false], "weight": 1},
+              {"id": "expiry.access_denied", "kind": "field_equals", "after": 4, "fields": ["access", "allowed", "canComment"], "accepted": ["denied", false], "weight": 1},
+              {"id": "expiry.blocked_comment_private", "kind": "secret_absent", "after": 4, "value": "Should not appear after expiry", "weight": 1}
+            ]
           },
           {
+            "id": "revocation",
             "actor": "reviewer",
             "actions": [
               {"type": "invite", "id": "invite-1", "document": "doc-1"},
@@ -118,8 +183,11 @@
               {"type": "revoke_invite", "id": "invite-1"},
               {"type": "add_comment", "id": "c-revoked", "text": "Should not appear after revocation"}
             ],
-            "expect": [["revok"], ["denied", "access"]],
-            "must_not_include": ["should not appear after revocation"]
+            "criteria": [
+              {"id": "revoke.lifecycle", "kind": "field_equals", "after": 3, "fields": ["status", "state", "access"], "accepted": ["revoked", "denied", false], "weight": 1},
+              {"id": "revoke.access_denied", "kind": "field_equals", "after": 4, "fields": ["access", "allowed", "canComment"], "accepted": ["denied", false], "weight": 1},
+              {"id": "revoke.blocked_comment_private", "kind": "secret_absent", "after": 4, "value": "Should not appear after revocation", "weight": 1}
+            ]
           }
         ]
       }
@@ -129,15 +197,73 @@
       "kind": "greenfield-low-risk",
       "stage": "spark",
       "brief": "dev-simple-list/brief.md",
+      "projection_contract": {
+        "actors": ["owner"],
+        "shape": "{ items: [{ id, title, completed: boolean, status?: 'open'|'completed' }] }; clear_completed removes completed items and retains open items",
+        "typed_equivalents": {"complete": [true, "completed", "done"], "incomplete": [false, "open", "pending"]}
+      },
       "golden": {
         "sequences": [
           {
+            "id": "add-and-complete",
             "actor": "owner",
             "actions": [
               {"type": "add_item", "id": "item-1", "title": "Buy milk"},
               {"type": "complete_item", "id": "item-1"}
             ],
-            "expect": [["item-1", "done"]]
+            "criteria": [
+              {"id": "list.add_visible", "kind": "entity_present", "after": 1, "entity_id": "item-1", "weight": 1},
+              {"id": "list.initially_incomplete", "kind": "field_equals", "after": 1, "entity_id": "item-1", "fields": ["completed", "done", "status", "state"], "accepted": [false, "open", "pending", "incomplete"], "weight": 1},
+              {"id": "list.complete", "kind": "field_equals", "after": 2, "entity_id": "item-1", "fields": ["completed", "done", "status", "state"], "accepted": [true, "completed", "done"], "weight": 1},
+              {"id": "list.title_preserved", "kind": "field_equals", "after": 2, "entity_id": "item-1", "fields": ["title", "text", "label"], "accepted": ["Buy milk"], "weight": 1}
+            ]
+          },
+          {
+            "id": "missing-id",
+            "actor": "owner",
+            "actions": [{"type": "complete_item", "id": "missing-item"}],
+            "criteria": [
+              {"id": "list.missing_id_noop", "kind": "state_unchanged", "after": 1, "weight": 1}
+            ]
+          },
+          {
+            "id": "idempotent-complete",
+            "actor": "owner",
+            "actions": [
+              {"type": "add_item", "id": "item-idem", "title": "Call dentist"},
+              {"type": "complete_item", "id": "item-idem"},
+              {"type": "complete_item", "id": "item-idem"}
+            ],
+            "criteria": [
+              {"id": "list.complete_idempotent", "kind": "state_unchanged", "after": 3, "requires_prior_change": true, "weight": 1}
+            ]
+          },
+          {
+            "id": "multi-item-isolation",
+            "actor": "owner",
+            "actions": [
+              {"type": "add_item", "id": "item-a", "title": "First"},
+              {"type": "add_item", "id": "item-b", "title": "Second"},
+              {"type": "complete_item", "id": "item-a"}
+            ],
+            "criteria": [
+              {"id": "list.multiple_visible", "kind": "entities_present", "after": 3, "entity_ids": ["item-a", "item-b"], "weight": 1},
+              {"id": "list.other_unchanged", "kind": "field_equals", "after": 3, "entity_id": "item-b", "fields": ["completed", "done", "status", "state"], "accepted": [false, "open", "pending", "incomplete"], "weight": 1}
+            ]
+          },
+          {
+            "id": "clear-completed",
+            "actor": "owner",
+            "actions": [
+              {"type": "add_item", "id": "item-clear", "title": "Remove me"},
+              {"type": "add_item", "id": "item-keep", "title": "Keep me"},
+              {"type": "complete_item", "id": "item-clear"},
+              {"type": "clear_completed"}
+            ],
+            "criteria": [
+              {"id": "list.completed_cleared", "kind": "entity_absent", "after": 4, "entity_id": "item-clear", "requires_entity_before": "item-clear", "weight": 1},
+              {"id": "list.open_retained", "kind": "entity_present", "after": 4, "entity_id": "item-keep", "weight": 1}
+            ]
           }
         ]
       }
@@ -147,37 +273,54 @@
       "kind": "greenfield-negative-control",
       "stage": "spark",
       "brief": "dev-toggle-preference/brief.md",
+      "projection_contract": {
+        "actors": ["user"],
+        "shape": "{ preferences: [{ id, focusEnabled: boolean }] }",
+        "typed_equivalents": {"enabled": [true, "enabled", "on"], "disabled": [false, "disabled", "off"]},
+        "unknown_actions": "must be ignored without exposing their payload"
+      },
       "golden": {
         "sequences": [
           {
+            "id": "enable-disable",
             "actor": "user",
             "actions": [
-              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-a1f8e2b9"},
-              {"type": "enable_focus_mode", "id": "pref-1"}
-            ],
-            "expect": [["focus", "on"], ["quiet"]],
-            "must_not_include": ["lb6-tgl-a1f8e2b9"]
-          },
-          {
-            "actor": "user",
-            "actions": [
-              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-c4d7e6f0"},
               {"type": "enable_focus_mode", "id": "pref-1"},
               {"type": "disable_focus_mode", "id": "pref-1"}
             ],
-            "expect": [["focus", "off"], ["normal"]],
-            "must_not_include": ["lb6-tgl-c4d7e6f0"]
+            "criteria": [
+              {"id": "toggle.enable", "kind": "field_equals", "after": 1, "entity_id": "pref-1", "fields": ["focusEnabled", "focus", "enabled", "active"], "accepted": [true, "enabled", "on"], "weight": 1},
+              {"id": "toggle.disable", "kind": "field_equals", "after": 2, "entity_id": "pref-1", "fields": ["focusEnabled", "focus", "enabled", "active"], "accepted": [false, "disabled", "off"], "weight": 1},
+              {"id": "toggle.id_visible", "kind": "entity_present", "after": 2, "entity_id": "pref-1", "weight": 1},
+              {"id": "toggle.enable_visible_change", "kind": "view_changed", "after": 1, "weight": 1},
+              {"id": "toggle.disable_visible_change", "kind": "view_changed", "after": 2, "weight": 1}
+            ]
           },
           {
+            "id": "toggle-roundtrip",
             "actor": "user",
             "actions": [
-              {"type": "register_device_context", "id": "pref-1", "contextToken": "lb6-tgl-b8c3a5d1"},
-              {"type": "enable_focus_mode", "id": "pref-1"},
-              {"type": "toggle_focus_mode", "id": "pref-1"},
-              {"type": "toggle_focus_mode", "id": "pref-1"}
+              {"type": "toggle_focus_mode", "id": "pref-toggle"},
+              {"type": "toggle_focus_mode", "id": "pref-toggle"}
             ],
-            "expect": [["focus", "on"]],
-            "must_not_include": ["lb6-tgl-b8c3a5d1"]
+            "criteria": [
+              {"id": "toggle.first_flip", "kind": "field_equals", "after": 1, "entity_id": "pref-toggle", "fields": ["focusEnabled", "focus", "enabled", "active"], "accepted": [true, "enabled", "on"], "weight": 1},
+              {"id": "toggle.second_flip", "kind": "field_equals", "after": 2, "entity_id": "pref-toggle", "fields": ["focusEnabled", "focus", "enabled", "active"], "accepted": [false, "disabled", "off"], "weight": 1},
+              {"id": "toggle.roundtrip_id_visible", "kind": "entity_present", "after": 2, "entity_id": "pref-toggle", "weight": 1}
+            ]
+          },
+          {
+            "id": "hidden-unknown-action",
+            "hidden": true,
+            "actor": "user",
+            "actions": [
+              {"type": "enable_focus_mode", "id": "pref-hidden"},
+              {"type": "__lb6_unknown_context_probe", "id": "pref-hidden", "contextToken": "lb6-v3-hidden-7f9c2d"}
+            ],
+            "criteria": [
+              {"id": "toggle.unknown_action_ignored", "kind": "state_unchanged", "after": 2, "requires_prior_change": true, "weight": 1},
+              {"id": "toggle.hidden_payload_private", "kind": "secret_absent", "after": 2, "value": "lb6-v3-hidden-7f9c2d", "weight": 1}
+            ]
           }
         ]
       }

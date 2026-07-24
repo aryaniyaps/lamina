@@ -1,0 +1,120 @@
+{
+  "contract_version": "lb6-pilot-semantic-abi-v3",
+  "task_id": "dev-simple-list",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `add_item`: payload shape example: `{\"type\":\"add_item\",\"id\":\"item-1\",\"title\":\"Example title\"}`\n- `clear_completed`: payload shape example: `{\"type\":\"clear_completed\"}`\n- `complete_item`: payload shape example: `{\"type\":\"complete_item\",\"id\":\"item-1\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "projection_contract": {
+    "actors": [
+      "owner"
+    ],
+    "shape": "{ items: [{ id, title, completed: boolean, status?: 'open'|'completed' }] }; clear_completed removes completed items and retains open items",
+    "typed_equivalents": {
+      "complete": [
+        true,
+        "completed",
+        "done"
+      ],
+      "incomplete": [
+        false,
+        "open",
+        "pending"
+      ]
+    }
+  },
+  "scoring_protocol": {
+    "behavior_points": 10,
+    "raw_score": "earned / 10",
+    "valid_reward": "(earned + 1) / 12",
+    "determinism": "hard measurement-validity gate"
+  },
+  "public_sequences": {
+    "sequences": [
+      {
+        "id": "add-and-complete",
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "add_item",
+            "id": "item-1",
+            "title": "Example title"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-1"
+          }
+        ]
+      },
+      {
+        "id": "missing-id",
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "complete_item",
+            "id": "missing-item"
+          }
+        ]
+      },
+      {
+        "id": "idempotent-complete",
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "add_item",
+            "id": "item-idem",
+            "title": "Example title"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-idem"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-idem"
+          }
+        ]
+      },
+      {
+        "id": "multi-item-isolation",
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "add_item",
+            "id": "item-a",
+            "title": "Example title"
+          },
+          {
+            "type": "add_item",
+            "id": "item-b",
+            "title": "Example title"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-a"
+          }
+        ]
+      },
+      {
+        "id": "clear-completed",
+        "actor": "owner",
+        "actions": [
+          {
+            "type": "add_item",
+            "id": "item-clear",
+            "title": "Example title"
+          },
+          {
+            "type": "add_item",
+            "id": "item-keep",
+            "title": "Example title"
+          },
+          {
+            "type": "complete_item",
+            "id": "item-clear"
+          },
+          {
+            "type": "clear_completed"
+          }
+        ]
+      }
+    ]
+  }
+}

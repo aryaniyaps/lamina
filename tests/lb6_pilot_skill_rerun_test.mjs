@@ -39,7 +39,7 @@ const manifest = JSON.parse(
 const selectedTasks = manifest.pilot.default_run_tasks;
 
 assert.equal(LAMINA_STEPS.reduce((sum, step) => sum + step.agentTimeout, 0), AGENT_BUDGET_SEC);
-assert.match(makeJobName('dev-loan-library', 'lamina', 123), /^lb6-pilot-skill-rerun-v2-dev-loan-library-lamina-123$/);
+assert.match(makeJobName('dev-loan-library', 'lamina', 123), /^lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-123$/);
 
 const bundle = loadSkillBundleManifest(root);
 assert.equal(bundle.manifest.campaign_id, SKILL_RERUN_CAMPAIGN_ID);

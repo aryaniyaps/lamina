@@ -1,0 +1,43 @@
+{
+  "kind": "lb6-dev-pilot-package",
+  "benchmark_version": "lb6-dev-pilot-v3",
+  "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
+  "pinned_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
+  "skill_bundle_digest": "93b7d8cb74e79ad19233c8c50778a5e3d1ad6c54acd05cf468603bc6b9edeff5",
+  "harbor_version": "0.18.0",
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "development_only": true,
+  "confirmatory": false,
+  "child_actual_model_unverified": true,
+  "task_ids": [
+    "dev-care-circle",
+    "dev-loan-library",
+    "dev-review-room",
+    "dev-simple-list",
+    "dev-toggle-preference"
+  ],
+  "arms": [
+    "direct",
+    "plan",
+    "lamina"
+  ],
+  "attempts_per_arm": 1,
+  "agent_budget_sec": 1500,
+  "skills": [
+    "lamina",
+    "lamina-init",
+    "lamina-design",
+    "lamina-verify",
+    "lamina-orchestrator",
+    "lamina-core",
+    "lamina-user-modeling",
+    "lamina-flow-design",
+    "lamina-edge-cases",
+    "lamina-trust",
+    "lamina-idempotency-concurrency",
+    "lamina-product-behavior"
+  ],
+  "not_claim_ready": true,
+  "distinct_from": "lamina-bench-6"
+}

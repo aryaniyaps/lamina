@@ -29,12 +29,12 @@ export const ATTEMPTS_PER_ARM = 1;
 export const MAX_RETRIES = 0;
 export const MAX_CONCURRENCY = 6;
 export const CAMPAIGN_DEADLINE_MS = 2 * 60 * 60 * 1000;
-export const TASKS_REL = 'benchmarks/lb6/pilot/harbor/tasks';
+export const TASKS_REL = 'benchmarks/lb6/pilot/harbor/tasks-v3';
 export const SCRIPTS_REL = 'benchmarks/lb6/pilot/scripts';
 export const REPORTS_REL = 'benchmarks/lb6/pilot/reports';
 export const PUBLICATION_REL = 'benchmarks/lb6/pilot/publication';
 export const HARBOR_FORK_REL = 'benchmarks/lb6/harbor-fork';
-export const PRIVATE_VERIFIER_REL = 'benchmarks/lb6/pilot/private-verifier';
+export const PRIVATE_VERIFIER_REL = 'benchmarks/lb6/pilot/private-verifier-v3';
 export const SEALED_STORE_REL = 'benchmarks/lb6/pilot/sealed-store';
 export const DEFAULT_VERIFIER_IMAGE = 'node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0';
 
@@ -94,7 +94,7 @@ export function buildSupervisorEnv(root = DEFAULT_ROOT, baseEnv = process.env, s
     LB6_SEALED_ROOT: path.join(root, SEALED_STORE_REL),
     LB6_PRIVATE_VERIFIER_ROOT: path.join(root, PRIVATE_VERIFIER_REL),
     LB6_VERIFIER_IMAGE: baseEnv.LB6_VERIFIER_IMAGE || DEFAULT_VERIFIER_IMAGE,
-    LB6_SKILL_BUNDLE_MANIFEST: skillManifestPath || path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest.json'),
+    LB6_SKILL_BUNDLE_MANIFEST: skillManifestPath || path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'),
     LB6_SKILL_BUNDLE_ROOT: path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged'),
     LB6_SKILL_RERUN_CAMPAIGN_ID: SKILL_RERUN_CAMPAIGN_ID,
   };
@@ -199,7 +199,7 @@ export function schedulePilotCells(
         ...cell,
         scheduleIndex,
         wave,
-        taskDirName: `${cell.taskId}-${cell.arm}`,
+        taskDirName: expectedPilotTaskDirName(cell.taskId, cell.arm),
       });
       scheduleIndex += 1;
     }
@@ -243,7 +243,7 @@ export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
     return {
       ok: false,
       gate: 'pilot_v4_path_forbidden',
-      reason: 'refusing V4 harbor task path; use benchmarks/lb6/pilot/harbor/tasks',
+      reason: `refusing V4 harbor task path; use ${TASKS_REL}`,
       taskIds: [],
       selectedTaskIds: selectedTaskIds || [],
       byTaskArm: {},
@@ -252,7 +252,7 @@ export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
 
   const byTaskArm = {};
   for (const dirName of dirs) {
-    const arm = PILOT_ARMS.find((value) => dirName.endsWith(`-${value}`));
+    const arm = PILOT_ARMS.find((value) => dirName.endsWith(`-${value}-v3`));
     if (!arm) {
       return {
         ok: false,
@@ -263,7 +263,7 @@ export function discoverPilotTasks(tasksRoot, selectedTaskIds = null) {
         byTaskArm: {},
       };
     }
-    const taskId = dirName.slice(0, -(arm.length + 1));
+    const taskId = dirName.slice(0, -(`-${arm}-v3`.length));
     byTaskArm[taskId] ||= {};
     if (byTaskArm[taskId][arm]) {
       return {
@@ -325,6 +325,30 @@ export function isFrozenPublicationTask(taskId) {
   return taskId === 'dev-care-circle';
 }
 
+export function hasReconciledSemanticV3(cell) {
+  const criteria = Array.isArray(cell?.criteria) ? cell.criteria : [];
+  const ids = criteria.map((criterion) => criterion?.id);
+  if (criteria.length !== 10 || ids.some((id) => !id) || new Set(ids).size !== 10) return false;
+  const earned = criteria.reduce((sum, criterion) => sum + Number(criterion?.earned || 0), 0);
+  const possible = criteria.reduce((sum, criterion) => sum + Number(criterion?.possible || 0), 0);
+  const raw = possible ? earned / possible : 0;
+  const reward = Number(((earned + 1) / (possible + 2)).toFixed(4));
+  const close = (a, b, tolerance = 1e-9) => Number.isFinite(Number(a))
+    && Number.isFinite(Number(b))
+    && Math.abs(Number(a) - Number(b)) <= tolerance;
+  return possible === 10
+    && cell?.semanticEvidence?.passed === true
+    && cell.semanticEvidence.measurement === 'semantic_criteria_v3'
+    && cell.semanticEvidence.criteriaCount === 10
+    && close(cell.earned, earned)
+    && close(cell.possible, possible)
+    && close(cell.rawBehavior, raw)
+    && close(cell.reward, reward, 1e-4)
+    && cell?.measurementInvalid === false
+    && cell?.isolationEvidence?.campaignId === SKILL_RERUN_CAMPAIGN_ID
+    && cell?.isolationEvidence?.measurementContract === 'semantic_criteria_v3';
+}
+
 export function isPublicationEligibleCell(cell, { requireMeasurementValid = true } = {}) {
   if (!cell?.taskId || !cell?.arm || isFrozenPublicationTask(cell.taskId)) return false;
   if (!PILOT_ARMS.includes(cell.arm)) return false;
@@ -333,6 +357,7 @@ export function isPublicationEligibleCell(cell, { requireMeasurementValid = true
   if (cell.skillEvidence?.passed !== true) return false;
   if (cell.skillEvidence?.hasLedgerEvidence !== true) return false;
   if (requireMeasurementValid && cell.measurementValid !== true) return false;
+  if (!hasReconciledSemanticV3(cell)) return false;
 
   const expectedTaskDirName = expectedPilotTaskDirName(cell.taskId, cell.arm);
   if (!cell.taskDirName || cell.taskDirName !== expectedTaskDirName) return false;
@@ -704,7 +729,7 @@ export function preparePublicationPlan({ root, taskIds, cells, reportPaths, repo
     confirmatory: false,
     child_actual_model_unverified: true,
   };
-  const outPath = path.join(publicationDir, 'manual-publish-plan.json');
+  const outPath = path.join(publicationDir, 'manual-publish-plan-v3.json');
   if (write) {
     fs.mkdirSync(publicationDir, { recursive: true });
     fs.writeFileSync(outPath, `${JSON.stringify(commands, null, 2)}\n`);

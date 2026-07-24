@@ -24,16 +24,16 @@ function writeApp(dir, body) {
 const loanGood = `export function createInitialState(){return{loans:{}}}
 export function reduce(state,action){
   const s=structuredClone(state);
-  const loan=s.loans[action.id]||{id:action.id,status:'pending',confirmations:[]};
-  if(action.type==='request_loan'){loan.item=action.item;loan.status='requested pending';s.loans[action.id]=loan;return s}
-  if(action.type==='confirm_handoff'){loan.confirmations.push(action.actor);if(loan.confirmations.includes('borrower')&&loan.confirmations.includes('owner')) loan.status='active confirmed';s.loans[action.id]=loan;return s}
-  if(action.type==='report_damage'){loan.status='dispute paused';s.loans[action.id]=loan;return s}
+  const loan=s.loans[action.id]||{id:action.id,status:'pending',confirmations:[],borrowerConfirmed:false,ownerConfirmed:false,damageReported:false,lendingPaused:false};
+  if(action.type==='request_loan'){loan.item=action.item;loan.status='requested';s.loans[action.id]=loan;return s}
+  if(action.type==='confirm_handoff'){loan.confirmations.push(action.actor);loan[action.actor+'Confirmed']=true;if(loan.confirmations.includes('borrower')&&loan.confirmations.includes('owner')) loan.status='active';s.loans[action.id]=loan;return s}
+  if(action.type==='report_damage'){if(loan.status!=='active') return s;loan.status='dispute';loan.damageReported=true;loan.lendingPaused=true;s.loans[action.id]=loan;return s}
   return s;
 }
 export function project(state,actor){
   const loan=Object.values(state.loans)[0];
   if(!loan) return {status:'empty'};
-  return {loan,status:loan.status,confirm:loan.status.includes('confirm'),active:loan.status.includes('active'),dispute:loan.status.includes('dispute'),pause:loan.status.includes('pause')};
+  return {loans:Object.values(state.loans),loan,status:loan.status,confirm:loan.status.includes('confirm'),active:loan.status.includes('active'),dispute:loan.status.includes('dispute'),pause:loan.status.includes('pause')};
 }`;
 
 const reviewGood = `export function createInitialState(){return{invites:{},comments:[],deniedComments:[]}}
@@ -56,10 +56,10 @@ export function reduce(state,action){
 export function project(state,actor){
   const invite=Object.values(state.invites)[0];
   if(!invite) return {access:'denied'};
-  if(invite.status==='expired') return {status:'expired',access:'denied access',deniedComments:state.deniedComments.map((c)=>c.id)};
-  if(invite.status==='revoked') return {status:'revoked',access:'denied access',deniedComments:state.deniedComments.map((c)=>c.id)};
-  const comments=state.comments.map((c)=>c.text.toLowerCase());
-  return {invite,comments,comment:comments.join(' '),access:'granted'};
+  if(invite.status==='expired') return {status:'expired',access:'denied',deniedComments:state.deniedComments.map((c)=>c.id)};
+  if(invite.status==='revoked') return {status:'revoked',access:'denied',deniedComments:state.deniedComments.map((c)=>c.id)};
+  const comments=state.comments.map((c)=>({id:c.id,text:c.text}));
+  return {invite,comments,access:'granted'};
 }`;
 
 const listGood = `export function createInitialState(){return{items:{}}}
@@ -67,9 +67,20 @@ export function reduce(state,action){
   const s=structuredClone(state);
   if(action.type==='add_item'){s.items[action.id]={id:action.id,title:action.title,status:'open'};return s}
   if(action.type==='complete_item'){if(s.items[action.id]) s.items[action.id].status='done';return s}
+  if(action.type==='clear_completed'){for(const [id,item] of Object.entries(s.items)){if(item.status==='done') delete s.items[id]}return s}
   return s;
 }
 export function project(state,actor){return {items:state.items,summary:Object.values(state.items).map((item)=>item.id+' '+item.status).join(' ')};}`;
+
+const listOrderBroken = `export function createInitialState(){return{items:{},pendingCompletions:[]}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='add_item'){s.items[action.id]={id:action.id,title:action.title,status:s.pendingCompletions.includes(action.id)?'completed':'open'};return s}
+  if(action.type==='complete_item'){if(s.items[action.id]) s.items[action.id].status='completed';else s.pendingCompletions.push(action.id);return s}
+  if(action.type==='clear_completed'){for(const [id,item] of Object.entries(s.items)){if(item.status==='completed') delete s.items[id]}return s}
+  return s;
+}
+export function project(state){return {items:state.items}}`;
 
 const toggleGood = `export function createInitialState(){return{preferences:{},internalContext:{}}}
 export function reduce(state,action){
@@ -87,8 +98,10 @@ export function reduce(state,action){
 }
 export function project(state,actor){
   const pref=Object.values(state.preferences)[0];
-  if(!pref) return {focus:'off',mode:'idle',quiet:'',configured:false};
+  const preferences=Object.values(state.preferences).map((entry)=>({id:entry.id,focusEnabled:entry.focus}));
+  if(!pref) return {preferences,focus:'off',mode:'idle',quiet:'',configured:false};
   return {
+    preferences,
     focus:pref.focus?'on':'off',
     mode:pref.focus?'quiet focus on':'normal focus off',
     quiet:pref.focus?'quiet':'',
@@ -104,7 +117,7 @@ export function project(){return {focus:'on off',mode:'quiet normal focus off',q
 const toggleUnconditional = `export function createInitialState(){return{preferences:{},internalContext:{}}}
 export function reduce(state,action){
   const s=structuredClone(state);
-  if(action.type==='register_device_context'){
+  if(action.contextToken){
     s.internalContext[action.id]=action.contextToken;
     return s;
   }
@@ -132,7 +145,7 @@ export function project(state){
 const toggleLeakage = `export function createInitialState(){return{preferences:{},internalContext:{}}}
 export function reduce(state,action){
   const s=structuredClone(state);
-  if(action.type==='register_device_context'){
+  if(action.contextToken){
     s.internalContext[action.id]=action.contextToken;
     return s;
   }
@@ -144,19 +157,40 @@ export function reduce(state,action){
 }
 export function project(state,actor){
   const pref=Object.values(state.preferences)[0];
+  const preferences=Object.values(state.preferences).map((entry)=>({id:entry.id,focusEnabled:entry.focus}));
   const base=pref?{
+    preferences,
     focus:pref.focus?'on':'off',
     mode:pref.focus?'quiet focus on':'normal focus off',
     quiet:pref.focus?'quiet':'',
     configured:true,
     prefId:pref.id,
-  }:{focus:'off',mode:'normal focus off',quiet:'',configured:false};
+  }:{preferences,focus:'off',mode:'normal focus off',quiet:'',configured:false};
   return {...base,rawState:state,internalSecret:state.internalContext};
 }`;
 
 const noop = `export function createInitialState(){return{}}
 export function reduce(s){return s}
 export function project(){return {}}`;
+
+const wallClockList = `export function createInitialState(){return{items:{},createdAt:Date.now()}}
+export function reduce(state,action){
+  const s=structuredClone(state);s.touchedAt=Date.now();
+  if(action.type==='add_item') s.items[action.id]={id:action.id,title:action.title,status:'open',at:Date.now()};
+  if(action.type==='complete_item'&&s.items[action.id]) s.items[action.id].status='completed';
+  return s;
+}
+export function project(state){return {items:state.items,projectedAt:Date.now()}}`;
+
+const moduleLoadClockList = `const loadedAt=Date.now();\n${listGood.replace('return{items:{}}', 'return{items:{},loadedAt}')}`;
+const bigIntToggle = toggleGood.replace(
+  'return{preferences:{},internalContext:{}}',
+  'return{preferences:{},internalContext:{},nonJson:1n}',
+);
+const loanUnconditionalDamage = loanGood.replace(
+  "if(action.type==='report_damage'){if(loan.status!=='active') return s;loan.status='dispute';loan.damageReported=true;loan.lendingPaused=true;s.loans[action.id]=loan;return s}",
+  "if(action.type==='report_damage'){loan.status='dispute';loan.damageReported=true;s.loans[action.id]=loan;return s}",
+);
 
 const loanKeywordOnly = `export function createInitialState(){return{}}
 export function reduce(s,a){return s}
@@ -188,7 +222,38 @@ for (const [taskId, body] of [
     phase: 'verify_fix',
     taskId,
   });
-  assert.equal(result.reward, 1, `${taskId} reference reducer should pass`);
+  assert.equal(result.reward, 0.9167, `${taskId} reference reducer should reach the common smoothed ceiling`);
+  assert.equal(result.raw_behavior, 1, `${taskId} reference reducer should earn all ten semantic points`);
+}
+
+for (const [taskId, body, label] of [
+  [
+    'dev-loan-library',
+    loanGood
+      .replace("loan.status='requested'", "loan.status='pending'")
+      .replace("loan.status='dispute'", "loan.status='damage_review'")
+      .replace('loan.lendingPaused=true', 'loan.canLend=false'),
+    'typed-loan-aliases',
+  ],
+  [
+    'dev-review-room',
+    reviewGood.replaceAll("access:'denied'", 'access:false').replace("access:'granted'", 'access:true'),
+    'boolean-access-aliases',
+  ],
+  ['dev-simple-list', listGood.replaceAll("'done'", "'completed'"), 'completed-status-alias'],
+  ['dev-toggle-preference', toggleGood.replace('focusEnabled:entry.focus', "focusEnabled:entry.focus?'on':'off'"), 'string-toggle-alias'],
+]) {
+  const dir = path.join(tmp, taskId, label);
+  writeApp(dir, body);
+  const result = await gradePilotBehavior({
+    root: dir,
+    golden: taskGolden(taskId),
+    arm: 'direct',
+    phase: 'verify_fix',
+    taskId,
+  });
+  assert.equal(result.reward, 0.9167, `${taskId} ${label} must equal the typed reference`);
+  assert.equal(result.raw_behavior, 1);
 }
 
 for (const [taskId, body, label] of [
@@ -212,9 +277,9 @@ for (const [taskId, body, label] of [
     taskId,
   });
   if (taskId === 'dev-toggle-preference' && label === 'leaked-state') {
-    assert.ok(result.reward < 1, `${taskId} ${label} mutant should fail for projection leakage`);
+    assert.ok(result.raw_behavior < 1, `${taskId} ${label} mutant should fail for projection leakage`);
   } else {
-    assert.equal(result.reward, 0, `${taskId} ${label} mutant should fail`);
+    assert.ok(result.raw_behavior <= 0.25, `${taskId} ${label} mutant should remain below calibration ceiling`);
   }
 }
 
@@ -226,7 +291,60 @@ const toggleOneSidedResult = await gradePilotBehavior({
   phase: 'verify_fix',
   taskId: 'dev-toggle-preference',
 });
-assert.ok(toggleOneSidedResult.reward < 1, 'dev-toggle-preference one-sided-toggle mutant should fail');
+assert.ok(toggleOneSidedResult.raw_behavior < 1, 'dev-toggle-preference one-sided-toggle mutant should fail');
+
+writeApp(path.join(tmp, 'dev-simple-list', 'wall-clock'), wallClockList);
+const nondeterministicList = await gradePilotBehavior({
+  root: path.join(tmp, 'dev-simple-list', 'wall-clock'),
+  golden: taskGolden('dev-simple-list'),
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-simple-list',
+});
+assert.equal(nondeterministicList.measurement_invalid, true, 'wall-clock reducer must be measurement-invalid');
+assert.equal(nondeterministicList.measurement_invalid_reason, 'behavior_nondeterministic');
+assert.equal(nondeterministicList.reward, 0, 'measurement-invalid reward must fail closed');
+
+for (const [taskId, body, label, reason] of [
+  ['dev-simple-list', moduleLoadClockList, 'module-load-clock', 'behavior_nondeterministic'],
+  ['dev-toggle-preference', bigIntToggle, 'bigint-state', 'non_json_serializable_trace'],
+]) {
+  const dir = path.join(tmp, taskId, label);
+  writeApp(dir, body);
+  const result = await gradePilotBehavior({
+    root: dir,
+    golden: taskGolden(taskId),
+    arm: 'direct',
+    phase: 'verify_fix',
+    taskId,
+  });
+  assert.equal(result.measurement_invalid, true, `${label} must be measurement-invalid`);
+  assert.equal(result.measurement_invalid_reason, reason);
+  assert.equal(result.reward, 0);
+}
+
+writeApp(path.join(tmp, 'dev-loan-library', 'unconditional-damage'), loanUnconditionalDamage);
+const unconditionalDamage = await gradePilotBehavior({
+  root: path.join(tmp, 'dev-loan-library', 'unconditional-damage'),
+  golden: taskGolden('dev-loan-library'),
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-loan-library',
+});
+assert.ok(unconditionalDamage.raw_behavior <= 0.8, 'pre-handoff damage and missing pause must lose two causal points');
+assert.equal(unconditionalDamage.criteria.find((criterion) => criterion.id === 'damage.requires_active_handoff')?.passed, false);
+assert.equal(unconditionalDamage.criteria.find((criterion) => criterion.id === 'damage.lending_paused')?.passed, false);
+
+writeApp(path.join(tmp, 'dev-simple-list', 'action-order'), listOrderBroken);
+const actionOrder = await gradePilotBehavior({
+  root: path.join(tmp, 'dev-simple-list', 'action-order'),
+  golden: taskGolden('dev-simple-list'),
+  arm: 'direct',
+  phase: 'verify_fix',
+  taskId: 'dev-simple-list',
+});
+assert.equal(actionOrder.criteria.find((criterion) => criterion.id === 'list.missing_id_noop')?.passed, false);
+assert.ok(actionOrder.raw_behavior <= 0.9, 'action-order mutant must not reach the rubric ceiling');
 
 const loanDamageWithoutActive = `export function createInitialState(){return{loans:{}}}
 export function reduce(state,action){
@@ -247,7 +365,7 @@ const loanWeak = await gradePilotBehavior({
   phase: 'verify_fix',
   taskId: 'dev-loan-library',
 });
-assert.ok(loanWeak.reward < 1, 'loan-library reducer that ignores handoff confirmations should fail');
+assert.ok(loanWeak.raw_behavior < 1, 'loan-library reducer that ignores handoff confirmations should fail');
 
 const reviewNoFollowOn = `export function createInitialState(){return{invites:{}}}
 export function reduce(state,action){
@@ -273,7 +391,7 @@ const reviewWeak = await gradePilotBehavior({
   phase: 'verify_fix',
   taskId: 'dev-review-room',
 });
-assert.ok(reviewWeak.reward < 1, 'review-room without follow-on add_comment attempts should fail');
+assert.ok(reviewWeak.raw_behavior < 1, 'review-room without follow-on add_comment attempts should fail');
 
 const reviewPreAcceptOnly = `export function createInitialState(){return{invites:{},comments:[],deniedComments:[]}}
 export function reduce(state,action){
@@ -305,6 +423,6 @@ const reviewPreAccept = await gradePilotBehavior({
   phase: 'verify_fix',
   taskId: 'dev-review-room',
 });
-assert.ok(reviewPreAccept.reward < 1, 'review-room pre-accept-only invalidation mutant should fail');
+assert.ok(reviewPreAccept.raw_behavior < 1, 'review-room pre-accept-only invalidation mutant should fail');
 
 console.log('lb6 pilot grader tests passed');

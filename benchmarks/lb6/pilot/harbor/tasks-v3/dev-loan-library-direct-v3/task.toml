@@ -1,0 +1,53 @@
+schema_version = "1.3"
+multi_step_reward_strategy = "final"
+
+[task]
+name = "aryaniyaps/dev-loan-library-direct-v3"
+description = "LB6 development pilot: dev-loan-library (direct) — not claim-ready LaminaBench-6"
+authors = [{ name = "LaminaBench" }]
+keywords = ["fuzzy-prompt", "development-pilot", "lb6", "direct"]
+
+[metadata]
+benchmark = "lamina-lb6-pilot"
+benchmark_version = "lb6-dev-pilot-v3"
+campaign_id = "lb6-dev-pilot-skill-rerun-v3"
+task_id = "dev-loan-library"
+arm = "direct"
+kind = "greenfield-multi-actor"
+stage = "shape"
+development_only = true
+confirmatory = false
+child_actual_model_unverified = true
+host_sealed_supervisor_required = true
+harbor_version = "0.18.0"
+agent = "cursor-cli"
+model = "cursor/composer-2.5"
+
+[agent]
+timeout_sec = 1500.0
+
+[environment]
+docker_image = "lb6-pilot-agent-runtime:cursor-20260720"
+network_mode = "public"
+build_timeout_sec = 120.0
+workdir = "/app"
+os = "linux"
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+[[steps]]
+name = "shape_build"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 750.0
+[steps.verifier]
+timeout_sec = 45.0
+
+[[steps]]
+name = "verify_fix"
+min_reward = 0.0
+[steps.agent]
+timeout_sec = 750.0
+[steps.verifier]
+timeout_sec = 60.0

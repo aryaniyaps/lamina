@@ -27,7 +27,7 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const stagedRoot = path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged');
 const manifest = JSON.parse(
-  fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest.json'), 'utf8'),
+  fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'), 'utf8'),
 );
 
 assert.equal(computeHarborSkillDigest(path.join(stagedRoot, 'lamina')), manifest.harbor_skill_digests.lamina);

@@ -11,6 +11,7 @@ import {
   MAX_CONCURRENCY,
   MAX_RETRIES,
   PILOT_ARMS,
+  TASKS_REL,
   buildHarborArgs,
   discoverPilotTasks,
   makeJobName,
@@ -32,8 +33,9 @@ import {
   refuseLegacySource,
   renderMarkdownReport,
   validateCampaignCells,
+  validateSemanticMeasurement,
 } from '../benchmarks/lb6/pilot/scripts/aggregate-results.mjs';
-import { SKILL_RERUN_CAMPAIGN_ID } from '../benchmarks/lb6/pilot/lib/constants.mjs';
+import { SKILL_RERUN_CAMPAIGN_ID, expectedPilotTaskDirName } from '../benchmarks/lb6/pilot/lib/constants.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoSkillRoot = path.join(root, 'benchmarks/lb6/pilot/skill-bundle/staged/lamina');
@@ -70,11 +72,12 @@ function mockChild({ exitCode = 0, signal = null, stdout = '', stderr = '', dela
 
 function writeTaskDirs(tasksRoot, taskId = 'pilot-care-circle') {
   for (const arm of PILOT_ARMS) {
-    const dir = path.join(tasksRoot, `${taskId}-${arm}`);
+    const taskDirName = expectedPilotTaskDirName(taskId, arm);
+    const dir = path.join(tasksRoot, taskDirName);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, 'task.toml'),
-      `[metadata]\ncampaign_id = "${SKILL_RERUN_CAMPAIGN_ID}"\nname="${taskId}-${arm}"\n`,
+      `[metadata]\ncampaign_id = "${SKILL_RERUN_CAMPAIGN_ID}"\nname="${taskDirName}"\n`,
     );
   }
 }
@@ -89,10 +92,20 @@ function writeFixtureJob(jobsRoot, {
   ts = '1001',
   reward = 1,
   modelName = HARBOR_MODEL,
-  datasetPath = 'benchmarks/lb6/pilot/harbor/tasks',
+  datasetPath = TASKS_REL,
   forbiddenVerifierRead = false,
   skillPaths = [],
 } = {}) {
+  const earned = Math.max(0, Math.min(10, Math.round(Number(reward) * 10)));
+  const rawBehavior = earned / 10;
+  const semanticReward = Number(((earned + 1) / 12).toFixed(4));
+  const criteria = Array.from({ length: 10 }, (_, index) => ({
+    id: `criterion-${index + 1}`,
+    earned: index < earned ? 1 : 0,
+    possible: 1,
+    passed: index < earned,
+    reason: index < earned ? null : 'fixture miss',
+  }));
   const jobName = makeJobName(taskId, arm, Number(ts));
   const jobDir = path.join(jobsRoot, jobName);
   const trialName = `${taskId}-${arm}__abcd`;
@@ -113,7 +126,7 @@ function writeFixtureJob(jobsRoot, {
     JSON.stringify({
       job_name: jobName,
       agents: [{ name: HARBOR_AGENT, model_name: modelName }],
-      datasets: [{ path: datasetPath, task_names: [`${taskId}-${arm}`] }],
+      datasets: [{ path: datasetPath, task_names: [expectedPilotTaskDirName(taskId, arm)] }],
     }),
   );
   fs.writeFileSync(
@@ -143,7 +156,7 @@ function writeFixtureJob(jobsRoot, {
   fs.writeFileSync(
     path.join(trialDir, 'result.json'),
     JSON.stringify({
-      task_name: `${taskId}-${arm}`,
+      task_name: `${taskId}-${arm}-v3`,
       started_at: '2026-07-23T10:00:00.000Z',
       finished_at: '2026-07-23T10:05:00.000Z',
       task_checksum: 'abc123',
@@ -167,10 +180,32 @@ function writeFixtureJob(jobsRoot, {
       ],
     }),
   );
-  fs.writeFileSync(path.join(verifierDir, 'reward.json'), JSON.stringify({ reward }));
+  fs.writeFileSync(path.join(verifierDir, 'reward.json'), JSON.stringify({
+    reward: semanticReward,
+    measurement: 'semantic_criteria_v3',
+    reward_transform: '(earned + 1) / (possible + 2)',
+    behavior: rawBehavior,
+    raw_behavior: rawBehavior,
+    earned,
+    possible: 10,
+    measurement_invalid: false,
+    measurement_invalid_reason: null,
+  }));
   fs.writeFileSync(
     path.join(verifierDir, 'behavior_report.json'),
-    JSON.stringify({ reward, behavior_pass_rate: reward, invalid_treatment: false }),
+    JSON.stringify({
+      reward: semanticReward,
+      measurement: 'semantic_criteria_v3',
+      reward_transform: '(earned + 1) / (possible + 2)',
+      raw_behavior: rawBehavior,
+      behavior_pass_rate: rawBehavior,
+      earned,
+      possible: 10,
+      criteria,
+      measurement_invalid: false,
+      measurement_invalid_reason: null,
+      invalid_treatment: false,
+    }),
   );
   const protocolDir = path.join(trialDir, 'protocol');
   fs.mkdirSync(protocolDir, { recursive: true });
@@ -210,6 +245,8 @@ function writeFixtureJob(jobsRoot, {
       verifier_image_digest: 'sha256:test',
       network_mode: 'none',
       read_only_rootfs: true,
+      campaign_id: SKILL_RERUN_CAMPAIGN_ID,
+      measurement_contract: 'semantic_criteria_v3',
     }),
   );
   return jobName;
@@ -267,7 +304,7 @@ assert.throws(
 // --- temp workspace discovery + mocked campaign ---
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-pilot-runner-'));
 fs.cpSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle'), path.join(tmp, 'benchmarks/lb6/pilot/skill-bundle'), { recursive: true });
-const tasksRoot = path.join(tmp, 'benchmarks/lb6/pilot/harbor/tasks');
+const tasksRoot = path.join(tmp, TASKS_REL);
 const scriptsDir = path.join(tmp, 'benchmarks/lb6/pilot/scripts');
 const jobsRoot = path.join(tmp, 'jobs');
 fs.mkdirSync(scriptsDir, { recursive: true });
@@ -296,7 +333,7 @@ const spawnImpl = (command, spawnArgs) => {
   }
   const jobName = spawnArgs[spawnArgs.indexOf('--job-name') + 1];
   const include = spawnArgs[spawnArgs.indexOf('--include-task-name') + 1];
-  const arm = PILOT_ARMS.find((value) => include.endsWith(`-${value}`));
+  const arm = PILOT_ARMS.find((value) => include.endsWith(`-${value}-v3`));
   writeFixtureJob(jobsRoot, {
     taskId: 'pilot-care-circle',
     arm,
@@ -343,12 +380,17 @@ assert.equal(campaign.campaign.child_actual_model_unverified, true);
 assert.equal(campaign.campaign.confirmatory, false);
 assert.ok(campaign.publication?.outPath);
 assert.ok(fs.existsSync(campaign.publication.outPath));
+assert.equal(path.basename(campaign.publication.outPath), 'manual-publish-plan-v3.json');
 assert.equal(campaign.publication.plan.benchmark_upload_ready, true);
-assert.equal(campaign.publication.plan.campaign_id, 'lb6-dev-pilot-skill-rerun-v2');
+assert.equal(campaign.publication.plan.campaign_id, 'lb6-dev-pilot-skill-rerun-v3');
 assert.ok(campaign.publication.plan.commands.every((cmd) => !cmd.includes('dev-care-circle')));
 assert.ok(campaign.aggregate?.paths?.json);
 assert.ok(fs.existsSync(campaign.aggregate.paths.json));
 assert.ok(fs.existsSync(campaign.aggregate.paths.markdown));
+assert.equal(path.basename(campaign.aggregate.paths.json), 'skill-rerun-v3.json');
+assert.equal(path.basename(campaign.aggregate.paths.markdown), 'skill-rerun-v3.md');
+assert.equal(fs.existsSync(path.join(tmp, 'benchmarks/lb6/pilot/reports/latest.json')), false);
+assert.equal(fs.existsSync(path.join(tmp, 'benchmarks/lb6/pilot/publication/manual-publish-plan.json')), false);
 
 const report = campaign.aggregate.report;
 assert.equal(report.development_only, true);
@@ -356,7 +398,7 @@ assert.equal(report.child_actual_model_unverified, true);
 assert.equal(report.concurrency.requested, 3);
 assert.equal(report.concurrency.effective, 3);
 assert.equal(report.cells.length, 3);
-assert.ok(report.cells.some((cell) => cell.arm === 'lamina' && cell.reward === 0));
+assert.ok(report.cells.some((cell) => cell.arm === 'lamina' && cell.reward === 0.0833));
 assert.ok(report.limitations.some((item) => /unverified/i.test(item)));
 assert.equal(report.campaign.ok, true);
 const markdown = fs.readFileSync(campaign.aggregate.paths.markdown, 'utf8');
@@ -364,6 +406,37 @@ assert.match(markdown, /Development-only/i);
 assert.match(markdown, /Concurrency requested/);
 assert.match(markdown, /child_actual_model_unverified/);
 assert.doesNotMatch(markdown, /\bLamina wins\b/i);
+
+const semanticCriteria = Array.from({ length: 10 }, (_, index) => ({
+  id: `semantic-${index}`,
+  earned: 1,
+  possible: 1,
+}));
+assert.equal(validateSemanticMeasurement(
+  {
+    reward: 0.9167,
+    measurement: 'semantic_criteria_v3',
+    reward_transform: '(earned + 1) / (possible + 2)',
+    raw_behavior: 1,
+    earned: 10,
+    possible: 10,
+    measurement_invalid: false,
+  },
+  {
+    reward: 0.9167,
+    measurement: 'semantic_criteria_v3',
+    reward_transform: '(earned + 1) / (possible + 2)',
+    raw_behavior: 1,
+    earned: 10,
+    possible: 10,
+    criteria: semanticCriteria,
+    measurement_invalid: false,
+  },
+).passed, true);
+assert.equal(validateSemanticMeasurement(
+  { reward: 0.5, measurement: 'semantic_criteria_v3', measurement_invalid: false },
+  { reward: 0.9167, measurement: 'semantic_criteria_v3', criteria: semanticCriteria, earned: 10, possible: 10, raw_behavior: 1, measurement_invalid: false },
+).passed, false, 'stale/mismatched reward and report must fail reconciliation');
 
 // missing tasks fail closed
 const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-pilot-empty-'));
@@ -382,7 +455,7 @@ assert.equal(missing.gate, 'pilot_tasks_missing');
 // rate-limit fail fast
 const rateTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-pilot-rate-'));
 writeEnv(rateTmp);
-writeTaskDirs(path.join(rateTmp, 'benchmarks/lb6/pilot/harbor/tasks'));
+writeTaskDirs(path.join(rateTmp, TASKS_REL));
 fs.mkdirSync(path.join(rateTmp, 'benchmarks/lb6/pilot/scripts'), { recursive: true });
 let harborCalls = 0;
 const rateSpawn = (command, spawnArgs) => {
@@ -507,9 +580,9 @@ assert.match(renderMarkdownReport(standalone.report), /Concurrency effective/);
 assert.match(renderMarkdownReport(standalone.report), /Schedule/);
 
 const cluster = buildTaskCluster('pilot-care-circle', standalone.report.cells);
-assert.equal(cluster.rewards.direct, 1);
-assert.equal(cluster.rewards.plan, 1);
-assert.equal(cluster.rewards.lamina, 0);
+assert.equal(cluster.rewards.direct, 0.9167);
+assert.equal(cluster.rewards.plan, 0.9167);
+assert.equal(cluster.rewards.lamina, 0.0833);
 
 // evaluator implementation access invalidates the entire report fail-closed
 const leakyJob = writeFixtureJob(jobsRoot, {

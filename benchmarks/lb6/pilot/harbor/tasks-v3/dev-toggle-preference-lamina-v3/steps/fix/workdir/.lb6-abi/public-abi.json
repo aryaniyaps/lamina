@@ -1,0 +1,62 @@
+{
+  "contract_version": "lb6-pilot-semantic-abi-v3",
+  "task_id": "dev-toggle-preference",
+  "action_schema_markdown": "All arms must implement `reduce(state, action)` accepting these action types:\n\n- `disable_focus_mode`: payload shape example: `{\"type\":\"disable_focus_mode\",\"id\":\"pref-1\"}`\n- `enable_focus_mode`: payload shape example: `{\"type\":\"enable_focus_mode\",\"id\":\"pref-1\"}`\n- `toggle_focus_mode`: payload shape example: `{\"type\":\"toggle_focus_mode\",\"id\":\"pref-toggle\"}`\n\n`project(state, actorId)` must return JSON-serializable actor-scoped views used by the behavior grader.\n\nImplementation pressure (honest — not graded substrings):\n- Lifecycle actions must leave distinct inspectable statuses (open vs completed vs overdue/missed with follow-up).\n- Private/sensitive notes must stay distinguishable in the owning actor view.\n- Revoke/expire/deny must change the affected actor projection (access ended / denied), not only UI copy.",
+  "projection_contract": {
+    "actors": [
+      "user"
+    ],
+    "shape": "{ preferences: [{ id, focusEnabled: boolean }] }",
+    "typed_equivalents": {
+      "enabled": [
+        true,
+        "enabled",
+        "on"
+      ],
+      "disabled": [
+        false,
+        "disabled",
+        "off"
+      ]
+    },
+    "unknown_actions": "must be ignored without exposing their payload"
+  },
+  "scoring_protocol": {
+    "behavior_points": 10,
+    "raw_score": "earned / 10",
+    "valid_reward": "(earned + 1) / 12",
+    "determinism": "hard measurement-validity gate"
+  },
+  "public_sequences": {
+    "sequences": [
+      {
+        "id": "enable-disable",
+        "actor": "user",
+        "actions": [
+          {
+            "type": "enable_focus_mode",
+            "id": "pref-1"
+          },
+          {
+            "type": "disable_focus_mode",
+            "id": "pref-1"
+          }
+        ]
+      },
+      {
+        "id": "toggle-roundtrip",
+        "actor": "user",
+        "actions": [
+          {
+            "type": "toggle_focus_mode",
+            "id": "pref-toggle"
+          },
+          {
+            "type": "toggle_focus_mode",
+            "id": "pref-toggle"
+          }
+        ]
+      }
+    ]
+  }
+}

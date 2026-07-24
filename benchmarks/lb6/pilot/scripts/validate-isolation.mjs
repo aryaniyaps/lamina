@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const pilotRoot = path.join(ROOT, 'benchmarks/lb6/pilot');
 const forkRoot = path.join(ROOT, 'benchmarks/lb6/harbor-fork');
-const tasksRoot = path.join(pilotRoot, 'harbor/tasks');
-const privateRoot = path.join(pilotRoot, 'private-verifier');
+const tasksRoot = path.join(pilotRoot, 'harbor/tasks-v3');
+const privateRoot = path.join(pilotRoot, 'private-verifier-v3');
 const verifierImage = process.env.LB6_VERIFIER_IMAGE
   || 'node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0';
 const errors = [];

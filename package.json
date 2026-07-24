@@ -47,7 +47,11 @@
     "bench:run:lamina": "node benchmarks/scripts/run-harbor-arm.mjs --arm lamina --task all --attempts 2 --concurrency 2 --model sonnet",
     "bench:all": "npm run bench:build && npm run bench:validate && npm run bench:run",
     "bench:lb6:preflight": "node benchmarks/lb6/scripts/run-pilot-preflight.mjs",
-    "bench:lb6:preflight:static": "node benchmarks/lb6/scripts/run-pilot-preflight.mjs --static-only"
+    "bench:lb6:preflight:static": "node benchmarks/lb6/scripts/run-pilot-preflight.mjs --static-only",
+    "bench:lb6:v3:build": "node benchmarks/lb6/pilot/scripts/build-pilot.mjs",
+    "bench:lb6:v3:validate": "node benchmarks/lb6/pilot/scripts/validate-pilot.mjs --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference",
+    "bench:lb6:v3:replay-v2": "node benchmarks/lb6/pilot/scripts/replay-v2-candidates-v3.mjs --write",
+    "bench:lb6:v3:run": "node benchmarks/lb6/pilot/scripts/run-three-arm.mjs --concurrency 6 --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",
