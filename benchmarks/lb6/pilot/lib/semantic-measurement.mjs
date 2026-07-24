@@ -2,9 +2,11 @@ export const SEMANTIC_MEASUREMENT = 'semantic_criteria_v3';
 export const SEMANTIC_REWARD_TRANSFORM = '(earned + 1) / (possible + 2)';
 
 function nearlyEqual(a, b, tolerance = 1e-9) {
-  return Number.isFinite(Number(a))
-    && Number.isFinite(Number(b))
-    && Math.abs(Number(a) - Number(b)) <= tolerance;
+  return typeof a === 'number'
+    && typeof b === 'number'
+    && Number.isFinite(a)
+    && Number.isFinite(b)
+    && Math.abs(a - b) <= tolerance;
 }
 
 export function validateSemanticRows(criteria, summary = {}) {
@@ -14,15 +16,15 @@ export function validateSemanticRows(criteria, summary = {}) {
   if (rows.length !== 10 || ids.some((id) => !id) || new Set(ids).size !== 10) {
     reasons.push('criteria must contain ten unique named outcomes');
   }
-  if (rows.some((criterion) => !Number.isFinite(Number(criterion?.possible)) || Number(criterion.possible) <= 0)) {
+  if (rows.some((criterion) => typeof criterion?.possible !== 'number' || !Number.isFinite(criterion.possible) || criterion.possible <= 0)) {
     reasons.push('criterion possible weights invalid');
   }
-  if (rows.some((criterion) => !Number.isFinite(Number(criterion?.earned)) || Number(criterion.earned) < 0 || Number(criterion.earned) > Number(criterion.possible))) {
+  if (rows.some((criterion) => typeof criterion?.earned !== 'number' || !Number.isFinite(criterion.earned) || criterion.earned < 0 || criterion.earned > criterion.possible)) {
     reasons.push('criterion earned weights invalid');
   }
 
-  const earned = rows.reduce((sum, criterion) => sum + Number(criterion?.earned || 0), 0);
-  const possible = rows.reduce((sum, criterion) => sum + Number(criterion?.possible || 0), 0);
+  const earned = rows.reduce((sum, criterion) => sum + (typeof criterion?.earned === 'number' ? criterion.earned : 0), 0);
+  const possible = rows.reduce((sum, criterion) => sum + (typeof criterion?.possible === 'number' ? criterion.possible : 0), 0);
   const raw = possible ? earned / possible : 0;
   const reward = Number(((earned + 1) / (possible + 2)).toFixed(4));
   if (!nearlyEqual(possible, 10)) reasons.push(`possible weight total ${possible} != 10`);
