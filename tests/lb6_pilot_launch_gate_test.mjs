@@ -18,7 +18,11 @@ import {
   schedulePilotCells,
 } from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
 import { EMPTY_INVENTORY_DIGEST } from '../benchmarks/lb6/pilot/lib/pre-model-gate.mjs';
-import { SKILL_RERUN_CAMPAIGN_ID } from '../benchmarks/lb6/pilot/lib/constants.mjs';
+import {
+  SKILL_RERUN_CAMPAIGN_ID,
+  expectedPilotTaskDirName,
+} from '../benchmarks/lb6/pilot/lib/constants.mjs';
+import { TASKS_REL } from '../benchmarks/lb6/pilot/scripts/run-three-arm.mjs';
 import {
   assertBuildSelectionAllowed,
   assertCampaignSelectionAllowed,
@@ -179,7 +183,7 @@ assert.equal(
 const jobsRoot = path.join(tmpRoot, 'jobs');
 fs.mkdirSync(jobsRoot, { recursive: true });
 const skillBundleManifest = JSON.parse(
-  fs.readFileSync(path.join(tmpRoot, 'benchmarks/lb6/pilot/skill-bundle/manifest.json'), 'utf8'),
+  fs.readFileSync(path.join(tmpRoot, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'), 'utf8'),
 );
 function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state = 'protocol_evidence_missing' } = {}) {
   const jobName = makeJobName(taskId, arm, 9001);
@@ -191,7 +195,7 @@ function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state =
   fs.writeFileSync(
     path.join(jobDir, 'config.json'),
     JSON.stringify({
-      datasets: [{ path: 'benchmarks/lb6/pilot/harbor/tasks', task_names: [`${taskId}-${arm}`] }],
+      datasets: [{ path: TASKS_REL, task_names: [expectedPilotTaskDirName(taskId, arm)] }],
     }),
   );
   fs.writeFileSync(path.join(jobDir, 'lock.json'), JSON.stringify({ trials: [{ skills: [] }] }));
@@ -304,6 +308,40 @@ assert.equal(laminaDeltaEligible(noSkillCell), false);
 assert.equal(isFrozenPublicationTask('dev-care-circle'), true);
 assert.equal(isPublicationEligibleCell(noSkillCell), false);
 
+function semanticFields(earned = 8) {
+  const criteria = Array.from({ length: 10 }, (_, index) => ({
+    id: `criterion-${index + 1}`,
+    earned: index < earned ? 1 : 0,
+    possible: 1,
+  }));
+  return {
+    criteria,
+    earned,
+    possible: 10,
+    rawBehavior: earned / 10,
+    reward: Number(((earned + 1) / 12).toFixed(4)),
+    measurementInvalid: false,
+    semanticEvidence: {
+      passed: true,
+      measurement: 'semantic_criteria_v3',
+      criteriaCount: 10,
+    },
+    isolationEvidence: {
+      campaignId: SKILL_RERUN_CAMPAIGN_ID,
+      measurementContract: 'semantic_criteria_v3',
+    },
+  };
+}
+
+assert.equal(isPublicationEligibleCell({
+  taskId: 'dev-loan-library',
+  arm: 'direct',
+  taskDirName: expectedPilotTaskDirName('dev-loan-library', 'direct'),
+  jobName: makeJobName('dev-loan-library', 'direct', 1),
+  measurementValid: true,
+  skillEvidence: { passed: true, hasLedgerEvidence: true },
+}), false, 'asserted booleans without semantic-v3 evidence must not publish');
+
 const publication = preparePublicationPlan({
   root: tmpRoot,
   taskIds: selectedNewTasks,
@@ -311,10 +349,11 @@ const publication = preparePublicationPlan({
     ['direct', 'plan', 'lamina'].map((arm) => ({
       taskId,
       arm,
-      taskDirName: `${taskId}-${arm}`,
+      taskDirName: expectedPilotTaskDirName(taskId, arm),
       jobName: makeJobName(taskId, arm, 1),
       measurementValid: true,
       skillEvidence: { passed: true, priorNoSkill: false, hasLedgerEvidence: true },
+      ...semanticFields(),
     })),
   ),
   reportPaths: null,
@@ -326,18 +365,18 @@ const publication = preparePublicationPlan({
       ['direct', 'plan', 'lamina'].map((arm) => ({
         taskId,
         arm,
-        taskDirName: `${taskId}-${arm}`,
+        taskDirName: expectedPilotTaskDirName(taskId, arm),
         jobName: makeJobName(taskId, arm, 1),
         ok: true,
         measurementValid: true,
         skillEvidence: { passed: true, hasLedgerEvidence: true },
+        ...semanticFields(),
       })),
     ),
   },
   write: false,
 });
 assert.equal(publication.outPath, null);
-const TASKS_REL = 'benchmarks/lb6/pilot/harbor/tasks';
 assert.ok(publication.plan.commands.every((cmd) => !cmd.includes('dev-care-circle')));
 assert.equal(publication.plan.campaign_id, SKILL_RERUN_CAMPAIGN_ID);
 assert.equal(publication.plan.benchmark_upload_ready, true);
@@ -348,7 +387,13 @@ assert.equal(
   publication.plan.commands.filter((cmd) => cmd.startsWith('harbor publish')).length,
   selectedNewTasks.length * 3,
 );
-assert.ok(publication.plan.commands.every((cmd) => cmd.includes('skill-rerun-v2') || cmd.startsWith('harbor publish')));
+assert.ok(
+  publication.plan.commands
+    .filter((cmd) => cmd.startsWith('harbor publish'))
+    .every((cmd) => cmd.includes('/harbor/tasks-v3/') && cmd.endsWith('-v3')),
+  'v3 publication must use immutable v3 task identities',
+);
+assert.ok(publication.plan.commands.every((cmd) => cmd.includes('skill-rerun-v3') || cmd.startsWith('harbor publish')));
 
 const mixedCells = [
   {

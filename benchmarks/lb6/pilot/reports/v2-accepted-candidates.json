@@ -1,0 +1,18 @@
+{
+  "source_campaign_id": "lb6-dev-pilot-skill-rerun-v2",
+  "diagnostic_only": true,
+  "cells": [
+    {"taskId":"dev-loan-library","arm":"lamina","recordedReward":0,"candidateDigest":"91dcdd9d2461c5cfbb141631494db536e4ba20c7d2f9e7c8ea7ca48197562d89"},
+    {"taskId":"dev-loan-library","arm":"direct","recordedReward":0,"candidateDigest":"95503f0789c05a30cc38117bca24ad9308cbb2c26f1d46782c456b733c73bffe"},
+    {"taskId":"dev-loan-library","arm":"plan","recordedReward":0.6667,"candidateDigest":"a3b0cbff6bf54d98c62cdcd482080b1cd328bcb96dfd9a4e67e0dce357395be6"},
+    {"taskId":"dev-review-room","arm":"direct","recordedReward":0,"candidateDigest":"2309f7af0f06739e4a09238b6c9182858538db9a2461d78cd301821c4235f7f9"},
+    {"taskId":"dev-review-room","arm":"plan","recordedReward":0.3333,"candidateDigest":"86e27b492cc2863045c01dcf3aeca090885057c184117b76c9af097581e20c3d"},
+    {"taskId":"dev-review-room","arm":"lamina","recordedReward":1,"candidateDigest":"51150f64874766f68c2ea1f60d4ed1fe5c155fced1f18478f89ea7feb23adf99"},
+    {"taskId":"dev-simple-list","arm":"direct","recordedReward":0,"candidateDigest":"ebfde7291212279e1defa78c80c0dc11bbadc1034b6d45bbfe37b454e3d87521"},
+    {"taskId":"dev-simple-list","arm":"plan","recordedReward":0,"candidateDigest":"f469f8009caad908a6f6bf8ac0b78d63d97047ea34c5b1b80568f698752f434b"},
+    {"taskId":"dev-simple-list","arm":"lamina","recordedReward":1,"candidateDigest":"7aa8c8fc3f0e5576fcd090d1f5716328d8e9dc4aee5bdef0f1ccfe82d32f2ece"},
+    {"taskId":"dev-toggle-preference","arm":"direct","recordedReward":0,"candidateDigest":"a2e6751afbfc7bad53c57191d347d74c630291d100f567118a41205ce2f71b58"},
+    {"taskId":"dev-toggle-preference","arm":"plan","recordedReward":0,"candidateDigest":"299b59e80df25f5abcb927bc3e905663215942304495fe0f0669487f0ebfef08"},
+    {"taskId":"dev-toggle-preference","arm":"lamina","recordedReward":0,"candidateDigest":"c43a5fd8fb80a115d2ddf8882bc9e412fa234868f392919e20c90a2730172a28"}
+  ]
+}

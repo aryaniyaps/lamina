@@ -11,6 +11,7 @@ import {
   PILOT_SKILL_RERUN_JOB_RE,
   SKILL_RERUN_CAMPAIGN_ID,
   SKILL_RERUN_JOB_PREFIX,
+  expectedPilotTaskDirName,
   parseSkillRerunPilotJobName,
 } from '../lib/constants.mjs';
 import {
@@ -61,7 +62,7 @@ export function parsePilotJobName(name) {
 }
 
 export function readTaskCampaignId(root, taskId, arm) {
-  const taskTomlPath = path.join(root, TASKS_REL, `${taskId}-${arm}`, 'task.toml');
+  const taskTomlPath = path.join(root, TASKS_REL, expectedPilotTaskDirName(taskId, arm), 'task.toml');
   if (!fs.existsSync(taskTomlPath)) {
     return { campaignId: null, reason: `task metadata missing: ${taskTomlPath}` };
   }
@@ -313,6 +314,8 @@ export function collectIsolationEvidence(trialDir, arm) {
       && seal.candidate_digest === abi?.candidate_digest
       && abi?.network_mode === 'none'
       && abi?.read_only_rootfs === true
+      && abi?.campaign_id === SKILL_RERUN_CAMPAIGN_ID
+      && abi?.measurement_contract === 'semantic_criteria_v3'
       && events.includes('final_sealed')
       && events.includes('agent_environment_removed')
       && events.includes('scoring_complete'),
@@ -328,7 +331,60 @@ export function collectIsolationEvidence(trialDir, arm) {
     doubleCaptureIdentical: seal?.double_capture_identical ?? false,
     networkMode: abi?.network_mode ?? null,
     readOnlyRootfs: abi?.read_only_rootfs ?? false,
+    campaignId: abi?.campaign_id ?? null,
+    measurementContract: abi?.measurement_contract ?? null,
     events,
+  };
+}
+
+function nearlyEqual(a, b, tolerance = 1e-9) {
+  return Number.isFinite(Number(a))
+    && Number.isFinite(Number(b))
+    && Math.abs(Number(a) - Number(b)) <= tolerance;
+}
+
+export function validateSemanticMeasurement(rewardRecord, behaviorReport) {
+  const reasons = [];
+  if (!rewardRecord || !behaviorReport) reasons.push('reward/report pair missing');
+  if (behaviorReport?.measurement !== 'semantic_criteria_v3') reasons.push('behavior measurement contract mismatch');
+  if (rewardRecord?.measurement !== 'semantic_criteria_v3') reasons.push('reward measurement contract mismatch');
+  if (behaviorReport?.reward_transform !== '(earned + 1) / (possible + 2)') reasons.push('behavior reward transform mismatch');
+  if (rewardRecord?.reward_transform !== '(earned + 1) / (possible + 2)') reasons.push('reward transform mismatch');
+  if (behaviorReport?.measurement_invalid !== false || rewardRecord?.measurement_invalid !== false) {
+    reasons.push('measurement invalid flag set or missing');
+  }
+
+  const criteria = Array.isArray(behaviorReport?.criteria) ? behaviorReport.criteria : [];
+  const ids = criteria.map((criterion) => criterion?.id);
+  if (criteria.length !== 10 || ids.some((id) => !id) || new Set(ids).size !== 10) {
+    reasons.push('criteria must contain ten unique named outcomes');
+  }
+  if (criteria.some((criterion) => !Number.isFinite(Number(criterion?.possible)) || Number(criterion.possible) <= 0)) {
+    reasons.push('criterion possible weights invalid');
+  }
+  if (criteria.some((criterion) => !Number.isFinite(Number(criterion?.earned)) || Number(criterion.earned) < 0 || Number(criterion.earned) > Number(criterion.possible))) {
+    reasons.push('criterion earned weights invalid');
+  }
+
+  const earned = criteria.reduce((sum, criterion) => sum + Number(criterion?.earned || 0), 0);
+  const possible = criteria.reduce((sum, criterion) => sum + Number(criterion?.possible || 0), 0);
+  const raw = possible ? earned / possible : 0;
+  const reward = Number(((earned + 1) / (possible + 2)).toFixed(4));
+  if (!nearlyEqual(possible, 10)) reasons.push(`possible weight total ${possible} != 10`);
+  if (!nearlyEqual(behaviorReport?.earned, earned) || !nearlyEqual(rewardRecord?.earned, earned)) reasons.push('earned total mismatch');
+  if (!nearlyEqual(behaviorReport?.possible, possible) || !nearlyEqual(rewardRecord?.possible, possible)) reasons.push('possible total mismatch');
+  if (!nearlyEqual(behaviorReport?.raw_behavior, raw) || !nearlyEqual(rewardRecord?.raw_behavior, raw)) reasons.push('raw behavior mismatch');
+  if (!nearlyEqual(behaviorReport?.reward, reward, 1e-4) || !nearlyEqual(rewardRecord?.reward, reward, 1e-4)) reasons.push('smoothed reward mismatch');
+
+  return {
+    passed: reasons.length === 0,
+    reasons,
+    measurement: behaviorReport?.measurement ?? null,
+    criteriaCount: criteria.length,
+    earned,
+    possible,
+    raw,
+    reward,
   };
 }
 
@@ -398,7 +454,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
         child_actual_model_unverified: true,
       };
     }
-    if (!String(datasetPath).includes(TASKS_REL) && !String(datasetPath).includes('lb6/pilot/harbor/tasks')) {
+    if (!String(datasetPath).includes(TASKS_REL)) {
       return {
         ok: false,
         jobName,
@@ -420,6 +476,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   const behaviorInfo = trialDir
     ? findBehaviorReport(trialDir, parsed.arm)
     : { report: null, path: null };
+  const semanticEvidence = validateSemanticMeasurement(rewardInfo.reward, behaviorInfo.report);
   const modelEvidence = collectModelEvidence(trialResult);
   const verifierIsolation = detectVerifierIsolationBreach(trialDir);
   const isolationEvidence = collectIsolationEvidence(trialDir, parsed.arm);
@@ -444,6 +501,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   if (cellMeta.deadlineExceeded) state = 'campaign_deadline_exceeded';
   else if (verifierIsolation.breach) state = 'verifier_isolation_breach';
   else if (!skillEvidence.passed) state = skillEvidence.gate || 'skill_injection_failure';
+  else if (!semanticEvidence.passed) state = 'semantic_measurement_invalid';
   else if (!isolationEvidence.passed && !exception && !stepExceptions.length) state = 'protocol_evidence_missing';
   else if (exception || stepExceptions.length) state = 'trial_exception';
   else if (cellMeta.exitCode && cellMeta.exitCode !== 0) state = cellMeta.state || 'harbor_nonzero_exit';
@@ -451,6 +509,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
 
   const observedReward = rewardInfo.reward?.reward ?? behaviorInfo.report?.reward ?? null;
   const observedBehavior = rewardInfo.reward?.behavior
+    ?? behaviorInfo.report?.raw_behavior
     ?? behaviorInfo.report?.behavior_pass_rate
     ?? behaviorInfo.report?.scores?.behavior
     ?? null;
@@ -462,14 +521,18 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     && !verifierIsolation.breach
     && isolationEvidence.passed
     && skillEvidence.passed
-    && !behaviorInfo.report?.invalid_treatment;
+    && semanticEvidence.passed
+    && !behaviorInfo.report?.invalid_treatment
+    && !behaviorInfo.report?.measurement_invalid;
   const measurementValid =
     ok
     && state === 'completed'
     && !verifierIsolation.breach
     && isolationEvidence.passed
     && skillEvidence.passed
-    && !behaviorInfo.report?.invalid_treatment;
+    && semanticEvidence.passed
+    && !behaviorInfo.report?.invalid_treatment
+    && !behaviorInfo.report?.measurement_invalid;
 
   return {
     ok,
@@ -479,7 +542,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     trialPath: trialDir,
     taskId: parsed.taskId,
     arm: parsed.arm,
-    taskDirName: `${parsed.taskId}-${parsed.arm}`,
+    taskDirName: expectedPilotTaskDirName(parsed.taskId, parsed.arm),
     state,
     exitCode: cellMeta.exitCode ?? null,
     signal: cellMeta.signal ?? null,
@@ -490,6 +553,13 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     reward: measurementValid ? observedReward : null,
     behavior: measurementValid ? observedBehavior : null,
     invalidTreatment: behaviorInfo.report?.invalid_treatment ?? false,
+    measurementInvalid: behaviorInfo.report?.measurement_invalid ?? false,
+    measurementInvalidReason: behaviorInfo.report?.measurement_invalid_reason ?? null,
+    criteria: behaviorInfo.report?.criteria ?? [],
+    earned: behaviorInfo.report?.earned ?? null,
+    possible: behaviorInfo.report?.possible ?? null,
+    rawBehavior: behaviorInfo.report?.raw_behavior ?? observedBehavior,
+    semanticEvidence,
     skillEvidence,
     priorNoSkill: Boolean(skillEvidence.priorNoSkill),
     treatmentInvalid: Boolean(skillEvidence.priorNoSkill || skillEvidence.treatmentValid === false),
@@ -561,6 +631,9 @@ export function renderMarkdownReport(report) {
   lines.push(`- Concurrency hard max: \`${report.concurrency?.max}\``);
   lines.push(`- Campaign deadline: \`${report.campaign?.deadlineAt || 'n/a'}\``);
   lines.push(`- Campaign gate: \`${report.campaign?.gate || report.gate}\``);
+  lines.push('- Behavior rubric: `10` equal semantic points; raw score = `earned / 10`.');
+  lines.push('- Valid Harbor reward: arm-blind Laplace smoothing `(earned + 1) / 12` (ceiling `0.9167`).');
+  lines.push('- Deterministic replay: hard measurement-validity gate.');
   lines.push('- `child_actual_model_unverified: true`');
   lines.push('');
   lines.push('## Schedule');
@@ -583,8 +656,8 @@ export function renderMarkdownReport(report) {
   for (const cluster of report.taskClusters || []) {
     lines.push(`### \`${cluster.taskId}\``);
     lines.push('');
-    lines.push('| Arm | Reward | Valid measurement | Delta vs direct |');
-    lines.push('|---|---:|---|---|');
+    lines.push('| Arm | Reward | Raw | Earned | Valid measurement | Delta vs direct |');
+    lines.push('|---|---:|---:|---:|---|---|');
     for (const arm of PILOT_ARMS) {
       const cell = cluster.cells.find((item) => item.arm === arm);
       const delta =
@@ -594,7 +667,7 @@ export function renderMarkdownReport(report) {
             ? cluster.deltas.plan_minus_direct
             : cluster.deltas.lamina_minus_direct;
       lines.push(
-        `| ${arm} | ${cluster.rewards[arm] ?? 'n/a'} | ${cell?.measurementValid ? 'yes' : 'no'} | ${delta ?? 'n/a'} |`,
+        `| ${arm} | ${cluster.rewards[arm] ?? 'n/a'} | ${cell?.rawBehavior ?? 'n/a'} | ${cell?.earned ?? 'n/a'}/${cell?.possible ?? 'n/a'} | ${cell?.measurementValid ? 'yes' : 'no'} | ${delta ?? 'n/a'} |`,
       );
     }
     lines.push('');
@@ -664,7 +737,7 @@ export function buildPilotReport({
         : campaign.gate || 'pilot_report_ready';
 
   const report = {
-    kind: 'lb6_pilot_development_report',
+    kind: 'lb6_pilot_semantic_v3_development_report',
     ...DEVELOPMENT_FLAGS,
     not_claim_ready: true,
     distinct_from: 'lamina-bench-6',
@@ -677,6 +750,14 @@ export function buildPilotReport({
     model: HARBOR_MODEL,
     attemptsPerArm: 1,
     maxRetries: 0,
+    scoring: {
+      measurement: 'semantic_criteria_v3',
+      behaviorPoints: 10,
+      raw: 'earned / 10',
+      reward: '(earned + 1) / 12',
+      smoothing: { kind: 'laplace', alpha: 1, beta: 1, armBlind: true },
+      deterministicReplay: 'hard measurement-validity gate',
+    },
     concurrency: {
       requested: concurrency?.requested ?? null,
       effective: concurrency?.effective ?? null,
@@ -791,8 +872,8 @@ export async function aggregatePilotCampaign({
   const paths = { json: null, markdown: null };
   if (write) {
     fs.mkdirSync(reportsDir, { recursive: true });
-    paths.json = path.join(reportsDir, 'latest.json');
-    paths.markdown = path.join(reportsDir, 'latest.md');
+    paths.json = path.join(reportsDir, 'skill-rerun-v3.json');
+    paths.markdown = path.join(reportsDir, 'skill-rerun-v3.md');
     fs.writeFileSync(paths.json, `${JSON.stringify(report, null, 2)}\n`);
     fs.writeFileSync(paths.markdown, markdown);
   }

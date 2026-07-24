@@ -6,6 +6,7 @@ const NEUTRAL_STRING_FIELDS = Object.freeze({
   item: 'Example item',
   document: 'example-document',
   email: 'participant@example.org',
+  contextToken: 'example-private-token',
 });
 
 const PRESERVED_ACTION_FIELDS = new Set(['type', 'id', 'actor']);
@@ -25,6 +26,18 @@ export function collectHiddenTerms(golden) {
         terms.add(String(term).toLowerCase());
       }
     }
+    if (sequence.hidden) {
+      for (const action of sequence.actions ?? []) {
+        for (const value of Object.values(action)) {
+          if (typeof value === 'string' && value.length > 0) terms.add(value.toLowerCase());
+        }
+      }
+    }
+    for (const criterion of sequence.criteria ?? []) {
+      if (criterion.kind === 'secret_absent' && criterion.value) {
+        terms.add(String(criterion.value).toLowerCase());
+      }
+    }
   }
   return [...terms];
 }
@@ -42,6 +55,9 @@ export function collectScoringSensitiveStrings(golden) {
         if (!PAYLOAD_TEXT_FIELDS.has(key) || typeof value !== 'string' || value.length === 0) continue;
         terms.add(value);
       }
+    }
+    for (const criterion of sequence.criteria ?? []) {
+      if (criterion.kind === 'secret_absent' && criterion.value) terms.add(String(criterion.value));
     }
   }
   return [...terms];
@@ -71,7 +87,8 @@ export function sanitizeAction(action, hiddenTerms) {
 export function publicGolden(golden) {
   const hiddenTerms = collectHiddenTerms(golden);
   return {
-    sequences: (golden.sequences ?? []).map((sequence) => ({
+    sequences: (golden.sequences ?? []).filter((sequence) => !sequence.hidden).map((sequence) => ({
+      id: sequence.id,
       actor: sequence.actor,
       actions: (sequence.actions ?? []).map((action) => sanitizeAction(action, hiddenTerms)),
     })),

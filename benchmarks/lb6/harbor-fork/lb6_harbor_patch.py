@@ -459,6 +459,8 @@ def _run_verifier_once(
     if not isinstance(reward.get("reward"), (int, float)):
         raise ProtocolInvalidError("isolated verifier reward schema invalid")
     evidence = {
+        "campaign_id": os.environ.get("LB6_SKILL_RERUN_CAMPAIGN_ID"),
+        "measurement_contract": "semantic_criteria_v3",
         "verifier_image_digest": image_id,
         "candidate_digest": seal["candidate_digest"],
         "treatment_digest": seal["treatment_digest"],

@@ -113,7 +113,7 @@ export function scanPilotTaskSecrets(taskDir, { finalStep, scoringSensitiveStrin
 export function scanPilotPackage(tasksRoot, taskSpecs, { scoringSensitiveStringsByTaskId = {} } = {}) {
   const all = [];
   for (const spec of taskSpecs) {
-    const taskDir = path.join(tasksRoot, `${spec.taskId}-${spec.arm}`);
+    const taskDir = path.join(tasksRoot, spec.taskDirName ?? `${spec.taskId}-${spec.arm}`);
     const scoringSensitiveStrings = scoringSensitiveStringsByTaskId[spec.taskId] ?? [];
     const findings = scanPilotTaskSecrets(taskDir, {
       finalStep: spec.finalStep,

@@ -45,7 +45,9 @@ function listFilesRecursive(dir, out = []) {
 
 export function listFrozenArtifactRelPaths(root, manifest) {
   const relPaths = [];
-  for (const taskId of publishedFrozenTaskIds(manifest)) {
+  // Every v1/v2 package and verifier is immutable. V3 lives in separate
+  // tasks-v3/private-verifier-v3 roots and must never mutate these paths.
+  for (const taskId of (manifest.tasks ?? []).map((task) => task.id)) {
     for (const arm of PILOT_ARMS) {
       const taskDir = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks', `${taskId}-${arm}`);
       for (const file of listFilesRecursive(taskDir)) {
@@ -57,7 +59,15 @@ export function listFrozenArtifactRelPaths(root, manifest) {
       relPaths.push(path.relative(root, file).replaceAll('\\', '/'));
     }
   }
-  relPaths.push('benchmarks/lb6/pilot/publication/publication-result.json');
+  relPaths.push(
+    'benchmarks/lb6/pilot/publication/publication-result.json',
+    'benchmarks/lb6/pilot/publication/publication-result-skill-rerun-v2.json',
+    'benchmarks/lb6/pilot/publication/manual-publish-plan.json',
+    'benchmarks/lb6/pilot/reports/latest.json',
+    'benchmarks/lb6/pilot/reports/latest.md',
+    'benchmarks/lb6/pilot/package.manifest.json',
+    'benchmarks/lb6/pilot/skill-bundle/manifest.json',
+  );
   return [...new Set(relPaths)].sort();
 }
 

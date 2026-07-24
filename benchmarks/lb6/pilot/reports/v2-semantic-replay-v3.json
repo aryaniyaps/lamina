@@ -1,0 +1,1018 @@
+{
+  "kind": "lb6_v2_candidates_v3_semantic_replay",
+  "diagnostic_only": true,
+  "not_v3_benchmark_evidence": true,
+  "source_campaign_id": "lb6-dev-pilot-skill-rerun-v2",
+  "target_rubric": "semantic_criteria_v3",
+  "generated_at": "2026-07-24T02:14:31.028Z",
+  "cells": [
+    {
+      "taskId": "dev-loan-library",
+      "arm": "lamina",
+      "recordedReward": 0,
+      "candidateDigest": "91dcdd9d2461c5cfbb141631494db536e4ba20c7d2f9e7c8ea7ca48197562d89",
+      "v3Reward": 0,
+      "rawBehavior": 0,
+      "earned": 0,
+      "possible": 10,
+      "measurementInvalid": true,
+      "measurementInvalidReason": "behavior_nondeterministic",
+      "criteria": [
+        {
+          "id": "request.visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity loan-1 absent from actor view"
+        },
+        {
+          "id": "request.lifecycle",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [status, state] matched declared values"
+        },
+        {
+          "id": "handoff.borrower",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [borrowerConfirmed, borrower_confirmed, borrower] matched declared values"
+        },
+        {
+          "id": "handoff.owner",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [ownerConfirmed, owner_confirmed, owner] matched declared values"
+        },
+        {
+          "id": "handoff.active",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [status, state] matched declared values"
+        },
+        {
+          "id": "damage.recorded",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [status, state, damageReported, damaged] matched declared values"
+        },
+        {
+          "id": "damage.lending_paused",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "no distinct paused/disabled lending capability was projected"
+        },
+        {
+          "id": "damage.owner_visibility",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity loan-1 absent from actor view"
+        },
+        {
+          "id": "damage.requires_active_handoff",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "invalid action was neither ignored nor explicitly rejected"
+        },
+        {
+          "id": "loan.multi_entity_isolation",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "missing entities: loan-a, loan-b"
+        }
+      ]
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "direct",
+      "recordedReward": 0,
+      "candidateDigest": "95503f0789c05a30cc38117bca24ad9308cbb2c26f1d46782c456b733c73bffe",
+      "v3Reward": 0.75,
+      "rawBehavior": 0.8,
+      "earned": 8,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "request.visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "request.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "handoff.borrower",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "handoff.owner",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "handoff.active",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.recorded",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.lending_paused",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "no distinct paused/disabled lending capability was projected"
+        },
+        {
+          "id": "damage.owner_visibility",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.requires_active_handoff",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "invalid action was neither ignored nor explicitly rejected"
+        },
+        {
+          "id": "loan.multi_entity_isolation",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "plan",
+      "recordedReward": 0.6667,
+      "candidateDigest": "a3b0cbff6bf54d98c62cdcd482080b1cd328bcb96dfd9a4e67e0dce357395be6",
+      "v3Reward": 0.5833,
+      "rawBehavior": 0.6,
+      "earned": 6,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "request.visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "request.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "handoff.borrower",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [borrowerConfirmed, borrower_confirmed, borrower] matched declared values"
+        },
+        {
+          "id": "handoff.owner",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [ownerConfirmed, owner_confirmed, owner] matched declared values"
+        },
+        {
+          "id": "handoff.active",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.recorded",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.lending_paused",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "no distinct paused/disabled lending capability was projected"
+        },
+        {
+          "id": "damage.owner_visibility",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "damage.requires_active_handoff",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "invalid action was neither ignored nor explicitly rejected"
+        },
+        {
+          "id": "loan.multi_entity_isolation",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "direct",
+      "recordedReward": 0,
+      "candidateDigest": "2309f7af0f06739e4a09238b6c9182858538db9a2461d78cd301821c4235f7f9",
+      "v3Reward": 0.5833,
+      "rawBehavior": 0.6,
+      "earned": 6,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "invite.visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity invite-1 absent from actor view"
+        },
+        {
+          "id": "accept.access_granted",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [access, allowed, canComment] matched declared values"
+        },
+        {
+          "id": "comment.visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity c-1 absent from actor view"
+        },
+        {
+          "id": "comment.content_visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [text, content, body] matched declared values"
+        },
+        {
+          "id": "expiry.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.access_denied",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.blocked_comment_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.access_denied",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.blocked_comment_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "plan",
+      "recordedReward": 0.3333,
+      "candidateDigest": "86e27b492cc2863045c01dcf3aeca090885057c184117b76c9af097581e20c3d",
+      "v3Reward": 0.5,
+      "rawBehavior": 0.5,
+      "earned": 5,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "invite.visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "accept.access_granted",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [access, allowed, canComment] matched declared values"
+        },
+        {
+          "id": "comment.visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "comment.content_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.access_denied",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [access, allowed, canComment] matched declared values"
+        },
+        {
+          "id": "expiry.blocked_comment_private",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "hidden marker leaked into actor view"
+        },
+        {
+          "id": "revoke.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.access_denied",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [access, allowed, canComment] matched declared values"
+        },
+        {
+          "id": "revoke.blocked_comment_private",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "hidden marker leaked into actor view"
+        }
+      ]
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "lamina",
+      "recordedReward": 1,
+      "candidateDigest": "51150f64874766f68c2ea1f60d4ed1fe5c155fced1f18478f89ea7feb23adf99",
+      "v3Reward": 0,
+      "rawBehavior": 0.9,
+      "earned": 9,
+      "possible": 10,
+      "measurementInvalid": true,
+      "measurementInvalidReason": "behavior_nondeterministic",
+      "criteria": [
+        {
+          "id": "invite.visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity invite-1 absent from actor view"
+        },
+        {
+          "id": "accept.access_granted",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "comment.visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "comment.content_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.access_denied",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "expiry.blocked_comment_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.lifecycle",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.access_denied",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "revoke.blocked_comment_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "recordedReward": 0,
+      "candidateDigest": "ebfde7291212279e1defa78c80c0dc11bbadc1034b6d45bbfe37b454e3d87521",
+      "v3Reward": 0.9167,
+      "rawBehavior": 1,
+      "earned": 10,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "list.add_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.initially_incomplete",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.complete",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.title_preserved",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.missing_id_noop",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.complete_idempotent",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.multiple_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.other_unchanged",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.completed_cleared",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.open_retained",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "recordedReward": 0,
+      "candidateDigest": "f469f8009caad908a6f6bf8ac0b78d63d97047ea34c5b1b80568f698752f434b",
+      "v3Reward": 0.9167,
+      "rawBehavior": 1,
+      "earned": 10,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "list.add_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.initially_incomplete",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.complete",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.title_preserved",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.missing_id_noop",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.complete_idempotent",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.multiple_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.other_unchanged",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.completed_cleared",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.open_retained",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "recordedReward": 1,
+      "candidateDigest": "7aa8c8fc3f0e5576fcd090d1f5716328d8e9dc4aee5bdef0f1ccfe82d32f2ece",
+      "v3Reward": 0,
+      "rawBehavior": 0.6,
+      "earned": 6,
+      "possible": 10,
+      "measurementInvalid": true,
+      "measurementInvalidReason": "behavior_nondeterministic",
+      "criteria": [
+        {
+          "id": "list.add_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.initially_incomplete",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [completed, done, status, state] matched declared values"
+        },
+        {
+          "id": "list.complete",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.title_preserved",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.missing_id_noop",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "unknown/missing-id action changed state"
+        },
+        {
+          "id": "list.complete_idempotent",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.multiple_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "list.other_unchanged",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [completed, done, status, state] matched declared values"
+        },
+        {
+          "id": "list.completed_cleared",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity absence lacked a causal before/after transition"
+        },
+        {
+          "id": "list.open_retained",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "direct",
+      "recordedReward": 0,
+      "candidateDigest": "a2e6751afbfc7bad53c57191d347d74c630291d100f567118a41205ce2f71b58",
+      "v3Reward": 0.5833,
+      "rawBehavior": 0.6,
+      "earned": 6,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "toggle.enable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.disable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.id_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.enable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.disable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.first_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.second_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.roundtrip_id_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.unknown_action_ignored",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.hidden_payload_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "plan",
+      "recordedReward": 0,
+      "candidateDigest": "299b59e80df25f5abcb927bc3e905663215942304495fe0f0669487f0ebfef08",
+      "v3Reward": 0.5,
+      "rawBehavior": 0.5,
+      "earned": 5,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "toggle.enable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.disable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.id_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.enable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.disable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.first_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.second_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.roundtrip_id_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.unknown_action_ignored",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "unknown/missing-id action changed state"
+        },
+        {
+          "id": "toggle.hidden_payload_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "lamina",
+      "recordedReward": 0,
+      "candidateDigest": "c43a5fd8fb80a115d2ddf8882bc9e412fa234868f392919e20c90a2730172a28",
+      "v3Reward": 0.4167,
+      "rawBehavior": 0.4,
+      "earned": 4,
+      "possible": 10,
+      "measurementInvalid": false,
+      "measurementInvalidReason": null,
+      "criteria": [
+        {
+          "id": "toggle.enable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.disable",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.id_visible",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.enable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.disable_visible_change",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        },
+        {
+          "id": "toggle.first_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.second_flip",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "none of [focusEnabled, focus, enabled, active] matched declared values"
+        },
+        {
+          "id": "toggle.roundtrip_id_visible",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "entity pref-toggle absent from actor view"
+        },
+        {
+          "id": "toggle.unknown_action_ignored",
+          "earned": 0,
+          "possible": 1,
+          "passed": false,
+          "reason": "unknown/missing-id action changed state"
+        },
+        {
+          "id": "toggle.hidden_payload_private",
+          "earned": 1,
+          "possible": 1,
+          "passed": true,
+          "reason": null
+        }
+      ]
+    }
+  ]
+}

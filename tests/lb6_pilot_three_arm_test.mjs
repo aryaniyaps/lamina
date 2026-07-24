@@ -27,8 +27,9 @@ import { runBehaviorSelfcheck } from '../benchmarks/lib/behavior-selfcheck.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
-const tasksRoot = path.join(pilotRoot, 'harbor/tasks');
-const privateVerifierRoot = path.join(pilotRoot, 'private-verifier');
+const tasksRoot = path.join(pilotRoot, 'harbor/tasks-v3');
+const privateVerifierRoot = path.join(pilotRoot, 'private-verifier-v3');
+const legacyTasksRoot = path.join(pilotRoot, 'harbor/tasks');
 const manifest = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'corpus/manifest.json'), 'utf8'));
 
 function runNode(scriptRel, args = []) {
@@ -48,7 +49,7 @@ const validateOut = runNode('benchmarks/lb6/pilot/scripts/validate-pilot.mjs', [
 ]);
 assert.match(validateOut, /LB6 pilot valid/);
 
-const pkg = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'package.manifest.json'), 'utf8'));
+const pkg = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'package.manifest-v3.json'), 'utf8'));
 assert.equal(pkg.development_only, true);
 assert.equal(pkg.confirmatory, false);
 assert.equal(pkg.child_actual_model_unverified, true);
@@ -66,11 +67,12 @@ assert.equal(manifest.model, HARBOR_MODEL);
 
 const discovery = discoverPilotTasks(tasksRoot);
 assert.equal(discovery.ok, true);
-assert.deepEqual(discovery.taskIds, manifest.tasks.map((task) => task.id).sort());
+assert.deepEqual(discovery.taskIds, selectedNewTasks.slice().sort());
 assert.deepEqual(discovery.selectedTaskIds, discovery.taskIds);
 for (const task of manifest.tasks) {
+  if (task.id === 'dev-care-circle') continue;
   for (const arm of RUNNER_ARMS) {
-    assert.equal(discovery.byTaskArm[task.id][arm], `${task.id}-${arm}`);
+    assert.equal(discovery.byTaskArm[task.id][arm], `${task.id}-${arm}-v3`);
   }
 }
 
@@ -110,10 +112,13 @@ const laminaDryArgs = buildHarborArgs({
 assert.ok(laminaDryArgs.includes('--skills'));
 
 for (const task of manifest.tasks) {
+  if (task.id === 'dev-care-circle') continue;
   for (const arm of PILOT_ARMS) {
-    const dir = path.join(tasksRoot, `${task.id}-${arm}`);
+    const dir = path.join(tasksRoot, `${task.id}-${arm}-v3`);
     const toml = fs.readFileSync(path.join(dir, 'task.toml'), 'utf8');
-    assert.match(toml, new RegExp(`benchmark_version = "${BENCHMARK_VERSION}"`));
+    if (task.id !== 'dev-care-circle') {
+      assert.match(toml, new RegExp(`benchmark_version = "${BENCHMARK_VERSION}"`));
+    }
     assert.match(toml, /development_only = true/);
     assert.match(toml, /confirmatory = false/);
     assert.match(toml, /child_actual_model_unverified = true/);
@@ -161,6 +166,7 @@ const secretFindings = scanPilotPackage(
       PILOT_ARMS.map((arm) => ({
         taskId: task.id,
         arm,
+        taskDirName: `${task.id}-${arm}-v3`,
         finalStep: arm === 'lamina' ? 'fix' : 'verify_fix',
       })),
     ),
@@ -169,13 +175,13 @@ const secretFindings = scanPilotPackage(
 assert.equal(secretFindings.length, 0);
 
 const reviewAbi = fs.readFileSync(
-  path.join(tasksRoot, 'dev-review-room-direct/steps/verify_fix/workdir/.lb6-abi/public-abi.json'),
+  path.join(tasksRoot, 'dev-review-room-direct-v3/steps/verify_fix/workdir/.lb6-abi/public-abi.json'),
   'utf8',
 );
 assert.doesNotMatch(reviewAbi, /looks good|should not appear after/i);
 
 const laminaDesign = fs.readFileSync(
-  path.join(tasksRoot, 'dev-care-circle-lamina/steps/lamina_design/instruction.md'),
+  path.join(legacyTasksRoot, 'dev-care-circle-lamina/steps/lamina_design/instruction.md'),
   'utf8',
 );
 assert.match(laminaDesign, /taskToolCall|native Task/i);
@@ -212,7 +218,8 @@ let directGood = await gradePilotBehavior({
   phase: 'verify_fix',
   taskId: 'dev-care-circle',
 });
-assert.equal(directGood.reward, 1);
+assert.equal(directGood.reward, 0);
+assert.equal(directGood.measurement_invalid, true, 'canonical v3 grader must refuse the frozen legacy rubric');
 
 writeApp(path.join(tmp, 'noop'), 'export function createInitialState(){return{}} export function reduce(s){return s} export function project(){return{}}');
 let noop = await gradePilotBehavior({
@@ -241,7 +248,8 @@ let laminaGood = await gradePilotBehavior({
   phase: 'fix',
   taskId: 'dev-care-circle',
 });
-assert.equal(laminaGood.reward, 1);
+assert.equal(laminaGood.reward, 0);
+assert.equal(laminaGood.measurement_invalid, true);
 assert.equal(laminaGood.child_actual_model_unverified, true);
 
 let laminaMissing = await gradePilotBehavior({
@@ -259,7 +267,7 @@ assert.equal(selfcheck.ok, true);
 assert.ok(!JSON.stringify(selfcheck).includes('escalat'));
 
 const builtSelfcheck = fs.readFileSync(
-  path.join(tasksRoot, 'dev-care-circle-direct/steps/verify_fix/workdir/.lb6-abi/selfcheck.mjs'),
+  path.join(legacyTasksRoot, 'dev-care-circle-direct/steps/verify_fix/workdir/.lb6-abi/selfcheck.mjs'),
   'utf8',
 );
 assert.doesNotMatch(builtSelfcheck, /"expect"|must_not_include|escalat/);

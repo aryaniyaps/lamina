@@ -8,11 +8,11 @@ export const AGENT_RUNTIME_IMAGE = 'lb6-pilot-agent-runtime:cursor-20260720';
 export const CURSOR_CLI_VERSION = '2026.07.20-8cc9c0b';
 export const CURSOR_CLI_SHA256 = 'eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831';
 
-export const BENCHMARK_VERSION = 'lb6-dev-pilot';
-export const SKILL_RERUN_CAMPAIGN_ID = 'lb6-dev-pilot-skill-rerun-v2';
-export const SKILL_RERUN_JOB_PREFIX = 'skill-rerun-v2';
+export const BENCHMARK_VERSION = 'lb6-dev-pilot-v3';
+export const SKILL_RERUN_CAMPAIGN_ID = 'lb6-dev-pilot-skill-rerun-v3';
+export const SKILL_RERUN_JOB_PREFIX = 'skill-rerun-v3';
 export const PILOT_SKILL_RERUN_JOB_RE =
-  /^lb6-pilot-skill-rerun-v2-(.+)-(direct|plan|lamina)-(\d+)$/;
+  /^lb6-pilot-skill-rerun-v3-(.+)-(direct|plan|lamina)-(\d+)$/;
 
 export function parseSkillRerunPilotJobName(name) {
   const match = String(name || '').match(PILOT_SKILL_RERUN_JOB_RE);
@@ -21,7 +21,7 @@ export function parseSkillRerunPilotJobName(name) {
 }
 
 export function expectedPilotTaskDirName(taskId, arm) {
-  return `${taskId}-${arm}`;
+  return `${taskId}-${arm}-v3`;
 }
 export const PINNED_SKILL_COMMIT = '02aaebe3cd65459347d3b2e617fada0207874315';
 export const CANARY_TASK_ID = 'dev-loan-library';
