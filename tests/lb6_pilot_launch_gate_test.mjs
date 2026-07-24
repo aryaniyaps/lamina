@@ -385,6 +385,27 @@ const invalidRowPlan = preparePublicationPlan({
 assert.equal(invalidRowPlan.plan.benchmark_upload_ready, false);
 assert.equal(invalidRowPlan.plan.commands.length, 0);
 
+const booleanRows = semanticFields(10);
+booleanRows.criteria = booleanRows.criteria.map((criterion) => ({
+  ...criterion,
+  earned: true,
+  possible: true,
+}));
+const booleanRowCell = {
+  taskId: 'dev-loan-library',
+  arm: 'direct',
+  taskDirName: expectedPilotTaskDirName('dev-loan-library', 'direct'),
+  jobName: makeJobName('dev-loan-library', 'direct', 30),
+  measurementValid: true,
+  skillEvidence: { passed: true, hasLedgerEvidence: true },
+  ...booleanRows,
+};
+assert.equal(
+  isPublicationEligibleCell(booleanRowCell),
+  false,
+  'boolean-like scoring values must not be coerced into publishable numbers',
+);
+
 const publication = preparePublicationPlan({
   root: tmpRoot,
   taskIds: selectedNewTasks,
