@@ -534,7 +534,7 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
 
   const bundleManifestPath = path.join(ctx.pilotRoot, 'skill-bundle/manifest-v3.json');
   let skillBundle = null;
-  if (!selective || !fs.existsSync(bundleManifestPath)) {
+  if (!fs.existsSync(bundleManifestPath)) {
     skillBundle = stageSkillBundle(ctx.root, { pinnedCommit: PINNED_SKILL_COMMIT });
   } else {
     skillBundle = loadSkillBundleManifest(ctx.root);
