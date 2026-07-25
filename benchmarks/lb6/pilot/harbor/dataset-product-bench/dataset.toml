@@ -4,57 +4,57 @@
 
 [dataset]
 name = "lamina/product-bench"
-description = "Product Bench — 3-arm development pilot (direct / plan / lamina). Thin-slice product coding with RewardKit LLM-judge. Median of 3 seeds. Development-only — not confirmatory LaminaBench-6."
-keywords = [ "product-coding", "three-arm", "llm-judge", "development-only", "rewardkit",]
+description = "Product Bench — 3-arm public benchmark (direct / plan / lamina). Thin-slice greenfield product coding with a RewardKit LLM judge. Median of 3 full reruns using Cursor CLI + Composer 2.5."
+keywords = [ "product-coding", "three-arm", "llm-judge", "rewardkit",]
 [[dataset.authors]]
 name = "LaminaBench"
 
 
 [[tasks]]
 name = "lamina/dev-loan-library-direct-v3"
-digest = "sha256:1a688f6b7a470d9c4b45b92d8f489a69bfc5121debe6bb196702030a7ba47994"
+digest = "sha256:35900c964075dd2f16aa286072e4c43174f04e50392ef52cb71780ca970aead3"
 
 [[tasks]]
 name = "lamina/dev-loan-library-plan-v3"
-digest = "sha256:e15c86e91fd51b4653cf1ef0175b423eaea6edb6b5755045f1c54ee1f85917b3"
+digest = "sha256:3db9509a0591cb0362e531376a9a5353acb0e1f5be0e90b8d9302f7bb58d3dcd"
 
 [[tasks]]
 name = "lamina/dev-loan-library-lamina-v3"
-digest = "sha256:89b5e1457363372e1729515e0fbd30608c5d7613934ef5168d7f93d8d9a4dcdf"
+digest = "sha256:3921e09c158fcd01e666c8d4093ccaf95c9d9b1ce02b8ec4e49a541607e723bb"
 
 [[tasks]]
 name = "lamina/dev-review-room-direct-v3"
-digest = "sha256:4ca47d8a3d8379ad8b8c6c4a364ce75e3f6d117e292ab809ed6fcc5b5269b8fa"
+digest = "sha256:4093883877f3243fb90236c7d82c837f2bc3aeb818c63a4029f6a985eabfc083"
 
 [[tasks]]
 name = "lamina/dev-review-room-plan-v3"
-digest = "sha256:8a4689152ca3ab218df936bf569534aca5617d33a1c69b3476ac3f48736650d9"
+digest = "sha256:4ce19a90a6dc456caa042870b1b98fa6172f6b9f7bac58b7f2108a92a516517d"
 
 [[tasks]]
 name = "lamina/dev-review-room-lamina-v3"
-digest = "sha256:024cb72f3eacc507be857eaf8a55ed9b1963e0cc9f34ab68e2c3cea4671b7f38"
+digest = "sha256:9ffee5bacc597a09e2f9fe328dfe18cc11c51f39f147d2abb9b2a57b433f0824"
 
 [[tasks]]
 name = "lamina/dev-simple-list-direct-v3"
-digest = "sha256:90d111c7240bf771c646e2e42f426b7386ada785688b43e22d0dd19381cbdb94"
+digest = "sha256:f5b3dfefb739298b5ee29d88c62e282ef05f1a462cc7d7499dc018fe7bdb7377"
 
 [[tasks]]
 name = "lamina/dev-simple-list-plan-v3"
-digest = "sha256:842761548291d1a1b009cf99fcb81aabc982fc56e82eb7ad43a2935952be15bb"
+digest = "sha256:a81a03eacfbf16bdd232e3af5743772a71133c24dfefbf8fef9e5671b4e229d8"
 
 [[tasks]]
 name = "lamina/dev-simple-list-lamina-v3"
-digest = "sha256:304104e46e7905ac650f24655c5bba834860aabee9a0437328b3d410da5c4eae"
+digest = "sha256:602707a2d0fa8675215a0eda2682560a58eb0f1de25f8d027a960693ff0a1c7d"
 
 [[tasks]]
 name = "lamina/dev-toggle-preference-direct-v3"
-digest = "sha256:557d1aa9fe14677d25d10acc5519965ef3cbdfa1c6bcab1e70c4c06f42126cb0"
+digest = "sha256:eab05e423d2b5fdd547b3a6e1030d4168337b86a171eaba013e992125c811ce4"
 
 [[tasks]]
 name = "lamina/dev-toggle-preference-plan-v3"
-digest = "sha256:0a2216e2f44562bec445c97680c15e5899783e45efebdbda29d76b3bda8deecd"
+digest = "sha256:c6f5258cd54bade66a162d01e8f3ce48e9d41622b1de168ff13f1737ce09988c"
 
 [[tasks]]
 name = "lamina/dev-toggle-preference-lamina-v3"
-digest = "sha256:14abc4c574eb94d479dfc7bbf674791e59e4673dfb69fdc67ea0b3ca72a94d32"
+digest = "sha256:a221a74b8c0546e7e280a88eab2c3c13c772f6ec160cba28b24401c27bb953fb"
 

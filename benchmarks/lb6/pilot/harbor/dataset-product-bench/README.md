@@ -11,6 +11,8 @@ Compares three ways to build small product apps with the same agent and judge:
 | `plan` | Short plan, then code |
 | `lamina` | Lamina skills (`/lamina-init` + `/lamina-design`), then code |
 
+Initial public Product Bench release. Under this benchmark harness, Lamina’s median score exceeded the direct and plan-first arms on all four tasks. This release covers small greenfield vertical slices only; it does not establish performance on larger applications, brownfield projects, or other models.
+
 ## What’s in this dataset
 
 12 public tasks = 4 product tasks × 3 arms:
