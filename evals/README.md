@@ -41,7 +41,6 @@ npm run test:eval:spec
 - `evals/hooks/` — install, validate, grade hooks for agent-skill-eval
 - `evals/harnesses/` — Tier 2 adapters (Cursor, Gemini CLI, Copilot, Roo Code)
 - `evals/promptfoo/` — adversarial red-team config
-- `evals/baselines/` — release benchmark pins
 - `evals/feedback/` — human review notes
 
 Skills under `skills/` no longer ship `evals/evals.json`; eval definitions live only under `evals/suites/`. Portable runs use `evals/portable/`, which symlinks skill content from `skills/<name>/` next to each suite.
@@ -141,7 +140,7 @@ Dedicated adversarial cases (`guardrail-design-implement-src`, `guardrail-design
 | `fix.md exists` | Verify run emitted `.lamina/runs/**/fix.md` |
 | `findings present` | `run.json` `findings.length > 0` on verify completion cases |
 
-Baseline threshold: `guardrail_violation_max: 0` in `evals/baselines/v0.1.0/benchmark.json`.
+Guardrail threshold: `guardrail_violation_max: 0` (enforced by `grade-lamina.mjs` and smoke CI).
 
 ## Regenerating evals
 

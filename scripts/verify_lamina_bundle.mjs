@@ -57,7 +57,7 @@ function extractMarkdownLinks(content, baseDir) {
 }
 
 function checkReferencedFiles() {
-  const dirs = ['agents', 'skills/lamina-orchestrator', 'skills/lamina', 'skills/lamina-init'];
+  const dirs = ['skills/lamina-orchestrator', 'skills/lamina', 'skills/lamina-init'];
   for (const dir of dirs) {
     const absDir = path.join(ROOT, dir);
     if (!fs.existsSync(absDir)) continue;
@@ -199,8 +199,6 @@ function checkAgentSkillPollution() {
 
 function checkRequiredPaths() {
   const required = [
-    '.claude-plugin/plugin.json',
-    '.cursor-plugin/plugin.json',
     'skills/lamina-core/SKILL.md',
     'skills/lamina/SKILL.md',
     'skills/lamina-init/SKILL.md',
@@ -226,8 +224,6 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/lib/graph-tool.mjs',
     'skills/lamina-orchestrator/references/run.schema.json',
     'skills/lamina-orchestrator/references/personas.schema.json',
-    'agents/ux-lens-reviewer.md',
-    'agents/research-synthesizer.md',
     'skills/lamina-orchestrator/agents/ux-lens-reviewer.md',
     'skills/lamina-orchestrator/agents/research-synthesizer.md',
   ];
