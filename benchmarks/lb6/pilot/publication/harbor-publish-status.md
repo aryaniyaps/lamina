@@ -1,4 +1,4 @@
-# Harbor publish — Lamina Product Coding Pilot (3-arm)
+# Harbor publish — Product Bench (3-arm)
 
 **Status: complete** — share pack: dataset → run command → public jobs → writeup.
 
@@ -8,9 +8,9 @@
 | Seed jobs | 36 (3 × 12) | public |
 | Dataset | 1 | public |
 
-Published under Harbor user **`shiv-eshwar`** (display name below; registry id unchanged).
+Published under Harbor org **`lamina`** (account: `shiv-eshwar`, Owner).
 
-**Public name:** Lamina Product Coding Pilot — 3-arm (direct / plan / lamina)  
+**Public name:** Product Bench — 3-arm (direct / plan / lamina)  
 **Scope:** development-only · non-confirmatory · not marketing-claim-eligible  
 *(Operator note: Issue #18 / RewardKit / LB6 pilot internals.)*
 
@@ -18,13 +18,15 @@ Published under Harbor user **`shiv-eshwar`** (display name below; registry id u
 
 ## 1) Dataset URL — “here’s the benchmark”
 
-https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
+https://hub.harborframework.com/datasets/lamina/product-bench
 
-- Id: `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit` (stable; do not rename casually)
-- Tags: `latest`, `issue18-rewardkit-median-n3`
+- Id: `lamina/product-bench`
+- Tags: `latest`, `product-bench-median-n3`
 - Contents: 12 tasks (4 × direct/plan/lamina)
 
-Local package: [`../harbor/dataset-issue18-rewardkit/`](../harbor/dataset-issue18-rewardkit/)
+Local package: [`../harbor/dataset-product-bench/`](../harbor/dataset-product-bench/)
+
+Legacy (superseded): `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit`
 
 ---
 
@@ -32,7 +34,7 @@ Local package: [`../harbor/dataset-issue18-rewardkit/`](../harbor/dataset-issue1
 
 ```bash
 harbor run \
-  -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest \
+  -d lamina/product-bench@latest \
   -a cursor-cli \
   -m cursor/composer-2.5 \
   --env-file .env \
@@ -65,15 +67,15 @@ Means (median matrix): lamina **0.6893** · plan **0.5589** · direct **0.5856**
 
 ## Tasks (also public)
 
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-loan-library-direct-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-loan-library-plan-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-loan-library-lamina-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-review-room-direct-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-review-room-plan-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-review-room-lamina-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-simple-list-direct-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-simple-list-plan-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-simple-list-lamina-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-direct-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-plan-v3
-- https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-lamina-v3
+- https://hub.harborframework.com/tasks/lamina/dev-loan-library-direct-v3
+- https://hub.harborframework.com/tasks/lamina/dev-loan-library-plan-v3
+- https://hub.harborframework.com/tasks/lamina/dev-loan-library-lamina-v3
+- https://hub.harborframework.com/tasks/lamina/dev-review-room-direct-v3
+- https://hub.harborframework.com/tasks/lamina/dev-review-room-plan-v3
+- https://hub.harborframework.com/tasks/lamina/dev-review-room-lamina-v3
+- https://hub.harborframework.com/tasks/lamina/dev-simple-list-direct-v3
+- https://hub.harborframework.com/tasks/lamina/dev-simple-list-plan-v3
+- https://hub.harborframework.com/tasks/lamina/dev-simple-list-lamina-v3
+- https://hub.harborframework.com/tasks/lamina/dev-toggle-preference-direct-v3
+- https://hub.harborframework.com/tasks/lamina/dev-toggle-preference-plan-v3
+- https://hub.harborframework.com/tasks/lamina/dev-toggle-preference-lamina-v3

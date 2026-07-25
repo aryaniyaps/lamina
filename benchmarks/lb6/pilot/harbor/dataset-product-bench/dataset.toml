@@ -1,0 +1,60 @@
+# Dataset manifest for lamina/product-bench
+# Add tasks using: harbor add <org>/<name>
+# Publish using: harbor publish
+
+[dataset]
+name = "lamina/product-bench"
+description = "Product Bench — 3-arm development pilot (direct / plan / lamina). Thin-slice product coding with RewardKit LLM-judge. Median of 3 seeds. Development-only — not confirmatory LaminaBench-6."
+keywords = [ "product-coding", "three-arm", "llm-judge", "development-only", "rewardkit",]
+[[dataset.authors]]
+name = "LaminaBench"
+
+
+[[tasks]]
+name = "lamina/dev-loan-library-direct-v3"
+digest = "sha256:1a688f6b7a470d9c4b45b92d8f489a69bfc5121debe6bb196702030a7ba47994"
+
+[[tasks]]
+name = "lamina/dev-loan-library-plan-v3"
+digest = "sha256:e15c86e91fd51b4653cf1ef0175b423eaea6edb6b5755045f1c54ee1f85917b3"
+
+[[tasks]]
+name = "lamina/dev-loan-library-lamina-v3"
+digest = "sha256:89b5e1457363372e1729515e0fbd30608c5d7613934ef5168d7f93d8d9a4dcdf"
+
+[[tasks]]
+name = "lamina/dev-review-room-direct-v3"
+digest = "sha256:4ca47d8a3d8379ad8b8c6c4a364ce75e3f6d117e292ab809ed6fcc5b5269b8fa"
+
+[[tasks]]
+name = "lamina/dev-review-room-plan-v3"
+digest = "sha256:8a4689152ca3ab218df936bf569534aca5617d33a1c69b3476ac3f48736650d9"
+
+[[tasks]]
+name = "lamina/dev-review-room-lamina-v3"
+digest = "sha256:024cb72f3eacc507be857eaf8a55ed9b1963e0cc9f34ab68e2c3cea4671b7f38"
+
+[[tasks]]
+name = "lamina/dev-simple-list-direct-v3"
+digest = "sha256:90d111c7240bf771c646e2e42f426b7386ada785688b43e22d0dd19381cbdb94"
+
+[[tasks]]
+name = "lamina/dev-simple-list-plan-v3"
+digest = "sha256:842761548291d1a1b009cf99fcb81aabc982fc56e82eb7ad43a2935952be15bb"
+
+[[tasks]]
+name = "lamina/dev-simple-list-lamina-v3"
+digest = "sha256:304104e46e7905ac650f24655c5bba834860aabee9a0437328b3d410da5c4eae"
+
+[[tasks]]
+name = "lamina/dev-toggle-preference-direct-v3"
+digest = "sha256:557d1aa9fe14677d25d10acc5519965ef3cbdfa1c6bcab1e70c4c06f42126cb0"
+
+[[tasks]]
+name = "lamina/dev-toggle-preference-plan-v3"
+digest = "sha256:0a2216e2f44562bec445c97680c15e5899783e45efebdbda29d76b3bda8deecd"
+
+[[tasks]]
+name = "lamina/dev-toggle-preference-lamina-v3"
+digest = "sha256:14abc4c574eb94d479dfc7bbf674791e59e4673dfb69fdc67ea0b3ca72a94d32"
+

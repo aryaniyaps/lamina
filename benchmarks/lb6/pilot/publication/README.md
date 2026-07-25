@@ -17,10 +17,10 @@ This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 **Full open reproduce checklist:** [`REPRODUCE.md`](./REPRODUCE.md)
 
 **Harbor Hub dataset (share this):**  
-https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
+https://hub.harborframework.com/datasets/lamina/product-bench
 
 ```bash
-harbor run -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest \
+harbor run -d lamina/product-bench@latest \
   -a cursor-cli -m cursor/composer-2.5 --env-file .env -n 1
 ```
 

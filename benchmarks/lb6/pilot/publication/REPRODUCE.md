@@ -12,8 +12,8 @@ This document is the **operator checklist** for reproducing the development-only
 
 | Share | URL / id |
 |---|---|
-| Dataset (benchmark) | https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit |
-| Dataset id | `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest` |
+| Dataset (benchmark) | https://hub.harborframework.com/datasets/lamina/product-bench |
+| Dataset id | `lamina/product-bench@latest` |
 | Result jobs (36) | [`harbor-job-urls.tsv`](./harbor-job-urls.tsv) |
 | Publish status | [`harbor-publish-status.md`](./harbor-publish-status.md) |
 
@@ -31,7 +31,7 @@ Use this when you want to **pull the published dataset** and run with stock Harb
 #   LITELLM_DROP_PARAMS=1
 
 harbor run \
-  -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest \
+  -d lamina/product-bench@latest \
   -a cursor-cli \
   -m cursor/composer-2.5 \
   --env-file .env \
@@ -42,7 +42,7 @@ Pinned publish tag (same content as `latest` at publish time):
 
 ```bash
 harbor run \
-  -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@issue18-rewardkit-median-n3 \
+  -d lamina/product-bench@product-bench-median-n3 \
   -a cursor-cli \
   -m cursor/composer-2.5 \
   --env-file .env \

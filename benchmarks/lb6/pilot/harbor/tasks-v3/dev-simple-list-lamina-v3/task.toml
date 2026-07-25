@@ -3,8 +3,8 @@ multi_step_reward_strategy = "final"
 artifacts = ["/app/.lamina"]
 
 [task]
-name = "shiv-eshwar/dev-simple-list-lamina-v3"
-description = "Lamina Product Coding Pilot: simple-list (lamina arm). LLM-judge on product code. Development-only — not confirmatory LaminaBench-6"
+name = "lamina/dev-simple-list-lamina-v3"
+description = "Product Bench: simple-list (lamina arm). LLM-judge on product code. Development-only — not confirmatory LaminaBench-6"
 authors = [{ name = "LaminaBench" }]
 keywords = ["fuzzy-prompt", "development-pilot", "lb6", "lamina", "rewardkit"]
 

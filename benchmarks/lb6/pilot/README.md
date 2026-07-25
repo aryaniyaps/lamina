@@ -10,7 +10,7 @@ Matched three-arm Harbor pilot: **direct** vs **plan** vs **lamina** on small pr
 | [`publication/README.md`](./publication/README.md) | Claim scope + median matrix |
 | [`publication/local-v3-issue18-rewardkit-median.md`](./publication/local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
 | [`publication/harbor-publish-status.md`](./publication/harbor-publish-status.md) | Hub dataset + public jobs |
-| [Harbor dataset](https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit) | Public benchmark package |
+| [Harbor dataset](https://hub.harborframework.com/datasets/lamina/product-bench) | Public benchmark package (`lamina/product-bench`) |
 | [`publication/seeds/`](./publication/seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
 | [`lib/rewardkit/`](./lib/rewardkit/) | Judge templates |
 | [`lib/constants.mjs`](./lib/constants.mjs) | Harbor / budget / measurement pins |
