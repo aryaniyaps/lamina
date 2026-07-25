@@ -1,13 +1,17 @@
-# LaminaBench LB6 (development pilot)
+# Lamina Product Coding Pilot (LB6)
 
-Current LB6 work lives under [`pilot/`](./pilot/).
+Public-facing name: **Lamina Product Coding Pilot — 3-arm (direct / plan / lamina)**.  
+Work lives under [`pilot/`](./pilot/).
 
 ## Start here
 
-**Reproduce the Issue #18 RewardKit 3-seed median (open protocol):**  
+**Harbor (share):**  
+→ https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
+
+**Reproduce (Hub + local 3-seed):**  
 → [`pilot/publication/REPRODUCE.md`](./pilot/publication/REPRODUCE.md)
 
-**Claim scope + published median matrix:**  
+**Claim scope + median matrix:**  
 → [`pilot/publication/README.md`](./pilot/publication/README.md)
 
 **Pilot overview / commands:**  
@@ -15,14 +19,14 @@ Current LB6 work lives under [`pilot/`](./pilot/).
 
 ## What this is
 
-A Harbor-based development pilot comparing three arms (`direct`, `plan`, `lamina`) on small product tasks, scored by Harbor RewardKit LLM-as-judge on product source (`app.mjs` / `ui.mjs`).
+A Harbor pilot comparing three arms (`direct`, `plan`, `lamina`) on small product tasks, scored by an LLM judge on product source (`app.mjs` / `ui.mjs`).
 
-Published development claim = **per-cell median of three independent full matrices** (seed packages under `pilot/publication/seeds/`).
+Published claim = **per-cell median of three independent full matrices** (seed packages under `pilot/publication/seeds/`).
 
-It is explicitly **`development_only` / non-confirmatory**.
+Explicitly **`development_only` / non-confirmatory**.
 
 ## What this is not
 
-- Not the legacy Harbor v4 tree under `benchmarks/` root README (Claude / checklist-era).
-- Not a claim that `/lamina-verify` ran (Issue #18 lamina arm is init + design + implement + fix).
+- Not confirmatory LaminaBench-6.
+- Not a claim that `/lamina-verify` ran (lamina arm is init + design + implement + fix).
 - Not a judge of `.lamina/` process artifacts.

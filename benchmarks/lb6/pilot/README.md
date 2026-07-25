@@ -1,16 +1,18 @@
-# LB6 development pilot (v3)
+# Lamina Product Coding Pilot (v3)
 
-Matched three-arm Harbor pilot used for Issue #18 and local RewardKit measurement.
+Matched three-arm Harbor pilot: **direct** vs **plan** vs **lamina** on small product apps.
 
 ## Quick links
 
 | Doc | Purpose |
 |---|---|
-| [`publication/REPRODUCE.md`](./publication/REPRODUCE.md) | **Reproduce** — env, pins, 3-seed protocol, audit |
+| [`publication/REPRODUCE.md`](./publication/REPRODUCE.md) | **Reproduce** — Hub run + local 3-seed protocol |
 | [`publication/README.md`](./publication/README.md) | Claim scope + median matrix |
 | [`publication/local-v3-issue18-rewardkit-median.md`](./publication/local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
+| [`publication/harbor-publish-status.md`](./publication/harbor-publish-status.md) | Hub dataset + public jobs |
+| [Harbor dataset](https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit) | Public benchmark package |
 | [`publication/seeds/`](./publication/seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
-| [`lib/rewardkit/`](./lib/rewardkit/) | RewardKit judge templates |
+| [`lib/rewardkit/`](./lib/rewardkit/) | Judge templates |
 | [`lib/constants.mjs`](./lib/constants.mjs) | Harbor / budget / measurement pins |
 
 ## Arms
@@ -42,6 +44,7 @@ Env: see [`../.env.example`](../.env.example) (`CURSOR_API_KEY`, `OPENAI_API_KEY
 | Path | Role |
 |---|---|
 | `harbor/tasks-v3/` | Generated Harbor task dirs |
+| `harbor/dataset-issue18-rewardkit/` | Public Hub dataset package |
 | `scripts/` | build / validate / run / collect / archive / median |
 | `lib/` | constants, RewardKit, shared helpers |
 | `skill-bundle/` | staged skill pin + manifest |
@@ -52,4 +55,4 @@ Env: see [`../.env.example`](../.env.example) (`CURSOR_API_KEY`, `OPENAI_API_KEY
 
 ## Status flags
 
-All Issue #18 pilot outputs are **`development_only`** and **`confirmatory: false`**. Do not treat them as LaminaBench-6 confirmatory publication without a separate confirmatory campaign.
+All pilot outputs are **`development_only`** and **`confirmatory: false`**. Do not treat them as LaminaBench-6 confirmatory publication without a separate confirmatory campaign.

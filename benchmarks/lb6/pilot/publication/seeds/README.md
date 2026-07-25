@@ -1,6 +1,6 @@
-# Issue #18 RewardKit — per-seed packages
+# Per-seed packages — Lamina Product Coding Pilot
 
-Each seed is one full 4-task × 3-arm matrix under the **same frozen harness** (RewardKit `openai/gpt-5.5`, ABI-on-implement lamina path).
+Each seed is one full 4-task × 3-arm matrix under the **same frozen harness** (LLM-judge, ABI-on-implement lamina path).
 
 | Seed | Files | Run notes |
 |---|---|---|
@@ -22,3 +22,5 @@ npm run bench:lb6:v3:median-issue18
 ```
 
 Do not overwrite seed files when collecting a new campaign; archive into the next `seed-N-*` slot instead. Local tee logs may live under `../../logs/seed-N/` (gitignored).
+
+*(Filenames keep `issue18-rewardkit` for provenance; public name is Lamina Product Coding Pilot.)*

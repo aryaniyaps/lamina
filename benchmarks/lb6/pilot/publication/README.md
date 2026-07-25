@@ -1,6 +1,8 @@
-# LB6 Issue #18 — RewardKit results & reproduction
+# Lamina Product Coding Pilot — 3-arm (direct / plan / lamina)
 
-**Development-only pilot.** Stock Harbor + RewardKit LLM-as-judge, full staged Lamina skills, step artifacts. Claim table is the **median of three independent full-matrix seeds**.
+**Development-only.** Compares direct vs plan vs Lamina skills on small product apps, scored by an LLM judge on product source. Claim table is the **median of three independent full-matrix seeds**.
+
+*(Operator note: LB6 / GitHub issue #18 / Harbor RewardKit internals.)*
 
 | Flag | Value |
 |---|---|
@@ -14,6 +16,16 @@ This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 
 **Full open reproduce checklist:** [`REPRODUCE.md`](./REPRODUCE.md)
 
+**Harbor Hub dataset (share this):**  
+https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
+
+```bash
+harbor run -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest \
+  -a cursor-cli -m cursor/composer-2.5 --env-file .env -n 1
+```
+
+Publish record + 36 job URLs: [`harbor-publish-status.md`](./harbor-publish-status.md)
+
 ## Claim package (source of truth)
 
 | File | Role |
@@ -22,7 +34,9 @@ This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 | [`local-v3-issue18-rewardkit-median.json`](./local-v3-issue18-rewardkit-median.json) | Per-cell seed values + median/min/max + job refs |
 | [`seeds/`](./seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
 | [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md) | Committed retry / exception log |
-| [`REPRODUCE.md`](./REPRODUCE.md) | End-to-end operator protocol |
+| [`REPRODUCE.md`](./REPRODUCE.md) | End-to-end operator protocol (Hub + local) |
+| [`harbor-publish-status.md`](./harbor-publish-status.md) | Hub dataset / jobs / share pack |
+| [`harbor-job-urls.tsv`](./harbor-job-urls.tsv) | 36 public Harbor job URLs |
 
 Live collect output (`local-v3-issue18-rewardkit.{md,json,campaign.json}`) mirrors the **latest** campaign window only — do not treat it as the multi-seed claim; use the median + `seeds/` packages.
 

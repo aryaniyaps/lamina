@@ -1,6 +1,6 @@
-# LB6 Issue #18 RewardKit — median of 3 seeds
+# Lamina Product Coding Pilot — median of 3 seeds
 
-**Development-only.** Claim surface = **per-cell median** across three independent full-matrix re-runs (same harness, gpt-5.5 RewardKit).
+**Development-only.** Claim surface = **per-cell median** across three independent full-matrix re-runs (same harness; LLM-judge `gpt-5.5`).
 
 Per-seed packages: [`seeds/`](./seeds/) · Run notes: [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md) · Reproduce: [`REPRODUCE.md`](./REPRODUCE.md)
 

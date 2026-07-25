@@ -1,10 +1,59 @@
-# Reproduce Issue #18 RewardKit pilot (open protocol)
+# Reproduce: Lamina Product Coding Pilot (3-arm)
 
-This document is the **operator checklist** for reproducing the development-only LB6 Issue #18 matrix. Anyone with Harbor, Docker, and API keys should be able to rebuild tasks, run the same three arms, collect results, and recompute the median claim.
+This document is the **operator checklist** for reproducing the development-only **Lamina Product Coding Pilot** (direct / plan / lamina). Anyone with Harbor, Docker, and API keys should be able to rebuild tasks, run the same three arms, collect results, and recompute the median claim.
+
+*(Operator note: LB6 / GitHub issue #18 / Harbor RewardKit.)*
 
 **Claim surface:** per-cell **median of 3 seeds** → [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md)
 
 **Scope:** `development_only: true` · `confirmatory: false` · not marketing-claim-eligible.
+
+**Harbor Hub (public):**
+
+| Share | URL / id |
+|---|---|
+| Dataset (benchmark) | https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit |
+| Dataset id | `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest` |
+| Result jobs (36) | [`harbor-job-urls.tsv`](./harbor-job-urls.tsv) |
+| Publish status | [`harbor-publish-status.md`](./harbor-publish-status.md) |
+
+---
+
+## Run from Harbor Hub (quick start)
+
+Use this when you want to **pull the published dataset** and run with stock Harbor (same agent/model pins as the pilot). For the full local 3-seed collect/median protocol, see [Full reproduce — one seed](#full-reproduce--one-seed) below.
+
+```bash
+# Prerequisites: harbor 0.18.x, Docker, and env:
+#   CURSOR_API_KEY=...
+#   OPENAI_API_KEY=...
+#   REWARDKIT_JUDGE=openai/gpt-5.5
+#   LITELLM_DROP_PARAMS=1
+
+harbor run \
+  -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@latest \
+  -a cursor-cli \
+  -m cursor/composer-2.5 \
+  --env-file .env \
+  -n 1
+```
+
+Pinned publish tag (same content as `latest` at publish time):
+
+```bash
+harbor run \
+  -d shiv-eshwar/lb6-dev-pilot-issue18-rewardkit@issue18-rewardkit-median-n3 \
+  -a cursor-cli \
+  -m cursor/composer-2.5 \
+  --env-file .env \
+  -n 1
+```
+
+Notes:
+
+- Dataset = **12 tasks** (4 × direct/plan/lamina). A full matrix still means one run per task arm.
+- Published **jobs** are the evidence for the median claim; Hub dataset runs are for re-execution, not a substitute for the frozen seed packages in [`seeds/`](./seeds/).
+- Bit-for-bit parity with the published median (skill staging, campaign marker, archive/median scripts) uses the local protocol further down.
 
 ---
 
@@ -207,6 +256,9 @@ If you intentionally change the harness, start a new campaign id and do not over
 | Path | Role |
 |---|---|
 | [`README.md`](./README.md) | Claim package index |
+| [`harbor-publish-status.md`](./harbor-publish-status.md) | Hub dataset + job publish record |
+| [`harbor-job-urls.tsv`](./harbor-job-urls.tsv) | 36 public job URLs |
+| [`../harbor/dataset-issue18-rewardkit/`](../harbor/dataset-issue18-rewardkit/) | Local dataset package (Hub source) |
 | [`seeds/README.md`](./seeds/README.md) | Seed file map |
 | [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md) | Retries / exceptions (committed) |
 | [`../README.md`](../README.md) | Pilot overview |

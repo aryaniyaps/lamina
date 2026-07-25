@@ -1,4 +1,4 @@
-# LB6 Issue #18 RewardKit run
+# Lamina Product Coding Pilot — run results
 
 **Development-only.** Stock Harbor + RewardKit LLM judge; all staged lamina skills; step artifacts enabled.
 

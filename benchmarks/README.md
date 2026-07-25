@@ -1,6 +1,7 @@
 # LaminaBench
 
-> **Current LB6 Issue #18 (RewardKit) work:**  
+> **Lamina Product Coding Pilot (3-arm):**  
+> Hub → https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit ·  
 > claim → [`lb6/pilot/publication/README.md`](./lb6/pilot/publication/README.md) ·  
 > reproduce → [`lb6/pilot/publication/REPRODUCE.md`](./lb6/pilot/publication/REPRODUCE.md)
 

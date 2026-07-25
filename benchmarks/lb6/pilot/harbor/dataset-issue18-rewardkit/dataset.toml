@@ -1,0 +1,60 @@
+# Dataset manifest for shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
+# Add tasks using: harbor add <org>/<name>
+# Publish using: harbor publish
+
+[dataset]
+name = "shiv-eshwar/lb6-dev-pilot-issue18-rewardkit"
+description = "Lamina Product Coding Pilot — 3-arm (direct / plan / lamina). Small product apps, LLM-judge on product code, median of 3 seeds. Development-only; not confirmatory LaminaBench-6."
+keywords = [ "lamina", "product-coding", "three-arm", "llm-judge", "development-only",]
+[[dataset.authors]]
+name = "LaminaBench"
+
+
+[[tasks]]
+name = "shiv-eshwar/dev-loan-library-direct-v3"
+digest = "sha256:a79fd288da9792320f3e4a573ace66da9e9b8061bb712fb0ef85d1a0e9e338dd"
+
+[[tasks]]
+name = "shiv-eshwar/dev-loan-library-plan-v3"
+digest = "sha256:9878029fd39da15c968b56e6a3c925d2b39a97655a7c38aa65d519ee57bad630"
+
+[[tasks]]
+name = "shiv-eshwar/dev-loan-library-lamina-v3"
+digest = "sha256:bc74a29e5a3fd3c2eded5dc817c3032ca18f4aeaf2ef4abb5c7fd1c1cc803239"
+
+[[tasks]]
+name = "shiv-eshwar/dev-review-room-direct-v3"
+digest = "sha256:f753e2c37b05fa206d8d3b5638c585d3d4d2a024e598f35371aec2c59459454b"
+
+[[tasks]]
+name = "shiv-eshwar/dev-review-room-plan-v3"
+digest = "sha256:249140bed4a913d95bf3802c816e5b6234cc7af2f77b5fa4af93789a01a3f39a"
+
+[[tasks]]
+name = "shiv-eshwar/dev-review-room-lamina-v3"
+digest = "sha256:d3ebd930a4884a8196add4592092b323636a4645feba928ad7689700f5656d88"
+
+[[tasks]]
+name = "shiv-eshwar/dev-simple-list-direct-v3"
+digest = "sha256:3e7bcfc4657b8bde2f3336e842d5a4b4e697331ff661eb1c605241fa61fc8307"
+
+[[tasks]]
+name = "shiv-eshwar/dev-simple-list-plan-v3"
+digest = "sha256:3cc50a26587e8b55ffb654661f13a3d21a4a1047b62edac114f928667d5c64f2"
+
+[[tasks]]
+name = "shiv-eshwar/dev-simple-list-lamina-v3"
+digest = "sha256:521b6f3b2ebbdd0779d494a80af592e99a7dbe09ab1bf67baba231aff1b5aedb"
+
+[[tasks]]
+name = "shiv-eshwar/dev-toggle-preference-direct-v3"
+digest = "sha256:70a921b6c4b5e02fa24d01a793822df26b7077b0b90b5cb6d9f7d1a52e583a97"
+
+[[tasks]]
+name = "shiv-eshwar/dev-toggle-preference-plan-v3"
+digest = "sha256:e44894089cfb1c49bad357a434eddaf540f1121af0782f9d9ef112b1cd1f17e9"
+
+[[tasks]]
+name = "shiv-eshwar/dev-toggle-preference-lamina-v3"
+digest = "sha256:c37bfd1128a4616871869a57b6b626c1b7478443ca157209fda610356a2cbf0f"
+
