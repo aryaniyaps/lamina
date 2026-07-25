@@ -44,6 +44,7 @@ const FEATURE_EDGE_ASSERTIONS = [
   'edge cases section present',
   'edge case categories covered',
   'domain contract present',
+  'no template domain leak',
   'run.json valid',
   'run.json scenarios valid',
   'design completion on disk',
@@ -525,6 +526,7 @@ const laminaDesignEvals = {
       assertions: [
         'design contract headings',
         'domain contract present',
+        'no template domain leak',
         'run.json valid',
         'design completion on disk',
         'proofs[] present',

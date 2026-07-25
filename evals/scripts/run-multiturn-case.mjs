@@ -56,17 +56,7 @@ function resolveSkillSource(evalId) {
   return path.join(ROOT, 'skills/lamina');
 }
 
-function copyTree(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const from = path.join(src, entry.name);
-    const to = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyTree(from, to);
-    else fs.copyFileSync(from, to);
-  }
-}
-
-function installSkills(workspace, evalId, agent) {
+function installSkills(workspace, _evalId, agent) {
   const result = spawnSync('bash', [path.join(ROOT, 'evals/hooks/install-skill.sh')], {
     cwd: ROOT,
     env: { ...process.env, ASE_WORKSPACE_PATH: workspace, ASE_AGENT: agent },
@@ -74,21 +64,6 @@ function installSkills(workspace, evalId, agent) {
   });
   if (result.status !== 0) {
     throw new Error(`install-skill.sh failed: ${result.stderr || result.stdout}`);
-  }
-
-  // Mirror ASE: install the eval-specific skill under the agent skill root so
-  // `/lamina-design` (etc.) resolves with EXEC NOW / seed scripts available.
-  const skillSrc = resolveSkillSource(evalId);
-  const skillName = path.basename(skillSrc);
-  const agentRoots = {
-    'claude-code': ['.claude/skills'],
-    codex: ['.codex/skills', '.agents/skills'],
-    opencode: ['.opencode/skills', '.agents/skills'],
-  };
-  for (const root of agentRoots[agent] || ['.agents/skills']) {
-    const dest = path.join(workspace, root, skillName);
-    fs.rmSync(dest, { recursive: true, force: true });
-    copyTree(skillSrc, dest);
   }
 }
 

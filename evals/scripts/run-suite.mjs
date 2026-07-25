@@ -10,8 +10,10 @@ import { spawnSync } from 'node:child_process';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP = path.join(ROOT, 'evals/tmp');
 const VENV_ASE = path.join(ROOT, '.venv-eval/bin/agent-skill-eval');
+const WRAPPED_ASE = path.join(ROOT, 'evals/bin/agent-skill-eval');
 
 function resolveAgentSkillEval() {
+  if (fs.existsSync(WRAPPED_ASE)) return WRAPPED_ASE;
   if (fs.existsSync(VENV_ASE)) return VENV_ASE;
   return 'agent-skill-eval';
 }

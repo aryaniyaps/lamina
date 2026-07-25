@@ -3,9 +3,9 @@
   "acceptancePassed": true,
   "ticketStatus": "static_checks_only_not_ticket_complete",
   "summary": {
-    "passed": 4,
+    "passed": 3,
     "failed": 0,
-    "blocked": 3
+    "blocked": 4
   },
   "gates": [
     {
@@ -28,10 +28,10 @@
     },
     {
       "name": "cursor_local_auth",
-      "status": "passed",
+      "status": "blocked",
+      "reason": "CURSOR_API_KEY is absent from repo root .env; unattended Cursor execution is blocked",
       "credentialSource": "repo_root_env",
-      "cursorApiKey": "present",
-      "transport": "process_env_only"
+      "cursorApiKey": "absent"
     },
     {
       "name": "harbor_publication_auth",
@@ -61,7 +61,7 @@
     }
   },
   "credentials": {
-    "cursorApiKey": "present",
+    "cursorApiKey": "absent",
     "harborApiKey": "absent",
     "source": "repo_root_env_only",
     "workerProcessScrape": false

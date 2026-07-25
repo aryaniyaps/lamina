@@ -221,7 +221,7 @@ assert.equal(
   true
 );
 assert.equal(
-  gitCatFileExists(root, first.release.source.commit, 'benchmarks/releases/contract.md'),
+  gitCatFileExists(root, first.release.source.commit, 'benchmarks/scripts/build-harbor-benchmark.mjs'),
   false
 );
 const noGitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-no-git-'));
@@ -234,8 +234,8 @@ missingAtCommit.artifacts = first.release.artifacts.map((artifact) =>
   artifact.id === 'corpus-manifest'
     ? {
         ...artifact,
-        path: 'benchmarks/releases/contract.md',
-        url: canonicalArtifactUrl(first.release.source.repository, commit, 'benchmarks/releases/contract.md'),
+        path: 'benchmarks/scripts/build-harbor-benchmark.mjs',
+        url: canonicalArtifactUrl(first.release.source.repository, commit, 'benchmarks/scripts/build-harbor-benchmark.mjs'),
       }
     : artifact
 );
@@ -310,7 +310,7 @@ for (const task of first.release.tasks) {
   assert.equal(task.summary, expected.summary);
 }
 for (const artifact of first.release.artifacts) {
-  assert.match(artifact.url, /e851d037199b189a9b98b7d807bbcfd427bf0c5c/);
+  assert.match(artifact.url, new RegExp(first.release.source.commit));
   assert.doesNotMatch(artifact.url, /\/main\//);
   assert.doesNotMatch(artifact.url, /contract\.md/);
 }

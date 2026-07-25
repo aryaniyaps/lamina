@@ -31,11 +31,6 @@ evals/harness-sandbox/.pi/
 evals/harness-sandbox/.goose/
 evals/harness-sandbox/skills-lock.json
 
-# lamina-studio package dev (generated skills CLI installs)
-packages/lamina-studio/.agents/
-packages/lamina-studio/.cursor/
-packages/lamina-studio/skills-lock.json
-
 # generated promptfoo skill context
 evals/promptfoo/skill-context.txt
 evals/fixtures/.vendor-tmp-*/
@@ -62,3 +57,4 @@ benchmarks/results/v2/
 # LaminaBench host-sealed runtime objects (never publish from the worktree)
 benchmarks/lb6/pilot/sealed-store/
 benchmarks/lb6/pilot/logs/
+benchmarks/lb6/pilot/skill-bundle/staged/

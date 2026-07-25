@@ -10,7 +10,18 @@ mkdir -p "$SANDBOX"
 EXTERNAL_SKILLS_ROOT="$(cd "$LAMINA_ROOT/../skills" && pwd)"
 
 skills_add() {
-  (cd "$SANDBOX" && npx --yes skills add "$LAMINA_ROOT" "$@")
+  local args=("$@")
+  local has_skill=false
+  for arg in "${args[@]}"; do
+    if [[ "$arg" == "-s" || "$arg" == "--skill" ]]; then
+      has_skill=true
+      break
+    fi
+  done
+  if [[ "$has_skill" == false ]]; then
+    args=(--skill '*' "${args[@]}")
+  fi
+  (cd "$SANDBOX" && npx --yes skills add "$LAMINA_ROOT" "${args[@]}")
 }
 
 skills_add_external() {

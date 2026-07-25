@@ -75,5 +75,5 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 ## Subagents (optional)
 
 - Persona panel: dynamic spawns — one subagent per persona, each prompt embeds that persona's identity (`skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`)
-- Parallel audit delegates to `agents/ux-lens-reviewer`
-- Large corpus synthesis delegates to `agents/research-synthesizer`
+- Parallel audit delegates to `skills/lamina-orchestrator/agents/ux-lens-reviewer.md`
+- Large corpus synthesis delegates to `skills/lamina-orchestrator/agents/research-synthesizer.md`

@@ -25,4 +25,3 @@ if [[ -d "$ROOT/eval-workspace" ]]; then
 fi
 
 bash "$ROOT/evals/hooks/stage-eval-fixture.sh"
-bash "$ROOT/evals/hooks/install-skill.sh"

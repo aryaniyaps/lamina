@@ -60,6 +60,7 @@ test -f .lamina/runs/<kebab-slug>/implement.md
 
 Never set the shell working directory to `.opencode/skills/lamina-design` (or sibling skill dirs) when running seed.
 **Never** run seed with `--help`/`-h` (prints usage only; not needed). **Never** `rm` / `rm -rf` / move / chmod the workspace or anything under `.lamina/` (sandbox rejects deletes and can make the workspace disappear mid-turn). Wrong or accidental slug (e.g. leftover `feature`)? Re-run seed with the correct `--slug` (overwrite is fine) — do not delete first. Seed **requires** `--slug`; bare invocations exit without writing.
+**Seed builds `run.json` + `implement.md` from `--slug` / `--problem` / `--outcome` only** — no example templates. If seed exits with `TEMPLATE_LEAK`, fix the brief args and re-run; do not hand-edit leftover example-domain ids from an old run.
 
 3. **When seed prints `status=ready_to_build`: STOP all shell/tool work.** Do not search for `graph-tool.mjs`, do not call `create`/`ready`/`preflight`, do not reinstall orchestrator siblings, do not clean up other run dirs, do not recover/recreate the workspace. Seed already writes `persona_findings[]` with **≥2 distinct `persona_ref`** values (remapped from `.lamina/personas.json` when present).
 4. Immediately reply with these **exact** headings (fill briefly from the brief + seeded files): `### Domain and invariants`, `### Actors and permissions`, `### Workflows`, `### Scenarios`, `### Implement brief`, `### Open questions`.
