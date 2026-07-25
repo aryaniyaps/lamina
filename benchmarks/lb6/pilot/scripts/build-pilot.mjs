@@ -25,12 +25,16 @@ import {
   CURSOR_CLI_VERSION,
   LAMINA_BENCH_SKILLS,
   LAMINA_STEPS,
+  MEASUREMENT_CONTRACT,
   PILOT_ARMS,
   PINNED_SKILL_COMMIT,
   REQUIRED_PERSONA_CHILDREN,
   SKILL_RERUN_CAMPAIGN_ID,
 } from '../lib/constants.mjs';
-import { stageSkillBundle, loadSkillBundleManifest, verifyStagedSkillBundle } from '../lib/skill-bundle.mjs';
+import {
+  stageSkillBundleFromWorkingTree,
+  verifyStagedSkillBundle,
+} from '../lib/skill-bundle.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -95,6 +99,8 @@ function dockerfile() {
     '    bash ca-certificates git jq python3 curl \\\n' +
     '    chromium fonts-liberation fonts-noto-core \\\n' +
     '    && rm -rf /var/lib/apt/lists/*\n' +
+    'RUN curl -LsSf https://astral.sh/uv/install.sh | sh\n' +
+    'ENV PATH="/root/.local/bin:${PATH}"\n' +
     'ENV CHROME_PATH=/usr/bin/chromium\n' +
     'ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium\n' +
     `COPY cursor-agent-version/ /root/.local/share/cursor-agent/versions/${CURSOR_CLI_VERSION}/\n` +
@@ -105,27 +111,37 @@ function dockerfile() {
 
 function taskToml(task, arm) {
   const steps = stepsForArm(arm);
+  const finalStep = finalStepForArm(arm);
   const stepBlocks = steps
-    .map(
-      (step) =>
+    .map((step) => {
+      const isFinal = step.name === finalStep;
+      // Task-level artifacts already collects `/app/.lamina` every step; only add app files on final.
+      const stepArtifacts = isFinal
+        ? 'artifacts = ["/app/app.mjs", "/app/index.html", "/app/ui.mjs", "/app/styles.css"]\n'
+        : '';
+      return (
         '[[steps]]\n' +
         `name = "${step.name}"\n` +
         'min_reward = 0.0\n' +
+        stepArtifacts +
         '[steps.agent]\n' +
         `timeout_sec = ${step.agentTimeout}.0\n` +
         '[steps.verifier]\n' +
-        `timeout_sec = ${step.verifierTimeout}.0\n`,
-    )
+        `timeout_sec = ${step.verifierTimeout}.0\n`
+      );
+    })
     .join('\n');
 
   return (
     'schema_version = "1.3"\n' +
-    'multi_step_reward_strategy = "final"\n\n' +
+    'multi_step_reward_strategy = "final"\n' +
+    // Issue #18: collect Lamina artifacts on every Harbor step.
+    'artifacts = ["/app/.lamina"]\n\n' +
     '[task]\n' +
     `name = "aryaniyaps/${task.id}-${arm}-v3"\n` +
-    `description = "LB6 development pilot: ${task.id} (${arm}) — not claim-ready LaminaBench-6"\n` +
+    `description = "LB6 development pilot: ${task.id} (${arm}) — RewardKit LLM judge; not claim-ready LaminaBench-6"\n` +
     'authors = [{ name = "LaminaBench" }]\n' +
-    `keywords = ["fuzzy-prompt", "development-pilot", "lb6", "${arm}"]\n\n` +
+    `keywords = ["fuzzy-prompt", "development-pilot", "lb6", "${arm}", "rewardkit"]\n\n` +
     '[metadata]\n' +
     'benchmark = "lamina-lb6-pilot"\n' +
     `benchmark_version = "${BENCHMARK_VERSION}"\n` +
@@ -137,16 +153,24 @@ function taskToml(task, arm) {
     `development_only = ${DEVELOPMENT_FLAGS.development_only}\n` +
     `confirmatory = ${DEVELOPMENT_FLAGS.confirmatory}\n` +
     `child_actual_model_unverified = ${DEVELOPMENT_FLAGS.child_actual_model_unverified}\n` +
-    'host_sealed_supervisor_required = true\n' +
+    // Issue #18: stock Harbor + RewardKit (no host-sealed custom fork).
+    'host_sealed_supervisor_required = false\n' +
+    `measurement_contract = "${MEASUREMENT_CONTRACT}"\n` +
     `harbor_version = "${HARBOR_VERSION}"\n` +
     `agent = "${HARBOR_AGENT}"\n` +
     `model = "${HARBOR_MODEL}"\n\n` +
     '[agent]\n' +
     `timeout_sec = ${agentTimeoutForArm(arm)}.0\n\n` +
+    '[verifier]\n' +
+    'timeout_sec = 300.0\n\n' +
+    '[verifier.env]\n' +
+    'OPENAI_API_KEY = "${OPENAI_API_KEY}"\n' +
+    'REWARDKIT_JUDGE = "${REWARDKIT_JUDGE}"\n' +
+    'LITELLM_DROP_PARAMS = "1"\n\n' +
     '[environment]\n' +
     `docker_image = "${AGENT_RUNTIME_IMAGE}"\n` +
     'network_mode = "public"\n' +
-    'build_timeout_sec = 120.0\n' +
+    'build_timeout_sec = 180.0\n' +
     'workdir = "/app"\n' +
     'os = "linux"\n' +
     'cpus = 2\n' +
@@ -169,19 +193,35 @@ function thinSliceContract(actionSchema, projectionContract) {
   return (
     '## Required thin-slice ship target\n\n' +
     'Build a self-contained product in `/app` with no external services. Use plain HTML/CSS/JavaScript and Node ESM so it runs offline.\n\n' +
-    'Required files:\n' +
+    'Required files (these are what the judge scores — do **not** ship a parallel `app.js`):\n' +
     '- `index.html`: minimal UI with a `<main>` landmark and controls for the core flow\n' +
-    '- `app.mjs`: exports `createInitialState()`, `reduce(state, action)`, and `project(state, actorId)`\n\n' +
+    '- `app.mjs`: exports `createInitialState()`, `reduce(state, action)`, and `project(state, actorId)`\n' +
+    '- `ui.mjs` (recommended): browser UI that imports from `app.mjs` — do not put domain rules only in the DOM layer\n\n' +
     '`reduce()` must be deterministic and side-effect free. **Every published action type must actually mutate domain state** (no silent no-ops). ' +
     '`project()` must return JSON-serializable **actor-scoped** views.\n\n' +
+    '## Product-quality bar (beyond selfcheck)\n\n' +
+    '- Enforce authority and illegal transitions **inside `reduce`** (not only by hiding buttons in the UI).\n' +
+    '- Reject unknown ids / empty payloads; do not autovivify phantom domain records.\n' +
+    '- Cover failure, empty, and recovery paths that the founder brief implies.\n' +
+    '- Prefer durable invariants from design artifacts over comment slogans.\n\n' +
     '## Published action schema\n\n' +
     actionSchema +
     '\n\n' +
     '## Published typed projection contract\n\n' +
     'The verifier checks the following structured behavior contract. Equivalent values listed here are accepted; arbitrary UI wording is not graded.\n\n' +
     '```json\n' + JSON.stringify(projectionContract ?? {}, null, 2) + '\n```\n\n' +
-    'The behavior rubric has ten equal semantic points. Valid rewards use arm-blind Laplace smoothing: `(earned + 1) / 12`; raw earned/10 is also reported. Deterministic replay is an eligibility gate.\n\n' +
+    'Final scoring uses Harbor RewardKit LLM-as-judge (no hardcoded semantic rubric). Keep the product coherent and runnable.\n\n' +
     selfCheckBlock()
+  );
+}
+
+function laminaImplementQualityBlock() {
+  return (
+    '## Lamina implement mandate\n\n' +
+    'Translate `.lamina/` design (`implement.md`, personas, authority/lifecycle notes) into the **published ABI files** above.\n' +
+    '- Write `/app/app.mjs` (+ `ui.mjs` / `index.html` / `styles.css` as needed). **Never** create `/app/app.js` as the product.\n' +
+    '- Run `node /app/.lb6-abi/selfcheck.mjs` until it exits 0 before finishing this step.\n' +
+    '- Spend the budget on domain correctness in `reduce`/`project`, not a throwaway non-ABI prototype.\n'
   );
 }
 
@@ -235,13 +275,16 @@ function laminaStepCommand(phase) {
       'Do not implement application code in this step.',
     lamina_design:
       'Run **only** `/lamina-design` via the `lamina-design` skill end-to-end through `ready_to_build` with `implement.md`. ' +
-      `Spawn **≥${REQUIRED_PERSONA_CHILDREN} native Task persona children** during design — do not inline-fake the panel in parent text when Task is available.`,
+      `Spawn **≥${REQUIRED_PERSONA_CHILDREN} native Task persona children** during design — do not inline-fake the panel in parent text when Task is available. ` +
+      'In `implement.md`, specify reducer-enforced authority, illegal-state bans, and edge/recovery paths the next coding step must ship in `app.mjs` (not UI-only).',
     implement:
-      'Implement the thin slice from the latest `implement.md` in a normal coding turn. ' +
-      'You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step.',
+      'Implement the **published ABI** (`app.mjs` / `ui.mjs`) from the latest `implement.md` in a normal coding turn. ' +
+      'You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step. ' +
+      'Do not build a non-ABI `app.js` prototype first.',
     fix:
-      'Apply fixes from the latest design artifacts in a normal coding turn. Leave the product runnable. ' +
-      '**Do not** invoke `/lamina-*` slash commands in this step.',
+      'Harden the already-shipped ABI product using the latest design artifacts. ' +
+      'Fix authority gaps, edge/recovery paths, and runtime bugs in `app.mjs`/`ui.mjs`. Leave the product runnable. ' +
+      '**Do not** rewrite from scratch or invent a parallel `app.js`. **Do not** invoke `/lamina-*` slash commands in this step.',
   };
   return commands[phase] ?? '';
 }
@@ -265,7 +308,11 @@ function instruction(task, arm, phase, ctx) {
     if (phase === 'lamina_init' || phase === 'lamina_design') {
       body += `${laminaBenchProfile(task)}\n\n`;
     }
-    if (phase === 'implement') body += `${shapingContract()}\n`;
+    // Ship the judged ABI during implement (not only in fix) so design time converts to product code.
+    if (phase === 'implement') {
+      body += `${contract}\n`;
+      body += `${laminaImplementQualityBlock()}\n`;
+    }
     if (phase === 'fix') body += `${contract}\n`;
     if (phase !== 'fix') body += `## Founder brief\n\n${brief}\n\n`;
     else body += `## Founder brief\n\n${brief}\n\n`;
@@ -422,16 +469,32 @@ function publicAbi(task) {
   };
 }
 
+function loadRewardkitTemplates(ctx) {
+  const rewardkitRoot = path.join(ctx.pilotLibRoot, 'rewardkit');
+  const contextsRoot = path.join(ctx.pilotLibRoot, 'llm-judge', 'judge-contexts');
+  return {
+    judgeToml: fs.readFileSync(path.join(rewardkitRoot, 'judge.toml'), 'utf8'),
+    promptMd: fs.readFileSync(path.join(rewardkitRoot, 'prompt.md'), 'utf8'),
+    testFinal: fs.readFileSync(path.join(rewardkitRoot, 'test-final.sh'), 'utf8'),
+    testPass: fs.readFileSync(path.join(rewardkitRoot, 'test-pass.sh'), 'utf8'),
+    contextsRoot,
+  };
+}
+
 function writeTask(task, arm, ctx) {
   const dir = path.join(ctx.tasksRoot, `${task.id}-${arm}-v3`);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'environment'), { recursive: true });
 
-  const behaviorGrade = fs.readFileSync(path.join(ctx.libRoot, 'behavior-grade.mjs'), 'utf8');
-  const behaviorReplayWorker = fs.readFileSync(path.join(ctx.libRoot, 'behavior-replay-worker.mjs'), 'utf8');
   const behaviorSelfcheck = fs.readFileSync(path.join(ctx.libRoot, 'behavior-selfcheck.mjs'), 'utf8');
-  const pilotBehaviorGrade = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-behavior-grade.mjs'), 'utf8');
-  const pilotTreatment = fs.readFileSync(path.join(ctx.pilotLibRoot, 'pilot-treatment.mjs'), 'utf8');
+  const templates = loadRewardkitTemplates(ctx);
+  const briefPath = path.join(ctx.corpusRoot, task.brief || `${task.id}/brief.md`);
+  const brief = fs.existsSync(briefPath) ? fs.readFileSync(briefPath, 'utf8') : `# ${task.id}\n`;
+  const contextExtraPath = path.join(templates.contextsRoot, `${task.id}.md`);
+  const contextExtra = fs.existsSync(contextExtraPath)
+    ? fs.readFileSync(contextExtraPath, 'utf8')
+    : '';
+  const judgeContext = `${brief.trim()}\n\n${contextExtra.trim()}\n`.trim() + '\n';
 
   const steps = stepsForArm(arm);
   const finalStep = finalStepForArm(arm);
@@ -440,27 +503,33 @@ function writeTask(task, arm, ctx) {
     const stepDir = path.join(dir, 'steps', step.name, 'tests');
     fs.mkdirSync(stepDir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'steps', step.name, 'instruction.md'), instruction(task, arm, step.name, ctx));
-    fs.writeFileSync(
-      path.join(stepDir, 'test.sh'),
-      '#!/usr/bin/env bash\nset -euo pipefail\necho "protocol_invalid: stock Harbor verifier invoked" >&2\nexit 97\n',
-    );
+    const isFinal = step.name === finalStep;
+    if (isFinal) {
+      fs.writeFileSync(path.join(stepDir, 'test.sh'), templates.testFinal);
+      fs.writeFileSync(path.join(stepDir, 'judge.toml'), templates.judgeToml);
+      fs.writeFileSync(path.join(stepDir, 'prompt.md'), templates.promptMd);
+      fs.writeFileSync(path.join(stepDir, 'judge-context.md'), judgeContext);
+    } else {
+      fs.writeFileSync(path.join(stepDir, 'test.sh'), templates.testPass);
+    }
     fs.chmodSync(path.join(stepDir, 'test.sh'), 0o755);
   }
 
-  const abiDir = path.join(dir, 'steps', finalStep, 'workdir', '.lb6-abi');
-  fs.mkdirSync(abiDir, { recursive: true });
-  fs.writeFileSync(path.join(abiDir, 'public-abi.json'), `${JSON.stringify(publicAbi(task), null, 2)}\n`);
-  fs.writeFileSync(path.join(abiDir, 'selfcheck.mjs'), selfcheckSource(task));
-  fs.writeFileSync(path.join(abiDir, 'behavior-selfcheck.mjs'), behaviorSelfcheck);
+  // Keep public ABI/selfcheck as agent aids only — not the claim verifier (issue #18).
+  // For lamina, inject ABI on implement (primary ship) and fix (harden), not only on the final step.
+  const abiSteps =
+    arm === 'lamina' ? ['implement', finalStep] : [finalStep];
+  for (const abiStep of [...new Set(abiSteps)]) {
+    const abiDir = path.join(dir, 'steps', abiStep, 'workdir', '.lb6-abi');
+    fs.mkdirSync(abiDir, { recursive: true });
+    fs.writeFileSync(path.join(abiDir, 'public-abi.json'), `${JSON.stringify(publicAbi(task), null, 2)}\n`);
+    fs.writeFileSync(path.join(abiDir, 'selfcheck.mjs'), selfcheckSource(task));
+    fs.writeFileSync(path.join(abiDir, 'behavior-selfcheck.mjs'), behaviorSelfcheck);
+  }
 
+  // Remove obsolete private verifier fixtures for rebuilt tasks.
   const privateDir = path.join(ctx.privateVerifierRoot, task.id, arm);
   fs.rmSync(privateDir, { recursive: true, force: true });
-  fs.mkdirSync(privateDir, { recursive: true });
-  fs.writeFileSync(path.join(privateDir, 'grade.mjs'), finalGradeSource(task, arm, finalStep));
-  fs.writeFileSync(path.join(privateDir, 'behavior-grade.mjs'), behaviorGrade);
-  fs.writeFileSync(path.join(privateDir, 'behavior-replay-worker.mjs'), behaviorReplayWorker);
-  fs.writeFileSync(path.join(privateDir, 'pilot-behavior-grade.mjs'), pilotBehaviorGrade);
-  fs.writeFileSync(path.join(privateDir, 'pilot-treatment.mjs'), pilotTreatment);
 
   fs.writeFileSync(path.join(dir, 'task.toml'), taskToml(task, arm));
   fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile());
@@ -534,16 +603,21 @@ export function buildPilot({ root = DEFAULT_ROOT, selectedTaskIds = null, migrat
     for (const arm of PILOT_ARMS) writeTask(task, arm, ctx);
   }
 
-  const bundleManifestPath = path.join(ctx.pilotRoot, 'skill-bundle/manifest-v3.json');
-  let skillBundle = null;
-  if (!fs.existsSync(bundleManifestPath)) {
-    skillBundle = stageSkillBundle(ctx.root, { pinnedCommit: PINNED_SKILL_COMMIT });
-  } else {
-    skillBundle = loadSkillBundleManifest(ctx.root);
-    const verified = verifyStagedSkillBundle(ctx.root, skillBundle.manifest);
-    if (!verified.ok) {
-      throw new Error(`existing skill bundle failed verification: ${verified.reason}`);
-    }
+  // Issue #18: always restage the full repo skills/ set into the lamina arm env.
+  const skillBundle = stageSkillBundleFromWorkingTree(ctx.root, {
+    skillNames: [...LAMINA_BENCH_SKILLS],
+    sourceSkillCommit: PINNED_SKILL_COMMIT,
+    requirePinnedMatch: false,
+    write: true,
+  });
+  const verified = verifyStagedSkillBundle(ctx.root, skillBundle.manifest);
+  if (!verified.ok) {
+    throw new Error(`skill bundle failed verification after restage: ${verified.reason}`);
+  }
+  if (skillBundle.manifest.skills.length < 50) {
+    throw new Error(
+      `expected ~60 staged skills for issue #18; got ${skillBundle.manifest.skills.length}`,
+    );
   }
 
   if (!selective) {

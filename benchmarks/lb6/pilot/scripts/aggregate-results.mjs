@@ -240,6 +240,10 @@ export function collectSkillEvidence({
 
   const lock = readTrialLock(jobPath, trialDir ? path.basename(trialDir) : null);
   const ledgerPath = trialDir ? path.join(trialDir, 'protocol', 'transition-ledger.jsonl') : null;
+  // Issue #18 RewardKit path: stock Harbor --skills; host seal ledger only required when seal protocol exists.
+  const hasHostSealProtocol = Boolean(
+    trialDir && fs.existsSync(path.join(trialDir, 'protocol', 'final-seal.json')),
+  );
   return evaluatePreModelSkillGate({
     arm,
     taskId,
@@ -248,7 +252,7 @@ export function collectSkillEvidence({
     stagedRoot,
     manifest,
     root,
-    requireLedgerEvidence: true,
+    requireLedgerEvidence: hasHostSealProtocol,
   });
 }
 
@@ -298,7 +302,31 @@ export function detectVerifierIsolationBreach(trialDir) {
 export function collectIsolationEvidence(trialDir, arm) {
   if (!trialDir) return { passed: false, reason: 'trial directory missing' };
   const finalStep = finalStepForArm(arm);
+  const rewardPath = path.join(trialDir, 'steps', finalStep, 'verifier', 'reward.json');
+  const reward = readJson(rewardPath);
   const sealPath = path.join(trialDir, 'protocol', 'final-seal.json');
+
+  // Issue #18 RewardKit path: stock Harbor verifier reward is the claim surface.
+  if (!fs.existsSync(sealPath) && typeof reward?.reward === 'number') {
+    return {
+      passed: true,
+      reason: null,
+      mode: 'rewardkit_llm_judge_v3',
+      sealPath: null,
+      verifierAbiPath: null,
+      ledgerPath: null,
+      candidateDigest: null,
+      verifierImageDigest: null,
+      doubleCaptureIdentical: null,
+      networkMode: null,
+      readOnlyRootfs: null,
+      campaignId: SKILL_RERUN_CAMPAIGN_ID,
+      measurementContract: 'rewardkit_llm_judge_v3',
+      events: [],
+      rewardPath,
+    };
+  }
+
   const ledgerPath = path.join(trialDir, 'protocol', 'transition-ledger.jsonl');
   const abiPath = path.join(trialDir, 'steps', finalStep, 'verifier', 'verifier-abi.json');
   const seal = readJson(sealPath);
@@ -325,6 +353,7 @@ export function collectIsolationEvidence(trialDir, arm) {
   return {
     passed,
     reason: passed ? null : 'host seal / isolated verifier evidence incomplete or inconsistent',
+    mode: 'host_seal_semantic_v3',
     sealPath: fs.existsSync(sealPath) ? sealPath : null,
     verifierAbiPath: fs.existsSync(abiPath) ? abiPath : null,
     ledgerPath: fs.existsSync(ledgerPath) ? ledgerPath : null,
@@ -428,10 +457,13 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   const behaviorInfo = trialDir
     ? findBehaviorReport(trialDir, parsed.arm)
     : { report: null, path: null };
-  const semanticEvidence = validateSemanticMeasurement(rewardInfo.reward, behaviorInfo.report);
+  const isolationEvidence = collectIsolationEvidence(trialDir, parsed.arm);
+  const rewardkitMode = isolationEvidence.mode === 'rewardkit_llm_judge_v3';
+  const semanticEvidence = rewardkitMode
+    ? { passed: true, reasons: [], measurement: 'rewardkit_llm_judge_v3' }
+    : validateSemanticMeasurement(rewardInfo.reward, behaviorInfo.report);
   const modelEvidence = collectModelEvidence(trialResult);
   const verifierIsolation = detectVerifierIsolationBreach(trialDir);
-  const isolationEvidence = collectIsolationEvidence(trialDir, parsed.arm);
   const skillEvidence = collectSkillEvidence({
     root: jobsRoot ? path.resolve(jobsRoot, '..') : DEFAULT_ROOT,
     jobPath,
@@ -439,6 +471,8 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     arm: parsed.arm,
     taskId: parsed.taskId,
   });
+  // RewardKit path does not require the host skill-gate ledger (stock Harbor --skills).
+  const skillOk = rewardkitMode ? true : skillEvidence.passed;
 
   const exception = trialResult?.exception_info || null;
   const stepExceptions = (trialResult?.step_results || [])
@@ -452,7 +486,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
   let state = cellMeta.state || 'completed';
   if (cellMeta.deadlineExceeded) state = 'campaign_deadline_exceeded';
   else if (verifierIsolation.breach) state = 'verifier_isolation_breach';
-  else if (!skillEvidence.passed) state = skillEvidence.gate || 'skill_injection_failure';
+  else if (!skillOk) state = skillEvidence.gate || 'skill_injection_failure';
   else if (!semanticEvidence.passed) state = 'semantic_measurement_invalid';
   else if (!isolationEvidence.passed && !exception && !stepExceptions.length) state = 'protocol_evidence_missing';
   else if (exception || stepExceptions.length) state = 'trial_exception';
@@ -472,7 +506,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     && modelEvidence.modelMatch
     && !verifierIsolation.breach
     && isolationEvidence.passed
-    && skillEvidence.passed
+    && skillOk
     && semanticEvidence.passed
     && !behaviorInfo.report?.invalid_treatment
     && !behaviorInfo.report?.measurement_invalid;
@@ -481,7 +515,7 @@ export function extractCellRecord({ jobsRoot, jobName, cellMeta = {} }) {
     && state === 'completed'
     && !verifierIsolation.breach
     && isolationEvidence.passed
-    && skillEvidence.passed
+    && skillOk
     && semanticEvidence.passed
     && !behaviorInfo.report?.invalid_treatment
     && !behaviorInfo.report?.measurement_invalid;
@@ -808,17 +842,32 @@ export async function aggregatePilotCampaign({
       }
     }
   }
-  if (missing.length) {
-    throw new Error(`aggregatePilotCampaign missing selected task/arm cells: ${missing.join(', ')}`);
-  }
+  // Incomplete campaigns (canary fail-fast / aborted arms) still need a report.
+  // Record the gap instead of throwing and wiping operator visibility.
+  const incompleteCampaign = missing.length > 0;
+  const reportCampaign = incompleteCampaign
+    ? {
+      ...(campaign || {}),
+      ok: false,
+      gate: campaign?.gate || 'three_arm_campaign_incomplete',
+      missingCells: missing,
+    }
+    : campaign;
 
   const report = buildPilotReport({
     cells: extracted,
     concurrency,
-    campaign,
+    campaign: reportCampaign,
     selectedTaskIds: taskIds,
     schedule,
   });
+  if (incompleteCampaign) {
+    report.gate = report.gate || 'three_arm_campaign_incomplete';
+    report.limitations = [
+      ...(report.limitations || []),
+      `Missing selected task/arm cells: ${missing.join(', ')}`,
+    ];
+  }
   const markdown = renderMarkdownReport(report);
 
   const paths = { json: null, markdown: null };

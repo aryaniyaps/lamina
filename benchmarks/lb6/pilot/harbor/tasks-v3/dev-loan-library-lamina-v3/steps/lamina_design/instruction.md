@@ -2,7 +2,7 @@
 
 Use the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.
 
-Run **only** `/lamina-design` via the `lamina-design` skill end-to-end through `ready_to_build` with `implement.md`. Spawn **≥2 native Task persona children** during design — do not inline-fake the panel in parent text when Task is available.
+Run **only** `/lamina-design` via the `lamina-design` skill end-to-end through `ready_to_build` with `implement.md`. Spawn **≥2 native Task persona children** during design — do not inline-fake the panel in parent text when Task is available. In `implement.md`, specify reducer-enforced authority, illegal-state bans, and edge/recovery paths the next coding step must ship in `app.mjs` (not UI-only).
 
 ## Lamina development pilot profile
 

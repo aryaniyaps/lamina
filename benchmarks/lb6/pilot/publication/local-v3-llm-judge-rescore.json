@@ -1,0 +1,139 @@
+{
+  "kind": "lb6-local-v3-llm-judge-rescore",
+  "generated_at": "2026-07-24T09:51:08.743Z",
+  "model": "gpt-4.1",
+  "cells": [
+    {
+      "taskId": "dev-loan-library",
+      "arm": "direct",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784862829243",
+      "ok": true,
+      "skipped": false,
+      "reward": 0.9534,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784862829243/dev-loan-library-direct-v3__PrVvNGi/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "plan",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784862829244",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784862829244/dev-loan-library-plan-v3__3dtrotJ/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "lamina",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784862829242",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784862829242/dev-loan-library-lamina-v3__6rD8Egs/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "direct",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784863908901",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784863908901/dev-review-room-direct-v3__WhfXRgH/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "plan",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784863908902",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784863908902/dev-review-room-plan-v3__QZnaZZA/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "lamina",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784863908903",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784863908903/dev-review-room-lamina-v3__YU7P7AF/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784864689137",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784864689137/dev-simple-list-direct-v3__v6N4c7P/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784864689138",
+      "ok": true,
+      "skipped": false,
+      "reward": 0.9534,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784864689138/dev-simple-list-plan-v3__d2bs2BS/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784864689139",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784864689139/dev-simple-list-lamina-v3__CjQV4Wv/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "direct",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784865310806",
+      "ok": true,
+      "skipped": false,
+      "reward": 0.9592,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784865310806/dev-toggle-preference-direct-v3__UzUaP53/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "plan",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784865310807",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784865310807/dev-toggle-preference-plan-v3__ytszfvF/protocol/llm-judge.json",
+      "error": null
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "lamina",
+      "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784865310808",
+      "ok": true,
+      "skipped": false,
+      "reward": 1,
+      "model": "gpt-4.1-2025-04-14",
+      "outPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784865310808/dev-toggle-preference-lamina-v3__DX4yZ66/protocol/llm-judge.json",
+      "error": null
+    }
+  ]
+}

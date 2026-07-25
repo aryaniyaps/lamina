@@ -485,6 +485,118 @@ def _hash_directory(root: Path) -> str:
     return _sha256_bytes(_canonical(entries))
 
 
+def _numeric_harbor_rewards(reward: dict | None) -> dict[str, float]:
+    """Harbor VerifierResult.rewards accepts numeric values only.
+
+    Private verifiers still write full metadata (measurement name, transform
+    formula, null reasons) into reward.json for aggregation; strip non-numerics
+    before constructing VerifierResult so Harbor 0.18 pydantic validation passes.
+    """
+    out: dict[str, float] = {}
+    for key, value in (reward or {}).items():
+        if isinstance(value, bool):
+            out[str(key)] = 1.0 if value else 0.0
+        elif isinstance(value, (int, float)):
+            out[str(key)] = float(value)
+    if "reward" not in out:
+        raise ProtocolInvalidError("verifier reward.json missing numeric reward")
+    return out
+
+
+def _repo_root_from_env() -> Path:
+    sealed = os.environ.get("LB6_SEALED_ROOT")
+    if sealed:
+        # .../benchmarks/lb6/pilot/sealed-store → repo root
+        return Path(sealed).resolve().parents[3]
+    private = os.environ.get("LB6_PRIVATE_VERIFIER_ROOT")
+    if private:
+        return Path(private).resolve().parents[3]
+    return Path.cwd().resolve()
+
+
+def _run_host_llm_judge(
+    trial: MultiStepTrial,
+    seal: dict,
+    *,
+    task_id: str,
+    arm: str,
+    semantic_reward: dict,
+) -> dict:
+    """Host-side OpenAI judge (claim surface). Semantic reward stays on disk as diagnostic."""
+    if os.environ.get("LB6_LLM_JUDGE", "").strip() not in {"1", "true", "yes", "on"}:
+        return semantic_reward
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise ProtocolInvalidError("LB6_LLM_JUDGE enabled but OPENAI_API_KEY is missing")
+
+    repo_root = _repo_root_from_env()
+    judge_script = repo_root / "benchmarks/lb6/pilot/lib/llm-judge/run-llm-judge.mjs"
+    if not judge_script.is_file():
+        raise ProtocolInvalidError(f"llm judge script missing: {judge_script}")
+
+    out_path = trial.paths.trial_dir / "protocol" / "llm-judge.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "node",
+        str(judge_script),
+        "--root",
+        str(repo_root),
+        "--task",
+        task_id,
+        "--arm",
+        arm,
+        "--candidate-digest",
+        str(seal["candidate_digest"]),
+        "--out",
+        str(out_path),
+    ]
+    model = os.environ.get("LB6_LLM_JUDGE_MODEL") or os.environ.get("OPENAI_JUDGE_MODEL")
+    if model:
+        cmd.extend(["--model", model])
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=os.environ.copy(),
+        cwd=str(repo_root),
+        check=False,
+    )
+    if result.returncode != 0 or not out_path.is_file():
+        detail = (result.stderr or result.stdout or "").strip()[-800:]
+        raise ProtocolInvalidError(f"host llm judge failed: {detail or result.returncode}")
+
+    judge = json.loads(out_path.read_text())
+    if judge.get("llm_judge_degraded") or judge.get("scoring_incomplete"):
+        raise ProtocolInvalidError(
+            f"host llm judge degraded: {judge.get('degradation_reason') or 'unknown'}"
+        )
+    if not isinstance(judge.get("reward"), (int, float)):
+        raise ProtocolInvalidError("host llm judge missing numeric reward")
+
+    # Mirror next to semantic outputs for discoverability; do not mutate reward.json.
+    mirror = trial.paths.verifier_dir / "llm-judge.json"
+    mirror.write_text(json.dumps(judge, indent=2, sort_keys=True) + "\n")
+
+    claim = {
+        "reward": float(judge["reward"]),
+        "llm_judge": float(judge["reward"]),
+        "semantic_reward": float(semantic_reward.get("reward") or 0),
+    }
+    _append_ledger(
+        trial,
+        "llm_judge_complete",
+        {
+            "measurement": "llm_judge_v3",
+            "reward": claim["reward"],
+            "model": judge.get("model"),
+            "candidate_digest": seal["candidate_digest"],
+        },
+    )
+    return claim
+
+
 async def _isolated_verify(trial: MultiStepTrial, seal: dict, step_name: str) -> VerifierResult:
     private_root = Path(os.environ["LB6_PRIVATE_VERIFIER_ROOT"]).resolve()
     arm = str(trial.task.config.metadata.get("arm"))
@@ -520,9 +632,17 @@ async def _isolated_verify(trial: MultiStepTrial, seal: dict, step_name: str) ->
             "candidate_digest": seal["candidate_digest"],
             "reward_hash": first["evidence"]["reward_hash"],
             "deterministic_replay": True,
+            "semantic_diagnostic": True,
         },
     )
-    return VerifierResult(rewards=first["reward"])
+    claim_reward = _run_host_llm_judge(
+        trial,
+        seal,
+        task_id=task_id,
+        arm=arm,
+        semantic_reward=first["reward"],
+    )
+    return VerifierResult(rewards=_numeric_harbor_rewards(claim_reward))
 
 
 def _load_skill_bundle_manifest() -> dict:

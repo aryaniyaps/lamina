@@ -1,4 +1,11 @@
-# LaminaBench Harbor v4
+# LaminaBench Harbor benchmarks
+
+> **Current LB6 Issue #18 (RewardKit) work:** see [`lb6/pilot/publication/README.md`](./lb6/pilot/publication/README.md)  
+> for the development-only matrix, pins, and reproduce steps.
+
+---
+
+# LaminaBench Harbor v4 (legacy)
 
 Prove Lamina works: matched arms, behavior-only reward, Lamina treatment gates.
 

@@ -1,0 +1,10 @@
+{
+  "kind": "lb6-local-v3-llm-judge-run-campaign",
+  "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
+  "claim_surface": "llm_judge",
+  "measurement": "llm_judge_v3",
+  "judge_mode": "openai_judge_only_in_trial",
+  "started_at": "2026-07-24T09:57:52.253Z",
+  "min_job_ts": 1784887072253,
+  "note": "Only skill-rerun-v3 jobs with ts >= min_job_ts are eligible for this results file."
+}

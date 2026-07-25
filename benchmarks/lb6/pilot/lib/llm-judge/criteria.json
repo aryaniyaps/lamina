@@ -1,0 +1,70 @@
+{
+  "measurement": "llm_judge_v3",
+  "claim_surface": "llm_judge",
+  "judge_mode": "openai_judge_only",
+  "model_default": "gpt-4.1",
+  "likert_points": 5,
+  "aggregation": "weighted_mean",
+  "criteria": [
+    {
+      "name": "domain_system_structure",
+      "description": "Domain / system structure — brief entities and relationships expressed in code (types, models, modules); not a UI shell without domain logic. Evidence: concrete types/modules, not slogan comments.",
+      "points": 5,
+      "weight": 1.0
+    },
+    {
+      "name": "invariants_product_rules",
+      "description": "Invariants and product rules — illegal states prevented or rejected in code; brief bans realized as absence or explicit rejection. Guards/validation/state machines — not comments alone.",
+      "points": 5,
+      "weight": 1.2
+    },
+    {
+      "name": "actors_permissions",
+      "description": "Actors and permissions — personas/roles with authorization boundaries or data scoping visible in implementation (filters, role checks). Evidence required.",
+      "points": 5,
+      "weight": 1.1
+    },
+    {
+      "name": "workflow_quality",
+      "description": "Workflow quality — primary brief journeys implemented end-to-end with coherent state transitions (not navigation stubs).",
+      "points": 5,
+      "weight": 1.1
+    },
+    {
+      "name": "scenario_edge_coverage",
+      "description": "Scenario / edge coverage — failure, recovery, empty, and edge paths handled in product behavior (errors, retries, empty states, unmet dependencies).",
+      "points": 5,
+      "weight": 1.2
+    },
+    {
+      "name": "systems_judgment",
+      "description": "Systems judgment — sensible product trade-offs realized in behavior; avoids traps like silent data loss or permission leaks.",
+      "points": 5,
+      "weight": 1.0
+    },
+    {
+      "name": "ux_expression_under_rules",
+      "description": "UX expression under rules — UI or API surfaces reflect domain rules: errors, empty states, accessible names where UI exists. Score hooks/behavior, not a11y slogans.",
+      "points": 5,
+      "weight": 1.0
+    },
+    {
+      "name": "brownfield_fit",
+      "description": "Brownfield fit — integrates sensibly with existing fixture code (N/A for greenfield → score internal consistency).",
+      "points": 5,
+      "weight": 0.8
+    },
+    {
+      "name": "implementation_readiness",
+      "description": "Implementation readiness — product implementation is coherent and buildable; clear entry points; not a stub-only scaffold.",
+      "points": 5,
+      "weight": 0.9
+    },
+    {
+      "name": "overall_product_behavior",
+      "description": "Overall product-behavior quality — holistic judgment of product behavior vs brief + behavioral reference as realized in code (not documentation theater).",
+      "points": 5,
+      "weight": 1.0
+    }
+  ]
+}

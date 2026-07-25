@@ -51,7 +51,11 @@
     "bench:lb6:v3:build": "node benchmarks/lb6/pilot/scripts/build-pilot.mjs",
     "bench:lb6:v3:validate": "node benchmarks/lb6/pilot/scripts/validate-pilot.mjs --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference",
     "bench:lb6:v3:replay-v2": "node benchmarks/lb6/pilot/scripts/replay-v2-candidates-v3.mjs --write",
-    "bench:lb6:v3:run": "node benchmarks/lb6/pilot/scripts/run-three-arm.mjs --concurrency 6 --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference"
+    "bench:lb6:v3:run": "node benchmarks/lb6/pilot/scripts/run-three-arm.mjs --concurrency 6 --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference",
+    "bench:lb6:v3:collect-local": "node benchmarks/lb6/pilot/scripts/collect-local-v3-results.mjs",
+    "bench:lb6:v3:rescore-llm-judge": "node benchmarks/lb6/pilot/scripts/rescore-local-v3-llm-judge.mjs",
+    "bench:lb6:v3:collect-llm-judge-run": "node benchmarks/lb6/pilot/scripts/collect-local-v3-llm-judge-run.mjs",
+    "bench:lb6:v3:collect-issue18": "node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",
