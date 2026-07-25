@@ -28,8 +28,6 @@ Compares three ways to build small product apps with the same agent and judge:
 - **Published claim (repo):** per-cell **median of 3 full re-runs**  
 - **Not scored:** `.lamina/` process notes; no `/lamina-verify` step in this pilot  
 
-*(Internals for operators: Harbor RewardKit judge `openai/gpt-5.5`; GitHub issue #18 shape.)*
-
 ## How to run
 
 ```bash
