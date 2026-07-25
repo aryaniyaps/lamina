@@ -6,8 +6,10 @@ Matched three-arm Harbor pilot used for Issue #18 and local RewardKit measuremen
 
 | Doc | Purpose |
 |---|---|
-| [`publication/README.md`](./publication/README.md) | **Start here** — claim scope, matrix, reproduce steps |
-| [`publication/local-v3-issue18-rewardkit.md`](./publication/local-v3-issue18-rewardkit.md) | Latest Issue #18 results table |
+| [`publication/REPRODUCE.md`](./publication/REPRODUCE.md) | **Reproduce** — env, pins, 3-seed protocol, audit |
+| [`publication/README.md`](./publication/README.md) | Claim scope + median matrix |
+| [`publication/local-v3-issue18-rewardkit-median.md`](./publication/local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
+| [`publication/seeds/`](./publication/seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
 | [`lib/rewardkit/`](./lib/rewardkit/) | RewardKit judge templates |
 | [`lib/constants.mjs`](./lib/constants.mjs) | Harbor / budget / measurement pins |
 
@@ -27,7 +29,11 @@ npm run bench:lb6:v3:build -- --tasks dev-loan-library,dev-review-room,dev-simpl
 npm run bench:lb6:v3:validate
 node benchmarks/lb6/pilot/scripts/run-three-arm.mjs --allow-dirty-harness --concurrency 1 --tasks dev-loan-library
 npm run bench:lb6:v3:collect-issue18
+node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs --seed 1
+npm run bench:lb6:v3:median-issue18
 ```
+
+Full multi-seed checklist: [`publication/REPRODUCE.md`](./publication/REPRODUCE.md).
 
 Env: see [`../.env.example`](../.env.example) (`CURSOR_API_KEY`, `OPENAI_API_KEY`, `REWARDKIT_JUDGE`).
 
@@ -36,11 +42,13 @@ Env: see [`../.env.example`](../.env.example) (`CURSOR_API_KEY`, `OPENAI_API_KEY
 | Path | Role |
 |---|---|
 | `harbor/tasks-v3/` | Generated Harbor task dirs |
-| `scripts/` | build / validate / run / collect |
+| `scripts/` | build / validate / run / collect / archive / median |
 | `lib/` | constants, RewardKit, shared helpers |
 | `skill-bundle/` | staged skill pin + manifest |
 | `publication/` | claim artifacts + reproduce docs |
+| `publication/seeds/` | frozen per-seed matrices (portable) |
 | `reports/` | operator aggregate reports (support) |
+| `logs/` | local tee logs (gitignored) |
 
 ## Status flags
 

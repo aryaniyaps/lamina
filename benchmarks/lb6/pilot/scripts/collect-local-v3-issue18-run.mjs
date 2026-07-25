@@ -189,7 +189,8 @@ export function collectIssue18Results({ root = DEFAULT_ROOT, write = true, ensur
       arm: cell.arm,
       taskDirName: cell.taskDirName || expectedPilotTaskDirName(cell.taskId, cell.arm),
       jobName: cell.jobName,
-      jobPath: cell.jobPath,
+      // Portable path for open-source artifacts (absolute host paths are machine-local).
+      jobPath: cell.jobName ? `jobs/${cell.jobName}` : cell.jobPath || null,
       state: cell.state,
       reward: cell.measurementValid ? cell.reward : null,
       measurementValid: Boolean(cell.measurementValid),
