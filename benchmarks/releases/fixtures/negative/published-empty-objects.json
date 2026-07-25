@@ -1,6 +1,6 @@
 {
   "contractVersion": "1.0.0",
-  "releaseKey": "harbor-v4-2026-07",
+  "releaseKey": "lb6-2026-07",
   "benchmarkId": "lamina-product-shaping",
   "benchmarkVersion": "harbor-v4",
   "status": "published",
@@ -9,8 +9,8 @@
   "measurement": "behavior_pass_rate",
   "source": {
     "repository": "https://github.com/aryaniyaps/lamina",
-    "commit": "e851d037199b189a9b98b7d807bbcfd427bf0c5c",
-    "protocolSha256": "4e91cd97f452067d0d4096bf8db754397a6bfe5510e54a4ad1fe7da1603dffa1"
+    "commit": "27304bf58d01b9f04924d86fc04ef119185db305",
+    "protocolSha256": "27304bf58d01b9f04924d86fc04ef119185db30510e54a4ad1fe7da1603dffa1"
   },
   "runtime": {
     "agent": "claude-code",
@@ -185,35 +185,35 @@
       "label": "Behavior oracle and treatment gates",
       "role": "grader",
       "path": "benchmarks/lib/behavior-grade.mjs",
-      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/lib/behavior-grade.mjs"
+      "url": "https://github.com/aryaniyaps/lamina/blob/27304bf58d01b9f04924d86fc04ef119185db305/benchmarks/lib/behavior-grade.mjs"
     },
     {
-      "id": "build-script",
-      "label": "Harbor task generator",
+      "id": "build-pilot",
+      "label": "LB6 pilot task generator",
       "role": "protocol",
-      "path": "benchmarks/scripts/build-harbor-benchmark.mjs",
-      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/scripts/build-harbor-benchmark.mjs"
+      "path": "benchmarks/lb6/pilot/scripts/build-pilot.mjs",
+      "url": "https://github.com/aryaniyaps/lamina/blob/27304bf58d01b9f04924d86fc04ef119185db305/benchmarks/lb6/pilot/scripts/build-pilot.mjs"
     },
     {
       "id": "corpus-manifest",
       "label": "Task corpus manifest",
       "role": "methodology",
       "path": "benchmarks/corpus/manifest.json",
-      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/corpus/manifest.json"
+      "url": "https://github.com/aryaniyaps/lamina/blob/27304bf58d01b9f04924d86fc04ef119185db305/benchmarks/corpus/manifest.json"
     },
     {
       "id": "lamina-bench-skills",
       "label": "Lamina arm skill allowlist",
       "role": "methodology",
       "path": "benchmarks/corpus/lamina-bench-skills.json",
-      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/corpus/lamina-bench-skills.json"
+      "url": "https://github.com/aryaniyaps/lamina/blob/27304bf58d01b9f04924d86fc04ef119185db305/benchmarks/corpus/lamina-bench-skills.json"
     },
     {
-      "id": "validate-script",
-      "label": "Harbor task validator",
+      "id": "validate-pilot",
+      "label": "LB6 pilot validator",
       "role": "protocol",
-      "path": "benchmarks/scripts/validate-harbor-benchmark.mjs",
-      "url": "https://github.com/aryaniyaps/lamina/blob/e851d037199b189a9b98b7d807bbcfd427bf0c5c/benchmarks/scripts/validate-harbor-benchmark.mjs"
+      "path": "benchmarks/lb6/pilot/scripts/validate-pilot.mjs",
+      "url": "https://github.com/aryaniyaps/lamina/blob/27304bf58d01b9f04924d86fc04ef119185db305/benchmarks/lb6/pilot/scripts/validate-pilot.mjs"
     }
   ],
   "publishedAt": "2026-07-22T00:00:00.000Z",

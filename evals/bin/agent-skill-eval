@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Lamina eval wrapper: installs all skills per ASE workspace, then runs agent-skill-eval.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PY="${ASE_PYTHON:-$ROOT/.venv-eval/bin/python}"
+if [[ ! -x "$PY" ]]; then
+  PY="$(command -v python3)"
+fi
+exec "$PY" "$ROOT/evals/scripts/ase_run.py" "$@"

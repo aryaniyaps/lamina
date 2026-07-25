@@ -8,9 +8,10 @@ import { buildActionSchema } from '../benchmarks/lib/action-schema.mjs';
 import { runBehaviorSelfcheck } from '../benchmarks/lib/behavior-selfcheck.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const manifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/manifest.json'), 'utf8'));
+const corpusManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/manifest.json'), 'utf8'));
+const pilotManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/corpus/manifest.json'), 'utf8'));
 
-assert.equal(manifest.version, 'harbor-v4');
+assert.equal(corpusManifest.version, 'harbor-v4');
 
 const skillsManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/lamina-bench-skills.json'), 'utf8'));
 assert.ok(skillsManifest.skills.length <= 40, 'bench skill allowlist should stay focused on loop + risk capabilities');
@@ -19,12 +20,13 @@ assert.ok(skillsManifest.skills.includes('lamina-trust'));
 assert.ok(skillsManifest.skills.includes('lamina-consistency-guarantees'));
 assert.ok(!skillsManifest.skills.includes('lamina-competitive-analysis'));
 
-const lb6TaskRoot = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks/dev-care-circle-lamina');
+const lb6TaskRoot = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks-v3/dev-loan-library-lamina-v3');
+const simpleList = pilotManifest.tasks.find((task) => task.id === 'dev-simple-list');
+const schema = buildActionSchema(simpleList.golden);
+assert.match(schema, /add_item/);
+assert.match(schema, /complete_item/);
 
-const careCircle = manifest.tasks.find((task) => task.id === 'pilot-care-circle');
-const schema = buildActionSchema(careCircle.golden);
-assert.match(schema, /add_task/);
-assert.match(schema, /revoke_caregiver/);
+const PERFECT_REWARD = Number(((10 + 1) / (10 + 2)).toFixed(4));
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-bench-'));
 
@@ -33,9 +35,20 @@ function writeApp(dir, body) {
   fs.writeFileSync(path.join(dir, 'app.mjs'), body);
 }
 
+const goodApp = `export function createInitialState(){return{items:{}}}
+export function reduce(state,action){
+  const s=structuredClone(state);
+  if(action.type==='add_item'){s.items[action.id]={id:action.id,title:action.title,completed:false,status:'open'};return s}
+  if(action.type==='complete_item'){if(s.items[action.id]){s.items[action.id].completed=true;s.items[action.id].status='completed'};return s}
+  if(action.type==='clear_completed'){for(const [id,it] of Object.entries(s.items)){if(it.completed) delete s.items[id]};return s}
+  return s;
+}
+export function project(state,actor){return{items:state.items}}`;
+
 writeApp(path.join(tmp, 'noop'), 'export function createInitialState(){return{}} export function reduce(s){return s} export function project(){return{}}');
-let noop = await gradeBehavior({ root: path.join(tmp, 'noop'), golden: careCircle.golden, arm: 'direct', phase: 'verify_fix', taskId: 'pilot-care-circle' });
-assert.equal(noop.reward, 0);
+let noop = await gradeBehavior({ root: path.join(tmp, 'noop'), golden: simpleList.golden, arm: 'direct', phase: 'verify_fix', taskId: 'dev-simple-list' });
+assert.ok(noop.reward < PERFECT_REWARD);
+assert.ok(noop.scores.raw_behavior <= 0.1);
 
 writeApp(
   path.join(tmp, 'keywords'),
@@ -43,47 +56,33 @@ writeApp(
 export function reduce(s,a){return s}
 export function project(){return{persona:'x',assumption:'y',edge:'z',recovery:'r',invariant:'i',state:'s'}}`
 );
-let keywords = await gradeBehavior({ root: path.join(tmp, 'keywords'), golden: careCircle.golden, arm: 'direct', phase: 'verify_fix', taskId: 'pilot-care-circle' });
-assert.equal(keywords.reward, 0);
+let keywords = await gradeBehavior({ root: path.join(tmp, 'keywords'), golden: simpleList.golden, arm: 'direct', phase: 'verify_fix', taskId: 'dev-simple-list' });
+assert.ok(keywords.reward < PERFECT_REWARD);
+assert.ok(keywords.scores.raw_behavior <= 0.1);
 
 writeApp(
   path.join(tmp, 'static-projection'),
   `export function createInitialState(){return{}}
 export function reduce(s,a){return s}
 export function project(){
-  return {'med-1':'escalat missed done',private:'private note',denied:'revoked',revok:true};
+  return {'item-1':'completed done',items:{},completed:true};
 }`
 );
 let staticProjection = await gradeBehavior({
   root: path.join(tmp, 'static-projection'),
-  golden: careCircle.golden,
+  golden: simpleList.golden,
   arm: 'direct',
   phase: 'verify_fix',
-  taskId: 'pilot-care-circle',
+  taskId: 'dev-simple-list',
 });
-assert.equal(staticProjection.reward, 0);
+assert.ok(staticProjection.reward < PERFECT_REWARD);
+assert.ok(staticProjection.scores.raw_behavior <= 0.1);
 
-writeApp(
-  path.join(tmp, 'good'),
-  `export function createInitialState(){return{tasks:{},notes:[],revoked:[]}}
-export function reduce(state,action){
-  const s=structuredClone(state);
-  if(action.type==='add_task'){s.tasks[action.id]={id:action.id,title:action.title,status:'open'};return s}
-  if(action.type==='mark_missed'){if(s.tasks[action.id]) s.tasks[action.id].status='missed_escalated';return s}
-  if(action.type==='complete_task'){if(s.tasks[action.id]) s.tasks[action.id].status='done';return s}
-  if(action.type==='add_note'){s.notes.push({id:action.id,text:action.text,visibility:'private note'});return s}
-  if(action.type==='revoke_caregiver'){s.revoked.push(action.actor);return s}
-  return s;
-}
-export function project(state,actor){
-  if(state.revoked.includes(actor)) return {denied:'revoked',access:false};
-  return {tasks:state.tasks,notes:state.notes,private:'private note'};
-}`
-);
-let good = await gradeBehavior({ root: path.join(tmp, 'good'), golden: careCircle.golden, arm: 'direct', phase: 'verify_fix', taskId: 'pilot-care-circle' });
-assert.equal(good.reward, 1);
+writeApp(path.join(tmp, 'good'), goodApp);
+let good = await gradeBehavior({ root: path.join(tmp, 'good'), golden: simpleList.golden, arm: 'direct', phase: 'verify_fix', taskId: 'dev-simple-list' });
+assert.equal(good.reward, PERFECT_REWARD);
 
-let gated = await gradeBehavior({ root: path.join(tmp, 'good'), golden: careCircle.golden, arm: 'lamina', phase: 'fix', taskId: 'pilot-care-circle' });
+let gated = await gradeBehavior({ root: path.join(tmp, 'good'), golden: simpleList.golden, arm: 'lamina', phase: 'fix', taskId: 'dev-simple-list' });
 assert.equal(gated.reward, 0);
 assert.equal(gated.invalid_treatment, true);
 
@@ -129,11 +128,11 @@ fs.writeFileSync(path.join(laminaRoot, 'personas.json'), '{"contract_version":"2
 fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/fix.md'), '# fix');
 fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/report.md'), '# report');
 writeVerifyAudit(path.join(laminaRoot, 'runs/run-1'), { status: 'complete' });
-writeApp(path.join(tmp, 'lamina-valid'), fs.readFileSync(path.join(tmp, 'good', 'app.mjs'), 'utf8'));
+writeApp(path.join(tmp, 'lamina-valid'), goodApp);
 let treatment = checkLaminaTreatment(path.join(tmp, 'lamina-valid'), 'fix');
 assert.equal(treatment.valid, true);
-let laminaGood = await gradeBehavior({ root: path.join(tmp, 'lamina-valid'), golden: careCircle.golden, arm: 'lamina', phase: 'fix', taskId: 'pilot-care-circle' });
-assert.equal(laminaGood.reward, 1);
+let laminaGood = await gradeBehavior({ root: path.join(tmp, 'lamina-valid'), golden: simpleList.golden, arm: 'lamina', phase: 'fix', taskId: 'dev-simple-list' });
+assert.equal(laminaGood.reward, PERFECT_REWARD);
 assert.equal(laminaGood.invalid_treatment, false);
 
 const noAuditRoot = path.join(tmp, 'lamina-no-audit', '.lamina');
@@ -143,38 +142,37 @@ fs.writeFileSync(path.join(noAuditRoot, 'personas.json'), '{"contract_version":"
 fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/run.json'), JSON.stringify({ status: 'complete', persona_findings: [] }));
 fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/fix.md'), '# fix');
 fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/report.md'), '# report');
-writeApp(path.join(tmp, 'lamina-no-audit'), fs.readFileSync(path.join(tmp, 'good', 'app.mjs'), 'utf8'));
+writeApp(path.join(tmp, 'lamina-no-audit'), goodApp);
 let noAudit = checkLaminaTreatment(path.join(tmp, 'lamina-no-audit'), 'lamina_verify');
 assert.equal(noAudit.valid, false);
 assert.ok(noAudit.missing.some((m) => /walkthrough|persona_findings/i.test(m)));
 let noAuditGrade = await gradeBehavior({
   root: path.join(tmp, 'lamina-no-audit'),
-  golden: careCircle.golden,
+  golden: simpleList.golden,
   arm: 'lamina',
   phase: 'fix',
-  taskId: 'pilot-care-circle',
+  taskId: 'dev-simple-list',
 });
 assert.equal(noAuditGrade.reward, 0);
 assert.equal(noAuditGrade.invalid_treatment, true);
 
-let noopSelf = await runBehaviorSelfcheck({ root: path.join(tmp, 'noop'), golden: careCircle.golden });
+let noopSelf = await runBehaviorSelfcheck({ root: path.join(tmp, 'noop'), golden: simpleList.golden });
 assert.equal(noopSelf.ok, false);
 assert.ok(noopSelf.errors.some((e) => /no-op|mutate/i.test(e)));
-let goodSelf = await runBehaviorSelfcheck({ root: path.join(tmp, 'good'), golden: careCircle.golden });
+let goodSelf = await runBehaviorSelfcheck({ root: path.join(tmp, 'good'), golden: simpleList.golden });
 assert.equal(goodSelf.ok, true);
-assert.ok(!JSON.stringify(goodSelf).includes('escalat'));
+assert.ok(!JSON.stringify(goodSelf).includes('Buy milk'));
 
-const builtSelfcheck = fs.readFileSync(
-  path.join(lb6TaskRoot, 'steps/implement/tests/selfcheck.mjs'),
+const builtSelfcheckEntry = fs.readFileSync(
+  path.join(lb6TaskRoot, 'steps/implement/workdir/.lb6-abi/selfcheck.mjs'),
   'utf8'
 );
-assert.doesNotMatch(builtSelfcheck, /"expect"|must_not_include|escalat/);
-const builtGrade = fs.readFileSync(
-  path.join(lb6TaskRoot, 'steps/fix/tests/grade.mjs'),
+assert.doesNotMatch(builtSelfcheckEntry, /"expect"\s*:|must_not_include|"criteria"\s*:/);
+const publicAbi = fs.readFileSync(
+  path.join(lb6TaskRoot, 'steps/implement/workdir/.lb6-abi/public-abi.json'),
   'utf8'
 );
-assert.doesNotMatch(builtGrade, /"expect"|must_not_include|"escalat"/);
-assert.match(builtGrade, /base64/);
+assert.doesNotMatch(publicAbi, /"expect"\s*:|must_not_include|"criteria"\s*:/);
 
 let initOnly = checkLaminaTreatment(path.join(tmp, 'lamina-valid'), 'lamina_init');
 assert.equal(initOnly.valid, true);

@@ -1,37 +1,35 @@
 #!/usr/bin/env bash
-# agent-skill-eval pre-run hook: install Lamina skills for the target agent harness.
+# Install the full Lamina skills tree for eval harnesses.
+# - With ASE_WORKSPACE_PATH: copy all skills/ into the agent workspace (ASE + multiturn).
+# - Otherwise: npx skills add --skill '*' into evals/harness-sandbox (tier-2 adapters).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AGENT="${ASE_AGENT:-claude-code}"
 
+if [[ -n "${ASE_WORKSPACE_PATH:-}" && -d "${ASE_WORKSPACE_PATH}" ]]; then
+  bash "$ROOT/evals/hooks/install-all-skills.sh"
+  exit 0
+fi
+
 # shellcheck source=skills-sandbox.sh
 source "$ROOT/evals/hooks/skills-sandbox.sh"
 
 case "$AGENT" in
-  claude-code)
-    skills_add -a claude-code -y 2>/dev/null || true
-    ;;
-  codex)
-    skills_add -a codex -y 2>/dev/null || true
-    ;;
-  opencode)
-    skills_add -a opencode -y 2>/dev/null || true
-    ;;
   cursor)
-    bash "$ROOT/evals/harnesses/cursor.sh" install
+    skills_add -a cursor -y --skill '*'
     ;;
   gemini-cli)
-    bash "$ROOT/evals/harnesses/gemini-cli.sh" install
+    skills_add -a gemini-cli -y --skill '*'
     ;;
   github-copilot)
-    bash "$ROOT/evals/harnesses/copilot.sh" install
+    skills_add -a github-copilot -y --skill '*'
     ;;
   roo-code|roo)
-    bash "$ROOT/evals/harnesses/roo-code.sh" install
+    skills_add -a roo -y --skill '*'
     ;;
   *)
-    skills_add -a "$AGENT" -y 2>/dev/null || true
+    skills_add -a "$AGENT" -y --skill '*' 2>/dev/null || true
     ;;
 esac
 

@@ -39,6 +39,7 @@ npm run test:eval:spec
 - `evals/portable/` — staged skills + evals for portable runs (generated, gitignored)
 - `evals/agent-skills-eval.yaml` — agent-skills-eval config (`root: ./portable`)
 - `evals/hooks/` — install, validate, grade hooks for agent-skill-eval
+- `evals/scripts/ase_run.py` + `evals/bin/agent-skill-eval` — ASE wrapper that copies all `skills/*` into each eval workspace
 - `evals/harnesses/` — Tier 2 adapters (Cursor, Gemini CLI, Copilot, Roo Code)
 - `evals/promptfoo/` — adversarial red-team config
 - `evals/feedback/` — human review notes
