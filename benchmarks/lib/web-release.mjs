@@ -480,7 +480,7 @@ export function validateReleaseFile(filePath, options = {}) {
 
 export function defaultPaths(root) {
   return {
-    manifest: path.join(root, 'benchmarks/releases/harbor-v4-running/manifest.json'),
+    manifest: path.join(root, 'benchmarks/releases/lb6-running/manifest.json'),
     output: path.join(root, 'benchmarks/releases/current/release.json'),
   };
 }

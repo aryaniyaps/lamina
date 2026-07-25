@@ -3,7 +3,7 @@
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "source_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
   "pinned_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
-  "harness_git_commit": "e6f7dca53695bc8fee6202d9336fc8b5e0358e3c",
+  "harness_git_commit": "9d2a39fb747e2a7930f2533fec13f4c07545349e",
   "harbor_version": "0.18.0",
   "cursor_cli_version": "2026.07.20-8cc9c0b",
   "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
@@ -69,7 +69,7 @@
     "lamina-verify"
   ],
   "file_count": 101,
-  "aggregate_digest": "72cbc374e8b68c146a33b37f712902c00d1803e3ef634c8a053c6544a74a77f1",
+  "aggregate_digest": "e37e969a998cf17f1f2991cbfefeb971af92f9cb8297644fcb2e884f3a205841",
   "harbor_skill_digests": {
     "lamina": "sha256:ace1ff420761c9e480f50a210c19cfb51f7086eeef7befb4bbc1a685b8073886",
     "lamina-accessibility": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
@@ -107,7 +107,7 @@
     "lamina-multi-view-integrity": "sha256:46bab15ce11359f82ef87921fadac95ca386bcce67818611bde79cdb2716b9bf",
     "lamina-navigation": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
     "lamina-onboarding": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
-    "lamina-orchestrator": "sha256:cbc5ad95dceb64b4946f952961099413a82822a9f34be6365a0a0baa78f0643f",
+    "lamina-orchestrator": "sha256:06fb2989825e5c6ccd5e0135553453fdfc24c0d272a20890283720ee3e579112",
     "lamina-persuasion-and-groups": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
     "lamina-platform-posture": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
     "lamina-problem-framing": "sha256:c76a48a764c9e3cd97f65070bfe52c7f16bd35179b21a7b4f95643f58d8581a1",
@@ -435,8 +435,8 @@
     {
       "skill": "lamina-orchestrator",
       "path": "lamina-orchestrator/patterns/fresh-context.md",
-      "sha256": "d603c4a98efd84c05734b5098078ec6cc593f780b2403b7032df775f513f2a32",
-      "size": 318
+      "sha256": "250247b65a2d083a3737970d52b2adb3d23dd0b6538ed5ef254af597992b290c",
+      "size": 312
     },
     {
       "skill": "lamina-orchestrator",
