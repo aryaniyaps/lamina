@@ -55,9 +55,3 @@ For the full local 3-seed / median protocol:
 - **36 public run jobs** (3 full matrices):  
   `benchmarks/lb6/pilot/publication/harbor-job-urls.tsv`
 - Example job: https://hub.harborframework.com/jobs/68bf74a0-fed5-4533-ab1a-051885720931
-
-## Fair reading
-
-**OK:** under this pilot harness, lamina’s **median** score is above plan and direct on all four tasks.
-
-**Not OK:** confirmatory LaminaBench-6 proof; that process artifacts were graded; that every seed matched the same deltas.
