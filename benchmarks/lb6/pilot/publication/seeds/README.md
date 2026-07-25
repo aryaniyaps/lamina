@@ -2,13 +2,23 @@
 
 Each seed is one full 4-task × 3-arm matrix under the **same frozen harness** (RewardKit `openai/gpt-5.5`, ABI-on-implement lamina path).
 
-| Seed | Files | Logs |
+| Seed | Files | Run notes |
 |---|---|---|
-| 1 | `seed-1-issue18-rewardkit.{md,json,campaign.json}` | `../../logs/seed-1/` |
-| 2 | `seed-2-issue18-rewardkit.{md,json,campaign.json}` | `../../logs/seed-2/` |
-| 3 | `seed-3-issue18-rewardkit.{md,json,campaign.json}` | `../../logs/seed-3/` |
+| 1 | `seed-1-issue18-rewardkit.{md,json,campaign.json}` | [`RUN_NOTES.md`](./RUN_NOTES.md) |
+| 2 | `seed-2-issue18-rewardkit.{md,json,campaign.json}` | 1 cell retry documented |
+| 3 | `seed-3-issue18-rewardkit.{md,json,campaign.json}` | 1 cell retry documented |
 
 **Publish / claim table:** median across these three seeds →  
 [`../local-v3-issue18-rewardkit-median.md`](../local-v3-issue18-rewardkit-median.md)
 
-Do not overwrite seed files when collecting a new campaign; copy the collect output into the next `seed-N-*` slot instead.
+**How to reproduce / archive / recompute:** [`../REPRODUCE.md`](../REPRODUCE.md)
+
+```bash
+# freeze live collect → seed-N (refuses overwrite)
+node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs --seed N
+
+# recompute median from seeds/
+npm run bench:lb6:v3:median-issue18
+```
+
+Do not overwrite seed files when collecting a new campaign; archive into the next `seed-N-*` slot instead. Local tee logs may live under `../../logs/seed-N/` (gitignored).

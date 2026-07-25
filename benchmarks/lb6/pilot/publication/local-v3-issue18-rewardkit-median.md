@@ -2,7 +2,7 @@
 
 **Development-only.** Claim surface = **per-cell median** across three independent full-matrix re-runs (same harness, gpt-5.5 RewardKit).
 
-Per-seed packages: [`seeds/`](./seeds/) · Logs: `../logs/seed-{1,2,3}/` · Reproduce: [README.md](./README.md)
+Per-seed packages: [`seeds/`](./seeds/) · Run notes: [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md) · Reproduce: [`REPRODUCE.md`](./REPRODUCE.md)
 
 ## Verdict
 
@@ -11,7 +11,7 @@ Per-seed packages: [`seeds/`](./seeds/) · Logs: `../logs/seed-{1,2,3}/` · Repr
 - Each seed: `12/12` measurement-valid
 - Measurement: `rewardkit_llm_judge_v3`
 - Skills staged: `59`
-- Generated: `2026-07-24T19:28:33.530344Z`
+- Generated: `2026-07-25T12:52:40.897Z`
 - `development_only: true` / `confirmatory: false`
 
 ## Median reward matrix (publish table)
@@ -73,7 +73,7 @@ Per-seed packages: [`seeds/`](./seeds/) · Logs: `../logs/seed-{1,2,3}/` · Repr
 
 ## Notes
 
-- Seed 2: `dev-loan-library` plan first attempt had `trial_exception` (shape_build non-zero exit); re-ran same arm → valid (see `../logs/seed-2/NOTES.md`).
-- Seed 3: `dev-review-room` lamina first attempt `AgentTimeoutError`; re-ran same arm → valid (see `../logs/seed-3/NOTES.md`).
+- Seed 2: `dev-loan-library` plan first attempt had `trial_exception` (shape_build non-zero exit); re-ran same arm → valid (see [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md)).
+- Seed 3: `dev-review-room` lamina first attempt `AgentTimeoutError`; re-ran same arm → valid (see [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md)).
 - Harness unchanged between seeds (ABI-on-implement lamina path, budgets 240/360/600/300, judge `openai/gpt-5.5`).
-
+- Recompute: `npm run bench:lb6:v3:median-issue18` (this file is generated from `seeds/seed-*-issue18-rewardkit.json`).

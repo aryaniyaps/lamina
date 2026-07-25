@@ -4,7 +4,10 @@ Current LB6 work lives under [`pilot/`](./pilot/).
 
 ## Start here
 
-**Issue #18 RewardKit matrix (reproduce + claim scope):**  
+**Reproduce the Issue #18 RewardKit 3-seed median (open protocol):**  
+→ [`pilot/publication/REPRODUCE.md`](./pilot/publication/REPRODUCE.md)
+
+**Claim scope + published median matrix:**  
 → [`pilot/publication/README.md`](./pilot/publication/README.md)
 
 **Pilot overview / commands:**  
@@ -13,6 +16,8 @@ Current LB6 work lives under [`pilot/`](./pilot/).
 ## What this is
 
 A Harbor-based development pilot comparing three arms (`direct`, `plan`, `lamina`) on small product tasks, scored by Harbor RewardKit LLM-as-judge on product source (`app.mjs` / `ui.mjs`).
+
+Published development claim = **per-cell median of three independent full matrices** (seed packages under `pilot/publication/seeds/`).
 
 It is explicitly **`development_only` / non-confirmatory**.
 

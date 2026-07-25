@@ -55,7 +55,9 @@
     "bench:lb6:v3:collect-local": "node benchmarks/lb6/pilot/scripts/collect-local-v3-results.mjs",
     "bench:lb6:v3:rescore-llm-judge": "node benchmarks/lb6/pilot/scripts/rescore-local-v3-llm-judge.mjs",
     "bench:lb6:v3:collect-llm-judge-run": "node benchmarks/lb6/pilot/scripts/collect-local-v3-llm-judge-run.mjs",
-    "bench:lb6:v3:collect-issue18": "node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs"
+    "bench:lb6:v3:collect-issue18": "node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs",
+    "bench:lb6:v3:median-issue18": "node benchmarks/lb6/pilot/scripts/compute-issue18-median.mjs",
+    "bench:lb6:v3:archive-issue18-seed": "node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",

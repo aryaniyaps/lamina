@@ -1,7 +1,8 @@
 # LaminaBench Harbor benchmarks
 
-> **Current LB6 Issue #18 (RewardKit) work:** see [`lb6/pilot/publication/README.md`](./lb6/pilot/publication/README.md)  
-> for the development-only matrix, pins, and reproduce steps.
+> **Current LB6 Issue #18 (RewardKit) work:**  
+> claim → [`lb6/pilot/publication/README.md`](./lb6/pilot/publication/README.md) ·  
+> reproduce → [`lb6/pilot/publication/REPRODUCE.md`](./lb6/pilot/publication/REPRODUCE.md)
 
 ---
 

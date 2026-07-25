@@ -12,6 +12,8 @@
 
 This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 
+**Full open reproduce checklist:** [`REPRODUCE.md`](./REPRODUCE.md)
+
 ## Claim package (source of truth)
 
 | File | Role |
@@ -19,7 +21,8 @@ This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 | [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
 | [`local-v3-issue18-rewardkit-median.json`](./local-v3-issue18-rewardkit-median.json) | Per-cell seed values + median/min/max + job refs |
 | [`seeds/`](./seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
-| `../logs/seed-{1,2,3}/` | Named run logs + job inventories |
+| [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md) | Committed retry / exception log |
+| [`REPRODUCE.md`](./REPRODUCE.md) | End-to-end operator protocol |
 
 Live collect output (`local-v3-issue18-rewardkit.{md,json,campaign.json}`) mirrors the **latest** campaign window only — do not treat it as the multi-seed claim; use the median + `seeds/` packages.
 
@@ -39,6 +42,12 @@ Each seed **12/12** valid · **59** skills staged · judge `openai/gpt-5.5`.
 **Means (median matrix):** lamina **0.6893** · plan **0.5589** · direct **0.5856**.
 
 Per-seed tables and cell-level spread: [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md).
+
+Recompute without re-running Harbor:
+
+```bash
+npm run bench:lb6:v3:median-issue18
+```
 
 ## What is being measured
 
@@ -86,8 +95,10 @@ On the lamina arm, the **published ABI + selfcheck** are injected starting at **
 | Measurement contract | `rewardkit_llm_judge_v3` |
 | Judge model | `openai/gpt-5.5` (`REWARDKIT_JUDGE=openai/gpt-5.5`) |
 | Tasks | `dev-loan-library`, `dev-review-room`, `dev-simple-list`, `dev-toggle-preference` |
-| Attempts | 1 per cell (n=1) |
-| Harness commit recorded in results JSON | `81bb880b7c57f7cf5a9698deb2cd7869d6735296` |
+| Seeds | 3 full matrices · 1 attempt per cell (retries only if measurement invalid) |
+| Lamina budgets | 240 / 360 / 600 / 300 |
+
+Constants: [`../lib/constants.mjs`](../lib/constants.mjs). Full checklist: [`REPRODUCE.md`](./REPRODUCE.md).
 
 ## Prerequisites
 
@@ -106,56 +117,35 @@ On the lamina arm, the **published ABI + selfcheck** are injected starting at **
    npx skills add harbor-framework/harbor --skill rewardkit
    ```
 
-## Reproduce locally
+## Reproduce locally (summary)
 
-From the repo root:
+From the repo root — see [`REPRODUCE.md`](./REPRODUCE.md) for the full 3-seed protocol:
 
 ```bash
-# 1) Build the four tasks × three arms (tasks-v3)
 npm run bench:lb6:v3:build -- --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference
-
-# 2) Validate RewardKit / pilot contract
 npm run bench:lb6:v3:validate
-
-# 3) Run one task at a time (recommended; full matrix ~1 hour)
-node benchmarks/lb6/pilot/scripts/run-three-arm.mjs \
-  --allow-dirty-harness \
-  --concurrency 1 \
-  --tasks dev-loan-library
-
-# repeat for: dev-review-room, dev-simple-list, dev-toggle-preference
-
-# 4) Collect Issue #18 claim artifacts
-npm run bench:lb6:v3:collect-issue18
-```
-
-Start a new campaign window (ignore older jobs):
-
-```bash
 node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs --force-marker
-# then re-run arms and collect again
+node benchmarks/lb6/pilot/scripts/run-three-arm.mjs \
+  --allow-dirty-harness --concurrency 1 --tasks dev-loan-library
+# … repeat for the other three tasks …
+npm run bench:lb6:v3:collect-issue18
+node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs --seed 1
+# … seeds 2 and 3 with new --force-marker each time …
+npm run bench:lb6:v3:median-issue18
 ```
 
-Jobs land under repo-root `jobs/` (gitignored). Publication files update under this directory.
+Jobs land under repo-root `jobs/` (gitignored). Seed packages under `seeds/` are the portable public record.
 
 ## How to audit a cell (anti-handwave)
 
-1. Open `local-v3-issue18-rewardkit.json` → find the cell’s `jobPath` / `jobName`.
-2. Confirm final reward:
+1. Open `seeds/seed-N-issue18-rewardkit.json` → find the cell’s `jobName`.
+2. If the local job still exists, confirm final reward:
    - lamina: `jobs/<job>/…/steps/fix/verifier/reward.json`
    - direct/plan: `…/steps/verify_fix/verifier/reward.json`
 3. Confirm judged files in `reward-details.json` → `reward.judge.files` is only `app.mjs` and `ui.mjs`.
 4. Confirm judge model is `openai/gpt-5.5`.
 
 If those disagree with the markdown table, trust the job verifier files and re-run collect.
-
-## Multi-seed protocol
-
-1. Archive current collect output as `seeds/seed-N-issue18-rewardkit.*` (do not overwrite prior seeds).
-2. `collect-local-v3-issue18-run.mjs --force-marker` to open a new campaign window.
-3. Run the same four tasks × three arms (`run-three-arm.mjs --concurrency 1`), tee logs to `../logs/seed-N/seed-N-<task>.log`.
-4. Collect; if a cell is `measurementValid=false`, **re-run that arm only** (same harness) until valid; note in `../logs/seed-N/NOTES.md`.
-5. After seeds 1–3 exist, recompute [`local-v3-issue18-rewardkit-median.*`](./local-v3-issue18-rewardkit-median.md).
 
 ## Fair reading of the claim
 
@@ -177,15 +167,19 @@ If those disagree with the markdown table, trust the job verifier files and re-r
 - Process-blind product judge by design.
 - No lamina-verify step.
 - Host-sealed semantic verifier / harbor-fork disabled for Issue #18.
-- Occasional single-cell retries were required for agent exit/timeout flakiness (documented in seed `NOTES.md`); harness was not changed.
+- Occasional single-cell retries were required for agent exit/timeout flakiness (documented in [`seeds/RUN_NOTES.md`](./seeds/RUN_NOTES.md)); harness was not changed.
+- Raw Harbor `jobs/` and tee `logs/` are local/gitignored; seed JSON + job names are the in-repo evidence.
 
 ## Related paths
 
 | Path | Role |
 |---|---|
+| [`REPRODUCE.md`](./REPRODUCE.md) | Full open protocol |
 | [`../README.md`](../README.md) | Pilot overview |
 | [`../lib/rewardkit/`](../lib/rewardkit/) | Judge templates |
 | [`../lib/constants.mjs`](../lib/constants.mjs) | Pins + step budgets |
 | [`../scripts/run-three-arm.mjs`](../scripts/run-three-arm.mjs) | Matrix runner |
 | [`../scripts/collect-local-v3-issue18-run.mjs`](../scripts/collect-local-v3-issue18-run.mjs) | Collect script |
+| [`../scripts/archive-issue18-seed.mjs`](../scripts/archive-issue18-seed.mjs) | Freeze live → seed-N |
+| [`../scripts/compute-issue18-median.mjs`](../scripts/compute-issue18-median.mjs) | Median claim |
 | [`../harbor/tasks-v3/`](../harbor/tasks-v3/) | Generated Harbor tasks |
