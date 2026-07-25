@@ -6,9 +6,11 @@ Matched three-arm Harbor pilot used for Issue #18 and local RewardKit measuremen
 
 | Doc | Purpose |
 |---|---|
-| [`publication/REPRODUCE.md`](./publication/REPRODUCE.md) | **Reproduce** — env, pins, 3-seed protocol, audit |
+| [`publication/REPRODUCE.md`](./publication/REPRODUCE.md) | **Reproduce** — Hub run + local 3-seed protocol |
 | [`publication/README.md`](./publication/README.md) | Claim scope + median matrix |
 | [`publication/local-v3-issue18-rewardkit-median.md`](./publication/local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
+| [`publication/harbor-publish-status.md`](./publication/harbor-publish-status.md) | Hub dataset + public jobs |
+| [Harbor dataset](https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit) | Public benchmark package |
 | [`publication/seeds/`](./publication/seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
 | [`lib/rewardkit/`](./lib/rewardkit/) | RewardKit judge templates |
 | [`lib/constants.mjs`](./lib/constants.mjs) | Harbor / budget / measurement pins |

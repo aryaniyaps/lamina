@@ -3,7 +3,7 @@ multi_step_reward_strategy = "final"
 artifacts = ["/app/.lamina"]
 
 [task]
-name = "aryaniyaps/dev-loan-library-direct-v3"
+name = "shiv-eshwar/dev-loan-library-direct-v3"
 description = "LB6 development pilot: dev-loan-library (direct) — RewardKit LLM judge; not claim-ready LaminaBench-6"
 authors = [{ name = "LaminaBench" }]
 keywords = ["fuzzy-prompt", "development-pilot", "lb6", "direct", "rewardkit"]
