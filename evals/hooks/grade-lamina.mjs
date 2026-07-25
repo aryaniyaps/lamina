@@ -17,6 +17,7 @@ import {
   traceabilityErrors,
   validateLatestRun,
 } from '../lib/run-assertions.mjs';
+import { findTemplateLeaks } from '../../skills/lamina-design/scripts/seed-ready-run.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -772,6 +773,25 @@ function gradeAssertion(text, ctx) {
       }
     });
     return hookResult(text, hasDomain, hasDomain ? 'domain block present in run.json' : 'Missing domain in run.json');
+  }
+
+  if (lower.includes('no template domain leak')) {
+    const { dir, run } = latestRunJson(workspace);
+    if (!dir || !run) return hookResult(text, false, 'No run.json found under .lamina/runs/');
+    const implPath = path.join(dir, 'implement.md');
+    if (!fs.existsSync(implPath)) return hookResult(text, false, 'implement.md missing');
+    const impl = fs.readFileSync(implPath, 'utf8');
+    const allowed = `${evalMeta?.prompt || ''}\n${process.env.ASE_EVAL_PROMPT || ''}`;
+    const leaks = [
+      ...findTemplateLeaks(JSON.stringify(run), allowed),
+      ...findTemplateLeaks(impl, allowed),
+    ];
+    const unique = [...new Set(leaks)];
+    return hookResult(
+      text,
+      unique.length === 0,
+      unique.length === 0 ? 'No legacy template domain leaks' : `Template leaks: ${unique.join(', ')}`,
+    );
   }
 
   if (lower.includes('domain contract present')) {
