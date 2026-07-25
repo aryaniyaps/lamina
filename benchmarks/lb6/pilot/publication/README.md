@@ -1,6 +1,6 @@
 # LB6 Issue #18 — RewardKit results & reproduction
 
-**Development-only pilot.** This package documents one measured Harbor campaign for [GitHub issue #18](https://github.com/aryaniyaps/lamina/issues/18): stock Harbor + RewardKit LLM-as-judge, full staged Lamina skills, step artifacts.
+**Development-only pilot.** Stock Harbor + RewardKit LLM-as-judge, full staged Lamina skills, step artifacts. Claim table is the **median of three independent full-matrix seeds**.
 
 | Flag | Value |
 |---|---|
@@ -8,6 +8,7 @@
 | `confirmatory` | `false` |
 | `marketing_claim_eligible` | `false` |
 | Measurement | `rewardkit_llm_judge_v3` |
+| Aggregation | per-cell **median** of n=3 seeds |
 
 This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 
@@ -15,24 +16,29 @@ This is **not** claim-ready LaminaBench-6 confirmatory evidence.
 
 | File | Role |
 |---|---|
-| [`local-v3-issue18-rewardkit.md`](./local-v3-issue18-rewardkit.md) | Human-readable matrix |
-| [`local-v3-issue18-rewardkit.json`](./local-v3-issue18-rewardkit.json) | Machine-readable cells + validity |
-| [`local-v3-issue18-rewardkit.campaign.json`](./local-v3-issue18-rewardkit.campaign.json) | Campaign window marker |
+| [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md) | **Publish table** (median of 3 seeds) |
+| [`local-v3-issue18-rewardkit-median.json`](./local-v3-issue18-rewardkit-median.json) | Per-cell seed values + median/min/max + job refs |
+| [`seeds/`](./seeds/) | Frozen seed-1 / seed-2 / seed-3 packages |
+| `../logs/seed-{1,2,3}/` | Named run logs + job inventories |
 
-**Ignore for this claim:** `local-v3-results.*`, `local-v3-llm-judge-*`, older `manual-publish-plan*.json`, and `publication-result*.json`. Those are earlier / alternate claim surfaces.
+Live collect output (`local-v3-issue18-rewardkit.{md,json,campaign.json}`) mirrors the **latest** campaign window only — do not treat it as the multi-seed claim; use the median + `seeds/` packages.
 
-## Published matrix (this campaign)
+**Ignore for this claim:** `local-v3-results.*`, `local-v3-llm-judge-*`, older `manual-publish-plan*.json`, and `publication-result*.json`.
 
-Generated `2026-07-24T14:48:31.283Z` · **12/12** measurement-valid cells · **59** skills staged.
+## Published matrix (median of 3 seeds)
+
+Each seed **12/12** valid · **59** skills staged · judge `openai/gpt-5.5`.
 
 | Task | direct | plan | lamina |
 |---|---:|---:|---:|
-| `dev-loan-library` | 0.6214 | 0.7233 | **0.7743** |
-| `dev-review-room` | 0.5437 | 0.5146 | **0.699** |
-| `dev-simple-list` | 0.5898 | 0.6141 | **0.6942** |
-| `dev-toggle-preference` | 0.5000 | 0.5413 | **0.6165** |
+| `dev-loan-library` | 0.6214 | 0.5655 | **0.75** |
+| `dev-review-room` | 0.5655 | 0.5146 | **0.6699** |
+| `dev-simple-list` | 0.6141 | 0.6141 | **0.7209** |
+| `dev-toggle-preference` | 0.5413 | 0.5413 | **0.6165** |
 
-Means (this seed): lamina **0.696** · plan **0.598** · direct **0.564**.
+**Means (median matrix):** lamina **0.6893** · plan **0.5589** · direct **0.5856**.
+
+Per-seed tables and cell-level spread: [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md).
 
 ## What is being measured
 
@@ -143,27 +149,35 @@ Jobs land under repo-root `jobs/` (gitignored). Publication files update under t
 
 If those disagree with the markdown table, trust the job verifier files and re-run collect.
 
+## Multi-seed protocol
+
+1. Archive current collect output as `seeds/seed-N-issue18-rewardkit.*` (do not overwrite prior seeds).
+2. `collect-local-v3-issue18-run.mjs --force-marker` to open a new campaign window.
+3. Run the same four tasks × three arms (`run-three-arm.mjs --concurrency 1`), tee logs to `../logs/seed-N/seed-N-<task>.log`.
+4. Collect; if a cell is `measurementValid=false`, **re-run that arm only** (same harness) until valid; note in `../logs/seed-N/NOTES.md`.
+5. After seeds 1–3 exist, recompute [`local-v3-issue18-rewardkit-median.*`](./local-v3-issue18-rewardkit-median.md).
+
 ## Fair reading of the claim
 
 **Reasonable to say**
 
-- Under this development pilot harness (RewardKit product judge, ABI-on-implement lamina path, n=1), lamina scored above plan and direct on all four tasks in this campaign.
+- Under this development pilot harness (RewardKit product judge, ABI-on-implement lamina path, **n=3 median**), lamina’s median score is above plan and direct on all four tasks.
 
 **Not reasonable to say**
 
 - Confirmatory LaminaBench-6 proof.
 - That `.lamina` process quality was graded.
 - That `/lamina-verify` ran.
-- That +15 percentage points vs both baselines holds on every task / every seed (it does not in this single seed; see matrix).
+- That every seed showed the same deltas (see per-seed tables / ranges in the median doc).
 
 ## Limitations
 
-- Single seed per cell (high variance for coding + LLM judge).
+- n=3 seeds reduces (does not eliminate) coding + LLM-judge variance.
 - Child actual model unverified (`child_actual_model_unverified: true`).
 - Process-blind product judge by design.
 - No lamina-verify step.
 - Host-sealed semantic verifier / harbor-fork disabled for Issue #18.
-- Absolute machine paths may appear in some support reports (`../reports/skill-rerun-v3.json`); they are local run diagnostics, not the claim surface.
+- Occasional single-cell retries were required for agent exit/timeout flakiness (documented in seed `NOTES.md`); harness was not changed.
 
 ## Related paths
 

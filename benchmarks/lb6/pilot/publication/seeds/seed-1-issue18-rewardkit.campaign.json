@@ -3,7 +3,7 @@
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "measurement": "rewardkit_llm_judge_v3",
   "claim_surface": "rewardkit_llm_judge",
-  "started_at": "2026-07-24T18:08:17.101Z",
-  "min_job_ts": 1784916497102,
+  "started_at": "2026-07-24T13:41:08.373Z",
+  "min_job_ts": 1784900468377,
   "skills_staged": 59
 }

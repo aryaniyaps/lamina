@@ -1,0 +1,431 @@
+{
+  "kind": "lb6-local-v3-issue18-rewardkit-median",
+  "status": "ready_for_manual_publish",
+  "claim_surface": "rewardkit_llm_judge_median_n3",
+  "measurement": "rewardkit_llm_judge_v3",
+  "aggregation": "per_cell_median_of_3_seeds",
+  "n_seeds": 3,
+  "seed_artifacts": [
+    "seeds/seed-1-issue18-rewardkit.json",
+    "seeds/seed-2-issue18-rewardkit.json",
+    "seeds/seed-3-issue18-rewardkit.json"
+  ],
+  "seed_generated_at": {
+    "seed1": "2026-07-24T14:48:31.283Z",
+    "seed2": "2026-07-24T18:08:09.055Z",
+    "seed3": "2026-07-24T19:28:15.975Z"
+  },
+  "generated_at": "2026-07-24T19:28:33.530344Z",
+  "github_issue": 18,
+  "skills_staged": 59,
+  "harbor_version": "0.18.0",
+  "agent": "cursor-cli",
+  "model": "cursor/composer-2.5",
+  "judge_mode": "harbor_rewardkit",
+  "development_only": true,
+  "confirmatory": false,
+  "marketing_claim_eligible": false,
+  "child_actual_model_unverified": true,
+  "expected_cells": 12,
+  "measurement_valid_cells_per_seed": {
+    "1": 12,
+    "2": 12,
+    "3": 12
+  },
+  "results_median": {
+    "dev-loan-library": {
+      "direct": 0.6214,
+      "plan": 0.5655,
+      "lamina": 0.75
+    },
+    "dev-review-room": {
+      "direct": 0.5655,
+      "plan": 0.5146,
+      "lamina": 0.6699
+    },
+    "dev-simple-list": {
+      "direct": 0.6141,
+      "plan": 0.6141,
+      "lamina": 0.7209
+    },
+    "dev-toggle-preference": {
+      "direct": 0.5413,
+      "plan": 0.5413,
+      "lamina": 0.6165
+    }
+  },
+  "means_median": {
+    "direct": 0.5856,
+    "plan": 0.5589,
+    "lamina": 0.6893
+  },
+  "cells": [
+    {
+      "taskId": "dev-loan-library",
+      "arm": "direct",
+      "rewards": {
+        "seed1": 0.6214,
+        "seed2": 0.5194,
+        "seed3": 0.6942
+      },
+      "median": 0.6214,
+      "min": 0.5194,
+      "max": 0.6942,
+      "range": 0.1748,
+      "seeds": {
+        "1": {
+          "reward": 0.6214,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784900468994",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784900468994"
+        },
+        "2": {
+          "reward": 0.5194,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784912432748",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784912432748"
+        },
+        "3": {
+          "reward": 0.6942,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784916497507",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-direct-1784916497507"
+        }
+      }
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "plan",
+      "rewards": {
+        "seed1": 0.7233,
+        "seed2": 0.5388,
+        "seed3": 0.5655
+      },
+      "median": 0.5655,
+      "min": 0.5388,
+      "max": 0.7233,
+      "range": 0.1845,
+      "seeds": {
+        "1": {
+          "reward": 0.7233,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784900468995",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784900468995"
+        },
+        "2": {
+          "reward": 0.5388,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784916309722",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784916309722"
+        },
+        "3": {
+          "reward": 0.5655,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784916497508",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-plan-1784916497508"
+        }
+      }
+    },
+    {
+      "taskId": "dev-loan-library",
+      "arm": "lamina",
+      "rewards": {
+        "seed1": 0.7743,
+        "seed2": 0.699,
+        "seed3": 0.75
+      },
+      "median": 0.75,
+      "min": 0.699,
+      "max": 0.7743,
+      "range": 0.0753,
+      "seeds": {
+        "1": {
+          "reward": 0.7743,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784900468993",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784900468993"
+        },
+        "2": {
+          "reward": 0.699,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784912432747",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784912432747"
+        },
+        "3": {
+          "reward": 0.75,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784916497506",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-loan-library-lamina-1784916497506"
+        }
+      }
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "direct",
+      "rewards": {
+        "seed1": 0.5437,
+        "seed2": 0.5655,
+        "seed3": 0.5898
+      },
+      "median": 0.5655,
+      "min": 0.5437,
+      "max": 0.5898,
+      "range": 0.0461,
+      "seeds": {
+        "1": {
+          "reward": 0.5437,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784901662126",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784901662126"
+        },
+        "2": {
+          "reward": 0.5655,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784913481838",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784913481838"
+        },
+        "3": {
+          "reward": 0.5898,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784917474864",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-direct-1784917474864"
+        }
+      }
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "plan",
+      "rewards": {
+        "seed1": 0.5146,
+        "seed2": 0.4976,
+        "seed3": 0.5655
+      },
+      "median": 0.5146,
+      "min": 0.4976,
+      "max": 0.5655,
+      "range": 0.0679,
+      "seeds": {
+        "1": {
+          "reward": 0.5146,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784901662127",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784901662127"
+        },
+        "2": {
+          "reward": 0.4976,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784913481839",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784913481839"
+        },
+        "3": {
+          "reward": 0.5655,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784917474865",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-plan-1784917474865"
+        }
+      }
+    },
+    {
+      "taskId": "dev-review-room",
+      "arm": "lamina",
+      "rewards": {
+        "seed1": 0.699,
+        "seed2": 0.6699,
+        "seed3": 0.6408
+      },
+      "median": 0.6699,
+      "min": 0.6408,
+      "max": 0.699,
+      "range": 0.0582,
+      "seeds": {
+        "1": {
+          "reward": 0.699,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784901662128",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784901662128"
+        },
+        "2": {
+          "reward": 0.6699,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784913481840",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784913481840"
+        },
+        "3": {
+          "reward": 0.6408,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784920693601",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-review-room-lamina-1784920693601"
+        }
+      }
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "direct",
+      "rewards": {
+        "seed1": 0.5898,
+        "seed2": 0.6141,
+        "seed3": 0.6675
+      },
+      "median": 0.6141,
+      "min": 0.5898,
+      "max": 0.6675,
+      "range": 0.0777,
+      "seeds": {
+        "1": {
+          "reward": 0.5898,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784902833886",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784902833886"
+        },
+        "2": {
+          "reward": 0.6141,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784914569820",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784914569820"
+        },
+        "3": {
+          "reward": 0.6675,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784918678232",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-direct-1784918678232"
+        }
+      }
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "plan",
+      "rewards": {
+        "seed1": 0.6141,
+        "seed2": 0.5898,
+        "seed3": 0.6408
+      },
+      "median": 0.6141,
+      "min": 0.5898,
+      "max": 0.6408,
+      "range": 0.051,
+      "seeds": {
+        "1": {
+          "reward": 0.6141,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784902833887",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784902833887"
+        },
+        "2": {
+          "reward": 0.5898,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784914569821",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784914569821"
+        },
+        "3": {
+          "reward": 0.6408,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784918678233",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-plan-1784918678233"
+        }
+      }
+    },
+    {
+      "taskId": "dev-simple-list",
+      "arm": "lamina",
+      "rewards": {
+        "seed1": 0.6942,
+        "seed2": 0.7209,
+        "seed3": 0.7791
+      },
+      "median": 0.7209,
+      "min": 0.6942,
+      "max": 0.7791,
+      "range": 0.0849,
+      "seeds": {
+        "1": {
+          "reward": 0.6942,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784902833888",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784902833888"
+        },
+        "2": {
+          "reward": 0.7209,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784914569822",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784914569822"
+        },
+        "3": {
+          "reward": 0.7791,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784918678234",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-simple-list-lamina-1784918678234"
+        }
+      }
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "direct",
+      "rewards": {
+        "seed1": 0.5,
+        "seed2": 0.5704,
+        "seed3": 0.5413
+      },
+      "median": 0.5413,
+      "min": 0.5,
+      "max": 0.5704,
+      "range": 0.0704,
+      "seeds": {
+        "1": {
+          "reward": 0.5,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784903711763",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784903711763"
+        },
+        "2": {
+          "reward": 0.5704,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784915463565",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784915463565"
+        },
+        "3": {
+          "reward": 0.5413,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784919613403",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-direct-1784919613403"
+        }
+      }
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "plan",
+      "rewards": {
+        "seed1": 0.5413,
+        "seed2": 0.5655,
+        "seed3": 0.5413
+      },
+      "median": 0.5413,
+      "min": 0.5413,
+      "max": 0.5655,
+      "range": 0.0242,
+      "seeds": {
+        "1": {
+          "reward": 0.5413,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784903711764",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784903711764"
+        },
+        "2": {
+          "reward": 0.5655,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784915463566",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784915463566"
+        },
+        "3": {
+          "reward": 0.5413,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784919613404",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-plan-1784919613404"
+        }
+      }
+    },
+    {
+      "taskId": "dev-toggle-preference",
+      "arm": "lamina",
+      "rewards": {
+        "seed1": 0.6165,
+        "seed2": 0.4199,
+        "seed3": 0.75
+      },
+      "median": 0.6165,
+      "min": 0.4199,
+      "max": 0.75,
+      "range": 0.3301,
+      "seeds": {
+        "1": {
+          "reward": 0.6165,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784903711765",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784903711765"
+        },
+        "2": {
+          "reward": 0.4199,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784915463567",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784915463567"
+        },
+        "3": {
+          "reward": 0.75,
+          "jobName": "lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784919613405",
+          "jobPath": "/Users/shiv/Desktop/code2/lamina/jobs/lb6-pilot-skill-rerun-v3-dev-toggle-preference-lamina-1784919613405"
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Development-only; n=3 independent full-matrix seeds; claim table is per-cell median.",
+    "Not LaminaBench-6 confirmatory evidence.",
+    "Product RewardKit judge only (app.mjs/ui.mjs); .lamina not scored.",
+    "No lamina-verify Harbor step.",
+    "Invalid cells within a seed were re-run with the same harness until measurement-valid (see logs/seed-*/NOTES.md)."
+  ]
+}
