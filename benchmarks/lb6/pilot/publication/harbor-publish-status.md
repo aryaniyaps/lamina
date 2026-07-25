@@ -1,6 +1,6 @@
-# Harbor publish status (Issue #18 RewardKit, 3-seed)
+# Harbor publish — Lamina Product Coding Pilot (3-arm)
 
-**Status: complete** — share pack matches the usual Harbor pattern: dataset → run command → public jobs → writeup.
+**Status: complete** — share pack: dataset → run command → public jobs → writeup.
 
 | Artifact | Count | Visibility |
 |---|---:|---|
@@ -8,7 +8,11 @@
 | Seed jobs | 36 (3 × 12) | public |
 | Dataset | 1 | public |
 
-Published under Harbor user **`shiv-eshwar`** (no permission to publish as `aryaniyaps/`).
+Published under Harbor user **`shiv-eshwar`** (display name below; registry id unchanged).
+
+**Public name:** Lamina Product Coding Pilot — 3-arm (direct / plan / lamina)  
+**Scope:** development-only · non-confirmatory · not marketing-claim-eligible  
+*(Operator note: Issue #18 / RewardKit / LB6 pilot internals.)*
 
 ---
 
@@ -16,7 +20,7 @@ Published under Harbor user **`shiv-eshwar`** (no permission to publish as `arya
 
 https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit
 
-- Id: `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit`
+- Id: `shiv-eshwar/lb6-dev-pilot-issue18-rewardkit` (stable; do not rename casually)
 - Tags: `latest`, `issue18-rewardkit-median-n3`
 - Contents: 12 tasks (4 × direct/plan/lamina)
 
@@ -73,8 +77,3 @@ Means (median matrix): lamina **0.6893** · plan **0.5589** · direct **0.5856**
 - https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-direct-v3
 - https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-plan-v3
 - https://hub.harborframework.com/tasks/shiv-eshwar/dev-toggle-preference-lamina-v3
-
-## Notes
-
-- Development-only / non-confirmatory.
-- Claim table in-repo remains the **median of 3 seeds**.

@@ -1,6 +1,8 @@
-# Reproduce Issue #18 RewardKit pilot (open protocol)
+# Reproduce: Lamina Product Coding Pilot (3-arm)
 
-This document is the **operator checklist** for reproducing the development-only LB6 Issue #18 matrix. Anyone with Harbor, Docker, and API keys should be able to rebuild tasks, run the same three arms, collect results, and recompute the median claim.
+This document is the **operator checklist** for reproducing the development-only **Lamina Product Coding Pilot** (direct / plan / lamina). Anyone with Harbor, Docker, and API keys should be able to rebuild tasks, run the same three arms, collect results, and recompute the median claim.
+
+*(Operator note: LB6 / GitHub issue #18 / Harbor RewardKit.)*
 
 **Claim surface:** per-cell **median of 3 seeds** → [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md)
 

@@ -4,57 +4,57 @@
 
 [dataset]
 name = "shiv-eshwar/lb6-dev-pilot-issue18-rewardkit"
-description = "LB6 Issue #18 development-only RewardKit pilot: 4 tasks × direct/plan/lamina. Median of 3 seeds. Not confirmatory LaminaBench-6."
-keywords = [ "lb6", "lamina", "rewardkit", "development-pilot", "issue-18",]
+description = "Lamina Product Coding Pilot — 3-arm (direct / plan / lamina). Small product apps, LLM-judge on product code, median of 3 seeds. Development-only; not confirmatory LaminaBench-6."
+keywords = [ "lamina", "product-coding", "three-arm", "llm-judge", "development-only",]
 [[dataset.authors]]
 name = "LaminaBench"
 
 
 [[tasks]]
 name = "shiv-eshwar/dev-loan-library-direct-v3"
-digest = "sha256:ed7aeccb964ff9ba0e11026af5642d9f3bc005d0997b7d5821d64e52adf4fdfc"
+digest = "sha256:a79fd288da9792320f3e4a573ace66da9e9b8061bb712fb0ef85d1a0e9e338dd"
 
 [[tasks]]
 name = "shiv-eshwar/dev-loan-library-plan-v3"
-digest = "sha256:68530a15450e8136d4c619bde1a3f488275065490d3335c36f75836e8e420876"
+digest = "sha256:9878029fd39da15c968b56e6a3c925d2b39a97655a7c38aa65d519ee57bad630"
 
 [[tasks]]
 name = "shiv-eshwar/dev-loan-library-lamina-v3"
-digest = "sha256:91086a1ba70d913e2e3a15c7e5a842e5dcb4693a4986d9bb09f8b5f7c91ee640"
+digest = "sha256:bc74a29e5a3fd3c2eded5dc817c3032ca18f4aeaf2ef4abb5c7fd1c1cc803239"
 
 [[tasks]]
 name = "shiv-eshwar/dev-review-room-direct-v3"
-digest = "sha256:c9b2cc5b630c3828711658d53ef063da601f2942cf49e7cd0087da7f66c21e10"
+digest = "sha256:f753e2c37b05fa206d8d3b5638c585d3d4d2a024e598f35371aec2c59459454b"
 
 [[tasks]]
 name = "shiv-eshwar/dev-review-room-plan-v3"
-digest = "sha256:7e991224101ea4dd88c559dc31cf7c308e3cb95a05cdcbb309ddea5ec89a8c90"
+digest = "sha256:249140bed4a913d95bf3802c816e5b6234cc7af2f77b5fa4af93789a01a3f39a"
 
 [[tasks]]
 name = "shiv-eshwar/dev-review-room-lamina-v3"
-digest = "sha256:8efa8c86a81ce83b4ba84473cbf444960ac5e884e7f3a06694f3534f6eb20efe"
+digest = "sha256:d3ebd930a4884a8196add4592092b323636a4645feba928ad7689700f5656d88"
 
 [[tasks]]
 name = "shiv-eshwar/dev-simple-list-direct-v3"
-digest = "sha256:e1a178ab5ae6be7ba0124bf7609714feb7200d9fe22de5e53e5ae8fd0074417a"
+digest = "sha256:3e7bcfc4657b8bde2f3336e842d5a4b4e697331ff661eb1c605241fa61fc8307"
 
 [[tasks]]
 name = "shiv-eshwar/dev-simple-list-plan-v3"
-digest = "sha256:ef0b6b6782874d999af030f5a7403a0c37932360dfedd846aeca5dde375add77"
+digest = "sha256:3cc50a26587e8b55ffb654661f13a3d21a4a1047b62edac114f928667d5c64f2"
 
 [[tasks]]
 name = "shiv-eshwar/dev-simple-list-lamina-v3"
-digest = "sha256:61b8e20da6ad4dff2b8a7d9be2a278d3b22b22d4e02c4713d7c747118f595080"
+digest = "sha256:521b6f3b2ebbdd0779d494a80af592e99a7dbe09ab1bf67baba231aff1b5aedb"
 
 [[tasks]]
 name = "shiv-eshwar/dev-toggle-preference-direct-v3"
-digest = "sha256:9d948fa03a9708792c969803f5407ce30a88eeade51db18b0a194b443547795c"
+digest = "sha256:70a921b6c4b5e02fa24d01a793822df26b7077b0b90b5cb6d9f7d1a52e583a97"
 
 [[tasks]]
 name = "shiv-eshwar/dev-toggle-preference-plan-v3"
-digest = "sha256:02d1abb369e110fd58d88608ffd067a472fd1a28ff85ab7f8ec85b411b11e703"
+digest = "sha256:e44894089cfb1c49bad357a434eddaf540f1121af0782f9d9ef112b1cd1f17e9"
 
 [[tasks]]
 name = "shiv-eshwar/dev-toggle-preference-lamina-v3"
-digest = "sha256:eeccd5d5b05be14e1737255d93c60ab3d95f619bc89d322193d84abd64544e53"
+digest = "sha256:c37bfd1128a4616871869a57b6b626c1b7478443ca157209fda610356a2cbf0f"
 

@@ -1,4 +1,4 @@
-# Issue #18 seed run notes (committed)
+# Seed run notes — Lamina Product Coding Pilot
 
 Operator tee logs under `../logs/seed-N/` are **gitignored** (large / machine-local). This file is the **portable** exception log for the published three seeds.
 

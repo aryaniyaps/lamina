@@ -4,7 +4,7 @@ artifacts = ["/app/.lamina"]
 
 [task]
 name = "shiv-eshwar/dev-simple-list-plan-v3"
-description = "LB6 development pilot: dev-simple-list (plan) — RewardKit LLM judge; not claim-ready LaminaBench-6"
+description = "Lamina Product Coding Pilot: simple-list (plan arm). LLM-judge on product code. Development-only — not confirmatory LaminaBench-6"
 authors = [{ name = "LaminaBench" }]
 keywords = ["fuzzy-prompt", "development-pilot", "lb6", "plan", "rewardkit"]
 

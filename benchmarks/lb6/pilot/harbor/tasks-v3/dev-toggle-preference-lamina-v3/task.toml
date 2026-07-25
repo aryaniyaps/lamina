@@ -4,7 +4,7 @@ artifacts = ["/app/.lamina"]
 
 [task]
 name = "shiv-eshwar/dev-toggle-preference-lamina-v3"
-description = "LB6 development pilot: dev-toggle-preference (lamina) — RewardKit LLM judge; not claim-ready LaminaBench-6"
+description = "Lamina Product Coding Pilot: toggle-preference (lamina arm). LLM-judge on product code. Development-only — not confirmatory LaminaBench-6"
 authors = [{ name = "LaminaBench" }]
 keywords = ["fuzzy-prompt", "development-pilot", "lb6", "lamina", "rewardkit"]
 

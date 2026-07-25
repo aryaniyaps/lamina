@@ -1,6 +1,8 @@
-# LB6 Issue #18 — RewardKit results & reproduction
+# Lamina Product Coding Pilot — 3-arm (direct / plan / lamina)
 
-**Development-only pilot.** Stock Harbor + RewardKit LLM-as-judge, full staged Lamina skills, step artifacts. Claim table is the **median of three independent full-matrix seeds**.
+**Development-only.** Compares direct vs plan vs Lamina skills on small product apps, scored by an LLM judge on product source. Claim table is the **median of three independent full-matrix seeds**.
+
+*(Operator note: LB6 / GitHub issue #18 / Harbor RewardKit internals.)*
 
 | Flag | Value |
 |---|---|
