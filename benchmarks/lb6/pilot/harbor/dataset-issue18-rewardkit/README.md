@@ -11,8 +11,6 @@ Compares three ways to build small product apps with the same agent and judge:
 | `plan` | Short plan, then code |
 | `lamina` | Lamina skills (`/lamina-init` + `/lamina-design`), then code |
 
-**Development-only** · not confirmatory LaminaBench-6 · not a marketing claim.
-
 ## What’s in this dataset
 
 12 public tasks = 4 product tasks × 3 arms:
