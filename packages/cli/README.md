@@ -19,14 +19,14 @@ its pinned CocoIndex Python project.
 Install the skills independently from GitHub:
 
 ```bash
-npx skills install aryaniyaps/lamina
+npx skills add aryaniyaps/lamina --all -y
 ```
 
 For the complete setup:
 
 ```bash
 npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+npx skills add aryaniyaps/lamina --all -y
 ```
 
 ## Observation
@@ -55,7 +55,7 @@ package, and reinstall the skills:
 ```bash
 npm unlink -g lamina
 npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+npx skills add aryaniyaps/lamina --all -y
 ```
 
 The graph remains in the Git common directory at `.git/lamina`; the migration
