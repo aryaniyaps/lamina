@@ -21,7 +21,8 @@ from cocoindex.resources.file import FileLike, PatternFilePathMatcher
 
 
 SOURCE_ROOT = pathlib.Path(os.environ.get("LAMINA_SOURCE_ROOT", pathlib.Path.cwd())).resolve()
-SOCKET_PATH = pathlib.Path(os.environ["LAMINA_GRAPHD_SOCKET"]).resolve()
+GRAPHD_ENDPOINT = os.environ["LAMINA_GRAPHD_ENDPOINT"]
+GRAPHD_TOKEN = os.environ["LAMINA_GRAPHD_TOKEN"]
 PRODUCT = os.environ.get("LAMINA_PRODUCT", SOURCE_ROOT.name)
 SOURCE_REVISION = os.environ["LAMINA_SOURCE_REVISION"]
 IGNORE_DIGEST = os.environ["LAMINA_IGNORE_DIGEST"]
@@ -67,21 +68,71 @@ class ObservationAction(NamedTuple):
 
 
 def _graphd_request(method: str, params: dict[str, object]) -> dict[str, object]:
-    request = json.dumps({"id": "cocoindex", "method": method, "params": params, "cwd": str(SOURCE_ROOT)}) + "\n"
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-        client.connect(str(SOCKET_PATH))
-        client.sendall(request.encode())
-        payload = b""
-        while b"\n" not in payload:
-            chunk = client.recv(65536)
-            if not chunk:
-                raise RuntimeError("graphd closed the socket without acknowledging the observation batch")
-            payload += chunk
+    request = (
+        json.dumps(
+            {
+                "id": "cocoindex",
+                "method": method,
+                "params": params,
+                "cwd": str(SOURCE_ROOT),
+                "auth": GRAPHD_TOKEN,
+            }
+        )
+        + "\n"
+    ).encode()
+    payload = _graphd_exchange(request)
     response = json.loads(payload.split(b"\n", 1)[0])
     if not response.get("ok"):
         error = response.get("error", {})
         raise RuntimeError(f"{error.get('code', 'LAMINA_INTERNAL')}: {error.get('message', 'graphd rejected batch')}")
     return response["result"]
+
+
+def _graphd_exchange(request: bytes) -> bytes:
+    if os.name == "nt":
+        import pywintypes
+        import win32file
+        import win32pipe
+
+        try:
+            win32pipe.WaitNamedPipe(GRAPHD_ENDPOINT, 10_000)
+            handle = win32file.CreateFile(
+                GRAPHD_ENDPOINT,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0,
+                None,
+                win32file.OPEN_EXISTING,
+                0,
+                None,
+            )
+        except pywintypes.error as error:
+            raise RuntimeError(f"unable to connect to graphd named pipe: {error}") from error
+        try:
+            win32file.WriteFile(handle, request)
+            payload = b""
+            while b"\n" not in payload:
+                _, chunk = win32file.ReadFile(handle, 65_536)
+                if not chunk:
+                    raise RuntimeError(
+                        "graphd closed the named pipe without acknowledging the observation batch"
+                    )
+                payload += chunk
+            return payload
+        finally:
+            handle.Close()
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.connect(GRAPHD_ENDPOINT)
+        client.sendall(request)
+        payload = b""
+        while b"\n" not in payload:
+            chunk = client.recv(65_536)
+            if not chunk:
+                raise RuntimeError(
+                    "graphd closed the socket without acknowledging the observation batch"
+                )
+            payload += chunk
+        return payload
 
 
 def _apply_actions(
@@ -159,7 +210,7 @@ _provider = coco.register_root_target_states_provider(
 
 
 @coco.fn(memo=True)
-async def observe_file(file: FileLike) -> None:
+async def observe_file(file: FileLike, generation: str) -> None:
     content = await file.read()
     relative_path = str(file.file_path.path)
     content_hash = hashlib.sha256(content).hexdigest()
@@ -188,7 +239,7 @@ async def observe_file(file: FileLike) -> None:
     coco.declare_target_state(
         _provider.target_state(
             envelope["id"],
-            ObservationSpec(envelope=envelope, snapshot=SNAPSHOT, generation=GENERATION),
+            ObservationSpec(envelope=envelope, snapshot=SNAPSHOT, generation=generation),
         )
     )
 
@@ -210,7 +261,9 @@ async def app_main(sourcedir: pathlib.Path) -> None:
         ),
         live=True,
     )
-    await coco.mount_each(observe_file, files.items())
+    # Generation is an explicit memoized-function argument so a rebuild forces
+    # every unchanged source item through target reconciliation.
+    await coco.mount_each(observe_file, files.items(), GENERATION)
 
 
 app = coco.App(coco.AppConfig(name="LaminaSourceObservationsV1"), app_main, sourcedir=SOURCE_ROOT)

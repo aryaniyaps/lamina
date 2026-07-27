@@ -1,35 +1,57 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import net from 'node:net';
+import crypto from 'node:crypto';
 import { GraphEngine } from './engine.mjs';
 import { ERROR, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
-import { graphSocketPath, runtimePaths } from './util.mjs';
+import {
+  ensureAuthToken,
+  graphSocketPath,
+  parseDaemonLock,
+  processIsRunning,
+  runtimePaths,
+} from './util.mjs';
 
 const cwd = process.argv[2] || process.cwd();
 const paths = runtimePaths(cwd);
 const socketPath = graphSocketPath(paths);
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
+const authToken = ensureAuthToken(paths);
 
 function acquireLock() {
   try {
-    fs.writeFileSync(paths.lock, `${process.pid}\n`, { flag: 'wx' });
+    fs.writeFileSync(paths.lock, `${JSON.stringify({
+      pid: process.pid,
+      protocol_version: GRAPH_PROTOCOL_VERSION,
+    })}\n`, { flag: 'wx', mode: 0o600 });
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
-    const pid = Number(fs.readFileSync(paths.lock, 'utf8').trim());
-    try {
-      process.kill(pid, 0);
-      process.stderr.write(`graphd already running with pid ${pid}\n`);
+    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    if (processIsRunning(lock?.pid)) {
+      process.stderr.write(`graphd already running with pid ${lock.pid}\n`);
       process.exit(2);
-    } catch {
-      fs.unlinkSync(paths.lock);
-      fs.writeFileSync(paths.lock, `${process.pid}\n`, { flag: 'wx' });
     }
+    fs.unlinkSync(paths.lock);
+    fs.writeFileSync(paths.lock, `${JSON.stringify({
+      pid: process.pid,
+      protocol_version: GRAPH_PROTOCOL_VERSION,
+    })}\n`, { flag: 'wx', mode: 0o600 });
   }
 }
 
 acquireLock();
-if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const engine = new GraphEngine(paths);
+
+function authenticate(request) {
+  const actual = Buffer.from(String(request.auth || ''));
+  const expected = Buffer.from(authToken);
+  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
+    const error = new Error('graphd authentication failed.');
+    error.code = ERROR.UNAUTHORIZED;
+    throw error;
+  }
+}
 
 function dispatch(request) {
   if (request.method === 'ping') return {
@@ -82,12 +104,14 @@ const server = net.createServer((socket) => {
       buffer = buffer.slice(newline + 1);
       if (!line.trim()) continue;
       let response;
+      let request;
       try {
-        const request = JSON.parse(line);
+        request = JSON.parse(line);
+        authenticate(request);
         response = { id: request.id, ok: true, result: dispatch(request) };
       } catch (error) {
         response = {
-          id: (() => { try { return JSON.parse(line).id; } catch { return null; } })(),
+          id: request?.id ?? null,
           ok: false,
           error: {
             code: error.code || ERROR.INTERNAL,
@@ -104,9 +128,12 @@ const server = net.createServer((socket) => {
 function shutdown() {
   server.close(() => {
     try { engine.close(); } catch {}
-    try { fs.unlinkSync(socketPath); } catch {}
+    if (process.platform !== 'win32') {
+      try { fs.unlinkSync(socketPath); } catch {}
+    }
     try {
-      if (Number(fs.readFileSync(paths.lock, 'utf8').trim()) === process.pid) fs.unlinkSync(paths.lock);
+      const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+      if (lock?.pid === process.pid) fs.unlinkSync(paths.lock);
     } catch {}
     process.exit(0);
   });
@@ -114,4 +141,6 @@ function shutdown() {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
-server.listen(socketPath, () => fs.chmodSync(socketPath, 0o600));
+server.listen(socketPath, () => {
+  if (process.platform !== 'win32') fs.chmodSync(socketPath, 0o600);
+});

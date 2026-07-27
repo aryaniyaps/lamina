@@ -18,6 +18,11 @@ Ladybug, owned by the long-running local `graphd`, is the only canonical product
 
 ## Runtime
 
-Use `lamina graph`, `lamina session`, and `lamina mission`. Raw Cypher writes are forbidden. All agent-facing output is deterministic JSON with GraphVersion, source revision, results, Contradictions, validation receipt, and stable error codes.
+The runtime is installed independently as `@laminadev/cli`; this skill contains
+no executable fallback. Apply `prerequisites/cli-required.md` before graph work.
+Use `lamina graph`, `lamina session`, and `lamina mission`. Raw Cypher writes
+are forbidden. All agent-facing output is deterministic JSON with GraphVersion,
+source revision, results, Contradictions, validation receipt, and stable error
+codes.
 
 Legacy the active GraphVersion files are untouched indexable source evidence and have no runtime meaning. Do not discover or select them.

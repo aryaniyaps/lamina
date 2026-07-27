@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the Lamina skill in your AI coding agent
+description: Install the Lamina CLI and skills independently
 ---
 
 import { Callout } from 'nextra/components'
@@ -15,7 +15,7 @@ Installation does not cause Lamina to activate. After install, open your project
 
 ## Quick path
 
-1. **Shell** — run the install command for your agent
+1. **Shell** — install the CLI, then install the skills for your agent
 2. Open your project root and start a **fresh agent session** so the skill loads
 3. **Agent chat** — run `/lamina-init <your product domain and primary users>`
 
@@ -24,8 +24,14 @@ Continue with [Quickstart](/getting-started/quickstart) for the full design → 
 ## Quick install
 
 ```bash
+npm install -g @laminadev/cli
 npx skills install aryaniyaps/lamina
 ```
+
+The CLI and skills have independent release and installation lifecycles. The
+CLI provides `lamina`; the GitHub skill install provides `/lamina`,
+`/lamina-init`, `/lamina-design`, and `/lamina-verify`. Either can be installed
+alone, but graph-backed skill workflows require CLI API 1.
 
 ## Agent-specific installs
 
@@ -51,8 +57,16 @@ npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
 
 - An AI coding agent (Cursor, Claude Code, Codex, Gemini, Pi, or similar)
 - Any framework, database, and UI library — Lamina is stack-agnostic
+- Node.js 20 or newer for `@laminadev/cli`
 
-No Node.js version requirement for skill install. Node.js 20+ is only needed if you run contract validation (`lamina-orchestrator` skill `lib/validate-run.mjs`) locally.
+There is no Node.js requirement to install the skills alone. If the compatible
+CLI is absent, a graph-backed workflow stops before mutation and prints:
+
+```text
+npm install -g @laminadev/cli@latest
+```
+
+The skills never invoke `npx` for the runtime and never auto-install it.
 
 ## After install
 
@@ -72,13 +86,28 @@ Not sure which command to run? `/lamina <what you are trying to do>` is an optio
 
 ## Update
 
-Re-run the install command to pull the latest skill version:
+Update the components independently:
 
 ```bash
+npm install -g @laminadev/cli@latest
 npx skills install aryaniyaps/lamina
 ```
 
 Start a new agent session after updating.
+
+## Migrate from the old linked repository package
+
+If a previous checkout was linked globally as `lamina`, unlink it before
+installing the standalone package:
+
+```bash
+npm unlink -g lamina
+npm install -g @laminadev/cli
+npx skills install aryaniyaps/lamina
+```
+
+Do not delete `.git/lamina`. Existing `graph.lbdb` data is retained; the new
+protocol v3 daemon creates its authentication token beside that database.
 
 ## .gitignore guidance
 
@@ -97,7 +126,10 @@ To exclude:
 
 ## Uninstall
 
-Remove the Lamina skill using your agent's skill management tooling, or delete the installed skill directory. `.lamina/` artifacts in your project are not removed automatically.
+Remove the Lamina skill using your agent's skill management tooling, or delete
+the installed skill directory. Remove the CLI separately with
+`npm uninstall -g @laminadev/cli`. `.lamina/` artifacts and `.git/lamina`
+graph data are not removed automatically.
 
 ## Source
 

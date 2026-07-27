@@ -10,16 +10,18 @@ Agents  ──typed proposals─────────────▶ graphd �
 Runs    ──normalized evidence─────────▶ graphd ──▶ Ladybug + local evidence CAS
 ```
 
-Ladybug is canonical. One long-running local `graphd` owns its read-write Database object and exposes a deterministic JSON protocol over a Unix socket. CocoIndex incrementally derives explicit Observation envelopes and never opens Ladybug. Git supplies source revision and branch identity; it does not store graph state.
+Ladybug is canonical. One long-running local `graphd` owns its read-write Database object and exposes an authenticated deterministic JSON protocol. Linux and macOS use a Unix socket; Windows uses a repository-specific `\\.\pipe\laminadev-<hash>` named pipe. CocoIndex incrementally derives explicit Observation envelopes and never opens Ladybug. Git supplies source revision and branch identity; it does not store graph state.
 
 The runtime is shared by worktrees at:
 
 ```text
 $(git rev-parse --git-common-dir)/lamina/
-├── graph.lbdb/
+├── graph.lbdb
 ├── cocoindex/
 ├── evidence/
 ├── graphd.lock
+├── graphd.log
+├── graphd.token
 └── graphd.sock
 ```
 
@@ -28,15 +30,23 @@ Existing legacy run files are left untouched and have no runtime meaning.
 ## Install
 
 ```bash
-pnpm install
-pnpm link --global
+npm install -g @laminadev/cli
+npx skills install aryaniyaps/lamina
 ```
 
-Node 20+ is required. Source observation uses `uv` and Python 3.11–3.13; the wrapper creates the pinned CocoIndex environment.
+The CLI and skills are independent: install only the CLI for direct graph use,
+or only the skills for non-graph craft guidance. Graph-backed skill workflows
+require CLI API 1 and fail before mutation with
+`npm install -g @laminadev/cli@latest` when it is unavailable.
+
+Node 20+ is required for the CLI. Source observation additionally uses `uv`
+and Python 3.11–3.13; core graph/session/mission commands remain Node-only.
 
 ## CLI
 
 ```bash
+lamina --version
+lamina doctor --json
 lamina graph status
 lamina graph query --workflow cancel-booking --at HEAD
 lamina graph propose claim.add --input claim.json
@@ -47,6 +57,8 @@ lamina graph retire operation.cancel-booking
 lamina graph validate --at HEAD
 lamina graph diff --base main --head HEAD
 lamina graph backup --output graph.backup.json
+lamina graph observe
+lamina graph observe --live
 lamina graph rebuild-observations
 
 lamina session start
@@ -60,7 +72,6 @@ lamina mission run <mission-id> --events events.json
 # mission run returns an isolated session; inspect it, then:
 lamina session publish <session-id>
 
-npm run graph:observe
 ```
 
 Single graph mutations use implicit sessions. Multi-fact work uses an explicit session and publishes in one serializable Ladybug transaction. Mission Runs deliberately stay in their own session until `lamina session publish`. Compare-and-swap rejects a stale session; rebase it, query again, and republish.
@@ -102,12 +113,27 @@ Agents cannot submit epistemic class or approval. Approval means the installed v
 
 Lamina commands never edit application source. Human implementation or verification Markdown is a query projection tied to a GraphVersion, not canonical state.
 
+## Migration from the linked repository CLI
+
+Unlink the old root package, install the standalone CLI, and reinstall skills:
+
+```bash
+npm unlink -g lamina
+npm install -g @laminadev/cli
+npx skills install aryaniyaps/lamina
+```
+
+Existing graph data stays at `$(git rev-parse --git-common-dir)/lamina/`.
+Upgrading starts a protocol v3 daemon and creates `graphd.token` without
+rewriting `graph.lbdb`.
+
 ## Development
 
 ```bash
-pnpm test
-pnpm test:eval:spec
-pnpm test:eval:validate
+corepack pnpm install --frozen-lockfile
+corepack pnpm test
+corepack pnpm test:eval:spec
+corepack pnpm test:eval:validate
 ```
 
 The transactional test suite covers atomic publication, idempotency, contradictions, concurrent sessions, semantic branch diffs, observation isolation/retry, spoof rejection, uncapped Persona Missions, arbitrary adapter modalities, evidence, and legacy-runtime removal.

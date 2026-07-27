@@ -9,13 +9,17 @@ Lamina design writes product knowledge through `graphd`; it never edits applicat
 
 ## Gate
 
+First read and apply
+`../lamina-orchestrator/prerequisites/cli-required.md`. Stop before all
+mutations unless the CLI API 1 prerequisite passes.
+
 Require a valid `.lamina/business-context.md`. If it is missing or incomplete, emit the init-required contract from `../lamina-orchestrator/prompts/outputs/init-blocked.md` and stop. Business documents and `.lamina/personas.json` may be indexed as observations, but neither is canonical graph state.
 
 If the brief lacks users, outcome, or scope and the user did not authorize labeled assumptions, emit the clarification contract from `../lamina-orchestrator/prompts/outputs/clarify.md` and stop before mutations.
 
 ## Required reads
 
-Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/references/product-graph.md`, `../lamina-orchestrator/workflows/design.md`, `../lamina-orchestrator/prerequisites/init-required.md`, and `../lamina-orchestrator/audit-profiles.yaml`. Load only the supporting craft skills activated by the risk.
+Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/references/product-graph.md`, `../lamina-orchestrator/workflows/design.md`, `../lamina-orchestrator/prerequisites/cli-required.md`, `../lamina-orchestrator/prerequisites/init-required.md`, and `../lamina-orchestrator/audit-profiles.yaml`. Load only the supporting craft skills activated by the risk.
 
 ## Workflow
 

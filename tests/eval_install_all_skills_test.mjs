@@ -7,7 +7,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+import {
+  parseDaemonLock,
+  runtimePaths,
+} from '../packages/cli/lib/graph-runtime/util.mjs';
+import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS_SRC = path.join(ROOT, 'skills');
@@ -39,25 +43,21 @@ if (names.length !== EXPECTED) {
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib/graph-runtime/engine.mjs'))) {
-  console.error('transactional graph engine missing from workspace install');
+if (fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib')) ||
+    fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/bin'))) {
+  console.error('skill install must not contain executable graph runtime code');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib/graph-runtime/server.mjs'))) {
-  console.error('graphd server missing from workspace install');
+const cli = path.join(workspace, '.lamina/runtime-cli/node_modules/.bin/lamina');
+if (!fs.existsSync(cli)) {
+  console.error('independently packed CLI missing from workspace install');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/bin/lamina.mjs'))) {
-  console.error('lamina CLI missing from workspace install');
-  fs.rmSync(workspace, { recursive: true, force: true });
-  process.exit(1);
-}
-
-const ladybug = path.join(workspace, 'node_modules/@ladybugdb/core');
+const ladybug = path.join(workspace, '.lamina/runtime-cli/node_modules/@ladybugdb/core');
 if (!fs.existsSync(ladybug)) {
   console.error('pinned Ladybug runtime dependency missing from workspace install');
   fs.rmSync(workspace, { recursive: true, force: true });
@@ -66,8 +66,8 @@ if (!fs.existsSync(ladybug)) {
 
 try {
   const paths = runtimePaths(workspace);
-  const pid = Number(fs.readFileSync(paths.lock, 'utf8').trim());
-  if (Number.isInteger(pid) && pid > 1) process.kill(pid, 'SIGTERM');
+  const pid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
+  if (Number.isInteger(pid) && pid > 1) await stopIncompatibleServer(paths, pid);
 } catch {}
 fs.rmSync(workspace, { recursive: true, force: true });
 console.log(`eval_install_all_skills_test: ok (${EXPECTED} skills)`);

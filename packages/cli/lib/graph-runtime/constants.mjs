@@ -5,7 +5,8 @@ export const RESOURCE_KINDS = new Set([
 ]);
 
 export const VIEW_KINDS = new Set(['branch', 'session', 'observation', 'historical']);
-export const GRAPH_PROTOCOL_VERSION = 2;
+export const CLI_API_VERSION = 1;
+export const GRAPH_PROTOCOL_VERSION = 3;
 
 export const EPISTEMIC_BY_INGRESS = Object.freeze({
   intent: 'intended',
@@ -49,5 +50,6 @@ export const ERROR = Object.freeze({
   CONFLICT: 'LAMINA_COMPARE_AND_SWAP_FAILED',
   SPOOFED_STATUS: 'LAMINA_EPISTEMIC_STATUS_FORBIDDEN',
   EVIDENCE_MISSING: 'LAMINA_EVIDENCE_MISSING',
+  UNAUTHORIZED: 'LAMINA_UNAUTHORIZED',
   INTERNAL: 'LAMINA_INTERNAL',
 });

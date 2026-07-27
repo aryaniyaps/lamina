@@ -6,7 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+import {
+  ensureAuthToken,
+  graphSocketPath,
+  runtimePaths,
+} from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-graphd-protocol-'));
 execFileSync('git', ['init', '-b', 'main'], { cwd: root });
@@ -17,14 +21,20 @@ execFileSync('git', ['add', 'README.md'], { cwd: root });
 execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
 
 const paths = runtimePaths(root);
-const serverPath = path.resolve('skills/lamina-orchestrator/lib/graph-runtime/server.mjs');
+const endpoint = graphSocketPath(paths);
+const serverPath = path.resolve('packages/cli/lib/graph-runtime/server.mjs');
 const server = spawn(process.execPath, [serverPath, root], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 let stderr = '';
 server.stderr.on('data', (chunk) => { stderr += chunk; });
+const auth = ensureAuthToken(paths);
+fs.writeFileSync(paths.lock, `${JSON.stringify({
+  pid: 2_147_483_647,
+  protocol_version: 2,
+})}\n`);
 
-function request(method, params = {}) {
+function request(method, params = {}, token = auth) {
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection(paths.socket);
+    const socket = net.createConnection(endpoint);
     let buffer = '';
     socket.setEncoding('utf8');
     socket.on('connect', () => socket.write(`${JSON.stringify({
@@ -32,6 +42,7 @@ function request(method, params = {}) {
       method,
       params,
       cwd: root,
+      auth: token,
     })}\n`));
     socket.on('data', (chunk) => {
       buffer += chunk;
@@ -46,13 +57,20 @@ function request(method, params = {}) {
 
 try {
   const deadline = Date.now() + 10_000;
-  while (!fs.existsSync(paths.socket)) {
+  let ping = null;
+  while (!ping) {
     if (server.exitCode !== null) throw new Error(`graphd exited early: ${stderr}`);
-    if (Date.now() > deadline) throw new Error(`graphd did not create ${paths.socket}`);
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    if (Date.now() > deadline) throw new Error(`graphd did not listen at ${endpoint}`);
+    try { ping = await request('ping'); } catch {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
   }
-  const ping = await request('ping');
-  assert.equal(ping.result.protocol_version, 2);
+  assert.equal(ping.result.protocol_version, 3);
+  assert.equal(ping.result.auth, undefined, 'authentication token must never be returned');
+
+  const unauthenticated = await request('ping', {}, '');
+  assert.equal(unauthenticated.ok, false);
+  assert.equal(unauthenticated.error.code, 'LAMINA_UNAUTHORIZED');
 
   const session = await request('session.start');
   assert.equal(session.ok, true);
@@ -84,7 +102,7 @@ try {
     execFileSync('git', ['add', 'README.md'], { cwd: otherRoot });
     execFileSync('git', ['commit', '-m', 'fixture'], { cwd: otherRoot });
     const crossClone = await new Promise((resolve, reject) => {
-      const socket = net.createConnection(paths.socket);
+      const socket = net.createConnection(endpoint);
       let buffer = '';
       socket.setEncoding('utf8');
       socket.on('connect', () => socket.write(`${JSON.stringify({
@@ -92,6 +110,7 @@ try {
         method: 'status',
         params: {},
         cwd: otherRoot,
+        auth,
       })}\n`));
       socket.on('data', (chunk) => {
         buffer += chunk;
@@ -111,6 +130,7 @@ try {
 } finally {
   server.kill('SIGTERM');
   if (server.exitCode === null) await once(server, 'exit');
+  assert.equal(fs.existsSync(paths.lock), false, 'graceful shutdown must remove its lock');
   fs.rmSync(root, { recursive: true, force: true });
 }
 

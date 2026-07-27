@@ -10,6 +10,9 @@ const combined = `${readme}\n${index}\n${reference}`;
 for (const signal of ['CocoIndex', 'graphd', 'Ladybug', 'GraphVersion', 'lamina graph status']) {
   assert.ok(combined.includes(signal), `documentation must explain ${signal}`);
 }
+assert.match(combined, /npm install -g @laminadev\/cli/);
+assert.match(combined, /npx skills install aryaniyaps\/lamina/);
+assert.match(combined, /lamina doctor --json/);
 assert.match(readme, /Sources ──▶ CocoIndex[\s\S]*Agents[\s\S]*Runs/);
 assert.match(readme, /lamina session start[\s\S]*lamina session publish/);
 assert.match(readme, /lamina mission compile[\s\S]*lamina mission run/);
