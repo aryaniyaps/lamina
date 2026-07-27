@@ -7,6 +7,7 @@ import { auditPackReport } from '../scripts/audit-cli-pack.mjs';
 
 const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const cliPackage = JSON.parse(fs.readFileSync('packages/cli/package.json', 'utf8'));
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
@@ -25,15 +26,18 @@ for (const runtimePath of [
   assert.equal(fs.existsSync(runtimePath), false, `${runtimePath} must not ship with skills`);
 }
 
-const pack = spawnSync('npm', ['pack', '--dry-run', '--json', './packages/cli'], {
+const pack = spawnSync(npm, ['pack', '--dry-run', '--json', './packages/cli'], {
   encoding: 'utf8',
+  shell: process.platform === 'win32',
 });
 assert.equal(pack.status, 0, pack.stderr || pack.stdout);
 const audit = auditPackReport(JSON.parse(pack.stdout));
 assert.equal(audit.ok, true);
 
-const binMode = fs.statSync(path.resolve('packages/cli/bin/lamina.mjs')).mode;
-assert.notEqual(binMode & 0o111, 0, 'CLI source entrypoint must be executable');
+if (process.platform !== 'win32') {
+  const binMode = fs.statSync(path.resolve('packages/cli/bin/lamina.mjs')).mode;
+  assert.notEqual(binMode & 0o111, 0, 'CLI source entrypoint must be executable');
+}
 assert.equal(
   spawnSync(process.execPath, [
     'scripts/check-cli-release-tag.mjs',

@@ -12,12 +12,15 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-cli-tarball-'));
 const packDirectory = path.join(temp, 'pack');
 const installPrefix = path.join(temp, 'install');
 const fixture = path.join(temp, 'fixture');
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 fs.mkdirSync(packDirectory);
 fs.mkdirSync(fixture);
 
 function run(command, args, options = {}) {
+  const commandScript = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command);
   const result = spawnSync(command, args, {
     encoding: 'utf8',
+    shell: commandScript,
     ...options,
   });
   assert.equal(
@@ -38,7 +41,7 @@ let tarball = argument('--tarball');
 let daemonPid = null;
 try {
   if (!installSource && !tarball) {
-    const packed = run('npm', [
+    const packed = run(npm, [
       'pack',
       '--json',
       '--pack-destination',
@@ -53,7 +56,7 @@ try {
   }
   installSource ||= tarball;
 
-  run('npm', [
+  run(npm, [
     'install',
     '--prefix',
     installPrefix,
