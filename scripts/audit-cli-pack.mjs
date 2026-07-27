@@ -33,7 +33,10 @@ const FORBIDDEN_SEGMENTS = new Set([
   'evals',
 ]);
 
-export function auditPackReport(report) {
+export function auditPackReport(
+  report,
+  { requireExecutable = process.platform !== 'win32' } = {},
+) {
   const entry = Array.isArray(report) ? report[0] : report;
   if (!entry || entry.name !== '@laminadev/cli') {
     throw new Error('npm pack report is not for @laminadev/cli.');
@@ -59,7 +62,7 @@ export function auditPackReport(report) {
     if (forbidden) throw new Error(`Forbidden package segment "${forbidden}" in ${file}.`);
   }
   const executable = entry.files.find((file) => file.path === 'bin/lamina.mjs');
-  if (!executable || (Number(executable.mode) & 0o111) === 0) {
+  if (!executable || (requireExecutable && (Number(executable.mode) & 0o111) === 0)) {
     throw new Error('bin/lamina.mjs is not executable in the npm tarball.');
   }
   return {
