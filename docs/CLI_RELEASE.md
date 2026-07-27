@@ -17,11 +17,14 @@ npm version 0.1.0-beta.0 --prefix packages/cli --no-git-tag-version
 npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
 node scripts/audit-cli-pack.mjs cli-pack.json
 tarball="$(node -p "'dist/' + require('./cli-pack.json')[0].filename")"
-npm publish "$tarball" --access public --tag bootstrap
+npm publish "$tarball" --access public --tag bootstrap --provenance=false
 ```
 
 Do not commit the temporary beta version change. Confirm
 `npm view @laminadev/cli@bootstrap version` returns `0.1.0-beta.0`.
+The bootstrap explicitly disables provenance because npm can only generate
+provenance from a supported cloud CI runner; the stable OIDC release restores
+the provenance requirement.
 
 Create and protect a GitHub environment named `npm`, require maintainer review,
 and restrict deployment tags to `cli-v*`. Then configure npm trust for the
