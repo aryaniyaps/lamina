@@ -77,11 +77,11 @@ function dispatch(request) {
     case 'statement.retire': return engine.retireStatement(request.params?.session, request.params?.id);
     case 'graph.query': return engine.graphQuery(request.params || {}, context);
     case 'graph.diff': return engine.diff(request.params?.base || 'main', request.params?.head || 'HEAD', context);
-    case 'graph.validate': {
-      const view = engine.resolveView(request.params?.at || 'HEAD', context);
-      const active = engine.activeIds(view.id);
-      return engine.validateSet(active.resources, active.statements, engine.head(view.id)?.source_revision);
-    }
+    case 'graph.validate': return engine.validateView(
+      request.params?.at || 'HEAD',
+      request.params?.scope || null,
+      context,
+    );
     case 'graph.backup': return engine.backup(request.params?.output);
     case 'graph.restore': return engine.restore(request.params?.input);
     case 'mission.compile': return engine.compileMissions(request.params || {}, context);

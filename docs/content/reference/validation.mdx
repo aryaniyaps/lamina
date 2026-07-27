@@ -3,8 +3,9 @@
 ```bash
 lamina graph validate --at HEAD
 lamina graph validate --at <session-id>
+lamina graph validate --at HEAD --scope workflow.cancel-booking
 ```
 
-The installed engine checks Statement shape/references, aliases, workflow ordering/reachability, lifecycle transitions, actor authority, dependencies, proof/evidence coverage, Mission capability compatibility, epistemic ingress, Contradictions, uniqueness, and cycles. If an affected closure cannot be proven complete, validation uses the whole branch view.
+The installed engine checks Statement shape/references, aliases, workflow ordering/reachability, lifecycle transitions, actor authority, dependencies, proof/evidence coverage, Mission capability compatibility, epistemic ingress, Contradictions, uniqueness, and cycles. `ok` reports structural validity; `approved` additionally requires an empty `readiness_gaps`, `stale_evidence`, and `contradictions` set. Scoped validation walks the connected affected closure; whole-view validation remains available with `--at`.
 
 Approval additionally requires current reproducible evidence and no relevant Contradiction. Agents cannot add executable validators or approve their own output.

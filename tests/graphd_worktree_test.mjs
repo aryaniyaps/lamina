@@ -38,6 +38,31 @@ try {
   assert.equal(primary.branch, 'main');
   assert.equal(feature.branch, 'feature');
   assert.equal(primary.database, feature.database);
+  const [mainSession, featureSession] = await Promise.all([
+    graphRequest('session.start', {}, root),
+    graphRequest('session.start', {}, worktree),
+  ]);
+  await Promise.all([
+    graphRequest('resource.propose', {
+      session: mainSession.id,
+      resource: { id: 'entity.main-worktree', kind: 'entity', data: { branch: 'main' } },
+    }, root),
+    graphRequest('resource.propose', {
+      session: featureSession.id,
+      resource: { id: 'entity.feature-worktree', kind: 'entity', data: { branch: 'feature' } },
+    }, worktree),
+  ]);
+  const [mainPublish, featurePublish] = await Promise.all([
+    graphRequest('session.publish', { id: mainSession.id }, root),
+    graphRequest('session.publish', { id: featureSession.id }, worktree),
+  ]);
+  assert.notEqual(mainPublish.graph_version, featurePublish.graph_version);
+  const [mainQuery, featureQuery] = await Promise.all([
+    graphRequest('graph.query', { at: 'HEAD', kind: 'entity' }, root),
+    graphRequest('graph.query', { at: 'HEAD', kind: 'entity' }, worktree),
+  ]);
+  assert.deepEqual(mainQuery.resources.map((item) => item.id), ['entity.main-worktree']);
+  assert.deepEqual(featureQuery.resources.map((item) => item.id), ['entity.feature-worktree']);
   daemonPid = parseDaemonLock(fs.readFileSync(primaryPaths.lock, 'utf8'))?.pid;
 } finally {
   if (daemonPid) {

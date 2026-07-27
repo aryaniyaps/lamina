@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import socket
 from dataclasses import dataclass
 from typing import Collection, NamedTuple, Sequence
@@ -44,6 +45,150 @@ def _canonical(value: object) -> bytes:
 
 def _digest(prefix: str, value: object) -> str:
     return f"{prefix}_{hashlib.sha256(_canonical(value)).hexdigest()[:32]}"
+
+
+def _unique(values: list[str], limit: int = 100) -> list[str]:
+    return sorted({value.strip() for value in values if value and value.strip()})[:limit]
+
+
+def _brownfield_signals(relative_path: str, content: bytes) -> dict[str, object]:
+    if b"\x00" in content[:4096]:
+        return {
+            "categories": [],
+            "unsupported": ["binary_content"],
+        }
+    text = content.decode("utf-8", errors="replace")
+    truncated = len(text) > 1_000_000
+    if truncated:
+        text = text[:1_000_000]
+    suffix = pathlib.PurePosixPath(relative_path).suffix.lower()
+    basename = pathlib.PurePosixPath(relative_path).name.lower()
+    signals: dict[str, list[str]] = {
+        "entry_points": [],
+        "commands": [],
+        "routes": [],
+        "handlers": [],
+        "schemas": [],
+        "entities": [],
+        "state_transitions": [],
+        "permissions": [],
+        "events": [],
+        "tests": [],
+        "documentation": [],
+        "personas": [],
+        "feature_flags": [],
+        "dependencies": [],
+    }
+
+    if basename in {
+        "main.js", "main.mjs", "main.ts", "main.py", "index.js", "index.mjs",
+        "index.ts", "app.js", "app.ts", "app.py", "server.js", "server.ts",
+        "cli.py", "manage.py",
+    } or text.startswith("#!"):
+        signals["entry_points"].append(relative_path)
+    if "/routes/" in f"/{relative_path}" or basename.startswith("route."):
+        signals["routes"].append(relative_path)
+    if suffix in {".md", ".mdx", ".rst", ".txt"}:
+        signals["documentation"].append(relative_path)
+    if "persona" in basename:
+        signals["personas"].append(relative_path)
+    if re.search(r"(?:^|[/_.-])(?:test|tests|spec|specs)(?:[/_.-]|$)", relative_path, re.I):
+        signals["tests"].append(relative_path)
+
+    if basename == "package.json":
+        try:
+            package = json.loads(text)
+            signals["commands"].extend(
+                f"npm:{name}" for name in (package.get("scripts") or {}).keys()
+            )
+            binary = package.get("bin") or {}
+            if isinstance(binary, str):
+                signals["entry_points"].append(f"bin:{binary}")
+            elif isinstance(binary, dict):
+                signals["entry_points"].extend(
+                    f"bin:{name}:{target}" for name, target in binary.items()
+                )
+            for field in ("dependencies", "devDependencies", "peerDependencies"):
+                signals["dependencies"].extend(
+                    f"{field}:{name}" for name in (package.get(field) or {}).keys()
+                )
+        except (TypeError, ValueError):
+            pass
+
+    signals["routes"].extend(
+        match.group(2)[1:-1]
+        for match in re.finditer(
+            r"\b(?:app|router|server)\s*\.\s*(get|post|put|patch|delete|use)\s*"
+            r"\(\s*([\"'][^\"']+[\"'])",
+            text,
+        )
+    )
+    signals["handlers"].extend(
+        match.group(1)
+        for match in re.finditer(
+            r"\b(?:function|class|const|let|var|def)\s+"
+            r"([A-Za-z_][A-Za-z0-9_]*(?:handler|controller|resolver|listener|callback))\b",
+            text,
+            re.I,
+        )
+    )
+    declared_types = [
+        match.group(2)
+        for match in re.finditer(
+            r"\b(interface|type|class|model|schema|enum)\s+([A-Z][A-Za-z0-9_]*)\b",
+            text,
+        )
+    ]
+    signals["schemas"].extend(declared_types)
+    signals["entities"].extend(declared_types)
+    signals["events"].extend(
+        match.group(2)
+        for match in re.finditer(
+            r"\b(emit|on|once|addEventListener|dispatchEvent)\s*\(\s*[\"']([^\"']+)[\"']",
+            text,
+        )
+    )
+    signals["state_transitions"].extend(
+        f"{match.group(1)}:{match.group(2)}"
+        for match in re.finditer(
+            r"\b(state|status|phase)\s*(?:=|:)\s*[\"']?([A-Za-z][A-Za-z0-9_-]*)",
+            text,
+            re.I,
+        )
+    )
+    signals["permissions"].extend(
+        match.group(0)
+        for match in re.finditer(
+            r"\b(?:authorize|authorization|permission|permissions|role|roles|"
+            r"canAccess|isAdmin|requireAuth|authGuard)\b",
+            text,
+            re.I,
+        )
+    )
+    signals["feature_flags"].extend(
+        match.group(0)
+        for match in re.finditer(
+            r"\b(?:FEATURE_[A-Z0-9_]+|featureFlag|feature_flag|flagEnabled|toggle)\b",
+            text,
+        )
+    )
+    signals["dependencies"].extend(
+        match.group(2)
+        for match in re.finditer(
+            r"\b(import\s+.*?\s+from|require|from)\s*\(?\s*[\"']([^\"']+)[\"']",
+            text,
+        )
+    )
+    if re.search(r"\b(describe|it|test)\s*\(", text) or re.search(r"\b(assert|expect)\s*[\.(]", text):
+        signals["tests"].append(relative_path)
+
+    normalized = {key: _unique(values) for key, values in signals.items()}
+    categories = sorted(key for key, values in normalized.items() if values)
+    return {
+        "categories": categories,
+        "signals": {key: values for key, values in normalized.items() if values},
+        "unsupported": ["static_scan_truncated"] if truncated else [],
+    }
 
 
 @dataclass(frozen=True)
@@ -154,6 +299,8 @@ def _apply_actions(
                 "deletes": [item.observation_id for item in batch if item.envelope is None],
             },
         )
+        if os.environ.get("LAMINA_TEST_OBSERVATION_CRASH_AFTER_COMMIT") == "1":
+            os._exit(91)
 
 
 _observation_sink = coco.TargetActionSink[ObservationAction, None].from_fn(_apply_actions)
@@ -210,11 +357,19 @@ _provider = coco.register_root_target_states_provider(
 
 
 @coco.fn(memo=True)
-async def observe_file(file: FileLike, generation: str) -> None:
+async def observe_file(file: FileLike, generation: str, source_revision: str) -> None:
+    del source_revision
     content = await file.read()
-    relative_path = str(file.file_path.path)
+    observed_path = pathlib.Path(str(file.file_path.path))
+    try:
+        relative_path = str(
+            observed_path.relative_to(SOURCE_ROOT) if observed_path.is_absolute() else observed_path
+        )
+    except ValueError:
+        relative_path = observed_path.name
+    relative_path = relative_path.replace(os.sep, "/").removeprefix("./")
     content_hash = hashlib.sha256(content).hexdigest()
-    extractor = {"id": "lamina.source-file", "version": "1"}
+    extractor = {"id": "lamina.source-file", "version": "2"}
     envelope: dict[str, object] = {
         "source_snapshot": SNAPSHOT,
         "source_key": relative_path,
@@ -224,6 +379,7 @@ async def observe_file(file: FileLike, generation: str) -> None:
         "payload": {
             "media_type": "text" if b"\x00" not in content[:4096] else "binary",
             "byte_length": len(content),
+            "brownfield": _brownfield_signals(relative_path, content),
         },
     }
     envelope["id"] = _digest(
@@ -253,17 +409,23 @@ async def app_main(sourcedir: pathlib.Path) -> None:
             included_patterns=["**/*"],
             excluded_patterns=[
                 "**/.git/**",
-                "**/.lamina/**",
+                "**/.lamina/runs/**",
                 "**/node_modules/**",
-                "**/.venv/**",
+                "**/.venv*/**",
                 "**/__pycache__/**",
+                "**/.next/**",
+                "**/dist/**",
+                "**/build/**",
+                "**/coverage/**",
+                "**/benchmarks/results/**",
+                "**/evals/fixtures/.vendor-tmp*/**",
             ],
         ),
         live=True,
     )
     # Generation is an explicit memoized-function argument so a rebuild forces
     # every unchanged source item through target reconciliation.
-    await coco.mount_each(observe_file, files.items(), GENERATION)
+    await coco.mount_each(observe_file, files.items(), GENERATION, SOURCE_REVISION)
 
 
 app = coco.App(coco.AppConfig(name="LaminaSourceObservationsV1"), app_main, sourcedir=SOURCE_ROOT)

@@ -34,13 +34,24 @@ try {
   engine.stageResource(session.id, { id: 'product.fixture', kind: 'product', data: { name: 'Fixture' }, alias: 'product.fixture' }, 'intent');
   engine.stageResource(session.id, { id: 'workflow.checkout', kind: 'workflow', data: { name: 'checkout' }, alias: 'workflow.checkout' }, 'intent');
   engine.stageResource(session.id, { id: 'operation.pay', kind: 'operation', data: { name: 'pay' } }, 'intent');
+  engine.stageResource(session.id, { id: 'actor.member', kind: 'actor', data: { name: 'member' } }, 'intent');
   for (let index = 1; index <= 4; index += 1) {
     engine.stageResource(session.id, {
       id: `persona.${index}`,
       kind: 'persona',
       data: { name: `persona-${index}` },
     }, 'intent');
+    engine.stageStatement(session.id, {
+      subject: `persona.${index}`,
+      predicate: 'lamina:canAssume',
+      object: 'actor.member',
+    }, 'intent');
   }
+  engine.stageStatement(session.id, {
+    subject: 'actor.member',
+    predicate: 'lamina:authorizedFor',
+    object: 'operation.pay',
+  }, 'intent');
   const firstStatement = engine.stageStatement(session.id, {
     subject: 'workflow.checkout',
     predicate: 'lamina:hasStep',
@@ -113,11 +124,58 @@ try {
   assert.notEqual(firstPublish.graph_version, initialHead.id);
   assert.equal(firstPublish.validation.ok, true);
   assert.equal(firstPublish.validation.approved, true);
+  const initialScope = engine.validateView('HEAD', 'workflow.checkout', context);
+  assert.equal(initialScope.approved, true);
+  assert.equal(initialScope.validation_scope.mode, 'affected_closure');
 
+  const missingProof = engine.startSession({ branch: 'main', source_revision: context.source_revision });
+  engine.stageResource(missingProof.id, {
+    id: 'proof.payment',
+    kind: 'proof',
+    data: { name: 'Payment boundary proof' },
+  }, 'intent');
+  engine.stageStatement(missingProof.id, {
+    subject: 'operation.pay',
+    predicate: 'lamina:requiresProof',
+    object: 'proof.payment',
+  }, 'intent');
+  const missingProofPublish = engine.publishSession(missingProof.id, context.source_revision);
+  assert.equal(missingProofPublish.validation.approved, false);
+  assert.ok(missingProofPublish.validation.readiness_gaps.some((item) =>
+    item.code === 'proof_evidence_missing' && item.resource === 'proof.payment'));
+  const proofEvidence = engine.startSession({ branch: 'main', source_revision: context.source_revision });
+  engine.stageResource(proofEvidence.id, {
+    id: 'evidence.payment',
+    kind: 'evidence',
+    data: { name: 'Payment boundary evidence' },
+  }, 'runtime');
+  engine.stageStatement(proofEvidence.id, {
+    subject: 'proof.payment',
+    predicate: 'lamina:supportedBy',
+    object: 'evidence.payment',
+  }, 'runtime');
+  engine.publishSession(proofEvidence.id, context.source_revision);
+  assert.equal(engine.validateView('HEAD', 'operation.pay', context).approved, true,
+    'proof evidence should close the affected operation readiness gap');
+
+  const unrelatedGap = engine.startSession({ branch: 'main', source_revision: context.source_revision });
+  engine.stageResource(unrelatedGap.id, {
+    id: 'workflow.unreachable',
+    kind: 'workflow',
+    data: { name: 'unreachable' },
+  }, 'intent');
+  const unrelatedGapPublish = engine.publishSession(unrelatedGap.id, context.source_revision);
+  assert.equal(unrelatedGapPublish.validation.approved, false);
+  assert.ok(unrelatedGapPublish.validation.readiness_gaps.some((item) =>
+    item.code === 'workflow_unreachable' && item.resource === 'workflow.unreachable'));
+  assert.equal(engine.validateView('HEAD', 'workflow.checkout', context).approved, true,
+    'scoped validation must not be blocked by an unrelated disconnected workflow');
+
+  const preDirtyHead = engine.head(branch.id).id;
   fs.writeFileSync(path.join(root, 'README.md'), '# Dirty branch base\n');
   const dirtyBranchContext = engine.currentContext(root);
   const dirtyBranch = engine.ensureBranch('dirty-feature', dirtyBranchContext.source_revision);
-  assert.equal(engine.head(dirtyBranch.id).id, firstPublish.graph_version,
+  assert.equal(engine.head(dirtyBranch.id).id, preDirtyHead,
     'a dirty worktree branch must inherit from the closest committed source ancestor');
   fs.writeFileSync(path.join(root, 'README.md'), '# Fixture\n');
 
@@ -133,6 +191,7 @@ try {
   assert.equal(engine.resolveResourceId('entity.reusable'), null, 'aborting must not leak aliases');
 
   // Re-proposal creates no new graph version.
+  const headBeforeRepeat = engine.head(branch.id).id;
   const repeat = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   engine.stageStatement(repeat.id, {
     subject: 'workflow.checkout',
@@ -141,7 +200,7 @@ try {
     qualifiers: { position: 1 },
   }, 'agent');
   const repeatPublish = engine.publishSession(repeat.id, context.source_revision);
-  assert.equal(repeatPublish.graph_version, firstPublish.graph_version);
+  assert.equal(repeatPublish.graph_version, headBeforeRepeat);
   assert.equal(repeatPublish.idempotent, true);
 
   // Conflicting facts coexist and produce exactly one stable Contradiction.
@@ -356,7 +415,43 @@ try {
     kind: 'capability_manifest',
     data: { name: 'non-screen', capabilities: ['device:relay', 'oracle:state'] },
   }, 'intent');
+  for (const [id, capabilities] of [
+    ['adapter.sdk', ['sdk:invoke', 'oracle:state']],
+    ['adapter.background', ['process:background', 'oracle:state']],
+    ['adapter.interactive', ['ui:interactive', 'oracle:state']],
+  ]) {
+    engine.stageResource(manifestSession.id, {
+      id,
+      kind: 'capability_manifest',
+      data: { name: id.slice('adapter.'.length), capabilities },
+    }, 'intent');
+  }
+  engine.stageResource(manifestSession.id, {
+    id: 'workflow.device',
+    kind: 'workflow',
+    data: { name: 'device workflow', capability_requirements: ['device:relay'] },
+  }, 'intent');
+  engine.stageStatement(manifestSession.id, {
+    subject: 'workflow.device',
+    predicate: 'lamina:hasStep',
+    object: 'operation.pay',
+    qualifiers: { position: 1 },
+  }, 'intent');
   engine.publishSession(manifestSession.id, context.source_revision);
+  assert.equal(engine.graphQuery({ at: 'main', kind: 'capability_manifest' }, context).resources.length, 4,
+    'SDK, background, interactive, and non-screen adapters must share the generic manifest model');
+  assert.throws(
+    () => engine.compileMissions({ workflow: 'workflow.device' }, context),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.details.missing.includes('device:relay'),
+    'a workflow with adapter requirements must fail closed when no manifest is selected',
+  );
+  assert.throws(
+    () => engine.compileMissions({ workflow: 'workflow.device', adapter: 'adapter.sdk' }, context),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.details.missing.includes('device:relay'),
+    'an adapter manifest that lacks a required capability must fail closed',
+  );
   const missionCompileSession = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   const headBeforeMissionCompile = engine.head(branch.id).id;
   const compiled = engine.compileMissions({
@@ -366,14 +461,20 @@ try {
   }, context);
   assert.equal(compiled.missions.length, 4, 'Persona Missions must not have a three-persona cap');
   assert.equal(new Set(compiled.missions.map((item) => item.persona)).size, 4);
+  assert.deepEqual(compiled.missions[0].closure.operations, ['operation.pay']);
+  assert.deepEqual(compiled.missions[0].closure.actors, ['actor.member']);
+  assert.deepEqual(compiled.missions[0].closure.proofs, ['proof.payment']);
+  assert.deepEqual(compiled.missions[0].closure.evidence, ['evidence.payment', observationId].sort());
   assert.equal(compiled.status, 'staged');
   assert.equal(engine.head(branch.id).id, headBeforeMissionCompile);
   engine.publishSession(missionCompileSession.id, context.source_revision);
   const headBeforeRuns = engine.head(branch.id).id;
   const run1 = engine.runMission({ mission: compiled.missions[0].id, events: [{ type: 'action_attempted' }, { type: 'oracle_passed' }] }, context);
-  const run2 = engine.runMission({ mission: compiled.missions[1].id, events: [{ type: 'denial_observed' }] }, context);
+  const run2 = engine.runMission({ mission: compiled.missions[1].id, events: [{ type: 'denial_observed' }, { type: 'recovery_attempted' }, { type: 'oracle_passed' }] }, context);
+  const run3 = engine.runMission({ mission: compiled.missions[2].id, events: [{ type: 'state_observed' }, { type: 'oracle_passed' }] }, context);
+  const run4 = engine.runMission({ mission: compiled.missions[3].id, events: [{ type: 'outcome_observed' }, { type: 'oracle_passed' }] }, context);
   assert.notEqual(run1.run, run2.run);
-  assert.notEqual(run1.session, run2.session);
+  assert.equal(new Set([run1.session, run2.session, run3.session, run4.session]).size, 4);
   assert.equal(run1.status, 'staged');
   assert.equal(engine.head(branch.id).id, headBeforeRuns, 'Mission Runs must remain isolated until explicit publication');
   assert.ok(engine.graphQuery({ at: run1.session, kind: 'run' }, context).resources.some((item) => item.id === run1.run));
@@ -384,7 +485,12 @@ try {
   );
   engine.rebaseSession(run2.session);
   engine.publishSession(run2.session, context.source_revision);
-  assert.equal(engine.graphQuery({ at: 'main', kind: 'run' }, context).resources.length, 2);
+  for (const run of [run3, run4]) {
+    engine.rebaseSession(run.session);
+    engine.publishSession(run.session, context.source_revision);
+  }
+  assert.equal(engine.graphQuery({ at: 'main', kind: 'run' }, context).resources.length, 4,
+    'every relevant Persona Mission must execute in its own isolated Run');
 
   // Semantic branch diff uses GraphVersions rather than legacy files.
   execFileSync('git', ['switch', '-c', 'feature'], { cwd: root });
@@ -396,6 +502,7 @@ try {
   engine.publishSession(featureSession.id, featureContext.source_revision);
   const semanticDiff = engine.diff('main', 'HEAD', featureContext);
   assert.deepEqual(semanticDiff.resources.added, ['surface.feature']);
+  assert.equal(semanticDiff.resources.added_details[0].kind, 'surface');
   assert.deepEqual(semanticDiff.statements.added, []);
 
   // A Git merge combines both branch memberships in a multi-parent GraphVersion.
@@ -452,6 +559,24 @@ try {
   const backup = engine.backup(backupPath);
   assert.ok(fs.existsSync(backup.output));
   assert.match(backup.digest, /^backup_/);
+  const tamperedBackupPath = path.join(root, 'graph.tampered.backup.json');
+  const tamperedBackup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+  tamperedBackup.resources[0].data.tampered = true;
+  fs.writeFileSync(tamperedBackupPath, JSON.stringify(tamperedBackup));
+  const tamperTarget = new GraphEngine({
+    ...paths,
+    database: path.join(root, '.git', 'lamina', 'tampered.lbdb'),
+  });
+  try {
+    assert.throws(
+      () => tamperTarget.restore(tamperedBackupPath),
+      (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+        error.message.includes('integrity'),
+      'restore must reject a tampered deterministic backup before creating graph records',
+    );
+  } finally {
+    tamperTarget.close();
+  }
   const restored = new GraphEngine({
     ...paths,
     database: path.join(root, '.git', 'lamina', 'restored.lbdb'),
@@ -472,6 +597,13 @@ try {
     );
     assert.equal(restored.querySession(pendingBackupSession.id).pending_evidence.length, 1,
       'backup/restore must preserve durable session-local evidence proposals');
+    const restoredBackupPath = path.join(root, 'graph.restored.backup.json');
+    restored.backup(restoredBackupPath);
+    assert.equal(
+      fs.readFileSync(restoredBackupPath, 'utf8'),
+      fs.readFileSync(backupPath, 'utf8'),
+      'backup/restore must reproduce a byte-identical logical graph export',
+    );
   } finally {
     restored.close();
   }

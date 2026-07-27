@@ -111,6 +111,14 @@ try {
     run(executable, ['graph', 'query', '--kind', 'product'], { cwd: fixture }).stdout,
   );
   assert.equal(query.resources[0].id, 'product.cli-only');
+  const scopedValidation = JSON.parse(
+    run(executable, [
+      'graph', 'validate', '--at', 'HEAD', '--scope', 'product.cli-only',
+    ], { cwd: fixture }).stdout,
+  );
+  assert.equal(scopedValidation.ok, true);
+  assert.equal(scopedValidation.validation_scope.mode, 'affected_closure');
+  assert.equal(scopedValidation.validation_scope.resource, 'product.cli-only');
   run(executable, ['graph', 'observe'], {
     cwd: fixture,
     timeout: 180_000,

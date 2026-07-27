@@ -433,6 +433,7 @@ export class GraphEngine {
 
   validateSet(resourceIds, statementIds, sourceRevision = null) {
     const errors = [];
+    const readiness_gaps = [];
     const stale_evidence = [];
     const resources = new Set(resourceIds);
     const resourceRows = [...resources].map((id) => this.resource(id)).filter(Boolean);
@@ -505,6 +506,15 @@ export class GraphEngine {
         errors.push(`Workflow ${workflow} step positions must be contiguous from 1.`);
       }
     }
+    for (const workflow of resourceRows.filter((item) => item.kind === 'workflow')) {
+      if (!workflowPositions.has(workflow.id)) {
+        readiness_gaps.push({
+          code: 'workflow_unreachable',
+          resource: workflow.id,
+          message: `Workflow ${workflow.id} has no ordered operations.`,
+        });
+      }
+    }
 
     const kindRules = new Map([
       ['lamina:canAssume', ['persona', 'actor']],
@@ -512,6 +522,7 @@ export class GraphEngine {
       ['lamina:requiresProof', [null, 'proof']],
       ['lamina:realizes', ['surface', 'operation']],
       ['lamina:transitionsTo', ['entity', 'entity']],
+      ['lamina:supportedBy', [null, null]],
     ]);
     for (const statement of statements) {
       const rule = kindRules.get(statement.predicate);
@@ -549,6 +560,95 @@ export class GraphEngine {
       if (detectCycle(predicate)) errors.push(`${predicate} relationships must be acyclic.`);
     }
 
+    const workflowOperations = new Map();
+    for (const statement of statements.filter((item) => item.predicate === 'lamina:hasStep')) {
+      if (!workflowOperations.has(statement.subject)) workflowOperations.set(statement.subject, new Set());
+      if (statement.object) workflowOperations.get(statement.subject).add(statement.object);
+    }
+    const authorizedOperations = new Set(statements
+      .filter((item) => item.predicate === 'lamina:authorizedFor' && item.object)
+      .map((item) => item.object));
+    for (const [workflow, operations] of workflowOperations) {
+      for (const operation of operations) {
+        if (!authorizedOperations.has(operation)) {
+          readiness_gaps.push({
+            code: 'actor_authority_missing',
+            resource: operation,
+            scope: workflow,
+            message: `Operation ${operation} has no authorized Actor.`,
+          });
+        }
+      }
+    }
+
+    for (const dependency of statements.filter((item) => item.predicate === 'lamina:dependsOn' && item.object)) {
+      const target = resourceById.get(dependency.object);
+      if (target?.data?.available === false || target?.data?.status === 'unavailable') {
+        readiness_gaps.push({
+          code: 'dependency_unavailable',
+          resource: dependency.object,
+          scope: dependency.subject,
+          message: `Dependency ${dependency.object} is unavailable.`,
+        });
+      }
+    }
+
+    const directEvidence = new Map();
+    for (const statement of statements) {
+      directEvidence.set(statement.id, this.query(
+        'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id, r.kind AS kind',
+        { id: statement.id },
+      ));
+    }
+    const evidenceKinds = new Set(['evidence', 'observation', 'harness_result']);
+    const proofCoverage = new Map();
+    for (const statement of statements) {
+      const covered = [];
+      for (const item of directEvidence.get(statement.id) || []) {
+        if (evidenceKinds.has(item.kind)) covered.push(item.id);
+      }
+      if (statement.predicate === 'lamina:supportedBy' && statement.object &&
+          evidenceKinds.has(resourceById.get(statement.object)?.kind)) {
+        covered.push(statement.object);
+      }
+      if (covered.length) {
+        if (!proofCoverage.has(statement.subject)) proofCoverage.set(statement.subject, new Set());
+        covered.forEach((item) => proofCoverage.get(statement.subject).add(item));
+      }
+    }
+    for (const requirement of statements.filter((item) => item.predicate === 'lamina:requiresProof')) {
+      const proof = resourceById.get(requirement.object);
+      if (!proof || proof.kind !== 'proof') continue;
+      const evidence = new Set([
+        ...(proofCoverage.get(proof.id) || []),
+        ...(directEvidence.get(requirement.id) || [])
+          .filter((item) => evidenceKinds.has(item.kind))
+          .map((item) => item.id),
+      ]);
+      if (!evidence.size) {
+        readiness_gaps.push({
+          code: 'proof_evidence_missing',
+          resource: proof.id,
+          scope: requirement.subject,
+          message: `Proof ${proof.id} has no reproducible Evidence.`,
+        });
+      }
+    }
+    const proofSubjects = new Set(statements
+      .filter((item) => item.predicate === 'lamina:requiresProof')
+      .map((item) => item.subject));
+    for (const resource of resourceRows) {
+      if ((resource.data?.proof_required === true ||
+          ['critical', 'high'].includes(resource.data?.criticality)) &&
+          !proofSubjects.has(resource.id)) {
+        readiness_gaps.push({
+          code: 'proof_requirement_missing',
+          resource: resource.id,
+          message: `Critical Resource ${resource.id} has no proof requirement.`,
+        });
+      }
+    }
+
     const manifests = new Map(resourceRows.filter((item) => item.kind === 'capability_manifest')
       .map((item) => [item.id, item]));
     for (const mission of resourceRows.filter((item) => item.kind === 'mission')) {
@@ -573,6 +673,34 @@ export class GraphEngine {
           !run.data?.graph_version || !run.data?.source_revision || !run.data?.session) {
         errors.push(`Run ${run.id} lacks an active Mission or pinned graph/source/session identity.`);
       }
+      const harness = statements.find((item) =>
+        item.subject === run.id && item.predicate === 'lamina:producedHarnessResult');
+      const harnessResource = harness?.object ? resourceById.get(harness.object) : null;
+      if (!harnessResource || harnessResource.kind !== 'harness_result') {
+        readiness_gaps.push({
+          code: 'harness_result_missing',
+          resource: run.id,
+          message: `Run ${run.id} has no HarnessResult.`,
+        });
+        continue;
+      }
+      const eventTypes = new Set((harnessResource.data?.events || []).map((item) => item.type));
+      if (!eventTypes.has('oracle_passed')) {
+        readiness_gaps.push({
+          code: 'oracle_evidence_missing',
+          resource: run.id,
+          message: `Run ${run.id} has no passing oracle event.`,
+        });
+      }
+      for (const type of ['oracle_failed', 'budget_failure', 'capability_failure']) {
+        if (eventTypes.has(type)) {
+          readiness_gaps.push({
+            code: type,
+            resource: run.id,
+            message: `Run ${run.id} recorded ${type}.`,
+          });
+        }
+      }
     }
     const contradictions = this.query('MATCH (c:Resource {kind: $kind}) RETURN c.id AS id, c.data AS data', { kind: 'contradiction' })
       .filter((item) => {
@@ -581,8 +709,10 @@ export class GraphEngine {
       });
     return {
       ok: errors.length === 0,
-      approved: errors.length === 0 && contradictions.length === 0 && stale_evidence.length === 0,
+      approved: errors.length === 0 && readiness_gaps.length === 0 &&
+        contradictions.length === 0 && stale_evidence.length === 0,
       errors,
+      readiness_gaps,
       contradictions: contradictions.map((item) => item.id),
       stale_evidence,
     };
@@ -847,16 +977,84 @@ export class GraphEngine {
     };
   }
 
+  validateView(ref, scope, context) {
+    const view = this.resolveView(ref || 'HEAD', context);
+    const active = this.activeIds(view.id);
+    const head = this.head(view.id);
+    if (!scope) {
+      return {
+        ...this.validateSet(active.resources, active.statements, head?.source_revision),
+        validation_scope: { mode: 'whole_view', view: view.id, resource: null },
+      };
+    }
+    const scopeId = this.resolveResourceId(scope, active.resources);
+    if (!scopeId) fail(ERROR.NOT_FOUND, `Validation scope Resource not found: ${scope}`);
+    const resources = new Set([scopeId]);
+    const statementDetails = this.statementDetails(active.statements);
+    const statements = new Set();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const statement of statementDetails) {
+        if (!resources.has(statement.subject) &&
+            !(statement.object && resources.has(statement.object)) &&
+            !(statement.scope && resources.has(statement.scope))) continue;
+        if (!statements.has(statement.id)) {
+          statements.add(statement.id);
+          changed = true;
+        }
+        for (const resource of [statement.subject, statement.object, statement.scope].filter(Boolean)) {
+          if (!resources.has(resource)) {
+            resources.add(resource);
+            changed = true;
+          }
+        }
+      }
+    }
+    for (const contradiction of [...active.resources]
+      .map((id) => this.resource(id))
+      .filter((item) => item?.kind === 'contradiction' &&
+        (item.data?.members || []).some((member) => statements.has(member) || resources.has(member)))) {
+      resources.add(contradiction.id);
+    }
+    return {
+      ...this.validateSet(resources, statements, head?.source_revision),
+      validation_scope: {
+        mode: 'affected_closure',
+        view: view.id,
+        resource: scopeId,
+        resources: resources.size,
+        statements: statements.size,
+      },
+    };
+  }
+
   diff(baseRef, headRef, context) {
     const base = this.resolveView(baseRef, context);
     const head = this.resolveView(headRef, context);
     const a = this.activeIds(base.id);
     const b = this.activeIds(head.id);
+    const resourceDiff = {
+      added: [...b.resources].filter((id) => !a.resources.has(id)).sort(),
+      retired: [...a.resources].filter((id) => !b.resources.has(id)).sort(),
+    };
+    const statementDiff = {
+      added: [...b.statements].filter((id) => !a.statements.has(id)).sort(),
+      retired: [...a.statements].filter((id) => !b.statements.has(id)).sort(),
+    };
     return {
       base: this.head(base.id).id,
       head: this.head(head.id).id,
-      resources: { added: [...b.resources].filter((id) => !a.resources.has(id)), retired: [...a.resources].filter((id) => !b.resources.has(id)) },
-      statements: { added: [...b.statements].filter((id) => !a.statements.has(id)), retired: [...a.statements].filter((id) => !b.statements.has(id)) },
+      resources: {
+        ...resourceDiff,
+        added_details: resourceDiff.added.map((id) => this.resource(id)),
+        retired_details: resourceDiff.retired.map((id) => this.resource(id)),
+      },
+      statements: {
+        ...statementDiff,
+        added_details: this.statementDetails(statementDiff.added),
+        retired_details: this.statementDetails(statementDiff.retired),
+      },
     };
   }
 
@@ -871,6 +1069,111 @@ export class GraphEngine {
       current_source_revision: context.source_revision,
       stale: head.source_revision !== context.source_revision,
       sessions: this.query('MATCH (s:GraphView {kind: $kind}) RETURN s.id AS id, s.status AS status', { kind: 'session' }),
+    };
+  }
+
+  missionClosure(viewId, workflowId) {
+    const active = this.activeIds(viewId);
+    const resources = [...active.resources].map((id) => this.resource(id)).filter(Boolean);
+    const resourceById = new Map(resources.map((item) => [item.id, item]));
+    const statements = this.statementDetails(active.statements);
+    const workflow = resourceById.get(workflowId);
+    if (workflow?.kind !== 'workflow') fail(ERROR.NOT_FOUND, `Workflow not found: ${workflowId}`);
+
+    const operations = new Set(statements
+      .filter((item) => item.subject === workflowId && item.predicate === 'lamina:hasStep' && item.object)
+      .sort((left, right) => (left.qualifiers?.position || 0) - (right.qualifiers?.position || 0))
+      .map((item) => item.object));
+    const closure = new Set([workflowId, ...operations]);
+    const closurePredicates = new Set([
+      'lamina:constrainedBy',
+      'lamina:dependsOn',
+      'lamina:hasScenario',
+      'lamina:recovery',
+      'lamina:requiresProof',
+      'lamina:transitionsTo',
+    ]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const statement of statements) {
+        if (!statement.object || !closurePredicates.has(statement.predicate)) continue;
+        if (closure.has(statement.subject) && !closure.has(statement.object)) {
+          closure.add(statement.object);
+          changed = true;
+        }
+      }
+    }
+
+    const actors = new Set(statements
+      .filter((item) => item.predicate === 'lamina:authorizedFor' &&
+        operations.has(item.object) && resourceById.get(item.subject)?.kind === 'actor')
+      .map((item) => item.subject));
+    const surfaces = new Set(statements
+      .filter((item) => item.predicate === 'lamina:realizes' &&
+        operations.has(item.object) && resourceById.get(item.subject)?.kind === 'surface')
+      .map((item) => item.subject));
+    const proofs = new Set(statements
+      .filter((item) => item.predicate === 'lamina:requiresProof' &&
+        closure.has(item.subject) && resourceById.get(item.object)?.kind === 'proof')
+      .map((item) => item.object));
+    actors.forEach((item) => closure.add(item));
+    surfaces.forEach((item) => closure.add(item));
+    proofs.forEach((item) => closure.add(item));
+
+    const explicitRelevant = new Set(statements
+      .filter((item) => item.predicate === 'lamina:relevantTo' &&
+        closure.has(item.object) && resourceById.get(item.subject)?.kind === 'persona')
+      .map((item) => item.subject));
+    const assumedActors = new Map();
+    for (const statement of statements.filter((item) =>
+      item.predicate === 'lamina:canAssume' &&
+      resourceById.get(item.subject)?.kind === 'persona' &&
+      actors.has(item.object))) {
+      if (!assumedActors.has(statement.subject)) assumedActors.set(statement.subject, []);
+      assumedActors.get(statement.subject).push(statement.object);
+      explicitRelevant.add(statement.subject);
+    }
+    const allPersonas = resources.filter((item) => item.kind === 'persona').map((item) => item.id);
+    const relevantPersonas = explicitRelevant.size ? [...explicitRelevant] : allPersonas;
+
+    const relevantStatements = statements.filter((item) =>
+      closure.has(item.subject) || (item.object && closure.has(item.object)));
+    const evidence = new Set();
+    for (const statement of relevantStatements) {
+      if (statement.predicate === 'lamina:supportedBy' &&
+          ['evidence', 'observation', 'harness_result'].includes(resourceById.get(statement.object)?.kind)) {
+        evidence.add(statement.object);
+      }
+      for (const item of this.query(
+        'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id',
+        { id: statement.id },
+      )) evidence.add(item.id);
+    }
+
+    const kinds = (ids, kind) => [...ids]
+      .filter((id) => resourceById.get(id)?.kind === kind)
+      .sort();
+    return {
+      workflow: workflowId,
+      operations: [...operations],
+      actors: [...actors].sort(),
+      invariants: kinds(closure, 'invariant'),
+      scenarios: kinds(closure, 'scenario'),
+      surfaces: [...surfaces].sort(),
+      proofs: [...proofs].sort(),
+      dependencies: [...closure].filter((id) => {
+        const kind = resourceById.get(id)?.kind;
+        return kind && ![
+          'workflow', 'operation', 'actor', 'invariant', 'scenario', 'surface', 'proof',
+        ].includes(kind);
+      }).sort(),
+      evidence: [...evidence].sort(),
+      personas: relevantPersonas.sort(),
+      assumed_actors: Object.fromEntries([...assumedActors]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, values]) => [key, [...new Set(values)].sort()])),
+      statement_ids: relevantStatements.map((item) => item.id).sort(),
     };
   }
 
@@ -893,9 +1196,10 @@ export class GraphEngine {
     };
     const workflowResource = activeResource(workflow, 'workflow');
     if (!workflowResource) fail(ERROR.NOT_FOUND, `Workflow not found: ${workflow}`);
+    const workflowClosure = this.missionClosure(viewId, workflowResource.id);
     const personas = persona
       ? [activeResource(persona, 'persona')].filter(Boolean)
-      : resources.filter((item) => item.kind === 'persona');
+      : workflowClosure.personas.map((id) => resources.find((item) => item.id === id)).filter(Boolean);
     if (!personas.length) fail(ERROR.NOT_FOUND, persona ? `Persona not found: ${persona}` : 'No Personas are active.');
     const manifests = resources.filter((item) => item.kind === 'capability_manifest');
     let manifest = null;
@@ -903,6 +1207,12 @@ export class GraphEngine {
       manifest = activeResource(adapter, 'capability_manifest') ||
         manifests.find((item) => item.data?.name === adapter);
       if (!manifest) fail(ERROR.NOT_FOUND, `Capability manifest not found: ${adapter}`);
+    }
+    const capabilityRequirements = workflowResource.data?.capability_requirements || [];
+    if (capabilityRequirements.length && !manifest) {
+      fail(ERROR.VALIDATION, `Workflow ${workflowResource.id} requires an adapter capability manifest.`, {
+        missing: capabilityRequirements,
+      });
     }
     const session = suppliedSession || this.startSession({ branch: context.branch, source_revision: context.source_revision });
     const missions = [];
@@ -912,9 +1222,20 @@ export class GraphEngine {
           workflow: workflowResource.id,
           persona: personaResource.id,
           adapter: manifest?.id || null,
-          capability_requirements: workflowResource.data?.capability_requirements || [],
+          capability_requirements: capabilityRequirements,
           budget: workflowResource.data?.mission_budget || {},
           isolation: 'independent_session',
+          closure: {
+            operations: workflowClosure.operations,
+            actors: workflowClosure.assumed_actors[personaResource.id] || workflowClosure.actors,
+            invariants: workflowClosure.invariants,
+            scenarios: workflowClosure.scenarios,
+            surfaces: workflowClosure.surfaces,
+            proofs: workflowClosure.proofs,
+            evidence: workflowClosure.evidence,
+            dependencies: workflowClosure.dependencies,
+            statements: workflowClosure.statement_ids,
+          },
         };
         if (manifest) {
           const available = new Set(manifest.data?.capabilities || []);
@@ -1080,11 +1401,33 @@ export class GraphEngine {
       'MATCH (v:GraphView {id: $id})-[:VIEW_RES]->(r:Resource {kind: $kind}) RETURN r.id AS id, r.data AS data',
       { id: viewId, kind: 'observation' },
     );
+    const categoryCounts = {};
+    const unsupported = {};
+    for (const observation of observations) {
+      for (const category of observation.data?.payload?.brownfield?.categories || []) {
+        categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      }
+      for (const reason of observation.data?.payload?.brownfield?.unsupported || []) {
+        unsupported[reason] = (unsupported[reason] || 0) + 1;
+      }
+    }
     return {
       exists: true,
       view: viewId,
       count: observations.length,
       source_revisions: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_revision).filter(Boolean))].sort(),
+      source_roots: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_root).filter(Boolean))].sort(),
+      extractors: [...new Set(observations.map((item) => {
+        const extractor = item.data?.extractor;
+        return extractor?.id && extractor?.version ? `${extractor.id}@${extractor.version}` : null;
+      }).filter(Boolean))].sort(),
+      coverage: canonical(categoryCounts),
+      unsupported: canonical(unsupported),
+      limitations: [
+        'Static source observations do not prove runtime reachability or behavior.',
+        'Dynamic dispatch, generated code, remote services, and runtime-only configuration require Mission evidence.',
+        'Absence of an Observation is not evidence that behavior does not exist.',
+      ],
     };
   }
 
@@ -1128,42 +1471,60 @@ export class GraphEngine {
   }
 
   backup(output) {
-    const statements = this.statementDetails(this.query('MATCH (s:Statement) RETURN s.id AS id').map((item) => item.id));
+    const statements = this.statementDetails(
+      this.query('MATCH (s:Statement) RETURN s.id AS id').map((item) => item.id).sort(),
+    ).sort((left, right) => left.id.localeCompare(right.id));
     for (const statement of statements) {
-      statement.evidence = this.query('MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id', { id: statement.id }).map((item) => item.id);
-      statement.generated_by = this.query('MATCH (s:Statement {id: $id})-[:GENERATED_BY]->(r:Resource) RETURN r.id AS id', { id: statement.id }).map((item) => item.id);
+      statement.evidence = this.query('MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id', { id: statement.id }).map((item) => item.id).sort();
+      statement.generated_by = this.query('MATCH (s:Statement {id: $id})-[:GENERATED_BY]->(r:Resource) RETURN r.id AS id', { id: statement.id }).map((item) => item.id).sort();
     }
-    const versions = this.query('MATCH (g:GraphVersion) RETURN g.id AS id, g.source_revision AS source_revision, g.receipt AS receipt');
+    const versions = this.query('MATCH (g:GraphVersion) RETURN g.id AS id, g.source_revision AS source_revision, g.receipt AS receipt')
+      .sort((left, right) => left.id.localeCompare(right.id));
     for (const version of versions) {
-      version.parents = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_PARENT]->(p:GraphVersion) RETURN p.id AS id', { id: version.id }).map((item) => item.id);
-      version.add_resources = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_ADD_RES]->(r:Resource) RETURN r.id AS id', { id: version.id }).map((item) => item.id);
-      version.add_statements = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_ADD_STMT]->(s:Statement) RETURN s.id AS id', { id: version.id }).map((item) => item.id);
-      version.retire_resources = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_RETIRE_RES]->(r:Resource) RETURN r.id AS id', { id: version.id }).map((item) => item.id);
-      version.retire_statements = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_RETIRE_STMT]->(s:Statement) RETURN s.id AS id', { id: version.id }).map((item) => item.id);
+      version.parents = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_PARENT]->(p:GraphVersion) RETURN p.id AS id', { id: version.id }).map((item) => item.id).sort();
+      version.add_resources = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_ADD_RES]->(r:Resource) RETURN r.id AS id', { id: version.id }).map((item) => item.id).sort();
+      version.add_statements = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_ADD_STMT]->(s:Statement) RETURN s.id AS id', { id: version.id }).map((item) => item.id).sort();
+      version.retire_resources = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_RETIRE_RES]->(r:Resource) RETURN r.id AS id', { id: version.id }).map((item) => item.id).sort();
+      version.retire_statements = this.query('MATCH (g:GraphVersion {id: $id})-[:VERSION_RETIRE_STMT]->(s:Statement) RETURN s.id AS id', { id: version.id }).map((item) => item.id).sort();
     }
-    const views = this.query('MATCH (v:GraphView) RETURN v.id AS id, v.kind AS kind, v.name AS name, v.status AS status');
+    const views = this.query('MATCH (v:GraphView) RETURN v.id AS id, v.kind AS kind, v.name AS name, v.status AS status')
+      .sort((left, right) => left.id.localeCompare(right.id));
     for (const view of views) {
       view.head = this.head(view.id)?.id || null;
       view.base = this.query('MATCH (v:GraphView {id: $id})-[:VIEW_BASE]->(b:GraphView) RETURN b.id AS id', { id: view.id })[0]?.id || null;
-      view.resources = this.query('MATCH (v:GraphView {id: $id})-[:VIEW_RES]->(r:Resource) RETURN r.id AS id', { id: view.id }).map((item) => item.id);
-      view.statements = this.query('MATCH (v:GraphView {id: $id})-[:VIEW_STMT]->(s:Statement) RETURN s.id AS id', { id: view.id }).map((item) => item.id);
-      view.pending_evidence = view.kind === 'session' ? this.pendingSessionEvidence(view.id) : [];
+      view.resources = this.query('MATCH (v:GraphView {id: $id})-[:VIEW_RES]->(r:Resource) RETURN r.id AS id', { id: view.id }).map((item) => item.id).sort();
+      view.statements = this.query('MATCH (v:GraphView {id: $id})-[:VIEW_STMT]->(s:Statement) RETURN s.id AS id', { id: view.id }).map((item) => item.id).sort();
+      view.pending_evidence = view.kind === 'session'
+        ? this.pendingSessionEvidence(view.id).sort((left, right) => left.key.localeCompare(right.key))
+        : [];
     }
-    const payload = {
+    const body = {
       format: 'lamina-graph-backup-v1',
-      resources: this.query('MATCH (r:Resource) RETURN r.id AS id, r.kind AS kind, r.data AS data'),
-      aliases: this.query('MATCH (a:Alias)-[:ALIAS_TO]->(r:Resource) RETURN a.key AS key, r.id AS resource'),
+      resources: this.query('MATCH (r:Resource) RETURN r.id AS id, r.kind AS kind, r.data AS data')
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      aliases: this.query('MATCH (a:Alias)-[:ALIAS_TO]->(r:Resource) RETURN a.key AS key, r.id AS resource')
+        .sort((left, right) => left.key.localeCompare(right.key)),
       statements,
       versions,
       views,
     };
+    const integrity = digest('backup', body);
+    const payload = { ...body, integrity };
     fs.writeFileSync(output, `${JSON.stringify(canonical(payload), null, 2)}\n`, { flag: 'wx' });
-    return { output: path.resolve(output), digest: digest('backup', payload) };
+    return { output: path.resolve(output), digest: integrity };
   }
 
   restore(input) {
     const payload = JSON.parse(fs.readFileSync(input, 'utf8'));
     if (payload.format !== 'lamina-graph-backup-v1') fail(ERROR.VALIDATION, 'Unsupported graph backup format.');
+    if (payload.integrity) {
+      const { integrity, ...body } = payload;
+      const actual = digest('backup', body);
+      if (integrity !== actual) fail(ERROR.VALIDATION, 'Graph backup integrity check failed.', {
+        expected: integrity,
+        actual,
+      });
+    }
     const existing = this.query(
       'MATCH (r:Resource) RETURN count(r) AS resources',
     )[0]?.resources || 0;

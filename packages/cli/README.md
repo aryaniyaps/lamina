@@ -34,12 +34,18 @@ npx skills install aryaniyaps/lamina
 ```bash
 lamina graph observe
 lamina graph observe --live
+lamina graph discover --brownfield
 lamina graph rebuild-observations
 ```
 
 `rebuild-observations` invalidates the current observation generation and then
 performs a complete observation pass. CocoIndex assets are always resolved
 from this installed package, not from the target repository.
+
+`discover --brownfield` returns deterministic coverage signals for entry
+points, commands, routes, handlers, schemas/entities, state transitions,
+permissions, events, tests, documentation/personas, feature flags, and
+dependencies. These are source observations, not proof of runtime behavior.
 
 ## Existing installations
 

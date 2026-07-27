@@ -59,7 +59,10 @@ async function run() {
       kind: opt.kind,
       alias: opt.alias || (opt.workflow ? `workflow.${opt.workflow}` : undefined),
     });
-    if (command === 'validate') return graphRequest('graph.validate', { at: opt.at || opt.scope || 'HEAD' });
+    if (command === 'validate') return graphRequest('graph.validate', {
+      at: opt.at || 'HEAD',
+      scope: opt.scope || null,
+    });
     if (command === 'diff') return graphRequest('graph.diff', { base: opt.base || 'main', head: opt.head || 'HEAD' });
     if (command === 'backup') {
       const output = opt.output || path.join(process.cwd(), `lamina-graph-${Date.now()}.backup.json`);
@@ -71,6 +74,12 @@ async function run() {
     }
     if (command === 'observe') {
       return runObservation({ live: Boolean(opt.live) });
+    }
+    if (command === 'discover') {
+      if (!opt.brownfield) {
+        throw Object.assign(new Error('graph discover currently requires --brownfield.'), { code: 'LAMINA_BAD_REQUEST' });
+      }
+      return runObservation({ discover: true });
     }
     if (command === 'propose') {
       const input = readInput(opt.input);
@@ -129,7 +138,7 @@ async function run() {
       return graphRequest('mission.run', { mission, events });
     }
   }
-  throw Object.assign(new Error('Usage: lamina --version | lamina doctor --json | lamina graph <query|propose|patch|link|retire|validate|diff|status|backup|restore|observe|rebuild-observations> | lamina session <start|query|publish|rebase|abort> | lamina mission <compile|run>'), { code: 'LAMINA_BAD_REQUEST' });
+  throw Object.assign(new Error('Usage: lamina --version | lamina doctor --json | lamina graph <query|propose|patch|link|retire|validate|diff|status|backup|restore|observe|discover|rebuild-observations> | lamina session <start|query|publish|rebase|abort> | lamina mission <compile|run>'), { code: 'LAMINA_BAD_REQUEST' });
 }
 
 try {
