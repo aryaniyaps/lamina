@@ -780,7 +780,7 @@ export async function runThreeArmCampaign(options = {}) {
   const deadlineAt = new Date(nowMs + deadlineMs).toISOString();
 
   const envFile = options.envFile === undefined ? pickEnvFile(root) : options.envFile;
-  if (!envFile) {
+  if (!envFile && !dryRun) {
     return {
       ok: false,
       exitCode: 1,

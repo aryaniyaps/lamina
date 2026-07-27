@@ -536,7 +536,7 @@ if (manualPlanBefore === null) {
 const dry = spawnSync(
   process.execPath,
   [
-    path.join(root, 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'),
+    path.join(tmpRoot, 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'),
     '--dry-run',
     '--skip-package-scripts',
     '--concurrency',
@@ -544,7 +544,7 @@ const dry = spawnSync(
     '--tasks',
     selectedNewTasks.join(','),
   ],
-  { cwd: root, encoding: 'utf8' },
+  { cwd: tmpRoot, encoding: 'utf8' },
 );
 assert.equal(dry.status, 0, dry.stderr);
 const dryPayload = JSON.parse(dry.stdout);
