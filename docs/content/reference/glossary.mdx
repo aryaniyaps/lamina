@@ -1,19 +1,42 @@
+---
+title: Glossary
+description: Definitions for the transactional product graph, sessions, evidence, observations, and verification.
+---
+
 # Glossary
 
-**Resource** — stable opaque product-knowledge identity with a generic kind.
+**Actor** — A product role with authority for operations.
 
-**Statement** — normalized subject/predicate/object-or-literal fact with optional scope and qualifiers.
+**Alias** — Human-readable key resolving to a stable opaque Resource id.
 
-**GraphVersion** — immutable version delta and validation receipt.
+**Contradiction** — Stable Resource representing incompatible active facts. Conflicting facts remain visible.
 
-**GraphView** — branch, session, observation, or historical view.
+**Evidence input** — A source file or artifact that may support a proposal but is not canonical by location alone.
 
-**Contradiction** — Resource referencing incompatible Statements or alias identities.
+**Epistemic class** — Origin category: `intended`, `observed`, `inferred`, `simulated`, `human_evidence`, or `runtime_evidence`.
 
-**Mission** — Persona-specific executable verification plan.
+**GraphView** — A branch, session, observation, or historical view of graph membership.
 
-**Run** — isolated Mission execution tied to a starting GraphVersion and source revision.
+**`graphd`** — Authenticated clone-local daemon and sole Ladybug writer.
 
-**HarnessResult** — normalized adapter event sequence.
+**`GraphVersion`** — Immutable graph delta, parent set, source revision, and validation receipt.
 
-**Observation** — CocoIndex-derived source evidence with explicit reproducible provenance.
+**HarnessResult** — Normalized result produced by a Mission adapter.
+
+**Ladybug** — Embedded graph database containing canonical clone-local product state.
+
+**Mission** — Persona-specific executable verification contract.
+
+**Observation** — CocoIndex-produced source evidence with snapshot and extractor provenance.
+
+**Persona** — A concrete user perspective that can assume an Actor.
+
+**Projection** — Human-readable implementation or verification handoff resolved from a graph view.
+
+**Resource** — Stable graph node such as Product, Actor, Persona, Workflow, Operation, Proof, Mission, or Run.
+
+**Run** — One isolated execution of a Mission.
+
+**Session** — Transactional staging view with a base version and compare-and-swap publication.
+
+**Statement** — Normalized relationship or typed fact with subject, predicate, object/literal, qualifiers, scope, and evidence.

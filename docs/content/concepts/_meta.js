@@ -1,7 +1,7 @@
 export default {
   "what-is-lamina": "What is Lamina?",
-  "the-loop": "The Loop",
-  "contracts-and-runs": "Contracts & Runs",
-  personas: "Personas",
-  "brownfield-and-greenfield": "Brownfield & Greenfield",
+  "the-loop": "The product loop",
+  "contracts-and-runs": "Versions & Runs",
+  personas: "Personas & Missions",
+  "brownfield-and-greenfield": "Brownfield discovery",
 };

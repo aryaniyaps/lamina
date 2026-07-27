@@ -15,6 +15,13 @@ const fixture = path.join(temp, 'fixture');
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 fs.mkdirSync(packDirectory);
 fs.mkdirSync(fixture);
+fs.mkdirSync(installPrefix);
+fs.writeFileSync(path.join(installPrefix, 'package.json'), `${JSON.stringify({
+  private: true,
+  allowScripts: {
+    '@ladybugdb/core@0.18.3': true,
+  },
+}, null, 2)}\n`);
 
 function run(command, args, options = {}) {
   const commandScript = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command);
@@ -49,8 +56,8 @@ try {
       './packages/cli',
     ], { cwd: path.resolve('.') });
     const report = JSON.parse(packed.stdout);
-    auditPackReport(report);
-    tarball = path.join(packDirectory, report[0].filename);
+    const audit = auditPackReport(report);
+    tarball = path.join(packDirectory, audit.filename);
   } else if (tarball) {
     tarball = path.resolve(tarball);
   }

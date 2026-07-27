@@ -1,4 +1,4 @@
 export default {
-  orchestrator: "Orchestrator",
-  "lamina-bench": "LaminaBench",
+  orchestrator: "Orchestrator internals",
+  "lamina-bench": "LaminaBench LB6",
 };

@@ -1,7 +1,89 @@
-# Troubleshooting
+---
+title: Troubleshoot setup and runtime
+description: Diagnose skill discovery, npm 12 native scripts, Git context, graphd, observations, and stale sessions.
+---
 
-- `LAMINA_COMPARE_AND_SWAP_FAILED`: rebase the session, query the new head, revalidate, and publish.
-- CLI missing or incompatible: run `npm install -g @laminadev/cli@latest`, then `lamina doctor --json`.
-- graphd unavailable: rerun `lamina graph status`; incompatible protocol daemons restart and stale locks recover without rewriting `graph.lbdb`.
-- observation update incomplete: ensure `uv` is available and rerun `lamina graph observe`; CocoIndex reconciles possible prior states.
-- stale readiness: inspect missing evidence, source snapshot changes, artifact digests, and Contradictions with `lamina graph validate`.
+# Troubleshoot setup and runtime
+
+## `lamina` is not found
+
+```bash
+npm install -g @laminadev/cli@latest
+lamina --version
+```
+
+Check that npm’s global binary directory is on `PATH`. Do not use `sudo` to mask a user-prefix problem.
+
+## Slash commands are missing
+
+```bash
+npx skills add aryaniyaps/lamina --all -y
+```
+
+Then start a fresh agent session in the project root.
+
+## Ladybug cannot load on npm 12
+
+If install output says `@ladybugdb/core` scripts were blocked, reinstall with explicit approval:
+
+```bash
+npm install -g --allow-scripts=@ladybugdb/core @laminadev/cli@latest
+```
+
+This allows only Ladybug’s native installer, not arbitrary dependency scripts.
+
+## `git rev-parse HEAD` fails
+
+Lamina requires a Git repository with a commit:
+
+```bash
+git init
+git add <your-project-files>
+git commit -m "Initial project"
+```
+
+## `stale: true`
+
+The source tree changed after the current graph head. Refresh source observations, then publish or rebase the product change that corresponds to the new source revision:
+
+```bash
+lamina graph observe
+lamina graph validate
+lamina graph status
+```
+
+Do not treat `stale: true` as proof that a product claim is false. It means its source evidence must be refreshed.
+
+## `LAMINA_COMPARE_AND_SWAP_FAILED`
+
+Another session or branch update moved the head:
+
+```bash
+lamina session query <session-id>
+lamina session rebase <session-id>
+lamina graph diff --base main --head <session-id>
+lamina session publish <session-id>
+```
+
+Abort the session instead if its proposal is no longer wanted.
+
+## Observation errors
+
+- `LAMINA_OBSERVATION_UNAVAILABLE`: install `uv`, or repair missing packaged observation assets.
+- `LAMINA_OBSERVATION_FAILED`: inspect `error.details.stderr` and `stdout`.
+- `LAMINA_OBSERVATION_INCOMPLETE`: CocoIndex exited without a complete committed target generation. Rerun; if it persists, use `lamina graph rebuild-observations`.
+
+Observation recovery never writes canonical claims directly.
+
+## `graphd` will not start
+
+Run:
+
+```bash
+lamina doctor --json
+lamina graph status
+```
+
+Inspect `$(git rev-parse --git-common-dir)/lamina/graphd.log`. Do not delete `graph.lbdb` as a troubleshooting shortcut. Create a logical backup before any storage repair.
+
+See [contradictions and recovery](/guides/working-with-findings) and [storage and backups](/reference/artifacts).

@@ -4,12 +4,12 @@ export const SITE = {
   tagline: "Design how it works.",
   subline: "Know what to build. Iterate faster.",
   description:
-    "Transactional product-knowledge graph for AI coding agents. Invoke /lamina-init, /lamina-design, and /lamina-verify to publish intended behavior, source observations, and isolated Persona Mission evidence.",
+    "Transactional product graph for AI coding agents: initialize product knowledge, publish atomic workflow designs, implement from a GraphVersion, and verify through independent Persona Missions.",
   positioning:
-    "Product-design skill for developers who build with AI — know what to build, iterate faster.",
+    "Transactional product graph that gives AI coding agents product-design and verification capabilities.",
   icp: "Developers using AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi) — not designers or PMs.",
   disambiguation:
-    "Lamina (lamina.dev) is an open-source product-design skill for AI coding agents — not uselamina.ai (creative API for media generation).",
+    "Lamina (lamina.dev) is an open-source transactional product graph for AI coding agents — not uselamina.ai (creative API for media generation).",
   productSummary:
     "Lamina is an Apache-2.0 transactional product graph. Ladybug stores canonical Resources, Statements, versions, sessions, and Runs; CocoIndex incrementally supplies explicit source Observations through graphd.",
   loop: "/lamina-init → /lamina-design → implement → /lamina-verify → fix",
@@ -24,7 +24,7 @@ export const SITE = {
     "Not an app builder — does not generate stack-locked apps like v0 or Lovable",
     "Not a pixel skill — Impeccable and frontend-design polish how it looks; Lamina designs how it works",
   ],
-  install: "npm install -g @laminadev/cli && npx skills install aryaniyaps/lamina",
+  install: "npm install -g @laminadev/cli@latest && npx skills add aryaniyaps/lamina --all -y",
   license: "Apache-2.0",
   github: "https://github.com/aryaniyaps/lamina",
   domain: "https://lamina.dev",

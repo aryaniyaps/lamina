@@ -1,7 +1,30 @@
+---
+title: Personas and Missions
+description: Model actors and personas separately, then verify each relevant perspective independently.
+---
+
 # Personas and Missions
 
-Personas are stable Resources. Actors express authority; typed Statements connect Personas to Actors they can assume.
+An **Actor** is a role with authority in the product: member, administrator, approver, guest, operator. A **Persona** is a concrete perspective that can assume an actor while carrying goals, constraints, context, and risk.
 
-`lamina mission compile` queries all relevant Personas, workflow/operation closure, invariants, recovery paths, Surfaces, adapter capabilities, proofs, evidence, budgets, and isolation. It creates an independent Mission for every relevant Persona without a cap.
+Several personas may share one actor. A new user and an expert operator can both be members while needing different discovery, error, and recovery paths.
 
-Persona interpretation is simulated. Only adapter-observed events become runtime evidence.
+## Relevance
+
+Lamina compiles a Mission for every Persona connected to the workflow’s actor and operation closure. There is no fixed maximum. Relevance comes from graph relationships, not from picking a convenient sample of three.
+
+## Independence
+
+Each Mission:
+
+- resolves the same workflow version;
+- gets persona-specific goals and constraints;
+- runs through an adapter capability manifest;
+- stages normalized events and evidence in its own session;
+- requires explicit publication.
+
+## Evidence boundary
+
+Persona simulation is `simulated`, not `runtime_evidence`. A Mission can identify an expected failure before the product is run, but only normalized adapter events can support a runtime proof.
+
+`.lamina/personas.json` is an evidence input used to propose Persona Resources. The canonical Persona graph lives in Ladybug.

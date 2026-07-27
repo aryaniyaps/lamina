@@ -1,36 +1,57 @@
-# Lamina
+---
+title: Lamina documentation
+description: Build and verify product behavior with a local transactional product graph for AI coding agents.
+---
 
-Lamina gives AI coding agents a centralized, transactional product graph.
+# Give your coding agent product memory it can trust
 
-```text
-Sources ──▶ CocoIndex ──observations──▶ graphd ──▶ Ladybug
-Agents  ──typed proposals─────────────▶ graphd ──▶ Ladybug
-Runs    ──normalized evidence─────────▶ graphd ──▶ Ladybug + evidence CAS
-```
+Lamina is a **transactional product graph** for AI coding agents. It turns product intent, source observations, personas, workflows, invariants, and verification evidence into versioned knowledge your agent can query without treating a pile of prose as canonical truth.
 
-Ladybug is the canonical local knowledge graph. It stores stable Resources, normalized Statements, versions, branch/session/observation views, Missions, Runs, and evidence. Git identifies source revisions and branches but does not store graph changes.
+The developer journey is:
 
-## Start
+1. **Install** the CLI and agent skills.
+2. **Initialize product knowledge** for the repository.
+3. **Design one workflow** in a graph session and publish it atomically.
+4. **Implement from the resolved `GraphVersion`** in ordinary coding mode.
+5. **Verify the live product** through an independent Mission for every relevant Persona.
 
 ```bash
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --all -y
 lamina doctor --json
-/lamina-init
-/lamina-design
-# implement in a normal coding session
-/lamina-verify
 ```
 
-Use `lamina graph status` to inspect the resolved GraphVersion. Design and verification commands do not edit application source.
+Start a fresh agent session, then run:
 
-## Why it is different
+```text
+/lamina-init <product domain and primary users>
+/lamina-design <one workflow>
+```
 
-- Serializable sessions commit completely or leave the branch unchanged.
-- Intent, observations, agent inference, Persona simulation, human evidence, and runtime evidence stay separate.
-- Conflicts remain inspectable as Contradictions.
-- Every relevant Persona receives an independent Mission and Run.
-- Source changes update an observation view without mutating canonical Claims.
-- Existing legacy run files are ignored by the runtime.
+Your coding agent implements the returned projection. Lamina never edits application source. When the product is running:
 
-See [Transactional graph](/reference/transactional-graph).
+```text
+/lamina-verify <workflow> at http://localhost:3000
+```
+
+## What is canonical?
+
+- Ladybug at `$(git rev-parse --git-common-dir)/lamina/graph.lbdb` is the canonical graph for the clone.
+- `graphd` is the only writer. Every worktree talks to the same authenticated daemon.
+- CocoIndex contributes explicit source `Observation` records; it never opens Ladybug.
+- `.lamina/business-context.md` and `.lamina/personas.json` are evidence inputs. They are useful, editable files, but not shared canonical graph state.
+- Legacy run files are untouched, excluded from observation, and have no runtime authority.
+
+Git identifies branches and source revisions. A `GraphVersion` records graph membership and validation at a particular source revision. A human-readable implementation plan, report, or fix list is a projection from that version—not a second source of truth.
+
+## Choose your next task
+
+- [Install Lamina](/getting-started/installation)
+- [Complete the first workflow](/getting-started/quickstart)
+- [Discover an existing codebase](/concepts/brownfield-and-greenfield)
+- [Review semantic branch changes](/guides/review-branch-diffs)
+- [Resolve contradictions and evidence gaps](/guides/working-with-findings)
+- [Understand storage, worktrees, and backups](/reference/artifacts)
+- [Use the complete CLI reference](/commands)
+
+Lamina is Apache-2.0, stack-agnostic, and local-first.

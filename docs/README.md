@@ -1,6 +1,6 @@
 # Lamina docs site
 
-Documentation for [lamina.dev](https://lamina.dev), built with [Next.js 16](https://nextjs.org/) and [Nextra 4](https://nextra.site/).
+Developer documentation for Lamina's transactional product graph, published at [lamina.dev/docs](https://lamina.dev/docs) with Next.js and Nextra.
 
 ## Prerequisites
 
@@ -45,6 +45,10 @@ docs/
 - Add or edit pages under `content/` as `.mdx` files.
 - Control sidebar order and labels with `_meta.js` in each section folder.
 - Site-wide metadata lives in `lib/site.ts`.
+- Document canonical Ladybug state separately from repository evidence inputs.
+- Keep public CLI examples backed by `packages/cli/bin/lamina.mjs`.
+- Preserve inbound page URLs when changing a page from current guidance to migration or historical context.
+- Never describe legacy run files or generated projections as authoritative runtime state.
 
 ## Deploying to Vercel
 
@@ -65,6 +69,8 @@ The site is served under `/docs` via `basePath` in `next.config.mjs`, so product
 The marketing homepage lives in a **separate** Next.js repo that routes `/docs/*` to this app. It also proxies `/llms.txt` and `/llms-full.txt` to this deployment via `beforeFiles` rewrites.
 
 `pnpm build` runs `scripts/generate-llms.mjs` first, writing `public/llms.txt` and `public/llms-full.txt`. With `basePath: /docs`, they are served at `/docs/llms.txt` and `/docs/llms-full.txt`. The landing zone proxies `lamina.dev/llms.txt` to those paths — no copy step on landing.
+
+Generated `llms*.txt`, Pagefind output, `.next/`, and TypeScript build metadata are build products and must not be committed.
 
 Other landing-zone changes (sitemap index, performance, headers): [`LANDING_ZONE.md`](./LANDING_ZONE.md).
 

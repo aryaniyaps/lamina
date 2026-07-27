@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # /lamina-init
 
-Answer the business questions product design depends on and persist them in `.lamina/`. Run once per project, or again when the business use case changes.
+Answer the business questions product design depends on, record evidence inputs in `.lamina/`, and publish Product, Actor, and Persona knowledge through `graphd`. Run once per project, or again when the business use case changes.
 
 ## Quick path
 
@@ -51,19 +51,19 @@ Update mode appends to the changelog in `business-context.md` and revises affect
 
 ## What it produces
 
-| File | Content |
+| Evidence input | Content |
 |------|---------|
 | `.lamina/business-context.md` | Domain charter — problem, goals, scope, constraints |
 | `.lamina/personas.json` | Actor cast — roles, goals, permissions, constraints |
 
-See [Global artifacts](/reference/global-artifacts) for field-level detail.
+These files are evidence inputs, not canonical graph state. See [Evidence inputs](/reference/global-artifacts).
 
 ## Brownfield scanning
 
 On existing codebases, `/lamina-init` may perform a bounded repo scan to infer domain context. The scan is read-only — Lamina never edits app source during init.
 
 <Callout type="info">
-**Advanced:** Brownfield scanning follows the field-research pattern. It reads source files and may walk the live UI to ground `business-context.md` in what already exists.
+**Advanced:** Brownfield initialization runs `lamina graph discover --brownfield` for explicit CocoIndex coverage and limitations. Live UI evidence is collected separately through Missions.
 </Callout>
 
 ## Init gate
@@ -88,5 +88,5 @@ Run `/lamina-design` with a specific feature or flow within the chartered domain
 ## Next steps
 
 - [/lamina-design](/commands/lamina-design) — design a contract
-- [Global artifacts](/reference/global-artifacts) — `business-context.md` and `personas.json` reference
+- [Evidence inputs](/reference/global-artifacts) — authority of `business-context.md` and `personas.json`
 - [Brownfield and greenfield](/concepts/brownfield-and-greenfield) — existing vs new projects

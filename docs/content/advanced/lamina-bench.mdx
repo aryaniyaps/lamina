@@ -1,86 +1,22 @@
 ---
-title: LaminaBench
-description: Harbor v4 behavior benchmark that proves Lamina works under matched arms
+title: LaminaBench LB6 status
+description: Current benchmark status and the maintained source of truth for LaminaBench 6.
 ---
 
-import { Callout } from 'nextra/components'
+# LaminaBench LB6 status
 
-# LaminaBench
+LaminaBench 6 (LB6) is the current benchmark line. Earlier “v4” documentation and duplicated command recipes are obsolete.
 
-LaminaBench v4 tests whether agents that complete the **design → implement → verify → fix** loop ship thin products that pass more held-out behavior checks than matched non-Lamina baselines.
+LB6 evaluates product-behavior work under matched agent budgets and multiple arms. Publication is fail-closed: a benchmark claim requires validated task packages, sealed execution artifacts, compatible replay, semantic-row validation, and a maintained release artifact.
 
-<Callout type="warning">
-No publication result exists yet. Run the pilot matrix locally, confirm treatment gates and behavior lift, then expand before marketing claims.
-</Callout>
+This page intentionally does not duplicate volatile runner commands, model claims, or unpublished results.
 
-## What this suite proves
+Use the maintained sources:
 
-**Claim (when gates + outcome both pass):** Agents that complete a full Lamina loop (`spark`/`shape` with in-scope harden rigor, UI walkthrough + persona-panel subagents) pass more authority / lifecycle / recovery behavior checks than `direct` / `checklist` on the same fuzzy brief.
+- [LB6 benchmark source](https://github.com/aryaniyaps/lamina/tree/main/benchmarks/lb6)
+- [LB6 methodology and runbooks](https://github.com/aryaniyaps/lamina/tree/main/benchmarks/lb6/README.md)
+- [Current public release artifact](https://github.com/aryaniyaps/lamina/tree/main/benchmarks/releases/current)
 
-**Not claimed from this suite:**
+If the current release artifact is absent, invalid, or not in a publishable status, no performance claim should be inferred from repository code or local reports.
 
-- Human “iterate faster” (deferred crossover study)
-- Full `harden` release rigor beyond the thin-slice prototype posture
-- Skill slash-command compliance alone (see `evals/`)
-
-## How it works
-
-| Piece | Detail |
-|---|---|
-| Construct | Behavior integrity from a fuzzy founder brief |
-| Primary metric | `behavior_pass_rate` on `app.mjs` (`createInitialState` / `reduce` / `project`) |
-| Steps | Matched **4,200s** agent budget per arm. Baselines: `shape_build` + `verify_fix` (2,100s each). Lamina: `lamina_init` → `lamina_design` → `implement` → `lamina_verify` → `fix`; final step scores |
-| Oracle | `reduce`/`project` must change with actions; action ids must appear in reduced state (anti-gaming) |
-| Agent aid | Structural `selfcheck.mjs` on coding steps — public actions only, no graded expect substrings |
-| Anti-leak | `grade.mjs` keeps expects opaque (base64); agents must not decode/stuff oracle strings |
-| Lamina arm | Real skills (`/lamina-init`, `/lamina-design`, implement, `/lamina-verify`, fix) with bench profile |
-| Treatment gates | Lamina attempts without `.lamina/` charter + run + verify outputs + UI walkthrough + ≥2 `persona_findings` are disqualified (reward 0) |
-| Baselines | `direct`, `plan`, `checklist` — no Lamina skills injected |
-| Model (pilot) | Claude Sonnet (`sonnet`) |
-
-### Bench profile (lamina arm only)
-
-- Stage starts at `shape` / `spark` per task; harden-level rigor still applies at in-scope authority/lifecycle boundaries
-- Delivery is an in-memory reducer + HTML UI (no OAuth/CSRF theater) — authority and lifecycle remain first-class in `reduce`/`project`
-- Normal design proof ceilings; budget must cover every published action type
-- Full skill risk loads from `audit-profiles.yaml` (accessibility, trust, concurrency, etc. injected)
-- Verify requires live UI walkthrough + ≥2 agent-spawned persona-panel findings
-- Harbor image includes Chromium at `/usr/bin/chromium`
-
-## Arms
-
-| Arm | Method |
-|---|---|
-| `direct` | Normal coding agent |
-| `plan` | Plan-first coding agent |
-| `checklist` | Generic product checklist before build |
-| `lamina` | Lamina loop with full risk-capability skill injection |
-
-Lamina vs `checklist` estimates method value. `control-simple-list` is the negative control — Lamina should not dominate a trivial todo app.
-
-## Commands
-
-```bash
-npm run bench:build
-npm run bench:validate
-npm run bench:run:publish           # full 6-cell pilot matrix + harvest
-npm run bench:run:publish:dry       # print matrix without running
-npm run bench:run:pilot:lamina      # care-circle, lamina arm, 2 attempts
-npm run bench:run:pilot             # build + validate + full pilot matrix
-npm run bench:harvest               # copy .lamina trees from results if present
-```
-
-Pilot matrix: `pilot-care-circle` + `control-simple-list` × `{direct, checklist, lamina}` × 2 attempts on Sonnet.
-
-Set `ANTHROPIC_API_KEY` in the **repo root** `.env`. The runner loads that file and passes it to Harbor via `--env-file`.
-
-## Claim discipline
-
-- Reward is **behavior only** — no keyword, brief length, or `.lamina/` ceremony points
-- Report paired task-level pass rates and loop delta (final − mid behavior)
-- Do not cite legacy Harbor v1 file-marker results or v2 studies until those harnesses ship
-- Confirmatory cohort on `opus` only after Sonnet pilot shows valid treatment + directional lift
-
-## Deferred studies
-
-LaminaBench v2 (contract quality, fresh-builder transfer, human iteration crossover) remains documented for future publication but is **not** the runnable harness in this repo today.
+HavenStay is historical comparison evidence, not an LB6 result.

@@ -113,6 +113,7 @@ export function buildSiteJsonLd(): Record<string, unknown> {
         disambiguatingDescription: SITE.disambiguation,
         knowsAbout: [
           "AI coding agents",
+          "Transactional product graphs",
           "Product design",
           "State machines",
           "Software verification",

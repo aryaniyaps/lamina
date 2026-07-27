@@ -1,144 +1,89 @@
 ---
-title: Installation
-description: Install the Lamina CLI and skills independently
+title: Install Lamina
+description: Install the stable CLI and all Lamina agent skills, then verify the local runtime.
 ---
 
 import { Callout } from 'nextra/components'
 
-# Installation
+# Install Lamina
 
-Lamina works with any AI coding agent and any stack. Install once in your **shell**, then invoke Lamina with **slash commands in agent chat** — not with passive natural-language prompting.
+Install the CLI and the agent skills independently from your project root:
+
+```bash
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --all -y
+lamina --version
+lamina doctor --json
+```
+
+Node.js 20 or newer is required. Source observation additionally needs [`uv`](https://docs.astral.sh/uv/); core graph, session, and mission commands do not.
 
 <Callout type="warning">
-Installation does not cause Lamina to activate. After install, open your project root and start a **fresh agent session**, then run `/lamina-init` directly.
+With npm 12, dependency install scripts are blocked until approved. Ladybug needs its native install script, so use `npm install -g --allow-scripts=@ladybugdb/core @laminadev/cli@latest`. npm 11 users can use the standard command above.
 </Callout>
 
-## Quick path
+The skills installer adds `/lamina`, `/lamina-init`, `/lamina-design`, and `/lamina-verify` for supported coding agents. The CLI provides the JSON `lamina` command. Graph-backed skills require CLI API 1.
 
-1. **Shell** — install the CLI, then install the skills for your agent
-2. Open your project root and start a **fresh agent session** so the skill loads
-3. **Agent chat** — run `/lamina-init <your product domain and primary users>`
+## Verify the installation
 
-Continue with [Quickstart](/getting-started/quickstart) for the full design → implement → verify loop.
+`lamina --version` should print `0.1.0` or newer. `lamina doctor --json` should return:
 
-## Quick install
-
-```bash
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+```json
+{
+  "ok": true,
+  "cli": {
+    "package": "@laminadev/cli",
+    "version": "0.1.0",
+    "api_version": 1
+  },
+  "graph": {
+    "protocol_version": 3
+  }
+}
 ```
 
-The CLI and skills have independent release and installation lifecycles. The
-CLI provides `lamina`; the GitHub skill install provides `/lamina`,
-`/lamina-init`, `/lamina-design`, and `/lamina-verify`. Either can be installed
-alone, but graph-backed skill workflows require CLI API 1.
+The full report also describes Node, Git, platform transport, `uv`, and Python 3.13 readiness.
 
-## Agent-specific installs
+Start a **fresh agent session** after installing or updating skills. Skill discovery happens when the agent session starts; installation does not activate Lamina passively.
 
-### Cursor
+## First invocation
 
-```bash
-npx skills add https://github.com/aryaniyaps/lamina -a cursor -y
-```
-
-### Claude Code
-
-```bash
-npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y
-```
-
-### Codex / Pi / generic
-
-```bash
-npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
-```
-
-## Prerequisites
-
-- An AI coding agent (Cursor, Claude Code, Codex, Gemini, Pi, or similar)
-- Any framework, database, and UI library — Lamina is stack-agnostic
-- Node.js 20 or newer for `@laminadev/cli`
-
-There is no Node.js requirement to install the skills alone. If the compatible
-CLI is absent, a graph-backed workflow stops before mutation and prints:
+Open the intended Git repository and run this in agent chat:
 
 ```text
-npm install -g @laminadev/cli@latest
-```
-
-The skills never invoke `npx` for the runtime and never auto-install it.
-
-## After install
-
-1. Open the intended **project root** in your coding agent
-2. Start a **fresh agent session** — skills load at session start
-3. Run init directly in agent chat:
-
-```
 /lamina-init <your product domain and primary users>
 ```
 
-Successful init produces and validates both `.lamina/business-context.md` and `.lamina/personas.json`. Run init **once per project or domain**; use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
+Successful initialization writes `.lamina/business-context.md` and `.lamina/personas.json`, validates them, observes the repository, and publishes Product, Actor, and Persona knowledge through `graphd`.
 
-<Callout type="info">
-Not sure which command to run? `/lamina <what you are trying to do>` is an optional router for discovery — not a required setup step and not a substitute for `/lamina-init`.
-</Callout>
+Those two files are evidence inputs. Editing them does not directly mutate canonical graph state; a Lamina workflow must observe and publish the resulting proposal.
 
 ## Update
 
-Update the components independently:
-
 ```bash
 npm install -g @laminadev/cli@latest
-npx skills install aryaniyaps/lamina
+npx skills add aryaniyaps/lamina --all -y
+lamina doctor --json
 ```
 
-Start a new agent session after updating.
+For npm 12, retain `--allow-scripts=@ladybugdb/core` on the CLI install command. Start a new agent session afterward.
 
-## Migrate from the old linked repository package
-
-If a previous checkout was linked globally as `lamina`, unlink it before
-installing the standalone package:
+## Migrate a linked development install
 
 ```bash
 npm unlink -g lamina
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --all -y
 ```
 
-Do not delete `.git/lamina`. Existing `graph.lbdb` data is retained; the new
-protocol v3 daemon creates its authentication token beside that database.
-
-## .gitignore guidance
-
-Lamina writes to `.lamina/` in your project. Whether to commit it depends on your team:
-
-| Approach | When |
-|----------|------|
-| Commit `.lamina/` | Team wants shared contracts and verify history |
-| Gitignore `.lamina/` | Personal experiments; regenerate locally |
-
-To exclude:
-
-```gitignore
-.lamina/
-```
+Do not delete `.git/lamina`. The standalone package reuses the canonical graph under the Git common directory.
 
 ## Uninstall
 
-Remove the Lamina skill using your agent's skill management tooling, or delete
-the installed skill directory. Remove the CLI separately with
-`npm uninstall -g @laminadev/cli`. `.lamina/` artifacts and `.git/lamina`
-graph data are not removed automatically.
+```bash
+npm uninstall -g @laminadev/cli
+```
 
-## Source
+Remove the installed skills with your agent’s skill manager. Uninstalling does not delete `.lamina/` evidence files or the canonical graph. Back up and remove those only as an explicit data-retention decision.
 
-Lamina is open source under the Apache License 2.0: [github.com/aryaniyaps/lamina](https://github.com/aryaniyaps/lamina)
-
-Full documentation: [lamina.dev](https://lamina.dev)
-
-## Next steps
-
-- [Quickstart](/getting-started/quickstart) — run your first cycle
-- [Troubleshooting](/getting-started/troubleshooting) — if commands are not recognized or init is blocked
-- [What is Lamina?](/concepts/what-is-lamina) — understand what you installed
+Next: [complete your first workflow](/getting-started/quickstart).

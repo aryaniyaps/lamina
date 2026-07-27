@@ -1,7 +1,62 @@
-# Brownfield and greenfield
+---
+title: Discover a brownfield product
+description: Observe an existing repository, inspect coverage and limits, and distinguish absence of evidence from evidence of absence.
+---
 
-Greenfield design begins with intended Resources and Statements plus explicit assumptions.
+# Discover a brownfield product
 
-Brownfield discovery uses CocoIndex Observations from routes, commands, schemas, tests, documentation, permissions, events, configuration, and existing Persona material. Extractors never promote observations into intended or approved Claims. Absence of an Observation is not proof of absence.
+Brownfield initialization starts with source observation:
 
-Both use the same graph, Mission, Run, and evidence model.
+```bash
+lamina graph discover --brownfield
+```
+
+The command runs the pinned CocoIndex project from the installed CLI, commits one observation generation through `graphd`, and returns a discovery report.
+
+## Read the report
+
+```json
+{
+  "ok": true,
+  "mode": "discover",
+  "generation": "generation_…",
+  "expected": 128,
+  "discovery_report": {
+    "extractor_coverage": {
+      "routes": 12,
+      "handlers": 8,
+      "permissions": 4,
+      "tests": 21
+    },
+    "unsupported_sources": {},
+    "stale_snapshots": [],
+    "limitations": []
+  }
+}
+```
+
+Coverage categories include entry points, commands, routes, handlers, schemas/entities, state transitions, permissions, events, tests, documentation/personas, feature flags, and dependencies.
+
+## Treat limits honestly
+
+Static observation cannot prove that a behavior exists at runtime, and missing coverage cannot prove it does not exist. Unsupported sources, stale snapshots, and extractor limitations remain explicit evidence gaps.
+
+Use repository knowledge to propose intended workflows, then verify them against a running product.
+
+## Incremental and full refresh
+
+```bash
+lamina graph observe
+lamina graph observe --live
+lamina graph rebuild-observations
+```
+
+- `observe` performs an incremental update.
+- `--live` keeps CocoIndex watching.
+- `rebuild-observations` invalidates the current generation and performs a complete pass.
+
+Observation updates do not move the canonical branch head or mutate intended claims.
+
+## Greenfield projects
+
+Greenfield initialization has little source evidence. Record assumptions explicitly, publish intended behavior, and mark proofs that need runtime evidence after implementation. Do not fabricate observed or runtime status to make validation look complete.

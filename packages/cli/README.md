@@ -16,6 +16,13 @@ Node.js 20 or newer is required. Core graph, session, and mission commands are
 Node-only. Source observation additionally requires `uv`; the package carries
 its pinned CocoIndex Python project.
 
+npm 12 blocks dependency install scripts by default. Ladybug needs its native
+installer, so npm 12 users should install with the narrow approval:
+
+```bash
+npm install -g --allow-scripts=@ladybugdb/core @laminadev/cli
+```
+
 Install the skills independently from GitHub:
 
 ```bash
@@ -60,5 +67,8 @@ npx skills add aryaniyaps/lamina --all -y
 
 The graph remains in the Git common directory at `.git/lamina`; the migration
 does not rewrite or relocate `graph.lbdb`.
+
+See the [complete CLI reference](https://lamina.dev/docs/commands) for every
+command, option, input schema, output shape, and stable error code.
 
 License: Apache-2.0.

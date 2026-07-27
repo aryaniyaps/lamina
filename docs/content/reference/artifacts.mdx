@@ -1,7 +1,77 @@
-# Storage and projections
+---
+title: Storage, worktrees, and backups
+description: Understand clone-local canonical storage, evidence files, worktree sharing, transfer, and logical recovery.
+---
 
-Canonical runtime state lives in the Git common directory’s `lamina/` folder: Ladybug database, CocoIndex tracking, evidence CAS, lock, and socket.
+# Storage, worktrees, and backups
 
-Business context, Persona JSON, source documentation, and old Lamina files are indexable source evidence. They are not graph state.
+## Canonical clone-local state
 
-Markdown deliverables are generated from a resolved GraphVersion query and must name the GraphVersion and source revision. They are never read back into the runtime.
+The canonical graph is:
+
+```bash
+git_common_dir="$(git rev-parse --git-common-dir)"
+printf '%s\n' "$git_common_dir/lamina/graph.lbdb"
+```
+
+The same directory contains `graphd` authentication/runtime files, evidence artifacts, and CocoIndex state. All worktrees in the clone resolve the same Git common directory and therefore share one `graphd` and one Ladybug database.
+
+Only `graphd` opens Ladybug read-write.
+
+## Repository evidence inputs
+
+The worktree may contain:
+
+- `.lamina/business-context.md`
+- `.lamina/personas.json`
+- implementation, report, or fix projections generated for a resolved version
+- runtime artifacts referenced by evidence
+
+These are not a second canonical graph. They may be committed when a team wants reviewable evidence inputs, or ignored for local experiments.
+
+Legacy `.lamina/runs/` files are excluded from observation and have no runtime authority.
+
+## What Git transfers
+
+Normal Git clone, fetch, push, and worktree operations transfer committed source and committed `.lamina/` files. They do **not** transfer `.git/lamina/graph.lbdb`, open sessions, clone-local observations, daemon tokens, or uncommitted evidence artifacts.
+
+Teams must explicitly transfer:
+
+1. a logical graph backup;
+2. any evidence artifacts referenced by statements;
+3. committed evidence-input files;
+4. the corresponding Git commit or branch.
+
+Do not copy a live Ladybug directory between clones.
+
+## Backup
+
+```bash
+lamina graph backup --output lamina-graph.backup.json
+```
+
+The backup is a deterministic logical export with format `lamina-graph-backup-v1` and an integrity digest. It includes Resources, Statements, aliases, versions, views, observations, sessions, and pending evidence relationships.
+
+Store it like product data. It may contain sensitive business context.
+
+## Restore
+
+```bash
+lamina graph restore --input lamina-graph.backup.json
+```
+
+Restore requires an empty graph database and verifies integrity before writing records. It fails rather than merging with existing canonical state.
+
+For a new clone:
+
+1. clone and check out the matching source revision;
+2. install Lamina;
+3. confirm no graph has been initialized;
+4. restore the logical backup;
+5. transfer referenced evidence artifacts;
+6. run `lamina graph status` and `lamina graph validate`;
+7. refresh observations for the new clone paths.
+
+## Worktree cleanup
+
+Removing a Git worktree does not remove the shared graph. Open sessions created from that branch remain visible until published or aborted. Review them with `lamina graph status`.

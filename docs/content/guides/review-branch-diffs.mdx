@@ -1,0 +1,64 @@
+---
+title: Review branch diffs and stale sessions
+description: Inspect semantic product changes, rebase stale graph sessions, and publish without losing concurrent work.
+---
+
+# Review branch diffs and stale sessions
+
+Git shows source changes. Lamina shows the product semantics those changes propose.
+
+## Review a feature branch
+
+```bash
+git switch feature/password-reset
+lamina graph status
+lamina graph diff --base main --head HEAD
+```
+
+The response separates:
+
+- Resources added or retired;
+- Statements added or retired;
+- full details for each changed record;
+- the base and head `GraphVersion` ids.
+
+Review changes in product terms:
+
+- Are new operations reachable from the workflow?
+- Are actors authorized for them?
+- Do qualifiers preserve ordering and scope?
+- Did the branch retire behavior other branches still rely on?
+- Are contradictions intentional and visible?
+- Does evidence match the source revision?
+
+Then validate the affected workflow:
+
+```bash
+lamina graph validate --scope workflow.password-reset
+```
+
+## Recover a stale session
+
+Publication uses compare-and-swap. If another session moved the branch head, Lamina returns `LAMINA_COMPARE_AND_SWAP_FAILED` and leaves your proposal staged.
+
+```bash
+lamina session query session_…
+lamina session rebase session_…
+lamina graph query --at session_…
+lamina graph diff --base main --head session_…
+lamina session publish session_…
+```
+
+Rebase is not approval. It changes the base so you can review how the proposal combines with current state.
+
+Abort instead when the proposal is obsolete:
+
+```bash
+lamina session abort session_…
+```
+
+## Git merges
+
+When Git creates a multi-parent merge commit, the next graph publication can inherit both parent GraphVersions. Incompatible parent facts remain as a Contradiction; Lamina does not pick a winner based on merge order.
+
+Resolve the contradiction with an explicit retire-and-propose session, validate, then publish.

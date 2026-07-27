@@ -37,7 +37,12 @@ export function auditPackReport(
   report,
   { requireExecutable = process.platform !== 'win32' } = {},
 ) {
-  const entry = Array.isArray(report) ? report[0] : report;
+  const entries = Array.isArray(report)
+    ? report
+    : report?.name
+      ? [report]
+      : Object.values(report || {});
+  const entry = entries[0];
   if (!entry || entry.name !== '@laminadev/cli') {
     throw new Error('npm pack report is not for @laminadev/cli.');
   }
@@ -69,6 +74,7 @@ export function auditPackReport(
     ok: true,
     name: entry.name,
     version: entry.version,
+    filename: entry.filename,
     packed_size: entry.size,
     unpacked_size: entry.unpackedSize,
     files: actual,

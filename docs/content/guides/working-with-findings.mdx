@@ -1,3 +1,86 @@
-# Working with findings
+---
+title: Resolve contradictions and evidence gaps
+description: Diagnose validation, contradictions, stale evidence, readiness gaps, and safe recovery paths.
+---
 
-Findings are graph knowledge tied to source revision, GraphVersion, Mission Run, and evidence. Separate product defects, intended-contract contradictions, and operational/capability limitations. Fix application code in a normal coding session and rerun the affected Missions.
+# Resolve contradictions and evidence gaps
+
+Start with the narrowest useful validation:
+
+```bash
+lamina graph validate --scope workflow.password-reset
+```
+
+## Structural errors
+
+`ok: false` means the proposed graph is invalid: a reference cannot resolve, a workflow step position collides, an input has both object and literal, or another schema invariant failed.
+
+Publication is atomic, so the branch head does not move. Query the session, correct or retire the invalid proposal, and publish again.
+
+## Contradictions
+
+Conflicting statements coexist and create a stable Contradiction Resource. Query both facts:
+
+```bash
+lamina graph query \
+  --subject operation.issue-refund \
+  --predicate custom:refundWindowDays
+```
+
+Choose deliberately:
+
+1. start a session;
+2. retire the obsolete Statement id;
+3. propose the selected or scoped replacement;
+4. validate the session view;
+5. publish.
+
+Never edit Ladybug directly or rely on last-writer-wins.
+
+## Readiness gaps
+
+`ok: true, approved: false` can include gaps such as an unreachable workflow or a proof without supporting evidence. Add the missing relationship or collect evidence; do not spoof `approved` or `epistemic_class`.
+
+## Stale evidence
+
+Evidence becomes stale when:
+
+- its source observation is no longer current;
+- its source snapshot does not match the GraphVersion source revision;
+- a referenced artifact is missing;
+- an artifact digest no longer matches.
+
+Refresh source observations or rerun the Mission that produces the proof:
+
+```bash
+lamina graph observe
+lamina mission compile --workflow workflow.password-reset
+lamina mission run mission_… --events events.json
+lamina session publish <returned-session-id>
+```
+
+Stale evidence remains available for provenance; it simply stops satisfying current readiness.
+
+## Observation recovery
+
+```bash
+lamina graph rebuild-observations
+```
+
+This invalidates the observation generation and re-emits current source observations. A stale prior generation cannot reactivate itself. Canonical claims are unchanged.
+
+## Storage recovery
+
+Before storage maintenance:
+
+```bash
+lamina graph backup --output lamina-graph.backup.json
+```
+
+Restore only into an empty graph database:
+
+```bash
+lamina graph restore --input lamina-graph.backup.json
+```
+
+Integrity failure, non-empty target, or format mismatch fails closed. See [storage and backups](/reference/artifacts).

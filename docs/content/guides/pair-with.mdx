@@ -1,3 +1,45 @@
-# Pair Lamina with coding tools
+---
+title: Pair Lamina with your coding workflow
+description: Hand a resolved GraphVersion to implementation, specification, and UI tools without creating competing product truth.
+---
 
-Use Lamina to publish product behavior, query an implementation projection for your coding tool, then publish runtime verification evidence. The projection must cite its GraphVersion and never becomes canonical input.
+# Pair Lamina with your coding workflow
+
+Lamina owns product behavior and verification. Other tools can plan implementation, write code, run tests, or polish UI.
+
+## The handoff contract
+
+1. Publish and validate the Lamina workflow.
+2. Resolve an implementation projection from its exact `GraphVersion`.
+3. Give that projection and version id to the next tool.
+4. Let the coding tool edit application source.
+5. Verify the running product with `/lamina-verify`.
+6. Return contract gaps to `/lamina-design`; return implementation bugs to coding mode.
+
+```text
+Lamina GraphVersion
+  → engineering spec or task plan
+  → application implementation
+  → UI polish
+  → independent Persona Missions
+```
+
+## Avoid competing truth
+
+- Do not import an edited implementation plan as canonical intent.
+- Do not mark a task-list checkbox as runtime evidence.
+- Do not let UI critique change permissions or invariants silently.
+- Do not merge Persona Missions into one generic happy-path test.
+
+When another tool uncovers a real product decision, propose it through a Lamina session and publish a new version.
+
+## Good pairings
+
+| Tool category | Use it for |
+|---|---|
+| Coding workflows | Planning, implementation, unit/integration tests, review |
+| Specification tools | Converting a resolved projection into engineering requirements and tasks |
+| UI skills | Visual hierarchy, layout, typography, interaction polish |
+| Browser/device automation | Producing normalized runtime events and artifacts for Missions |
+
+See [UI skills](/guides/pair-with-ui-skills) and [specification tools](/guides/pair-with-spec-kit).

@@ -47,9 +47,9 @@ jobs:
         run: |
           mkdir -p dist
           npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
-          node scripts/audit-cli-pack.mjs cli-pack.json
-          TARBALL="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
-          VERSION="$(node -p "require('./cli-pack.json')[0].version")"
+          node scripts/audit-cli-pack.mjs cli-pack.json > cli-audit.json
+          TARBALL="$(node -p "'./dist/' + require('./cli-audit.json').filename")"
+          VERSION="$(node -p "require('./cli-audit.json').version")"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -61,10 +61,20 @@ jobs:
 
       - name: Verify registry package and provenance
         run: |
-          npm view "@laminadev/cli@${{ steps.pack.outputs.version }}" --json
+          for attempt in $(seq 1 24); do
+            if npm view "@laminadev/cli@${{ steps.pack.outputs.version }}" --json; then
+              break
+            fi
+            if [ "$attempt" -eq 24 ]; then
+              echo "Registry package was not visible after 120 seconds." >&2
+              exit 1
+            fi
+            sleep 5
+          done
           node tests/cli_tarball_smoke_test.mjs --package "@laminadev/cli@${{ steps.pack.outputs.version }}"
           mkdir registry-audit
           cd registry-audit
           npm init -y
+          node -e "const fs=require('fs'); const p=require('./package.json'); p.allowScripts={'@ladybugdb/core@0.18.3':true}; fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\\n')"
           npm install "@laminadev/cli@${{ steps.pack.outputs.version }}"
           npm audit signatures

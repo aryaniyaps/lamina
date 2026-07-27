@@ -1,5 +1,30 @@
-# Evidence-source files
+---
+title: Evidence inputs
+description: Define the authority of business context, personas, source observations, and human-readable projections.
+---
 
-`.lamina/business-context.md` and `.lamina/personas.json` remain convenient human-editable evidence inputs. CocoIndex observes them like other source documents. Canonical Product, Persona, Actor, and Statement knowledge is published to Ladybug through graphd.
+# Evidence inputs
 
-Renaming a source alias does not replace stable Resource identity.
+## `.lamina/business-context.md`
+
+Human-editable domain evidence: problem, users, scope, constraints, terminology, and change history. CocoIndex can observe it. A trusted Lamina workflow proposes the resulting Product and intent knowledge through `graphd`.
+
+## `.lamina/personas.json`
+
+Human-editable actor and persona evidence. It is validated before use, observed like other source, and converted into explicit graph proposals.
+
+## Source files
+
+CocoIndex produces Observation envelopes with source snapshot, content hash, locator, extractor identity/version, and normalized payload. Observations are `observed`, never intended or runtime evidence.
+
+## Projections
+
+Implementation plans, reports, and fix lists may be generated from a resolved `GraphVersion`. They are handoffs, not inputs with canonical authority.
+
+## Runtime artifacts
+
+Screenshots, traces, logs, and other files become useful evidence only when a normalized Mission event references their path and digest. Missing or changed artifacts make the evidence stale.
+
+## Authority rule
+
+No file becomes canonical merely because it lives under `.lamina/`. Canonical membership changes only through a validated `graphd` transaction.

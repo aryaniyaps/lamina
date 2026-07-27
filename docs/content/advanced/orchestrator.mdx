@@ -1,5 +1,31 @@
-# Orchestrator
+---
+title: Orchestrator internals
+description: How slash-command workflows coordinate graph sessions, projections, coding agents, and Mission evidence.
+---
 
-The orchestrator routes init, design, and verify work through graphd. Multi-fact work uses explicit sessions. Persona verification compiles all relevant Missions and isolates every Run.
+# Orchestrator internals
 
-Craft skills contribute schema-aware judgment, but cannot submit executable validators, epistemic class, approval, or raw Cypher.
+The Lamina orchestrator coordinates product work; it is not the canonical store.
+
+For a design workflow it:
+
+1. checks CLI/API/protocol compatibility;
+2. resolves the current graph and source revision;
+3. reads evidence inputs and observations;
+4. starts an explicit graph session;
+5. stages typed Resource and Statement proposals;
+6. validates the session view;
+7. publishes atomically;
+8. returns a version-cited projection.
+
+For verification it:
+
+1. resolves the workflow and version;
+2. compiles Missions for every relevant Persona;
+3. runs adapters independently;
+4. normalizes events and artifact digests;
+5. stages each Run in an isolated session;
+6. publishes evidence explicitly;
+7. reports implementation findings separately from contract gaps.
+
+The CLI JSON interface is the public boundary. Internal skill prompts may evolve without changing graph authority or error semantics.

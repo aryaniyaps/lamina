@@ -46,6 +46,7 @@ evals/feedback/smoke-triage-*.md
 docs/.next/
 docs/public/_pagefind/
 docs/node_modules/
+docs/tsconfig.tsbuildinfo
 # LaminaBench — do not track ephemeral trial dumps
 benchmarks/results/raw/workspaces/
 benchmarks/results/raw/artifacts/

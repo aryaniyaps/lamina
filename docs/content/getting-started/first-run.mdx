@@ -1,5 +1,58 @@
-# First graph session
+---
+title: Inspect the first GraphVersion
+description: Read status, query results, validation receipts, and staged sessions after the first workflow.
+---
 
-Run `/lamina-init`, then `/lamina-design` with a concrete workflow. Inspect the published result with `lamina graph status` and `lamina graph query --at HEAD`.
+# Inspect the first `GraphVersion`
 
-Application source is implemented separately. `/lamina-verify` then compiles every relevant Persona Mission, stages normalized runtime evidence in independent sessions, and explicitly publishes the accepted sessions.
+Lamina commands return JSON so humans, agents, and CI can inspect the same state.
+
+## Status
+
+```bash
+lamina graph status
+```
+
+Important fields:
+
+| Field | Meaning |
+|---|---|
+| `database` | Canonical Ladybug path under the Git common directory |
+| `branch` | Git branch backing the active GraphView |
+| `graph_version` | Current graph head for that view |
+| `source_revision` | Source revision recorded by the graph head |
+| `current_source_revision` | Current committed or dirty-tree revision |
+| `stale` | Whether source and graph revisions differ |
+| `sessions` | Open, published, or aborted graph sessions |
+
+## Query
+
+```bash
+lamina graph query --kind workflow
+lamina graph query --workflow password-reset
+lamina graph query --subject operation.issue-reset-token --predicate lamina:requiresProof
+```
+
+A query returns a `graph_version`, matching `resources`, `statements`, and active `contradictions`. Record the version when handing a projection to another tool.
+
+## Validate
+
+```bash
+lamina graph validate
+lamina graph validate --scope workflow.password-reset
+```
+
+Whole-view validation reports branch readiness. Scoped validation follows the affected relationship closure, which lets one workflow be ready even when a disconnected draft workflow has gaps.
+
+`ok: false` means structural validation failed and publication is rejected. `ok: true, approved: false` means the graph is structurally valid but still contains contradictions, stale evidence, or readiness gaps.
+
+## Sessions
+
+```bash
+lamina session start
+lamina session query <session-id>
+```
+
+An explicit session holds a base version plus staged mutations. Publishing is compare-and-swap: if another writer moved the branch head, publication returns `LAMINA_COMPARE_AND_SWAP_FAILED`. Rebase, review the new semantic diff, and publish again.
+
+See [review branch diffs](/guides/review-branch-diffs) for the complete flow.

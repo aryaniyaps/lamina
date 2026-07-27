@@ -1,5 +1,35 @@
+---
+title: What is Lamina?
+description: A transactional product graph that gives coding agents product-design and verification capabilities.
+---
+
 # What is Lamina?
 
-Lamina is a local, centralized product-knowledge graph for agents. It gives product intent, source observations, agent inference, Persona simulation, human evidence, and runtime evidence distinct epistemic classes.
+Lamina gives an AI coding agent durable, queryable product knowledge: who can do what, which states a workflow can enter, what must remain true, how failure and recovery work, and what evidence proves the implementation.
 
-Ladybug stores canonical versioned knowledge. CocoIndex incrementally observes source. graphd enforces transactions, provenance, validation, sessions, branches, Missions, and evidence.
+It is not an app generator, UI library, or passive prompt bundle. The agent still writes application source. Lamina supplies a product contract and a verification loop.
+
+## Why a graph?
+
+Product behavior is relational. Personas assume actors; actors are authorized for operations; workflows order operations; invariants constrain them; proofs require evidence. A graph preserves those relationships and lets validation follow the affected closure.
+
+## Why transactional?
+
+A workflow design is usually a multi-part change. Publishing half of it would leave misleading state. Lamina stages all mutations in a session, validates the result, then moves the branch head atomically. The entire `GraphVersion` lands or none of it does.
+
+## Why local?
+
+The graph belongs to the Git clone. All worktrees share one database under the Git common directory. There is no hosted control plane and no implicit upload of product knowledge.
+
+## The ownership boundary
+
+| Component | Responsibility |
+|---|---|
+| Ladybug | Canonical Resources, Statements, versions, views, sessions, Missions, Runs, and evidence relationships |
+| `graphd` | The only read-write owner of Ladybug and the transaction/validation boundary |
+| CocoIndex | Incremental source observations sent to `graphd` through an authenticated target |
+| Git | Source revisions, branches, worktrees, and ancestry |
+| `.lamina/*.md` / `.json` | Human-editable evidence inputs |
+| Coding agent | Application implementation and fixes |
+
+This separation prevents source heuristics, simulations, and runtime evidence from silently becoming intended product truth.

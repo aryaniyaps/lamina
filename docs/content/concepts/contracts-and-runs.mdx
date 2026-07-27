@@ -1,7 +1,28 @@
-# GraphVersions and Runs
+---
+title: Versions, projections, and Runs
+description: Understand canonical GraphVersions and non-canonical implementation or verification projections.
+---
 
-A GraphVersion is the immutable, validated state of a branch view. A session stages typed mutations against a base GraphVersion and publishes with compare-and-swap in one Ladybug transaction.
+# Versions, projections, and Runs
 
-A Run is runtime product knowledge tied to its starting GraphVersion, source revision, Persona Mission, adapter context, and HarnessResult. Runs are isolated until publication.
+## `GraphVersion`
 
-Human implementation, report, and fix documents are optional query projections. They never become canonical inputs.
+A `GraphVersion` is an immutable delta with parent versions, added or retired Resources and Statements, a source revision, and a validation receipt. A branch GraphView points at one head version.
+
+The receipt is the durable handoff boundary. When asking an agent to implement a design, identify the exact version.
+
+## Projections
+
+Implementation plans, verification reports, and fix lists are query projections from a resolved view. They are meant for humans and coding tools.
+
+They are not canonical inputs. Editing a projection does not mutate the graph. Publish an explicit proposal through a graph session when product intent changes.
+
+## Missions and Runs
+
+A Mission is a persona-specific executable verification contract. A Run records normalized adapter events and its HarnessResult. Each Mission Run receives its own session and does not publish implicitly.
+
+That isolation matters: one persona’s successful path must not approve another persona’s permissions or recovery behavior.
+
+## Legacy run files
+
+Files from the pre-transactional workflow may remain in a repository for history. Production commands do not select, mutate, or authorize them. See [migrate from legacy runs](/reference/run-json-schema).

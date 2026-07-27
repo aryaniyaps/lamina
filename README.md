@@ -5,7 +5,7 @@
 <p align="center"><em>Design is how it works — not just how it looks.</em></p>
 
 <p align="center">
-  Headless product design for AI coding agents, backed by a transactional product graph. Lamina helps your agent design how your app works — actors, flows, states, permissions, failures, and edge cases — then verify the live build through independent persona missions. It never edits application source.
+  A transactional product graph for AI coding agents. Lamina gives your agent versioned product knowledge, atomic workflow design, source-grounded discovery, and independent Persona Missions for live-product verification. It never edits application source.
 </p>
 
 ---
@@ -38,6 +38,12 @@ Prefer installing it yourself?
 npm install -g @laminadev/cli@latest
 npx skills add aryaniyaps/lamina --all -y
 lamina doctor --json
+```
+
+With npm 12, approve Ladybug's native installer explicitly:
+
+```bash
+npm install -g --allow-scripts=@ladybugdb/core @laminadev/cli@latest
 ```
 
 Then start a **fresh agent session** so the skills load.

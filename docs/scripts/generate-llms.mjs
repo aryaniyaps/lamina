@@ -214,8 +214,8 @@ const llmsTxt = `${buildLlmsPreamble(SITE.name)}
 
 - [Homepage](${DOMAIN}): Product overview, positioning, and install command
 - [What is Lamina?](${DOMAIN}/docs/concepts/what-is-lamina): Behavior vs pixels, comparisons, core principles
-- [HavenStay demo](${DOMAIN}/docs/guides/demo-havenstay): Side-by-side build with and without Lamina
-- [Quickstart](${DOMAIN}/docs/getting-started/quickstart): Run the full init → design → implement → verify loop
+- [First workflow](${DOMAIN}/docs/getting-started/quickstart): Run the full install → init → design → implement → verify journey
+- [CLI reference](${DOMAIN}/docs/commands): Every JSON command, option, input, output, and stable error
 - [Installation](${DOMAIN}/docs/getting-started/installation): Install in Cursor, Claude Code, Codex, Gemini, or Pi
 
 ## Documentation

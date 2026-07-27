@@ -1,3 +1,22 @@
+---
+title: /lamina router
+description: Use the optional router when you know the outcome but not the Lamina workflow command.
+---
+
 # `/lamina`
 
-Routes explicit init, design, verify, and focused product questions. Canonical context comes from graph queries; legacy files are never selected as runtime state.
+`/lamina <goal>` routes a request to `/lamina-init`, `/lamina-design`, or `/lamina-verify`.
+
+```text
+/lamina I need to design password recovery
+```
+
+The router is optional. It does not initialize a project automatically, replace explicit workflow commands, or mutate the graph merely because Lamina is installed.
+
+Prefer the direct command once you know it:
+
+```text
+/lamina-init <domain and users>
+/lamina-design <workflow>
+/lamina-verify <workflow> at <url>
+```

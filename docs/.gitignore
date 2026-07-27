@@ -1,4 +1,5 @@
 .vercel
 generated
+tsconfig.tsbuildinfo
 public/llms.txt
 public/llms-full.txt

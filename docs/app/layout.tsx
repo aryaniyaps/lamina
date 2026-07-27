@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.domain),
   title: {
-    default: `${SITE.name} Docs — Product design skill for AI coding agents`,
+    default: `${SITE.name} Docs — Transactional product graph for AI coding agents`,
     template: `%s — ${SITE.name} docs`,
   },
   description: SITE.description,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: `${SITE.name} docs`,
-    title: `${SITE.name} Docs — Product design skill for AI coding agents`,
+    title: `${SITE.name} Docs — Transactional product graph for AI coding agents`,
     description: SITE.description,
     url: "/docs",
     images: [
@@ -56,12 +56,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@aryaniyaps",
     creator: "@aryaniyaps",
-    title: `${SITE.name} Docs — Product design skill for AI coding agents`,
+    title: `${SITE.name} Docs — Transactional product graph for AI coding agents`,
     description: SITE.description,
     images: [OG_IMAGE],
   },
   icons: {
-    icon: "/brand/favicon-16.svg",
+    icon: "/docs/brand/favicon-16.svg",
   },
 };
 
@@ -69,7 +69,7 @@ const navbar = (
   <Navbar
     logo={
       <Image
-        src="/brand/lamina-lockup-light.svg"
+        src="/docs/brand/lamina-lockup-light.svg"
         alt="lamina"
         width={160}
         height={38}

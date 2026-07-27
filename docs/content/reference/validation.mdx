@@ -1,11 +1,33 @@
-# Validation
+---
+title: Validation and approval
+description: Interpret structural validity, readiness approval, contradictions, stale evidence, and scoped closure.
+---
+
+# Validation and approval
 
 ```bash
-lamina graph validate --at HEAD
-lamina graph validate --at <session-id>
-lamina graph validate --at HEAD --scope workflow.cancel-booking
+lamina graph validate
+lamina graph validate --scope workflow.password-reset
 ```
 
-The installed engine checks Statement shape/references, aliases, workflow ordering/reachability, lifecycle transitions, actor authority, dependencies, proof/evidence coverage, Mission capability compatibility, epistemic ingress, Contradictions, uniqueness, and cycles. `ok` reports structural validity; `approved` additionally requires an empty `readiness_gaps`, `stale_evidence`, and `contradictions` set. Scoped validation walks the connected affected closure; whole-view validation remains available with `--at`.
+## `ok`
 
-Approval additionally requires current reproducible evidence and no relevant Contradiction. Agents cannot add executable validators or approve their own output.
+`ok` answers whether the graph is structurally publishable. Invalid references, illegal literals, duplicate workflow positions, protected status spoofing, and other schema failures make it false.
+
+Publication with `ok: false` fails atomically with `LAMINA_VALIDATION_FAILED`.
+
+## `approved`
+
+`approved` answers whether the structurally valid view is ready. It becomes false when active contradictions, stale evidence, or readiness gaps remain.
+
+A valid but unapproved version may still publish so drafts and unresolved decisions remain inspectable. Consumers must check the receipt instead of equating “published” with “ready.”
+
+## Scoped validation
+
+Whole-view validation covers everything active in the view. `--scope` follows Statements connected to one Resource and validates that affected closure.
+
+Use scoped validation for implementation and Mission compilation. Use whole-view validation for release readiness.
+
+## Determinism
+
+Validation is engine-owned and deterministic. Agents cannot submit `approved: true`, change epistemic class, or select a privileged socket method to bypass policy.

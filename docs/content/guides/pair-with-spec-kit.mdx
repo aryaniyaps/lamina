@@ -1,3 +1,32 @@
-# Pair with Spec Kit
+---
+title: Pair with specification tools
+description: Convert a resolved product GraphVersion into engineering plans without making the spec canonical product state.
+---
 
-Generate a Spec Kit input as a read-only query projection of a resolved GraphVersion. Implement normally, then use `/lamina-verify` to execute Persona Missions. Do not import generated specification prose back as graph truth.
+# Pair with specification tools
+
+Use Lamina first to decide product behavior, then use Spec Kit, Kiro, or another specification workflow to plan implementation.
+
+## Sequence
+
+```text
+/lamina-design password reset
+→ GraphVersion version_…
+→ implementation projection
+→ engineering spec and tasks
+→ code
+→ /lamina-verify
+```
+
+Give the specification tool:
+
+- the resolved `GraphVersion`;
+- relevant Resources and Statements;
+- actor permissions;
+- workflow step order and failure paths;
+- invariants and required proofs;
+- known evidence gaps.
+
+Ask it to cite the version in generated tasks. If it proposes new product behavior, send that proposal back through `/lamina-design` instead of silently accepting it in prose.
+
+Engineering details such as modules, APIs, migrations, and test layout belong in the spec. Product authority, workflow legality, and verification readiness remain in Lamina.

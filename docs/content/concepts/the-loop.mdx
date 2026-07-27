@@ -1,9 +1,35 @@
-# The loop
+---
+title: The product loop
+description: Move from initialized knowledge to a validated GraphVersion, implementation, and independent verification.
+---
 
-1. `/lamina-init` records/indexes business evidence and publishes inferred Product/Persona/Actor proposals grounded in explicit user input.
-2. `/lamina-design` publishes a validated GraphVersion.
-3. A normal coding session implements the GraphVersion projection.
-4. `/lamina-verify` runs every relevant Persona Mission in an isolated session, inspects the normalized evidence, then explicitly publishes accepted Run sessions.
-5. Query the semantic diff and repeat.
+# The product loop
 
-Lamina commands do not edit product source.
+```text
+install → initialize → design → publish GraphVersion → implement → verify → fix or redesign
+```
+
+## Initialize
+
+`/lamina-init` establishes the product boundary, actors, and relevant personas. On brownfield projects it first observes what exists; on greenfield projects it records explicit assumptions and gaps.
+
+## Design
+
+`/lamina-design` stages Resources and Statements in a graph session. Validation checks structure, reachability, authorization, contradictions, proof readiness, and evidence freshness. Publication returns a `GraphVersion` receipt.
+
+## Implement
+
+The coding agent consumes a projection resolved from that version. The projection is a convenient handoff; it does not become canonical graph state.
+
+## Verify
+
+`/lamina-verify` compiles an independent Mission for every relevant Persona and runs each in isolation. Normalized runtime events become evidence. A Run is staged until its session is explicitly published.
+
+## Decide the next edge
+
+- Implementation differs from a valid contract: fix the product and verify again.
+- Verification reveals missing product intent: return to design and publish a new version.
+- Source changed: refresh observations and check evidence staleness.
+- Another writer moved the graph head: rebase the session and review the semantic diff.
+
+The loop is complete only when the relevant workflow validates and its proofs have current evidence.

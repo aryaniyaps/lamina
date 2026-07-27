@@ -1,7 +1,33 @@
-# Legacy run-file schema
+---
+title: Migrate from legacy runs
+description: Preserve historical run files without granting them authority in the transactional graph runtime.
+---
 
-This page is retained only to explain pre-transactional Lamina artifacts.
+# Migrate from legacy runs
 
-Legacy run files are not canonical, are not discovered or selected by production commands, and are never dual-written. Existing files remain untouched and may be indexed by CocoIndex as source evidence like any other business document.
+Older Lamina versions used `run.json` and adjacent implementation, report, or fix documents as workflow state. The transactional runtime does not.
 
-Use [Transactional graph](/reference/transactional-graph) for the current Resource, Statement, GraphVersion, session, observation, Mission, Run, and evidence model.
+## What happens to existing files
+
+- They remain untouched.
+- Production commands do not discover or select them.
+- CocoIndex excludes `.lamina/runs/`.
+- They do not move a branch head, satisfy validation, or authorize a Mission.
+- There is no dual-write compatibility mode.
+
+## Preserve useful history
+
+If an old run contains product decisions worth keeping:
+
+1. read it as historical evidence;
+2. initialize current business context and personas;
+3. use `/lamina-design` to propose the still-valid workflow explicitly;
+4. review the semantic graph diff;
+5. publish a validated `GraphVersion`;
+6. verify the current product with Persona Missions.
+
+Do not mechanically import every field. The old schema mixed intent, implementation handoff, and verification output; the graph keeps those epistemic classes separate.
+
+## Archive or delete?
+
+Archive legacy files when they explain historical decisions. Delete them only under your repository’s normal retention policy. Either choice has no effect on runtime authority.

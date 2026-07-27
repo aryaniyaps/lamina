@@ -1,10 +1,294 @@
-# Commands
+---
+title: CLI reference
+description: Complete JSON CLI reference for doctor, graph, session, and mission commands.
+---
 
-| Command | Purpose |
+# CLI reference
+
+Run every command inside a Git repository with at least one commit. Successful commands write JSON to stdout, except `--version`, which writes a plain version string. Errors write a stable JSON envelope to stderr and exit non-zero.
+
+```bash
+lamina --version
+lamina doctor --json
+```
+
+## Input documents
+
+`graph propose` accepts either a Resource or Statement JSON file.
+
+Resource:
+
+```json
+{
+  "id": "workflow.password-reset",
+  "kind": "workflow",
+  "alias": "workflow.password-reset",
+  "data": {
+    "name": "Password reset"
+  }
+}
+```
+
+Statement:
+
+```json
+{
+  "subject": "workflow.password-reset",
+  "predicate": "lamina:hasStep",
+  "object": "operation.issue-reset-token",
+  "qualifiers": {
+    "position": 1
+  },
+  "evidence": ["observation_…"]
+}
+```
+
+A Statement has exactly one `object` or typed `literal`. `scope`, `qualifiers`, and `evidence` are optional. Callers cannot set epistemic class or approval status.
+
+## `doctor`
+
+```bash
+lamina doctor --json
+```
+
+Reports CLI/API/protocol versions, platform transport, Node compatibility, Git context, and optional observation prerequisites. Output is always JSON; `--json` makes automation intent explicit.
+
+## `graph`
+
+### `graph status`
+
+```bash
+lamina graph status
+```
+
+No options. Returns the database path, branch, graph/source revisions, staleness, and sessions.
+
+### `graph query`
+
+```bash
+lamina graph query [--at REF] [--workflow ID] [--subject ID]
+  [--predicate NAME] [--kind KIND] [--alias ALIAS]
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--at` | `HEAD` | Branch, session, or version reference |
+| `--workflow` | — | Workflow id; also tries alias `workflow.<value>` |
+| `--subject` | — | Resource id used as the relationship subject/object filter |
+| `--predicate` | — | Exact namespaced predicate |
+| `--kind` | — | Resource kind |
+| `--alias` | — | Explicit Resource alias |
+
+Returns `graph_version`, `resources`, `statements`, and active `contradictions`.
+
+### `graph propose`
+
+```bash
+lamina graph propose --input resource-or-statement.json [--session ID]
+```
+
+Without `--session`, Lamina starts, stages, and publishes an implicit session. With a session, it returns `status: "staged"`.
+
+### `graph patch`
+
+```bash
+lamina graph patch [SUBJECT] --input statement-patch.json [--session ID]
+```
+
+The input must contain `predicate` and one of `object` or `literal`. `subject` may be in the file or supplied positionally.
+
+```json
+{
+  "predicate": "custom:resetTokenMinutes",
+  "literal": 15
+}
+```
+
+### `graph link`
+
+```bash
+lamina graph link SUBJECT OBJECT --as PREDICATE [--session ID]
+```
+
+Stages a relationship Statement, for example:
+
+```bash
+lamina graph link workflow.password-reset operation.issue-reset-token \
+  --as lamina:hasStep --session session_…
+```
+
+Use `graph propose` when qualifiers such as step position are required.
+
+### `graph retire`
+
+```bash
+lamina graph retire RESOURCE [--session ID]
+lamina graph retire STATEMENT_ID --statement [--session ID]
+```
+
+Retirement is a versioned delta; records remain available for history.
+
+### `graph validate`
+
+```bash
+lamina graph validate [--at REF] [--scope RESOURCE]
+```
+
+`--at` defaults to `HEAD`. Without a scope, validates the whole view. A scope validates the connected affected closure. Returns `ok`, `approved`, errors, contradictions, stale evidence, readiness gaps, and `validation_scope`.
+
+### `graph diff`
+
+```bash
+lamina graph diff [--base REF] [--head REF]
+```
+
+Defaults to `--base main --head HEAD`. Returns added/retired Resource and Statement ids plus details. This is a semantic graph diff, not a file diff.
+
+### `graph backup`
+
+```bash
+lamina graph backup [--output FILE]
+```
+
+Writes a deterministic logical `lamina-graph-backup-v1` document with an integrity digest. The default filename is `lamina-graph-<timestamp>.backup.json`. The destination must not already exist.
+
+### `graph restore`
+
+```bash
+lamina graph restore --input FILE
+```
+
+Verifies format and integrity, then restores only into an empty graph database. It never overlays live state.
+
+### `graph observe`
+
+```bash
+lamina graph observe [--live]
+```
+
+Runs the pinned CocoIndex source observer. `--live` keeps the observer active.
+
+### `graph discover`
+
+```bash
+lamina graph discover --brownfield
+```
+
+`--brownfield` is required. Returns observation status plus coverage, unsupported sources, stale snapshots, ignored patterns, and limitations.
+
+### `graph rebuild-observations`
+
+```bash
+lamina graph rebuild-observations
+```
+
+Invalidates the current observation generation and performs a complete observation pass. Canonical claims and branch heads are unchanged.
+
+## `session`
+
+Explicit sessions group several mutations into one atomic publication.
+
+### `session start`
+
+```bash
+lamina session start [--id ID]
+```
+
+Returns a session id, base GraphVersion, branch, and source revision. Custom ids must be unique.
+
+### `session query`
+
+```bash
+lamina session query SESSION_ID
+```
+
+Returns staged Resources, Statements, pending evidence links, base version, and status.
+
+### `session publish`
+
+```bash
+lamina session publish SESSION_ID
+```
+
+Validates and atomically publishes the session. Returns `graph_version`, `source_revision`, contradictions, and validation. A no-op proposal may return `idempotent: true`.
+
+### `session rebase`
+
+```bash
+lamina session rebase SESSION_ID
+```
+
+Moves a stale session to the current branch head while preserving its staged proposal. Review a semantic diff before publishing.
+
+### `session abort`
+
+```bash
+lamina session abort SESSION_ID
+```
+
+Marks the session aborted and collects graph records that exist only in that session.
+
+## `mission`
+
+### `mission compile`
+
+```bash
+lamina mission compile --workflow ID
+  [--persona ID] [--adapter ID] [--session ID]
+```
+
+`--workflow` is required. Without `--persona`, compilation creates a Mission for every relevant Persona. `--adapter` selects a capability manifest. `--session` resolves an unpublished design view.
+
+### `mission run`
+
+```bash
+lamina mission run MISSION_ID [--events events.json]
+```
+
+`events.json` is a JSON array of normalized adapter events:
+
+```json
+[
+  {
+    "type": "step",
+    "status": "passed",
+    "artifact": {
+      "path": "evidence/password-reset.png",
+      "digest": "sha256:…"
+    }
+  }
+]
+```
+
+Without `--events`, the array is empty. The Run and HarnessResult are staged in a new isolated session; publish that returned session explicitly.
+
+## Error envelope
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "LAMINA_COMPARE_AND_SWAP_FAILED",
+    "message": "Session base no longer matches branch head.",
+    "details": {}
+  }
+}
+```
+
+Stable core codes:
+
+| Code | Meaning |
 |---|---|
-| `/lamina-init` | Establish business evidence and Product/Persona/Actor Resources |
-| `/lamina-design` | Validate and publish intended product behavior |
-| `/lamina-verify` | Run every relevant Persona Mission |
-| `/lamina` | Route focused product work |
+| `LAMINA_BAD_REQUEST` | Missing or invalid input |
+| `LAMINA_NOT_FOUND` | Resource, view, workflow, session, or mission not found |
+| `LAMINA_VALIDATION_FAILED` | Structural validation rejected the operation |
+| `LAMINA_COMPARE_AND_SWAP_FAILED` | Stale session, observation generation, or non-empty restore target |
+| `LAMINA_EPISTEMIC_STATUS_FORBIDDEN` | Caller attempted to set protected epistemic or approval status |
+| `LAMINA_EVIDENCE_MISSING` | Required evidence cannot be resolved |
+| `LAMINA_UNAUTHORIZED` | Invalid graphd authentication |
+| `LAMINA_INTERNAL` | Runtime, storage, transport, or native dependency failure |
+| `LAMINA_OBSERVATION_UNAVAILABLE` | Observation assets, `uv`, or Python are unavailable |
+| `LAMINA_OBSERVATION_FAILED` | CocoIndex exited unsuccessfully |
+| `LAMINA_OBSERVATION_INCOMPLETE` | Observation target did not commit a complete generation |
 
-Runtime operations use `lamina graph`, `lamina session`, and `lamina mission`. See [Transactional graph](/reference/transactional-graph).
+Unknown commands also return `LAMINA_BAD_REQUEST` with the supported command surface in `message`.

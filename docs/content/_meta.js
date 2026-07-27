@@ -1,9 +1,9 @@
 export default {
-  index: "Introduction",
-  "getting-started": "Getting Started",
-  concepts: "Concepts",
-  commands: "Commands",
-  guides: "Guides",
+  index: "Overview",
+  "getting-started": "Get started",
+  concepts: "Product graph concepts",
+  commands: "CLI and workflows",
+  guides: "Task guides",
   reference: "Reference",
   advanced: "Advanced",
 };

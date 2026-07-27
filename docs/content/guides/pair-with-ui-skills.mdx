@@ -30,8 +30,8 @@ Lamina never writes styling, colors, typography, or component libraries. UI skil
 
 ```text
 1. /lamina-init <domain>        → domain charter
-2. /lamina-design <flow>        → implement.md (behavior contract)
-3. Your agent implements         → app source from contract
+2. /lamina-design <flow>        → validated GraphVersion + projection
+3. Your agent implements         → app source from resolved version
 4. /lamina-verify guest checkout at http://localhost:3000 → fix behavior gaps
 5. UI skill pass                 → polish interface
 6. /lamina-verify guest checkout at http://localhost:3000 → confirm behavior still holds
@@ -65,7 +65,7 @@ That is Lamina's job.
 When UI changes affect behavior:
 
 1. Run `/lamina-verify` to catch regressions
-2. If findings appear, fix behavior first (from `fix.md`)
+2. If findings appear, fix behavior from the version-cited finding projection
 3. Then continue visual polish
 4. Re-verify after each significant UI pass
 
@@ -82,5 +82,5 @@ Implement and verify. Then run your UI skill on the checkout page for visual pol
 ## Next steps
 
 - [What is Lamina?](/concepts/what-is-lamina) — full comparison with UI skills
-- [What to pair](/guides/pair-with) — broader pairing guide
-- [Demo: HavenStay](/guides/demo-havenstay) — behavior gaps UI skills miss
+- [Pair with coding workflows](/guides/pair-with) — broader pairing guide
+- [HavenStay historical evidence](/guides/demo-havenstay) — an older behavior comparison

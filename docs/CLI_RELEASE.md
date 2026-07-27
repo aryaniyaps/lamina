@@ -15,8 +15,8 @@ npm install -g npm@^11.15.0
 npm login
 npm version 0.1.0-beta.0 --prefix packages/cli --no-git-tag-version
 npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
-node scripts/audit-cli-pack.mjs cli-pack.json
-tarball="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
+node scripts/audit-cli-pack.mjs cli-pack.json > cli-audit.json
+tarball="$(node -p "'./dist/' + require('./cli-audit.json').filename")"
 npm publish "$tarball" --access public --tag bootstrap --provenance=false
 ```
 
@@ -52,7 +52,8 @@ or newer and an already-published package.
 The workflow verifies the tag/version match, installs from the frozen lockfile,
 runs repository and compatibility tests, audits the exact tarball and size
 ceiling, installs that tarball into a clean Git fixture, and publishes through
-GitHub OIDC with public access and provenance.
+GitHub OIDC with public access and provenance. Registry verification retries
+bounded transient 404 responses after publication.
 
 ## Registry verification
 
@@ -70,7 +71,12 @@ existing global install:
 
 ```bash
 prefix="$(mktemp -d)"
-npm install --global --prefix "$prefix" @laminadev/cli@0.1.0
+npm install --global --prefix "$prefix" \
+  --allow-scripts=@ladybugdb/core \
+  @laminadev/cli@0.1.0
 "$prefix/bin/lamina" --version
 "$prefix/bin/lamina" doctor --json
 ```
+
+The explicit script allowance is required by npm 12's dependency-script policy.
+npm 11 runs Ladybug's pinned native installer during the normal global install.

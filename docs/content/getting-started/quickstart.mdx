@@ -1,14 +1,113 @@
-# Quickstart
+---
+title: Complete your first workflow
+description: Initialize, design, implement, and verify one product workflow with inspectable graph receipts.
+---
+
+# Complete your first workflow
+
+This walkthrough designs a password-reset flow. Substitute a workflow from your product if you prefer.
+
+## 1. Confirm the runtime
+
+Run from a Git repository with at least one commit:
 
 ```bash
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
 lamina doctor --json
-/lamina-init
-/lamina-design
 lamina graph status
-# implement the resolved GraphVersion in a normal coding session
-/lamina-verify
 ```
 
-Run `lamina graph observe` after source changes. Use `lamina graph diff --base main --head HEAD` for a semantic branch diff.
+`graph status` returns the clone-local database path, current branch, `graph_version`, source revisions, staleness, and open sessions.
+
+## 2. Initialize product knowledge
+
+In a fresh agent session:
+
+```text
+/lamina-init A team workspace where organization members sign in and manage projects
+```
+
+Expected results:
+
+- `.lamina/business-context.md` describes the domain, scope, and constraints.
+- `.lamina/personas.json` defines actors and relevant personas.
+- CocoIndex reports source-observation coverage.
+- `graphd` publishes a validated `GraphVersion`.
+
+Inspect, but do not mistake the evidence files for canonical state:
+
+```bash
+sed -n '1,200p' .lamina/business-context.md
+node -e 'console.log(JSON.stringify(require("./.lamina/personas.json"), null, 2))'
+lamina graph query --kind product
+lamina graph query --kind persona
+```
+
+## 3. Design one workflow
+
+In agent chat:
+
+```text
+/lamina-design password reset for an organization member who lost access
+```
+
+The workflow should cover identity proof, token expiry, repeated requests, invalid or used links, rate limits, password policy, session invalidation, notifications, and recovery.
+
+Expected output includes:
+
+- a validated `GraphVersion` receipt;
+- the workflow and operations added to the graph;
+- relevant actors, personas, invariants, decisions, and proofs;
+- an implementation projection that cites the resolved version.
+
+Inspect it:
+
+```bash
+lamina graph query --workflow password-reset
+lamina graph validate --scope workflow.password-reset
+lamina graph diff --base main --head HEAD
+lamina graph status
+```
+
+Aliases are product-specific. If `workflow.password-reset` is not the returned alias, use the exact workflow id or alias from the command response.
+
+## 4. Implement the resolved version
+
+Return to ordinary coding mode:
+
+```text
+Implement the password-reset workflow from GraphVersion <returned-version>.
+Preserve every state, invariant, permission, failure, and recovery path.
+Start the product and report its URL.
+```
+
+Your coding agent edits application source. Lamina does not.
+
+## 5. Verify through Persona Missions
+
+With the product running:
+
+```text
+/lamina-verify password reset at http://localhost:3000
+```
+
+Lamina compiles one independent Mission for every relevant Persona. Each Mission Run is staged in its own session so one persona’s evidence cannot silently approve another persona’s path.
+
+Inspect staged evidence:
+
+```bash
+lamina graph query --kind mission
+lamina graph query --kind run
+lamina graph validate --scope workflow.password-reset
+```
+
+Apply product fixes in ordinary coding mode, then run the same verification again. If verification uncovers a contract gap rather than an implementation bug, return to `/lamina-design` and publish a new `GraphVersion`.
+
+## Completion check
+
+You are done when:
+
+- `lamina graph status` reports `stale: false`;
+- scoped validation has `ok: true` and no unresolved readiness gaps;
+- every relevant Persona has an independent Mission Run;
+- runtime evidence supports the required proofs;
+- the implementation cites the version it was built from.
