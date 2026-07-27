@@ -27,11 +27,13 @@ Stop doing edge-case archaeology mid-sprint. Lamina front-loads product thinking
 ## The loop
 
 ```text
-/lamina-design  →  run.yaml + implement.md (ready_to_build)
+/lamina-init    →  Product, Persona, and Actor graph
+       ↓
+/lamina-design  →  validated GraphVersion + implementation projection
        ↓
   You implement (any stack)
        ↓
-/lamina-verify  →  actor walks, visual flow capture, invariants → findings
+/lamina-verify  →  isolated Persona Missions + runtime evidence
 ```
 
 ---
@@ -41,7 +43,8 @@ Stop doing edge-case archaeology mid-sprint. Lamina front-loads product thinking
 ### Cursor
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina -a cursor -y
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --skill lamina -a cursor -y
 ```
 
 Then invoke with `/lamina-design`, `/lamina-verify`, or ask: *"Use Lamina to design the onboarding flow."*
@@ -49,16 +52,20 @@ Then invoke with `/lamina-design`, `/lamina-verify`, or ask: *"Use Lamina to des
 ### Claude Code
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina -a claude-code -y
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --skill lamina -a claude-code -y
 ```
 
 ### Codex / Pi / Generic
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina -a codex -a pi -y
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --skill lamina -a codex -a pi -y
 ```
 
-Lamina outputs structured specs your agent already knows how to consume — unopinionated on how you manage context or memory.
+The one public `lamina` skill contains all 58 workflow and craft modules.
+Lamina outputs GraphVersion-pinned projections your agent already knows how to
+consume — unopinionated on how you manage context or memory.
 
 ---
 

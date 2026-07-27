@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { gradeBehavior, checkLaminaTreatment } from '../benchmarks/lib/behavior-grade.mjs';
+import { gradePilotBehavior as gradeBehavior } from '../benchmarks/lb6/pilot/lib/pilot-behavior-grade.mjs';
+import { checkPilotLaminaTreatment as checkLaminaTreatment } from '../benchmarks/lb6/pilot/lib/pilot-treatment.mjs';
 import { buildActionSchema } from '../benchmarks/lib/action-schema.mjs';
 import { runBehaviorSelfcheck } from '../benchmarks/lib/behavior-selfcheck.mjs';
 
@@ -13,12 +15,11 @@ const pilotManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/lb6
 
 assert.equal(corpusManifest.version, 'harbor-v4');
 
-const skillsManifest = JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/corpus/lamina-bench-skills.json'), 'utf8'));
-assert.ok(skillsManifest.skills.length <= 40, 'bench skill allowlist should stay focused on loop + risk capabilities');
-assert.ok(skillsManifest.skills.includes('lamina-accessibility'));
-assert.ok(skillsManifest.skills.includes('lamina-trust'));
-assert.ok(skillsManifest.skills.includes('lamina-consistency-guarantees'));
-assert.ok(!skillsManifest.skills.includes('lamina-competitive-analysis'));
+const currentSkillManifest = JSON.parse(
+  fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'), 'utf8'),
+);
+assert.deepEqual(currentSkillManifest.skills, ['lamina'], 'current pilot must inject only the public Lamina skill');
+assert.equal(currentSkillManifest.contained_module_count, 58);
 
 const lb6TaskRoot = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks-v3/dev-loan-library-lamina-v3');
 const simpleList = pilotManifest.tasks.find((task) => task.id === 'dev-simple-list');
@@ -86,48 +87,103 @@ let gated = await gradeBehavior({ root: path.join(tmp, 'good'), golden: simpleLi
 assert.equal(gated.reward, 0);
 assert.equal(gated.invalid_treatment, true);
 
-function writeVerifyAudit(runDir, { status = 'complete' } = {}) {
-  const walkDir = path.join(runDir, 'walkthrough');
-  fs.mkdirSync(path.join(walkDir, 'steps'), { recursive: true });
-  fs.writeFileSync(
-    path.join(walkDir, 'index.yaml'),
-    ['mode: live_app', 'source: product', 'steps:', '  - id: home', '    screenshot: steps/home.png', '    a11y: steps/home.a11y.json'].join('\n') + '\n'
-  );
-  fs.writeFileSync(path.join(walkDir, 'steps/home.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-  fs.writeFileSync(path.join(walkDir, 'steps/home.a11y.json'), JSON.stringify({ role: 'main', name: 'Care circle' }));
-  fs.writeFileSync(
-    path.join(runDir, 'run.json'),
-    JSON.stringify({
-      status,
-      persona_findings: [
-        {
-          id: 'pf-owner',
-          persona_ref: 'persona.owner',
-          classification: 'structural_defect',
-          finding: 'owner cannot see escalation after miss',
-          source: 'persona_hypothesis',
-        },
-        {
-          id: 'pf-caregiver',
-          persona_ref: 'persona.caregiver',
-          classification: 'missing_recovery',
-          finding: 'caregiver lacks recovery after revoke',
-          source: 'persona_hypothesis',
-        },
-      ],
-      evidence: [{ kind: 'visual_walkthrough', path: 'walkthrough/index.yaml' }],
-      findings: [],
-    })
-  );
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
 }
 
-const laminaRoot = path.join(tmp, 'lamina-valid', '.lamina');
-fs.mkdirSync(path.join(laminaRoot, 'runs/run-1'), { recursive: true });
-fs.writeFileSync(path.join(laminaRoot, 'business-context.md'), '# charter');
-fs.writeFileSync(path.join(laminaRoot, 'personas.json'), '{"contract_version":"2.0","personas":[]}');
-fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/fix.md'), '# fix');
-fs.writeFileSync(path.join(laminaRoot, 'runs/run-1/report.md'), '# report');
-writeVerifyAudit(path.join(laminaRoot, 'runs/run-1'), { status: 'complete' });
+function backupIntegrity(body) {
+  return `backup_${crypto.createHash('sha256')
+    .update(JSON.stringify(canonical(body)))
+    .digest('hex')
+    .slice(0, 32)}`;
+}
+
+function writeGraphEvidence(rootDir, { phase = 'design', omitKind = null, legacyRuns = false } = {}) {
+  const laminaRoot = path.join(rootDir, '.lamina');
+  fs.mkdirSync(path.join(laminaRoot, 'benchmark'), { recursive: true });
+  fs.mkdirSync(path.join(laminaRoot, 'projections'), { recursive: true });
+  fs.writeFileSync(path.join(laminaRoot, 'business-context.md'), '# Product evidence\n');
+  fs.writeFileSync(path.join(laminaRoot, 'personas.json'), JSON.stringify({
+    contract_version: '2.0',
+    personas: [{ id: 'owner' }, { id: 'caregiver' }],
+  }));
+  if (legacyRuns) fs.mkdirSync(path.join(laminaRoot, 'runs/legacy'), { recursive: true });
+
+  const requiredKinds = phase === 'init'
+    ? ['product', 'persona', 'persona', 'actor']
+    : [
+        'product', 'persona', 'persona', 'actor',
+        'workflow', 'operation', 'invariant', 'scenario', 'proof', 'mission',
+      ];
+  const resources = requiredKinds
+    .filter((kind) => kind !== omitKind)
+    .map((kind, index) => ({
+      id: `res_${kind}_${index}`,
+      kind,
+      data: { epistemic_class: kind === 'proof' ? 'runtime_evidence' : 'inferred' },
+    }));
+  const statements = phase === 'init' ? [] : [{
+    id: 'stmt_workflow_step',
+    subject: resources.find((item) => item.kind === 'workflow')?.id,
+    predicate: 'lamina:hasStep',
+    object: resources.find((item) => item.kind === 'operation')?.id,
+    literal: null,
+    qualifiers: { position: 1, epistemic_class: 'inferred' },
+    evidence: [],
+    generated_by: [],
+  }].filter((item) => item.subject && item.object);
+  const graphVersion = phase === 'init' ? 'version_init' : 'version_design';
+  const sourceRevision = phase === 'init' ? 'source_init' : 'source_design';
+  const body = {
+    format: 'lamina-graph-backup-v1',
+    resources,
+    aliases: [],
+    statements,
+    versions: [{
+      id: graphVersion,
+      source_revision: sourceRevision,
+      receipt: {
+        validation: { ok: true, errors: [], contradictions: [] },
+        active_resources: resources.map((item) => item.id),
+        active_statements: statements.map((item) => item.id),
+      },
+      parents: [],
+      add_resources: resources.map((item) => item.id),
+      add_statements: statements.map((item) => item.id),
+      retire_resources: [],
+      retire_statements: [],
+    }],
+    views: [{
+      id: 'branch:main',
+      kind: 'branch',
+      name: 'main',
+      status: 'active',
+      head: graphVersion,
+      base: null,
+      resources: resources.map((item) => item.id),
+      statements: statements.map((item) => item.id),
+      pending_evidence: [],
+    }],
+  };
+  const file = path.join(
+    laminaRoot,
+    'benchmark',
+    phase === 'init' ? 'init-graph.json' : 'design-graph.json',
+  );
+  fs.writeFileSync(file, `${JSON.stringify({ ...body, integrity: backupIntegrity(body) }, null, 2)}\n`);
+  if (phase !== 'init') {
+    fs.writeFileSync(
+      path.join(laminaRoot, 'projections/implement.md'),
+      `# Implementation projection\n\nGraphVersion: ${graphVersion}\nSource revision: ${sourceRevision}\n`,
+    );
+  }
+}
+
+writeGraphEvidence(path.join(tmp, 'lamina-valid'), { phase: 'design' });
 writeApp(path.join(tmp, 'lamina-valid'), goodApp);
 let treatment = checkLaminaTreatment(path.join(tmp, 'lamina-valid'), 'fix');
 assert.equal(treatment.valid, true);
@@ -135,17 +191,11 @@ let laminaGood = await gradeBehavior({ root: path.join(tmp, 'lamina-valid'), gol
 assert.equal(laminaGood.reward, PERFECT_REWARD);
 assert.equal(laminaGood.invalid_treatment, false);
 
-const noAuditRoot = path.join(tmp, 'lamina-no-audit', '.lamina');
-fs.mkdirSync(path.join(noAuditRoot, 'runs/run-1'), { recursive: true });
-fs.writeFileSync(path.join(noAuditRoot, 'business-context.md'), '# charter');
-fs.writeFileSync(path.join(noAuditRoot, 'personas.json'), '{"contract_version":"2.0","personas":[]}');
-fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/run.json'), JSON.stringify({ status: 'complete', persona_findings: [] }));
-fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/fix.md'), '# fix');
-fs.writeFileSync(path.join(noAuditRoot, 'runs/run-1/report.md'), '# report');
+writeGraphEvidence(path.join(tmp, 'lamina-no-audit'), { phase: 'design', omitKind: 'mission' });
 writeApp(path.join(tmp, 'lamina-no-audit'), goodApp);
 let noAudit = checkLaminaTreatment(path.join(tmp, 'lamina-no-audit'), 'lamina_verify');
 assert.equal(noAudit.valid, false);
-assert.ok(noAudit.missing.some((m) => /walkthrough|persona_findings/i.test(m)));
+assert.ok(noAudit.missing.some((m) => /mission/i.test(m)));
 let noAuditGrade = await gradeBehavior({
   root: path.join(tmp, 'lamina-no-audit'),
   golden: simpleList.golden,
@@ -174,20 +224,15 @@ const publicAbi = fs.readFileSync(
 );
 assert.doesNotMatch(publicAbi, /"expect"\s*:|must_not_include|"criteria"\s*:/);
 
-let initOnly = checkLaminaTreatment(path.join(tmp, 'lamina-valid'), 'lamina_init');
+writeGraphEvidence(path.join(tmp, 'lamina-init-valid'), { phase: 'init' });
+let initOnly = checkLaminaTreatment(path.join(tmp, 'lamina-init-valid'), 'lamina_init');
 assert.equal(initOnly.valid, true);
-fs.rmSync(path.join(tmp, 'lamina-valid', '.lamina', 'runs'), { recursive: true, force: true });
-let designGate = checkLaminaTreatment(path.join(tmp, 'lamina-valid'), 'lamina_design');
+let designGate = checkLaminaTreatment(path.join(tmp, 'lamina-init-valid'), 'lamina_design');
 assert.equal(designGate.valid, false);
 
-const relaxedRoot = path.join(tmp, 'lamina-relaxed', '.lamina');
-fs.mkdirSync(path.join(relaxedRoot, 'runs/run-1'), { recursive: true });
-fs.writeFileSync(path.join(relaxedRoot, 'business-context.md'), '# charter');
-fs.writeFileSync(path.join(relaxedRoot, 'personas.json'), '{"contract_version":"2.0","personas":[]}');
-fs.writeFileSync(path.join(relaxedRoot, 'runs/run-1/fix.md'), '# fix');
-fs.writeFileSync(path.join(relaxedRoot, 'runs/run-1/report.md'), '# report');
-writeVerifyAudit(path.join(relaxedRoot, 'runs/run-1'), { status: 'ready_to_build' });
-let relaxed = checkLaminaTreatment(path.join(tmp, 'lamina-relaxed'), 'fix');
-assert.equal(relaxed.valid, true);
+writeGraphEvidence(path.join(tmp, 'lamina-legacy-run'), { phase: 'design', legacyRuns: true });
+let legacyRun = checkLaminaTreatment(path.join(tmp, 'lamina-legacy-run'), 'fix');
+assert.equal(legacyRun.valid, false);
+assert.ok(legacyRun.missing.some((item) => item.includes('.lamina/runs')));
 
-console.log('Behavior benchmark test passed: corpus allowlist, ABC attacks, treatment gates, and LB6 verifier hygiene.');
+console.log('Behavior benchmark test passed: single-skill allowlist, ABC attacks, graph treatment gates, and verifier hygiene.');

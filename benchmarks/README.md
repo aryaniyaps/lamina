@@ -38,8 +38,8 @@ npm run bench:release:validate   # contract checks + determinism tests
 | `corpus/lamina-bench-skills.json` | Loop + risk-capability skill allowlist for lamina arm |
 | `lib/behavior-grade.mjs` | Behavior oracle + treatment gates |
 | `lib/behavior-selfcheck.mjs` | Structural agent self-check (no golden expects) |
-| `lb6/pilot/scripts/build-pilot.mjs` | Generate LB6 Harbor tasks |
-| `lb6/pilot/scripts/validate-pilot.mjs` | Validate LB6 pilot package |
+| `lb6/pilot/scripts/build-transactional-pilot.mjs` | Generate the current graph-backed LB6 Harbor tasks |
+| `lb6/pilot/scripts/validate-transactional-pilot.mjs` | Validate the current graph-backed pilot package |
 
 ## Local cache cleanup
 

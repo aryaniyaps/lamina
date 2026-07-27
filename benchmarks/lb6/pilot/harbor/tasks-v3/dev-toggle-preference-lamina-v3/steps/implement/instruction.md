@@ -1,8 +1,8 @@
 # dev-toggle-preference — implement
 
-Use the installed Lamina skills and slash commands fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.
+Use the installed `$lamina` skill and its contained `/lamina-*` routes fully. Follow Mode B: during `/lamina-*` commands write only under `.lamina/`; implement application source in separate coding turns. Do not skip persona-panel native Task children, risk-skill loads, or authority/lifecycle modeling because this is a development pilot — those are part of how Lamina works.
 
-Implement the **published ABI** (`app.mjs` / `ui.mjs`) from the latest `implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step. Do not build a non-ABI `app.js` prototype first.
+Implement the **published ABI** (`app.mjs` / `ui.mjs`) from `.lamina/projections/implement.md` in a normal coding turn. You may Read `.lamina/` and supporting skills. **Do not** invoke `/lamina-*` slash commands in this step. Do not build a non-ABI `app.js` prototype first.
 
 ## Required thin-slice ship target
 
@@ -73,7 +73,7 @@ This checks only structural integrity (every published action mutates state; act
 
 ## Lamina implement mandate
 
-Translate `.lamina/` design (`implement.md`, personas, authority/lifecycle notes) into the **published ABI files** above.
+Translate the graph-backed `.lamina/projections/implement.md` and persona evidence into the **published ABI files** above.
 - Write `/app/app.mjs` (+ `ui.mjs` / `index.html` / `styles.css` as needed). **Never** create `/app/app.js` as the product.
 - Run `node /app/.lb6-abi/selfcheck.mjs` until it exits 0 before finishing this step.
 - Spend the budget on domain correctness in `reduce`/`project`, not a throwaway non-ABI prototype.

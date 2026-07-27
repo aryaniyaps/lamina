@@ -24,7 +24,7 @@ Install Lamina for this project.
 1. Confirm Node.js 20 or newer is available.
 2. Run:
    npm install -g @laminadev/cli@latest
-   npx skills add aryaniyaps/lamina --all -y
+   npx skills add aryaniyaps/lamina --skill lamina -a '*' -y
    lamina doctor --json
 3. Do not use sudo and do not edit application source.
 4. If a command fails, stop and show me the exact error.
@@ -36,11 +36,13 @@ Prefer installing it yourself?
 
 ```bash
 npm install -g @laminadev/cli@latest
-npx skills add aryaniyaps/lamina --all -y
+npx skills add aryaniyaps/lamina --skill lamina -a '*' -y
 lamina doctor --json
 ```
 
-Then start a **fresh agent session** so the skills load.
+The one installed `lamina` skill contains all 58 workflow and craft modules;
+they are routed internally instead of being installed as 58 sibling skills.
+Then start a **fresh agent session** so the bundle loads.
 
 ### Design, build, and verify
 

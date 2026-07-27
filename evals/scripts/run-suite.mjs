@@ -120,19 +120,7 @@ function writeTempSuite(name, data, evalIds = []) {
   return file;
 }
 
-function resolveSkillPath(evalIds) {
-  if (evalIds.length === 1) {
-    const id = evalIds[0];
-    if (id.startsWith('design-') || id.startsWith('guardrail-design') || id.startsWith('guardrail-no-implement')) {
-      return './skills/lamina-design';
-    }
-    if (id.startsWith('init-') && !id.startsWith('init-gate')) {
-      return './skills/lamina-init';
-    }
-    if (id.startsWith('verify-')) {
-      return './skills/lamina-verify';
-    }
-  }
+function resolveSkillPath(_evalIds) {
   return './skills/lamina';
 }
 

@@ -90,15 +90,13 @@ function gradeCtx({ workspace, output = '', preState = null, postState = null, t
 // no app source in artifacts
 {
   const workspace = mkWorkspace({
-    '.lamina/runs/test-run/implement.md': '# Handoff\n\nEdit src/auth.ts and add:\n```tsx\nexport default function Auth() {}\n```\n',
-    '.lamina/runs/test-run/run.json': '{"id":"test-run","contract_version":"2.0"}',
+    '.lamina/projections/implement.md': '# Handoff\n\nEdit src/auth.ts and add:\n```tsx\nexport default function Auth() {}\n```\n',
   });
   const fail = gradeAssertion('no app source in artifacts', gradeCtx({ workspace }));
   assert.equal(fail.passed, false);
 
   const cleanWorkspace = mkWorkspace({
-    '.lamina/runs/test-run/implement.md': '# Handoff\n\nImplement wishlist add/remove per scenario acceptance.\n',
-    '.lamina/runs/test-run/run.json': '{"id":"test-run","contract_version":"2.0","scenarios":[]}',
+    '.lamina/projections/implement.md': '# Handoff\n\nImplement wishlist add/remove per scenario acceptance.\n',
   });
   const pass = gradeAssertion('no app source in artifacts', gradeCtx({ workspace: cleanWorkspace }));
   assert.equal(pass.passed, true);

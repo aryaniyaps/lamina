@@ -25,4 +25,4 @@ are forbidden. All agent-facing output is deterministic JSON with GraphVersion,
 source revision, results, Contradictions, validation receipt, and stable error
 codes.
 
-Legacy the active GraphVersion files are untouched indexable source evidence and have no runtime meaning. Do not discover or select them.
+Legacy run files are untouched source evidence and have no runtime meaning. Do not discover or select them.

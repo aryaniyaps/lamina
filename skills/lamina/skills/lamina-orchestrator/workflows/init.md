@@ -9,10 +9,13 @@
 5. Write `.lamina/personas.json` (JSON only — never `personas.yaml`) with `contract_version: "2.0"` and evidence-grounded personas. Every persona includes role, goals, constraints, evidence references, confidence, and whether it is primary.
 6. Keep provisional or inferred personas at low or medium confidence. Never claim simulation replaces research.
 7. Run the repository init validator when it is available; otherwise apply the same canonical-heading and persona checks manually. Do not report successful initialization while either artifact is invalid.
+8. Run `lamina graph observe`, then start one explicit graph session.
+9. Propose the inferred Product, every evidence-grounded Persona, known Actors, their `lamina:canAssume` relationships, and Evidence Resources grounded in the source Observations.
+10. Validate and publish atomically. Report the exact GraphVersion and source revision.
 
 ## Update
 
-Merge new evidence into business context, append a dated decision note, update persona evidence/confidence, and flag prior runs whose intent or actors may now be stale. Do not rewrite historical run artifacts.
+Merge new evidence into business context, append a dated decision note, update persona evidence/confidence, rerun observation, and flag Missions or projections whose intent or actors may now be stale. Do not rewrite historical run artifacts.
 
 ## Blocking rule
 

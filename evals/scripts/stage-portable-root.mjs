@@ -13,13 +13,7 @@ const PORTABLE = path.join(ROOT, 'evals/portable');
 const SUITES = path.join(ROOT, 'evals/suites');
 const SKILLS = path.join(ROOT, 'skills');
 
-const SKILL_NAMES = [
-  'lamina',
-  'lamina-init',
-  'lamina-design',
-  'lamina-verify',
-  'lamina-capabilities',
-];
+const SKILL_NAMES = ['lamina'];
 
 function symlinkOrCopy(src, dest) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });

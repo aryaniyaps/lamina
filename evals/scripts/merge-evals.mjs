@@ -41,7 +41,7 @@ function mt(id, prompts, extra = {}) {
 
 const FEATURE_EDGE_ASSERTIONS = [
   'read skill lamina-edge-cases',
-  'edge cases section present',
+  'GraphVersion projection present',
   'edge case categories covered',
   'domain contract present',
   'no template domain leak',
@@ -141,7 +141,13 @@ const ASSERTION_MIGRATIONS = new Map([
   ['handoff maps findings', 'graph projection traceability present'],
   ['proofs[] present', 'graph proof coverage present'],
   ['implement.md mentions proof manifest', 'graph proof coverage present'],
+  ['proof packet complete', 'graph proof coverage present'],
   ['persona_findings valid', 'Mission evidence valid'],
+  ['persona simulation file exists', 'all relevant persona missions'],
+  ['persona findings count >= 2', 'all relevant persona missions'],
+  ['findings present', 'Mission evidence valid'],
+  ['fix.md exists', 'GraphVersion projection present'],
+  ['report.md narrative only', 'GraphVersion projection present'],
   ['traceability complete', 'graph traceability complete'],
 ]);
 
@@ -417,7 +423,7 @@ const laminaEvals = {
 };
 
 const laminaInitEvals = {
-  skill_name: 'lamina-init',
+  skill_name: 'lamina',
   evals: [
     e('init-establish-greenfield', '/lamina-init — B2B SaaS for HR teams to manage PTO requests. Web app, six-month MVP.', {
       expected_output: 'Valid business-context.md with all sections and personas.json.',
@@ -487,7 +493,7 @@ const laminaInitEvals = {
 };
 
 const laminaDesignEvals = {
-  skill_name: 'lamina-design',
+  skill_name: 'lamina',
   evals: [
     e('design-budgeting', '/lamina-design — Problem: mobile budgeting for households with multiple accounts.', {
       ...fx('greenfield-with-init'),
@@ -646,7 +652,7 @@ const laminaDesignEvals = {
 };
 
 const laminaVerifyEvals = {
-  skill_name: 'lamina-verify',
+  skill_name: 'lamina',
   evals: [
     e('audit-checkout', '/lamina-verify — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.', {
       ...fx('brownfield-audit-ready'),
@@ -767,7 +773,7 @@ const laminaVerifyEvals = {
 };
 
 const laminaCapabilitiesEvals = {
-  skill_name: 'lamina-capabilities',
+  skill_name: 'lamina',
   evals: [
     e('cap-flow-design-framework', '/lamina — Users get lost resetting passwords.', {
       ...fx('greenfield-with-init'),

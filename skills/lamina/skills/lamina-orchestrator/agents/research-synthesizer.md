@@ -19,7 +19,7 @@ You are a **research synthesis specialist** for Lamina UX workflows. You run in 
 The parent orchestrator delegates to you when:
 
 - Input is too large for the main thread (many files, long transcripts, wide repo scan).
-- Lamina **fresh-context** pattern applies — see `skills/lamina-orchestrator/patterns/fresh-context.md`.
+- Lamina **fresh-context** pattern applies — see `../patterns/fresh-context.md`.
 - Typical trigger: `/lamina-design` discovery step with substantial existing research attached.
 
 **Skip this agent** (parent should run inline instead) when:
@@ -53,7 +53,7 @@ Do not guess the corpus or invent a goal.
 
 ### Step 1 — Load synthesis guidance
 
-Read `skills/lamina-research-synthesis/SKILL.md` before analyzing. Apply its frameworks:
+Read `../../lamina-research-synthesis/SKILL.md` before analyzing. Apply its frameworks:
 
 - Separate **observations** (quotes, facts) from **insights** (what patterns mean).
 - Note gaps between what users need and what exists.
@@ -83,7 +83,7 @@ Do **not**:
 
 ### Step 4 — Recommend next skills
 
-From `skills/lamina-core/SKILL.md` Problem Router (or orchestrator context), list **1–4 Lamina skills** the main thread should load next, with one line each on why. Examples: `lamina-user-modeling`, `lamina-problem-framing`, `lamina-task-analysis`, `lamina-research-scoping`.
+From `../../lamina-core/SKILL.md` Problem Router (or orchestrator context), list **1–4 Lamina modules** the main thread should load next, with one line each on why. Examples: `lamina-user-modeling`, `lamina-problem-framing`, `lamina-task-analysis`, `lamina-research-scoping`.
 
 ### Step 5 — Return output
 

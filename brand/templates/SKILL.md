@@ -16,7 +16,7 @@ metadata:
 
 **Design how it works.**
 
-Lamina runs alongside your AI coding agent — Cursor, Claude Code, Codex, Gemini, Pi. It helps you know what to build before you prompt: edge cases, UX gaps, product states, and invariants in a design contract your agent implements. Verified visually after you ship. Does not write your app source.
+Lamina runs alongside your AI coding agent — Cursor, Claude Code, Codex, Gemini, Pi. It helps you know what to build before you prompt: edge cases, UX gaps, product states, and invariants in a transactional product graph your agent implements. Verified with isolated Persona Missions after you ship. Does not write your app source.
 
 ## When to use
 
@@ -95,10 +95,10 @@ Categories: empty states, errors, concurrency, boundaries, permissions, recovery
 
 After implementation, run verification:
 
-1. Actor walks against `run.yaml` contract
-2. Visual walkthrough capture from live app (screenshots + a11y)
-3. Persona simulations consume visual evidence
-4. Findings written to `.lamina/runs/<id>/`
+1. Resolve the active GraphVersion and source revision.
+2. Compile one independent Mission for every relevant Persona.
+3. Run each Mission through a capability-matched adapter.
+4. Publish normalized Evidence and HarnessResults through graphd.
 
 ## Output format
 
@@ -109,11 +109,13 @@ Always output in this order:
 3. UX flows
 4. Scenarios & edge cases
 
-End with a **handoff block** for the coding agent:
+End with a GraphVersion-pinned **implementation projection** for the coding agent:
 
 ```
 ## Handoff
 
+GraphVersion: [resolved version id]
+Source revision: [resolved source revision]
 Framework: [user's stack, or "agnostic"]
 Priority: [what to build first]
 Defer: [what can wait]

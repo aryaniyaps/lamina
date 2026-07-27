@@ -10,6 +10,6 @@ pnpm test:eval:full
 pnpm test:eval:redteam
 ```
 
-`evals/scripts/merge-evals.mjs` is the source for generated suite JSON. Transactional assertions require graphd/session/GraphVersion behavior and reject writes to legacy run directories. The write-boundary checker permits `.lamina/` evidence and the shared Git-common-dir `lamina/` runtime while rejecting product-source writes.
+`evals/scripts/merge-evals.mjs` generates the combined suite JSON. Transactional assertions query live graphd state, require session/GraphVersion publication and Mission evidence, and reject writes to legacy run directories. The write-boundary checker permits `.lamina/` evidence and the shared Git-common-dir `lamina/` runtime while rejecting product-source writes.
 
-Legacy artifact graders remain only for historical fixture compatibility; current cases do not treat those artifacts as runtime state.
+The current grader has no legacy run-artifact reader. Historical prompts may mention those files only to prove that they are ignored and never treated as runtime state.

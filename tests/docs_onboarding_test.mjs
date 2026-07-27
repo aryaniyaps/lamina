@@ -28,7 +28,8 @@ for (const heading of [
 }
 
 assert.match(readme, /npm install -g @laminadev\/cli@latest/);
-assert.match(readme, /npx skills add aryaniyaps\/lamina --all -y/);
+assert.match(readme, /npx skills add aryaniyaps\/lamina --skill lamina -a '\*' -y/);
+assert.match(readme, /one installed `lamina` skill contains all 58/i);
 assert.match(readme, /lamina doctor --json/);
 assert.match(readme, /Do not use sudo and do not edit application source/);
 assert.match(readme, /start a fresh agent session/i);

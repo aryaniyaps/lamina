@@ -124,3 +124,5 @@ source revision.
   tooling.
 - Legacy artifact consumers must migrate to graph queries and generated
   projections; there is no compatibility runtime.
+- The public skill/module distribution boundary is specified separately in
+  [ADR-002](./002-single-public-skill-bundle.md).

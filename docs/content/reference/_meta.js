@@ -1,8 +1,8 @@
 export default {
   "transactional-graph": "Transactional graph",
-  artifacts: "Per-run artifacts",
-  "global-artifacts": "Global artifacts",
-  "run-json-schema": "run.json schema",
+  "transactional-plan-acceptance": "Plan acceptance",
+  artifacts: "Graph projections",
+  "global-artifacts": "Evidence-source files",
   glossary: "Glossary",
   "skill-map": "Skill map",
   validation: "Validation",

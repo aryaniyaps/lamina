@@ -17,7 +17,7 @@ skills_add() {
     fi
   done
   if [[ "$has_skill" == false ]]; then
-    args=(--skill '*' "${args[@]}")
+    args=(--skill lamina "${args[@]}")
   fi
   (cd "$SANDBOX" && npx --yes skills add "$LAMINA_ROOT" "${args[@]}")
 }
@@ -25,7 +25,7 @@ skills_add() {
 skills_add_external() {
   local external_skills_root
   external_skills_root="$(cd "$LAMINA_ROOT/../skills" && pwd)"
-  (cd "$SANDBOX" && npx --yes skills add "$external_skills_root" --skill '*' -a cursor -y --copy "$@")
+  (cd "$SANDBOX" && npx --yes skills add "$external_skills_root" --skill lamina -a cursor -y --copy "$@")
 }
 
 skills_dry_run() {

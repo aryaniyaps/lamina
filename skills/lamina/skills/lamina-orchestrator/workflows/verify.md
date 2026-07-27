@@ -9,4 +9,4 @@
 7. Fail readiness for missing evidence, changed source snapshots, corrupt artifacts, capability failures, or blocking Contradictions.
 8. Publish verification results transactionally and report the exact GraphVersion and source revision.
 
-Legacy the active GraphVersion and generated Markdown are never verification inputs.
+Legacy run files and generated Markdown are never verification inputs.

@@ -15,17 +15,17 @@ function stripFrontmatter(content) {
 
 const files = [
   'skills/lamina/SKILL.md',
-  'skills/lamina-orchestrator/SKILL.md',
-  'skills/lamina-orchestrator/prerequisites/init-required.md',
-  'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
-  'skills/lamina-core/guardrails.md',
-  'skills/lamina-core/SKILL.md',
-  'skills/lamina-orchestrator/references/product-graph.md',
-  'skills/lamina-orchestrator/workflows/design.md',
-  'skills/lamina-orchestrator/prompts/outputs/fix.md',
-  'skills/lamina-orchestrator/workflows/router.md',
-  'skills/lamina-orchestrator/workflows/verify.md',
-  'skills/lamina-orchestrator/merge-rules.md',
+  'skills/lamina/skills/lamina-orchestrator/SKILL.md',
+  'skills/lamina/skills/lamina-orchestrator/prerequisites/init-required.md',
+  'skills/lamina/skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
+  'skills/lamina/skills/lamina-core/guardrails.md',
+  'skills/lamina/skills/lamina-core/SKILL.md',
+  'skills/lamina/skills/lamina-orchestrator/references/product-graph.md',
+  'skills/lamina/skills/lamina-orchestrator/workflows/design.md',
+  'skills/lamina/skills/lamina-orchestrator/prompts/outputs/fix.md',
+  'skills/lamina/skills/lamina-orchestrator/workflows/router.md',
+  'skills/lamina/skills/lamina-orchestrator/workflows/verify.md',
+  'skills/lamina/skills/lamina-orchestrator/merge-rules.md',
 ];
 
 const body = files
@@ -35,7 +35,7 @@ const body = files
   })
   .join('\n\n');
 
-const prompt = `You are a coding agent with Lamina UX skills installed. Follow these skill instructions exactly.
+const prompt = `You are a coding agent with the Lamina skill bundle installed. Follow these skill instructions exactly.
 
 Write allowlist: only .lamina/ during Lamina slash commands. Everything else in the repo is read-only.
 Do not implement product code in the same session as a Lamina command — implementation is always a separate coding session.

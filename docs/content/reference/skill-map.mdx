@@ -7,13 +7,15 @@ import { Callout } from 'nextra/components'
 
 # Skill map
 
-Lamina includes ~60 capability skills organized into three taxonomies. The orchestrator routes design and verify sections to the right skill via [audit profiles](/advanced/orchestrator).
+Lamina installs as one public skill containing 58 workflow and craft modules
+organized into three taxonomies. The orchestrator routes design and verify
+sections to the right contained module via [audit profiles](/advanced/orchestrator).
 
 ## Quick path
 
-- **Focused question?** `/lamina <question>` routes to one skill (direct mode)
-- **Full workflow?** `/lamina-init` first, then `/lamina-design` or `/lamina-verify` loads multiple skills via audit profiles
-- **Deep dive?** Each skill has a `SKILL.md` in the [Lamina repo](https://github.com/aryaniyaps/lamina/tree/main/skills)
+- **Focused question?** `/lamina <question>` routes to one contained module (direct mode)
+- **Full workflow?** `/lamina-init` first, then `/lamina-design` or `/lamina-verify` loads multiple modules via audit profiles
+- **Deep dive?** The modules live inside the [single Lamina skill](https://github.com/aryaniyaps/lamina/tree/main/skills/lamina/skills)
 
 ## Systems thinking
 
@@ -87,7 +89,10 @@ Replaces human labs and workshops with contract + live-product simulation.
 | Testable acceptance criteria | `lamina-requirements-definition` |
 
 <Callout type="info">
-**Advanced:** Skill files live at `skills/lamina-<name>/SKILL.md` in the repo. The orchestrator's `audit-profiles.yaml` maps workflow sections to specific skills during design and verify.
+**Advanced:** Module files live at
+`skills/lamina/skills/lamina-<name>/SKILL.md`. The installer discovers only
+`skills/lamina/SKILL.md` by default; do not use `--full-depth`, which would
+incorrectly expose internal modules as independent public skills.
 </Callout>
 
 ## Direct mode examples

@@ -1,5 +1,5 @@
 {
-  "skill_name": "lamina-verify",
+  "skill_name": "lamina",
   "evals": [
     {
       "id": "audit-checkout",
@@ -16,10 +16,8 @@
         "persona perspectives in output",
         "transactional graph workflow",
         "GraphVersion projection present",
-        "fix.md exists",
-        "findings present",
+        "Mission evidence valid",
         "graph projection traceability present",
-        "report.md narrative only",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output",
@@ -169,9 +167,8 @@
       "stage_files": true,
       "assertions": [
         "verify contract headings",
-        "fix.md exists",
-        "findings present",
-        "report.md narrative only",
+        "GraphVersion projection present",
+        "Mission evidence valid",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output",

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Copy the full Lamina skills tree into an eval agent workspace.
+# Copy the single public Lamina skill, including every contained module, into an
+# eval agent workspace.
 # Requires ASE_WORKSPACE_PATH and ASE_AGENT (mirrors agent_skill_eval SkillInstaller paths).
 set -euo pipefail
 
@@ -43,15 +44,10 @@ copy_skill() {
   shopt -u nullglob
 }
 
-installed=0
 while IFS= read -r rel; do
   dest_root="$WORKSPACE/$rel"
   mkdir -p "$dest_root"
-  for skill_dir in "$ROOT/skills"/*; do
-    [[ -d "$skill_dir" ]] || continue
-    copy_skill "$skill_dir" "$dest_root"
-    installed=$((installed + 1))
-  done
+  copy_skill "$ROOT/skills/lamina" "$dest_root"
 done < <(agent_skill_dirs)
 
 # installed counts skills × agent roots; report unique skill names from first root.
@@ -119,4 +115,5 @@ fi
 # The agent starts graphd on first use. Starting it in this hook is unsafe
 # because some eval harnesses reap hook descendants, leaving Ladybug's native
 # lock behind without a live socket.
-echo "Installed $skill_count Lamina skills for agent $AGENT → $WORKSPACE"
+module_count="$(find "$ROOT/skills/lamina/skills" -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/SKILL.md' ';' -print | wc -l | tr -d ' ')"
+echo "Installed $skill_count public Lamina skill with $module_count contained modules for agent $AGENT → $WORKSPACE"

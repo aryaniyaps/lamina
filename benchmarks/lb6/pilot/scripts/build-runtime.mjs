@@ -14,7 +14,7 @@ applyBenchEnv(ROOT);
 const pilotRoot = path.join(ROOT, 'benchmarks/lb6/pilot');
 const runtimeRoot = path.join(pilotRoot, 'runtime');
 const dockerfile = path.join(runtimeRoot, 'Dockerfile');
-if (!fs.existsSync(dockerfile)) throw new Error('runtime Dockerfile missing; run build-pilot.mjs first');
+if (!fs.existsSync(dockerfile)) throw new Error('runtime Dockerfile missing; run build-transactional-pilot.mjs first');
 
 function hashFile(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');

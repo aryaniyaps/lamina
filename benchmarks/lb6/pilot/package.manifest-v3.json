@@ -3,7 +3,7 @@
   "benchmark_version": "lb6-dev-pilot-v3",
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "pinned_skill_commit": "02aaebe3cd65459347d3b2e617fada0207874315",
-  "skill_bundle_digest": "e37e969a998cf17f1f2991cbfefeb971af92f9cb8297644fcb2e884f3a205841",
+  "skill_bundle_digest": "1721df1a8d88a31380980daa422e05ffa97224b81337cccfd738db4f3e9925d9",
   "harbor_version": "0.18.0",
   "agent": "cursor-cli",
   "model": "cursor/composer-2.5",
@@ -25,7 +25,9 @@
   "attempts_per_arm": 1,
   "agent_budget_sec": 1500,
   "skills": [
-    "lamina",
+    "lamina"
+  ],
+  "contained_modules": [
     "lamina-accessibility",
     "lamina-business-context",
     "lamina-competitive-analysis",

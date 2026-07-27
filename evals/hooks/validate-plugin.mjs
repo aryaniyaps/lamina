@@ -10,6 +10,7 @@ import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
+const MODULES = 'skills/lamina/skills';
 
 const errors = [];
 
@@ -21,32 +22,43 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
+function modulePath(name, suffix = 'SKILL.md') {
+  return `${MODULES}/${name}/${suffix}`;
+}
+
 function checkAuditProfiles() {
-  const yaml = read('skills/lamina-orchestrator/audit-profiles.yaml');
+  const yaml = read(modulePath('lamina-orchestrator', 'audit-profiles.yaml'));
   const skills = [...yaml.matchAll(/^\s+-\s+(lamina-[a-z-]+)\s*$/gm)].map((m) => m[1]);
   for (const skill of skills) {
-    if (!exists(`skills/${skill}/SKILL.md`)) {
-      errors.push(`audit-profiles references missing skill: skills/${skill}/SKILL.md`);
+    if (!exists(modulePath(skill))) {
+      errors.push(`audit-profiles references missing contained module: ${modulePath(skill)}`);
     }
   }
 }
 
 function checkProblemRouterLinks() {
-  const core = read('skills/lamina-core/SKILL.md');
+  const core = read(modulePath('lamina-core'));
   const links = [...core.matchAll(/\]\(\.\.\/(lamina-[a-z-]+)\/SKILL\.md\)/g)].map((m) => m[1]);
   for (const skill of links) {
-    if (!exists(`skills/${skill}/SKILL.md`)) {
-      errors.push(`Problem Router link missing: skills/${skill}/SKILL.md`);
+    if (!exists(modulePath(skill))) {
+      errors.push(`Problem Router link missing: ${modulePath(skill)}`);
     }
   }
 }
 
 function checkCommandSkills() {
-  const commandNames = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify'];
-  for (const name of commandNames) {
-    const skillPath = `skills/${name}/SKILL.md`;
+  const rootSkill = read('skills/lamina/SKILL.md');
+  if (!/\/lamina-init|\/lamina-design|\/lamina-verify/.test(rootSkill)) {
+    errors.push('public Lamina skill does not advertise all explicit command routes');
+  }
+  if (!/never edit|does not edit|do not edit/i.test(rootSkill) ||
+      !/application source|product source/i.test(rootSkill)) {
+    errors.push('public Lamina skill is missing its source-edit refusal');
+  }
+  for (const name of ['lamina-init', 'lamina-design', 'lamina-verify']) {
+    const skillPath = modulePath(name);
     if (!exists(skillPath)) {
-      errors.push(`Missing command skill: ${skillPath}`);
+      errors.push(`Missing contained command module: ${skillPath}`);
       continue;
     }
     const skill = read(skillPath);
@@ -61,34 +73,34 @@ function checkCommandSkills() {
 
 function checkProductGraphTooling() {
   for (const rel of [
-    'skills/lamina-orchestrator/prerequisites/cli-required.md',
-    'skills/lamina-orchestrator/references/personas.schema.json',
-    'skills/lamina-orchestrator/references/product-graph.md',
+    'skills/lamina/skills/lamina-orchestrator/prerequisites/cli-required.md',
+    'skills/lamina/skills/lamina-orchestrator/references/personas.schema.json',
+    'skills/lamina/skills/lamina-orchestrator/references/product-graph.md',
   ]) if (!exists(rel)) errors.push(`Missing transactional graph resource: ${rel}`);
 }
 
 function checkOutputContracts() {
   const contracts = {
-    'skills/lamina-orchestrator/prompts/outputs/design.md': [
+    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/design.md': [
       'GraphVersion',
       'Source revision',
       'Contradictions',
       'Validation',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/verify.md': [
+    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/verify.md': [
       'GraphVersion',
       'Source revision',
       'Runs',
       'Evidence',
       'Verdict',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
+    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
       'Status',
       "What's missing",
       'Next step',
       'Do not',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/clarify.md': [
+    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/clarify.md': [
       'Status',
       'Clarifying questions',
       'Why these block the artifact',
@@ -108,7 +120,7 @@ function checkOutputContracts() {
 }
 
 function checkPromptManifest() {
-  const manifest = read('skills/lamina-orchestrator/prompts/manifest.yaml');
+  const manifest = read('skills/lamina/skills/lamina-orchestrator/prompts/manifest.yaml');
   for (const id of ['outputs/clarify', 'outputs/design', 'outputs/implement', 'outputs/verify', 'outputs/fix', 'subagents/persona-panel-spawn']) {
     if (!manifest.includes(`${id}:`)) {
       errors.push(`Prompt manifest missing ${id}`);
@@ -118,8 +130,8 @@ function checkPromptManifest() {
 
 function checkArtifactSubagents() {
   for (const rel of [
-    'skills/lamina-orchestrator/patterns/persona-panel.md',
-    'skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
+    'skills/lamina/skills/lamina-orchestrator/patterns/persona-panel.md',
+    'skills/lamina/skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
   ]) {
     if (!exists(rel)) errors.push(`Missing artifact subagent file: ${rel}`);
     else if (rel.includes('/agents/') && !read(rel).includes('readonly: true')) errors.push(`Artifact subagent must be readonly: ${rel}`);
@@ -127,16 +139,15 @@ function checkArtifactSubagents() {
 }
 
 function checkMetadataAlignment() {
-  const skillsDir = path.join(ROOT, 'skills');
+  const skillsDir = path.join(ROOT, MODULES);
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.startsWith('lamina-')) continue;
+    if (!entry.isDirectory()) continue;
     const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillPath)) continue;
     const content = fs.readFileSync(skillPath, 'utf8');
     if (!content.includes('metadata:') || !content.includes('lamina:')) continue;
     const idMatch = content.match(/^\s+id:\s*([a-z-]+)\s*$/m);
     if (!idMatch) continue;
-    if (entry.name === 'lamina-studio' && idMatch[1] === 'blueprint') continue;
     const expectedFolder = `lamina-${idMatch[1]}`;
     if (entry.name !== expectedFolder) {
       errors.push(`metadata.lamina.id mismatch: folder ${entry.name} has id ${idMatch[1]}`);

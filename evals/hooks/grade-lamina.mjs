@@ -10,14 +10,6 @@ import { spawnSync } from 'node:child_process';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
-import {
-  distinctPersonaRefs,
-  latestRunJson,
-  personaFindingErrors,
-  traceabilityErrors,
-  validateRunJson,
-  validateLatestRun,
-} from '../lib/run-assertions.mjs';
 
 function findTemplateLeaks(text, allowed = '') {
   const terms = ['havenstay', 'budgetapp', 'password-reset-template'];
@@ -181,134 +173,21 @@ export function detectImplementableCode(text) {
   return { hasCode: reasons.length > 0, reasons };
 }
 
-function collectArtifactTexts(workspace) {
+function graphEvidenceText(workspace) {
   const texts = [];
-  const runsRoot = path.join(workspace, '.lamina/runs');
-  if (!fs.existsSync(runsRoot)) return texts;
-  for (const runDir of findRunDirs(workspace)) {
-    for (const name of ['implement.md', 'fix.md', 'report.md', 'run.json']) {
-      const filePath = path.join(runDir, name);
-      if (fs.existsSync(filePath)) texts.push(readTextSafe(filePath));
+  const graph = liveGraphState(workspace);
+  if (graph) texts.push(JSON.stringify(graph));
+  const projectionsRoot = path.join(workspace, '.lamina/projections');
+  for (const rel of listFiles(projectionsRoot)) {
+    if (/\.(?:md|json|ya?ml|txt)$/i.test(rel)) {
+      texts.push(readTextSafe(path.join(projectionsRoot, rel)));
     }
   }
-  return texts;
+  return texts.join('\n');
 }
 
 function normalizePath(p) {
   return p.replace(/\\/g, '/');
-}
-
-function findBlueprintDirs(workspace, newFiles = []) {
-  const dirs = new Set();
-  for (const rel of newFiles) {
-    const norm = normalizePath(rel);
-    const match = norm.match(/^\.lamina\/blueprints\/([^/]+)\//);
-    if (match) dirs.add(path.join(workspace, '.lamina/blueprints', match[1]));
-  }
-  const blueprintsRoot = path.join(workspace, '.lamina/blueprints');
-  if (fs.existsSync(blueprintsRoot)) {
-    for (const entry of fs.readdirSync(blueprintsRoot, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        const dir = path.join(blueprintsRoot, entry.name);
-        const hasMeta = fs.existsSync(path.join(dir, 'meta.yaml'));
-        const hasFlows = fs.existsSync(path.join(dir, 'flows.tsx'));
-        if (hasMeta || hasFlows) dirs.add(dir);
-      }
-    }
-  }
-  return [...dirs];
-}
-
-function findRunJsonFiles(workspace) {
-  const runsRoot = path.join(workspace, '.lamina/runs');
-  if (!fs.existsSync(runsRoot)) return [];
-  const files = [];
-  for (const entry of fs.readdirSync(runsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const runFile = path.join(runsRoot, entry.name, 'run.json');
-    if (fs.existsSync(runFile)) files.push(runFile);
-  }
-  return files;
-}
-
-function findRunDirs(workspace) {
-  const runsRoot = path.join(workspace, '.lamina/runs');
-  if (!fs.existsSync(runsRoot)) return [];
-  return fs
-    .readdirSync(runsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(runsRoot, entry.name))
-    .sort();
-}
-
-function latestRunDir(workspace) {
-  return findRunDirs(workspace).at(-1) ?? null;
-}
-
-function listArtifactMarkdownFiles(workspace) {
-  const files = [];
-  for (const dir of findRunDirs(workspace)) {
-    const artifactsDir = path.join(dir, 'artifacts');
-    if (!fs.existsSync(artifactsDir)) continue;
-    for (const rel of listFiles(artifactsDir)) {
-      if (rel.endsWith('.md')) files.push(path.join(artifactsDir, rel));
-    }
-  }
-  return files;
-}
-
-function reportMarkdownFiles(workspace) {
-  return findRunDirs(workspace)
-    .map((dir) => path.join(dir, 'report.md'))
-    .filter((file) => fs.existsSync(file));
-}
-
-function handoffMarkdownFiles(workspace) {
-  return findRunDirs(workspace)
-    .map((dir) => path.join(dir, 'handoff.md'))
-    .filter((file) => fs.existsSync(file));
-}
-
-function markdownHasFrontmatter(text) {
-  return /^---\n[\s\S]+?\n---\n/.test(text);
-}
-
-function validateArtifactMarkdownText(text) {
-  const errors = [];
-  if (!markdownHasFrontmatter(text)) errors.push('missing frontmatter');
-  for (const required of ['confidence:', 'sources:']) {
-    if (!text.includes(required)) errors.push(`missing ${required}`);
-  }
-  if (!/```mermaid\n[\s\S]+?```/m.test(text) && !/diagram.*blocked|blocked.*diagram/i.test(text)) {
-    errors.push('missing mermaid diagram or blocked diagram explanation');
-  }
-  if (/SUS score|heatmap|click map|scroll map|session recording/i.test(text) && !/source|evidence|provided|observed/i.test(text)) {
-    errors.push('possible unsupported test/analytics claim');
-  }
-  return errors;
-}
-
-function readScenariosText(workspace, blueprintDirs) {
-  for (const runFile of findRunJsonFiles(workspace)) {
-    try {
-      const text = fs.readFileSync(runFile, 'utf8');
-      if (text.includes('"scenarios"')) return text;
-    } catch {
-      /* ignore */
-    }
-  }
-  for (const dir of blueprintDirs) {
-    const file = path.join(dir, 'scenarios.yaml');
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
-  }
-  const fallback = path.join(workspace, '.lamina/blueprints');
-  if (!fs.existsSync(fallback)) return '';
-  for (const entry of fs.readdirSync(fallback, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const file = path.join(fallback, entry.name, 'scenarios.yaml');
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
-  }
-  return '';
 }
 
 function countEdgeCategories(text) {
@@ -545,12 +424,6 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'No .lamina/runs files changed' : `Changed run files: ${runChanged.join(', ')}`);
   }
 
-  if (lower.includes('no run.json before clarification')) {
-    const runJsonChanged = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/run\.yaml$/i.test(normalizePath(f)));
-    const passed = runJsonChanged.length === 0;
-    return hookResult(text, passed, passed ? 'No run.json changed' : `Changed run.json files: ${runJsonChanged.join(', ')}`);
-  }
-
   if (
     lower.includes('no writes outside .lamina') ||
     lower.includes('repo unchanged') ||
@@ -736,8 +609,7 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('no app source in artifacts')) {
-    const artifactText = collectArtifactTexts(workspace).join('\n');
-    const { hasCode, reasons } = detectImplementableCode(artifactText);
+    const { hasCode, reasons } = detectImplementableCode(graphEvidenceText(workspace));
     const passed = !hasCode;
     return hookResult(
       text,
@@ -772,18 +644,7 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('all full-flow lenses') || lower.includes('full-flow lenses')) {
-    let artifactText = '';
-    try {
-      for (const dir of findRunDirs(workspace)) {
-        for (const name of ['report.md', 'implement.md', 'fix.md', 'run.md']) {
-          const f = path.join(dir, name);
-          if (fs.existsSync(f)) artifactText += `\n${fs.readFileSync(f, 'utf8')}`;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    const corpus = `${output}\n${logs}\n${artifactText}`.toLowerCase();
+    const corpus = `${output}\n${logs}\n${graphEvidenceText(workspace)}`.toLowerCase();
     const missing = FULL_FLOW_SKILLS.filter((s) => {
       const short = s.replace(/^lamina-/, '');
       return !corpus.includes(s.toLowerCase()) && !corpus.includes(short.toLowerCase());
@@ -869,8 +730,8 @@ function gradeAssertion(text, ctx) {
     lower.includes('mentions changelog or stale artifacts') ||
     (lower.includes('changelog') && lower.includes('stale'))
   ) {
-    const artifactBlob = collectArtifactTexts(workspace).join('\n');
-    const combined = `${allOutput}\n${artifactBlob}`;
+    const businessContext = readTextSafe(path.join(workspace, '.lamina/business-context.md'));
+    const combined = `${allOutput}\n${businessContext}\n${graphEvidenceText(workspace)}`;
     const hasChangelog = /\bchangelog\b/i.test(combined);
     const hasStale = /\bstale\b/i.test(combined);
     const passed = hasChangelog && hasStale;
@@ -884,8 +745,7 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('edge case categories covered')) {
-    const scenariosText = readScenariosText(workspace, findBlueprintDirs(workspace, newFiles));
-    const combined = `${allOutput}\n${scenariosText}`;
+    const combined = `${allOutput}\n${graphEvidenceText(workspace)}`;
     const count = countEdgeCategories(combined);
     const passed = count >= 3;
     return hookResult(
@@ -895,30 +755,9 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('domain contract present') || lower.includes('domain required')) {
-    const runFiles = findRunJsonFiles(workspace);
-    const hasDomain = runFiles.some((f) => {
-      try {
-        const run = JSON.parse(fs.readFileSync(f, 'utf8'));
-        return Array.isArray(run.entities) && Array.isArray(run.operations) && Array.isArray(run.workflows);
-      } catch {
-        return false;
-      }
-    });
-    return hookResult(text, hasDomain, hasDomain ? 'domain block present in run.json' : 'Missing domain in run.json');
-  }
-
   if (lower.includes('no template domain leak')) {
-    const { dir, run } = latestRunJson(workspace);
-    if (!dir || !run) return hookResult(text, false, 'No run.json found under .lamina/runs/');
-    const implPath = path.join(dir, 'implement.md');
-    if (!fs.existsSync(implPath)) return hookResult(text, false, 'implement.md missing');
-    const impl = fs.readFileSync(implPath, 'utf8');
     const allowed = `${evalMeta?.prompt || ''}\n${process.env.ASE_EVAL_PROMPT || ''}`;
-    const leaks = [
-      ...findTemplateLeaks(JSON.stringify(run), allowed),
-      ...findTemplateLeaks(impl, allowed),
-    ];
+    const leaks = findTemplateLeaks(`${allOutput}\n${graphEvidenceText(workspace)}`, allowed);
     const unique = [...new Set(leaks)];
     return hookResult(
       text,
@@ -927,233 +766,13 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('domain contract present')) {
-    return hookResult(text, true, 'Assertion deprecated — use domain contract present');
-  }
-
-  if (lower.includes('ready_to_build') || lower.includes('design completion on disk')) {
-    const runDirs = findRunDirs(workspace);
-    let ok = false;
-    let evidence = 'No run dirs under .lamina/runs/';
-    for (const dir of runDirs) {
-      const runFile = path.join(dir, 'run.json');
-      const implFile = path.join(dir, 'implement.md');
-      if (!fs.existsSync(runFile)) continue;
-      const run = readJsonSafe(runFile) || {};
-      const statusReady = run.status === 'ready_to_build';
-      const statusDesigning = run.status === 'draft' || run.status === 'needs_input';
-      const hasImpl = fs.existsSync(implFile) && fs.statSync(implFile).size > 0;
-      if (statusReady && hasImpl) {
-        ok = true;
-        evidence = `${path.basename(dir)}: status ready_to_build + implement.md`;
-        break;
-      }
-      if (statusDesigning && !hasImpl) {
-        evidence = `${path.basename(dir)}: stuck status draft without implement.md`;
-      } else if (statusReady && !hasImpl) {
-        evidence = `${path.basename(dir)}: ready_to_build but missing implement.md`;
-      } else if (statusDesigning && hasImpl) {
-        evidence = `${path.basename(dir)}: implement.md present but status still draft`;
-      }
-    }
-    return hookResult(text, ok, ok ? evidence : evidence || 'Missing ready_to_build + implement.md');
-  }
-
-  if (lower.includes('not left draft') || lower.includes('status not draft') || lower.includes('not left designing') || lower.includes('status not designing')) {
-    const runFiles = findRunJsonFiles(workspace);
-    if (!runFiles.length) {
-      return hookResult(text, false, 'No run.json found');
-    }
-    const stuck = runFiles.filter((f) => ['draft', 'needs_input'].includes(readJsonSafe(f)?.status));
-    const passed = stuck.length === 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'No run left in draft or needs_input' : `Still draft: ${stuck.map((f) => path.basename(path.dirname(f))).join(', ')}`,
-    );
-  }
-
-  if (lower.includes('implement.md') && !lower.includes('handoff maps')) {
-    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md') || f.includes('/implement.md'));
-    // Prefer run-dir implement.md
-    const runImpl = findRunDirs(workspace).map((d) => path.join(d, 'implement.md')).filter((f) => fs.existsSync(f));
-    const ok = runImpl.length > 0 || impl.length > 0;
-    return hookResult(text, ok, ok ? 'implement.md written' : 'No implement.md');
-  }
-
-  if (lower.includes('blueprint validate passes') || lower.includes('blueprint offer made') || lower.includes('no styling in blueprint') || lower.includes('no blueprint without consent')) {
-    return hookResult(text, true, 'Blueprint removed from product — assertion skipped');
-  }
-
   if (lower.includes('no implementation vocabulary')) {
-    const runText = findRunJsonFiles(workspace).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
-    const edgeSection = `${runText}\n${output.split(/### Edge cases/i)[1] ?? output}`;
+    const edgeSection = `${graphEvidenceText(workspace)}\n${output.split(/### Edge cases/i)[1] ?? output}`;
     const passed = !IMPL_VOCAB_PATTERNS.test(edgeSection);
     return hookResult(
       text,
       passed,
       passed ? 'No implementation vocabulary in edge-case output' : 'SQL/ORM/API terms found in edge cases',
-    );
-  }
-
-  if (lower.includes('scenarios.yaml valid') || lower.includes('run.json scenarios valid')) {
-    const runFiles = findRunJsonFiles(workspace);
-    for (const runFile of runFiles) {
-      const result = validateRunJson(runFile);
-      if (result.run.scenarios?.length) {
-        return hookResult(
-          text,
-          result.ok,
-          result.ok ? `run.json scenarios valid (${path.basename(path.dirname(runFile))})` : result.errors.join('; '),
-        );
-      }
-    }
-    return hookResult(text, false, 'No scenarios in run.json');
-  }
-
-  if (lower.includes('run.json valid') || lower.includes('run.json structured')) {
-    const runFiles = findRunJsonFiles(workspace);
-    if (!runFiles.length) {
-      return hookResult(text, false, 'No run.json found under .lamina/runs/');
-    }
-    const latest = runFiles.sort().at(-1);
-    const result = validateRunJson(latest);
-    return hookResult(
-      text,
-      result.ok,
-      result.ok ? `run.json valid (${path.basename(path.dirname(latest))})` : result.errors.join('; '),
-    );
-  }
-
-  if (lower.includes('run.json flows') || lower.includes('run.json workflows')) {
-    const runFiles = findRunJsonFiles(workspace);
-    const hasFlows = runFiles.some((f) => {
-      try {
-        return (readJsonSafe(f)?.workflows || []).length > 0;
-      } catch {
-        return false;
-      }
-    });
-    return hookResult(text, hasFlows, hasFlows ? 'run.json workflows[] present' : 'No workflows[] in run.json');
-  }
-
-  if (lower.includes('artifact pack exists') || lower.includes('artifact packs exist')) {
-    const files = listArtifactMarkdownFiles(workspace);
-    return hookResult(
-      text,
-      files.length > 0,
-      files.length ? `Artifact markdown files: ${files.map((f) => path.relative(workspace, f)).join(', ')}` : 'No artifact markdown files found',
-    );
-  }
-
-  if (lower.includes('no artifact pack before clarification')) {
-    const artifacts = changedFiles.filter((f) => /^\.lamina\/runs\/[^/]+\/artifacts\/.+\.md$/i.test(normalizePath(f)));
-    return hookResult(
-      text,
-      artifacts.length === 0,
-      artifacts.length ? `Changed artifact markdown files: ${artifacts.join(', ')}` : 'No artifact markdown files changed',
-    );
-  }
-
-  if (lower.includes('artifact contains diagram') || lower.includes('artifact has diagram')) {
-    const files = listArtifactMarkdownFiles(workspace);
-    const withDiagram = files.filter((f) => /```mermaid\n[\s\S]+?```/m.test(fs.readFileSync(f, 'utf8')));
-    return hookResult(
-      text,
-      withDiagram.length > 0,
-      withDiagram.length ? `Mermaid diagram found in ${path.relative(workspace, withDiagram[0])}` : 'No Mermaid diagram in artifact markdown',
-    );
-  }
-
-  if (lower.includes('artifact docs valid') || lower.includes('artifact markdown valid')) {
-    const files = [...listArtifactMarkdownFiles(workspace), ...handoffMarkdownFiles(workspace)];
-    if (!files.length) return hookResult(text, false, 'No artifact or handoff markdown files found');
-    const failures = [];
-    for (const file of files) {
-      const errs = validateArtifactMarkdownText(fs.readFileSync(file, 'utf8'));
-      if (errs.length) failures.push(`${path.relative(workspace, file)}: ${errs.join(', ')}`);
-    }
-    return hookResult(text, failures.length === 0, failures.length ? failures.join('; ') : 'Artifact markdown valid');
-  }
-
-  if (lower.includes('implement.md exists') || lower.includes('handoff exists')) {
-    const impl = workspaceFiles.filter((f) => f.endsWith('/implement.md'));
-    const files = handoffMarkdownFiles(workspace);
-    const passed = impl.length > 0 || files.length > 0;
-    return hookResult(
-      text,
-      passed,
-      passed
-        ? impl.length
-          ? `implement.md found`
-          : `handoff.md found`
-        : 'No implement.md or handoff.md under .lamina/runs/',
-    );
-  }
-
-  if (lower.includes('handoff maps checklist ids') || lower.includes('handoff maps findings')) {
-    const dir = latestRunDir(workspace);
-    if (!dir) return hookResult(text, false, 'No run directory found');
-    const runFile = path.join(dir, 'run.json');
-    const handoffCandidates = ['implement.md', 'handoff.md']
-      .map((name) => path.join(dir, name))
-      .filter((file) => fs.existsSync(file));
-    if (!fs.existsSync(runFile) || !handoffCandidates.length) {
-      return hookResult(text, false, 'Missing run.json or implement.md/handoff.md');
-    }
-    const result = validateRunJson(runFile);
-    const ids = [
-      ...((result.run.checklist ?? []).map((item) => item.id)),
-      ...((result.run.findings ?? []).map((item) => item.id)),
-      ...((result.run.proofs ?? []).map((item) => item.id)),
-    ].filter(Boolean);
-    const handoff = handoffCandidates.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
-    const missing = ids.filter((id) => !handoff.includes(id) && !handoff.includes(`proof.${id}`));
-    return hookResult(
-      text,
-      ids.length > 0 && missing.length === 0,
-      ids.length === 0
-        ? 'No checklist[]/findings[]/proofs[] ids in latest run'
-        : missing.length
-          ? `Missing ids in implement/handoff: ${missing.join(', ')}`
-          : 'All checklist/findings/proof ids appear in implement/handoff',
-    );
-  }
-
-  if (lower.includes('report.md narrative only') || lower.includes('report remains narrative')) {
-    const reports = reportMarkdownFiles(workspace);
-    if (!reports.length) return hookResult(text, false, 'No report.md found under .lamina/runs/');
-    const violations = [];
-    for (const file of reports) {
-      const report = fs.readFileSync(file, 'utf8');
-      if (/```mermaid/i.test(report)) violations.push(`${path.relative(workspace, file)}: contains Mermaid`);
-      if (/\|\s*(priority|severity|checklist|finding|screen|flow)\s*\|/i.test(report)) {
-        violations.push(`${path.relative(workspace, file)}: contains structured table`);
-      }
-    }
-    return hookResult(text, violations.length === 0, violations.length ? violations.join('; ') : 'Reports are narrative only');
-  }
-
-  if (lower.includes('blueprint validate passes')) {
-    return hookResult(text, true, 'Blueprint removed — skipped');
-  }
-
-  if (lower.includes('no styling in blueprint')) {
-    return hookResult(text, true, 'Blueprint removed — skipped');
-  }
-
-  if (lower.includes('persona simulation file exists')) {
-    // Use workspace-absolute run.json paths (listFiles() is relative to workspace;
-    // reading those via readJsonSafe from cwd falsely reports missing findings).
-    const runFiles = findRunJsonFiles(workspace);
-    const withFindings = runFiles.filter((f) => (readJsonSafe(f)?.persona_findings || []).length > 0);
-    const passed = withFindings.length > 0;
-    return hookResult(
-      text,
-      passed,
-      passed
-        ? `Persona findings found (${path.relative(workspace, withFindings[0])})`
-        : 'No persona_findings in .lamina/runs/*/run.json',
     );
   }
 
@@ -1167,11 +786,6 @@ function gradeAssertion(text, ctx) {
       passed,
       passed ? 'Persona voice or id referenced in output' : `Expected one of: ${personaIds.join(', ') || 'persona references'}`,
     );
-  }
-
-  if (lower.includes('mentions blueprint or wireframe')) {
-    const passed = /blueprint|wireframe|SUB\b|\.lamina\/blueprints/i.test(output);
-    return hookResult(text, passed, passed ? 'Blueprint/wireframe mentioned' : 'No blueprint or wireframe language');
   }
 
   if (lower.includes('mentions flows or edge cases')) {
@@ -1189,132 +803,9 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'Conflict or open questions mentioned' : 'No conflict/open-questions language');
   }
 
-  if (lower.includes('edge cases section present')) {
-    const runHasScenarios = findRunJsonFiles(workspace).some((f) => {
-      try {
-        return (readJsonSafe(f)?.scenarios || []).length > 0;
-      } catch {
-        return false;
-      }
-    });
-    const passed = runHasScenarios || /### Edge cases/i.test(allOutput);
-    return hookResult(
-      text,
-      passed,
-      passed ? 'scenarios in run.json or ### Edge cases in report' : 'Missing run.json scenarios and ### Edge cases section',
-    );
-  }
-
-  if (lower.includes('blueprint offer made')) {
-    const firstTurn = turnOutputs[0] ?? allOutput;
-    const passed = /ux review studio|wireframe preview|blueprint preview|preview\?|opens a local link/i.test(firstTurn);
-    return hookResult(text, passed, passed ? 'Blueprint/wireframe offer found in early turn' : 'No blueprint checkpoint offer');
-  }
-
-  if (lower.includes('no blueprint without consent')) {
-    const blueprintNew = newFiles.filter((f) => normalizePath(f).startsWith('.lamina/blueprints/'));
-    const passed = blueprintNew.length === 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'No blueprint directory created' : `Blueprint files created: ${blueprintNew.join(', ')}`,
-    );
-  }
-
   if (lower.includes('mentions failure or empty or permission')) {
     const passed = /failure|empty|permission|session expired|not found|unavailable/i.test(allOutput);
     return hookResult(text, passed, passed ? 'Operational gap language found' : 'No failure/empty/permission mentions');
-  }
-
-  if (lower.includes('proofs[] present') || (lower.includes('proofs') && lower.includes('present'))) {
-    const { run, dir } = latestRunJson(workspace);
-    const count = run?.proofs?.length ?? 0;
-    const passed = count >= 1;
-    return hookResult(
-      text,
-      passed,
-      passed ? `${count} proof(s) in ${path.basename(dir)}` : 'proofs[] is empty or missing',
-    );
-  }
-
-  if (lower.includes('implement.md mentions proof manifest') || lower.includes('proof manifest')) {
-    const dir = latestRunDir(workspace);
-    if (!dir) return hookResult(text, false, 'No run directory found');
-    const implPath = path.join(dir, 'implement.md');
-    if (!fs.existsSync(implPath)) return hookResult(text, false, 'implement.md missing');
-    const impl = fs.readFileSync(implPath, 'utf8');
-    const passed = impl.includes('product-proof-manifest.json');
-    return hookResult(
-      text,
-      passed,
-      passed ? 'implement.md references product-proof-manifest.json' : 'implement.md missing product-proof-manifest.json',
-    );
-  }
-
-  if (lower.includes('proof packet complete')) {
-    const result = validateLatestRun(workspace, { requireProofPacket: true });
-    return hookResult(
-      text,
-      result.ok,
-      result.ok ? 'Proof packet validates with requireProofPacket' : result.errors.join('; '),
-    );
-  }
-
-  if (lower.includes('traceability complete')) {
-    const { run, runPath } = latestRunJson(workspace);
-    if (!run) return hookResult(text, false, 'No run.json found');
-    const rel = path.basename(path.dirname(runPath)) + '/run.json';
-    const errors = traceabilityErrors(run, rel);
-    const passed = errors.length === 0 && (run.traceability ?? []).length > 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'All critical promises traced' : errors.join('; ') || 'traceability[] empty',
-    );
-  }
-
-  if (lower.includes('persona findings count') || lower.includes('persona_findings count')) {
-    const { run } = latestRunJson(workspace);
-    const refs = distinctPersonaRefs(run);
-    const min = text.match(/>=\s*(\d+)/)?.[1] ?? text.match(/at least (\d+)/i)?.[1] ?? '2';
-    const passed = refs.length >= Number(min);
-    return hookResult(
-      text,
-      passed,
-      passed ? `${refs.length} distinct persona_ref values` : `Only ${refs.length} persona_ref (need ${min}+)`,
-    );
-  }
-
-  if (lower.includes('persona_findings valid') || lower.includes('persona findings valid')) {
-    const { run, runPath } = latestRunJson(workspace);
-    if (!run) return hookResult(text, false, 'No run.json found');
-    const rel = path.basename(path.dirname(runPath)) + '/run.json';
-    const errors = personaFindingErrors(run, rel);
-    const hasFindings = (run.persona_findings ?? []).length > 0;
-    const passed = hasFindings && errors.length === 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? 'persona_findings schema valid' : errors.join('; ') || 'persona_findings[] empty',
-    );
-  }
-
-  if (lower.includes('fix.md exists')) {
-    const dirs = findRunDirs(workspace);
-    const fixFiles = dirs.map((d) => path.join(d, 'fix.md')).filter((f) => fs.existsSync(f) && fs.statSync(f).size > 0);
-    const passed = fixFiles.length > 0;
-    return hookResult(
-      text,
-      passed,
-      passed ? `fix.md at ${path.relative(workspace, fixFiles[0])}` : 'No fix.md under .lamina/runs/',
-    );
-  }
-
-  if (lower.includes('findings present')) {
-    const { run } = latestRunJson(workspace);
-    const count = run?.findings?.length ?? 0;
-    const passed = count > 0;
-    return hookResult(text, passed, passed ? `${count} finding(s) in run.json` : 'findings[] empty or missing');
   }
 
   const turnMatch = text.match(/turn (\d+) output contains ["'`]([^"'`]+)["'`]/i);
@@ -1373,7 +864,7 @@ function main() {
   process.exit(0);
 }
 
-export { gradeAssertion, findRunJsonFiles, findRunDirs };
+export { gradeAssertion };
 
 const isMain =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

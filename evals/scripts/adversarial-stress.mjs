@@ -30,15 +30,15 @@ if (!apiKey) {
 function readSkillContext() {
   const files = [
     'skills/lamina/SKILL.md',
-    'skills/lamina-orchestrator/SKILL.md',
-    'skills/lamina-orchestrator/prerequisites/init-required.md',
-    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
-    'skills/lamina-core/guardrails.md',
-    'skills/lamina-core/SKILL.md',
-    'skills/lamina-orchestrator/workflows/router.md',
-    'skills/lamina-orchestrator/workflows/design.md',
-    'skills/lamina-orchestrator/workflows/verify.md',
-    'skills/lamina-orchestrator/merge-rules.md',
+    'skills/lamina/skills/lamina-orchestrator/SKILL.md',
+    'skills/lamina/skills/lamina-orchestrator/prerequisites/init-required.md',
+    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
+    'skills/lamina/skills/lamina-core/guardrails.md',
+    'skills/lamina/skills/lamina-core/SKILL.md',
+    'skills/lamina/skills/lamina-orchestrator/workflows/router.md',
+    'skills/lamina/skills/lamina-orchestrator/workflows/design.md',
+    'skills/lamina/skills/lamina-orchestrator/workflows/verify.md',
+    'skills/lamina/skills/lamina-orchestrator/merge-rules.md',
   ];
   return files
     .map((f) => `--- ${f} ---\n${fs.readFileSync(path.join(ROOT, f), 'utf8')}`)
@@ -167,7 +167,7 @@ async function chat(system, user, fixtureContext) {
 }
 
 const skillContext = readSkillContext();
-const system = `You are a coding agent with Lamina UX skills installed. Follow these skill instructions exactly:\n\n${skillContext}`;
+const system = `You are a coding agent with the Lamina skill bundle installed. Follow these skill instructions exactly:\n\n${skillContext}`;
 
 const results = [];
 let passed = 0;

@@ -39,20 +39,7 @@ function loadEvalCase(evalsPath, evalId) {
   return ev;
 }
 
-function resolveSkillSource(evalId) {
-  if (
-    evalId.startsWith('design-') ||
-    evalId.startsWith('guardrail-design') ||
-    evalId.startsWith('guardrail-no-implement')
-  ) {
-    return path.join(ROOT, 'skills/lamina-design');
-  }
-  if (evalId.startsWith('init-') && !evalId.startsWith('init-gate')) {
-    return path.join(ROOT, 'skills/lamina-init');
-  }
-  if (evalId.startsWith('verify-') || evalId.startsWith('audit-')) {
-    return path.join(ROOT, 'skills/lamina-verify');
-  }
+function resolveSkillSource(_evalId) {
   return path.join(ROOT, 'skills/lamina');
 }
 

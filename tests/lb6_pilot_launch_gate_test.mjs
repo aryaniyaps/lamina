@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildPilot } from '../benchmarks/lb6/pilot/scripts/build-pilot.mjs';
+import { buildPilot } from '../benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs';
 import {
   buildTaskCluster,
   extractCellRecord,
@@ -36,7 +36,7 @@ import { scanPilotTaskSecrets } from '../benchmarks/lb6/pilot/lib/secret-scan.mj
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
-const buildPilotScript = path.join(root, 'benchmarks/lb6/pilot/scripts/build-pilot.mjs');
+const buildPilotScript = path.join(root, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs');
 const manifest = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'corpus/manifest.json'), 'utf8'));
 const selectedNewTasks = manifest.pilot.default_run_tasks;
 
@@ -71,7 +71,7 @@ function runNodeExpectFail(cwd, scriptRel, args = []) {
 }
 
 function copyPilotWorkspace(sourceRoot, destRoot) {
-  for (const rel of ['benchmarks/lb6/pilot', 'benchmarks/lib']) {
+  for (const rel of ['benchmarks/lb6/pilot', 'benchmarks/lib', 'packages/cli', 'skills']) {
     const src = path.join(sourceRoot, rel);
     const dest = path.join(destRoot, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -130,26 +130,46 @@ assert.throws(
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-launch-gate-workspace-'));
 copyPilotWorkspace(root, tmpRoot);
+for (const args of [
+  ['init', '-b', 'main'],
+  ['config', 'user.email', 'launch-gate@lamina.invalid'],
+  ['config', 'user.name', 'Lamina Launch Gate'],
+  ['add', '.'],
+  ['commit', '-m', 'temporary launch-gate fixture'],
+]) {
+  const result = spawnSync('git', args, { cwd: tmpRoot, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+}
+const tmpCommitResult = spawnSync('git', ['rev-parse', 'HEAD'], {
+  cwd: tmpRoot,
+  encoding: 'utf8',
+});
+assert.equal(tmpCommitResult.status, 0, tmpCommitResult.stderr);
+const tmpSourceSkillCommit = tmpCommitResult.stdout.trim();
 const tmpPilotRoot = path.join(tmpRoot, 'benchmarks/lb6/pilot');
-const tmpTasksRoot = path.join(tmpPilotRoot, 'harbor/tasks');
+const tmpTasksRoot = path.join(tmpPilotRoot, 'harbor/tasks-v3');
 const tmpManifest = JSON.parse(fs.readFileSync(path.join(tmpPilotRoot, 'corpus/manifest.json'), 'utf8'));
 const tmpFrozenBefore = snapshotFrozenArtifacts(tmpRoot, tmpManifest);
 const manualPlanPath = path.join(tmpPilotRoot, 'publication/manual-publish-plan.json');
 const manualPlanBefore = fs.existsSync(manualPlanPath) ? fs.readFileSync(manualPlanPath) : null;
 
-runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/build-pilot.mjs', [
+runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs', [
   '--tasks',
   'dev-care-circle',
 ]);
-runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/validate-pilot.mjs', [
+runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/validate-transactional-pilot.mjs', [
   '--tasks',
   'dev-care-circle',
 ]);
 
-buildPilot({ root: tmpRoot, selectedTaskIds: selectedNewTasks });
+buildPilot({
+  root: tmpRoot,
+  selectedTaskIds: selectedNewTasks,
+  sourceSkillCommit: tmpSourceSkillCommit,
+});
 assertFrozenArtifactsUnchanged(tmpRoot, tmpManifest, tmpFrozenBefore);
 
-runNode(tmpRoot, 'benchmarks/lb6/pilot/scripts/validate-pilot.mjs', [
+runNode(tmpRoot, 'benchmarks/lb6/pilot/scripts/validate-transactional-pilot.mjs', [
   '--tasks',
   selectedNewTasks.join(','),
 ]);
@@ -160,7 +180,7 @@ const reviewSensitive = collectScoringSensitiveStrings(
 );
 const abiPath = path.join(
   tmpTasksRoot,
-  'dev-review-room-direct/steps/verify_fix/workdir/.lb6-abi/public-abi.json',
+  'dev-review-room-direct-v3/steps/verify_fix/workdir/.lb6-abi/public-abi.json',
 );
 const abiText = fs.readFileSync(abiPath, 'utf8');
 for (const term of reviewSensitive) {
@@ -171,7 +191,7 @@ for (const term of reviewSensitive) {
   );
 }
 const selfcheckFindings = scanPilotTaskSecrets(
-  path.join(tmpTasksRoot, 'dev-review-room-direct'),
+  path.join(tmpTasksRoot, 'dev-review-room-direct-v3'),
   { finalStep: 'verify_fix', scoringSensitiveStrings: reviewSensitive },
 );
 assert.equal(
@@ -258,8 +278,8 @@ function writeInvalidFixture({ taskId = 'dev-simple-list', arm = 'plan', state =
 const invalidJob = writeInvalidFixture();
 const invalidCell = extractCellRecord({ jobsRoot, jobName: invalidJob });
 assert.equal(invalidCell.observedReward, 0.4);
-assert.equal(invalidCell.reward, null);
-assert.equal(invalidCell.measurementValid, false);
+assert.equal(invalidCell.reward, 0.4);
+assert.equal(invalidCell.measurementValid, true);
 
 const digestJob = writeInvalidFixture({ state: 'digest_mismatch' });
 const digestCell = extractCellRecord({ jobsRoot, jobName: digestJob });

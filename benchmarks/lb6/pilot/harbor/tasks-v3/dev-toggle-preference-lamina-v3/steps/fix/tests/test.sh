@@ -2,6 +2,7 @@
 # Harbor RewardKit LLM-as-judge (final claim step). Issue #18.
 set -euo pipefail
 mkdir -p /logs/verifier
+node /tests/treatment-gate.mjs
 
 if ! command -v uvx >/dev/null 2>&1; then
   curl -LsSf https://astral.sh/uv/install.sh | sh

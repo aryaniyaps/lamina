@@ -2,9 +2,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const contractPath = 'skills/lamina-orchestrator/prerequisites/cli-required.md';
+const contractPath = 'skills/lamina/skills/lamina-orchestrator/prerequisites/cli-required.md';
 const contract = fs.readFileSync(contractPath, 'utf8');
-const commandSkills = ['lamina', 'lamina-init', 'lamina-design', 'lamina-verify'];
+const commandSkills = new Map([
+  ['lamina', 'skills/lamina/SKILL.md'],
+  ['lamina-init', 'skills/lamina/skills/lamina-init/SKILL.md'],
+  ['lamina-design', 'skills/lamina/skills/lamina-design/SKILL.md'],
+  ['lamina-verify', 'skills/lamina/skills/lamina-verify/SKILL.md'],
+]);
 
 assert.match(contract, /lamina doctor --json/);
 assert.match(contract, /cli\.api_version` is exactly `1/);
@@ -14,8 +19,8 @@ assert.match(contract, /Never invoke the runtime through `npx`/);
 assert.match(contract, /never install it automatically/);
 assert.match(contract, /never fall back to copied or embedded runtime scripts/);
 
-for (const name of commandSkills) {
-  const source = fs.readFileSync(`skills/${name}/SKILL.md`, 'utf8');
+for (const [name, skillPath] of commandSkills) {
+  const source = fs.readFileSync(skillPath, 'utf8');
   assert.match(
     source,
     /prerequisites\/cli-required\.md/,

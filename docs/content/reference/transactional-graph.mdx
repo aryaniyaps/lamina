@@ -24,6 +24,26 @@ lamina session publish <id>
 lamina session rebase <id>
 ```
 
+## CLI surface
+
+```bash
+lamina graph status
+lamina graph query --at HEAD
+lamina graph propose --input resource.json --session <id>
+lamina graph patch <subject> --input statement.json --session <id>
+lamina graph link <subject> <object> --as <predicate> --session <id>
+lamina graph validate --at <session-or-version>
+lamina graph diff --base <view> --head <view>
+lamina graph backup --output graph.backup.json
+lamina graph restore --input graph.backup.json
+lamina graph rebuild-observations
+```
+
+All mutation commands accept typed inputs and return deterministic JSON. Raw
+Cypher is not an agent-facing interface. Backup files are integrity-checked
+logical exports for disaster recovery and evaluator evidence; they are never
+runtime inputs during normal operation.
+
 ## Source observations
 
 `lamina graph observe` runs the pinned CocoIndex v1 App shipped in the installed npm package. Each file produces an explicit Observation envelope with snapshot, content hash, locator, extractor identity/version, and normalized payload. The payload includes deterministic brownfield signals for entry points, commands, routes, handlers, schemas/entities, state transitions, permissions, events, tests, documentation/personas, feature flags, and dependencies. `.lamina/business-context.md` and `.lamina/personas.json` are source evidence; legacy `.lamina/runs/` remains excluded and has no runtime meaning. A custom target sends authenticated idempotent upsert/delete batches over the local transport. CocoIndex never opens Ladybug.
@@ -49,3 +69,5 @@ Every public agent proposal, including `claim.add`, is inferred. The socket does
 
 The rationale, rejected alternatives, and v1 consequences are recorded in
 [ADR-001](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/001-transactional-product-graph.md).
+The executable requirement matrix is in
+[Transactional plan acceptance](/reference/transactional-plan-acceptance).
