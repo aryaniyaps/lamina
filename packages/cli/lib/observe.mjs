@@ -84,9 +84,9 @@ export async function runObservation({
     'update',
   ];
   if (live) args.push('--live');
-  args.push(path.join(packageRoot, 'cocoindex_app.py'));
+  args.push('cocoindex_app.py');
   const result = spawnSync('uv', args, {
-    cwd: paths.root,
+    cwd: packageRoot,
     env: environment,
     stdio: 'inherit',
   });
