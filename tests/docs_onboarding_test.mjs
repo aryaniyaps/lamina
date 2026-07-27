@@ -10,12 +10,58 @@ const combined = `${readme}\n${index}\n${reference}`;
 for (const signal of ['CocoIndex', 'graphd', 'Ladybug', 'GraphVersion', 'lamina graph status']) {
   assert.ok(combined.includes(signal), `documentation must explain ${signal}`);
 }
-assert.match(combined, /npm install -g @laminadev\/cli/);
-assert.match(combined, /npx skills install aryaniyaps\/lamina/);
-assert.match(combined, /lamina doctor --json/);
-assert.match(readme, /Sources ──▶ CocoIndex[\s\S]*Agents[\s\S]*Runs/);
-assert.match(readme, /lamina session start[\s\S]*lamina session publish/);
-assert.match(readme, /lamina mission compile[\s\S]*lamina mission run/);
+
+assert.match(readme, /brand\/assets\/wordmark\/lamina-lockup-readme\.svg/);
+assert.match(readme, /Design is how it works — not just how it looks\./);
+assert.match(readme, /Headless product design for AI coding agents/i);
+
+for (const heading of [
+  'Quickstart',
+  'How it works',
+  'Fits your stack',
+  'Demo: a hotel booking platform',
+  'Pair with',
+  'Why not …?',
+  'Commands',
+]) {
+  assert.ok(readme.includes(`## ${heading}`), `README must retain the ${heading} section`);
+}
+
+assert.match(readme, /npm install -g @laminadev\/cli@latest/);
+assert.match(readme, /npx skills add aryaniyaps\/lamina --all -y/);
+assert.match(readme, /lamina doctor --json/);
+assert.match(readme, /Do not use sudo and do not edit application source/);
+assert.match(readme, /start a fresh agent session/i);
+
+const workflowSignals = [
+  '/lamina-init',
+  '/lamina-design',
+  'Implement',
+  '/lamina-verify',
+];
+let workflowOffset = readme.indexOf('## Quickstart');
+for (const signal of workflowSignals) {
+  workflowOffset = readme.indexOf(signal, workflowOffset);
+  assert.ok(workflowOffset >= 0, `README quickstart must include ${signal} in workflow order`);
+  workflowOffset += signal.length;
+}
+
+assert.match(readme, /Validated `GraphVersion` plus an implementation projection/);
+assert.match(readme, /independent persona missions/i);
+assert.match(readme, /never edits application source|do not edit application source/i);
+assert.match(readme, /legacy run files are left untouched and have no runtime meaning/i);
+assert.match(readme, /HavenStay predates the transactional graph runtime/);
+assert.doesNotMatch(readme, /run\.json|\.lamina\/runs\//);
+assert.doesNotMatch(readme, /Brownfield minimum/i);
+
+for (const screenshot of [
+  'demo/hotel-booking-with-lamina/screenshot.png',
+  'demo/hotel-booking-without-lamina/screenshot.png',
+]) {
+  assert.ok(fs.existsSync(screenshot), `README demo asset must exist: ${screenshot}`);
+  assert.ok(readme.includes(screenshot), `README must reference demo asset: ${screenshot}`);
+}
+
 assert.match(combined, /every relevant Persona/i);
 assert.match(combined, /never edit application source|do not edit application source/i);
 assert.match(combined, /legacy run files? (?:are )?(?:ignored|left untouched|have no runtime meaning)/i);

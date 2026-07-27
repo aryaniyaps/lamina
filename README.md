@@ -1,141 +1,268 @@
-# Lamina
+<p align="center">
+  <img src="brand/assets/wordmark/lamina-lockup-readme.svg" alt="lamina" width="360" />
+</p>
 
-Lamina is a transactional product-knowledge graph for AI coding agents. It models product intent, observed source behavior, Persona simulations, and runtime evidence without collapsing those into the same kind of truth.
+<p align="center"><em>Design is how it works — not just how it looks.</em></p>
 
-## Architecture
+<p align="center">
+  Headless product design for AI coding agents, backed by a transactional product graph. Lamina helps your agent design how your app works — actors, flows, states, permissions, failures, and edge cases — then verify the live build through independent persona missions. It never edits application source.
+</p>
+
+---
+
+**Documentation:** [lamina.dev/docs](https://lamina.dev/docs)
+
+## Quickstart
+
+### Let your AI agent install it
+
+Open your project root, paste this into your AI coding agent, and let it handle setup:
 
 ```text
-Sources ──▶ CocoIndex ──observations──▶ graphd ──▶ Ladybug
-Agents  ──typed proposals─────────────▶ graphd ──▶ Ladybug
-Runs    ──normalized evidence─────────▶ graphd ──▶ Ladybug + local evidence CAS
+Install Lamina for this project.
+
+1. Confirm Node.js 20 or newer is available.
+2. Run:
+   npm install -g @laminadev/cli@latest
+   npx skills add aryaniyaps/lamina --all -y
+   lamina doctor --json
+3. Do not use sudo and do not edit application source.
+4. If a command fails, stop and show me the exact error.
+5. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
+   /lamina-init <your product domain and primary users>
 ```
 
-Ladybug is canonical. One long-running local `graphd` owns its read-write Database object and exposes an authenticated deterministic JSON protocol. Linux and macOS use a Unix socket; Windows uses a repository-specific `\\.\pipe\laminadev-<hash>` named pipe. CocoIndex incrementally derives explicit Observation envelopes and never opens Ladybug. Git supplies source revision and branch identity; it does not store graph state.
-
-The runtime is shared by worktrees at:
-
-```text
-$(git rev-parse --git-common-dir)/lamina/
-├── graph.lbdb
-├── cocoindex/
-├── evidence/
-├── graphd.lock
-├── graphd.log
-├── graphd.token
-└── graphd.sock
-```
-
-Existing legacy run files are left untouched and have no runtime meaning.
-
-## Install
+Prefer installing it yourself?
 
 ```bash
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
-```
-
-The CLI and skills are independent: install only the CLI for direct graph use,
-or only the skills for non-graph craft guidance. Graph-backed skill workflows
-require CLI API 1 and fail before mutation with
-`npm install -g @laminadev/cli@latest` when it is unavailable.
-
-Node 20+ is required for the CLI. Source observation additionally uses `uv`
-and Python 3.11–3.13; core graph/session/mission commands remain Node-only.
-
-## CLI
-
-```bash
-lamina --version
+npm install -g @laminadev/cli@latest
+npx skills add aryaniyaps/lamina --all -y
 lamina doctor --json
-lamina graph status
-lamina graph query --workflow cancel-booking --at HEAD
-lamina graph propose claim.add --input claim.json
-lamina graph patch operation.cancel-booking --input patch.json
-lamina graph link operation.cancel-booking invariant.refund-policy --as lamina:constrainedBy
-lamina graph retire statement_... --statement
-lamina graph retire operation.cancel-booking
-lamina graph validate --at HEAD
-lamina graph diff --base main --head HEAD
-lamina graph backup --output graph.backup.json
-lamina graph observe
-lamina graph observe --live
-lamina graph rebuild-observations
-
-lamina session start
-lamina session query <id>
-lamina session publish <id>
-lamina session rebase <id>
-lamina session abort <id>
-
-lamina mission compile --workflow <workflow-id> [--persona <persona-id>] [--adapter <manifest-id>]
-lamina mission run <mission-id> --events events.json
-# mission run returns an isolated session; inspect it, then:
-lamina session publish <session-id>
-
 ```
 
-Single graph mutations use implicit sessions. Multi-fact work uses an explicit session and publishes in one serializable Ladybug transaction. Mission Runs deliberately stay in their own session until `lamina session publish`. Compare-and-swap rejects a stale session; rebase it, query again, and republish.
+Then start a **fresh agent session** so the skills load.
 
-## Knowledge model
+### Design, build, and verify
 
-Resources have stable opaque ids and generic kinds such as product, actor, persona, entity, operation, workflow, invariant, surface, scenario, proof, evidence, decision, contradiction, capability_manifest, mission, run, harness_result, and observation.
-
-Every semantic fact is one Statement:
+**AGENT CHAT**
 
 ```text
-subject ─ predicate ─▶ object
-subject ─ predicate ─▶ typed literal
+/lamina-init <your product domain and primary users>
+/lamina-design <one feature or flow>
 ```
 
-Scope and semantic qualifiers are optional. Statement identity hashes normalized subject, predicate, object/literal, scope, and qualifiers. Re-proposal is idempotent; evidence links to the existing Statement. Aliases are not identities. Conflicting Statements remain present and create a Contradiction.
+Run init once per project or domain. Use `/lamina-init update` only when the business use case, market, scope, or actors materially change.
 
-Ingress determines epistemic class:
+`/lamina-design` publishes a validated product contract and returns an implementation projection for your coding agent.
 
-| Ingress | Class |
+**ORDINARY CODING MODE**
+
+```text
+Implement the Lamina design from the resolved GraphVersion.
+Start the product.
+```
+
+**AGENT CHAT**
+
+```text
+/lamina-verify hall ticket download at http://localhost:3000
+```
+
+Apply any product fixes in ordinary coding mode, then run the same verify command again.
+
+Not sure which command to run? `/lamina <what you are trying to do>` is an optional router — not a required setup step.
+
+---
+
+## How it works
+
+Your coding agent writes app source. Optional UI skills handle look and feel. **Lamina owns the product-behavior contract** — what to build, how states and flows work, and which failures and edges must be covered.
+
+```mermaid
+flowchart LR
+  INIT["/lamina-init"]
+  DESIGN["/lamina-design"]
+  IMPL["Implement"]
+  VERIFY["/lamina-verify"]
+  FIX["Apply fixes"]
+
+  INIT -->|"product + actors + personas"| DESIGN
+  DESIGN -->|"validated GraphVersion"| IMPL
+  IMPL -->|"live app"| VERIFY
+  VERIFY -->|"product findings"| FIX
+  VERIFY -->|"contract gaps"| DESIGN
+  FIX -->|"updated app"| VERIFY
+```
+
+| Step | Who | Result |
+|---|---|---|
+| 0. Init | **Lamina** | Business context plus Product, Actor, and Persona knowledge |
+| 1. Design | **Lamina** | Validated `GraphVersion` plus an implementation projection |
+| 2. Build | **Your coding agent** | App source in any stack |
+| 3. Verify | **Lamina** | Independent persona missions, runtime evidence, and findings |
+| 4. Fix | **Your coding agent** | Product fixes from the findings |
+| 5. Re-verify | **Lamina** | Evidence that the flow works; contract gaps return to design |
+
+Human-readable implementation, report, and fix documents are optional projections from a resolved `GraphVersion`. They are useful handoffs, but they are not canonical state. Legacy run files are left untouched and have no runtime meaning.
+
+---
+
+## Under the hood
+
+Lamina keeps a local transactional product graph for each Git repository:
+
+- Product intent, observed source behavior, agent inference, persona simulation, and runtime evidence stay separate.
+- Multi-part design changes publish atomically: the whole change lands, or none of it does.
+- Conflicting facts remain visible as contradictions instead of silently overwriting each other.
+- Every relevant persona gets an independent verification mission.
+- CocoIndex observes source changes; `graphd` owns the canonical Ladybug graph.
+
+Use `lamina graph status` to inspect the active graph. See the [transactional graph reference](docs/content/reference/transactional-graph.mdx) for Resources, Statements, sessions, GraphVersions, missions, evidence, and the complete CLI.
+
+---
+
+## Fits your stack
+
+Lamina slots into whatever you already use. It is unopinionated about your tech stack and AI tooling.
+
+| | |
 |---|---|
-| Explicit intent | intended |
-| CocoIndex | observed |
-| Agent proposal | inferred |
-| Persona interpretation | simulated |
-| Research/customer connector | human_evidence |
-| Execution adapter | runtime_evidence |
+| **Any AI coding tool** | Cursor, Claude Code, Codex, Gemini, Pi, etc. |
+| **Any framework** | Next.js, Angular, Astro, Svelte, React Native, Flutter, FastAPI, Gin, Express, etc. |
+| **Any database** | Postgres, MySQL, MongoDB, Cassandra, Redis, Neo4j, etc. |
+| **Any language** | JavaScript, Python, Go, Rust, Elixir, PHP, C#, etc. |
+| **Any UI library** | Tailwind CSS, Chakra UI, shadcn/ui, MUI, etc. |
+| **Any UI design skill** | Impeccable, UI UX Pro Max, `frontend-design`, etc. |
+| **Any workflow skill** | obra/superpowers, mattpocock/skills, everything-claude-code, etc. |
+| **Any interface** | Websites, mobile apps, desktop apps, PWAs, chatbots, CLIs, etc. |
 
-Agents cannot submit epistemic class or approval. Approval means the installed validators passed, required evidence exists, and no relevant Contradiction blocks it.
+---
 
-`claim.add` is an agent proposal and is therefore inferred. Public graphd methods never expose a caller-selectable intended ingress. Intended knowledge can only enter through a trusted engine-owned intent adapter; quoting user input does not let an agent elevate its own proposal.
+## Demo: a hotel booking platform
 
-## Skills
+We built a demo hotel booking platform called HavenStay. The same prompt produced two apps — one with Lamina and one without. Both were built from scratch by **Cursor Composer 2.5**, with no human-written app code.
 
-- `/lamina-init` establishes business evidence and canonical Product/Persona/Actor resources.
-- `/lamina-design` proposes and validates intended product behavior in a session.
-- `/lamina-verify` compiles an independent Mission and Run for every relevant Persona.
-- `/lamina` routes focused work to the graph workflow and craft skills.
+> **Legacy demo:** HavenStay predates the transactional graph runtime. It remains a comparison of Lamina's product-design and verification value, not a guide to the current installation or storage model.
 
-Lamina commands never edit application source. Human implementation or verification Markdown is a query projection tied to a GraphVersion, not canonical state.
+<details>
+<summary><strong>The prompt</strong></summary>
 
-## Migration from the linked repository CLI
+```text
+Design and build a complete hotel booking platform called HavenStay from scratch.
 
-Unlink the old root package, install the standalone CLI, and reinstall skills:
+Create a production-ready product that enables travelers to discover, compare, book,
+and manage hotel stays, while enabling hotels to manage their properties, rooms,
+pricing, availability, reservations, and guest interactions.
 
-```bash
-npm unlink -g lamina
-npm install -g @laminadev/cli
-npx skills install aryaniyaps/lamina
+The product should feel polished, cohesive, and ready for real-world use. Design every
+aspect of the experience, including the end-to-end user journeys, information
+architecture, navigation, search and discovery, booking lifecycle, account management,
+payments, cancellations, reviews, notifications, hotel management, trust and safety,
+customer support, accessibility, edge cases, and system behavior.
 ```
 
-Existing graph data stays at `$(git rev-parse --git-common-dir)/lamina/`.
-Upgrading starts a protocol v3 daemon and creates `graphd.token` without
-rewriting `graph.lbdb`.
+</details>
+
+| | **With Lamina** | **Without Lamina** |
+|---|---|---|
+| **Folder** | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) |
+| **Workflow** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` | Cursor Plan mode → implement |
+
+<p align="center">
+  <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina" width="48%" />
+  &nbsp;
+  <img src="demo/hotel-booking-without-lamina/screenshot.png" alt="HavenStay built without Lamina" width="48%" />
+</p>
+
+<p align="center"><sub>Left: With Lamina · Right: Without Lamina</sub></p>
+
+Both apps cover traveler search and booking, a hotel-partner surface, and an admin role. The gap is **product behavior** — marketplace integrity, operational depth, and edge cases — not whether a screen exists.
+
+<details>
+<summary><strong>What Lamina covered — and the other build missed</strong></summary>
+
+- A 15-minute checkout inventory hold with countdown, hold-aware availability, and expiry.
+- Per-property cancellation policies with an immutable policy snapshot at booking.
+- Admin approval, rejection, or requested changes before a property goes live.
+- Multi-step property onboarding with a readiness checklist.
+- Hotel cancellation with a required reason and automatic full guest refund.
+- A full platform admin surface for approvals, users, bookings, payments, trust, reviews, tickets, and audit.
+- Traveler edges such as email verification, refund preview, review-window gating, and receipts.
+- Search that excludes unavailable or non-live properties for the selected dates.
+- A complete booking lifecycle plus suspension behavior that blocks booking.
+
+</details>
+
+---
+
+## Pair with
+
+Lamina keeps product decisions and verification evidence in one transactional graph. Pair it with tools that implement or polish the resulting contract:
+
+| Tool or skill category | Examples | Why |
+|---|---|---|
+| **Implementation workflows** | obra/superpowers, mattpocock/skills, everything-claude-code | Turn Lamina's implementation and fix projections into structured coding, testing, and review work. |
+| **UI/UX tools and skills** | Impeccable, UI UX Pro Max, `frontend-design`, design-focused agents | Polish the interface while Lamina focuses on behavior, states, permissions, edges, and verification. |
+| **Specification-driven engineering** | Spec Kit, Kiro, specification-first workflows | Convert a resolved GraphVersion projection into engineering plans and tasks without making prose canonical product truth. |
+
+---
+
+## Why not …?
+
+Most of these tools are complementary. Lamina is the product contract plus the post-build verification loop.
+
+### Impeccable, UI UX Pro Max, `frontend-design`
+
+**They polish how it looks.** Lamina designs how it works — actors, flows, empty/error/loading states, permissions, invariants, and recovery. Pair any UI skill; Lamina stays out of pixels.
+
+### BMAD, ai-ux-skills, design-skills
+
+**They teach design judgment** — heuristics, critique, accessibility, and PRDs. Lamina runs a workflow: slash commands → transactional product contract → implementation → live-product verification. Use craft skills for judgment and Lamina when you need a durable contract and evidence-backed check.
+
+### Just asking your coding agent
+
+Fine for happy paths. Weak on permission matrices, stale states, cross-actor handoffs, and mid-flow failures. Lamina structures behavior before the build and exercises the live product afterward.
+
+### Spec Kit, Kiro, spec-driven development
+
+**Product first, then engineering spec.** Lamina structures product behavior; spec tools structure implementation work. Feed a resolved GraphVersion projection into your spec workflow, then use `/lamina-verify` on the built product.
+
+### v0, Lovable, Bolt
+
+**They generate apps** — often within a preferred stack. Lamina does not generate app source or choose your framework. It focuses on the role hierarchies, multi-step flows, state transitions, and domain edges that app generators commonly miss.
+
+### Figma and design handoffs
+
+Mocks show screens. They do not capture every legal state or verify the build. Lamina produces an agent-ready behavior contract and checks the implemented product; visual design tools remain useful alongside it.
+
+**Choose Lamina** if you build with AI and care about product correctness, not just UI polish.
+
+**Skip it** for landing-page skins, no-code generation, or work that does not need an explicit product-behavior contract.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
+| `/lamina-design` | Design and publish a validated product-behavior GraphVersion |
+| `/lamina-verify` | Run independent persona missions against the built product and report evidence-backed findings |
+| `/lamina` | Route a request when you are unsure which Lamina workflow to use |
+
+Lamina commands do not edit application source or prescribe visual styling.
+
+---
 
 ## Development
 
 ```bash
 corepack pnpm install --frozen-lockfile
 corepack pnpm test
-corepack pnpm test:eval:spec
-corepack pnpm test:eval:validate
 ```
 
-The transactional test suite covers atomic publication, idempotency, contradictions, concurrent sessions, semantic branch diffs, observation isolation/retry, spoof rejection, uncapped Persona Missions, arbitrary adapter modalities, evidence, and legacy-runtime removal.
+The CLI is published separately as [`@laminadev/cli`](packages/cli).
 
-License: Apache-2.0.
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Aryan Iyappan.
