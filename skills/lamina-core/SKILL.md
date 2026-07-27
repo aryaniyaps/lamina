@@ -13,7 +13,7 @@ Load one capability skill per problem.
 |---------|----------|
 | `/lamina` | Auto-route or single-topic answer |
 | `/lamina-init` | Bootstrap domain charter |
-| `/lamina-design` | Design how the product works → `ready_to_build` |
+| `/lamina-design` | Design how the product works → validated GraphVersion |
 | `/lamina-verify` | Post-build or brownfield verification |
 
 **Guardrail:** `.lamina/` writes only; never app source. See [guardrails.md](guardrails.md).

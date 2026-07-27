@@ -1,94 +1,19 @@
----
-title: /lamina-design
-description: Design how the product works — contract to ready_to_build plus implement.md
----
+# `/lamina-design`
 
-import { Callout } from 'nextra/components'
+Shapes intended product behavior in an explicit graph session.
 
-# /lamina-design
+1. Requires valid business context.
+2. Queries the active GraphVersion and source observations.
+3. Proposes typed Resources and normalized Statements.
+4. Validates the affected closure.
+5. Compiles a Mission for every relevant Persona.
+6. Publishes the session atomically.
 
-Turn a domain into a build-ready contract. Lamina models product behavior at the intersection of UX, product rules, and systems thinking — then writes `implement.md` for your coding agent.
-
-## Quick path
-
-1. Confirm `/lamina-init` has run (init gate)
-2. Run `/lamina-design` with a specific flow or feature
-3. Check `run.json` status is `ready_to_build`
-4. Hand `implement.md` to your coding agent
-
-## Prerequisites
-
-Valid `.lamina/business-context.md` from `/lamina-init`. Without it, design is blocked.
-
-## When to use
-
-- After `/lamina-init` on a new or brownfield project
-- When starting a new feature or flow
-- When you need states, roles, dependencies, and edge cases specified before coding
-- When verify finds `fix_target: contract` gaps
-
-## Examples
-
-```
-/lamina-design Guest checkout with inventory hold, payment, and cancellation
+```bash
+lamina graph status
+lamina session start
+lamina graph validate --at <session-id>
+lamina session publish <session-id>
 ```
 
-```
-/lamina-design Hotel onboarding with property review and admin approval gate
-```
-
-```
-/lamina-design Hall ticket download with payment gate and venue assignment
-```
-
-## What Lamina does
-
-1. **Models the domain** — entities, states, invariants, dependencies (reachability graph)
-2. **Defines actors** — roles, goals, permissions (references `personas.json`)
-3. **Maps workflows** — primary paths, alternate paths, operations over states
-4. **Enumerates scenarios** — permission denials, unmet dependencies, invariant violations
-5. **Specifies screens** — structural UX surfaces tied to workflows (no styling)
-6. **Writes `implement.md`** — stack-agnostic build brief at `ready_to_build`
-
-<Callout type="info">
-**Advanced:** Design uses audit profiles to route sections to capability skills — invariants, dependencies, error handling, accessibility, and more. See [Orchestrator](/advanced/orchestrator).
-</Callout>
-
-## What it writes
-
-Output lands in `.lamina/runs/<id>/`:
-
-| File | Content |
-|------|---------|
-| `run.json` | Machine contract (`status: draft` → `ready_to_build`) |
-| `run.md` | Generated readable graph |
-| `implement.md` | Full build handoff for your coding agent |
-
-## Brownfield design
-
-On existing codebases, Lamina performs a bounded repo scan to ground the contract in what already exists. Existing screens are marked `status: existing` with repo `source` paths in `surfaces[]`.
-
-## What to do next
-
-Hand `implement.md` to your coding agent:
-
-```
-Implement from .lamina/runs/<id>/implement.md
-```
-
-Lamina never writes app source. Your agent builds using your stack, framework, and UI library.
-
-After implementation, run `/lamina-verify guest checkout at http://localhost:3000` (or the flow you designed).
-
-## Tips
-
-- Scope one flow per design call — "guest checkout" not "the entire app"
-- Include constraints in natural language: "hold expires after 15 minutes"
-- Check `run.json` status is `ready_to_build` before implementing
-- Reference dependency ids in workflows, not free-text preconditions
-
-## Next steps
-
-- [run.json schema](/reference/run-json-schema) — full contract reference
-- [/lamina-verify](/commands/lamina-verify) — verify after implementation
-- [Per-run artifacts](/reference/artifacts) — file-by-file reference
+On a stale-base error, rebase, re-query, and revalidate. Application implementation is a separate coding session. Any implementation Markdown is a query projection tied to a GraphVersion.

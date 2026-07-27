@@ -1,138 +1,19 @@
----
-title: Glossary
-description: Key terms in the Lamina design-verify workflow
----
-
 # Glossary
 
-Definitions for terms used across Lamina documentation. Terms link to deeper pages where available.
+**Resource** — stable opaque product-knowledge identity with a generic kind.
 
-## Actor
+**Statement** — normalized subject/predicate/object-or-literal fact with optional scope and qualifiers.
 
-A role that interacts with the product — e.g. traveler, hotel operator, admin. Actors have goals, permissions, and distinct workflows. Defined in `.lamina/personas.json` during `/lamina-init` and referenced in `run.json`.
+**GraphVersion** — immutable version delta and validation receipt.
 
-See [Personas](/concepts/personas) and [Global artifacts](/reference/global-artifacts).
+**GraphView** — branch, session, observation, or historical view.
 
-## Brownfield
+**Contradiction** — Resource referencing incompatible Statements or alias identities.
 
-An existing codebase with a running product. Lamina reads the repo, walks the live UI, and may verify without a prior design run. Contrast with [greenfield](#greenfield).
+**Mission** — Persona-specific executable verification plan.
 
-See [Brownfield and greenfield](/concepts/brownfield-and-greenfield).
+**Run** — isolated Mission execution tied to a starting GraphVersion and source revision.
 
-## Business context
+**HarnessResult** — normalized adapter event sequence.
 
-The domain charter in `.lamina/business-context.md`. Output of `/lamina-init`. Scopes problem statement, goals, scope boundaries, and constraints before any flow design.
-
-## Complete
-
-Run status set by `/lamina-verify` when persona walks finish. A run can be `complete` with open findings — check `findings[]` in `run.json`.
-
-## Contract
-
-The complete product behavior specification for a run. Composed of `run.json` (machine contract) and `implement.md` (build handoff). Your agent implements the contract; Lamina verifies against it.
-
-See [Contracts & runs](/concepts/contracts-and-runs).
-
-## Dependency
-
-A reachability rule in `dependencies[]`. If workflow A requires entity B in state X and B is unreachable, A fails — not as an ad-hoc edge case but as a structural dependency violation.
-
-See [run.json schema](/reference/run-json-schema).
-
-## Designing
-
-Initial run status during `/lamina-design`. The contract is in progress — entities, workflows, and scenarios are being written.
-
-## Direct mode
-
-Invoking `/lamina` with a focused question routes to a single capability skill (e.g. invariants, error handling) without a full design run.
-
-See [/lamina command](/commands/lamina).
-
-## Domain
-
-The problem space you are designing for — e.g. "hotel booking marketplace" or "exam hall ticket system." Broader than a single feature or workflow.
-
-## Domain charter
-
-Synonym for [business context](#business-context). The output of `/lamina-init`.
-
-## Finding
-
-A verification observation recorded during `/lamina-verify` — a product gap, contract gap, or operational note. Stored in `findings[]` on `run.json` with expected vs observed behavior. Product and contract findings appear in `fix.md`; `fix_target: ops` observations stay in `report.md` only.
-
-See [Working with findings](/guides/working-with-findings).
-
-## fix_target
-
-Required per-finding field naming who addresses the gap:
-
-- `product` — your coding agent fixes app code from `fix.md`
-- `contract` — re-run `/lamina-design` with a scoped update
-- `ops` — report-only observation in `report.md`; excluded from `fix.md`; does not block product/contract exit
-
-## Greenfield
-
-A new product with no existing app. Lamina designs from stakeholder input via `/lamina-init` and `/lamina-design`. Contrast with [brownfield](#brownfield).
-
-## Hook
-
-Field on `run.json` indicating which phase started the run: `design` or `verify`.
-
-## Implement brief
-
-The `implement.md` file written at `ready_to_build`. Stack-agnostic build handoff for your coding agent.
-
-## Invariant
-
-A rule that must always hold — e.g. "at most one active booking hold per room-night" or "payment requires a confirmed hold." Defined in `invariants[]` and enforced by referenced operations.
-
-## Init gate
-
-Prerequisite enforced by Lamina: `/lamina-design` and `/lamina-verify` require a valid `.lamina/business-context.md` from `/lamina-init`. Cannot be bypassed.
-
-## Persona walk
-
-A verification pass where a subagent navigates your live application as a specific actor, checking workflows and invariants against the contract. One subagent per primary actor during `/lamina-verify`.
-
-See [Personas](/concepts/personas).
-
-## ready_to_build
-
-Contract status indicating the design is complete enough for your agent to implement. Set by `/lamina-design` when actors, states, workflows, scenarios, and dependencies are specified.
-
-## Run
-
-A single design-verify cycle identified by a run id (e.g. `havenstay-platform-2026-07-10`). All per-run artifacts live in `.lamina/runs/<id>/`.
-
-## Scenario
-
-An edge case in `run.json` `scenarios[]` — permission denial, unmet dependency, invariant violation, or conflict recovery. Categories include `permission` and `precondition`.
-
-## Screen
-
-A structural UX surface in `run.json` `surfaces[]`. Tied to workflows but contains no styling — only `new` vs `existing` status and optional repo `source` path.
-
-## State
-
-A condition an entity can be in — e.g. `pending_payment`, `confirmed`, `cancelled`. States have defined transitions and may have recovery paths when transitions fail.
-
-## Verifying
-
-Run status during `/lamina-verify`. Persona walks, accessibility checks, invariant probes, and reachability probes are in progress.
-
-## Walkthrough
-
-Evidence captured in `.lamina/runs/<id>/walkthrough/` during verify — screenshots and annotations from live-app navigation at `base_url`.
-
-## Workflow
-
-A sequence of operations an actor follows to accomplish a goal — e.g. traveler checkout: search → select room → hold → pay → confirm. Workflows reference dependencies via `requires[]` and steps via `operation`.
-
-See [The loop](/concepts/the-loop).
-
-## Next steps
-
-- [Per-run artifacts](/reference/artifacts) — file reference
-- [run.json schema](/reference/run-json-schema) — complete field reference
-- [Skill map](/reference/skill-map) — capability skills behind Lamina
+**Observation** — CocoIndex-derived source evidence with explicit reproducible provenance.

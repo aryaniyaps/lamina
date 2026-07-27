@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   isLaminaArtifactPath,
+  isGraphRuntimePath,
   diffOutsideLamina,
   checkWriteBoundary,
   buildFileHashMap,
@@ -23,6 +24,8 @@ assert.equal(isLaminaArtifactPath('.lamina'), true);
 assert.equal(isLaminaArtifactPath('lib/CheckoutForm.tsx'), false);
 assert.equal(isLaminaArtifactPath('preview/App.tsx'), false);
 assert.equal(isLaminaArtifactPath('packages/foo/src/index.ts'), false);
+assert.equal(isGraphRuntimePath('.git/lamina/graph.lbdb/data.kz'), true);
+assert.equal(isGraphRuntimePath('.git/config'), false);
 
 // new file outside .lamina/
 {

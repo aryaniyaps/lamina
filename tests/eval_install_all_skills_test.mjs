@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS_SRC = path.join(ROOT, 'skills');
@@ -38,17 +39,35 @@ if (names.length !== EXPECTED) {
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib/graph.mjs'))) {
-  console.error('lamina-orchestrator/lib/graph.mjs missing from workspace install');
+if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib/graph-runtime/engine.mjs'))) {
+  console.error('transactional graph engine missing from workspace install');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(codexSkills, 'lamina-design/scripts/seed-ready-run.mjs'))) {
-  console.error('lamina-design seed script missing from workspace install');
+if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib/graph-runtime/server.mjs'))) {
+  console.error('graphd server missing from workspace install');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }
 
+if (!fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/bin/lamina.mjs'))) {
+  console.error('lamina CLI missing from workspace install');
+  fs.rmSync(workspace, { recursive: true, force: true });
+  process.exit(1);
+}
+
+const ladybug = path.join(workspace, 'node_modules/@ladybugdb/core');
+if (!fs.existsSync(ladybug)) {
+  console.error('pinned Ladybug runtime dependency missing from workspace install');
+  fs.rmSync(workspace, { recursive: true, force: true });
+  process.exit(1);
+}
+
+try {
+  const paths = runtimePaths(workspace);
+  const pid = Number(fs.readFileSync(paths.lock, 'utf8').trim());
+  if (Number.isInteger(pid) && pid > 1) process.kill(pid, 'SIGTERM');
+} catch {}
 fs.rmSync(workspace, { recursive: true, force: true });
 console.log(`eval_install_all_skills_test: ok (${EXPECTED} skills)`);

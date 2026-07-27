@@ -14,7 +14,7 @@ metadata:
 ---
 # Multi-Actor Goal Alignment (agent-native)
 
-**Stakeholders** = actors in `run.json` with goals, permissions, and conflicts — not meeting-room politics.
+**Stakeholders** = actors in the transactional graph with goals, permissions, and conflicts — not meeting-room politics.
 
 ## Framework
 

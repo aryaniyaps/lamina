@@ -1,45 +1,23 @@
 ---
 name: lamina-orchestrator
-description: "Product design workflows — domain contracts, implement brief, verify loop. Load via Read or Skill tool when /lamina-* workflows need it."
+description: "Transactional product-graph workflows for design, source observation, Persona Missions, and runtime verification."
 ---
 
 # Lamina Orchestrator
 
-Coordinates design → `ready_to_build` → external build → verify. Mode B: never writes app source.
-
-**Guardrail:** `.lamina/` only. See [guardrails](../lamina-core/guardrails.md).
-
-**Load protocol:** [load-protocol.md](load-protocol.md) — traverse Load lists; never invent artifact filenames.
+Ladybug, owned by the long-running local `graphd`, is the only canonical product graph. CocoIndex sends source Observations to graphd. Agents send typed proposals. Mission adapters send normalized runtime evidence. Git supplies branch identity and source revisions, not graph storage.
 
 ## Modes
 
-| Mode | When | Load |
-|------|------|------|
-| **Direct** | One clear topic | [lamina-core](../lamina-core/SKILL.md) → one skill |
-| **Workflow** | Slash command | This skill → workflow → [audit-profiles.yaml](audit-profiles.yaml) |
+| Mode | Action |
+|---|---|
+| Init | Write/index business evidence, then propose inferred Product and Persona resources grounded in explicit user input |
+| Design | Explicit graph session → validate → publish |
+| Verify | Compile all relevant Persona Missions → isolated Runs → runtime evidence |
+| Direct | One-shot session for a single typed mutation or query |
 
-## Workflows
+## Runtime
 
-| Workflow | File |
-|----------|------|
-| Router | [workflows/router.md](workflows/router.md) |
-| Init | [workflows/init.md](workflows/init.md) |
-| Design | [workflows/design.md](workflows/design.md) |
-| Verify | [workflows/verify.md](workflows/verify.md) |
+Use `lamina graph`, `lamina session`, and `lamina mission`. Raw Cypher writes are forbidden. All agent-facing output is deterministic JSON with GraphVersion, source revision, results, Contradictions, validation receipt, and stable error codes.
 
-## Steps
-
-1. **Select** — skills from audit-profiles for workflow section
-2. **Apply** — **Read/Skill-load** each skill; write `run.json` incrementally under `.lamina/runs/<run_id>/`
-3. **Deliver** — output contract; design ends at validated `ready_to_build` + ship-pack `implement.md`; verify ends at `findings[]` + always `fix.md`
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| [load-protocol.md](load-protocol.md) | How slash + supporting skills load |
-| [lib/validate-run.mjs](lib/validate-run.mjs) | Contract validator (ships with this skill) |
-| [artifacts.md](artifacts.md) | `run.json` schema, lifecycle |
-| [merge-rules.md](merge-rules.md) | Merge order, grounding |
-| [audit-profiles.yaml](audit-profiles.yaml) | Section → skills |
-| [prerequisites/init-required.md](prerequisites/init-required.md) | Init gate |
+Legacy the active GraphVersion files are untouched indexable source evidence and have no runtime meaning. Do not discover or select them.

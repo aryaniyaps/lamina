@@ -38,6 +38,24 @@ def _patch_skill_installer() -> None:
 
     SkillInstaller.install = install_with_full_tree  # type: ignore[method-assign]
 
+    # graphd is deliberately a persistent, single-owner process. Codex's
+    # workspace-write sandbox gives separate tool invocations isolated Unix
+    # socket and PID namespaces, which makes a healthy daemon look dead and
+    # turns the next command into a false split-brain attempt. Eval workspaces
+    # are disposable and independently checked for out-of-scope writes, so run
+    # Codex without that namespace isolation for behavioral graph evals.
+    from agent_skill_eval.harnesses import CodexHarness
+
+    original_build_command = CodexHarness.build_command
+
+    def build_command_with_persistent_graphd(self, prompt: str, output_dir: Path):
+        command = original_build_command(self, prompt, output_dir)
+        sandbox_index = command.index("--sandbox") + 1
+        command[sandbox_index] = "danger-full-access"
+        return command
+
+    CodexHarness.build_command = build_command_with_persistent_graphd  # type: ignore[method-assign]
+
 
 def main() -> None:
     _patch_skill_installer()

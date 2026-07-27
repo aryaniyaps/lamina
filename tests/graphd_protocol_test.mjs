@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-graphd-protocol-'));
+execFileSync('git', ['init', '-b', 'main'], { cwd: root });
+execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: root });
+execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: root });
+fs.writeFileSync(path.join(root, 'README.md'), '# Protocol fixture\n');
+execFileSync('git', ['add', 'README.md'], { cwd: root });
+execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
+
+const paths = runtimePaths(root);
+const serverPath = path.resolve('skills/lamina-orchestrator/lib/graph-runtime/server.mjs');
+const server = spawn(process.execPath, [serverPath, root], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+let stderr = '';
+server.stderr.on('data', (chunk) => { stderr += chunk; });
+
+function request(method, params = {}) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(paths.socket);
+    let buffer = '';
+    socket.setEncoding('utf8');
+    socket.on('connect', () => socket.write(`${JSON.stringify({
+      id: `${method}-${Date.now()}`,
+      method,
+      params,
+      cwd: root,
+    })}\n`));
+    socket.on('data', (chunk) => {
+      buffer += chunk;
+      const newline = buffer.indexOf('\n');
+      if (newline === -1) return;
+      socket.end();
+      resolve(JSON.parse(buffer.slice(0, newline)));
+    });
+    socket.on('error', reject);
+  });
+}
+
+try {
+  const deadline = Date.now() + 10_000;
+  while (!fs.existsSync(paths.socket)) {
+    if (server.exitCode !== null) throw new Error(`graphd exited early: ${stderr}`);
+    if (Date.now() > deadline) throw new Error(`graphd did not create ${paths.socket}`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const ping = await request('ping');
+  assert.equal(ping.result.protocol_version, 2);
+
+  const session = await request('session.start');
+  assert.equal(session.ok, true);
+  const staged = await request('resource.propose', {
+    session: session.result.id,
+    resource: { id: 'product.protocol', kind: 'product', data: { name: 'Protocol' } },
+  });
+  assert.equal(staged.ok, true);
+  assert.equal((await request('session.publish', { id: session.result.id })).ok, true);
+
+  const query = await request('graph.query', { at: 'HEAD', kind: 'product' });
+  assert.equal(query.result.resources[0].data.epistemic_class, 'inferred',
+    'public graphd proposals must remain agent-inferred');
+
+  const spoof = await request('intent.resource.propose', {
+    session: session.result.id,
+    resource: { id: 'product.spoofed', kind: 'product', data: {} },
+  });
+  assert.equal(spoof.ok, false);
+  assert.equal(spoof.error.code, 'LAMINA_BAD_REQUEST',
+    'graphd must not expose a caller-selectable intended ingress');
+
+  const otherRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-other-clone-'));
+  try {
+    execFileSync('git', ['init', '-b', 'main'], { cwd: otherRoot });
+    execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: otherRoot });
+    execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: otherRoot });
+    fs.writeFileSync(path.join(otherRoot, 'README.md'), '# Other clone\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: otherRoot });
+    execFileSync('git', ['commit', '-m', 'fixture'], { cwd: otherRoot });
+    const crossClone = await new Promise((resolve, reject) => {
+      const socket = net.createConnection(paths.socket);
+      let buffer = '';
+      socket.setEncoding('utf8');
+      socket.on('connect', () => socket.write(`${JSON.stringify({
+        id: 'cross-clone',
+        method: 'status',
+        params: {},
+        cwd: otherRoot,
+      })}\n`));
+      socket.on('data', (chunk) => {
+        buffer += chunk;
+        const newline = buffer.indexOf('\n');
+        if (newline !== -1) {
+          socket.end();
+          resolve(JSON.parse(buffer.slice(0, newline)));
+        }
+      });
+      socket.on('error', reject);
+    });
+    assert.equal(crossClone.ok, false);
+    assert.equal(crossClone.error.code, 'LAMINA_BAD_REQUEST');
+  } finally {
+    fs.rmSync(otherRoot, { recursive: true, force: true });
+  }
+} finally {
+  server.kill('SIGTERM');
+  if (server.exitCode === null) await once(server, 'exit');
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+console.log('graphd_protocol_test: ok');

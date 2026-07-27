@@ -1,0 +1,42 @@
+# Transactional graph
+
+## Storage
+
+All worktrees in a clone connect to one `graphd` at `$(git rev-parse --git-common-dir)/lamina/`. Only graphd opens Ladybug read-write.
+
+## Resources and Statements
+
+Resources use stable opaque ids and generic kinds. Human names are aliases. A Statement has subject, namespaced predicate, exactly one object or typed literal, optional scope, and semantic qualifiers.
+
+The Statement id is a hash of normalized semantic identity. Duplicate proposals are idempotent. Evidence attaches to the same Statement. Reverse relationships are queried. Conflicting Statements create a Contradiction without deleting either side.
+
+## Versions and sessions
+
+Every Git branch resolves to a GraphView and head GraphVersion. Explicit sessions stage several mutations against a base version. Publication compares the session base with the current branch head, validates, creates a version delta, updates materialized membership, and moves the head in one transaction.
+
+```bash
+lamina session start
+lamina session publish <id>
+lamina session rebase <id>
+```
+
+## Source observations
+
+`npm run graph:observe` runs a pinned CocoIndex v1 App. Each file produces an explicit Observation envelope with snapshot, content hash, locator, extractor identity/version, and normalized payload. A custom target sends idempotent upsert/delete batches over the local socket. CocoIndex never opens Ladybug.
+
+## Missions
+
+```bash
+lamina mission compile --workflow <id>
+lamina mission run <mission-id> --events events.json
+lamina session query <returned-session-id>
+lamina session publish <returned-session-id>
+```
+
+Compilation creates an independent Mission for every relevant Persona. `mission run` stages its Run and HarnessResult in an isolated session; it does not publish implicitly. Adapters are selected through capability manifests; modalities remain open strings. Only normalized adapter events produce runtime evidence.
+
+## Epistemic classes
+
+Ingress derives intended, observed, inferred, simulated, human_evidence, or runtime_evidence. Callers cannot set epistemic class or approval.
+
+Every public agent proposal, including `claim.add`, is inferred. The socket does not expose `intent.*` methods. Intended knowledge requires a trusted engine-owned intent adapter, so method-name selection cannot be used to spoof epistemic class.

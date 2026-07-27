@@ -1,4 +1,5 @@
 export default {
+  "transactional-graph": "Transactional graph",
   artifacts: "Per-run artifacts",
   "global-artifacts": "Global artifacts",
   "run-json-schema": "run.json schema",

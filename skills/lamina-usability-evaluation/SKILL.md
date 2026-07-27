@@ -18,13 +18,13 @@ metadata:
 
 ## Method
 
-1. Load personas + `run.json` workflows
+1. Load personas + graph-backed Workflows
 2. Spawn parallel actor-walk subagents (persona-panel)
 3. Each attempts happy path + edge probes
 4. Record blockers: cannot find affordance, wrong feedback, dead end
 5. Merge into `findings[]` with severity
 
-Requires `status: ready_to_build` or post-build deployment — not wireframe review.
+Requires a validated GraphVersion or post-build deployment — not wireframe review.
 
 ## Anti-patterns
 

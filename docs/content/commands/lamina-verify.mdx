@@ -1,111 +1,15 @@
----
-title: /lamina-verify
-description: Walk the live product against the contract — persona walks to fix.md
----
+# `/lamina-verify`
 
-import { Callout } from 'nextra/components'
+Verifies graph-backed product Missions against the actual product.
 
-# /lamina-verify
-
-Pre-merge verification: walk the live product against `run.json` contracts. Lamina checks actor permissions, invariants, dependency reachability, UX flows, and accessibility — then writes findings to `fix.md`.
-
-## Quick path
-
-1. Start your dev server
-2. Run `/lamina-verify` with a concrete flow or surface and the live URL
-3. Read `fix.md` for product findings and `report.md` for the full narrative (including `fix_target: ops`)
-4. Your agent fixes product issues, then re-verify
-
-## Prerequisites
-
-- Valid `.lamina/business-context.md` from `/lamina-init`
-- A running product at `base_url` (e.g. `http://localhost:3000`)
-- Prefer an existing design run with `status: ready_to_build` or `complete`
-
-<Callout type="info">
-**Advanced:** Brownfield verify may infer domain from repo and walkthrough without a prior design run. See [Brownfield and greenfield](/concepts/brownfield-and-greenfield).
-</Callout>
-
-## When to use
-
-- After your agent implements from `implement.md`
-- After applying fixes from a previous `fix.md`
-- Pre-merge / pre-PR product behavior check
-- Brownfield integrity audit on an existing app
-
-## Examples
-
-```
-/lamina-verify guest checkout at http://localhost:3000
+```bash
+lamina mission compile --workflow <workflow-id>
+lamina mission run <mission-id> --events events.json
+lamina session query <returned-session-id>
+lamina session publish <returned-session-id>
+lamina graph validate --at HEAD
 ```
 
-```
-/lamina-verify hotel partner onboarding at http://localhost:3000
-```
+Every relevant Persona runs independently with isolated mutable state. Adapters emit normalized runtime events and store large artifacts in the evidence CAS. Missing/corrupt artifacts, stale source snapshots, capability failures, and Contradictions invalidate approval.
 
-## What Lamina does
-
-1. Loads the contract from `run.json` and `implement.md` (or infers from repo in brownfield)
-2. Sets `status: verifying`
-3. Captures `walkthrough/` evidence at `base_url`
-4. Dispatches parallel subagents — one per primary actor
-5. Runs probe types:
-   - **Actor walks** — each persona navigates their workflows
-   - **Invariant probes** — business rules from `invariants[]`
-   - **Reachability probes** — unmet `dependencies[]`
-   - **Accessibility checks** — against captured walkthrough steps
-6. Writes `findings[]` to `run.json` with `fix_target` per finding (`product`, `contract`, or report-only `ops`)
-7. Sets `status: complete`; writes `report.md` and `fix.md` (ops findings excluded from `fix.md`)
-
-## Output
-
-| Result | Meaning |
-|--------|---------|
-| No open product or contract findings | Verification passed for the named flow — `fix_target: ops` in `report.md` does not block exit |
-| `fix.md` with product or contract findings | Gaps to address in app code or via scoped re-design |
-
-### Finding categories
-
-- Impossible states (cancelled and confirmed simultaneously)
-- Missing transitions (no recovery from error state)
-- Permission gaps (guest can access admin actions)
-- Skipped dependencies (pay without hold, publish without approval)
-- Unmet reachability (feature exists but prerequisite is unreachable)
-- Accessibility violations on critical flows
-
-### fix_target
-
-| Value | Action |
-|-------|--------|
-| `product` | Your coding agent fixes app code from `fix.md` |
-| `contract` | Re-run `/lamina-design` with a scoped contract update |
-| `ops` | Report-only — observation stays in `report.md`; excluded from `fix.md`; does not block product/contract exit |
-
-## What to do next
-
-If findings exist, hand `fix.md` to your coding agent:
-
-```
-Fix the product issues in .lamina/runs/<id>/fix.md
-```
-
-Then re-verify:
-
-```
-/lamina-verify guest checkout at http://localhost:3000
-```
-
-Loop until there are zero open product or contract findings. `fix_target: ops` observations may remain in `report.md`.
-
-## Tips
-
-- Run against a live dev server — verification reads real UI, not mocks
-- Fix product behavior from `fix.md`, not styling
-- Re-verify after every fix cycle — partial fixes often reveal new gaps
-- Inspect `walkthrough/` for visual evidence of what each persona encountered
-
-## Next steps
-
-- [Working with findings](/guides/working-with-findings) — fix loop deep dive
-- [Personas](/concepts/personas) — how actor walks work
-- [Troubleshooting](/getting-started/troubleshooting) — common verify issues
+`mission run` stages the Run and HarnessResult in an isolated session. Inspect and explicitly publish that session; concurrent Runs never become visible merely because an adapter finished. The command reports GraphVersion, source revision, Run/HarnessResult ids, evidence gaps, Contradictions, and a verified/not-verified verdict. It does not edit application source.

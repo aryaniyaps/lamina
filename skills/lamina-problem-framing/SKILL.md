@@ -14,7 +14,7 @@ metadata:
 ---
 # Problem Framing (agent-native)
 
-Turn a user request into a **bounded design target** before writing `run.json`.
+Turn a user request into a **bounded design target** before writing the active GraphVersion.
 
 ## Checklists
 

@@ -18,7 +18,7 @@ metadata:
 ---
 # Forms (agent-native)
 
-Specify **how data entry behaves** in `run.json` — field semantics, validation timing, and recovery — not CSS or component libraries.
+Specify **how data entry behaves** in the transactional graph — field semantics, validation timing, and recovery — not CSS or component libraries.
 
 ## Contract encoding
 

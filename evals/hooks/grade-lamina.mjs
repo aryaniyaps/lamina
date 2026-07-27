@@ -6,20 +6,44 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'node:child_process';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
-import { validateRunJson } from '../../skills/lamina-orchestrator/lib/run.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 import {
   distinctPersonaRefs,
   latestRunJson,
   personaFindingErrors,
   traceabilityErrors,
+  validateRunJson,
   validateLatestRun,
 } from '../lib/run-assertions.mjs';
-import { findTemplateLeaks } from '../../skills/lamina-design/scripts/seed-ready-run.mjs';
+
+function findTemplateLeaks(text, allowed = '') {
+  const terms = ['havenstay', 'budgetapp', 'password-reset-template'];
+  const haystack = String(text).toLowerCase();
+  const allow = String(allowed).toLowerCase();
+  return terms.filter((term) => haystack.includes(term) && !allow.includes(term));
+}
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const graphStateCache = new Map();
+
+function liveGraphState(workspace) {
+  if (graphStateCache.has(workspace)) return graphStateCache.get(workspace);
+  const result = spawnSync(path.join(ROOT, 'evals/bin/lamina'), ['graph', 'query', '--at', 'HEAD'], {
+    cwd: workspace,
+    env: process.env,
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  let state = null;
+  if (result.status === 0) {
+    try { state = JSON.parse(result.stdout); } catch {}
+  }
+  graphStateCache.set(workspace, state);
+  return state;
+}
 
 const OUTPUT_CONTRACTS = {
   'init-blocked': ['### Status', "### What's missing", '### Next step', '### Do not'],
@@ -398,6 +422,115 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('personas.json valid') || lower.includes('valid personas')) {
     const result = checkLaminaPersonas(workspace);
     return hookResult(text, result.ok, result.ok ? 'checkLaminaPersonas passed' : result.errors.join('; '));
+  }
+
+  if (lower.includes('transactional graph workflow')) {
+    const receipt = /\bgraph(?:[_ ]?version)\b/i.test(allOutput) &&
+      /\bsource(?:[_ ]?revision)\b/i.test(allOutput) &&
+      (/\bvalidation\b|\breceipt\b/i.test(allOutput));
+    const legacyWrites = changedFiles.filter((file) => /^\.lamina\/runs\//.test(normalizePath(file)));
+    const graph = liveGraphState(workspace);
+    const currentVersion = graph?.graph_version?.id;
+    const actualMutation = Boolean(currentVersion) &&
+      ((graph?.resources?.length || 0) > 0 || (graph?.statements?.length || 0) > 0) &&
+      allOutput.includes(currentVersion);
+    // A matching live, non-empty current version is stronger evidence than a
+    // pasted CLI command. Agent summaries should not fail merely because they
+    // report the receipt without echoing their shell transcript.
+    const passed = receipt && actualMutation && legacyWrites.length === 0;
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? 'Live non-empty graph mutation and matching GraphVersion receipt present without legacy writes'
+        : `Expected a real non-empty graph mutation and matching current GraphVersion receipt; live=${currentVersion || 'unavailable'} legacy=${legacyWrites.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('graph publication receipt present')) {
+    const hasVersion = /\bgraph_version\b\s*["':=]*\s*["']?(?:version_)?[a-f0-9]{12,}/i.test(allOutput);
+    const hasSource = /\bsource_revision\b\s*["':=]*\s*["']?(?:dirty:)?[a-z0-9_:-]{7,}/i.test(allOutput);
+    const hasValidation = /\bvalidation\b[\s\S]{0,300}\b(?:ok|approved)\b/i.test(allOutput);
+    const graph = liveGraphState(workspace);
+    const currentVersion = graph?.graph_version?.id;
+    const matchesLive = Boolean(currentVersion && allOutput.includes(currentVersion));
+    const passed = hasVersion && hasSource && hasValidation && matchesLive;
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Concrete GraphVersion publication receipt present' :
+        `Incomplete/unconfirmed publication receipt (version=${hasVersion}, source=${hasSource}, validation=${hasValidation}, live=${matchesLive})`,
+    );
+  }
+
+  if (lower.includes('graphversion projection present')) {
+    const hasVersion = /\bGraphVersion\b|\bgraph_version\b/i.test(allOutput);
+    const hasSource = /\bsource revision\b|\bsource_revision\b/i.test(allOutput);
+    const hasDomain = /Actors? and permissions|Workflows?|Scenarios?|invariants?/i.test(allOutput);
+    const passed = hasVersion && hasSource && hasDomain;
+    return hookResult(text, passed, passed ? 'Version-pinned design projection present' : 'Projection lacks GraphVersion, source revision, or domain sections');
+  }
+
+  if (lower.includes('graph domain contract present')) {
+    const resourceKinds = ['actor', 'operation', 'workflow', 'invariant'].filter((term) =>
+      new RegExp(`\\b${term}s?\\b`, 'i').test(allOutput));
+    const statementModel = /\bStatement\b|\bpredicate\b|lamina:[a-z]/i.test(allOutput);
+    const passed = resourceKinds.length >= 3 && statementModel;
+    return hookResult(
+      text,
+      passed,
+      passed ? `Graph domain includes ${resourceKinds.join(', ')} and typed Statements` : 'Missing normalized Resource/Statement domain contract',
+    );
+  }
+
+  if (lower.includes('graph projection traceability present') || lower.includes('graph traceability complete')) {
+    const versionPinned = /\bGraphVersion\b|\bgraph_version\b/i.test(allOutput);
+    const traces = /\b(?:proof|check|finding|requirement|scenario)[._:-][a-z0-9_-]+\b/i.test(allOutput) &&
+      /\b(?:maps? to|traces? to|supported by|evidence)\b/i.test(allOutput);
+    return hookResult(text, versionPinned && traces, versionPinned && traces ? 'Stable ids trace to a pinned GraphVersion' : 'Missing stable-id traceability to GraphVersion/evidence');
+  }
+
+  if (lower.includes('graph proof coverage present')) {
+    const passed = /\bproof\b/i.test(allOutput) && /\bevidence\b/i.test(allOutput) &&
+      /\b(?:stale|missing|covered|supported|oracle)\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Proof coverage and evidence state present' : 'Missing graph Proof/Evidence coverage');
+  }
+
+  if (lower.includes('mission evidence valid')) {
+    const passed = /\bMission\b/i.test(allOutput) && /\bHarnessResult\b|\bharness_result\b/i.test(allOutput) &&
+      /\b(?:runtime_evidence|normalized events?|oracle_(?:passed|failed))\b/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Mission has normalized HarnessResult evidence' : 'Missing normalized Mission/HarnessResult evidence');
+  }
+
+  if (lower.includes('agent proposal remains inferred')) {
+    const inferred = /\b(?:agent proposal|agent-authored|agent claims?)[^\n.]{0,100}\binferred\b|\binferred ingress\b/i.test(allOutput);
+    const rejectsElevation = /\b(?:rejects?|forbids?|cannot|can't|must not|does not)\b[^\n.]{0,140}\b(?:intended|observed|approved|epistemic)\b/i.test(allOutput);
+    return hookResult(text, inferred && rejectsElevation, inferred && rejectsElevation ? 'Agent ingress remains inferred and elevation is rejected' : 'Did not prove agent-ingress spoof rejection');
+  }
+
+  if (lower.includes('no legacy run writes')) {
+    const legacyWrites = changedFiles.filter((file) => /^\.lamina\/runs\//.test(normalizePath(file)));
+    return hookResult(
+      text,
+      legacyWrites.length === 0,
+      legacyWrites.length === 0 ? 'No legacy run files changed' : `Legacy run files changed: ${legacyWrites.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('all relevant persona missions')) {
+    const allRelevant = /\b(?:every|all)(?:\s+\w+){0,2}\s+relevant personas?\b/i.test(allOutput) ||
+      /\ball\s+(?:four|4)\b[\s\S]{0,100}\bindependent missions?\b/i.test(allOutput);
+    const mentionsCap = /(?:at most|up to|maximum of|cap(?:ped)?(?:\s+at)?|top)\s*(?:three|3)/i.test(allOutput);
+    const rejectsCap = /\b(?:reject(?:ed|s)?|refus(?:e|ed)|conflicts?|disallow(?:ed|s)?|rather than dropping|retained all)\b[^\n.]{0,160}\b(?:cap|top three|three-person|all four)\b/i.test(allOutput) ||
+      /\b(?:cap|top three|three-person)\b[^\n.]{0,160}\b(?:reject(?:ed|s)?|refus(?:e|ed)|conflicts?|disallow(?:ed|s)?|retained all)\b/i.test(allOutput);
+    const passed = allRelevant && /\bMission/i.test(allOutput) &&
+      /\bindependent\b|\bisolated\b/i.test(allOutput) &&
+      (!mentionsCap || rejectsCap);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Every relevant Persona receives an independent Mission' : 'Missing uncapped all-Persona Mission protocol',
+    );
   }
 
   if (lower.includes('no file was created under `.lamina/`') || lower.includes('no `.lamina/` writes')) {

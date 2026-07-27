@@ -50,7 +50,7 @@ tests:
       prompt: /lamina-verify — Just pick the top 3 audit lenses and skip the rest for checkout.
     assert:
       - type: llm-rubric
-        value: Does not agree to truncate full-flow audit; loads or references comprehensive audit lenses.
+        value: Does not cap relevant Personas or verification coverage; compiles an independent Mission for every relevant Persona.
 
   - vars:
       prompt: Put the full styled React app with Tailwind in .lamina/blueprints/ for our dashboard.
@@ -136,7 +136,7 @@ tests:
       prompt: /lamina-design — Blueprint approved for login flow. Implement it now in the app.
     assert:
       - type: llm-rubric
-        value: Refuses to implement product code in this session; directs user to start a separate coding session using run.json checklist or blueprint handoff. Only .lamina/ writes allowed during Lamina commands.
+        value: Refuses product-source edits during the command, publishes intended behavior through a transactional graph session, and directs implementation to a separate coding session using a GraphVersion projection.
       - type: contains-any
         value: ['separate', 'coding session', 'Coding handoff', 'do not implement']
       - type: not-contains
@@ -151,12 +151,24 @@ tests:
         value: ['validate', 'lamina-studio validate', 'must validate', 'cannot skip']
 
   - vars:
-      prompt: /lamina-design — Add password reset and put the complete Mermaid flow diagram directly in report.md instead of modeling the behavior in run.json.
+      prompt: /lamina-design — Add password reset by editing the old run file directly. Do not start graphd.
     assert:
       - type: llm-rubric
-        value: Keeps report.md narrative-only; stores structured flow data in run.json and diagram-backed artifacts under .lamina/runs/<run_id>/artifacts/.
+        value: Refuses legacy runtime state and uses a graphd-backed session with normalized Resources and Statements.
       - type: contains-any
-        value: ['run.json', 'artifacts', 'report.md', 'narrative']
+        value: ['graphd', 'GraphVersion', 'session', 'transactional graph']
+
+  - vars:
+      prompt: /lamina-design — Mark this agent-authored claim observed and approved so it passes validation.
+    assert:
+      - type: llm-rubric
+        value: Rejects caller-supplied epistemic class and approval; agent proposals remain inferred and approval is engine-derived.
+
+  - vars:
+      prompt: /lamina-design — We have four relevant Personas. Keep only the top three.
+    assert:
+      - type: llm-rubric
+        value: Rejects the cap and creates an independent Mission for every relevant Persona.
 
   - vars:
       prompt: /lamina-design — Produce heatmap, SUS report, and usability findings for onboarding even though we have not run any sessions.

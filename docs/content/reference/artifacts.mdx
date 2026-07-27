@@ -1,52 +1,7 @@
----
-title: Per-run artifacts
-description: Files written to .lamina/runs/<id>/ during design and verify
----
+# Storage and projections
 
-# Per-run artifacts
+Canonical runtime state lives in the Git common directory’s `lamina/` folder: Ladybug database, CocoIndex tracking, evidence CAS, lock, and socket.
 
-Each Lamina run lives under `.lamina/runs/<run_id>/`. `run.json` is the source of truth; readable files are generated or evidence-oriented views.
+Business context, Persona JSON, source documentation, and old Lamina files are indexable source evidence. They are not graph state.
 
-## Directory layout
-
-```text
-.lamina/runs/<run_id>/
-├── run.json          # Canonical Contract v2 graph
-├── run.md            # Generated readable graph
-├── implement.md      # Generated ready-to-build contract
-├── report.md         # Verification narrative
-├── fix.md            # Evidence-backed fix brief
-└── walkthrough/      # Optional live-product evidence
-```
-
-## `run.json`
-
-The graph records intent, classified decisions, actors, entity lifecycles, operations, workflows, invariants, dependencies, surfaces, distinct risk scenarios, persona findings, traceability, verification findings, and evidence. See the [Contract v2 schema](/reference/run-json-schema).
-
-## Generated views
-
-- `run.md` explains the active graph to a human.
-- `implement.md` is emitted only at `ready_to_build`; it excludes deferred nodes and preserves typed acceptance references.
-- `report.md` explains verification evidence and remaining uncertainty.
-- `fix.md` turns open findings into product, contract, or operational fixes with acceptance criteria.
-
-Edit `run.json`, validate it, and render again. Do not hand-edit generated views into a competing contract.
-
-## Status lifecycle
-
-| Status | Meaning |
-|---|---|
-| `draft` | Graph is being shaped |
-| `needs_input` | A consequential product decision blocks readiness |
-| `ready_to_build` | Critical promises are traced and the implementation view exists |
-| `verifying` | The live product is being checked against the frozen graph |
-| `complete` | Verification artifacts are written; findings may still require fixes |
-
-## Validation
-
-```bash
-node <lamina-orchestrator>/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
-node <lamina-orchestrator>/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
-```
-
-See [Global artifacts](/reference/global-artifacts) for `business-context.md`, `personas.json`, and cross-run decisions.
+Markdown deliverables are generated from a resolved GraphVersion query and must name the GraphVersion and source revision. They are never read back into the runtime.

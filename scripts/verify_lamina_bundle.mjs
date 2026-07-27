@@ -87,22 +87,17 @@ function walk(dir) {
 function checkOutputContracts() {
   const contracts = {
     'skills/lamina-orchestrator/prompts/outputs/design.md': [
-      'Product stage',
-      'critical promise',
-      'Graph validation',
-      'run.json',
-      'run.md',
-      'implement.md',
-      'Next action',
+      'GraphVersion',
+      'Source revision',
+      'Contradictions',
+      'Validation',
     ],
     'skills/lamina-orchestrator/prompts/outputs/verify.md': [
-      'critical product findings',
-      'contract drift',
-      'evidence mode',
-      'residual risk',
-      'run.json',
-      'report.md',
-      'fix.md',
+      'GraphVersion',
+      'source revision',
+      'Runs',
+      'evidence',
+      'Verdict',
     ],
     'skills/lamina-orchestrator/prompts/outputs/init.md': [
       'Mode',
@@ -171,10 +166,6 @@ function checkInitPrerequisiteLinks() {
     }
   }
 
-  const routerSkill = read('skills/lamina/SKILL.md');
-  if (!routerSkill.includes('init-required.md')) {
-    errors.push('Router command skill missing init-required reference: skills/lamina/SKILL.md');
-  }
 }
 
 function checkAgentSkillPollution() {
@@ -218,11 +209,10 @@ function checkRequiredPaths() {
     'skills/lamina-orchestrator/prompts/outputs/verify.md',
     'skills/lamina-orchestrator/prompts/outputs/init.md',
     'skills/lamina-orchestrator/prompts/outputs/clarify.md',
-    'skills/lamina-orchestrator/lib/validate-run.mjs',
-    'skills/lamina-orchestrator/lib/run.mjs',
-    'skills/lamina-orchestrator/lib/graph.mjs',
-    'skills/lamina-orchestrator/lib/graph-tool.mjs',
-    'skills/lamina-orchestrator/references/run.schema.json',
+    'skills/lamina-orchestrator/lib/graph-runtime/engine.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/server.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/client.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/constants.mjs',
     'skills/lamina-orchestrator/references/personas.schema.json',
     'skills/lamina-orchestrator/agents/ux-lens-reviewer.md',
     'skills/lamina-orchestrator/agents/research-synthesizer.md',

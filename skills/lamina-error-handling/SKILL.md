@@ -1,6 +1,6 @@
 ---
 name: lamina-error-handling
-description: "Error and recovery UX in scenarios — slips vs mistakes, root cause in design not actors. Use when mapping failure scenarios in run.json."
+description: "Error and recovery UX in scenarios — slips vs mistakes, root cause in design not actors. Use when mapping failure scenarios in the active GraphVersion."
 metadata:
   lamina:
     id: error-handling

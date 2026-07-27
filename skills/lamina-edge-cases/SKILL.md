@@ -19,4 +19,4 @@ Prioritize:
 
 Every scenario declares `given[]`, `when.operation_ref`, `then[]`, `covers[]`, metadata, and a unique `risk_key`. Acceptance must be externally observable. “Handle gracefully” is not acceptance.
 
-Run `graph-tool.mjs derive` for mechanical suggestions, then add only missing distinct risks. Persona preferences do not become scenarios unless they reveal a structural, safety, or evidence-backed failure.
+Query the workflow closure and add only missing distinct risk Statements. Persona preferences do not become Scenarios unless they reveal a structural, safety, or evidence-backed failure.

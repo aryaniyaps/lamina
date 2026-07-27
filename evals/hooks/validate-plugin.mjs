@@ -53,43 +53,37 @@ function checkCommandSkills() {
     if (!skill.includes(`Use only when explicitly invoked as ${name}`)) {
       errors.push(`Command skill description must declare explicit invocation: ${skillPath}`);
     }
-    if (!skill.includes('Writes: `.lamina/` only') || !skill.includes('Repo: read-only')) {
-      errors.push(`Command skill missing write boundary guardrail: ${skillPath}`);
-    }
-    if (!/Do not create, edit, delete, format, or refactor/.test(skill)) {
-      errors.push(`Command skill missing explicit source-edit refusal: ${skillPath}`);
+    if (!/never edit|does not edit|do not edit/i.test(skill) || !/application source|product source/i.test(skill)) {
+      errors.push(`Command skill missing source-edit refusal: ${skillPath}`);
     }
   }
 }
 
 function checkProductGraphTooling() {
   for (const rel of [
-    'skills/lamina-orchestrator/lib/run.mjs',
-    'skills/lamina-orchestrator/lib/graph.mjs',
-    'skills/lamina-orchestrator/lib/graph-tool.mjs',
-    'skills/lamina-orchestrator/references/run.schema.json',
+    'skills/lamina-orchestrator/lib/graph-runtime/engine.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/server.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/client.mjs',
+    'skills/lamina-orchestrator/lib/graph-runtime/constants.mjs',
     'skills/lamina-orchestrator/references/personas.schema.json',
     'skills/lamina-orchestrator/references/product-graph.md',
-  ]) if (!exists(rel)) errors.push(`Missing Contract v2 resource: ${rel}`);
-  if (exists('skills/lamina-orchestrator/references/run.schema.json')) {
-    const schema = JSON.parse(read('skills/lamina-orchestrator/references/run.schema.json'));
-    if (schema?.properties?.contract_version?.const !== '2.0') errors.push('run.schema.json must require Contract v2');
-  }
+  ]) if (!exists(rel)) errors.push(`Missing transactional graph resource: ${rel}`);
 }
 
 function checkOutputContracts() {
   const contracts = {
     'skills/lamina-orchestrator/prompts/outputs/design.md': [
-      'Product stage',
-      'Graph validation',
-      'run.json',
-      'implement.md',
+      'GraphVersion',
+      'Source revision',
+      'Contradictions',
+      'Validation',
     ],
     'skills/lamina-orchestrator/prompts/outputs/verify.md': [
-      'critical product findings',
-      'contract drift',
-      'report.md',
-      'fix.md',
+      'GraphVersion',
+      'Source revision',
+      'Runs',
+      'Evidence',
+      'Verdict',
     ],
     'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
       'Status',

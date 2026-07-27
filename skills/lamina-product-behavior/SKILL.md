@@ -1,6 +1,6 @@
 ---
 name: lamina-product-behavior
-description: "Represented model matches domain — UI must not imply illegal states or permissions. Use when run.json domain and screens diverge from implementation shape."
+description: "Represented model matches domain — UI must not imply illegal states or permissions. Use when the active GraphVersion domain and screens diverge from implementation shape."
 metadata:
   lamina:
     id: product-behavior
@@ -16,7 +16,7 @@ metadata:
 ---
 # Product Behavior (agent-native)
 
-The **represented model** in `run.json` must match how actors conceive tasks — simpler than implementation, aligned with domain invariants.
+The **represented model** in the transactional graph must match how actors conceive tasks — simpler than implementation, aligned with domain invariants.
 
 ## Contract encoding
 

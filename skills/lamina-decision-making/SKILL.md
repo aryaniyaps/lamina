@@ -19,7 +19,7 @@ Rank **contract changes and verify findings** by impact on primary actor goals a
 
 ## Fix target classification
 
-Before writing `fix.md`, set `fix_target` on each finding in `run.json`:
+Before writing `fix.md`, set `fix_target` on each finding in the transactional graph:
 
 | Signal | `fix_target` |
 |--------|---------------|

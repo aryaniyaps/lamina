@@ -1,79 +1,10 @@
----
-title: Commands overview
-description: Lamina slash commands for design, verify, and routing
----
-
-import { Callout } from 'nextra/components'
-
 # Commands
 
-Lamina exposes four slash commands. Each maps to a phase in the init → design → implement → verify loop. Lamina does not activate passively — run each command explicitly in agent chat.
+| Command | Purpose |
+|---|---|
+| `/lamina-init` | Establish business evidence and Product/Persona/Actor Resources |
+| `/lamina-design` | Validate and publish intended product behavior |
+| `/lamina-verify` | Run every relevant Persona Mission |
+| `/lamina` | Route focused product work |
 
-## Quick path
-
-```text
-/lamina-init <domain>
-/lamina-design <feature or flow>
-# your agent implements from implement.md
-/lamina-verify guest checkout at http://localhost:3000
-# your agent fixes from fix.md, then re-verify
-/lamina-verify guest checkout at http://localhost:3000
-```
-
-## Command reference
-
-| Command | Phase | Purpose |
-|---------|-------|---------|
-| [`/lamina`](/commands/lamina) | Router | Optional — route explicit `/lamina <request>` to design, verify, or direct Q&A |
-| [`/lamina-init`](/commands/lamina-init) | Charter | Domain scope — required before design or verify |
-| [`/lamina-design`](/commands/lamina-design) | Design | `run.json`, `run.md`, `implement.md` at `ready_to_build` |
-| [`/lamina-verify`](/commands/lamina-verify) | Verify | Updated `run.json` findings, `report.md`, `fix.md`, optional `walkthrough/` |
-
-## Prerequisite gates
-
-| Command | Requires |
-|---------|----------|
-| `/lamina-init` | None |
-| `/lamina-design` | Valid `.lamina/business-context.md` from init |
-| `/lamina-verify` | Valid `.lamina/business-context.md` from init |
-| `/lamina` (design/verify routes) | Same gates as the dispatched command |
-
-<Callout type="info">
-**Advanced:** The init gate cannot be bypassed. If `business-context.md` is missing or invalid, design and verify return a blocked response and stop.
-</Callout>
-
-## Typical sequence
-
-```text
-/lamina-init Boutique hotel booking marketplace
-/lamina-design Guest checkout with payment hold and cancellation
-# … your agent implements from implement.md …
-/lamina-verify guest checkout at http://localhost:3000
-# … your agent fixes from fix.md …
-/lamina-verify guest checkout at http://localhost:3000
-```
-
-## Optional routing
-
-If you are unsure which command to run, use the optional router — still an explicit slash command, not passive invocation:
-
-```
-/lamina Design the onboarding flow for a team collaboration app
-```
-
-`/lamina` interprets your request and dispatches to the right workflow. It does not replace `/lamina-init` on a new project.
-
-## What Lamina does not do
-
-| Action | Who handles it |
-|--------|----------------|
-| Write app source | Your coding agent |
-| Implement fixes from `fix.md` | Your coding agent (normal coding session) |
-| Pick your framework or database | You |
-| Style UI (colors, typography) | UI skills or your agent |
-
-## Next steps
-
-- [/lamina router](/commands/lamina) — optional routing via `/lamina <request>`
-- [Quickstart](/getting-started/quickstart) — full walkthrough
-- [The loop](/concepts/the-loop) — design → implement → verify cycle
+Runtime operations use `lamina graph`, `lamina session`, and `lamina mission`. See [Transactional graph](/reference/transactional-graph).

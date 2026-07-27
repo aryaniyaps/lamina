@@ -2,7 +2,7 @@
 
 Hard prerequisite for `/lamina-design`, `/lamina-verify`, and `/lamina` when routing to those workflows.
 
-**Do not infer init** from other `.lamina/` artifacts such as `personas.json` or a prior `run.json`. Only `.lamina/business-context.md` from `/lamina-init` satisfies this gate.
+**Do not infer init** from other `.lamina/` artifacts such as `personas.json` or a prior GraphVersion. Only `.lamina/business-context.md` from `/lamina-init` satisfies this gate.
 
 **Never treat missing or present `personas.json` as an init check.** Personas are downstream design artifacts — not business context. If `personas.json` exists but `business-context.md` does not, init has **not** been run. If the user asks to use personas as business context, **block** — do not audit or design.
 

@@ -3,7 +3,20 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { validateRunFields, validateRunJson } from '../../skills/lamina-orchestrator/lib/run.mjs';
+export function validateRunFields(run, rel = 'legacy run file') {
+  if (!run || typeof run !== 'object' || Array.isArray(run)) return [`${rel} must contain a JSON object`];
+  return [];
+}
+
+export function validateRunJson(runPath) {
+  try {
+    const run = JSON.parse(fs.readFileSync(runPath, 'utf8'));
+    const errors = validateRunFields(run, runPath);
+    return { ok: errors.length === 0, errors, run };
+  } catch (error) {
+    return { ok: false, errors: [`${runPath}: ${error.message}`], run: null };
+  }
+}
 
 export function findRunDirs(workspace) {
   const runsRoot = path.join(workspace, '.lamina/runs');

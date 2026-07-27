@@ -29,7 +29,7 @@ Ground every `screen` and `operation` claim in evidence or mark **assumption**.
 ## When to run
 
 - **Design** — map existing UI before extending contract
-- **Verify** — compare live behavior to `run.json`
+- **Verify** — compare live behavior to the transactional graph
 
 ## Anti-patterns
 

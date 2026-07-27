@@ -60,4 +60,44 @@ skill_count=0
 if [[ -d "$first_root" ]]; then
   skill_count="$(find "$first_root" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 fi
+
+# The transactional runtime is part of the treatment, not fixture data. Expose
+# only its pinned native dependency inside the isolated workspace so agents can
+# execute `lamina` through evals/bin without seeing the repository source tree.
+mkdir -p "$WORKSPACE/node_modules/@ladybugdb"
+rm -f "$WORKSPACE/node_modules/@ladybugdb/core"
+ln -s "$ROOT/node_modules/@ladybugdb/core" "$WORKSPACE/node_modules/@ladybugdb/core"
+
+# graphd derives branch and source identity from Git. ASE workspaces are plain
+# directories by default, so establish a deterministic clone boundary while
+# excluding installed treatment/runtime files from the source snapshot.
+if ! git -C "$WORKSPACE" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$WORKSPACE" init -b main >/dev/null
+fi
+if ! git -C "$WORKSPACE" rev-parse --verify HEAD >/dev/null 2>&1; then
+  git -C "$WORKSPACE" config user.email eval@lamina.invalid
+  git -C "$WORKSPACE" config user.name "Lamina Eval"
+  {
+    printf '.codex/\n'
+    printf '.claude/\n'
+    printf '.opencode/\n'
+    printf '.agents/\n'
+    printf 'node_modules/\n'
+    printf '.lamina/runtime/\n'
+  } >>"$WORKSPACE/.git/info/exclude"
+  git -C "$WORKSPACE" add -A
+  git -C "$WORKSPACE" commit --allow-empty -m "eval fixture" >/dev/null
+fi
+
+# Codex workspace-write intentionally mounts .git read-only. Keep graphd's
+# required clone-local logical path while resolving its eval-only storage into
+# the writable .lamina namespace used by Lamina command artifacts.
+mkdir -p "$WORKSPACE/.lamina/runtime"
+if [[ ! -e "$WORKSPACE/.git/lamina" ]]; then
+  ln -s ../.lamina/runtime "$WORKSPACE/.git/lamina"
+fi
+
+# The agent starts graphd on first use. Starting it in this hook is unsafe
+# because some eval harnesses reap hook descendants, leaving Ladybug's native
+# lock behind without a live socket.
 echo "Installed $skill_count Lamina skills for agent $AGENT → $WORKSPACE"

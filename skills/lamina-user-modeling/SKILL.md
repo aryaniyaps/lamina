@@ -1,15 +1,16 @@
 ---
 name: lamina-user-modeling
-description: "Create evidence-grounded product actors and provisional personas, distinguish roles from preferences, and conduct bounded persona perspective reviews without treating simulations as user research."
+description: "Create evidence-grounded Persona and Actor resources and compile independent graph Missions without treating simulations as research."
 ---
 
 # User modeling
 
-Write `.lamina/personas.json` with Contract v2. Each persona contains role, goals, constraints, evidence references, confidence, and whether it is primary.
+Business documents and `.lamina/personas.json` are indexable evidence. Canonical Personas and Actors are Resource records in Ladybug:
 
-Use research, explicit user input, analytics, support evidence, or brownfield behavior as evidence. Keep inferred personas low or medium confidence. Do not invent demographics or preferences that do not change product behavior.
+- Actor expresses authority, ownership, identity proof, and allowed Operations.
+- Persona expresses goals, constraints, context, and evidence.
+- Link them with a typed Statement such as `lamina:canAssume`.
 
-Actors in `run.json` define authority, ownership, and operations. Personas add perspective and constraints; they do not replace the authorization model.
-When the mapping is known, record typed `actor_refs` on the persona so isolated reviews can receive only the relevant graph slice.
+Use explicit input, research, analytics, support evidence, or brownfield observations. Keep agent inference epistemically inferred and Persona interpretation simulated. Do not invent demographics or preferences that do not change behavior.
 
-For perspective review, select at most three personas with materially different goals, authority, vulnerability, or context. Require graph citations and classify findings. Preserve simulated preference as `persona_hypothesis`; promote only structural, safety, contradiction, or evidence-backed findings.
+Compile one independent Mission for every relevant Persona with `lamina mission compile`. There is no maximum. Each Mission gets an isolated Run and adapter context. Preference findings remain hypotheses; only structural, safety, contradiction, observed, human, or runtime evidence may support stronger claims.

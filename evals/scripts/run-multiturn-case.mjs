@@ -137,7 +137,7 @@ async function main() {
       i === 0
         ? [
             `Follow $${skillName}. Init is already satisfied if .lamina/business-context.md exists.`,
-            'This brief is vague → reply with ONLY the clarification contract below (no tools, no seed, no run.json):',
+            'This brief is vague → reply with ONLY the clarification contract below (no tools and no graph mutation):',
             '## Lamina: clarification needed',
             '### Status',
             '### Clarifying questions',
@@ -149,7 +149,7 @@ async function main() {
         : isVerify
           ? [
               `Follow $${skillName}. Clarification was answered — EXEC NOW verify seed:`,
-              'From workspace root run seed-verify-run.mjs (not seed-ready-run; do not hand-write run.json).',
+              'Use graphd to compile isolated Persona Missions and publish only validated evidence; do not write legacy run files.',
               'Then emit VERIFY headings only (not design headings):',
               '### Executive summary / ### Findings / ### Open questions',
               'Mention audit, findings, prioritized improvements, empty/failure/permission, and full-flow lenses.',
@@ -157,7 +157,7 @@ async function main() {
             ].join('\n')
           : [
               `Follow $${skillName}. Clarification was answered — EXEC NOW:`,
-              'From workspace root run seed-ready-run.mjs (do not hand-write run.json), then emit design headings:',
+              'Use a graphd session, publish a validated GraphVersion, then emit the design projection headings:',
               '### Domain and invariants / ### Actors and permissions / ### Workflows / ### Scenarios / ### Implement brief / ### Open questions',
               'Mention lamina-edge-cases, flows, edge cases, empty/failure/permission.',
               '',

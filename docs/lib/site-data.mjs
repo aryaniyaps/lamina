@@ -4,20 +4,20 @@ export const SITE = {
   tagline: "Design how it works.",
   subline: "Know what to build. Iterate faster.",
   description:
-    "Headless product-design skill for AI coding agents. Invoke with slash commands — /lamina-init, /lamina-design, /lamina-verify — to spec how your app works into a contract your agent implements, then verify your application with parallel persona walks.",
+    "Transactional product-knowledge graph for AI coding agents. Invoke /lamina-init, /lamina-design, and /lamina-verify to publish intended behavior, source observations, and isolated Persona Mission evidence.",
   positioning:
     "Product-design skill for developers who build with AI — know what to build, iterate faster.",
   icp: "Developers using AI coding agents (Cursor, Claude Code, Codex, Gemini, Pi) — not designers or PMs.",
   disambiguation:
     "Lamina (lamina.dev) is an open-source product-design skill for AI coding agents — not uselamina.ai (creative API for media generation).",
   productSummary:
-    "Lamina is an open-source skill licensed under Apache-2.0 that designs product behavior before your coding agent ships app source. Run slash commands explicitly — Lamina does not activate passively after install. UI skills dress the app; Lamina designs how it behaves — states, roles, flows, edge cases, and permission matrices.",
+    "Lamina is an Apache-2.0 transactional product graph. Ladybug stores canonical Resources, Statements, versions, sessions, and Runs; CocoIndex incrementally supplies explicit source Observations through graphd.",
   loop: "/lamina-init → /lamina-design → implement → /lamina-verify → fix",
   commands: ["/lamina-init", "/lamina-design", "/lamina-verify", "/lamina (optional router)"],
   outcomes: [
-    "Machine-readable contract (`run.json`) your agent implements from `implement.md`",
-    "Parallel persona walks that surface product gaps on the live app",
-    "Fix loop (`fix.md` → agent fixes → re-verify) until the contract holds",
+    "Atomic, versioned product behavior with semantic branch diffs",
+    "Independent Missions for every relevant Persona",
+    "Epistemically separated intent, observations, simulation, and runtime evidence",
   ],
   whatIsNot: [
     "Not a UI library — never writes app source or picks your component library",

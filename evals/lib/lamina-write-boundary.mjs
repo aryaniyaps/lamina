@@ -17,6 +17,12 @@ export function isLaminaArtifactPath(relPath) {
   return norm === '.lamina' || norm.startsWith('.lamina/');
 }
 
+/** Shared graph runtime is permitted even though it lives under Git common dir. */
+export function isGraphRuntimePath(relPath) {
+  const norm = normalizePath(relPath).replace(/^\.\//, '');
+  return norm === '.git/lamina' || norm.startsWith('.git/lamina/');
+}
+
 /** Agent harness / skill install noise — ignore for write-boundary grading. */
 export function isAgentHarnessPath(relPath) {
   const norm = normalizePath(relPath);
@@ -80,7 +86,7 @@ export function diffOutsideLamina(preState, postState, workspace = '') {
     const allPaths = new Set([...Object.keys(preHashes), ...Object.keys(postHashes)]);
     const changed = [];
     for (const rel of allPaths) {
-      if (isLaminaArtifactPath(rel) || isAgentHarnessPath(rel)) continue;
+      if (isLaminaArtifactPath(rel) || isGraphRuntimePath(rel) || isAgentHarnessPath(rel)) continue;
       const pre = preHashes[rel];
       const post = postHashes[rel];
       if (pre !== post) changed.push(rel);
@@ -93,7 +99,7 @@ export function diffOutsideLamina(preState, postState, workspace = '') {
   const post = new Set((postState?.files ?? postState?.tracked_files ?? []).map(normalizePath));
   const added = [];
   for (const f of post) {
-    if (!pre.has(f) && !isLaminaArtifactPath(f) && !isAgentHarnessPath(f)) added.push(f);
+    if (!pre.has(f) && !isLaminaArtifactPath(f) && !isGraphRuntimePath(f) && !isAgentHarnessPath(f)) added.push(f);
   }
 
   // Without hashes we cannot detect modifications — caller should use file_hashes snapshots

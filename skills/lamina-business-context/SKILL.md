@@ -127,7 +127,7 @@ When a section changes, flag downstream artifacts that may need refresh:
 | Changed section | May stale |
 |---|---|
 | Users & market | `personas.json` — re-run `/lamina-design` discovery and cast update |
-| Scope | prior `run.json` flows outside new scope; design runs in flight |
+| Scope | active GraphVersion workflows outside new scope; design sessions in flight |
 | Business goals, success metrics | audit prioritization; design workflow metrics sections |
 | Product posture, constraints | design workflow IA and interaction sections |
 | Problem statement (pivot) | personas, prior runs, requirements |

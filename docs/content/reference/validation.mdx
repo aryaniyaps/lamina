@@ -1,22 +1,10 @@
----
-title: Contract validation
-description: Validate, derive, render, scope, and inspect Contract v2 graphs.
----
-
-# Contract validation
-
-The orchestrator bundles a zero-dependency JSON parser, semantic validator, deterministic risk derivation, renderer, scoper, and coverage reporter.
+# Validation
 
 ```bash
-node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs validate .lamina/runs/<run_id>/run.json
-node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs derive .lamina/runs/<run_id>/run.json
-node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs render .lamina/runs/<run_id>/run.json
-node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs coverage .lamina/runs/<run_id>/run.json
-node .claude/skills/lamina-orchestrator/lib/graph-tool.mjs scope .lamina/runs/<run_id>/run.json workflow.<id>
+lamina graph validate --at HEAD
+lamina graph validate --at <session-id>
 ```
 
-Validation checks Contract v2, product stage, node metadata, typed references, unique ids and risk keys, entity states and relationships, operation transitions, workflow reachability, prerequisite cycles, blocking decisions, persona provenance, and critical-promise traceability.
+The installed engine checks Statement shape/references, aliases, workflow ordering/reachability, lifecycle transitions, actor authority, dependencies, proof/evidence coverage, Mission capability compatibility, epistemic ingress, Contradictions, uniqueness, and cycles. If an affected closure cannot be proven complete, validation uses the whole branch view.
 
-The ready gate is stage-sensitive. Draft graphs may be incomplete; `ready_to_build` graphs must contain the minimum critical chain needed for implementation. Optional schema fields do not become mandatory merely because they exist.
-
-`render` overwrites generated `run.md` and, for ready contracts, `implement.md`. Edit `run.json`, never the generated view.
+Approval additionally requires current reproducible evidence and no relevant Contradiction. Agents cannot add executable validators or approve their own output.

@@ -14,8 +14,9 @@ const DEFAULT_PHASE_TIMEOUT_MS = Number(process.env.BENCH_PHASE_TIMEOUT_MS) || 2
 const AGENT_COMMANDS = {
   'claude-code': ['claude', '-p'],
   // --skip-git-repo-check: multiturn workspaces are not git repos
-  // --sandbox workspace-write: replaces deprecated --full-auto
-  codex: ['codex', 'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check'],
+  // graphd must remain reachable across the agent's command invocations.
+  // Eval workspaces are disposable and separately checked for write escape.
+  codex: ['codex', 'exec', '--sandbox', 'danger-full-access', '--skip-git-repo-check'],
   opencode: ['opencode', 'run'],
 };
 
