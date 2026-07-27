@@ -2,15 +2,8 @@ name: Eval Spec
 
 on:
   pull_request:
-    paths:
-      - 'skills/**'
-      - 'evals/**'
-      - 'package.json'
   push:
     branches: [main]
-    paths:
-      - 'skills/**'
-      - 'evals/**'
 
 jobs:
   spec:

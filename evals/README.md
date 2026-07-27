@@ -13,3 +13,5 @@ pnpm test:eval:redteam
 `evals/scripts/merge-evals.mjs` generates the combined suite JSON. Transactional assertions query live graphd state, require session/GraphVersion publication and Mission evidence, and reject writes to legacy run directories. The write-boundary checker permits `.lamina/` evidence and the shared Git-common-dir `lamina/` runtime while rejecting product-source writes.
 
 The current grader has no legacy run-artifact reader. Historical prompts may mention those files only to prove that they are ignored and never treated as runtime state.
+
+The `Eval Spec` workflow runs the full repository unit suite plus strict eval validation on every pull request and every push to `main`, so runtime, benchmark, and test-only changes cannot bypass the clean-checkout gate.
