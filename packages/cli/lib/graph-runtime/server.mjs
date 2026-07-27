@@ -59,6 +59,7 @@ function dispatch(request) {
     database: paths.database,
     protocol_version: GRAPH_PROTOCOL_VERSION,
   };
+  if (request.method === 'shutdown') return { pid: process.pid, shutting_down: true };
   if (request.method === 'observation.apply') return engine.applyObservationBatch(request.params || {});
   if (request.method === 'observation.status') return engine.observationStatus(request.params || {});
   if (request.method === 'observation.invalidate') return engine.invalidateObservations(request.params?.product || paths.product);
@@ -121,6 +122,10 @@ const server = net.createServer((socket) => {
         };
       }
       socket.write(`${JSON.stringify(response)}\n`);
+      if (response.ok && request.method === 'shutdown') {
+        socket.end();
+        setImmediate(shutdown);
+      }
     }
   });
 });

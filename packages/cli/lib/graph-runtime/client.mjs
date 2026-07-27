@@ -67,9 +67,24 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
   const pid = Number(reportedPid) || lock?.pid || null;
   if (processIsRunning(pid)) {
-    try { process.kill(pid, 'SIGTERM'); } catch {}
+    try {
+      const token = fs.readFileSync(paths.token, 'utf8').trim();
+      await exchange(graphSocketPath(paths), {
+        id: 'shutdown',
+        method: 'shutdown',
+        cwd: paths.root,
+        auth: token,
+      }, 500);
+    } catch {}
   }
   let deadline = Date.now() + 2_000;
+  while (Date.now() < deadline && processIsRunning(pid)) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (processIsRunning(pid)) {
+    try { process.kill(pid, 'SIGTERM'); } catch {}
+  }
+  deadline = Date.now() + 2_000;
   while (Date.now() < deadline && processIsRunning(pid)) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
