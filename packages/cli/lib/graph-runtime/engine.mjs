@@ -17,6 +17,36 @@ function asArray(value) {
   return value == null ? [] : Array.isArray(value) ? value : [value];
 }
 
+function statementConflictKey(statement) {
+  const { epistemic_class: _epistemicClass, ...semanticQualifiers } = statement.qualifiers || {};
+  const functionalObject = statement.predicate === 'lamina:hasStep' ||
+    statement.predicate === 'lamina:producedHarnessResult' ||
+    semanticQualifiers.cardinality === 'one' ||
+    semanticQualifiers.functional === true;
+  if (statement.object && !functionalObject) return null;
+  return JSON.stringify(canonical({
+    subject: statement.subject,
+    predicate: statement.predicate,
+    scope: statement.scope || null,
+    qualifiers: semanticQualifiers,
+  }));
+}
+
+function statementValueKey(statement) {
+  return JSON.stringify(canonical({
+    object: statement.object || null,
+    literal: statement.object ? null : statement.literal,
+  }));
+}
+
+function containsEngineOwnedStatus(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some(containsEngineOwnedStatus);
+  return Object.entries(value).some(([key, nested]) =>
+    ['epistemic_class', 'approved', 'approval_status'].includes(key) ||
+    containsEngineOwnedStatus(nested));
+}
+
 export class GraphEngine {
   constructor(paths) {
     this.paths = paths;
@@ -95,9 +125,7 @@ export class GraphEngine {
         (input.data !== undefined && (!input.data || typeof input.data !== 'object' || Array.isArray(input.data)))) {
       fail(ERROR.VALIDATION, 'A Resource and its data must be JSON objects.');
     }
-    if (input.epistemic_class !== undefined || input.approved !== undefined || input.approval_status !== undefined ||
-        input.data?.epistemic_class !== undefined || input.data?.approved !== undefined ||
-        input.data?.approval_status !== undefined) {
+    if (containsEngineOwnedStatus(input)) {
       fail(ERROR.SPOOFED_STATUS, 'Epistemic class and approval are engine-derived.');
     }
     if (!RESOURCE_KINDS.has(input.kind)) fail(ERROR.VALIDATION, `Unknown resource kind: ${input.kind}`);
@@ -146,9 +174,7 @@ export class GraphEngine {
           (!input.qualifiers || typeof input.qualifiers !== 'object' || Array.isArray(input.qualifiers)))) {
       fail(ERROR.VALIDATION, 'A Statement and its qualifiers must be JSON objects.');
     }
-    if (input.epistemic_class !== undefined || input.approved !== undefined || input.approval_status !== undefined ||
-        input.qualifiers?.epistemic_class !== undefined || input.qualifiers?.approved !== undefined ||
-        input.qualifiers?.approval_status !== undefined) {
+    if (containsEngineOwnedStatus(input)) {
       fail(ERROR.SPOOFED_STATUS, 'Epistemic class and approval are engine-derived.');
     }
     if (!input.subject || !input.predicate || (!!input.object === (input.literal !== undefined))) {
@@ -704,6 +730,7 @@ export class GraphEngine {
     }
     const contradictions = this.query('MATCH (c:Resource {kind: $kind}) RETURN c.id AS id, c.data AS data', { kind: 'contradiction' })
       .filter((item) => {
+        if (!resourceIds.has(item.id)) return false;
         const members = item.data?.members || [];
         return members.length >= 2 && members.every((member) => statementIds.has(member) || resourceIds.has(member));
       });
@@ -784,8 +811,8 @@ export class GraphEngine {
       const retiredStatements = [...baseActive.statements].filter((item) => !desired.statements.has(item));
       retiredResources.forEach((item) => active.resources.delete(item));
       retiredStatements.forEach((item) => active.statements.delete(item));
-      const resources = [...desired.resources].filter((item) => !active.resources.has(item));
-      const statements = [...desired.statements].filter((item) => !active.statements.has(item));
+      for (const item of desired.resources) active.resources.add(item);
+      for (const item of desired.statements) active.statements.add(item);
       const evidenceLinks = this.pendingSessionEvidence(id).filter((pending) => {
         if (!desired.statements.has(pending.statement)) return false;
         return !this.query(
@@ -793,11 +820,50 @@ export class GraphEngine {
           pending,
         )[0];
       });
+      this.materializeSessionEvidence(id, active.statements);
+      const allStatements = this.statementDetails(active.statements);
+      const conflictGroups = new Map();
+      for (const statement of allStatements) {
+        const key = statementConflictKey(statement);
+        if (key === null) continue;
+        if (!conflictGroups.has(key)) conflictGroups.set(key, []);
+        conflictGroups.get(key).push(statement);
+      }
+      const existingContradictions = new Map(this.query(
+        'MATCH (c:Resource {kind: $kind}) RETURN c.id AS id, c.data AS data',
+        { kind: 'contradiction' },
+      ).map((item) => [item.id, item]));
+      const canonicalContradictions = new Set();
+      for (const group of conflictGroups.values()) {
+        if (new Set(group.map(statementValueKey)).size < 2) continue;
+        const members = group.map((item) => item.id).sort();
+        const contradictionId = digest('contradiction', {
+          type: 'statement_conflict',
+          members,
+          data: {},
+        });
+        if (!existingContradictions.has(contradictionId)) {
+          this.createContradiction('statement_conflict', members);
+        }
+        canonicalContradictions.add(contradictionId);
+        active.resources.add(contradictionId);
+      }
+      const activeStatementContradictions = [...existingContradictions.values()].filter((item) =>
+        active.resources.has(item.id) &&
+        item.data?.type === 'statement_conflict' &&
+        !canonicalContradictions.has(item.id));
+      for (const contradiction of activeStatementContradictions) {
+        active.resources.delete(contradiction.id);
+        if (baseActive.resources.has(contradiction.id) && !retiredResources.includes(contradiction.id)) {
+          retiredResources.push(contradiction.id);
+        }
+      }
+      const resources = [...active.resources].filter((item) => !baseActive.resources.has(item));
+      const statements = [...active.statements].filter((item) => !baseActive.statements.has(item));
       if (!resources.length && !statements.length && !retiredResources.length && !retiredStatements.length &&
           !evidenceLinks.length &&
           parents.length === 1 &&
           currentHead.source_revision === sourceRevision) {
-        this.materializeSessionEvidence(id, active.statements);
         this.query('MATCH (s:GraphView {id: $session}) SET s.status = $status', { session: id, status: 'published' });
         return {
           graph_version: currentHead.id,
@@ -806,26 +872,6 @@ export class GraphEngine {
           validation: currentHead.receipt?.validation || { ok: true, approved: true, errors: [], contradictions: [] },
           idempotent: true,
         };
-      }
-      resources.forEach((item) => active.resources.add(item));
-      statements.forEach((item) => active.statements.add(item));
-      this.materializeSessionEvidence(id, active.statements);
-      const allStatements = this.statementDetails(active.statements);
-      const newContradictions = [];
-      for (const proposedId of statements) {
-        const proposed = allStatements.find((item) => item.id === proposedId);
-        for (const existing of allStatements) {
-          if (existing.id === proposed.id) continue;
-          const sameFact = existing.subject === proposed.subject && existing.predicate === proposed.predicate &&
-            (existing.scope || null) === (proposed.scope || null);
-          const differentValue = (existing.object || null) !== (proposed.object || null) ||
-            JSON.stringify(existing.literal) !== JSON.stringify(proposed.literal);
-          if (sameFact && differentValue) {
-            const contradiction = this.createContradiction('statement_conflict', [existing.id, proposed.id]);
-            newContradictions.push(contradiction.id);
-            active.resources.add(contradiction.id);
-          }
-        }
       }
       const validation = this.validateSet(active.resources, active.statements, sourceRevision);
       if (!validation.ok) fail(ERROR.VALIDATION, 'Session publication failed validation.', validation);
@@ -992,6 +1038,9 @@ export class GraphEngine {
     const resources = new Set([scopeId]);
     const statementDetails = this.statementDetails(active.statements);
     const statements = new Set();
+    const activeContradictions = [...active.resources]
+      .map((id) => this.resource(id))
+      .filter((item) => item?.kind === 'contradiction');
     let changed = true;
     while (changed) {
       changed = false;
@@ -1010,12 +1059,24 @@ export class GraphEngine {
           }
         }
       }
-    }
-    for (const contradiction of [...active.resources]
-      .map((id) => this.resource(id))
-      .filter((item) => item?.kind === 'contradiction' &&
-        (item.data?.members || []).some((member) => statements.has(member) || resources.has(member)))) {
-      resources.add(contradiction.id);
+      for (const contradiction of activeContradictions) {
+        const members = contradiction.data?.members || [];
+        if (!resources.has(contradiction.id) &&
+            !members.some((member) => statements.has(member) || resources.has(member))) continue;
+        if (!resources.has(contradiction.id)) {
+          resources.add(contradiction.id);
+          changed = true;
+        }
+        for (const member of members) {
+          if (active.statements.has(member) && !statements.has(member)) {
+            statements.add(member);
+            changed = true;
+          } else if (active.resources.has(member) && !resources.has(member)) {
+            resources.add(member);
+            changed = true;
+          }
+        }
+      }
     }
     return {
       ...this.validateSet(resources, statements, head?.source_revision),

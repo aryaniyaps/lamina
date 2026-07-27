@@ -110,6 +110,15 @@ try {
     'approval status must not be smuggled through Resource data',
   );
   assert.throws(
+    () => engine.stageResource(session.id, {
+      id: 'product.deep-spoof',
+      kind: 'product',
+      data: { metadata: { approval_status: 'approved' } },
+    }),
+    (error) => error.code === 'LAMINA_EPISTEMIC_STATUS_FORBIDDEN',
+    'engine-owned status must not be smuggled through nested Resource payloads',
+  );
+  assert.throws(
     () => engine.stageStatement(session.id, {
       subject: 'workflow.checkout',
       predicate: 'custom:nestedSpoof',
@@ -157,6 +166,33 @@ try {
   engine.publishSession(proofEvidence.id, context.source_revision);
   assert.equal(engine.validateView('HEAD', 'operation.pay', context).approved, true,
     'proof evidence should close the affected operation readiness gap');
+
+  const multiStep = engine.startSession({ branch: 'main', source_revision: context.source_revision });
+  engine.stageResource(multiStep.id, {
+    id: 'workflow.fulfillment',
+    kind: 'workflow',
+    data: { name: 'fulfillment' },
+  }, 'intent');
+  for (const [id, position] of [['operation.pack', 1], ['operation.ship', 2]]) {
+    engine.stageResource(multiStep.id, { id, kind: 'operation', data: { name: id } }, 'intent');
+    engine.stageStatement(multiStep.id, {
+      subject: 'actor.member',
+      predicate: 'lamina:authorizedFor',
+      object: id,
+    }, 'intent');
+    engine.stageStatement(multiStep.id, {
+      subject: 'workflow.fulfillment',
+      predicate: 'lamina:hasStep',
+      object: id,
+      qualifiers: { position },
+    }, 'intent');
+  }
+  const multiStepPublish = engine.publishSession(multiStep.id, context.source_revision);
+  assert.equal(multiStepPublish.validation.ok, true);
+  assert.ok(!multiStepPublish.validation.contradictions.some((id) =>
+    (engine.resource(id)?.data?.members || []).some((member) =>
+      engine.statementDetails(new Set([member]))[0]?.subject === 'workflow.fulfillment')),
+  'different qualified workflow-step positions must not be treated as competing facts');
 
   const unrelatedGap = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   engine.stageResource(unrelatedGap.id, {
@@ -223,6 +259,14 @@ try {
   const conflictQuery = engine.graphQuery({ at: 'HEAD', subject: 'operation.pay', predicate: 'custom:refundWindowDays' }, context);
   assert.deepEqual(new Set(conflictQuery.statements.map((item) => item.id)), new Set([a.id, b.id]));
   assert.equal(conflictQuery.contradictions.length, 1);
+  assert.deepEqual(
+    engine.query(
+      'MATCH (g:GraphVersion {id: $id})-[:VERSION_ADD_RES]->(r:Resource {kind: $kind}) RETURN r.id AS id',
+      { id: conflictPublish.graph_version, kind: 'contradiction' },
+    ).map((item) => item.id),
+    conflictPublish.contradictions,
+    'a derived Contradiction must be retained as part of the GraphVersion delta',
+  );
 
   const sameConflict = engine.createContradiction('statement_conflict', [a.id, b.id]);
   assert.equal(sameConflict.id, conflictPublish.contradictions[0]);
@@ -238,6 +282,8 @@ try {
   const aliasPublish = engine.publishSession(aliasCollision.id, context.source_revision);
   assert.equal(aliasPublish.validation.approved, false, 'active Resource alias collisions must block approval');
   assert.ok(aliasPublish.validation.contradictions.length >= 1);
+  assert.equal(engine.validateView('HEAD', 'product.fixture', context).approved, false,
+    'affected-closure validation must include every member of a touching alias contradiction');
   const aliasContradiction = engine.query(
     'MATCH (c:Resource {kind: $kind}) RETURN c.id AS id, c.data AS data',
     { kind: 'contradiction' },
@@ -535,10 +581,65 @@ try {
   assert.ok(mergedEntities.resources.some((item) => item.id === 'entity.feature-commit'));
   assert.ok(mergedEntities.resources.some((item) => item.id === 'entity.main-commit'));
 
+  // Conflicting facts introduced independently on Git parents reconcile into
+  // one canonical Contradiction when the source branches merge.
+  execFileSync('git', ['switch', '-c', 'conflict-feature'], { cwd: root });
+  fs.writeFileSync(path.join(root, 'conflict-feature.txt'), 'feature\n');
+  execFileSync('git', ['add', 'conflict-feature.txt'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'conflict feature source'], { cwd: root });
+  const conflictFeatureContext = engine.currentContext(root);
+  const conflictFeatureSession = engine.startSession({
+    branch: 'conflict-feature',
+    source_revision: conflictFeatureContext.source_revision,
+  });
+  const conflictFeatureStatement = engine.stageStatement(conflictFeatureSession.id, {
+    subject: 'operation.pay',
+    predicate: 'custom:settlementWindowHours',
+    literal: 24,
+  }, 'intent');
+  engine.publishSession(conflictFeatureSession.id, conflictFeatureContext.source_revision);
+
+  execFileSync('git', ['switch', 'main'], { cwd: root });
+  fs.writeFileSync(path.join(root, 'conflict-main.txt'), 'main\n');
+  execFileSync('git', ['add', 'conflict-main.txt'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'conflict main source'], { cwd: root });
+  const conflictMainContext = engine.currentContext(root);
+  const conflictMainSession = engine.startSession({
+    branch: 'main',
+    source_revision: conflictMainContext.source_revision,
+  });
+  const conflictMainStatement = engine.stageStatement(conflictMainSession.id, {
+    subject: 'operation.pay',
+    predicate: 'custom:settlementWindowHours',
+    literal: 48,
+  }, 'intent');
+  engine.publishSession(conflictMainSession.id, conflictMainContext.source_revision);
+
+  execFileSync('git', ['merge', '--no-ff', 'conflict-feature', '-m', 'merge conflicting feature'], { cwd: root });
+  const conflictingMergeContext = engine.currentContext(root);
+  const conflictingMergeSession = engine.startSession({
+    branch: 'main',
+    source_revision: conflictingMergeContext.source_revision,
+  });
+  const conflictingMerge = engine.publishSession(
+    conflictingMergeSession.id,
+    conflictingMergeContext.source_revision,
+  );
+  const settlementContradictions = conflictingMerge.validation.contradictions.filter((id) => {
+    const members = new Set(engine.resource(id)?.data?.members || []);
+    return members.has(conflictFeatureStatement.id) && members.has(conflictMainStatement.id);
+  });
+  assert.equal(settlementContradictions.length, 1,
+    'a Git merge must materialize one stable Contradiction for incompatible parent facts');
+  assert.equal(conflictingMerge.validation.approved, false);
+
   engine.applyObservationBatch(batch);
-  const sourceOnlySession = engine.startSession({ branch: 'main', source_revision: mergeContext.source_revision });
+  const sourceOnlySession = engine.startSession({
+    branch: 'main',
+    source_revision: conflictingMergeContext.source_revision,
+  });
   const sourceOnly = engine.publishSession(sourceOnlySession.id, 'source-only-revision');
-  assert.notEqual(sourceOnly.graph_version, mergePublish.graph_version,
+  assert.notEqual(sourceOnly.graph_version, conflictingMerge.graph_version,
     'a changed source revision must create a GraphVersion even without graph deltas');
   assert.ok(sourceOnly.validation.stale_evidence.some((item) =>
     item.reason.includes('does not match the GraphVersion source revision')),

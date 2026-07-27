@@ -8,11 +8,15 @@ All worktrees in a clone connect to one `graphd` at `$(git rev-parse --git-commo
 
 Resources use stable opaque ids and generic kinds. Human names are aliases. A Statement has subject, namespaced predicate, exactly one object or typed literal, optional scope, and semantic qualifiers.
 
-The Statement id is a hash of normalized semantic identity. Duplicate proposals are idempotent. Evidence attaches to the same Statement. Reverse relationships are queried. Conflicting Statements create a Contradiction without deleting either side.
+The Statement id is a hash of normalized semantic identity. Duplicate proposals are idempotent. Evidence attaches to the same Statement. Reverse relationships are queried. Competing values for the same functional fact create one canonical Contradiction without deleting either side; independent qualified facts, such as workflow steps at different positions, remain distinct.
 
 ## Versions and sessions
 
 Every Git branch resolves to a GraphView and head GraphVersion. Explicit sessions stage several mutations against a base version. Publication compares the session base with the current branch head, validates, creates a version delta, updates materialized membership, and moves the head in one transaction.
+
+A Git merge reconciles every parent GraphVersion. Compatible memberships are
+combined, while incompatible parent facts produce the same canonical
+Contradiction as a directly proposed conflict.
 
 ```bash
 lamina session start
@@ -42,3 +46,6 @@ Compilation creates an independent Mission for every relevant Persona. `mission 
 Ingress derives intended, observed, inferred, simulated, human_evidence, or runtime_evidence. Callers cannot set epistemic class or approval.
 
 Every public agent proposal, including `claim.add`, is inferred. The socket does not expose `intent.*` methods. Intended knowledge requires a trusted engine-owned intent adapter, so method-name selection cannot be used to spoof epistemic class.
+
+The rationale, rejected alternatives, and v1 consequences are recorded in
+[ADR-001](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/001-transactional-product-graph.md).
