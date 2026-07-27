@@ -16,7 +16,7 @@ npm login
 npm version 0.1.0-beta.0 --prefix packages/cli --no-git-tag-version
 npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
 node scripts/audit-cli-pack.mjs cli-pack.json
-tarball="$(node -p "'dist/' + require('./cli-pack.json')[0].filename")"
+tarball="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
 npm publish "$tarball" --access public --tag bootstrap --provenance=false
 ```
 

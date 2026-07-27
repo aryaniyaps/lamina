@@ -8,6 +8,7 @@ import { auditPackReport } from '../scripts/audit-cli-pack.mjs';
 const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const cliPackage = JSON.parse(fs.readFileSync('packages/cli/package.json', 'utf8'));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const publishWorkflow = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
 
 assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
@@ -18,6 +19,11 @@ assert.deepEqual(cliPackage.bin, { lamina: './bin/lamina.mjs' });
 assert.equal(cliPackage.engines.node, '>=20');
 assert.equal(cliPackage.license, 'Apache-2.0');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
+assert.match(
+  publishWorkflow,
+  /TARBALL=.*'\.\/dist\/'/,
+  'release tarball must use an explicit local path so npm does not parse it as a registry spec',
+);
 
 for (const runtimePath of [
   'skills/lamina-orchestrator/bin',

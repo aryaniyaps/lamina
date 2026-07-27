@@ -48,7 +48,7 @@ jobs:
           mkdir -p dist
           npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
           node scripts/audit-cli-pack.mjs cli-pack.json
-          TARBALL="$(node -p "'dist/' + require('./cli-pack.json')[0].filename")"
+          TARBALL="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
           VERSION="$(node -p "require('./cli-pack.json')[0].version")"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
