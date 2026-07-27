@@ -46,7 +46,7 @@ jobs:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
 
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Frozen install
         run: corepack pnpm install --frozen-lockfile
