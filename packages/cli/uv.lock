@@ -20,7 +20,7 @@ wheels = [
 
 [[package]]
 name = "cocoindex"
-version = "1.0.14"
+version = "1.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -33,13 +33,13 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/2f/b7d77ed6df012c2ec89bc7561feeceede91b55999b03de09fbfac4efc99f/cocoindex-1.0.14.tar.gz", hash = "sha256:493c48d4e06ec923816673942b95194a7fe2df6b4ee995a20e1b5bf8511b486a", size = 651692, upload-time = "2026-06-25T07:41:16.912Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/99/9e055aaa2ecf803d3bff3295ddc7613baba8073b23b4528776655758cf5a/cocoindex-1.0.18.tar.gz", hash = "sha256:f366a14438f3c581abf94a31b6cb96897e69f3d0776fd52da3ae20a9cc10a98f", size = 741567, upload-time = "2026-07-23T17:44:16.551Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/d1/035952d9bde3df3940dfa4e853e6e444542a93e196bbab47e412b40b7e4d/cocoindex-1.0.14-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:ce12bbe80d522594a738591448543c4f4afb51b8d675ad6b8e8c3db135d8c856", size = 9112480, upload-time = "2026-06-25T07:41:14.811Z" },
-    { url = "https://files.pythonhosted.org/packages/f2/06/23e4eaad0407d991faf36cc5eabb36090bc7d8e0fd285bc2169b2648e9d8/cocoindex-1.0.14-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:85472a3b6cc73f5879ff0080855d63e4528596c6456dff2f85c6ed0c1d31a65e", size = 9185045, upload-time = "2026-06-25T07:41:10.609Z" },
-    { url = "https://files.pythonhosted.org/packages/a4/1e/ba78002e2bc144439ea16b0525d5da9cc21fb14e8acf0cd3d668877a0b53/cocoindex-1.0.14-cp311-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:545cef69561564caf7366681bcd069f86cf9c9dc63205a5472f71a451bb564a3", size = 9061374, upload-time = "2026-06-25T07:41:02.459Z" },
-    { url = "https://files.pythonhosted.org/packages/95/29/685f4a4e106085a5d7859e88988d01749cca295d8a24d9be3b83935db24c/cocoindex-1.0.14-cp311-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:b8d981274be43b6cd5f070a8611bef01e76e4e56d8f70893875bc28558ed6a02", size = 9276715, upload-time = "2026-06-25T07:41:06.84Z" },
-    { url = "https://files.pythonhosted.org/packages/96/f9/6fdb421eaa6f46244e35ad665acaee14f088a5157939f03eac8226eebbcf/cocoindex-1.0.14-cp311-abi3-win_amd64.whl", hash = "sha256:d363782a3fcabe47cad9865760d4145e7483a4e687d9e8e456e15ad2eb45b3d8", size = 9495054, upload-time = "2026-06-25T07:41:18.187Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/c3/1c2f230578bbe3b207eed5b2c32b6baa86dec8be6f76165d4ff88d00dbb4/cocoindex-1.0.18-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:30e669eb179781a08c300a0d868ad0e624d8383fee8f009df1adb3325e6d79f5", size = 9393082, upload-time = "2026-07-23T17:44:13.976Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/fd/51e464e9705cd4ede622bd610efe4ec86fea6a1bec9e28ed697e86425732/cocoindex-1.0.18-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:b9102afba6e6f66d7958bb4fc01bd04db7b4807ef25b1101f39be879efcae600", size = 9483580, upload-time = "2026-07-23T17:44:09.762Z" },
+    { url = "https://files.pythonhosted.org/packages/52/7c/d44c4c62da545d3eaa97691100dcd164c793c2bc0486a5082bbd40a9aa0b/cocoindex-1.0.18-cp311-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:e6f20760676a39ea069e7659c8e8fc8d9c296165097839e5806a80c4e376ebc0", size = 9363332, upload-time = "2026-07-23T17:44:01.1Z" },
+    { url = "https://files.pythonhosted.org/packages/de/d0/83ddd620431c31c3224d8efa01475d7e92fb982aa2eaf453ab64f8d697e9/cocoindex-1.0.18-cp311-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:3830c748675672b55cd6edaa9c222d28ccd1a782ebc29ab08c3a187ee4b82059", size = 9591860, upload-time = "2026-07-23T17:44:05.396Z" },
+    { url = "https://files.pythonhosted.org/packages/94/52/bfc4fd2dd838067d3b78ed30c7a8b8c2b4b5c17470737ab14e1588496cf5/cocoindex-1.0.18-cp311-abi3-win_amd64.whl", hash = "sha256:9546e2a5cf050692eb14accbcccfa9d235367ecd7efb071f43a8de46f7b981db", size = 9821212, upload-time = "2026-07-23T17:44:18.006Z" },
 ]
 
 [[package]]
@@ -62,7 +62,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cocoindex", specifier = "==1.0.14" },
+    { name = "cocoindex", specifier = "==1.0.18" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=311" },
 ]
 
