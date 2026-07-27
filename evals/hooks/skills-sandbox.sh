@@ -7,8 +7,6 @@ SANDBOX="$LAMINA_ROOT/evals/harness-sandbox"
 
 mkdir -p "$SANDBOX"
 
-EXTERNAL_SKILLS_ROOT="$(cd "$LAMINA_ROOT/../skills" && pwd)"
-
 skills_add() {
   local args=("$@")
   local has_skill=false
@@ -25,7 +23,9 @@ skills_add() {
 }
 
 skills_add_external() {
-  (cd "$SANDBOX" && npx --yes skills add "$EXTERNAL_SKILLS_ROOT" --skill '*' -a cursor -y --copy "$@")
+  local external_skills_root
+  external_skills_root="$(cd "$LAMINA_ROOT/../skills" && pwd)"
+  (cd "$SANDBOX" && npx --yes skills add "$external_skills_root" --skill '*' -a cursor -y --copy "$@")
 }
 
 skills_dry_run() {
