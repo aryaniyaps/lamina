@@ -1,0 +1,43 @@
+{
+  "name": "@laminadev/cli",
+  "version": "0.1.0",
+  "description": "Transactional product-knowledge graph runtime for Lamina",
+  "author": "Aryan Iyappan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aryaniyaps/lamina.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://lamina.dev",
+  "type": "module",
+  "bin": {
+    "lamina": "./bin/lamina.mjs"
+  },
+  "files": [
+    "bin/lamina.mjs",
+    "lib/doctor.mjs",
+    "lib/observe.mjs",
+    "lib/graph-runtime/client.mjs",
+    "lib/graph-runtime/constants.mjs",
+    "lib/graph-runtime/engine.mjs",
+    "lib/graph-runtime/server.mjs",
+    "lib/graph-runtime/util.mjs",
+    "cocoindex_app.py",
+    "pyproject.toml",
+    "uv.lock",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@ladybugdb/core": "0.18.3"
+  }
+}

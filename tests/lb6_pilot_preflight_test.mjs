@@ -81,7 +81,13 @@ const staticPreflight = runPilotPreflight({
 assert.equal(staticPreflight.report.credentials.workerProcessScrape, false);
 assert.equal(staticPreflight.report.credentials.source, 'repo_root_env_only');
 assert.equal(staticPreflight.report.liveProbes.skipped, true);
-assert.equal(staticPreflight.ok, true);
+const requiredStaticGates = ['cursor_cli', 'harbor_version', 'docker_capacity'];
+assert.equal(
+  staticPreflight.ok,
+  requiredStaticGates.every(
+    (name) => staticPreflight.report.gates.find((gate) => gate.name === name)?.status === 'passed',
+  ),
+);
 assert.equal(staticPreflight.report.ticketStatus, 'static_checks_only_not_ticket_complete');
 assert.equal(
   staticPreflight.report.gates.find((gate) => gate.name === 'harbor_publication_auth')?.status,

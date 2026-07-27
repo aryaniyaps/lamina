@@ -4,7 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+import {
+  parseDaemonLock,
+  runtimePaths,
+} from '../packages/cli/lib/graph-runtime/util.mjs';
+import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import { gradeAssertion } from '../evals/hooks/grade-lamina.mjs';
 
 const root = path.resolve('.');
@@ -88,11 +92,129 @@ try {
     turnOutputs: [],
   });
   assert.equal(grade.passed, true, grade.evidence);
+
+  // CLI + skills state: exercise the init evidence, design transaction, and
+  // isolated verify Mission lifecycle through the independently packed CLI.
+  fs.mkdirSync(path.join(workspace, '.lamina'), { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, '.lamina', 'business-context.md'),
+    '# Problem statement\nEval product\n',
+  );
+  fs.writeFileSync(
+    path.join(workspace, '.lamina', 'personas.json'),
+    JSON.stringify([{ id: 'persona.owner', name: 'Owner' }]),
+  );
+  const designInputs = {
+    'persona.json': {
+      id: 'persona.owner',
+      kind: 'persona',
+      data: { name: 'Owner' },
+    },
+    'operation.json': {
+      id: 'operation.checkout',
+      kind: 'operation',
+      data: { name: 'Checkout' },
+    },
+    'workflow.json': {
+      id: 'workflow.checkout',
+      kind: 'workflow',
+      data: { name: 'Checkout' },
+    },
+    'step.json': {
+      subject: 'workflow.checkout',
+      predicate: 'lamina:hasStep',
+      object: 'operation.checkout',
+      qualifiers: { position: 1 },
+    },
+  };
+  for (const [name, value] of Object.entries(designInputs)) {
+    fs.writeFileSync(path.join(workspace, name), JSON.stringify(value));
+  }
+  const eventsPath = path.join(workspace, 'events.json');
+  fs.writeFileSync(eventsPath, JSON.stringify([
+    { type: 'action_attempted' },
+    { type: 'oracle_passed' },
+  ]));
+
+  result = spawnSync('lamina', ['session', 'start'], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const designSession = JSON.parse(result.stdout).id;
+  for (const name of ['persona.json', 'operation.json', 'workflow.json', 'step.json']) {
+    result = spawnSync('lamina', [
+      'graph',
+      'propose',
+      '--input',
+      path.join(workspace, name),
+      '--session',
+      designSession,
+    ], {
+      cwd: workspace,
+      env,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+  result = spawnSync('lamina', ['graph', 'validate', '--at', designSession], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(JSON.parse(result.stdout).ok, true);
+  result = spawnSync('lamina', ['session', 'publish', designSession], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  result = spawnSync('lamina', [
+    'mission',
+    'compile',
+    '--workflow',
+    'workflow.checkout',
+  ], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const mission = JSON.parse(result.stdout).missions[0].id;
+  result = spawnSync('lamina', [
+    'mission',
+    'run',
+    mission,
+    '--events',
+    eventsPath,
+  ], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const run = JSON.parse(result.stdout);
+  result = spawnSync('lamina', ['session', 'publish', run.session], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  result = spawnSync('lamina', ['graph', 'query', '--kind', 'run'], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.ok(JSON.parse(result.stdout).resources.some((item) => item.id === run.run));
 } finally {
   try {
     const paths = runtimePaths(workspace);
-    const pid = Number(fs.readFileSync(paths.lock, 'utf8').trim());
-    if (Number.isInteger(pid) && pid > 1) process.kill(pid, 'SIGTERM');
+    const pid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
+    if (Number.isInteger(pid) && pid > 1) await stopIncompatibleServer(paths, pid);
   } catch {}
   fs.rmSync(workspace, { recursive: true, force: true });
 }

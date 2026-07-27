@@ -61,10 +61,7 @@ function checkCommandSkills() {
 
 function checkProductGraphTooling() {
   for (const rel of [
-    'skills/lamina-orchestrator/lib/graph-runtime/engine.mjs',
-    'skills/lamina-orchestrator/lib/graph-runtime/server.mjs',
-    'skills/lamina-orchestrator/lib/graph-runtime/client.mjs',
-    'skills/lamina-orchestrator/lib/graph-runtime/constants.mjs',
+    'skills/lamina-orchestrator/prerequisites/cli-required.md',
     'skills/lamina-orchestrator/references/personas.schema.json',
     'skills/lamina-orchestrator/references/product-graph.md',
   ]) if (!exists(rel)) errors.push(`Missing transactional graph resource: ${rel}`);

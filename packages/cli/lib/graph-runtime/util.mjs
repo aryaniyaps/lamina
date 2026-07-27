@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const socketDirectoryFds = new Map();
+const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
 
 export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -70,12 +71,26 @@ export function runtimePaths(cwd = process.cwd()) {
     database: path.join(context.runtime_dir, 'graph.lbdb'),
     socket: path.join(context.runtime_dir, 'graphd.sock'),
     lock: path.join(context.runtime_dir, 'graphd.lock'),
+    token: path.join(context.runtime_dir, 'graphd.token'),
     evidence: path.join(context.runtime_dir, 'evidence'),
     cocoindex: path.join(context.runtime_dir, 'cocoindex'),
   };
 }
 
-export function graphSocketPath(paths) {
+function normalizedRepositoryPath(value, platform = process.platform) {
+  let normalized = path.resolve(value);
+  try { normalized = fs.realpathSync.native(normalized); } catch {}
+  return platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+export function graphSocketPath(paths, platform = process.platform) {
+  if (platform === 'win32') {
+    const hash = crypto.createHash('sha256')
+      .update(normalizedRepositoryPath(paths.common, platform))
+      .digest('hex')
+      .slice(0, 24);
+    return `\\\\.\\pipe\\laminadev-${hash}`;
+  }
   if (Buffer.byteLength(paths.socket) < 100) return paths.socket;
   fs.mkdirSync(paths.runtime_dir, { recursive: true });
   // Linux resolves a Unix socket path through an open directory descriptor
@@ -113,6 +128,59 @@ export function ensureRuntime(paths) {
   fs.mkdirSync(paths.runtime_dir, { recursive: true });
   fs.mkdirSync(paths.evidence, { recursive: true });
   fs.mkdirSync(paths.cocoindex, { recursive: true });
+}
+
+export function ensureAuthToken(paths, platform = process.platform) {
+  ensureRuntime(paths);
+  let token;
+  try {
+    token = fs.readFileSync(paths.token, 'utf8').trim();
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    const candidate = crypto.randomBytes(32).toString('hex');
+    try {
+      fs.writeFileSync(paths.token, `${candidate}\n`, {
+        flag: 'wx',
+        mode: 0o600,
+      });
+      token = candidate;
+    } catch (writeError) {
+      if (writeError.code !== 'EEXIST') throw writeError;
+      token = fs.readFileSync(paths.token, 'utf8').trim();
+    }
+  }
+  if (!TOKEN_PATTERN.test(token || '')) {
+    fail('LAMINA_INTERNAL', `Invalid graphd authentication token at ${paths.token}`);
+  }
+  if (platform !== 'win32') {
+    try { fs.chmodSync(paths.token, 0o600); } catch {}
+  }
+  return token;
+}
+
+export function parseDaemonLock(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return { pid: Number(raw), protocol_version: null };
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      pid: Number(parsed.pid),
+      protocol_version: Number(parsed.protocol_version) || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function processIsRunning(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function fail(code, message, details = {}) {

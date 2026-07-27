@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { GraphEngine } from '../skills/lamina-orchestrator/lib/graph-runtime/engine.mjs';
-import { digest, runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+import { GraphEngine } from '../packages/cli/lib/graph-runtime/engine.mjs';
+import { digest, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-transactional-graph-'));
 execFileSync('git', ['init', '-b', 'main'], { cwd: root });

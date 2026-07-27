@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const productionRoots = ['bin', 'scripts', 'skills'];
+const productionRoots = ['packages/cli', 'scripts', 'skills'];
 const forbiddenRuntimeFiles = [
   'skills/lamina-orchestrator/lib/graph-tool.mjs',
   'skills/lamina-orchestrator/lib/run.mjs',
@@ -12,6 +12,8 @@ const forbiddenRuntimeFiles = [
   'skills/lamina-verify/scripts/seed-verify-run.mjs',
 ];
 for (const file of forbiddenRuntimeFiles) assert.equal(fs.existsSync(file), false, `${file} must be retired`);
+assert.equal(fs.existsSync('skills/lamina-orchestrator/bin'), false, 'skills must not embed a CLI');
+assert.equal(fs.existsSync('skills/lamina-orchestrator/lib'), false, 'skills must not embed a graph runtime');
 
 function walk(root) {
   if (!fs.existsSync(root)) return [];

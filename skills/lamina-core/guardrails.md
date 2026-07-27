@@ -2,7 +2,9 @@
 
 Lamina slash commands do not edit product source. They may write business evidence under `.lamina/`, graph runtime state under the shared Git common directory’s `lamina/`, and generated query projections explicitly requested by the user.
 
-Ladybug is canonical. `graphd` is its only read-write owner. Agents and CocoIndex communicate through the local Unix socket and never open the database directly.
+Ladybug is canonical. `graphd` is its only read-write owner. Agents and
+CocoIndex communicate through the authenticated local Unix socket or
+repository-specific Windows named pipe and never open the database directly.
 
 Do not:
 

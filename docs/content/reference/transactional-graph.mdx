@@ -2,7 +2,7 @@
 
 ## Storage
 
-All worktrees in a clone connect to one `graphd` at `$(git rev-parse --git-common-dir)/lamina/`. Only graphd opens Ladybug read-write.
+All worktrees in a clone connect to one `graphd` at `$(git rev-parse --git-common-dir)/lamina/`. Linux and macOS use a Unix socket; Windows uses a repository-specific named pipe. Every request carries the random token stored in that runtime directory. Only graphd opens Ladybug read-write.
 
 ## Resources and Statements
 
@@ -22,7 +22,7 @@ lamina session rebase <id>
 
 ## Source observations
 
-`npm run graph:observe` runs a pinned CocoIndex v1 App. Each file produces an explicit Observation envelope with snapshot, content hash, locator, extractor identity/version, and normalized payload. A custom target sends idempotent upsert/delete batches over the local socket. CocoIndex never opens Ladybug.
+`lamina graph observe` runs the pinned CocoIndex v1 App shipped in the installed npm package. Each file produces an explicit Observation envelope with snapshot, content hash, locator, extractor identity/version, and normalized payload. A custom target sends authenticated idempotent upsert/delete batches over the local transport. CocoIndex never opens Ladybug.
 
 ## Missions
 

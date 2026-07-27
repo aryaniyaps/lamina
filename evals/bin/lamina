@@ -2,15 +2,13 @@
 set -euo pipefail
 
 for candidate in \
-  ".codex/skills/lamina-orchestrator/bin/lamina.mjs" \
-  ".claude/skills/lamina-orchestrator/bin/lamina.mjs" \
-  ".opencode/skills/lamina-orchestrator/bin/lamina.mjs" \
-  ".agents/skills/lamina-orchestrator/bin/lamina.mjs"
+  "${ASE_WORKSPACE_PATH:-$PWD}/.lamina/runtime-cli/node_modules/.bin/lamina" \
+  "$PWD/.lamina/runtime-cli/node_modules/.bin/lamina"
 do
-  if [[ -f "$candidate" ]]; then
-    exec node "$candidate" "$@"
+  if [[ -x "$candidate" ]]; then
+    exec "$candidate" "$@"
   fi
 done
 
-echo "lamina eval runtime is not installed in this workspace" >&2
+echo "lamina eval CLI package is not installed in this workspace" >&2
 exit 127

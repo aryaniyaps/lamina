@@ -2,8 +2,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { graphRequest } from '../lib/graph-runtime/client.mjs';
+import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
+import { runObservation } from '../lib/observe.mjs';
 
-const [domain, command, ...rawArgs] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const [domain, command, ...rawArgs] = argv;
 
 function options(args) {
   const parsed = { _: [] };
@@ -44,6 +47,8 @@ async function graphMutation(kind, input, method, sessionId = null) {
 }
 
 async function run() {
+  if (domain === '--version' || domain === '-v') return { plain: CLI_VERSION };
+  if (domain === 'doctor') return doctorReport();
   const opt = options(rawArgs);
   if (domain === 'graph') {
     if (command === 'status') return graphRequest('status');
@@ -63,6 +68,9 @@ async function run() {
     if (command === 'restore') {
       if (!opt.input) throw Object.assign(new Error('--input is required.'), { code: 'LAMINA_BAD_REQUEST' });
       return graphRequest('graph.restore', { input: path.resolve(opt.input) });
+    }
+    if (command === 'observe') {
+      return runObservation({ live: Boolean(opt.live) });
     }
     if (command === 'propose') {
       const input = readInput(opt.input);
@@ -93,7 +101,7 @@ async function run() {
       );
     }
     if (command === 'rebuild-observations') {
-      return graphRequest('observation.invalidate');
+      return runObservation({ invalidate: true });
     }
   }
   if (domain === 'session') {
@@ -121,12 +129,13 @@ async function run() {
       return graphRequest('mission.run', { mission, events });
     }
   }
-  throw Object.assign(new Error('Usage: lamina graph <query|propose|patch|link|retire|validate|diff|status|backup|restore|rebuild-observations> | lamina session <start|query|publish|rebase|abort> | lamina mission <compile|run>'), { code: 'LAMINA_BAD_REQUEST' });
+  throw Object.assign(new Error('Usage: lamina --version | lamina doctor --json | lamina graph <query|propose|patch|link|retire|validate|diff|status|backup|restore|observe|rebuild-observations> | lamina session <start|query|publish|rebase|abort> | lamina mission <compile|run>'), { code: 'LAMINA_BAD_REQUEST' });
 }
 
 try {
   const result = await run();
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  if (result?.plain !== undefined) process.stdout.write(`${result.plain}\n`);
+  else process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 } catch (error) {
   process.stderr.write(`${JSON.stringify({ ok: false, error: { code: error.code || 'LAMINA_INTERNAL', message: error.message, details: error.details || {} } }, null, 2)}\n`);
   process.exitCode = 1;

@@ -4,8 +4,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { graphRequest } from '../skills/lamina-orchestrator/lib/graph-runtime/client.mjs';
-import { graphSocketPath, runtimePaths } from '../skills/lamina-orchestrator/lib/graph-runtime/util.mjs';
+import {
+  graphRequest,
+  stopIncompatibleServer,
+} from '../packages/cli/lib/graph-runtime/client.mjs';
+import {
+  graphSocketPath,
+  parseDaemonLock,
+  runtimePaths,
+} from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-long-socket-'));
 const root = path.join(base, 'a'.repeat(70), 'b'.repeat(40));
@@ -19,17 +26,23 @@ execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
 
 try {
   const paths = runtimePaths(root);
-  assert.ok(Buffer.byteLength(paths.socket) >= 108, 'fixture must exceed the Unix socket pathname limit');
   const endpoint = graphSocketPath(paths);
-  assert.ok(Buffer.byteLength(endpoint) < 108);
-  if (fs.existsSync('/proc/self/fd')) {
-    assert.match(endpoint, /^\/proc\/self\/fd\/\d+\/graphd\.sock$/);
+  if (process.platform === 'win32') {
+    assert.match(endpoint, /^\\\\\.\\pipe\\laminadev-[a-f0-9]{24}$/);
+  } else {
+    assert.ok(Buffer.byteLength(paths.socket) >= 108, 'fixture must exceed the Unix socket pathname limit');
+    assert.ok(Buffer.byteLength(endpoint) < 108);
+    if (fs.existsSync('/proc/self/fd')) {
+      assert.match(endpoint, /^\/proc\/self\/fd\/\d+\/graphd\.sock$/);
+    }
   }
   const status = await graphRequest('status', {}, root);
   assert.equal(status.branch, 'main');
-  assert.ok(fs.existsSync(paths.socket), 'short alias must still create the canonical clone-local socket entry');
-  const pid = Number(fs.readFileSync(paths.lock, 'utf8').trim());
-  if (Number.isInteger(pid) && pid > 1) process.kill(pid, 'SIGTERM');
+  if (process.platform !== 'win32') {
+    assert.ok(fs.existsSync(paths.socket), 'short alias must still create the canonical clone-local socket entry');
+  }
+  const pid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
+  if (Number.isInteger(pid) && pid > 1) await stopIncompatibleServer(paths, pid);
 } finally {
   fs.rmSync(base, { recursive: true, force: true });
 }

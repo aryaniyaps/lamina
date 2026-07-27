@@ -9,6 +9,10 @@ Verification reads the active GraphVersion and publishes runtime Evidence throug
 
 ## Gate and grounding
 
+First read and apply
+`../lamina-orchestrator/prerequisites/cli-required.md`. Stop before all
+mutations unless the CLI API 1 prerequisite passes.
+
 Require valid `.lamina/business-context.md` using `../lamina-orchestrator/prerequisites/init-required.md`; on failure emit `../lamina-orchestrator/prompts/outputs/init-blocked.md`. Then run `lamina graph status`. Query the requested workflow and its actors, Personas, Operations, invariants, Scenarios, Proofs, Surfaces, dependencies, and Contradictions. Inspect the actual product using a runnable adapter when available; otherwise record static-analysis capability limits. Absence of an Observation is never evidence that behavior is absent.
 
 ## Mission protocol

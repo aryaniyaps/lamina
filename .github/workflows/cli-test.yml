@@ -1,0 +1,66 @@
+name: CLI Compatibility
+
+on:
+  pull_request:
+    paths:
+      - 'packages/cli/**'
+      - 'skills/lamina*/**'
+      - 'tests/*graph*.mjs'
+      - 'tests/cli*.mjs'
+      - 'tests/observation_cli_test.mjs'
+      - 'evals/hooks/install-all-skills.sh'
+      - 'evals/bin/lamina'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/cli-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/cli/**'
+      - 'skills/lamina*/**'
+      - 'tests/*graph*.mjs'
+      - 'tests/cli*.mjs'
+      - 'tests/observation_cli_test.mjs'
+      - 'evals/hooks/install-all-skills.sh'
+      - 'evals/bin/lamina'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['20', '22', '24']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - uses: astral-sh/setup-uv@v9.0.0
+
+      - name: Frozen install
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: CLI package and installed-tarball tests
+        run: corepack pnpm test:cli
+
+      - name: Runtime, protocol, worktree, and long-path tests
+        run: |
+          node tests/transactional_graph_test.mjs
+          node tests/graphd_protocol_test.mjs
+          node tests/graphd_long_socket_test.mjs
+
+      - name: CLI plus skills eval install
+        if: runner.os != 'Windows'
+        run: |
+          node tests/eval_graph_runtime_install_test.mjs

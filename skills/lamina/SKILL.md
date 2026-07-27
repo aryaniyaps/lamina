@@ -5,6 +5,10 @@ description: "Use only when explicitly invoked as lamina. Route /lamina, /lamina
 
 # /lamina
 
+Before graph work, read and apply
+`../lamina-orchestrator/prerequisites/cli-required.md`. Do not route into a
+graph-backed workflow until that CLI API 1 prerequisite passes.
+
 Route explicit commands:
 
 - `/lamina-init`: establish `.lamina/business-context.md` and evidence-source `.lamina/personas.json`, index them, then propose inferred Product and Persona Resources grounded in explicit user input through graphd.

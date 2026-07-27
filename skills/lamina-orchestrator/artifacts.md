@@ -4,12 +4,18 @@ Canonical graph runtime:
 
 ```text
 $(git rev-parse --git-common-dir)/lamina/
-├── graph.lbdb/
+├── graph.lbdb
 ├── cocoindex/
 ├── evidence/
 ├── graphd.lock
+├── graphd.log
+├── graphd.token
 └── graphd.sock
 ```
+
+On Windows, `graphd.sock` is replaced by the repository-specific
+`\\.\pipe\laminadev-<hash>` transport. The authentication token remains in the
+Git-common runtime directory.
 
 Ladybug stores Resources, Statements, aliases, versions, branch/session/observation views, Missions, Runs, and HarnessResults. CocoIndex stores only incremental target tracking and memoized computations. Large runtime artifacts live in the local evidence CAS.
 

@@ -1,6 +1,9 @@
 # Quickstart
 
 ```bash
+npm install -g @laminadev/cli
+npx skills install aryaniyaps/lamina
+lamina doctor --json
 /lamina-init
 /lamina-design
 lamina graph status
@@ -8,4 +11,4 @@ lamina graph status
 /lamina-verify
 ```
 
-Run `npm run graph:observe` after source changes. Use `lamina graph diff --base main --head HEAD` for a semantic branch diff.
+Run `lamina graph observe` after source changes. Use `lamina graph diff --base main --head HEAD` for a semantic branch diff.
