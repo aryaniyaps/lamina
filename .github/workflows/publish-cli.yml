@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@v9.0.0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
