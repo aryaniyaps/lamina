@@ -7,6 +7,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
+import {
+  parseDaemonLock,
+  runtimePaths,
+} from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const binary = process.env.LAMINA_BINARY && path.resolve(process.env.LAMINA_BINARY);
 const worker = process.env.LAMINA_WORKER && path.resolve(process.env.LAMINA_WORKER);
@@ -79,5 +84,10 @@ assert.equal(
   generationBeforeMissingWorker,
   'a missing worker must not mutate the observation generation',
 );
+const graphPaths = runtimePaths(fixture);
+const graphdPid = parseDaemonLock(fs.readFileSync(graphPaths.lock, 'utf8'))?.pid;
+if (Number.isInteger(graphdPid) && graphdPid > 1) {
+  await stopIncompatibleServer(graphPaths, graphdPid);
+}
 fs.rmSync(temp, { recursive: true, force: true });
 console.log('cli_binary_smoke_test: ok');
