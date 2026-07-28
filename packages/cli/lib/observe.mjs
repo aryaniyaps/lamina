@@ -29,8 +29,9 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
     : null;
   let generation = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
   const extractorDigest = digest('extractors', ['lamina.source-file.v2']);
+  const workerDiagnostics = [];
   if (backend === COCOINDEX_BACKEND) {
-    runCocoIndex({ paths, generation, live, ignore, extractorDigest });
+    workerDiagnostics.push(runCocoIndex({ paths, generation, live, ignore, extractorDigest }));
   } else {
     await observeNode({ paths, generation, graphRequest, live, ignoreDigest: digest('ignore', ignore), extractorDigest });
   }
@@ -46,7 +47,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   if (!observed.exists && backend === COCOINDEX_BACKEND && !live) {
     const recovery = await graphRequest('observation.invalidate', { product: paths.product }, cwd);
     generation = recovery.generation;
-    runCocoIndex({ paths, generation, live, ignore, extractorDigest });
+    workerDiagnostics.push(runCocoIndex({ paths, generation, live, ignore, extractorDigest }));
     const recoveryDeadline = Date.now() + 10_000;
     while (!observed.exists && Date.now() < recoveryDeadline) {
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -57,7 +58,12 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       (observed.count > 0 && !observed.source_revisions.includes(paths.source_revision))) {
     const error = new Error('Observation runtime exited without a complete committed graphd target state.');
     error.code = 'LAMINA_OBSERVATION_INCOMPLETE';
-    error.details = { backend, expected_source_revision: paths.source_revision, observed };
+    error.details = {
+      backend,
+      expected_source_revision: paths.source_revision,
+      observed,
+      ...(workerDiagnostics.length ? { worker_diagnostics: workerDiagnostics } : {}),
+    };
     throw error;
   }
   return {

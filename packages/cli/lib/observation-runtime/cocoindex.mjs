@@ -70,4 +70,9 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
     error.details = { backend: OBSERVATION_BACKEND, status: result.status ?? 1, signal: result.signal || null, stderr: String(result.stderr || '').slice(-4_000), stdout: String(result.stdout || '').slice(-4_000) };
     throw error;
   }
+  return {
+    status: result.status,
+    stderr: String(result.stderr || '').slice(-4_000),
+    stdout: String(result.stdout || '').slice(-4_000),
+  };
 }
