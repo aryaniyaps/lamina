@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { getAsset } = require('node:sea');
 
 const manifest = JSON.parse(Buffer.from(getAsset('lamina-manifest')).toString('utf8'));
@@ -35,9 +36,11 @@ process.env.LAMINA_STANDALONE = '1';
 // argv[2], just as they do for `node script ...`.
 const args = process.argv.slice(2);
 if (args[0] === '--graphd') {
-  process.argv = [process.execPath, path.join(runtime, 'app/lib/graph-runtime/server.mjs'), ...args.slice(1)];
-  import(path.join(runtime, 'app/lib/graph-runtime/server.mjs'));
+  const server = path.join(runtime, 'app/lib/graph-runtime/server.mjs');
+  process.argv = [process.execPath, server, ...args.slice(1)];
+  import(pathToFileURL(server).href);
 } else {
-  process.argv = [process.execPath, path.join(runtime, 'app/bin/lamina.mjs'), ...args];
-  import(path.join(runtime, 'app/bin/lamina.mjs'));
+  const entrypoint = path.join(runtime, 'app/bin/lamina.mjs');
+  process.argv = [process.execPath, entrypoint, ...args];
+  import(pathToFileURL(entrypoint).href);
 }

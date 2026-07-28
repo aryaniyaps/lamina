@@ -6,7 +6,7 @@ The Lamina CLI is released as native standalone executables attached to the
 1. Update `packages/cli/package.json` and verify the tag matches:
 
    ```bash
-   node scripts/check-cli-release-tag.mjs cli-v0.1.3
+   node scripts/check-cli-release-tag.mjs cli-v0.1.4
    corepack pnpm test:cli
    ```
 

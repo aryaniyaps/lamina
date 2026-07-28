@@ -8,8 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-const binary = process.env.LAMINA_BINARY;
-const worker = process.env.LAMINA_WORKER;
+const binary = process.env.LAMINA_BINARY && path.resolve(process.env.LAMINA_BINARY);
+const worker = process.env.LAMINA_WORKER && path.resolve(process.env.LAMINA_WORKER);
 if (!binary) {
   assert.equal(fs.existsSync('scripts/install.sh'), true);
   assert.equal(fs.existsSync('scripts/install.ps1'), true);
@@ -32,7 +32,7 @@ fs.writeFileSync(path.join(fixture, 'README.md'), '# binary smoke\n');
 execFileSync('git', ['add', 'README.md'], { cwd: fixture });
 execFileSync('git', ['commit', '-m', 'fixture'], { cwd: fixture });
 const version = run(['--version']);
-assert.equal(version.status, 0, version.stderr);
+assert.equal(version.status, 0, version.error?.message || version.stderr);
 const target = `${process.platform}-${process.arch}`;
 const workerName = process.platform === 'win32' ? 'cocoindex-worker.exe' : 'cocoindex-worker';
 const runtime = path.join(cache, 'lamina', 'runtime', version.stdout.trim(), target, 'app', 'observation-runtime');

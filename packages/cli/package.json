@@ -1,6 +1,6 @@
 {
   "name": "lamina-cli-source",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Transactional product-knowledge graph runtime for Lamina",
   "author": "Aryan Iyappan",
   "repository": {

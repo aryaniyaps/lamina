@@ -16,7 +16,7 @@ jobs:
         include:
           - runner: macos-14
             target: darwin-arm64
-          - runner: macos-13
+          - runner: macos-15-intel
             target: darwin-x64
           - runner: ubuntu-24.04
             target: linux-x64
@@ -49,8 +49,8 @@ jobs:
         run: node scripts/build-standalone-cli.mjs
       - name: Verify isolated native assets
         env:
-          LAMINA_BINARY: dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
-          LAMINA_WORKER: dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
+          LAMINA_BINARY: ${{ github.workspace }}/dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
+          LAMINA_WORKER: ${{ github.workspace }}/dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
         run: node tests/cli_binary_smoke_test.mjs
       - uses: actions/upload-artifact@v4
         with:
