@@ -3,7 +3,7 @@
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "source_skill_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
   "pinned_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
-  "harness_git_commit": "007f317bb3870e261e0917bf50a72d01de8d1c4c",
+  "harness_git_commit": "e0a9f90ad35b5e825b063c51d63d6ddfaf4231f7",
   "harbor_version": "0.18.0",
   "cursor_cli_version": "2026.07.20-8cc9c0b",
   "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",

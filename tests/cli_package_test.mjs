@@ -10,12 +10,13 @@ const builder = fs.readFileSync('scripts/build-standalone-cli.mjs', 'utf8');
 const bootstrap = fs.readFileSync('packages/cli/sea/bootstrap.cjs', 'utf8');
 const graphClient = fs.readFileSync('packages/cli/lib/graph-runtime/client.mjs', 'utf8');
 const binarySmoke = fs.readFileSync('tests/cli_binary_smoke_test.mjs', 'utf8');
+const cocoWorker = fs.readFileSync('packages/cli/cocoindex_worker.py', 'utf8');
 
 assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.8');
+assert.equal(cliPackage.version, '0.1.9');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
@@ -38,6 +39,7 @@ assert.match(graphClient, /LAMINA_STANDALONE_GRAPHD_HOST \|\| process\.execPath/
 assert.match(binarySmoke, /process\.platform === 'win32'/);
 assert.match(binarySmoke, /LOCALAPPDATA: cache/);
 assert.match(binarySmoke, /XDG_CACHE_HOME: cache/);
+assert.match(cocoWorker, /multiprocessing\.freeze_support\(\)/);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);
 assert.match(workflow, /linux-x64/);
@@ -51,7 +53,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.8']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.9']).status,
   0,
 );
 assert.notEqual(
