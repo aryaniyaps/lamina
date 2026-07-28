@@ -37,7 +37,7 @@ export const MAX_LAMINA_PARENTS = 1;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../../../..');
 
-/** Discover the public Lamina skill. Its complete module set is contained within it. */
+/** Discover every independently installable Lamina skill. */
 export function listRepoLaminaSkills(root = REPO_ROOT) {
   const skillsRoot = path.join(root, 'skills');
   if (!fs.existsSync(skillsRoot)) return [];
@@ -50,18 +50,6 @@ export function listRepoLaminaSkills(root = REPO_ROOT) {
 }
 
 export const LAMINA_BENCH_SKILLS = Object.freeze(listRepoLaminaSkills(REPO_ROOT));
-
-export function listContainedLaminaModules(root = REPO_ROOT) {
-  const modulesRoot = path.join(root, 'skills/lamina/skills');
-  if (!fs.existsSync(modulesRoot)) return [];
-  return fs.readdirSync(modulesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .filter((name) => fs.existsSync(path.join(modulesRoot, name, 'SKILL.md')))
-    .sort();
-}
-
-export const LAMINA_CONTAINED_MODULES = Object.freeze(listContainedLaminaModules(REPO_ROOT));
 
 export const DEVELOPMENT_FLAGS = Object.freeze({
   development_only: true,

@@ -20,7 +20,8 @@ named validation are both present.
 | Deterministic backup/restore is the disaster-recovery boundary | `graph backup` and `graph restore` | `transactional_graph_test.mjs` |
 | The legacy canonical file has no live consumer or dual-write path | graph-backed skills, eval grader, and current benchmark verifier | `no_legacy_runtime_test.mjs`, `grade_transactional_graph_evals_test.mjs`, `behavior_benchmark_test.mjs` |
 | Markdown is a version-pinned query projection only | design/verify workflow contracts | graph eval assertions and benchmark treatment gate |
-| One public skill contains the complete module set | `skills/lamina` plus 58 modules under `skills/lamina/skills` | `verify_lamina_bundle.mjs`, `eval_install_all_skills_test.mjs` |
+| All workflow and craft skills are first-class siblings | `skills/lamina` plus 58 `skills/lamina-*` directories | `verify_lamina_bundle.mjs`, `eval_install_all_skills_test.mjs` |
+| Every eval run loads the complete cross-referenced skill set | ASE and multi-turn install hooks copy all 59 public skills before invocation | `ase_run.py`, `eval_install_all_skills_test.mjs` |
 | CLI and skills are independently installable | `packages/cli` npm package and root GitHub skill | `cli_tarball_smoke_test.mjs`, `eval_graph_runtime_install_test.mjs` |
 | Current evals exercise graph state rather than legacy artifacts | live graph assertions in `evals/hooks/grade-lamina.mjs` | 119-case generation/validation and graph grader tests |
 | Current Lamina benchmark cells install and enforce the graph runtime | packaged CLI tarball, graph backups, fail-closed treatment gate | `validate-transactional-pilot.mjs`, `behavior_benchmark_test.mjs` |
@@ -32,5 +33,5 @@ infrastructure.
 
 The architectural rationale is recorded in
 [ADR-001](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/001-transactional-product-graph.md)
-and the distribution decision in
-[ADR-002](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/002-single-public-skill-bundle.md).
+and the current distribution decision in
+[ADR-003](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/003-public-sibling-skills.md).

@@ -10,7 +10,7 @@ import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
-const MODULES = 'skills/lamina/skills';
+const SKILLS = 'skills';
 
 const errors = [];
 
@@ -23,7 +23,7 @@ function read(rel) {
 }
 
 function modulePath(name, suffix = 'SKILL.md') {
-  return `${MODULES}/${name}/${suffix}`;
+  return `${SKILLS}/${name}/${suffix}`;
 }
 
 function checkAuditProfiles() {
@@ -31,7 +31,7 @@ function checkAuditProfiles() {
   const skills = [...yaml.matchAll(/^\s+-\s+(lamina-[a-z-]+)\s*$/gm)].map((m) => m[1]);
   for (const skill of skills) {
     if (!exists(modulePath(skill))) {
-      errors.push(`audit-profiles references missing contained module: ${modulePath(skill)}`);
+      errors.push(`audit-profiles references missing public skill: ${modulePath(skill)}`);
     }
   }
 }
@@ -58,7 +58,7 @@ function checkCommandSkills() {
   for (const name of ['lamina-init', 'lamina-design', 'lamina-verify']) {
     const skillPath = modulePath(name);
     if (!exists(skillPath)) {
-      errors.push(`Missing contained command module: ${skillPath}`);
+      errors.push(`Missing public command skill: ${skillPath}`);
       continue;
     }
     const skill = read(skillPath);
@@ -73,34 +73,34 @@ function checkCommandSkills() {
 
 function checkProductGraphTooling() {
   for (const rel of [
-    'skills/lamina/skills/lamina-orchestrator/prerequisites/cli-required.md',
-    'skills/lamina/skills/lamina-orchestrator/references/personas.schema.json',
-    'skills/lamina/skills/lamina-orchestrator/references/product-graph.md',
+    'skills/lamina-orchestrator/prerequisites/cli-required.md',
+    'skills/lamina-orchestrator/references/personas.schema.json',
+    'skills/lamina-orchestrator/references/product-graph.md',
   ]) if (!exists(rel)) errors.push(`Missing transactional graph resource: ${rel}`);
 }
 
 function checkOutputContracts() {
   const contracts = {
-    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/design.md': [
+    'skills/lamina-orchestrator/prompts/outputs/design.md': [
       'GraphVersion',
       'Source revision',
       'Contradictions',
       'Validation',
     ],
-    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/verify.md': [
+    'skills/lamina-orchestrator/prompts/outputs/verify.md': [
       'GraphVersion',
       'Source revision',
       'Runs',
       'Evidence',
       'Verdict',
     ],
-    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
+    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
       'Status',
       "What's missing",
       'Next step',
       'Do not',
     ],
-    'skills/lamina/skills/lamina-orchestrator/prompts/outputs/clarify.md': [
+    'skills/lamina-orchestrator/prompts/outputs/clarify.md': [
       'Status',
       'Clarifying questions',
       'Why these block the artifact',
@@ -120,7 +120,7 @@ function checkOutputContracts() {
 }
 
 function checkPromptManifest() {
-  const manifest = read('skills/lamina/skills/lamina-orchestrator/prompts/manifest.yaml');
+  const manifest = read('skills/lamina-orchestrator/prompts/manifest.yaml');
   for (const id of ['outputs/clarify', 'outputs/design', 'outputs/implement', 'outputs/verify', 'outputs/fix', 'subagents/persona-panel-spawn']) {
     if (!manifest.includes(`${id}:`)) {
       errors.push(`Prompt manifest missing ${id}`);
@@ -130,8 +130,8 @@ function checkPromptManifest() {
 
 function checkArtifactSubagents() {
   for (const rel of [
-    'skills/lamina/skills/lamina-orchestrator/patterns/persona-panel.md',
-    'skills/lamina/skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
+    'skills/lamina-orchestrator/patterns/persona-panel.md',
+    'skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
   ]) {
     if (!exists(rel)) errors.push(`Missing artifact subagent file: ${rel}`);
     else if (rel.includes('/agents/') && !read(rel).includes('readonly: true')) errors.push(`Artifact subagent must be readonly: ${rel}`);
@@ -139,7 +139,7 @@ function checkArtifactSubagents() {
 }
 
 function checkMetadataAlignment() {
-  const skillsDir = path.join(ROOT, MODULES);
+  const skillsDir = path.join(ROOT, SKILLS);
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');

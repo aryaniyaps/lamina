@@ -7,15 +7,16 @@ import { Callout } from 'nextra/components'
 
 # Skill map
 
-Lamina installs as one public skill containing 58 workflow and craft modules
-organized into three taxonomies. The orchestrator routes design and verify
-sections to the right contained module via [audit profiles](/advanced/orchestrator).
+Lamina installs as 59 public sibling skills: the `lamina` command router plus
+58 focused workflow and craft skills organized into three taxonomies. The
+orchestrator routes design and verify sections to the right focused skills via
+[audit profiles](/advanced/orchestrator).
 
 ## Quick path
 
-- **Focused question?** `/lamina <question>` routes to one contained module (direct mode)
-- **Full workflow?** `/lamina-init` first, then `/lamina-design` or `/lamina-verify` loads multiple modules via audit profiles
-- **Deep dive?** The modules live inside the [single Lamina skill](https://github.com/aryaniyaps/lamina/tree/main/skills/lamina/skills)
+- **Focused question?** `/lamina <question>` routes to one focused skill (direct mode)
+- **Full workflow?** `/lamina-init` first, then `/lamina-design` or `/lamina-verify` loads multiple sibling skills via audit profiles
+- **Deep dive?** Every skill lives directly under the repository's [skills directory](https://github.com/aryaniyaps/lamina/tree/main/skills)
 
 ## Systems thinking
 
@@ -89,10 +90,9 @@ Replaces human labs and workshops with contract + live-product simulation.
 | Testable acceptance criteria | `lamina-requirements-definition` |
 
 <Callout type="info">
-**Advanced:** Module files live at
-`skills/lamina/skills/lamina-<name>/SKILL.md`. The installer discovers only
-`skills/lamina/SKILL.md` by default; do not use `--full-depth`, which would
-incorrectly expose internal modules as independent public skills.
+**Advanced:** Focused skill files live at
+`skills/lamina-<name>/SKILL.md`. Install with `--skill '*'` so every
+cross-referenced sibling is available in the same agent session.
 </Callout>
 
 ## Direct mode examples

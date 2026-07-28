@@ -7,27 +7,46 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const publicEntries = fs.readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(root, 'skills', entry.name, 'SKILL.md')))
-  .map((entry) => entry.name);
-assert.deepEqual(publicEntries, ['lamina'], 'Lamina must expose exactly one public skill');
-
-const modulesRoot = path.join(root, 'skills/lamina/skills');
-const modules = fs.readdirSync(modulesRoot, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(modulesRoot, entry.name, 'SKILL.md')))
   .map((entry) => entry.name)
   .sort();
-assert.equal(modules.length, 58, 'the public Lamina skill must contain all 58 modules');
+assert.equal(publicEntries.length, 59, 'Lamina must expose all 59 skills directly');
+assert.ok(publicEntries.includes('lamina'), 'Lamina must expose its command router');
+assert.equal(
+  publicEntries.filter((name) => name.startsWith('lamina-')).length,
+  58,
+  'Lamina must expose all 58 focused skills as public siblings',
+);
+assert.equal(
+  fs.existsSync(path.join(root, 'skills/lamina/skills')),
+  false,
+  'public skills must not be nested inside the lamina router',
+);
 
+const expectedSuiteSkills = new Map([
+  ['lamina', 'lamina'],
+  ['lamina-capabilities', 'lamina-capabilities'],
+  ['lamina-design', 'lamina-design'],
+  ['lamina-init', 'lamina-init'],
+  ['lamina-verify', 'lamina-verify'],
+]);
 for (const suiteDir of fs.readdirSync(path.join(root, 'evals/suites'))) {
   const suitePath = path.join(root, 'evals/suites', suiteDir, 'evals.json');
   if (!fs.existsSync(suitePath)) continue;
   const suite = JSON.parse(fs.readFileSync(suitePath, 'utf8'));
-  assert.equal(suite.skill_name, 'lamina', `${suiteDir} must invoke the public Lamina skill`);
+  assert.equal(
+    suite.skill_name,
+    expectedSuiteSkills.get(suiteDir),
+    `${suiteDir} must invoke its intended public skill`,
+  );
 }
 assert.equal(
   fs.existsSync(path.join(root, 'evals/lib/run-assertions.mjs')),
   false,
   'the current eval runtime must not retain a legacy run grader',
 );
+const aseWrapper = fs.readFileSync(path.join(root, 'evals/scripts/ase_run.py'), 'utf8');
+assert.match(aseWrapper, /EXPECTED_PUBLIC_SKILLS = 59/);
+assert.match(aseWrapper, /SKILL_PATHS\[agent_type\]/);
 
 const manifest = JSON.parse(
   fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/corpus/manifest.json'), 'utf8'),
@@ -77,6 +96,7 @@ for (const task of manifest.tasks.filter((item) => !frozen.has(item.id))) {
 for (const rel of [
   'docs/decisions/001-transactional-product-graph.md',
   'docs/decisions/002-single-public-skill-bundle.md',
+  'docs/decisions/003-public-sibling-skills.md',
   'docs/content/reference/transactional-plan-acceptance.mdx',
 ]) {
   assert.ok(fs.existsSync(path.join(root, rel)), `missing plan documentation: ${rel}`);

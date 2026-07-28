@@ -26,7 +26,6 @@ import {
   HARBOR_VERSION,
   CURSOR_CLI_VERSION,
   LAMINA_BENCH_SKILLS,
-  LAMINA_CONTAINED_MODULES,
   LAMINA_STEPS,
   MEASUREMENT_CONTRACT,
   PILOT_ARMS,
@@ -666,7 +665,7 @@ export function buildPilot({
     for (const arm of PILOT_ARMS) writeTask(task, arm, ctx);
   }
 
-  // Stage the one public skill; its inventory recursively includes every module.
+  // Stage every independently installable Lamina skill.
   const skillBundle = stageSkillBundleFromWorkingTree(ctx.root, {
     skillNames: [...LAMINA_BENCH_SKILLS],
     sourceSkillCommit,
@@ -677,12 +676,10 @@ export function buildPilot({
   if (!verified.ok) {
     throw new Error(`skill bundle failed verification after restage: ${verified.reason}`);
   }
-  if (skillBundle.manifest.skills.length !== 1 ||
-      skillBundle.manifest.skills[0] !== 'lamina' ||
-      skillBundle.manifest.contained_module_count !== 58) {
+  if (skillBundle.manifest.skills.length !== 59 ||
+      !skillBundle.manifest.skills.includes('lamina')) {
     throw new Error(
-      `expected one Lamina skill with 58 modules; got ${skillBundle.manifest.skills.length} skills and ` +
-      `${skillBundle.manifest.contained_module_count} modules`,
+      `expected 59 public Lamina skills; got ${skillBundle.manifest.skills.length}`,
     );
   }
 
@@ -707,7 +704,6 @@ export function buildPilot({
             attempts_per_arm: manifest.attempts_per_arm ?? 1,
             agent_budget_sec: AGENT_BUDGET_SEC,
             skills: [...LAMINA_BENCH_SKILLS_LOCAL],
-            contained_modules: [...LAMINA_CONTAINED_MODULES],
             not_claim_ready: true,
             distinct_from: 'lamina-bench-6',
           },

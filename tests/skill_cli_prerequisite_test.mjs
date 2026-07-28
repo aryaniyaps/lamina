@@ -2,13 +2,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const contractPath = 'skills/lamina/skills/lamina-orchestrator/prerequisites/cli-required.md';
+const contractPath = 'skills/lamina-orchestrator/prerequisites/cli-required.md';
 const contract = fs.readFileSync(contractPath, 'utf8');
 const commandSkills = new Map([
   ['lamina', 'skills/lamina/SKILL.md'],
-  ['lamina-init', 'skills/lamina/skills/lamina-init/SKILL.md'],
-  ['lamina-design', 'skills/lamina/skills/lamina-design/SKILL.md'],
-  ['lamina-verify', 'skills/lamina/skills/lamina-verify/SKILL.md'],
+  ['lamina-init', 'skills/lamina-init/SKILL.md'],
+  ['lamina-design', 'skills/lamina-design/SKILL.md'],
+  ['lamina-verify', 'skills/lamina-verify/SKILL.md'],
 ]);
 
 assert.match(contract, /lamina doctor --json/);

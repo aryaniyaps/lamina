@@ -24,7 +24,7 @@ export const SITE = {
     "Not an app builder — does not generate stack-locked apps like v0 or Lovable",
     "Not a pixel skill — Impeccable and frontend-design polish how it looks; Lamina designs how it works",
   ],
-  install: "npm install -g @laminadev/cli && npx skills add aryaniyaps/lamina --skill lamina -a '*' -y",
+  install: "npm install -g @laminadev/cli && npx skills add aryaniyaps/lamina --skill '*' -a '*' -y",
   license: "Apache-2.0",
   github: "https://github.com/aryaniyaps/lamina",
   domain: "https://lamina.dev",

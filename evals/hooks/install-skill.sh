@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install the complete single-skill Lamina bundle for eval harnesses.
-# - With ASE_WORKSPACE_PATH: copy skills/lamina into the agent workspace.
-# - Otherwise: install only the public `lamina` skill into the sandbox.
+# Install the complete public Lamina skill set for eval harnesses.
+# - With ASE_WORKSPACE_PATH: copy all skills into the agent workspace.
+# - Otherwise: install every public skill into the sandbox.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -17,19 +17,19 @@ source "$ROOT/evals/hooks/skills-sandbox.sh"
 
 case "$AGENT" in
   cursor)
-    skills_add -a cursor -y --skill lamina
+    skills_add -a cursor -y --skill '*'
     ;;
   gemini-cli)
-    skills_add -a gemini-cli -y --skill lamina
+    skills_add -a gemini-cli -y --skill '*'
     ;;
   github-copilot)
-    skills_add -a github-copilot -y --skill lamina
+    skills_add -a github-copilot -y --skill '*'
     ;;
   roo-code|roo)
-    skills_add -a roo -y --skill lamina
+    skills_add -a roo -y --skill '*'
     ;;
   *)
-    skills_add -a "$AGENT" -y --skill lamina 2>/dev/null || true
+    skills_add -a "$AGENT" -y --skill '*' 2>/dev/null || true
     ;;
 esac
 

@@ -8,7 +8,6 @@ import {
   CURSOR_CLI_VERSION,
   HARBOR_VERSION,
   LAMINA_BENCH_SKILLS,
-  LAMINA_CONTAINED_MODULES,
   PINNED_SKILL_COMMIT,
   SKILL_RERUN_CAMPAIGN_ID,
 } from './constants.mjs';
@@ -229,8 +228,6 @@ export function stageSkillBundle(root, {
     cursor_cli_version: CURSOR_CLI_VERSION,
     cursor_cli_sha256: CURSOR_CLI_SHA256,
     skills: [...skillNames].sort(),
-    contained_modules: [...LAMINA_CONTAINED_MODULES],
-    contained_module_count: LAMINA_CONTAINED_MODULES.length,
     file_count: inventory.files.length,
     aggregate_digest: inventory.aggregateDigest,
     harbor_skill_digests: harborSkillDigests,

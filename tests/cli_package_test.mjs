@@ -26,8 +26,8 @@ assert.match(
 );
 
 for (const runtimePath of [
-  'skills/lamina/skills/lamina-orchestrator/bin',
-  'skills/lamina/skills/lamina-orchestrator/lib',
+  'skills/lamina-orchestrator/bin',
+  'skills/lamina-orchestrator/lib',
 ]) {
   assert.equal(fs.existsSync(runtimePath), false, `${runtimePath} must not ship with skills`);
 }

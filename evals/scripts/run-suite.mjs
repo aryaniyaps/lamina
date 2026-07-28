@@ -120,8 +120,8 @@ function writeTempSuite(name, data, evalIds = []) {
   return file;
 }
 
-function resolveSkillPath(_evalIds) {
-  return './skills/lamina';
+function resolveSkillPath(skillName) {
+  return `./skills/${skillName || 'lamina'}`;
 }
 
 function runAgentSkillEval(evalsFile, opts) {
@@ -138,7 +138,7 @@ function runAgentSkillEval(evalsFile, opts) {
   for (let i = 0; i < extra.length; i++) {
     if (extra[i] === '--eval-id' && extra[i + 1]) evalIds.push(extra[i + 1]);
   }
-  const skillPath = resolveSkillPath(evalIds);
+  const skillPath = resolveSkillPath(opts.skillName);
   const args = [
     'run',
     '--skill',
@@ -244,7 +244,11 @@ function main() {
     const evalArgs = singleIds.length
       ? singleIds.flatMap((id) => ['--eval-id', id])
       : [];
-    const code = runAgentSkillEval(rel, { ...opts, extraArgs: [...opts.extraArgs, ...evalArgs] });
+    const code = runAgentSkillEval(rel, {
+      ...opts,
+      skillName: skill_name,
+      extraArgs: [...opts.extraArgs, ...evalArgs],
+    });
     if (code !== 0) exitCode = code;
   }
 

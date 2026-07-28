@@ -36,11 +36,7 @@ function loadEvalCase(evalsPath, evalId) {
   if (!Array.isArray(ev.prompts) || ev.prompts.length < 2) {
     throw new Error(`Eval ${evalId} is not multi-turn (prompts[] required)`);
   }
-  return ev;
-}
-
-function resolveSkillSource(_evalId) {
-  return path.join(ROOT, 'skills/lamina');
+  return { ev, skillName: data.skill_name || 'lamina' };
 }
 
 function installSkills(workspace, _evalId, agent) {
@@ -73,7 +69,7 @@ function runGradeHook({ workspace, outputDir, evalId, preStatePath, postStatePat
 
 async function main() {
   const opts = parseArgs(process.argv);
-  const ev = loadEvalCase(opts.evals, opts.evalId);
+  const { ev, skillName } = loadEvalCase(opts.evals, opts.evalId);
 
   const runRoot = path.join(ROOT, 'evals/workspace/multiturn', opts.evalId, opts.agent);
   const workspace = path.join(runRoot, 'workspace');
@@ -111,7 +107,6 @@ async function main() {
   const turnOutputs = [];
 
   // Mirror ASE _build_prompt force_skill_invocation: `Use the $<skill> skill. …`
-  const skillName = path.basename(resolveSkillSource(opts.evalId));
   const forcePrefix =
     ev.force_skill_invocation === true ? `Use the $${skillName} skill. ` : '';
 

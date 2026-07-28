@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 INSTALL_ALL = ROOT / "evals/hooks/install-all-skills.sh"
+EXPECTED_PUBLIC_SKILLS = 59
 
 
 def _install_all_skills(workspace: Path, agent_type) -> None:
@@ -24,6 +25,20 @@ def _install_all_skills(workspace: Path, agent_type) -> None:
         env=env,
         check=True,
     )
+    from agent_skill_eval.skills import SKILL_PATHS
+
+    for relative_dir in SKILL_PATHS[agent_type]:
+        skills_dir = workspace / relative_dir
+        installed = sorted(
+            child.name
+            for child in skills_dir.iterdir()
+            if child.is_dir() and (child / "SKILL.md").is_file()
+        )
+        if len(installed) != EXPECTED_PUBLIC_SKILLS or "lamina" not in installed:
+            raise RuntimeError(
+                f"expected all {EXPECTED_PUBLIC_SKILLS} public Lamina skills in "
+                f"{skills_dir}; found {len(installed)}"
+            )
 
 
 def _patch_skill_installer() -> None:

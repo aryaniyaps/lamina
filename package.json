@@ -24,7 +24,7 @@
     "fixtures:vendor": "npm run fixtures:vendor:commerce && npm run fixtures:vendor:payload",
     "fixtures:vendor:commerce": "node evals/scripts/vendor-nextjs-fixture.mjs",
     "fixtures:vendor:payload": "node evals/scripts/vendor-payload-fixture.mjs",
-    "setup:external-skills": "npx skills add . --skill lamina -a cursor -y --copy",
+    "setup:external-skills": "npx skills add . --skill '*' -a cursor -y --copy",
     "bench:release:export": "node benchmarks/scripts/export-web-release.mjs",
     "bench:release:validate": "node benchmarks/scripts/validate-web-release.mjs --file benchmarks/releases/current/release.json --expect-status running && node tests/web_release_test.mjs",
     "bench:lb6:preflight": "node benchmarks/lb6/scripts/run-pilot-preflight.mjs",

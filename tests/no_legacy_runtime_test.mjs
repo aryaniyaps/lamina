@@ -12,15 +12,15 @@ const productionRoots = [
   'benchmarks/lb6/pilot/lib',
 ];
 const forbiddenRuntimeFiles = [
-  'skills/lamina/skills/lamina-orchestrator/lib/graph-tool.mjs',
-  'skills/lamina/skills/lamina-orchestrator/lib/run.mjs',
-  'skills/lamina/skills/lamina-orchestrator/lib/validate-run.mjs',
-  'skills/lamina/skills/lamina-design/scripts/seed-ready-run.mjs',
-  'skills/lamina/skills/lamina-verify/scripts/seed-verify-run.mjs',
+  'skills/lamina-orchestrator/lib/graph-tool.mjs',
+  'skills/lamina-orchestrator/lib/run.mjs',
+  'skills/lamina-orchestrator/lib/validate-run.mjs',
+  'skills/lamina-design/scripts/seed-ready-run.mjs',
+  'skills/lamina-verify/scripts/seed-verify-run.mjs',
 ];
 for (const file of forbiddenRuntimeFiles) assert.equal(fs.existsSync(file), false, `${file} must be retired`);
-assert.equal(fs.existsSync('skills/lamina/skills/lamina-orchestrator/bin'), false, 'skills must not embed a CLI');
-assert.equal(fs.existsSync('skills/lamina/skills/lamina-orchestrator/lib'), false, 'skills must not embed a graph runtime');
+assert.equal(fs.existsSync('skills/lamina-orchestrator/bin'), false, 'skills must not embed a CLI');
+assert.equal(fs.existsSync('skills/lamina-orchestrator/lib'), false, 'skills must not embed a graph runtime');
 assert.equal(fs.existsSync('evals/lib/run-assertions.mjs'), false, 'evals must not retain a legacy run grader');
 
 function walk(root) {

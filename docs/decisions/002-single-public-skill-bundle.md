@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-003](./003-public-sibling-skills.md)
 
 ## Date
 

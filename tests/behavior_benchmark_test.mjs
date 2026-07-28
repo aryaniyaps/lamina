@@ -18,8 +18,10 @@ assert.equal(corpusManifest.version, 'harbor-v4');
 const currentSkillManifest = JSON.parse(
   fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'), 'utf8'),
 );
-assert.deepEqual(currentSkillManifest.skills, ['lamina'], 'current pilot must inject only the public Lamina skill');
-assert.equal(currentSkillManifest.contained_module_count, 58);
+assert.equal(currentSkillManifest.skills.length, 59);
+assert.ok(currentSkillManifest.skills.includes('lamina'));
+assert.equal(currentSkillManifest.skills.filter((name) => name.startsWith('lamina-')).length, 58);
+assert.equal('contained_module_count' in currentSkillManifest, false);
 
 const lb6TaskRoot = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks-v3/dev-loan-library-lamina-v3');
 const simpleList = pilotManifest.tasks.find((task) => task.id === 'dev-simple-list');
@@ -235,4 +237,4 @@ let legacyRun = checkLaminaTreatment(path.join(tmp, 'lamina-legacy-run'), 'fix')
 assert.equal(legacyRun.valid, false);
 assert.ok(legacyRun.missing.some((item) => item.includes('.lamina/runs')));
 
-console.log('Behavior benchmark test passed: single-skill allowlist, ABC attacks, graph treatment gates, and verifier hygiene.');
+console.log('Behavior benchmark test passed: complete skill-set allowlist, ABC attacks, graph treatment gates, and verifier hygiene.');

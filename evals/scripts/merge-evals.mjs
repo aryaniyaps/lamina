@@ -423,7 +423,7 @@ const laminaEvals = {
 };
 
 const laminaInitEvals = {
-  skill_name: 'lamina',
+  skill_name: 'lamina-init',
   evals: [
     e('init-establish-greenfield', '/lamina-init — B2B SaaS for HR teams to manage PTO requests. Web app, six-month MVP.', {
       expected_output: 'Valid business-context.md with all sections and personas.json.',
@@ -493,7 +493,7 @@ const laminaInitEvals = {
 };
 
 const laminaDesignEvals = {
-  skill_name: 'lamina',
+  skill_name: 'lamina-design',
   evals: [
     e('design-budgeting', '/lamina-design — Problem: mobile budgeting for households with multiple accounts.', {
       ...fx('greenfield-with-init'),
@@ -652,7 +652,7 @@ const laminaDesignEvals = {
 };
 
 const laminaVerifyEvals = {
-  skill_name: 'lamina',
+  skill_name: 'lamina-verify',
   evals: [
     e('audit-checkout', '/lamina-verify — Audit cart-to-checkout flow in our Next.js commerce storefront. High drop-off before Shopify checkout.', {
       ...fx('brownfield-audit-ready'),
@@ -773,7 +773,7 @@ const laminaVerifyEvals = {
 };
 
 const laminaCapabilitiesEvals = {
-  skill_name: 'lamina',
+  skill_name: 'lamina-capabilities',
   evals: [
     e('cap-flow-design-framework', '/lamina — Users get lost resetting passwords.', {
       ...fx('greenfield-with-init'),

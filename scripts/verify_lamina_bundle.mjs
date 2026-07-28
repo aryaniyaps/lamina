@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify the single-skill Lamina bundle and its contained module graph.
+ * Verify the public Lamina skill set and its routing graph.
  * Usage: node scripts/verify_lamina_bundle.mjs [--check structure|all]
  */
 import fs from 'fs';
@@ -8,15 +8,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const BUNDLE = 'skills/lamina';
-const MODULES = `${BUNDLE}/skills`;
-const EXPECTED_INTERNAL_MODULES = 58;
+const SKILLS_ROOT = 'skills';
+const EXPECTED_PUBLIC_SKILLS = 59;
 const errors = [];
 
 const absolute = (rel) => path.join(ROOT, rel);
 const exists = (rel) => fs.existsSync(absolute(rel));
 const read = (rel) => fs.readFileSync(absolute(rel), 'utf8');
-const modulePath = (name, suffix = 'SKILL.md') => `${MODULES}/${name}/${suffix}`;
+const skillPath = (name, suffix = 'SKILL.md') => `${SKILLS_ROOT}/${name}/${suffix}`;
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -26,55 +25,72 @@ function walk(dir) {
   });
 }
 
-function internalModuleNames() {
-  if (!exists(MODULES)) return [];
-  return fs.readdirSync(absolute(MODULES), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && exists(modulePath(entry.name)))
+function publicSkillNames() {
+  if (!exists(SKILLS_ROOT)) return [];
+  return fs.readdirSync(absolute(SKILLS_ROOT), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && exists(skillPath(entry.name)))
     .map((entry) => entry.name)
     .sort();
 }
 
 function checkPublicBoundary() {
-  const publicSkills = fs.readdirSync(absolute('skills'), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && exists(`skills/${entry.name}/SKILL.md`))
-    .map((entry) => entry.name);
-  if (publicSkills.length !== 1 || publicSkills[0] !== 'lamina') {
-    errors.push(`skills/ must expose exactly one installable skill named lamina; found: ${publicSkills.join(', ')}`);
+  const publicSkills = publicSkillNames();
+  if (publicSkills.length !== EXPECTED_PUBLIC_SKILLS) {
+    errors.push(`skills/ must expose ${EXPECTED_PUBLIC_SKILLS} installable Lamina skills; found ${publicSkills.length}`);
   }
-
-  const modules = internalModuleNames();
-  if (modules.length !== EXPECTED_INTERNAL_MODULES) {
-    errors.push(`expected ${EXPECTED_INTERNAL_MODULES} contained Lamina modules; found ${modules.length}`);
+  if (!publicSkills.includes('lamina')) {
+    errors.push('skills/ must expose the lamina command router');
   }
-  for (const name of modules) {
-    const content = read(modulePath(name));
+  for (const name of publicSkills) {
+    if (name !== 'lamina' && !name.startsWith('lamina-')) {
+      errors.push(`unexpected non-Lamina public skill: ${skillPath(name)}`);
+    }
+    const content = read(skillPath(name));
     if (!content.includes(`name: ${name}`)) {
-      errors.push(`contained module frontmatter mismatch: ${modulePath(name)}`);
+      errors.push(`public skill frontmatter mismatch: ${skillPath(name)}`);
     }
   }
 
-  if (exists(`${MODULES}/lamina-orchestrator/lib`) || exists(`${MODULES}/lamina-orchestrator/bin`)) {
-    errors.push('the skill bundle must not embed executable graph runtime code');
+  if (exists('skills/lamina/skills')) {
+    errors.push('public skills must be siblings under skills/, not nested under skills/lamina/skills');
+  }
+  if (exists('skills/lamina-orchestrator/lib') || exists('skills/lamina-orchestrator/bin')) {
+    errors.push('skills must not embed executable graph runtime code');
+  }
+}
+
+function checkPublicCatalog() {
+  const catalog = JSON.parse(read('skills.sh.json'));
+  const listed = (catalog.groupings || [])
+    .flatMap((group) => group.skills || [])
+    .sort();
+  const publicSkills = publicSkillNames();
+  if (new Set(listed).size !== listed.length) {
+    errors.push('skills.sh.json lists a public skill more than once');
+  }
+  if (listed.length !== publicSkills.length ||
+      listed.some((name, index) => name !== publicSkills[index])) {
+    errors.push('skills.sh.json must list every public Lamina skill exactly once');
   }
 }
 
 function checkAuditProfiles() {
-  const yaml = read(modulePath('lamina-orchestrator', 'audit-profiles.yaml'));
+  const yaml = read(skillPath('lamina-orchestrator', 'audit-profiles.yaml'));
   const names = [...yaml.matchAll(/^\s+-\s+(lamina-[a-z-]+)\s*$/gm)].map((match) => match[1]);
   for (const name of names) {
-    if (!exists(modulePath(name))) {
-      errors.push(`audit-profiles references missing contained module: ${modulePath(name)}`);
+    if (!exists(skillPath(name))) {
+      errors.push(`audit-profiles references missing public skill: ${skillPath(name)}`);
     }
   }
 }
 
 function checkProblemRouterLinks() {
-  const core = read(modulePath('lamina-core'));
+  const core = read(skillPath('lamina-core'));
   const names = [...core.matchAll(/\]\(\.\.\/(lamina-[a-z-]+)\/SKILL\.md\)/g)]
     .map((match) => match[1]);
   for (const name of names) {
-    if (!exists(modulePath(name))) {
-      errors.push(`Problem Router link references missing contained module: ${modulePath(name)}`);
+    if (!exists(skillPath(name))) {
+      errors.push(`Problem Router link references missing public skill: ${skillPath(name)}`);
     }
   }
 }
@@ -93,7 +109,7 @@ function extractMarkdownLinks(content, baseDir) {
 }
 
 function checkReferencedFiles() {
-  for (const file of walk(absolute(BUNDLE))) {
+  for (const file of walk(absolute(SKILLS_ROOT))) {
     if (!file.endsWith('.md') && !file.endsWith('.yaml')) continue;
     const rel = path.relative(ROOT, file);
     for (const link of extractMarkdownLinks(read(rel), path.dirname(file))) {
@@ -104,20 +120,20 @@ function checkReferencedFiles() {
 
 function checkOutputContracts() {
   const contracts = {
-    [modulePath('lamina-orchestrator', 'prompts/outputs/design.md')]: [
+    [skillPath('lamina-orchestrator', 'prompts/outputs/design.md')]: [
       'GraphVersion', 'Source revision', 'Contradictions', 'Validation',
     ],
-    [modulePath('lamina-orchestrator', 'prompts/outputs/verify.md')]: [
+    [skillPath('lamina-orchestrator', 'prompts/outputs/verify.md')]: [
       'GraphVersion', 'source revision', 'Runs', 'evidence', 'Verdict',
     ],
-    [modulePath('lamina-orchestrator', 'prompts/outputs/init.md')]: [
+    [skillPath('lamina-orchestrator', 'prompts/outputs/init.md')]: [
       'Mode', 'Business context summary', 'Open questions', 'Artifacts',
       'Stale downstream artifacts', 'Recommended next step', 'Skills applied',
     ],
-    [modulePath('lamina-orchestrator', 'prompts/outputs/init-blocked.md')]: [
+    [skillPath('lamina-orchestrator', 'prompts/outputs/init-blocked.md')]: [
       'Status', "What's missing", 'Next step', 'Do not',
     ],
-    [modulePath('lamina-orchestrator', 'prompts/outputs/clarify.md')]: [
+    [skillPath('lamina-orchestrator', 'prompts/outputs/clarify.md')]: [
       'Status', 'Clarifying questions', 'Why these block the artifact', 'How to proceed', 'Do not',
     ],
   };
@@ -129,42 +145,42 @@ function checkOutputContracts() {
   }
 }
 
-function checkCommandModules() {
-  const rootSkill = read(`${BUNDLE}/SKILL.md`);
+function checkCommandSkills() {
+  const rootSkill = read(skillPath('lamina'));
   for (const name of ['lamina-init', 'lamina-design', 'lamina-verify']) {
-    const file = modulePath(name);
+    const file = skillPath(name);
     if (!exists(file)) {
-      errors.push(`missing contained command module: ${file}`);
+      errors.push(`missing public command skill: ${file}`);
       continue;
     }
     const content = read(file);
     if (!content.includes(`Use only when explicitly invoked as ${name}`)) {
-      errors.push(`command module does not declare explicit invocation: ${file}`);
+      errors.push(`command skill does not declare explicit invocation: ${file}`);
     }
     if (!rootSkill.includes(`skills/${name}/SKILL.md`)) {
-      errors.push(`public Lamina router does not route to contained command module: ${name}`);
+      errors.push(`Lamina router does not route to public command skill: ${name}`);
     }
   }
 }
 
 function checkRequiredPaths() {
   const required = [
-    `${BUNDLE}/SKILL.md`,
-    modulePath('lamina-core'),
-    modulePath('lamina-init'),
-    modulePath('lamina-design'),
-    modulePath('lamina-verify'),
-    modulePath('lamina-business-context'),
-    modulePath('lamina-orchestrator'),
-    modulePath('lamina-orchestrator', 'audit-profiles.yaml'),
-    modulePath('lamina-orchestrator', 'merge-rules.md'),
-    modulePath('lamina-orchestrator', 'workflows/init.md'),
-    modulePath('lamina-orchestrator', 'workflows/design.md'),
-    modulePath('lamina-orchestrator', 'workflows/verify.md'),
-    modulePath('lamina-orchestrator', 'prerequisites/cli-required.md'),
-    modulePath('lamina-orchestrator', 'prerequisites/init-required.md'),
-    modulePath('lamina-orchestrator', 'references/personas.schema.json'),
-    modulePath('lamina-orchestrator', 'references/product-graph.md'),
+    skillPath('lamina'),
+    skillPath('lamina-core'),
+    skillPath('lamina-init'),
+    skillPath('lamina-design'),
+    skillPath('lamina-verify'),
+    skillPath('lamina-business-context'),
+    skillPath('lamina-orchestrator'),
+    skillPath('lamina-orchestrator', 'audit-profiles.yaml'),
+    skillPath('lamina-orchestrator', 'merge-rules.md'),
+    skillPath('lamina-orchestrator', 'workflows/init.md'),
+    skillPath('lamina-orchestrator', 'workflows/design.md'),
+    skillPath('lamina-orchestrator', 'workflows/verify.md'),
+    skillPath('lamina-orchestrator', 'prerequisites/cli-required.md'),
+    skillPath('lamina-orchestrator', 'prerequisites/init-required.md'),
+    skillPath('lamina-orchestrator', 'references/personas.schema.json'),
+    skillPath('lamina-orchestrator', 'references/product-graph.md'),
     'packages/cli/bin/lamina.mjs',
     'packages/cli/lib/graph-runtime/engine.mjs',
     'packages/cli/lib/graph-runtime/server.mjs',
@@ -187,7 +203,8 @@ if (check === 'structure' || check === 'all') {
   checkAgentSkillPollution();
   checkRequiredPaths();
   checkPublicBoundary();
-  checkCommandModules();
+  checkPublicCatalog();
+  checkCommandSkills();
   checkAuditProfiles();
   checkProblemRouterLinks();
   checkOutputContracts();
@@ -200,4 +217,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`OK — one public Lamina skill contains ${EXPECTED_INTERNAL_MODULES} validated modules`);
+console.log(`OK — ${EXPECTED_PUBLIC_SKILLS} public Lamina skills validated`);

@@ -11,7 +11,7 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 COPY cursor-agent-version/ /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/
 RUN mkdir -p /root/.local/bin && ln -s /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/cursor-agent /root/.local/bin/cursor-agent
 COPY lamina-cli.tgz /tmp/lamina-cli.tgz
-RUN test "$(sha256sum /tmp/lamina-cli.tgz | cut -d' ' -f1)" = "5f6e34f853499308d21e444c5a8fc81f903ab8052c2a8e8a8816d7e944f7263f" \
+RUN test "$(sha256sum /tmp/lamina-cli.tgz | cut -d' ' -f1)" = "6f00e01d70926b941aecb7031f6428ba4454dfd2cc83a16f25009a5691036fa4" \
     && npm install -g /tmp/lamina-cli.tgz \
     && rm /tmp/lamina-cli.tgz \
     && lamina --version

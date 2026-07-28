@@ -16,7 +16,7 @@ Installation does not cause Lamina to activate. After install, open your project
 ## Quick path
 
 1. **Shell** — install the CLI, then install the skills for your agent
-2. Open your project root and start a **fresh agent session** so the skill loads
+2. Open your project root and start a **fresh agent session** so the skills load
 3. **Agent chat** — run `/lamina-init <your product domain and primary users>`
 
 Continue with [Quickstart](/getting-started/quickstart) for the full design → implement → verify loop.
@@ -25,35 +25,35 @@ Continue with [Quickstart](/getting-started/quickstart) for the full design → 
 
 ```bash
 npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill lamina -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
 ```
 
-The CLI and skill bundle have independent release and installation lifecycles.
-The CLI provides `lamina`; the GitHub install provides one public `lamina`
-skill containing all 58 workflow and craft modules. That bundle routes
-`/lamina`, `/lamina-init`, `/lamina-design`, and `/lamina-verify` internally,
-so supporting modules do not pollute the agent's top-level skill catalog.
-Either component can be installed alone, but graph-backed workflows require
-CLI API 1.
+The CLI and skill set have independent release and installation lifecycles.
+The CLI provides `lamina`; the GitHub install provides the `lamina` router plus
+58 focused workflow and craft skills as top-level siblings. The router
+coordinates `/lamina`, `/lamina-init`, `/lamina-design`, and `/lamina-verify`,
+while every referenced skill remains independently discoverable for
+progressive loading. Either component can be installed alone, but graph-backed
+workflows require CLI API 1.
 
 ## Agent-specific installs
 
 ### Cursor
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina --skill lamina -a cursor -y
+npx skills add https://github.com/aryaniyaps/lamina --skill '*' -a cursor -y
 ```
 
 ### Claude Code
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina --skill lamina -a claude-code -y
+npx skills add https://github.com/aryaniyaps/lamina --skill '*' -a claude-code -y
 ```
 
 ### Codex / Pi / generic
 
 ```bash
-npx skills add https://github.com/aryaniyaps/lamina --skill lamina -a codex -a pi -y
+npx skills add https://github.com/aryaniyaps/lamina --skill '*' -a codex -a pi -y
 ```
 
 ## Prerequisites
@@ -74,7 +74,7 @@ The skills never invoke `npx` for the runtime and never auto-install it.
 ## After install
 
 1. Open the intended **project root** in your coding agent
-2. Start a **fresh agent session** — skills load at session start
+2. Start a **fresh agent session** — the complete skill set loads at session start
 3. Run init directly in agent chat:
 
 ```
@@ -93,7 +93,7 @@ Update the components independently:
 
 ```bash
 npm install -g @laminadev/cli@latest
-npx skills add aryaniyaps/lamina --skill lamina -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
 ```
 
 Start a new agent session after updating.
@@ -106,7 +106,7 @@ installing the standalone package:
 ```bash
 npm unlink -g lamina
 npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill lamina -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
 ```
 
 Do not delete `.git/lamina`. Existing `graph.lbdb` data is retained; the new
@@ -131,8 +131,8 @@ To exclude:
 
 ## Uninstall
 
-Remove the Lamina skill using your agent's skill management tooling, or delete
-the installed skill directory. Remove the CLI separately with
+Remove the Lamina skills using your agent's skill management tooling, or delete
+the installed `lamina*` skill directories. Remove the CLI separately with
 `npm uninstall -g @laminadev/cli`. `.lamina/` artifacts and `.git/lamina`
 graph data are not removed automatically.
 
