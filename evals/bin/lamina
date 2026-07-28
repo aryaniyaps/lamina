@@ -2,13 +2,13 @@
 set -euo pipefail
 
 for candidate in \
-  "${ASE_WORKSPACE_PATH:-$PWD}/.lamina/runtime-cli/node_modules/.bin/lamina" \
-  "$PWD/.lamina/runtime-cli/node_modules/.bin/lamina"
+  "${ASE_WORKSPACE_PATH:-$PWD}/.lamina/runtime-cli/bin/lamina" \
+  "$PWD/.lamina/runtime-cli/bin/lamina"
 do
   if [[ -x "$candidate" ]]; then
     exec "$candidate" "$@"
   fi
 done
 
-echo "lamina eval CLI package is not installed in this workspace" >&2
+echo "lamina eval source CLI is not installed in this workspace" >&2
 exit 127

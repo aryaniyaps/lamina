@@ -136,7 +136,8 @@ export async function ensureGraphd(cwd = process.cwd()) {
     const daemonArgs = process.env.LAMINA_STANDALONE === '1'
       ? ['--graphd', paths.root]
       : [path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs'), paths.root];
-    child = spawn(process.execPath, daemonArgs, {
+    const daemonHost = process.env.LAMINA_STANDALONE_GRAPHD_HOST || process.execPath;
+    child = spawn(daemonHost, daemonArgs, {
       detached: true,
       stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
       cwd: paths.root,

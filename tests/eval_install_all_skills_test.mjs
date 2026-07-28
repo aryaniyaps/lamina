@@ -74,16 +74,16 @@ if (fs.existsSync(path.join(codexSkills, 'lamina-orchestrator/lib')) ||
   process.exit(1);
 }
 
-const cli = path.join(workspace, '.lamina/runtime-cli/node_modules/.bin/lamina');
+const cli = path.join(workspace, '.lamina/runtime-cli/bin/lamina');
 if (!fs.existsSync(cli)) {
-  console.error('independently packed CLI missing from workspace install');
+  console.error('independent source CLI missing from workspace eval install');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }
 
-const ladybug = path.join(workspace, '.lamina/runtime-cli/node_modules/@ladybugdb/core');
+const ladybug = path.join(ROOT, 'packages/cli/node_modules/@ladybugdb/core');
 if (!fs.existsSync(ladybug)) {
-  console.error('pinned Ladybug runtime dependency missing from workspace install');
+  console.error('pinned Ladybug runtime dependency missing from source CLI');
   fs.rmSync(workspace, { recursive: true, force: true });
   process.exit(1);
 }

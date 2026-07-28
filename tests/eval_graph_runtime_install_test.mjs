@@ -94,7 +94,7 @@ try {
   assert.equal(grade.passed, true, grade.evidence);
 
   // CLI + skills state: exercise the init evidence, design transaction, and
-  // isolated verify Mission lifecycle through the independently packed CLI.
+  // isolated verify Mission lifecycle through the independent source CLI.
   fs.mkdirSync(path.join(workspace, '.lamina'), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, '.lamina', 'business-context.md'),

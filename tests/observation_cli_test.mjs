@@ -203,7 +203,7 @@ try {
   assert.equal(
     fs.existsSync(path.resolve('packages/cli/__pycache__')),
     false,
-    'observation must not write Python caches into the installed npm package',
+    'observation must not write Python caches into the standalone CLI source',
   );
   daemonPid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
 } finally {

@@ -128,7 +128,7 @@ try {
     fs.rmSync(otherRoot, { recursive: true, force: true });
   }
 } finally {
-  server.kill('SIGTERM');
+  try { await request('shutdown'); } catch {}
   if (server.exitCode === null) await once(server, 'exit');
   assert.equal(fs.existsSync(paths.lock), false, 'graceful shutdown must remove its lock');
   fs.rmSync(root, { recursive: true, force: true });

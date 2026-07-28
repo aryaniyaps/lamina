@@ -32,6 +32,21 @@ function materialize() {
 
 materialize();
 process.env.LAMINA_STANDALONE = '1';
+// Windows native addons link against node.exe by name. The public executable
+// is deliberately named lamina-*.exe, so keep one private copy under Node's
+// expected name for the graphd child that loads Ladybug.
+if (process.platform === 'win32') {
+  const graphdHost = path.join(runtime, 'node.exe');
+  if (!fs.existsSync(graphdHost)) {
+    const temporaryHost = `${graphdHost}.${process.pid}.tmp`;
+    fs.copyFileSync(process.execPath, temporaryHost);
+    try { fs.renameSync(temporaryHost, graphdHost); } catch (error) {
+      if (!fs.existsSync(graphdHost)) throw error;
+      fs.rmSync(temporaryHost, { force: true });
+    }
+  }
+  process.env.LAMINA_STANDALONE_GRAPHD_HOST = graphdHost;
+}
 // SEA reserves argv[1] for the executable snapshot; user arguments begin at
 // argv[2], just as they do for `node script ...`.
 const args = process.argv.slice(2);

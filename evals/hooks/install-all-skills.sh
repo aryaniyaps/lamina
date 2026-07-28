@@ -60,27 +60,12 @@ if [[ -d "$first_root" ]]; then
   skill_count="$(find "$first_root" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
 fi
 
-# Pack and install the public CLI package independently from the skill copy.
-# This exercises the same dependency resolution and package boundary users get.
+# Keep the source CLI independently available from the skill copy for local
+# evals. Public users install the checksum-verified GitHub Release executable;
+# this source-only harness deliberately avoids pretending there is an npm CLI.
 CLI_PREFIX="$WORKSPACE/.lamina/runtime-cli"
-PACK_DIR="$(mktemp -d)"
-cleanup_pack() {
-  rm -rf "$PACK_DIR"
-}
-trap cleanup_pack EXIT
-npm pack "$ROOT/packages/cli" --silent --pack-destination "$PACK_DIR" >/dev/null
-shopt -s nullglob
-tarballs=("$PACK_DIR"/*.tgz)
-shopt -u nullglob
-if [[ "${#tarballs[@]}" -ne 1 ]]; then
-  echo "expected one packed Lamina CLI tarball" >&2
-  exit 1
-fi
-npm install \
-  --prefix "$CLI_PREFIX" \
-  --no-audit \
-  --no-fund \
-  "${tarballs[0]}" >/dev/null
+mkdir -p "$CLI_PREFIX/bin"
+ln -sfn "$ROOT/packages/cli/bin/lamina.mjs" "$CLI_PREFIX/bin/lamina"
 
 # graphd derives branch and source identity from Git. ASE workspaces are plain
 # directories by default, so establish a deterministic clone boundary while

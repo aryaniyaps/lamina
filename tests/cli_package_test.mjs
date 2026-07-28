@@ -7,12 +7,14 @@ const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const cliPackage = JSON.parse(fs.readFileSync('packages/cli/package.json', 'utf8'));
 const workflow = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
 const builder = fs.readFileSync('scripts/build-standalone-cli.mjs', 'utf8');
+const bootstrap = fs.readFileSync('packages/cli/sea/bootstrap.cjs', 'utf8');
+const graphClient = fs.readFileSync('packages/cli/lib/graph-runtime/client.mjs', 'utf8');
 
 assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.5');
+assert.equal(cliPackage.version, '0.1.6');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
@@ -28,6 +30,10 @@ assert.match(builder, /postject.*dist.*cli\.js/s);
 assert.match(builder, /codesign.*--remove-signature/s);
 assert.match(builder, /--macho-segment-name/);
 assert.match(builder, /codesign.*--sign.*--force/s);
+assert.match(bootstrap, /process\.platform === 'win32'/);
+assert.match(bootstrap, /path\.join\(runtime, 'node\.exe'\)/);
+assert.match(bootstrap, /LAMINA_STANDALONE_GRAPHD_HOST/);
+assert.match(graphClient, /LAMINA_STANDALONE_GRAPHD_HOST \|\| process\.execPath/);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);
 assert.match(workflow, /linux-x64/);
@@ -41,7 +47,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.5']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.6']).status,
   0,
 );
 assert.notEqual(

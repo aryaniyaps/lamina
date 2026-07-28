@@ -805,7 +805,7 @@ packages:
   '@libsql/hrana-client@0.10.0':
     resolution: {integrity: sha512-OoA4EMqRAC7kn7V2P6EQqRcpZf2W+AjsNIyCizBg339Tq/aMC7sRnzs3SklderhmQWAqEzvv8A2vhxVmWpkVvw==}
 
-  '@libsql/isomorphic-ws@0.1.5':
+  '@libsql/isomorphic-ws@0.1.6':
     resolution: {integrity: sha512-DtLWIH29onUYR00i0GlQ3UdcTRC6EP4u9w/h9LxpUZJWRMARk6dQwZ6Jkd+QdwVpuAOrdxt18v0K2uIYR3fwFg==}
 
   '@libsql/linux-arm-gnueabihf@0.5.29':
@@ -4537,13 +4537,13 @@ snapshots:
 
   '@libsql/hrana-client@0.10.0':
     dependencies:
-      '@libsql/isomorphic-ws': 0.1.5
+      '@libsql/isomorphic-ws': 0.1.6
       js-base64: 3.8.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@libsql/isomorphic-ws@0.1.5':
+  '@libsql/isomorphic-ws@0.1.6':
     dependencies:
       '@types/ws': 8.18.1
       ws: 8.21.0

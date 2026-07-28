@@ -134,10 +134,14 @@ function dockerfile(arm = 'direct', cliBinarySha256 = null, cliVersion = null) {
 
 let cachedCliRelease = null;
 
-function packCli(root, environmentDir) {
-  if (cachedCliRelease) {
-    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(cachedCliRelease, null, 2)}\n`);
-    return cachedCliRelease;
+function packCli(root, environmentDir, suppliedRelease = null) {
+  const reusable = suppliedRelease || cachedCliRelease;
+  if (reusable) {
+    if (!/^\d+\.\d+\.\d+$/.test(reusable.version) || !/^[a-f0-9]{64}$/.test(reusable.sha256)) {
+      throw new Error('supplied CLI release identity must contain a semver version and SHA-256');
+    }
+    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(reusable, null, 2)}\n`);
+    return reusable;
   }
   const packDir = fs.mkdtempSync(path.join(environmentDir, '.cli-build-'));
   try {
@@ -596,7 +600,7 @@ function writeTask(task, arm, ctx) {
 
   fs.writeFileSync(path.join(dir, 'task.toml'), taskToml(task, arm));
   const cliRelease = arm === 'lamina'
-    ? packCli(ctx.root, path.join(dir, 'environment'))
+    ? packCli(ctx.root, path.join(dir, 'environment'), ctx.cliRelease)
     : null;
   fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile(arm, cliRelease?.sha256, cliRelease?.version));
 }
@@ -608,8 +612,10 @@ export function buildPilot({
   selectedTaskIds = null,
   migrateFrozen = false,
   sourceSkillCommit = PINNED_SKILL_COMMIT,
+  cliRelease = null,
 } = {}) {
   const ctx = pilotBuildPaths(root);
+  ctx.cliRelease = cliRelease;
   const manifest = loadPilotManifest(ctx.corpusRoot);
   const allTasks = manifest.tasks;
   if (!allTasks.length) {

@@ -52,8 +52,8 @@ dependencies. These are source observations, not proof of runtime behavior.
 
 ## Existing installations
 
-If the old repository package was globally linked, unlink it, install this
-package, and reinstall the skills:
+If the old repository package was globally linked, unlink it, install the
+standalone release, and reinstall the skills:
 
 ```bash
 npm unlink -g lamina

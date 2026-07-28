@@ -152,6 +152,10 @@ const tmpManifest = JSON.parse(fs.readFileSync(path.join(tmpPilotRoot, 'corpus/m
 const tmpFrozenBefore = snapshotFrozenArtifacts(tmpRoot, tmpManifest);
 const manualPlanPath = path.join(tmpPilotRoot, 'publication/manual-publish-plan.json');
 const manualPlanBefore = fs.existsSync(manualPlanPath) ? fs.readFileSync(manualPlanPath) : null;
+const cliRelease = JSON.parse(fs.readFileSync(path.join(
+  root,
+  'benchmarks/lb6/pilot/harbor/tasks-v3/dev-simple-list-lamina-v3/environment/lamina-release.json',
+), 'utf8'));
 
 runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs', [
   '--tasks',
@@ -166,6 +170,7 @@ buildPilot({
   root: tmpRoot,
   selectedTaskIds: selectedNewTasks,
   sourceSkillCommit: tmpSourceSkillCommit,
+  cliRelease,
 });
 assertFrozenArtifactsUnchanged(tmpRoot, tmpManifest, tmpFrozenBefore);
 

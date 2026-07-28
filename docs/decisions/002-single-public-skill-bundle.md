@@ -55,7 +55,7 @@ root instruction file too large. Rejected.
 
 This would make the bundle self-contained but creates two installation and
 upgrade authorities for graph state. Rejected; the CLI remains an independent
-npm package.
+checksum-verified GitHub Release.
 
 ## Consequences
 

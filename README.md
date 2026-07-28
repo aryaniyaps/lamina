@@ -34,7 +34,7 @@ Install Lamina for this project.
    commit files.
 5. If a command fails, stop and show me
    the exact error.
-5. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
+6. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
    /lamina-init <your product domain and primary users>
 ```
 
@@ -45,6 +45,11 @@ curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
 ```
+
+The installer downloads the matching CLI and private native CocoIndex worker
+from GitHub Releases and verifies both against `SHA256SUMS`. Graph observation
+needs no host Node, npm, Python, `uv`, or virtual environment; graphd remains
+the only process that owns Ladybug.
 
 The install adds the `lamina` router plus 58 focused workflow and craft skills.
 They remain first-class siblings so agents can discover and progressively load
@@ -273,7 +278,8 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm test
 ```
 
-The standalone CLI is published as native assets on the [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
+The standalone CLI and matching private native CocoIndex worker are published
+as checksum-verified assets on the [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
 
 ## License
 
