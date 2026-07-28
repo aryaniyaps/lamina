@@ -31,7 +31,14 @@ if (process.platform === 'win32') {
   fs.symlinkSync('/usr/bin/git', path.join(tools, 'git'));
 }
 const cache = path.join(temp, 'cache');
-const run = (args) => spawnSync(binary, args, { cwd: fixture, encoding: 'utf8', env: { ...process.env, PATH: isolatedPath, XDG_CACHE_HOME: cache } });
+const cacheEnv = process.platform === 'win32'
+  ? { LOCALAPPDATA: cache }
+  : { XDG_CACHE_HOME: cache };
+const run = (args) => spawnSync(binary, args, {
+  cwd: fixture,
+  encoding: 'utf8',
+  env: { ...process.env, PATH: isolatedPath, ...cacheEnv },
+});
 execFileSync('git', ['init', '-b', 'main'], { cwd: fixture });
 execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: fixture });
 execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: fixture });
