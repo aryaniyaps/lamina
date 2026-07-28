@@ -72,7 +72,7 @@ try {
     process.platform === 'win32' ? 'lamina.cmd' : 'lamina',
   );
   assert.equal(fs.existsSync(executable), true);
-  assert.equal(run(executable, ['--version']).stdout.trim(), '0.1.0');
+  assert.equal(run(executable, ['--version']).stdout.trim(), '0.1.1');
 
   execFileSync('git', ['init', '-b', 'main'], { cwd: fixture });
   execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: fixture });

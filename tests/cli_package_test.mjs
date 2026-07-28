@@ -14,7 +14,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(rootPackage.dependencies?.['@ladybugdb/core'], undefined);
 assert.equal(cliPackage.name, '@laminadev/cli');
-assert.equal(cliPackage.version, '0.1.0');
+assert.equal(cliPackage.version, '0.1.1');
 assert.deepEqual(cliPackage.bin, { lamina: './bin/lamina.mjs' });
 assert.equal(cliPackage.engines.node, '>=20');
 assert.equal(cliPackage.license, 'Apache-2.0');
@@ -47,14 +47,14 @@ if (process.platform !== 'win32') {
 assert.equal(
   spawnSync(process.execPath, [
     'scripts/check-cli-release-tag.mjs',
-    'cli-v0.1.0',
+  'cli-v0.1.1',
   ]).status,
   0,
 );
 assert.notEqual(
   spawnSync(process.execPath, [
     'scripts/check-cli-release-tag.mjs',
-    'cli-v0.1.1',
+  'cli-v0.1.2',
   ]).status,
   0,
 );

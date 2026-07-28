@@ -8,6 +8,10 @@ description: "Use only when explicitly invoked as lamina-init. Establish busines
 Before any evidence or graph mutation, read and apply
 `../lamina-orchestrator/prerequisites/cli-required.md`.
 
+For a directory that is not yet a Git project, initialize Git metadata as
+specified by that prerequisite before writing evidence. Do not ask for or
+create an initial commit.
+
 Init writes evidence files only under `.lamina/` and canonical knowledge through graphd. It never edits application source.
 
 ## Evidence artifacts

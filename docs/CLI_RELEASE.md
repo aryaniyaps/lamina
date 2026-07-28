@@ -46,7 +46,7 @@ or newer and an already-published package.
 
 1. Keep `packages/cli/package.json` at the intended stable version.
 2. Ensure `main` is clean and all checks pass.
-3. Create and publish a GitHub Release tagged `cli-v0.1.0`.
+3. Create and publish a GitHub Release tagged `cli-v0.1.1`.
 4. Approve the protected `npm` environment if its rules require approval.
 
 The workflow verifies the tag/version match, installs from the frozen lockfile,
@@ -59,8 +59,8 @@ GitHub OIDC with public access and provenance.
 The workflow runs these gates after publication:
 
 ```bash
-npm view @laminadev/cli@0.1.0 --json
-node tests/cli_tarball_smoke_test.mjs --package @laminadev/cli@0.1.0
+npm view @laminadev/cli@0.1.1 --json
+node tests/cli_tarball_smoke_test.mjs --package @laminadev/cli@0.1.1
 ```
 
 It also installs the registry package in a clean directory and runs
@@ -70,7 +70,7 @@ existing global install:
 
 ```bash
 prefix="$(mktemp -d)"
-npm install --global --prefix "$prefix" @laminadev/cli@0.1.0
+npm install --global --prefix "$prefix" @laminadev/cli@0.1.1
 "$prefix/bin/lamina" --version
 "$prefix/bin/lamina" doctor --json
 ```

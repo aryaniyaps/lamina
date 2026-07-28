@@ -25,8 +25,12 @@ Continue with [Quickstart](/getting-started/quickstart) for the full design → 
 
 ```bash
 npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
+
+Use one active-agent target: `codex`, `claude-code`, or `cursor`. Do not use
+`-a '*'`; it creates configuration for agents that are not part of this
+project.
 
 The CLI and skill set have independent release and installation lifecycles.
 The CLI provides `lamina`; the GitHub install provides the `lamina` router plus
@@ -71,6 +75,20 @@ npm install -g @laminadev/cli@latest
 
 The skills never invoke `npx` for the runtime and never auto-install it.
 
+### Recover from npm `EACCES` without sudo
+
+If `npm install -g` cannot write to its global prefix on macOS or Linux, make
+the prefix user-owned once, then retry. This changes npm configuration and your
+shell PATH; it does not edit project source.
+
+```bash
+mkdir -p "$HOME/.npm-global"
+npm config set prefix "$HOME/.npm-global"
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g @laminadev/cli@latest
+```
+
 ## After install
 
 1. Open the intended **project root** in your coding agent
@@ -83,6 +101,9 @@ The skills never invoke `npx` for the runtime and never auto-install it.
 
 Successful init produces and validates both `.lamina/business-context.md` and `.lamina/personas.json`. Run init **once per project or domain**; use `/lamina-init update` only when the business use case, market, scope, or actor cast materially changes.
 
+If the directory is not a Git project, `/lamina-init` runs `git init -b main`
+before creating evidence. It creates no initial commit and never stages files.
+
 <Callout type="info">
 Not sure which command to run? `/lamina <what you are trying to do>` is an optional router for discovery — not a required setup step and not a substitute for `/lamina-init`.
 </Callout>
@@ -93,7 +114,7 @@ Update the components independently:
 
 ```bash
 npm install -g @laminadev/cli@latest
-npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 
 Start a new agent session after updating.
@@ -106,7 +127,7 @@ installing the standalone package:
 ```bash
 npm unlink -g lamina
 npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 
 Do not delete `.git/lamina`. Existing `graph.lbdb` data is retained; the new

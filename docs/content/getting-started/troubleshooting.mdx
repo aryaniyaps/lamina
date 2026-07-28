@@ -1,7 +1,8 @@
 # Troubleshooting
 
 - `LAMINA_COMPARE_AND_SWAP_FAILED`: rebase the session, query the new head, revalidate, and publish.
-- CLI missing or incompatible: run `npm install -g @laminadev/cli@latest`, then `lamina doctor --json`.
+- CLI missing or incompatible: run `npm install -g @laminadev/cli@latest`, then `lamina doctor --json`. For npm `EACCES`, configure a user-owned npm prefix as documented in Installation; do not use `sudo`.
+- New folder is not a Git project: `/lamina-init` initializes an unborn `main` branch automatically. It does not stage or commit files.
 - graphd unavailable: rerun `lamina graph status`; incompatible protocol daemons restart and stale locks recover without rewriting `graph.lbdb`.
-- observation update incomplete: ensure `uv` is available and rerun `lamina graph observe`; CocoIndex reconciles possible prior states.
+- observation update incomplete: ensure `uv` is available and rerun `lamina graph observe`; CocoIndex reconciles the active source-key set and replaces superseded observations.
 - stale readiness: inspect missing evidence, source snapshot changes, artifact digests, and Contradictions with `lamina graph validate`.

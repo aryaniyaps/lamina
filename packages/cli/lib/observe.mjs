@@ -20,33 +20,6 @@ const ignore = [
 ];
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const excludedNames = new Set(['.git', 'node_modules', '__pycache__', '.next', 'dist', 'build', 'coverage']);
-function excludedSourcePath(relative, name) {
-  const normalized = relative.split(path.sep).join('/');
-  return excludedNames.has(name) ||
-    name.startsWith('.venv') ||
-    normalized === '.lamina/runs' ||
-    normalized.startsWith('.lamina/runs/') ||
-    normalized.includes('/.lamina/runs/') ||
-    normalized === 'benchmarks/results' ||
-    normalized.startsWith('benchmarks/results/') ||
-    normalized.startsWith('evals/fixtures/.vendor-tmp');
-}
-
-function countSourceFiles(directory, prefix = '') {
-  let count = 0;
-  let entries;
-  try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return 0; }
-  for (const entry of entries) {
-    const relative = prefix ? path.join(prefix, entry.name) : entry.name;
-    if (excludedSourcePath(relative, entry.name)) continue;
-    const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) count += countSourceFiles(full, relative);
-    else if (entry.isFile()) count += 1;
-  }
-  return count;
-}
-
 export async function runObservation({
   cwd = process.cwd(),
   live = false,
@@ -87,7 +60,7 @@ export async function runObservation({
       `${digest('generation', { database: paths.database, initialized: Date.now() })}\n`,
     );
   }
-  const generation = fs.readFileSync(targetGenerationFile, 'utf8').trim();
+  let generation = fs.readFileSync(targetGenerationFile, 'utf8').trim();
   const environment = {
     ...process.env,
     COCOINDEX_DB: path.join(paths.cocoindex, 'state.db'),
@@ -113,39 +86,67 @@ export async function runObservation({
   ];
   if (live) args.push('--live');
   args.push('cocoindex_app.py');
-  const result = spawnSync('uv', args, {
-    cwd: packageRoot,
-    env: environment,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  if (result.error) {
-    const error = new Error(`Source observation requires uv: ${result.error.message}`);
-    error.code = 'LAMINA_OBSERVATION_UNAVAILABLE';
-    throw error;
-  }
-  if ((result.status ?? 1) !== 0) {
-    const error = new Error(`CocoIndex observation exited with status ${result.status ?? 1}.`);
-    error.code = 'LAMINA_OBSERVATION_FAILED';
-    error.details = {
-      status: result.status ?? 1,
-      signal: result.signal || null,
-      stderr: String(result.stderr || '').slice(-4_000),
-      stdout: String(result.stdout || '').slice(-4_000),
-    };
-    throw error;
-  }
+  const runCocoindex = () => {
+    const result = spawnSync('uv', args, {
+      cwd: packageRoot,
+      env: environment,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (result.error) {
+      const error = new Error(`Source observation requires uv: ${result.error.message}`);
+      error.code = 'LAMINA_OBSERVATION_UNAVAILABLE';
+      throw error;
+    }
+    if ((result.status ?? 1) !== 0) {
+      const error = new Error(`CocoIndex observation exited with status ${result.status ?? 1}.`);
+      error.code = 'LAMINA_OBSERVATION_FAILED';
+      error.details = {
+        status: result.status ?? 1,
+        signal: result.signal || null,
+        stderr: String(result.stderr || '').slice(-4_000),
+        stdout: String(result.stdout || '').slice(-4_000),
+      };
+      throw error;
+    }
+  };
+  runCocoindex();
 
-  const expected = countSourceFiles(paths.root);
-  const observed = await graphRequest('observation.status', {
-    product: environment.LAMINA_PRODUCT,
-    generation,
-  }, cwd);
-  if (!observed.exists || observed.count !== expected ||
-      (expected > 0 && !observed.source_revisions.includes(paths.source_revision))) {
+  // CocoIndex can return after committing its target-state transaction while
+  // graphd is still applying the final sink batch. Wait briefly for that
+  // committed view instead of treating a successful first pass as incomplete.
+  const observationDeadline = Date.now() + 10_000;
+  let observed;
+  do {
+    observed = await graphRequest('observation.status', {
+      product: environment.LAMINA_PRODUCT,
+      generation,
+    }, cwd);
+    if (observed.exists) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } while (Date.now() < observationDeadline);
+  if (!observed.exists) {
+    // A successful CocoIndex process with no committed target is recoverable:
+    // invalidate the target generation and force one complete reconciliation.
+    const recovery = await graphRequest('observation.invalidate', { product: paths.product }, cwd);
+    generation = recovery.generation;
+    environment.LAMINA_OBSERVATION_GENERATION = generation;
+    runCocoindex();
+    const recoveryDeadline = Date.now() + 10_000;
+    do {
+      observed = await graphRequest('observation.status', {
+        product: environment.LAMINA_PRODUCT,
+        generation,
+      }, cwd);
+      if (observed.exists) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < recoveryDeadline);
+  }
+  if (!observed.exists || observed.count !== observed.source_key_count ||
+      (observed.count > 0 && !observed.source_revisions.includes(paths.source_revision))) {
     const error = new Error('CocoIndex exited without a complete committed graphd target state.');
     error.code = 'LAMINA_OBSERVATION_INCOMPLETE';
-    error.details = { expected, observed };
+    error.details = { expected_source_revision: paths.source_revision, observed };
     throw error;
   }
   return {
@@ -153,7 +154,7 @@ export async function runObservation({
     mode: live ? 'live' : invalidate ? 'rebuild' : discover ? 'discover' : 'observe',
     invalidation,
     generation,
-    expected,
+    expected: observed.source_key_count,
     observed,
     discovery_report: discover ? {
       source_roots: observed.source_roots,

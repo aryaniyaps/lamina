@@ -22,3 +22,8 @@ npm install -g @laminadev/cli@latest
 
 Never invoke the runtime through `npx`, never install it automatically, and
 never fall back to copied or embedded runtime scripts.
+
+If the doctor report has `git.is_project: false`, `/lamina-init` bootstraps the
+project with `git init -b main`, then reruns `lamina doctor --json`. This creates
+Git metadata only: never stage files, create a commit, or edit application
+source. An unborn `main` branch is a supported Lamina graph context.

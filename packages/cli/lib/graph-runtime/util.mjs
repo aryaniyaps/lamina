@@ -23,14 +23,45 @@ export function git(args, cwd = process.cwd()) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
+function optionalGit(args, cwd) {
+  try { return git(args, cwd); } catch { return null; }
+}
+
+function workingTreeDigest(root, files) {
+  const hash = crypto.createHash('sha256');
+  for (const relative of [...new Set(files)].sort()) {
+    const absolute = path.join(root, relative);
+    hash.update('\0');
+    hash.update(relative);
+    hash.update('\0');
+    try {
+      const stat = fs.lstatSync(absolute);
+      hash.update(stat.isSymbolicLink() ? `symlink:${fs.readlinkSync(absolute)}` : fs.readFileSync(absolute));
+    } catch {
+      // The status stream below still records a deletion or a racing file.
+      hash.update('missing');
+    }
+  }
+  return hash.digest('hex').slice(0, 32);
+}
+
 export function repositoryContext(cwd = process.cwd()) {
   const root = git(['rev-parse', '--show-toplevel'], cwd);
   const common = path.resolve(root, git(['rev-parse', '--git-common-dir'], root));
-  const branch = git(['branch', '--show-current'], root) || `detached/${git(['rev-parse', '--short', 'HEAD'], root)}`;
-  const revision = git(['rev-parse', 'HEAD'], root);
+  const revision = optionalGit(['rev-parse', '--verify', '--quiet', 'HEAD'], root);
+  const unborn = !revision;
+  const symbolicBranch = optionalGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], root);
+  const branch = symbolicBranch || (revision
+    ? `detached/${git(['rev-parse', '--short', 'HEAD'], root)}`
+    : 'main');
   const dirty = git(['status', '--porcelain=v1', '--untracked-files=all'], root);
   let sourceRevision = revision;
-  if (dirty) {
+  if (unborn) {
+    const indexed = (optionalGit(['ls-files', '-z'], root) || '').split('\0').filter(Boolean);
+    const untracked = (optionalGit(['ls-files', '--others', '--exclude-standard', '-z'], root) || '').split('\0').filter(Boolean);
+    sourceRevision = `unborn:tree_${workingTreeDigest(root, [...indexed, ...untracked, dirty])}`;
+  }
+  if (dirty && !unborn) {
     const trackedPatch = execFileSync('git', ['diff', '--binary', 'HEAD', '--'], {
       cwd: root,
       encoding: 'buffer',
@@ -58,6 +89,8 @@ export function repositoryContext(cwd = process.cwd()) {
     common,
     branch,
     revision,
+    unborn,
+    dirty: Boolean(dirty) || unborn,
     source_revision: sourceRevision,
     runtime_dir: path.join(common, 'lamina'),
     product: path.basename(path.dirname(common)),

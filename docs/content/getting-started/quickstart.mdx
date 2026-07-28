@@ -2,7 +2,7 @@
 
 ```bash
 npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
 /lamina-init
 /lamina-design
@@ -10,5 +10,8 @@ lamina graph status
 # implement the resolved GraphVersion in a normal coding session
 /lamina-verify
 ```
+
+Use the current agent target (`codex`, `claude-code`, or `cursor`). On a fresh
+folder, `/lamina-init` creates Git metadata without staging or committing files.
 
 Run `lamina graph observe` after source changes. Use `lamina graph diff --base main --head HEAD` for a semantic branch diff.

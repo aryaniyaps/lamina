@@ -76,6 +76,29 @@ try {
   assert.ok(!observations.resources.some((item) => item.data?.path?.endsWith('/run.json')),
     'legacy run directories must remain excluded from source evidence');
 
+  // Agent-specific skills can add hidden/directive folders after the first
+  // pass. A new source snapshot must replace records by source key instead of
+  // retaining duplicates from the prior snapshot.
+  fs.mkdirSync(path.join(root, '.agents'));
+  fs.writeFileSync(path.join(root, '.agents', 'rules.md'), '# Agent rules\n');
+  fs.mkdirSync(path.join(root, '.claude'));
+  fs.writeFileSync(path.join(root, '.claude', 'settings.md'), '# Claude settings\n');
+  fs.mkdirSync(path.join(root, 'agent'));
+  fs.writeFileSync(path.join(root, 'agent', 'settings.json'), '{}\n');
+  result = spawnSync(process.execPath, [cli, 'graph', 'observe'], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 180_000,
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const afterInstallerArtifacts = await graphRequest('observation.status', {
+    product: paths.product,
+    generation: firstGeneration,
+  }, root);
+  assert.equal(afterInstallerArtifacts.count, 9);
+  assert.equal(afterInstallerArtifacts.source_key_count, 9);
+  assert.deepEqual(afterInstallerArtifacts.source_revisions, [runtimePaths(root).source_revision]);
+
   fs.writeFileSync(
     path.join(root, 'src', 'server.js'),
     "app.post('/orders', function createOrderHandler() { authorize(); emit('order.created'); });\n",
@@ -94,7 +117,7 @@ try {
   assert.equal(discovery.discovery_report.extractor_coverage.schemas, 1);
   assert.ok(discovery.discovery_report.ignored_patterns.includes('**/.lamina/runs/**'));
   assert.deepEqual(discovery.observed.source_revisions, [runtimePaths(root).source_revision]);
-  assert.equal(discovery.observed.count, 6);
+  assert.equal(discovery.observed.count, 9);
 
   const noUvBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-no-uv-'));
   const noUvEnvironment = Object.fromEntries(
@@ -140,7 +163,7 @@ try {
     product: paths.product,
     generation: firstGeneration,
   }, root);
-  assert.equal(retried.count, 7);
+  assert.equal(retried.count, 10);
   assert.deepEqual(retried.source_revisions, [runtimePaths(root).source_revision]);
 
   daemonPid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
@@ -164,7 +187,7 @@ try {
     product: paths.product,
     generation: firstGeneration,
   }, root);
-  assert.equal(afterGraphdRestart.count, 8);
+  assert.equal(afterGraphdRestart.count, 11);
   assert.deepEqual(afterGraphdRestart.source_revisions, [runtimePaths(root).source_revision]);
 
   result = spawnSync(process.execPath, [cli, 'graph', 'rebuild-observations'], {
@@ -183,7 +206,7 @@ try {
     generation: secondGeneration,
   }, root);
   assert.equal(rebuilt.exists, true);
-  assert.equal(rebuilt.count, 8);
+  assert.equal(rebuilt.count, 11);
   assert.equal(
     fs.existsSync(path.resolve('packages/cli/__pycache__')),
     false,

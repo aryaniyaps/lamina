@@ -22,12 +22,19 @@ Open your project root, paste this into your AI coding agent, and let it handle 
 Install Lamina for this project.
 
 1. Confirm Node.js 20 or newer is available.
-2. Run:
+2. Install the CLI. If npm reports `EACCES` for its global prefix, configure a
+   user-owned prefix first (never use `sudo`):
    npm install -g @laminadev/cli@latest
-   npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+3. Install all Lamina skills for this active agent only: use `-a codex` in
+   Codex, `-a claude-code` in Claude Code, or `-a cursor` in Cursor. Do not use
+   `-a '*'`.
+   npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
    lamina doctor --json
-3. Do not use sudo and do not edit application source.
-4. If a command fails, stop and show me the exact error.
+4. Do not use sudo and do not edit application source. If this is not yet a
+   Git project, `/lamina-init` may create Git metadata but must not stage or
+   commit files.
+5. If a command fails other than npm global-prefix `EACCES`, stop and show me
+   the exact error.
 5. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
    /lamina-init <your product domain and primary users>
 ```
@@ -36,8 +43,19 @@ Prefer installing it yourself?
 
 ```bash
 npm install -g @laminadev/cli@latest
-npx skills add aryaniyaps/lamina --skill '*' -a '*' -y
+npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
+```
+
+If the global install fails with `EACCES` on macOS or Linux, use a user-owned
+prefix once, then retry (shown for zsh):
+
+```bash
+mkdir -p "$HOME/.npm-global"
+npm config set prefix "$HOME/.npm-global"
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g @laminadev/cli@latest
 ```
 
 The install adds the `lamina` router plus 58 focused workflow and craft skills.
@@ -55,6 +73,9 @@ complete skill set is available.
 ```
 
 Run init once per project or domain. Use `/lamina-init update` only when the business use case, market, scope, or actors materially change.
+
+On a new folder, init creates `.git` with an unborn `main` branch when needed.
+It never stages or creates an initial commit.
 
 `/lamina-design` publishes a validated product contract and returns an implementation projection for your coding agent.
 

@@ -256,6 +256,7 @@ export class GraphEngine {
     const sourceCommit = (value) => value?.startsWith('dirty:')
       ? value.split(':', 3)[1]
       : value;
+    if (!revision || revision.startsWith('unborn:')) return null;
     const revisionCommit = sourceCommit(revision);
     let ancestors;
     try { ancestors = git(['rev-list', revisionCommit], this.paths.root); } catch { return null; }
@@ -295,7 +296,7 @@ export class GraphEngine {
 
   graphParents(currentHead, sourceRevision) {
     const parents = new Map([[currentHead.id, currentHead]]);
-    if (sourceRevision.startsWith('dirty:')) return [...parents.values()];
+    if (sourceRevision.startsWith('dirty:') || sourceRevision.startsWith('unborn:')) return [...parents.values()];
     try {
       const [, ...gitParents] = git(['rev-list', '--parents', '-n', '1', sourceRevision], this.paths.root).split(/\s+/);
       if (gitParents.length < 2) return [...parents.values()];
@@ -1434,6 +1435,34 @@ export class GraphEngine {
           kind: 'observation',
           data: { ...envelope, id: expected },
         }, 'observation');
+        // Source snapshots intentionally change whenever the working tree changes.
+        // Keep exactly one active observation per source key/extractor in this view;
+        // historical evidence resources remain intact when referenced elsewhere.
+        const superseded = this.query(
+          'MATCH (v:GraphView {id: $view})-[:VIEW_RES]->(r:Resource {kind: $kind}) RETURN r.id AS id, r.data AS data',
+          { view: viewId, kind: 'observation' },
+        ).filter((item) => item.id !== result.id &&
+          item.data?.source_key === envelope.source_key &&
+          item.data?.extractor?.id === envelope.extractor.id &&
+          item.data?.extractor?.version === envelope.extractor.version);
+        for (const item of superseded) {
+          this.query(
+            'MATCH (v:GraphView {id: $view})-[edge:VIEW_RES]->(r:Resource {id: $id}) DELETE edge',
+            { view: viewId, id: item.id },
+          );
+        }
+        for (const item of superseded) {
+          const retained = this.query(
+            `MATCH (r:Resource {id: $id})
+             OPTIONAL MATCH (:GraphView)-[viewRef:VIEW_RES]->(r)
+             OPTIONAL MATCH (:Statement)-[evidenceRef:SUPPORTED_BY]->(r)
+             RETURN count(viewRef) + count(evidenceRef) AS refs`,
+            { id: item.id },
+          )[0];
+          if (retained && Number(retained.refs) === 0) {
+            this.query('MATCH (r:Resource {id: $id}) DETACH DELETE r', { id: item.id });
+          }
+        }
         const linked = this.query('MATCH (v:GraphView {id: $view})-[:VIEW_RES]->(r:Resource {id: $id}) RETURN r.id AS id', { view: viewId, id: result.id })[0];
         if (!linked) this.query('MATCH (v:GraphView {id: $view}), (r:Resource {id: $id}) CREATE (v)-[:VIEW_RES]->(r)', { view: viewId, id: result.id });
       }
@@ -1476,6 +1505,7 @@ export class GraphEngine {
       exists: true,
       view: viewId,
       count: observations.length,
+      source_key_count: new Set(observations.map((item) => item.data?.source_key).filter(Boolean)).size,
       source_revisions: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_revision).filter(Boolean))].sort(),
       source_roots: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_root).filter(Boolean))].sort(),
       extractors: [...new Set(observations.map((item) => {

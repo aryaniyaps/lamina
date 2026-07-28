@@ -46,7 +46,8 @@ function gitProject(cwd) {
       branch: context.branch,
       revision: context.revision,
       source_revision: context.source_revision,
-      dirty: context.source_revision.startsWith('dirty:'),
+      dirty: context.dirty,
+      unborn: context.unborn,
     };
   } catch {
     return {
