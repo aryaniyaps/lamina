@@ -123,7 +123,6 @@ export async function ensureGraphd(cwd = process.cwd()) {
   if (response || processIsRunning(lock?.pid)) {
     await stopIncompatibleServer(paths, response?.result?.pid);
   }
-  const server = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs');
   const debug = process.env.LAMINA_GRAPHD_DEBUG === '1';
   const logPath = path.join(paths.runtime_dir, 'graphd.log');
   const log = debug ? null : fs.openSync(logPath, 'a', 0o600);
@@ -132,7 +131,12 @@ export async function ensureGraphd(cwd = process.cwd()) {
   }
   let child;
   try {
-    child = spawn(process.execPath, [server, paths.root], {
+    // A standalone build re-enters its own SEA bootstrap.  Source/development
+    // execution keeps using the JavaScript server entrypoint.
+    const daemonArgs = process.env.LAMINA_STANDALONE === '1'
+      ? ['--graphd', paths.root]
+      : [path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs'), paths.root];
+    child = spawn(process.execPath, daemonArgs, {
       detached: true,
       stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
       cwd: paths.root,

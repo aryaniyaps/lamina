@@ -3,7 +3,7 @@
 Lamina gives AI coding agents a centralized, transactional product graph.
 
 ```text
-Sources ──▶ CocoIndex ──observations──▶ graphd ──▶ Ladybug
+Sources ──▶ managed observer ──observations──▶ graphd ──▶ Ladybug
 Agents  ──typed proposals─────────────▶ graphd ──▶ Ladybug
 Runs    ──normalized evidence─────────▶ graphd ──▶ Ladybug + evidence CAS
 ```
@@ -13,7 +13,7 @@ Ladybug is the canonical local knowledge graph. It stores stable Resources, norm
 ## Start
 
 ```bash
-npm install -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
 /lamina-init

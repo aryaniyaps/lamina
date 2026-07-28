@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import os from 'node:os';
-import { spawnSync } from 'node:child_process';
 import { CLI_API_VERSION, GRAPH_PROTOCOL_VERSION } from './graph-runtime/constants.mjs';
 import { repositoryContext } from './graph-runtime/util.mjs';
 
@@ -21,18 +20,6 @@ export function platformSupport(platform = process.platform, arch = process.arch
     arch,
     supported,
     transport: platform === 'win32' ? 'windows_named_pipe' : 'unix_domain_socket',
-  };
-}
-
-function toolResult(command, args) {
-  const result = spawnSync(command, args, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-    windowsHide: true,
-  });
-  return {
-    available: !result.error && result.status === 0,
-    output: String(result.stdout || '').trim() || null,
   };
 }
 
@@ -66,14 +53,10 @@ export function doctorReport(cwd = process.cwd()) {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   const nodeCompatible = Number.isInteger(nodeMajor) && nodeMajor >= 20;
   const platform = platformSupport();
-  const uv = toolResult('uv', ['--version']);
-  const python = uv.available
-    ? toolResult('uv', ['python', 'find', '3.13'])
-    : { available: false, output: null };
   return {
     ok: nodeCompatible && platform.supported,
     cli: {
-      package: packageMetadata.name,
+      package: 'lamina',
       version: CLI_VERSION,
       api_version: CLI_API_VERSION,
     },
@@ -90,11 +73,11 @@ export function doctorReport(cwd = process.cwd()) {
     observation: {
       optional: true,
       required_for_core_graph: false,
-      uv_available: uv.available,
-      uv_version: uv.output,
-      python_3_13_available: python.available,
-      python_path: python.output,
-      ready: platform.supported && uv.available && python.available,
+      backend: 'cocoindex',
+      managed: true,
+      external_runtime_required: false,
+      runtime: 'native_cocoindex_worker',
+      ready: platform.supported,
     },
     host: {
       release: os.release(),

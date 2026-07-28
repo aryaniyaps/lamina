@@ -1,4 +1,4 @@
-# `@laminadev/cli`
+# Lamina standalone CLI
 
 The Lamina CLI is the standalone Node.js runtime for Lamina's transactional
 product graph. It installs the `lamina` command and can be used independently
@@ -7,14 +7,16 @@ of the Lamina agent skills.
 ## Install
 
 ```bash
-npm install -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 lamina --version
 lamina doctor --json
 ```
 
-Node.js 20 or newer is required. Core graph, session, and mission commands are
-Node-only. Source observation additionally requires `uv`; the package carries
-its pinned CocoIndex Python project.
+The standalone release includes its own Node runtime and downloads a
+checksum-verified, platform-native CocoIndex worker into its private versioned
+runtime cache. Observation needs no host Python, `uv`, venv, npm, or first-run
+dependency download. The worker submits observations to graphd; it never opens
+Ladybug directly.
 
 Install the skills independently from GitHub:
 
@@ -25,7 +27,7 @@ npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 For the complete setup:
 
 ```bash
-npm install -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 
@@ -39,8 +41,9 @@ lamina graph rebuild-observations
 ```
 
 `rebuild-observations` invalidates the current observation generation and then
-performs a complete observation pass. CocoIndex assets are always resolved
-from this installed package, not from the target repository.
+performs a complete observation pass. Runtime state is private to the Git
+common directory at `.git/lamina/cocoindex`; the observer only sends
+authenticated batches to graphd and never opens Ladybug directly.
 
 `discover --brownfield` returns deterministic coverage signals for entry
 points, commands, routes, handlers, schemas/entities, state transitions,
@@ -54,7 +57,7 @@ package, and reinstall the skills:
 
 ```bash
 npm unlink -g lamina
-npm install -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 

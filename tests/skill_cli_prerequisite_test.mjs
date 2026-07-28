@@ -13,7 +13,7 @@ const commandSkills = new Map([
 
 assert.match(contract, /lamina doctor --json/);
 assert.match(contract, /cli\.api_version` is exactly `1/);
-assert.match(contract, /npm install -g @laminadev\/cli@latest/);
+assert.match(contract, /standalone Lamina CLI from https:\/\/github\.com\/aryaniyaps\/lamina\/releases\/latest/);
 assert.match(contract, /stop before any graph or evidence mutation/);
 assert.match(contract, /Never invoke the runtime through `npx`/);
 assert.match(contract, /never install it automatically/);

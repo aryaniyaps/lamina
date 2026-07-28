@@ -20,7 +20,7 @@ by skill name. They benefit from the agent skill system's normal progressive
 loading model. The installation and eval harnesses can still guarantee that
 the complete set is present without collapsing the public catalog.
 
-The independently installed `@laminadev/cli` remains the sole owner of graphd,
+The independently installed standalone `lamina` executable remains the sole owner of graphd,
 Ladybug, CocoIndex, and graph commands. This decision changes only skill
 discovery and packaging.
 

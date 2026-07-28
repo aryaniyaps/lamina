@@ -16,7 +16,7 @@ only a route module, omit required orchestration material, or flood an agent's
 public skill catalog with internal craft capabilities.
 
 The CLI and skill bundle have different release jobs. The independently
-installed `@laminadev/cli` owns graphd, Ladybug, CocoIndex, and graph commands.
+installed standalone `lamina` executable owns graphd, Ladybug, CocoIndex, and graph commands.
 The GitHub skill installer must deliver every workflow and supporting craft
 module needed to use that CLI without embedding a second runtime.
 

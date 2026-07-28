@@ -11,6 +11,11 @@ promptfoo-output/
 jobs/
 .env
 
+# Native CocoIndex worker build intermediates
+*.spec
+build/
+dist/
+
 # skills CLI pollution (must never live at repo root)
 # includes external skills from ../skills via `npm run setup:external-skills`
 .agents/

@@ -94,13 +94,13 @@ function agentTimeoutForArm(arm) {
   return total;
 }
 
-function dockerfile(arm = 'direct', cliTarballSha256 = null) {
+function dockerfile(arm = 'direct', cliBinarySha256 = null, cliVersion = null) {
   const laminaRuntime = arm === 'lamina'
     ? (
-        'COPY lamina-cli.tgz /tmp/lamina-cli.tgz\n' +
-        `RUN test "$(sha256sum /tmp/lamina-cli.tgz | cut -d' ' -f1)" = "${cliTarballSha256}" \\\n` +
-        '    && npm install -g /tmp/lamina-cli.tgz \\\n' +
-        '    && rm /tmp/lamina-cli.tgz \\\n' +
+        'COPY lamina-release.json /tmp/lamina-release.json\n' +
+        `RUN test "$(node -p \"require('/tmp/lamina-release.json').sha256\")" = "${cliBinarySha256}" \\\n` +
+        `    && test "$(node -p \"require('/tmp/lamina-release.json').version\")" = "${cliVersion}" \\\n` +
+        `    && curl -fsSL https://github.com/aryaniyaps/lamina/releases/download/cli-v${cliVersion}/install.sh | sh \\\n` +
         '    && lamina --version\n'
       )
     : '';
@@ -133,22 +133,21 @@ function dockerfile(arm = 'direct', cliTarballSha256 = null) {
 }
 
 function packCli(root, environmentDir) {
-  const packDir = fs.mkdtempSync(path.join(environmentDir, '.cli-pack-'));
+  const packDir = fs.mkdtempSync(path.join(environmentDir, '.cli-build-'));
   try {
-    const packed = spawnSync(
-      'npm',
-      ['pack', path.join(root, 'packages/cli'), '--silent', '--pack-destination', packDir],
-      { cwd: root, encoding: 'utf8' },
+    const built = spawnSync(
+      process.execPath, ['scripts/build-standalone-cli.mjs'],
+      { cwd: root, encoding: 'utf8', env: { ...process.env, LAMINA_SEA_TARGET: 'linux-x64', LAMINA_DIST_DIR: packDir } },
     );
-    if (packed.status !== 0) {
-      throw new Error(`failed to pack local Lamina CLI: ${packed.stderr || packed.stdout}`);
+    if (built.status !== 0) {
+      throw new Error(`failed to build local Lamina CLI: ${built.stderr || built.stdout}`);
     }
-    const tarballs = fs.readdirSync(packDir).filter((name) => name.endsWith('.tgz'));
-    if (tarballs.length !== 1) throw new Error(`expected one Lamina CLI tarball; found ${tarballs.length}`);
-    const source = path.join(packDir, tarballs[0]);
-    const destination = path.join(environmentDir, 'lamina-cli.tgz');
-    fs.copyFileSync(source, destination);
-    return createHash('sha256').update(fs.readFileSync(destination)).digest('hex');
+    const source = path.join(packDir, 'lamina-linux-x64');
+    if (!fs.existsSync(source)) throw new Error('standalone Linux CLI build did not produce lamina-linux-x64');
+    const binary = fs.readFileSync(source);
+    const sha256 = createHash('sha256').update(binary).digest('hex');
+    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), JSON.stringify({ version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version, sha256 }, null, 2) + '\n');
+    return { sha256, version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version };
   } finally {
     fs.rmSync(packDir, { recursive: true, force: true });
   }
@@ -586,10 +585,10 @@ function writeTask(task, arm, ctx) {
   fs.rmSync(privateDir, { recursive: true, force: true });
 
   fs.writeFileSync(path.join(dir, 'task.toml'), taskToml(task, arm));
-  const cliTarballSha256 = arm === 'lamina'
+  const cliRelease = arm === 'lamina'
     ? packCli(ctx.root, path.join(dir, 'environment'))
     : null;
-  fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile(arm, cliTarballSha256));
+  fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile(arm, cliRelease?.sha256, cliRelease?.version));
 }
 
 export { parseSelectedTaskIds } from '../lib/frozen-tasks.mjs';

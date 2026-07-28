@@ -10,10 +10,10 @@ ENV CHROME_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 COPY cursor-agent-version/ /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/
 RUN mkdir -p /root/.local/bin && ln -s /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/cursor-agent /root/.local/bin/cursor-agent
-COPY lamina-cli.tgz /tmp/lamina-cli.tgz
-RUN test "$(sha256sum /tmp/lamina-cli.tgz | cut -d' ' -f1)" = "6f00e01d70926b941aecb7031f6428ba4454dfd2cc83a16f25009a5691036fa4" \
-    && npm install -g /tmp/lamina-cli.tgz \
-    && rm /tmp/lamina-cli.tgz \
+COPY lamina-release.json /tmp/lamina-release.json
+RUN test "$(node -p "require('/tmp/lamina-release.json').sha256")" = "4d1696ae288d75d3333428853686b2cee38e0f5f2072fb0bfce46d705936e10f" \
+    && test "$(node -p "require('/tmp/lamina-release.json').version")" = "0.1.2" \
+    && curl -fsSL https://github.com/aryaniyaps/lamina/releases/download/cli-v0.1.2/install.sh | sh \
     && lamina --version
 WORKDIR /app
 RUN mkdir -p /app

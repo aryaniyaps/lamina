@@ -1,70 +1,82 @@
-name: Publish Lamina CLI
+name: Publish Lamina standalone CLI
 
 on:
   release:
     types: [published]
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write
 
 jobs:
-  publish:
+  build:
     if: startsWith(github.event.release.tag_name, 'cli-v')
-    runs-on: ubuntu-latest
-    environment: npm
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: darwin-arm64
+          - runner: macos-13
+            target: darwin-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
+          - runner: windows-2025
+            target: win32-x64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '22'
           package-manager-cache: false
-
-      - uses: astral-sh/setup-uv@v9.0.0
-
-      - name: Verify release identity
+      - uses: astral-sh/setup-uv@v9
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: corepack pnpm install --frozen-lockfile
+      - name: Verify release identity and source contracts
         run: |
           node scripts/check-cli-release-tag.mjs "${{ github.event.release.tag_name }}"
-          node -e "const [a,b,c] = process.argv[1].split('.').map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) process.exit(1)" "$(npm --version)"
+          corepack pnpm test:cli
+          node tests/transactional_graph_test.mjs
+          node tests/graphd_protocol_test.mjs
+          node tests/graphd_long_socket_test.mjs
+      - name: Build native executable
+        env:
+          LAMINA_SEA_TARGET: ${{ matrix.target }}
+        run: node scripts/build-standalone-cli.mjs
+      - name: Verify isolated native assets
+        env:
+          LAMINA_BINARY: dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
+          LAMINA_WORKER: dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: node tests/cli_binary_smoke_test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lamina-${{ matrix.target }}
+          path: dist/lamina-*
 
-      - name: Frozen install
-        run: corepack pnpm install --frozen-lockfile
-
-      - name: Test repository, CLI, and skill compatibility
+  release-assets:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Add checksums and installers
         run: |
-          corepack pnpm test
-          corepack pnpm test:eval:spec
-          corepack pnpm test:eval:validate
-          corepack pnpm test:eval:compat
-
-      - name: Pack and audit exact publication contents
-        id: pack
-        run: |
-          mkdir -p dist
-          npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
-          node scripts/audit-cli-pack.mjs cli-pack.json
-          TARBALL="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
-          VERSION="$(node -p "require('./cli-pack.json')[0].version")"
-          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Install tarball in a clean fixture
-        run: node tests/cli_tarball_smoke_test.mjs --tarball "${{ steps.pack.outputs.tarball }}"
-
-      - name: Publish through npm trusted publishing
-        run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance
-
-      - name: Verify registry package and provenance
-        run: |
-          npm view "@laminadev/cli@${{ steps.pack.outputs.version }}" --json
-          node tests/cli_tarball_smoke_test.mjs --package "@laminadev/cli@${{ steps.pack.outputs.version }}"
-          mkdir registry-audit
-          cd registry-audit
-          npm init -y
-          npm install "@laminadev/cli@${{ steps.pack.outputs.version }}"
-          npm audit signatures
+          chmod +x scripts/install.sh
+          cp scripts/install.sh dist/install.sh
+          cp scripts/install.ps1 dist/install.ps1
+          cd dist
+          sha256sum lamina-* > SHA256SUMS
+      - name: Verify Linux release installer and checksum rejection
+        env:
+          LAMINA_RELEASE_DIR: ${{ github.workspace }}/dist
+        run: node tests/release_artifact_smoke_test.mjs
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

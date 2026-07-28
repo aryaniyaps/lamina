@@ -17,7 +17,7 @@ not 1, stop before any graph or evidence mutation and print this exact
 installation instruction:
 
 ```text
-npm install -g @laminadev/cli@latest
+Install the standalone Lamina CLI from https://github.com/aryaniyaps/lamina/releases/latest, then run lamina doctor --json.
 ```
 
 Never invoke the runtime through `npx`, never install it automatically, and

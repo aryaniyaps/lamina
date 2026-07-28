@@ -39,7 +39,7 @@
       "reason": "Harbor registry authentication is not configured; publication remains blocked by operator choice",
       "credentialSource": "none",
       "harborApiKey": "absent",
-      "detail": "Not authenticated. Run `harbor auth login`.",
+      "detail": "Logged in as aryaniyaps (API key sk-harbor-Bpl5FntosLR6 <redacted> <redacted>…)",
       "distinctFrom": "cursor_local_auth"
     },
     {

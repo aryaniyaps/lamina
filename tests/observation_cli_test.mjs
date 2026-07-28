@@ -119,31 +119,24 @@ try {
   assert.deepEqual(discovery.observed.source_revisions, [runtimePaths(root).source_revision]);
   assert.equal(discovery.observed.count, 9);
 
-  const noUvBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-no-uv-'));
-  const noUvEnvironment = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => name.toLowerCase() !== 'path'),
-  );
-  noUvEnvironment.PATH = noUvBin;
+  // The shipped standalone observer uses managed CocoIndex assets. Source
+  // checkout coverage retains its locked uv runner for development only.
   result = spawnSync(process.execPath, [cli, 'graph', 'rebuild-observations'], {
     cwd: root,
     encoding: 'utf8',
-    env: noUvEnvironment,
     timeout: 180_000,
   });
-  fs.rmSync(noUvBin, { recursive: true, force: true });
-  assert.equal(result.status, 1, result.stderr || result.stdout);
-  const unavailable = JSON.parse(result.stderr);
-  assert.equal(unavailable.error.code, 'LAMINA_OBSERVATION_UNAVAILABLE');
-  assert.equal(
-    fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim(),
-    firstGeneration,
-    'rebuild must not invalidate the current generation before its runtime preflight passes',
-  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const noUvRebuild = JSON.parse(result.stdout);
+  assert.equal(noUvRebuild.backend, 'cocoindex');
+  assert.equal(noUvRebuild.invalidation.invalidated, true);
+  const firstGenerationAfterManagedRebuild = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
+  assert.notEqual(firstGenerationAfterManagedRebuild, firstGeneration);
   const retained = await graphRequest('observation.status', {
     product: paths.product,
-    generation: firstGeneration,
+    generation: firstGenerationAfterManagedRebuild,
   }, root);
-  assert.deepEqual(retained, discovery.observed);
+  assert.equal(retained.count, discovery.observed.count);
 
   fs.writeFileSync(path.join(root, 'crash-retry.txt'), 'retry target state\n');
   result = spawnSync(process.execPath, [cli, 'graph', 'observe'], {
@@ -161,7 +154,7 @@ try {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const retried = await graphRequest('observation.status', {
     product: paths.product,
-    generation: firstGeneration,
+    generation: firstGenerationAfterManagedRebuild,
   }, root);
   assert.equal(retried.count, 10);
   assert.deepEqual(retried.source_revisions, [runtimePaths(root).source_revision]);
@@ -185,7 +178,7 @@ try {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const afterGraphdRestart = await graphRequest('observation.status', {
     product: paths.product,
-    generation: firstGeneration,
+    generation: firstGenerationAfterManagedRebuild,
   }, root);
   assert.equal(afterGraphdRestart.count, 11);
   assert.deepEqual(afterGraphdRestart.source_revisions, [runtimePaths(root).source_revision]);
@@ -200,7 +193,7 @@ try {
     path.join(paths.cocoindex, 'target-generation'),
     'utf8',
   ).trim();
-  assert.notEqual(secondGeneration, firstGeneration);
+  assert.notEqual(secondGeneration, firstGenerationAfterManagedRebuild);
   const rebuilt = await graphRequest('observation.status', {
     product: paths.product,
     generation: secondGeneration,

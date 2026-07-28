@@ -117,7 +117,7 @@ source revision.
   rebase instead of overwriting one another.
 - Git merges create multi-parent GraphVersions; incompatible parent facts
   become first-class Contradictions.
-- Observation caches and managed Python environments may be deleted and
+- Observation caches and the private CocoIndex worker cache may be deleted and
   rebuilt without changing canonical claims.
 - Separate clones do not share graph state automatically in v1.
 - Database-format upgrades require explicit migration or backup/restore

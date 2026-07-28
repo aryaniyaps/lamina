@@ -22,9 +22,9 @@ named validation are both present.
 | Markdown is a version-pinned query projection only | design/verify workflow contracts | graph eval assertions and benchmark treatment gate |
 | All workflow and craft skills are first-class siblings | `skills/lamina` plus 58 `skills/lamina-*` directories | `verify_lamina_bundle.mjs`, `eval_install_all_skills_test.mjs` |
 | Every eval run loads the complete cross-referenced skill set | ASE and multi-turn install hooks copy all 59 public skills before invocation | `ase_run.py`, `eval_install_all_skills_test.mjs` |
-| CLI and skills are independently installable | `packages/cli` npm package and root GitHub skill | `cli_tarball_smoke_test.mjs`, `eval_graph_runtime_install_test.mjs` |
+| CLI and skills are independently installable | checksum-verified standalone CLI release assets and root GitHub skill | `cli_binary_smoke_test.mjs`, `release_artifact_smoke_test.mjs`, `eval_graph_runtime_install_test.mjs` |
 | Current evals exercise graph state rather than legacy artifacts | live graph assertions in `evals/hooks/grade-lamina.mjs` | 119-case generation/validation and graph grader tests |
-| Current Lamina benchmark cells install and enforce the graph runtime | packaged CLI tarball, graph backups, fail-closed treatment gate | `validate-transactional-pilot.mjs`, `behavior_benchmark_test.mjs` |
+| Current Lamina benchmark cells install and enforce the graph runtime | standalone CLI release contract, graph backups, fail-closed treatment gate | `validate-transactional-pilot.mjs`, `behavior_benchmark_test.mjs` |
 
 Intentionally deferred v1 work remains outside the accepted plan: cross-clone
 graph synchronization, distributed consensus, arbitrary project-supplied

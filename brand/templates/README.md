@@ -43,7 +43,7 @@ Stop doing edge-case archaeology mid-sprint. Lamina front-loads product thinking
 ### Cursor
 
 ```bash
-npm install -g @laminadev/cli@latest
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a cursor -y
 ```
 
@@ -52,14 +52,14 @@ Then invoke with `/lamina-design`, `/lamina-verify`, or ask: *"Use Lamina to des
 ### Claude Code
 
 ```bash
-npm install -g @laminadev/cli@latest
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a claude-code -y
 ```
 
 ### Codex / Pi / Generic
 
 ```bash
-npm install -g @laminadev/cli@latest
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a codex -a pi -y
 ```
 

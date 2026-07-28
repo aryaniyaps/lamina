@@ -21,19 +21,18 @@ Open your project root, paste this into your AI coding agent, and let it handle 
 ```text
 Install Lamina for this project.
 
-1. Confirm Node.js 20 or newer is available.
-2. Install the CLI. If npm reports `EACCES` for its global prefix, configure a
-   user-owned prefix first (never use `sudo`):
-   npm install -g @laminadev/cli@latest
+1. Install the standalone Lamina CLI (no Node.js or npm required):
+   macOS/Linux: curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
+   Windows PowerShell: iwr https://github.com/aryaniyaps/lamina/releases/latest/download/install.ps1 -UseBasicParsing | iex
+2. Run: lamina doctor --json
 3. Install all Lamina skills for this active agent only: use `-a codex` in
    Codex, `-a claude-code` in Claude Code, or `-a cursor` in Cursor. Do not use
    `-a '*'`.
    npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
-   lamina doctor --json
-4. Do not use sudo and do not edit application source. If this is not yet a
+4. Node.js/npm are required only for the preceding `npx skills` command. Do not use sudo and do not edit application source. If this is not yet a
    Git project, `/lamina-init` may create Git metadata but must not stage or
    commit files.
-5. If a command fails other than npm global-prefix `EACCES`, stop and show me
+5. If a command fails, stop and show me
    the exact error.
 5. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
    /lamina-init <your product domain and primary users>
@@ -42,20 +41,9 @@ Install Lamina for this project.
 Prefer installing it yourself?
 
 ```bash
-npm install -g @laminadev/cli@latest
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
-```
-
-If the global install fails with `EACCES` on macOS or Linux, use a user-owned
-prefix once, then retry (shown for zsh):
-
-```bash
-mkdir -p "$HOME/.npm-global"
-npm config set prefix "$HOME/.npm-global"
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
-export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g @laminadev/cli@latest
 ```
 
 The install adds the `lamina` router plus 58 focused workflow and craft skills.
@@ -139,7 +127,7 @@ Lamina keeps a local transactional product graph for each Git repository:
 - Multi-part design changes publish atomically: the whole change lands, or none of it does.
 - Conflicting facts remain visible as contradictions instead of silently overwriting each other.
 - Every relevant persona gets an independent verification mission.
-- CocoIndex observes source changes; `graphd` owns the canonical Ladybug graph.
+- Lamina's managed observer derives source observations; `graphd` owns the canonical Ladybug graph.
 
 Use `lamina graph status` to inspect the active graph. See the [transactional graph reference](docs/content/reference/transactional-graph.mdx) for Resources, Statements, sessions, GraphVersions, missions, evidence, and the complete CLI.
 
@@ -285,7 +273,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm test
 ```
 
-The CLI is published separately as [`@laminadev/cli`](packages/cli).
+The standalone CLI is published as native assets on the [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
 
 ## License
 

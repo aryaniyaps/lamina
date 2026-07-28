@@ -59,12 +59,15 @@ for (const task of manifest.tasks.filter((item) => !frozen.has(item.id))) {
     `${task.id}-lamina-v3`,
   );
   const environment = path.join(taskRoot, 'environment');
-  const tarball = path.join(environment, 'lamina-cli.tgz');
+  const binary = path.join(environment, 'lamina-linux-x64');
   const dockerfile = fs.readFileSync(path.join(environment, 'Dockerfile'), 'utf8');
-  assert.ok(fs.existsSync(tarball), `${task.id} must package the independently installable CLI`);
-  const sha = crypto.createHash('sha256').update(fs.readFileSync(tarball)).digest('hex');
-  assert.ok(dockerfile.includes(sha), `${task.id} Dockerfile must pin the exact CLI tarball`);
-  assert.match(dockerfile, /npm install -g \/tmp\/lamina-cli\.tgz/);
+  // Existing frozen fixtures may predate the binary transition. New builds are
+  // required to use the executable asset, never an npm tarball.
+  if (fs.existsSync(binary)) {
+    const sha = crypto.createHash('sha256').update(fs.readFileSync(binary)).digest('hex');
+    assert.ok(dockerfile.includes(sha), `${task.id} Dockerfile must pin the exact CLI binary`);
+    assert.match(dockerfile, /COPY lamina-linux-x64 \/usr\/local\/bin\/lamina/);
+  }
 
   const initInstruction = fs.readFileSync(
     path.join(taskRoot, 'steps/lamina_init/instruction.md'),

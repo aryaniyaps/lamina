@@ -46,7 +46,17 @@ runtime inputs during normal operation.
 
 ## Source observations
 
-`lamina graph observe` runs the pinned CocoIndex v1 App shipped in the installed npm package. Each file produces an explicit Observation envelope with snapshot, content hash, locator, extractor identity/version, and normalized payload. The payload includes deterministic brownfield signals for entry points, commands, routes, handlers, schemas/entities, state transitions, permissions, events, tests, documentation/personas, feature flags, and dependencies. `.lamina/business-context.md` and `.lamina/personas.json` are source evidence; legacy `.lamina/runs/` remains excluded and has no runtime meaning. A custom target sends authenticated idempotent upsert/delete batches over the local transport. CocoIndex never opens Ladybug.
+`lamina graph observe` runs the managed, platform-native CocoIndex worker from
+the standalone release's private cache. Each file produces an explicit
+Observation envelope with snapshot, content hash, locator, extractor
+identity/version, and normalized payload. The payload includes deterministic
+brownfield signals for entry points, commands, routes, handlers,
+schemas/entities, state transitions, permissions, events, tests,
+documentation/personas, feature flags, and dependencies.
+`.lamina/business-context.md` and `.lamina/personas.json` are source evidence;
+legacy `.lamina/runs/` remains excluded and has no runtime meaning. The worker
+sends authenticated idempotent upsert/delete batches over the local transport
+and never opens Ladybug.
 
 `lamina graph discover --brownfield` performs the same incremental observation update and returns a coverage report, unsupported-source counts, stale snapshots, and explicit static-analysis limitations. Absence of an Observation is never treated as evidence that behavior does not exist.
 

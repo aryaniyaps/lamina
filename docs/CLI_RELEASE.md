@@ -1,76 +1,26 @@
 # CLI release runbook
 
-`@laminadev/cli` releases independently from the GitHub-installed skills.
-Stable releases are published only by `.github/workflows/publish-cli.yml` from
-a GitHub Release named `cli-v<packages/cli version>`.
+The Lamina CLI is released as native standalone executables attached to the
+`cli-v<version>` GitHub Release. It is not an npm package.
 
-## One-time bootstrap
+1. Update `packages/cli/package.json` and verify the tag matches:
 
-The npm package must exist before npm can attach a trusted publisher. In a
-clean temporary clone, use a manually authenticated npm account with package
-write access and 2FA:
+   ```bash
+   node scripts/check-cli-release-tag.mjs cli-v0.1.2
+   corepack pnpm test:cli
+   ```
 
-```bash
-npm install -g npm@^11.15.0
-npm login
-npm version 0.1.0-beta.0 --prefix packages/cli --no-git-tag-version
-npm pack ./packages/cli --json --pack-destination dist > cli-pack.json
-node scripts/audit-cli-pack.mjs cli-pack.json
-tarball="$(node -p "'./dist/' + require('./cli-pack.json')[0].filename")"
-npm publish "$tarball" --access public --tag bootstrap --provenance=false
-```
+2. Create and publish the `cli-v<version>` GitHub Release from the intended
+   commit. The release workflow builds macOS arm64/x64, Linux glibc arm64/x64,
+   and Windows x64 on their native runners, then attaches the executables,
+   `SHA256SUMS`, `install.sh`, and `install.ps1`.
 
-Do not commit the temporary beta version change. Confirm
-`npm view @laminadev/cli@bootstrap version` returns `0.1.0-beta.0`.
-The bootstrap explicitly disables provenance because npm can only generate
-provenance from a supported cloud CI runner; the stable OIDC release restores
-the provenance requirement.
+3. Download one asset per supported target. Verify its `SHA256SUMS` entry,
+   run `lamina --version` and `lamina doctor --json` with no system Node/npm on
+   `PATH`, and exercise a graph/session lifecycle plus daemon restart.
 
-Create and protect a GitHub environment named `npm`, require maintainer review,
-and restrict deployment tags to `cli-v*`. Then configure npm trust for the
-exact repository, workflow filename, environment, and publish action:
+4. Confirm the release page exposes all five binaries and both installers.
+   Do not publish, audit, or verify a registry package.
 
-```bash
-npm trust github @laminadev/cli \
-  --file publish-cli.yml \
-  --repo aryaniyaps/lamina \
-  --env npm \
-  --allow-publish \
-  --yes
-```
-
-The npm account must have 2FA enabled. The trust command requires npm 11.15.0
-or newer and an already-published package.
-
-## Stable release
-
-1. Keep `packages/cli/package.json` at the intended stable version.
-2. Ensure `main` is clean and all checks pass.
-3. Create and publish a GitHub Release tagged `cli-v0.1.1`.
-4. Approve the protected `npm` environment if its rules require approval.
-
-The workflow verifies the tag/version match, installs from the frozen lockfile,
-runs repository and compatibility tests, audits the exact tarball and size
-ceiling, installs that tarball into a clean Git fixture, and publishes through
-GitHub OIDC with public access and provenance.
-
-## Registry verification
-
-The workflow runs these gates after publication:
-
-```bash
-npm view @laminadev/cli@0.1.1 --json
-node tests/cli_tarball_smoke_test.mjs --package @laminadev/cli@0.1.1
-```
-
-It also installs the registry package in a clean directory and runs
-`npm audit signatures`, which verifies registry signatures and provenance
-attestations. A manual clean-prefix check may be run without disturbing an
-existing global install:
-
-```bash
-prefix="$(mktemp -d)"
-npm install --global --prefix "$prefix" @laminadev/cli@0.1.1
-"$prefix/bin/lamina" --version
-"$prefix/bin/lamina" doctor --json
-```
+The skills remain independently installed through `npx skills add`; Node/npm
+are a requirement for that command only.

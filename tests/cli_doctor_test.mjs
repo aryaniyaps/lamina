@@ -14,7 +14,7 @@ import {
 const cli = path.resolve('packages/cli/bin/lamina.mjs');
 let result = spawnSync(process.execPath, [cli, '--version'], { encoding: 'utf8' });
 assert.equal(result.status, 0, result.stderr);
-assert.equal(result.stdout.trim(), '0.1.1');
+assert.equal(result.stdout.trim(), '0.1.2');
 
 const nongit = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-doctor-'));
 try {
@@ -24,12 +24,15 @@ try {
   });
   assert.equal(result.status, 0, result.stderr);
   const report = JSON.parse(result.stdout);
-  assert.equal(report.cli.version, '0.1.1');
+  assert.equal(report.cli.version, '0.1.2');
   assert.equal(report.cli.api_version, 1);
   assert.equal(report.graph.protocol_version, 3);
   assert.equal(report.node.compatible, true);
   assert.equal(report.git.is_project, false);
   assert.equal(report.observation.required_for_core_graph, false);
+  assert.equal(report.observation.backend, 'cocoindex');
+  assert.equal(report.observation.external_runtime_required, false);
+  assert.equal(report.observation.ready, true);
 } finally {
   fs.rmSync(nongit, { recursive: true, force: true });
 }

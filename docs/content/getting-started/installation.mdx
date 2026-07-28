@@ -24,7 +24,8 @@ Continue with [Quickstart](/getting-started/quickstart) for the full design → 
 ## Quick install
 
 ```bash
-npm install -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
+lamina doctor --json
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 
@@ -64,30 +65,21 @@ npx skills add https://github.com/aryaniyaps/lamina --skill '*' -a codex -a pi -
 
 - An AI coding agent (Cursor, Claude Code, Codex, Gemini, Pi, or similar)
 - Any framework, database, and UI library — Lamina is stack-agnostic
-- Node.js 20 or newer for `@laminadev/cli`
+- No Node.js or npm is required for the standalone `lamina` executable
 
-There is no Node.js requirement to install the skills alone. If the compatible
+Node.js/npm are required only for `npx skills add`. If the compatible
 CLI is absent, a graph-backed workflow stops before mutation and prints:
 
 ```text
-npm install -g @laminadev/cli@latest
+Install the standalone Lamina CLI from GitHub Releases, then run lamina doctor --json.
 ```
 
 The skills never invoke `npx` for the runtime and never auto-install it.
 
-### Recover from npm `EACCES` without sudo
-
-If `npm install -g` cannot write to its global prefix on macOS or Linux, make
-the prefix user-owned once, then retry. This changes npm configuration and your
-shell PATH; it does not edit project source.
-
-```bash
-mkdir -p "$HOME/.npm-global"
-npm config set prefix "$HOME/.npm-global"
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
-export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g @laminadev/cli@latest
-```
+The installer verifies the release checksum and writes to `~/.local/bin` on
+macOS/Linux or `%LOCALAPPDATA%\\Lamina\\bin` on Windows. Add that directory to
+your user PATH if it is not already present. Unsupported platforms fail before
+installing anything.
 
 ## After install
 
@@ -113,7 +105,7 @@ Not sure which command to run? `/lamina <what you are trying to do>` is an optio
 Update the components independently:
 
 ```bash
-npm install -g @laminadev/cli@latest
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 ```
 
@@ -121,13 +113,12 @@ Start a new agent session after updating.
 
 ## Migrate from the old linked repository package
 
-If a previous checkout was linked globally as `lamina`, unlink it before
-installing the standalone package:
+If an older npm-installed CLI is present, remove it once, then install the
+standalone executable:
 
 ```bash
-npm unlink -g lamina
-npm install -g @laminadev/cli
-npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
+npm uninstall -g @laminadev/cli
+curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 ```
 
 Do not delete `.git/lamina`. Existing `graph.lbdb` data is retained; the new
@@ -153,9 +144,9 @@ To exclude:
 ## Uninstall
 
 Remove the Lamina skills using your agent's skill management tooling, or delete
-the installed `lamina*` skill directories. Remove the CLI separately with
-`npm uninstall -g @laminadev/cli`. `.lamina/` artifacts and `.git/lamina`
-graph data are not removed automatically.
+the installed `lamina*` skill directories. Remove the CLI by deleting
+`~/.local/bin/lamina` (or `%LOCALAPPDATA%\\Lamina\\bin\\lamina.exe`). `.lamina/`
+artifacts and `.git/lamina` graph data are not removed automatically.
 
 ## Source
 

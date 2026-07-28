@@ -260,15 +260,19 @@ function validateTaskDir(task, arm) {
     }
   } else {
     const docker = fs.readFileSync(path.join(dir, 'environment/Dockerfile'), 'utf8');
-    const tarball = path.join(dir, 'environment/lamina-cli.tgz');
-    if (!fs.existsSync(tarball)) {
-      errors.push(`${dir}: lamina environment must package the local CLI tarball`);
+    const release = path.join(dir, 'environment/lamina-release.json');
+    if (!fs.existsSync(release)) {
+      errors.push(`${dir}: lamina environment must package the local standalone CLI release identity`);
     } else {
-      const sha = createHash('sha256').update(fs.readFileSync(tarball)).digest('hex');
-      if (!docker.includes(sha)) errors.push(`${dir}: Dockerfile must verify the packaged CLI tarball SHA-256`);
+      const identity = JSON.parse(fs.readFileSync(release, 'utf8'));
+      if (!/^[a-f0-9]{64}$/.test(identity.sha256 || '') || !/^\d+\.\d+\.\d+$/.test(identity.version || '')) {
+        errors.push(`${dir}: Lamina release identity must carry a version and SHA-256`);
+      } else if (!/lamina-release\.json'\)\.sha256/.test(docker) || !docker.includes(`cli-v${identity.version}`)) {
+        errors.push(`${dir}: Dockerfile must verify and install the packaged Lamina release identity`);
+      }
     }
-    if (!/npm install -g \/tmp\/lamina-cli\.tgz/.test(docker) || !/lamina --version/.test(docker)) {
-      errors.push(`${dir}: Dockerfile must install and smoke-test the packaged Lamina CLI`);
+    if (!/COPY lamina-release\.json \/tmp\/lamina-release\.json/.test(docker) || !/install\.sh \| sh/.test(docker) || !/lamina --version/.test(docker)) {
+      errors.push(`${dir}: Dockerfile must verify and smoke-test the published Lamina CLI`);
     }
     const implementInstruction = fs.readFileSync(path.join(dir, 'steps/implement/instruction.md'), 'utf8');
     if (!/Published action schema|app\.mjs|selfcheck\.mjs|\.lb6-abi/i.test(implementInstruction)) {
