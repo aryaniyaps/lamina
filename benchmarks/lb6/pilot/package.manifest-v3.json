@@ -2,7 +2,7 @@
   "kind": "lb6-dev-pilot-package",
   "benchmark_version": "lb6-dev-pilot-v3",
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
-  "pinned_skill_commit": "25f56c9e114bb555bb95be2298b816222a3c8adf",
+  "pinned_skill_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
   "skill_bundle_digest": "90762b64fbe37057cd491b8d79df5e30bbf827681697eb494d62629ffe6b067d",
   "harbor_version": "0.18.0",
   "agent": "cursor-cli",

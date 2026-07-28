@@ -30,7 +30,7 @@ export function parseSkillRerunPilotJobName(name) {
 export function expectedPilotTaskDirName(taskId, arm) {
   return `${taskId}-${arm}-v3`;
 }
-export const PINNED_SKILL_COMMIT = '25f56c9e114bb555bb95be2298b816222a3c8adf';
+export const PINNED_SKILL_COMMIT = '704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f';
 export const CANARY_TASK_ID = 'dev-loan-library';
 export const MAX_LAMINA_PARENTS = 1;
 

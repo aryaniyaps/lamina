@@ -1,9 +1,9 @@
 {
   "kind": "lb6-pilot-skill-bundle",
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
-  "source_skill_commit": "25f56c9e114bb555bb95be2298b816222a3c8adf",
-  "pinned_commit": "25f56c9e114bb555bb95be2298b816222a3c8adf",
-  "harness_git_commit": "d5c22e29a7bbde60f855deb63260cfa31e27c133",
+  "source_skill_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
+  "pinned_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
+  "harness_git_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
   "harbor_version": "0.18.0",
   "cursor_cli_version": "2026.07.20-8cc9c0b",
   "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
