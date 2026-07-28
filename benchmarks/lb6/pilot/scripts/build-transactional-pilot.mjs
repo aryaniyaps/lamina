@@ -132,7 +132,13 @@ function dockerfile(arm = 'direct', cliBinarySha256 = null, cliVersion = null) {
   );
 }
 
+let cachedCliRelease = null;
+
 function packCli(root, environmentDir) {
+  if (cachedCliRelease) {
+    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(cachedCliRelease, null, 2)}\n`);
+    return cachedCliRelease;
+  }
   const packDir = fs.mkdtempSync(path.join(environmentDir, '.cli-build-'));
   try {
     const built = spawnSync(
@@ -146,8 +152,12 @@ function packCli(root, environmentDir) {
     if (!fs.existsSync(source)) throw new Error('standalone Linux CLI build did not produce lamina-linux-x64');
     const binary = fs.readFileSync(source);
     const sha256 = createHash('sha256').update(binary).digest('hex');
-    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), JSON.stringify({ version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version, sha256 }, null, 2) + '\n');
-    return { sha256, version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version };
+    cachedCliRelease = {
+      version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version,
+      sha256,
+    };
+    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(cachedCliRelease, null, 2)}\n`);
+    return cachedCliRelease;
   } finally {
     fs.rmSync(packDir, { recursive: true, force: true });
   }

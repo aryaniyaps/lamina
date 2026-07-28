@@ -22,9 +22,16 @@ const tools = path.join(temp, 'tools');
 const fixture = path.join(temp, 'fixture');
 fs.mkdirSync(tools); fs.mkdirSync(fixture);
 // The isolated executable sees git, but neither node nor npm is on PATH.
-if (process.platform !== 'win32') fs.symlinkSync('/usr/bin/git', path.join(tools, 'git'));
+let isolatedPath = tools;
+if (process.platform === 'win32') {
+  const git = execFileSync('where.exe', ['git'], { encoding: 'utf8' }).split(/\r?\n/).find(Boolean);
+  assert.ok(git, 'Git must be available on the Windows runner');
+  isolatedPath = `${path.dirname(git)}${path.delimiter}${tools}`;
+} else {
+  fs.symlinkSync('/usr/bin/git', path.join(tools, 'git'));
+}
 const cache = path.join(temp, 'cache');
-const run = (args) => spawnSync(binary, args, { cwd: fixture, encoding: 'utf8', env: { ...process.env, PATH: tools, XDG_CACHE_HOME: cache } });
+const run = (args) => spawnSync(binary, args, { cwd: fixture, encoding: 'utf8', env: { ...process.env, PATH: isolatedPath, XDG_CACHE_HOME: cache } });
 execFileSync('git', ['init', '-b', 'main'], { cwd: fixture });
 execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: fixture });
 execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: fixture });

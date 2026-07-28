@@ -88,9 +88,19 @@ try {
   const ext = target.startsWith('win32') ? '.exe' : '';
   const out = path.join(dist, `lamina-${target}${ext}`);
   fs.copyFileSync(node, out);
+  if (process.platform === 'darwin') {
+    const unsign = spawnSync('codesign', ['--remove-signature', out], { encoding: 'utf8' });
+    if (unsign.status !== 0) throw new Error(`Unable to remove the Node signature before SEA injection: ${unsign.stderr || unsign.stdout}`);
+  }
   // Run postject with the same full Node selected for SEA creation.
-  const inject = spawnSync(node, [path.join(root, 'node_modules', 'postject', 'dist', 'cli.js'), out, 'NODE_SEA_BLOB', path.join(stage, 'sea-prep.blob'), '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'], { cwd: root, encoding: 'utf8' });
+  const injectArgs = [path.join(root, 'node_modules', 'postject', 'dist', 'cli.js'), out, 'NODE_SEA_BLOB', path.join(stage, 'sea-prep.blob'), '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'];
+  if (process.platform === 'darwin') injectArgs.push('--macho-segment-name', 'NODE_SEA');
+  const inject = spawnSync(node, injectArgs, { cwd: root, encoding: 'utf8' });
   if (inject.status !== 0) throw new Error(inject.stderr || inject.stdout);
+  if (process.platform === 'darwin') {
+    const sign = spawnSync('codesign', ['--sign', '-', '--force', out], { encoding: 'utf8' });
+    if (sign.status !== 0) throw new Error(`Unable to ad-hoc sign the SEA executable: ${sign.stderr || sign.stdout}`);
+  }
   if (process.platform !== 'win32') fs.chmodSync(out, 0o755);
   const smoke = spawnSync(out, ['--version'], {
     encoding: 'utf8',

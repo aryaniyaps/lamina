@@ -12,7 +12,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.4');
+assert.equal(cliPackage.version, '0.1.5');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
@@ -25,6 +25,9 @@ assert.match(builder, /must be built natively/);
 assert.match(builder, /--locked/);
 assert.doesNotMatch(builder, /observation-runtime', 'python/);
 assert.match(builder, /postject.*dist.*cli\.js/s);
+assert.match(builder, /codesign.*--remove-signature/s);
+assert.match(builder, /--macho-segment-name/);
+assert.match(builder, /codesign.*--sign.*--force/s);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);
 assert.match(workflow, /linux-x64/);
@@ -38,11 +41,11 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.4']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.5']).status,
   0,
 );
 assert.notEqual(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.3']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.4']).status,
   0,
 );
 for (const runtimePath of ['skills/lamina-orchestrator/bin', 'skills/lamina-orchestrator/lib']) {
