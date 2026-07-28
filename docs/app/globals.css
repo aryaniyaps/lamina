@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
 
 :root {
   --canvas: #ffffff;
@@ -33,6 +34,150 @@ html {
 body {
   background: var(--canvas);
   color: var(--ink);
+}
+
+.docs-flow-figure {
+  margin: 1.75rem 0;
+}
+
+.docs-flow-scroll {
+  border-radius: 1rem;
+  outline: none;
+}
+
+.docs-flow-scroll:focus-visible {
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--ring);
+}
+
+.docs-flow-canvas {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at top left, rgba(33, 34, 37, 0.055), transparent 42%),
+    var(--canvas-soft);
+}
+
+.docs-flow-canvas .react-flow__pane {
+  cursor: default;
+}
+
+.docs-flow-canvas .react-flow__edge-text {
+  fill: var(--ink-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.docs-flow-canvas .react-flow__edge-textbg {
+  fill: var(--canvas-soft);
+  fill-opacity: 0.94;
+}
+
+.docs-flow-figure figcaption {
+  margin-top: 0.65rem;
+  color: var(--ink-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.docs-flow-scroll-hint {
+  display: none;
+}
+
+.docs-flow-node {
+  width: 230px;
+  min-height: 116px;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #c8c9cd;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.04),
+    0 9px 24px rgba(0, 0, 0, 0.055);
+  text-align: left;
+}
+
+.docs-flow-node--graph {
+  border-color: #8f9095;
+  box-shadow:
+    inset 3px 0 0 #25262a,
+    0 9px 24px rgba(0, 0, 0, 0.055);
+}
+
+.docs-flow-node--source {
+  box-shadow:
+    inset 3px 0 0 #777981,
+    0 9px 24px rgba(0, 0, 0, 0.055);
+}
+
+.docs-flow-node--evidence {
+  box-shadow:
+    inset 3px 0 0 #a4a5aa,
+    0 9px 24px rgba(0, 0, 0, 0.055);
+}
+
+.docs-flow-eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--ink-secondary);
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.docs-flow-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.docs-flow-description {
+  margin: 0.38rem 0 0;
+  color: var(--ink-secondary);
+  font-size: 0.76rem;
+  line-height: 1.42;
+}
+
+.docs-flow-handle {
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .docs-flow-figure {
+    margin-inline: -0.75rem;
+  }
+
+  .docs-flow-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .docs-flow-canvas {
+    min-width: 760px;
+  }
+
+  .docs-flow-figure figcaption {
+    padding-inline: 0.75rem;
+  }
+
+  .docs-flow-scroll-hint {
+    display: inline;
+  }
+
+  .docs-flow-node {
+    width: 210px;
+  }
 }
 
 ::selection {

@@ -4,8 +4,10 @@ import fs from 'node:fs';
 
 const readme = fs.readFileSync('README.md', 'utf8');
 const index = fs.readFileSync('docs/content/index.mdx', 'utf8');
+const loop = fs.readFileSync('docs/content/concepts/the-loop.mdx', 'utf8');
 const reference = fs.readFileSync('docs/content/reference/transactional-graph.mdx', 'utf8');
-const combined = `${readme}\n${index}\n${reference}`;
+const diagrams = fs.readFileSync('docs/components/flow-diagrams.tsx', 'utf8');
+const combined = `${readme}\n${index}\n${loop}\n${reference}`;
 
 for (const signal of ['CocoIndex', 'graphd', 'Ladybug', 'GraphVersion', 'lamina graph status']) {
   assert.ok(combined.includes(signal), `documentation must explain ${signal}`);
@@ -56,6 +58,25 @@ assert.match(readme, /legacy run files are left untouched and have no runtime me
 assert.match(readme, /HavenStay predates the transactional graph runtime/);
 assert.doesNotMatch(readme, /run\.json|\.lamina\/runs\//);
 assert.doesNotMatch(readme, /Brownfield minimum/i);
+assert.doesNotMatch(readme, /```mermaid/);
+assert.match(readme, /docs\/public\/diagrams\/product-loop\.svg/);
+
+for (const diagram of [
+  'ProductLoopDiagram',
+  'RuntimeArchitectureDiagram',
+  'TransactionLifecycleDiagram',
+]) {
+  assert.match(diagrams, new RegExp(`export function ${diagram}`));
+  assert.match(combined, new RegExp(`<${diagram} \\/>`));
+}
+
+assert.match(diagrams, /nodesDraggable=\{false\}/);
+assert.match(diagrams, /nodesConnectable=\{false\}/);
+assert.match(diagrams, /figcaption/);
+assert.match(index, /Every write crosses `graphd`/);
+assert.match(loop, /implementation defect/i);
+assert.match(loop, /contract gap/i);
+assert.match(reference, /never leaves a partial GraphVersion/i);
 
 for (const screenshot of [
   'demo/hotel-booking-with-lamina/screenshot.png',

@@ -1,9 +1,44 @@
+import { ProductLoopDiagram } from "../../components/flow-diagrams"
+
 # The loop
 
-1. `/lamina-init` records/indexes business evidence and publishes inferred Product/Persona/Actor proposals grounded in explicit user input.
-2. `/lamina-design` publishes a validated GraphVersion.
-3. A normal coding session implements the GraphVersion projection.
-4. `/lamina-verify` runs every relevant Persona Mission in an isolated session, inspects the normalized evidence, then explicitly publishes accepted Run sessions.
-5. Query the semantic diff and repeat.
+Lamina separates the product contract, the code that implements it, and the
+evidence that proves it works. Use the loop whenever you introduce or change a
+user-facing flow.
 
-Lamina commands do not edit product source.
+<ProductLoopDiagram />
+
+## From intent to evidence
+
+1. **Ground the repository.** Run `/lamina-init` once. It records business
+   evidence and publishes inferred Product, Actor, and Persona proposals
+   grounded in explicit user input.
+2. **Publish the design.** Run `/lamina-design <flow>` to create a validated
+   `GraphVersion` and a human-readable implementation projection.
+3. **Implement the projection.** Work in a normal coding session and keep using
+   your existing stack.
+4. **Exercise the live product.** Run `/lamina-verify <mission> at <url>`.
+   Lamina creates an isolated Mission and Run for every relevant Persona and
+   normalizes the resulting runtime evidence.
+5. **Decide from evidence.** Inspect the findings and semantic diff, then
+   accept the evidence, fix the implementation, or change the contract.
+
+Verification findings have two different destinations:
+
+- An **implementation defect** returns to ordinary coding. Fix the product and
+  run the same verification mission again.
+- A **contract gap** returns to `/lamina-design`. Publish the corrected intent
+  before implementing and verifying it.
+
+This distinction keeps a failing implementation from silently redefining the
+product contract.
+
+## What Lamina changes
+
+Lamina commands publish graph state and evidence. They do not edit application
+source, choose a framework, or replace your coding agent. Human-readable
+implementation, report, and fix documents are optional projections from the
+resolved graph; the `GraphVersion` is canonical.
+
+Use `lamina graph status` to inspect the active version and
+`lamina graph diff --base <view> --head <view>` to review the semantic change.

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title description">
+  <title id="title">Lamina product design and verification loop</title>
+  <desc id="description">Initialize product knowledge, publish a validated design, implement it, verify the live product, apply findings, and re-verify. Contract gaps return to design.</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#f3f3f4"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#111216" flood-opacity=".07"/>
+    </filter>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#d8d8dc"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#85868b"/>
+    </marker>
+    <style>
+      .edge{fill:none;stroke:#85868b;stroke-width:2;marker-end:url(#arrow)}
+      .feedback{fill:none;stroke:#85868b;stroke-width:2;stroke-dasharray:7 6;marker-end:url(#arrow)}
+      .card{fill:#fff;stroke:#c8c9cd;stroke-width:1.5;rx:14;filter:url(#shadow)}
+      .graph{stroke:#77787d;stroke-width:2}
+      .eyebrow{font:700 12px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:1.2px;fill:#66676d}
+      .heading{font:700 18px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#202125}
+      .body{font:400 13px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#66676d}
+      .label{font:650 12px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#66676d}
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="1198" height="518" rx="22" fill="url(#canvas)" stroke="#dedee1"/>
+  <rect x="1" y="1" width="1198" height="518" rx="22" fill="url(#grid)" opacity=".7"/>
+
+  <path class="edge" d="M348 135H426"/>
+  <path class="edge" d="M774 135H852"/>
+  <path class="edge" d="M1025 200V306"/>
+  <path class="edge" d="M852 371H774"/>
+  <path class="edge" d="M426 371H348"/>
+  <path class="feedback" d="M600 306V266C600 245 617 228 638 228H976C1003 228 1025 250 1025 277V306"/>
+  <rect x="770" y="216" width="80" height="24" rx="12" fill="#f6f6f7"/>
+  <text class="label" x="810" y="232" text-anchor="middle">re-verify</text>
+  <path class="feedback" d="M940 435V475H510C464 475 426 437 426 391V200"/>
+  <rect x="646" y="463" width="94" height="24" rx="12" fill="#f6f6f7"/>
+  <text class="label" x="693" y="479" text-anchor="middle">contract gap</text>
+
+  <g transform="translate(78 70)">
+    <rect class="card graph" width="270" height="130"/>
+    <rect width="4" height="130" rx="2" fill="#25262a"/>
+    <text class="eyebrow" x="24" y="31">ESTABLISH ONCE</text>
+    <text class="heading" x="24" y="59">/lamina-init</text>
+    <text class="body" x="24" y="88">Ground the product, actors,</text>
+    <text class="body" x="24" y="108">and personas.</text>
+  </g>
+
+  <g transform="translate(426 70)">
+    <rect class="card graph" width="348" height="130"/>
+    <rect width="4" height="130" rx="2" fill="#25262a"/>
+    <text class="eyebrow" x="24" y="31">PUBLISH INTENT</text>
+    <text class="heading" x="24" y="59">/lamina-design</text>
+    <text class="body" x="24" y="88">Commit a validated GraphVersion</text>
+    <text class="body" x="24" y="108">and implementation projection.</text>
+  </g>
+
+  <g transform="translate(852 70)">
+    <rect class="card" width="270" height="130"/>
+    <text class="eyebrow" x="24" y="31">CODING SESSION</text>
+    <text class="heading" x="24" y="59">Implement</text>
+    <text class="body" x="24" y="88">Build the resolved projection</text>
+    <text class="body" x="24" y="108">in any stack.</text>
+  </g>
+
+  <g transform="translate(852 306)">
+    <rect class="card" width="270" height="130"/>
+    <rect width="4" height="130" rx="2" fill="#a4a5aa"/>
+    <text class="eyebrow" x="24" y="31">EXERCISE THE PRODUCT</text>
+    <text class="heading" x="24" y="59">/lamina-verify</text>
+    <text class="body" x="24" y="88">Run isolated persona missions</text>
+    <text class="body" x="24" y="108">against the live app.</text>
+  </g>
+
+  <g transform="translate(426 306)">
+    <rect class="card" width="348" height="130"/>
+    <text class="eyebrow" x="24" y="31">CODING SESSION</text>
+    <text class="heading" x="24" y="59">Apply findings</text>
+    <text class="body" x="24" y="88">Fix product behavior without</text>
+    <text class="body" x="24" y="108">bypassing the contract.</text>
+  </g>
+
+  <g transform="translate(78 306)">
+    <rect class="card" width="270" height="130"/>
+    <rect width="4" height="130" rx="2" fill="#a4a5aa"/>
+    <text class="eyebrow" x="24" y="31">EVIDENCE-BACKED</text>
+    <text class="heading" x="24" y="59">Verified</text>
+    <text class="body" x="24" y="88">Keep the result or redesign</text>
+    <text class="body" x="24" y="108">a contract gap.</text>
+  </g>
+</svg>

@@ -1,3 +1,5 @@
+import { TransactionLifecycleDiagram } from "../../components/flow-diagrams"
+
 # Transactional graph
 
 ## Storage
@@ -13,6 +15,19 @@ The Statement id is a hash of normalized semantic identity. Duplicate proposals 
 ## Versions and sessions
 
 Every Git branch resolves to a GraphView and head GraphVersion. Explicit sessions stage several mutations against a base version. Publication compares the session base with the current branch head, validates, creates a version delta, updates materialized membership, and moves the head in one transaction.
+
+<TransactionLifecycleDiagram />
+
+| Phase | What happens |
+|---|---|
+| Start | Capture the branch's resolved head as the session base. |
+| Stage | Add, patch, link, or retire typed facts without changing the branch view. |
+| Validate | Check the affected closure, including references, policy, cycles, evidence rules, and contradictions. |
+| Publish | Compare the session base with the current head and commit the complete delta atomically. |
+| Rebase | If the head moved, reconcile the session with the new base, inspect conflicts, and retry. |
+
+Failed validation or publication never leaves a partial GraphVersion. A stale
+session remains inspectable until it is rebased or discarded.
 
 A Git merge reconciles every parent GraphVersion. Compatible memberships are
 combined, while incompatible parent facts produce the same canonical

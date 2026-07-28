@@ -26,16 +26,6 @@ const SECTION_ORDER = [
   "advanced",
 ];
 
-function readMeta(dir) {
-  const metaPath = path.join(dir, "_meta.js");
-  if (!fs.existsSync(metaPath)) return {};
-  const source = fs.readFileSync(metaPath, "utf8");
-  const match = source.match(/export default\s+(\{[\s\S]*\});?/);
-  if (!match) return {};
-  // eslint-disable-next-line no-new-func
-  return Function(`"use strict"; return (${match[1]});`)();
-}
-
 function collectMdxFiles(dir, base = "") {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];

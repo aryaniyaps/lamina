@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     images: [OG_IMAGE],
   },
   icons: {
-    icon: "/brand/favicon-16.svg",
+    icon: "/docs/brand/favicon-16.svg",
   },
 };
 
@@ -69,7 +69,7 @@ const navbar = (
   <Navbar
     logo={
       <Image
-        src="/brand/lamina-lockup-light.svg"
+        src="/docs/brand/lamina-lockup-light.svg"
         alt="lamina"
         width={160}
         height={38}

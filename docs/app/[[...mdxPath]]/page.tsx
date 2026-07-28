@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { generateStaticParamsFor, importPage } from "nextra/pages";
-import { useMDXComponents } from "nextra-theme-docs";
+import { useMDXComponents as getDocsMDXComponents } from "nextra-theme-docs";
 import { JsonLd } from "@/components/json-ld";
 import {
   OG_IMAGE,
@@ -74,7 +74,7 @@ export default async function Page(props: {
     sourceCode,
   } = await importPage(params.mdxPath);
 
-  const Wrapper = useMDXComponents().wrapper;
+  const Wrapper = getDocsMDXComponents().wrapper;
 
   if (!Wrapper) {
     throw new Error("Missing MDX wrapper component");

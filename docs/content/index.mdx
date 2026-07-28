@@ -1,14 +1,22 @@
+import { RuntimeArchitectureDiagram } from "../components/flow-diagrams"
+
 # Lamina
 
-Lamina gives AI coding agents a centralized, transactional product graph.
+Lamina gives AI coding agents a centralized, transactional product graph: one
+place to publish product intent, observe the implementation, and attach
+verification evidence without collapsing those kinds of knowledge together.
 
-```text
-Sources ──▶ managed observer ──observations──▶ graphd ──▶ Ladybug
-Agents  ──typed proposals─────────────▶ graphd ──▶ Ladybug
-Runs    ──normalized evidence─────────▶ graphd ──▶ Ladybug + evidence CAS
-```
+<RuntimeArchitectureDiagram />
 
 Ladybug is the canonical local knowledge graph. It stores stable Resources, normalized Statements, versions, branch/session/observation views, Missions, Runs, and evidence. Git identifies source revisions and branches but does not store graph changes.
+
+Read the architecture from left to right:
+
+- The managed worker turns repository files into rebuildable **observations**.
+- Agents stage typed **proposals** in explicit graph sessions.
+- Mission adapters normalize live product events into **runtime evidence**.
+- Every write crosses `graphd`. It is the only process that opens Ladybug
+  read-write, and it publishes graph changes transactionally.
 
 ## Start
 
@@ -26,11 +34,12 @@ Use `lamina graph status` to inspect the resolved GraphVersion. Design and verif
 
 ## Why it is different
 
-- Serializable sessions commit completely or leave the branch unchanged.
+- Serializable sessions publish completely or leave the branch unchanged.
 - Intent, observations, agent inference, Persona simulation, human evidence, and runtime evidence stay separate.
 - Conflicts remain inspectable as Contradictions.
 - Every relevant Persona receives an independent Mission and Run.
 - Source changes update an observation view without mutating canonical Claims.
 - Existing legacy run files are ignored by the runtime.
 
-See [Transactional graph](/reference/transactional-graph).
+Continue with [The product loop](/concepts/the-loop), or inspect the
+[transactional graph](/reference/transactional-graph) in detail.

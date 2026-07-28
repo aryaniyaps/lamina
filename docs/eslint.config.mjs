@@ -9,8 +9,15 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "public/_pagefind/**",
     "next-env.d.ts",
   ]),
+  {
+    files: ["content/**/_meta.js"],
+    rules: {
+      "import/no-anonymous-default-export": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

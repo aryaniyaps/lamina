@@ -95,21 +95,13 @@ Not sure which command to run? `/lamina <what you are trying to do>` is an optio
 
 Your coding agent writes app source. Optional UI skills handle look and feel. **Lamina owns the product-behavior contract** — what to build, how states and flows work, and which failures and edges must be covered.
 
-```mermaid
-flowchart LR
-  INIT["/lamina-init"]
-  DESIGN["/lamina-design"]
-  IMPL["Implement"]
-  VERIFY["/lamina-verify"]
-  FIX["Apply fixes"]
-
-  INIT -->|"product + actors + personas"| DESIGN
-  DESIGN -->|"validated GraphVersion"| IMPL
-  IMPL -->|"live app"| VERIFY
-  VERIFY -->|"product findings"| FIX
-  VERIFY -->|"contract gaps"| DESIGN
-  FIX -->|"updated app"| VERIFY
-```
+<p align="center">
+  <img
+    src="docs/public/diagrams/product-loop.svg"
+    alt="Lamina workflow: initialize product knowledge, publish a validated design, implement it, verify the live product, apply findings, and re-verify; contract gaps return to design."
+    width="100%"
+  />
+</p>
 
 | Step | Who | Result |
 |---|---|---|
