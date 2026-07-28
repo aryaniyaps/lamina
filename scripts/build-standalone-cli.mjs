@@ -55,7 +55,16 @@ function buildManagedCocoWorker() {
   const uv = process.env.LAMINA_UV_BINARY || (process.platform === 'win32' ? 'uv.exe' : 'uv');
   const extension = process.platform === 'win32' ? '.exe' : '';
   const worker = path.join(dist, `lamina-cocoindex-worker-${target}${extension}`);
-  const build = spawnSync(uv, ['run', '--locked', '--project', cli, '--python', '3.13', '--with', 'pyinstaller==6.14.1', 'pyinstaller', '--noconfirm', '--clean', '--onefile', '--name', 'cocoindex-worker', '--collect-all', 'cocoindex', '--collect-all', 'watchdog', '--collect-all', 'numpy', '--distpath', stage, '--workpath', path.join(stage, 'pyinstaller-work'), path.join(cli, 'cocoindex_worker.py')], { cwd: root, encoding: 'utf8' });
+  const buildArgs = ['run', '--locked', '--project', cli, '--python', '3.13', '--with', 'pyinstaller==6.14.1', 'pyinstaller', '--noconfirm', '--clean', '--onefile', '--name', 'cocoindex-worker', '--collect-all', 'cocoindex', '--collect-all', 'watchdog', '--collect-all', 'numpy'];
+  if (process.platform === 'win32') {
+    // cocoindex_app imports these only inside its Windows named-pipe branch,
+    // so PyInstaller cannot discover them through static analysis.
+    for (const module of ['pywintypes', 'win32file', 'win32pipe']) {
+      buildArgs.push('--hidden-import', module);
+    }
+  }
+  buildArgs.push('--distpath', stage, '--workpath', path.join(stage, 'pyinstaller-work'), path.join(cli, 'cocoindex_worker.py'));
+  const build = spawnSync(uv, buildArgs, { cwd: root, encoding: 'utf8' });
   if (build.error || build.status !== 0) throw new Error(`Unable to build managed CocoIndex worker: ${build.error?.message || build.stderr || build.stdout}`);
   fs.mkdirSync(dist, { recursive: true });
   fs.copyFileSync(path.join(stage, `cocoindex-worker${extension}`), worker);

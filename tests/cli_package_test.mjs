@@ -16,7 +16,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.10');
+assert.equal(cliPackage.version, '0.1.11');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
@@ -25,6 +25,8 @@ assert.match(builder, /LAMINA_NODE_BINARY/);
 assert.match(builder, /Standalone executable smoke failed/);
 assert.match(builder, /pyinstaller/);
 assert.match(builder, /cocoindex-worker/);
+assert.match(builder, /\['pywintypes', 'win32file', 'win32pipe'\]/);
+assert.match(builder, /buildArgs\.push\('--hidden-import', module\)/);
 assert.match(builder, /must be built natively/);
 assert.match(builder, /--locked/);
 assert.doesNotMatch(builder, /observation-runtime', 'python/);
@@ -53,7 +55,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.10']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.11']).status,
   0,
 );
 assert.notEqual(
