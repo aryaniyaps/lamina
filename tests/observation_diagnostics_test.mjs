@@ -58,6 +58,7 @@ try {
   const noisyResult = runCocoIndex({
     paths: {
       root: noisyRoot,
+      common: noisyRoot,
       cocoindex: path.join(noisyRoot, 'cocoindex'),
       product: 'product-noisy',
       source_revision: 'revision-noisy',
