@@ -87,6 +87,18 @@ function validateSuite(relPath) {
         }
       }
     }
+    if (ev.id.startsWith('passive-')) {
+      if (ev.force_skill_invocation !== false || ev.should_trigger !== true) {
+        errors.push(`${relPath}: ${ev.id} must measure passive triggering without forced skill invocation`);
+      }
+      if (/\/lamina(?:-design|-verify)?\b/i.test(ev.prompt || '')) {
+        errors.push(`${relPath}: ${ev.id} prompt must be an ordinary product request`);
+      }
+      const assertions = new Set(ev.assertions || []);
+      for (const required of ['passive implementation workflow', 'no explicit phase recommendation']) {
+        if (!assertions.has(required)) errors.push(`${relPath}: ${ev.id} missing assertion ${required}`);
+      }
+    }
   }
 
   return ids;

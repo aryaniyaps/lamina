@@ -136,6 +136,12 @@ try {
   const initialScope = engine.validateView('HEAD', 'workflow.checkout', context);
   assert.equal(initialScope.approved, true);
   assert.equal(initialScope.validation_scope.mode, 'affected_closure');
+  const implementationContext = engine.implementationContext({ workflows: ['workflow.checkout'] }, context);
+  assert.equal(implementationContext.implementation_ready, false,
+    'coding context must fail closed when the product contract lacks implementation detail');
+  assert.ok(implementationContext.readiness_gaps.some((item) => item.code === 'operation_contract_missing'));
+  assert.ok(implementationContext.readiness_gaps.some((item) => item.code === 'invariants_missing'));
+  assert.ok(implementationContext.readiness_gaps.some((item) => item.code === 'scenarios_missing'));
 
   const missingProof = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   engine.stageResource(missingProof.id, {
@@ -515,6 +521,14 @@ try {
   assert.equal(engine.head(branch.id).id, headBeforeMissionCompile);
   engine.publishSession(missionCompileSession.id, context.source_revision);
   const headBeforeRuns = engine.head(branch.id).id;
+  assert.throws(
+    () => engine.runMission({
+      mission: compiled.missions[0].id,
+      events: [{ type: 'audit_passed', audit_kind: 'visual' }],
+    }, context),
+    (error) => error.code === 'LAMINA_EVIDENCE_MISSING',
+    'a claimed live UI audit must carry a real artifact',
+  );
   const run1 = engine.runMission({ mission: compiled.missions[0].id, events: [{ type: 'action_attempted' }, { type: 'oracle_passed' }] }, context);
   const run2 = engine.runMission({ mission: compiled.missions[1].id, events: [{ type: 'denial_observed' }, { type: 'recovery_attempted' }, { type: 'oracle_passed' }] }, context);
   const run3 = engine.runMission({ mission: compiled.missions[2].id, events: [{ type: 'state_observed' }, { type: 'oracle_passed' }] }, context);

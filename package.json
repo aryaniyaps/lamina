@@ -8,8 +8,8 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "corepack pnpm --dir docs build",
-    "test": "node scripts/verify_lamina_bundle.mjs --check structure && npm run test:cli && node tests/transactional_graph_test.mjs && node tests/graphd_protocol_test.mjs && node tests/graphd_long_socket_test.mjs && node tests/no_legacy_runtime_test.mjs && node tests/grade_transactional_graph_evals_test.mjs && node tests/eval_graph_runtime_install_test.mjs && node benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs && node tests/transactional_plan_acceptance_test.mjs && node tests/lb6_pilot_launch_gate_test.mjs && node tests/docs_onboarding_test.mjs && node tests/check_lamina_init_test.mjs && node tests/check_lamina_personas_test.mjs && node tests/lamina_write_boundary_test.mjs && node tests/behavior_benchmark_test.mjs && node tests/lb6_pilot_preflight_test.mjs && node tests/web_release_test.mjs && node tests/eval_install_all_skills_test.mjs && node tests/grade_lamina_guardrails_test.mjs",
-    "test:cli": "node tests/cli_package_test.mjs && node tests/cli_doctor_test.mjs && node tests/cli_help_test.mjs && node tests/greenfield_cli_test.mjs && node tests/skill_cli_prerequisite_test.mjs && node tests/lamina_init_contract_test.mjs && node tests/graphd_upgrade_test.mjs && node tests/graphd_worktree_test.mjs && node tests/cli_binary_smoke_test.mjs && node tests/observation_cli_test.mjs && node tests/observation_reconciliation_test.mjs && node tests/observation_diagnostics_test.mjs && node tests/no_npm_cli_guidance_test.mjs",
+    "test": "node scripts/verify_lamina_bundle.mjs --check structure && npm run test:cli && node tests/transactional_graph_test.mjs && node tests/graphd_protocol_test.mjs && node tests/graphd_long_socket_test.mjs && node tests/no_legacy_runtime_test.mjs && node tests/grade_transactional_graph_evals_test.mjs && node tests/eval_graph_runtime_install_test.mjs && node benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs && node tests/transactional_plan_acceptance_test.mjs && node tests/passive_benchmark_v4_test.mjs && node tests/lb6_pilot_launch_gate_test.mjs && node tests/docs_onboarding_test.mjs && node tests/check_lamina_init_test.mjs && node tests/check_lamina_personas_test.mjs && node tests/lamina_write_boundary_test.mjs && node tests/behavior_benchmark_test.mjs && node tests/lb6_pilot_preflight_test.mjs && node tests/web_release_test.mjs && node tests/eval_install_all_skills_test.mjs && node tests/grade_lamina_guardrails_test.mjs",
+    "test:cli": "node tests/cli_package_test.mjs && node tests/cli_doctor_test.mjs && node tests/cli_help_test.mjs && node tests/greenfield_cli_test.mjs && node tests/skill_cli_prerequisite_test.mjs && node tests/lamina_init_contract_test.mjs && node tests/passive_context_test.mjs && node tests/graphd_upgrade_test.mjs && node tests/graphd_worktree_test.mjs && node tests/cli_binary_smoke_test.mjs && node tests/observation_cli_test.mjs && node tests/observation_reconciliation_test.mjs && node tests/observation_diagnostics_test.mjs && node tests/no_npm_cli_guidance_test.mjs",
     "graphd": "node packages/cli/lib/graph-runtime/server.mjs",
     "graph:observe": "node packages/cli/bin/lamina.mjs graph observe",
     "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure",
@@ -38,7 +38,8 @@
     "bench:lb6:v3:collect-llm-judge-run": "node benchmarks/lb6/pilot/scripts/collect-local-v3-llm-judge-run.mjs",
     "bench:lb6:v3:collect-issue18": "node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs",
     "bench:lb6:v3:median-issue18": "node benchmarks/lb6/pilot/scripts/compute-issue18-median.mjs",
-    "bench:lb6:v3:archive-issue18-seed": "node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs"
+    "bench:lb6:v3:archive-issue18-seed": "node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs",
+    "bench:lb6:v4:validate-trace": "node benchmarks/lb6/passive-v4/validate-trace.mjs"
   },
   "devDependencies": {
     "agent-skills-eval": "^0.1.1",

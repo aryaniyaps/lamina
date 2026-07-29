@@ -128,7 +128,7 @@ function checkOutputContracts() {
     ],
     [skillPath('lamina-orchestrator', 'prompts/outputs/init.md')]: [
       'Mode', 'Business context summary', 'Open questions', 'Artifacts',
-      'Stale downstream artifacts', 'Recommended next step', 'Skills applied',
+      'Stale downstream artifacts', 'Passive product workflow', 'Skills applied',
     ],
     [skillPath('lamina-orchestrator', 'prompts/outputs/init-blocked.md')]: [
       'Status', "What's missing", 'Next step', 'Do not',
@@ -154,12 +154,23 @@ function checkCommandSkills() {
       continue;
     }
     const content = read(file);
-    if (!content.includes(`Use only when explicitly invoked as ${name}`)) {
-      errors.push(`command skill does not declare explicit invocation: ${file}`);
+    if (name === 'lamina-init' && !content.includes(`Use only when explicitly invoked as ${name}`)) {
+      errors.push(`init skill does not declare one-time explicit invocation: ${file}`);
+    }
+    if (name !== 'lamina-init' &&
+        (!content.includes('when explicitly invoked') || !content.match(/passive|ordinary implementation/))) {
+      errors.push(`phase skill does not support both passive flow and explicit override: ${file}`);
     }
     if (!rootSkill.includes(`skills/${name}/SKILL.md`)) {
       errors.push(`Lamina router does not route to public command skill: ${name}`);
     }
+  }
+  for (const signal of ['lamina work prepare', 'lamina work check', 'lamina work verify']) {
+    if (!rootSkill.includes(signal)) errors.push(`Lamina router missing passive workflow signal: ${signal}`);
+  }
+  if (!rootSkill.includes('Do not tell the user to invoke') &&
+      !rootSkill.includes('Never recommend')) {
+    errors.push('Lamina router must prohibit explicit phase recommendations in normal flow');
   }
 }
 

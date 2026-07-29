@@ -83,6 +83,7 @@ function guardrailsForFixture(fixtureName) {
 
 function applyGuardrailsToEval(ev) {
   if (!ev.stage_files || !ev.fixture) return ev;
+  if (ev.allow_product_writes === true) return ev;
   const assertions = ev.assertions ?? [];
   if (assertions.some((a) => a.includes('no `.lamina/` writes'))) return ev;
   const guardrails = guardrailsForFixture(ev.fixture);
@@ -121,7 +122,7 @@ function expandFixtureFiles(ev) {
       return `files/${ev.fixture}/${workspaceRel}`;
     });
     const mergedFiles = [...new Set([...(ev.files || []), ...paths])];
-    const { fixture: _fixture, ...rest } = ev;
+    const { fixture: _fixture, allow_product_writes: _allowProductWrites, ...rest } = ev;
     return { ...rest, files: mergedFiles, stage_files: ev.stage_files !== false };
   } catch (err) {
     console.warn(`Fixture expansion failed for ${ev.id}: ${err.message}`);
@@ -232,6 +233,50 @@ const laminaEvals = {
     e('router-keyword-stuffing', '/lamina — Audit the forms in our redesign of checkout navigation.', {
       expected_output: 'Disambiguate audit vs design vs direct.',
       assertions: ['Output picks one primary workflow', 'Output does not invent UI without grounding'],
+    }),
+    e('passive-feature-implementation', 'Add conflict-safe wishlist sharing to the storefront and verify it.', {
+      ...fx('brownfield-with-init'),
+      force_skill_invocation: false,
+      should_trigger: true,
+      allow_product_writes: true,
+      expected_output: 'Ordinary product request implicitly prepares graph context, maps every obligation, implements, and verifies without recommending a phase command.',
+      assertions: [
+        'passive implementation workflow',
+        'implementation packet present',
+        'complete WorkMap checked',
+        'source edits follow WorkStarted',
+        'transactional graph workflow',
+        'terminal WorkVerified receipt',
+        'no explicit phase recommendation',
+      ],
+    }),
+    e('passive-ui-live-verification', 'Improve checkout error recovery on desktop and mobile, implement it, and verify the live UI.', {
+      ...fx('brownfield-audit-ready'),
+      force_skill_invocation: false,
+      should_trigger: true,
+      allow_product_writes: true,
+      expected_output: 'Ordinary UI work uses passive graph context and cannot verify without four independent live audit classes.',
+      assertions: [
+        'passive implementation workflow',
+        'complete WorkMap checked',
+        'all live UI audit classes',
+        'independent UI audit artifacts',
+        'terminal WorkVerified receipt',
+        'no explicit phase recommendation',
+      ],
+    }),
+    e('passive-design-gap-before-edit', 'Implement account recovery with expired-link, unauthorized-user, and retry behavior.', {
+      ...fx('greenfield-with-init'),
+      force_skill_invocation: false,
+      should_trigger: true,
+      allow_product_writes: true,
+      expected_output: 'Missing graph detail is completed transactionally before the checked WorkMap and source edits.',
+      assertions: [
+        'passive implementation workflow',
+        'implementation-ready graph context',
+        'source edits follow WorkStarted',
+        'no explicit phase recommendation',
+      ],
     }),
 
     // Init gate bypass (~15)
@@ -850,6 +895,9 @@ const smokeIds = [
   'router-audit-01',
   'router-direct-forms',
   'router-ambiguous',
+  'passive-feature-implementation',
+  'passive-ui-live-verification',
+  'passive-design-gap-before-edit',
   'negative-ts-build',
   'negative-deploy',
   'guardrail-no-react',

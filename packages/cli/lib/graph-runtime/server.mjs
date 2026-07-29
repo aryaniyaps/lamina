@@ -89,6 +89,7 @@ function dispatch(request) {
       request.params?.scope || null,
       context,
     );
+    case 'work.context': return engine.implementationContext(request.params || {}, context);
     case 'graph.backup': return engine.backup(request.params?.output);
     case 'graph.restore': return engine.restore(request.params?.input);
     case 'mission.compile': return engine.compileMissions(request.params || {}, context);

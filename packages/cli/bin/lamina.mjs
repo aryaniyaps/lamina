@@ -4,6 +4,9 @@ import path from 'node:path';
 import { graphRequest } from '../lib/graph-runtime/client.mjs';
 import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
 import { runObservation } from '../lib/observe.mjs';
+import { contextCatalog } from '../lib/context-index.mjs';
+import { checkWork, prepareWork, verifyWork } from '../lib/work-context.mjs';
+import { setupAgent } from '../lib/agent-setup.mjs';
 
 const argv = process.argv.slice(2);
 const [domain, command, ...rawArgs] = argv;
@@ -14,6 +17,9 @@ const HELP = Object.freeze({
 Commands:
   doctor --json                 Check CLI, graph, Git, and observation readiness
   graph <command>               Query or mutate the transactional product graph
+  context catalog               Describe graph and source-context retrieval
+  work <command>                Prepare, map, and verify implementation work
+  setup --agent AGENT           Install passive provider rules
   session <command>             Manage explicit graph mutation sessions
   mission <command>             Compile or run graph-backed missions
 
@@ -21,7 +27,7 @@ Options:
   --help, -h                    Show help
   --version, -v                 Print the CLI version
 
-Run "lamina graph --help", "lamina session --help", or "lamina mission --help" for command details.`,
+Run "lamina graph --help", "lamina work --help", "lamina session --help", or "lamina mission --help" for command details.`,
   graph: `Usage: lamina graph <command> [options]
 
 Read commands:
@@ -59,6 +65,17 @@ Commands:
   run MISSION [--events FILE]
 
 --workflow and MISSION are required. --events FILE must contain a JSON array of runtime event objects.`,
+  work: `Usage: lamina work <command> [arguments]
+
+Commands:
+  prepare --request-file FILE [--workflow REF ...] [--output FILE]
+  check --packet FILE --map FILE
+  verify --packet FILE --map FILE
+
+prepare fails closed when the graph slice is not implementation-ready. check must
+pass before source edits. verify requires current graph state and passing artifacts
+for every obligation; UI obligations require functional, visual, responsive, and
+accessibility evidence.`,
 });
 
 function plain(value) {
@@ -108,6 +125,41 @@ async function run() {
   if (!domain || domain === '--help' || domain === '-h' || domain === 'help') return plain(HELP.root);
   if (domain === 'doctor') return doctorReport();
   const opt = options(rawArgs);
+  if (domain === 'context') {
+    if (command === 'catalog') return contextCatalog();
+    throw Object.assign(new Error('Usage: lamina context catalog'), { code: 'LAMINA_BAD_REQUEST' });
+  }
+  if (domain === 'setup') {
+    const setupOptions = options([command, ...rawArgs].filter(Boolean));
+    if (!setupOptions.agent) {
+      throw Object.assign(new Error('Usage: lamina setup --agent <codex|claude-code|cursor> [--check|--remove]'), { code: 'LAMINA_BAD_REQUEST' });
+    }
+    return setupAgent({
+      agent: setupOptions.agent,
+      check: Boolean(setupOptions.check),
+      remove: Boolean(setupOptions.remove),
+    });
+  }
+  if (domain === 'work') {
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.work);
+    if (command === 'prepare') {
+      const workflows = [];
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        if (rawArgs[index] === '--workflow' && rawArgs[index + 1]) workflows.push(rawArgs[++index]);
+        else if (rawArgs[index].startsWith('--workflow=')) workflows.push(rawArgs[index].slice('--workflow='.length));
+      }
+      if (!opt['request-file']) {
+        throw Object.assign(new Error('--request-file is required.'), { code: 'LAMINA_BAD_REQUEST' });
+      }
+      return prepareWork({
+        requestFile: opt['request-file'],
+        workflows,
+        output: opt.output,
+      });
+    }
+    if (command === 'check') return checkWork({ packetFile: opt.packet, mapFile: opt.map });
+    if (command === 'verify') return verifyWork({ packetFile: opt.packet, mapFile: opt.map });
+  }
   if (domain === 'graph') {
     if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.graph);
     if (command === 'status') return graphRequest('status');
@@ -199,7 +251,7 @@ async function run() {
       return graphRequest('mission.run', { mission, events });
     }
   }
-  throw Object.assign(new Error('Usage: lamina --version | lamina doctor --json | lamina graph <query|propose|patch|link|retire|validate|diff|status|backup|restore|observe|discover|rebuild-observations> | lamina session <start|query|publish|rebase|abort> | lamina mission <compile|run>'), { code: 'LAMINA_BAD_REQUEST' });
+  throw Object.assign(new Error('Usage: lamina <doctor|graph|context|work|setup|session|mission>'), { code: 'LAMINA_BAD_REQUEST' });
 }
 
 try {

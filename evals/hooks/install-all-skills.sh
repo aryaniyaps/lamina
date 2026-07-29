@@ -100,6 +100,14 @@ if [[ ! -e "$WORKSPACE/.git/lamina" ]]; then
   esac
 fi
 
+# Reproduce the real post-install treatment: skills provide judgment and the
+# managed provider rule makes ordinary product requests activate Lamina.
+case "$AGENT" in
+  codex) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent codex >/dev/null) ;;
+  claude-code) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent claude-code >/dev/null) ;;
+  cursor) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent cursor >/dev/null) ;;
+esac
+
 # The agent starts graphd on first use. Starting it in this hook is unsafe
 # because some eval harnesses reap hook descendants, leaving Ladybug's native
 # lock behind without a live socket.

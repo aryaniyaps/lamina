@@ -1,6 +1,6 @@
 ---
 name: lamina-verify
-description: "Use only when explicitly invoked as lamina-verify. Verify graph-backed product Missions with isolated Persona runs and normalized runtime evidence."
+description: "Verify graph-backed product Missions after ordinary implementation work or when explicitly invoked as lamina-verify. Run isolated Persona and live UI audits; explicit verification is source-read-only."
 ---
 
 # /lamina-verify
@@ -27,11 +27,29 @@ Require valid `.lamina/business-context.md` using `../lamina-orchestrator/prereq
 7. Missing/corrupt evidence, stale source snapshots, budget failures, or capability failures invalidate related readiness; they never silently pass.
 8. Query the resulting GraphVersion and report product gaps, intended-contract gaps, and operational limitations separately. Conflicting Statements remain present as a Contradiction and block approval.
 
-Allowed normalized event types are action/state/outcome observed, oracle passed/failed, denial observed, recovery attempted, artifact captured, and budget/capability failure.
+Allowed normalized event types are action/state/outcome observed, oracle
+passed/failed, denial observed, recovery attempted, artifact captured,
+`audit_passed` with a valid `audit_kind`, and budget/capability failure.
+
+For every Mission whose closure contains a Surface, exercise relevant states
+in a real runnable UI adapter and capture all four independent audit classes:
+
+- `functional`: interaction and outcome oracle;
+- `visual`: screenshot or visual-diff inspection;
+- `responsive`: relevant desktop and mobile viewport evidence;
+- `accessibility`: semantic tree and automated/manual accessibility evidence.
+
+Emit one `audit_passed` event per class with its artifact. A missing browser,
+viewport, screenshot, or accessibility capability is a capability failure and
+must block verification; static analysis is not a substitute. Do not reuse one
+artifact across audit classes.
 
 ## Completion
 
 Verification is complete only when every relevant Persona Mission ran independently, all required evidence is available and reproducible, and `lamina graph validate --at HEAD` reports the validation and contradiction state. Human `report.md` or `fix.md` may be generated as query projections; they are not truth-bearing runtime inputs.
+
+In passive flow, finish with `lamina work verify --packet <packet> --map
+<work-map>`. Do not recommend that the user invoke a verification skill.
 
 Report the GraphVersion, source revision, Run and HarnessResult ids, evidence gaps, contradictions, and a crisp verified/not-verified verdict.
 

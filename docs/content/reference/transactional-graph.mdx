@@ -52,12 +52,41 @@ lamina graph diff --base <view> --head <view>
 lamina graph backup --output graph.backup.json
 lamina graph restore --input graph.backup.json
 lamina graph rebuild-observations
+lamina context catalog
+lamina work prepare --request-file <file> --workflow <ref> --output <packet.json>
+lamina work check --packet <packet.json> --map <work-map.json>
+lamina work verify --packet <packet.json> --map <work-map.json>
 ```
 
 All mutation commands accept typed inputs and return deterministic JSON. Raw
 Cypher is not an agent-facing interface. Backup files are integrity-checked
 logical exports for disaster recovery and evaluator evidence; they are never
 runtime inputs during normal operation.
+
+## Implementation context
+
+`work prepare` is a read-only compiler over the selected workflow closure. It
+returns the relevant actors, authority, ordered operations, invariants,
+scenarios, surfaces, proofs, direct provenance, and stable obligation ids. A
+derived lexical ranker adds code-localization candidates, but source search is
+never graph authority. Dense retrieval is currently an optional unavailable
+tier and reports `lexical_degraded`; exact traversal already supplies the
+decision contract.
+
+Preparation fails closed for stale source identity, contradictions, missing
+authority, incomplete operation contracts, missing invariants/scenarios, or a
+UI surface without a proof specification. `work check` then requires exactly
+one code/test mapping for every obligation before edits.
+
+Validation exposes three distinct lifecycle signals:
+
+- `structural_valid`: graph shape and transactional rules hold;
+- `implementation_ready`: the selected contract is detailed enough to code;
+- `verified`: required current evidence exists and no readiness gap remains.
+
+For UI Runs, `verified` requires independent functional, visual, responsive,
+and accessibility audit artifacts. An oracle alone or one reused screenshot
+cannot satisfy that gate.
 
 ## Source observations
 

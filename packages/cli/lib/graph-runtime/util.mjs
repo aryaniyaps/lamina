@@ -107,6 +107,8 @@ export function runtimePaths(cwd = process.cwd()) {
     token: path.join(context.runtime_dir, 'graphd.token'),
     evidence: path.join(context.runtime_dir, 'evidence'),
     cocoindex: path.join(context.runtime_dir, 'cocoindex'),
+    context: path.join(context.runtime_dir, 'context'),
+    work: path.join(context.runtime_dir, 'work'),
   };
 }
 
@@ -161,6 +163,8 @@ export function ensureRuntime(paths) {
   fs.mkdirSync(paths.runtime_dir, { recursive: true });
   fs.mkdirSync(paths.evidence, { recursive: true });
   fs.mkdirSync(paths.cocoindex, { recursive: true });
+  fs.mkdirSync(paths.context || path.join(paths.runtime_dir, 'context'), { recursive: true });
+  fs.mkdirSync(paths.work || path.join(paths.runtime_dir, 'work'), { recursive: true });
 }
 
 export function ensureAuthToken(paths, platform = process.platform) {

@@ -28,6 +28,11 @@ try {
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(
+    fs.readFileSync(path.join(workspace, 'AGENTS.md'), 'utf8'),
+    /lamina work prepare/,
+    'eval treatment must install the same passive provider rule as real setup',
+  );
   result = spawnSync('bash', [path.join(root, 'evals/hooks/pre-run-eval.sh')], {
     cwd: root,
     env,

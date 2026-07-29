@@ -65,11 +65,13 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
-  assert.equal(ping.result.protocol_version, 4);
+  assert.equal(ping.result.protocol_version, 5);
+  assert.ok(ping.result.capabilities.includes('work.context.v1'));
   assert.equal(ping.result.runtime_version, '0.1.13');
   assert.deepEqual(ping.result.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
+    'work.context.v1',
   ]);
   assert.equal(ping.result.auth, undefined, 'authentication token must never be returned');
 

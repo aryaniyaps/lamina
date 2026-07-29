@@ -48,12 +48,12 @@ function checkProblemRouterLinks() {
 
 function checkCommandSkills() {
   const rootSkill = read('skills/lamina/SKILL.md');
-  if (!/\/lamina-init|\/lamina-design|\/lamina-verify/.test(rootSkill)) {
-    errors.push('public Lamina skill does not advertise all explicit command routes');
+  for (const signal of ['/lamina-init', '/lamina-design', '/lamina-verify',
+    'lamina work prepare', 'lamina work check', 'lamina work verify']) {
+    if (!rootSkill.includes(signal)) errors.push(`public Lamina skill missing route: ${signal}`);
   }
-  if (!/never edit|does not edit|do not edit/i.test(rootSkill) ||
-      !/application source|product source/i.test(rootSkill)) {
-    errors.push('public Lamina skill is missing its source-edit refusal');
+  if (!/Never recommend/i.test(rootSkill)) {
+    errors.push('public Lamina skill must prohibit explicit phase recommendations in normal flow');
   }
   for (const name of ['lamina-init', 'lamina-design', 'lamina-verify']) {
     const skillPath = modulePath(name);
@@ -62,8 +62,12 @@ function checkCommandSkills() {
       continue;
     }
     const skill = read(skillPath);
-    if (!skill.includes(`Use only when explicitly invoked as ${name}`)) {
-      errors.push(`Command skill description must declare explicit invocation: ${skillPath}`);
+    if (name === 'lamina-init' && !skill.includes(`Use only when explicitly invoked as ${name}`)) {
+      errors.push(`Init skill must declare explicit invocation: ${skillPath}`);
+    }
+    if (name !== 'lamina-init' &&
+        (!skill.includes('when explicitly invoked') || !/passive|ordinary implementation/.test(skill))) {
+      errors.push(`Phase skill must support passive use and explicit override: ${skillPath}`);
     }
     if (!/never edit|does not edit|do not edit/i.test(skill) || !/application source|product source/i.test(skill)) {
       errors.push(`Command skill missing source-edit refusal: ${skillPath}`);

@@ -64,7 +64,7 @@ try {
   assert.deepEqual(failure.error.details.failed_checks, ['worker.completed']);
   assert.equal(failure.error.details.worker_diagnostics.length, 2);
   assert.ok(failure.error.details.worker_diagnostics.every((item) => item.ok === false));
-  assert.equal(failure.error.details.daemon.protocol_version, 4);
+  assert.equal(failure.error.details.daemon.protocol_version, 5);
   daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
 } finally {
   if (daemonPid) {

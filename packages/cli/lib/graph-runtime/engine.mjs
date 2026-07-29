@@ -728,6 +728,31 @@ export class GraphEngine {
           });
         }
       }
+      const mission = resourceById.get(run.data?.mission);
+      if ((mission?.data?.closure?.surfaces || []).length) {
+        const auditEvents = (harnessResource.data?.events || [])
+          .filter((event) => event.type === 'audit_passed');
+        const passedAuditKinds = new Set(auditEvents
+          .map((event) => event.audit_kind));
+        for (const auditKind of ['functional', 'visual', 'responsive', 'accessibility']) {
+          if (!passedAuditKinds.has(auditKind)) {
+            readiness_gaps.push({
+              code: 'ui_audit_evidence_missing',
+              resource: run.id,
+              audit_kind: auditKind,
+              message: `UI Run ${run.id} has no passing ${auditKind} audit evidence.`,
+            });
+          }
+        }
+        const artifactDigests = auditEvents.map((event) => event.artifact?.digest).filter(Boolean);
+        if (artifactDigests.length && new Set(artifactDigests).size !== artifactDigests.length) {
+          readiness_gaps.push({
+            code: 'ui_audit_artifacts_not_independent',
+            resource: run.id,
+            message: `UI Run ${run.id} reused one artifact for multiple audit classes.`,
+          });
+        }
+      }
     }
     const contradictions = this.query('MATCH (c:Resource {kind: $kind}) RETURN c.id AS id, c.data AS data', { kind: 'contradiction' })
       .filter((item) => {
@@ -735,10 +760,19 @@ export class GraphEngine {
         const members = item.data?.members || [];
         return members.length >= 2 && members.every((member) => statementIds.has(member) || resourceIds.has(member));
       });
+    const implementationGaps = readiness_gaps.filter((item) =>
+      !['proof_evidence_missing', 'harness_result_missing', 'oracle_evidence_missing',
+        'oracle_failed', 'budget_failure', 'capability_failure', 'ui_audit_evidence_missing']
+        .includes(item.code));
+    const approved = errors.length === 0 && readiness_gaps.length === 0 &&
+      contradictions.length === 0 && stale_evidence.length === 0;
     return {
       ok: errors.length === 0,
-      approved: errors.length === 0 && readiness_gaps.length === 0 &&
-        contradictions.length === 0 && stale_evidence.length === 0,
+      structural_valid: errors.length === 0,
+      implementation_ready: errors.length === 0 && implementationGaps.length === 0 &&
+        contradictions.length === 0,
+      verified: approved,
+      approved,
       errors,
       readiness_gaps,
       contradictions: contradictions.map((item) => item.id),
@@ -1239,6 +1273,116 @@ export class GraphEngine {
     };
   }
 
+  implementationContext({ workflows = [], request = '' }, context) {
+    const branch = this.ensureBranch(context.branch, context.source_revision);
+    const head = this.head(branch.id);
+    const active = this.activeIds(branch.id);
+    const allResources = [...active.resources].map((id) => this.resource(id)).filter(Boolean);
+    const byId = new Map(allResources.map((item) => [item.id, item]));
+    const requested = [...new Set(workflows)].filter(Boolean);
+    let candidates = requested.length
+      ? requested.map((ref) => {
+        const id = this.resolveResourceId(ref, active.resources);
+        return allResources.find((item) => item.kind === 'workflow' &&
+          (item.id === id || item.data?.alias === ref || item.data?.name === ref));
+      })
+      : allResources.filter((item) => item.kind === 'workflow');
+    if (requested.length && candidates.some((item) => !item)) {
+      const missing = requested.filter((_, index) => !candidates[index]);
+      fail(ERROR.NOT_FOUND, `Workflow not found: ${missing.join(', ')}`);
+    }
+    if (!requested.length && candidates.length > 1) {
+      const terms = new Set(String(request).toLowerCase().match(/[a-z_][a-z0-9_-]{2,}/g) || []);
+      const scored = candidates.map((workflow) => {
+        const closure = this.missionClosure(branch.id, workflow.id);
+        const text = [
+          workflow.id,
+          JSON.stringify(workflow.data || {}),
+          ...closure.operations.map((id) => JSON.stringify(byId.get(id) || {})),
+          ...closure.surfaces.map((id) => JSON.stringify(byId.get(id) || {})),
+        ].join(' ').toLowerCase();
+        const score = [...terms].reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
+        return { workflow, score };
+      }).sort((left, right) => right.score - left.score || left.workflow.id.localeCompare(right.workflow.id));
+      if (scored[0]?.score > 0) {
+        const threshold = Math.max(1, Math.ceil(scored[0].score * 0.8));
+        candidates = scored.filter((item) => item.score >= threshold).map((item) => item.workflow);
+      } else {
+        candidates = [];
+      }
+    }
+
+    const workflowContexts = candidates.filter(Boolean).map((workflow) => {
+      const closure = this.missionClosure(branch.id, workflow.id);
+      const resourceIds = new Set([
+        workflow.id,
+        ...closure.operations,
+        ...closure.actors,
+        ...closure.invariants,
+        ...closure.scenarios,
+        ...closure.surfaces,
+        ...closure.proofs,
+        ...closure.dependencies,
+        ...closure.evidence,
+        ...closure.personas,
+      ]);
+      const resources = [...resourceIds].map((id) => byId.get(id) || this.resource(id)).filter(Boolean);
+      const statements = this.statementDetails(closure.statement_ids);
+      const gaps = [];
+      if (!closure.operations.length) {
+        gaps.push({ code: 'ordered_operations_missing', resource: workflow.id });
+      }
+      for (const operationId of closure.operations) {
+        if (!closure.actors.some((actorId) => statements.some((statement) =>
+          statement.subject === actorId &&
+          statement.predicate === 'lamina:authorizedFor' &&
+          statement.object === operationId))) {
+          gaps.push({ code: 'actor_authority_missing', resource: operationId });
+        }
+        const operation = byId.get(operationId);
+        const contractKeys = [
+          'preconditions', 'inputs', 'input', 'states', 'transitions', 'outcomes',
+          'failures', 'side_effects', 'acceptance', 'description',
+        ];
+        if (!contractKeys.some((key) => {
+          const value = operation?.data?.[key];
+          return Array.isArray(value) ? value.length : value !== undefined && value !== null && value !== '';
+        })) {
+          gaps.push({ code: 'operation_contract_missing', resource: operationId });
+        }
+      }
+      if (!closure.invariants.length) gaps.push({ code: 'invariants_missing', resource: workflow.id });
+      if (!closure.scenarios.length) gaps.push({ code: 'scenarios_missing', resource: workflow.id });
+      if (closure.surfaces.length && !closure.proofs.length) {
+        gaps.push({ code: 'ui_proof_spec_missing', resource: workflow.id });
+      }
+      return { workflow, closure, resources, statements, readiness_gaps: gaps };
+    });
+    const validation = this.validateSet(active.resources, active.statements, head?.source_revision);
+    const readinessGaps = [
+      ...(head?.source_revision !== context.source_revision
+        ? [{ code: 'graph_source_stale', graph_source_revision: head?.source_revision, current_source_revision: context.source_revision }]
+        : []),
+      ...validation.errors.map((message) => ({ code: 'graph_invalid', message })),
+      ...validation.contradictions.map((resource) => ({ code: 'contradiction', resource })),
+      ...(!candidates.length
+        ? [{ code: 'workflow_selection_ambiguous', message: 'Name one or more relevant workflows; no bounded graph slice matched the request.' }]
+        : []),
+      ...workflowContexts.flatMap((item) => item.readiness_gaps.map((gap) => ({
+        ...gap,
+        scope: item.workflow.id,
+      }))),
+    ];
+    return {
+      graph_version: head,
+      source_revision: context.source_revision,
+      workflows: workflowContexts,
+      structural_valid: validation.ok,
+      implementation_ready: candidates.length > 0 && readinessGaps.length === 0,
+      readiness_gaps: readinessGaps,
+    };
+  }
+
   compileMissions({ workflow, persona, adapter = null, session: sessionId = null }, context) {
     const branch = this.ensureBranch(context.branch, context.source_revision);
     let suppliedSession = null;
@@ -1340,10 +1484,17 @@ export class GraphEngine {
     const allowedEvents = new Set([
       'action_attempted', 'state_observed', 'outcome_observed', 'oracle_passed',
       'oracle_failed', 'denial_observed', 'recovery_attempted', 'artifact_captured',
-      'budget_failure', 'capability_failure',
+      'audit_passed', 'budget_failure', 'capability_failure',
     ]);
     for (const event of events) {
       if (!allowedEvents.has(event.type)) fail(ERROR.VALIDATION, `Unknown normalized adapter event: ${event.type}`);
+      if (event.type === 'audit_passed' &&
+          !['functional', 'visual', 'responsive', 'accessibility'].includes(event.audit_kind)) {
+        fail(ERROR.VALIDATION, 'audit_passed requires audit_kind functional, visual, responsive, or accessibility.');
+      }
+      if (event.type === 'audit_passed' && !event.artifact) {
+        fail(ERROR.EVIDENCE_MISSING, `audit_passed ${event.audit_kind} requires an artifact.`);
+      }
       if (event.epistemic_class !== undefined || event.approved !== undefined) {
         fail(ERROR.SPOOFED_STATUS, 'Adapter events cannot submit epistemic or approval status.');
       }

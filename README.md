@@ -5,7 +5,7 @@
 <p align="center"><em>Design is how it works — not just how it looks.</em></p>
 
 <p align="center">
-  Headless product design for AI coding agents, backed by a transactional product graph. Lamina helps your agent design how your app works — actors, flows, states, permissions, failures, and edge cases — then verify the live build through independent persona missions. It never edits application source.
+  Headless product design for AI coding agents, backed by a transactional product graph. Initialize once; then ordinary feature requests automatically give your coding agent the relevant actors, flows, states, permissions, failures, code targets, and proof obligations.
 </p>
 
 ---
@@ -29,12 +29,14 @@ Install Lamina for this project.
    Codex, `-a claude-code` in Claude Code, or `-a cursor` in Cursor. Do not use
    `-a '*'`.
    npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
-4. Node.js/npm are required only for the preceding `npx skills` command. Do not use sudo and do not edit application source. If this is not yet a
+4. Install passive rules for that provider:
+   lamina setup --agent <codex|claude-code|cursor>
+5. Node.js/npm are required only for the preceding `npx skills` command. Do not use sudo and do not edit application source during setup. If this is not yet a
    Git project, `/lamina-init` may create Git metadata but must not stage or
    commit files.
-5. If a command fails, stop and show me
+6. If a command fails, stop and show me
    the exact error.
-6. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
+7. When complete, report the installed CLI version and agent targets, then tell me to start a fresh agent session and run:
    /lamina-init <your product domain and primary users>
 ```
 
@@ -43,6 +45,7 @@ Prefer installing it yourself?
 ```bash
 curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
+lamina setup --agent <codex|claude-code|cursor>
 lamina doctor --json
 ```
 
@@ -56,13 +59,12 @@ They remain first-class siblings so agents can discover and progressively load
 cross-referenced skills directly. Then start a **fresh agent session** so the
 complete skill set is available.
 
-### Design, build, and verify
+### Initialize once, then ask normally
 
 **AGENT CHAT**
 
 ```text
 /lamina-init <your product domain and primary users>
-/lamina-design <one feature or flow>
 ```
 
 Run init once per project or domain. Use `/lamina-init update` only when the business use case, market, scope, or actors materially change.
@@ -70,24 +72,21 @@ Run init once per project or domain. Use `/lamina-init update` only when the bus
 On a new folder, init creates `.git` with an unborn `main` branch when needed.
 It never stages or creates an initial commit.
 
-`/lamina-design` publishes a validated product contract and returns an implementation projection for your coding agent.
-
 **ORDINARY CODING MODE**
 
 ```text
-Implement the Lamina design from the resolved GraphVersion.
-Start the product.
+Add medication schedule editing with conflict-safe saves and a responsive UI.
 ```
 
-**AGENT CHAT**
+That is the whole ongoing interface. The installed rules make the agent
+implicitly compile a bounded ImplementationPacket from the graph, fill design
+gaps, map every requirement to code and tests before editing, implement, run
+live proof, fix failures, and reverify. It does not dump the entire graph into
+the prompt.
 
-```text
-/lamina-verify hall ticket download at http://localhost:3000
-```
-
-Apply any product fixes in ordinary coding mode, then run the same verify command again.
-
-Not sure which command to run? `/lamina <what you are trying to do>` is an optional router — not a required setup step.
+`/lamina-design` and `/lamina-verify` remain advanced overrides when you want a
+graph-only design pass or a source-read-only audit. They are not required steps
+and Lamina should not recommend them during normal work.
 
 ---
 
@@ -106,11 +105,11 @@ Your coding agent writes app source. Optional UI skills handle look and feel. **
 | Step | Who | Result |
 |---|---|---|
 | 0. Init | **Lamina** | Business context plus Product, Actor, and Persona knowledge |
-| 1. Design | **Lamina** | Validated `GraphVersion` plus an implementation projection |
-| 2. Build | **Your coding agent** | App source in any stack |
-| 3. Verify | **Lamina** | Independent persona missions, runtime evidence, and findings |
-| 4. Fix | **Your coding agent** | Product fixes from the findings |
-| 5. Re-verify | **Lamina** | Evidence that the flow works; contract gaps return to design |
+| 1. Prepare | **Lamina + your agent** | Exact graph closure, ranked code context, stable obligations, and a checked WorkMap |
+| 2. Build | **Your coding agent** | App source in any stack, mapped to product obligations |
+| 3. Verify | **Lamina + your agent** | Independent persona missions plus functional, visual, responsive, and accessibility evidence |
+| 4. Fix | **Your coding agent** | Product or contract fixes from failed obligations |
+| 5. Re-verify | **Lamina + your agent** | Current evidence for every obligation |
 
 Human-readable implementation, report, and fix documents are optional projections from a resolved `GraphVersion`. They are useful handoffs, but they are not canonical state. Legacy run files are left untouched and have no runtime meaning.
 
@@ -175,7 +174,7 @@ customer support, accessibility, edge cases, and system behavior.
 | | **With Lamina** | **Without Lamina** |
 |---|---|---|
 | **Folder** | [`demo/hotel-booking-with-lamina`](demo/hotel-booking-with-lamina) | [`demo/hotel-booking-without-lamina`](demo/hotel-booking-without-lamina) |
-| **Workflow** | `/lamina-init` → `/lamina-design` → implement → `/lamina-verify` | Cursor Plan mode → implement |
+| **Workflow** | `/lamina-init` once → ordinary implementation prompts with passive Lamina context | Cursor Plan mode → implement |
 
 <p align="center">
   <img src="demo/hotel-booking-with-lamina/screenshot.png" alt="HavenStay built with Lamina" width="48%" />
@@ -226,7 +225,7 @@ Most of these tools are complementary. Lamina is the product contract plus the p
 
 ### BMAD, ai-ux-skills, design-skills
 
-**They teach design judgment** — heuristics, critique, accessibility, and PRDs. Lamina runs a workflow: slash commands → transactional product contract → implementation → live-product verification. Use craft skills for judgment and Lamina when you need a durable contract and evidence-backed check.
+**They teach design judgment** — heuristics, critique, accessibility, and PRDs. Lamina runs a workflow: ordinary request → transactional product contract → mapped implementation → live-product verification. Use craft skills for judgment and Lamina when you need a durable contract and evidence-backed check.
 
 ### Just asking your coding agent
 
@@ -234,7 +233,7 @@ Fine for happy paths. Weak on permission matrices, stale states, cross-actor han
 
 ### Spec Kit, Kiro, spec-driven development
 
-**Product first, then engineering spec.** Lamina structures product behavior; spec tools structure implementation work. Feed a resolved GraphVersion projection into your spec workflow, then use `/lamina-verify` on the built product.
+**Product first, then engineering spec.** Lamina structures product behavior and compiles its obligations into the coding context; spec tools can further structure implementation work.
 
 ### v0, Lovable, Bolt
 
@@ -255,11 +254,16 @@ Mocks show screens. They do not capture every legal state or verify the build. L
 | Command | What it does |
 |---|---|
 | `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
-| `/lamina-design` | Design and publish a validated product-behavior GraphVersion |
-| `/lamina-verify` | Run independent persona missions against the built product and report evidence-backed findings |
-| `/lamina` | Route a request when you are unsure which Lamina workflow to use |
+| `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, or Cursor |
+| `lamina context catalog` | Explain authoritative graph and derived source-retrieval tiers |
+| `lamina work prepare` | Compile the bounded graph slice and stable product obligations |
+| `lamina work check` | Require complete requirement-to-code/test mapping before edits |
+| `lamina work verify` | Require current evidence for every obligation and all UI audit classes |
+| `/lamina-design` | Advanced graph-only design override |
+| `/lamina-verify` | Advanced source-read-only verification override |
 
-Lamina commands do not edit application source or prescribe visual styling.
+The Lamina CLI does not edit application source or prescribe visual styling;
+the coding agent implements only after the WorkMap gate passes.
 
 ---
 

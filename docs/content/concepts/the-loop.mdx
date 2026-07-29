@@ -13,13 +13,15 @@ user-facing flow.
 1. **Ground the repository.** Run `/lamina-init` once. It records business
    evidence and publishes inferred Product, Actor, and Persona proposals
    grounded in explicit user input.
-2. **Publish the design.** Run `/lamina-design <flow>` to create a validated
-   `GraphVersion` and a human-readable implementation projection.
-3. **Implement the projection.** Work in a normal coding session and keep using
-   your existing stack.
-4. **Exercise the live product.** Run `/lamina-verify <mission> at <url>`.
-   Lamina creates an isolated Mission and Run for every relevant Persona and
-   normalizes the resulting runtime evidence.
+2. **Ask normally.** The provider rule runs `lamina work prepare` to compile the
+   exact relevant graph closure, direct provenance, ranked source candidates,
+   and stable obligations. Missing design is completed before code edits.
+3. **Map and implement.** A checked WorkMap connects every obligation to
+   existing evidence, code targets, and planned tests before the agent edits
+   source in your existing stack.
+4. **Exercise the live product.** The agent creates an isolated Mission and Run
+   for every relevant Persona. UI work requires functional, visual, responsive,
+   and accessibility artifacts, not merely a screenshot or passing unit test.
 5. **Decide from evidence.** Inspect the findings and semantic diff, then
    accept the evidence, fix the implementation, or change the contract.
 
@@ -27,16 +29,18 @@ Verification findings have two different destinations:
 
 - An **implementation defect** returns to ordinary coding. Fix the product and
   run the same verification mission again.
-- A **contract gap** returns to `/lamina-design`. Publish the corrected intent
-  before implementing and verifying it.
+- A **contract gap** is published transactionally before implementing and
+  verifying it.
 
 This distinction keeps a failing implementation from silently redefining the
 product contract.
 
 ## What Lamina changes
 
-Lamina commands publish graph state and evidence. They do not edit application
-source, choose a framework, or replace your coding agent. Human-readable
+The Lamina CLI publishes graph state, packets, receipts, and evidence. It does
+not edit application source, choose a framework, or replace your coding agent.
+The provider rule gives that coding agent the graph context automatically.
+Human-readable
 implementation, report, and fix documents are optional projections from the
 resolved graph; the `GraphVersion` is canonical.
 

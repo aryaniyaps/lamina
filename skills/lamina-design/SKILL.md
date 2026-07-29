@@ -1,6 +1,6 @@
 ---
 name: lamina-design
-description: "Use only when explicitly invoked as lamina-design. Shape intended product behavior in Lamina's transactional graph and publish a validated graph version."
+description: "Shape intended product behavior in Lamina's transactional graph when explicitly invoked as lamina-design or when passive implementation preparation reports design gaps. Publish an implementation-ready graph version without editing application source."
 ---
 
 # /lamina-design
@@ -34,6 +34,9 @@ Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/referenc
    If asked to rank, prune, retain a top N, or apply a persona cap, explicitly reject the cap and keep all relevant Personas.
 8. Publish once with `lamina session publish <session-id>`. If compare-and-swap fails, run `lamina session rebase <session-id>`, re-query and revalidate, then publish.
 9. Generate any human implementation Markdown only as a query projection. It is never canonical and must cite the resolved GraphVersion.
+10. In passive implementation flow, rerun `lamina work prepare` and continue
+    only when it returns an implementation-ready packet. Do not tell the user
+    to invoke this skill.
 
 Single mutations may use implicit one-shot sessions through `lamina graph propose`, `patch`, or `link`. A multi-fact design must use one explicit session so it commits completely or leaves the branch unchanged.
 

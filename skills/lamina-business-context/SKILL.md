@@ -190,13 +190,13 @@ lamina:
 
 ---
 
-## Recommended next command (output only)
+## Passive continuation (output only)
 
-| Signal | Suggest |
+| Signal | Continue automatically |
 |---|---|
-| Problem unclear, early exploration | `/lamina-design` |
-| Specific capability to specify | `/lamina-design` |
-| Shipped UI, known pain, clear goals | `/lamina-verify` |
+| Problem unclear, early exploration | complete the required graph design |
+| Specific capability to specify | prepare its implementation packet |
+| Shipped UI, known pain, clear goals | run graph-backed live verification |
 | Business context incomplete | finish open questions before other commands |
 
-Do not persist recommendation in any file.
+Do not recommend another slash command.

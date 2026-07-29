@@ -61,8 +61,11 @@ Merge changed business evidence, append a dated changelog, rerun observations, a
 
 Report canonical graph initialization and observation as separate outcomes.
 Always report the GraphVersion, source revision, actual Product/Persona/Actor
-Resource ids, contradictions, evidence gaps, and the recommended
-`/lamina-design` or `/lamina-verify` next step.
+Resource ids, contradictions, and evidence gaps. Install or refresh passive
+provider rules with `lamina setup --agent <provider>`, then state that future
+ordinary product requests automatically prepare graph-backed implementation
+context, complete design gaps, implement, and verify. Do not recommend another
+slash command.
 
 Only report observation coverage and Observation Resource ids when `lamina
 graph observe` exited zero and its completion checks passed. After a nonzero

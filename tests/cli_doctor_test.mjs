@@ -26,7 +26,7 @@ try {
   const report = JSON.parse(result.stdout);
   assert.equal(report.cli.version, '0.1.13');
   assert.equal(report.cli.api_version, 1);
-  assert.equal(report.graph.protocol_version, 4);
+  assert.equal(report.graph.protocol_version, 5);
   assert.equal(report.node.compatible, true);
   assert.equal(report.git.is_project, false);
   assert.equal(report.observation.required_for_core_graph, false);

@@ -59,7 +59,7 @@ const OUTPUT_CONTRACTS = {
     '### Findings',
     '### Open questions',
   ],
-  init: ['### Mode', '### Business context summary', '### Open questions', '### Recommended next step'],
+  init: ['### Mode', '### Business context summary', '### Open questions', '### Passive product workflow'],
 };
 
 function hasInitContract(output) {
@@ -115,6 +115,35 @@ function listFiles(dir, prefix = '') {
     }
   }
   return results;
+}
+
+function workReceipts(workspace, suffix) {
+  const roots = [
+    path.join(workspace, '.git', 'lamina', 'work'),
+    path.join(workspace, '.lamina', 'runtime', 'work'),
+  ];
+  const receipts = new Map();
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    for (const name of fs.readdirSync(root)) {
+      if (!name.endsWith(suffix)) continue;
+      const value = readJsonSafe(path.join(root, name));
+      if (value) receipts.set(value.receipt_id || `${root}:${name}`, value);
+    }
+  }
+  return [...receipts.values()];
+}
+
+function checkedWorkMaps(workspace) {
+  return workReceipts(workspace, '.started.json')
+    .map((receipt) => receipt.work_map)
+    .filter(Boolean);
+}
+
+function passedUiEvidence(workspace) {
+  return checkedWorkMaps(workspace).flatMap((map) =>
+    (map.obligations || []).flatMap((entry) =>
+      (entry.verification || []).filter((item) => item.status === 'passed' && item.artifact)));
 }
 
 function diffNewFiles(preState, postState) {
@@ -323,6 +352,136 @@ function gradeAssertion(text, ctx) {
       passed
         ? 'Live non-empty graph mutation and matching GraphVersion receipt present without legacy writes'
         : `Expected a real non-empty graph mutation and matching current GraphVersion receipt; live=${currentVersion || 'unavailable'} legacy=${legacyWrites.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('implementation packet present')) {
+    const hasPacket = /lamina\.implementation-packet\/v1|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
+    return hookResult(
+      text,
+      hasPacket,
+      hasPacket ? 'Versioned ImplementationPacket and packet id reported' : 'No ImplementationPacket identity in output',
+    );
+  }
+
+  if (lower.includes('complete workmap checked')) {
+    const maps = checkedWorkMaps(workspace);
+    const complete = maps.some((map) => {
+      const entries = map.obligations || [];
+      return map.schema === 'lamina.work-map/v1' &&
+        entries.length > 0 &&
+        new Set(entries.map((item) => item.obligation_id)).size === entries.length &&
+        entries.every((item) =>
+          item.obligation_id &&
+          item.status !== 'blocked' &&
+          Array.isArray(item.targets) &&
+          Array.isArray(item.verification) &&
+          item.verification.length > 0);
+    });
+    return hookResult(
+      text,
+      complete,
+      complete ? 'A WorkStarted receipt contains a complete unique WorkMap' : 'No complete checked WorkMap receipt',
+    );
+  }
+
+  if (lower.includes('source edits follow workstarted')) {
+    const started = workReceipts(workspace, '.started.json');
+    const productChanges = changedFiles.filter((file) => {
+      const normalized = normalizePath(file);
+      return !normalized.startsWith('.lamina/') &&
+        !normalized.startsWith('.git/') &&
+        !/^(?:AGENTS\.md|CLAUDE\.md|\.cursor\/rules\/lamina\.mdc)$/.test(normalized);
+    });
+    const passed = started.length > 0 && productChanges.length > 0;
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? `WorkStarted exists and product files changed: ${productChanges.join(', ')}`
+        : `Expected WorkStarted before product changes; receipts=${started.length} changes=${productChanges.join(', ')}`,
+    );
+  }
+
+  if (lower.includes('terminal workverified receipt')) {
+    const receipts = workReceipts(workspace, '.verified.json');
+    const passed = receipts.some((receipt) =>
+      receipt.schema === 'lamina.work-verified/v1' && receipt.verified === true);
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Terminal WorkVerified receipt present' : 'No terminal WorkVerified receipt',
+    );
+  }
+
+  if (lower.includes('passive implementation workflow')) {
+    const started = workReceipts(workspace, '.started.json').length > 0;
+    const verified = workReceipts(workspace, '.verified.json')
+      .some((receipt) => receipt.verified === true);
+    const recommendsPhase = /\b(?:run|invoke|use|next(?:\s+step)?(?:\s+is)?)\b[^\n]{0,80}\/lamina-(?:design|verify)\b/i
+      .test(allOutput);
+    const passed = started && verified && !recommendsPhase;
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? 'Ordinary request produced WorkStarted and WorkVerified without phase-command handoff'
+        : `Passive lifecycle incomplete or explicit handoff present (started=${started}, verified=${verified}, recommendation=${recommendsPhase})`,
+    );
+  }
+
+  if (lower.includes('no explicit phase recommendation')) {
+    const recommendsPhase = /\b(?:run|invoke|use|next(?:\s+step)?(?:\s+is)?)\b[^\n]{0,80}\/lamina-(?:design|verify)\b/i
+      .test(allOutput);
+    return hookResult(
+      text,
+      !recommendsPhase,
+      !recommendsPhase ? 'No explicit design/verify phase recommendation' : 'Normal flow recommended an explicit phase command',
+    );
+  }
+
+  if (lower.includes('implementation-ready graph context')) {
+    const ready = /\bimplementation_ready\b\s*["':=]+\s*true\b/i.test(allOutput);
+    const started = workReceipts(workspace, '.started.json').length > 0;
+    return hookResult(
+      text,
+      ready && started,
+      ready && started ? 'Implementation-ready graph context preceded work' : 'No confirmed implementation-ready context',
+    );
+  }
+
+  if (lower.includes('all live ui audit classes')) {
+    const evidence = passedUiEvidence(workspace);
+    const kinds = new Set(evidence.map((item) => item.kind));
+    const required = ['functional', 'visual', 'responsive', 'accessibility'];
+    const graph = liveGraphState(workspace);
+    const graphEvents = (graph?.resources || [])
+      .filter((resource) => resource.kind === 'harness_result')
+      .flatMap((resource) => resource.data?.events || [])
+      .filter((event) => event.type === 'audit_passed');
+    const graphKinds = new Set(graphEvents.map((event) => event.audit_kind));
+    const passed = required.every((kind) => kinds.has(kind) && graphKinds.has(kind));
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? 'WorkMap artifacts and live HarnessResult contain all four UI audit classes'
+        : `Missing UI audit classes; map=${[...kinds].join(',')} graph=${[...graphKinds].join(',')}`,
+    );
+  }
+
+  if (lower.includes('independent ui audit artifacts')) {
+    const evidence = passedUiEvidence(workspace)
+      .filter((item) => ['functional', 'visual', 'responsive', 'accessibility'].includes(item.kind));
+    const byKind = new Map(evidence.map((item) => [item.kind, path.resolve(workspace, item.artifact)]));
+    const files = [...byKind.values()];
+    const passed = byKind.size === 4 &&
+      new Set(files).size === 4 &&
+      files.every((file) => fs.existsSync(file));
+    return hookResult(
+      text,
+      passed,
+      passed ? 'Four distinct UI audit artifacts exist' : 'UI audit artifacts are missing, reused, or not reproducible',
     );
   }
 

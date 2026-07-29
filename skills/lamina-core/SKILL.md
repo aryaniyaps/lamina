@@ -7,16 +7,19 @@ description: "Lamina Problem Router — product design at the intersection of UX
 
 Load one capability skill per problem.
 
-## Entry points
+## Passive routing
 
-| Command | Use when |
+| Request | Route |
 |---------|----------|
-| `/lamina` | Auto-route or single-topic answer |
-| `/lamina-init` | Bootstrap domain charter |
-| `/lamina-design` | Design how the product works → validated GraphVersion |
-| `/lamina-verify` | Post-build or brownfield verification |
+| One-time `/lamina-init` | Bootstrap domain charter and provider rules |
+| Ordinary feature or fix | Prepare context, complete design gaps, map, implement, verify |
+| Focused product question | Load the smallest relevant capability skill |
+| Explicit `/lamina-design` | Advanced graph-only design phase |
+| Explicit `/lamina-verify` | Advanced source-read-only audit phase |
 
-**Guardrail:** `.lamina/` writes only; never app source. See [guardrails.md](guardrails.md).
+**Guardrail:** Product-design skills write `.lamina/` evidence and graph state,
+not app source. The coding agent may edit app source only after the passive
+WorkMap gate. See [guardrails.md](guardrails.md).
 
 ## Systems thinking (spine)
 

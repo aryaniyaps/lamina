@@ -14,17 +14,21 @@ metadata:
 ---
 # Design Process (agent-native)
 
-The loop for coding agents: **design contract → implement (external) → verify → fix.md → re-verify**.
+The loop for coding agents is passive after init: **prepare context → complete
+design gaps → map obligations → implement → verify → fix → re-verify**.
 
 ## Loop
 
-1. `/lamina-init` — domain charter
-2. `/lamina-design` — a validated published GraphVersion plus optional implementation projection
-3. External implementation (any stack)
-4. `/lamina-verify` — actor walks, invariants, a11y → `findings[]` + `fix.md`
-5. External fix — coding agent implements product fixes from `fix.md`
-6. Re-verify — `/lamina-verify` on updated build
-7. Contract gaps → `/lamina-design` delta (prompts in `fix.md`); re-verify
+1. `/lamina-init` once — establish the domain and provider rules.
+2. On an ordinary request, compile an ImplementationPacket from the exact graph closure.
+3. Complete and publish any reported design gaps automatically.
+4. Map every obligation to evidence, source targets, and verification; check the map before edits.
+5. Implement in the project's stack.
+6. Run isolated actor, invariant, functional, visual, responsive, and accessibility proof.
+7. Fix failures and reverify until every obligation has current passing evidence.
+
+`/lamina-design` and `/lamina-verify` remain advanced graph-only/source-read-only
+overrides. Never recommend them as the normal next step.
 
 ## Anti-patterns
 

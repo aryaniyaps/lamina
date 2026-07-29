@@ -6,10 +6,11 @@ export const RESOURCE_KINDS = new Set([
 
 export const VIEW_KINDS = new Set(['branch', 'session', 'observation', 'historical']);
 export const CLI_API_VERSION = 1;
-export const GRAPH_PROTOCOL_VERSION = 4;
+export const GRAPH_PROTOCOL_VERSION = 5;
 export const GRAPH_CAPABILITIES = Object.freeze([
   'observation.status.source_key_count',
   'observation.status.generation',
+  'work.context.v1',
 ]);
 export const REQUIRED_GRAPH_CAPABILITIES = GRAPH_CAPABILITIES;
 

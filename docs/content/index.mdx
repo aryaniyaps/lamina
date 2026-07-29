@@ -25,12 +25,12 @@ curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 lamina doctor --json
 /lamina-init
-/lamina-design
-# implement in a normal coding session
-/lamina-verify
+# then use ordinary product requests
 ```
 
-Use `lamina graph status` to inspect the resolved GraphVersion. Design and verification commands do not edit application source.
+Setup also runs `lamina setup --agent <provider>`. Use `lamina graph status` to
+inspect the resolved GraphVersion and `lamina context catalog` to inspect the
+context policy.
 
 ## Why it is different
 
@@ -38,6 +38,8 @@ Use `lamina graph status` to inspect the resolved GraphVersion. Design and verif
 - Intent, observations, agent inference, Persona simulation, human evidence, and runtime evidence stay separate.
 - Conflicts remain inspectable as Contradictions.
 - Every relevant Persona receives an independent Mission and Run.
+- Every implementation obligation is mapped to code and verification before edits.
+- UI verification requires functional, visual, responsive, and accessibility evidence.
 - Source changes update an observation view without mutating canonical Claims.
 - Existing legacy run files are ignored by the runtime.
 

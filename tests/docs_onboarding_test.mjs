@@ -40,9 +40,9 @@ assert.match(readme, /start a fresh agent session/i);
 
 const workflowSignals = [
   '/lamina-init',
-  '/lamina-design',
-  'Implement',
-  '/lamina-verify',
+  'ORDINARY CODING MODE',
+  'lamina work prepare',
+  'lamina work verify',
 ];
 let workflowOffset = readme.indexOf('## Quickstart');
 for (const signal of workflowSignals) {
@@ -51,9 +51,11 @@ for (const signal of workflowSignals) {
   workflowOffset += signal.length;
 }
 
-assert.match(readme, /Validated `GraphVersion` plus an implementation projection/);
+assert.match(readme, /Exact graph closure, ranked code context, stable obligations/i);
 assert.match(readme, /independent persona missions/i);
-assert.match(readme, /never edits application source|do not edit application source/i);
+assert.match(readme, /CLI does not edit application source|do not edit application source/i);
+assert.match(readme, /functional, visual, responsive, and accessibility evidence/i);
+assert.match(readme, /should not recommend them during normal work/i);
 assert.match(readme, /legacy run files are left untouched and have no runtime meaning/i);
 assert.match(readme, /HavenStay predates the transactional graph runtime/);
 assert.doesNotMatch(readme, /run\.json|\.lamina\/runs\//);

@@ -12,8 +12,9 @@ Only questions the user explicitly skipped, refused, or deferred after the clari
 Path and what was written or changed
 ### Stale downstream artifacts
 update mode only — personas, prior runs, etc.
-### Recommended next step
-One command and why — not persisted
+### Passive product workflow
+Confirm that provider rules are installed and ordinary product requests will
+automatically prepare graph context, complete gaps, implement, and verify.
 ### Skills applied
 Which capability skills informed each section
 ```
