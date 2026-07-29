@@ -25,6 +25,7 @@ on:
       - 'evals/bin/lamina'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - '.github/workflows/cli-test.yml'
 
 permissions:
   contents: read
