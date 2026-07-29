@@ -232,7 +232,14 @@ try {
     const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
     if (lock?.pid) await stopIncompatibleServer(paths, lock.pid);
   } catch {}
-  fs.rmSync(root, { recursive: true, force: true });
+  // Windows can keep Ladybug's final file handle briefly after graphd exits.
+  // `rmSync` retries only when explicitly configured.
+  fs.rmSync(root, {
+    recursive: true,
+    force: true,
+    maxRetries: 20,
+    retryDelay: 100,
+  });
 }
 
 console.log('graphd_upgrade_test: ok');
