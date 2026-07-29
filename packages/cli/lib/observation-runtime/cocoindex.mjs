@@ -25,6 +25,31 @@ function unavailable(message, details = {}) {
   return error;
 }
 
+export function runObservationProcess({ command, args, cwd, environment }) {
+  // CocoIndex can emit more than Node's 1 MiB spawnSync default while syncing
+  // dependencies or reporting a large source scan. We retain only the final
+  // diagnostic tail below, but the child must be allowed to finish first.
+  const result = spawnSync(command, args, {
+    cwd,
+    env: environment,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) throw unavailable('CocoIndex worker is unavailable. Reinstall this Lamina release to restore its private worker.', { backend: OBSERVATION_BACKEND, cause: result.error.message });
+  if ((result.status ?? 1) !== 0) {
+    const error = new Error(`CocoIndex observation exited with status ${result.status ?? 1}.`);
+    error.code = 'LAMINA_OBSERVATION_FAILED';
+    error.details = { backend: OBSERVATION_BACKEND, status: result.status ?? 1, signal: result.signal || null, stderr: String(result.stderr || '').slice(-4_000), stdout: String(result.stdout || '').slice(-4_000) };
+    throw error;
+  }
+  return {
+    status: result.status,
+    stderr: String(result.stderr || '').slice(-4_000),
+    stdout: String(result.stdout || '').slice(-4_000),
+  };
+}
+
 /** Run CocoIndex without exposing a Python/uv prerequisite to release users. */
 export function runCocoIndex({ paths, generation, live, ignore, extractorDigest }) {
   const worker = managedWorker();
@@ -62,26 +87,10 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
     args.push('cocoindex_app.py');
     environment.UV_PROJECT_ENVIRONMENT = path.join(paths.cocoindex, 'python-env');
   }
-  // CocoIndex can emit more than Node's 1 MiB spawnSync default while syncing
-  // dependencies or reporting a large source scan. We retain only the final
-  // diagnostic tail below, but the child must be allowed to finish first.
-  const result = spawnSync(command, args, {
+  return runObservationProcess({
+    command,
+    args,
     cwd: packageRoot,
-    env: environment,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 64 * 1024 * 1024,
+    environment,
   });
-  if (result.error) throw unavailable('CocoIndex worker is unavailable. Reinstall this Lamina release to restore its private worker.', { backend: OBSERVATION_BACKEND, cause: result.error.message });
-  if ((result.status ?? 1) !== 0) {
-    const error = new Error(`CocoIndex observation exited with status ${result.status ?? 1}.`);
-    error.code = 'LAMINA_OBSERVATION_FAILED';
-    error.details = { backend: OBSERVATION_BACKEND, status: result.status ?? 1, signal: result.signal || null, stderr: String(result.stderr || '').slice(-4_000), stdout: String(result.stdout || '').slice(-4_000) };
-    throw error;
-  }
-  return {
-    status: result.status,
-    stderr: String(result.stderr || '').slice(-4_000),
-    stdout: String(result.stdout || '').slice(-4_000),
-  };
 }
