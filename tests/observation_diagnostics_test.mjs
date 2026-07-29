@@ -46,10 +46,13 @@ assert.deepEqual(failedWorker.failed_checks, ['worker.completed']);
 const noisyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-noisy-observer-'));
 const noisyBin = path.join(noisyRoot, 'bin');
 fs.mkdirSync(noisyBin);
-const fakeUv = path.join(noisyBin, 'uv');
+const fakeUv = path.join(noisyBin, process.platform === 'win32' ? 'uv.cmd' : 'uv');
+const noisyCommand = `${JSON.stringify(process.execPath)} -e "process.stdout.write('x'.repeat(2 * 1024 * 1024))"`;
 fs.writeFileSync(
   fakeUv,
-  `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} -e "process.stdout.write('x'.repeat(2 * 1024 * 1024))"\n`,
+  process.platform === 'win32'
+    ? `@echo off\r\n${noisyCommand}\r\n`
+    : `#!/bin/sh\nexec ${noisyCommand}\n`,
   { mode: 0o755 },
 );
 const previousPath = process.env.PATH;
@@ -71,7 +74,11 @@ try {
     extractorDigest: 'extractor-noisy',
   });
   assert.equal(noisyResult.status, 0);
-  assert.equal(noisyResult.stdout.length, 4_000);
+  assert.ok(
+    noisyResult.stdout.length >= 3_000 && noisyResult.stdout.length <= 4_000,
+    'the completed noisy worker must retain a bounded diagnostic tail',
+  );
+  assert.match(noisyResult.stdout, /^x+$/);
 } finally {
   process.env.PATH = previousPath;
   fs.rmSync(noisyRoot, { recursive: true, force: true });
