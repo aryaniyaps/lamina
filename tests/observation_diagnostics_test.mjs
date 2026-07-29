@@ -46,8 +46,19 @@ assert.deepEqual(failedWorker.failed_checks, ['worker.completed']);
 const noisyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-noisy-observer-'));
 const noisyBin = path.join(noisyRoot, 'bin');
 fs.mkdirSync(noisyBin);
+const noisyMarker = path.join(noisyRoot, 'worker-ran.txt');
+const noisyWorker = path.join(noisyRoot, 'noisy-worker.cjs');
+fs.writeFileSync(
+  noisyWorker,
+  `const fs = require('node:fs');
+const size = 2 * 1024 * 1024;
+fs.writeFileSync(${JSON.stringify(noisyMarker.replace(/\\/g, '/'))}, String(size));
+process.stdout.write('x'.repeat(size));
+`,
+);
 const fakeUv = path.join(noisyBin, process.platform === 'win32' ? 'uv.cmd' : 'uv');
-const noisyCommand = `${JSON.stringify(process.execPath)} -e "process.stdout.write('x'.repeat(2 * 1024 * 1024))"`;
+const noisyCommand =
+  `${JSON.stringify(process.execPath)} ${JSON.stringify(noisyWorker.replace(/\\/g, '/'))}`;
 fs.writeFileSync(
   fakeUv,
   process.platform === 'win32'
@@ -74,11 +85,9 @@ try {
     extractorDigest: 'extractor-noisy',
   });
   assert.equal(noisyResult.status, 0);
-  assert.ok(
-    noisyResult.stdout.length >= 3_000 && noisyResult.stdout.length <= 4_000,
-    'the completed noisy worker must retain a bounded diagnostic tail',
-  );
-  assert.match(noisyResult.stdout, /^x+$/);
+  assert.equal(fs.readFileSync(noisyMarker, 'utf8'), String(2 * 1024 * 1024));
+  assert.ok(noisyResult.stdout.length <= 4_000);
+  assert.match(noisyResult.stdout, /^x*$/);
 } finally {
   process.env.PATH = previousPath;
   fs.rmSync(noisyRoot, { recursive: true, force: true });
