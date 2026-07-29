@@ -3,7 +3,10 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { GRAPH_PROTOCOL_VERSION } from './constants.mjs';
+import {
+  GRAPH_PROTOCOL_VERSION,
+  REQUIRED_GRAPH_CAPABILITIES,
+} from './constants.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -11,6 +14,19 @@ import {
   processIsRunning,
   runtimePaths,
 } from './util.mjs';
+
+export function daemonCompatibility(identity) {
+  const capabilities = new Set(Array.isArray(identity?.capabilities) ? identity.capabilities : []);
+  const missingCapabilities = REQUIRED_GRAPH_CAPABILITIES.filter((item) => !capabilities.has(item));
+  return {
+    compatible: identity?.protocol_version === GRAPH_PROTOCOL_VERSION &&
+      missingCapabilities.length === 0,
+    expected_protocol_version: GRAPH_PROTOCOL_VERSION,
+    actual_protocol_version: identity?.protocol_version ?? null,
+    required_capabilities: [...REQUIRED_GRAPH_CAPABILITIES],
+    missing_capabilities: missingCapabilities,
+  };
+}
 
 export function exchange(socketPath, payload, timeout = 10_000) {
   return new Promise((resolve, reject) => {
@@ -55,7 +71,7 @@ async function waitForServer(paths, token, child = null) {
         cwd: paths.root,
         auth: token,
       }, 1_000);
-      if (response.ok && response.result?.protocol_version === GRAPH_PROTOCOL_VERSION) return;
+      if (response.ok && daemonCompatibility(response.result).compatible) return response.result;
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -115,8 +131,8 @@ export async function ensureGraphd(cwd = process.cwd()) {
       auth: token,
     }, 500);
   } catch {}
-  if (response?.ok && response.result?.protocol_version === GRAPH_PROTOCOL_VERSION) {
-    return { ...paths, auth_token: token };
+  if (response?.ok && daemonCompatibility(response.result).compatible) {
+    return { ...paths, auth_token: token, daemon: response.result };
   }
   let lock = null;
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
@@ -146,8 +162,32 @@ export async function ensureGraphd(cwd = process.cwd()) {
     if (log !== null) fs.closeSync(log);
   }
   child.unref();
-  await waitForServer(paths, token, child);
-  return { ...paths, auth_token: token };
+  const daemon = await waitForServer(paths, token, child);
+  return { ...paths, auth_token: token, daemon };
+}
+
+export async function graphdIdentity(cwd = process.cwd()) {
+  const paths = await ensureGraphd(cwd);
+  return paths.daemon;
+}
+
+export async function restartGraphd(cwd = process.cwd(), reportedPid = null) {
+  const paths = runtimePaths(cwd);
+  let pid = reportedPid;
+  if (!pid) {
+    try {
+      const token = ensureAuthToken(paths);
+      const response = await exchange(graphSocketPath(paths), {
+        id: 'restart-identity',
+        method: 'ping',
+        cwd,
+        auth: token,
+      }, 500);
+      pid = response?.result?.pid;
+    } catch {}
+  }
+  await stopIncompatibleServer(paths, pid);
+  return ensureGraphd(cwd);
 }
 
 export async function graphRequest(method, params = {}, cwd = process.cwd()) {

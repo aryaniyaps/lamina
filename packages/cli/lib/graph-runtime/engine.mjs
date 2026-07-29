@@ -1486,7 +1486,15 @@ export class GraphEngine {
   observationStatus({ product, generation }) {
     const viewId = `observation:${product}:${generation}`;
     const view = this.view(viewId);
-    if (!view) return { exists: false, view: viewId, count: 0 };
+    if (!view) return {
+      exists: false,
+      view: viewId,
+      generation,
+      count: 0,
+      source_key_count: 0,
+      source_revisions: [],
+      resource_ids: [],
+    };
     const observations = this.query(
       'MATCH (v:GraphView {id: $id})-[:VIEW_RES]->(r:Resource {kind: $kind}) RETURN r.id AS id, r.data AS data',
       { id: viewId, kind: 'observation' },
@@ -1504,8 +1512,10 @@ export class GraphEngine {
     return {
       exists: true,
       view: viewId,
+      generation,
       count: observations.length,
       source_key_count: new Set(observations.map((item) => item.data?.source_key).filter(Boolean)).size,
+      resource_ids: observations.map((item) => item.id).sort(),
       source_revisions: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_revision).filter(Boolean))].sort(),
       source_roots: [...new Set(observations.map((item) => item.data?.source_snapshot?.source_root).filter(Boolean))].sort(),
       extractors: [...new Set(observations.map((item) => {

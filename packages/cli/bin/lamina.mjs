@@ -8,6 +8,63 @@ import { runObservation } from '../lib/observe.mjs';
 const argv = process.argv.slice(2);
 const [domain, command, ...rawArgs] = argv;
 
+const HELP = Object.freeze({
+  root: `Usage: lamina <command> [options]
+
+Commands:
+  doctor --json                 Check CLI, graph, Git, and observation readiness
+  graph <command>               Query or mutate the transactional product graph
+  session <command>             Manage explicit graph mutation sessions
+  mission <command>             Compile or run graph-backed missions
+
+Options:
+  --help, -h                    Show help
+  --version, -v                 Print the CLI version
+
+Run "lamina graph --help", "lamina session --help", or "lamina mission --help" for command details.`,
+  graph: `Usage: lamina graph <command> [options]
+
+Read commands:
+  status
+  query [--at VIEW] [--subject RESOURCE] [--predicate IRI] [--kind KIND] [--alias ALIAS]
+  validate [--at VIEW] [--scope RESOURCE]
+  diff [--base VIEW] [--head VIEW]
+
+Mutation commands:
+  propose --input FILE [--session SESSION]   FILE is one Resource or Statement JSON object
+  patch SUBJECT --input FILE [--session SESSION]
+                                             FILE must contain predicate and exactly one of object or literal
+  link SUBJECT OBJECT --as PREDICATE [--session SESSION]
+  retire RESOURCE [--session SESSION]
+  retire STATEMENT --statement [--session SESSION]
+  backup [--output FILE]
+  restore --input FILE                       FILE is a Lamina graph backup JSON document
+
+Observation commands:
+  observe [--live]
+  discover --brownfield
+  rebuild-observations`,
+  session: `Usage: lamina session <command> [arguments]
+
+Commands:
+  start [--id SESSION]
+  query SESSION
+  publish SESSION
+  rebase SESSION
+  abort SESSION`,
+  mission: `Usage: lamina mission <command> [arguments]
+
+Commands:
+  compile --workflow WORKFLOW [--persona PERSONA] [--adapter MANIFEST] [--session SESSION]
+  run MISSION [--events FILE]
+
+--workflow and MISSION are required. --events FILE must contain a JSON array of runtime event objects.`,
+});
+
+function plain(value) {
+  return { plain: value };
+}
+
 function options(args) {
   const parsed = { _: [] };
   for (let index = 0; index < args.length; index += 1) {
@@ -48,9 +105,11 @@ async function graphMutation(kind, input, method, sessionId = null) {
 
 async function run() {
   if (domain === '--version' || domain === '-v') return { plain: CLI_VERSION };
+  if (!domain || domain === '--help' || domain === '-h' || domain === 'help') return plain(HELP.root);
   if (domain === 'doctor') return doctorReport();
   const opt = options(rawArgs);
   if (domain === 'graph') {
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.graph);
     if (command === 'status') return graphRequest('status');
     if (command === 'query') return graphRequest('graph.query', {
       at: opt.at || 'HEAD',
@@ -114,6 +173,7 @@ async function run() {
     }
   }
   if (domain === 'session') {
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.session);
     const id = opt._[0];
     if (command === 'start') return graphRequest('session.start', { id: opt.id });
     if (command === 'query') return graphRequest('session.query', { id });
@@ -122,6 +182,7 @@ async function run() {
     if (command === 'abort') return graphRequest('session.abort', { id });
   }
   if (domain === 'mission') {
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.mission);
     if (command === 'compile') {
       if (!opt.workflow) throw Object.assign(new Error('--workflow is required.'), { code: 'LAMINA_BAD_REQUEST' });
       return graphRequest('mission.compile', {

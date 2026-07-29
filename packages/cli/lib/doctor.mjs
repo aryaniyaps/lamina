@@ -1,13 +1,9 @@
-import fs from 'node:fs';
 import os from 'node:os';
 import { CLI_API_VERSION, GRAPH_PROTOCOL_VERSION } from './graph-runtime/constants.mjs';
 import { repositoryContext } from './graph-runtime/util.mjs';
+import { CLI_NODE_REQUIREMENT, CLI_VERSION } from './runtime-identity.mjs';
 
-const packageMetadata = JSON.parse(
-  fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-);
-
-export const CLI_VERSION = packageMetadata.version;
+export { CLI_VERSION };
 
 export function platformSupport(platform = process.platform, arch = process.arch) {
   const supported = (
@@ -66,7 +62,7 @@ export function doctorReport(cwd = process.cwd()) {
     platform,
     node: {
       version: process.versions.node,
-      required: packageMetadata.engines.node,
+      required: CLI_NODE_REQUIREMENT,
       compatible: nodeCompatible,
     },
     git: gitProject(cwd),

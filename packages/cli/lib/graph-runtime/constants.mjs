@@ -6,7 +6,12 @@ export const RESOURCE_KINDS = new Set([
 
 export const VIEW_KINDS = new Set(['branch', 'session', 'observation', 'historical']);
 export const CLI_API_VERSION = 1;
-export const GRAPH_PROTOCOL_VERSION = 3;
+export const GRAPH_PROTOCOL_VERSION = 4;
+export const GRAPH_CAPABILITIES = Object.freeze([
+  'observation.status.source_key_count',
+  'observation.status.generation',
+]);
+export const REQUIRED_GRAPH_CAPABILITIES = GRAPH_CAPABILITIES;
 
 export const EPISTEMIC_BY_INGRESS = Object.freeze({
   intent: 'intended',

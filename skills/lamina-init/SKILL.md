@@ -20,7 +20,21 @@ Write `.lamina/business-context.md` with frontmatter containing `lamina.maturity
 
 Write `.lamina/personas.json` as evidence-source JSON with evidence-grounded personas. Goals, constraints, and evidence are arrays. Do not invent demographics. These files are indexable evidence, not canonical graph state.
 
-Run the shipped init/persona validators when available, then `lamina graph observe` so CocoIndex produces explicit source Observation envelopes.
+Run the shipped init/persona validators when available, then `lamina graph
+observe` so CocoIndex produces explicit source Observation envelopes. The CLI
+automatically replaces an incompatible graphd and retries observation once; do
+not repeatedly rebuild observations to repair daemon compatibility.
+
+If observation exits nonzero after that recovery, treat observation as
+degraded and optional. Core graph initialization may continue, but do not
+create Evidence Resources or attach evidence claims for the unavailable
+snapshot. Do not describe aliases, observation view names, or generation
+labels as evidence.
+
+When observation succeeds, use `observed.resource_ids` from its output (or the
+exact `Resource.id` values returned by querying that active observation view)
+as graph evidence. Never substitute a path alias, source key, view name, or
+generation for an Observation Resource id.
 
 ## Canonical graph
 
@@ -33,6 +47,9 @@ Start one explicit session. Propose:
 - Evidence Resources referencing the relevant source observations.
 
 Publish atomically. Agents must not submit epistemic class or approval. Never cap Personas.
+Record the actual returned Resource ids for Product, Personas, Actors, and
+Evidence; generated canonical Resources normally use `res_*` ids. Do not
+report input aliases as ids.
 
 All agent-accessible proposal methods use inferred ingress, including `claim.add`. Never select an epistemic class by choosing a method name. Intended knowledge requires a trusted engine-owned intent ingress; until that ingress supplies it, preserve the user's words as provenance and keep the proposal inferred.
 
@@ -42,4 +59,13 @@ Merge changed business evidence, append a dated changelog, rerun observations, a
 
 ## Completion
 
-Report the GraphVersion, source revision, observation coverage, Product/Persona/Actor ids, contradictions, evidence gaps, and the recommended `/lamina-design` or `/lamina-verify` next step.
+Report canonical graph initialization and observation as separate outcomes.
+Always report the GraphVersion, source revision, actual Product/Persona/Actor
+Resource ids, contradictions, evidence gaps, and the recommended
+`/lamina-design` or `/lamina-verify` next step.
+
+Only report observation coverage and Observation Resource ids when `lamina
+graph observe` exited zero and its completion checks passed. After a nonzero
+observation command, report observation as degraded/unavailable and explicitly
+state that the published GraphVersion has no current observation-backed
+evidence. Never claim complete observation coverage on that path.

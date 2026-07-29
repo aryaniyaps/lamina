@@ -73,6 +73,12 @@ legacy `.lamina/runs/` remains excluded and has no runtime meaning. The worker
 sends authenticated idempotent upsert/delete batches over the local transport
 and never opens Ladybug.
 
+The client reuses graphd only when protocol and required capabilities match.
+An incompatible daemon is replaced automatically without rewriting
+`.git/lamina/graph.lbdb`. `rebuild-observations` is for a genuinely incomplete
+or corrupted observation generation; repeating it cannot repair a
+daemon/client contract mismatch.
+
 `lamina graph discover --brownfield` performs the same incremental observation update and returns a coverage report, unsupported-source counts, stale snapshots, and explicit static-analysis limitations. Absence of an Observation is never treated as evidence that behavior does not exist.
 
 ## Missions

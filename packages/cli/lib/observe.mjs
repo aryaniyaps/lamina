@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ensureGraphd, graphRequest } from './graph-runtime/client.mjs';
+import {
+  daemonCompatibility,
+  ensureGraphd,
+  graphdIdentity,
+  graphRequest,
+  restartGraphd,
+} from './graph-runtime/client.mjs';
 import { digest } from './graph-runtime/util.mjs';
 import { OBSERVATION_BACKEND as COCOINDEX_BACKEND, runCocoIndex } from './observation-runtime/cocoindex.mjs';
 import { OBSERVATION_BACKEND as NODE_BACKEND, observeNode } from './observation-runtime/node.mjs';
@@ -10,6 +16,86 @@ const ignore = [
   '**/__pycache__/**', '**/.next/**', '**/dist/**', '**/build/**', '**/coverage/**',
   '**/benchmarks/results/**', '**/evals/fixtures/.vendor-tmp*/**',
 ];
+
+function check(pass, expected, actual) {
+  return { pass, expected, actual };
+}
+
+export function observationCompletionChecks(observed, {
+  generation,
+  sourceRevision,
+  workerCompleted = true,
+} = {}) {
+  const statusObject = Boolean(observed) && typeof observed === 'object' && !Array.isArray(observed);
+  const checks = {
+    'status.object': check(statusObject, 'object', observed === null ? 'null' : typeof observed),
+    'status.exists': check(typeof observed?.exists === 'boolean', 'boolean', typeof observed?.exists),
+    'status.count': check(
+      Number.isInteger(observed?.count) && observed.count >= 0,
+      'non-negative integer',
+      observed?.count,
+    ),
+    'status.source_key_count': check(
+      Number.isInteger(observed?.source_key_count) && observed.source_key_count >= 0,
+      'non-negative integer',
+      observed?.source_key_count,
+    ),
+    'status.source_revisions': check(
+      Array.isArray(observed?.source_revisions) &&
+        observed.source_revisions.every((item) => typeof item === 'string'),
+      'string array',
+      observed?.source_revisions,
+    ),
+    'status.generation': check(
+      typeof observed?.generation === 'string',
+      generation,
+      observed?.generation,
+    ),
+    'target.generation_matches': check(observed?.generation === generation, generation, observed?.generation),
+    'target.exists': check(observed?.exists === true, true, observed?.exists),
+    'target.count_matches_source_keys': check(
+      Number.isInteger(observed?.count) &&
+        Number.isInteger(observed?.source_key_count) &&
+        observed.count === observed.source_key_count,
+      observed?.source_key_count,
+      observed?.count,
+    ),
+    'target.current_revision_present': check(
+      Array.isArray(observed?.source_revisions) &&
+        observed.source_revisions.includes(sourceRevision),
+      sourceRevision,
+      observed?.source_revisions,
+    ),
+    'worker.completed': check(workerCompleted, true, workerCompleted),
+  };
+  const shapeChecks = [
+    'status.object',
+    'status.exists',
+    'status.count',
+    'status.source_key_count',
+    'status.source_revisions',
+    'status.generation',
+  ];
+  const failedChecks = Object.entries(checks)
+    .filter(([, result]) => !result.pass)
+    .map(([name]) => name);
+  return {
+    valid_shape: shapeChecks.every((name) => checks[name].pass),
+    complete: failedChecks.length === 0,
+    failed_checks: failedChecks,
+    checks,
+  };
+}
+
+async function observationStatus(cwd, product, generation, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  let observed = await graphRequest('observation.status', { product, generation }, cwd);
+  while (observed?.exists === false && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    observed = await graphRequest('observation.status', { product, generation }, cwd);
+  }
+  return observed;
+}
 
 /**
  * The public observation contract is independent of its implementation. The
@@ -30,39 +116,98 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   let generation = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
   const extractorDigest = digest('extractors', ['lamina.source-file.v2']);
   const workerDiagnostics = [];
-  if (backend === COCOINDEX_BACKEND) {
-    workerDiagnostics.push(runCocoIndex({ paths, generation, live, ignore, extractorDigest }));
-  } else {
-    await observeNode({ paths, generation, graphRequest, live, ignoreDigest: digest('ignore', ignore), extractorDigest });
-  }
-  let observed = await graphRequest('observation.status', { product: paths.product, generation }, cwd);
-  // CocoIndex commits the target-state transaction before its final graphd
-  // batch can be visible. Wait for that committed view and retry once from a
-  // fresh generation if it was interrupted after target-state commit.
-  const deadline = Date.now() + 10_000;
-  while (!observed.exists && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    observed = await graphRequest('observation.status', { product: paths.product, generation }, cwd);
-  }
-  if (!observed.exists && backend === COCOINDEX_BACKEND && !live) {
-    const recovery = await graphRequest('observation.invalidate', { product: paths.product }, cwd);
-    generation = recovery.generation;
-    workerDiagnostics.push(runCocoIndex({ paths, generation, live, ignore, extractorDigest }));
-    const recoveryDeadline = Date.now() + 10_000;
-    while (!observed.exists && Date.now() < recoveryDeadline) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      observed = await graphRequest('observation.status', { product: paths.product, generation }, cwd);
+
+  const runWorker = async (attempt) => {
+    try {
+      if (backend === COCOINDEX_BACKEND) {
+        const result = runCocoIndex({ paths, generation, live, ignore, extractorDigest });
+        workerDiagnostics.push({ attempt, ok: true, ...result });
+      } else {
+        await observeNode({
+          paths,
+          generation,
+          graphRequest,
+          live,
+          ignoreDigest: digest('ignore', ignore),
+          extractorDigest,
+        });
+        workerDiagnostics.push({ attempt, ok: true, backend });
+      }
+      return true;
+    } catch (error) {
+      if (error.code === 'LAMINA_OBSERVATION_UNAVAILABLE') throw error;
+      workerDiagnostics.push({
+        attempt,
+        ok: false,
+        code: error.code || 'LAMINA_OBSERVATION_FAILED',
+        message: error.message,
+        details: error.details || {},
+      });
+      return false;
     }
+  };
+
+  let workerCompleted = await runWorker(1);
+  let observed = await observationStatus(cwd, paths.product, generation);
+  let completion = observationCompletionChecks(observed, {
+    generation,
+    sourceRevision: paths.source_revision,
+    workerCompleted,
+  });
+  let compatibilityRecovery = null;
+
+  if (!completion.valid_shape) {
+    const before = await graphdIdentity(cwd);
+    const replacement = await restartGraphd(cwd, before?.pid);
+    compatibilityRecovery = {
+      reason: 'invalid_observation_status_contract',
+      previous_daemon: before,
+      replacement_daemon: replacement.daemon,
+    };
+    observed = await observationStatus(cwd, paths.product, generation);
+    completion = observationCompletionChecks(observed, {
+      generation,
+      sourceRevision: paths.source_revision,
+      workerCompleted,
+    });
   }
-  if (!observed.exists || observed.count !== observed.source_key_count ||
-      (observed.count > 0 && !observed.source_revisions.includes(paths.source_revision))) {
+
+  // Retry the observer once against the compatible daemon without changing
+  // generation. Rebuilds are explicit because invalidation destroys the
+  // active observation view and cannot repair runtime-version skew.
+  if (!completion.complete && !live) {
+    const retryCompleted = await runWorker(2);
+    workerCompleted = retryCompleted;
+    observed = await observationStatus(cwd, paths.product, generation);
+    completion = observationCompletionChecks(observed, {
+      generation,
+      sourceRevision: paths.source_revision,
+      workerCompleted,
+    });
+  }
+
+  const daemon = await graphdIdentity(cwd);
+  if (!completion.complete) {
     const error = new Error('Observation runtime exited without a complete committed graphd target state.');
     error.code = 'LAMINA_OBSERVATION_INCOMPLETE';
     error.details = {
       backend,
-      expected_source_revision: paths.source_revision,
+      failed_checks: completion.failed_checks,
+      checks: completion.checks,
+      expected: {
+        generation,
+        source_revision: paths.source_revision,
+      },
       observed,
+      daemon: {
+        ...daemon,
+        compatibility: daemonCompatibility(daemon),
+      },
+      ...(compatibilityRecovery ? { compatibility_recovery: compatibilityRecovery } : {}),
       ...(workerDiagnostics.length ? { worker_diagnostics: workerDiagnostics } : {}),
+      troubleshooting: completion.failed_checks.some((item) => item.startsWith('status.'))
+        ? 'Reinstall or restart Lamina if graphd still lacks the required status contract.'
+        : 'Run `lamina graph rebuild-observations` only when the reported target generation is genuinely incomplete or corrupted.',
     };
     throw error;
   }

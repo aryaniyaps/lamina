@@ -45,6 +45,11 @@ performs a complete observation pass. Runtime state is private to the Git
 common directory at `.git/lamina/cocoindex`; the observer only sends
 authenticated batches to graphd and never opens Ladybug directly.
 
+The CLI replaces graphd automatically when its protocol or required
+capabilities are incompatible. A rebuild cannot fix daemon/client skew and
+should not be repeated for that purpose. Use `rebuild-observations` only when
+the reported target generation is genuinely incomplete or corrupted.
+
 `discover --brownfield` returns deterministic coverage signals for entry
 points, commands, routes, handlers, schemas/entities, state transitions,
 permissions, events, tests, documentation/personas, feature flags, and

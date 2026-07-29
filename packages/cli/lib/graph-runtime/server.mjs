@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import net from 'node:net';
 import crypto from 'node:crypto';
 import { GraphEngine } from './engine.mjs';
-import { ERROR, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
+import { ERROR, GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
+import { CLI_VERSION } from '../runtime-identity.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -23,6 +24,8 @@ function acquireLock() {
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
       protocol_version: GRAPH_PROTOCOL_VERSION,
+      runtime_version: CLI_VERSION,
+      capabilities: GRAPH_CAPABILITIES,
     })}\n`, { flag: 'wx', mode: 0o600 });
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
@@ -35,6 +38,8 @@ function acquireLock() {
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
       protocol_version: GRAPH_PROTOCOL_VERSION,
+      runtime_version: CLI_VERSION,
+      capabilities: GRAPH_CAPABILITIES,
     })}\n`, { flag: 'wx', mode: 0o600 });
   }
 }
@@ -58,6 +63,8 @@ function dispatch(request) {
     pid: process.pid,
     database: paths.database,
     protocol_version: GRAPH_PROTOCOL_VERSION,
+    runtime_version: CLI_VERSION,
+    capabilities: GRAPH_CAPABILITIES,
   };
   if (request.method === 'shutdown') return { pid: process.pid, shutting_down: true };
   if (request.method === 'observation.apply') return engine.applyObservationBatch(request.params || {});

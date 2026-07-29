@@ -200,6 +200,10 @@ export function parseDaemonLock(value) {
     return {
       pid: Number(parsed.pid),
       protocol_version: Number(parsed.protocol_version) || null,
+      runtime_version: typeof parsed.runtime_version === 'string' ? parsed.runtime_version : null,
+      capabilities: Array.isArray(parsed.capabilities)
+        ? parsed.capabilities.filter((item) => typeof item === 'string')
+        : [],
     };
   } catch {
     return null;

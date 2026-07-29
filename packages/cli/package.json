@@ -1,6 +1,6 @@
 {
   "name": "lamina-cli-source",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Transactional product-knowledge graph runtime for Lamina",
   "author": "Aryan Iyappan",
   "repository": {
@@ -14,6 +14,7 @@
   "files": [
     "bin/lamina.mjs",
     "lib/doctor.mjs",
+    "lib/runtime-identity.mjs",
     "lib/observe.mjs",
     "lib/observation-runtime/cocoindex.mjs",
     "lib/observation-runtime/node.mjs",
