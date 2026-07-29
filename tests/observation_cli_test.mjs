@@ -81,8 +81,12 @@ try {
   // retaining duplicates from the prior snapshot.
   fs.mkdirSync(path.join(root, '.agents'));
   fs.writeFileSync(path.join(root, '.agents', 'rules.md'), '# Agent rules\n');
+  fs.mkdirSync(path.join(root, '.agents', 'skills', 'fixture'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.agents', 'skills', 'fixture', 'SKILL.md'), '# Installed skill noise\n');
   fs.mkdirSync(path.join(root, '.claude'));
   fs.writeFileSync(path.join(root, '.claude', 'settings.md'), '# Claude settings\n');
+  fs.mkdirSync(path.join(root, '.lamina', 'runtime-cli'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.lamina', 'runtime-cli', 'lamina'), 'runtime noise\n');
   fs.mkdirSync(path.join(root, 'agent'));
   fs.writeFileSync(path.join(root, 'agent', 'settings.json'), '{}\n');
   result = spawnSync(process.execPath, [cli, 'graph', 'observe'], {
@@ -98,6 +102,13 @@ try {
   assert.equal(afterInstallerArtifacts.count, 9);
   assert.equal(afterInstallerArtifacts.source_key_count, 9);
   assert.deepEqual(afterInstallerArtifacts.source_revisions, [runtimePaths(root).source_revision]);
+  const afterInstallerResources = await graphRequest('graph.query', {
+    at: afterInstallerArtifacts.view,
+    kind: 'observation',
+  }, root);
+  assert.ok(!afterInstallerResources.resources.some((item) =>
+    item.data?.path?.includes('/skills/') || item.data?.path?.includes('runtime-cli')),
+  'installed agent skills and Lamina runtime files must not enter product-code retrieval');
 
   fs.writeFileSync(
     path.join(root, 'src', 'server.js'),

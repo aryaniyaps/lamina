@@ -89,16 +89,10 @@ if ! git -C "$WORKSPACE" rev-parse --verify HEAD >/dev/null 2>&1; then
   git -C "$WORKSPACE" commit --allow-empty -m "eval fixture" >/dev/null
 fi
 
-# Codex workspace-write intentionally mounts .git read-only. Keep graphd's
-# required clone-local logical path while resolving its eval-only storage into
-# the writable .lamina namespace used by Lamina command artifacts.
-mkdir -p "$WORKSPACE/.lamina/runtime"
-if [[ ! -e "$WORKSPACE/.git/lamina" ]]; then
-  case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*) mkdir -p "$WORKSPACE/.git/lamina" ;;
-    *) ln -s ../.lamina/runtime "$WORKSPACE/.git/lamina" ;;
-  esac
-fi
+# Paid agents run with the eval harness's local-only write grant. Keep graphd in
+# its production location under Git's common directory so runtime churn can
+# never stale the source revision it is meant to describe.
+mkdir -p "$WORKSPACE/.git/lamina"
 
 # Reproduce the real post-install treatment: skills provide judgment and the
 # managed provider rule makes ordinary product requests activate Lamina.
@@ -108,7 +102,46 @@ case "$AGENT" in
   cursor) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent cursor >/dev/null) ;;
 esac
 
-# The agent starts graphd on first use. Starting it in this hook is unsafe
-# because some eval harnesses reap hook descendants, leaving Ladybug's native
-# lock behind without a live socket.
+# Declare the real browser capability supplied by this paid harness. This is
+# environment context, not a Lamina phase command: agents still own the audit
+# plan and must attach distinct functional/visual/responsive/accessibility
+# evidence before `lamina work verify` can succeed.
+provider_file="$WORKSPACE/AGENTS.md"
+if [[ "$AGENT" == "claude-code" ]]; then provider_file="$WORKSPACE/CLAUDE.md"; fi
+if [[ -f "$provider_file" ]]; then
+  {
+    printf '\n## Eval browser capability\n\n'
+    printf 'A real `playwright` CLI and cached Chromium are on PATH. Use them for live UI verification; do not recursively search the filesystem for a browser. Record distinct functional, visual, responsive, and accessibility artifacts.\n'
+  } >>"$provider_file"
+fi
+
+# ASE's declared pre-run hook is suite-level and has no case workspace. The
+# full-tree installer, however, runs after the fixture is staged for each case.
+# Seed passive product context at this real lifecycle boundary.
+eval_id="${ASE_EVAL_ID:-}"
+if [[ -z "$eval_id" ]]; then
+  workspace_name="$(basename "$WORKSPACE")"
+  for candidate in \
+    passive-feature-implementation \
+    passive-ui-live-verification \
+    passive-design-gap-before-edit; do
+    if [[ "$workspace_name" == *"$candidate"* ]]; then
+      eval_id="$candidate"
+      break
+    fi
+  done
+fi
+case "$eval_id" in
+  passive-feature-implementation|passive-ui-live-verification|passive-design-gap-before-edit)
+    ASE_EVAL_ID="$eval_id" node "$ROOT/evals/scripts/seed-passive-context.mjs"
+    ;;
+esac
+
+if [[ "$eval_id" == "passive-ui-live-verification" && -f "$provider_file" ]]; then
+  {
+    printf '\n## Live storefront fixture\n\n'
+    printf 'The checkout audit has a deterministic local backend. Start it with `node scripts/lamina-eval-live-ui.mjs`, then audit `http://127.0.0.1:43111/product/recovery-test-product`. Before each desktop or mobile navigation, set a `cartId=gid://shopify/Cart/recovery-test` cookie for `127.0.0.1`; the deterministic backend then renders a populated cart and makes the checkout submission fail safely so recovery behavior can be exercised. Treat the server command as long-running and do not edit the fixture script.\n'
+  } >>"$provider_file"
+fi
+
 echo "Installed $skill_count public Lamina skills for agent $AGENT → $WORKSPACE"

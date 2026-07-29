@@ -23,9 +23,18 @@ Require valid `.lamina/business-context.md` using `../lamina-orchestrator/prereq
 4. Exercise reachable action, trusted authority, valid transition, durable result, actor-scoped projection, denial, failure, and recovery paths.
 5. Save large artifacts to the local evidence CAS. Pass normalized events to:
    `lamina mission run <mission-id> --events <events.json>`.
-6. Only adapter-observed events become runtime evidence. Persona interpretation remains simulated.
-7. Missing/corrupt evidence, stale source snapshots, budget failures, or capability failures invalidate related readiness; they never silently pass.
-8. Query the resulting GraphVersion and report product gaps, intended-contract gaps, and operational limitations separately. Conflicting Statements remain present as a Contradiction and block approval.
+6. `mission run` returns an isolated staged session. Publish that exact session
+   with `lamina session publish <session-id>`. When a previously published
+   independent Run advanced the branch, first run `lamina session rebase
+   <session-id>`, then publish. A staged Run is not verification evidence.
+7. Only adapter-observed events in a published Run become runtime evidence.
+   Persona interpretation remains simulated.
+8. Missing/corrupt evidence, stale source snapshots, budget failures, or capability failures invalidate related readiness; they never silently pass.
+9. Query the resulting GraphVersion and report product gaps, intended-contract gaps, and operational limitations separately. Conflicting Statements remain present as a Contradiction and block approval.
+
+For source reconciliation, run the one-shot `lamina graph observe`. Never run
+`lamina graph observe --live` in a foreground agent turn: live mode is a
+persistent operator-owned watcher and cannot be a completion gate.
 
 Allowed normalized event types are action/state/outcome observed, oracle
 passed/failed, denial observed, recovery attempted, artifact captured,
@@ -49,7 +58,9 @@ artifact across audit classes.
 Verification is complete only when every relevant Persona Mission ran independently, all required evidence is available and reproducible, and `lamina graph validate --at HEAD` reports the validation and contradiction state. Human `report.md` or `fix.md` may be generated as query projections; they are not truth-bearing runtime inputs.
 
 In passive flow, finish with `lamina work verify --packet <packet> --map
-<work-map>`. Do not recommend that the user invoke a verification skill.
+<work-map>`. This command requires published current-source Mission evidence
+for every relevant UI Persona; staged HarnessResults and standalone audit files
+cannot satisfy it. Do not recommend that the user invoke a verification skill.
 
 Report the GraphVersion, source revision, Run and HarnessResult ids, evidence gaps, contradictions, and a crisp verified/not-verified verdict.
 

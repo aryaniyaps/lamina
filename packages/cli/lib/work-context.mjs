@@ -144,6 +144,84 @@ function validateWorkMap(packet, map) {
   return entries;
 }
 
+const UI_AUDIT_KINDS = ['functional', 'visual', 'responsive', 'accessibility'];
+
+export function publishedMissionEvidence(packet, graph, sourceRevision) {
+  const resources = graph?.resources || [];
+  const missions = resources.filter((resource) =>
+    resource.kind === 'mission' &&
+    resource.data?.epistemic_class === 'intended' &&
+    packet.scope.includes(resource.data?.workflow) &&
+    (resource.data?.closure?.surfaces || []).length);
+  const missionByWorkflowPersona = new Map(
+    missions.map((mission) => [
+      `${mission.data.workflow}:${mission.data.persona}`,
+      mission,
+    ]),
+  );
+  const expected = packet.workflows.flatMap((workflow) =>
+    (workflow.closure?.surfaces || []).length
+      ? (workflow.closure?.personas || []).map((persona) => ({
+          workflow: workflow.workflow.id,
+          persona,
+        }))
+      : []);
+  const missing = [];
+  if (
+    packet.obligations.some((item) =>
+      item.type === 'surface' || item.type === 'surface_realization') &&
+    !expected.length
+  ) {
+    missing.push({ kind: 'persona_mission', reason: 'No relevant Persona is in the UI workflow closure.' });
+  }
+  const runs = resources.filter((resource) =>
+    resource.kind === 'run' &&
+    resource.data?.epistemic_class === 'runtime_evidence' &&
+    resource.data?.source_revision === sourceRevision);
+  const harnesses = resources.filter((resource) =>
+    resource.kind === 'harness_result' &&
+    resource.data?.epistemic_class === 'runtime_evidence');
+  const accepted = [];
+
+  for (const requirement of expected) {
+    const mission = missionByWorkflowPersona.get(`${requirement.workflow}:${requirement.persona}`);
+    if (!mission) {
+      missing.push({ ...requirement, kind: 'published_mission' });
+      continue;
+    }
+    const candidates = runs.filter((run) => run.data?.mission === mission.id);
+    let acceptedRun = null;
+    for (const run of candidates) {
+      const harness = harnesses.find((item) =>
+        item.data?.run === run.id && item.data?.mission === mission.id);
+      const events = harness?.data?.events || [];
+      const auditEvents = events.filter((event) => event.type === 'audit_passed');
+      const auditKinds = new Set(auditEvents.map((event) => event.audit_kind));
+      const artifacts = auditEvents.map((event) => event.artifact).filter(Boolean);
+      const artifactDigests = artifacts.map((artifact) => artifact.digest).filter(Boolean);
+      const artifactLocators = artifacts.map((artifact) => artifact.locator).filter(Boolean);
+      const failed = events.some((event) =>
+        ['oracle_failed', 'budget_failure', 'capability_failure'].includes(event.type));
+      if (
+        events.some((event) => event.type === 'oracle_passed') &&
+        !failed &&
+        UI_AUDIT_KINDS.every((kind) => auditKinds.has(kind)) &&
+        artifacts.length >= UI_AUDIT_KINDS.length &&
+        artifactDigests.length === artifacts.length &&
+        new Set(artifactDigests).size === artifacts.length &&
+        artifactLocators.length === artifacts.length &&
+        artifactLocators.every((locator) => fs.existsSync(locator))
+      ) {
+        acceptedRun = { mission: mission.id, run: run.id, harness_result: harness.id };
+        break;
+      }
+    }
+    if (acceptedRun) accepted.push(acceptedRun);
+    else missing.push({ ...requirement, mission: mission.id, kind: 'published_live_ui_run' });
+  }
+  return { ok: missing.length === 0, accepted, missing };
+}
+
 export function checkWork({ packetFile, mapFile }, cwd = process.cwd()) {
   const packet = readJson(packetFile, '--packet');
   const map = readJson(mapFile, '--map');
@@ -198,6 +276,13 @@ export async function verifyWork({ packetFile, mapFile }, cwd = process.cwd()) {
     }
   }
   if (missing.length) bad('Verification evidence is incomplete.', { missing });
+  const graph = await graphRequest('graph.query', { at: 'HEAD' }, cwd);
+  const missionEvidence = publishedMissionEvidence(packet, graph, status.source_revision);
+  if (!missionEvidence.ok) {
+    bad('Published live Mission evidence is incomplete.', {
+      missing: missionEvidence.missing,
+    });
+  }
   const repo = repositoryContext(cwd);
   const receiptBody = {
     schema: 'lamina.work-verified/v1',
@@ -207,6 +292,9 @@ export async function verifyWork({ packetFile, mapFile }, cwd = process.cwd()) {
     source_revision: repo.source_revision,
     created_at: new Date().toISOString(),
     evidence_count: [...entries.values()].flatMap((item) => item.verification).length,
+    mission_evidence: missionEvidence.accepted,
+    work_map_digest: digest('work_map', map),
+    work_map: map,
   };
   const receipt = { ...receiptBody, receipt_id: digest('work_verified', receiptBody) };
   const file = atomicJson(path.join(paths.work, `${packet.packet_id}.verified.json`), receipt);

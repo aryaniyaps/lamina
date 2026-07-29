@@ -9,6 +9,7 @@ import {
   stopIncompatibleServer,
 } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
+  graphSocketChildPath,
   graphSocketPath,
   parseDaemonLock,
   runtimePaths,
@@ -27,13 +28,17 @@ execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
 try {
   const paths = runtimePaths(root);
   const endpoint = graphSocketPath(paths);
+  const childEndpoint = graphSocketChildPath(paths);
   if (process.platform === 'win32') {
     assert.match(endpoint, /^\\\\\.\\pipe\\laminadev-[a-f0-9]{24}$/);
   } else {
     assert.ok(Buffer.byteLength(paths.socket) >= 108, 'fixture must exceed the Unix socket pathname limit');
     assert.ok(Buffer.byteLength(endpoint) < 108);
+    assert.ok(Buffer.byteLength(childEndpoint) < 108);
+    assert.equal(fs.realpathSync(path.dirname(childEndpoint)), fs.realpathSync(paths.runtime_dir));
     if (fs.existsSync('/proc/self/fd')) {
       assert.match(endpoint, /^\/proc\/self\/fd\/\d+\/graphd\.sock$/);
+      assert.doesNotMatch(childEndpoint, /^\/proc\/self\/fd\//);
     }
   }
   const status = await graphRequest('status', {}, root);

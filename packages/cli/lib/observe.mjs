@@ -12,7 +12,9 @@ import { OBSERVATION_BACKEND as COCOINDEX_BACKEND, runCocoIndex } from './observ
 import { OBSERVATION_BACKEND as NODE_BACKEND, observeNode } from './observation-runtime/node.mjs';
 
 const ignore = [
-  '**/.git/**', '**/.lamina/runs/**', '**/node_modules/**', '**/.venv*/**',
+  '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
+  '**/.agents/skills/**', '**/.codex/skills/**', '**/.claude/skills/**', '**/.opencode/skills/**',
+  '**/node_modules/**', '**/.venv*/**',
   '**/__pycache__/**', '**/.next/**', '**/dist/**', '**/build/**', '**/coverage/**',
   '**/benchmarks/results/**', '**/evals/fixtures/.vendor-tmp*/**',
 ];

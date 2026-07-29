@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+shopt -s nullglob
+candidates=("$ROOT"/node_modules/.pnpm/playwright-core@*/node_modules/playwright-core/cli.js)
+shopt -u nullglob
+
+if [[ "${#candidates[@]}" -eq 0 ]]; then
+  echo "The eval Playwright runtime is unavailable." >&2
+  exit 1
+fi
+
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+exec node "${candidates[-1]}" "$@"

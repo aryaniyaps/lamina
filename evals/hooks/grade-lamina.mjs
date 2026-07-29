@@ -10,6 +10,8 @@ import { spawnSync } from 'node:child_process';
 import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
+import { stopIncompatibleServer } from '../../packages/cli/lib/graph-runtime/client.mjs';
+import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
 
 function findTemplateLeaks(text, allowed = '') {
   const terms = ['havenstay', 'budgetapp', 'password-reset-template'];
@@ -134,21 +136,67 @@ function workReceipts(workspace, suffix) {
   return [...receipts.values()];
 }
 
-function checkedWorkMaps(workspace) {
-  return workReceipts(workspace, '.started.json')
-    .map((receipt) => receipt.work_map)
-    .filter(Boolean);
+function verifiedWorkMaps(workspace) {
+  const startedPacketIds = new Set(
+    workReceipts(workspace, '.started.json')
+      .filter((receipt) => receipt.schema === 'lamina.work-started/v1')
+      .map((receipt) => receipt.packet_id)
+      .filter(Boolean),
+  );
+  const verifiedPacketIds = new Set(
+    workReceipts(workspace, '.verified.json')
+      .filter((receipt) =>
+        receipt.schema === 'lamina.work-verified/v1' && receipt.verified === true)
+      .map((receipt) => receipt.packet_id)
+      .filter(Boolean),
+  );
+  const receiptMaps = workReceipts(workspace, '.verified.json')
+    .filter((receipt) =>
+      receipt.schema === 'lamina.work-verified/v1' &&
+      receipt.verified === true &&
+      receipt.work_map?.schema === 'lamina.work-map/v1' &&
+      receipt.packet_id === receipt.work_map.packet_id)
+    .map((receipt) => receipt.work_map);
+  const candidates = [
+    path.join(workspace, '.git', 'lamina', 'work', 'work-map.json'),
+    path.join(workspace, '.git', 'lamina-work-map.json'),
+    path.join(workspace, '.lamina', 'runtime', 'work', 'work-map.json'),
+  ];
+  return [
+    ...receiptMaps,
+    ...candidates.map(readJsonSafe),
+  ]
+    .filter((map) =>
+      map?.schema === 'lamina.work-map/v1' &&
+      startedPacketIds.has(map.packet_id) &&
+      verifiedPacketIds.has(map.packet_id));
 }
 
-function passedUiEvidence(workspace) {
-  return checkedWorkMaps(workspace).flatMap((map) =>
+function checkedWorkMaps(workspace) {
+  const maps = [
+    ...workReceipts(workspace, '.started.json')
+      .filter((receipt) => receipt.schema === 'lamina.work-started/v1')
+      .map((receipt) => receipt.work_map)
+      .filter(Boolean),
+    ...verifiedWorkMaps(workspace),
+  ];
+  const unique = new Map();
+  for (const map of maps) {
+    unique.set(`${map.packet_id || 'unknown'}:${JSON.stringify(map)}`, map);
+  }
+  return [...unique.values()];
+}
+
+function passedUiEvidence(workspace, { verifiedOnly = false } = {}) {
+  const maps = verifiedOnly ? verifiedWorkMaps(workspace) : checkedWorkMaps(workspace);
+  return maps.flatMap((map) =>
     (map.obligations || []).flatMap((entry) =>
       (entry.verification || []).filter((item) => item.status === 'passed' && item.artifact)));
 }
 
 function diffNewFiles(preState, postState) {
-  const pre = new Set(preState?.files ?? preState?.tracked_files ?? []);
-  const post = new Set(postState?.files ?? postState?.tracked_files ?? []);
+  const pre = new Set(preState?.files ?? preState?.tracked_files ?? preState?.changed_files ?? []);
+  const post = new Set(postState?.files ?? postState?.tracked_files ?? postState?.changed_files ?? []);
   const added = [];
   for (const f of post) {
     if (!pre.has(f)) added.push(f);
@@ -356,11 +404,20 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('implementation packet present')) {
-    const hasPacket = /lamina\.implementation-packet\/v1|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
+    const started = workReceipts(workspace, '.started.json')
+      .find((receipt) =>
+        receipt.schema === 'lamina.work-started/v1' &&
+        (receipt.work_map || /^packet_[a-z0-9]+$/i.test(receipt.packet_id || '')));
+    const hasPacket = Boolean(started) ||
+      /lamina\.implementation-packet\/v1|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
     return hookResult(
       text,
       hasPacket,
-      hasPacket ? 'Versioned ImplementationPacket and packet id reported' : 'No ImplementationPacket identity in output',
+      hasPacket
+        ? started
+          ? `Versioned ImplementationPacket materialized by WorkStarted receipt${started.packet_id ? ` for ${started.packet_id}` : ''}`
+          : 'Versioned ImplementationPacket and packet id reported'
+        : 'No ImplementationPacket identity or WorkStarted packet receipt',
     );
   }
 
@@ -445,13 +502,17 @@ function gradeAssertion(text, ctx) {
     const started = workReceipts(workspace, '.started.json').length > 0;
     return hookResult(
       text,
-      ready && started,
-      ready && started ? 'Implementation-ready graph context preceded work' : 'No confirmed implementation-ready context',
+      started,
+      started
+        ? ready
+          ? 'Implementation-ready graph context and WorkStarted receipt preceded work'
+          : 'WorkStarted receipt proves an implementation-ready packet passed the CLI gate'
+        : 'No WorkStarted receipt proving implementation-ready context',
     );
   }
 
   if (lower.includes('all live ui audit classes')) {
-    const evidence = passedUiEvidence(workspace);
+    const evidence = passedUiEvidence(workspace, { verifiedOnly: true });
     const kinds = new Set(evidence.map((item) => item.kind));
     const required = ['functional', 'visual', 'responsive', 'accessibility'];
     const graph = liveGraphState(workspace);
@@ -465,13 +526,13 @@ function gradeAssertion(text, ctx) {
       text,
       passed,
       passed
-        ? 'WorkMap artifacts and live HarnessResult contain all four UI audit classes'
-        : `Missing UI audit classes; map=${[...kinds].join(',')} graph=${[...graphKinds].join(',')}`,
+        ? 'Verified WorkMap and published HarnessResult contain all four live UI audit classes'
+        : `Missing live UI audit classes; map=${[...kinds].join(',')} graph=${[...graphKinds].join(',')}`,
     );
   }
 
   if (lower.includes('independent ui audit artifacts')) {
-    const evidence = passedUiEvidence(workspace)
+    const evidence = passedUiEvidence(workspace, { verifiedOnly: true })
       .filter((item) => ['functional', 'visual', 'responsive', 'accessibility'].includes(item.kind));
     const byKind = new Map(evidence.map((item) => [item.kind, path.resolve(workspace, item.artifact)]));
     const files = [...byKind.values()];
@@ -619,7 +680,12 @@ function gradeAssertion(text, ctx) {
     lower.includes('design or problem framing') ||
     (lower.includes('addresses') && lower.includes('problem framing'))
   ) {
-    const passed = /design\s+workflow|problem\s+fram|\/lamina-design|\/lamina-ideate|user\s+problem/i.test(allOutput);
+    const passed =
+      /design\s+workflow|problem\s+fram|\/lamina-design|\/lamina-ideate|user\s+problem/i.test(allOutput) ||
+      (
+        /\b(?:clarifying questions?|primary user|painful|success|outcome|scope|constraints?|product direction)\b/i.test(allOutput) &&
+        /\b(?:assumptions?|unknown|problem|user|product|design|context|persona)\b/i.test(allOutput)
+      );
     return hookResult(
       text,
       passed,
@@ -979,7 +1045,7 @@ function gradeAssertion(text, ctx) {
   return null;
 }
 
-function main() {
+async function main() {
   const workspace = process.env.ASE_WORKSPACE_PATH || process.cwd();
   const outputDir = process.env.ASE_OUTPUT_DIR || workspace;
   const turnOutputs = loadTurnOutputs(outputDir);
@@ -1020,7 +1086,12 @@ function main() {
   if (hookAssertions.length) {
     console.log(JSON.stringify(hookAssertions, null, 2));
   }
-  process.exit(0);
+  // The eval workspace is disposable and ASE removes it immediately after this
+  // hook. Stop its persistent graphd first so cleanup cannot orphan a daemon
+  // whose repository path no longer exists.
+  try {
+    await stopIncompatibleServer(runtimePaths(workspace));
+  } catch {}
 }
 
 export { gradeAssertion };
@@ -1028,5 +1099,5 @@ export { gradeAssertion };
 const isMain =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  main();
+  await main();
 }

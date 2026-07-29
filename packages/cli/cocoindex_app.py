@@ -410,6 +410,12 @@ async def app_main(sourcedir: pathlib.Path) -> None:
             excluded_patterns=[
                 "**/.git/**",
                 "**/.lamina/runs/**",
+                "**/.lamina/runtime/**",
+                "**/.lamina/runtime-cli/**",
+                "**/.agents/skills/**",
+                "**/.codex/skills/**",
+                "**/.claude/skills/**",
+                "**/.opencode/skills/**",
                 "**/node_modules/**",
                 "**/.venv*/**",
                 "**/__pycache__/**",

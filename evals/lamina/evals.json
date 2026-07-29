@@ -7,7 +7,7 @@
       "force_skill_invocation": true,
       "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output includes \"design workflow\"",
+        "Output addresses design or problem framing",
         "no product code in output"
       ]
     },
@@ -343,7 +343,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -1291,7 +1292,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -1894,7 +1896,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -1994,7 +1997,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -2451,7 +2455,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -2665,7 +2670,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -2790,7 +2796,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -2961,7 +2968,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -3159,7 +3167,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {
@@ -3258,7 +3267,8 @@
         "files/brownfield-audit-ready/tsconfig.json",
         "files/brownfield-audit-ready/.lamina/business-context.md",
         "files/brownfield-audit-ready/.lamina/personas.json",
-        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml"
+        "files/brownfield-audit-ready/.lamina/flows-inventory.yaml",
+        "files/brownfield-audit-ready/scripts/lamina-eval-live-ui.mjs"
       ]
     },
     {

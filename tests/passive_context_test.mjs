@@ -23,7 +23,11 @@ try {
   const installed = setupAgent({ agent: 'codex' }, root);
   assert.equal(installed.installed, true);
   assert.match(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), /Existing project rules/);
-  assert.match(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), /lamina work prepare/);
+  const providerRules = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
+  assert.match(providerRules, /lamina work prepare/);
+  assert.match(providerRules, /Do not invent a workflow name/);
+  assert.match(providerRules, /First run `lamina work prepare --request-file <file> --output <packet\.json>`/);
+  assert.match(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), /never foreground `--live`/);
   setupAgent({ agent: 'codex' }, root);
   assert.equal(
     fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').match(/lamina:managed-agent-rules:start/g).length,
@@ -52,6 +56,7 @@ try {
     { id: 'workflow.fixture', kind: 'workflow', data: { name: 'save schedule' } },
     { id: 'operation.fixture', kind: 'operation', data: { name: 'save schedule', description: 'Persist a valid schedule.' } },
     { id: 'actor.fixture', kind: 'actor', data: { name: 'member' } },
+    { id: 'persona.fixture', kind: 'persona', data: { name: 'schedule owner' } },
     { id: 'invariant.fixture', kind: 'invariant', data: { name: 'valid schedule' } },
     { id: 'scenario.fixture', kind: 'scenario', data: { name: 'conflicting edit' } },
     { id: 'surface.fixture', kind: 'surface', data: { name: 'schedule editor' } },
@@ -64,6 +69,7 @@ try {
     { subject: 'workflow.fixture', predicate: 'lamina:hasScenario', object: 'scenario.fixture' },
     { subject: 'surface.fixture', predicate: 'lamina:realizes', object: 'operation.fixture' },
     { subject: 'workflow.fixture', predicate: 'lamina:requiresProof', object: 'proof.fixture' },
+    { subject: 'persona.fixture', predicate: 'lamina:relevantTo', object: 'workflow.fixture' },
   ]) await graphRequest('statement.propose', { session: session.id, statement }, root);
   await graphRequest('session.publish', { id: session.id }, root);
 
@@ -72,7 +78,6 @@ try {
   const packetFile = path.join(os.tmpdir(), `lamina-passive-${process.pid}.packet.json`);
   const packet = await prepareWork({
     requestFile,
-    workflows: ['workflow.fixture'],
     output: packetFile,
   }, root);
   assert.equal(packet.schema, 'lamina.implementation-packet/v1');
@@ -125,8 +130,32 @@ try {
     }),
   };
   fs.writeFileSync(mapFile, JSON.stringify(verifiedMap));
+  const compiled = await graphRequest('mission.compile', { workflow: 'workflow.fixture' }, root);
+  assert.equal(compiled.missions.length, 1);
+  const missionRun = await graphRequest('mission.run', {
+    mission: compiled.missions[0].id,
+    events: [
+      { type: 'oracle_passed' },
+      ...Object.entries(artifacts).map(([audit_kind, artifact]) => ({
+        type: 'audit_passed',
+        audit_kind,
+        artifact,
+      })),
+    ],
+  }, root);
+  await assert.rejects(
+    () => verifyWork({ packetFile, mapFile }, root),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.message.includes('Published live Mission evidence is incomplete'),
+    'staged HarnessResults must not satisfy WorkVerified',
+  );
+  await graphRequest('session.publish', { id: missionRun.session }, root);
   const verified = await verifyWork({ packetFile, mapFile }, root);
   assert.equal(verified.verified, true);
+  assert.equal(verified.mission_evidence.length, 1);
+  assert.equal(verified.mission_evidence[0].harness_result, missionRun.harness_result);
+  assert.equal(verified.work_map.packet_id, packet.packet_id);
+  assert.match(verified.work_map_digest, /^work_map_/);
 
   const incomplete = { ...map, obligations: [] };
   fs.writeFileSync(mapFile, JSON.stringify(incomplete));

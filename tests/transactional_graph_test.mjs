@@ -504,6 +504,22 @@ try {
       error.details.missing.includes('device:relay'),
     'an adapter manifest that lacks a required capability must fail closed',
   );
+  const spoofedRuntimeSession = engine.startSession({
+    branch: 'main',
+    source_revision: context.source_revision,
+  });
+  engine.stageResource(spoofedRuntimeSession.id, {
+    id: 'harness.agent-spoof',
+    kind: 'harness_result',
+    data: { events: [{ type: 'oracle_passed' }] },
+  });
+  assert.throws(
+    () => engine.publishSession(spoofedRuntimeSession.id, context.source_revision),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.details.errors.some((message) => message.includes('must come from the Mission runner')),
+    'agent-proposed HarnessResults must never masquerade as runtime evidence',
+  );
+  engine.abortSession(spoofedRuntimeSession.id);
   const missionCompileSession = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   const headBeforeMissionCompile = engine.head(branch.id).id;
   const compiled = engine.compileMissions({

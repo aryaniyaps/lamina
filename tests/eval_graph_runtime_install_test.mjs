@@ -224,4 +224,91 @@ try {
   fs.rmSync(workspace, { recursive: true, force: true });
 }
 
+const passiveWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-eval-passive-seed-'));
+const passiveEnv = {
+  ...process.env,
+  ASE_WORKSPACE_PATH: passiveWorkspace,
+  ASE_AGENT: 'codex',
+  ASE_EVAL_ID: 'passive-feature-implementation',
+  PATH: `${path.join(root, 'evals/bin')}:${process.env.PATH || ''}`,
+};
+try {
+  let result = spawnSync('bash', [path.join(root, 'evals/hooks/install-all-skills.sh')], {
+    cwd: root,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  result = spawnSync('bash', [path.join(root, 'evals/hooks/pre-run-eval.sh')], {
+    cwd: root,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  result = spawnSync('lamina', ['graph', 'query', '--kind', 'workflow'], {
+    cwd: passiveWorkspace,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.ok(
+    JSON.parse(result.stdout).resources.some((item) => item.id === 'workflow.eval.wishlist-sharing'),
+    'passive ready eval must begin with a relevant product workflow',
+  );
+  const passiveWorkDir = runtimePaths(passiveWorkspace).work;
+  fs.mkdirSync(passiveWorkDir, { recursive: true });
+  const requestFile = path.join(passiveWorkDir, 'passive-request.txt');
+  const packetFile = path.join(passiveWorkDir, 'passive-packet.json');
+  fs.writeFileSync(requestFile, 'Add conflict-safe wishlist sharing to the storefront and verify it.');
+  result = spawnSync('lamina', ['graph', 'status'], {
+    cwd: passiveWorkspace,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(
+    JSON.parse(result.stdout).stale,
+    false,
+    'writing request/receipt files must not stale the seeded product graph',
+  );
+  result = spawnSync('lamina', [
+    'work',
+    'prepare',
+    '--request-file',
+    requestFile,
+    '--output',
+    packetFile,
+  ], {
+    cwd: passiveWorkspace,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const packet = JSON.parse(result.stdout);
+  assert.equal(packet.schema, 'lamina.implementation-packet/v1');
+  assert.deepEqual(packet.scope, ['workflow.eval.wishlist-sharing']);
+  result = spawnSync('lamina', [
+    'mission',
+    'compile',
+    '--workflow',
+    'wishlist-sharing',
+  ], {
+    cwd: passiveWorkspace,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(
+    JSON.parse(result.stdout).missions.length,
+    2,
+    'ready passive context must include every independently relevant Persona',
+  );
+  assert.ok(packet.obligations.length > 0);
+} finally {
+  try {
+    await stopIncompatibleServer(runtimePaths(passiveWorkspace));
+  } catch {}
+  fs.rmSync(passiveWorkspace, { recursive: true, force: true });
+}
+
 console.log('eval_graph_runtime_install_test: ok');

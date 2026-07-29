@@ -5,9 +5,19 @@ set -euo pipefail
 REAL_CLAUDE="${LAMINA_REAL_CLAUDE:-$HOME/.local/bin/claude}"
 PROXY_URL="${LAMINA_CLAUDE_PROXY_URL:-http://127.0.0.1:4000}"
 DEFAULT_MODEL="${LAMINA_EVAL_CLAUDE_MODEL:-gpt-4o-mini}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Prefer OpenAI via LiteLLM Anthropic-compatible endpoint when available.
-if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+export LAMINA_EVAL_BIN="$SCRIPT_DIR"
+export ZDOTDIR="$SCRIPT_DIR/shell-env"
+
+# Prefer OpenAI via LiteLLM's Anthropic-compatible endpoint when it is ready.
+# Falling back to the configured Anthropic credentials is safer than pointing
+# Claude Code at a dead local port.
+if [[ "${LAMINA_EVAL_CLAUDE_PROVIDER:-openai}" != "anthropic" ]] &&
+  [[ -n "${OPENAI_API_KEY:-}" ]] &&
+  curl -sf "$PROXY_URL/v1/models" \
+    -H "Authorization: Bearer ${LITELLM_MASTER_KEY:-sk-lamina-eval-local}" \
+    >/dev/null 2>&1; then
   export ANTHROPIC_BASE_URL="$PROXY_URL"
   export ANTHROPIC_AUTH_TOKEN="${LITELLM_MASTER_KEY:-sk-lamina-eval-local}"
   unset ANTHROPIC_API_KEY || true

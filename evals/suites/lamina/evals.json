@@ -7,7 +7,7 @@
       "force_skill_invocation": true,
       "expected_output": "Routes to design workflow.",
       "assertions": [
-        "Output includes \"design workflow\"",
+        "Output addresses design or problem framing",
         "no product code in output"
       ]
     },

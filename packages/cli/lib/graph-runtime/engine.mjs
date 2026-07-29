@@ -471,6 +471,18 @@ export class GraphEngine {
       if (!epistemicClasses.has(resource.data?.epistemic_class)) {
         errors.push(`Resource ${resource.id} has invalid epistemic ingress.`);
       }
+      if (
+        ['run', 'harness_result'].includes(resource.kind) &&
+        resource.data?.epistemic_class !== EPISTEMIC_BY_INGRESS.runtime
+      ) {
+        errors.push(`Runtime Resource ${resource.id} must come from the Mission runner.`);
+      }
+      if (
+        resource.kind === 'mission' &&
+        resource.data?.epistemic_class !== EPISTEMIC_BY_INGRESS.intent
+      ) {
+        errors.push(`Mission ${resource.id} must come from Mission compilation.`);
+      }
     }
     for (const statement of statements) {
       if (!resources.has(statement.subject)) errors.push(`Statement ${statement.id} subject is not active.`);

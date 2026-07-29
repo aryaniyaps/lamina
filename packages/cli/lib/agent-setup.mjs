@@ -14,11 +14,11 @@ dependency maintenance, or tests that do not change product behavior.
 
 Before editing application source:
 1. Put the user's request in a temporary text file outside the working tree (or under \`.git/lamina/work\`).
-2. Run \`lamina work prepare --request-file <file> --workflow <relevant-workflow> --output <packet.json>\`.
+2. First run \`lamina work prepare --request-file <file> --output <packet.json>\` so Lamina selects relevant workflows from the request and graph. Do not invent a workflow name. Use \`--workflow <exact-ref>\` only to narrow a genuinely ambiguous result after querying the graph.
 3. If Lamina reports design gaps, complete and publish the missing product design first, then prepare again. Do not edit source while the packet is blocked.
 4. Create a \`lamina.work-map/v1\` mapping every obligation to current evidence, intended code targets, and verification. Run \`lamina work check --packet <packet.json> --map <work-map.json>\`.
 5. Implement the mapped work.
-6. Run \`lamina graph observe\`, compile and run the relevant graph-backed Missions against the built product, and collect real artifacts. For UI surfaces, run all four live audit classes.
+6. Run the one-shot \`lamina graph observe\` (never foreground \`--live\`, which is a persistent operator watcher), compile and run every relevant graph-backed Persona Mission against the built product, then publish each Run session. Rebase a later Run session before publishing when an earlier independent Run advanced the branch. For UI surfaces, emit all four live audit classes with distinct real artifacts.
 7. Update the map with passing artifact paths and run \`lamina work verify\`. Fix failures and repeat until it passes.
 
 Treat the exact graph closure as product authority. Source retrieval only localizes code; it cannot override the graph. For UI work, verification must include functional, visual, responsive, and accessibility evidence. Missing browser or audit capability blocks verification.

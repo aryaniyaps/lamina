@@ -118,6 +118,25 @@ function normalizedRepositoryPath(value, platform = process.platform) {
   return platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 
+function graphSocketAlias(paths) {
+  const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+  const aliases = path.join(os.tmpdir(), `lamina-graphd-${uid}`);
+  fs.mkdirSync(aliases, { recursive: true, mode: 0o700 });
+  const stat = fs.lstatSync(aliases);
+  if (!stat.isDirectory() || stat.isSymbolicLink() ||
+      (typeof process.getuid === 'function' && stat.uid !== uid)) {
+    fail('LAMINA_INTERNAL', `Unsafe graphd socket alias directory: ${aliases}`);
+  }
+  fs.chmodSync(aliases, 0o700);
+  const alias = path.join(aliases, crypto.createHash('sha256').update(paths.runtime_dir).digest('hex').slice(0, 24));
+  if (!fs.existsSync(alias)) {
+    fs.symlinkSync(paths.runtime_dir, alias, 'dir');
+  } else if (fs.realpathSync(alias) !== fs.realpathSync(paths.runtime_dir)) {
+    fail('LAMINA_INTERNAL', `graphd socket alias collision: ${alias}`);
+  }
+  return path.join(alias, 'graphd.sock');
+}
+
 export function graphSocketPath(paths, platform = process.platform) {
   if (platform === 'win32') {
     const hash = crypto.createHash('sha256')
@@ -141,22 +160,18 @@ export function graphSocketPath(paths, platform = process.platform) {
     }
     return `/proc/self/fd/${fd}/graphd.sock`;
   }
-  const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
-  const aliases = path.join(os.tmpdir(), `lamina-graphd-${uid}`);
-  fs.mkdirSync(aliases, { recursive: true, mode: 0o700 });
-  const stat = fs.lstatSync(aliases);
-  if (!stat.isDirectory() || stat.isSymbolicLink() ||
-      (typeof process.getuid === 'function' && stat.uid !== uid)) {
-    fail('LAMINA_INTERNAL', `Unsafe graphd socket alias directory: ${aliases}`);
+  return graphSocketAlias(paths);
+}
+
+// `/proc/self/fd` is process-local. It is ideal for graphd and its Node client,
+// but a Python/native observation worker cannot resolve the parent's directory
+// descriptor after exec. Use a short, ownership-checked filesystem alias for
+// endpoints that cross a process boundary.
+export function graphSocketChildPath(paths, platform = process.platform) {
+  if (platform === 'win32' || Buffer.byteLength(paths.socket) < 100) {
+    return graphSocketPath(paths, platform);
   }
-  fs.chmodSync(aliases, 0o700);
-  const alias = path.join(aliases, crypto.createHash('sha256').update(paths.runtime_dir).digest('hex').slice(0, 24));
-  if (!fs.existsSync(alias)) {
-    fs.symlinkSync(paths.runtime_dir, alias, 'dir');
-  } else if (fs.realpathSync(alias) !== fs.realpathSync(paths.runtime_dir)) {
-    fail('LAMINA_INTERNAL', `graphd socket alias collision: ${alias}`);
-  }
-  return path.join(alias, 'graphd.sock');
+  return graphSocketAlias(paths);
 }
 
 export function ensureRuntime(paths) {

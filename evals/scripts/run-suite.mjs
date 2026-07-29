@@ -158,10 +158,20 @@ function runAgentSkillEval(evalsFile, opts) {
 
   const bin = resolveAgentSkillEval();
   const env = { ...process.env };
-  // Cap hung without-skill baselines; with-skill design/init often needs longer.
-  if (!env.ASE_AGENT_TIMEOUT) env.ASE_AGENT_TIMEOUT = '900';
-  // Prefer evals/bin wrappers (e.g. opencode hides .git to avoid inotify ENOSPC;
-  // claude routes through local LiteLLM→OpenAI when Anthropic is usage-capped).
+  // Full passive implementation and live-UI verification include design
+  // closure, source work, a production build, real browser audits, observation
+  // reconciliation, and WorkVerified. A 15-minute cap measured model latency
+  // instead of that contract, so these end-to-end cases receive 30 minutes.
+  const endToEndPassive = new Set([
+    'passive-feature-implementation',
+    'passive-ui-live-verification',
+    'passive-design-gap-before-edit',
+  ]);
+  if (!env.ASE_AGENT_TIMEOUT) {
+    env.ASE_AGENT_TIMEOUT = evalIds.some((id) => endToEndPassive.has(id)) ? '1800' : '900';
+  }
+  // Prefer evals/bin wrappers so login shells preserve harness tools and Claude
+  // can route through local LiteLLM→OpenAI when Anthropic is usage-capped.
   // Always put this process's Node first so post-grade `node evals/hooks/...`
   // keeps working if nvm/global PATH was wiped mid-session.
   env.PATH = [
@@ -170,12 +180,24 @@ function runAgentSkillEval(evalsFile, opts) {
     env.PATH || '',
   ].join(path.delimiter);
   if (!env.LITELLM_MASTER_KEY) env.LITELLM_MASTER_KEY = 'sk-lamina-eval-local';
-  // Best-effort: ensure Anthropic-compatible OpenAI proxy is up for claude-code.
-  spawnSync('bash', [path.join(ROOT, 'evals/bin/ensure-claude-proxy.sh')], {
-    cwd: ROOT,
-    env,
-    stdio: 'ignore',
-  });
+  // Claude is routed through OpenAI when that credential is available. Fail
+  // before launching a paid matrix if the Anthropic-compatible proxy is not
+  // actually ready; otherwise every Claude case waits for the agent timeout.
+  if (
+    opts.agents.includes('claude-code') &&
+    env.OPENAI_API_KEY &&
+    env.LAMINA_EVAL_CLAUDE_PROVIDER !== 'anthropic'
+  ) {
+    const proxy = spawnSync('bash', [path.join(ROOT, 'evals/bin/ensure-claude-proxy.sh')], {
+      cwd: ROOT,
+      env,
+      stdio: 'inherit',
+    });
+    if ((proxy.status ?? 1) !== 0) {
+      console.error('Claude eval proxy is unavailable; paid eval run aborted before agent launch.');
+      return proxy.status ?? 1;
+    }
+  }
   console.log(`Skill path: ${skillPath}`);
   const result = spawnSync(bin, args, {
     cwd: ROOT,

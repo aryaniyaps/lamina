@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# ASE workspaces often hit inotify ENOSPC on .git; hide it for the agent process.
-# Also prefer OpenAI when Anthropic is usage-capped.
+# Prefer OpenAI when Anthropic is usage-capped.
 set -euo pipefail
 REAL="/home/aryan/.nvm/versions/node/v24.18.0/lib/node_modules/opencode-ai/bin/opencode.exe"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+export LAMINA_EVAL_BIN="$SCRIPT_DIR"
+export ZDOTDIR="$SCRIPT_DIR/shell-env"
 
 # Avoid Anthropic hard-cap when OpenAI is available.
 if [[ -n "${OPENAI_API_KEY:-}" ]]; then
@@ -10,9 +13,7 @@ if [[ -n "${OPENAI_API_KEY:-}" ]]; then
   unset ANTHROPIC_AUTH_TOKEN || true
 fi
 
-if [[ -d .git && ! -e .git.__ase_bak ]]; then
-  mv .git .git.__ase_bak
-  restore_git() { mv .git.__ase_bak .git 2>/dev/null || true; }
-  trap restore_git EXIT
-fi
+# Lamina needs the workspace Git boundary for source identity and graphd
+# storage. Older evals hid `.git` to reduce file watches, but `exec` prevented
+# the EXIT trap from restoring it and could hide the source repository itself.
 exec "$REAL" "$@"

@@ -50,6 +50,10 @@ export function brownfieldSignals(relativePath, content) {
 function isIgnored(relative, entry) {
   const pieces = relative.split('/');
   if (pieces.includes('.git') || (pieces[0] === '.lamina' && pieces[1] === 'runs')) return true;
+  if (
+    (pieces[0] === '.lamina' && ['runtime', 'runtime-cli'].includes(pieces[1])) ||
+    (['.agents', '.codex', '.claude', '.opencode'].includes(pieces[0]) && pieces[1] === 'skills')
+  ) return true;
   return pieces.some((part) => ignoredNames.has(part) || ignoredSuffixes.some((suffix) => part.startsWith(suffix)) || /^\.venv/.test(part)) || relative.startsWith('benchmarks/results/') || relative.includes('/.vendor-tmp');
 }
 

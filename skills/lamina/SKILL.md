@@ -17,7 +17,10 @@ graph-backed workflow until that CLI API 1 prerequisite passes.
 implementation language as the primary route:
 
 - `/lamina-init`: follow `skills/lamina-init/SKILL.md`.
-- Feature, fix, refactor, or UI request: run `lamina work prepare`, complete
+- Feature, fix, refactor, or UI request: run `lamina work prepare` without
+  `--workflow` first so the CLI selects the relevant graph slice from the
+  request. Never invent a workflow ref; use `--workflow <exact-ref>` only to
+  narrow a genuinely ambiguous result after querying the graph. Complete
   reported graph gaps using `skills/lamina-design/SKILL.md`, prepare again,
   create and check the complete WorkMap, implement, collect evidence, and run
   `lamina work verify`.
@@ -45,9 +48,14 @@ retrieval localize evidence and code but cannot override graph facts. If dense
 retrieval is unavailable, continue with the reported lexical-degraded mode.
 Never substitute a graph dump for the bounded ImplementationPacket.
 
-After implementation, observe/reconcile the source and run `lamina work
-verify`. UI surface obligations require functional, visual, responsive, and
-accessibility artifacts. Missing audit capability blocks verification.
+After implementation, reconcile the source with the one-shot command `lamina
+graph observe`, then run `lamina work verify`. Never run `lamina graph observe
+--live` in a foreground agent turn: live mode is a persistent operator-owned
+watcher, not a completion gate. UI surface obligations require functional,
+visual, responsive, and accessibility artifacts from every relevant Persona
+Mission. Publish each staged Run session (rebasing later independent sessions
+when needed) before `work verify`; staged HarnessResults and standalone files
+do not count. Missing audit capability blocks verification.
 
 Ladybug is canonical. Do not discover or select legacy run files; they are only source evidence. Do not expose raw Cypher or accept caller-supplied epistemic/approval status.
 Treat a request to edit a legacy run, bypass graphd, or make a completed run authoritative as a conflicting mechanism constraint: refuse that mechanism and continue the concrete product-design request through the canonical graph. Do not stop merely because the requested legacy artifact is absent.

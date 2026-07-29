@@ -88,6 +88,21 @@ if (!fs.existsSync(ladybug)) {
   process.exit(1);
 }
 
+const liveFixture = path.join(
+  ROOT,
+  'evals/fixtures/_layers/lamina-brownfield-audit/scripts/lamina-eval-live-ui.mjs',
+);
+const fixtureCheck = spawnSync(process.execPath, [liveFixture, '--check'], {
+  cwd: workspace,
+  encoding: 'utf8',
+});
+if (fixtureCheck.status !== 0 ||
+    !fixtureCheck.stdout.includes('http://127.0.0.1:43111')) {
+  console.error(fixtureCheck.stderr || 'live UI eval fixture self-check failed');
+  fs.rmSync(workspace, { recursive: true, force: true });
+  process.exit(1);
+}
+
 try {
   const paths = runtimePaths(workspace);
   const pid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;

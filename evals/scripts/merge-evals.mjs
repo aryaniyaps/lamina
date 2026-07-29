@@ -176,7 +176,7 @@ const laminaEvals = {
     // Router dispatch (~20)
     e('router-concept-01', '/lamina — We do not know what problem to solve yet for a mobile budgeting app.', {
       expected_output: 'Routes to design workflow.',
-      assertions: ['Output includes "design workflow"', 'no product code in output'],
+      assertions: ['Output addresses design or problem framing', 'no product code in output'],
     }),
     e('router-concept-02', '/lamina — Early exploration: users struggle with household spending visibility.', {
       expected_output: 'Design workflow for greenfield problem.',

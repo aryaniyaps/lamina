@@ -24,4 +24,6 @@ if [[ -d "$ROOT/eval-workspace" ]]; then
   shopt -u nullglob
 fi
 
+# ASE stages each case fixture before its skill installer. This suite-level
+# compatibility hook intentionally does not mutate case workspaces.
 bash "$ROOT/evals/hooks/stage-eval-fixture.sh"
