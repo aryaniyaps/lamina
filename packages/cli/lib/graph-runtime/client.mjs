@@ -195,19 +195,36 @@ export async function restartGraphd(cwd = process.cwd(), reportedPid = null) {
 }
 
 export async function graphRequest(method, params = {}, cwd = process.cwd()) {
-  const paths = await ensureGraphd(cwd);
-  const response = await exchange(graphSocketPath(paths), {
-    id: `${process.pid}-${Date.now()}`,
-    method,
-    params,
-    cwd,
-    auth: paths.auth_token,
-  });
+  let response;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const paths = await ensureGraphd(cwd);
+    try {
+      response = await exchange(graphSocketPath(paths), {
+        id: `${process.pid}-${Date.now()}-${attempt}`,
+        method,
+        params,
+        cwd,
+        auth: paths.auth_token,
+      });
+      break;
+    } catch (error) {
+      // A daemon can exit after its readiness ping but before the first client
+      // connects. These errors occur before request delivery, so one normal
+      // ensureGraphd cycle is safe; never replay a request after an established
+      // connection may have reached graphd.
+      if (
+        attempt > 0 ||
+        !['ENOENT', 'ECONNREFUSED'].includes(error.code)
+      ) {
+        throw error;
+      }
+    }
+  }
   if (!response.ok) {
-    const error = new Error(response.error.message);
-    error.code = response.error.code;
-    error.details = response.error.details;
-    throw error;
+    const requestError = new Error(response.error.message);
+    requestError.code = response.error.code;
+    requestError.details = response.error.details;
+    throw requestError;
   }
   return response.result;
 }

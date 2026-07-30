@@ -1,3 +1,18 @@
 # `/lamina`
 
 Routes explicit init, design, verify, and focused product questions. Canonical context comes from graph queries; legacy files are never selected as runtime state.
+
+Ordinary implementation requests use `lamina work prepare`. It automatically
+synchronizes the local hybrid-retrieval index, selects relevant Workflow
+roots, and then compiles their exact graph closure.
+
+Retrieval diagnostics are intentionally small:
+
+```bash
+lamina context status
+lamina context rebuild
+```
+
+`status` is read-only. `rebuild` discards and reconstructs only
+`.git/lamina/context/retrieval.lbdb`; it never mutates the canonical product
+graph.

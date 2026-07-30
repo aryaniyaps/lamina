@@ -263,10 +263,11 @@ Mocks show screens. They do not capture every legal state or verify the build. L
 |---|---|
 | `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
 | `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, or Cursor |
-| `lamina context catalog` | Explain authoritative graph and derived source-retrieval tiers |
+| `lamina context status` | Show retrieval freshness, generation, digests, counts, and failures |
+| `lamina context rebuild` | Discard and reconstruct the disposable local retrieval index |
 | `lamina design prepare-walk` | Compile one coverage-bound design task for one Persona |
 | `lamina design record-walk` | Record that isolated walk as engine-owned simulated graph evidence |
-| `lamina work prepare` | Compile the bounded graph slice, stable obligations, and Experience Cases |
+| `lamina work prepare` | Synchronize hybrid retrieval, select Workflow roots, and compile exact graph obligations |
 | `lamina work map` | Mechanically scaffold every obligation and Experience Case row for file resolution |
 | `lamina work check` | Require complete obligation/case-to-code-and-test mapping before edits |
 | `lamina work verify` | Require current case-bound evidence and all state-scoped UI audit classes |
@@ -285,8 +286,9 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm test
 ```
 
-The standalone CLI and matching private native CocoIndex worker are published
-as checksum-verified assets on the [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
+The standalone CLI, matching private native CocoIndex worker, and shared
+offline retrieval model are published as checksum-verified assets on the
+[GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
 
 ## License
 

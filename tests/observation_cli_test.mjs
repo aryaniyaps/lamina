@@ -12,6 +12,7 @@ import {
   parseDaemonLock,
   runtimePaths,
 } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-observation-cli-'));
 const cli = path.resolve('packages/cli/bin/lamina.mjs');
@@ -224,7 +225,7 @@ try {
   if (daemonPid) {
     try { await stopIncompatibleServer(paths, daemonPid); } catch {}
   }
-  fs.rmSync(root, { recursive: true, force: true });
+  removeTemporaryTree(root);
 }
 
 console.log('observation_cli_test: ok');

@@ -14,18 +14,26 @@ mkdir -p "$destination"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 curl --fail --location --silent --show-error "$base/lamina-$target" -o "$tmp/lamina"
 curl --fail --location --silent --show-error "$base/lamina-cocoindex-worker-$target" -o "$tmp/cocoindex-worker"
+curl --fail --location --silent --show-error "$base/lamina-retrieval-model-int8-v1.onnx" -o "$tmp/model.onnx"
 curl --fail --location --silent --show-error "$base/SHA256SUMS" -o "$tmp/SHA256SUMS"
 expected="$(grep "  lamina-$target$" "$tmp/SHA256SUMS" | awk '{print $1}')"
 [ -n "$expected" ] || { echo "No checksum published for lamina-$target." >&2; exit 1; }
 runtime_expected="$(grep "  lamina-cocoindex-worker-$target$" "$tmp/SHA256SUMS" | awk '{print $1}')"
 [ -n "$runtime_expected" ] || { echo "No managed CocoIndex worker published for $target." >&2; exit 1; }
+model_expected="$(grep "  lamina-retrieval-model-int8-v1.onnx$" "$tmp/SHA256SUMS" | awk '{print $1}')"
+[ -n "$model_expected" ] || { echo "No checksum published for the managed retrieval model." >&2; exit 1; }
 checksum() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi; }
 [ "$(checksum "$tmp/lamina")" = "$expected" ] || { echo "Checksum verification failed for lamina-$target." >&2; exit 1; }
 [ "$(checksum "$tmp/cocoindex-worker")" = "$runtime_expected" ] || { echo "Checksum verification failed for managed CocoIndex worker." >&2; exit 1; }
+[ "$(checksum "$tmp/model.onnx")" = "$model_expected" ] || { echo "Checksum verification failed for managed retrieval model." >&2; exit 1; }
 install -m 0755 "$tmp/lamina" "$destination/lamina"
 version="$($destination/lamina --version)"
 cache_base="${XDG_CACHE_HOME:-$HOME/.cache}"
 runtime_dir="$cache_base/lamina/runtime/$version/$target/app/observation-runtime"
+retrieval_dir="$cache_base/lamina/runtime/$version/$target/app/retrieval-runtime"
 mkdir -p "$runtime_dir"
 install -m 0755 "$tmp/cocoindex-worker" "$runtime_dir/cocoindex-worker"
+mkdir -p "$retrieval_dir"
+"$runtime_dir/cocoindex-worker" retrieval extract-assets --destination "$retrieval_dir" >/dev/null
+install -m 0644 "$tmp/model.onnx" "$retrieval_dir/model.onnx"
 case ":$PATH:" in *":$destination:"*) ;; *) echo "Installed to $destination/lamina. Add $destination to PATH, then run: lamina doctor --json" >&2 ;; esac

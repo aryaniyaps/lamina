@@ -1,0 +1,88 @@
+# Hybrid retrieval
+
+Lamina uses retrieval to choose relevant Workflow roots and locate source
+symbols. Retrieval never defines product behavior. After selection, graphd
+traverses the canonical product graph for ordered Operations, Actors,
+authority, states, Invariants, Scenarios, Surfaces, risks, and proof
+requirements.
+
+## Two stores, two authority levels
+
+| Store | Path | Role | Recovery |
+|---|---|---|---|
+| Product graph | `.git/lamina/graph.lbdb` | Canonical product knowledge and evidence | Preserve, checkpoint, back up, and restore |
+| Retrieval index | `.git/lamina/context/retrieval.lbdb` | Derived Workflow documents, source chunks, BM25 text, and embeddings | Delete or run `lamina context rebuild` |
+
+graphd is the only process that writes either Ladybug database. The native
+worker reads repository files, creates syntax-aware chunks and embeddings, and
+sends authenticated batches to graphd.
+
+## Automatic synchronization
+
+`lamina work prepare` compares the active index manifest with:
+
+- GraphVersion;
+- source and repository revision;
+- branch and worktree identity;
+- retrieval schema version; and
+- model digest.
+
+If any value changed, the worker creates a pending generation. Unchanged
+documents reuse their content-addressed versions; changed documents are
+upserted; removed files or symbols are absent from the new membership. graphd
+activates the generation only when committed membership and digest match the
+declared expected values. An interrupted generation cannot replace the last
+complete current generation.
+
+## Ranking
+
+Workflow selection gives an exact id or alias match absolute priority.
+Otherwise it combines Ladybug BM25 and cosine rankings with fixed
+reciprocal-rank fusion, filters inactive roots, and applies small deterministic
+boosts for direct Actor, Persona, Entity, Surface, state, or Operation terms.
+The result is explicit:
+
+- `selected`;
+- `multi_workflow`;
+- `ambiguous`; or
+- `new_workflow_required`.
+
+Source localization uses the same BM25, dense, and fusion policy over
+syntax-aware chunks. Packet v5 records file, enclosing symbol, line range,
+score, and short match reasons. Overlapping chunks from one symbol are
+deduplicated.
+
+An explicit `--workflow <id>` bypasses semantic Workflow selection, but it
+still performs exact graph traversal and source retrieval.
+
+## Offline runtime and integrity
+
+The release pins `jinaai/jina-embeddings-v2-base-code` to one immutable
+revision and publishes its dynamic-INT8 ONNX weights as a separate checksummed
+asset. The platform worker contains ONNX Runtime, the tokenizer, and matching
+Ladybug FTS and vector extensions. Installation extracts these assets into the
+same private versioned runtime as the worker.
+
+Lamina never downloads a model or extension during normal execution. Missing,
+corrupt, or mismatched assets return `LAMINA_RETRIEVAL_INTEGRITY` with reinstall
+guidance.
+
+## Diagnostics and recovery
+
+```bash
+lamina context status
+lamina context rebuild
+```
+
+`status` reports generation, freshness, model and index digests, Workflow and
+source-chunk counts, pending state, and the last failure. `rebuild` invalidates
+the current derived generation for this branch/worktree identity and
+reconstructs it synchronously.
+
+Automatic Workflow selection fails closed when dense retrieval is unavailable.
+With an explicit Workflow id, exact graph closure may continue and source
+localization can use BM25 alone; packet v5 marks that state
+`lexical_degraded`.
+
+Source comments and source text remain untrusted retrieval data. They cannot
+change the selected Workflow's graph instructions or packet obligations.

@@ -8,6 +8,7 @@ import { observationCompletionChecks } from '../packages/cli/lib/observe.mjs';
 import { runObservationProcess } from '../packages/cli/lib/observation-runtime/cocoindex.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import { parseDaemonLock, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const expected = { generation: 'generation-current', sourceRevision: 'revision-current' };
 const complete = {
@@ -66,7 +67,7 @@ try {
   assert.equal(noisyResult.stdout.length, 4_000);
   assert.match(noisyResult.stdout, /^x+$/);
 } finally {
-  fs.rmSync(noisyRoot, { recursive: true, force: true });
+  removeTemporaryTree(noisyRoot);
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-observation-diagnostics-'));
@@ -91,13 +92,13 @@ try {
   assert.deepEqual(failure.error.details.failed_checks, ['worker.completed']);
   assert.equal(failure.error.details.worker_diagnostics.length, 2);
   assert.ok(failure.error.details.worker_diagnostics.every((item) => item.ok === false));
-  assert.equal(failure.error.details.daemon.protocol_version, 8);
+  assert.equal(failure.error.details.daemon.protocol_version, 9);
   daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
 } finally {
   if (daemonPid) {
     try { await stopIncompatibleServer(runtimePaths(root), daemonPid); } catch {}
   }
-  fs.rmSync(root, { recursive: true, force: true });
+  removeTemporaryTree(root);
 }
 
 console.log('observation_diagnostics_test: ok');

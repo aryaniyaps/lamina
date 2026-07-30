@@ -52,7 +52,8 @@ lamina graph diff --base <view> --head <view>
 lamina graph backup --output graph.backup.json
 lamina graph restore --input graph.backup.json
 lamina graph rebuild-observations
-lamina context catalog
+lamina context status
+lamina context rebuild
 lamina design prepare-walk --workflow <ref> --persona <ref> --request-file <file> --output <task.json>
 lamina design record-walk --task <task.json> --result <walk.json>
 lamina work prepare --request-file <file> --workflow <ref> --output <packet.json>
@@ -80,10 +81,15 @@ authored Experience Contract.
 `work prepare` is a read-only compiler over the converged selected workflow
 closure. It returns the relevant actors, authority, ordered operations,
 invariants, scenarios, surfaces, proofs, Persona-bound Experience Cases,
-direct provenance, and stable obligation ids. A derived lexical ranker adds
-code-localization candidates, but source search is never graph authority.
-Dense retrieval is currently an optional unavailable tier and reports
-`lexical_degraded`; exact traversal supplies the decision contract.
+direct provenance, and stable obligation ids. Before traversal, one disposable
+local index combines exact aliases, Ladybug BM25, code-aware embeddings, and
+reciprocal-rank fusion to select Workflow roots and source symbols. Retrieval
+is never graph authority. See [Hybrid retrieval](/reference/hybrid-retrieval).
+
+Automatic selection fails closed as `ambiguous` or `new_workflow_required`
+rather than attaching a plausible but weak Workflow. Explicit `--workflow`
+bypasses semantic selection and may use BM25-only source localization when
+dense inference is unavailable; packet v5 records `lexical_degraded`.
 
 Preparation fails closed for stale source identity, contradictions, stale or
 missing Persona walks, missing

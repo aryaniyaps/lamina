@@ -65,13 +65,15 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
-  assert.equal(ping.result.protocol_version, 8);
-  assert.ok(ping.result.capabilities.includes('work.context.v4'));
-  assert.equal(ping.result.runtime_version, '0.2.0');
+  assert.equal(ping.result.protocol_version, 9);
+  assert.ok(ping.result.capabilities.includes('work.context.v5'));
+  assert.ok(ping.result.capabilities.includes('retrieval.hybrid.v1'));
+  assert.equal(ping.result.runtime_version, '0.3.0');
   assert.deepEqual(ping.result.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
-    'work.context.v4',
+    'retrieval.hybrid.v1',
+    'work.context.v5',
     'design.persona-walk.v1',
     'work.persona-case-map.v4',
     'mission.persona-case-evidence.v4',

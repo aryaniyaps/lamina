@@ -12,11 +12,28 @@ lamina --version
 lamina doctor --json
 ```
 
-The standalone release includes its own Node runtime and downloads a
-checksum-verified, platform-native CocoIndex worker into its private versioned
-runtime cache. Observation needs no host Python, `uv`, venv, npm, or first-run
-dependency download. The worker submits observations to graphd; it never opens
-Ladybug directly.
+The standalone release includes its own Node runtime and installs a
+checksum-verified, platform-native CocoIndex worker plus one shared INT8 ONNX
+retrieval model into its private versioned runtime cache. The worker embeds
+ONNX Runtime, the tokenizer, and matching Ladybug FTS/vector extensions.
+Observation and retrieval need no host Python, `uv`, venv, npm, network access,
+or first-run dependency download. The worker submits observations and
+retrieval generations to graphd; it never opens Ladybug directly.
+
+## Retrieval
+
+```bash
+lamina context status
+lamina context rebuild
+lamina work prepare --request-file request.md --output packet.json
+```
+
+`work prepare` automatically keeps
+`.git/lamina/context/retrieval.lbdb` synchronized, combines exact aliases,
+BM25, and dense cosine rankings, then traverses the selected canonical Workflow
+closure. The retrieval database is disposable; `.git/lamina/graph.lbdb`
+remains authoritative. Missing or corrupt model/runtime assets fail with
+reinstall guidance and are never downloaded silently.
 
 Install the skills independently from GitHub:
 

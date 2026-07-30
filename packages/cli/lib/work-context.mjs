@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { graphRequest } from './graph-runtime/client.mjs';
 import { canonical, digest, ensureRuntime, repositoryContext, runtimePaths } from './graph-runtime/util.mjs';
-import { contextCatalog, sourceCandidates } from './context-index.mjs';
+import { ensureRetrieval, queryRetrieval } from './retrieval-runtime/process.mjs';
 
 const EXPERIENCE_CORE_SKILLS = [
   'lamina-product-behavior',
@@ -108,7 +108,21 @@ function compileObligations(workflowContext) {
 export async function prepareWork({ requestFile, workflows = [], output }, cwd = process.cwd()) {
   const request = fs.readFileSync(path.resolve(requestFile), 'utf8').trim();
   if (!request) bad('The request file is empty.');
-  const graph = await graphRequest('work.context', { workflows, request }, cwd);
+  const preparedRetrieval = await ensureRetrieval(cwd, {
+    allowLexicalDegraded: workflows.length > 0,
+  });
+  const ranked = await queryRetrieval(request, preparedRetrieval, cwd);
+  if (!workflows.length &&
+      !['selected', 'multi_workflow'].includes(ranked.outcome)) {
+    bad(
+      ranked.outcome === 'new_workflow_required'
+        ? 'No current Workflow is relevant enough. Design a new Workflow before editing source.'
+        : 'Workflow selection is ambiguous. Name the intended Workflow with --workflow or refine the request.',
+      { retrieval: ranked },
+    );
+  }
+  const selectedRefs = workflows.length ? workflows : ranked.selected_workflow_ids;
+  const graph = await graphRequest('work.context', { workflows: selectedRefs, request }, cwd);
   if (!graph.implementation_ready) {
     bad('Product graph context is not implementation-ready. Complete the reported design gaps before editing source.', {
       readiness_gaps: graph.readiness_gaps,
@@ -121,7 +135,7 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
     (item.closure?.personas || []).length ||
     (item.closure?.persona_walks || []).length);
   const packetBody = {
-    schema: 'lamina.implementation-packet/v4',
+    schema: 'lamina.implementation-packet/v5',
     request,
     source: {
       graph_version: graph.graph_version?.id,
@@ -139,13 +153,20 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
       ...graph.workflows.flatMap((item) =>
         item.workflow.data?.skills || item.workflow.data?.activated_skills || []),
     ])],
-    source_retrieval: {
-      catalog: contextCatalog(cwd),
-      candidates: sourceCandidates([
-        request,
-        ...graph.workflows.map((item) => item.workflow.data?.name || item.workflow.id),
-        ...obligations.map((item) => JSON.stringify(item.details)),
-      ].join('\n'), cwd),
+    retrieval: {
+      generation: ranked.generation,
+      freshness: ranked.freshness,
+      model_digest: ranked.model_digest,
+      index_digest: ranked.index_digest,
+      candidates: ranked.candidates,
+      match_reasons: Object.fromEntries(
+        ranked.candidates.map((item) => [item.workflow_id, item.reasons]),
+      ),
+      outcome: workflows.length ? 'selected' : ranked.outcome,
+      selected_workflow_ids: graph.workflows.map((item) => item.workflow.id),
+      explicit_workflow_bypass: workflows.length > 0,
+      source_chunks: ranked.source_chunks,
+      degradation: ranked.degradation,
     },
     verification_contract: {
       work_map_is_immutable_after_check: true,
@@ -155,8 +176,7 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
       missing_capability_blocks_verification: true,
     },
     omitted_context: {
-      policy: 'Only exact workflow closure, direct provenance, and ranked source candidates are included.',
-      dense_retrieval: 'lexical_degraded',
+      policy: 'Hybrid retrieval selects roots and source chunks; only exact graph closure and direct provenance define implementation instructions.',
     },
   };
   const packet = { ...packetBody, packet_id: digest('packet', packetBody) };
@@ -166,8 +186,11 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
 
 export function deriveWorkMap({ packetFile, output }) {
   const packet = readJson(packetFile, '--packet');
-  if (packet.schema !== 'lamina.implementation-packet/v4') {
-    bad(`Unsupported ImplementationPacket schema: ${packet.schema}. Prepare current context again.`);
+  if (packet.schema !== 'lamina.implementation-packet/v5') {
+    if (packet.schema === 'lamina.implementation-packet/v4') {
+      bad('ImplementationPacket v4 is no longer supported. Rerun lamina work prepare to create a v5 packet.');
+    }
+    bad(`Unsupported ImplementationPacket schema: ${packet.schema}. Rerun lamina work prepare.`);
   }
   if (!Array.isArray(packet.obligations) || !Array.isArray(packet.experience_cases)) {
     bad('ImplementationPacket lacks mechanically derivable obligations or Experience Cases.');
@@ -304,8 +327,11 @@ function validateWorkFiles(rows, cwd, phase = 'check') {
 }
 
 function validateWorkMap(packet, map, cwd, phase = 'check') {
-  if (packet.schema !== 'lamina.implementation-packet/v4') {
-    bad(`Unsupported ImplementationPacket schema: ${packet.schema}. Prepare current context again.`);
+  if (packet.schema !== 'lamina.implementation-packet/v5') {
+    if (packet.schema === 'lamina.implementation-packet/v4') {
+      bad('ImplementationPacket v4 is no longer supported. Rerun lamina work prepare to create a v5 packet.');
+    }
+    bad(`Unsupported ImplementationPacket schema: ${packet.schema}. Rerun lamina work prepare.`);
   }
   if (map.schema !== 'lamina.work-map/v4') bad('WorkMap schema must be lamina.work-map/v4.');
   if (map.packet_id !== packet.packet_id) bad('WorkMap packet_id does not match the ImplementationPacket.');

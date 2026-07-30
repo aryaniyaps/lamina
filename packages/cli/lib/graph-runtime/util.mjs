@@ -108,6 +108,8 @@ export function runtimePaths(cwd = process.cwd()) {
     evidence: path.join(context.runtime_dir, 'evidence'),
     cocoindex: path.join(context.runtime_dir, 'cocoindex'),
     context: path.join(context.runtime_dir, 'context'),
+    retrieval: path.join(context.runtime_dir, 'context', 'retrieval.lbdb'),
+    retrieval_failure: path.join(context.runtime_dir, 'context', 'retrieval-failure.json'),
     work: path.join(context.runtime_dir, 'work'),
   };
 }

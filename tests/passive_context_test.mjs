@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { setupAgent } from '../packages/cli/lib/agent-setup.mjs';
-import { contextCatalog, sourceCandidates } from '../packages/cli/lib/context-index.mjs';
+import { contextCatalog } from '../packages/cli/lib/context-index.mjs';
 import {
   checkWork,
   deriveWorkMap,
@@ -17,6 +17,8 @@ import { graphRequest, stopIncompatibleServer } from '../packages/cli/lib/graph-
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-passive-context-'));
 try {
+  process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER = 'deterministic';
+  process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS = '1';
   execFileSync('git', ['init', '-b', 'main'], { cwd: root });
   execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: root });
@@ -50,9 +52,9 @@ try {
 
   const catalog = contextCatalog(root);
   assert.equal(catalog.authority.graph, 'exact_graph_closure');
-  assert.equal(catalog.retrieval.dense.fallback, 'lexical_degraded');
+  assert.equal(catalog.retrieval.dense.fallback, 'fail_closed_for_automatic_workflow_selection');
   assert.equal(catalog.retrieval.dense.authoritative, false);
-  assert.equal(sourceCandidates('save schedule', root)[0].path, 'app.ts');
+  assert.equal(catalog.retrieval.fusion.algorithm, 'reciprocal_rank_fusion');
 
   execFileSync('git', ['add', 'AGENTS.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'provider rules'], { cwd: root });
@@ -193,7 +195,7 @@ try {
     requestFile,
     output: packetFile,
   }, root);
-  assert.equal(packet.schema, 'lamina.implementation-packet/v4');
+  assert.equal(packet.schema, 'lamina.implementation-packet/v5');
   assert.ok(packet.obligations.some((item) => item.type === 'operation_contract'));
   assert.ok(packet.obligations.some((item) => item.type === 'surface'));
   assert.ok(packet.experience_cases.length >= 7);
@@ -203,7 +205,9 @@ try {
     item.surface === 'surface.fixture'),
   'declared operation and Surface states must compile into Persona-bound Experience Cases');
   assert.ok(packet.activated_skills.includes('lamina-forms'));
-  assert.equal(packet.source_retrieval.catalog.authority.graph, 'exact_graph_closure');
+  assert.equal(packet.retrieval.outcome, 'selected');
+  assert.equal(packet.retrieval.freshness, 'fresh');
+  assert.equal(packet.retrieval.source_chunks[0].file, 'app.ts');
 
   const draftMapFile = path.join(os.tmpdir(), `${packet.packet_id}.draft-map.json`);
   const draftMap = deriveWorkMap({ packetFile, output: draftMapFile });

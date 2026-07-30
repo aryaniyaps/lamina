@@ -1,0 +1,53 @@
+{
+  "schema": "lamina.retrieval-model/v1",
+  "asset_name": "lamina-retrieval-model-int8-v1.onnx",
+  "model_id": "jinaai/jina-embeddings-v2-base-code",
+  "revision": "516f4baf13dec4ddddda8631e019b5737c8bc250",
+  "origin": "https://huggingface.co/jinaai/jina-embeddings-v2-base-code",
+  "license": "Apache-2.0",
+  "format": "ONNX",
+  "precision": "dynamic-int8",
+  "conversion": {
+    "producer_name": "onnx.quantize",
+    "producer_version": "0.1.0",
+    "opset": 11,
+    "metadata": {
+      "onnx.infer": "onnxruntime.quant"
+    }
+  },
+  "pooling": "attention-mask mean pooling",
+  "normalization": "L2",
+  "embedding_dimensions": 768,
+  "maximum_tokens": 1024,
+  "sha256": "ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d",
+  "bytes": 161895621,
+  "source_path": "onnx/model_quantized.onnx",
+  "source_url": "https://huggingface.co/jinaai/jina-embeddings-v2-base-code/resolve/516f4baf13dec4ddddda8631e019b5737c8bc250/onnx/model_quantized.onnx",
+  "qualification": {
+    "benchmark": "lamina.retrieval-benchmark/v1",
+    "reference": {
+      "precision": "fp16",
+      "source_path": "onnx/model_fp16.onnx",
+      "sha256": "1aafc4fcd63d2e6899e88402ff731e7c646c2e435048294a3cbc908a40d45d7c",
+      "bytes": 321072580
+    },
+    "held_out": {
+      "dense_workflow_recall_at_5": {
+        "int8": 0.9519230769230769,
+        "fp16": 0.9615384615384616,
+        "loss": 0.009615384615384692
+      },
+      "hybrid_workflow_recall_at_5": {
+        "int8": 1,
+        "fp16": 1,
+        "loss": 0
+      },
+      "hybrid_source_file_recall_at_10": {
+        "int8": 0.9375,
+        "fp16": 0.9375,
+        "loss": 0
+      }
+    },
+    "decision": "ship_int8"
+  }
+}
