@@ -67,7 +67,7 @@ try {
   }
   assert.equal(ping.result.protocol_version, 6);
   assert.ok(ping.result.capabilities.includes('work.context.v1'));
-  assert.equal(ping.result.runtime_version, '0.1.15');
+  assert.equal(ping.result.runtime_version, '0.1.16');
   assert.deepEqual(ping.result.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',

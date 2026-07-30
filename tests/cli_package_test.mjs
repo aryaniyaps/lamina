@@ -18,8 +18,8 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.15');
-assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
+assert.equal(cliPackage.version, '0.1.16');
+assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
 assert.match(builder, /@ladybugdb\/core/);
@@ -40,6 +40,7 @@ assert.match(bootstrap, /process\.platform === 'win32'/);
 assert.match(bootstrap, /path\.join\(runtime, 'node\.exe'\)/);
 assert.match(bootstrap, /LAMINA_STANDALONE_GRAPHD_HOST/);
 assert.match(graphClient, /LAMINA_STANDALONE_GRAPHD_HOST \|\| process\.execPath/);
+assert.match(graphClient, /identity\?\.runtime_version === CLI_VERSION/);
 assert.match(binarySmoke, /process\.platform === 'win32'/);
 assert.match(binarySmoke, /LOCALAPPDATA: cache/);
 assert.match(binarySmoke, /XDG_CACHE_HOME: cache/);
@@ -57,7 +58,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.15']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.16']).status,
   0,
 );
 assert.notEqual(

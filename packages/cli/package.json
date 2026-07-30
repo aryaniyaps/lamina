@@ -1,6 +1,6 @@
 {
   "name": "lamina-cli-source",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Transactional product-knowledge graph runtime for Lamina",
   "author": "Aryan Iyappan",
   "repository": {
@@ -39,6 +39,6 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@ladybugdb/core": "0.18.3"
+    "@ladybugdb/core": "0.19.0"
   }
 }

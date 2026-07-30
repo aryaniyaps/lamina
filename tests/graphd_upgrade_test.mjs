@@ -177,7 +177,7 @@ try {
 
   let lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
   assert.equal(lock.protocol_version, 6);
-  assert.equal(lock.runtime_version, '0.1.15');
+  assert.equal(lock.runtime_version, '0.1.16');
   assert.deepEqual(lock.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
@@ -188,12 +188,39 @@ try {
 
   await stopIncompatibleServer(paths, lock.pid);
 
+  // Storage fixes can require a process upgrade without changing the wire
+  // protocol. A daemon from the previous CLI release must not keep the old
+  // embedded database runtime alive merely because its capabilities match.
+  fake = await startFake({
+    protocol_version: 6,
+    runtime_version: '0.1.15',
+    capabilities: [
+      'observation.status.source_key_count',
+      'observation.status.generation',
+      'work.context.v1',
+      'work.experience.v2',
+      'mission.case-evidence.v2',
+    ],
+  });
+  const upgradedRuntimeQuery = await graphRequest(
+    'graph.query',
+    { at: 'HEAD', kind: 'product' },
+    root,
+  );
+  assert.ok(upgradedRuntimeQuery.resources.some(
+    (resource) => resource.id === 'product.preserved',
+  ));
+  if (fake.exitCode === null) await once(fake, 'exit');
+  lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+  assert.equal(lock.runtime_version, '0.1.16');
+  await stopIncompatibleServer(paths, lock.pid);
+
   // Even a daemon that claims the required capabilities is replaced if its
   // actual status response violates the contract. Existing active observation
   // Resources remain sufficient after replacement; no rebuild is needed.
   fake = await startFake({
     protocol_version: 6,
-    runtime_version: '0.1.13-test-malformed',
+    runtime_version: '0.1.16',
     capabilities: [
       'observation.status.source_key_count',
       'observation.status.generation',
@@ -218,7 +245,7 @@ try {
   // status capabilities must also be recycled.
   fake = await startFake({
     protocol_version: 6,
-    runtime_version: '0.1.13-test-incomplete',
+    runtime_version: '0.1.16',
     capabilities: [],
   });
   const secondQuery = await graphRequest('graph.query', { at: 'HEAD', kind: 'product' }, root);

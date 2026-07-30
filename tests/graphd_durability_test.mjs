@@ -7,6 +7,7 @@ import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import {
+  digest,
   ensureAuthToken,
   graphSocketPath,
   runtimePaths,
@@ -87,6 +88,53 @@ try {
     },
   })).ok, true);
   assert.equal((await request('session.publish', { id: session.result.id })).ok, true);
+  assert.equal(
+    fs.existsSync(`${paths.database}.wal`),
+    false,
+    'an acknowledged publication must be checkpointed',
+  );
+
+  const generation = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
+  const snapshot = {
+    product: paths.product,
+    source_revision: 'source:durability',
+    source_root: root,
+  };
+  const observation = {
+    source_snapshot: snapshot,
+    source_key: 'README.md',
+    content_hash: 'content:durability',
+    extractor: { id: 'durability-test', version: '1' },
+    payload: { brownfield: { categories: ['durability'] } },
+  };
+  observation.id = digest('observation', {
+    snapshot: observation.source_snapshot,
+    source_key: observation.source_key,
+    content_hash: observation.content_hash,
+    extractor: observation.extractor,
+    payload: observation.payload,
+  });
+  const observed = await request('observation.apply', {
+    snapshot,
+    upserts: [observation],
+    deletes: [],
+    generation,
+  });
+  assert.equal(observed.ok, true);
+  assert.equal(observed.result.committed, true);
+  assert.equal(
+    fs.existsSync(`${paths.database}.wal`),
+    false,
+    'an acknowledged observation batch must be checkpointed',
+  );
+
+  const invalidated = await request('observation.invalidate', { product: paths.product });
+  assert.equal(invalidated.ok, true);
+  assert.equal(
+    fs.existsSync(`${paths.database}.wal`),
+    false,
+    'an acknowledged observation invalidation must be checkpointed',
+  );
 
   server.child.kill('SIGKILL');
   await once(server.child, 'exit');

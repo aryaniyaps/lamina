@@ -364,6 +364,14 @@ export class GraphEngine {
     return this.query('MATCH (r:Resource {id: $id}) RETURN r.id AS id, r.kind AS kind, r.data AS data', { id })[0] || null;
   }
 
+  resourceDetails(ids) {
+    const wanted = new Set(ids);
+    if (!wanted.size) return [];
+    if (wanted.size < 8) return [...wanted].map((id) => this.resource(id)).filter(Boolean);
+    return this.query('MATCH (r:Resource) RETURN r.id AS id, r.kind AS kind, r.data AS data')
+      .filter((item) => wanted.has(item.id));
+  }
+
   resolveResourceId(ref, allowed = null) {
     if (!ref) return null;
     if (this.resource(ref) && (!allowed || allowed.has(ref))) return ref;
@@ -711,8 +719,19 @@ export class GraphEngine {
   }
 
   statementDetails(ids) {
+    const wanted = new Set(ids);
+    if (!wanted.size) return [];
+    if (wanted.size >= 8) {
+      return this.query(
+        `MATCH (s:Statement)-[:STMT_SUBJECT]->(subject:Resource)
+         OPTIONAL MATCH (s)-[:STMT_OBJECT]->(object:Resource)
+         OPTIONAL MATCH (s)-[:STMT_SCOPE]->(scope:Resource)
+         RETURN s.id AS id, subject.id AS subject, s.predicate AS predicate, object.id AS object,
+                s.literal AS literal, scope.id AS scope, s.qualifiers AS qualifiers`,
+      ).filter((item) => wanted.has(item.id));
+    }
     const output = [];
-    for (const id of ids) {
+    for (const id of wanted) {
       const row = this.query(
         `MATCH (s:Statement {id: $id})-[:STMT_SUBJECT]->(subject:Resource)
          OPTIONAL MATCH (s)-[:STMT_OBJECT]->(object:Resource)
@@ -726,14 +745,33 @@ export class GraphEngine {
     return output;
   }
 
+  supportedEvidence(statementIds) {
+    const wanted = new Set(statementIds);
+    const evidence = new Map([...wanted].map((id) => [id, []]));
+    if (!wanted.size) return evidence;
+    for (const item of this.query(
+      `MATCH (s:Statement)-[:SUPPORTED_BY]->(r:Resource)
+       RETURN s.id AS statement, r.id AS id, r.kind AS kind, r.data AS data`,
+    )) {
+      if (wanted.has(item.statement)) evidence.get(item.statement).push(item);
+    }
+    return evidence;
+  }
+
   validateSet(resourceIds, statementIds, sourceRevision = null) {
     const errors = [];
     const readiness_gaps = [];
     const stale_evidence = [];
     const resources = new Set(resourceIds);
-    const resourceRows = [...resources].map((id) => this.resource(id)).filter(Boolean);
+    const resourceRows = this.resourceDetails(resources);
     const resourceById = new Map(resourceRows.map((item) => [item.id, item]));
     const statements = this.statementDetails(statementIds);
+    const directEvidence = this.supportedEvidence(statementIds);
+    const currentObservationIds = new Set(this.query(
+      `MATCH (v:GraphView {kind: $kind, status: $status})-[:VIEW_RES]->(r:Resource)
+       RETURN r.id AS id`,
+      { kind: 'observation', status: 'active' },
+    ).map((item) => item.id));
     const epistemicClasses = new Set(Object.values(EPISTEMIC_BY_INGRESS));
     for (const resource of resourceRows) {
       if (!epistemicClasses.has(resource.data?.epistemic_class)) {
@@ -759,18 +797,12 @@ export class GraphEngine {
       if (!epistemicClasses.has(statement.qualifiers?.epistemic_class)) {
         errors.push(`Statement ${statement.id} has invalid epistemic ingress.`);
       }
-      const evidence = this.query(
-        'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id, r.kind AS kind, r.data AS data',
-        { id: statement.id },
-      );
+      const evidence = directEvidence.get(statement.id) || [];
       for (const item of evidence) {
         if (item.kind === 'observation') {
-          const current = this.query(
-            'MATCH (v:GraphView {kind: $kind, status: $status})-[:VIEW_RES]->(r:Resource {id: $id}) RETURN v.id AS id',
-            { kind: 'observation', status: 'active', id: item.id },
-          )[0];
-          if (!current) stale_evidence.push({ statement: statement.id, evidence: item.id, reason: 'source observation is no longer current' });
-          else if (sourceRevision && item.data?.source_snapshot?.source_revision !== sourceRevision) {
+          if (!currentObservationIds.has(item.id)) {
+            stale_evidence.push({ statement: statement.id, evidence: item.id, reason: 'source observation is no longer current' });
+          } else if (sourceRevision && item.data?.source_snapshot?.source_revision !== sourceRevision) {
             stale_evidence.push({
               statement: statement.id,
               evidence: item.id,
@@ -901,13 +933,6 @@ export class GraphEngine {
       }
     }
 
-    const directEvidence = new Map();
-    for (const statement of statements) {
-      directEvidence.set(statement.id, this.query(
-        'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id, r.kind AS kind',
-        { id: statement.id },
-      ));
-    }
     const evidenceKinds = new Set(['evidence', 'observation', 'harness_result']);
     const proofCoverage = new Map();
     for (const statement of statements) {
@@ -1490,11 +1515,12 @@ export class GraphEngine {
     };
   }
 
-  missionClosure(viewId, workflowId) {
-    const active = this.activeIds(viewId);
-    const resources = [...active.resources].map((id) => this.resource(id)).filter(Boolean);
+  missionClosure(viewId, workflowId, snapshot = null) {
+    const active = snapshot?.active || this.activeIds(viewId);
+    const resources = snapshot?.resources || this.resourceDetails(active.resources);
     const resourceById = new Map(resources.map((item) => [item.id, item]));
-    const statements = this.statementDetails(active.statements);
+    const statements = snapshot?.statements || this.statementDetails(active.statements);
+    const supportedEvidence = snapshot?.supportedEvidence || null;
     const workflow = resourceById.get(workflowId);
     if (workflow?.kind !== 'workflow') fail(ERROR.NOT_FOUND, `Workflow not found: ${workflowId}`);
 
@@ -1564,10 +1590,14 @@ export class GraphEngine {
           ['evidence', 'observation', 'harness_result'].includes(resourceById.get(statement.object)?.kind)) {
         evidence.add(statement.object);
       }
-      for (const item of this.query(
-        'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id',
-        { id: statement.id },
-      )) evidence.add(item.id);
+      if (supportedEvidence) {
+        for (const item of supportedEvidence.get(statement.id) || []) evidence.add(item.id);
+      } else {
+        for (const item of this.query(
+          'MATCH (s:Statement {id: $id})-[:SUPPORTED_BY]->(r:Resource) RETURN r.id AS id',
+          { id: statement.id },
+        )) evidence.add(item.id);
+      }
     }
 
     const kinds = (ids, kind) => [...ids]
@@ -1606,7 +1636,14 @@ export class GraphEngine {
     const branch = this.ensureBranch(context.branch, context.source_revision);
     const head = this.head(branch.id);
     const active = this.activeIds(branch.id);
-    const allResources = [...active.resources].map((id) => this.resource(id)).filter(Boolean);
+    const allResources = this.resourceDetails(active.resources);
+    const allStatements = this.statementDetails(active.statements);
+    const closureSnapshot = {
+      active,
+      resources: allResources,
+      statements: allStatements,
+      supportedEvidence: this.supportedEvidence(active.statements),
+    };
     const byId = new Map(allResources.map((item) => [item.id, item]));
     const requested = [...new Set(workflows)].filter(Boolean);
     let candidates = requested.length
@@ -1623,7 +1660,7 @@ export class GraphEngine {
     if (!requested.length && candidates.length > 1) {
       const terms = new Set(String(request).toLowerCase().match(/[a-z_][a-z0-9_-]{2,}/g) || []);
       const scored = candidates.map((workflow) => {
-        const closure = this.missionClosure(branch.id, workflow.id);
+        const closure = this.missionClosure(branch.id, workflow.id, closureSnapshot);
         const text = [
           workflow.id,
           JSON.stringify(workflow.data || {}),
@@ -1642,7 +1679,7 @@ export class GraphEngine {
     }
 
     const workflowContexts = candidates.filter(Boolean).map((workflow) => {
-      const closure = this.missionClosure(branch.id, workflow.id);
+      const closure = this.missionClosure(branch.id, workflow.id, closureSnapshot);
       const resourceIds = new Set([
         workflow.id,
         ...closure.operations,
@@ -1980,7 +2017,7 @@ export class GraphEngine {
       return { view: `observation:${snapshot.product}:${generation}`, upserted: 0, deleted: 0, committed: true, stale_generation: true };
     }
     const viewId = `observation:${snapshot.product}:${generation}`;
-    return this.transaction(() => {
+    const applied = this.transaction(() => {
       this.retireObservationViews(snapshot.product, viewId);
       if (!this.view(viewId)) this.query('CREATE (v:GraphView {id: $id, kind: $kind, name: $name, status: $status})', { id: viewId, kind: 'observation', name: viewId, status: 'active' });
       else this.query('MATCH (v:GraphView {id: $id}) SET v.status = $status', { id: viewId, status: 'active' });
@@ -2051,6 +2088,10 @@ export class GraphEngine {
       }
       return { view: viewId, upserted: upserts.length, deleted: deletes.length, committed: true };
     });
+    // `committed: true` is a durability claim. Do not acknowledge the batch
+    // while its only recoverable representation is still the process-owned WAL.
+    this.checkpoint();
+    return applied;
   }
 
   observationStatus({ product, generation }) {
@@ -2112,6 +2153,7 @@ export class GraphEngine {
     this.transaction(() => {
       this.retireObservationViews(product);
     });
+    this.checkpoint();
     return { invalidated: true, generation, next_update_reemits_all: true };
   }
 
@@ -2204,7 +2246,7 @@ export class GraphEngine {
     if (Number(existing) || Number(versions) || Number(views)) {
       fail(ERROR.CONFLICT, 'Restore requires an empty graph database.');
     }
-    return this.transaction(() => {
+    const restored = this.transaction(() => {
       for (const resource of payload.resources || []) {
         this.query('CREATE (r:Resource {id: $id, kind: $kind, data: $data})', {
           id: resource.id, kind: resource.kind, data: graphJson(resource.data),
@@ -2267,6 +2309,11 @@ export class GraphEngine {
         views: payload.views?.length || 0,
       };
     });
+    // A successful restore response promises that the full graph is durable.
+    // Large restores must not remain dependent on WAL replay after the caller
+    // receives that acknowledgement.
+    this.checkpoint();
+    return restored;
   }
 }
 

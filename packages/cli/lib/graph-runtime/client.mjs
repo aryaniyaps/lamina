@@ -7,6 +7,7 @@ import {
   GRAPH_PROTOCOL_VERSION,
   REQUIRED_GRAPH_CAPABILITIES,
 } from './constants.mjs';
+import { CLI_VERSION } from '../runtime-identity.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -20,9 +21,12 @@ export function daemonCompatibility(identity) {
   const missingCapabilities = REQUIRED_GRAPH_CAPABILITIES.filter((item) => !capabilities.has(item));
   return {
     compatible: identity?.protocol_version === GRAPH_PROTOCOL_VERSION &&
+      identity?.runtime_version === CLI_VERSION &&
       missingCapabilities.length === 0,
     expected_protocol_version: GRAPH_PROTOCOL_VERSION,
     actual_protocol_version: identity?.protocol_version ?? null,
+    expected_runtime_version: CLI_VERSION,
+    actual_runtime_version: identity?.runtime_version ?? null,
     required_capabilities: [...REQUIRED_GRAPH_CAPABILITIES],
     missing_capabilities: missingCapabilities,
   };
