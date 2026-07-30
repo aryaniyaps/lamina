@@ -6,6 +6,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import { parseDaemonLock, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-observation-reconcile-'));
 const cli = path.resolve('packages/cli/bin/lamina.mjs');
@@ -60,7 +61,7 @@ try {
   if (daemonPid) {
     try { await stopIncompatibleServer(runtimePaths(root), daemonPid); } catch {}
   }
-  fs.rmSync(root, { recursive: true, force: true });
+  removeTemporaryTree(root);
 }
 
 console.log('observation_reconciliation_test: ok');

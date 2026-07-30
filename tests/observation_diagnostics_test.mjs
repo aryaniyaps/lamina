@@ -8,6 +8,7 @@ import { observationCompletionChecks } from '../packages/cli/lib/observe.mjs';
 import { runObservationProcess } from '../packages/cli/lib/observation-runtime/cocoindex.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import { parseDaemonLock, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const expected = { generation: 'generation-current', sourceRevision: 'revision-current' };
 const complete = {
@@ -17,22 +18,6 @@ const complete = {
   source_key_count: 185,
   source_revisions: [expected.sourceRevision],
 };
-
-function removeTemporaryTree(directory) {
-  try {
-    fs.rmSync(directory, {
-      recursive: true,
-      force: true,
-      maxRetries: process.platform === 'win32' ? 20 : 0,
-      retryDelay: 100,
-    });
-  } catch (error) {
-    // Windows can retain a native graphd handle briefly after the daemon has
-    // exited. The runner will reclaim its temp directory; all test assertions
-    // and daemon shutdown checks have already completed at this point.
-    if (process.platform !== 'win32' || error.code !== 'EBUSY') throw error;
-  }
-}
 
 const countMismatch = observationCompletionChecks(
   { ...complete, count: 186 },
