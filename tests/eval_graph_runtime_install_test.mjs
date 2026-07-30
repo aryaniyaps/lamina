@@ -136,10 +136,6 @@ try {
     fs.writeFileSync(path.join(workspace, name), JSON.stringify(value));
   }
   const eventsPath = path.join(workspace, 'events.json');
-  fs.writeFileSync(eventsPath, JSON.stringify([
-    { type: 'action_attempted' },
-    { type: 'oracle_passed' },
-  ]));
 
   result = spawnSync('lamina', ['session', 'start'], {
     cwd: workspace,
@@ -177,6 +173,97 @@ try {
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 
+  const walkRequest = path.join(workspace, 'walk-request.txt');
+  const walkTask = path.join(workspace, 'walk-task.json');
+  const walkResult = path.join(workspace, 'walk-result.json');
+  fs.writeFileSync(walkRequest, 'Analyze checkout from the Owner perspective.');
+  result = spawnSync('lamina', [
+    'design', 'prepare-walk',
+    '--workflow', 'workflow.checkout',
+    '--persona', 'persona.owner',
+    '--request-file', walkRequest,
+    '--output', walkTask,
+  ], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const preparedWalkTask = JSON.parse(fs.readFileSync(walkTask, 'utf8'));
+  fs.writeFileSync(walkResult, JSON.stringify({
+    schema: 'lamina.persona-walk/v1',
+    task_id: preparedWalkTask.task_id,
+    workflow_ref: 'workflow.checkout',
+    persona_ref: 'persona.owner',
+    mode: 'subagent',
+    isolation_ref: 'eval-runtime-owner',
+    goal: 'Understand that checkout is unavailable until an authorized Actor is defined.',
+    actor_refs: [],
+    nodes: [{
+      id: 'node.checkout.owner',
+      operation_ref: 'operation.checkout',
+      intent: 'Attempt checkout and understand why it is unavailable.',
+      permission: {
+        decision: 'not_applicable',
+        rationale: 'The fixture defines no Actor authority for checkout.',
+      },
+      inputs: [],
+      input_policy: {
+        mode: 'none',
+        rationale: 'A denied fixture path accepts no input.',
+      },
+      relationship_policy: {
+        mode: 'none',
+        rationale: 'The denied path creates no relationship.',
+      },
+      surface_refs: [],
+      state_coverage: [
+        { kind: 'entry', applicable: true, visible_state: 'Checkout availability is evaluated.' },
+        { kind: 'in_progress', applicable: false, rationale: 'The action cannot start.' },
+        { kind: 'empty', applicable: false, rationale: 'No collection is displayed.' },
+        { kind: 'success', applicable: false, rationale: 'The action is unavailable.' },
+        { kind: 'failure', applicable: false, rationale: 'The path is denied before execution.' },
+        { kind: 'denied', applicable: true, visible_state: 'Checkout is unavailable for this Persona.' },
+        { kind: 'recovery', applicable: false, rationale: 'The fixture defines no recovery Actor.' },
+      ],
+      scenario_coverage: [],
+      edge_case_coverage: [
+        'validation', 'authorization', 'duplicate', 'self_reference', 'concurrency',
+        'stale_data', 'interruption', 'retry', 'connectivity',
+      ].map((kind) => ({
+        kind,
+        applicable: false,
+        rationale: 'The operation cannot start for this Persona.',
+      })),
+      invariant_probes: [],
+      transitions: [{
+        outcome: 'denied',
+        terminal: true,
+        expected: 'The unavailable state is visible.',
+      }],
+    }],
+    discoveries: {
+      personas: [],
+      actors: [],
+      operations: [],
+      scenarios: [],
+      invariants: [],
+      surfaces: [],
+      branches: [],
+      open_decisions: [],
+    },
+  }));
+  result = spawnSync('lamina', [
+    'design', 'record-walk',
+    '--task', walkTask,
+    '--result', walkResult,
+  ], {
+    cwd: workspace,
+    env,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
   result = spawnSync('lamina', [
     'mission',
     'compile',
@@ -188,7 +275,21 @@ try {
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  const mission = JSON.parse(result.stdout).missions[0].id;
+  const compiledMission = JSON.parse(result.stdout).missions[0];
+  const mission = compiledMission.id;
+  const oracleArtifact = path.join(workspace, 'oracle-evidence.txt');
+  fs.writeFileSync(oracleArtifact, 'The denied checkout state was observed.\n');
+  fs.writeFileSync(eventsPath, JSON.stringify(
+    compiledMission.experience_cases.map((experienceCase) => ({
+      type: 'oracle_passed',
+      case_id: experienceCase.case_id,
+      observation: {
+        expected: experienceCase.expected || experienceCase,
+        observed: 'The expected denied state was visible.',
+      },
+      artifact: oracleArtifact,
+    })),
+  ));
   result = spawnSync('lamina', [
     'mission',
     'run',
@@ -259,6 +360,7 @@ try {
   fs.mkdirSync(passiveWorkDir, { recursive: true });
   const requestFile = path.join(passiveWorkDir, 'passive-request.txt');
   const packetFile = path.join(passiveWorkDir, 'passive-packet.json');
+  const workMapFile = path.join(passiveWorkDir, 'passive-work-map.json');
   fs.writeFileSync(requestFile, 'Add conflict-safe wishlist sharing to the storefront and verify it.');
   result = spawnSync('lamina', ['graph', 'status'], {
     cwd: passiveWorkspace,
@@ -285,9 +387,31 @@ try {
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const packet = JSON.parse(result.stdout);
-  assert.equal(packet.schema, 'lamina.implementation-packet/v2');
+  assert.equal(packet.schema, 'lamina.implementation-packet/v4');
   assert.deepEqual(packet.scope, ['workflow.eval.wishlist-sharing']);
   assert.ok(packet.experience_cases.length > 0, 'surface work must compile deterministic Experience Cases');
+  result = spawnSync('lamina', [
+    'work',
+    'map',
+    '--packet',
+    packetFile,
+    '--output',
+    workMapFile,
+  ], {
+    cwd: passiveWorkspace,
+    env: passiveEnv,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const draftWorkMap = JSON.parse(fs.readFileSync(workMapFile, 'utf8'));
+  assert.deepEqual(
+    draftWorkMap.obligations.map((item) => item.obligation_id),
+    packet.obligations.map((item) => item.obligation_id),
+  );
+  assert.deepEqual(
+    draftWorkMap.experience_cases.map((item) => item.case_id),
+    packet.experience_cases.map((item) => item.case_id),
+  );
   result = spawnSync('lamina', [
     'mission',
     'compile',
@@ -302,7 +426,7 @@ try {
   assert.equal(
     JSON.parse(result.stdout).missions.length,
     2,
-    'ready passive context must include every independently relevant Persona',
+    'ready passive context must include every active Persona',
   );
   assert.ok(packet.obligations.length > 0);
 } finally {

@@ -5,7 +5,7 @@ import { graphRequest } from '../lib/graph-runtime/client.mjs';
 import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
 import { runObservation } from '../lib/observe.mjs';
 import { contextCatalog } from '../lib/context-index.mjs';
-import { checkWork, prepareWork, verifyWork } from '../lib/work-context.mjs';
+import { checkWork, deriveWorkMap, prepareWork, verifyWork } from '../lib/work-context.mjs';
 import { setupAgent } from '../lib/agent-setup.mjs';
 
 const argv = process.argv.slice(2);
@@ -17,6 +17,7 @@ const HELP = Object.freeze({
 Commands:
   doctor --json                 Check CLI, graph, Git, and observation readiness
   graph <command>               Query or mutate the transactional product graph
+  design <command>              Prepare and record design-time Persona walks
   context catalog               Describe graph and source-context retrieval
   work <command>                Prepare, map, and verify implementation work
   setup --agent AGENT           Install passive provider rules
@@ -27,7 +28,7 @@ Options:
   --help, -h                    Show help
   --version, -v                 Print the CLI version
 
-Run "lamina graph --help", "lamina work --help", "lamina session --help", or "lamina mission --help" for command details.`,
+Run "lamina graph --help", "lamina design --help", "lamina work --help", "lamina session --help", or "lamina mission --help" for command details.`,
   graph: `Usage: lamina graph <command> [options]
 
 Read commands:
@@ -50,6 +51,17 @@ Observation commands:
   observe [--live]
   discover --brownfield
   rebuild-observations`,
+  design: `Usage: lamina design <command> [arguments]
+
+Commands:
+  prepare-walk --workflow WORKFLOW --persona PERSONA --request-file FILE [--output FILE]
+  record-walk --task FILE --result FILE
+
+prepare-walk returns a coverage-digested, source-read-only task for one
+independent Persona. record-walk replaces that Persona's previous active walk
+with the bound graph record. Experience Cases compile directly from current
+walks; there is no separately authored Experience Contract. If graph coverage
+changes, prepare and run every Persona walk again.`,
   session: `Usage: lamina session <command> [arguments]
 
 Commands:
@@ -69,13 +81,16 @@ Commands:
 
 Commands:
   prepare --request-file FILE [--workflow REF ...] [--output FILE]
+  map --packet FILE [--output FILE]
   check --packet FILE --map FILE
   verify --packet FILE --map FILE
 
-prepare fails closed when the graph slice is not implementation-ready. check must
-pass before source edits. verify requires current graph state and passing artifacts
-for every obligation; UI obligations require functional, visual, responsive, and
-accessibility evidence.`,
+prepare fails closed when the graph slice is not implementation-ready. map
+mechanically creates every obligation and Experience Case row; resolve those
+rows before check. Each WorkMap v4 file declares action=modify for an existing
+file or action=create for a planned file, plus implementation/test role. The
+checked map is immutable. verify consumes published Persona Mission evidence;
+UI Missions require functional, visual, responsive, and accessibility evidence.`,
 });
 
 function plain(value) {
@@ -140,6 +155,35 @@ async function run() {
       remove: Boolean(setupOptions.remove),
     });
   }
+  if (domain === 'design') {
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.design);
+    if (command === 'prepare-walk') {
+      if (!opt.workflow || !opt.persona || !opt['request-file']) {
+        throw Object.assign(new Error('prepare-walk requires --workflow, --persona, and --request-file.'), { code: 'LAMINA_BAD_REQUEST' });
+      }
+      const request = fs.readFileSync(path.resolve(opt['request-file']), 'utf8').trim();
+      const task = await graphRequest('design.walk.prepare', {
+        workflow: opt.workflow,
+        persona: opt.persona,
+        request,
+      });
+      if (opt.output) {
+        fs.mkdirSync(path.dirname(path.resolve(opt.output)), { recursive: true });
+        fs.writeFileSync(path.resolve(opt.output), `${JSON.stringify(task, null, 2)}\n`, { mode: 0o600 });
+      }
+      return { ...task, output: opt.output ? path.resolve(opt.output) : null };
+    }
+    if (command === 'record-walk') {
+      if (!opt.task || !opt.result) {
+        throw Object.assign(new Error('record-walk requires --task and --result.'), { code: 'LAMINA_BAD_REQUEST' });
+      }
+      return graphRequest('design.walk.record', {
+        task: readInput(opt.task),
+        result: readInput(opt.result),
+      });
+    }
+    throw Object.assign(new Error('Usage: lamina design <prepare-walk|record-walk>'), { code: 'LAMINA_BAD_REQUEST' });
+  }
   if (domain === 'work') {
     if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.work);
     if (command === 'prepare') {
@@ -154,6 +198,15 @@ async function run() {
       return prepareWork({
         requestFile: opt['request-file'],
         workflows,
+        output: opt.output,
+      });
+    }
+    if (command === 'map') {
+      if (!opt.packet) {
+        throw Object.assign(new Error('--packet is required.'), { code: 'LAMINA_BAD_REQUEST' });
+      }
+      return deriveWorkMap({
+        packetFile: opt.packet,
         output: opt.output,
       });
     }
@@ -251,7 +304,7 @@ async function run() {
       return graphRequest('mission.run', { mission, events });
     }
   }
-  throw Object.assign(new Error('Usage: lamina <doctor|graph|context|work|setup|session|mission>'), { code: 'LAMINA_BAD_REQUEST' });
+  throw Object.assign(new Error('Usage: lamina <doctor|graph|design|context|work|setup|session|mission>'), { code: 'LAMINA_BAD_REQUEST' });
 }
 
 try {

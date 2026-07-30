@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title description">
   <title id="title">Lamina product design and verification loop</title>
-  <desc id="description">Initialize product knowledge, publish a validated design, implement it, verify the live product, apply findings, and re-verify. Contract gaps return to design.</desc>
+  <desc id="description">Initialize product knowledge, run independent Persona design walks until the graph converges, implement the checked WorkMap, verify the live product, apply findings, and re-verify. Contract gaps return to design.</desc>
   <defs>
     <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#fafafa"/>
@@ -54,18 +54,18 @@
   <g transform="translate(426 70)">
     <rect class="card graph" width="348" height="130"/>
     <rect width="4" height="130" rx="2" fill="#25262a"/>
-    <text class="eyebrow" x="24" y="31">PUBLISH INTENT</text>
-    <text class="heading" x="24" y="59">/lamina-design</text>
-    <text class="body" x="24" y="88">Commit a validated GraphVersion</text>
-    <text class="body" x="24" y="108">and implementation projection.</text>
+    <text class="eyebrow" x="24" y="31">SIMULATE BEFORE CODE</text>
+    <text class="heading" x="24" y="59">Persona design walks</text>
+    <text class="body" x="24" y="88">Each Persona expands every proposed</text>
+    <text class="body" x="24" y="108">node and edge until convergence.</text>
   </g>
 
   <g transform="translate(852 70)">
     <rect class="card" width="270" height="130"/>
     <text class="eyebrow" x="24" y="31">CODING SESSION</text>
     <text class="heading" x="24" y="59">Implement</text>
-    <text class="body" x="24" y="88">Build the resolved projection</text>
-    <text class="body" x="24" y="108">in any stack.</text>
+    <text class="body" x="24" y="88">Resolve the derived WorkMap,</text>
+    <text class="body" x="24" y="108">then build the contract.</text>
   </g>
 
   <g transform="translate(852 306)">

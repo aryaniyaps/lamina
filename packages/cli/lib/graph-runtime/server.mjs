@@ -89,6 +89,8 @@ function dispatch(request) {
       request.params?.scope || null,
       context,
     );
+    case 'design.walk.prepare': return engine.designWalkTask(request.params || {}, context);
+    case 'design.walk.record': return engine.recordDesignWalk(request.params || {}, context);
     case 'work.context': return engine.implementationContext(request.params || {}, context);
     case 'graph.backup': return engine.backup(request.params?.output);
     case 'graph.restore': return engine.restore(request.params?.input);

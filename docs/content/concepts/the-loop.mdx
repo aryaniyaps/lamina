@@ -13,16 +13,25 @@ user-facing flow.
 1. **Ground the repository.** Run `/lamina-init` once. It records business
    evidence and publishes inferred Product, Actor, and Persona proposals
    grounded in explicit user input.
-2. **Ask normally.** The provider rule runs `lamina work prepare` to compile the
-   exact relevant graph closure, direct provenance, ranked source candidates,
-   and stable obligations. Missing design is completed before code edits.
-3. **Map and implement.** A checked WorkMap connects every obligation to
-   existing evidence, code targets, and planned tests before the agent edits
-   source in your existing stack.
-4. **Exercise the live product.** The agent creates an isolated Mission and Run
-   for every relevant Persona. UI work requires functional, visual, responsive,
+2. **Walk every Persona before building.** For new or changed behavior, the
+   provider prepares one coverage-bound design task per active Persona.
+   Isolated walks traverse every proposed node and expand missing permissions,
+   states, branches, Scenarios, Invariants, recovery, and edge cases into the
+   graph until a current round returns an empty discovery matrix. No
+   implementation is required.
+3. **Prepare context.** The provider rule runs `lamina work prepare` over the
+   expanded graph to compile Persona-bound cases, direct provenance, ranked
+   source candidates, and stable obligations.
+4. **Map and implement.** Lamina mechanically scaffolds every obligation and
+   Experience Case row, then the agent resolves each row to immutable file
+   entries. `action: modify` names an existing file;
+   `action: create` names a planned file. Roles distinguish implementation
+   from tests before the agent edits source in your existing stack.
+5. **Exercise the live product.** The agent creates an isolated Mission and Run
+   for every active Persona. UI work requires functional, visual, responsive,
    and accessibility artifacts, not merely a screenshot or passing unit test.
-5. **Decide from evidence.** Inspect the findings and semantic diff, then
+6. **Decide from evidence.** Published Mission events are the sole case proof;
+   the WorkMap remains unchanged. Inspect the findings and semantic diff, then
    accept the evidence, fix the implementation, or change the contract.
 
 Verification findings have two different destinations:

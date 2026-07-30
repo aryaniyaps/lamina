@@ -13,7 +13,7 @@ Ladybug, owned by the long-running local `graphd`, is the only canonical product
 |---|---|
 | Init | Write/index business evidence, then propose inferred Product and Persona resources grounded in explicit user input |
 | Design | Explicit graph session → validate → publish |
-| Verify | Compile all relevant Persona Missions → isolated Runs → runtime evidence |
+| Verify | Compile all active Persona Missions → isolated Runs → runtime evidence |
 | Direct | One-shot session for a single typed mutation or query |
 
 ## Runtime

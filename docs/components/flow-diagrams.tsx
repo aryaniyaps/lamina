@@ -174,9 +174,9 @@ const productLoopNodes: DiagramNode[] = [
     type: "diagram",
     position: { x: 300, y: 0 },
     data: {
-      eyebrow: "Publish intent",
-      title: "/lamina-design",
-      description: "Commit a validated GraphVersion.",
+      eyebrow: "Simulate before code",
+      title: "Persona design walks",
+      description: "Each Persona expands every proposed node and edge.",
       tone: "graph",
     },
   },
@@ -187,7 +187,7 @@ const productLoopNodes: DiagramNode[] = [
     data: {
       eyebrow: "Coding session",
       title: "Implement",
-      description: "Build the resolved projection in any stack.",
+      description: "Resolve the derived WorkMap, then build the converged contract.",
       tone: "agent",
     },
   },
@@ -284,11 +284,11 @@ export function ProductLoopDiagram() {
   return (
     <Diagram
       ariaLabel="Lamina product design and verification loop"
-      caption="Intent becomes a GraphVersion; implementation and evidence stay separate."
+      caption="Persona walks expand intent before implementation; runtime evidence stays separate."
       edges={productLoopEdges}
       height={430}
       nodes={productLoopNodes}
-      summary="Initialize the product, design a GraphVersion, implement it, verify the live product, apply findings, and re-verify. Verification can return a contract gap to design."
+      summary="Initialize the product, run independent Persona design walks until the graph converges, implement the checked WorkMap, verify the live product, apply findings, and re-verify. Verification can return a contract gap to design."
     />
   );
 }

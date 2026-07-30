@@ -5,7 +5,7 @@ Verified version and resulting published version.
 Starting and current source revisions.
 
 ### Runs
-Independent Mission Run and HarnessResult ids for every relevant Persona.
+Independent Mission Run and HarnessResult ids for every active Persona.
 
 ### Evidence
 Observed events, CAS artifacts, stale/missing evidence, and capability limits.

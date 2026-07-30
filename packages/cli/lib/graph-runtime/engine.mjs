@@ -51,263 +51,571 @@ function present(value) {
   return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
 }
 
-function experienceContract(workflow, closure, resources, statements) {
-  if (!closure.surfaces.length) return { contract: null, gaps: [], cases: [] };
+function structuredObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function declaredStateKinds(resource) {
+  return asArray(resource?.data?.states)
+    .map((state) => typeof state === 'string'
+      ? state
+      : state?.id || state?.kind || state?.name)
+    .filter(present);
+}
+
+function declaredStateKindsForOperation(operation, statements, byId) {
+  const surfaces = statements
+    .filter((item) => item.predicate === 'lamina:realizes' && item.object === operation)
+    .map((item) => byId.get(item.subject))
+    .filter(Boolean);
+  return [...new Set([
+    ...declaredStateKinds(byId.get(operation)),
+    ...surfaces.flatMap(declaredStateKinds),
+  ])].sort();
+}
+
+const PERSONA_NODE_STATE_KINDS = Object.freeze([
+  'entry',
+  'in_progress',
+  'empty',
+  'success',
+  'failure',
+  'denied',
+  'recovery',
+]);
+
+const PERSONA_NODE_EDGE_KINDS = Object.freeze([
+  'validation',
+  'authorization',
+  'duplicate',
+  'self_reference',
+  'concurrency',
+  'stale_data',
+  'interruption',
+  'retry',
+  'connectivity',
+]);
+
+const PERSONA_DISCOVERY_KINDS = Object.freeze([
+  'personas',
+  'actors',
+  'operations',
+  'scenarios',
+  'invariants',
+  'surfaces',
+  'branches',
+  'open_decisions',
+]);
+
+function personaWalkCoverage(workflowId, closure, resources, statements) {
+  const coveredIds = new Set([
+    workflowId,
+    ...(closure.operations || []),
+    ...(closure.actors || []),
+    ...(closure.personas || []),
+    ...(closure.invariants || []),
+    ...(closure.scenarios || []),
+    ...(closure.surfaces || []),
+    ...(closure.proofs || []),
+    ...(closure.dependencies || []),
+  ]);
+  return {
+    workflow: workflowId,
+    resources: resources
+      .filter((item) => coveredIds.has(item.id) && item.kind !== 'persona_walk')
+      .map((item) => ({ id: item.id, kind: item.kind, data: canonical(item.data || {}) }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    statements: statements
+      .filter((item) =>
+        (closure.statement_ids || []).includes(item.id) &&
+        !['lamina:supportedBy', 'lamina:producedHarnessResult'].includes(item.predicate))
+      .map((item) => canonical({
+        id: item.id,
+        subject: item.subject,
+        predicate: item.predicate,
+        object: item.object || null,
+        value: item.value ?? null,
+        scope: item.scope || null,
+        qualifiers: item.qualifiers || {},
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+function personaWalkCoverageDigest(workflowId, closure, resources, statements) {
+  return digest(
+    'persona_walk_coverage',
+    personaWalkCoverage(workflowId, closure, resources, statements),
+  );
+}
+
+function personaDesign(workflow, closure, resources, statements) {
   const byId = new Map(resources.map((item) => [item.id, item]));
-  const links = statements.filter((item) =>
-    item.subject === workflow.id &&
-    item.predicate === 'lamina:experienceContract' &&
-    byId.get(item.object)?.kind === 'decision');
-  if (links.length !== 1) {
-    return {
-      contract: null,
-      cases: [],
-      gaps: [{
-        code: links.length ? 'experience_contract_ambiguous' : 'experience_contract_missing',
-        resource: workflow.id,
-        message: `Workflow ${workflow.id} must have exactly one Experience Contract Decision.`,
-      }],
-    };
-  }
-  const contractResource = byId.get(links[0].object);
-  const contract = contractResource?.data || {};
+  const coverageDigest = personaWalkCoverageDigest(
+    workflow.id,
+    closure,
+    resources,
+    statements,
+  );
   const gaps = [];
   const addGap = (code, resource, message, details = {}) =>
     gaps.push({ code, resource, message, ...details });
-  if (contract.schema !== 'lamina.experience-contract/v1' ||
-      contract.workflow_ref !== workflow.id) {
+
+  const requiredPersonas = new Set(closure.personas || []);
+  const walkResources = resources.filter((item) =>
+    item.kind === 'persona_walk' &&
+    item.data?.schema === 'lamina.persona-walk/v1' &&
+    item.data?.workflow_ref === workflow.id &&
+    item.data?.coverage_digest === coverageDigest);
+  if (!requiredPersonas.size) {
     addGap(
-      'experience_contract_invalid',
-      contractResource.id,
-      `Experience Contract ${contractResource.id} must use lamina.experience-contract/v1 and reference ${workflow.id}.`,
+      'persona_walk_missing',
+      workflow.id,
+      `Workflow ${workflow.id} needs at least one active product Persona before its flow can be analyzed.`,
     );
   }
 
-  const operationEntries = new Map(asArray(contract.operations)
-    .filter((item) => item && typeof item === 'object' && item.operation_ref)
-    .map((item) => [item.operation_ref, item]));
-  const allFailures = [];
-  const inputsByOperation = new Map();
-  for (const operationId of closure.operations) {
-    const entry = operationEntries.get(operationId);
-    if (!entry) {
-      addGap('operation_experience_missing', operationId, `Operation ${operationId} has no Experience Contract entry.`);
-      continue;
-    }
-    const inputs = Array.isArray(entry.inputs) ? entry.inputs : [];
-    const noInputs = entry.input_policy?.mode === 'none' && present(entry.input_policy?.rationale);
-    if (!inputs.length && !noInputs) {
+  const journeys = walkResources.map((item) => ({ ...item.data, walk_ref: item.id }));
+  const journeyPersonas = journeys.map((item) => item.persona_ref).filter(Boolean);
+  const duplicateJourneyPersonas = journeyPersonas.filter(
+    (persona, index) => journeyPersonas.indexOf(persona) !== index,
+  );
+  for (const persona of requiredPersonas) {
+    if (!journeys.some((item) => item.persona_ref === persona)) {
       addGap(
-        'input_contract_missing',
-        operationId,
-        `Operation ${operationId} must declare actor inputs or a reason that it has none.`,
-      );
-    }
-    const inputIds = new Set();
-    for (const input of inputs) {
-      const inputId = input?.id;
-      if (!present(inputId) || inputIds.has(inputId) ||
-          typeof input?.required !== 'boolean' || !present(input?.rationale)) {
-        addGap(
-          'field_requiredness_missing',
-          operationId,
-          `Every input for ${operationId} needs a unique id, required boolean, and product rationale.`,
-          { input: inputId || null },
-        );
-        continue;
-      }
-      inputIds.add(inputId);
-    }
-    inputsByOperation.set(operationId, inputs);
-
-    const relationship = entry.relationship_policy;
-    const noRelationship = relationship?.mode === 'none' && present(relationship?.rationale);
-    const createsRelationship = relationship?.mode === 'creates' &&
-      Array.isArray(relationship.identity_keys) && relationship.identity_keys.length &&
-      present(relationship.cardinality) &&
-      present(relationship.duplicate_behavior) &&
-      present(relationship.self_reference);
-    if (!noRelationship && !createsRelationship) {
-      addGap(
-        'relationship_identity_policy_missing',
-        operationId,
-        `Operation ${operationId} must decide relationship identity, cardinality, duplicates, and self-linking, or explain why none apply.`,
-      );
-    }
-    if (!present(entry.success?.visible_state)) {
-      addGap(
-        'success_feedback_missing',
-        operationId,
-        `Operation ${operationId} must declare the authoritative result visible to the actor.`,
-      );
-    }
-    const failures = Array.isArray(entry.failures) ? entry.failures : [];
-    const noFailures = entry.failure_policy?.mode === 'none' && present(entry.failure_policy?.rationale);
-    if (!failures.length && !noFailures) {
-      addGap(
-        'failure_visibility_missing',
-        operationId,
-        `Operation ${operationId} must declare visible failures or an evidence-backed reason that none apply.`,
-      );
-    }
-    for (const failure of failures) {
-      if (!present(failure?.code) ||
-          !closure.scenarios.includes(failure?.scenario_ref) ||
-          !present(failure?.visible_message) ||
-          !present(failure?.recovery) ||
-          typeof failure?.preserves_input !== 'boolean') {
-        addGap(
-          'recovery_oracle_missing',
-          operationId,
-          `Failure cases for ${operationId} need a code, linked Scenario, visible message, recovery, and input-preservation decision.`,
-          { scenario: failure?.scenario_ref || null },
-        );
-        continue;
-      }
-      allFailures.push({ operation_ref: operationId, ...failure });
-    }
-  }
-
-  const coveredScenarios = new Set(allFailures.map((item) => item.scenario_ref));
-  for (const scenarioId of closure.scenarios) {
-    if (!coveredScenarios.has(scenarioId)) {
-      addGap(
-        'scenario_experience_missing',
-        scenarioId,
-        `Scenario ${scenarioId} is not bound to a visible failure and recovery contract.`,
+        'persona_walk_missing',
+        persona,
+        `Persona ${persona} has no current independent walk through Workflow ${workflow.id}.`,
       );
     }
   }
-
-  const surfaceEntries = new Map(asArray(contract.surfaces)
-    .filter((item) => item && typeof item === 'object' && item.surface_ref)
-    .map((item) => [item.surface_ref, item]));
-  for (const surfaceId of closure.surfaces) {
-    const entry = surfaceEntries.get(surfaceId);
-    if (!entry) {
-      addGap('surface_experience_missing', surfaceId, `Surface ${surfaceId} has no Experience Contract entry.`);
-      continue;
-    }
-    const states = Array.isArray(entry.states) ? entry.states : [];
-    if (!states.length || states.some((state) => !present(state?.id) || !present(state?.visible_state))) {
+  for (const persona of journeyPersonas) {
+    if (!requiredPersonas.has(persona)) {
       addGap(
-        'surface_states_missing',
-        surfaceId,
-        `Surface ${surfaceId} must declare concrete states and what the actor sees in each.`,
-      );
-    }
-    const realizedOperations = statements.filter((item) =>
-      item.subject === surfaceId &&
-      item.predicate === 'lamina:realizes' &&
-      closure.operations.includes(item.object)).map((item) => item.object);
-    const expectedInputs = realizedOperations.flatMap((operationId) =>
-      (inputsByOperation.get(operationId) || [])
-        .filter((input) => (input.source || 'actor') === 'actor')
-        .map((input) => ({ operationId, input })));
-    const fields = Array.isArray(entry.fields) ? entry.fields : [];
-    for (const { operationId, input } of expectedInputs) {
-      const ref = `${operationId}:${input.id}`;
-      const field = fields.find((item) =>
-        item?.input_ref === ref || (item?.operation_ref === operationId && item?.input_ref === input.id));
-      if (!field || !present(field.label) || !present(field.error_target) ||
-          field.required !== input.required) {
-        addGap(
-          'surface_field_binding_missing',
-          surfaceId,
-          `Surface ${surfaceId} must bind input ${ref} to a label, matching requiredness, and an error target.`,
-          { input: ref },
-        );
-      }
-    }
-    const presentations = Array.isArray(entry.failure_presentations)
-      ? entry.failure_presentations
-      : [];
-    for (const failure of allFailures.filter((item) =>
-      realizedOperations.includes(item.operation_ref))) {
-      const presentation = presentations.find((item) =>
-        item?.scenario_ref === failure.scenario_ref);
-      if (!presentation || !present(presentation.message) || !present(presentation.recovery)) {
-        addGap(
-          'surface_failure_presentation_missing',
-          surfaceId,
-          `Surface ${surfaceId} must present and recover Scenario ${failure.scenario_ref}.`,
-          { scenario: failure.scenario_ref },
-        );
-      }
-    }
-  }
-
-  const invariantCases = Array.isArray(contract.invariant_cases)
-    ? contract.invariant_cases
-    : [];
-  for (const invariantId of closure.invariants) {
-    const item = invariantCases.find((candidate) => candidate?.invariant_ref === invariantId);
-    if (!item || !present(item.attempt) || !present(item.expected)) {
-      addGap(
-        'invariant_experience_case_missing',
-        invariantId,
-        `Invariant ${invariantId} needs a concrete violation attempt and observable expected result.`,
+        'persona_walk_out_of_scope',
+        persona,
+        `Persona walk ${persona} is not in the active product Persona roster for Workflow ${workflow.id}.`,
       );
     }
   }
+  for (const persona of new Set(duplicateJourneyPersonas)) {
+    addGap(
+      'persona_walk_ambiguous',
+      persona,
+      `Persona ${persona} must have exactly one current walk through Workflow ${workflow.id}.`,
+    );
+  }
 
-  if (gaps.length) return { contract: contractResource, gaps, cases: [] };
+  const authorizedActorsByOperation = new Map(closure.operations.map((operation) => [
+    operation,
+    new Set(statements
+      .filter((item) => item.predicate === 'lamina:authorizedFor' && item.object === operation)
+      .map((item) => item.subject)),
+  ]));
+  const assumedActorsByPersona = new Map(closure.personas.map((persona) => [
+    persona,
+    new Set(statements
+      .filter((item) => item.predicate === 'lamina:canAssume' && item.subject === persona)
+      .map((item) => item.object)),
+  ]));
+  const surfacesByOperation = new Map(closure.operations.map((operation) => [
+    operation,
+    statements
+      .filter((item) => item.predicate === 'lamina:realizes' && item.object === operation)
+      .map((item) => item.subject)
+      .sort(),
+  ]));
+  const permissionDecisions = new Set(['allowed', 'conditional', 'denied', 'not_applicable']);
   const cases = [];
-  const addCase = (kind, details) => {
-    const body = { kind, workflow: workflow.id, contract: contractResource.id, ...details };
+  const addCase = (kind, persona, node, details) => {
+    const body = {
+      kind,
+      workflow: workflow.id,
+      persona_walk: node.walk_ref,
+      persona,
+      node: node.id,
+      operation: node.operation_ref,
+      ...details,
+    };
     cases.push({ case_id: digest('experience_case', body), ...body });
   };
-  for (const entry of operationEntries.values()) {
-    addCase('operation_success', {
-      operation: entry.operation_ref,
-      expected: entry.success.visible_state,
-    });
-    for (const input of entry.inputs || []) {
-      addCase('field_semantics', {
-        operation: entry.operation_ref,
-        input: input.id,
-        required: input.required,
-        rationale: input.rationale,
-        normalization: input.normalization || null,
-      });
+
+  for (const journey of journeys.filter((item) => requiredPersonas.has(item.persona_ref))) {
+    const persona = journey.persona_ref;
+    const actorRefs = Array.isArray(journey.actor_refs) ? journey.actor_refs : [];
+    const nodes = Array.isArray(journey.nodes) ? journey.nodes : [];
+    const assumedActors = assumedActorsByPersona.get(persona) || new Set();
+    const walkResource = byId.get(journey.walk_ref);
+    if (!walkResource ||
+        walkResource.data?.epistemic_class !== EPISTEMIC_BY_INGRESS.persona ||
+        !['subagent', 'isolated_context'].includes(journey.mode) ||
+        !present(journey.isolation_ref)) {
+      addGap(
+        'persona_walk_provenance_missing',
+        persona,
+        `Persona ${persona} needs an engine-recorded isolated walk for the current Workflow coverage digest.`,
+      );
     }
-    if (entry.relationship_policy?.mode === 'creates') {
-      addCase('relationship_policy', {
-        operation: entry.operation_ref,
-        expected: entry.relationship_policy,
-      });
+    const needsActor = nodes.some((node) =>
+      ['allowed', 'conditional'].includes(node?.permission?.decision));
+    if (!present(journey.goal) || (needsActor && !actorRefs.length) ||
+        actorRefs.some((actor) => !assumedActors.has(actor))) {
+      addGap(
+        'persona_journey_identity_missing',
+        persona,
+        `Journey ${persona} needs a goal and Actor refs connected by lamina:canAssume.`,
+      );
     }
-    for (const failure of entry.failures || []) {
-      addCase('failure_recovery', {
-        operation: entry.operation_ref,
-        scenario: failure.scenario_ref,
-        error_code: failure.code,
-        expected: {
-          visible_message: failure.visible_message,
-          recovery: failure.recovery,
-          preserves_input: failure.preserves_input,
-        },
-      });
+    const discoveries = journey.discoveries || {};
+    if (PERSONA_DISCOVERY_KINDS.some((kind) => !Array.isArray(discoveries[kind]))) {
+      addGap(
+        'persona_walk_discovery_matrix_missing',
+        persona,
+        `Persona ${persona} must return every discovery category, including explicit empty arrays.`,
+      );
+    } else {
+      const unresolved = PERSONA_DISCOVERY_KINDS.filter((kind) => discoveries[kind].length);
+      if (unresolved.length) {
+        addGap(
+          'persona_walk_discoveries_unresolved',
+          persona,
+          `Persona ${persona} found graph expansions. Add them to the product graph and rerun every Persona.`,
+          { discovery_kinds: unresolved },
+        );
+      }
+    }
+
+    const nodeIds = nodes.map((item) => item?.id).filter(Boolean);
+    const operationRefs = nodes.map((item) => item?.operation_ref).filter(Boolean);
+    const duplicateNodeIds = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
+    const duplicateOperations = operationRefs.filter(
+      (operation, index) => operationRefs.indexOf(operation) !== index,
+    );
+    if (nodes.length !== closure.operations.length ||
+        new Set(operationRefs).size !== closure.operations.length ||
+        closure.operations.some((operation) => !operationRefs.includes(operation))) {
+      addGap(
+        'persona_operation_coverage_missing',
+        persona,
+        `Journey ${persona} must analyze every Workflow operation exactly once, including denied or inapplicable operations.`,
+      );
+    }
+    if (duplicateNodeIds.length || duplicateOperations.length ||
+        nodes.some((node) => !present(node?.id))) {
+      addGap(
+        'persona_flow_node_identity_invalid',
+        persona,
+        `Journey ${persona} needs unique node ids and unique operation refs.`,
+      );
+    }
+    const nodeIdSet = new Set(nodeIds);
+
+    for (const [position, node] of nodes.entries()) {
+      if (!node || !closure.operations.includes(node.operation_ref)) continue;
+      const operation = node.operation_ref;
+      if (operation !== closure.operations[position]) {
+        addGap(
+          'persona_flow_order_invalid',
+          operation,
+          `Persona ${persona} node ${node.id || position + 1} must follow the Workflow operation order.`,
+        );
+      }
+      if (!present(node.intent)) {
+        addGap(
+          'persona_node_intent_missing',
+          operation,
+          `Persona ${persona} node ${node.id} needs the Persona's concrete intent at this point.`,
+        );
+      }
+
+      const permission = node.permission || {};
+      if (!permissionDecisions.has(permission.decision) || !present(permission.rationale)) {
+        addGap(
+          'persona_node_permission_missing',
+          operation,
+          `Persona ${persona} node ${node.id} needs an allowed, conditional, denied, or not_applicable permission decision and rationale.`,
+        );
+      } else if (['allowed', 'conditional'].includes(permission.decision)) {
+        if (!actorRefs.includes(permission.actor_ref) ||
+            !authorizedActorsByOperation.get(operation)?.has(permission.actor_ref)) {
+          addGap(
+            'persona_node_authority_invalid',
+            operation,
+            `Persona ${persona} node ${node.id} must use an assumed Actor that is authorized for ${operation}.`,
+          );
+        }
+        if (permission.decision === 'conditional' && !present(permission.condition)) {
+          addGap(
+            'persona_node_permission_condition_missing',
+            operation,
+            `Conditional permission at ${persona}:${node.id} needs an explicit condition.`,
+          );
+        }
+      }
+
+      const inputs = Array.isArray(node.inputs) ? node.inputs : [];
+      const noInputs = node.input_policy?.mode === 'none' &&
+        present(node.input_policy?.rationale);
+      const inputIds = inputs.map((item) => item?.id).filter(Boolean);
+      if ((!inputs.length && !noInputs) ||
+          new Set(inputIds).size !== inputs.length ||
+          inputs.some((input) =>
+            !present(input?.id) ||
+            typeof input?.required !== 'boolean' ||
+            !present(input?.rationale))) {
+        addGap(
+          'persona_node_input_semantics_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must decide every input's requiredness or explain why it has none.`,
+        );
+      }
+
+      const relationship = node.relationship_policy;
+      const noRelationship = relationship?.mode === 'none' && present(relationship?.rationale);
+      const createsRelationship = relationship?.mode === 'creates' &&
+        Array.isArray(relationship.identity_keys) && relationship.identity_keys.length &&
+        present(relationship.cardinality) &&
+        present(relationship.duplicate_behavior) &&
+        present(relationship.self_reference);
+      if (!noRelationship && !createsRelationship) {
+        addGap(
+          'persona_node_relationship_policy_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must decide identity, cardinality, duplicate, and self-reference behavior or explain why none applies.`,
+        );
+      }
+
+      const expectedSurfaces = surfacesByOperation.get(operation) || [];
+      const surfaceRefs = Array.isArray(node.surface_refs) ? [...node.surface_refs].sort() : [];
+      if (JSON.stringify(surfaceRefs) !== JSON.stringify(expectedSurfaces)) {
+        addGap(
+          'persona_node_surface_coverage_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must name every Surface that realizes ${operation}.`,
+          { expected: expectedSurfaces, actual: surfaceRefs },
+        );
+      }
+
+      const states = Array.isArray(node.state_coverage) ? node.state_coverage : [];
+      const stateKinds = states.map((item) => item?.kind).filter(Boolean);
+      const expectedStateKinds = [...new Set([
+        ...PERSONA_NODE_STATE_KINDS,
+        ...declaredStateKindsForOperation(operation, statements, byId),
+      ])];
+      for (const kind of expectedStateKinds) {
+        const state = states.find((item) => item?.kind === kind);
+        if (!state || typeof state.applicable !== 'boolean' ||
+            (state.applicable && !present(state.visible_state)) ||
+            (!state.applicable && !present(state.rationale))) {
+          addGap(
+            'persona_node_state_coverage_missing',
+            operation,
+            `Persona ${persona} node ${node.id} must explicitly analyze ${kind} state applicability and visibility.`,
+            { state_kind: kind },
+          );
+        }
+      }
+      if (new Set(stateKinds).size !== stateKinds.length ||
+          stateKinds.some((kind) => !expectedStateKinds.includes(kind))) {
+        addGap(
+          'persona_node_state_coverage_invalid',
+          operation,
+          `Persona ${persona} node ${node.id} has duplicate state coverage or a state not declared on its Operation or Surfaces.`,
+        );
+      }
+      const requiredDecisionState = ['denied', 'not_applicable'].includes(permission.decision)
+        ? 'denied'
+        : 'success';
+      if (!states.some((item) => item.kind === requiredDecisionState && item.applicable === true)) {
+        addGap(
+          'persona_node_outcome_state_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must make its ${requiredDecisionState} outcome visible.`,
+        );
+      }
+
+      const scenarioCoverage = Array.isArray(node.scenario_coverage)
+        ? node.scenario_coverage
+        : [];
+      const scenarioRefs = scenarioCoverage.map((item) => item?.scenario_ref).filter(Boolean);
+      if (scenarioCoverage.length !== closure.scenarios.length ||
+          new Set(scenarioRefs).size !== closure.scenarios.length ||
+          closure.scenarios.some((scenario) => !scenarioRefs.includes(scenario))) {
+        addGap(
+          'persona_node_scenario_coverage_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must classify every Workflow Scenario as applicable or inapplicable.`,
+        );
+      }
+      for (const scenario of scenarioCoverage) {
+        if (!closure.scenarios.includes(scenario?.scenario_ref) ||
+            typeof scenario?.applicable !== 'boolean' ||
+            (scenario.applicable && (
+              !present(scenario.trigger) ||
+              !present(scenario.expected) ||
+              !present(scenario.recovery) ||
+              typeof scenario.preserves_input !== 'boolean'
+            )) ||
+            (!scenario.applicable && !present(scenario.rationale))) {
+          addGap(
+            'persona_node_scenario_semantics_missing',
+            operation,
+            `Persona ${persona} node ${node.id} needs trigger, expected result, recovery, and input preservation for each applicable Scenario.`,
+            { scenario: scenario?.scenario_ref || null },
+          );
+        }
+      }
+
+      const edgeCoverage = Array.isArray(node.edge_case_coverage)
+        ? node.edge_case_coverage
+        : [];
+      const edgeKinds = edgeCoverage.map((item) => item?.kind).filter(Boolean);
+      for (const kind of PERSONA_NODE_EDGE_KINDS) {
+        const edge = edgeCoverage.find((item) => item?.kind === kind);
+        if (!edge || typeof edge.applicable !== 'boolean' ||
+            (edge.applicable && (
+              !present(edge.trigger) ||
+              !present(edge.expected) ||
+              !present(edge.recovery)
+            )) ||
+            (!edge.applicable && !present(edge.rationale))) {
+          addGap(
+            'persona_node_edge_coverage_missing',
+            operation,
+            `Persona ${persona} node ${node.id} must explicitly analyze the ${kind} edge-case axis.`,
+            { edge_kind: kind },
+          );
+        }
+      }
+      if (new Set(edgeKinds).size !== edgeKinds.length ||
+          edgeKinds.some((kind) => !PERSONA_NODE_EDGE_KINDS.includes(kind))) {
+        addGap(
+          'persona_node_edge_coverage_invalid',
+          operation,
+          `Persona ${persona} node ${node.id} has duplicate or unknown edge-case coverage.`,
+        );
+      }
+
+      const probes = Array.isArray(node.invariant_probes) ? node.invariant_probes : [];
+      const invariantRefs = probes.map((item) => item?.invariant_ref).filter(Boolean);
+      if (probes.length !== closure.invariants.length ||
+          new Set(invariantRefs).size !== closure.invariants.length ||
+          closure.invariants.some((invariant) => !invariantRefs.includes(invariant))) {
+        addGap(
+          'persona_node_invariant_coverage_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must classify every Workflow Invariant as applicable or inapplicable.`,
+        );
+      }
+      for (const probe of probes) {
+        if (!closure.invariants.includes(probe?.invariant_ref) ||
+            typeof probe?.applicable !== 'boolean' ||
+            (probe.applicable && (!present(probe.attempt) || !present(probe.expected))) ||
+            (!probe.applicable && !present(probe.rationale))) {
+          addGap(
+            'persona_node_invariant_probe_missing',
+            operation,
+            `Persona ${persona} node ${node.id} needs an executable attempt and expected result for each applicable Invariant.`,
+            { invariant: probe?.invariant_ref || null },
+          );
+        }
+      }
+
+      const transitions = Array.isArray(node.transitions) ? node.transitions : [];
+      const transitionOutcomes = transitions.map((item) => item?.outcome).filter(Boolean);
+      const requiredOutcomes = [
+        ['denied', 'not_applicable'].includes(permission.decision) ? 'denied' : 'success',
+        ...scenarioCoverage.filter((item) => item?.applicable)
+          .map((item) => `scenario:${item.scenario_ref}`),
+      ];
+      if (new Set(transitionOutcomes).size !== transitions.length ||
+          requiredOutcomes.some((outcome) => !transitionOutcomes.includes(outcome)) ||
+          transitions.some((transition) =>
+            !present(transition?.outcome) ||
+            !present(transition?.expected) ||
+            (transition.terminal !== true && !nodeIdSet.has(transition.to_node_ref)) ||
+            (transition.terminal === true && present(transition.to_node_ref)))) {
+        addGap(
+          'persona_node_transition_coverage_missing',
+          operation,
+          `Persona ${persona} node ${node.id} must route success or denial plus every applicable Scenario to an existing node or terminal outcome.`,
+        );
+      }
+
+      if (!gaps.some((gap) => gap.resource === operation)) {
+        const caseNode = { ...node, walk_ref: journey.walk_ref };
+        addCase('permission_decision', persona, caseNode, {
+          expected: permission,
+        });
+        if (['allowed', 'conditional'].includes(permission.decision)) {
+          addCase('operation_success', persona, caseNode, {
+            expected: states.find((item) => item.kind === 'success')?.visible_state,
+          });
+        }
+        for (const input of inputs) {
+          addCase('field_semantics', persona, caseNode, {
+            input: input.id,
+            required: input.required,
+            rationale: input.rationale,
+            normalization: input.normalization || null,
+          });
+        }
+        if (relationship?.mode === 'creates') {
+          addCase('relationship_policy', persona, caseNode, { expected: relationship });
+        }
+        for (const state of states.filter((item) => item.applicable)) {
+          for (const surface of surfaceRefs.length ? surfaceRefs : [null]) {
+            addCase(surface ? 'surface_state' : 'node_state', persona, caseNode, {
+              surface,
+              state: state.kind,
+              expected: state.visible_state,
+            });
+          }
+        }
+        for (const scenario of scenarioCoverage.filter((item) => item.applicable)) {
+          addCase('scenario_recovery', persona, caseNode, {
+            scenario: scenario.scenario_ref,
+            trigger: scenario.trigger,
+            expected: {
+              visible_result: scenario.expected,
+              recovery: scenario.recovery,
+              preserves_input: scenario.preserves_input,
+            },
+          });
+        }
+        for (const edge of edgeCoverage.filter((item) => item.applicable)) {
+          addCase('edge_case', persona, caseNode, {
+            edge_kind: edge.kind,
+            trigger: edge.trigger,
+            expected: {
+              result: edge.expected,
+              recovery: edge.recovery,
+            },
+          });
+        }
+        for (const probe of probes.filter((item) => item.applicable)) {
+          addCase('invariant_probe', persona, caseNode, {
+            invariant: probe.invariant_ref,
+            surface: surfaceRefs[0] || null,
+            attempt: probe.attempt,
+            expected: probe.expected,
+          });
+        }
+      }
     }
   }
-  for (const entry of surfaceEntries.values()) {
-    for (const state of entry.states || []) {
-      addCase('surface_state', {
-        surface: entry.surface_ref,
-        state: state.id,
-        expected: state.visible_state,
-      });
-    }
-  }
-  for (const item of invariantCases) {
-    addCase('invariant_probe', {
-      invariant: item.invariant_ref,
-      surface: item.surface_ref || null,
-      attempt: item.attempt,
-      expected: item.expected,
-    });
-  }
-  return { contract: contractResource, gaps, cases };
+
+  return {
+    walks: walkResources,
+    gaps,
+    cases: gaps.length ? [] : cases,
+    coverage: {
+      digest: coverageDigest,
+      required_personas: [...requiredPersonas].sort(),
+      state_kinds: [...PERSONA_NODE_STATE_KINDS],
+      edge_case_kinds: [...PERSONA_NODE_EDGE_KINDS],
+    },
+  };
 }
 
 export class GraphEngine {
@@ -784,6 +1092,17 @@ export class GraphEngine {
         errors.push(`Runtime Resource ${resource.id} must come from the Mission runner.`);
       }
       if (
+        resource.kind === 'persona_walk' &&
+        (resource.data?.epistemic_class !== EPISTEMIC_BY_INGRESS.persona ||
+          resource.data?.schema !== 'lamina.persona-walk/v1' ||
+          !resource.data?.task_id ||
+          !resource.data?.coverage_digest ||
+          !resource.data?.workflow_ref ||
+          !resource.data?.persona_ref)
+      ) {
+        errors.push(`Persona walk ${resource.id} must come from the Persona walk recorder.`);
+      }
+      if (
         resource.kind === 'mission' &&
         resource.data?.epistemic_class !== EPISTEMIC_BY_INGRESS.intent
       ) {
@@ -858,7 +1177,6 @@ export class GraphEngine {
     const kindRules = new Map([
       ['lamina:canAssume', ['persona', 'actor']],
       ['lamina:authorizedFor', ['actor', 'operation']],
-      ['lamina:experienceContract', ['workflow', 'decision']],
       ['lamina:requiresProof', [null, 'proof']],
       ['lamina:realizes', ['surface', 'operation']],
       ['lamina:transitionsTo', ['entity', 'entity']],
@@ -919,6 +1237,20 @@ export class GraphEngine {
           });
         }
       }
+    }
+    const validationSnapshot = {
+      active: { resources, statements: new Set(statementIds) },
+      resources: resourceRows,
+      statements,
+      supportedEvidence: directEvidence,
+    };
+    for (const workflow of resourceRows.filter((item) => item.kind === 'workflow')) {
+      const closure = this.missionClosure('validation', workflow.id, validationSnapshot);
+      const design = personaDesign(workflow, closure, resourceRows, statements);
+      readiness_gaps.push(...design.gaps.map((gap) => ({
+        ...gap,
+        scope: workflow.id,
+      })));
     }
 
     for (const dependency of statements.filter((item) => item.predicate === 'lamina:dependsOn' && item.object)) {
@@ -1532,7 +1864,6 @@ export class GraphEngine {
     const closurePredicates = new Set([
       'lamina:constrainedBy',
       'lamina:dependsOn',
-      'lamina:experienceContract',
       'lamina:hasScenario',
       'lamina:recovery',
       'lamina:requiresProof',
@@ -1562,14 +1893,16 @@ export class GraphEngine {
       .filter((item) => item.predicate === 'lamina:requiresProof' &&
         closure.has(item.subject) && resourceById.get(item.object)?.kind === 'proof')
       .map((item) => item.object));
+    const personaWalks = new Set(resources
+      .filter((item) =>
+        item.kind === 'persona_walk' &&
+        item.data?.workflow_ref === workflowId)
+      .map((item) => item.id));
     actors.forEach((item) => closure.add(item));
     surfaces.forEach((item) => closure.add(item));
     proofs.forEach((item) => closure.add(item));
+    personaWalks.forEach((item) => closure.add(item));
 
-    const explicitRelevant = new Set(statements
-      .filter((item) => item.predicate === 'lamina:relevantTo' &&
-        closure.has(item.object) && resourceById.get(item.subject)?.kind === 'persona')
-      .map((item) => item.subject));
     const assumedActors = new Map();
     for (const statement of statements.filter((item) =>
       item.predicate === 'lamina:canAssume' &&
@@ -1577,10 +1910,12 @@ export class GraphEngine {
       actors.has(item.object))) {
       if (!assumedActors.has(statement.subject)) assumedActors.set(statement.subject, []);
       assumedActors.get(statement.subject).push(statement.object);
-      explicitRelevant.add(statement.subject);
     }
     const allPersonas = resources.filter((item) => item.kind === 'persona').map((item) => item.id);
-    const relevantPersonas = explicitRelevant.size ? [...explicitRelevant] : allPersonas;
+    // Every active product Persona must be walked. A Persona that cannot use a
+    // workflow still receives explicit denied/not_applicable nodes. There is no
+    // separate relevance roster that can silently remove that perspective.
+    const relevantPersonas = allPersonas;
 
     const relevantStatements = statements.filter((item) =>
       closure.has(item.subject) || (item.object && closure.has(item.object)));
@@ -1611,16 +1946,12 @@ export class GraphEngine {
       scenarios: kinds(closure, 'scenario'),
       surfaces: [...surfaces].sort(),
       proofs: [...proofs].sort(),
-      experience_contracts: kinds(closure, 'decision').filter((id) =>
-        statements.some((statement) =>
-          statement.subject === workflowId &&
-          statement.predicate === 'lamina:experienceContract' &&
-          statement.object === id)),
+      persona_walks: [...personaWalks].sort(),
       dependencies: [...closure].filter((id) => {
         const kind = resourceById.get(id)?.kind;
         return kind && ![
           'workflow', 'operation', 'actor', 'invariant', 'scenario', 'surface', 'proof',
-          'decision',
+          'decision', 'persona_walk',
         ].includes(kind);
       }).sort(),
       evidence: [...evidence].sort(),
@@ -1688,7 +2019,7 @@ export class GraphEngine {
         ...closure.scenarios,
         ...closure.surfaces,
         ...closure.proofs,
-        ...closure.experience_contracts,
+        ...closure.persona_walks,
         ...closure.dependencies,
         ...closure.evidence,
         ...closure.personas,
@@ -1723,15 +2054,15 @@ export class GraphEngine {
       if (closure.surfaces.length && !closure.proofs.length) {
         gaps.push({ code: 'ui_proof_spec_missing', resource: workflow.id });
       }
-      const experience = experienceContract(workflow, closure, resources, statements);
-      gaps.push(...experience.gaps);
+      const design = personaDesign(workflow, closure, resources, statements);
+      gaps.push(...design.gaps);
       return {
         workflow,
         closure,
         resources,
         statements,
-        experience_contract: experience.contract,
-        experience_cases: experience.cases,
+        persona_walks: design.walks,
+        experience_cases: design.cases,
         readiness_gaps: gaps,
       };
     });
@@ -1758,6 +2089,153 @@ export class GraphEngine {
       implementation_ready: candidates.length > 0 && readinessGaps.length === 0,
       readiness_gaps: readinessGaps,
     };
+  }
+
+  designWalkTask({ workflow, persona, request = '' }, context) {
+    if (!present(request)) fail(ERROR.BAD_REQUEST, 'Persona walk preparation requires a non-empty request.');
+    const branch = this.ensureBranch(context.branch, context.source_revision);
+    const active = this.activeIds(branch.id);
+    const resources = this.resourceDetails(active.resources);
+    const statements = this.statementDetails(active.statements);
+    const resourceById = new Map(resources.map((item) => [item.id, item]));
+    const resolve = (ref, kind) => {
+      const id = this.resolveResourceId(ref, active.resources);
+      return resources.find((item) => item.id === id && item.kind === kind);
+    };
+    const workflowResource = resolve(workflow, 'workflow');
+    if (!workflowResource) fail(ERROR.NOT_FOUND, `Workflow not found: ${workflow}`);
+    const personaResource = resolve(persona, 'persona');
+    if (!personaResource) fail(ERROR.NOT_FOUND, `Persona not found: ${persona}`);
+    const closure = this.missionClosure(branch.id, workflowResource.id, {
+      active,
+      resources,
+      statements,
+      supportedEvidence: this.supportedEvidence(active.statements),
+    });
+    if (!closure.personas.includes(personaResource.id)) {
+      fail(ERROR.VALIDATION, `Persona ${personaResource.id} is not in the Workflow Persona roster.`);
+    }
+    const taskStatements = this.statementDetails(closure.statement_ids)
+      .filter((item) =>
+        !(resourceById.get(item.subject)?.kind === 'persona' &&
+          item.subject !== personaResource.id) &&
+        !(resourceById.get(item.object)?.kind === 'persona' &&
+          item.object !== personaResource.id));
+    const body = {
+      schema: 'lamina.persona-walk-task/v1',
+      request: String(request || '').trim(),
+      workflow: workflowResource,
+      persona: personaResource,
+      graph_version: this.head(branch.id).id,
+      source_revision: context.source_revision,
+      coverage_digest: personaWalkCoverageDigest(
+        workflowResource.id,
+        closure,
+        resources,
+        statements,
+      ),
+      resources: [
+        workflowResource.id,
+        ...closure.operations,
+        ...closure.actors,
+        ...closure.invariants,
+        ...closure.scenarios,
+        ...closure.surfaces,
+        ...closure.proofs,
+        ...closure.dependencies,
+      ].map((id) => resources.find((item) => item.id === id)).filter(Boolean),
+      statements: taskStatements,
+      required_state_kinds: [...PERSONA_NODE_STATE_KINDS],
+      declared_state_kinds: Object.fromEntries(closure.operations.map((operation) => [
+        operation,
+        declaredStateKindsForOperation(
+          operation,
+          statements,
+          resourceById,
+        ),
+      ])),
+      required_edge_case_kinds: [...PERSONA_NODE_EDGE_KINDS],
+      required_discovery_kinds: [...PERSONA_DISCOVERY_KINDS],
+    };
+    return { ...body, task_id: digest('persona_walk_task', {
+      request: body.request,
+      persona: personaResource.id,
+      coverage_digest: body.coverage_digest,
+    }) };
+  }
+
+  recordDesignWalk({ task, result }, context) {
+    if (task?.schema !== 'lamina.persona-walk-task/v1' ||
+        result?.schema !== 'lamina.persona-walk/v1') {
+      fail(ERROR.BAD_REQUEST, 'Design walk recording requires persona-walk task/walk v1 documents.');
+    }
+    const current = this.designWalkTask({
+      workflow: task.workflow?.id,
+      persona: task.persona?.id,
+      request: task.request,
+    }, context);
+    if (current.task_id !== task.task_id ||
+        current.coverage_digest !== task.coverage_digest) {
+      fail(ERROR.CONFLICT, 'Persona walk coverage changed. Prepare and run this Persona walk again.');
+    }
+    if (result.task_id !== task.task_id ||
+        result.workflow_ref !== task.workflow.id ||
+        result.persona_ref !== task.persona.id ||
+        !['subagent', 'isolated_context'].includes(result.mode) ||
+        !present(result.isolation_ref) ||
+        !present(result.goal) ||
+        !Array.isArray(result.actor_refs) ||
+        !Array.isArray(result.nodes) ||
+        !result.nodes.length ||
+        !result.discoveries ||
+        PERSONA_DISCOVERY_KINDS.some((kind) => !Array.isArray(result.discoveries[kind]))) {
+      fail(
+        ERROR.VALIDATION,
+        'Persona walk result lacks bound isolation, goal, node analysis, or the complete discovery matrix.',
+      );
+    }
+    const analysis = {
+      mode: result.mode,
+      isolation_ref: result.isolation_ref,
+      goal: result.goal,
+      actor_refs: result.actor_refs,
+      nodes: result.nodes,
+      discoveries: result.discoveries,
+    };
+    const data = {
+      schema: 'lamina.persona-walk/v1',
+      workflow_ref: task.workflow.id,
+      persona_ref: task.persona.id,
+      task_id: task.task_id,
+      coverage_digest: task.coverage_digest,
+      source_revision: context.source_revision,
+      ...analysis,
+      analysis_digest: digest('persona_walk_analysis', analysis),
+    };
+    const id = digest('persona_walk', data);
+    const session = this.startSession({
+      branch: context.branch,
+      source_revision: context.source_revision,
+    });
+    try {
+      const active = this.activeIds(session.id);
+      for (const existing of this.resourceDetails(active.resources).filter((item) =>
+        item.kind === 'persona_walk' &&
+        item.data?.workflow_ref === task.workflow.id &&
+        item.data?.persona_ref === task.persona.id)) {
+        this.retireResource(session.id, existing.id);
+      }
+      this.stageResource(session.id, {
+        id,
+        kind: 'persona_walk',
+        data,
+      }, 'persona');
+      const published = this.publishSession(session.id, context.source_revision);
+      return { ...published, persona_walk: id, task_id: task.task_id };
+    } catch (error) {
+      try { this.abortSession(session.id); } catch {}
+      throw error;
+    }
   }
 
   compileMissions({ workflow, persona, adapter = null, session: sessionId = null }, context) {
@@ -1789,20 +2267,20 @@ export class GraphEngine {
       ...workflowClosure.scenarios,
       ...workflowClosure.surfaces,
       ...workflowClosure.proofs,
-      ...workflowClosure.experience_contracts,
+      ...workflowClosure.persona_walks,
       ...workflowClosure.dependencies,
       ...workflowClosure.evidence,
       ...workflowClosure.personas,
     ].map((id) => resources.find((item) => item.id === id)).filter(Boolean);
-    const experience = experienceContract(
+    const design = personaDesign(
       workflowResource,
       workflowClosure,
       workflowResources,
       workflowStatements,
     );
-    if (experience.gaps.length) {
+    if (design.gaps.length) {
       fail(ERROR.VALIDATION, `Workflow ${workflowResource.id} has incomplete experience design.`, {
-        readiness_gaps: experience.gaps,
+        readiness_gaps: design.gaps,
       });
     }
     const personas = persona
@@ -1833,15 +2311,16 @@ export class GraphEngine {
           capability_requirements: capabilityRequirements,
           budget: workflowResource.data?.mission_budget || {},
           isolation: 'independent_session',
-          experience_cases: experience.cases,
+          experience_cases: design.cases.filter((item) =>
+            !item.persona || item.persona === personaResource.id),
           closure: {
             operations: workflowClosure.operations,
-            actors: workflowClosure.assumed_actors[personaResource.id] || workflowClosure.actors,
+            actors: workflowClosure.assumed_actors[personaResource.id] || [],
             invariants: workflowClosure.invariants,
             scenarios: workflowClosure.scenarios,
             surfaces: workflowClosure.surfaces,
             proofs: workflowClosure.proofs,
-            experience_contracts: workflowClosure.experience_contracts,
+            persona_walks: workflowClosure.persona_walks,
             evidence: workflowClosure.evidence,
             dependencies: workflowClosure.dependencies,
             statements: workflowClosure.statement_ids,
@@ -1907,12 +2386,12 @@ export class GraphEngine {
         if (expectedCases.size && (!event.case_id || !expectedCases.has(event.case_id))) {
           fail(ERROR.VALIDATION, `${event.type} requires an expected case_id.`);
         }
-        if (expectedCases.size && !present(event.observation)) {
+        if (expectedCases.size && !structuredObject(event.observation)) {
           fail(ERROR.VALIDATION, `${event.type} ${event.case_id} requires a structured observation.`);
         }
       }
       if (event.type === 'oracle_passed' && expectedCases.size && !event.artifact) {
-        fail(ERROR.EVIDENCE_MISSING, `oracle_passed ${event.case_id} requires an Experience Evidence manifest.`);
+        fail(ERROR.EVIDENCE_MISSING, `oracle_passed ${event.case_id} requires a reproducible artifact.`);
       }
       if (event.type === 'audit_passed' &&
           !['functional', 'visual', 'responsive', 'accessibility'].includes(event.audit_kind)) {
@@ -1936,27 +2415,6 @@ export class GraphEngine {
       if (event.artifact) {
         const artifactPath = path.resolve(event.artifact);
         if (!fs.existsSync(artifactPath)) fail(ERROR.EVIDENCE_MISSING, `Mission artifact does not exist: ${artifactPath}`);
-        if (event.type === 'oracle_passed' && expectedCases.size) {
-          let manifest;
-          try {
-            manifest = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
-          } catch (error) {
-            fail(ERROR.EVIDENCE_MISSING, `Experience Evidence must be valid JSON: ${error.message}`);
-          }
-          if (manifest.schema !== 'lamina.experience-evidence/v1' ||
-              manifest.passed !== true ||
-              !Array.isArray(manifest.case_ids) ||
-              !manifest.case_ids.includes(event.case_id) ||
-              !Array.isArray(manifest.steps) ||
-              !manifest.steps.length ||
-              !present(manifest.expected) ||
-              !present(manifest.observed)) {
-            fail(
-              ERROR.EVIDENCE_MISSING,
-              `Experience Evidence for ${event.case_id} must identify the case and record passing steps, expected, and observed results.`,
-            );
-          }
-        }
         const content = fs.readFileSync(artifactPath);
         const artifactDigest = digest('artifact', content.toString('base64'));
         const destination = path.join(this.paths.evidence, artifactDigest);

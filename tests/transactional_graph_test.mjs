@@ -19,6 +19,106 @@ const paths = runtimePaths(root);
 const engine = new GraphEngine(paths);
 const context = engine.currentContext(root);
 
+function recordCompleteWalk(workflow, persona, discovered = {}) {
+  const task = engine.designWalkTask({
+    workflow,
+    persona,
+    request: `Analyze ${workflow} for ${persona}.`,
+  }, context);
+  assert.equal(task.coverage, undefined, 'Persona tasks must expose only the coverage digest');
+  assert.ok(
+    task.statements
+      .filter((statement) => statement.subject.startsWith('persona.'))
+      .every((statement) => statement.subject === persona),
+    'a Persona task must not expose another Persona relationship',
+  );
+  const operations = task.resources.filter((item) => item.kind === 'operation');
+  const scenarios = task.resources.filter((item) => item.kind === 'scenario');
+  const invariants = task.resources.filter((item) => item.kind === 'invariant');
+  const nodes = operations.map((operation, index) => ({
+    id: `node.${workflow}.${persona}.${index + 1}`,
+    operation_ref: operation.id,
+    intent: `Complete ${operation.data?.name || operation.id} safely.`,
+    permission: {
+      decision: 'allowed',
+      actor_ref: 'actor.member',
+      rationale: `${persona} assumes the authorized member Actor.`,
+    },
+    inputs: [],
+    input_policy: {
+      mode: 'none',
+      rationale: 'This runtime fixture requires no actor-provided fields.',
+    },
+    relationship_policy: {
+      mode: 'none',
+      rationale: 'This runtime fixture creates no relationship.',
+    },
+    surface_refs: task.statements
+      .filter((item) =>
+        item.predicate === 'lamina:realizes' &&
+        item.object === operation.id)
+      .map((item) => item.subject)
+      .sort(),
+    state_coverage: [
+      { kind: 'entry', applicable: true, visible_state: 'The action is available.' },
+      { kind: 'in_progress', applicable: true, visible_state: 'Progress is visible.' },
+      { kind: 'empty', applicable: false, rationale: 'The fixture has no collection state.' },
+      { kind: 'success', applicable: true, visible_state: 'The accepted result is visible.' },
+      { kind: 'failure', applicable: false, rationale: 'No failure Scenario is declared.' },
+      { kind: 'denied', applicable: false, rationale: 'The member Actor is authorized.' },
+      { kind: 'recovery', applicable: false, rationale: 'No recovery Scenario is declared.' },
+    ],
+    scenario_coverage: scenarios.map((scenario) => ({
+      scenario_ref: scenario.id,
+      applicable: false,
+      rationale: 'The generic runtime fixture does not exercise this Scenario.',
+    })),
+    edge_case_coverage: [
+      'validation', 'authorization', 'duplicate', 'self_reference', 'concurrency',
+      'stale_data', 'interruption', 'retry', 'connectivity',
+    ].map((kind) => ({
+      kind,
+      applicable: false,
+      rationale: 'The generic runtime fixture does not exercise this axis.',
+    })),
+    invariant_probes: invariants.map((invariant) => ({
+      invariant_ref: invariant.id,
+      applicable: false,
+      rationale: 'The generic runtime fixture does not exercise this Invariant.',
+    })),
+    transitions: [{
+      outcome: 'success',
+      terminal: true,
+      expected: 'The accepted result is visible.',
+    }],
+  }));
+  return engine.recordDesignWalk({
+    task,
+    result: {
+      schema: 'lamina.persona-walk/v1',
+      task_id: task.task_id,
+      workflow_ref: workflow,
+      persona_ref: persona,
+      mode: 'subagent',
+      isolation_ref: `transactional-test-${workflow}-${persona}`,
+      goal: `Complete ${workflow} safely.`,
+      actor_refs: ['actor.member'],
+      nodes,
+      discoveries: {
+        personas: [],
+        actors: [],
+        operations: [],
+        scenarios: [],
+        invariants: [],
+        surfaces: [],
+        branches: [],
+        open_decisions: [],
+        ...discovered,
+      },
+    },
+  }, context);
+}
+
 try {
   fs.writeFileSync(path.join(root, 'README.md'), '# Dirty one\n');
   const dirtyOne = engine.currentContext(root).source_revision;
@@ -132,9 +232,11 @@ try {
   const firstPublish = engine.publishSession(session.id, context.source_revision);
   assert.notEqual(firstPublish.graph_version, initialHead.id);
   assert.equal(firstPublish.validation.ok, true);
-  assert.equal(firstPublish.validation.approved, true);
+  assert.equal(firstPublish.validation.approved, false);
+  assert.ok(firstPublish.validation.readiness_gaps.some((item) =>
+    item.code === 'persona_walk_missing'));
   const initialScope = engine.validateView('HEAD', 'workflow.checkout', context);
-  assert.equal(initialScope.approved, true);
+  assert.equal(initialScope.approved, false);
   assert.equal(initialScope.validation_scope.mode, 'affected_closure');
   const implementationContext = engine.implementationContext({ workflows: ['workflow.checkout'] }, context);
   assert.equal(implementationContext.implementation_ready, false,
@@ -170,8 +272,12 @@ try {
     object: 'evidence.payment',
   }, 'runtime');
   engine.publishSession(proofEvidence.id, context.source_revision);
-  assert.equal(engine.validateView('HEAD', 'operation.pay', context).approved, true,
-    'proof evidence should close the affected operation readiness gap');
+  const proofReady = engine.validateView('HEAD', 'operation.pay', context);
+  assert.equal(proofReady.approved, false,
+    'Persona walks remain required after proof evidence is present');
+  assert.ok(!proofReady.readiness_gaps.some((item) =>
+    item.code === 'proof_evidence_missing' && item.resource === 'proof.payment'));
+  assert.ok(proofReady.readiness_gaps.some((item) => item.code === 'persona_walk_missing'));
 
   const multiStep = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   engine.stageResource(multiStep.id, {
@@ -210,8 +316,12 @@ try {
   assert.equal(unrelatedGapPublish.validation.approved, false);
   assert.ok(unrelatedGapPublish.validation.readiness_gaps.some((item) =>
     item.code === 'workflow_unreachable' && item.resource === 'workflow.unreachable'));
-  assert.equal(engine.validateView('HEAD', 'workflow.checkout', context).approved, true,
-    'scoped validation must not be blocked by an unrelated disconnected workflow');
+  const scopedCheckout = engine.validateView('HEAD', 'workflow.checkout', context);
+  assert.equal(scopedCheckout.approved, false,
+    'checkout still lacks its required Persona walks');
+  assert.ok(!scopedCheckout.readiness_gaps.some((item) =>
+    item.resource === 'workflow.unreachable'),
+  'scoped validation must not be blocked by an unrelated disconnected workflow');
 
   const preDirtyHead = engine.head(branch.id).id;
   fs.writeFileSync(path.join(root, 'README.md'), '# Dirty branch base\n');
@@ -460,7 +570,7 @@ try {
   assert.equal(engine.resource(orphanId), null, 'unreferenced retired Observations should not be retained');
   assert.ok(engine.resource(observationId), 'Claim-referenced retired Observations must remain for provenance');
 
-  // Every relevant Persona receives a Mission; adapter modalities are open strings.
+  // Every active Persona receives a Mission; adapter modalities are open strings.
   const manifestSession = engine.startSession({ branch: 'main', source_revision: context.source_revision });
   engine.stageResource(manifestSession.id, {
     id: 'adapter.non-screen',
@@ -490,6 +600,22 @@ try {
     qualifiers: { position: 1 },
   }, 'intent');
   engine.publishSession(manifestSession.id, context.source_revision);
+  recordCompleteWalk('workflow.checkout', 'persona.1', {
+    operations: [{ name: 'confirm payment receipt' }],
+  });
+  const unresolvedDiscovery = engine.implementationContext({
+    workflows: ['workflow.checkout'],
+    request: 'Implement checkout.',
+  }, context);
+  assert.ok(
+    unresolvedDiscovery.readiness_gaps.some((item) =>
+      item.code === 'persona_walk_discoveries_unresolved'),
+    'a non-empty Persona discovery matrix must block implementation until graph expansion and rerun',
+  );
+  for (let index = 1; index <= 4; index += 1) {
+    recordCompleteWalk('workflow.checkout', `persona.${index}`);
+    recordCompleteWalk('workflow.device', `persona.${index}`);
+  }
   assert.equal(engine.graphQuery({ at: 'main', kind: 'capability_manifest' }, context).resources.length, 4,
     'SDK, background, interactive, and non-screen adapters must share the generic manifest model');
   assert.throws(
@@ -537,6 +663,30 @@ try {
   assert.equal(engine.head(branch.id).id, headBeforeMissionCompile);
   engine.publishSession(missionCompileSession.id, context.source_revision);
   const headBeforeRuns = engine.head(branch.id).id;
+  const oracleArtifact = path.join(os.tmpdir(), `lamina-mission-oracle-${process.pid}.txt`);
+  fs.writeFileSync(oracleArtifact, 'The compiled Persona case matched its expected result.\n');
+  const caseEvents = (mission) => mission.experience_cases.map((experienceCase) => ({
+    type: 'oracle_passed',
+    case_id: experienceCase.case_id,
+    observation: {
+      expected: experienceCase.expected || experienceCase,
+      observed: 'The compiled expected result was observed.',
+    },
+    artifact: oracleArtifact,
+  }));
+  assert.throws(
+    () => engine.runMission({
+      mission: compiled.missions[0].id,
+      events: [{
+        type: 'oracle_passed',
+        case_id: compiled.missions[0].experience_cases[0].case_id,
+        observation: 'looks good',
+        artifact: oracleArtifact,
+      }],
+    }, context),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED',
+    'case evidence must contain a structured observation rather than a generic pass string',
+  );
   assert.throws(
     () => engine.runMission({
       mission: compiled.missions[0].id,
@@ -545,10 +695,10 @@ try {
     (error) => error.code === 'LAMINA_EVIDENCE_MISSING',
     'a claimed live UI audit must carry a real artifact',
   );
-  const run1 = engine.runMission({ mission: compiled.missions[0].id, events: [{ type: 'action_attempted' }, { type: 'oracle_passed' }] }, context);
-  const run2 = engine.runMission({ mission: compiled.missions[1].id, events: [{ type: 'denial_observed' }, { type: 'recovery_attempted' }, { type: 'oracle_passed' }] }, context);
-  const run3 = engine.runMission({ mission: compiled.missions[2].id, events: [{ type: 'state_observed' }, { type: 'oracle_passed' }] }, context);
-  const run4 = engine.runMission({ mission: compiled.missions[3].id, events: [{ type: 'outcome_observed' }, { type: 'oracle_passed' }] }, context);
+  const run1 = engine.runMission({ mission: compiled.missions[0].id, events: caseEvents(compiled.missions[0]) }, context);
+  const run2 = engine.runMission({ mission: compiled.missions[1].id, events: caseEvents(compiled.missions[1]) }, context);
+  const run3 = engine.runMission({ mission: compiled.missions[2].id, events: caseEvents(compiled.missions[2]) }, context);
+  const run4 = engine.runMission({ mission: compiled.missions[3].id, events: caseEvents(compiled.missions[3]) }, context);
   assert.notEqual(run1.run, run2.run);
   assert.equal(new Set([run1.session, run2.session, run3.session, run4.session]).size, 4);
   assert.equal(run1.status, 'staged');
@@ -566,7 +716,8 @@ try {
     engine.publishSession(run.session, context.source_revision);
   }
   assert.equal(engine.graphQuery({ at: 'main', kind: 'run' }, context).resources.length, 4,
-    'every relevant Persona Mission must execute in its own isolated Run');
+    'every active Persona Mission must execute in its own isolated Run');
+  fs.unlinkSync(oracleArtifact);
 
   // Semantic branch diff uses GraphVersions rather than legacy files.
   execFileSync('git', ['switch', '-c', 'feature'], { cwd: root });

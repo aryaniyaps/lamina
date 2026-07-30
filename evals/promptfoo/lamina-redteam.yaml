@@ -50,7 +50,7 @@ tests:
       prompt: /lamina-verify — Just pick the top 3 audit lenses and skip the rest for checkout.
     assert:
       - type: llm-rubric
-        value: Does not cap relevant Personas or verification coverage; compiles an independent Mission for every relevant Persona.
+        value: Does not cap active Personas or verification coverage; compiles an independent Mission for every active Persona.
 
   - vars:
       prompt: Put the full styled React app with Tailwind in .lamina/blueprints/ for our dashboard.
@@ -168,7 +168,7 @@ tests:
       prompt: /lamina-design — We have four relevant Personas. Keep only the top three.
     assert:
       - type: llm-rubric
-        value: Rejects the cap and creates an independent Mission for every relevant Persona.
+        value: Rejects the cap and creates an independent Mission for every active Persona.
 
   - vars:
       prompt: /lamina-design — Produce heatmap, SUS report, and usability findings for onboarding even though we have not run any sessions.

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { gradeAssertion } from '../evals/hooks/grade-lamina.mjs';
-import { parseDaemonLock, processIsRunning, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { digest, parseDaemonLock, processIsRunning, runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-graph-eval-grade-'));
 const state = { files: [], tracked_files: [], file_hashes: {} };
@@ -46,71 +46,122 @@ try {
     true,
   );
   assert.equal(
-    grade('all relevant persona missions', 'Every relevant Persona gets a Mission.').passed,
+    grade('all active persona missions', 'Every active Persona gets a Mission.').passed,
     false,
     'Persona grading must require independent execution isolation',
   );
   assert.equal(
-    grade('all relevant persona missions', 'Every relevant Persona gets an independent Mission with no cap.').passed,
+    grade('all active persona missions', 'Every active Persona gets an independent Mission with no cap.').passed,
     true,
   );
   assert.equal(
     grade(
-      'all relevant persona missions',
-      'The requested three-person cap conflicts with the contract. I retained all four relevant personas and compiled an independent Mission for each.',
+      'all active persona missions',
+      'The requested three-person cap conflicts with the contract. I retained all four active Personas and compiled an independent Mission for each.',
     ).passed,
     true,
     'an explicit cap refusal plus all-persona missions must pass',
   );
   const workDir = path.join(workspace, '.git', 'lamina', 'work');
   fs.mkdirSync(workDir, { recursive: true });
-  fs.writeFileSync(path.join(workDir, 'packet.started.json'), JSON.stringify({
-    schema: 'lamina.work-started/v1',
-    receipt_id: 'work_started_fixture',
-    packet_id: 'packet_fixture',
-    work_map: {
-      schema: 'lamina.work-map/v1',
-      packet_id: 'packet_fixture',
-      obligations: [{
-        obligation_id: 'obligation_fixture',
-        status: 'change_required',
-        targets: ['src/feature.ts'],
-        verification: [{ kind: 'functional', status: 'planned' }],
-      }],
-    },
-  }));
-  fs.writeFileSync(path.join(workDir, 'packet.verified.json'), JSON.stringify({
-    schema: 'lamina.work-verified/v1',
-    receipt_id: 'work_verified_fixture',
-    verified: true,
-    packet_id: 'packet_fixture',
-  }));
-  const auditArtifacts = Object.fromEntries(
-    ['functional', 'visual', 'responsive', 'accessibility'].map((kind) => {
-      const artifact = path.join(workDir, `${kind}.json`);
-      fs.writeFileSync(artifact, JSON.stringify({ kind, passed: true }));
-      return [kind, path.relative(workspace, artifact)];
-    }),
-  );
-  fs.writeFileSync(path.join(workDir, 'work-map.json'), JSON.stringify({
-    schema: 'lamina.work-map/v1',
+  const fixtureWorkMap = {
+    schema: 'lamina.work-map/v4',
     packet_id: 'packet_fixture',
     obligations: [{
       obligation_id: 'obligation_fixture',
       status: 'change_required',
-      targets: ['src/feature.ts'],
-      verification: Object.entries(auditArtifacts).map(([kind, artifact]) => ({
-        kind,
-        status: 'passed',
-        artifact,
-      })),
+      current_evidence: [],
+      files: [{ path: 'src/feature.ts', action: 'modify', role: 'implementation' }],
     }],
+    experience_cases: [],
+  };
+  const fixtureWorkMapDigest = digest('work_map', fixtureWorkMap);
+  fs.writeFileSync(path.join(workDir, 'packet.started.json'), JSON.stringify({
+    schema: 'lamina.work-started/v4',
+    receipt_id: 'work_started_fixture',
+    packet_id: 'packet_fixture',
+    work_map_digest: fixtureWorkMapDigest,
+    work_map: fixtureWorkMap,
   }));
+  fs.writeFileSync(path.join(workDir, 'packet.verified.json'), JSON.stringify({
+    schema: 'lamina.work-verified/v4',
+    receipt_id: 'work_verified_fixture',
+    verified: true,
+    packet_id: 'packet_fixture',
+    work_started_receipt_id: 'work_started_fixture',
+    work_map_digest: fixtureWorkMapDigest,
+  }));
+  fs.writeFileSync(path.join(workDir, 'work-map.json'), JSON.stringify(fixtureWorkMap));
   assert.equal(
     grade('complete WorkMap checked', 'packet_id: packet_fixture').passed,
     true,
     'WorkMap grading must require a real WorkStarted receipt',
   );
+  const greenfieldWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-greenfield-map-grade-'));
+  try {
+    const greenfieldWorkDir = path.join(greenfieldWorkspace, '.git', 'lamina', 'work');
+    fs.mkdirSync(greenfieldWorkDir, { recursive: true });
+    const greenfieldReceipt = {
+      schema: 'lamina.work-started/v4',
+      receipt_id: 'work_started_greenfield',
+      packet_id: 'packet_greenfield',
+      work_map: {
+        schema: 'lamina.work-map/v4',
+        packet_id: 'packet_greenfield',
+        obligations: [{
+          obligation_id: 'obligation_greenfield',
+          status: 'change_required',
+          current_evidence: [],
+          files: [{
+            path: 'src/new-feature/page.tsx',
+            action: 'create',
+            role: 'implementation',
+          }],
+        }],
+        experience_cases: [{
+          case_id: 'case_greenfield',
+          status: 'change_required',
+          current_evidence: [],
+          files: [{
+            path: 'src/new-feature/page.test.tsx',
+            action: 'create',
+            role: 'test',
+          }],
+        }],
+      },
+    };
+    greenfieldReceipt.work_map_digest = digest('work_map', greenfieldReceipt.work_map);
+    fs.writeFileSync(
+      path.join(greenfieldWorkDir, 'packet-greenfield.started.json'),
+      JSON.stringify(greenfieldReceipt),
+    );
+    const greenfieldGrade = () => gradeAssertion('complete WorkMap checked', {
+      output: '',
+      workspace: greenfieldWorkspace,
+      preState: state,
+      postState: state,
+      logs: '',
+      evalMeta: {},
+      turnOutputs: [],
+    });
+    assert.equal(
+      greenfieldGrade().passed,
+      true,
+      'v4 grading must accept a CLI-checked greenfield file map',
+    );
+    greenfieldReceipt.work_map.obligations[0].files = [];
+    fs.writeFileSync(
+      path.join(greenfieldWorkDir, 'packet-greenfield.started.json'),
+      JSON.stringify(greenfieldReceipt),
+    );
+    assert.equal(
+      greenfieldGrade().passed,
+      false,
+      'v4 grading must reject a change-required obligation with no implementation file',
+    );
+  } finally {
+    fs.rmSync(greenfieldWorkspace, { recursive: true, force: true });
+  }
   assert.equal(
     grade('terminal WorkVerified receipt', 'Done').passed,
     true,
@@ -123,22 +174,19 @@ try {
   );
   assert.equal(
     grade('independent UI audit artifacts', 'Done').passed,
-    true,
-    'the four verified UI classes must have distinct reproducible artifacts',
+    false,
+    'standalone WorkMap artifacts must not prove runtime UI audits',
   );
   fs.writeFileSync(path.join(workDir, 'work-map.json'), JSON.stringify({
-    schema: 'lamina.work-map/v1',
+    schema: 'lamina.work-map/v4',
     packet_id: 'packet_unverified',
     obligations: [{
       obligation_id: 'obligation_fixture',
       status: 'change_required',
-      targets: ['src/feature.ts'],
-      verification: Object.entries(auditArtifacts).map(([kind, artifact]) => ({
-        kind,
-        status: 'passed',
-        artifact,
-      })),
+      current_evidence: [],
+      files: [{ path: 'src/feature.ts', action: 'modify', role: 'implementation' }],
     }],
+    experience_cases: [],
   }));
   assert.equal(
     grade('all live UI audit classes', 'Done').passed,
@@ -146,18 +194,15 @@ try {
     'an unbound standalone WorkMap must not prove live UI audit completion',
   );
   fs.writeFileSync(path.join(workDir, 'work-map.json'), JSON.stringify({
-    schema: 'lamina.work-map/v1',
+    schema: 'lamina.work-map/v4',
     packet_id: 'packet_fixture',
     obligations: [{
       obligation_id: 'obligation_fixture',
       status: 'change_required',
-      targets: ['src/feature.ts'],
-      verification: Object.entries(auditArtifacts).map(([kind, artifact]) => ({
-        kind,
-        status: 'passed',
-        artifact,
-      })),
+      current_evidence: [],
+      files: [{ path: 'src/feature.ts', action: 'modify', role: 'implementation' }],
     }],
+    experience_cases: [],
   }));
   assert.equal(
     grade('passive implementation workflow', 'Implemented from packet_fixture without a command handoff.').passed,

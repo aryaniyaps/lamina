@@ -43,6 +43,6 @@ for (const file of executableFiles) {
 
 const personaText = walk('skills').filter((file) => file.endsWith('.md')).map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 assert.doesNotMatch(personaText, /at most three|no more than three|≤\s*3/i);
-assert.match(personaText, /every relevant Persona/i);
+assert.match(personaText, /every active Persona/i);
 
 console.log('no_legacy_runtime_test: ok');

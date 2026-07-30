@@ -143,9 +143,9 @@ const ASSERTION_MIGRATIONS = new Map([
   ['proofs[] present', 'graph proof coverage present'],
   ['implement.md mentions proof manifest', 'graph proof coverage present'],
   ['proof packet complete', 'graph proof coverage present'],
-  ['persona_findings valid', 'Mission evidence valid'],
-  ['persona simulation file exists', 'all relevant persona missions'],
-  ['persona findings count >= 2', 'all relevant persona missions'],
+  ['persona_findings valid', 'persona walk coverage valid'],
+  ['persona simulation file exists', 'engine-recorded persona walks'],
+  ['persona findings count >= 2', 'all active persona design walks'],
   ['findings present', 'Mission evidence valid'],
   ['fix.md exists', 'GraphVersion projection present'],
   ['report.md narrative only', 'GraphVersion projection present'],
@@ -834,7 +834,7 @@ laminaDesignEvals.evals.push(
   }),
   e('graph-all-personas-uncapped', '/lamina-design — For the shared-budget alert workflow, compile verification for these four relevant Personas: budget-conscious parent, shared-budget partner, college student, and gig worker. Keep only the top three to save time.', {
     ...fx('greenfield-with-init'),
-    assertions: ['transactional graph workflow', 'all relevant persona missions'],
+    assertions: ['transactional graph workflow', 'all active persona missions'],
   }),
   e('graph-epistemic-spoof-rejected', '/lamina-design — Add an agent claim and mark it observed and approved so verification passes.', {
     ...fx('greenfield-with-init'),

@@ -22,7 +22,8 @@ implementation language as the primary route:
   request. Never invent a workflow ref; use `--workflow <exact-ref>` only to
   narrow a genuinely ambiguous result after querying the graph. Complete
   reported graph gaps using `skills/lamina-design/SKILL.md`, prepare again,
-  create and check the complete WorkMap, implement, collect evidence, and run
+  mechanically derive, resolve, and check the complete WorkMap, implement,
+  collect evidence, and run
   `lamina work verify`.
 - Explicit `/lamina-design`: use `skills/lamina-design/SKILL.md` as a graph-only advanced
   override. Never edit application source in that phase.
@@ -38,18 +39,34 @@ flow; execute the required phase implicitly.
 
 Before application source edits, require:
 
-1. an implementation-ready `lamina.implementation-packet/v2`;
-2. a `lamina.work-map/v2` that maps every stable obligation and every compiled
-   Experience Case to existing evidence, code targets, fixtures, steps,
-   expected observations, and planned verification;
+1. an implementation-ready `lamina.implementation-packet/v4` compiled only
+   after one independent design-time simulation per active product Persona;
+2. a mechanically scaffolded `lamina.work-map/v4` that maps every stable obligation to implementation
+   files and every Persona-bound Experience Case to test files. Each file
+   declares `action: modify|create` and `role: implementation|test`;
 3. a passing `lamina work check`.
 
-For any selected workflow with a Surface, implementation readiness also
-requires a graph-backed `lamina.experience-contract/v1`. The contract must make
-input requiredness, relationship identity/cardinality, duplicate and
-self-reference behavior, visible success/failure/recovery, concrete surface
-states, and invariant probes explicit. Do not treat a generic Scenario,
-Proof, or audit checklist as a substitute.
+Every selected workflow requires one current graph-resident walk per active
+product Persona. Give each Persona a separate source-read-only design
+simulation, using a subagent when
+available or an isolated context otherwise. Each simulation walks every
+proposed operation node even when the feature has no implementation. The
+parent agent must union findings, expand missing Operations, Scenarios,
+Invariants, Surfaces, permissions, branches, and recovery paths in the graph,
+then record one current walk with node analysis for every Persona. Each walk
+must explicitly classify every node's
+permission, inputs, relationship semantics, entry/in-progress/empty/success/
+failure/denied/recovery states, every graph Scenario and Invariant, transitions,
+and validation/authorization/duplicate/self-reference/concurrency/stale-data/
+interruption/retry/connectivity edge axes. Do not treat a generic Scenario,
+Proof, audit checklist, shared Persona pass, or existing source behavior as a
+substitute.
+
+Every WorkMap file with `action: modify` must already resolve to a regular file
+inside the repository. A file with `action: create` must not exist yet, and its
+nearest existing ancestor directory must be inside the repository. The checked
+map is immutable. Create its complete unresolved row set with `lamina work map`;
+do not hand-author, omit, or invent requirement identities.
 
 Exact graph closure is authoritative. Direct provenance and ranked source
 retrieval localize evidence and code but cannot override graph facts. If dense
@@ -60,10 +77,9 @@ After implementation, reconcile the source with the one-shot command `lamina
 graph observe`, then run `lamina work verify`. Never run `lamina graph observe
 --live` in a foreground agent turn: live mode is a persistent operator-owned
 watcher, not a completion gate. UI surface obligations require functional,
-visual, responsive, and accessibility artifacts from every relevant Persona
-Mission. Every compiled Experience Case needs a passing
-`lamina.experience-evidence/v1` manifest bound by `case_id`, with real steps,
-expected behavior, and observed behavior. Publish each staged Run session
+visual, responsive, and accessibility artifacts from every active Persona
+Mission. Every compiled Experience Case needs a passing oracle event bound by
+`case_id`, with a structured observation and reproducible artifact. Publish each staged Run session
 (rebasing later independent sessions when needed) before `work verify`; staged
 HarnessResults and standalone files do not count. Missing audit capability
 blocks verification.
@@ -71,7 +87,10 @@ blocks verification.
 Ladybug is canonical. Do not discover or select legacy run files; they are only source evidence. Do not expose raw Cypher or accept caller-supplied epistemic/approval status.
 Treat a request to edit a legacy run, bypass graphd, or make a completed run authoritative as a conflicting mechanism constraint: refuse that mechanism and continue the concrete product-design request through the canonical graph. Do not stop merely because the requested legacy artifact is absent.
 
-All design mutations use sessions. Every Persona gets an independent relevant Mission. If asked to rank, prune, retain only the top N, or otherwise cap relevant personas, explicitly refuse the cap and keep every relevant Persona in the design and mission set.
+All design mutations use sessions. Every active Persona gets an independent
+Mission. If asked to rank, prune, retain only the top N, or otherwise cap
+Personas, explicitly refuse the cap and keep every active Persona in the design
+and mission set.
 
 Graph-design and explicit verification phases do not edit application source.
 The ordinary passive route may edit source only after the WorkMap gate passes.

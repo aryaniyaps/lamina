@@ -11,7 +11,7 @@ import { checkLaminaInit } from '../../scripts/check_lamina_init.mjs';
 import { checkLaminaPersonas } from '../../scripts/check_lamina_personas.mjs';
 import { diffOutsideLamina } from '../lib/lamina-write-boundary.mjs';
 import { stopIncompatibleServer } from '../../packages/cli/lib/graph-runtime/client.mjs';
-import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
+import { digest, runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
 
 function findTemplateLeaks(text, allowed = '') {
   const terms = ['havenstay', 'budgetapp', 'password-reset-template'];
@@ -137,50 +137,34 @@ function workReceipts(workspace, suffix) {
 }
 
 function isStartedReceipt(receipt) {
-  return ['lamina.work-started/v1', 'lamina.work-started/v2'].includes(receipt?.schema);
+  return receipt?.schema === 'lamina.work-started/v4' &&
+    isWorkMap(receipt.work_map) &&
+    receipt.packet_id === receipt.work_map.packet_id &&
+    receipt.work_map_digest === digest('work_map', receipt.work_map);
 }
 
 function isVerifiedReceipt(receipt) {
-  return ['lamina.work-verified/v1', 'lamina.work-verified/v2'].includes(receipt?.schema) &&
-    receipt?.verified === true;
+  return receipt?.schema === 'lamina.work-verified/v4' &&
+    receipt?.verified === true &&
+    typeof receipt.work_started_receipt_id === 'string' &&
+    typeof receipt.work_map_digest === 'string';
 }
 
 function isWorkMap(map) {
-  return ['lamina.work-map/v1', 'lamina.work-map/v2'].includes(map?.schema);
+  return map?.schema === 'lamina.work-map/v4';
 }
 
 function verifiedWorkMaps(workspace) {
-  const startedPacketIds = new Set(
-    workReceipts(workspace, '.started.json')
-      .filter(isStartedReceipt)
-      .map((receipt) => receipt.packet_id)
-      .filter(Boolean),
-  );
-  const verifiedPacketIds = new Set(
-    workReceipts(workspace, '.verified.json')
-      .filter(isVerifiedReceipt)
-      .map((receipt) => receipt.packet_id)
-      .filter(Boolean),
-  );
-  const receiptMaps = workReceipts(workspace, '.verified.json')
-    .filter((receipt) =>
-      isVerifiedReceipt(receipt) &&
-      isWorkMap(receipt.work_map) &&
-      receipt.packet_id === receipt.work_map.packet_id)
+  const startedReceipts = workReceipts(workspace, '.started.json')
+    .filter(isStartedReceipt);
+  const verifiedReceipts = workReceipts(workspace, '.verified.json')
+    .filter(isVerifiedReceipt);
+  return startedReceipts
+    .filter((started) => verifiedReceipts.some((verified) =>
+      verified.packet_id === started.packet_id &&
+      verified.work_started_receipt_id === started.receipt_id &&
+      verified.work_map_digest === started.work_map_digest))
     .map((receipt) => receipt.work_map);
-  const candidates = [
-    path.join(workspace, '.git', 'lamina', 'work', 'work-map.json'),
-    path.join(workspace, '.git', 'lamina-work-map.json'),
-    path.join(workspace, '.lamina', 'runtime', 'work', 'work-map.json'),
-  ];
-  return [
-    ...receiptMaps,
-    ...candidates.map(readJsonSafe),
-  ]
-    .filter((map) =>
-      isWorkMap(map) &&
-      startedPacketIds.has(map.packet_id) &&
-      verifiedPacketIds.has(map.packet_id));
 }
 
 function checkedWorkMaps(workspace) {
@@ -196,13 +180,6 @@ function checkedWorkMaps(workspace) {
     unique.set(`${map.packet_id || 'unknown'}:${JSON.stringify(map)}`, map);
   }
   return [...unique.values()];
-}
-
-function passedUiEvidence(workspace, { verifiedOnly = false } = {}) {
-  const maps = verifiedOnly ? verifiedWorkMaps(workspace) : checkedWorkMaps(workspace);
-  return maps.flatMap((map) =>
-    [...(map.obligations || []), ...(map.experience_cases || [])].flatMap((entry) =>
-      (entry.verification || []).filter((item) => item.status === 'passed' && item.artifact)));
 }
 
 function diffNewFiles(preState, postState) {
@@ -420,7 +397,7 @@ function gradeAssertion(text, ctx) {
         isStartedReceipt(receipt) &&
         (receipt.work_map || /^packet_[a-z0-9]+$/i.test(receipt.packet_id || '')));
     const hasPacket = Boolean(started) ||
-      /lamina\.implementation-packet\/v[12]|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
+      /lamina\.implementation-packet\/v4|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
     return hookResult(
       text,
       hasPacket,
@@ -443,22 +420,16 @@ function gradeAssertion(text, ctx) {
         entries.every((item) =>
           item.obligation_id &&
           item.status !== 'blocked' &&
-          Array.isArray(item.targets) &&
-          Array.isArray(item.verification) &&
-          item.verification.length > 0) &&
-        (map.schema !== 'lamina.work-map/v2' ||
-          (new Set(cases.map((item) => item.case_id)).size === cases.length &&
-            cases.every((item) =>
-              item.case_id &&
-              item.status !== 'blocked' &&
-              Array.isArray(item.targets) &&
-              item.targets.length > 0 &&
-              item.fixture &&
-              Array.isArray(item.steps) &&
-              item.steps.length > 0 &&
-              item.expected &&
-              Array.isArray(item.verification) &&
-              item.verification.length > 0)));
+          Array.isArray(item.files) &&
+          (item.status !== 'change_required' ||
+            item.files.some((file) => file?.role === 'implementation'))) &&
+        new Set(cases.map((item) => item.case_id)).size === cases.length &&
+        cases.every((item) =>
+          item.case_id &&
+          item.status !== 'blocked' &&
+          Array.isArray(item.files) &&
+          (item.status !== 'change_required' ||
+            item.files.some((file) => file?.role === 'test')));
     });
     return hookResult(
       text,
@@ -536,8 +507,6 @@ function gradeAssertion(text, ctx) {
   }
 
   if (lower.includes('all live ui audit classes')) {
-    const evidence = passedUiEvidence(workspace, { verifiedOnly: true });
-    const kinds = new Set(evidence.map((item) => item.kind));
     const required = ['functional', 'visual', 'responsive', 'accessibility'];
     const graph = liveGraphState(workspace);
     const graphEvents = (graph?.resources || [])
@@ -545,22 +514,32 @@ function gradeAssertion(text, ctx) {
       .flatMap((resource) => resource.data?.events || [])
       .filter((event) => event.type === 'audit_passed');
     const graphKinds = new Set(graphEvents.map((event) => event.audit_kind));
-    const passed = required.every((kind) => kinds.has(kind) && graphKinds.has(kind));
+    const verified = workReceipts(workspace, '.verified.json').some(isVerifiedReceipt);
+    const passed = verified && required.every((kind) => graphKinds.has(kind));
     return hookResult(
       text,
       passed,
       passed
-        ? 'Verified WorkMap and published HarnessResult contain all four live UI audit classes'
-        : `Missing live UI audit classes; map=${[...kinds].join(',')} graph=${[...graphKinds].join(',')}`,
+        ? 'WorkVerified and published HarnessResult contain all four live UI audit classes'
+        : `Missing WorkVerified or live UI audit classes; graph=${[...graphKinds].join(',')}`,
     );
   }
 
   if (lower.includes('independent ui audit artifacts')) {
-    const evidence = passedUiEvidence(workspace, { verifiedOnly: true })
-      .filter((item) => ['functional', 'visual', 'responsive', 'accessibility'].includes(item.kind));
-    const byKind = new Map(evidence.map((item) => [item.kind, path.resolve(workspace, item.artifact)]));
+    const graph = liveGraphState(workspace);
+    const events = (graph?.resources || [])
+      .filter((resource) => resource.kind === 'harness_result')
+      .flatMap((resource) => resource.data?.events || [])
+      .filter((event) =>
+        event.type === 'audit_passed' &&
+        ['functional', 'visual', 'responsive', 'accessibility'].includes(event.audit_kind));
+    const byKind = new Map(events.map((event) => [
+      event.audit_kind,
+      event.artifact?.locator,
+    ]).filter(([, locator]) => locator));
     const files = [...byKind.values()];
-    const passed = byKind.size === 4 &&
+    const verified = workReceipts(workspace, '.verified.json').some(isVerifiedReceipt);
+    const passed = verified && byKind.size === 4 &&
       new Set(files).size === 4 &&
       files.every((file) => fs.existsSync(file));
     return hookResult(
@@ -625,6 +604,70 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'Mission has normalized HarnessResult evidence' : 'Missing normalized Mission/HarnessResult evidence');
   }
 
+  if (lower.includes('engine-recorded persona walks')) {
+    const graph = liveGraphState(workspace);
+    const simulations = (graph?.resources || []).filter((item) =>
+      item.kind === 'persona_walk' &&
+      item.data?.schema === 'lamina.persona-walk/v1' &&
+      item.data?.epistemic_class === 'simulated' &&
+      item.data?.coverage_digest);
+    return hookResult(
+      text,
+      simulations.length > 0,
+      simulations.length
+        ? `${simulations.length} engine-recorded design Persona walk(s)`
+        : 'No engine-recorded persona_walk Resources',
+    );
+  }
+
+  if (lower.includes('all active persona design walks')) {
+    const graph = liveGraphState(workspace);
+    const personas = (graph?.resources || []).filter((item) => item.kind === 'persona');
+    const walks = (graph?.resources || [])
+      .filter((item) =>
+        item.kind === 'persona_walk' &&
+        item.data?.schema === 'lamina.persona-walk/v1' &&
+        item.data?.epistemic_class === 'simulated');
+    const workflows = (graph?.resources || []).filter((item) => item.kind === 'workflow');
+    const personaIds = personas.map((item) => item.id).sort();
+    const passed = personaIds.length > 0 &&
+      workflows.length > 0 &&
+      workflows.every((workflow) =>
+        personaIds.every((persona) =>
+          walks.some((walk) =>
+            walk.data?.workflow_ref === workflow.id &&
+            walk.data?.persona_ref === persona)));
+    return hookResult(
+      text,
+      passed,
+      passed
+        ? `All ${personas.length} active Persona(s) have design walks`
+        : 'Every Workflow does not have one active walk per active Persona',
+    );
+  }
+
+  if (lower.includes('persona walk coverage valid')) {
+    const graph = liveGraphState(workspace);
+    const nodes = (graph?.resources || [])
+      .filter((item) =>
+        item.kind === 'persona_walk' &&
+        item.data?.schema === 'lamina.persona-walk/v1')
+      .flatMap((item) => item.data?.nodes || []);
+    const passed = nodes.length > 0 && nodes.every((node) =>
+      node.permission?.decision &&
+      Array.isArray(node.state_coverage) &&
+      node.state_coverage.length >= 7 &&
+      Array.isArray(node.edge_case_coverage) &&
+      node.edge_case_coverage.length >= 9 &&
+      Array.isArray(node.transitions) &&
+      node.transitions.length > 0);
+    return hookResult(
+      text,
+      passed,
+      passed ? `${nodes.length} Persona flow node(s) have complete coverage matrices` : 'Persona flow-node coverage is incomplete',
+    );
+  }
+
   if (lower.includes('agent proposal remains inferred')) {
     const inferred = /\b(?:agent proposal|agent-authored|agent claims?)[^\n.]{0,100}\binferred\b|\binferred ingress\b/i.test(allOutput);
     const rejectsElevation = /\b(?:rejects?|forbids?|cannot|can't|must not|does not)\b[^\n.]{0,140}\b(?:intended|observed|approved|epistemic)\b/i.test(allOutput);
@@ -640,19 +683,19 @@ function gradeAssertion(text, ctx) {
     );
   }
 
-  if (lower.includes('all relevant persona missions')) {
-    const allRelevant = /\b(?:every|all)(?:\s+\w+){0,2}\s+relevant personas?\b/i.test(allOutput) ||
+  if (lower.includes('all active persona missions')) {
+    const allActive = /\b(?:every|all)(?:\s+\w+){0,2}\s+active personas?\b/i.test(allOutput) ||
       /\ball\s+(?:four|4)\b[\s\S]{0,100}\bindependent missions?\b/i.test(allOutput);
     const mentionsCap = /(?:at most|up to|maximum of|cap(?:ped)?(?:\s+at)?|top)\s*(?:three|3)/i.test(allOutput);
     const rejectsCap = /\b(?:reject(?:ed|s)?|refus(?:e|ed)|conflicts?|disallow(?:ed|s)?|rather than dropping|retained all)\b[^\n.]{0,160}\b(?:cap|top three|three-person|all four)\b/i.test(allOutput) ||
       /\b(?:cap|top three|three-person)\b[^\n.]{0,160}\b(?:reject(?:ed|s)?|refus(?:e|ed)|conflicts?|disallow(?:ed|s)?|retained all)\b/i.test(allOutput);
-    const passed = allRelevant && /\bMission/i.test(allOutput) &&
+    const passed = allActive && /\bMission/i.test(allOutput) &&
       /\bindependent\b|\bisolated\b/i.test(allOutput) &&
       (!mentionsCap || rejectsCap);
     return hookResult(
       text,
       passed,
-      passed ? 'Every relevant Persona receives an independent Mission' : 'Missing uncapped all-Persona Mission protocol',
+      passed ? 'Every active Persona receives an independent Mission' : 'Missing uncapped all-Persona Mission protocol',
     );
   }
 

@@ -42,6 +42,7 @@ const workflowSignals = [
   '/lamina-init',
   'ORDINARY CODING MODE',
   'lamina work prepare',
+  'lamina work map',
   'lamina work verify',
 ];
 let workflowOffset = readme.indexOf('## Quickstart');
@@ -53,9 +54,13 @@ for (const signal of workflowSignals) {
 
 assert.match(
   readme,
-  /Exact graph closure, Experience Contract and Cases, ranked code context, and a checked WorkMap/i,
+  /Converged graph closure, Persona-bound Cases, ranked code context, and a mechanically scaffolded, checked WorkMap/i,
 );
-assert.match(readme, /Every relevant persona gets an independent verification mission/i);
+assert.match(readme, /Every active Persona independently walks every proposed flow node before implementation/i);
+assert.match(readme, /Every active Persona gets an independent verification Mission/i);
+assert.match(readme, /even when no\s+implementation exists/i);
+assert.match(readme, /immutable `modify\|create`\s+implementation\/test file entries/i);
+assert.match(readme, /no second\s+authored contract copies them/i);
 assert.match(readme, /CLI does not edit application source|do not edit application source/i);
 assert.match(readme, /functional, visual, responsive, and accessibility evidence/i);
 assert.match(readme, /should not recommend them during normal work/i);
@@ -91,7 +96,9 @@ for (const screenshot of [
   assert.ok(readme.includes(screenshot), `README must reference demo asset: ${screenshot}`);
 }
 
-assert.match(combined, /every relevant Persona/i);
+assert.match(combined, /every (?:active|relevant) Persona/i);
+assert.match(combined, /design-time walk|design task/i);
+assert.match(combined, /runtime Mission/i);
 assert.match(combined, /never edit application source|do not edit application source/i);
 assert.match(combined, /legacy run files? (?:are )?(?:ignored|left untouched|have no runtime meaning)/i);
 assert.doesNotMatch(combined, /at most three|up to three|≤\s*3/i);

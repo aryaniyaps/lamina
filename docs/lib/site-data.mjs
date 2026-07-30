@@ -16,7 +16,7 @@ export const SITE = {
   commands: ["/lamina-init", "/lamina-design", "/lamina-verify", "/lamina (optional router)"],
   outcomes: [
     "Atomic, versioned product behavior with semantic branch diffs",
-    "Independent Missions for every relevant Persona",
+    "Independent Missions for every active Persona",
     "Epistemically separated intent, observations, simulation, and runtime evidence",
   ],
   whatIsNot: [

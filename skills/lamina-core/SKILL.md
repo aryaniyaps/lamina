@@ -74,13 +74,13 @@ Human labs, interviews, and workshop ceremony are reframed as **contract + live-
 | Scope the design target | [problem-framing](../lamina-problem-framing/SKILL.md) |
 | Map ask → workflows | [feature-discovery](../lamina-feature-discovery/SKILL.md) |
 | What evidence vs assumption | [research-scoping](../lamina-research-scoping/SKILL.md) |
-| Plan verify actor walks | [research-planning](../lamina-research-planning/SKILL.md) |
-| Merge walk results | [research-synthesis](../lamina-research-synthesis/SKILL.md) |
-| Report verify findings | [research-communication](../lamina-research-communication/SKILL.md) |
-| Actor-walk scripts | [interview-design](../lamina-interview-design/SKILL.md) |
-| Walkthrough evidence | [interview-documentation](../lamina-interview-documentation/SKILL.md) |
+| Plan independent design-time and verify-time actor walks | [research-planning](../lamina-research-planning/SKILL.md) |
+| Merge design discoveries or runtime findings | [research-synthesis](../lamina-research-synthesis/SKILL.md) |
+| Report walk findings | [research-communication](../lamina-research-communication/SKILL.md) |
+| Node-by-node actor-walk scripts | [interview-design](../lamina-interview-design/SKILL.md) |
+| Design simulation or runtime walkthrough evidence | [interview-documentation](../lamina-interview-documentation/SKILL.md) |
 | Repo + live UI grounding | [field-research](../lamina-field-research/SKILL.md) |
-| Simulated usability (verify) | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
+| Persona simulation (design and verify) | [usability-evaluation](../lamina-usability-evaluation/SKILL.md) |
 | Real metrics only | [quantitative-validation](../lamina-quantitative-validation/SKILL.md) |
 | Conflicting actor goals | [stakeholder-alignment](../lamina-stakeholder-alignment/SKILL.md) |
 | User-cited references | [competitive-analysis](../lamina-competitive-analysis/SKILL.md) |

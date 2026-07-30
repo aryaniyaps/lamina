@@ -2,7 +2,7 @@
 
 1. Resolve the active GraphVersion and source revision.
 2. Query the workflow closure: Personas, Actors, Operations, invariants, dependencies, Surfaces, Scenarios, Proofs, evidence, and Contradictions.
-3. Compile every relevant Persona Mission.
+3. Compile every active Persona Mission.
 4. Select an adapter by capability manifest; modalities remain open strings.
 5. Run each Mission in an isolated session and adapter context.
 6. Normalize observed events. Store large artifacts in the evidence CAS and publish Evidence/HarnessResult resources.

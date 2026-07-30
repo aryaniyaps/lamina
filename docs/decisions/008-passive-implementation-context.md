@@ -1,6 +1,6 @@
 # ADR 008: Compile passive implementation context from the product graph
 
-- Status: Accepted
+- Status: Accepted; WorkMap details amended by ADR 011
 - Date: 2026-07-29
 
 ## Context

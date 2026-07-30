@@ -2,6 +2,25 @@
 
 Personas are stable Resources. Actors express authority; typed Statements connect Personas to Actors they can assume.
 
-`lamina mission compile` queries all relevant Personas, workflow/operation closure, invariants, recovery paths, Surfaces, adapter capabilities, proofs, evidence, budgets, and isolation. It creates an independent Mission for every relevant Persona without a cap.
+Before implementation, `lamina design prepare-walk` creates an independent,
+coverage-bound design task for every active Persona. Isolated walkers inspect
+every proposed operation node—including denied and inapplicable nodes—and
+expand the graph until no walk discovers another required node, permission,
+state, Scenario, Invariant, recovery path, or edge case. Each node must cover
+the canonical state matrix plus every product-specific state declared on its
+Operation or Surfaces.
 
-Persona interpretation is simulated. Only adapter-observed events become runtime evidence.
+`record-walk` stores the current `persona_walk` Resource and replaces that
+Persona's previous active walk for the Workflow. The digest covers canonical
+Resource data and relevant Statements, so permission or product-data changes
+invalidate the walk even if ids do not change. Experience Cases compile
+directly from these records.
+
+After implementation, `lamina mission compile` queries the converged
+workflow/operation closure, invariants, recovery paths, Surfaces, adapter
+capabilities, proofs, evidence, budgets, and isolation. It creates an
+independent runtime Mission for every active Persona without a cap.
+
+Persona interpretation is simulated. Engine-recorded design walks are
+simulated evidence; only adapter-observed Mission events become runtime
+evidence.

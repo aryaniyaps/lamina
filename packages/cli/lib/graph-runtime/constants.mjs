@@ -1,18 +1,20 @@
 export const RESOURCE_KINDS = new Set([
   'product', 'actor', 'persona', 'entity', 'operation', 'workflow', 'invariant',
   'surface', 'scenario', 'proof', 'evidence', 'decision', 'contradiction',
-  'capability_manifest', 'mission', 'run', 'harness_result', 'observation',
+  'capability_manifest', 'persona_walk', 'mission', 'run', 'harness_result',
+  'observation',
 ]);
 
 export const VIEW_KINDS = new Set(['branch', 'session', 'observation', 'historical']);
 export const CLI_API_VERSION = 1;
-export const GRAPH_PROTOCOL_VERSION = 6;
+export const GRAPH_PROTOCOL_VERSION = 8;
 export const GRAPH_CAPABILITIES = Object.freeze([
   'observation.status.source_key_count',
   'observation.status.generation',
-  'work.context.v1',
-  'work.experience.v2',
-  'mission.case-evidence.v2',
+  'work.context.v4',
+  'design.persona-walk.v1',
+  'work.persona-case-map.v4',
+  'mission.persona-case-evidence.v4',
 ]);
 export const REQUIRED_GRAPH_CAPABILITIES = GRAPH_CAPABILITIES;
 

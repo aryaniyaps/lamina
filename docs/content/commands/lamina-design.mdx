@@ -3,17 +3,30 @@
 Shapes intended product behavior in an explicit graph session.
 
 1. Requires valid business context.
-2. Queries the active GraphVersion and source observations.
-3. Proposes typed Resources and normalized Statements.
-4. Validates the affected closure.
-5. Compiles a Mission for every relevant Persona.
-6. Publishes the session atomically.
+2. Seeds a minimal proposed Workflow for brand-new functionality.
+3. Prepares one coverage-bound design task per active Persona.
+4. Runs and records every Persona in an isolated subagent/context.
+5. Unions discovered permissions, nodes, states, Scenarios, Invariants, and
+   edge cases into the graph and repeats until coverage converges.
+6. Validates the graph-resident walks and compiles Experience Cases directly
+   from them. No separate Experience Contract is authored.
 
 ```bash
 lamina graph status
+lamina design prepare-walk --workflow <workflow> --persona <persona> --request-file <request> --output <task>
+lamina design record-walk --task <task> --result <result>
 lamina session start
 lamina graph validate --at <session-id>
 lamina session publish <session-id>
 ```
 
-On a stale-base error, rebase, re-query, and revalidate. Application implementation is a separate coding session. Any implementation Markdown is a query projection tied to a GraphVersion.
+On a stale coverage digest, rerun every affected Persona walk. On a stale-base
+session error, rebase, re-query, and revalidate. Explicit `/lamina-design`
+remains graph-only; ordinary feature work continues into mapping and
+implementation. Any implementation Markdown is a query projection tied to a
+GraphVersion.
+
+Each walk returns explicit arrays for discovered Personas, Actors, Operations,
+Scenarios, Invariants, Surfaces, branches, and open decisions. Any non-empty
+array blocks implementation readiness until those findings are added to the
+graph and a complete rerun returns an empty discovery matrix.

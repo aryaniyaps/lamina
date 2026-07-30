@@ -6,6 +6,7 @@ import { validatePassiveTrace } from '../benchmarks/lb6/passive-v5/validate-trac
 const protocol = JSON.parse(fs.readFileSync('benchmarks/lb6/passive-v5/protocol.json', 'utf8'));
 assert.equal(protocol.schema, 'lamina.passive-benchmark/v5');
 assert.ok(protocol.semantic_rows.includes('implicit_activation'));
+assert.ok(protocol.semantic_rows.includes('current_persona_walk_coverage'));
 assert.ok(protocol.semantic_rows.includes('case_bound_behavioral_proof'));
 
 const obligationIds = ['obligation_a', 'obligation_b'];

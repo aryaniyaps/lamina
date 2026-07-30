@@ -2,7 +2,17 @@
 
 Use personas as bounded perspective auditors, never as evidence of user preference.
 
-When the orchestrator passes a Mission query projection, treat its Persona, critical promises, and graph slice as the entire input. Do not broaden beyond that GraphVersion closure.
+When the orchestrator passes a `lamina.persona-walk-task/v1`, this is a
+design-time simulation before implementation. Treat its single Persona,
+proposed Workflow coverage, and required state/edge axes as the entire input.
+Walk every operation node, including denied and inapplicable nodes. Return
+missing Operations, branches, permissions, states, Scenarios, Invariants,
+Surfaces, recovery paths, and transitions so the parent can expand the graph.
+Do not inspect or assume implementation source.
+
+When the orchestrator passes a Mission query projection, this is post-build
+runtime verification. Treat its Persona, critical promises, and graph slice as
+the entire input. Do not broaden beyond that GraphVersion closure.
 
 ## Selection
 
@@ -19,7 +29,13 @@ Give each reviewer only:
 
 Within that bounded slice, inspect structural boundaries that affect the persona: reachable identity proof, visible actor/time attribution, temporal meaning and timezone ownership, recurring lifecycle continuity, delivery truth/recovery, and session/privacy consequences when present. Do not broaden into unrelated production backlog.
 
-Require this JSON result:
+For a design task, require a `lamina.persona-walk/v1` JSON result
+bound to its `task_id`, `workflow_ref`, and `persona_ref`, with mode,
+isolation_ref, goal, one node analysis per proposed operation, and explicit
+discovery arrays for Personas, Actors, Operations, Scenarios, Invariants,
+Surfaces, branches, and open decisions. Return every array even when empty.
+
+For a Mission perspective review, require this JSON result:
 
 ```json
 {

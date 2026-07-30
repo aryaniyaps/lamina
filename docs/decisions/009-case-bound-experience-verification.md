@@ -1,6 +1,6 @@
 # ADR 009: Require case-bound experience verification for user-facing work
 
-- Status: Accepted
+- Status: Superseded by ADR 011
 - Date: 2026-07-30
 
 ## Context

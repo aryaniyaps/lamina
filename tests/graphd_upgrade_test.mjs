@@ -176,14 +176,15 @@ try {
   }
 
   let lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-  assert.equal(lock.protocol_version, 6);
-  assert.equal(lock.runtime_version, '0.1.16');
+  assert.equal(lock.protocol_version, 8);
+  assert.equal(lock.runtime_version, '0.2.0');
   assert.deepEqual(lock.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
-    'work.context.v1',
-    'work.experience.v2',
-    'mission.case-evidence.v2',
+    'work.context.v4',
+    'design.persona-walk.v1',
+    'work.persona-case-map.v4',
+    'mission.persona-case-evidence.v4',
   ]);
 
   await stopIncompatibleServer(paths, lock.pid);
@@ -192,14 +193,15 @@ try {
   // protocol. A daemon from the previous CLI release must not keep the old
   // embedded database runtime alive merely because its capabilities match.
   fake = await startFake({
-    protocol_version: 6,
-    runtime_version: '0.1.15',
+    protocol_version: 8,
+    runtime_version: '0.1.17',
     capabilities: [
       'observation.status.source_key_count',
       'observation.status.generation',
-      'work.context.v1',
-      'work.experience.v2',
-      'mission.case-evidence.v2',
+      'work.context.v4',
+      'design.persona-walk.v1',
+      'work.persona-case-map.v4',
+      'mission.persona-case-evidence.v4',
     ],
   });
   const upgradedRuntimeQuery = await graphRequest(
@@ -212,21 +214,22 @@ try {
   ));
   if (fake.exitCode === null) await once(fake, 'exit');
   lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-  assert.equal(lock.runtime_version, '0.1.16');
+  assert.equal(lock.runtime_version, '0.2.0');
   await stopIncompatibleServer(paths, lock.pid);
 
   // Even a daemon that claims the required capabilities is replaced if its
   // actual status response violates the contract. Existing active observation
   // Resources remain sufficient after replacement; no rebuild is needed.
   fake = await startFake({
-    protocol_version: 6,
-    runtime_version: '0.1.16',
+    protocol_version: 8,
+    runtime_version: '0.2.0',
     capabilities: [
       'observation.status.source_key_count',
       'observation.status.generation',
-      'work.context.v1',
-      'work.experience.v2',
-      'mission.case-evidence.v2',
+      'work.context.v4',
+      'design.persona-walk.v1',
+      'work.persona-case-map.v4',
+      'mission.persona-case-evidence.v4',
     ],
   });
   const recoveredMalformedStatus = await runCli(['graph', 'observe'], {
@@ -241,18 +244,18 @@ try {
   lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
   await stopIncompatibleServer(paths, lock.pid);
 
-  // Protocol equality alone is insufficient. A protocol-6 process without the
+  // Protocol equality alone is insufficient. A protocol-8 process without the
   // status capabilities must also be recycled.
   fake = await startFake({
-    protocol_version: 6,
-    runtime_version: '0.1.16',
+    protocol_version: 8,
+    runtime_version: '0.2.0',
     capabilities: [],
   });
   const secondQuery = await graphRequest('graph.query', { at: 'HEAD', kind: 'product' }, root);
   assert.ok(secondQuery.resources.some((resource) => resource.id === 'product.preserved'));
   if (fake.exitCode === null) await once(fake, 'exit');
   lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-  assert.equal(lock.protocol_version, 6);
+  assert.equal(lock.protocol_version, 8);
   assert.ok(lock.capabilities.includes('observation.status.source_key_count'));
 } finally {
   if (fake?.exitCode === null) {

@@ -10,6 +10,6 @@ lamina session publish <returned-session-id>
 lamina graph validate --at HEAD
 ```
 
-Every relevant Persona runs independently with isolated mutable state. Adapters emit normalized runtime events and store large artifacts in the evidence CAS. Missing/corrupt artifacts, stale source snapshots, capability failures, and Contradictions invalidate approval.
+Every active Persona runs independently with isolated mutable state. Adapters emit normalized runtime events and store large artifacts in the evidence CAS. Missing/corrupt artifacts, stale source snapshots, capability failures, and Contradictions invalidate approval.
 
 `mission run` stages the Run and HarnessResult in an isolated session. Inspect and explicitly publish that session; concurrent Runs never become visible merely because an adapter finished. The command reports GraphVersion, source revision, Run/HarnessResult ids, evidence gaps, Contradictions, and a verified/not-verified verdict. It does not edit application source.

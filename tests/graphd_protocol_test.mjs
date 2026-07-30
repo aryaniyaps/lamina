@@ -65,15 +65,16 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
-  assert.equal(ping.result.protocol_version, 6);
-  assert.ok(ping.result.capabilities.includes('work.context.v1'));
-  assert.equal(ping.result.runtime_version, '0.1.16');
+  assert.equal(ping.result.protocol_version, 8);
+  assert.ok(ping.result.capabilities.includes('work.context.v4'));
+  assert.equal(ping.result.runtime_version, '0.2.0');
   assert.deepEqual(ping.result.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
-    'work.context.v1',
-    'work.experience.v2',
-    'mission.case-evidence.v2',
+    'work.context.v4',
+    'design.persona-walk.v1',
+    'work.persona-case-map.v4',
+    'mission.persona-case-evidence.v4',
   ]);
   assert.equal(ping.result.auth, undefined, 'authentication token must never be returned');
 
@@ -93,6 +94,30 @@ try {
   const query = await request('graph.query', { at: 'HEAD', kind: 'product' });
   assert.equal(query.result.resources[0].data.epistemic_class, 'inferred',
     'public graphd proposals must remain agent-inferred');
+
+  const simulationSession = await request('session.start');
+  const simulationSpoof = await request('resource.propose', {
+    session: simulationSession.result.id,
+    resource: {
+      id: 'simulation.spoofed',
+      kind: 'persona_walk',
+      data: {
+        schema: 'lamina.persona-walk/v1',
+        task_id: 'task.spoofed',
+        coverage_digest: 'coverage.spoofed',
+        workflow_ref: 'workflow.spoofed',
+        persona_ref: 'persona.spoofed',
+      },
+    },
+  });
+  assert.equal(simulationSpoof.ok, true);
+  const simulationSpoofPublish = await request('session.publish', {
+    id: simulationSession.result.id,
+  });
+  assert.equal(simulationSpoofPublish.ok, false);
+  assert.equal(simulationSpoofPublish.error.code, 'LAMINA_VALIDATION_FAILED',
+    'caller-authored Resources must not spoof engine-recorded Persona simulations');
+  assert.equal((await request('session.abort', { id: simulationSession.result.id })).ok, true);
 
   await new Promise((resolve) => {
     const socket = net.createConnection(endpoint);

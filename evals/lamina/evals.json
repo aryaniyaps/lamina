@@ -1908,7 +1908,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "all relevant persona missions",
+        "engine-recorded persona walks",
         "persona perspectives in output",
         "no writes outside .lamina",
         "ux guidance only",
@@ -2031,8 +2031,8 @@
       "assertions": [
         "design contract headings",
         "transactional graph workflow",
-        "all relevant persona missions",
-        "Mission evidence valid",
+        "all active persona design walks",
+        "persona walk coverage valid",
         "persona perspectives in output",
         "no writes outside .lamina",
         "ux guidance only",
@@ -2520,7 +2520,7 @@
       "stage_files": true,
       "assertions": [
         "transactional graph workflow",
-        "all relevant persona missions",
+        "all active persona missions",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output"

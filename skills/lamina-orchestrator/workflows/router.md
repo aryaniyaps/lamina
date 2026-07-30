@@ -2,7 +2,7 @@
 
 - Init establishes evidence and intended Product/Persona/Actor knowledge.
 - Design uses graph sessions and publishes a validated GraphVersion.
-- Verify compiles and runs all relevant Persona Missions.
+- Verify compiles and runs all active Persona Missions.
 - Focused questions query the graph and load the smallest craft skill.
 - Application implementation/fixes happen in a normal coding session from a GraphVersion projection.
 

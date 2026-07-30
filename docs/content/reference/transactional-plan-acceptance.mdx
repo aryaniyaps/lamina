@@ -13,7 +13,9 @@ named validation are both present.
 | Git branch, worktree, and multi-parent merge semantics | source-revision ancestry and branch GraphViews | `graphd_worktree_test.mjs`, `transactional_graph_test.mjs` |
 | CocoIndex observations are rebuildable and never canonical | `observe.mjs`, observation ingress, generation tombstones | `observation_cli_test.mjs`, `transactional_graph_test.mjs` |
 | Brownfield discovery reports coverage and limitations | `graph observe` and `graph discover --brownfield` | `observation_cli_test.mjs` |
-| Every relevant Persona receives an independent Mission | mission compile/run and capability manifests | `transactional_graph_test.mjs`, `eval_graph_runtime_install_test.mjs` |
+| Every active Persona independently covers every Workflow node before implementation | coverage-bound `persona_walk` Resources and direct case compilation | `passive_context_test.mjs`, `transactional_graph_test.mjs` |
+| WorkMap rows are mechanically derived, then resolved into an immutable requirement-to-file commitment | v4 scaffold plus modify/create and implementation/test file mappings | `passive_context_test.mjs`, `grade_transactional_graph_evals_test.mjs` |
+| Every active Persona receives an independent Mission | mission compile/run and capability manifests | `transactional_graph_test.mjs`, `eval_graph_runtime_install_test.mjs` |
 | Runtime evidence is normalized, isolated, and content-addressed | Mission Run/HarnessResult publication and evidence CAS | `transactional_graph_test.mjs` |
 | Modalities and product taxonomies remain open | generic Resource kinds, predicates, and string capability requirements | `transactional_graph_test.mjs` |
 | Stale, missing, corrupt, and capability-limited evidence fails closed | validation receipts and Mission capability checks | `transactional_graph_test.mjs` |
@@ -23,7 +25,7 @@ named validation are both present.
 | All workflow and craft skills are first-class siblings | `skills/lamina` plus 58 `skills/lamina-*` directories | `verify_lamina_bundle.mjs`, `eval_install_all_skills_test.mjs` |
 | Every eval run loads the complete cross-referenced skill set | ASE and multi-turn install hooks copy all 59 public skills before invocation | `ase_run.py`, `eval_install_all_skills_test.mjs` |
 | CLI and skills are independently installable | checksum-verified standalone CLI release assets and root GitHub skill | `cli_binary_smoke_test.mjs`, `release_artifact_smoke_test.mjs`, `eval_graph_runtime_install_test.mjs` |
-| Current evals exercise graph state rather than legacy artifacts | live graph assertions in `evals/hooks/grade-lamina.mjs` | 119-case generation/validation and graph grader tests |
+| Current evals exercise graph state rather than legacy artifacts | live graph assertions in `evals/hooks/grade-lamina.mjs` | generated-suite validation and graph grader tests |
 | Current Lamina benchmark cells install and enforce the graph runtime | standalone CLI release contract, graph backups, fail-closed treatment gate | `validate-transactional-pilot.mjs`, `behavior_benchmark_test.mjs` |
 
 Intentionally deferred v1 work remains outside the accepted plan: cross-clone
@@ -35,3 +37,5 @@ The architectural rationale is recorded in
 [ADR-001](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/001-transactional-product-graph.md)
 and the current distribution decision in
 [ADR-003](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/003-public-sibling-skills.md).
+The current Persona/WorkMap simplification is recorded in
+[ADR-011](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/011-compile-cases-from-persona-walks.md).

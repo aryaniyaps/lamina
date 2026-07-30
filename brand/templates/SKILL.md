@@ -96,7 +96,7 @@ Categories: empty states, errors, concurrency, boundaries, permissions, recovery
 After implementation, run verification:
 
 1. Resolve the active GraphVersion and source revision.
-2. Compile one independent Mission for every relevant Persona.
+2. Compile one independent Mission for every active Persona.
 3. Run each Mission through a capability-matched adapter.
 4. Publish normalized Evidence and HarnessResults through graphd.
 

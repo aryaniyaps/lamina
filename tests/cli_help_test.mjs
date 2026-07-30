@@ -8,7 +8,8 @@ const cli = path.resolve('packages/cli/bin/lamina.mjs');
 for (const [args, patterns] of [
   [['--help'], [/Usage: lamina <command>/, /lamina graph --help/]],
   [['graph', '--help'], [/Usage: lamina graph <command>/, /propose --input FILE/, /restore --input FILE/]],
-  [['work', '--help'], [/Usage: lamina work <command>/, /prepare --request-file FILE/, /accessibility evidence/]],
+  [['design', '--help'], [/prepare-walk --workflow WORKFLOW/, /record-walk --task FILE/, /no separately authored Experience Contract/]],
+  [['work', '--help'], [/Usage: lamina work <command>/, /prepare --request-file FILE/, /map --packet FILE/, /mechanically creates every obligation/, /action=modify/, /action=create/, /accessibility evidence/]],
   [['session', '--help'], [/Usage: lamina session <command>/, /publish SESSION/]],
   [['mission', '--help'], [/Usage: lamina mission <command>/, /--events FILE must contain a JSON array/]],
 ]) {

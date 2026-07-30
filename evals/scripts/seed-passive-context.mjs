@@ -76,63 +76,72 @@ try {
   if (fixture.scenario) {
     resources.push({ id: id('scenario'), alias: `${fixture.slug}-scenario`, kind: 'scenario', data: { name: fixture.scenario } });
   }
+  let personaJourneys = [];
   if (fixture.invariant && fixture.scenario) {
-    resources.push({
-      id: id('decision'),
-      alias: `${fixture.slug}-experience`,
-      kind: 'decision',
-      data: {
-        schema: 'lamina.experience-contract/v1',
-        workflow_ref: id('workflow'),
-        name: `${fixture.workflow} experience contract`,
-        operations: [{
-          operation_ref: id('operation'),
-          inputs: [{
-            id: 'primary-input',
-            source: 'actor',
-            required: true,
-            rationale: 'The actor must provide the value changed by this workflow.',
-          }],
-          relationship_policy: {
-            mode: 'none',
-            rationale: 'This operation does not create a new identity or ownership relationship.',
-          },
-          success: { visible_state: 'The authoritative completed result is visible.' },
-          failures: [{
-            code: 'WORKFLOW_CONFLICT',
-            scenario_ref: id('scenario'),
-            visible_message: 'The action could not complete and the reason is visible.',
-            recovery: 'Preserve the actor input and provide a bounded retry.',
-            preserves_input: true,
-          }],
+    personaJourneys = (fixture.personas || []).map((persona) => ({
+      persona_ref: persona.id,
+      actor_refs: [id('actor')],
+      goal: persona.goal,
+      nodes: [{
+        id: `node.eval.${fixture.slug}.${persona.alias}`,
+        operation_ref: id('operation'),
+        intent: persona.goal,
+        permission: {
+          decision: 'allowed',
+          actor_ref: id('actor'),
+          rationale: `${persona.name} acts through the authorized ${fixture.actor} role.`,
+        },
+        inputs: [{
+          id: 'primary-input',
+          source: 'actor',
+          required: true,
+          rationale: 'The actor must provide the value changed by this workflow.',
         }],
-        surfaces: [{
-          surface_ref: id('surface'),
-          states: [
-            { id: 'ready', visible_state: 'The primary action is available.' },
-            { id: 'success', visible_state: 'The durable result is visible.' },
-            { id: 'error', visible_state: 'The failure and recovery action are visible.' },
-          ],
-          fields: [{
-            input_ref: `${id('operation')}:primary-input`,
-            label: 'Primary input',
-            required: true,
-            error_target: 'primary-input-error',
-          }],
-          failure_presentations: [{
-            scenario_ref: id('scenario'),
-            message: 'The action could not complete and the reason is visible.',
-            recovery: 'Retry without losing entered data.',
-          }],
+        relationship_policy: {
+          mode: 'none',
+          rationale: 'This operation does not create a new identity or ownership relationship.',
+        },
+        surface_refs: [id('surface')],
+        state_coverage: [
+          { kind: 'entry', applicable: true, visible_state: 'The primary action is available.' },
+          { kind: 'in_progress', applicable: true, visible_state: 'Progress is visible without implying completion.' },
+          { kind: 'empty', applicable: false, rationale: 'This focused action has an explicit input state.' },
+          { kind: 'success', applicable: true, visible_state: 'The authoritative completed result is visible.' },
+          { kind: 'failure', applicable: true, visible_state: 'The failure reason is visible.' },
+          { kind: 'denied', applicable: false, rationale: 'This Persona uses an authorized Actor for the seeded flow.' },
+          { kind: 'recovery', applicable: true, visible_state: 'The input is preserved and a bounded retry is available.' },
+        ],
+        scenario_coverage: [{
+          scenario_ref: id('scenario'),
+          applicable: true,
+          trigger: fixture.scenario,
+          expected: 'The action cannot silently corrupt or overwrite accepted state.',
+          recovery: 'Preserve the actor input and provide a bounded retry.',
+          preserves_input: true,
         }],
-        invariant_cases: [{
+        edge_case_coverage: [
+          { kind: 'validation', applicable: true, trigger: 'The primary input is invalid.', expected: 'Validation is visible before acceptance.', recovery: 'Correct the preserved input.' },
+          { kind: 'authorization', applicable: true, trigger: 'The Actor lacks access.', expected: 'The action is denied without side effects.', recovery: 'Use an authorized account or request access.' },
+          { kind: 'duplicate', applicable: false, rationale: 'The seeded operation updates one identified workflow value.' },
+          { kind: 'self_reference', applicable: false, rationale: 'The seeded operation creates no relationship.' },
+          { kind: 'concurrency', applicable: true, trigger: 'Two accepted attempts overlap.', expected: 'Neither accepted result is silently lost.', recovery: 'Resolve against the authoritative state.' },
+          { kind: 'stale_data', applicable: true, trigger: 'The Actor submits an old revision.', expected: 'The stale write is rejected visibly.', recovery: 'Reload or merge before retrying.' },
+          { kind: 'interruption', applicable: true, trigger: 'The client exits during the action.', expected: 'Only durable state is shown after return.', recovery: 'Retry if completion is not confirmed.' },
+          { kind: 'retry', applicable: true, trigger: 'The Actor repeats an uncertain action.', expected: 'The retry does not duplicate effects.', recovery: 'Show the authoritative result.' },
+          { kind: 'connectivity', applicable: true, trigger: 'Connectivity fails in progress.', expected: 'No false success is shown.', recovery: 'Preserve input and retry when connected.' },
+        ],
+        invariant_probes: [{
           invariant_ref: id('invariant'),
-          surface_ref: id('surface'),
+          applicable: true,
           attempt: 'Attempt to violate the workflow invariant.',
           expected: 'The product blocks or recovers visibly without corrupting state.',
         }],
-      },
-    });
+        transitions: [
+          { outcome: 'success', terminal: true, expected: 'The authoritative result is visible.' },
+          { outcome: `scenario:${id('scenario')}`, terminal: true, expected: 'The failure and recovery state is visible.' },
+        ],
+      }],
+    }));
   }
   for (const resource of resources) {
     await graphRequest('resource.propose', { session: session.id, resource }, workspace);
@@ -145,8 +154,8 @@ try {
     { subject: id('workflow'), predicate: 'lamina:requiresProof', object: id('proof') },
     ...(fixture.personas || []).map((persona) => ({
       subject: persona.id,
-      predicate: 'lamina:relevantTo',
-      object: id('workflow'),
+      predicate: 'lamina:canAssume',
+      object: id('actor'),
     })),
   ];
   if (fixture.invariant) {
@@ -155,17 +164,44 @@ try {
   if (fixture.scenario) {
     statements.push({ subject: id('workflow'), predicate: 'lamina:hasScenario', object: id('scenario') });
   }
-  if (fixture.invariant && fixture.scenario) {
-    statements.push({
-      subject: id('workflow'),
-      predicate: 'lamina:experienceContract',
-      object: id('decision'),
-    });
-  }
   for (const statement of statements) {
     await graphRequest('statement.propose', { session: session.id, statement }, workspace);
   }
-  const published = await graphRequest('session.publish', { id: session.id }, workspace);
+  let published = await graphRequest('session.publish', { id: session.id }, workspace);
+  if (personaJourneys.length) {
+    for (const journey of personaJourneys) {
+      const task = await graphRequest('design.walk.prepare', {
+        workflow: id('workflow'),
+        persona: journey.persona_ref,
+        request: fixture.workflow,
+      }, workspace);
+      const recorded = await graphRequest('design.walk.record', {
+        task,
+        result: {
+          schema: 'lamina.persona-walk/v1',
+          task_id: task.task_id,
+          workflow_ref: id('workflow'),
+          persona_ref: journey.persona_ref,
+          mode: 'subagent',
+          isolation_ref: `eval-subagent-${fixture.slug}-${journey.persona_ref}`,
+          goal: journey.goal,
+          actor_refs: journey.actor_refs,
+          nodes: journey.nodes,
+          discoveries: {
+            personas: [],
+            actors: [],
+            operations: [],
+            scenarios: [],
+            invariants: [],
+            surfaces: [],
+            branches: [],
+            open_decisions: [],
+          },
+        },
+      }, workspace);
+      published = recorded;
+    }
+  }
   const version = typeof published.graph_version === 'string'
     ? published.graph_version
     : published.graph_version?.id;

@@ -78,12 +78,16 @@ It never stages or creates an initial commit.
 Add medication schedule editing with conflict-safe saves and a responsive UI.
 ```
 
-That is the whole ongoing interface. The installed rules make the agent
-implicitly compile a bounded ImplementationPacket from the graph, fill design
-gaps, turn user-facing behavior into deterministic Experience Cases, map every
-requirement and case to code and tests before editing, implement, run
-case-bound live proof, fix failures, and reverify. It does not dump the entire
-graph into the prompt.
+That is the whole ongoing interface. For a new or changed flow, the installed
+rules first run one independent design-time walk per Persona—even when no
+implementation exists. Those walks expand missing nodes, permissions, states,
+Scenarios, Invariants, recovery paths, and edge cases into the graph until the
+current round returns an empty discovery matrix. Lamina then compiles a bounded
+ImplementationPacket, runs `lamina work map` to scaffold every requirement and
+Persona-bound case, resolves them to immutable `modify|create`
+implementation/test file entries, implements, runs case-bound live proof,
+fixes failures, and reverifies. It does not dump the entire graph into the
+prompt.
 
 `/lamina-design` and `/lamina-verify` remain advanced overrides when you want a
 graph-only design pass or a source-read-only audit. They are not required steps
@@ -106,11 +110,11 @@ Your coding agent writes app source. Optional UI skills handle look and feel. **
 | Step | Who | Result |
 |---|---|---|
 | 0. Init | **Lamina** | Business context plus Product, Actor, and Persona knowledge |
-| 1. Prepare | **Lamina + your agent** | Exact graph closure, Experience Contract and Cases, ranked code context, and a checked WorkMap |
-| 2. Build | **Your coding agent** | App source in any stack, mapped to product obligations and Experience Cases |
-| 3. Verify | **Lamina + your agent** | Case-bound persona evidence plus state-scoped functional, visual, responsive, and accessibility evidence |
-| 4. Fix | **Your coding agent** | Product or contract fixes from failed obligations |
-| 5. Re-verify | **Lamina + your agent** | Current evidence for every obligation and Experience Case |
+| 1. Walk | **Independent Persona simulations** | Node-by-node permissions, states, branches, edge cases, and graph discoveries |
+| 2. Prepare | **Lamina + your agent** | Converged graph closure, Persona-bound Cases, ranked code context, and a mechanically scaffolded, checked WorkMap |
+| 3. Build | **Your coding agent** | App source in any stack, mapped to product obligations and Experience Cases |
+| 4. Verify | **Lamina + your agent** | Runtime Mission evidence plus state-scoped functional, visual, responsive, and accessibility evidence |
+| 5. Fix and reverify | **Your coding agent + Lamina** | Current evidence for every obligation and Experience Case |
 
 Human-readable implementation, report, and fix documents are optional projections from a resolved `GraphVersion`. They are useful handoffs, but they are not canonical state. Legacy run files are left untouched and have no runtime meaning.
 
@@ -123,7 +127,10 @@ Lamina keeps a local transactional product graph for each Git repository:
 - Product intent, observed source behavior, agent inference, persona simulation, and runtime evidence stay separate.
 - Multi-part design changes publish atomically: the whole change lands, or none of it does.
 - Conflicting facts remain visible as contradictions instead of silently overwriting each other.
-- Every relevant persona gets an independent verification mission.
+- Every active Persona independently walks every proposed flow node before implementation.
+- Experience Cases compile directly from current Persona walks; no second
+  authored contract copies them.
+- Every active Persona gets an independent verification Mission.
 - Lamina's managed observer derives source observations; `graphd` owns the canonical Ladybug graph.
 
 Use `lamina graph status` to inspect the active graph. See the [transactional graph reference](docs/content/reference/transactional-graph.mdx) for Resources, Statements, sessions, GraphVersions, missions, evidence, and the complete CLI.
@@ -257,7 +264,10 @@ Mocks show screens. They do not capture every legal state or verify the build. L
 | `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
 | `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, or Cursor |
 | `lamina context catalog` | Explain authoritative graph and derived source-retrieval tiers |
+| `lamina design prepare-walk` | Compile one coverage-bound design task for one Persona |
+| `lamina design record-walk` | Record that isolated walk as engine-owned simulated graph evidence |
 | `lamina work prepare` | Compile the bounded graph slice, stable obligations, and Experience Cases |
+| `lamina work map` | Mechanically scaffold every obligation and Experience Case row for file resolution |
 | `lamina work check` | Require complete obligation/case-to-code-and-test mapping before edits |
 | `lamina work verify` | Require current case-bound evidence and all state-scoped UI audit classes |
 | `/lamina-design` | Advanced graph-only design override |

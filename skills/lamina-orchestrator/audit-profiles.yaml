@@ -52,7 +52,7 @@ profiles:
       - lamina-progressive-disclosure
 
   experience-core:
-    mandatory_for: user-facing-workflow
+    mandatory_for: workflow-with-active-personas
     skills:
       - lamina-product-behavior
       - lamina-invariants
@@ -62,6 +62,22 @@ profiles:
       - lamina-error-handling
       - lamina-feedback-and-status
       - lamina-content-design
+
+  design-simulation:
+    mandatory_for: new-or-changed-workflow
+    skills:
+      - lamina-user-modeling
+      - lamina-task-analysis
+      - lamina-flow-design
+      - lamina-edge-cases
+      - lamina-invariants
+      - lamina-dependencies
+      - lamina-idempotency-concurrency
+      - lamina-error-handling
+      - lamina-empty-states
+      - lamina-research-planning
+      - lamina-interview-design
+      - lamina-research-synthesis
 
   design-risks:
     skills:

@@ -24,25 +24,57 @@ Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/referenc
 ## Workflow
 
 1. Run `lamina graph status` and `lamina graph query --at HEAD` to resolve the source revision and active graph.
-2. Start an explicit session with `lamina session start`. Keep its id.
-3. Propose stable opaque Resources and normalized Statements into that session with `lamina graph propose ... --session <id>`, `patch --session <id>`, or `link --session <id>`. Agents must not set epistemic class, approval, or raw Cypher.
-4. Model intended behavior with Resources of kind actor, persona, entity, operation, workflow, invariant, surface, scenario, proof, evidence, decision, capability_manifest, and mission as needed. Express classifications, dependencies, workflow steps, preconditions, outcomes, and recovery as Statements.
-5. For every user-facing workflow, load the `experience-core` audit profile in
-   addition to applicable trust/time/concurrency/accessibility skills. Publish
-   exactly one linked Decision whose value is a
-   `lamina.experience-contract/v1`: define every actor input and requiredness,
-   relationship identity/cardinality plus duplicate and self-reference
-   behavior, visible success and failure recovery, each concrete Surface
-   state, and an executable probe for every invariant. Bind every reachable
-   Scenario to a visible failure contract. Record conflicting valid facts; do
-   not overwrite either side.
-6. Run `lamina graph validate --at <session-id>`. Resolve shape, reachability, authority, dependency, proof, and evidence failures. Relevant Contradictions mean `approved: false`.
-7. Compile Missions for every relevant Persona. Never cap the cast:
+2. For a brand-new feature, first publish only the minimum graph skeleton
+   needed to walk it: Workflow, full active Persona roster, assumed Actors, and
+   the currently proposed ordered Operations. This seed is not an
+   implementation-ready contract and does not require source files.
+3. For each active Persona run `lamina design prepare-walk --workflow
+   <workflow> --persona <persona> --request-file <request> --output
+   <task.json>`. Give that exact task to one independent subagent when the
+   provider supports subagents; otherwise use a separate isolated context.
+   Walkers receive no other Persona's conclusions.
+4. Each Persona walker must traverse every proposed operation node, including
+   nodes the Persona is denied from or for which the node is inapplicable.
+   At each node independently decide intent, assumed Actor, authorization and
+   conditions, actor inputs and requiredness, relationship identity/cardinality,
+   duplicate and self-reference behavior, the canonical state matrix plus
+   every product-specific Operation or Surface state, every declared Scenario,
+   every Invariant probe, success/failure/denial transitions, and the
+   validation, authorization, duplicate, self-reference, concurrency,
+   stale-data, interruption, retry, and connectivity edge axes. It must return
+   explicit discovery arrays for Personas, Actors, Operations, Scenarios,
+   Invariants, Surfaces, branches, and open decisions, not mutate the graph.
+5. Record each result with `lamina design record-walk --task <task.json>
+   --result <result.json>`. The result must be
+   `lamina.persona-walk/v1`, name its isolation context, and remain
+   source-read-only. `graphd` publishes it as engine-owned simulated evidence.
+6. The parent agent unions all Persona findings. Expand the graph so every
+   discovered operation, branch, permission, state, Scenario, Invariant,
+   Surface, recovery, and transition is canonical before implementation.
+   Preserve disagreements as Contradictions instead of collapsing them.
+7. Expansion changes the coverage digest. After publishing discoveries, rerun
+   steps 3-6 for every Persona until one complete round discovers no new
+   discovery in any category. Stale walks and non-empty discovery matrices
+   cannot satisfy readiness.
+8. Start the final explicit design session with `lamina session start`. Propose
+   stable opaque Resources and normalized Statements with `lamina graph propose
+   ... --session <id>`, `patch --session <id>`, or `link --session <id>`.
+   Agents must not set epistemic class, approval, or raw Cypher.
+9. Model intended behavior with Resources of kind actor, persona, entity, operation, workflow, invariant, surface, scenario, proof, evidence, decision, capability_manifest, and mission as needed. Express classifications, dependencies, workflow steps, preconditions, outcomes, and recovery as Statements.
+10. For every workflow, load the `experience-core` audit profile in addition to
+   applicable trust/time/concurrency/accessibility skills. Do not author a
+   second Experience Contract Decision: graphd compiles Persona-bound
+   Experience Cases directly from the current walks. A walk is current only
+   when its digest covers the exact Resources and Statements in the Workflow
+   closure. Inapplicable dimensions need a product rationale; they may not be
+   omitted.
+11. Run `lamina graph validate --at <session-id>`. Resolve shape, reachability, authority, dependency, proof, Persona-walk, and evidence failures. Relevant Contradictions mean `approved: false`.
+12. Compile Missions for every active Persona. Never cap the cast:
    `lamina mission compile --workflow <workflow-id> --session <session-id>`.
-   If asked to rank, prune, retain a top N, or apply a persona cap, explicitly reject the cap and keep all relevant Personas.
-8. Publish once with `lamina session publish <session-id>`. If compare-and-swap fails, run `lamina session rebase <session-id>`, re-query and revalidate, then publish.
-9. Generate any human implementation Markdown only as a query projection. It is never canonical and must cite the resolved GraphVersion.
-10. In passive implementation flow, rerun `lamina work prepare` and continue
+   If asked to rank, prune, retain a top N, or apply a persona cap, explicitly reject the cap and keep all active Personas.
+13. Publish once with `lamina session publish <session-id>`. If compare-and-swap fails, run `lamina session rebase <session-id>`, re-query and revalidate, then publish.
+14. Generate any human implementation Markdown only as a query projection. It is never canonical and must cite the resolved GraphVersion.
+15. In passive implementation flow, rerun `lamina work prepare` and continue
     only when it returns an implementation-ready packet. Do not tell the user
     to invoke this skill.
 
@@ -61,11 +93,13 @@ Report the resolved GraphVersion and source revision, then:
 ### Contradictions and open questions
 ```
 
-Mention flows, inputs and requiredness, relationship semantics, edge cases,
-empty/failure/permission behavior, recovery, and the deterministic Experience
-Cases compiled from the contract. If asked to implement app code in the same
-command, finish the graph transaction but state that application
-implementation is a separate coding session.
+Report each Persona walk separately before the union: nodes traversed,
+permission decisions, discovered branches, states, edge axes, Scenarios,
+Invariants, and unresolved conflicts. Then report the expanded canonical
+graph and Persona-bound deterministic Experience Cases. If asked to implement
+app code in the same ordinary request, continue through WorkMap and
+implementation after the graph transaction; only an explicit graph-only
+`/lamina-design` invocation ends before source edits.
 
 ## Hard rules
 

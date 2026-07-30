@@ -7,6 +7,10 @@ description: "Verify graph-backed product Missions after ordinary implementation
 
 Verification reads the active GraphVersion and publishes runtime Evidence through isolated Mission sessions. It never discovers, selects, or mutates the active GraphVersion.
 
+Verification Missions are the runtime replay of Persona-bound Experience
+Cases. They do not replace the earlier design-time Persona simulations that
+must discover and expand new-feature flows before implementation begins.
+
 ## Gate and grounding
 
 First read and apply
@@ -17,7 +21,7 @@ Require valid `.lamina/business-context.md` using `../lamina-orchestrator/prereq
 
 ## Mission protocol
 
-1. Run `lamina mission compile --workflow <workflow-id>`. This must return one independent Mission for every relevant Persona; there is no maximum of three.
+1. Run `lamina mission compile --workflow <workflow-id>`. This must return one independent Mission for every active Persona; there is no maximum of three.
 2. Select adapters only through capability_manifest Resources. Unknown modalities are strings and require no database migration.
 3. Give every Persona an independent adapter context and Run session. Do not share mutable login, browser, process, clock, device, or fixture state.
 4. Exercise every compiled Experience Case, including actor inputs and
@@ -44,8 +48,8 @@ passed/failed, denial observed, recovery attempted, artifact captured,
 `audit_passed` with a valid `audit_kind`, and budget/capability failure. Each
 `oracle_passed` or `oracle_failed` event must name a compiled `case_id` and
 include a structured observation. A passing oracle must reference a
-`lamina.experience-evidence/v1` JSON manifest that includes that case, the
-executed steps, expected behavior, and observed behavior.
+reproducible artifact. The structured event already binds the case, expected
+behavior, and observed behavior; do not duplicate it in a second manifest.
 
 For every Mission whose closure contains a Surface, exercise relevant states
 in a real runnable UI adapter and capture all four independent audit classes:
@@ -62,11 +66,11 @@ analysis is not a substitute. Do not reuse one artifact across audit classes.
 
 ## Completion
 
-Verification is complete only when every relevant Persona Mission ran independently, all required evidence is available and reproducible, and `lamina graph validate --at HEAD` reports the validation and contradiction state. Human `report.md` or `fix.md` may be generated as query projections; they are not truth-bearing runtime inputs.
+Verification is complete only when every active Persona Mission ran independently, all required evidence is available and reproducible, and `lamina graph validate --at HEAD` reports the validation and contradiction state. Human `report.md` or `fix.md` may be generated as query projections; they are not truth-bearing runtime inputs.
 
 In passive flow, finish with `lamina work verify --packet <packet> --map
 <work-map>`. This command requires published current-source Mission evidence
-for every relevant UI Persona; staged HarnessResults and standalone audit files
+for every active UI Persona; staged HarnessResults and standalone audit files
 cannot satisfy it. Do not recommend that the user invoke a verification skill.
 
 Report the GraphVersion, source revision, Run and HarnessResult ids, evidence gaps, contradictions, and a crisp verified/not-verified verdict.

@@ -53,7 +53,10 @@ lamina graph backup --output graph.backup.json
 lamina graph restore --input graph.backup.json
 lamina graph rebuild-observations
 lamina context catalog
+lamina design prepare-walk --workflow <ref> --persona <ref> --request-file <file> --output <task.json>
+lamina design record-walk --task <task.json> --result <walk.json>
 lamina work prepare --request-file <file> --workflow <ref> --output <packet.json>
+lamina work map --packet <packet.json> --output <work-map.json>
 lamina work check --packet <packet.json> --map <work-map.json>
 lamina work verify --packet <packet.json> --map <work-map.json>
 ```
@@ -65,18 +68,34 @@ runtime inputs during normal operation.
 
 ## Implementation context
 
-`work prepare` is a read-only compiler over the selected workflow closure. It
-returns the relevant actors, authority, ordered operations, invariants,
-scenarios, surfaces, proofs, direct provenance, and stable obligation ids. A
-derived lexical ranker adds code-localization candidates, but source search is
-never graph authority. Dense retrieval is currently an optional unavailable
-tier and reports `lexical_degraded`; exact traversal already supplies the
-decision contract.
+Before `work prepare`, one engine-recorded design walk per active Persona must
+match the current Workflow coverage digest. Walks are independent of runtime
+Missions and can expand a feature graph before source exists.
 
-Preparation fails closed for stale source identity, contradictions, missing
+The digest hashes canonical covered Resource data and relevant Statements.
+Recording a walk replaces that Persona's previous active walk for the Workflow.
+Experience Cases compile directly from current walks; there is no separate
+authored Experience Contract.
+
+`work prepare` is a read-only compiler over the converged selected workflow
+closure. It returns the relevant actors, authority, ordered operations,
+invariants, scenarios, surfaces, proofs, Persona-bound Experience Cases,
+direct provenance, and stable obligation ids. A derived lexical ranker adds
+code-localization candidates, but source search is never graph authority.
+Dense retrieval is currently an optional unavailable tier and reports
+`lexical_degraded`; exact traversal supplies the decision contract.
+
+Preparation fails closed for stale source identity, contradictions, stale or
+missing Persona walks, missing
 authority, incomplete operation contracts, missing invariants/scenarios, or a
-UI surface without a proof specification. `work check` then requires exactly
-one code/test mapping for every obligation before edits.
+UI surface without a proof specification. `work map` mechanically creates one
+unresolved row for every packet obligation and Experience Case; the agent
+resolves status and files without authoring requirement identities. `work
+check` then requires
+`lamina.work-map/v4`: every changed obligation maps to an implementation file,
+every changed Experience Case maps to a test file, and each file declares
+`action: modify|create`. Modify paths must exist; create paths must not exist
+until implementation. WorkStarted binds the entire immutable map.
 
 Validation exposes three distinct lifecycle signals:
 
@@ -84,7 +103,10 @@ Validation exposes three distinct lifecycle signals:
 - `implementation_ready`: the selected contract is detailed enough to code;
 - `verified`: required current evidence exists and no readiness gap remains.
 
-For UI Runs, `verified` requires independent functional, visual, responsive,
+Runtime proof comes only from published Mission events. A passing case oracle
+contains its case id, structured expected/observed result, and a reproducible
+artifact; no second Experience Evidence manifest or mutable WorkMap evidence
+copy exists. For UI Runs, `verified` requires independent functional, visual, responsive,
 and accessibility audit artifacts. An oracle alone or one reused screenshot
 cannot satisfy that gate.
 
@@ -119,7 +141,7 @@ lamina session query <returned-session-id>
 lamina session publish <returned-session-id>
 ```
 
-Compilation creates an independent Mission for every relevant Persona. `mission run` stages its Run and HarnessResult in an isolated session; it does not publish implicitly. Adapters are selected through capability manifests; modalities remain open strings. Only normalized adapter events produce runtime evidence.
+Compilation creates an independent Mission for every active Persona. `mission run` stages its Run and HarnessResult in an isolated session; it does not publish implicitly. Adapters are selected through capability manifests; modalities remain open strings. Only normalized adapter events produce runtime evidence.
 
 ## Epistemic classes
 

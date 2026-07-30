@@ -26,7 +26,7 @@
   ],
   "semantic_rows": [
     "implicit_activation",
-    "decision_complete_experience_contract",
+    "current_persona_walk_coverage",
     "experience_case_to_code_coverage",
     "fail_closed_before_edit",
     "case_bound_behavioral_proof",

@@ -46,7 +46,7 @@ reproducible artifacts, and no explicit phase-command handoff.
 
 The CLI now accepts implementation readiness from `WorkStarted`, snapshots the
 verified WorkMap in the terminal receipt, and requires published current-source
-Mission evidence for every relevant UI Persona. Each accepted run must contain
+Mission evidence for every active UI Persona. Each accepted run must contain
 `oracle_passed`, no failure/capability event, all four audit kinds, and four
 distinct artifacts retained in the evidence CAS. A staged mission or standalone
 files cannot satisfy `work verify`. Regression tests cover the positive
