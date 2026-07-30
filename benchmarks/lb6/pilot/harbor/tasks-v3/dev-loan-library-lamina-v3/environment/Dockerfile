@@ -11,9 +11,9 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 COPY cursor-agent-version/ /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/
 RUN mkdir -p /root/.local/bin && ln -s /root/.local/share/cursor-agent/versions/2026.07.20-8cc9c0b/cursor-agent /root/.local/bin/cursor-agent
 COPY lamina-release.json /tmp/lamina-release.json
-RUN test "$(node -p "require('/tmp/lamina-release.json').sha256")" = "28e1bcb775fb6e2c25ca6b09063b8ecf293a20595179e0a62df05dc16ebf25a5" \
-    && test "$(node -p "require('/tmp/lamina-release.json').version")" = "0.1.12" \
-    && curl -fsSL https://github.com/aryaniyaps/lamina/releases/download/cli-v0.1.12/install.sh | sh \
+RUN test "$(node -p "require('/tmp/lamina-release.json').sha256")" = "e0b50ec8650d207e3dccc2f656f31986ba482bcc0015625bdea0598b5767216e" \
+    && test "$(node -p "require('/tmp/lamina-release.json').version")" = "0.1.15" \
+    && curl -fsSL https://github.com/aryaniyaps/lamina/releases/download/cli-v0.1.15/install.sh | sh \
     && lamina --version
 WORKDIR /app
 RUN mkdir -p /app

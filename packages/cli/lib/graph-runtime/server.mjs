@@ -105,6 +105,12 @@ function dispatch(request) {
 const server = net.createServer((socket) => {
   let buffer = '';
   socket.setEncoding('utf8');
+  // A CLI may time out, be interrupted, or stop reading a large response.
+  // Socket errors belong to that connection and must never crash graphd while
+  // Ladybug has committed state waiting to be checkpointed.
+  socket.on('error', () => {
+    try { socket.destroy(); } catch {}
+  });
   socket.on('data', (chunk) => {
     buffer += chunk;
     let newline;
@@ -129,7 +135,7 @@ const server = net.createServer((socket) => {
           },
         };
       }
-      socket.write(`${JSON.stringify(response)}\n`);
+      if (!socket.destroyed) socket.write(`${JSON.stringify(response)}\n`);
       if (response.ok && request.method === 'shutdown') {
         socket.end();
         setImmediate(shutdown);

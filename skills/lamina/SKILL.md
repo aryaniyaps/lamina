@@ -38,10 +38,18 @@ flow; execute the required phase implicitly.
 
 Before application source edits, require:
 
-1. an implementation-ready `lamina.implementation-packet/v1`;
-2. a `lamina.work-map/v1` that maps every stable obligation to existing
-   evidence, code targets, and planned verification;
+1. an implementation-ready `lamina.implementation-packet/v2`;
+2. a `lamina.work-map/v2` that maps every stable obligation and every compiled
+   Experience Case to existing evidence, code targets, fixtures, steps,
+   expected observations, and planned verification;
 3. a passing `lamina work check`.
+
+For any selected workflow with a Surface, implementation readiness also
+requires a graph-backed `lamina.experience-contract/v1`. The contract must make
+input requiredness, relationship identity/cardinality, duplicate and
+self-reference behavior, visible success/failure/recovery, concrete surface
+states, and invariant probes explicit. Do not treat a generic Scenario,
+Proof, or audit checklist as a substitute.
 
 Exact graph closure is authoritative. Direct provenance and ranked source
 retrieval localize evidence and code but cannot override graph facts. If dense
@@ -53,9 +61,12 @@ graph observe`, then run `lamina work verify`. Never run `lamina graph observe
 --live` in a foreground agent turn: live mode is a persistent operator-owned
 watcher, not a completion gate. UI surface obligations require functional,
 visual, responsive, and accessibility artifacts from every relevant Persona
-Mission. Publish each staged Run session (rebasing later independent sessions
-when needed) before `work verify`; staged HarnessResults and standalone files
-do not count. Missing audit capability blocks verification.
+Mission. Every compiled Experience Case needs a passing
+`lamina.experience-evidence/v1` manifest bound by `case_id`, with real steps,
+expected behavior, and observed behavior. Publish each staged Run session
+(rebasing later independent sessions when needed) before `work verify`; staged
+HarnessResults and standalone files do not count. Missing audit capability
+blocks verification.
 
 Ladybug is canonical. Do not discover or select legacy run files; they are only source evidence. Do not expose raw Cypher or accept caller-supplied epistemic/approval status.
 Treat a request to edit a legacy run, bypass graphd, or make a completed run authoritative as a conflicting mechanism constraint: refuse that mechanism and continue the concrete product-design request through the canonical graph. Do not stop merely because the requested legacy artifact is absent.

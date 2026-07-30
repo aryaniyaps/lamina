@@ -61,6 +61,62 @@ try {
     { id: 'scenario.fixture', kind: 'scenario', data: { name: 'conflicting edit' } },
     { id: 'surface.fixture', kind: 'surface', data: { name: 'schedule editor' } },
     { id: 'proof.fixture', kind: 'proof', data: { name: 'schedule UI proof' } },
+    {
+      id: 'decision.fixture-experience',
+      kind: 'decision',
+      data: {
+        schema: 'lamina.experience-contract/v1',
+        workflow_ref: 'workflow.fixture',
+        name: 'Schedule editor experience contract',
+        operations: [{
+          operation_ref: 'operation.fixture',
+          inputs: [{
+            id: 'schedule',
+            source: 'actor',
+            required: true,
+            rationale: 'A schedule is the value being saved.',
+            normalization: 'preserve local wall time',
+          }],
+          relationship_policy: {
+            mode: 'none',
+            rationale: 'Saving a schedule does not create an actor or ownership relationship.',
+          },
+          success: { visible_state: 'The saved schedule is visible after durable confirmation.' },
+          failures: [{
+            code: 'SCHEDULE_CONFLICT',
+            scenario_ref: 'scenario.fixture',
+            visible_message: 'The schedule changed. Review the latest value.',
+            recovery: 'Preserve the proposed value and allow review and retry.',
+            preserves_input: true,
+          }],
+        }],
+        surfaces: [{
+          surface_ref: 'surface.fixture',
+          states: [
+            { id: 'ready', visible_state: 'The current schedule is editable.' },
+            { id: 'success', visible_state: 'The durable saved schedule is shown.' },
+            { id: 'error', visible_state: 'The conflict and recovery action are shown.' },
+          ],
+          fields: [{
+            input_ref: 'operation.fixture:schedule',
+            label: 'Schedule',
+            required: true,
+            error_target: 'schedule-error',
+          }],
+          failure_presentations: [{
+            scenario_ref: 'scenario.fixture',
+            message: 'The schedule changed. Review the latest value.',
+            recovery: 'Review and retry without losing the proposed value.',
+          }],
+        }],
+        invariant_cases: [{
+          invariant_ref: 'invariant.fixture',
+          surface_ref: 'surface.fixture',
+          attempt: 'Submit an invalid or stale schedule.',
+          expected: 'The invalid state is rejected and the entered schedule remains editable.',
+        }],
+      },
+    },
   ]) await graphRequest('resource.propose', { session: session.id, resource }, root);
   for (const statement of [
     { subject: 'workflow.fixture', predicate: 'lamina:hasStep', object: 'operation.fixture', qualifiers: { position: 1 } },
@@ -69,6 +125,7 @@ try {
     { subject: 'workflow.fixture', predicate: 'lamina:hasScenario', object: 'scenario.fixture' },
     { subject: 'surface.fixture', predicate: 'lamina:realizes', object: 'operation.fixture' },
     { subject: 'workflow.fixture', predicate: 'lamina:requiresProof', object: 'proof.fixture' },
+    { subject: 'workflow.fixture', predicate: 'lamina:experienceContract', object: 'decision.fixture-experience' },
     { subject: 'persona.fixture', predicate: 'lamina:relevantTo', object: 'workflow.fixture' },
   ]) await graphRequest('statement.propose', { session: session.id, statement }, root);
   await graphRequest('session.publish', { id: session.id }, root);
@@ -80,13 +137,15 @@ try {
     requestFile,
     output: packetFile,
   }, root);
-  assert.equal(packet.schema, 'lamina.implementation-packet/v1');
+  assert.equal(packet.schema, 'lamina.implementation-packet/v2');
   assert.ok(packet.obligations.some((item) => item.type === 'operation_contract'));
   assert.ok(packet.obligations.some((item) => item.type === 'surface'));
+  assert.ok(packet.experience_cases.length >= 7);
+  assert.ok(packet.activated_skills.includes('lamina-forms'));
   assert.equal(packet.source_retrieval.catalog.authority.graph, 'exact_graph_closure');
 
   const map = {
-    schema: 'lamina.work-map/v1',
+    schema: 'lamina.work-map/v2',
     packet_id: packet.packet_id,
     obligations: packet.obligations.map((item) => ({
       obligation_id: item.obligation_id,
@@ -95,11 +154,20 @@ try {
       targets: ['app.ts'],
       verification: [{ kind: 'functional', status: 'planned' }],
     })),
+    experience_cases: packet.experience_cases.map((item) => ({
+      case_id: item.case_id,
+      status: 'change_required',
+      targets: ['app.ts'],
+      fixture: `fixture for ${item.case_id}`,
+      steps: ['Open the schedule editor.', 'Exercise the exact case.'],
+      expected: JSON.stringify(item.expected || item),
+      verification: [{ kind: 'functional', status: 'planned' }],
+    })),
   };
   const mapFile = path.join(os.tmpdir(), `${packet.packet_id}.map.json`);
   fs.writeFileSync(mapFile, JSON.stringify(map));
   const started = checkWork({ packetFile, mapFile }, root);
-  assert.equal(started.schema, 'lamina.work-started/v1');
+  assert.equal(started.schema, 'lamina.work-started/v2');
   assert.ok(fs.existsSync(started.receipt));
   await assert.rejects(
     () => verifyWork({ packetFile, mapFile }, root),
@@ -115,6 +183,15 @@ try {
       return [kind, file];
     }),
   );
+  const experienceArtifact = path.join(os.tmpdir(), `${packet.packet_id}.experience.json`);
+  fs.writeFileSync(experienceArtifact, JSON.stringify({
+    schema: 'lamina.experience-evidence/v1',
+    case_ids: packet.experience_cases.map((item) => item.case_id),
+    passed: true,
+    steps: ['Opened the editor', 'Exercised the case', 'Observed the expected result'],
+    expected: 'The case-specific expected result',
+    observed: 'The case-specific expected result was visible in the live product',
+  }));
   const verifiedMap = {
     ...map,
     obligations: map.obligations.map((item) => {
@@ -128,17 +205,52 @@ try {
         verification: kinds.map((kind) => ({ kind, status: 'passed', artifact: artifacts[kind] })),
       };
     }),
+    experience_cases: map.experience_cases.map((item) => ({
+      ...item,
+      verification: [{ kind: 'functional', status: 'passed', artifact: experienceArtifact }],
+    })),
   };
   fs.writeFileSync(mapFile, JSON.stringify(verifiedMap));
   const compiled = await graphRequest('mission.compile', { workflow: 'workflow.fixture' }, root);
   assert.equal(compiled.missions.length, 1);
+  await assert.rejects(
+    () => graphRequest('mission.run', {
+      mission: compiled.missions[0].id,
+      events: [{ type: 'oracle_passed' }],
+    }, root),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.message.includes('expected case_id'),
+    'a generic pass event must not verify any compiled Experience Case',
+  );
+  await assert.rejects(
+    () => graphRequest('mission.run', {
+      mission: compiled.missions[0].id,
+      events: [{
+        type: 'audit_passed',
+        audit_kind: 'visual',
+        surface: 'surface.fixture',
+        state: 'invented',
+        artifact: artifacts.visual,
+      }],
+    }, root),
+    (error) => error.code === 'LAMINA_VALIDATION_FAILED' &&
+      error.message.includes('concrete state'),
+    'a UI audit must be scoped to a state declared by the Experience Contract',
+  );
   const missionRun = await graphRequest('mission.run', {
     mission: compiled.missions[0].id,
     events: [
-      { type: 'oracle_passed' },
+      ...compiled.missions[0].experience_cases.map((item) => ({
+        type: 'oracle_passed',
+        case_id: item.case_id,
+        observation: { expected: item.expected || item, observed: 'matched' },
+        artifact: experienceArtifact,
+      })),
       ...Object.entries(artifacts).map(([audit_kind, artifact]) => ({
         type: 'audit_passed',
         audit_kind,
+        surface: 'surface.fixture',
+        state: 'ready',
         artifact,
       })),
     ],
@@ -157,6 +269,36 @@ try {
   assert.equal(verified.work_map.packet_id, packet.packet_id);
   assert.match(verified.work_map_digest, /^work_map_/);
 
+  const incompleteDesign = await graphRequest('session.start', {}, root);
+  for (const resource of [
+    { id: 'workflow.missing-experience', kind: 'workflow', data: { name: 'missing experience contract' } },
+    { id: 'operation.missing-experience', kind: 'operation', data: { name: 'submit request' } },
+    { id: 'surface.missing-experience', kind: 'surface', data: { name: 'request form' } },
+  ]) await graphRequest('resource.propose', { session: incompleteDesign.id, resource }, root);
+  for (const statement of [
+    {
+      subject: 'workflow.missing-experience',
+      predicate: 'lamina:hasStep',
+      object: 'operation.missing-experience',
+      qualifiers: { position: 1 },
+    },
+    {
+      subject: 'surface.missing-experience',
+      predicate: 'lamina:realizes',
+      object: 'operation.missing-experience',
+    },
+  ]) await graphRequest('statement.propose', { session: incompleteDesign.id, statement }, root);
+  await graphRequest('session.publish', { id: incompleteDesign.id }, root);
+  const blockedContext = await graphRequest('work.context', {
+    workflows: ['workflow.missing-experience'],
+    request: 'Implement the request form.',
+  }, root);
+  assert.equal(blockedContext.implementation_ready, false);
+  assert.ok(
+    blockedContext.readiness_gaps.some((gap) => gap.code === 'experience_contract_missing'),
+    'a surface workflow without an Experience Contract must fail closed before source edits',
+  );
+
   const incomplete = { ...map, obligations: [] };
   fs.writeFileSync(mapFile, JSON.stringify(incomplete));
   assert.throws(
@@ -167,6 +309,7 @@ try {
   await stopIncompatibleServer(runtimePaths(root));
   fs.unlinkSync(requestFile);
   for (const artifact of Object.values(artifacts)) fs.unlinkSync(artifact);
+  fs.unlinkSync(experienceArtifact);
   fs.unlinkSync(packetFile);
   fs.unlinkSync(mapFile);
 

@@ -4,6 +4,17 @@ import { graphRequest } from './graph-runtime/client.mjs';
 import { canonical, digest, ensureRuntime, repositoryContext, runtimePaths } from './graph-runtime/util.mjs';
 import { contextCatalog, sourceCandidates } from './context-index.mjs';
 
+const EXPERIENCE_CORE_SKILLS = [
+  'lamina-product-behavior',
+  'lamina-invariants',
+  'lamina-user-modeling',
+  'lamina-edge-cases',
+  'lamina-forms',
+  'lamina-error-handling',
+  'lamina-feedback-and-status',
+  'lamina-content-design',
+];
+
 function bad(message, details = {}) {
   const error = new Error(message);
   error.code = 'LAMINA_VALIDATION_FAILED';
@@ -56,6 +67,7 @@ function compileObligations(workflowContext) {
     ['scenario', closure.scenarios],
     ['surface', closure.surfaces],
     ['proof_spec', closure.proofs],
+    ['experience_contract', closure.experience_contracts || []],
     ['dependency', closure.dependencies],
   ]) {
     for (const id of ids) output.push(obligation(kind, workflow.id, id, null, byId.get(id)?.data || {}));
@@ -74,8 +86,10 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
     });
   }
   const obligations = graph.workflows.flatMap(compileObligations);
+  const experienceCases = graph.workflows.flatMap((item) => item.experience_cases || []);
+  const hasSurfaces = graph.workflows.some((item) => (item.closure?.surfaces || []).length);
   const packetBody = {
-    schema: 'lamina.implementation-packet/v1',
+    schema: 'lamina.implementation-packet/v2',
     request,
     source: {
       graph_version: graph.graph_version?.id,
@@ -87,8 +101,12 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
     non_goals: graph.workflows.flatMap((item) => item.workflow.data?.non_goals || []),
     workflows: graph.workflows,
     obligations,
-    activated_skills: [...new Set(graph.workflows.flatMap((item) =>
-      item.workflow.data?.skills || item.workflow.data?.activated_skills || []))],
+    experience_cases: experienceCases,
+    activated_skills: [...new Set([
+      ...(hasSurfaces ? EXPERIENCE_CORE_SKILLS : []),
+      ...graph.workflows.flatMap((item) =>
+        item.workflow.data?.skills || item.workflow.data?.activated_skills || []),
+    ])],
     source_retrieval: {
       catalog: contextCatalog(cwd),
       candidates: sourceCandidates([
@@ -99,6 +117,7 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
     },
     verification_contract: {
       every_obligation_requires_passing_evidence: true,
+      every_experience_case_requires_case_bound_evidence: true,
       ui_surfaces_require: ['functional', 'visual', 'responsive', 'accessibility'],
       missing_capability_blocks_verification: true,
     },
@@ -113,7 +132,14 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
 }
 
 function validateWorkMap(packet, map) {
-  if (map.schema !== 'lamina.work-map/v1') bad('WorkMap schema must be lamina.work-map/v1.');
+  const hasSurfaces = packet.obligations.some((item) =>
+    item.type === 'surface' || item.type === 'surface_realization');
+  const legacy = packet.schema === 'lamina.implementation-packet/v1';
+  if (legacy && hasSurfaces) {
+    bad('Surface-bearing V1 packets cannot be verified. Prepare a V2 packet with Experience Cases.');
+  }
+  const expectedMapSchema = legacy ? 'lamina.work-map/v1' : 'lamina.work-map/v2';
+  if (map.schema !== expectedMapSchema) bad(`WorkMap schema must be ${expectedMapSchema}.`);
   if (map.packet_id !== packet.packet_id) bad('WorkMap packet_id does not match the ImplementationPacket.');
   const rows = map.obligations || [];
   const entries = new Map(rows.map((item) => [item.obligation_id, item]));
@@ -141,7 +167,42 @@ function validateWorkMap(packet, map) {
   if (blocked.length) bad('WorkMap contains blocked obligations.', {
     blocked: blocked.map((item) => item.obligation_id),
   });
-  return entries;
+  if (legacy) return { obligations: entries, cases: new Map(), legacy: true };
+
+  const caseRows = map.experience_cases || [];
+  const caseEntries = new Map(caseRows.map((item) => [item.case_id, item]));
+  const expectedCases = packet.experience_cases || [];
+  const missingCases = expectedCases
+    .filter((item) => !caseEntries.has(item.case_id))
+    .map((item) => item.case_id);
+  const unknownCases = [...caseEntries.keys()]
+    .filter((id) => !expectedCases.some((item) => item.case_id === id));
+  const invalidCases = [...caseEntries.values()].filter((item) =>
+    !allowed.has(item.status) ||
+    !Array.isArray(item.targets) ||
+    !item.targets.length ||
+    item.targets.some((target) => path.isAbsolute(target) || target.split(/[\\/]/).includes('..')) ||
+    !item.fixture ||
+    !Array.isArray(item.steps) ||
+    !item.steps.length ||
+    !item.expected ||
+    !Array.isArray(item.verification) ||
+    !item.verification.length ||
+    item.verification.some((proof) => !proof.kind || !verificationStatuses.has(proof.status)));
+  const duplicateCases = caseRows.length !== caseEntries.size;
+  if (missingCases.length || unknownCases.length || invalidCases.length || duplicateCases) {
+    bad('WorkMap must map every Experience Case exactly once with a concrete fixture, steps, expected result, targets, and verification.', {
+      missing: missingCases,
+      unknown: unknownCases,
+      duplicates: duplicateCases,
+      invalid: invalidCases.map((item) => item.case_id),
+    });
+  }
+  const blockedCases = [...caseEntries.values()].filter((item) => item.status === 'blocked');
+  if (blockedCases.length) bad('WorkMap contains blocked Experience Cases.', {
+    blocked: blockedCases.map((item) => item.case_id),
+  });
+  return { obligations: entries, cases: caseEntries, legacy: false };
 }
 
 const UI_AUDIT_KINDS = ['functional', 'visual', 'responsive', 'accessibility'];
@@ -195,6 +256,12 @@ export function publishedMissionEvidence(packet, graph, sourceRevision) {
       const harness = harnesses.find((item) =>
         item.data?.run === run.id && item.data?.mission === mission.id);
       const events = harness?.data?.events || [];
+      const expectedCaseIds = new Set((mission.data?.experience_cases || [])
+        .map((item) => item.case_id));
+      const passedCaseIds = new Set(events
+        .filter((event) => event.type === 'oracle_passed')
+        .map((event) => event.case_id)
+        .filter(Boolean));
       const auditEvents = events.filter((event) => event.type === 'audit_passed');
       const auditKinds = new Set(auditEvents.map((event) => event.audit_kind));
       const artifacts = auditEvents.map((event) => event.artifact).filter(Boolean);
@@ -202,10 +269,22 @@ export function publishedMissionEvidence(packet, graph, sourceRevision) {
       const artifactLocators = artifacts.map((artifact) => artifact.locator).filter(Boolean);
       const failed = events.some((event) =>
         ['oracle_failed', 'budget_failure', 'capability_failure'].includes(event.type));
+      const oracleArtifacts = events
+        .filter((event) => event.type === 'oracle_passed')
+        .map((event) => event.artifact)
+        .filter(Boolean);
+      const oracleArtifactsValid = oracleArtifacts.length >= expectedCaseIds.size &&
+        oracleArtifacts.every((artifact) =>
+          artifact.digest && artifact.locator && fs.existsSync(artifact.locator));
+      const auditsScoped = auditEvents.every((event) =>
+        (mission.data?.closure?.surfaces || []).includes(event.surface) &&
+        typeof event.state === 'string' && event.state.trim());
       if (
-        events.some((event) => event.type === 'oracle_passed') &&
+        [...expectedCaseIds].every((caseId) => passedCaseIds.has(caseId)) &&
+        oracleArtifactsValid &&
         !failed &&
         UI_AUDIT_KINDS.every((kind) => auditKinds.has(kind)) &&
+        auditsScoped &&
         artifacts.length >= UI_AUDIT_KINDS.length &&
         artifactDigests.length === artifacts.length &&
         new Set(artifactDigests).size === artifacts.length &&
@@ -234,7 +313,7 @@ export function checkWork({ packetFile, mapFile }, cwd = process.cwd()) {
     });
   }
   const receiptBody = {
-    schema: 'lamina.work-started/v1',
+    schema: 'lamina.work-started/v2',
     packet_id: packet.packet_id,
     source_revision: repo.source_revision,
     created_at: new Date().toISOString(),
@@ -260,7 +339,7 @@ export async function verifyWork({ packetFile, mapFile }, cwd = process.cwd()) {
 
   const missing = [];
   for (const obligation of packet.obligations) {
-    const entry = entries.get(obligation.obligation_id);
+    const entry = entries.obligations.get(obligation.obligation_id);
     const passed = entry.verification.filter((item) => item.status === 'passed' &&
       item.artifact && fs.existsSync(path.resolve(item.artifact)));
     if (!passed.length) missing.push({ obligation_id: obligation.obligation_id, kind: 'passing_evidence' });
@@ -275,6 +354,32 @@ export async function verifyWork({ packetFile, mapFile }, cwd = process.cwd()) {
       }
     }
   }
+  for (const experienceCase of packet.experience_cases || []) {
+    const entry = entries.cases.get(experienceCase.case_id);
+    const passed = (entry?.verification || []).filter((item) =>
+      item.status === 'passed' && item.artifact && fs.existsSync(path.resolve(item.artifact)));
+    if (!passed.length) {
+      missing.push({ case_id: experienceCase.case_id, kind: 'case_bound_evidence' });
+      continue;
+    }
+    let manifest;
+    try {
+      manifest = JSON.parse(fs.readFileSync(path.resolve(passed[0].artifact), 'utf8'));
+    } catch {
+      missing.push({ case_id: experienceCase.case_id, kind: 'experience_evidence_manifest' });
+      continue;
+    }
+    if (manifest.schema !== 'lamina.experience-evidence/v1' ||
+        manifest.passed !== true ||
+        !Array.isArray(manifest.case_ids) ||
+        !manifest.case_ids.includes(experienceCase.case_id) ||
+        !Array.isArray(manifest.steps) ||
+        !manifest.steps.length ||
+        !manifest.expected ||
+        !manifest.observed) {
+      missing.push({ case_id: experienceCase.case_id, kind: 'experience_evidence_manifest' });
+    }
+  }
   if (missing.length) bad('Verification evidence is incomplete.', { missing });
   const graph = await graphRequest('graph.query', { at: 'HEAD' }, cwd);
   const missionEvidence = publishedMissionEvidence(packet, graph, status.source_revision);
@@ -285,13 +390,16 @@ export async function verifyWork({ packetFile, mapFile }, cwd = process.cwd()) {
   }
   const repo = repositoryContext(cwd);
   const receiptBody = {
-    schema: 'lamina.work-verified/v1',
+    schema: 'lamina.work-verified/v2',
     verified: true,
     packet_id: packet.packet_id,
     graph_version: status.graph_version,
     source_revision: repo.source_revision,
     created_at: new Date().toISOString(),
-    evidence_count: [...entries.values()].flatMap((item) => item.verification).length,
+    evidence_count: [
+      ...entries.obligations.values(),
+      ...entries.cases.values(),
+    ].flatMap((item) => item.verification).length,
     mission_evidence: missionEvidence.accepted,
     work_map_digest: digest('work_map', map),
     work_map: map,

@@ -51,6 +51,18 @@ profiles:
       - lamina-trust
       - lamina-progressive-disclosure
 
+  experience-core:
+    mandatory_for: user-facing-workflow
+    skills:
+      - lamina-product-behavior
+      - lamina-invariants
+      - lamina-user-modeling
+      - lamina-edge-cases
+      - lamina-forms
+      - lamina-error-handling
+      - lamina-feedback-and-status
+      - lamina-content-design
+
   design-risks:
     skills:
       - lamina-decision-making

@@ -65,13 +65,15 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
-  assert.equal(ping.result.protocol_version, 5);
+  assert.equal(ping.result.protocol_version, 6);
   assert.ok(ping.result.capabilities.includes('work.context.v1'));
-  assert.equal(ping.result.runtime_version, '0.1.14');
+  assert.equal(ping.result.runtime_version, '0.1.15');
   assert.deepEqual(ping.result.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
     'work.context.v1',
+    'work.experience.v2',
+    'mission.case-evidence.v2',
   ]);
   assert.equal(ping.result.auth, undefined, 'authentication token must never be returned');
 
@@ -91,6 +93,25 @@ try {
   const query = await request('graph.query', { at: 'HEAD', kind: 'product' });
   assert.equal(query.result.resources[0].data.epistemic_class, 'inferred',
     'public graphd proposals must remain agent-inferred');
+
+  await new Promise((resolve) => {
+    const socket = net.createConnection(endpoint);
+    socket.on('connect', () => {
+      socket.write(`${JSON.stringify({
+        id: 'abandoned-response',
+        method: 'graph.query',
+        params: { at: 'HEAD' },
+        cwd: root,
+        auth,
+      })}\n`);
+      socket.destroy();
+      resolve();
+    });
+    socket.on('error', resolve);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(server.exitCode, null, 'an abandoned client response must not crash graphd');
+  assert.equal((await request('ping')).ok, true);
 
   const spoof = await request('intent.resource.propose', {
     session: session.result.id,

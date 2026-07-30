@@ -285,8 +285,9 @@ try {
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const packet = JSON.parse(result.stdout);
-  assert.equal(packet.schema, 'lamina.implementation-packet/v1');
+  assert.equal(packet.schema, 'lamina.implementation-packet/v2');
   assert.deepEqual(packet.scope, ['workflow.eval.wishlist-sharing']);
+  assert.ok(packet.experience_cases.length > 0, 'surface work must compile deterministic Experience Cases');
   result = spawnSync('lamina', [
     'mission',
     'compile',

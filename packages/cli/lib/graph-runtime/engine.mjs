@@ -47,6 +47,269 @@ function containsEngineOwnedStatus(value) {
     containsEngineOwnedStatus(nested));
 }
 
+function present(value) {
+  return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
+}
+
+function experienceContract(workflow, closure, resources, statements) {
+  if (!closure.surfaces.length) return { contract: null, gaps: [], cases: [] };
+  const byId = new Map(resources.map((item) => [item.id, item]));
+  const links = statements.filter((item) =>
+    item.subject === workflow.id &&
+    item.predicate === 'lamina:experienceContract' &&
+    byId.get(item.object)?.kind === 'decision');
+  if (links.length !== 1) {
+    return {
+      contract: null,
+      cases: [],
+      gaps: [{
+        code: links.length ? 'experience_contract_ambiguous' : 'experience_contract_missing',
+        resource: workflow.id,
+        message: `Workflow ${workflow.id} must have exactly one Experience Contract Decision.`,
+      }],
+    };
+  }
+  const contractResource = byId.get(links[0].object);
+  const contract = contractResource?.data || {};
+  const gaps = [];
+  const addGap = (code, resource, message, details = {}) =>
+    gaps.push({ code, resource, message, ...details });
+  if (contract.schema !== 'lamina.experience-contract/v1' ||
+      contract.workflow_ref !== workflow.id) {
+    addGap(
+      'experience_contract_invalid',
+      contractResource.id,
+      `Experience Contract ${contractResource.id} must use lamina.experience-contract/v1 and reference ${workflow.id}.`,
+    );
+  }
+
+  const operationEntries = new Map(asArray(contract.operations)
+    .filter((item) => item && typeof item === 'object' && item.operation_ref)
+    .map((item) => [item.operation_ref, item]));
+  const allFailures = [];
+  const inputsByOperation = new Map();
+  for (const operationId of closure.operations) {
+    const entry = operationEntries.get(operationId);
+    if (!entry) {
+      addGap('operation_experience_missing', operationId, `Operation ${operationId} has no Experience Contract entry.`);
+      continue;
+    }
+    const inputs = Array.isArray(entry.inputs) ? entry.inputs : [];
+    const noInputs = entry.input_policy?.mode === 'none' && present(entry.input_policy?.rationale);
+    if (!inputs.length && !noInputs) {
+      addGap(
+        'input_contract_missing',
+        operationId,
+        `Operation ${operationId} must declare actor inputs or a reason that it has none.`,
+      );
+    }
+    const inputIds = new Set();
+    for (const input of inputs) {
+      const inputId = input?.id;
+      if (!present(inputId) || inputIds.has(inputId) ||
+          typeof input?.required !== 'boolean' || !present(input?.rationale)) {
+        addGap(
+          'field_requiredness_missing',
+          operationId,
+          `Every input for ${operationId} needs a unique id, required boolean, and product rationale.`,
+          { input: inputId || null },
+        );
+        continue;
+      }
+      inputIds.add(inputId);
+    }
+    inputsByOperation.set(operationId, inputs);
+
+    const relationship = entry.relationship_policy;
+    const noRelationship = relationship?.mode === 'none' && present(relationship?.rationale);
+    const createsRelationship = relationship?.mode === 'creates' &&
+      Array.isArray(relationship.identity_keys) && relationship.identity_keys.length &&
+      present(relationship.cardinality) &&
+      present(relationship.duplicate_behavior) &&
+      present(relationship.self_reference);
+    if (!noRelationship && !createsRelationship) {
+      addGap(
+        'relationship_identity_policy_missing',
+        operationId,
+        `Operation ${operationId} must decide relationship identity, cardinality, duplicates, and self-linking, or explain why none apply.`,
+      );
+    }
+    if (!present(entry.success?.visible_state)) {
+      addGap(
+        'success_feedback_missing',
+        operationId,
+        `Operation ${operationId} must declare the authoritative result visible to the actor.`,
+      );
+    }
+    const failures = Array.isArray(entry.failures) ? entry.failures : [];
+    const noFailures = entry.failure_policy?.mode === 'none' && present(entry.failure_policy?.rationale);
+    if (!failures.length && !noFailures) {
+      addGap(
+        'failure_visibility_missing',
+        operationId,
+        `Operation ${operationId} must declare visible failures or an evidence-backed reason that none apply.`,
+      );
+    }
+    for (const failure of failures) {
+      if (!present(failure?.code) ||
+          !closure.scenarios.includes(failure?.scenario_ref) ||
+          !present(failure?.visible_message) ||
+          !present(failure?.recovery) ||
+          typeof failure?.preserves_input !== 'boolean') {
+        addGap(
+          'recovery_oracle_missing',
+          operationId,
+          `Failure cases for ${operationId} need a code, linked Scenario, visible message, recovery, and input-preservation decision.`,
+          { scenario: failure?.scenario_ref || null },
+        );
+        continue;
+      }
+      allFailures.push({ operation_ref: operationId, ...failure });
+    }
+  }
+
+  const coveredScenarios = new Set(allFailures.map((item) => item.scenario_ref));
+  for (const scenarioId of closure.scenarios) {
+    if (!coveredScenarios.has(scenarioId)) {
+      addGap(
+        'scenario_experience_missing',
+        scenarioId,
+        `Scenario ${scenarioId} is not bound to a visible failure and recovery contract.`,
+      );
+    }
+  }
+
+  const surfaceEntries = new Map(asArray(contract.surfaces)
+    .filter((item) => item && typeof item === 'object' && item.surface_ref)
+    .map((item) => [item.surface_ref, item]));
+  for (const surfaceId of closure.surfaces) {
+    const entry = surfaceEntries.get(surfaceId);
+    if (!entry) {
+      addGap('surface_experience_missing', surfaceId, `Surface ${surfaceId} has no Experience Contract entry.`);
+      continue;
+    }
+    const states = Array.isArray(entry.states) ? entry.states : [];
+    if (!states.length || states.some((state) => !present(state?.id) || !present(state?.visible_state))) {
+      addGap(
+        'surface_states_missing',
+        surfaceId,
+        `Surface ${surfaceId} must declare concrete states and what the actor sees in each.`,
+      );
+    }
+    const realizedOperations = statements.filter((item) =>
+      item.subject === surfaceId &&
+      item.predicate === 'lamina:realizes' &&
+      closure.operations.includes(item.object)).map((item) => item.object);
+    const expectedInputs = realizedOperations.flatMap((operationId) =>
+      (inputsByOperation.get(operationId) || [])
+        .filter((input) => (input.source || 'actor') === 'actor')
+        .map((input) => ({ operationId, input })));
+    const fields = Array.isArray(entry.fields) ? entry.fields : [];
+    for (const { operationId, input } of expectedInputs) {
+      const ref = `${operationId}:${input.id}`;
+      const field = fields.find((item) =>
+        item?.input_ref === ref || (item?.operation_ref === operationId && item?.input_ref === input.id));
+      if (!field || !present(field.label) || !present(field.error_target) ||
+          field.required !== input.required) {
+        addGap(
+          'surface_field_binding_missing',
+          surfaceId,
+          `Surface ${surfaceId} must bind input ${ref} to a label, matching requiredness, and an error target.`,
+          { input: ref },
+        );
+      }
+    }
+    const presentations = Array.isArray(entry.failure_presentations)
+      ? entry.failure_presentations
+      : [];
+    for (const failure of allFailures.filter((item) =>
+      realizedOperations.includes(item.operation_ref))) {
+      const presentation = presentations.find((item) =>
+        item?.scenario_ref === failure.scenario_ref);
+      if (!presentation || !present(presentation.message) || !present(presentation.recovery)) {
+        addGap(
+          'surface_failure_presentation_missing',
+          surfaceId,
+          `Surface ${surfaceId} must present and recover Scenario ${failure.scenario_ref}.`,
+          { scenario: failure.scenario_ref },
+        );
+      }
+    }
+  }
+
+  const invariantCases = Array.isArray(contract.invariant_cases)
+    ? contract.invariant_cases
+    : [];
+  for (const invariantId of closure.invariants) {
+    const item = invariantCases.find((candidate) => candidate?.invariant_ref === invariantId);
+    if (!item || !present(item.attempt) || !present(item.expected)) {
+      addGap(
+        'invariant_experience_case_missing',
+        invariantId,
+        `Invariant ${invariantId} needs a concrete violation attempt and observable expected result.`,
+      );
+    }
+  }
+
+  if (gaps.length) return { contract: contractResource, gaps, cases: [] };
+  const cases = [];
+  const addCase = (kind, details) => {
+    const body = { kind, workflow: workflow.id, contract: contractResource.id, ...details };
+    cases.push({ case_id: digest('experience_case', body), ...body });
+  };
+  for (const entry of operationEntries.values()) {
+    addCase('operation_success', {
+      operation: entry.operation_ref,
+      expected: entry.success.visible_state,
+    });
+    for (const input of entry.inputs || []) {
+      addCase('field_semantics', {
+        operation: entry.operation_ref,
+        input: input.id,
+        required: input.required,
+        rationale: input.rationale,
+        normalization: input.normalization || null,
+      });
+    }
+    if (entry.relationship_policy?.mode === 'creates') {
+      addCase('relationship_policy', {
+        operation: entry.operation_ref,
+        expected: entry.relationship_policy,
+      });
+    }
+    for (const failure of entry.failures || []) {
+      addCase('failure_recovery', {
+        operation: entry.operation_ref,
+        scenario: failure.scenario_ref,
+        error_code: failure.code,
+        expected: {
+          visible_message: failure.visible_message,
+          recovery: failure.recovery,
+          preserves_input: failure.preserves_input,
+        },
+      });
+    }
+  }
+  for (const entry of surfaceEntries.values()) {
+    for (const state of entry.states || []) {
+      addCase('surface_state', {
+        surface: entry.surface_ref,
+        state: state.id,
+        expected: state.visible_state,
+      });
+    }
+  }
+  for (const item of invariantCases) {
+    addCase('invariant_probe', {
+      invariant: item.invariant_ref,
+      surface: item.surface_ref || null,
+      attempt: item.attempt,
+      expected: item.expected,
+    });
+  }
+  return { contract: contractResource, gaps, cases };
+}
+
 export class GraphEngine {
   constructor(paths) {
     this.paths = paths;
@@ -62,8 +325,13 @@ export class GraphEngine {
   }
 
   close() {
+    try { this.checkpoint(); } catch {}
     this.connection.closeSync();
     this.database.closeSync();
+  }
+
+  checkpoint() {
+    this.connection.querySync('CHECKPOINT');
   }
 
   query(statement, params = {}) {
@@ -558,6 +826,7 @@ export class GraphEngine {
     const kindRules = new Map([
       ['lamina:canAssume', ['persona', 'actor']],
       ['lamina:authorizedFor', ['actor', 'operation']],
+      ['lamina:experienceContract', ['workflow', 'decision']],
       ['lamina:requiresProof', [null, 'proof']],
       ['lamina:realizes', ['surface', 'operation']],
       ['lamina:transitionsTo', ['entity', 'entity']],
@@ -724,12 +993,30 @@ export class GraphEngine {
         continue;
       }
       const eventTypes = new Set((harnessResource.data?.events || []).map((item) => item.type));
+      const events = harnessResource.data?.events || [];
+      const mission = resourceById.get(run.data?.mission);
+      const expectedCaseIds = new Set((mission?.data?.experience_cases || [])
+        .map((item) => item.case_id));
+      const passedCaseIds = new Set(events
+        .filter((item) => item.type === 'oracle_passed')
+        .map((item) => item.case_id)
+        .filter(Boolean));
       if (!eventTypes.has('oracle_passed')) {
         readiness_gaps.push({
           code: 'oracle_evidence_missing',
           resource: run.id,
           message: `Run ${run.id} has no passing oracle event.`,
         });
+      }
+      for (const caseId of expectedCaseIds) {
+        if (!passedCaseIds.has(caseId)) {
+          readiness_gaps.push({
+            code: 'experience_case_evidence_missing',
+            resource: run.id,
+            case_id: caseId,
+            message: `Run ${run.id} has no passing evidence for Experience Case ${caseId}.`,
+          });
+        }
       }
       for (const type of ['oracle_failed', 'budget_failure', 'capability_failure']) {
         if (eventTypes.has(type)) {
@@ -740,12 +1027,29 @@ export class GraphEngine {
           });
         }
       }
-      const mission = resourceById.get(run.data?.mission);
       if ((mission?.data?.closure?.surfaces || []).length) {
-        const auditEvents = (harnessResource.data?.events || [])
+        const auditEvents = events
           .filter((event) => event.type === 'audit_passed');
         const passedAuditKinds = new Set(auditEvents
           .map((event) => event.audit_kind));
+        const missionSurfaces = new Set(mission.data.closure.surfaces);
+        const missionSurfaceStates = new Set(
+          (mission.data.experience_cases || [])
+            .filter((item) => item.kind === 'surface_state')
+            .map((item) => `${item.surface}:${item.state}`),
+        );
+        for (const event of auditEvents) {
+          if (!missionSurfaces.has(event.surface) ||
+              !present(event.state) ||
+              (missionSurfaceStates.size && !missionSurfaceStates.has(`${event.surface}:${event.state}`))) {
+            readiness_gaps.push({
+              code: 'ui_audit_scope_missing',
+              resource: run.id,
+              audit_kind: event.audit_kind,
+              message: `UI Run ${run.id} has audit evidence without a Mission surface and state.`,
+            });
+          }
+        }
         for (const auditKind of ['functional', 'visual', 'responsive', 'accessibility']) {
           if (!passedAuditKinds.has(auditKind)) {
             readiness_gaps.push({
@@ -774,7 +1078,9 @@ export class GraphEngine {
       });
     const implementationGaps = readiness_gaps.filter((item) =>
       !['proof_evidence_missing', 'harness_result_missing', 'oracle_evidence_missing',
-        'oracle_failed', 'budget_failure', 'capability_failure', 'ui_audit_evidence_missing']
+        'experience_case_evidence_missing', 'oracle_failed', 'budget_failure',
+        'capability_failure', 'ui_audit_evidence_missing', 'ui_audit_scope_missing',
+        'ui_audit_artifacts_not_independent']
         .includes(item.code));
     const approved = errors.length === 0 && readiness_gaps.length === 0 &&
       contradictions.length === 0 && stale_evidence.length === 0;
@@ -842,7 +1148,7 @@ export class GraphEngine {
         expected: sessionBase.id, actual: currentHead.id,
       });
     }
-    return this.transaction(() => {
+    const published = this.transaction(() => {
       const baseActive = this.activeIds(branch.id);
       const desired = this.activeIds(id);
       const active = {
@@ -959,6 +1265,10 @@ export class GraphEngine {
       this.query('MATCH (s:GraphView {id: $session}) SET s.status = $status', { session: id, status: 'published' });
       return { graph_version: versionId, source_revision: sourceRevision, contradictions: validation.contradictions, validation };
     });
+    // Publication is the canonical authority boundary. Do not acknowledge it
+    // while its only durable representation is still the process-owned WAL.
+    this.checkpoint();
+    return published;
   }
 
   rebaseSession(id) {
@@ -1196,6 +1506,7 @@ export class GraphEngine {
     const closurePredicates = new Set([
       'lamina:constrainedBy',
       'lamina:dependsOn',
+      'lamina:experienceContract',
       'lamina:hasScenario',
       'lamina:recovery',
       'lamina:requiresProof',
@@ -1270,10 +1581,16 @@ export class GraphEngine {
       scenarios: kinds(closure, 'scenario'),
       surfaces: [...surfaces].sort(),
       proofs: [...proofs].sort(),
+      experience_contracts: kinds(closure, 'decision').filter((id) =>
+        statements.some((statement) =>
+          statement.subject === workflowId &&
+          statement.predicate === 'lamina:experienceContract' &&
+          statement.object === id)),
       dependencies: [...closure].filter((id) => {
         const kind = resourceById.get(id)?.kind;
         return kind && ![
           'workflow', 'operation', 'actor', 'invariant', 'scenario', 'surface', 'proof',
+          'decision',
         ].includes(kind);
       }).sort(),
       evidence: [...evidence].sort(),
@@ -1334,6 +1651,7 @@ export class GraphEngine {
         ...closure.scenarios,
         ...closure.surfaces,
         ...closure.proofs,
+        ...closure.experience_contracts,
         ...closure.dependencies,
         ...closure.evidence,
         ...closure.personas,
@@ -1368,7 +1686,17 @@ export class GraphEngine {
       if (closure.surfaces.length && !closure.proofs.length) {
         gaps.push({ code: 'ui_proof_spec_missing', resource: workflow.id });
       }
-      return { workflow, closure, resources, statements, readiness_gaps: gaps };
+      const experience = experienceContract(workflow, closure, resources, statements);
+      gaps.push(...experience.gaps);
+      return {
+        workflow,
+        closure,
+        resources,
+        statements,
+        experience_contract: experience.contract,
+        experience_cases: experience.cases,
+        readiness_gaps: gaps,
+      };
     });
     const validation = this.validateSet(active.resources, active.statements, head?.source_revision);
     const readinessGaps = [
@@ -1415,6 +1743,31 @@ export class GraphEngine {
     const workflowResource = activeResource(workflow, 'workflow');
     if (!workflowResource) fail(ERROR.NOT_FOUND, `Workflow not found: ${workflow}`);
     const workflowClosure = this.missionClosure(viewId, workflowResource.id);
+    const workflowStatements = this.statementDetails(workflowClosure.statement_ids);
+    const workflowResources = [
+      workflowResource.id,
+      ...workflowClosure.operations,
+      ...workflowClosure.actors,
+      ...workflowClosure.invariants,
+      ...workflowClosure.scenarios,
+      ...workflowClosure.surfaces,
+      ...workflowClosure.proofs,
+      ...workflowClosure.experience_contracts,
+      ...workflowClosure.dependencies,
+      ...workflowClosure.evidence,
+      ...workflowClosure.personas,
+    ].map((id) => resources.find((item) => item.id === id)).filter(Boolean);
+    const experience = experienceContract(
+      workflowResource,
+      workflowClosure,
+      workflowResources,
+      workflowStatements,
+    );
+    if (experience.gaps.length) {
+      fail(ERROR.VALIDATION, `Workflow ${workflowResource.id} has incomplete experience design.`, {
+        readiness_gaps: experience.gaps,
+      });
+    }
     const personas = persona
       ? [activeResource(persona, 'persona')].filter(Boolean)
       : workflowClosure.personas.map((id) => resources.find((item) => item.id === id)).filter(Boolean);
@@ -1443,6 +1796,7 @@ export class GraphEngine {
           capability_requirements: capabilityRequirements,
           budget: workflowResource.data?.mission_budget || {},
           isolation: 'independent_session',
+          experience_cases: experience.cases,
           closure: {
             operations: workflowClosure.operations,
             actors: workflowClosure.assumed_actors[personaResource.id] || workflowClosure.actors,
@@ -1450,6 +1804,7 @@ export class GraphEngine {
             scenarios: workflowClosure.scenarios,
             surfaces: workflowClosure.surfaces,
             proofs: workflowClosure.proofs,
+            experience_contracts: workflowClosure.experience_contracts,
             evidence: workflowClosure.evidence,
             dependencies: workflowClosure.dependencies,
             statements: workflowClosure.statement_ids,
@@ -1493,6 +1848,14 @@ export class GraphEngine {
     if (!active.resources.has(mission)) fail(ERROR.NOT_FOUND, `Mission is not active: ${mission}`);
     const missionResource = this.resource(mission);
     if (missionResource?.kind !== 'mission') fail(ERROR.VALIDATION, `${mission} is not a Mission.`);
+    const expectedCases = new Map((missionResource.data?.experience_cases || [])
+      .map((item) => [item.case_id, item]));
+    const expectedSurfaces = new Set(missionResource.data?.closure?.surfaces || []);
+    const expectedSurfaceStates = new Set(
+      [...expectedCases.values()]
+        .filter((item) => item.kind === 'surface_state')
+        .map((item) => `${item.surface}:${item.state}`),
+    );
     const allowedEvents = new Set([
       'action_attempted', 'state_observed', 'outcome_observed', 'oracle_passed',
       'oracle_failed', 'denial_observed', 'recovery_attempted', 'artifact_captured',
@@ -1500,6 +1863,20 @@ export class GraphEngine {
     ]);
     for (const event of events) {
       if (!allowedEvents.has(event.type)) fail(ERROR.VALIDATION, `Unknown normalized adapter event: ${event.type}`);
+      if (event.case_id && !expectedCases.has(event.case_id)) {
+        fail(ERROR.VALIDATION, `Mission event references an unexpected Experience Case: ${event.case_id}`);
+      }
+      if (['oracle_passed', 'oracle_failed'].includes(event.type)) {
+        if (expectedCases.size && (!event.case_id || !expectedCases.has(event.case_id))) {
+          fail(ERROR.VALIDATION, `${event.type} requires an expected case_id.`);
+        }
+        if (expectedCases.size && !present(event.observation)) {
+          fail(ERROR.VALIDATION, `${event.type} ${event.case_id} requires a structured observation.`);
+        }
+      }
+      if (event.type === 'oracle_passed' && expectedCases.size && !event.artifact) {
+        fail(ERROR.EVIDENCE_MISSING, `oracle_passed ${event.case_id} requires an Experience Evidence manifest.`);
+      }
       if (event.type === 'audit_passed' &&
           !['functional', 'visual', 'responsive', 'accessibility'].includes(event.audit_kind)) {
         fail(ERROR.VALIDATION, 'audit_passed requires audit_kind functional, visual, responsive, or accessibility.');
@@ -1507,12 +1884,42 @@ export class GraphEngine {
       if (event.type === 'audit_passed' && !event.artifact) {
         fail(ERROR.EVIDENCE_MISSING, `audit_passed ${event.audit_kind} requires an artifact.`);
       }
+      if (event.type === 'audit_passed' &&
+          (!expectedSurfaces.has(event.surface) ||
+            !present(event.state) ||
+            (expectedSurfaceStates.size && !expectedSurfaceStates.has(`${event.surface}:${event.state}`)))) {
+        fail(
+          ERROR.VALIDATION,
+          `audit_passed ${event.audit_kind} must reference a Mission surface and concrete state.`,
+        );
+      }
       if (event.epistemic_class !== undefined || event.approved !== undefined) {
         fail(ERROR.SPOOFED_STATUS, 'Adapter events cannot submit epistemic or approval status.');
       }
       if (event.artifact) {
         const artifactPath = path.resolve(event.artifact);
         if (!fs.existsSync(artifactPath)) fail(ERROR.EVIDENCE_MISSING, `Mission artifact does not exist: ${artifactPath}`);
+        if (event.type === 'oracle_passed' && expectedCases.size) {
+          let manifest;
+          try {
+            manifest = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+          } catch (error) {
+            fail(ERROR.EVIDENCE_MISSING, `Experience Evidence must be valid JSON: ${error.message}`);
+          }
+          if (manifest.schema !== 'lamina.experience-evidence/v1' ||
+              manifest.passed !== true ||
+              !Array.isArray(manifest.case_ids) ||
+              !manifest.case_ids.includes(event.case_id) ||
+              !Array.isArray(manifest.steps) ||
+              !manifest.steps.length ||
+              !present(manifest.expected) ||
+              !present(manifest.observed)) {
+            fail(
+              ERROR.EVIDENCE_MISSING,
+              `Experience Evidence for ${event.case_id} must identify the case and record passing steps, expected, and observed results.`,
+            );
+          }
+        }
         const content = fs.readFileSync(artifactPath);
         const artifactDigest = digest('artifact', content.toString('base64'));
         const destination = path.join(this.paths.evidence, artifactDigest);

@@ -76,6 +76,64 @@ try {
   if (fixture.scenario) {
     resources.push({ id: id('scenario'), alias: `${fixture.slug}-scenario`, kind: 'scenario', data: { name: fixture.scenario } });
   }
+  if (fixture.invariant && fixture.scenario) {
+    resources.push({
+      id: id('decision'),
+      alias: `${fixture.slug}-experience`,
+      kind: 'decision',
+      data: {
+        schema: 'lamina.experience-contract/v1',
+        workflow_ref: id('workflow'),
+        name: `${fixture.workflow} experience contract`,
+        operations: [{
+          operation_ref: id('operation'),
+          inputs: [{
+            id: 'primary-input',
+            source: 'actor',
+            required: true,
+            rationale: 'The actor must provide the value changed by this workflow.',
+          }],
+          relationship_policy: {
+            mode: 'none',
+            rationale: 'This operation does not create a new identity or ownership relationship.',
+          },
+          success: { visible_state: 'The authoritative completed result is visible.' },
+          failures: [{
+            code: 'WORKFLOW_CONFLICT',
+            scenario_ref: id('scenario'),
+            visible_message: 'The action could not complete and the reason is visible.',
+            recovery: 'Preserve the actor input and provide a bounded retry.',
+            preserves_input: true,
+          }],
+        }],
+        surfaces: [{
+          surface_ref: id('surface'),
+          states: [
+            { id: 'ready', visible_state: 'The primary action is available.' },
+            { id: 'success', visible_state: 'The durable result is visible.' },
+            { id: 'error', visible_state: 'The failure and recovery action are visible.' },
+          ],
+          fields: [{
+            input_ref: `${id('operation')}:primary-input`,
+            label: 'Primary input',
+            required: true,
+            error_target: 'primary-input-error',
+          }],
+          failure_presentations: [{
+            scenario_ref: id('scenario'),
+            message: 'The action could not complete and the reason is visible.',
+            recovery: 'Retry without losing entered data.',
+          }],
+        }],
+        invariant_cases: [{
+          invariant_ref: id('invariant'),
+          surface_ref: id('surface'),
+          attempt: 'Attempt to violate the workflow invariant.',
+          expected: 'The product blocks or recovers visibly without corrupting state.',
+        }],
+      },
+    });
+  }
   for (const resource of resources) {
     await graphRequest('resource.propose', { session: session.id, resource }, workspace);
   }
@@ -96,6 +154,13 @@ try {
   }
   if (fixture.scenario) {
     statements.push({ subject: id('workflow'), predicate: 'lamina:hasScenario', object: id('scenario') });
+  }
+  if (fixture.invariant && fixture.scenario) {
+    statements.push({
+      subject: id('workflow'),
+      predicate: 'lamina:experienceContract',
+      object: id('decision'),
+    });
   }
   for (const statement of statements) {
     await graphRequest('statement.propose', { session: session.id, statement }, workspace);

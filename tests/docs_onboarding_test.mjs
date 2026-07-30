@@ -51,8 +51,11 @@ for (const signal of workflowSignals) {
   workflowOffset += signal.length;
 }
 
-assert.match(readme, /Exact graph closure, ranked code context, stable obligations/i);
-assert.match(readme, /independent persona missions/i);
+assert.match(
+  readme,
+  /Exact graph closure, Experience Contract and Cases, ranked code context, and a checked WorkMap/i,
+);
+assert.match(readme, /Every relevant persona gets an independent verification mission/i);
 assert.match(readme, /CLI does not edit application source|do not edit application source/i);
 assert.match(readme, /functional, visual, responsive, and accessibility evidence/i);
 assert.match(readme, /should not recommend them during normal work/i);

@@ -1,0 +1,36 @@
+{
+  "schema": "lamina.passive-benchmark/v5",
+  "claim": "After one init, an ordinary user-facing implementation request automatically compiles graph-backed Experience Cases, maps them before edits, and requires case-bound proof plus complete UI audits.",
+  "required_trace_events": [
+    "ordinary_request_received",
+    "implementation_packet_prepared",
+    "work_map_checked",
+    "source_edit_started",
+    "experience_case_passed",
+    "work_verified"
+  ],
+  "forbidden_behavior": [
+    "recommend_explicit_design_skill",
+    "recommend_explicit_verify_skill",
+    "source_edit_before_work_map_check",
+    "graph_dump_as_context",
+    "surface_packet_without_experience_cases",
+    "generic_oracle_pass",
+    "ui_verified_without_all_audit_classes"
+  ],
+  "ui_audit_classes": [
+    "functional",
+    "visual",
+    "responsive",
+    "accessibility"
+  ],
+  "semantic_rows": [
+    "implicit_activation",
+    "decision_complete_experience_contract",
+    "experience_case_to_code_coverage",
+    "fail_closed_before_edit",
+    "case_bound_behavioral_proof",
+    "state_scoped_live_ui_proof",
+    "fix_and_reverify"
+  ]
+}

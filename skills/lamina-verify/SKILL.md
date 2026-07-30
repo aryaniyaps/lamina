@@ -20,7 +20,10 @@ Require valid `.lamina/business-context.md` using `../lamina-orchestrator/prereq
 1. Run `lamina mission compile --workflow <workflow-id>`. This must return one independent Mission for every relevant Persona; there is no maximum of three.
 2. Select adapters only through capability_manifest Resources. Unknown modalities are strings and require no database migration.
 3. Give every Persona an independent adapter context and Run session. Do not share mutable login, browser, process, clock, device, or fixture state.
-4. Exercise reachable action, trusted authority, valid transition, durable result, actor-scoped projection, denial, failure, and recovery paths.
+4. Exercise every compiled Experience Case, including actor inputs and
+   requiredness, relationship identity/cardinality, duplicates,
+   self-reference, visible states, denial/failure recovery, and invariant
+   probes.
 5. Save large artifacts to the local evidence CAS. Pass normalized events to:
    `lamina mission run <mission-id> --events <events.json>`.
 6. `mission run` returns an isolated staged session. Publish that exact session
@@ -38,7 +41,11 @@ persistent operator-owned watcher and cannot be a completion gate.
 
 Allowed normalized event types are action/state/outcome observed, oracle
 passed/failed, denial observed, recovery attempted, artifact captured,
-`audit_passed` with a valid `audit_kind`, and budget/capability failure.
+`audit_passed` with a valid `audit_kind`, and budget/capability failure. Each
+`oracle_passed` or `oracle_failed` event must name a compiled `case_id` and
+include a structured observation. A passing oracle must reference a
+`lamina.experience-evidence/v1` JSON manifest that includes that case, the
+executed steps, expected behavior, and observed behavior.
 
 For every Mission whose closure contains a Surface, exercise relevant states
 in a real runnable UI adapter and capture all four independent audit classes:
@@ -48,10 +55,10 @@ in a real runnable UI adapter and capture all four independent audit classes:
 - `responsive`: relevant desktop and mobile viewport evidence;
 - `accessibility`: semantic tree and automated/manual accessibility evidence.
 
-Emit one `audit_passed` event per class with its artifact. A missing browser,
-viewport, screenshot, or accessibility capability is a capability failure and
-must block verification; static analysis is not a substitute. Do not reuse one
-artifact across audit classes.
+Emit one `audit_passed` event per class with its artifact, Mission surface, and
+concrete state. A missing browser, viewport, screenshot, or accessibility
+capability is a capability failure and must block verification; static
+analysis is not a substitute. Do not reuse one artifact across audit classes.
 
 ## Completion
 

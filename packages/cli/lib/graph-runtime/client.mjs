@@ -28,7 +28,7 @@ export function daemonCompatibility(identity) {
   };
 }
 
-export function exchange(socketPath, payload, timeout = 10_000) {
+export function exchange(socketPath, payload, timeout = 60_000) {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath);
     let buffer = '';

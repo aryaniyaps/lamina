@@ -80,9 +80,10 @@ Add medication schedule editing with conflict-safe saves and a responsive UI.
 
 That is the whole ongoing interface. The installed rules make the agent
 implicitly compile a bounded ImplementationPacket from the graph, fill design
-gaps, map every requirement to code and tests before editing, implement, run
-live proof, fix failures, and reverify. It does not dump the entire graph into
-the prompt.
+gaps, turn user-facing behavior into deterministic Experience Cases, map every
+requirement and case to code and tests before editing, implement, run
+case-bound live proof, fix failures, and reverify. It does not dump the entire
+graph into the prompt.
 
 `/lamina-design` and `/lamina-verify` remain advanced overrides when you want a
 graph-only design pass or a source-read-only audit. They are not required steps
@@ -105,11 +106,11 @@ Your coding agent writes app source. Optional UI skills handle look and feel. **
 | Step | Who | Result |
 |---|---|---|
 | 0. Init | **Lamina** | Business context plus Product, Actor, and Persona knowledge |
-| 1. Prepare | **Lamina + your agent** | Exact graph closure, ranked code context, stable obligations, and a checked WorkMap |
-| 2. Build | **Your coding agent** | App source in any stack, mapped to product obligations |
-| 3. Verify | **Lamina + your agent** | Independent persona missions plus functional, visual, responsive, and accessibility evidence |
+| 1. Prepare | **Lamina + your agent** | Exact graph closure, Experience Contract and Cases, ranked code context, and a checked WorkMap |
+| 2. Build | **Your coding agent** | App source in any stack, mapped to product obligations and Experience Cases |
+| 3. Verify | **Lamina + your agent** | Case-bound persona evidence plus state-scoped functional, visual, responsive, and accessibility evidence |
 | 4. Fix | **Your coding agent** | Product or contract fixes from failed obligations |
-| 5. Re-verify | **Lamina + your agent** | Current evidence for every obligation |
+| 5. Re-verify | **Lamina + your agent** | Current evidence for every obligation and Experience Case |
 
 Human-readable implementation, report, and fix documents are optional projections from a resolved `GraphVersion`. They are useful handoffs, but they are not canonical state. Legacy run files are left untouched and have no runtime meaning.
 
@@ -256,9 +257,9 @@ Mocks show screens. They do not capture every legal state or verify the build. L
 | `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
 | `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, or Cursor |
 | `lamina context catalog` | Explain authoritative graph and derived source-retrieval tiers |
-| `lamina work prepare` | Compile the bounded graph slice and stable product obligations |
-| `lamina work check` | Require complete requirement-to-code/test mapping before edits |
-| `lamina work verify` | Require current evidence for every obligation and all UI audit classes |
+| `lamina work prepare` | Compile the bounded graph slice, stable obligations, and Experience Cases |
+| `lamina work check` | Require complete obligation/case-to-code-and-test mapping before edits |
+| `lamina work verify` | Require current case-bound evidence and all state-scoped UI audit classes |
 | `/lamina-design` | Advanced graph-only design override |
 | `/lamina-verify` | Advanced source-read-only verification override |
 

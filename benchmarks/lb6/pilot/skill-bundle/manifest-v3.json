@@ -3,7 +3,7 @@
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "source_skill_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
   "pinned_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
-  "harness_git_commit": "2d7c532101aa36ebc8fe84241c217804c53a11eb",
+  "harness_git_commit": "7f493a3a7e4f339149df94fbdaf7762506838c84",
   "harbor_version": "0.18.0",
   "cursor_cli_version": "2026.07.20-8cc9c0b",
   "cursor_cli_sha256": "eed61c5224668c9236334c4c68936a16aecc37374b592f59e31eb50433817831",
@@ -69,20 +69,20 @@
     "lamina-verify"
   ],
   "file_count": 91,
-  "aggregate_digest": "091311e6a1d46b3507dc3cef9a97de8aed241af78d34269c2c002b8261934c38",
+  "aggregate_digest": "e932967a94fd3293fb569fd2c6e17777ab6ad28f17a99ba25a0c4359985230fd",
   "harbor_skill_digests": {
-    "lamina": "sha256:72082645353e952b35d47945b978c73adc16c79e5d8fe33e4d7304fcc6f7c0b8",
+    "lamina": "sha256:0427b32bd7a1ebfdf8e71e8b43a657eff6e27fa9ceec2cb4e83ed573efce822e",
     "lamina-accessibility": "sha256:343a5677a8e2ca6eef2b997b266b89fb4373700bef736aad3b99329be5954714",
-    "lamina-business-context": "sha256:997253c5bf7daeacd4e10b1b233b60b793beff7fb4578ecf31aba4efd9d23670",
+    "lamina-business-context": "sha256:6d94dacf9f34546523cf547006dab2aa372bd59a3bd3ae1a98118ac8042d5007",
     "lamina-competitive-analysis": "sha256:ebc9d11b8995329c1abdf09e48e31a8f6a8402baa20c94f47b5f5b34914d86d5",
     "lamina-consistency-guarantees": "sha256:60fd90757c0169daec1d21cd6015075102ac5d590c20fb861b23e0c3ab5acb86",
     "lamina-content-design": "sha256:52e9721d1f90899c7214d590a490e96875c9a0e87e7f79e0f1cecf4168ba4e18",
     "lamina-controls-and-menus": "sha256:bc8cf79f1a28e5ea487e5c8541dd5418e642c357f16420e6788da1040dd86013",
-    "lamina-core": "sha256:5bf70af09356e9b0d2600a8fe8848c4bc96ef5cd7c15027355774cd7accca823",
+    "lamina-core": "sha256:1123f66c2c798c49bd9e17564a9431e4c3b29a0e6395f24010d0d3ebf58a655a",
     "lamina-decision-making": "sha256:42da1eb2f2820a93f9c4237d048a63f5cbdd871f82b7e741cf6981866d789e7a",
     "lamina-dependencies": "sha256:e1c07f56162ad749e7abf197f26c4f2768fdebbf2023f5c568c4d1c1bfbafc6b",
-    "lamina-design": "sha256:ea4a64c3a2aca551609fd54146ebadd7f98ced3a0e9a90333a1d03b26976810e",
-    "lamina-design-process": "sha256:e3663a7df7d7ac3471cbe6e3147a6af9a90167b00f5978e5611eb2e9deededc3",
+    "lamina-design": "sha256:4dac1b006406bfa29dc2d41378e920dccfe9b0a03d51086faeab693647dfbc7e",
+    "lamina-design-process": "sha256:c88435d61a2cacdb74da0c85749ccc5c610564be85566042d5dbecc86b03a6bc",
     "lamina-discoverability": "sha256:6df88a70b95fc60010a8e95defd9a812d6b8fca65dbe55dfb4404ea38ccf9683",
     "lamina-edge-cases": "sha256:fb4be7901c0c913fb08f162327985c5d9f45ac8304bba94fe4bc0ced41efa771",
     "lamina-empty-states": "sha256:7ffa494601fbd043d411eb8572656e69f77ebd28f774a5194cfb233f09f9ca1f",
@@ -98,7 +98,7 @@
     "lamina-heuristic-review": "sha256:b072b86eccd0c431b3ce816b2baa5b60fd5a26ce8c654e9a34a308a7250ffb94",
     "lamina-idempotency-concurrency": "sha256:192e74b3595c54a8a5db0e385f48168188910b21d0683691626f8d785fc76fcf",
     "lamina-information-architecture": "sha256:26ed61011f6eeeb8037b0be18dee67561e756560fdd23d7a9f8f303740b473b5",
-    "lamina-init": "sha256:55f3a0d04e858aebb6a4bd079ce58131f9a5a0b9714418a289c4855940e30b34",
+    "lamina-init": "sha256:d258f2d46a5ee1ae19409126812ebb01ac8bfef6cd4f6a25ddd6ad6b20d160bf",
     "lamina-interview-design": "sha256:f5651547fd3e9b8e53a6a9698b4689c258327909df6678cb6225477193137429",
     "lamina-interview-documentation": "sha256:a80624bf6dc0b3fd95b45a316121c22f9e77117836428fd8b932bc57545a75e9",
     "lamina-invariants": "sha256:9795c7e8de38954404241462546d088c2b8914d98d11c849eccb0836f9e0693d",
@@ -107,7 +107,7 @@
     "lamina-multi-view-integrity": "sha256:e14d64aec50d1c055d36f36ff6e87b0b036d01ff5f3c834124c3867cb50da962",
     "lamina-navigation": "sha256:43780311dc93b9c8031411fa48001168f050f769830ff9b28e1763cf1eb35c01",
     "lamina-onboarding": "sha256:1c3b4924fa3d63abb6213339f1fe0e088e1cac5413ada828c301e6ade4c2c037",
-    "lamina-orchestrator": "sha256:565e836896ddd1960258bda2c049bded867e122c1408137fe1366bbcc15bb512",
+    "lamina-orchestrator": "sha256:7e01f174ab38b43584b0ce18752be63521dd6810c9892e0146928fd05754578a",
     "lamina-persuasion-and-groups": "sha256:9b92a793205dd5ada3191be36a5bebf5e03762c4cf09c9a77b70ee66fb9cc409",
     "lamina-platform-posture": "sha256:70624dc8e25876f83af5b7985f3fd5eccac05c7a5a09c87b5ef48bd473d21c07",
     "lamina-problem-framing": "sha256:70fdfc38f9953f0b914e2a5549d85ff1c16846301174c494b9f78224b4749113",
@@ -129,7 +129,7 @@
     "lamina-trust": "sha256:129faa888a2b1ac8f18a72fb7a82fa809468c72a19eba3e222646d2a4057198a",
     "lamina-usability-evaluation": "sha256:84c25835ffc23e2b3bff0a5aff8cb0600a6795fd1f890c11a12b88aaf5aefa20",
     "lamina-user-modeling": "sha256:6d2580a7faac8108f99914be73b61758d774ad14bc1bffe31bb6e814f2831912",
-    "lamina-verify": "sha256:00a7dcd0bc40e0852413906b6ac8e0be2986e99fac83116489f3b7cf1a70eb09"
+    "lamina-verify": "sha256:2c3c6b3f78b1d35a64815d60230dac4edd2a4451650217b5a25c698b7b03df9e"
   },
   "files": [
     {
@@ -141,8 +141,8 @@
     {
       "skill": "lamina-business-context",
       "path": "lamina-business-context/SKILL.md",
-      "sha256": "e1441f44cd0fca17e318a8298845e3f0618217a77cb33a0fcfc3441b19c1ef1f",
-      "size": 8374
+      "sha256": "702489d28aa7a225298eb8fe8ad860744e70d1e0221e5663b8423a8fa9f3fa62",
+      "size": 8435
     },
     {
       "skill": "lamina-competitive-analysis",
@@ -183,8 +183,8 @@
     {
       "skill": "lamina-core",
       "path": "lamina-core/SKILL.md",
-      "sha256": "bd3e845dff6b3f8850ce57ab7c98d2a5f3dae0db928866529af1475904d743e0",
-      "size": 5933
+      "sha256": "46d6790b78caf2db028abcc32eb340251cb61e15b4da5a07bde84527adfdf233",
+      "size": 6186
     },
     {
       "skill": "lamina-decision-making",
@@ -201,14 +201,14 @@
     {
       "skill": "lamina-design-process",
       "path": "lamina-design-process/SKILL.md",
-      "sha256": "ee8e000dee272d843bb055eb4c811b72764c89feb6d984cb12e08c7d9b2813aa",
-      "size": 1301
+      "sha256": "2cde45b177d1be49624d23a77c9714a5d95e66f6f8d2a992b8ea28df3b2f1206",
+      "size": 1567
     },
     {
       "skill": "lamina-design",
       "path": "lamina-design/SKILL.md",
-      "sha256": "f18486d4f2863bc27c6727198b14581e7631c60d28b3ea894605887dd8450ab2",
-      "size": 4498
+      "sha256": "b02c98316eca4968439bcd0e61e42676b8c61f78dae241161883b042161bd2c7",
+      "size": 5337
     },
     {
       "skill": "lamina-discoverability",
@@ -303,8 +303,8 @@
     {
       "skill": "lamina-init",
       "path": "lamina-init/SKILL.md",
-      "sha256": "3c1db62ca9b4734766ba924f889a42ff06a924faa1306b454f27c2364b5b75aa",
-      "size": 2602
+      "sha256": "534150a41a3581fe52a1c96f7e5f8f3bbeb85e0919677ac0abcf06e4e1b3e4ae",
+      "size": 4180
     },
     {
       "skill": "lamina-interview-design",
@@ -375,8 +375,8 @@
     {
       "skill": "lamina-orchestrator",
       "path": "lamina-orchestrator/audit-profiles.yaml",
-      "sha256": "a0214e1b4f50ab7fafe5c872ced4e78e59742a569ec58ed77e8f7e4cc17f0e97",
-      "size": 3102
+      "sha256": "c43e6853486a11c26c9874998f5648adf898d267c5db10bf45654b37bd8b40b3",
+      "size": 3403
     },
     {
       "skill": "lamina-orchestrator",
@@ -471,8 +471,8 @@
     {
       "skill": "lamina-orchestrator",
       "path": "lamina-orchestrator/prompts/outputs/init.md",
-      "sha256": "c551005651f9b8b174ed455fac2ae2b2aa60bba9dbe08686f218623fa6415cbc",
-      "size": 626
+      "sha256": "f2586a95f944e7dce2c395009c05864c876cd35577563c985376c1510abb308a",
+      "size": 743
     },
     {
       "skill": "lamina-orchestrator",
@@ -669,14 +669,14 @@
     {
       "skill": "lamina-verify",
       "path": "lamina-verify/SKILL.md",
-      "sha256": "4fd719a2246811063eaf3311c55b7d66dc77a6d6571738209730890a34674a6d",
-      "size": 3328
+      "sha256": "3a2f61e4ed4fa5aa5fd3d8a72a45fe3484bdaf1f3505cb870f2d73d0fdcc76ee",
+      "size": 5334
     },
     {
       "skill": "lamina",
       "path": "lamina/SKILL.md",
-      "sha256": "f143a867d4a64680022972d2c7426d19cf8a1806c290973c570cc25113a54f0f",
-      "size": 1863
+      "sha256": "d758330449f1248d9ccac05bee6fa4d0db1adccf85bb122fcfd6c9e001653e6c",
+      "size": 4901
     }
   ]
 }

@@ -136,25 +136,36 @@ function workReceipts(workspace, suffix) {
   return [...receipts.values()];
 }
 
+function isStartedReceipt(receipt) {
+  return ['lamina.work-started/v1', 'lamina.work-started/v2'].includes(receipt?.schema);
+}
+
+function isVerifiedReceipt(receipt) {
+  return ['lamina.work-verified/v1', 'lamina.work-verified/v2'].includes(receipt?.schema) &&
+    receipt?.verified === true;
+}
+
+function isWorkMap(map) {
+  return ['lamina.work-map/v1', 'lamina.work-map/v2'].includes(map?.schema);
+}
+
 function verifiedWorkMaps(workspace) {
   const startedPacketIds = new Set(
     workReceipts(workspace, '.started.json')
-      .filter((receipt) => receipt.schema === 'lamina.work-started/v1')
+      .filter(isStartedReceipt)
       .map((receipt) => receipt.packet_id)
       .filter(Boolean),
   );
   const verifiedPacketIds = new Set(
     workReceipts(workspace, '.verified.json')
-      .filter((receipt) =>
-        receipt.schema === 'lamina.work-verified/v1' && receipt.verified === true)
+      .filter(isVerifiedReceipt)
       .map((receipt) => receipt.packet_id)
       .filter(Boolean),
   );
   const receiptMaps = workReceipts(workspace, '.verified.json')
     .filter((receipt) =>
-      receipt.schema === 'lamina.work-verified/v1' &&
-      receipt.verified === true &&
-      receipt.work_map?.schema === 'lamina.work-map/v1' &&
+      isVerifiedReceipt(receipt) &&
+      isWorkMap(receipt.work_map) &&
       receipt.packet_id === receipt.work_map.packet_id)
     .map((receipt) => receipt.work_map);
   const candidates = [
@@ -167,7 +178,7 @@ function verifiedWorkMaps(workspace) {
     ...candidates.map(readJsonSafe),
   ]
     .filter((map) =>
-      map?.schema === 'lamina.work-map/v1' &&
+      isWorkMap(map) &&
       startedPacketIds.has(map.packet_id) &&
       verifiedPacketIds.has(map.packet_id));
 }
@@ -175,7 +186,7 @@ function verifiedWorkMaps(workspace) {
 function checkedWorkMaps(workspace) {
   const maps = [
     ...workReceipts(workspace, '.started.json')
-      .filter((receipt) => receipt.schema === 'lamina.work-started/v1')
+      .filter(isStartedReceipt)
       .map((receipt) => receipt.work_map)
       .filter(Boolean),
     ...verifiedWorkMaps(workspace),
@@ -190,7 +201,7 @@ function checkedWorkMaps(workspace) {
 function passedUiEvidence(workspace, { verifiedOnly = false } = {}) {
   const maps = verifiedOnly ? verifiedWorkMaps(workspace) : checkedWorkMaps(workspace);
   return maps.flatMap((map) =>
-    (map.obligations || []).flatMap((entry) =>
+    [...(map.obligations || []), ...(map.experience_cases || [])].flatMap((entry) =>
       (entry.verification || []).filter((item) => item.status === 'passed' && item.artifact)));
 }
 
@@ -406,10 +417,10 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('implementation packet present')) {
     const started = workReceipts(workspace, '.started.json')
       .find((receipt) =>
-        receipt.schema === 'lamina.work-started/v1' &&
+        isStartedReceipt(receipt) &&
         (receipt.work_map || /^packet_[a-z0-9]+$/i.test(receipt.packet_id || '')));
     const hasPacket = Boolean(started) ||
-      /lamina\.implementation-packet\/v1|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
+      /lamina\.implementation-packet\/v[12]|\bpacket_id\b\s*["':=]+\s*["']?packet_/i.test(allOutput);
     return hookResult(
       text,
       hasPacket,
@@ -425,7 +436,8 @@ function gradeAssertion(text, ctx) {
     const maps = checkedWorkMaps(workspace);
     const complete = maps.some((map) => {
       const entries = map.obligations || [];
-      return map.schema === 'lamina.work-map/v1' &&
+      const cases = map.experience_cases || [];
+      return isWorkMap(map) &&
         entries.length > 0 &&
         new Set(entries.map((item) => item.obligation_id)).size === entries.length &&
         entries.every((item) =>
@@ -433,7 +445,20 @@ function gradeAssertion(text, ctx) {
           item.status !== 'blocked' &&
           Array.isArray(item.targets) &&
           Array.isArray(item.verification) &&
-          item.verification.length > 0);
+          item.verification.length > 0) &&
+        (map.schema !== 'lamina.work-map/v2' ||
+          (new Set(cases.map((item) => item.case_id)).size === cases.length &&
+            cases.every((item) =>
+              item.case_id &&
+              item.status !== 'blocked' &&
+              Array.isArray(item.targets) &&
+              item.targets.length > 0 &&
+              item.fixture &&
+              Array.isArray(item.steps) &&
+              item.steps.length > 0 &&
+              item.expected &&
+              Array.isArray(item.verification) &&
+              item.verification.length > 0)));
     });
     return hookResult(
       text,
@@ -462,8 +487,7 @@ function gradeAssertion(text, ctx) {
 
   if (lower.includes('terminal workverified receipt')) {
     const receipts = workReceipts(workspace, '.verified.json');
-    const passed = receipts.some((receipt) =>
-      receipt.schema === 'lamina.work-verified/v1' && receipt.verified === true);
+    const passed = receipts.some(isVerifiedReceipt);
     return hookResult(
       text,
       passed,

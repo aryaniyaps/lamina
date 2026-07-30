@@ -27,7 +27,15 @@ Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/referenc
 2. Start an explicit session with `lamina session start`. Keep its id.
 3. Propose stable opaque Resources and normalized Statements into that session with `lamina graph propose ... --session <id>`, `patch --session <id>`, or `link --session <id>`. Agents must not set epistemic class, approval, or raw Cypher.
 4. Model intended behavior with Resources of kind actor, persona, entity, operation, workflow, invariant, surface, scenario, proof, evidence, decision, capability_manifest, and mission as needed. Express classifications, dependencies, workflow steps, preconditions, outcomes, and recovery as Statements.
-5. Use `lamina-edge-cases` and the applicable trust/time/concurrency/accessibility skills. Record conflicting valid facts; do not overwrite either side.
+5. For every user-facing workflow, load the `experience-core` audit profile in
+   addition to applicable trust/time/concurrency/accessibility skills. Publish
+   exactly one linked Decision whose value is a
+   `lamina.experience-contract/v1`: define every actor input and requiredness,
+   relationship identity/cardinality plus duplicate and self-reference
+   behavior, visible success and failure recovery, each concrete Surface
+   state, and an executable probe for every invariant. Bind every reachable
+   Scenario to a visible failure contract. Record conflicting valid facts; do
+   not overwrite either side.
 6. Run `lamina graph validate --at <session-id>`. Resolve shape, reachability, authority, dependency, proof, and evidence failures. Relevant Contradictions mean `approved: false`.
 7. Compile Missions for every relevant Persona. Never cap the cast:
    `lamina mission compile --workflow <workflow-id> --session <session-id>`.
@@ -53,7 +61,11 @@ Report the resolved GraphVersion and source revision, then:
 ### Contradictions and open questions
 ```
 
-Mention flows, edge cases, empty/failure/permission behavior, and `lamina-edge-cases`. If asked to implement app code in the same command, finish the graph transaction but state that application implementation is a separate coding session.
+Mention flows, inputs and requiredness, relationship semantics, edge cases,
+empty/failure/permission behavior, recovery, and the deterministic Experience
+Cases compiled from the contract. If asked to implement app code in the same
+command, finish the graph transaction but state that application
+implementation is a separate coding session.
 
 ## Hard rules
 

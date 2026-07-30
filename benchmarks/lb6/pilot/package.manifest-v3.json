@@ -3,7 +3,7 @@
   "benchmark_version": "lb6-dev-pilot-v3",
   "campaign_id": "lb6-dev-pilot-skill-rerun-v3",
   "pinned_skill_commit": "704107580ba4b3535d8d4b3e9e90eeb8d9ce8f4f",
-  "skill_bundle_digest": "091311e6a1d46b3507dc3cef9a97de8aed241af78d34269c2c002b8261934c38",
+  "skill_bundle_digest": "e932967a94fd3293fb569fd2c6e17777ab6ad28f17a99ba25a0c4359985230fd",
   "harbor_version": "0.18.0",
   "agent": "cursor-cli",
   "model": "cursor/composer-2.5",
