@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const cliPackage = JSON.parse(fs.readFileSync('packages/cli/package.json', 'utf8'));
@@ -16,7 +18,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.1.13');
+assert.equal(cliPackage.version, '0.1.14');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.18.3');
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
@@ -55,13 +57,52 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.13']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.14']).status,
   0,
 );
 assert.notEqual(
   spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.1.4']).status,
   0,
 );
+assert.equal(
+  spawnSync(process.execPath, ['scripts/check-cli-version-discipline.mjs']).status,
+  0,
+);
+const disciplineRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-version-discipline-'));
+try {
+  fs.mkdirSync(path.join(disciplineRoot, 'packages', 'cli'), { recursive: true });
+  fs.writeFileSync(
+    path.join(disciplineRoot, 'packages', 'cli', 'package.json'),
+    JSON.stringify({ version: '1.2.3' }),
+  );
+  fs.writeFileSync(path.join(disciplineRoot, 'packages', 'cli', 'runtime.mjs'), 'export const value = 1;\n');
+  execFileSync('git', ['init', '-b', 'main'], { cwd: disciplineRoot });
+  execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: disciplineRoot });
+  execFileSync('git', ['config', 'user.name', 'Lamina Test'], { cwd: disciplineRoot });
+  execFileSync('git', ['add', '.'], { cwd: disciplineRoot });
+  execFileSync('git', ['commit', '-m', 'release'], { cwd: disciplineRoot });
+  execFileSync('git', ['tag', 'cli-v1.2.3'], { cwd: disciplineRoot });
+  fs.writeFileSync(path.join(disciplineRoot, 'packages', 'cli', 'runtime.mjs'), 'export const value = 2;\n');
+  const reused = spawnSync(
+    process.execPath,
+    [path.resolve('scripts/check-cli-version-discipline.mjs')],
+    { cwd: disciplineRoot, encoding: 'utf8' },
+  );
+  assert.equal(reused.status, 1);
+  assert.match(reused.stderr, /Bump the CLI version/);
+  fs.writeFileSync(
+    path.join(disciplineRoot, 'packages', 'cli', 'package.json'),
+    JSON.stringify({ version: '1.2.4' }),
+  );
+  const bumped = spawnSync(
+    process.execPath,
+    [path.resolve('scripts/check-cli-version-discipline.mjs')],
+    { cwd: disciplineRoot, encoding: 'utf8' },
+  );
+  assert.equal(bumped.status, 0, bumped.stderr);
+} finally {
+  fs.rmSync(disciplineRoot, { recursive: true, force: true });
+}
 for (const runtimePath of ['skills/lamina-orchestrator/bin', 'skills/lamina-orchestrator/lib']) {
   assert.equal(fs.existsSync(runtimePath), false, `${runtimePath} must not ship with skills`);
 }

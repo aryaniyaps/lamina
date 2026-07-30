@@ -177,7 +177,7 @@ try {
 
   let lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
   assert.equal(lock.protocol_version, 5);
-  assert.equal(lock.runtime_version, '0.1.13');
+  assert.equal(lock.runtime_version, '0.1.14');
   assert.deepEqual(lock.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',

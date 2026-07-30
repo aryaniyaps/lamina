@@ -42,6 +42,21 @@ try {
   assert.equal(fs.existsSync(privateWorker), true);
   const entries = fs.readdirSync(path.dirname(privateWorker));
   assert.deepEqual(entries, ['cocoindex-worker']);
+  const fixture = path.join(temp, 'fixture');
+  fs.mkdirSync(fixture);
+  const initialized = spawnSync('git', ['init', '-b', 'main'], { cwd: fixture, encoding: 'utf8' });
+  assert.equal(initialized.status, 0, initialized.stderr);
+  const setup = spawnSync(path.join(installDir, 'lamina'), ['setup', '--agent', 'codex'], {
+    cwd: fixture,
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CACHE_HOME: cache },
+  });
+  assert.equal(setup.status, 0, setup.stderr || setup.stdout);
+  assert.equal(JSON.parse(setup.stdout).installed, true);
+  assert.match(
+    fs.readFileSync(path.join(fixture, 'AGENTS.md'), 'utf8'),
+    /lamina:managed-agent-rules:start/,
+  );
 
   const corrupt = path.join(temp, 'corrupt');
   fs.cpSync(release, corrupt, { recursive: true });

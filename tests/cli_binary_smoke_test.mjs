@@ -64,6 +64,19 @@ assert.equal(fs.existsSync(path.join(cache, 'lamina', 'runtime', version.stdout.
 const doctor = run(['doctor', '--json']);
 assert.equal(doctor.status, 0, doctor.stderr);
 assert.equal(JSON.parse(doctor.stdout).cli.api_version, 1);
+const setup = run(['setup', '--agent', 'codex']);
+assert.equal(setup.status, 0, setup.stderr || setup.stdout);
+assert.equal(JSON.parse(setup.stdout).installed, true);
+assert.match(
+  fs.readFileSync(path.join(fixture, 'AGENTS.md'), 'utf8'),
+  /lamina:managed-agent-rules:start/,
+);
+const setupCheck = run(['setup', '--agent', 'codex', '--check']);
+assert.equal(setupCheck.status, 0, setupCheck.stderr || setupCheck.stdout);
+assert.equal(JSON.parse(setupCheck.stdout).installed, true);
+const setupRemove = run(['setup', '--agent', 'codex', '--remove']);
+assert.equal(setupRemove.status, 0, setupRemove.stderr || setupRemove.stdout);
+assert.equal(JSON.parse(setupRemove.stdout).removed, true);
 const status = run(['graph', 'status']);
 assert.equal(status.status, 0, status.stderr);
 const session = run(['session', 'start']);

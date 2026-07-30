@@ -39,6 +39,7 @@ jobs:
       - name: Verify release identity and source contracts
         run: |
           node scripts/check-cli-release-tag.mjs "${{ github.event.release.tag_name }}"
+          node scripts/check-cli-version-discipline.mjs
           corepack pnpm test:cli
           node tests/transactional_graph_test.mjs
           node tests/graphd_protocol_test.mjs
