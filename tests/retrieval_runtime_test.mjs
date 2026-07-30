@@ -259,7 +259,12 @@ try {
       /Rerun lamina work prepare/.test(error.message),
   );
 } finally {
-  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root, {
+    recursive: true,
+    force: true,
+    maxRetries: process.platform === 'win32' ? 10 : 0,
+    retryDelay: 100,
+  });
 }
 
 console.log('retrieval_runtime_test: ok');
