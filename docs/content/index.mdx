@@ -29,8 +29,8 @@ lamina doctor --json
 ```
 
 Setup also runs `lamina setup --agent <provider>`. Use `lamina graph status` to
-inspect the resolved GraphVersion and `lamina context catalog` to inspect the
-context policy.
+inspect the resolved GraphVersion and `lamina context status` to inspect the
+derived hybrid-retrieval generation.
 
 ## Why it is different
 
@@ -41,6 +41,7 @@ context policy.
 - Every implementation obligation is mapped to code and verification before edits.
 - UI verification requires functional, visual, responsive, and accessibility evidence.
 - Source changes update an observation view without mutating canonical Claims.
+- Hybrid retrieval selects Workflow roots and source symbols without replacing graph authority.
 - Existing legacy run files are ignored by the runtime.
 
 Continue with [The product loop](/concepts/the-loop), or inspect the

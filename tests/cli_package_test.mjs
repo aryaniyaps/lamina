@@ -13,13 +13,25 @@ const bootstrap = fs.readFileSync('packages/cli/sea/bootstrap.cjs', 'utf8');
 const graphClient = fs.readFileSync('packages/cli/lib/graph-runtime/client.mjs', 'utf8');
 const binarySmoke = fs.readFileSync('tests/cli_binary_smoke_test.mjs', 'utf8');
 const cocoWorker = fs.readFileSync('packages/cli/cocoindex_worker.py', 'utf8');
+const retrievalModel = JSON.parse(
+  fs.readFileSync('packages/cli/retrieval-model-manifest.json', 'utf8'),
+);
 
 assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.2.0');
+assert.equal(cliPackage.version, '0.3.0');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
+assert.equal(retrievalModel.qualification.decision, 'ship_int8');
+assert.ok(
+  retrievalModel.qualification.held_out.dense_workflow_recall_at_5.loss <= 0.01,
+  'INT8 may ship only when held-out dense recall loses at most one percentage point',
+);
+assert.equal(
+  retrievalModel.qualification.held_out.hybrid_workflow_recall_at_5.loss,
+  0,
+);
 assert.match(builder, /experimental-sea-config/);
 assert.match(builder, /NODE_SEA_BLOB/);
 assert.match(builder, /@ladybugdb\/core/);
@@ -27,6 +39,10 @@ assert.match(builder, /LAMINA_NODE_BINARY/);
 assert.match(builder, /Standalone executable smoke failed/);
 assert.match(builder, /pyinstaller/);
 assert.match(builder, /cocoindex-worker/);
+assert.match(builder, /onnxruntime/);
+assert.match(builder, /tokenizers/);
+assert.match(builder, /fts\.lbug_extension/);
+assert.match(builder, /vector\.lbug_extension/);
 assert.match(builder, /\['pywintypes', 'win32file', 'win32pipe'\]/);
 assert.match(builder, /buildArgs\.push\('--hidden-import', module\)/);
 assert.match(builder, /must be built natively/);
@@ -50,15 +66,21 @@ assert.match(workflow, /darwin-x64/);
 assert.match(workflow, /linux-x64/);
 assert.match(workflow, /linux-arm64/);
 assert.match(workflow, /win32-x64/);
+assert.match(workflow, /tags:\s*\n\s*- 'cli-v\*'/);
+assert.match(workflow, /github\.ref_name/);
+assert.doesNotMatch(workflow, /github\.event\.release\.tag_name/);
 assert.match(workflow, /SHA256SUMS/);
 assert.match(workflow, /setup-uv/);
 assert.match(workflow, /python-version: '3\.13'/);
 assert.match(workflow, /LAMINA_WORKER/);
+assert.match(workflow, /LAMINA_MODEL/);
+assert.match(workflow, /benchmark\.mjs --calibrate/);
+assert.match(workflow, /benchmark\.mjs --evaluate/);
 assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.2.0']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.0']).status,
   0,
 );
 assert.notEqual(

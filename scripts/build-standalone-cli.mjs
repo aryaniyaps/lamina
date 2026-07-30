@@ -55,7 +55,30 @@ function buildManagedCocoWorker() {
   const uv = process.env.LAMINA_UV_BINARY || (process.platform === 'win32' ? 'uv.exe' : 'uv');
   const extension = process.platform === 'win32' ? '.exe' : '';
   const worker = path.join(dist, `lamina-cocoindex-worker-${target}${extension}`);
-  const buildArgs = ['run', '--locked', '--project', cli, '--python', '3.13', '--with', 'pyinstaller==6.14.1', 'pyinstaller', '--noconfirm', '--clean', '--onefile', '--name', 'cocoindex-worker', '--collect-all', 'cocoindex', '--collect-all', 'watchdog', '--collect-all', 'numpy'];
+  const retrievalAssets = path.join(stage, 'retrieval-assets');
+  const pyInstallerSeparator = path.delimiter;
+  const prepareAssets = spawnSync(
+    process.execPath,
+    [path.join(root, 'scripts/prepare-retrieval-assets.mjs'), retrievalAssets],
+    { cwd: root, encoding: 'utf8' },
+  );
+  if (prepareAssets.error || prepareAssets.status !== 0) {
+    throw new Error(`Unable to prepare retrieval assets: ${prepareAssets.error?.message || prepareAssets.stderr || prepareAssets.stdout}`);
+  }
+  const buildArgs = [
+    'run', '--locked', '--project', cli, '--python', '3.13',
+    '--with', 'pyinstaller==6.14.1', 'pyinstaller',
+    '--noconfirm', '--clean', '--onefile', '--name', 'cocoindex-worker',
+    '--collect-all', 'cocoindex',
+    '--collect-all', 'watchdog',
+    '--collect-all', 'numpy',
+    '--collect-all', 'onnxruntime',
+    '--collect-all', 'tokenizers',
+    '--add-data', `${path.join(retrievalAssets, 'tokenizer.json')}${pyInstallerSeparator}retrieval-assets`,
+    '--add-data', `${path.join(retrievalAssets, 'asset-manifest.json')}${pyInstallerSeparator}retrieval-assets`,
+    '--add-binary', `${path.join(retrievalAssets, 'extensions/fts.lbug_extension')}${pyInstallerSeparator}retrieval-assets/extensions`,
+    '--add-binary', `${path.join(retrievalAssets, 'extensions/vector.lbug_extension')}${pyInstallerSeparator}retrieval-assets/extensions`,
+  ];
   if (process.platform === 'win32') {
     // cocoindex_app imports these only inside its Windows named-pipe branch,
     // so PyInstaller cannot discover them through static analysis.
@@ -78,7 +101,9 @@ try {
   // The PyInstaller worker is published as a separate asset. The standalone
   // executable only needs the observation definition, never Python, uv, a
   // lockfile, or a virtual environment.
-  for (const name of ['cocoindex_app.py', 'package.json']) copy(path.join(cli, name), path.join(payload, 'app', name));
+  for (const name of ['cocoindex_app.py', 'package.json', 'retrieval-model-manifest.json']) {
+    copy(path.join(cli, name), path.join(payload, 'app', name));
+  }
   copy(path.join(cli, 'node_modules/@ladybugdb/core'), path.join(payload, 'node_modules/@ladybugdb/core'));
   const files = [];
   const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else { const relative = path.relative(payload, full); files.push({ path: relative, asset: `payload/${relative}`, mode: fs.statSync(full).mode & 0o777 }); } } };

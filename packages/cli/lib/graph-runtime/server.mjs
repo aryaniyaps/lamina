@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import net from 'node:net';
 import crypto from 'node:crypto';
 import { GraphEngine } from './engine.mjs';
+import { RetrievalStore } from '../retrieval-runtime/store.mjs';
+import { RetrievalEmbedder } from '../retrieval-runtime/embedder.mjs';
 import { ERROR, GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import {
@@ -47,6 +49,8 @@ function acquireLock() {
 acquireLock();
 if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const engine = new GraphEngine(paths);
+const retrieval = new RetrievalStore(paths);
+const retrievalEmbedder = new RetrievalEmbedder();
 
 function authenticate(request) {
   const actual = Buffer.from(String(request.auth || ''));
@@ -58,7 +62,7 @@ function authenticate(request) {
   }
 }
 
-function dispatch(request) {
+async function dispatch(request) {
   if (request.method === 'ping') return {
     pid: process.pid,
     database: paths.database,
@@ -70,6 +74,19 @@ function dispatch(request) {
   if (request.method === 'observation.apply') return engine.applyObservationBatch(request.params || {});
   if (request.method === 'observation.status') return engine.observationStatus(request.params || {});
   if (request.method === 'observation.invalidate') return engine.invalidateObservations(request.params?.product || paths.product);
+  if (request.method === 'retrieval.status') return retrieval.status(request.params || {});
+  if (request.method === 'retrieval.apply') return retrieval.apply(request.params || {});
+  if (request.method === 'retrieval.query') {
+    const params = request.params || {};
+    const status = retrieval.status(params);
+    const embedding = params.embedding || (await retrievalEmbedder.embed(
+      [params.query],
+      status.manifest?.model_digest || params.model_digest,
+      params.degradation || null,
+    ))[0];
+    return retrieval.retrievalQuery({ ...params, embedding });
+  }
+  if (request.method === 'retrieval.invalidate') return retrieval.invalidate(request.params || {});
   const context = engine.currentContext(request.cwd || cwd);
   switch (request.method) {
     case 'status': return engine.status(context);
@@ -106,6 +123,7 @@ function dispatch(request) {
 
 const server = net.createServer((socket) => {
   let buffer = '';
+  let processing = Promise.resolve();
   socket.setEncoding('utf8');
   // A CLI may time out, be interrupted, or stop reading a large response.
   // Socket errors belong to that connection and must never crash graphd while
@@ -115,39 +133,45 @@ const server = net.createServer((socket) => {
   });
   socket.on('data', (chunk) => {
     buffer += chunk;
-    let newline;
-    while ((newline = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newline);
-      buffer = buffer.slice(newline + 1);
-      if (!line.trim()) continue;
-      let response;
-      let request;
-      try {
-        request = JSON.parse(line);
-        authenticate(request);
-        response = { id: request.id, ok: true, result: dispatch(request) };
-      } catch (error) {
-        response = {
-          id: request?.id ?? null,
-          ok: false,
-          error: {
-            code: error.code || ERROR.INTERNAL,
-            message: error.message,
-            details: error.details || {},
-          },
-        };
+    processing = processing.then(async () => {
+      let newline;
+      while ((newline = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        if (!line.trim()) continue;
+        let response;
+        let request;
+        try {
+          request = JSON.parse(line);
+          authenticate(request);
+          response = { id: request.id, ok: true, result: await dispatch(request) };
+        } catch (error) {
+          response = {
+            id: request?.id ?? null,
+            ok: false,
+            error: {
+              code: error.code || ERROR.INTERNAL,
+              message: error.message,
+              details: error.details || {},
+            },
+          };
+        }
+        if (!socket.destroyed) socket.write(`${JSON.stringify(response)}\n`);
+        if (response.ok && request.method === 'shutdown') {
+          socket.end();
+          setImmediate(shutdown);
+        }
       }
-      if (!socket.destroyed) socket.write(`${JSON.stringify(response)}\n`);
-      if (response.ok && request.method === 'shutdown') {
-        socket.end();
-        setImmediate(shutdown);
-      }
-    }
+    }).catch(() => {
+      try { socket.destroy(); } catch {}
+    });
   });
 });
 
 function shutdown() {
   server.close(() => {
+    try { retrievalEmbedder.close(); } catch {}
+    try { retrieval.close(); } catch {}
     try { engine.close(); } catch {}
     if (process.platform !== 'win32') {
       try { fs.unlinkSync(socketPath); } catch {}

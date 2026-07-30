@@ -18,6 +18,8 @@ const env = {
   ASE_WORKSPACE_PATH: workspace,
   ASE_AGENT: 'codex',
   ASE_EVAL_ID: 'router-concept-01',
+  LAMINA_TEST_RETRIEVAL_EMBEDDER: 'deterministic',
+  LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS: '1',
   PATH: `${path.join(root, 'evals/bin')}:${process.env.PATH || ''}`,
 };
 
@@ -331,6 +333,8 @@ const passiveEnv = {
   ASE_WORKSPACE_PATH: passiveWorkspace,
   ASE_AGENT: 'codex',
   ASE_EVAL_ID: 'passive-feature-implementation',
+  LAMINA_TEST_RETRIEVAL_EMBEDDER: 'deterministic',
+  LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS: '1',
   PATH: `${path.join(root, 'evals/bin')}:${process.env.PATH || ''}`,
 };
 try {
@@ -387,7 +391,7 @@ try {
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const packet = JSON.parse(result.stdout);
-  assert.equal(packet.schema, 'lamina.implementation-packet/v4');
+  assert.equal(packet.schema, 'lamina.implementation-packet/v5');
   assert.deepEqual(packet.scope, ['workflow.eval.wishlist-sharing']);
   assert.ok(packet.experience_cases.length > 0, 'surface work must compile deterministic Experience Cases');
   result = spawnSync('lamina', [

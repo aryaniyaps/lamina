@@ -7,11 +7,12 @@ export const RESOURCE_KINDS = new Set([
 
 export const VIEW_KINDS = new Set(['branch', 'session', 'observation', 'historical']);
 export const CLI_API_VERSION = 1;
-export const GRAPH_PROTOCOL_VERSION = 8;
+export const GRAPH_PROTOCOL_VERSION = 9;
 export const GRAPH_CAPABILITIES = Object.freeze([
   'observation.status.source_key_count',
   'observation.status.generation',
-  'work.context.v4',
+  'retrieval.hybrid.v1',
+  'work.context.v5',
   'design.persona-walk.v1',
   'work.persona-case-map.v4',
   'mission.persona-case-evidence.v4',

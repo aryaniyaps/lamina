@@ -15,6 +15,7 @@ import {
 
 const binary = process.env.LAMINA_BINARY && path.resolve(process.env.LAMINA_BINARY);
 const worker = process.env.LAMINA_WORKER && path.resolve(process.env.LAMINA_WORKER);
+const model = process.env.LAMINA_MODEL && path.resolve(process.env.LAMINA_MODEL);
 if (!binary) {
   assert.equal(fs.existsSync('scripts/install.sh'), true);
   assert.equal(fs.existsSync('scripts/install.ps1'), true);
@@ -22,6 +23,7 @@ if (!binary) {
   process.exit(0);
 }
 assert.ok(worker, 'LAMINA_WORKER is required when exercising an isolated native binary');
+assert.ok(model, 'LAMINA_MODEL is required when exercising isolated hybrid retrieval');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-binary-smoke-'));
 const tools = path.join(temp, 'tools');
 const fixture = path.join(temp, 'fixture');
@@ -55,10 +57,20 @@ assert.equal(version.status, 0, version.error?.message || version.stderr);
 const target = `${process.platform}-${process.arch}`;
 const workerName = process.platform === 'win32' ? 'cocoindex-worker.exe' : 'cocoindex-worker';
 const runtime = path.join(cache, 'lamina', 'runtime', version.stdout.trim(), target, 'app', 'observation-runtime');
+const retrievalRuntime = path.join(cache, 'lamina', 'runtime', version.stdout.trim(), target, 'app', 'retrieval-runtime');
 fs.mkdirSync(runtime, { recursive: true });
 fs.copyFileSync(worker, path.join(runtime, workerName));
 if (process.platform !== 'win32') fs.chmodSync(path.join(runtime, workerName), 0o755);
 assert.deepEqual(fs.readdirSync(runtime), [workerName], 'the private runtime must contain only the native worker');
+const extracted = spawnSync(path.join(runtime, workerName), [
+  'retrieval', 'extract-assets', '--destination', retrievalRuntime,
+], { encoding: 'utf8' });
+assert.equal(extracted.status, 0, extracted.stderr || extracted.stdout);
+fs.copyFileSync(model, path.join(retrievalRuntime, 'model.onnx'));
+assert.deepEqual(
+  fs.readdirSync(retrievalRuntime).sort(),
+  ['asset-manifest.json', 'extensions', 'model.onnx', 'tokenizer.json'],
+);
 assert.equal(fs.existsSync(path.join(cache, 'lamina', 'runtime', version.stdout.trim(), target, 'app', 'uv.lock')), false);
 assert.equal(fs.existsSync(path.join(cache, 'lamina', 'runtime', version.stdout.trim(), target, 'app', 'pyproject.toml')), false);
 const doctor = run(['doctor', '--json']);
@@ -87,6 +99,15 @@ assert.equal(observed.status, 0, observed.stderr || observed.stdout);
 fs.writeFileSync(path.join(fixture, 'README.md'), '# changed binary smoke\n');
 const rebuilt = run(['graph', 'rebuild-observations']);
 assert.equal(rebuilt.status, 0, rebuilt.stderr || rebuilt.stdout);
+const contextRebuild = run(['context', 'rebuild']);
+assert.equal(contextRebuild.status, 0, contextRebuild.stderr || contextRebuild.stdout);
+const contextStatus = run(['context', 'status']);
+assert.equal(contextStatus.status, 0, contextStatus.stderr || contextStatus.stdout);
+assert.equal(JSON.parse(contextStatus.stdout).fresh, true);
+fs.rmSync(path.join(retrievalRuntime, 'model.onnx'));
+const missingModel = run(['context', 'rebuild']);
+assert.notEqual(missingModel.status, 0, 'a missing model must fail with an integrity error');
+assert.match(missingModel.stderr, /LAMINA_RETRIEVAL_INTEGRITY|retrieval model is missing/i);
 const generationBeforeMissingWorker = fs.readFileSync(path.join(fixture, '.git', 'lamina', 'cocoindex', 'target-generation'), 'utf8');
 fs.rmSync(path.join(runtime, workerName));
 const missingWorker = run(['graph', 'observe']);

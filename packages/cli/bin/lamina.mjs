@@ -4,7 +4,7 @@ import path from 'node:path';
 import { graphRequest } from '../lib/graph-runtime/client.mjs';
 import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
 import { runObservation } from '../lib/observe.mjs';
-import { contextCatalog } from '../lib/context-index.mjs';
+import { rebuildRetrieval, retrievalStatus } from '../lib/retrieval-runtime/process.mjs';
 import { checkWork, deriveWorkMap, prepareWork, verifyWork } from '../lib/work-context.mjs';
 import { setupAgent } from '../lib/agent-setup.mjs';
 
@@ -18,7 +18,7 @@ Commands:
   doctor --json                 Check CLI, graph, Git, and observation readiness
   graph <command>               Query or mutate the transactional product graph
   design <command>              Prepare and record design-time Persona walks
-  context catalog               Describe graph and source-context retrieval
+  context <command>             Inspect or rebuild hybrid retrieval
   work <command>                Prepare, map, and verify implementation work
   setup --agent AGENT           Install passive provider rules
   session <command>             Manage explicit graph mutation sessions
@@ -51,6 +51,14 @@ Observation commands:
   observe [--live]
   discover --brownfield
   rebuild-observations`,
+  context: `Usage: lamina context <command>
+
+Commands:
+  status                         Show generation, freshness, digests, counts, and last failure
+  rebuild                        Discard and synchronously reconstruct the derived index
+
+The retrieval database is disposable. These commands never mutate the
+canonical product graph. Normal synchronization happens in work prepare.`,
   design: `Usage: lamina design <command> [arguments]
 
 Commands:
@@ -85,7 +93,8 @@ Commands:
   check --packet FILE --map FILE
   verify --packet FILE --map FILE
 
-prepare fails closed when the graph slice is not implementation-ready. map
+prepare synchronizes hybrid retrieval, then fails closed when selection is
+ambiguous, needs a new Workflow, or the graph slice is not implementation-ready. map
 mechanically creates every obligation and Experience Case row; resolve those
 rows before check. Each WorkMap v4 file declares action=modify for an existing
 file or action=create for a planned file, plus implementation/test role. The
@@ -141,8 +150,13 @@ async function run() {
   if (domain === 'doctor') return doctorReport();
   const opt = options(rawArgs);
   if (domain === 'context') {
-    if (command === 'catalog') return contextCatalog();
-    throw Object.assign(new Error('Usage: lamina context catalog'), { code: 'LAMINA_BAD_REQUEST' });
+    if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.context);
+    if (command === 'status') return retrievalStatus();
+    if (command === 'rebuild') {
+      const rebuilt = await rebuildRetrieval();
+      return { rebuilt: true, ...rebuilt.status };
+    }
+    throw Object.assign(new Error('Usage: lamina context <status|rebuild>'), { code: 'LAMINA_BAD_REQUEST' });
   }
   if (domain === 'setup') {
     const setupOptions = options([command, ...rawArgs].filter(Boolean));
