@@ -259,12 +259,19 @@ try {
       /Rerun lamina work prepare/.test(error.message),
   );
 } finally {
-  fs.rmSync(root, {
-    recursive: true,
-    force: true,
-    maxRetries: process.platform === 'win32' ? 10 : 0,
-    retryDelay: 100,
-  });
+  try {
+    fs.rmSync(root, {
+      recursive: true,
+      force: true,
+      maxRetries: process.platform === 'win32' ? 10 : 0,
+      retryDelay: 100,
+    });
+  } catch (error) {
+    if (process.platform !== 'win32' || error.code !== 'ENOTEMPTY') throw error;
+    // Ladybug's Windows native binding may finish deleting database sidecars
+    // after closeSync returns. Assertions are complete and the runner owns this
+    // temporary tree, so only that delayed-directory case is non-fatal.
+  }
 }
 
 console.log('retrieval_runtime_test: ok');
