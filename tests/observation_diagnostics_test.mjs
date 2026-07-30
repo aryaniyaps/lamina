@@ -18,6 +18,22 @@ const complete = {
   source_revisions: [expected.sourceRevision],
 };
 
+function removeTemporaryTree(directory) {
+  try {
+    fs.rmSync(directory, {
+      recursive: true,
+      force: true,
+      maxRetries: process.platform === 'win32' ? 20 : 0,
+      retryDelay: 100,
+    });
+  } catch (error) {
+    // Windows can retain a native graphd handle briefly after the daemon has
+    // exited. The runner will reclaim its temp directory; all test assertions
+    // and daemon shutdown checks have already completed at this point.
+    if (process.platform !== 'win32' || error.code !== 'EBUSY') throw error;
+  }
+}
+
 const countMismatch = observationCompletionChecks(
   { ...complete, count: 186 },
   expected,
@@ -66,7 +82,7 @@ try {
   assert.equal(noisyResult.stdout.length, 4_000);
   assert.match(noisyResult.stdout, /^x+$/);
 } finally {
-  fs.rmSync(noisyRoot, { recursive: true, force: true });
+  removeTemporaryTree(noisyRoot);
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-observation-diagnostics-'));
@@ -97,7 +113,7 @@ try {
   if (daemonPid) {
     try { await stopIncompatibleServer(runtimePaths(root), daemonPid); } catch {}
   }
-  fs.rmSync(root, { recursive: true, force: true });
+  removeTemporaryTree(root);
 }
 
 console.log('observation_diagnostics_test: ok');
