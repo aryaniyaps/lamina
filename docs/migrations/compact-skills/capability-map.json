@@ -1,0 +1,78 @@
+{
+  "schema": "lamina.compact-capability-map/v1",
+  "packs": {
+    "domain-integrity": [
+      "lamina-system-structure",
+      "lamina-invariants",
+      "lamina-dependencies",
+      "lamina-modularity-boundaries",
+      "lamina-evolutionary-rules",
+      "lamina-system-traps",
+      "lamina-leverage-points",
+      "lamina-feedback-loops"
+    ],
+    "actors-permissions-views": [
+      "lamina-user-modeling",
+      "lamina-stakeholder-alignment",
+      "lamina-multi-view-integrity",
+      "lamina-persuasion-and-groups",
+      "lamina-task-analysis"
+    ],
+    "workflows-state-side-effects": [
+      "lamina-flow-design",
+      "lamina-side-effects",
+      "lamina-product-behavior"
+    ],
+    "time-concurrency-consistency": [
+      "lamina-time-semantics",
+      "lamina-idempotency-concurrency",
+      "lamina-consistency-guarantees"
+    ],
+    "scenarios-errors-recovery": [
+      "lamina-edge-cases",
+      "lamina-error-handling",
+      "lamina-empty-states",
+      "lamina-controls-and-menus",
+      "lamina-trust"
+    ],
+    "interaction-states-content": [
+      "lamina-forms",
+      "lamina-feedback-and-status",
+      "lamina-content-design",
+      "lamina-discoverability"
+    ],
+    "navigation-learnability": [
+      "lamina-information-architecture",
+      "lamina-navigation",
+      "lamina-onboarding",
+      "lamina-progressive-disclosure",
+      "lamina-platform-posture"
+    ],
+    "evidence-simulation": [
+      "lamina-research-scoping",
+      "lamina-research-planning",
+      "lamina-field-research",
+      "lamina-interview-design",
+      "lamina-interview-documentation",
+      "lamina-usability-evaluation",
+      "lamina-research-synthesis",
+      "lamina-research-communication",
+      "lamina-heuristic-review",
+      "lamina-quantitative-validation"
+    ],
+    "decisions-prioritization": [
+      "lamina-problem-framing",
+      "lamina-feature-discovery",
+      "lamina-requirements-definition",
+      "lamina-competitive-analysis",
+      "lamina-feature-prioritization",
+      "lamina-decision-making",
+      "lamina-tradeoffs",
+      "lamina-design-process",
+      "lamina-business-context"
+    ],
+    "accessibility-trust": [
+      "lamina-accessibility"
+    ]
+  }
+}

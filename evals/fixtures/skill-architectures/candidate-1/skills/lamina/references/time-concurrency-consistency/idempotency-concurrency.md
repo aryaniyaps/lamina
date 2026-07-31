@@ -1,0 +1,43 @@
+# idempotency concurrency
+
+> Migrated intact from `skills/lamina-idempotency-concurrency/SKILL.md` at `9a02ad51bbd294e3ee2ee1fd605f366297b9c43b`.
+
+# Idempotency and Concurrency
+
+Design product behavior so duplicate actions and simultaneous edits cannot break invariants — without prescribing database locks or frameworks.
+
+## Decision frameworks
+
+- **Idempotent operation**: Repeating the action has the same effect as once (click "generate ticket" twice → still one ticket).
+  - When to use: Any create or payment action.
+  - How: Disable button after submit; show existing result on repeat; scenarios for double-click.
+
+- **Concurrent edit conflict**: Two actors change the same resource (two admins assign different venues).
+  - When to use: Shared admin resources, collaborative editing.
+  - How: Last-write-wins with audit, optimistic conflict UI, or lock-while-editing — document product choice in `scenarios`.
+
+- **Fencing**: Stale action cannot apply after state changed (regenerate ticket on exam already completed → blocked with clear reason).
+
+## Checklists
+
+1. List mutating operations; mark which must be idempotent.
+2. For shared editable resources, define conflict behavior.
+3. Design UX for in-flight requests (disabled submit, progress).
+4. Write scenarios: `concurrent_edit`, duplicate submit, stale action.
+5. Verify phase: attempt duplicate and concurrent paths on live product.
+
+## Anti-patterns
+
+- **Double ticket on double-click**: No idempotency on create.
+- **Silent overwrite**: Admin B's venue change lost without notice.
+- **Optimistic UI without rollback**: Show success then revert confusingly.
+
+## Examples
+
+- **Two admins, one exam**: Admin A assigns Hall 1; Admin B assigns Hall 2 simultaneously. Product rule — second save warns "venue changed since you opened; review and confirm" with diff, not silent overwrite.
+
+## Related capabilities
+
+- Invariants
+- Consistency Guarantees
+- Edge Cases

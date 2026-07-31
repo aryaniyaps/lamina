@@ -1,0 +1,557 @@
+{
+  "schema": "lamina.skill-architecture/v1",
+  "variant": "candidate-1",
+  "sourceCommit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b",
+  "public": [
+    "lamina"
+  ],
+  "bundleRoot": "skills/lamina",
+  "workflows": {
+    "init": "skills/lamina/workflows/init.md",
+    "design": "skills/lamina/workflows/design.md",
+    "work": "skills/lamina/workflows/work.md",
+    "verify": "skills/lamina/workflows/verify.md",
+    "product-question": "skills/lamina/workflows/product-question.md"
+  },
+  "references": {
+    "references/authority-and-safety.md": "skills/lamina/references/authority-and-safety.md",
+    "references/graph-sessions.md": "skills/lamina/references/graph-sessions.md",
+    "references/domain-integrity.md": "skills/lamina/references/domain-integrity.md",
+    "references/domain-integrity/system-structure.md": "skills/lamina/references/domain-integrity/system-structure.md",
+    "references/domain-integrity/invariants.md": "skills/lamina/references/domain-integrity/invariants.md",
+    "references/domain-integrity/dependencies.md": "skills/lamina/references/domain-integrity/dependencies.md",
+    "references/domain-integrity/modularity-boundaries.md": "skills/lamina/references/domain-integrity/modularity-boundaries.md",
+    "references/domain-integrity/evolutionary-rules.md": "skills/lamina/references/domain-integrity/evolutionary-rules.md",
+    "references/domain-integrity/system-traps.md": "skills/lamina/references/domain-integrity/system-traps.md",
+    "references/domain-integrity/leverage-points.md": "skills/lamina/references/domain-integrity/leverage-points.md",
+    "references/domain-integrity/feedback-loops.md": "skills/lamina/references/domain-integrity/feedback-loops.md",
+    "references/actors-permissions-views.md": "skills/lamina/references/actors-permissions-views.md",
+    "references/actors-permissions-views/user-modeling.md": "skills/lamina/references/actors-permissions-views/user-modeling.md",
+    "references/actors-permissions-views/stakeholder-alignment.md": "skills/lamina/references/actors-permissions-views/stakeholder-alignment.md",
+    "references/actors-permissions-views/multi-view-integrity.md": "skills/lamina/references/actors-permissions-views/multi-view-integrity.md",
+    "references/actors-permissions-views/persuasion-and-groups.md": "skills/lamina/references/actors-permissions-views/persuasion-and-groups.md",
+    "references/actors-permissions-views/task-analysis.md": "skills/lamina/references/actors-permissions-views/task-analysis.md",
+    "references/workflows-state-side-effects.md": "skills/lamina/references/workflows-state-side-effects.md",
+    "references/workflows-state-side-effects/flow-design.md": "skills/lamina/references/workflows-state-side-effects/flow-design.md",
+    "references/workflows-state-side-effects/side-effects.md": "skills/lamina/references/workflows-state-side-effects/side-effects.md",
+    "references/workflows-state-side-effects/product-behavior.md": "skills/lamina/references/workflows-state-side-effects/product-behavior.md",
+    "references/time-concurrency-consistency.md": "skills/lamina/references/time-concurrency-consistency.md",
+    "references/time-concurrency-consistency/time-semantics.md": "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+    "references/time-concurrency-consistency/idempotency-concurrency.md": "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md",
+    "references/time-concurrency-consistency/consistency-guarantees.md": "skills/lamina/references/time-concurrency-consistency/consistency-guarantees.md",
+    "references/scenarios-errors-recovery.md": "skills/lamina/references/scenarios-errors-recovery.md",
+    "references/scenarios-errors-recovery/edge-cases.md": "skills/lamina/references/scenarios-errors-recovery/edge-cases.md",
+    "references/scenarios-errors-recovery/error-handling.md": "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+    "references/scenarios-errors-recovery/empty-states.md": "skills/lamina/references/scenarios-errors-recovery/empty-states.md",
+    "references/scenarios-errors-recovery/controls-and-menus.md": "skills/lamina/references/scenarios-errors-recovery/controls-and-menus.md",
+    "references/scenarios-errors-recovery/trust.md": "skills/lamina/references/scenarios-errors-recovery/trust.md",
+    "references/interaction-states-content.md": "skills/lamina/references/interaction-states-content.md",
+    "references/interaction-states-content/forms.md": "skills/lamina/references/interaction-states-content/forms.md",
+    "references/interaction-states-content/feedback-and-status.md": "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+    "references/interaction-states-content/content-design.md": "skills/lamina/references/interaction-states-content/content-design.md",
+    "references/interaction-states-content/discoverability.md": "skills/lamina/references/interaction-states-content/discoverability.md",
+    "references/navigation-learnability.md": "skills/lamina/references/navigation-learnability.md",
+    "references/navigation-learnability/information-architecture.md": "skills/lamina/references/navigation-learnability/information-architecture.md",
+    "references/navigation-learnability/navigation.md": "skills/lamina/references/navigation-learnability/navigation.md",
+    "references/navigation-learnability/onboarding.md": "skills/lamina/references/navigation-learnability/onboarding.md",
+    "references/navigation-learnability/progressive-disclosure.md": "skills/lamina/references/navigation-learnability/progressive-disclosure.md",
+    "references/navigation-learnability/platform-posture.md": "skills/lamina/references/navigation-learnability/platform-posture.md",
+    "references/evidence-simulation.md": "skills/lamina/references/evidence-simulation.md",
+    "references/evidence-simulation/research-scoping.md": "skills/lamina/references/evidence-simulation/research-scoping.md",
+    "references/evidence-simulation/research-planning.md": "skills/lamina/references/evidence-simulation/research-planning.md",
+    "references/evidence-simulation/field-research.md": "skills/lamina/references/evidence-simulation/field-research.md",
+    "references/evidence-simulation/interview-design.md": "skills/lamina/references/evidence-simulation/interview-design.md",
+    "references/evidence-simulation/interview-documentation.md": "skills/lamina/references/evidence-simulation/interview-documentation.md",
+    "references/evidence-simulation/usability-evaluation.md": "skills/lamina/references/evidence-simulation/usability-evaluation.md",
+    "references/evidence-simulation/research-synthesis.md": "skills/lamina/references/evidence-simulation/research-synthesis.md",
+    "references/evidence-simulation/research-communication.md": "skills/lamina/references/evidence-simulation/research-communication.md",
+    "references/evidence-simulation/heuristic-review.md": "skills/lamina/references/evidence-simulation/heuristic-review.md",
+    "references/evidence-simulation/quantitative-validation.md": "skills/lamina/references/evidence-simulation/quantitative-validation.md",
+    "references/decisions-prioritization.md": "skills/lamina/references/decisions-prioritization.md",
+    "references/decisions-prioritization/problem-framing.md": "skills/lamina/references/decisions-prioritization/problem-framing.md",
+    "references/decisions-prioritization/feature-discovery.md": "skills/lamina/references/decisions-prioritization/feature-discovery.md",
+    "references/decisions-prioritization/requirements-definition.md": "skills/lamina/references/decisions-prioritization/requirements-definition.md",
+    "references/decisions-prioritization/competitive-analysis.md": "skills/lamina/references/decisions-prioritization/competitive-analysis.md",
+    "references/decisions-prioritization/feature-prioritization.md": "skills/lamina/references/decisions-prioritization/feature-prioritization.md",
+    "references/decisions-prioritization/decision-making.md": "skills/lamina/references/decisions-prioritization/decision-making.md",
+    "references/decisions-prioritization/tradeoffs.md": "skills/lamina/references/decisions-prioritization/tradeoffs.md",
+    "references/decisions-prioritization/design-process.md": "skills/lamina/references/decisions-prioritization/design-process.md",
+    "references/decisions-prioritization/business-context.md": "skills/lamina/references/decisions-prioritization/business-context.md",
+    "references/accessibility-trust.md": "skills/lamina/references/accessibility-trust.md",
+    "references/accessibility-trust/accessibility.md": "skills/lamina/references/accessibility-trust/accessibility.md"
+  },
+  "profiles": {
+    "init": {
+      "always": [
+        "references/authority-and-safety.md",
+        "workflows/init.md"
+      ],
+      "conditional": {
+        "business_context": [
+          "references/decisions-prioritization/business-context.md"
+        ],
+        "actor_population": [
+          "references/actors-permissions-views/user-modeling.md"
+        ],
+        "evidence_gap": [
+          "references/evidence-simulation/research-scoping.md"
+        ]
+      }
+    },
+    "design": {
+      "always": [
+        "references/authority-and-safety.md",
+        "references/graph-sessions.md",
+        "workflows/design.md"
+      ],
+      "conditional": {
+        "domain_change": [
+          "references/domain-integrity/system-structure.md",
+          "references/domain-integrity/invariants.md"
+        ],
+        "active_personas": [
+          "references/actors-permissions-views/user-modeling.md",
+          "references/evidence-simulation/research-planning.md"
+        ],
+        "time_bearing_operation": [
+          "references/time-concurrency-consistency/time-semantics.md",
+          "references/time-concurrency-consistency/idempotency-concurrency.md"
+        ],
+        "user_facing_form": [
+          "references/interaction-states-content/forms.md",
+          "references/accessibility-trust/accessibility.md"
+        ],
+        "destructive_action": [
+          "references/scenarios-errors-recovery/trust.md",
+          "references/scenarios-errors-recovery/error-handling.md"
+        ]
+      }
+    },
+    "work": {
+      "always": [
+        "references/authority-and-safety.md",
+        "workflows/work.md"
+      ],
+      "conditional": {
+        "user_facing": [
+          "references/interaction-states-content/feedback-and-status.md",
+          "references/accessibility-trust/accessibility.md"
+        ],
+        "graph_gap": [
+          "references/graph-sessions.md",
+          "workflows/design.md"
+        ]
+      }
+    },
+    "verify": {
+      "always": [
+        "references/authority-and-safety.md",
+        "workflows/verify.md"
+      ],
+      "conditional": {
+        "user_facing": [
+          "references/accessibility-trust/accessibility.md",
+          "references/interaction-states-content/feedback-and-status.md"
+        ],
+        "shared_mutation": [
+          "references/time-concurrency-consistency/idempotency-concurrency.md",
+          "references/domain-integrity/invariants.md"
+        ],
+        "findings": [
+          "references/decisions-prioritization/decision-making.md"
+        ]
+      }
+    },
+    "product-question": {
+      "always": [
+        "workflows/product-question.md"
+      ],
+      "conditional": {
+        "empty_state": [
+          "references/scenarios-errors-recovery/empty-states.md"
+        ],
+        "permission_denial": [
+          "references/actors-permissions-views/multi-view-integrity.md"
+        ],
+        "navigation": [
+          "references/navigation-learnability/navigation.md"
+        ],
+        "form_validation": [
+          "references/interaction-states-content/forms.md"
+        ],
+        "accessibility": [
+          "references/accessibility-trust/accessibility.md"
+        ],
+        "prioritization": [
+          "references/decisions-prioritization/feature-prioritization.md"
+        ]
+      }
+    }
+  },
+  "publicRouteMap": {
+    "lamina": {
+      "publicSkill": "lamina",
+      "workflow": null
+    },
+    "lamina-init": {
+      "publicSkill": "lamina",
+      "workflow": "init"
+    },
+    "lamina-design": {
+      "publicSkill": "lamina",
+      "workflow": "design"
+    },
+    "lamina-work": {
+      "publicSkill": "lamina",
+      "workflow": "work"
+    },
+    "lamina-verify": {
+      "publicSkill": "lamina",
+      "workflow": "verify"
+    },
+    "lamina-product": {
+      "publicSkill": "lamina",
+      "workflow": "product-question"
+    }
+  },
+  "legacyNames": {
+    "lamina": {
+      "publicSkill": "lamina",
+      "reference": "workflows/work.md"
+    },
+    "lamina-core": {
+      "publicSkill": "lamina",
+      "reference": "workflows/product-question.md"
+    },
+    "lamina-init": {
+      "publicSkill": "lamina",
+      "reference": "workflows/init.md"
+    },
+    "lamina-design": {
+      "publicSkill": "lamina",
+      "reference": "workflows/design.md"
+    },
+    "lamina-verify": {
+      "publicSkill": "lamina",
+      "reference": "workflows/verify.md"
+    },
+    "lamina-orchestrator": {
+      "publicSkill": "lamina",
+      "reference": "references/authority-and-safety.md"
+    },
+    "lamina-research-planning": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/research-planning.md"
+    },
+    "lamina-research-scoping": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/research-scoping.md"
+    },
+    "lamina-research-synthesis": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/research-synthesis.md"
+    },
+    "lamina-research-communication": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/research-communication.md"
+    },
+    "lamina-field-research": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/field-research.md"
+    },
+    "lamina-interview-design": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/interview-design.md"
+    },
+    "lamina-interview-documentation": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/interview-documentation.md"
+    },
+    "lamina-competitive-analysis": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/competitive-analysis.md"
+    },
+    "lamina-user-modeling": {
+      "publicSkill": "lamina",
+      "reference": "references/actors-permissions-views/user-modeling.md"
+    },
+    "lamina-task-analysis": {
+      "publicSkill": "lamina",
+      "reference": "references/actors-permissions-views/task-analysis.md"
+    },
+    "lamina-problem-framing": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/problem-framing.md"
+    },
+    "lamina-business-context": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/business-context.md"
+    },
+    "lamina-stakeholder-alignment": {
+      "publicSkill": "lamina",
+      "reference": "references/actors-permissions-views/stakeholder-alignment.md"
+    },
+    "lamina-feature-discovery": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/feature-discovery.md"
+    },
+    "lamina-feature-prioritization": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/feature-prioritization.md"
+    },
+    "lamina-requirements-definition": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/requirements-definition.md"
+    },
+    "lamina-tradeoffs": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/tradeoffs.md"
+    },
+    "lamina-decision-making": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/decision-making.md"
+    },
+    "lamina-design-process": {
+      "publicSkill": "lamina",
+      "reference": "references/decisions-prioritization/design-process.md"
+    },
+    "lamina-flow-design": {
+      "publicSkill": "lamina",
+      "reference": "references/workflows-state-side-effects/flow-design.md"
+    },
+    "lamina-information-architecture": {
+      "publicSkill": "lamina",
+      "reference": "references/navigation-learnability/information-architecture.md"
+    },
+    "lamina-navigation": {
+      "publicSkill": "lamina",
+      "reference": "references/navigation-learnability/navigation.md"
+    },
+    "lamina-content-design": {
+      "publicSkill": "lamina",
+      "reference": "references/interaction-states-content/content-design.md"
+    },
+    "lamina-forms": {
+      "publicSkill": "lamina",
+      "reference": "references/interaction-states-content/forms.md"
+    },
+    "lamina-controls-and-menus": {
+      "publicSkill": "lamina",
+      "reference": "references/scenarios-errors-recovery/controls-and-menus.md"
+    },
+    "lamina-empty-states": {
+      "publicSkill": "lamina",
+      "reference": "references/scenarios-errors-recovery/empty-states.md"
+    },
+    "lamina-onboarding": {
+      "publicSkill": "lamina",
+      "reference": "references/navigation-learnability/onboarding.md"
+    },
+    "lamina-feedback-and-status": {
+      "publicSkill": "lamina",
+      "reference": "references/interaction-states-content/feedback-and-status.md"
+    },
+    "lamina-error-handling": {
+      "publicSkill": "lamina",
+      "reference": "references/scenarios-errors-recovery/error-handling.md"
+    },
+    "lamina-progressive-disclosure": {
+      "publicSkill": "lamina",
+      "reference": "references/navigation-learnability/progressive-disclosure.md"
+    },
+    "lamina-discoverability": {
+      "publicSkill": "lamina",
+      "reference": "references/interaction-states-content/discoverability.md"
+    },
+    "lamina-accessibility": {
+      "publicSkill": "lamina",
+      "reference": "references/accessibility-trust/accessibility.md"
+    },
+    "lamina-persuasion-and-groups": {
+      "publicSkill": "lamina",
+      "reference": "references/actors-permissions-views/persuasion-and-groups.md"
+    },
+    "lamina-trust": {
+      "publicSkill": "lamina",
+      "reference": "references/scenarios-errors-recovery/trust.md"
+    },
+    "lamina-edge-cases": {
+      "publicSkill": "lamina",
+      "reference": "references/scenarios-errors-recovery/edge-cases.md"
+    },
+    "lamina-product-behavior": {
+      "publicSkill": "lamina",
+      "reference": "references/workflows-state-side-effects/product-behavior.md"
+    },
+    "lamina-platform-posture": {
+      "publicSkill": "lamina",
+      "reference": "references/navigation-learnability/platform-posture.md"
+    },
+    "lamina-side-effects": {
+      "publicSkill": "lamina",
+      "reference": "references/workflows-state-side-effects/side-effects.md"
+    },
+    "lamina-invariants": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/invariants.md"
+    },
+    "lamina-consistency-guarantees": {
+      "publicSkill": "lamina",
+      "reference": "references/time-concurrency-consistency/consistency-guarantees.md"
+    },
+    "lamina-idempotency-concurrency": {
+      "publicSkill": "lamina",
+      "reference": "references/time-concurrency-consistency/idempotency-concurrency.md"
+    },
+    "lamina-time-semantics": {
+      "publicSkill": "lamina",
+      "reference": "references/time-concurrency-consistency/time-semantics.md"
+    },
+    "lamina-dependencies": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/dependencies.md"
+    },
+    "lamina-modularity-boundaries": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/modularity-boundaries.md"
+    },
+    "lamina-multi-view-integrity": {
+      "publicSkill": "lamina",
+      "reference": "references/actors-permissions-views/multi-view-integrity.md"
+    },
+    "lamina-system-structure": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/system-structure.md"
+    },
+    "lamina-system-traps": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/system-traps.md"
+    },
+    "lamina-leverage-points": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/leverage-points.md"
+    },
+    "lamina-feedback-loops": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/feedback-loops.md"
+    },
+    "lamina-evolutionary-rules": {
+      "publicSkill": "lamina",
+      "reference": "references/domain-integrity/evolutionary-rules.md"
+    },
+    "lamina-usability-evaluation": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/usability-evaluation.md"
+    },
+    "lamina-heuristic-review": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/heuristic-review.md"
+    },
+    "lamina-quantitative-validation": {
+      "publicSkill": "lamina",
+      "reference": "references/evidence-simulation/quantitative-validation.md"
+    }
+  },
+  "loadingInvariants": [
+    "mechanical_task_loads_zero_skill_bodies",
+    "one_workflow_loaded_initially",
+    "focused_question_loads_at_most_one_primary_capability_leaf",
+    "design_loads_source_write_prohibition",
+    "verify_loads_source_read_only_boundary",
+    "time_bearing_operation_loads_time_and_concurrency",
+    "user_facing_form_loads_interaction_and_accessibility",
+    "no_bulk_reference_loading"
+  ],
+  "contextBudgets": {
+    "installedPublicDescriptionTokens": 1000,
+    "genericRootWords": 1500,
+    "workflowRootWords": 2000,
+    "focusedQuestionPrimaryReferences": 1,
+    "typicalWorkflowCapabilityReferences": {
+      "minimum": 2,
+      "maximum": 4
+    },
+    "mechanicalTaskSkillBodies": 0,
+    "maximumRoutingHopsBeforeGuidance": 2
+  },
+  "providerRequirements": {
+    "recursiveBundledReferenceCopy": true,
+    "relativeReferenceResolution": true,
+    "partialInstallRejected": false
+  },
+  "expectedInstallInventory": [
+    "architecture.json",
+    "skills/lamina/SKILL.md",
+    "skills/lamina/references/accessibility-trust.md",
+    "skills/lamina/references/accessibility-trust/accessibility.md",
+    "skills/lamina/references/actors-permissions-views.md",
+    "skills/lamina/references/actors-permissions-views/multi-view-integrity.md",
+    "skills/lamina/references/actors-permissions-views/persuasion-and-groups.md",
+    "skills/lamina/references/actors-permissions-views/stakeholder-alignment.md",
+    "skills/lamina/references/actors-permissions-views/task-analysis.md",
+    "skills/lamina/references/actors-permissions-views/user-modeling.md",
+    "skills/lamina/references/authority-and-safety.md",
+    "skills/lamina/references/decisions-prioritization.md",
+    "skills/lamina/references/decisions-prioritization/business-context.md",
+    "skills/lamina/references/decisions-prioritization/competitive-analysis.md",
+    "skills/lamina/references/decisions-prioritization/decision-making.md",
+    "skills/lamina/references/decisions-prioritization/design-process.md",
+    "skills/lamina/references/decisions-prioritization/feature-discovery.md",
+    "skills/lamina/references/decisions-prioritization/feature-prioritization.md",
+    "skills/lamina/references/decisions-prioritization/problem-framing.md",
+    "skills/lamina/references/decisions-prioritization/requirements-definition.md",
+    "skills/lamina/references/decisions-prioritization/tradeoffs.md",
+    "skills/lamina/references/domain-integrity.md",
+    "skills/lamina/references/domain-integrity/dependencies.md",
+    "skills/lamina/references/domain-integrity/evolutionary-rules.md",
+    "skills/lamina/references/domain-integrity/feedback-loops.md",
+    "skills/lamina/references/domain-integrity/invariants.md",
+    "skills/lamina/references/domain-integrity/leverage-points.md",
+    "skills/lamina/references/domain-integrity/modularity-boundaries.md",
+    "skills/lamina/references/domain-integrity/system-structure.md",
+    "skills/lamina/references/domain-integrity/system-traps.md",
+    "skills/lamina/references/evidence-simulation.md",
+    "skills/lamina/references/evidence-simulation/field-research.md",
+    "skills/lamina/references/evidence-simulation/heuristic-review.md",
+    "skills/lamina/references/evidence-simulation/interview-design.md",
+    "skills/lamina/references/evidence-simulation/interview-documentation.md",
+    "skills/lamina/references/evidence-simulation/quantitative-validation.md",
+    "skills/lamina/references/evidence-simulation/research-communication.md",
+    "skills/lamina/references/evidence-simulation/research-planning.md",
+    "skills/lamina/references/evidence-simulation/research-scoping.md",
+    "skills/lamina/references/evidence-simulation/research-synthesis.md",
+    "skills/lamina/references/evidence-simulation/usability-evaluation.md",
+    "skills/lamina/references/graph-sessions.md",
+    "skills/lamina/references/interaction-states-content.md",
+    "skills/lamina/references/interaction-states-content/content-design.md",
+    "skills/lamina/references/interaction-states-content/discoverability.md",
+    "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+    "skills/lamina/references/interaction-states-content/forms.md",
+    "skills/lamina/references/navigation-learnability.md",
+    "skills/lamina/references/navigation-learnability/information-architecture.md",
+    "skills/lamina/references/navigation-learnability/navigation.md",
+    "skills/lamina/references/navigation-learnability/onboarding.md",
+    "skills/lamina/references/navigation-learnability/platform-posture.md",
+    "skills/lamina/references/navigation-learnability/progressive-disclosure.md",
+    "skills/lamina/references/scenarios-errors-recovery.md",
+    "skills/lamina/references/scenarios-errors-recovery/controls-and-menus.md",
+    "skills/lamina/references/scenarios-errors-recovery/edge-cases.md",
+    "skills/lamina/references/scenarios-errors-recovery/empty-states.md",
+    "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+    "skills/lamina/references/scenarios-errors-recovery/trust.md",
+    "skills/lamina/references/time-concurrency-consistency.md",
+    "skills/lamina/references/time-concurrency-consistency/consistency-guarantees.md",
+    "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md",
+    "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+    "skills/lamina/references/workflows-state-side-effects.md",
+    "skills/lamina/references/workflows-state-side-effects/flow-design.md",
+    "skills/lamina/references/workflows-state-side-effects/product-behavior.md",
+    "skills/lamina/references/workflows-state-side-effects/side-effects.md",
+    "skills/lamina/workflows/design.md",
+    "skills/lamina/workflows/init.md",
+    "skills/lamina/workflows/product-question.md",
+    "skills/lamina/workflows/verify.md",
+    "skills/lamina/workflows/work.md",
+    "traceability.json"
+  ]
+}
