@@ -1,0 +1,1529 @@
+{
+  "schema": "lamina.skill-baseline-inventory/v1",
+  "sourceCommit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b",
+  "publicSkillCount": 59,
+  "publicCatalogMetadata": {
+    "bytes": 12282,
+    "approximateTokens": 3048
+  },
+  "installed": {
+    "files": 91,
+    "bytes": 190978
+  },
+  "skillBodies": {
+    "totalBytes": 140265,
+    "totalApproximateTokens": 34912,
+    "averageApproximateTokens": 592,
+    "maximumApproximateTokens": 2096
+  },
+  "behavioralMeasurements": {
+    "status": "not_collected",
+    "routingAccuracy": null,
+    "falsePassiveActivation": null,
+    "missedRequiredActivation": null,
+    "averageLoadedSkillBodies": null,
+    "averageInstructionTokensPerTask": null,
+    "benchmarkCompletionRate": null,
+    "providerInstallSuccess": null
+  },
+  "skills": [
+    {
+      "name": "lamina",
+      "path": "skills/lamina/SKILL.md",
+      "description": "Use passively for ordinary feature, product-behavior fix, user-flow refactor, and UI implementation requests in a Lamina-initialized repository, and explicitly for /lamina-init, /lamina-design, or /lamina-verify. Compile graph-backed product obligations into coding context and evidence gates. Skip purely mechanical build, formatting, dependency, and test maintenance.",
+      "bytes": 5973,
+      "words": 786,
+      "approximateTokens": 1493,
+      "sha256": "0c75a77ee2b2c6bff07648de7848adf0d0beeef30a47c8a3bcc466a97364e4e6",
+      "installedFiles": 1,
+      "installedBytes": 5973,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [],
+      "commands": [
+        "lamina\ngraph observe",
+        "lamina work check",
+        "lamina work map",
+        "lamina work prepare",
+        "lamina work verify"
+      ],
+      "graphOperations": [
+        "graph closure",
+        "graph dump",
+        "graph facts",
+        "graph gaps",
+        "graph observe",
+        "graph slice",
+        "graph work",
+        "mission set",
+        "work check",
+        "work map",
+        "work prepare",
+        "work verify"
+      ]
+    },
+    {
+      "name": "lamina-accessibility",
+      "path": "skills/lamina-accessibility/SKILL.md",
+      "description": "Specify and verify accessibility behavior on product-graph surfaces and workflows, including semantics, keyboard reachability, focus, errors, async status, and non-visual state communication.",
+      "bytes": 938,
+      "words": 125,
+      "approximateTokens": 234,
+      "sha256": "d70b82043a2ba0c045d034480bb77db74014e5959a106ca81b31921c0a66843e",
+      "installedFiles": 1,
+      "installedBytes": 938,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "verify-time"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph surfaces"
+      ]
+    },
+    {
+      "name": "lamina-business-context",
+      "path": "skills/lamina-business-context/SKILL.md",
+      "description": "Business context UX guidance. Use when bootstrapping Lamina for a project; answering business questions UX work needs; updating context after a pivot or scope change.",
+      "bytes": 8435,
+      "words": 1074,
+      "approximateTokens": 2096,
+      "sha256": "702489d28aa7a225298eb8fe8ad860744e70d1e0221e5663b8423a8fa9f3fa62",
+      "installedFiles": 1,
+      "installedBytes": 8435,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-competitive-analysis/SKILL.md",
+        "../lamina-feature-discovery/SKILL.md",
+        "../lamina-feature-discovery/SKILL.md",
+        "../lamina-feature-prioritization/SKILL.md",
+        "../lamina-field-research/SKILL.md",
+        "../lamina-orchestrator/artifacts.md",
+        "../lamina-platform-posture/SKILL.md",
+        "../lamina-problem-framing/SKILL.md",
+        "../lamina-problem-framing/SKILL.md",
+        "../lamina-product-behavior/SKILL.md",
+        "../lamina-product-behavior/SKILL.md",
+        "../lamina-product-behavior/SKILL.md",
+        "../lamina-quantitative-validation/SKILL.md",
+        "../lamina-research-scoping/SKILL.md",
+        "../lamina-research-scoping/SKILL.md",
+        "../lamina-research-scoping/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-domain",
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph design",
+        "work needs"
+      ]
+    },
+    {
+      "name": "lamina-competitive-analysis",
+      "path": "skills/lamina-competitive-analysis/SKILL.md",
+      "description": "Reference patterns — learn from user-cited competitors or products as evidence. Not market parity slide decks.",
+      "bytes": 1001,
+      "words": 119,
+      "approximateTokens": 249,
+      "sha256": "57b4ff2fc781947c3d7e2863ea0e30d5025061958522351ed58eefa1b38baf14",
+      "installedFiles": 1,
+      "installedBytes": 1001,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-feature-discovery/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-intake"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-consistency-guarantees",
+      "path": "skills/lamina-consistency-guarantees/SKILL.md",
+      "description": "Product-facing consistency — what users and actors may see when, stale vs fresh data, and acceptable lag. Use when multiple views must agree without prescribing storage technology.",
+      "bytes": 2901,
+      "words": 379,
+      "approximateTokens": 720,
+      "sha256": "c47fc90345554132f76a10aefb6a1c088bcdba159e1bca5f105ecf030f69a1d2",
+      "installedFiles": 1,
+      "installedBytes": 2901,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-invariants/SKILL.md",
+        "../lamina-multi-view-integrity/SKILL.md",
+        "../lamina-side-effects/SKILL.md"
+      ],
+      "auditProfiles": [
+        "verify-contract",
+        "verify-integrity",
+        "verify-time"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "session refresh"
+      ]
+    },
+    {
+      "name": "lamina-content-design",
+      "path": "skills/lamina-content-design/SKILL.md",
+      "description": "Copy and labels in contracts — scan-first labels, error text, and empty-state messaging. Use when screen copy blocks actor walks.",
+      "bytes": 2215,
+      "words": 290,
+      "approximateTokens": 550,
+      "sha256": "0dfe0cdef82fe3114e732b4ae8df43c6991dada68a4301cbf20d9ad1cbb87660",
+      "installedFiles": 1,
+      "installedBytes": 2215,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-discoverability/SKILL.md",
+        "../lamina-empty-states/SKILL.md",
+        "../lamina-navigation/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux",
+        "experience-core"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-controls-and-menus",
+      "path": "skills/lamina-controls-and-menus/SKILL.md",
+      "description": "Actions and reversibility in contracts — primary/destructive actions, undo policy, confirmations. Use when destructive ops lack scenarios.",
+      "bytes": 2313,
+      "words": 282,
+      "approximateTokens": 575,
+      "sha256": "da6ca66c533319ce542d347c90b5847fe76774c2d32a9ebd2e214e012b586304",
+      "installedFiles": 1,
+      "installedBytes": 2313,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-error-handling/SKILL.md",
+        "../lamina-forms/SKILL.md",
+        "../lamina-platform-posture/SKILL.md",
+        "../lamina-progressive-disclosure/SKILL.md"
+      ],
+      "auditProfiles": [],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-core",
+      "path": "skills/lamina-core/SKILL.md",
+      "description": "Lamina Problem Router — product design at the intersection of UX, product rules, and systems thinking.",
+      "bytes": 6295,
+      "words": 588,
+      "approximateTokens": 1571,
+      "sha256": "e860c3b66fccf4a3c8d3e806e7c2b7c4aa864b1725f80596d06b157b54fbfcfc",
+      "installedFiles": 3,
+      "installedBytes": 15382,
+      "localAssets": [
+        "skills/lamina-core/guardrails.md",
+        "skills/lamina-core/reference.md"
+      ],
+      "localLinks": [
+        "../lamina-accessibility/SKILL.md",
+        "../lamina-business-context/SKILL.md",
+        "../lamina-competitive-analysis/SKILL.md",
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-content-design/SKILL.md",
+        "../lamina-decision-making/SKILL.md",
+        "../lamina-dependencies/SKILL.md",
+        "../lamina-dependencies/SKILL.md",
+        "../lamina-design-process/SKILL.md",
+        "../lamina-discoverability/SKILL.md",
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-empty-states/SKILL.md",
+        "../lamina-error-handling/SKILL.md",
+        "../lamina-evolutionary-rules/SKILL.md",
+        "../lamina-feature-discovery/SKILL.md",
+        "../lamina-feature-prioritization/SKILL.md",
+        "../lamina-feedback-and-status/SKILL.md",
+        "../lamina-feedback-loops/SKILL.md",
+        "../lamina-field-research/SKILL.md",
+        "../lamina-flow-design/SKILL.md",
+        "../lamina-forms/SKILL.md",
+        "../lamina-heuristic-review/SKILL.md",
+        "../lamina-idempotency-concurrency/SKILL.md",
+        "../lamina-information-architecture/SKILL.md",
+        "../lamina-interview-design/SKILL.md",
+        "../lamina-interview-documentation/SKILL.md",
+        "../lamina-invariants/SKILL.md",
+        "../lamina-leverage-points/SKILL.md",
+        "../lamina-modularity-boundaries/SKILL.md",
+        "../lamina-multi-view-integrity/SKILL.md",
+        "../lamina-navigation/SKILL.md",
+        "../lamina-onboarding/SKILL.md",
+        "../lamina-orchestrator/SKILL.md",
+        "../lamina-orchestrator/artifacts.md",
+        "../lamina-persuasion-and-groups/SKILL.md",
+        "../lamina-platform-posture/SKILL.md",
+        "../lamina-problem-framing/SKILL.md",
+        "../lamina-product-behavior/SKILL.md",
+        "../lamina-progressive-disclosure/SKILL.md",
+        "../lamina-quantitative-validation/SKILL.md",
+        "../lamina-requirements-definition/SKILL.md",
+        "../lamina-research-communication/SKILL.md",
+        "../lamina-research-planning/SKILL.md",
+        "../lamina-research-scoping/SKILL.md",
+        "../lamina-research-synthesis/SKILL.md",
+        "../lamina-side-effects/SKILL.md",
+        "../lamina-stakeholder-alignment/SKILL.md",
+        "../lamina-system-structure/SKILL.md",
+        "../lamina-system-traps/SKILL.md",
+        "../lamina-task-analysis/SKILL.md",
+        "../lamina-time-semantics/SKILL.md",
+        "../lamina-time-semantics/SKILL.md",
+        "../lamina-tradeoffs/SKILL.md",
+        "../lamina-trust/SKILL.md",
+        "../lamina-usability-evaluation/SKILL.md",
+        "../lamina-user-modeling/SKILL.md",
+        "guardrails.md",
+        "guardrails.md"
+      ],
+      "auditProfiles": [],
+      "commands": [],
+      "graphOperations": [
+        "graph state"
+      ]
+    },
+    {
+      "name": "lamina-decision-making",
+      "path": "skills/lamina-decision-making/SKILL.md",
+      "description": "Prioritize contract gaps and verify findings — impact × effort, primary actor filter. Use when reconciling conflicts or ranking findings[].",
+      "bytes": 2606,
+      "words": 349,
+      "approximateTokens": 648,
+      "sha256": "af8033b41dd53bbe1765fc62dae3d5cbdd74d8141c40658c0fcdce457c1bf71d",
+      "installedFiles": 1,
+      "installedBytes": 2606,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-feature-prioritization/SKILL.md",
+        "../lamina-tradeoffs/SKILL.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-risks",
+        "verify-findings"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-dependencies",
+      "path": "skills/lamina-dependencies/SKILL.md",
+      "description": "Map prerequisite, data, lifecycle, and reachability dependencies between typed product-graph nodes, including explicit behavior when a dependency is unmet.",
+      "bytes": 1659,
+      "words": 199,
+      "approximateTokens": 415,
+      "sha256": "53b90be50f20ceeb9f55bd8ced466d6f6f3bdb0aadb5d37470c145b2ba513336",
+      "installedFiles": 1,
+      "installedBytes": 1659,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-domain",
+        "design-scenarios",
+        "design-simulation",
+        "design-time",
+        "design-workflows",
+        "verify-contract",
+        "verify-integrity"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph nodes"
+      ]
+    },
+    {
+      "name": "lamina-design",
+      "path": "skills/lamina-design/SKILL.md",
+      "description": "Shape intended product behavior in Lamina's transactional graph when explicitly invoked as lamina-design or when passive implementation preparation reports design gaps. Publish an implementation-ready graph version without editing application source.",
+      "bytes": 7620,
+      "words": 970,
+      "approximateTokens": 1905,
+      "sha256": "0c4ce6a63e831de06f9bbd679be17c732613384f2919aad82fa6809869667474",
+      "installedFiles": 1,
+      "installedBytes": 7620,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [],
+      "commands": [
+        "lamina graph propose",
+        "lamina graph query --at HEAD",
+        "lamina graph status",
+        "lamina graph validate --at <session-id>",
+        "lamina mission compile --workflow <workflow-id> --session <session-id>",
+        "lamina session publish <session-id>",
+        "lamina session rebase <session-id>",
+        "lamina session start",
+        "lamina work prepare"
+      ],
+      "graphOperations": [
+        "graph and",
+        "graph propose",
+        "graph query",
+        "graph skeleton",
+        "graph so",
+        "graph state",
+        "graph status",
+        "graph transaction",
+        "graph validate",
+        "graph version",
+        "graph when",
+        "mission as",
+        "mission compile",
+        "session publish",
+        "session rebase",
+        "session so",
+        "session start",
+        "session with",
+        "work prepare"
+      ]
+    },
+    {
+      "name": "lamina-design-process",
+      "path": "skills/lamina-design-process/SKILL.md",
+      "description": "Agent-native design loop — domain contract, external build, verify, iterate. Not human workshop ceremony.",
+      "bytes": 2128,
+      "words": 279,
+      "approximateTokens": 525,
+      "sha256": "b004f189319736130cd960fe5f0484bb9b7aecc02b868d87e323d6e3296e7d3a",
+      "installedFiles": 1,
+      "installedBytes": 2128,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-design/SKILL.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [],
+      "commands": [
+        "lamina work map"
+      ],
+      "graphOperations": [
+        "graph closure",
+        "graph to",
+        "work map"
+      ]
+    },
+    {
+      "name": "lamina-discoverability",
+      "path": "skills/lamina-discoverability/SKILL.md",
+      "description": "Signifiers and affordances in screen contracts — actors must see what they can do. Use when actor walks report execution/evaluation gulfs.",
+      "bytes": 2136,
+      "words": 275,
+      "approximateTokens": 530,
+      "sha256": "b56313ff51ad4311c942528f75a8693db315551f56fe9fc304f8daa9e601a553",
+      "installedFiles": 1,
+      "installedBytes": 2136,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-content-design/SKILL.md",
+        "../lamina-feedback-and-status/SKILL.md",
+        "../lamina-onboarding/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-edge-cases",
+      "path": "skills/lamina-edge-cases/SKILL.md",
+      "description": "Derive distinct product-risk scenarios from operations, dependencies, authority, lifecycles, concurrency, destructive actions, and recovery without generating exhaustive or duplicate edge-case lists.",
+      "bytes": 1138,
+      "words": 141,
+      "approximateTokens": 284,
+      "sha256": "1efd2f4c1f7de9d8b14022a457aad01353b7dc609f5bc53fe3641fd0a00df6c0",
+      "installedFiles": 1,
+      "installedBytes": 1138,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-scenarios",
+        "design-simulation",
+        "experience-core",
+        "verify-integrity"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-empty-states",
+      "path": "skills/lamina-empty-states/SKILL.md",
+      "description": "Empty and zero-data UX in scenarios — first productive action when domain collections are empty. Use when collection_empty scenarios are missing.",
+      "bytes": 1717,
+      "words": 218,
+      "approximateTokens": 427,
+      "sha256": "e79cc5a2002d740f9c7232e1fbf5c034a3c1c3aef462b778d7628bf1a45db2f9",
+      "installedFiles": 1,
+      "installedBytes": 1717,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-content-design/SKILL.md",
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-onboarding/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-scenarios",
+        "design-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-error-handling",
+      "path": "skills/lamina-error-handling/SKILL.md",
+      "description": "Error and recovery UX in scenarios — slips vs mistakes, root cause in design not actors. Use when mapping failure scenarios in the active GraphVersion.",
+      "bytes": 1972,
+      "words": 253,
+      "approximateTokens": 490,
+      "sha256": "7d86e55325c434fcaa504842681c2d61e295d88e2d7784b1f4bb651ca1d0139e",
+      "installedFiles": 1,
+      "installedBytes": 1972,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-feedback-and-status/SKILL.md",
+        "../lamina-forms/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-scenarios",
+        "design-simulation",
+        "experience-core",
+        "verify-findings"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-evolutionary-rules",
+      "path": "skills/lamina-evolutionary-rules/SKILL.md",
+      "description": "Evolving product rules safely — reversible decisions, invariant checks as features change, deferring commitment. Use when the domain will grow or requirements are uncertain.",
+      "bytes": 2573,
+      "words": 336,
+      "approximateTokens": 640,
+      "sha256": "05865e09d3e00037f0d24db4d1517d6b912db836eeeba6a8a2f82f255a4c8e80",
+      "installedFiles": 1,
+      "installedBytes": 2573,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-invariants/SKILL.md",
+        "../lamina-tradeoffs/SKILL.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-risks"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-feature-discovery",
+      "path": "skills/lamina-feature-discovery/SKILL.md",
+      "description": "Capability discovery — map requests to domain operations, workflows, and actors. Not generative research methods for human labs.",
+      "bytes": 1031,
+      "words": 125,
+      "approximateTokens": 257,
+      "sha256": "01ded4229cda7a29b52eb303d4955b3db896b0ccb52f5ff8ea3cfc444a7dc874",
+      "installedFiles": 1,
+      "installedBytes": 1031,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-flow-design/SKILL.md",
+        "../lamina-task-analysis/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-intake",
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-feature-prioritization",
+      "path": "skills/lamina-feature-prioritization/SKILL.md",
+      "description": "Scope prioritization — rank workflows by invariant risk and actor impact. Not roadmap theater or featuritis dogma.",
+      "bytes": 1116,
+      "words": 133,
+      "approximateTokens": 275,
+      "sha256": "2cc396e96f1a28f157b54498bc3d71ab9224b8033c10536034b803072fdd8a99",
+      "installedFiles": 1,
+      "installedBytes": 1116,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-invariants/SKILL.md",
+        "../lamina-tradeoffs/SKILL.md"
+      ],
+      "auditProfiles": [
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-feedback-and-status",
+      "path": "skills/lamina-feedback-and-status/SKILL.md",
+      "description": "System state visibility in contracts — modeless feedback, progress, and async status. Use when actors can't tell what happened after actions.",
+      "bytes": 2179,
+      "words": 274,
+      "approximateTokens": 542,
+      "sha256": "807d76b08b4fe8e594ad4061d743cadd9decfee6b21a97f16cf287bc4ac33062",
+      "installedFiles": 1,
+      "installedBytes": 2179,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-discoverability/SKILL.md",
+        "../lamina-error-handling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux",
+        "experience-core"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-feedback-loops",
+      "path": "skills/lamina-feedback-loops/SKILL.md",
+      "description": "Feedback loops in product behavior — balancing and reinforcing dynamics, delays, and oscillation. Use when state changes feed back into further change.",
+      "bytes": 3024,
+      "words": 385,
+      "approximateTokens": 752,
+      "sha256": "a79ce63cd634f4778c389e53637ec0a9d38332d0e0872bc21b411542908e4e28",
+      "installedFiles": 1,
+      "installedBytes": 3024,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-feedback-and-status/SKILL.md",
+        "../lamina-system-structure/SKILL.md",
+        "../lamina-system-traps/SKILL.md"
+      ],
+      "auditProfiles": [],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-field-research",
+      "path": "skills/lamina-field-research/SKILL.md",
+      "description": "Live product grounding — repo and browser observation of real behavior. Not ethnography logistics.",
+      "bytes": 1203,
+      "words": 153,
+      "approximateTokens": 298,
+      "sha256": "6d05d6862a7cc0956c350b7c356c07d2e113402e557985202a10836475051280",
+      "installedFiles": 1,
+      "installedBytes": 1203,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-research-scoping/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-evidence",
+        "verify-grounding"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-flow-design",
+      "path": "skills/lamina-flow-design/SKILL.md",
+      "description": "Design reachable actor workflows from typed product operations, dependencies, and terminal outcomes, including complete cross-actor handoffs and recovery.",
+      "bytes": 956,
+      "words": 128,
+      "approximateTokens": 239,
+      "sha256": "1c9fecf64c04bb61fe0cb15481fb9c94119189ff802cd305178e740496c39cc4",
+      "installedFiles": 1,
+      "installedBytes": 956,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-simulation",
+        "design-workflows",
+        "verify-grounding"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-forms",
+      "path": "skills/lamina-forms/SKILL.md",
+      "description": "Form behavior in contracts — validation timing, field semantics, and recovery UX. Use when data entry blocks workflows or causes scenario gaps.",
+      "bytes": 2967,
+      "words": 399,
+      "approximateTokens": 739,
+      "sha256": "45dd35e69eac450c12370beb9c5013baab008dc5696f89e8f7b67831c16984ab",
+      "installedFiles": 1,
+      "installedBytes": 2967,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-controls-and-menus/SKILL.md",
+        "../lamina-error-handling/SKILL.md",
+        "../lamina-flow-design/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux",
+        "experience-core"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-heuristic-review",
+      "path": "skills/lamina-heuristic-review/SKILL.md",
+      "description": "Expert lens review — parallel contract, a11y, and invariant checks. Not Nielsen heuristic checklist theater.",
+      "bytes": 1280,
+      "words": 157,
+      "approximateTokens": 317,
+      "sha256": "fb7b224769d3cfb7ef9f2db358e9dd8a13486a027972ea01653b5f12046b8a5a",
+      "installedFiles": 1,
+      "installedBytes": 1280,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-orchestrator/patterns/parallel-review.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-idempotency-concurrency",
+      "path": "skills/lamina-idempotency-concurrency/SKILL.md",
+      "description": "Duplicate actions and simultaneous edits — double-submit, concurrent admin updates, and safe retries in product behavior. Use when shared resources can be mutated by multiple actors or requests.",
+      "bytes": 2522,
+      "words": 321,
+      "approximateTokens": 628,
+      "sha256": "f98555c1293fec316606f08a96042d89ceb3b2afc33e4052b63643bd046fa3e6",
+      "installedFiles": 1,
+      "installedBytes": 2522,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-invariants/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-scenarios",
+        "design-simulation",
+        "design-time",
+        "verify-integrity",
+        "verify-time"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-information-architecture",
+      "path": "skills/lamina-information-architecture/SKILL.md",
+      "description": "Entity organization and retrieval — how actors find domain objects in screens and nav. Use when IA mirrors files or tables instead of tasks.",
+      "bytes": 2038,
+      "words": 274,
+      "approximateTokens": 505,
+      "sha256": "7ce30ce3f606c2d7261b77cf934a47a4d6959314b76555b506d3654623f1209f",
+      "installedFiles": 1,
+      "installedBytes": 2038,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-navigation/SKILL.md",
+        "../lamina-system-structure/SKILL.md",
+        "../lamina-task-analysis/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-init",
+      "path": "skills/lamina-init/SKILL.md",
+      "description": "Use only when explicitly invoked as lamina-init. Establish business evidence and canonical Product, Actor, and Persona resources in Lamina's transactional graph.",
+      "bytes": 4180,
+      "words": 544,
+      "approximateTokens": 1045,
+      "sha256": "534150a41a3581fe52a1c96f7e5f8f3bbeb85e0919677ac0abcf06e4e1b3e4ae",
+      "installedFiles": 1,
+      "installedBytes": 4180,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [],
+      "commands": [
+        "lamina\ngraph observe",
+        "lamina setup --agent <provider>"
+      ],
+      "graphOperations": [
+        "graph evidence",
+        "graph initialization",
+        "graph mutation",
+        "graph observe",
+        "graph state"
+      ]
+    },
+    {
+      "name": "lamina-interview-design",
+      "path": "skills/lamina-interview-design/SKILL.md",
+      "description": "Actor-walk script design — probe operations, goals, and failure modes per simulated actor. Not human moderator craft.",
+      "bytes": 1257,
+      "words": 151,
+      "approximateTokens": 311,
+      "sha256": "77988e9bf8936bf245768e1351a680d6267f4aa5d1aa9a7df20fb63fe48a9b9b",
+      "installedFiles": 1,
+      "installedBytes": 1257,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-orchestrator/patterns/persona-panel.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-simulation",
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-interview-documentation",
+      "path": "skills/lamina-interview-documentation/SKILL.md",
+      "description": "Walkthrough evidence — structured capture from browser/repo sessions. Not human session notes.",
+      "bytes": 1122,
+      "words": 124,
+      "approximateTokens": 279,
+      "sha256": "98f1475ca5bc8ebfe181a5d6f0662a9b97edec040177366e1f972f644648d34c",
+      "installedFiles": 1,
+      "installedBytes": 1122,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-field-research/SKILL.md",
+        "../lamina-orchestrator/patterns/visual-walkthrough.md"
+      ],
+      "auditProfiles": [
+        "design-evidence",
+        "verify-grounding"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "session notes"
+      ]
+    },
+    {
+      "name": "lamina-invariants",
+      "path": "skills/lamina-invariants/SKILL.md",
+      "description": "Product invariants — rules that must always hold, impossible states prevented, errors defined out of existence. Use when defining what can never happen in the product.",
+      "bytes": 3593,
+      "words": 471,
+      "approximateTokens": 895,
+      "sha256": "a250fe51b551b7848b7e59c8bcfb1808904a0dcd163485d4a993626f677befb2",
+      "installedFiles": 1,
+      "installedBytes": 3593,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-dependencies/SKILL.md",
+        "../lamina-dependencies/SKILL.md",
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-idempotency-concurrency/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-domain",
+        "design-scenarios",
+        "design-simulation",
+        "experience-core",
+        "verify-contract",
+        "verify-integrity"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph for",
+        "session venue"
+      ]
+    },
+    {
+      "name": "lamina-leverage-points",
+      "path": "skills/lamina-leverage-points/SKILL.md",
+      "description": "High-impact intervention points in product design — rules, information flows, and goals over UI tweaks. Use when local fixes fail to change behavior.",
+      "bytes": 2464,
+      "words": 332,
+      "approximateTokens": 612,
+      "sha256": "3c0db1e85e8841d854fc61cf3afd5546f5ab43115e8db44db337fec1d1eb1c78",
+      "installedFiles": 1,
+      "installedBytes": 2464,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-invariants/SKILL.md",
+        "../lamina-system-traps/SKILL.md",
+        "../lamina-tradeoffs/SKILL.md"
+      ],
+      "auditProfiles": [],
+      "commands": [],
+      "graphOperations": [
+        "graph domain"
+      ]
+    },
+    {
+      "name": "lamina-modularity-boundaries",
+      "path": "skills/lamina-modularity-boundaries/SKILL.md",
+      "description": "Domain and feature boundaries — hide complexity behind clear ownership, pull complexity away from users. Use when splitting entities, actors, and responsibilities.",
+      "bytes": 2890,
+      "words": 378,
+      "approximateTokens": 721,
+      "sha256": "4421ae0f2db4a825d8c15dbc3d2eb827e7f40a0e00fe49e728ae0109c1b4cb35",
+      "installedFiles": 1,
+      "installedBytes": 2890,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-multi-view-integrity/SKILL.md",
+        "../lamina-product-behavior/SKILL.md",
+        "../lamina-system-structure/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-domain"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-multi-view-integrity",
+      "path": "skills/lamina-multi-view-integrity/SKILL.md",
+      "description": "Consistency across actor views — student, admin, and system surfaces must reflect the same domain truth. Use in multi-actor products when roles see different slices of one system.",
+      "bytes": 2896,
+      "words": 384,
+      "approximateTokens": 720,
+      "sha256": "ad375ae5fd67441504496abbdf352dc7b3a486c4d907cbec9c30d7f3dd13e583",
+      "installedFiles": 1,
+      "installedBytes": 2896,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-modularity-boundaries/SKILL.md",
+        "../lamina-side-effects/SKILL.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-actors",
+        "verify-actors"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-navigation",
+      "path": "skills/lamina-navigation/SKILL.md",
+      "description": "Wayfinding in contracts — persistent nav, orientation, and hierarchy per screen. Use when actors get lost in verify walks.",
+      "bytes": 1894,
+      "words": 244,
+      "approximateTokens": 471,
+      "sha256": "5125ba19e1edde133a5f247a3ae0934d53b79a49c8b10d560188255dc49e54d5",
+      "installedFiles": 1,
+      "installedBytes": 1894,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-content-design/SKILL.md",
+        "../lamina-information-architecture/SKILL.md",
+        "../lamina-task-analysis/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-onboarding",
+      "path": "skills/lamina-onboarding/SKILL.md",
+      "description": "First-run and learnability — primary path without training, progressive power features. Use when new actors can't complete first workflow in verify.",
+      "bytes": 2098,
+      "words": 258,
+      "approximateTokens": 521,
+      "sha256": "78d6663d8eb461e0e1583e244b91b6cf998f3e59b921c9b56ad2197670780ff3",
+      "installedFiles": 1,
+      "installedBytes": 2098,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-discoverability/SKILL.md",
+        "../lamina-empty-states/SKILL.md",
+        "../lamina-platform-posture/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-orchestrator",
+      "path": "skills/lamina-orchestrator/SKILL.md",
+      "description": "Transactional product-graph workflows for design, source observation, Persona Missions, and runtime verification.",
+      "bytes": 1398,
+      "words": 197,
+      "approximateTokens": 348,
+      "sha256": "ce77d5de747f6e3dbae23e4bff465362ef53f40547db0cd9d47aa4f92fa68c2c",
+      "installedFiles": 31,
+      "installedBytes": 43024,
+      "localAssets": [
+        "skills/lamina-orchestrator/agents/research-synthesizer.md",
+        "skills/lamina-orchestrator/agents/ux-lens-reviewer.md",
+        "skills/lamina-orchestrator/artifacts.md",
+        "skills/lamina-orchestrator/audit-profiles.yaml",
+        "skills/lamina-orchestrator/load-protocol.md",
+        "skills/lamina-orchestrator/merge-rules.md",
+        "skills/lamina-orchestrator/patterns/fresh-context.md",
+        "skills/lamina-orchestrator/patterns/parallel-review.md",
+        "skills/lamina-orchestrator/patterns/persona-panel.md",
+        "skills/lamina-orchestrator/patterns/visual-walkthrough.md",
+        "skills/lamina-orchestrator/prerequisites/cli-required.md",
+        "skills/lamina-orchestrator/prerequisites/init-required.md",
+        "skills/lamina-orchestrator/prompts/checkpoints/continue-or-revise.md",
+        "skills/lamina-orchestrator/prompts/manifest.yaml",
+        "skills/lamina-orchestrator/prompts/outputs/clarify.md",
+        "skills/lamina-orchestrator/prompts/outputs/design.md",
+        "skills/lamina-orchestrator/prompts/outputs/fix.md",
+        "skills/lamina-orchestrator/prompts/outputs/implement.md",
+        "skills/lamina-orchestrator/prompts/outputs/init-blocked.md",
+        "skills/lamina-orchestrator/prompts/outputs/init.md",
+        "skills/lamina-orchestrator/prompts/outputs/verify.md",
+        "skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md",
+        "skills/lamina-orchestrator/prompts/subagents/screen-describer.md",
+        "skills/lamina-orchestrator/prompts/subagents/walkthrough-capturer.md",
+        "skills/lamina-orchestrator/references/personas.schema.json",
+        "skills/lamina-orchestrator/references/product-graph.md",
+        "skills/lamina-orchestrator/workflows/design.md",
+        "skills/lamina-orchestrator/workflows/init.md",
+        "skills/lamina-orchestrator/workflows/router.md",
+        "skills/lamina-orchestrator/workflows/verify.md"
+      ],
+      "localLinks": [],
+      "auditProfiles": [],
+      "commands": [
+        "lamina",
+        "lamina graph",
+        "lamina mission",
+        "lamina session"
+      ],
+      "graphOperations": [
+        "graph session",
+        "graph storage",
+        "graph work",
+        "graph workflows",
+        "session for"
+      ]
+    },
+    {
+      "name": "lamina-persuasion-and-groups",
+      "path": "skills/lamina-persuasion-and-groups/SKILL.md",
+      "description": "Multi-actor dynamics — group permissions, shared resources, and social side-effects. Not persuasion craft or influence tactics.",
+      "bytes": 1171,
+      "words": 133,
+      "approximateTokens": 291,
+      "sha256": "fca07b26074ab51f554e9e1c8f6ab4ca2ee42e24dc5a4013cb3f3f3e61570000",
+      "installedFiles": 1,
+      "installedBytes": 1171,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-idempotency-concurrency/SKILL.md",
+        "../lamina-side-effects/SKILL.md"
+      ],
+      "auditProfiles": [
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-platform-posture",
+      "path": "skills/lamina-platform-posture/SKILL.md",
+      "description": "Product density — how much complexity the domain tolerates on each surface. Not sovereign/transient platform essays.",
+      "bytes": 1027,
+      "words": 127,
+      "approximateTokens": 255,
+      "sha256": "f1d4fd5eea57885c1b66fbadc24dac2a745f93383be69b487421058003745f61",
+      "installedFiles": 1,
+      "installedBytes": 1027,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-information-architecture/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-intake"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-problem-framing",
+      "path": "skills/lamina-problem-framing/SKILL.md",
+      "description": "Design intake — align user request to domain scope, actors, and success outcome. Not pre-fieldwork research questions.",
+      "bytes": 1021,
+      "words": 124,
+      "approximateTokens": 254,
+      "sha256": "d6eb721b02ecb3e9f8b8e808514d55d606913ae275089700dfa412691b43724d",
+      "installedFiles": 1,
+      "installedBytes": 1021,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-business-context/SKILL.md",
+        "../lamina-system-structure/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-intake",
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-product-behavior",
+      "path": "skills/lamina-product-behavior/SKILL.md",
+      "description": "Represented model matches domain — UI must not imply illegal states or permissions. Use when the active GraphVersion domain and screens diverge from implementation shape.",
+      "bytes": 2659,
+      "words": 344,
+      "approximateTokens": 662,
+      "sha256": "2c59c3c5a8eef3791caf8d815d5f2fba2d6dc307d2b36815be5d8935fabde445",
+      "installedFiles": 1,
+      "installedBytes": 2659,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-invariants/SKILL.md",
+        "../lamina-platform-posture/SKILL.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux",
+        "experience-core"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph must"
+      ]
+    },
+    {
+      "name": "lamina-progressive-disclosure",
+      "path": "skills/lamina-progressive-disclosure/SKILL.md",
+      "description": "Progressive disclosure in contracts — essential vs advanced actions per actor. Use when novices overwhelmed or experts blocked on power features.",
+      "bytes": 1905,
+      "words": 229,
+      "approximateTokens": 473,
+      "sha256": "c1ad7203e99ecdec6533386f1e9238cc53c612157ba2beaa3b8e428fc0cadf15",
+      "installedFiles": 1,
+      "installedBytes": 1905,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-discoverability/SKILL.md",
+        "../lamina-onboarding/SKILL.md",
+        "../lamina-platform-posture/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-quantitative-validation",
+      "path": "skills/lamina-quantitative-validation/SKILL.md",
+      "description": "Metrics discipline — use only real user-provided data; suggest what to measure post-launch. No invented A/B results.",
+      "bytes": 1048,
+      "words": 126,
+      "approximateTokens": 261,
+      "sha256": "4635c539a37c04ba617407ba57dc01f9d199a4808761c82ea4c8f4b9aaf98006",
+      "installedFiles": 1,
+      "installedBytes": 1048,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-feedback-loops/SKILL.md"
+      ],
+      "auditProfiles": [],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-requirements-definition",
+      "path": "skills/lamina-requirements-definition/SKILL.md",
+      "description": "Translate product intent into traceable critical promises, graph nodes, observable scenarios, assumptions, and scope without prescribing unnecessary implementation details.",
+      "bytes": 906,
+      "words": 105,
+      "approximateTokens": 227,
+      "sha256": "2716164c033b73e29173b14333fac6f91da132ce61ba880f98cb3812b7bdb106",
+      "installedFiles": 1,
+      "installedBytes": 906,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-intake"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph links",
+        "graph nodes"
+      ]
+    },
+    {
+      "name": "lamina-research-communication",
+      "path": "skills/lamina-research-communication/SKILL.md",
+      "description": "Findings communication — structured verify report for humans and coding agents. Not executive highlight reels.",
+      "bytes": 1150,
+      "words": 139,
+      "approximateTokens": 283,
+      "sha256": "310a35c8756ae96f90d315a068296df7f5e1fd19d524b97f0e6a1669a48af3fd",
+      "installedFiles": 1,
+      "installedBytes": 1150,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-research-synthesis/SKILL.md"
+      ],
+      "auditProfiles": [
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-research-planning",
+      "path": "skills/lamina-research-planning/SKILL.md",
+      "description": "Simulation planning — plan actor walks, invariant probes, and walkthrough capture for verify. Not recruitment logistics.",
+      "bytes": 1001,
+      "words": 118,
+      "approximateTokens": 250,
+      "sha256": "938ea3da7d5a1caf74d1521121b5f39cee92e8eafd6224673a267a31835cf37b",
+      "installedFiles": 1,
+      "installedBytes": 1001,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-usability-evaluation/SKILL.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-simulation",
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-research-scoping",
+      "path": "skills/lamina-research-scoping/SKILL.md",
+      "description": "Evidence scoping — what grounding is needed (repo, walkthrough, user input) vs assumption. Not human study scope.",
+      "bytes": 1044,
+      "words": 136,
+      "approximateTokens": 259,
+      "sha256": "89aafbc911ba25af5b2335ac49cd485d3efe8f1918def7c1080b1e1e7f56b48d",
+      "installedFiles": 1,
+      "installedBytes": 1044,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-field-research/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-evidence",
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-research-synthesis",
+      "path": "skills/lamina-research-synthesis/SKILL.md",
+      "description": "Simulation synthesis — merge parallel actor-walk and walkthrough results into findings[]. Not affinity mapping human interviews.",
+      "bytes": 1156,
+      "words": 132,
+      "approximateTokens": 288,
+      "sha256": "41c8a14bffe705735e75fb1973393f90a92b37694393b369b98140ad25581811",
+      "installedFiles": 1,
+      "installedBytes": 1156,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-research-communication/SKILL.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-simulation",
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-side-effects",
+      "path": "skills/lamina-side-effects/SKILL.md",
+      "description": "Downstream effects of state changes — notifications, updates to related entities, and cross-actor handoffs. Use when one operation must trigger updates beyond the primary screen.",
+      "bytes": 3809,
+      "words": 498,
+      "approximateTokens": 948,
+      "sha256": "9e4ac967ccffc981e421d1b16e9e07196dc5b953f94dfa569920e03ec67eedc7",
+      "installedFiles": 1,
+      "installedBytes": 3809,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-feedback-and-status/SKILL.md",
+        "../lamina-flow-design/SKILL.md",
+        "../lamina-multi-view-integrity/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-time",
+        "design-workflows",
+        "verify-time"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-stakeholder-alignment",
+      "path": "skills/lamina-stakeholder-alignment/SKILL.md",
+      "description": "Multi-actor goal alignment — explicit trade-offs and permission conflicts in contract. Not org politics or workshop facilitation.",
+      "bytes": 1154,
+      "words": 128,
+      "approximateTokens": 287,
+      "sha256": "b83ba5050f946afca92d9e0519f53dc532bab63feba6397183471a143fc334a5",
+      "installedFiles": 1,
+      "installedBytes": 1154,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-tradeoffs/SKILL.md",
+        "../lamina-user-modeling/SKILL.md"
+      ],
+      "auditProfiles": [
+        "init"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph with"
+      ]
+    },
+    {
+      "name": "lamina-system-structure",
+      "path": "skills/lamina-system-structure/SKILL.md",
+      "description": "Product system structure — entities, relationships, purpose, and quantities that change over time. Use when defining what exists in the product domain and how parts connect.",
+      "bytes": 3981,
+      "words": 537,
+      "approximateTokens": 988,
+      "sha256": "bd673a19b8f8ae650634680de1738c012596794c1ab0f970bc425f28253936ae",
+      "installedFiles": 1,
+      "installedBytes": 3981,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-dependencies/SKILL.md",
+        "../lamina-feedback-loops/SKILL.md",
+        "../lamina-information-architecture/SKILL.md",
+        "../lamina-invariants/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-domain",
+        "init",
+        "verify-contract"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-system-traps",
+      "path": "skills/lamina-system-traps/SKILL.md",
+      "description": "Recurring product failure modes from system structure — policy resistance, shifting burden, tragedy of commons. Use when fixes keep failing or symptoms return.",
+      "bytes": 2950,
+      "words": 390,
+      "approximateTokens": 734,
+      "sha256": "2f6b0b96964ee1308ee7b7abeae6388d5d2e26c0c47845ae1577a0f02529f898",
+      "installedFiles": 1,
+      "installedBytes": 2950,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-edge-cases/SKILL.md",
+        "../lamina-invariants/SKILL.md",
+        "../lamina-leverage-points/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-scenarios"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph for"
+      ]
+    },
+    {
+      "name": "lamina-task-analysis",
+      "path": "skills/lamina-task-analysis/SKILL.md",
+      "description": "Operations actors perform — map tasks to workflows and navigation. Use when workflows[] or IA don't match actor goals.",
+      "bytes": 2012,
+      "words": 252,
+      "approximateTokens": 500,
+      "sha256": "f4f2eef284ce6dc0df4111db2db2375ad4a0f36a4bb4a97e620f91b69176656d",
+      "installedFiles": 1,
+      "installedBytes": 2012,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-flow-design/SKILL.md",
+        "../lamina-navigation/SKILL.md",
+        "../lamina-requirements-definition/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-actors",
+        "design-simulation",
+        "design-workflows"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "work area"
+      ]
+    },
+    {
+      "name": "lamina-time-semantics",
+      "path": "skills/lamina-time-semantics/SKILL.md",
+      "description": "Define trustworthy date, time, deadline, expiry, recurrence, and timezone behavior. Use when a product accepts local times, crosses actor timezones, schedules recurring work, or triggers behavior from a clock.",
+      "bytes": 4648,
+      "words": 659,
+      "approximateTokens": 1156,
+      "sha256": "c90e10056ea4f3e3d26b3037047f3279251c21b5c74027bcc3d257e046b9367f",
+      "installedFiles": 1,
+      "installedBytes": 4648,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-time",
+        "verify-time"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-tradeoffs",
+      "path": "skills/lamina-tradeoffs/SKILL.md",
+      "description": "Surface consequential product-policy forks, reversible defaults, structural necessities, and desirability hypotheses so agents make coherent decisions without silently inventing product truth.",
+      "bytes": 884,
+      "words": 102,
+      "approximateTokens": 221,
+      "sha256": "74c1811f405e52390fee17a3cd4805dff6fd50f18d1a5d6ef6482e9ccd347fb1",
+      "installedFiles": 1,
+      "installedBytes": 884,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-domain",
+        "design-risks"
+      ],
+      "commands": [],
+      "graphOperations": [
+        "graph references"
+      ]
+    },
+    {
+      "name": "lamina-trust",
+      "path": "skills/lamina-trust/SKILL.md",
+      "description": "Trust signals in contracts — transparency for payments, irreversible actions, and sensitive data. Use when actors hesitate on verify walks or scenarios lack honesty UX.",
+      "bytes": 2601,
+      "words": 321,
+      "approximateTokens": 647,
+      "sha256": "502f2c2cb8faca4b13253cfa20231ff2e7645801544ef8cd6bad92e5dfe33757",
+      "installedFiles": 1,
+      "installedBytes": 2601,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-consistency-guarantees/SKILL.md",
+        "../lamina-content-design/SKILL.md",
+        "../lamina-feedback-and-status/SKILL.md"
+      ],
+      "auditProfiles": [
+        "design-ux"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-usability-evaluation",
+      "path": "skills/lamina-usability-evaluation/SKILL.md",
+      "description": "Actor evaluation — verify-phase simulated user walks on live product. Replaces recruit-N usability labs.",
+      "bytes": 1194,
+      "words": 140,
+      "approximateTokens": 296,
+      "sha256": "429c3944d436dd8d699f62c6c31a10f2cc9e06ad92b4c3e1602360717dfae1c8",
+      "installedFiles": 1,
+      "installedBytes": 1194,
+      "localAssets": [],
+      "localLinks": [
+        "../lamina-interview-design/SKILL.md",
+        "../lamina-verify/SKILL.md"
+      ],
+      "auditProfiles": [
+        "verify-simulation"
+      ],
+      "commands": [],
+      "graphOperations": []
+    },
+    {
+      "name": "lamina-user-modeling",
+      "path": "skills/lamina-user-modeling/SKILL.md",
+      "description": "Create evidence-grounded Persona and Actor resources and compile independent graph Missions without treating simulations as research.",
+      "bytes": 1646,
+      "words": 212,
+      "approximateTokens": 412,
+      "sha256": "6427b2a14d192fd0937702fb160423c64df4ddf21cace30fe58202e340029b3d",
+      "installedFiles": 1,
+      "installedBytes": 1646,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [
+        "design-actors",
+        "design-simulation",
+        "experience-core",
+        "init",
+        "verify-actors"
+      ],
+      "commands": [
+        "lamina design prepare-walk",
+        "lamina mission compile"
+      ],
+      "graphOperations": [
+        "graph with",
+        "mission compile"
+      ]
+    },
+    {
+      "name": "lamina-verify",
+      "path": "skills/lamina-verify/SKILL.md",
+      "description": "Verify graph-backed product Missions after ordinary implementation work or when explicitly invoked as lamina-verify. Run isolated Persona and live UI audits; explicit verification is source-read-only.",
+      "bytes": 5570,
+      "words": 723,
+      "approximateTokens": 1393,
+      "sha256": "c403ba86c9f4c242aaf27f6ea5421dd4754008015aabc817e7fb8e14bb6ae2bc",
+      "installedFiles": 1,
+      "installedBytes": 5570,
+      "localAssets": [],
+      "localLinks": [],
+      "auditProfiles": [],
+      "commands": [
+        "lamina graph observe",
+        "lamina graph observe --live",
+        "lamina graph status",
+        "lamina graph validate --at HEAD",
+        "lamina mission compile --workflow <workflow-id>",
+        "lamina mission run <mission-id> --events <events.json>",
+        "lamina session publish <session-id>"
+      ],
+      "graphOperations": [
+        "graph observe",
+        "graph status",
+        "graph validate",
+        "mission compile",
+        "mission run",
+        "session publish",
+        "session rebase",
+        "session with",
+        "work or",
+        "work verify"
+      ]
+    }
+  ]
+}
