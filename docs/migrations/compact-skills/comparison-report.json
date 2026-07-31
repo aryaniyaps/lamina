@@ -1,0 +1,1564 @@
+{
+  "schema": "lamina.skill-architecture-comparison/v1",
+  "sourceCommit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b",
+  "productionSelection": null,
+  "baseline": {
+    "publicSkillCount": 59,
+    "catalogMetadataApproximateTokens": 3048,
+    "installed": {
+      "files": 91,
+      "bytes": 190978
+    },
+    "contextCases": [
+      {
+        "id": "skip-format",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "skip-dependency",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "skip-build",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "skip-typo",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "skip-generated",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "skip-rename",
+        "skills": [],
+        "approximateTokens": 0
+      },
+      {
+        "id": "init-first",
+        "skills": [
+          "lamina-init",
+          "lamina-business-context",
+          "lamina-user-modeling"
+        ],
+        "approximateTokens": 3553
+      },
+      {
+        "id": "init-pivot",
+        "skills": [
+          "lamina-init",
+          "lamina-business-context"
+        ],
+        "approximateTokens": 3141
+      },
+      {
+        "id": "init-actors",
+        "skills": [
+          "lamina-init",
+          "lamina-user-modeling"
+        ],
+        "approximateTokens": 1457
+      },
+      {
+        "id": "design-invariant",
+        "skills": [
+          "lamina-design",
+          "lamina-system-structure",
+          "lamina-invariants"
+        ],
+        "approximateTokens": 3788
+      },
+      {
+        "id": "design-permission",
+        "skills": [
+          "lamina-design",
+          "lamina-user-modeling",
+          "lamina-research-planning",
+          "lamina-system-structure",
+          "lamina-invariants"
+        ],
+        "approximateTokens": 4450
+      },
+      {
+        "id": "design-concurrency",
+        "skills": [
+          "lamina-design",
+          "lamina-system-structure",
+          "lamina-invariants",
+          "lamina-time-semantics",
+          "lamina-idempotency-concurrency"
+        ],
+        "approximateTokens": 5572
+      },
+      {
+        "id": "design-timezone",
+        "skills": [
+          "lamina-design",
+          "lamina-time-semantics",
+          "lamina-idempotency-concurrency"
+        ],
+        "approximateTokens": 3689
+      },
+      {
+        "id": "design-form",
+        "skills": [
+          "lamina-design",
+          "lamina-forms",
+          "lamina-accessibility",
+          "lamina-user-modeling",
+          "lamina-research-planning"
+        ],
+        "approximateTokens": 3540
+      },
+      {
+        "id": "design-destructive",
+        "skills": [
+          "lamina-design",
+          "lamina-trust",
+          "lamina-error-handling",
+          "lamina-user-modeling",
+          "lamina-research-planning"
+        ],
+        "approximateTokens": 3704
+      },
+      {
+        "id": "work-feature",
+        "skills": [
+          "lamina"
+        ],
+        "approximateTokens": 1493
+      },
+      {
+        "id": "work-ui",
+        "skills": [
+          "lamina",
+          "lamina-feedback-and-status",
+          "lamina-accessibility"
+        ],
+        "approximateTokens": 2269
+      },
+      {
+        "id": "work-fix",
+        "skills": [
+          "lamina"
+        ],
+        "approximateTokens": 1493
+      },
+      {
+        "id": "work-gap",
+        "skills": [
+          "lamina",
+          "lamina-design"
+        ],
+        "approximateTokens": 3398
+      },
+      {
+        "id": "verify-explicit",
+        "skills": [
+          "lamina-verify"
+        ],
+        "approximateTokens": 1393
+      },
+      {
+        "id": "verify-ui",
+        "skills": [
+          "lamina-verify",
+          "lamina-feedback-and-status",
+          "lamina-accessibility"
+        ],
+        "approximateTokens": 2169
+      },
+      {
+        "id": "verify-shared",
+        "skills": [
+          "lamina-verify",
+          "lamina-idempotency-concurrency",
+          "lamina-invariants"
+        ],
+        "approximateTokens": 2916
+      },
+      {
+        "id": "verify-findings",
+        "skills": [
+          "lamina-verify",
+          "lamina-decision-making"
+        ],
+        "approximateTokens": 2041
+      },
+      {
+        "id": "product-empty",
+        "skills": [
+          "lamina-core",
+          "lamina-empty-states"
+        ],
+        "approximateTokens": 1998
+      },
+      {
+        "id": "product-denied",
+        "skills": [
+          "lamina-core",
+          "lamina-multi-view-integrity"
+        ],
+        "approximateTokens": 2291
+      },
+      {
+        "id": "product-nav",
+        "skills": [
+          "lamina-core",
+          "lamina-navigation"
+        ],
+        "approximateTokens": 2042
+      },
+      {
+        "id": "product-form",
+        "skills": [
+          "lamina-core",
+          "lamina-forms"
+        ],
+        "approximateTokens": 2310
+      },
+      {
+        "id": "product-a11y",
+        "skills": [
+          "lamina-core",
+          "lamina-accessibility"
+        ],
+        "approximateTokens": 1805
+      },
+      {
+        "id": "product-priority",
+        "skills": [
+          "lamina-core",
+          "lamina-feature-prioritization"
+        ],
+        "approximateTokens": 1846
+      },
+      {
+        "id": "ambiguous-checkout",
+        "skills": [
+          "lamina",
+          "lamina-feedback-and-status",
+          "lamina-accessibility"
+        ],
+        "approximateTokens": 2269
+      },
+      {
+        "id": "ambiguous-booking",
+        "skills": [
+          "lamina"
+        ],
+        "approximateTokens": 1493
+      },
+      {
+        "id": "ambiguous-safer",
+        "skills": [
+          "lamina-design",
+          "lamina-trust",
+          "lamina-error-handling",
+          "lamina-user-modeling",
+          "lamina-research-planning"
+        ],
+        "approximateTokens": 3704
+      },
+      {
+        "id": "ambiguous-onboarding",
+        "skills": [
+          "lamina-core",
+          "lamina-navigation"
+        ],
+        "approximateTokens": 2042
+      },
+      {
+        "id": "ambiguous-permissions",
+        "skills": [
+          "lamina-core",
+          "lamina-multi-view-integrity"
+        ],
+        "approximateTokens": 2291
+      },
+      {
+        "id": "ambiguous-test",
+        "skills": [
+          "lamina-verify",
+          "lamina-feedback-and-status",
+          "lamina-accessibility"
+        ],
+        "approximateTokens": 2169
+      },
+      {
+        "id": "ambiguous-design-implement",
+        "skills": [
+          "lamina",
+          "lamina-design"
+        ],
+        "approximateTokens": 3398
+      },
+      {
+        "id": "ambiguous-views",
+        "skills": [
+          "lamina-design",
+          "lamina-user-modeling",
+          "lamina-research-planning",
+          "lamina-system-structure",
+          "lamina-invariants"
+        ],
+        "approximateTokens": 4450
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "variant": "candidate-6",
+      "sourceCommit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b",
+      "publicSkillCount": 6,
+      "catalogMetadata": {
+        "approximateTokens": 266,
+        "reductionPercent": 91.27
+      },
+      "installFixture": {
+        "files": 79,
+        "bytes": 729937,
+        "status": "simulated_only"
+      },
+      "context": {
+        "focusedBaselineMedianTokens": 2042,
+        "focusedCandidateMedianTokens": 725,
+        "focusedReductionPercent": 64.5,
+        "cases": [
+          {
+            "id": "skip-format",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-dependency",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-build",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-typo",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-generated",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-rename",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "init-first",
+            "workflow": "init",
+            "signals": [
+              "business_context",
+              "actor_population"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-init/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/decisions-prioritization/business-context.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md"
+            ],
+            "approximateTokens": 3750,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "init-pivot",
+            "workflow": "init",
+            "signals": [
+              "business_context"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-init/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/decisions-prioritization/business-context.md"
+            ],
+            "approximateTokens": 3353,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "init-actors",
+            "workflow": "init",
+            "signals": [
+              "actor_population"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-init/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md"
+            ],
+            "approximateTokens": 2024,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "design-invariant",
+            "workflow": "design",
+            "signals": [
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 4445,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "design-permission",
+            "workflow": "design",
+            "signals": [
+              "active_personas",
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 5007,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-concurrency",
+            "workflow": "design",
+            "signals": [
+              "domain_change",
+              "time_bearing_operation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md",
+              "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md"
+            ],
+            "approximateTokens": 5944,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-timezone",
+            "workflow": "design",
+            "signals": [
+              "time_bearing_operation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md"
+            ],
+            "approximateTokens": 4409,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "design-form",
+            "workflow": "design",
+            "signals": [
+              "user_facing_form",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/interaction-states-content/forms.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4291,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-destructive",
+            "workflow": "design",
+            "signals": [
+              "destructive_action",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/scenarios-errors-recovery/trust.md",
+              "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4362,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "work-feature",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2028,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "work-ui",
+            "workflow": "work",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 2651,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "work-fix",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2028,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "work-gap",
+            "workflow": "work",
+            "signals": [
+              "graph_gap"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md"
+            ],
+            "approximateTokens": 4387,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "verify-explicit",
+            "workflow": "verify",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina-verify/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md"
+            ],
+            "approximateTokens": 1962,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "verify-ui",
+            "workflow": "verify",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-verify/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md"
+            ],
+            "approximateTokens": 2585,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "verify-shared",
+            "workflow": "verify",
+            "signals": [
+              "shared_mutation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-verify/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 3160,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "verify-findings",
+            "workflow": "verify",
+            "signals": [
+              "findings"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-verify/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/decisions-prioritization/decision-making.md"
+            ],
+            "approximateTokens": 2502,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-empty",
+            "workflow": "product-question",
+            "signals": [
+              "empty_state"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/scenarios-errors-recovery/empty-states.md"
+            ],
+            "approximateTokens": 695,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-denied",
+            "workflow": "product-question",
+            "signals": [
+              "permission_denial"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/actors-permissions-views/multi-view-integrity.md"
+            ],
+            "approximateTokens": 931,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-nav",
+            "workflow": "product-question",
+            "signals": [
+              "navigation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/navigation-learnability/navigation.md"
+            ],
+            "approximateTokens": 725,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-form",
+            "workflow": "product-question",
+            "signals": [
+              "form_validation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/interaction-states-content/forms.md"
+            ],
+            "approximateTokens": 989,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-a11y",
+            "workflow": "product-question",
+            "signals": [
+              "accessibility"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 580,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-priority",
+            "workflow": "product-question",
+            "signals": [
+              "prioritization"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/decisions-prioritization/feature-prioritization.md"
+            ],
+            "approximateTokens": 573,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-checkout",
+            "workflow": "work",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 2651,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "ambiguous-booking",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2028,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "ambiguous-safer",
+            "workflow": "design",
+            "signals": [
+              "destructive_action",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/scenarios-errors-recovery/trust.md",
+              "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4362,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "ambiguous-onboarding",
+            "workflow": "product-question",
+            "signals": [
+              "navigation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/navigation-learnability/navigation.md"
+            ],
+            "approximateTokens": 725,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-permissions",
+            "workflow": "product-question",
+            "signals": [
+              "permission_denial"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina-product/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/actors-permissions-views/multi-view-integrity.md"
+            ],
+            "approximateTokens": 931,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-test",
+            "workflow": "verify",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-verify/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md"
+            ],
+            "approximateTokens": 2585,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "ambiguous-design-implement",
+            "workflow": "work",
+            "signals": [
+              "graph_gap"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-work/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md"
+            ],
+            "approximateTokens": 4387,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "ambiguous-views",
+            "workflow": "design",
+            "signals": [
+              "active_personas",
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina-design/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 5007,
+            "capabilityReferences": 4
+          }
+        ]
+      },
+      "routingContract": {
+        "cases": 37,
+        "representable": 37,
+        "coveragePercent": 100,
+        "status": "static_contract_only"
+      },
+      "traceability": {
+        "baselineRules": 1566,
+        "mappedRules": 1566
+      },
+      "structuralErrors": [],
+      "automatedThresholds": {
+        "publicSkillCount": true,
+        "catalogMetadataReduction": true,
+        "focusedInstructionReduction": true,
+        "mechanicalTaskZeroBodies": true,
+        "focusedQuestionOnePrimaryReference": true,
+        "structuralSafety": true
+      },
+      "automatedGatePassed": true,
+      "evidenceStillRequired": [
+        "live_model_routing_accuracy",
+        "false_and_missed_activation",
+        "behavioral_semantic_parity",
+        "real_provider_install_matrix",
+        "developer_comprehension_study",
+        "migration_and_rollback_rehearsal"
+      ],
+      "decisionScore": null
+    },
+    {
+      "variant": "candidate-1",
+      "sourceCommit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b",
+      "publicSkillCount": 1,
+      "catalogMetadata": {
+        "approximateTokens": 63,
+        "reductionPercent": 97.93
+      },
+      "installFixture": {
+        "files": 74,
+        "bytes": 726895,
+        "status": "simulated_only"
+      },
+      "context": {
+        "focusedBaselineMedianTokens": 2042,
+        "focusedCandidateMedianTokens": 807,
+        "focusedReductionPercent": 60.48,
+        "cases": [
+          {
+            "id": "skip-format",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-dependency",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-build",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-typo",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-generated",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "skip-rename",
+            "workflow": null,
+            "signals": [],
+            "focused": false,
+            "files": [],
+            "approximateTokens": 0,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "init-first",
+            "workflow": "init",
+            "signals": [
+              "business_context",
+              "actor_population"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/decisions-prioritization/business-context.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md"
+            ],
+            "approximateTokens": 3829,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "init-pivot",
+            "workflow": "init",
+            "signals": [
+              "business_context"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/decisions-prioritization/business-context.md"
+            ],
+            "approximateTokens": 3432,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "init-actors",
+            "workflow": "init",
+            "signals": [
+              "actor_population"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/init.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md"
+            ],
+            "approximateTokens": 2103,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "design-invariant",
+            "workflow": "design",
+            "signals": [
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 4535,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "design-permission",
+            "workflow": "design",
+            "signals": [
+              "active_personas",
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 5097,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-concurrency",
+            "workflow": "design",
+            "signals": [
+              "domain_change",
+              "time_bearing_operation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md",
+              "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md"
+            ],
+            "approximateTokens": 6034,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-timezone",
+            "workflow": "design",
+            "signals": [
+              "time_bearing_operation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/time-concurrency-consistency/time-semantics.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md"
+            ],
+            "approximateTokens": 4499,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "design-form",
+            "workflow": "design",
+            "signals": [
+              "user_facing_form",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/interaction-states-content/forms.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4381,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "design-destructive",
+            "workflow": "design",
+            "signals": [
+              "destructive_action",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/scenarios-errors-recovery/trust.md",
+              "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4452,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "work-feature",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2102,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "work-ui",
+            "workflow": "work",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 2725,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "work-fix",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2102,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "work-gap",
+            "workflow": "work",
+            "signals": [
+              "graph_gap"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md"
+            ],
+            "approximateTokens": 4461,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "verify-explicit",
+            "workflow": "verify",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md"
+            ],
+            "approximateTokens": 2045,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "verify-ui",
+            "workflow": "verify",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md"
+            ],
+            "approximateTokens": 2668,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "verify-shared",
+            "workflow": "verify",
+            "signals": [
+              "shared_mutation"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/time-concurrency-consistency/idempotency-concurrency.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 3243,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "verify-findings",
+            "workflow": "verify",
+            "signals": [
+              "findings"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/decisions-prioritization/decision-making.md"
+            ],
+            "approximateTokens": 2585,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-empty",
+            "workflow": "product-question",
+            "signals": [
+              "empty_state"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/scenarios-errors-recovery/empty-states.md"
+            ],
+            "approximateTokens": 777,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-denied",
+            "workflow": "product-question",
+            "signals": [
+              "permission_denial"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/actors-permissions-views/multi-view-integrity.md"
+            ],
+            "approximateTokens": 1013,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-nav",
+            "workflow": "product-question",
+            "signals": [
+              "navigation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/navigation-learnability/navigation.md"
+            ],
+            "approximateTokens": 807,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-form",
+            "workflow": "product-question",
+            "signals": [
+              "form_validation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/interaction-states-content/forms.md"
+            ],
+            "approximateTokens": 1071,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-a11y",
+            "workflow": "product-question",
+            "signals": [
+              "accessibility"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 662,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "product-priority",
+            "workflow": "product-question",
+            "signals": [
+              "prioritization"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/decisions-prioritization/feature-prioritization.md"
+            ],
+            "approximateTokens": 655,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-checkout",
+            "workflow": "work",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md"
+            ],
+            "approximateTokens": 2725,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "ambiguous-booking",
+            "workflow": "work",
+            "signals": [],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md"
+            ],
+            "approximateTokens": 2102,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "ambiguous-safer",
+            "workflow": "design",
+            "signals": [
+              "destructive_action",
+              "active_personas"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/scenarios-errors-recovery/trust.md",
+              "skills/lamina/references/scenarios-errors-recovery/error-handling.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md"
+            ],
+            "approximateTokens": 4452,
+            "capabilityReferences": 4
+          },
+          {
+            "id": "ambiguous-onboarding",
+            "workflow": "product-question",
+            "signals": [
+              "navigation"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/navigation-learnability/navigation.md"
+            ],
+            "approximateTokens": 807,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-permissions",
+            "workflow": "product-question",
+            "signals": [
+              "permission_denial"
+            ],
+            "focused": true,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/workflows/product-question.md",
+              "skills/lamina/references/actors-permissions-views/multi-view-integrity.md"
+            ],
+            "approximateTokens": 1013,
+            "capabilityReferences": 1
+          },
+          {
+            "id": "ambiguous-test",
+            "workflow": "verify",
+            "signals": [
+              "user_facing"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/verify.md",
+              "skills/lamina/references/accessibility-trust/accessibility.md",
+              "skills/lamina/references/interaction-states-content/feedback-and-status.md"
+            ],
+            "approximateTokens": 2668,
+            "capabilityReferences": 2
+          },
+          {
+            "id": "ambiguous-design-implement",
+            "workflow": "work",
+            "signals": [
+              "graph_gap"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/workflows/work.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md"
+            ],
+            "approximateTokens": 4461,
+            "capabilityReferences": 0
+          },
+          {
+            "id": "ambiguous-views",
+            "workflow": "design",
+            "signals": [
+              "active_personas",
+              "domain_change"
+            ],
+            "focused": false,
+            "files": [
+              "skills/lamina/SKILL.md",
+              "skills/lamina/references/authority-and-safety.md",
+              "skills/lamina/references/graph-sessions.md",
+              "skills/lamina/workflows/design.md",
+              "skills/lamina/references/actors-permissions-views/user-modeling.md",
+              "skills/lamina/references/evidence-simulation/research-planning.md",
+              "skills/lamina/references/domain-integrity/system-structure.md",
+              "skills/lamina/references/domain-integrity/invariants.md"
+            ],
+            "approximateTokens": 5097,
+            "capabilityReferences": 4
+          }
+        ]
+      },
+      "routingContract": {
+        "cases": 37,
+        "representable": 37,
+        "coveragePercent": 100,
+        "status": "static_contract_only"
+      },
+      "traceability": {
+        "baselineRules": 1566,
+        "mappedRules": 1566
+      },
+      "structuralErrors": [],
+      "automatedThresholds": {
+        "publicSkillCount": true,
+        "catalogMetadataReduction": true,
+        "focusedInstructionReduction": true,
+        "mechanicalTaskZeroBodies": true,
+        "focusedQuestionOnePrimaryReference": true,
+        "structuralSafety": true
+      },
+      "automatedGatePassed": true,
+      "evidenceStillRequired": [
+        "live_model_routing_accuracy",
+        "false_and_missed_activation",
+        "behavioral_semantic_parity",
+        "real_provider_install_matrix",
+        "developer_comprehension_study",
+        "migration_and_rollback_rehearsal"
+      ],
+      "decisionScore": null
+    }
+  ],
+  "decisionStatus": "blocked_pending_live_and_human_evidence"
+}

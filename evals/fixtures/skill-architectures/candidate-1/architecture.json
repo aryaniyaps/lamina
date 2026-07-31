@@ -16,6 +16,7 @@
   "references": {
     "references/authority-and-safety.md": "skills/lamina/references/authority-and-safety.md",
     "references/graph-sessions.md": "skills/lamina/references/graph-sessions.md",
+    "references/problem-router-baseline.md": "skills/lamina/references/problem-router-baseline.md",
     "references/domain-integrity.md": "skills/lamina/references/domain-integrity.md",
     "references/domain-integrity/system-structure.md": "skills/lamina/references/domain-integrity/system-structure.md",
     "references/domain-integrity/invariants.md": "skills/lamina/references/domain-integrity/invariants.md",
@@ -221,7 +222,7 @@
     },
     "lamina-core": {
       "publicSkill": "lamina",
-      "reference": "workflows/product-question.md"
+      "reference": "references/problem-router-baseline.md"
     },
     "lamina-init": {
       "publicSkill": "lamina",
@@ -533,6 +534,7 @@
     "skills/lamina/references/navigation-learnability/onboarding.md",
     "skills/lamina/references/navigation-learnability/platform-posture.md",
     "skills/lamina/references/navigation-learnability/progressive-disclosure.md",
+    "skills/lamina/references/problem-router-baseline.md",
     "skills/lamina/references/scenarios-errors-recovery.md",
     "skills/lamina/references/scenarios-errors-recovery/controls-and-menus.md",
     "skills/lamina/references/scenarios-errors-recovery/edge-cases.md",

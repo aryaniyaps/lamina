@@ -57,7 +57,23 @@ const workflowIntroductions = {
   design: '# Design workflow\n\nThis workflow is graph-only. It may propose and publish graph state through sessions, but it must not edit application source. Load capability references only for the affected graph signals.\n',
   work: '# Work workflow\n\nUse for ordinary implementation. Source edits remain blocked until preparation produces an implementation packet and the mechanically derived WorkMap passes its check.\n',
   verify: '# Verify workflow\n\nThis workflow is source-read-only. Isolate Persona Missions, collect current runtime evidence, publish Runs, and report findings without editing application source.\n',
-  'product-question': '# Product-question workflow\n\nAnswer a focused product, systems, or UX question with at most one primary capability leaf unless the question itself spans multiple concerns. Do not start implementation or Mission machinery.\n',
+  'product-question': `# Product-question workflow
+
+Answer a focused product, systems, or UX question with at most one primary capability leaf unless the question itself spans multiple concerns. Do not start implementation or Mission machinery.
+
+| Signal | Primary reference family |
+|---|---|
+| entities, invariants, dependencies, boundaries | domain integrity |
+| actors, roles, permissions, shared views | actors, permissions, and views |
+| flow, product behavior, side effects | workflows, state, and side effects |
+| dates, recurrence, double-submit, stale data | time, concurrency, and consistency |
+| empty, error, denied, recovery, destructive action | scenarios, errors, and recovery |
+| forms, copy, feedback, discoverability | interaction states and content |
+| hierarchy, wayfinding, onboarding, disclosure | navigation and learnability |
+| research, simulation, evidence, evaluation | evidence and simulation |
+| framing, requirements, trade-offs, priority | decisions and prioritization |
+| inclusive interaction or trust | accessibility and trust |
+`,
 };
 
 const authority = `# Authority and safety\n\nThis reference is required by every graph-backed Lamina workflow. Ladybug through graphd is canonical. Derived retrieval and source evidence select and ground graph roots but cannot override graph facts. Design and explicit verification never edit application source. Ordinary implementation observes the packet and checked WorkMap gates. Never expose raw Cypher or accept caller-supplied epistemic or approval status.\n\n${sourceBody('lamina-orchestrator')}`;
@@ -78,10 +94,12 @@ function frontmatterDescription(skill) {
 const sharedFiles = new Map([
   ['references/authority-and-safety.md', authority],
   ['references/graph-sessions.md', graphSessions],
+  ['references/problem-router-baseline.md', `# Baseline problem router\n\nThis provenance reference retains the complete baseline routing source for traceability. Normal focused questions use the compact product-question workflow and one signaled capability leaf.\n\n${sourceBody('lamina-core')}`],
 ]);
 
 for (const [workflow, source] of Object.entries(workflowSources)) {
-  sharedFiles.set(`workflows/${workflow}.md`, `${workflowIntroductions[workflow]}\n${sourceBody(source)}`);
+  const retainedSource = workflow === 'product-question' ? '' : `\n${sourceBody(source)}`;
+  sharedFiles.set(`workflows/${workflow}.md`, `${workflowIntroductions[workflow]}${retainedSource}`);
 }
 for (const [pack, skills] of Object.entries(capabilityMap.packs)) {
   sharedFiles.set(`references/${pack}.md`, packIndex(pack, skills));
@@ -179,7 +197,7 @@ const specialSourceRoutes = {
   'skills/lamina-init/SKILL.md': 'workflows/init.md',
   'skills/lamina-design/SKILL.md': 'workflows/design.md',
   'skills/lamina-verify/SKILL.md': 'workflows/verify.md',
-  'skills/lamina-core/SKILL.md': 'workflows/product-question.md',
+  'skills/lamina-core/SKILL.md': 'references/problem-router-baseline.md',
   'skills/lamina-orchestrator/SKILL.md': 'references/authority-and-safety.md',
 };
 
