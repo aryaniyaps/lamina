@@ -1,0 +1,66 @@
+{
+  "schema": "lamina.skill-architecture-decision/v1",
+  "baseline": {
+    "variant": "baseline-59",
+    "commit": "9a02ad51bbd294e3ee2ee1fd605f366297b9c43b"
+  },
+  "candidates": [
+    {
+      "variant": "candidate-6",
+      "publicSkills": [
+        "lamina",
+        "lamina-init",
+        "lamina-design",
+        "lamina-work",
+        "lamina-verify",
+        "lamina-product"
+      ]
+    },
+    {
+      "variant": "candidate-1",
+      "publicSkills": ["lamina"]
+    }
+  ],
+  "thresholds": {
+    "maximumPublicSkillCount": 8,
+    "minimumCatalogMetadataReductionPercent": 75,
+    "minimumFocusedInstructionReductionPercent": 50,
+    "targetFalsePassiveActivationReductionPercent": 25,
+    "requiredGraphSafetyRetentionPercent": 100,
+    "requiredWriteBoundaryRetentionPercent": 100,
+    "requiredSupportedProviderInstallSuccessPercent": 100,
+    "requiredBrokenReferenceDetectionPercent": 100,
+    "maximumUnresolvedCriticalRegressions": 0
+  },
+  "contextBudgets": {
+    "installedPublicDescriptionTokens": 1000,
+    "genericRootWords": 1500,
+    "workflowRootWords": 2000,
+    "focusedQuestionPrimaryReferences": 1,
+    "typicalWorkflowCapabilityReferences": {
+      "minimum": 2,
+      "maximum": 4
+    },
+    "mechanicalTaskSkillBodies": 0,
+    "maximumRoutingHopsBeforeGuidance": 2
+  },
+  "decisionWeightsPercent": {
+    "safetyRuleRetention": 25,
+    "routingAccuracy": 20,
+    "contextEfficiency": 15,
+    "crossProviderReliability": 15,
+    "developerComprehensionAndTrust": 15,
+    "maintainability": 5,
+    "failureIsolation": 5
+  },
+  "disqualifiers": [
+    "mandatory_safety_rule_loss",
+    "design_application_source_write",
+    "verification_application_source_write",
+    "workmap_gate_bypass",
+    "graph_authority_override",
+    "unsupported_provider_reference_resolution",
+    "unverified_legacy_directory_removal"
+  ],
+  "productionSelection": null
+}
