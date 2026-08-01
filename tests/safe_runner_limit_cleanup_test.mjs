@@ -171,8 +171,23 @@ try {
   assert.match(finalTrace, /finally:complete/, artifactHint);
   assert.match(finalTrace, /report:write-start/, artifactHint);
   assert.ok(['safety_limit_exceeded', 'internal_error'].includes(evidence.outcome), artifactHint);
+  assert.doesNotMatch(evidence.output?.stderr_tail || '', /spawnSync git ENOENT/,
+    `the sealed graph repository cwd must remain visible to Git; ${artifactHint}`);
   if (payloadReleased) {
     assert.match(finalTrace, /launch:payload-released/, artifactHint);
+    const sandboxProbe = String(evidence.output?.stdout_tail || '').split('\n')
+      .filter(Boolean)
+      .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+      .find((item) => item?.schema === 'lamina.safe-runner-sealed-sandbox-probe/v1');
+    assert.ok(sandboxProbe, `sealed sandbox Git probe evidence is missing; ${artifactHint}`);
+    assert.equal(sandboxProbe.path, sandboxProbe.expected_path, artifactHint);
+    assert.equal(sandboxProbe.git?.requested_path, '/usr/bin/git', artifactHint);
+    assert.equal(path.isAbsolute(sandboxProbe.git?.path || ''), true, artifactHint);
+    assert.match(sandboxProbe.git?.digest || '', /^[a-f0-9]{64}$/, artifactHint);
+    assert.equal(sandboxProbe.repository?.path, graphRepository, artifactHint);
+    assert.equal(sandboxProbe.repository?.writable, true, artifactHint);
+    assert.equal(sandboxProbe.named_git_root, graphRepository, artifactHint);
+    assert.equal(sandboxProbe.absolute_git_root, graphRepository, artifactHint);
   } else {
     assert.ok([
       'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN', 'LAMINA_SAFE_SANDBOX_LAUNCH',

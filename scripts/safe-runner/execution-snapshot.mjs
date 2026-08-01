@@ -1195,14 +1195,12 @@ export function prepareExecutionSnapshot({
       || (typeof process.getuid === 'function' && Number(runtimeStat.uid) !== process.getuid())) {
       throw new Error('Git common Lamina work scratch must be a canonical same-user physical directory');
     }
-    const runtimeAlias = path.join(root, 'writable-aliases', String(writableBindings.length));
-    fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
     const snapshotTarget = path.join(gitCommonSnapshot, 'lamina', 'work');
     fs.mkdirSync(snapshotTarget, { recursive: true, mode: 0o700 });
     physicalOwnedDirectory(snapshotTarget, 'sealed Git common Lamina work mount point');
     const snapshotTargetStat = fs.lstatSync(snapshotTarget, { bigint: true });
     writableBindings.push({
-      source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
+      source: runtimeSource, target: runtimeSource,
       snapshot_target: snapshotTarget,
       kind: 'git-common-work-scratch', source_identity: {
         dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),

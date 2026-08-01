@@ -109,6 +109,15 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-unit-'));
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
 
+function mountOperationIndex(args, option, source, target) {
+  for (let index = 0; index <= args.length - 3; index += 1) {
+    if (args[index] === option && args[index + 1] === source && args[index + 2] === target) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 try {
   assert.equal(payloadRuntimeTimedOut(null, 60_000, 1_000), false,
     'controller preparation time must not consume the workload timeout');
@@ -289,14 +298,14 @@ try {
       snapshot_repository: path.join(root, 'execution-authority', 'repository'),
       writable_bindings: [{
         source: path.join(root, 'dist'), target: path.join(root, 'dist'),
-        alias: path.join(root, 'execution-authority', 'writable-aliases', '0'),
       }],
     },
   });
   const repositoryMount = authorityArgs.indexOf(path.join(root, 'execution-authority', 'repository'));
   assert.equal(authorityArgs[repositoryMount - 1], '--ro-bind');
-  assert.ok(authorityArgs.indexOf(path.join(root, 'execution-authority', 'writable-aliases', '0'))
-    < repositoryMount, 'writable source aliases must be captured before the logical cwd is frozen');
+  assert.ok(mountOperationIndex(authorityArgs, '--bind', path.join(root, 'dist'),
+    path.join(root, 'dist')) > repositoryMount,
+  'the exact writable source must bind directly only after the logical cwd is frozen');
   for (const name of [
     'BASH_FUNC_payload%%', 'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE',
     'NODE_COMPILE_CACHE', 'NODE_REDIRECT_WARNINGS', 'DYLD_INSERT_LIBRARIES',
@@ -1740,25 +1749,14 @@ try {
     preservedEnvironmentNames: mutableSandboxContract.preservedEnvironmentNames,
     environment: {}, masks: { hiddenDirectories: [], sockets: [] },
   });
-  const mountOperationIndex = (args, option, source, target) => {
-    for (let index = 0; index <= args.length - 3; index += 1) {
-      if (args[index] === option && args[index + 1] === source && args[index + 2] === target) {
-        return index;
-      }
-    }
-    return -1;
-  };
   const mutableBinding = encodedMutableAuthority.writable_bindings[0];
-  const mutableSourceAliasMount = mountOperationIndex(mutableSandboxArgs, '--bind',
-    mutableBinding.source, mutableBinding.alias);
   const mutableRepositoryMount = mountOperationIndex(mutableSandboxArgs, '--ro-bind',
     encodedMutableAuthority.snapshot_repository, encodedMutableAuthority.repository);
-  const mutableAliasTargetMount = mountOperationIndex(mutableSandboxArgs, '--bind',
-    mutableBinding.alias, mutableBinding.target);
-  assert.ok(mutableSourceAliasMount >= 0
-    && mutableSourceAliasMount < mutableRepositoryMount
-    && mutableRepositoryMount < mutableAliasTargetMount,
-  'bwrap must capture source to alias, seal the repository, then bind alias to its target');
+  const mutableSourceTargetMount = mountOperationIndex(mutableSandboxArgs, '--bind',
+    mutableBinding.source, mutableBinding.target);
+  assert.equal(Object.hasOwn(mutableBinding, 'alias'), false);
+  assert.ok(mutableRepositoryMount >= 0 && mutableRepositoryMount < mutableSourceTargetMount,
+  'bwrap must seal the repository before directly binding the exact writable source to its target');
   assert.throws(() => validateSandboxExecutionAuthority({
     executionAuthority: {
       ...encodedMutableAuthority,
@@ -1771,6 +1769,18 @@ try {
     environment: {},
   }), /invalid execution authority/,
   'the former parent-runtime kind must fail at the sandbox authority boundary');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...encodedMutableAuthority,
+      writable_bindings: encodedMutableAuthority.writable_bindings.map((binding) => ({
+        ...binding, alias: path.join(validMutableSnapshot.root, 'empty-alias'),
+      })),
+    },
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'legacy writable alias chaining must fail at the sandbox authority boundary');
   const originalMutableSnapshotTarget = `${mutableSnapshotTarget}-original`;
   fs.renameSync(mutableSnapshotTarget, originalMutableSnapshotTarget);
   assert.throws(() => validateSandboxExecutionAuthority({
@@ -2094,22 +2104,20 @@ try {
     preservedEnvironmentNames: linkedMutableContract.preservedEnvironmentNames,
     environment: {},
   });
-  const linkedSourceAliasMount = mountOperationIndex(linkedMutableArgs, '--bind',
-    linkedMutableBinding.source, linkedMutableBinding.alias);
   const linkedRepositoryMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
     linkedMutableSnapshot.snapshot_repository, linkedMutableSnapshot.repository);
   const linkedCommonMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
     linkedMutableCommon.source, linkedMutableCommon.target);
   const linkedWorktreeMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
     linkedMutableWorktree.source, linkedMutableWorktree.target);
-  const linkedAliasTargetMount = mountOperationIndex(linkedMutableArgs, '--bind',
-    linkedMutableBinding.alias, linkedMutableBinding.target);
-  assert.ok(linkedSourceAliasMount >= 0
-    && linkedSourceAliasMount < linkedRepositoryMount
+  const linkedSourceTargetMount = mountOperationIndex(linkedMutableArgs, '--bind',
+    linkedMutableBinding.source, linkedMutableBinding.target);
+  assert.equal(Object.hasOwn(linkedMutableBinding, 'alias'), false);
+  assert.ok(linkedRepositoryMount >= 0
     && linkedRepositoryMount < linkedCommonMount
     && linkedCommonMount < linkedWorktreeMount
-    && linkedWorktreeMount < linkedAliasTargetMount,
-  'linked bwrap mounts must capture scratch, seal repository and Git authorities, then restore scratch');
+    && linkedWorktreeMount < linkedSourceTargetMount,
+  'linked bwrap mounts must seal repository and Git authorities before the exact direct scratch bind');
   fs.appendFileSync(path.join(linkedPrimary, '.git', 'config'),
     '\n[include]\n\tpath = /etc/gitconfig\n');
   assert.throws(() => prepareExecutionSnapshot({

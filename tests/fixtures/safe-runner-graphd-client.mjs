@@ -7,10 +7,12 @@ import {
   registerManagedGraphd, reserveManagedGraphd, sealManagedGraphd,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
+import { sealedSandboxGitProbe } from './safe-runner-sealed-git-probe.mjs';
 
 const repository = process.argv[2];
 if (!repository) throw new Error('repository path is required');
 
+process.stdout.write(`${JSON.stringify(sealedSandboxGitProbe(repository))}\n`);
 const paths = runtimePaths(repository);
 const socket = paths.socket;
 const lock = paths.lock;

@@ -119,15 +119,12 @@ export function bubblewrapSandboxArguments({
     '--bind', readyFile, readyFile,
   ];
   if (executionAuthority) {
-    for (const binding of executionAuthority.writable_bindings) {
-      args.push('--bind', binding.source, binding.alias);
-    }
     args.push('--ro-bind', executionAuthority.snapshot_repository, executionAuthority.repository);
     for (const binding of executionAuthority.git_readonly_bindings || []) {
       args.push('--ro-bind', binding.source, binding.target);
     }
     for (const binding of executionAuthority.writable_bindings) {
-      args.push('--bind', binding.alias, binding.target);
+      args.push('--bind', binding.source, binding.target);
     }
   }
   if (!allowNetwork) args.splice(2, 0, '--unshare-net');
@@ -189,12 +186,10 @@ export function validateSandboxExecutionAuthority({
   const invalidBinding = (binding) => {
     try {
       if (!path.isAbsolute(binding?.source || '') || !path.isAbsolute(binding?.target || '')
-        || !path.isAbsolute(binding?.alias || '') || binding.source !== binding.target
-        || !binding.alias.startsWith(`${path.join(authorityRoot, 'writable-aliases')}${path.sep}`)
+        || Object.hasOwn(binding || {}, 'alias') || binding.source !== binding.target
         || !fs.lstatSync(binding.source).isDirectory()
         || fs.lstatSync(binding.source).isSymbolicLink()
-        || fs.realpathSync.native(binding.source) !== binding.source
-        || !fs.lstatSync(binding.alias).isDirectory()) return true;
+        || fs.realpathSync.native(binding.source) !== binding.source) return true;
       if (binding.kind === 'git-common-work-scratch') {
         const stat = fs.lstatSync(binding.source, { bigint: true });
         const snapshotGitCommon = executionAuthority.git_directory !== executionAuthority.git_common

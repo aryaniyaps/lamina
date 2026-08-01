@@ -155,6 +155,11 @@ assert.match(retrievalBenchmark,
 assert.match(executionSnapshot,
   /snapshot_target: snapshotTarget[\s\S]*snapshot_target_identity:[\s\S]*assertExecutionSnapshot[\s\S]*writable mount point identity changed/,
   'writable mounts must carry a physical identity-sealed destination inside snapshot authority');
+assert.doesNotMatch(executionSnapshot, /writable-aliases|runtimeAlias/,
+  'writable mount authority must not rely on empty alias-directory chaining');
+assert.match(sandbox,
+  /--ro-bind', executionAuthority\.snapshot_repository, executionAuthority\.repository[\s\S]*git_readonly_bindings[\s\S]*--bind', binding\.source, binding\.target/,
+  'bwrap must seal repository and Git authority before directly binding the exact writable source');
 assert.match(npxAuthority,
   /package_name:\s*'agent-skills-eval'[\s\S]*launch_admitted:\s*false/);
 assert.match(outputPolicy, /private tmpfs/);
