@@ -425,11 +425,13 @@ try {
     PATH: '/usr/bin',
     GIT_CONFIG_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: '/dev/null',
+    LAMINA_SAFE_GIT_IDENTITY: 'forged-sealed-identity',
     LAMINA_SAFE_RUNNER_BROKER: '/run/lamina-safe/broker.sock',
     LAMINA_SAFE_GRAPHD_RESERVATION: 'sealed-reservation',
   }, { platform: 'linux' });
   assert.equal(supervisedGraphdEnv.GIT_CONFIG_NOSYSTEM, undefined);
   assert.equal(supervisedGraphdEnv.GIT_CONFIG_GLOBAL, undefined);
+  assert.equal(supervisedGraphdEnv.LAMINA_SAFE_GIT_IDENTITY, undefined);
   assert.equal(supervisedGraphdEnv.LAMINA_SAFE_RUNNER_BROKER,
     '/run/lamina-safe/broker.sock');
   assert.equal(supervisedGraphdEnv.LAMINA_SAFE_GRAPHD_RESERVATION, 'sealed-reservation');

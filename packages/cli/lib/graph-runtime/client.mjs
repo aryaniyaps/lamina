@@ -47,6 +47,7 @@ function isGraphdExecutionHook(name, platform = process.platform) {
     'RUBYOPT', 'RUBYLIB', 'GEM_HOME', 'GEM_PATH',
     'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS',
     'GCONV_PATH', 'GETCONF_DIR', 'LOCPATH', 'NLSPATH', 'HOSTALIASES', 'RES_OPTIONS',
+    'LAMINA_SAFE_GIT_IDENTITY',
   ].includes(normalized) || [
     'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY', 'GIT_',
   ].some((prefix) => normalized.startsWith(prefix));
