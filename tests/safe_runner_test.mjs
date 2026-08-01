@@ -7,12 +7,16 @@ import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
-import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
 import {
   assertSystemctlSuccess,
+  cgroupResolutionState,
+  LinuxSystemdAdapter,
   parseSystemdMajor,
+  SYSTEMCTL_CONTROL_TIMEOUT_MS,
+  SYSTEMCTL_READBACK_TIMEOUT_MS,
   systemdKillArguments,
   systemdScopeProperties,
 } from '../scripts/safe-runner/linux-systemd.mjs';
@@ -31,7 +35,7 @@ import {
   writeReport,
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
-import { outcomeForStop } from '../scripts/safe-runner/runner.mjs';
+import { boundedDiagnosticText, outcomeForStop } from '../scripts/safe-runner/runner.mjs';
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
@@ -195,6 +199,47 @@ try {
   }
   assert.equal(outcomeForStop('safety_limit_exceeded'), 'safety_limit_exceeded');
   assert.equal(outcomeForStop('interrupted'), 'interrupted');
+  assert.ok(SYSTEMCTL_READBACK_TIMEOUT_MS < DEFAULTS.scopeHandshakeMs,
+    'one transient readback must not consume the complete handshake window');
+  assert.ok(SYSTEMCTL_CONTROL_TIMEOUT_MS >= DEFAULTS.scopeHandshakeMs,
+    'destructive systemd control operations retain their complete timeout');
+  const timedOutReadback = new Error('spawnSync systemctl ETIMEDOUT at /tmp/private');
+  timedOutReadback.code = 'ETIMEDOUT';
+  const timedOutState = cgroupResolutionState({
+    status: null,
+    signal: 'SIGTERM',
+    error: timedOutReadback,
+    stderr: 'Authorization: Bearer diagnostic-secret',
+  });
+  assert.deepEqual({
+    ok: timedOutState.ok,
+    status: timedOutState.status,
+    signal: timedOutState.signal,
+    error_code: timedOutState.error_code,
+  }, { ok: false, status: null, signal: 'SIGTERM', error_code: 'ETIMEDOUT' });
+  assert.match(timedOutState.error_message, /ETIMEDOUT/);
+  assert.match(timedOutState.stderr, /diagnostic-secret/,
+    'the adapter retains raw in-memory evidence for the report sanitizer');
+  const unavailableAdapter = Object.assign(Object.create(LinuxSystemdAdapter.prototype), {
+    limits: eightGib,
+    resolveCgroup: () => null,
+  });
+  assert.deepEqual(unavailableAdapter.enforcementProof(), {
+    ok: false,
+    reason: 'cgroup path is unavailable',
+    actual: null,
+    expected: {
+      memory_max_bytes: eightGib.memory_max_bytes,
+      memory_high_bytes: eightGib.memory_high_bytes,
+      pids_max: eightGib.pids_max,
+    },
+  });
+  const diagnostic = boundedDiagnosticText(
+    `Authorization: Bearer diagnostic-secret failed at /tmp/private/scope.ready ${'x'.repeat(1_200)}`,
+  );
+  assert.doesNotMatch(diagnostic, /diagnostic-secret|\/tmp\/private/);
+  assert.match(diagnostic, /\[REDACTED\]|\[REDACTED_PATH\]/);
+  assert.ok(diagnostic.length <= 1_000);
   const summarizedError = boundedCaseError({
     code: `LAMINA_${'X'.repeat(200)}`,
     message: 'Authorization: Bearer secret-token',
