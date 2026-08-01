@@ -61,7 +61,8 @@ portable adapter can run only the exact built-in low-limit self-test allowlist.
 The host-qualification command itself refuses before launching the adversarial
 matrix, because a portable process group cannot prove cleanup of the detached
 descendant case. Portable focused contract tests never qualify medium or large
-execution.
+execution. macOS and Windows CI run that dedicated adapter/refusal contract;
+they do not execute the Linux/POSIX unit harness.
 
 The low-limit Linux CI job is pinned to Ubuntu 22.04 and provisions Bubblewrap
 without privilege. It downloads the official Debian Bookworm 0.8.0 package by

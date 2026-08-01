@@ -55,6 +55,12 @@ assert.doesNotMatch(packageManifest.scripts['bench:retrieval'], /--worker|--mode
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_PATH=%s/);
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_SHA256=%s/);
 assert.doesNotMatch(safeWorkflow, /echo "\$bin_dir" >> "\$GITHUB_PATH"/);
+assert.match(safeWorkflow, /portable-contract:[\s\S]*npm run test:safe-runner:portable/);
+assert.doesNotMatch(safeWorkflow,
+  /portable-contract:[\s\S]*node tests\/safe_runner_test\.mjs/,
+  'macOS and Windows must not run the Linux/POSIX unit harness');
+assert.equal(packageManifest.scripts['test:safe-runner:portable'],
+  'node tests/safe_runner_portable_test.mjs');
 assert.match(adapter, /assertTrustedBinaryIdentity\(binaries\.identities\.bwrap\)[\s\S]*spawnSync\(binaries\.bwrap/);
 assert.match(systemd, /assertInfrastructureBinaries\(this\.infrastructure,[\s\S]*staged\.bwrap, bwrapIdentity/);
 assert.match(sandbox, /assertTrustedBinaryIdentity\(expectedBwrap\)[\s\S]*spawn\(bwrapExecutable/);

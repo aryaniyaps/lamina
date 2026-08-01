@@ -132,4 +132,4 @@ jobs:
           node-version: '20'
           package-manager-cache: false
       - name: Portable interface and production refusal contracts
-        run: node tests/safe_runner_test.mjs
+        run: npm run test:safe-runner:portable

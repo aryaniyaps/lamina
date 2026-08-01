@@ -307,7 +307,8 @@ prove ownership of descendants created by an external daemon.
   Git-source-snapshot-, and runner-build-specific.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and
-  production-refusal contract without claiming enforcement.
+  production-refusal contract through a dedicated cross-platform test rather
+  than the Linux/POSIX unit harness.
 - macOS and Windows cannot claim medium/large qualification until issue #57
   supplies and tests complete native descendant enforcement.
 - Repository-output workloads refuse before watchdog, snapshot, or payload
