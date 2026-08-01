@@ -16,6 +16,7 @@ const CONTRACTS = Object.freeze([
     config_relative: 'evals/agent-skills-eval.yaml',
     config_digest: AGENT_SKILLS_CONFIG_DIGEST,
     omit_direct_optional_dependencies: false,
+    launch_admitted: true,
   }),
   Object.freeze({
     package_name: 'promptfoo',
@@ -27,6 +28,8 @@ const CONTRACTS = Object.freeze([
     config_relative: 'evals/promptfoo/lamina-redteam.yaml',
     config_digest: PROMPTFOO_CONFIG_DIGEST,
     omit_direct_optional_dependencies: true,
+    launch_admitted: false,
+    launch_refusal: 'Promptfoo launch authority is budget-refused; produce and review a bounded command-specific dependency artifact before enabling this exact eval command',
   }),
 ]);
 

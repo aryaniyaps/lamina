@@ -214,6 +214,7 @@ export function commandOwnership(command = [], cwd = process.cwd()) {
     audited_entrypoint: audit.entrypoint,
     executable: audit.executable || null,
     network_access: audit.allow_network ? 'audited-required' : 'isolated',
+    npx_authority: audit.npx_authority || null,
   };
 }
 
@@ -233,6 +234,9 @@ function deliberatelyTinySelfTest(mode, caseId, overrides, command) {
 }
 
 function externalRuntimeContractReason(ownership, command, cwd) {
+  if (ownership.npx_authority?.launch_admitted === false) {
+    return ownership.npx_authority.launch_refusal;
+  }
   if (['evals/scripts/run-suite.mjs', 'evals/scripts/run-reference-matrix.mjs']
     .includes(ownership.audited_entrypoint)) {
     return 'eval-suite requires the ignored .venv-eval runtime, which is not admitted into sealed execution authority; use the audited portable npx suite or provide a future bounded runtime contract';

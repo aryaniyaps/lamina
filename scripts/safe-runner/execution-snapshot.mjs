@@ -648,6 +648,9 @@ export function prepareExecutionSnapshot({
   const repository = repositoryRoot(cwd);
   const npxAuthority = /^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
     ? auditedNpxCommand(repository, command, cwd) : null;
+  if (npxAuthority?.launch_admitted === false) {
+    throw new Error(npxAuthority.launch_refusal);
+  }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
   const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');

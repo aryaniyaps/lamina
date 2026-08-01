@@ -137,20 +137,26 @@ and enforce depth 64. The inode budget includes copied files and symlinks plus
 every created store, `node_modules`, scoped-parent, package, and logical-link
 inode; the diagnostic models the same synthetic resolution overhead.
 
-`npx` is not a package-level allowlist. It admits only the exact argv tails of
-`test:eval:portable` and `test:eval:redteam`, run from the physical repository
-root through the trusted npx shim. The copied `package.json` and physical config
-must retain the descriptor-read digests used to select policy. Agent-skills is
-digest-bound to its concurrency-1 config. Promptfoo is digest-bound to
+`npx` is not a package-level allowlist. It recognizes only the exact argv tails
+of `test:eval:portable` and `test:eval:redteam`, run from the physical repository
+root through the trusted npx shim. Recognition and launch admission are
+separate contract fields. The copied `package.json` and physical config must
+retain the descriptor-read digests used to select policy. Agent-skills remains
+launch-admitted and digest-bound to its concurrency-1 config. Promptfoo is
+explicitly `launch_admitted: false`, digest-bound to
 `9033e19f151b29d8fbc5d6739d5941692ed7f923456c95906d67a00492e1b194`
 and the exact CLI adds `--max-concurrency 1`. That OpenAI-only config permits
 omission of Promptfoo's direct optional provider/plugin dependencies only;
 required dependencies and installed downstream optional/platform dependencies
-remain sealed. The full diagnostic closure remains a refusal. The narrower
-command-specific measurement still reaches 445 packages, 30,356 physical
+remain in its metadata policy. Preflight always returns the contract's
+actionable authority-budget refusal, and direct snapshot preparation enforces
+the same fence before dependency availability or size can matter. Thus clean CI
+does not need Promptfoo installed to prove the refusal. A local qualification
+install measured the narrower diagnostic at 445 packages, 30,356 physical
 package-content inodes, and 555,525,917 bytes before synthetic resolution
-overhead, exceeding both the global 16,384-inode and 512-MiB caps. Promptfoo is
-therefore safely refused; this policy does not admit a launch or raise a cap.
+overhead. Those numbers are supporting local evidence, not the CI gate. They
+exceed both the global 16,384-inode and 512-MiB caps; enabling launch requires a
+future reviewed bounded artifact, not a cap increase or silent pruning.
 Ignored file argv inputs (for example model artifacts) are copied separately.
 The process keeps its declared cwd, while entrypoint-specific output roots are
 the only writable bindings into source-relative snapshot locations. Dynamic

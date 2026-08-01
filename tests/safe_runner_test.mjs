@@ -424,8 +424,19 @@ try {
   ];
   assert.equal(commandOwnership(promptfooArgv, process.cwd()).proven, true,
     'only the exact Promptfoo package-script argv with its physical config is audited');
+  assert.equal(commandOwnership(promptfooArgv, process.cwd()).npx_authority.launch_admitted,
+    false, 'recognized Promptfoo metadata authority must remain distinct from launch admission');
+  const refusedPromptfooPreflight = preflightRun({
+    tier: 'small', command: promptfooArgv, cwd: process.cwd(), adapterInfo: portableProbe,
+    injectedExistingProcesses: [],
+  });
+  assert.equal(refusedPromptfooPreflight.ownership.proven, true);
+  assert.match(refusedPromptfooPreflight.reasons.join('\n'),
+    /Promptfoo launch authority is budget-refused.*bounded command-specific dependency artifact/);
   assert.equal(commandOwnership(agentSkillsArgv, process.cwd()).proven, true,
     'only the exact agent-skills package-script argv with its physical config is audited');
+  assert.equal(commandOwnership(agentSkillsArgv, process.cwd()).npx_authority.launch_admitted,
+    true, 'the bounded agent-skills contract must remain launch-admitted');
   for (const arbitraryNpx of [
     ['npx', 'promptfoo', '--version'],
     promptfooArgv.slice(0, -2),
@@ -932,7 +943,21 @@ try {
     infrastructure: { node: fakeNode, bwrap: fakeBwrap },
   }), /exact repository package-script argv/,
   'arbitrary arguments to an otherwise audited npx package must refuse before snapshotting');
-  const syntheticPromptfoo = writeSyntheticPackage('promptfoo', {
+  const syntheticPromptfooConfig = path.join(snapshotRepository,
+    'evals', 'promptfoo', 'lamina-redteam.yaml');
+  fs.mkdirSync(path.dirname(syntheticPromptfooConfig), { recursive: true });
+  fs.copyFileSync(path.resolve('evals/promptfoo/lamina-redteam.yaml'), syntheticPromptfooConfig);
+  const syntheticPromptfooArgv = [
+    fakeNpx, 'promptfoo', 'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml',
+    '--max-concurrency', '1',
+  ];
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: syntheticPromptfooArgv,
+    temporaryDirectory: path.join(root, 'snapshot-promptfoo-budget-refusal'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  }), /Promptfoo launch authority is budget-refused.*bounded command-specific dependency artifact/,
+  'direct snapshot callers must receive the same unconditional Promptfoo launch refusal');
+  writeSyntheticPackage('promptfoo', {
     name: 'promptfoo', bin: { promptfoo: 'index.js' },
     dependencies: { 'promptfoo-required': '1.0.0' },
     optionalDependencies: { 'omitted-provider': '1.0.0' },
@@ -945,32 +970,16 @@ try {
   }, "module.exports = 'downstream-platform';\n");
   writeSyntheticPackage('omitted-provider', { name: 'omitted-provider', version: '1.0.0' },
     "module.exports = 'must-not-be-sealed';\n");
-  const syntheticPromptfooConfig = path.join(snapshotRepository,
-    'evals', 'promptfoo', 'lamina-redteam.yaml');
-  fs.mkdirSync(path.dirname(syntheticPromptfooConfig), { recursive: true });
-  fs.copyFileSync(path.resolve('evals/promptfoo/lamina-redteam.yaml'), syntheticPromptfooConfig);
-  const syntheticPromptfooArgv = [
-    fakeNpx, 'promptfoo', 'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml',
-    '--max-concurrency', '1',
-  ];
-  const promptfooSnapshot = prepareExecutionSnapshot({
-    cwd: snapshotRepository, command: syntheticPromptfooArgv,
-    temporaryDirectory: path.join(root, 'snapshot-promptfoo-policy'),
-    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
-  });
-  const sealedPromptfoo = fs.realpathSync.native(path.join(
-    promptfooSnapshot.snapshot_repository, 'node_modules', 'promptfoo'));
-  const sealedPromptfooRequired = fs.realpathSync.native(path.join(
-    sealedPromptfoo, 'node_modules', 'promptfoo-required'));
-  assert.equal(fs.existsSync(path.join(sealedPromptfoo, 'node_modules', 'omitted-provider')), false,
-    'the digest-bound OpenAI-only command must omit Promptfoo direct optional providers');
-  assert.equal(fs.existsSync(path.join(
-    sealedPromptfooRequired, 'node_modules', 'downstream-platform')), true,
-  'required packages must retain their installed optional/platform dependencies');
-  assert.deepEqual(promptfooSnapshot.launch_command.slice(2), [
-    'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml', '--max-concurrency', '1',
-  ]);
-  assert.ok(fs.existsSync(syntheticPromptfoo));
+  const fullSyntheticPromptfoo = measureInstalledPackageClosure(snapshotRepository, 'promptfoo');
+  const targetedSyntheticPromptfoo = measureAuditedNpxPackageClosure(
+    snapshotRepository, syntheticPromptfooArgv,
+  );
+  assert.equal(fullSyntheticPromptfoo.packages, 4);
+  assert.equal(targetedSyntheticPromptfoo.packages, 3,
+    'metadata policy must omit only the direct optional provider');
+  assert.equal(targetedSyntheticPromptfoo.logical_edges, 2,
+    'required packages must retain their installed downstream optional/platform edge');
+  assert.equal(targetedSyntheticPromptfoo.npx_authority.launch_admitted, false);
   fs.appendFileSync(syntheticPromptfooConfig, '# changed\n');
   assert.throws(() => prepareExecutionSnapshot({
     cwd: snapshotRepository, command: syntheticPromptfooArgv,
