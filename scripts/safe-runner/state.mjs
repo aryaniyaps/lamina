@@ -277,7 +277,14 @@ function safetyRetryEntryPath(cwd, commandKey, runId) {
 }
 
 function retryLockOwnerActive(owner) {
-  if (process.platform === 'linux') return identityAlive(owner);
+  if (process.platform === 'linux') {
+    if (!Number.isInteger(owner?.pid) || typeof owner?.start_ticks !== 'string') return false;
+    try {
+      const stat = fs.readFileSync(`/proc/${owner.pid}/stat`, 'utf8');
+      const close = stat.lastIndexOf(')');
+      return stat.slice(close + 2).trim().split(/\s+/)[19] === owner.start_ticks;
+    } catch { return false; }
+  }
   if (!Number.isInteger(owner?.pid) || owner.pid <= 1) return false;
   try { process.kill(owner.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }

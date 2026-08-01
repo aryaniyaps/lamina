@@ -664,6 +664,11 @@ try {
       if (contender.exitCode === null) contender.kill('SIGTERM');
     }
     await Promise.all(contenderClosures);
+    if (process.platform === 'win32') {
+      fs.rmSync(concurrentRoot, {
+        recursive: true, force: true, maxRetries: 20, retryDelay: 100,
+      });
+    }
   }
 
   const managedRegistrations = [{
@@ -952,19 +957,25 @@ try {
       run_id: id, termination: { limit: 'timeout' },
     });
   `;
-  const concurrentIds = Array.from({ length: 12 }, (_, index) => `concurrent-${index}`);
-  const concurrentStatuses = await Promise.all(concurrentIds.map(async (id) => {
+  const runConcurrentWriter = async (id, cwd) => {
     const child = spawn(process.execPath, ['--input-type=module', '--eval', concurrentWriter], {
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
       env: {
         ...process.env,
         LAMINA_LEDGER_WRITER_ID: id,
-        LAMINA_LEDGER_WRITER_CWD: root,
+        LAMINA_LEDGER_WRITER_CWD: cwd,
       },
     });
-    return (await once(child, 'exit'))[0];
-  }));
-  assert.deepEqual(concurrentStatuses, concurrentStatuses.map(() => 0));
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    return { status: (await once(child, 'exit'))[0], stderr };
+  };
+  const concurrentIds = Array.from({ length: 12 }, (_, index) => `concurrent-${index}`);
+  const concurrentResults = await Promise.all(concurrentIds.map((id) => runConcurrentWriter(id, root)));
+  assert.deepEqual(
+    concurrentResults.map((result) => result.status), concurrentResults.map(() => 0),
+    concurrentResults.map((result) => result.stderr).filter(Boolean).join('\n'),
+  );
   for (const id of concurrentIds) {
     assert.equal(checkSafetyRetry(root, ['node', '-e', id], {}).ok, false,
       'concurrent distinct writers must retain every fence');
@@ -1060,18 +1071,13 @@ try {
     }));
   }
   const capacityIds = Array.from({ length: 12 }, (_, index) => `repository-overflow-${index}`);
-  const capacityStatuses = await Promise.all(capacityIds.map(async (id) => {
-    const child = spawn(process.execPath, ['--input-type=module', '--eval', concurrentWriter], {
-      stdio: 'ignore',
-      env: {
-        ...process.env,
-        LAMINA_LEDGER_WRITER_ID: id,
-        LAMINA_LEDGER_WRITER_CWD: repositoryCapacityRoot,
-      },
-    });
-    return (await once(child, 'exit'))[0];
-  }));
-  assert.deepEqual(capacityStatuses, capacityStatuses.map(() => 0));
+  const capacityResults = await Promise.all(
+    capacityIds.map((id) => runConcurrentWriter(id, repositoryCapacityRoot)),
+  );
+  assert.deepEqual(
+    capacityResults.map((result) => result.status), capacityResults.map(() => 0),
+    capacityResults.map((result) => result.stderr).filter(Boolean).join('\n'),
+  );
   const boundedRepositoryEntries = fs.readdirSync(repositoryCapacityPath, { withFileTypes: true });
   assert.equal(
     boundedRepositoryEntries.filter((entry) => entry.isDirectory()
