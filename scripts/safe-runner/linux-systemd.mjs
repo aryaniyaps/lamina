@@ -66,13 +66,6 @@ export function systemdScopeProperties(limits) {
   ];
 }
 
-export function systemdUnitAbsent(result) {
-  const state = String(result?.stdout || '').trim();
-  const detail = String(result?.stderr || '').trim();
-  return !result?.error && (state === 'not-found'
-    || (result?.status !== 0 && /(?:not loaded|not found|could not be found)/i.test(detail)));
-}
-
 function readNumber(file) {
   try {
     const value = fs.readFileSync(file, 'utf8').trim();
@@ -119,6 +112,22 @@ export function cgroupResolutionState(shown, controlGroup = '', pathExists = fal
     control_group_present: controlGroup.startsWith('/'),
     path_exists: pathExists,
   };
+}
+
+function systemdShowProperties(output) {
+  return Object.fromEntries(String(output || '').split('\n').filter(Boolean).map((line) => {
+    const separator = line.indexOf('=');
+    return separator === -1 ? [line, ''] : [line.slice(0, separator), line.slice(separator + 1)];
+  }));
+}
+
+export function systemdAbsenceProof(shown, cachedCgroupExists = false) {
+  const properties = systemdShowProperties(shown?.stdout);
+  return shown?.status === 0
+    && !shown?.error
+    && properties.LoadState === 'not-found'
+    && !properties.ControlGroup
+    && cachedCgroupExists === false;
 }
 
 export class LinuxSystemdAdapter {
@@ -249,9 +258,15 @@ export class LinuxSystemdAdapter {
 
   signal(signal) {
     const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
-    if (result.status !== 0 && systemdUnitAbsent(
-      systemctl(['show', this.unit, '--property=LoadState', '--value']),
-    )) return result;
+    if (result?.status !== 0 || result?.error) {
+      const shown = systemctl([
+        'show', this.unit, '--property=LoadState', '--property=ControlGroup',
+      ]);
+      const cachedCgroupExists = Boolean(this.cgroupPath && fs.existsSync(this.cgroupPath));
+      if (systemdAbsenceProof(shown, cachedCgroupExists)) {
+        return { ...result, alreadyAbsent: true };
+      }
+    }
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 
@@ -263,21 +278,28 @@ export class LinuxSystemdAdapter {
     const before = this.sample().pids;
     const stopped = systemctl(['stop', this.unit]);
     const reset = systemctl(['reset-failed', this.unit]);
-    const pids = this.sample().pids;
-    let shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
+    let pids = this.sample().pids;
+    let shown = systemctl([
+      'show', this.unit, '--property=LoadState', '--property=ControlGroup',
+    ]);
     const deadline = Date.now() + 1_000;
-    while (!systemdUnitAbsent(shown) && Date.now() < deadline) {
+    let cachedCgroupExists = Boolean(this.cgroupPath && fs.existsSync(this.cgroupPath));
+    while (!systemdAbsenceProof(shown, cachedCgroupExists) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 25));
-      shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
+      pids = this.sample().pids;
+      shown = systemctl([
+        'show', this.unit, '--property=LoadState', '--property=ControlGroup',
+      ]);
+      cachedCgroupExists = Boolean(this.cgroupPath && fs.existsSync(this.cgroupPath));
     }
-    const absent = systemdUnitAbsent(shown);
+    const absent = systemdAbsenceProof(shown, cachedCgroupExists);
     const errors = [];
     if (!absent && stopped.status !== 0) errors.push(`systemctl stop failed with status ${stopped.status}`);
     if (!absent && reset.status !== 0) errors.push(`systemctl reset-failed failed with status ${reset.status}`);
     return {
       pids,
       knownPids: before,
-      removed: absent && !stopped.error && !reset.error && errors.length === 0,
+      removed: absent && errors.length === 0,
       errors,
       commands: {
         stop_status: stopped.status,

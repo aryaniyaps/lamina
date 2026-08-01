@@ -120,6 +120,20 @@ try {
     assert.equal(failure.termination.child_exit_code, 7);
     assert.equal(validateReport(failure).valid, true);
 
+    const outputFlood = await runSafely({
+      command: [process.execPath, fixture, 'output-flood'],
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'output-flood.json'),
+      overrides: { ...limits, outputMaxBytes: 64 * 1024 }, promote: false,
+    });
+    assert.equal(outputFlood.outcome, 'safety_limit_exceeded');
+    assert.equal(outputFlood.termination.limit, 'output');
+    assert.ok(outputFlood.output.total_bytes > outputFlood.limits.output_max_bytes);
+    assert.equal(outputFlood.output.truncated, true);
+    assert.deepEqual(outputFlood.cleanup.descendants_remaining, []);
+    assert.equal(outputFlood.cleanup.scope_removed, true);
+    assert.equal(outputFlood.cleanup.errors.length, 0);
+    assert.equal(validateReport(outputFlood).valid, true);
+
     const graphRepository = path.join(root, `graph-repository-${'x'.repeat(80)}`);
     fs.mkdirSync(graphRepository);
     const initialized = spawnSync('git', ['init', '--quiet'], {

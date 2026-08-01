@@ -26,9 +26,9 @@ import {
   parseSystemdMajor,
   SYSTEMCTL_CONTROL_TIMEOUT_MS,
   SYSTEMCTL_READBACK_TIMEOUT_MS,
+  systemdAbsenceProof,
   systemdKillArguments,
   systemdScopeProperties,
-  systemdUnitAbsent,
 } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
@@ -316,6 +316,23 @@ try {
   assert.match(timedOutState.error_message, /ETIMEDOUT/);
   assert.match(timedOutState.stderr, /diagnostic-secret/,
     'the adapter retains raw in-memory evidence for the report sanitizer');
+  assert.equal(systemdAbsenceProof({
+    status: 0,
+    stdout: 'LoadState=not-found\nControlGroup=\n',
+  }, false), true);
+  assert.equal(systemdAbsenceProof({
+    status: 0,
+    stdout: 'LoadState=loaded\nControlGroup=/user.slice/unit.scope\n',
+  }, false), false);
+  assert.equal(systemdAbsenceProof({
+    status: 0,
+    stdout: 'LoadState=not-found\nControlGroup=\n',
+  }, true), false, 'a cached cgroup that still exists must prevent idempotent success');
+  assert.equal(systemdAbsenceProof({
+    status: null,
+    error: new Error('D-Bus unavailable'),
+    stdout: '',
+  }, false), false, 'an unproven systemd lookup must fail closed');
   const unavailableAdapter = Object.assign(Object.create(LinuxSystemdAdapter.prototype), {
     limits: eightGib,
     resolveCgroup: () => null,
@@ -434,10 +451,6 @@ try {
   ]);
   assert.throws(() => parseSystemdMajor('not systemd'), /unsupported or unparsable/);
   assert.throws(() => systemdKillArguments('SIGTERM', 'unit.scope', 248), /unsupported/);
-  assert.equal(systemdUnitAbsent({ status: 1, stderr: 'Unit example.scope not loaded.' }), true);
-  assert.equal(systemdUnitAbsent({ status: 0, stdout: 'not-found\n' }), true);
-  assert.equal(systemdUnitAbsent({ status: 1, stderr: 'Access denied' }), false);
-  assert.equal(systemdUnitAbsent({ status: 0, stdout: 'loaded\n' }), false);
   const scopeProperties = systemdScopeProperties({
     memory_max_bytes: 100,
     memory_high_bytes: 80,
