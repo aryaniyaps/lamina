@@ -115,6 +115,14 @@ try {
     assert.equal(supervisorCrash.passed, true, JSON.stringify(supervisorCrash, null, 2));
     assert.ok(Object.values(supervisorCrash.evidence).every(Boolean));
     assert.equal(validateReport(supervisorCrash.report).valid, true);
+    const beforeReleaseCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'before_payload_release',
+    });
+    assert.equal(beforeReleaseCrash.passed, true, JSON.stringify(beforeReleaseCrash, null, 2));
+    assert.equal(beforeReleaseCrash.report.outcome, 'internal_error');
+    assert.equal(beforeReleaseCrash.report.termination.reason, 'supervisor_crash_before_payload');
+    assert.ok(beforeReleaseCrash.report.samples.length > 0,
+      'pre-release crash evidence must retain scope samples while remaining unarmed');
     const preparationCrash = await runSupervisorCrashSelfTest({
       cwd: process.cwd(), reportDirectory: reports, boundary: 'report_slot_acquired',
       previousReport: normal,

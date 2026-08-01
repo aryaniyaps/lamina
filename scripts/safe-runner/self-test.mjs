@@ -13,11 +13,18 @@ import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
+import { identityAlive, processIdentity } from './processes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
 const CONTROLLER_FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-controller.mjs');
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+export const SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS = 30_000;
+export const SUPERVISOR_CRASH_REPORT_TIMEOUT_MS = 10_000;
+
+function boundedTestTimeout(value, fallback) {
+  return Number.isSafeInteger(value) && value > 0 && value <= 60_000 ? value : fallback;
+}
 
 function digest(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -47,51 +54,142 @@ export function boundedCaseError(error) {
 export async function runSupervisorCrashSelfTest({
   cwd, reportDirectory, boundary = 'payload_released', graphRepository = null,
   previousReport = null,
+  _testControllerFixture = CONTROLLER_FIXTURE,
+  _testControllerArguments = [],
+  _testPreparationTimeoutMs = SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS,
+  _testReportTimeoutMs = SUPERVISOR_CRASH_REPORT_TIMEOUT_MS,
 }) {
+  const preparationTimeoutMs = boundedTestTimeout(
+    _testPreparationTimeoutMs, SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS,
+  );
+  const reportTimeoutMs = boundedTestTimeout(
+    _testReportTimeoutMs, SUPERVISOR_CRASH_REPORT_TIMEOUT_MS,
+  );
   const safeBoundary = boundary.replace(/[^a-z0-9_-]/gi, '-');
   const crashReportPath = path.join(reportDirectory, `parent_signal_sigkill_${safeBoundary}.json`);
   const armedFile = `${crashReportPath}.crash-boundary`;
+  const progressFile = `${crashReportPath}.crash-progress`;
   fs.rmSync(crashReportPath, { force: true });
   fs.rmSync(armedFile, { force: true });
+  fs.rmSync(progressFile, { force: true });
   if (previousReport) fs.writeFileSync(crashReportPath, `${JSON.stringify(previousReport)}\n`);
   const controller = spawn(process.execPath, [
-    CONTROLLER_FIXTURE, cwd, crashReportPath, boundary, graphRepository || '',
+    _testControllerFixture, cwd, crashReportPath, boundary, graphRepository || '', progressFile,
+    ..._testControllerArguments.map(String),
   ], {
     cwd, env: sanitizedEnvironment(process.env), stdio: 'ignore',
   });
+  let controllerIdentity = null;
+  const identityDeadline = Date.now() + 250;
+  while (Date.now() < identityDeadline && !controllerIdentity
+    && controller.exitCode === null && controller.signalCode === null) {
+    controllerIdentity = processIdentity(controller.pid);
+    if (!controllerIdentity) await wait(10);
+  }
+  if (!controllerIdentity) {
+    const controllerExit = controller.exitCode !== null || controller.signalCode !== null
+      ? Promise.resolve(true) : once(controller, 'exit').then(() => true);
+    controller.kill('SIGKILL');
+    const exited = await Promise.race([controllerExit, wait(reportTimeoutMs).then(() => false)]);
+    if (!exited) {
+      const cleanupError = new Error('could not prove cleanup of unidentified self-test controller');
+      cleanupError.code = 'LAMINA_SAFE_SELF_TEST_CONTROLLER_CLEANUP_UNPROVEN';
+      throw cleanupError;
+    }
+    throw new Error('could not establish exact self-test controller identity');
+  }
   let armed = null;
-  const armedDeadline = Date.now() + 5_000;
-  while (Date.now() < armedDeadline && controller.exitCode === null) {
+  let progress = null;
+  const preparationStartedMs = Date.now();
+  const armedDeadline = preparationStartedMs + preparationTimeoutMs;
+  while (Date.now() < armedDeadline
+    && controller.exitCode === null && controller.signalCode === null) {
+    try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
     try { armed = JSON.parse(fs.readFileSync(armedFile, 'utf8')); break; } catch {}
     await wait(20);
   }
+  const boundaryReached = armed?.controller_pid === controller.pid
+    && (typeof armed.unit === 'string' || boundary === 'report_slot_acquired');
+  const diagnostic = boundaryReached ? null : {
+    code: 'boundary_not_reached',
+    boundary,
+    preparation_timeout_ms: preparationTimeoutMs,
+    waited_ms: Math.max(0, Date.now() - preparationStartedMs),
+    marker_observed: armed !== null,
+    controller_exit_code: controller.exitCode,
+    controller_signal: controller.signalCode,
+  };
   let crashReport = null;
   const evidence = {
     controller_dead: false, scope_absent: false, temporary_removed: false,
     watchdog_state_removed: false, lock_removed: false, subsequent_claim: false,
     descendants_absent: false, managed_paths_absent: false, schema_valid: false,
   };
-  if (armed?.controller_pid === controller.pid
-    && (typeof armed.unit === 'string' || boundary === 'report_slot_acquired')) {
-    controller.kill('SIGKILL');
-    if (controller.exitCode === null) await once(controller, 'exit');
-    evidence.controller_dead = controller.exitCode !== null || controller.signalCode === 'SIGKILL';
-    const reportDeadline = Date.now() + (boundary === 'report_slot_acquired' ? 250 : 5_000);
-    while (Date.now() < reportDeadline) {
-      try {
-        const candidate = JSON.parse(fs.readFileSync(crashReportPath, 'utf8'));
-        if (boundary === 'report_slot_acquired'
-          || candidate?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
-          || candidate?.error?.code === 'LAMINA_SAFE_CLEANUP_INCOMPLETE') {
-          crashReport = candidate;
-          break;
-        }
-      } catch {}
-      await wait(20);
-    }
+  const controllerExit = controller.exitCode !== null || controller.signalCode !== null
+    ? Promise.resolve() : once(controller, 'exit');
+  if (controller.exitCode === null && controller.signalCode === null) controller.kill('SIGKILL');
+  await Promise.race([controllerExit, wait(reportTimeoutMs)]);
+  const controllerCleanupDeadline = Date.now() + reportTimeoutMs;
+  while (Date.now() < controllerCleanupDeadline && identityAlive(controllerIdentity)) {
+    try { controller.kill('SIGKILL'); } catch {}
+    await wait(20);
+  }
+  if (identityAlive(controllerIdentity)) {
+    throw new Error('exact self-test controller identity remained alive after forced cleanup');
+  }
+  evidence.controller_dead = true;
+  if (!progress) {
+    try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
+  }
+  const resourceState = boundaryReached ? armed : progress;
+  const validResourceState = resourceState?.controller_pid === controller.pid
+    && Number.isSafeInteger(resourceState?.watchdog_process?.pid)
+    && typeof resourceState?.watchdog_process?.start_ticks === 'string'
+    && typeof resourceState?.unit === 'string';
+  const ownedStateRemoved = () => boundary === 'report_slot_acquired'
+    || (validResourceState
+      && !identityAlive(resourceState.watchdog_process)
+      && (resourceState.temporary_directory === null
+        || (typeof resourceState.temporary_directory === 'string'
+          && !fs.existsSync(resourceState.temporary_directory)))
+      && (typeof resourceState.watchdog_directory === 'string'
+        && !fs.existsSync(resourceState.watchdog_directory))
+      && (resourceState.lock_file === null
+        || (typeof resourceState.lock_file === 'string'
+          && !lstatPresence(resourceState.lock_file).exists)));
+  const authoritativeCleanupProven = () => {
+    const cleanup = crashReport?.cleanup;
+    return crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+      && validateReport(crashReport).valid
+      && cleanup?.attempted === true
+      && cleanup?.descendants_remaining?.length === 0
+      && cleanup?.managed_paths_remaining?.length === 0
+      && cleanup?.scope_removed === true
+      && cleanup?.temporary_directory_removed === true
+      && cleanup?.lock_released === true
+      && cleanup?.errors?.length === 0;
+  };
+  const reportDeadline = Date.now()
+    + (boundaryReached && boundary === 'report_slot_acquired' ? 250 : reportTimeoutMs);
+  while (Date.now() < reportDeadline) {
+    try {
+      const candidate = JSON.parse(fs.readFileSync(crashReportPath, 'utf8'));
+      if ((boundaryReached && boundary === 'report_slot_acquired')
+        || candidate?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+        || candidate?.error?.code === 'LAMINA_SAFE_CLEANUP_INCOMPLETE') {
+        crashReport = candidate;
+      }
+    } catch {}
+    const preparationReportReady = boundaryReached && boundary === 'report_slot_acquired'
+      && crashReport !== null;
+    if (preparationReportReady
+      || (crashReport && ownedStateRemoved() && authoritativeCleanupProven())) break;
+    await wait(20);
+  }
+  if (boundaryReached || validResourceState) {
     const shown = boundary === 'report_slot_acquired' ? null
       : spawnSync(infrastructureBinaries().systemctl, [
-        '--user', 'show', armed.unit, '--property=LoadState', '--property=ControlGroup',
+        '--user', 'show', resourceState.unit, '--property=LoadState', '--property=ControlGroup',
       ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
         env: sanitizedEnvironment(process.env) });
     try {
@@ -106,29 +204,51 @@ export async function runSupervisorCrashSelfTest({
     } catch {}
     evidence.scope_absent = boundary === 'report_slot_acquired' || systemdAbsenceProof(shown, false);
     evidence.temporary_removed = boundary === 'report_slot_acquired'
-      || (armed.temporary_directory === null
-        || (typeof armed.temporary_directory === 'string' && !fs.existsSync(armed.temporary_directory)));
+      || (resourceState.temporary_directory === null
+        || (typeof resourceState.temporary_directory === 'string'
+          && !fs.existsSync(resourceState.temporary_directory)));
     evidence.watchdog_state_removed = boundary === 'report_slot_acquired'
-      || (typeof armed.watchdog_directory === 'string' && !fs.existsSync(armed.watchdog_directory));
+      || (typeof resourceState.watchdog_directory === 'string'
+        && !fs.existsSync(resourceState.watchdog_directory)
+        && !identityAlive(resourceState.watchdog_process));
     evidence.lock_removed = boundary === 'report_slot_acquired'
-      || armed.lock_file === null
-      || (typeof armed.lock_file === 'string' && !lstatPresence(armed.lock_file).exists);
+      || resourceState.lock_file === null
+      || (typeof resourceState.lock_file === 'string'
+        && !lstatPresence(resourceState.lock_file).exists);
     evidence.descendants_absent = boundary === 'report_slot_acquired'
       || crashReport?.cleanup?.descendants_remaining?.length === 0;
     evidence.managed_paths_absent = boundary === 'report_slot_acquired'
       || crashReport?.cleanup?.managed_paths_remaining?.length === 0;
     evidence.schema_valid = validateReport(crashReport || {}).valid;
-  } else if (controller.exitCode === null) {
-    controller.kill('SIGKILL');
-    await once(controller, 'exit');
+  }
+  if (diagnostic) {
+    diagnostic.report_observed = crashReport !== null;
+    diagnostic.authoritative_cleanup_proven = authoritativeCleanupProven();
+    diagnostic.exact_cleanup_proven = ownedStateRemoved()
+      && authoritativeCleanupProven()
+      && evidence.scope_absent
+      && evidence.temporary_removed
+      && evidence.watchdog_state_removed
+      && evidence.lock_removed
+      && evidence.subsequent_claim
+      && evidence.descendants_absent
+      && evidence.managed_paths_absent
+      && evidence.schema_valid;
+    if (!diagnostic.exact_cleanup_proven) {
+      const error = new Error('boundary was not reached and exact watchdog cleanup was not proven');
+      error.code = 'LAMINA_SAFE_SELF_TEST_CLEANUP_UNPROVEN';
+      error.diagnostic = diagnostic;
+      throw error;
+    }
   }
   fs.rmSync(armedFile, { force: true });
+  fs.rmSync(progressFile, { force: true });
   const earlyPreparationPassed = boundary === 'report_slot_acquired'
     && crashReport?.outcome === 'internal_error'
     && crashReport?.termination?.reason === 'run_in_progress'
     && crashReport?.error?.code === 'LAMINA_SAFE_RUN_IN_PROGRESS'
     && Object.values(evidence).every(Boolean);
-  const snapshotPreparationPassed = boundary === 'snapshot_building'
+  const snapshotPreparationPassed = ['snapshot_building', 'before_payload_release'].includes(boundary)
     && crashReport?.outcome === 'internal_error'
     && crashReport?.termination?.reason === 'supervisor_crash_before_payload'
     && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
@@ -148,7 +268,7 @@ export async function runSupervisorCrashSelfTest({
     && crashReport?.cleanup?.lock_released === true
     && crashReport?.cleanup?.errors?.length === 0
     && Object.values(evidence).every(Boolean);
-  const passed = earlyPreparationPassed || bootstrapPreparationPassed
+  const passed = boundaryReached && (earlyPreparationPassed || bootstrapPreparationPassed
     || snapshotPreparationPassed || (crashReport?.outcome === 'interrupted'
     && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
     && crashReport?.cleanup?.scope_removed === true
@@ -157,8 +277,8 @@ export async function runSupervisorCrashSelfTest({
     && crashReport?.cleanup?.errors?.length === 0
     && crashReport?.cleanup?.lock_released === true
     && crashReport?.termination?.requested_signals?.includes('SIGKILL')
-    && Object.values(evidence).every(Boolean));
-  return { passed, report: crashReport, report_path: crashReportPath, evidence };
+    && Object.values(evidence).every(Boolean)));
+  return { passed, report: crashReport, report_path: crashReportPath, evidence, diagnostic };
 }
 
 export async function runHandledParentSignalSelfTest({ cwd, reportDirectory }) {

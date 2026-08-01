@@ -200,6 +200,8 @@ export async function runSafely({
   _testBeforeQuotaRelease = null,
   _testAfterFinalIdentityCheck = null,
   _testPhaseFile = null,
+  _testCrashProgressFile = null,
+  _testAfterWatchdogStartedDelayMs = 0,
 } = {}) {
   const startedMs = Date.now();
   const normalizedCommand = Array.isArray(command) ? command : [];
@@ -251,6 +253,7 @@ export async function runSafely({
       boundary: name, controller_pid: process.pid, unit: activeAdapter?.unit || null,
       cgroup: activeAdapter?.cgroupPath || null, temporary_directory: temporaryDirectory,
       watchdog_directory: crashWatchdog?.directory || null, lock_file: lock?.file || null,
+      watchdog_process: crashWatchdog?.identity || null,
     })}\n`, { flag: 'wx', mode: 0o600 });
     if (name === 'payload_released') return;
     // Deterministic external-controller SIGKILL point. This cannot authorize,
@@ -477,6 +480,20 @@ export async function runSafely({
       persistReportAuthorityWith(reportAuthority, (nextAuthority) => {
         crashWatchdog?.update({ report_authority: nextAuthority });
       });
+      if (_testCrashProgressFile) {
+        fs.writeFileSync(_testCrashProgressFile, `${JSON.stringify({
+          controller_pid: process.pid,
+          watchdog_process: crashWatchdog.identity,
+          unit: activeAdapter.unit,
+          temporary_directory: crashWatchdog.temporaryDirectory,
+          watchdog_directory: crashWatchdog.directory,
+          lock_file: lock?.file || null,
+        })}\n`, { flag: 'wx', mode: 0o600 });
+      }
+      if (Number.isSafeInteger(_testAfterWatchdogStartedDelayMs)
+        && _testAfterWatchdogStartedDelayMs > 0) {
+        await wait(Math.min(_testAfterWatchdogStartedDelayMs, 60_000));
+      }
       tracePhase('prepare:watchdog-started');
     } else {
       temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
@@ -777,7 +794,7 @@ export async function runSafely({
               cgroup: activeAdapter.cgroupPath,
               lock_identity: lock?.identity?.() || null,
               report_seed: report,
-              armed: true,
+              armed: false,
             });
             break;
           }
@@ -881,8 +898,10 @@ export async function runSafely({
       if (typeof _testAfterFinalIdentityCheck === 'function') {
         await _testAfterFinalIdentityCheck();
       }
+      crashBoundary('before_payload_release');
       payloadStartedMs = Date.now();
       await releaseFifo(quotaReleaseFile);
+      crashWatchdog?.update({ report_seed: report, armed: true });
       crashBoundary('payload_released');
       tracePhase('launch:payload-released');
     } else {

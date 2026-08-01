@@ -3,8 +3,11 @@ import path from 'node:path';
 import { runSafely } from '../../scripts/safe-runner/runner.mjs';
 import { MIB } from '../../scripts/safe-runner/constants.mjs';
 
-const [cwd, reportFile, boundary = 'payload_released', graphRepository = null] = process.argv.slice(2);
+const [cwd, reportFile, boundary = 'payload_released', graphRepository = null,
+  crashProgressFile = null, preparationDelayValue = '0'] = process.argv.slice(2);
+const preparationDelayMs = Number(preparationDelayValue);
 if (!cwd || !reportFile) process.exit(64);
+if (!Number.isSafeInteger(preparationDelayMs) || preparationDelayMs < 0) process.exit(64);
 const graphd = [
   'graphd_reserved', 'graphd_spawned', 'graphd_bound', 'graphd_authorized',
   'graphd_lock_created', 'graphd_objects_ready', 'graphd_sealed',
@@ -32,10 +35,14 @@ await runSafely({
     sustainedHighSamples: 2,
     gracefulStopMs: 75,
   },
-  mode: ['payload_released', 'success_report_published'].includes(boundary) ? 'self-test' : 'run',
-  selfTestCaseId: ['payload_released', 'success_report_published'].includes(boundary)
+  mode: ['before_payload_release', 'payload_released', 'success_report_published'].includes(boundary)
+    ? 'self-test' : 'run',
+  selfTestCaseId: ['before_payload_release', 'payload_released', 'success_report_published']
+    .includes(boundary)
     ? 'parent_signal' : null,
   promote: false,
   _testCrashBoundary: boundary,
   _testCrashMarkerFile: `${reportFile}.crash-boundary`,
+  _testCrashProgressFile: crashProgressFile || null,
+  _testAfterWatchdogStartedDelayMs: preparationDelayMs,
 });

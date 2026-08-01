@@ -240,6 +240,7 @@ async function main() {
       temporary_directory: resources.runner_temporary_directory || null,
       watchdog_directory: resources.watchdog_directory || null,
       lock_file: resources.lock_file || null,
+      watchdog_process: resources.watchdog_process,
     })}\n`, { flag: 'wx', mode: 0o600 });
   };
   const crashBoundary = async (name) => {
