@@ -243,6 +243,22 @@ export function processIsRunning(pid) {
   }
 }
 
+export function processStartTicks(pid) {
+  if (process.platform !== 'linux' || !Number.isInteger(Number(pid)) || Number(pid) <= 1) return null;
+  try {
+    const stat = fs.readFileSync(`/proc/${Number(pid)}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    return stat.slice(close + 2).trim().split(/\s+/)[19] || null;
+  } catch { return null; }
+}
+
+export function daemonIdentityIsRunning(identity) {
+  if (!processIsRunning(Number(identity?.pid))) return false;
+  if (process.platform !== 'linux') return true;
+  return typeof identity?.start_ticks === 'string'
+    && processStartTicks(identity.pid) === identity.start_ticks;
+}
+
 export function fail(code, message, details = {}) {
   const error = new Error(message);
   error.code = code;

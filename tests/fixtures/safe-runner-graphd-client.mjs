@@ -14,12 +14,24 @@ const socket = paths.socket;
 const lock = paths.lock;
 const server = fileURLToPath(new URL('./graph-runtime/server.mjs', import.meta.url));
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
-const child = spawn(process.execPath, [server, repository, process.argv[3] || 'clean'], {
+const descriptorProof = process.platform === 'linux'
+  && Boolean(process.env.LAMINA_SAFE_RUNNER_BROKER);
+const sourceFd = descriptorProof ? fs.openSync(
+  server, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0),
+) : null;
+const child = spawn(process.execPath, [
+  descriptorProof ? '/proc/self/fd/3' : server,
+  repository,
+  process.argv[3] || 'clean',
+], {
   detached: true,
-  stdio: 'ignore',
+  stdio: sourceFd === null ? 'ignore' : ['ignore', 'ignore', 'ignore', sourceFd],
 });
 const childExit = once(child, 'exit');
-const registration = registerManagedGraphd(child, paths);
+let registration;
+try { registration = registerManagedGraphd(child, paths); } finally {
+  if (sourceFd !== null) fs.closeSync(sourceFd);
+}
 child.unref();
 
 const deadline = Date.now() + 2_000;

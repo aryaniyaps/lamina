@@ -14,6 +14,16 @@ import { identityAlive, processIdentity } from './processes.mjs';
 import { redactCommand } from './redaction.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const MAX_IDENTITY_FILE_BYTES = 16n * 1024n * 1024n;
+const MAX_PROMOTION_FILE_BYTES = 256n * 1024n * 1024n;
+const MAX_RETRY_ENTRIES_PER_SHARD = 64;
+const MAX_RETRY_SHARDS_PER_REPOSITORY = 256;
+const MAX_RETRY_REPOSITORIES = 256;
+const RETRY_LOCK_STALE_MS = 10_000;
+const RETRY_LOCK_WAIT_MS = 15_000;
+const pause = (milliseconds) => Atomics.wait(
+  new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds,
+);
 
 export function stateDirectory() {
   return path.resolve(
@@ -33,6 +43,28 @@ function atomicJson(file, value) {
   fs.renameSync(temporary, file);
 }
 
+function boundedFileDigest(file, size, requireDigest) {
+  if (size <= MAX_IDENTITY_FILE_BYTES) {
+    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  }
+  if (!requireDigest) return null;
+  if (size > MAX_PROMOTION_FILE_BYTES) {
+    const error = new Error(`tier promotion refuses source files larger than ${MAX_PROMOTION_FILE_BYTES} bytes: ${file}`);
+    error.code = 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN';
+    throw error;
+  }
+  const hash = crypto.createHash('sha256');
+  const descriptor = fs.openSync(file, 'r');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytes;
+    while ((bytes = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0) {
+      hash.update(buffer.subarray(0, bytes));
+    }
+  } finally { fs.closeSync(descriptor); }
+  return hash.digest('hex');
+}
+
 export function runnerBuildDigest() {
   const hash = crypto.createHash('sha256');
   const visit = (directory) => {
@@ -45,8 +77,14 @@ export function runnerBuildDigest() {
     }
   };
   visit(HERE);
-  const graphdClient = path.resolve(HERE, '../../packages/cli/lib/graph-runtime/client.mjs');
-  hash.update('packages/cli/lib/graph-runtime/client.mjs').update(fs.readFileSync(graphdClient));
+  for (const relative of [
+    'packages/cli/lib/graph-runtime/client.mjs',
+    'packages/cli/lib/graph-runtime/server.mjs',
+    'packages/cli/lib/graph-runtime/util.mjs',
+  ]) {
+    const graphRuntime = path.resolve(HERE, '../..', relative);
+    hash.update(relative).update(fs.readFileSync(graphRuntime));
+  }
   for (const name of ['safe-runner-context.mjs', 'safe-runner-broker-client.mjs']) {
     const safeRunnerClient = path.resolve(HERE, '../../packages/cli/lib', name);
     hash.update(`packages/cli/lib/${name}`).update(fs.readFileSync(safeRunnerClient));
@@ -143,10 +181,17 @@ export function writeAttestation(adapter, cases) {
   return value;
 }
 
+function canonicalRepositoryPath(cwd) {
+  try { return fs.realpathSync.native(path.resolve(cwd)); } catch {
+    const error = new Error('safe-runner repository path cannot be resolved to a physical directory');
+    error.code = 'LAMINA_SAFE_REPOSITORY_UNPROVEN';
+    throw error;
+  }
+}
+
 function repositoryKey(cwd) {
-  let resolved = path.resolve(cwd);
-  try { resolved = fs.realpathSync(resolved); } catch {}
-  return crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 24);
+  return crypto.createHash('sha256')
+    .update(canonicalRepositoryPath(cwd)).digest('hex').slice(0, 24);
 }
 
 export function workloadDigest(workloadId) {
@@ -154,7 +199,7 @@ export function workloadDigest(workloadId) {
   return crypto.createHash('sha256').update(workloadId).digest('hex');
 }
 
-function workloadIdentity(cwd, command = [], selectedPaths = null) {
+function workloadIdentity(cwd, command = [], selectedPaths = null, { requireDigest = false } = {}) {
   const files = [];
   const candidates = selectedPaths || command.map((argument) => path.resolve(cwd, String(argument)));
   for (const candidate of candidates) {
@@ -166,11 +211,20 @@ function workloadIdentity(cwd, command = [], selectedPaths = null) {
         size: String(stat.size),
         mtime_ns: String(stat.mtimeNs),
       };
-      if (stat.size <= 16n * 1024n * 1024n) {
-        identity.digest = crypto.createHash('sha256').update(fs.readFileSync(candidate)).digest('hex');
-      }
+      const digest = boundedFileDigest(candidate, stat.size, requireDigest);
+      if (digest) identity.digest = digest;
       files.push(identity);
-    } catch {}
+    } catch (error) {
+      if (error?.code === 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN') throw error;
+      if (requireDigest && error?.code !== 'ENOENT') {
+        const failure = new Error(`tier promotion could not identify implementation source: ${candidate}`);
+        failure.code = 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN';
+        throw failure;
+      }
+      if (requireDigest && error?.code === 'ENOENT') {
+        files.push({ path: path.resolve(candidate), missing: true });
+      }
+    }
   }
   return files;
 }
@@ -188,7 +242,7 @@ function retryMetadata(cwd, command, selectedPaths = null) {
 export function safetyRetrySignature(cwd, command, limits) {
   const metadata = retryMetadata(cwd, command);
   return crypto.createHash('sha256').update(JSON.stringify({
-    repository: path.resolve(cwd),
+    repository: canonicalRepositoryPath(cwd),
     command_digest: metadata.command_digest,
     workload_digest: metadata.workload_digest,
     runner_build: metadata.runner_build,
@@ -203,7 +257,7 @@ function legacySafetyRetryPath(cwd) {
 function safetyRetryCommandKey(cwd, command) {
   const metadata = retryMetadata(cwd, command);
   return crypto.createHash('sha256').update(JSON.stringify({
-    repository: path.resolve(cwd),
+    repository: canonicalRepositoryPath(cwd),
     command_digest: metadata.command_digest,
     runner_build: metadata.runner_build,
   })).digest('hex');
@@ -214,28 +268,178 @@ function safetyRetryDirectory(cwd, commandKey = null) {
   return commandKey ? path.join(repository, commandKey) : repository;
 }
 
+function safetyRetryLedgerDirectory() {
+  return path.join(stateDirectory(), 'safety-limit-ledger');
+}
+
 function safetyRetryEntryPath(cwd, commandKey, runId) {
   const key = crypto.createHash('sha256').update(String(runId)).digest('hex');
   return path.join(safetyRetryDirectory(cwd, commandKey), `${key}.json`);
 }
 
-function shardedRetryEntries(cwd, commandKey) {
+function retryLockOwnerActive(owner) {
+  if (process.platform === 'linux') return identityAlive(owner);
+  const created = Date.parse(owner?.created_at || '');
+  return Number.isInteger(owner?.pid) && Number.isFinite(created)
+    && Date.now() - created < RETRY_LOCK_STALE_MS;
+}
+
+function acquireRetryShardLock(directory) {
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const identity = processIdentity(process.pid) || { pid: process.pid, start_ticks: null };
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const owner = { ...identity, nonce, created_at: new Date().toISOString() };
+  const lock = path.join(directory, '.mutation.lock');
+  const candidate = path.join(directory, `.mutation-candidate-${process.pid}-${nonce}`);
+  fs.mkdirSync(candidate, { mode: 0o700 });
+  fs.writeFileSync(path.join(candidate, 'owner.json'), `${JSON.stringify(owner)}\n`, { mode: 0o600 });
+  const deadline = Date.now() + RETRY_LOCK_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      fs.renameSync(candidate, lock);
+      return {
+        release() {
+          const current = json(path.join(lock, 'owner.json'));
+          if (current?.nonce !== nonce || Number(current.pid) !== Number(owner.pid)) {
+            const error = new Error('retry-ledger mutation lock identity changed');
+            error.code = 'LAMINA_SAFE_RETRY_LEDGER_LOCK';
+            throw error;
+          }
+          const quarantine = `${lock}.release-${nonce}`;
+          fs.renameSync(lock, quarantine);
+          fs.rmSync(quarantine, { recursive: true, force: true });
+        },
+      };
+    } catch (error) {
+      if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) {
+        try { fs.rmSync(candidate, { recursive: true, force: true }); } catch {}
+        throw error;
+      }
+    }
+    const existing = json(path.join(lock, 'owner.json'));
+    if (!retryLockOwnerActive(existing)) {
+      const quarantine = `${lock}.stale-${crypto.randomBytes(8).toString('hex')}`;
+      try {
+        fs.renameSync(lock, quarantine);
+        fs.rmSync(quarantine, { recursive: true, force: true });
+      } catch {}
+    } else pause(5);
+  }
+  try { fs.rmSync(candidate, { recursive: true, force: true }); } catch {}
+  const error = new Error('timed out acquiring retry-ledger mutation lock');
+  error.code = 'LAMINA_SAFE_RETRY_LEDGER_LOCK';
+  throw error;
+}
+
+function withRetryShardLock(cwd, commandKey, callback) {
   const directory = safetyRetryDirectory(cwd, commandKey);
+  const lock = acquireRetryShardLock(directory);
+  try { return callback(directory); } finally { lock.release(); }
+}
+
+function retryGlobalState(cwd, reserve) {
+  const ledger = safetyRetryLedgerDirectory();
+  const repository = safetyRetryDirectory(cwd);
+  const lock = acquireRetryShardLock(ledger);
+  try {
+    if (fs.existsSync(repository)) return null;
+    const saturated = json(path.join(ledger, 'saturated.json'));
+    if (saturated) return saturated;
+    if (!reserve) return null;
+    const repositories = fs.readdirSync(ledger, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name));
+    if (repositories.length < MAX_RETRY_REPOSITORIES) {
+      fs.mkdirSync(repository, { mode: 0o700 });
+      return null;
+    }
+    const value = {
+      schema: 'lamina.safe-runner-safety-limit-saturation/v1',
+      status: 'safety_limit_exceeded',
+      limit: 'retry_ledger_saturated',
+      reason: 'global_repository_capacity',
+      recorded_at: new Date().toISOString(),
+    };
+    atomicJson(path.join(ledger, 'saturated.json'), value);
+    return value;
+  } finally { lock.release(); }
+}
+
+function retryRepositoryState(cwd, commandKey, { reserve = false } = {}) {
+  const repository = safetyRetryDirectory(cwd);
+  const globalSaturated = retryGlobalState(cwd, reserve);
+  if (globalSaturated) return globalSaturated;
+  if (!fs.existsSync(repository)) return null;
+  return withRetryShardLock(cwd, null, (directory) => {
+    const saturated = json(path.join(directory, 'saturated.json'));
+    if (saturated) return saturated;
+    const commandDirectory = path.join(repository, commandKey);
+    if (fs.existsSync(commandDirectory)) return null;
+    if (!reserve) return null;
+    const shards = fs.readdirSync(repository, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name));
+    if (shards.length < MAX_RETRY_SHARDS_PER_REPOSITORY) {
+      fs.mkdirSync(commandDirectory, { mode: 0o700 });
+      return null;
+    }
+    const value = {
+      schema: 'lamina.safe-runner-safety-limit-saturation/v1',
+      status: 'safety_limit_exceeded',
+      limit: 'retry_ledger_saturated',
+      reason: 'repository_capacity',
+      recorded_at: new Date().toISOString(),
+    };
+    atomicJson(path.join(directory, 'saturated.json'), value);
+    return value;
+  });
+}
+
+function retryEntryFiles(directory) {
   try {
     return fs.readdirSync(directory)
       .filter((name) => /^[a-f0-9]{64}\.json$/.test(name))
-      .map((name) => json(path.join(directory, name)))
-      .filter(Boolean);
+      .map((name) => path.join(directory, name));
   } catch { return []; }
+}
+
+function saturateRetryShard(directory, reason = 'capacity') {
+  const file = path.join(directory, 'saturated.json');
+  const value = {
+    schema: 'lamina.safe-runner-safety-limit-saturation/v1',
+    status: 'safety_limit_exceeded',
+    limit: 'retry_ledger_saturated',
+    reason,
+    recorded_at: new Date().toISOString(),
+  };
+  atomicJson(file, value);
+  for (const entry of retryEntryFiles(directory)) fs.rmSync(entry, { force: true });
+  return value;
+}
+
+function boundedRetryShard(cwd, commandKey) {
+  const repositorySaturated = retryRepositoryState(cwd, commandKey);
+  if (repositorySaturated) return { saturated: repositorySaturated, entries: [] };
+  if (!fs.existsSync(safetyRetryDirectory(cwd, commandKey))) {
+    return { saturated: null, entries: [] };
+  }
+  return withRetryShardLock(cwd, commandKey, (directory) => {
+    const saturated = json(path.join(directory, 'saturated.json'));
+    if (saturated) return { saturated, entries: [] };
+    const files = retryEntryFiles(directory);
+    if (files.length > MAX_RETRY_ENTRIES_PER_SHARD) {
+      return { saturated: saturateRetryShard(directory, 'legacy_overflow'), entries: [] };
+    }
+    return { saturated: null, entries: files.map(json).filter(Boolean) };
+  });
 }
 
 export function checkSafetyRetry(cwd, command, limits) {
   const signature = safetyRetrySignature(cwd, command, limits);
   const commandKey = safetyRetryCommandKey(cwd, command);
   const metadata = retryMetadata(cwd, command);
-  const entries = shardedRetryEntries(cwd, commandKey);
+  const shard = boundedRetryShard(cwd, commandKey);
+  const entries = shard.entries;
   const legacy = json(legacySafetyRetryPath(cwd));
-  const previous = entries.find((entry) => entry.signature === signature
+  const previous = shard.saturated || entries.find((entry) => entry.signature === signature
     || (entry.runner_build === metadata.runner_build
       && entry.command_digest === metadata.command_digest
       && entry.workload_digest === retryMetadata(cwd, command, entry.workload_paths).workload_digest))
@@ -254,7 +458,7 @@ export function recordRunAttempt(cwd, command, limits, report, signatureOverride
   const metadata = retryMetadata(cwd, command);
   const value = {
     schema: 'lamina.safe-runner-safety-limit-entry/v3',
-    repository: path.resolve(cwd),
+    repository: canonicalRepositoryPath(cwd),
     ...metadata,
     signature,
     recorded_at: new Date().toISOString(),
@@ -262,36 +466,64 @@ export function recordRunAttempt(cwd, command, limits, report, signatureOverride
     status: 'active',
     limit: 'controller_crash_or_unclassified',
   };
-  atomicJson(safetyRetryEntryPath(cwd, commandKey, report.run_id), value);
-  return value;
+  const repositorySaturated = retryRepositoryState(cwd, commandKey, { reserve: true });
+  if (repositorySaturated) return repositorySaturated;
+  return withRetryShardLock(cwd, commandKey, (directory) => {
+    const saturated = json(path.join(directory, 'saturated.json'));
+    if (saturated) return saturated;
+    const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);
+    const files = retryEntryFiles(directory);
+    if (!files.includes(file) && files.length >= MAX_RETRY_ENTRIES_PER_SHARD) {
+      return saturateRetryShard(directory);
+    }
+    atomicJson(file, value);
+    return value;
+  });
 }
 
 export function clearRunAttempt(cwd, command, limits, runId, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
   const commandKey = safetyRetryCommandKey(cwd, command);
-  const file = safetyRetryEntryPath(cwd, commandKey, runId);
-  const entry = json(file);
-  if (entry?.status === 'active' && entry?.run_id === runId) fs.rmSync(file, { force: true });
-  return entry;
+  const repositorySaturated = retryRepositoryState(cwd, commandKey);
+  if (repositorySaturated) return repositorySaturated;
+  if (!fs.existsSync(safetyRetryDirectory(cwd, commandKey))) return null;
+  return withRetryShardLock(cwd, commandKey, (directory) => {
+    const saturated = json(path.join(directory, 'saturated.json'));
+    if (saturated) return saturated;
+    const file = safetyRetryEntryPath(cwd, commandKey, runId);
+    const entry = json(file);
+    if (entry?.status === 'active' && entry?.run_id === runId) fs.rmSync(file, { force: true });
+    return entry;
+  });
 }
 
 export function recordSafetyLimit(cwd, command, limits, report, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
   const commandKey = safetyRetryCommandKey(cwd, command);
-  const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);
-  const metadata = json(file) || retryMetadata(cwd, command);
-  const value = {
-    schema: 'lamina.safe-runner-safety-limit-entry/v3',
-    repository: path.resolve(cwd),
-    ...metadata,
-    signature,
-    recorded_at: new Date().toISOString(),
-    run_id: report.run_id,
-    status: 'safety_limit_exceeded',
-    limit: report.termination.limit,
-  };
-  atomicJson(file, value);
-  return value;
+  const repositorySaturated = retryRepositoryState(cwd, commandKey, { reserve: true });
+  if (repositorySaturated) return repositorySaturated;
+  return withRetryShardLock(cwd, commandKey, (directory) => {
+    const saturated = json(path.join(directory, 'saturated.json'));
+    if (saturated) return saturated;
+    const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);
+    const files = retryEntryFiles(directory);
+    if (!files.includes(file) && files.length >= MAX_RETRY_ENTRIES_PER_SHARD) {
+      return saturateRetryShard(directory);
+    }
+    const metadata = json(file) || retryMetadata(cwd, command);
+    const value = {
+      schema: 'lamina.safe-runner-safety-limit-entry/v3',
+      repository: canonicalRepositoryPath(cwd),
+      ...metadata,
+      signature,
+      recorded_at: new Date().toISOString(),
+      run_id: report.run_id,
+      status: 'safety_limit_exceeded',
+      limit: report.termination.limit,
+    };
+    atomicJson(file, value);
+    return value;
+  });
 }
 
 function promotionPath(cwd) {
@@ -305,15 +537,16 @@ export function promotionCommandDigest(command) {
 }
 
 function promotionImplementationPaths(cwd, command) {
-  const candidates = command.map((argument) => path.resolve(cwd, String(argument)));
+  const physicalCwd = canonicalRepositoryPath(cwd);
+  const candidates = command.map((argument) => path.resolve(physicalCwd, String(argument)));
   const executable = path.basename(String(command[0] || '')).toLowerCase();
   if (/^(?:npm|npm\.cmd|npx|npx\.cmd)$/.test(executable)) {
     for (const manifest of ['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock']) {
-      candidates.push(path.join(cwd, manifest));
+      candidates.push(path.join(physicalCwd, manifest));
     }
   }
   if (/^(?:npx|npx\.cmd)$/.test(executable) && typeof command[1] === 'string') {
-    const localTool = path.join(cwd, 'node_modules', '.bin', command[1]);
+    const localTool = path.join(physicalCwd, 'node_modules', '.bin', command[1]);
     candidates.push(localTool);
     try { candidates.push(fs.realpathSync.native(localTool)); } catch {}
   }
@@ -326,36 +559,57 @@ function gitSnapshotCommand(cwd, args, maxBuffer = 16 * 1024 * 1024) {
   });
 }
 
-function repositorySourceDigest(cwd) {
-  const rootResult = gitSnapshotCommand(cwd, ['rev-parse', '--show-toplevel']);
-  if (rootResult.status !== 0) return null;
-  const root = fs.realpathSync.native(String(rootResult.stdout).trim());
-  const commands = [
-    ['rev-parse', '--verify', 'HEAD'],
-    ['ls-files', '-s', '-z'],
-    ['diff', '--name-only', '-z'],
-    ['ls-files', '--others', '--exclude-standard', '-z'],
-  ];
-  const results = commands.map((args) => gitSnapshotCommand(root, args));
-  if (results.some((result) => result.status !== 0 || result.error)) {
-    const error = new Error('tier promotion could not capture a bounded Git source snapshot');
+function gitRoot(candidate) {
+  let directory = path.resolve(candidate);
+  try {
+    if (fs.statSync(directory).isFile()) directory = path.dirname(directory);
+  } catch { return null; }
+  const result = gitSnapshotCommand(directory, ['rev-parse', '--show-toplevel']);
+  if (result.status !== 0 || result.error) return null;
+  try { return fs.realpathSync.native(String(result.stdout).trim()); } catch { return null; }
+}
+
+function repositorySourceDigest(cwd, implementationPaths) {
+  const roots = [...new Set([cwd, ...implementationPaths].map(gitRoot).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right));
+  if (roots.length === 0) {
+    const error = new Error('tier promotion requires a bounded Git source snapshot for the audited implementation');
     error.code = 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN';
     throw error;
   }
-  const changed = Buffer.concat([results[2].stdout, results[3].stdout])
-    .toString('utf8').split('\0').filter(Boolean).map((relative) => path.join(root, relative));
-  const hash = crypto.createHash('sha256').update(root);
-  for (const result of results) hash.update('\0').update(result.stdout);
-  hash.update('\0').update(JSON.stringify(workloadIdentity(root, [], changed)));
-  return hash.digest('hex');
+  const combined = crypto.createHash('sha256');
+  for (const root of roots) {
+    const commands = [
+      ['rev-parse', '--verify', 'HEAD'],
+      ['ls-files', '-s', '-z'],
+      ['diff', '--name-only', '-z'],
+      ['ls-files', '--others', '--exclude-standard', '-z'],
+    ];
+    const results = commands.map((args) => gitSnapshotCommand(root, args));
+    if (results.some((result) => result.status !== 0 || result.error)) {
+      const error = new Error('tier promotion could not capture a bounded Git source snapshot');
+      error.code = 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN';
+      throw error;
+    }
+    const changed = Buffer.concat([results[2].stdout, results[3].stdout])
+      .toString('utf8').split('\0').filter(Boolean).map((relative) => path.join(root, relative));
+    const hash = crypto.createHash('sha256').update(root);
+    for (const result of results) hash.update('\0').update(result.stdout);
+    hash.update('\0').update(JSON.stringify(workloadIdentity(
+      root, [], changed, { requireDigest: true },
+    )));
+    combined.update(root).update('\0').update(hash.digest());
+  }
+  return combined.digest('hex');
 }
 
 export function promotionImplementationDigest(cwd, command) {
   if (!Array.isArray(command) || command.length === 0) return null;
-  const workload = workloadIdentity(cwd, command, promotionImplementationPaths(cwd, command));
+  const implementationPaths = promotionImplementationPaths(cwd, command);
+  const workload = workloadIdentity(cwd, command, implementationPaths, { requireDigest: true });
   return crypto.createHash('sha256').update(JSON.stringify({
     workload,
-    repository_source: repositorySourceDigest(cwd),
+    repository_source: repositorySourceDigest(cwd, implementationPaths),
   })).digest('hex');
 }
 
@@ -429,7 +683,7 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
   const existing = json(promotionPath(cwd));
   const value = {
     schema: PROMOTION_SCHEMA,
-    repository: path.resolve(cwd),
+    repository: canonicalRepositoryPath(cwd),
     build_digest: runnerBuildDigest(),
     workloads: {
       ...(existing?.build_digest === runnerBuildDigest() ? existing.workloads : {}),

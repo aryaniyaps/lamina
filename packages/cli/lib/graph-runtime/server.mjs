@@ -9,9 +9,11 @@ import { ERROR, GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './constants.m
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import {
   ensureAuthToken,
+  daemonIdentityIsRunning,
   graphSocketPath,
   parseDaemonLock,
   processIsRunning,
+  processStartTicks,
   runtimePaths,
 } from './util.mjs';
 
@@ -40,15 +42,6 @@ function daemonLockIdentity() {
 }
 
 const OPERATION_CLAIM_RE = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
-
-function processStartTicks(pid) {
-  if (process.platform !== 'linux') return null;
-  try {
-    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
-    const close = stat.lastIndexOf(')');
-    return stat.slice(close + 2).trim().split(/\s+/)[19] || null;
-  } catch { return null; }
-}
 
 function readOperationClaims() {
   const claims = [];
@@ -118,10 +111,9 @@ function acquireOperationClaim() {
   });
   const live = readOperationClaims().filter(operationClaimAlive);
   const cleanup = live.find((claim) => claim.value.type === 'cleanup');
-  const graphdWinner = live
-    .filter((claim) => claim.value.type === 'graphd')
-    .sort((left, right) => left.name.localeCompare(right.name))[0];
-  if (cleanup || graphdWinner?.name !== operationClaim.name) {
+  const competingGraphd = live.find((claim) =>
+    claim.value.type === 'graphd' && claim.name !== operationClaim.name);
+  if (cleanup || competingGraphd) {
     releaseOperationClaim();
     process.stderr.write('graphd runtime has an active operation claim; refusing unsafe replacement\n');
     process.exit(2);
@@ -134,7 +126,8 @@ function acquireLock() {
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
     const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-    if (processIsRunning(lock?.pid)) {
+    if (daemonIdentityIsRunning(lock)
+      || (process.platform === 'linux' && !lock?.start_ticks && processIsRunning(lock?.pid))) {
       process.stderr.write(`graphd already running with pid ${lock.pid}\n`);
       process.exit(2);
     }
@@ -164,6 +157,7 @@ function authenticate(request) {
 async function dispatch(request) {
   if (request.method === 'ping') return {
     pid: process.pid,
+    start_ticks: daemonLockIdentity().start_ticks,
     database: paths.database,
     protocol_version: GRAPH_PROTOCOL_VERSION,
     runtime_version: CLI_VERSION,

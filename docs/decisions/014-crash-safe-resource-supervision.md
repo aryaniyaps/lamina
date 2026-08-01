@@ -70,16 +70,18 @@ The runner:
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
 an online supervisor-broker registration. The runner matches the registered
-  PID and Linux start ticks to an in-scope process whose actual interpreter
-  script is a content-matched `server.mjs`, or whose exact argv is `--graphd`, owns
+PID and Linux start ticks to an in-scope process. Source graphd executes a
+pre-opened descriptor whose bytes match a trusted digest captured before the
+payload; standalone graphd must match the controller executable digest and
+exact `--graphd` argv. The registered graphd owns
 its descendants through the same cgroup, and gracefully terminates the scope
 after the CLI payload exits. Any unregistered or mismatched remainder keeps the
 ordinary detached-descendant failure semantics.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion
-  for the same explicit workload identity, child-command digest, referenced
-  file digest, and bounded Git source snapshot, and the single host-global production
+for the same explicit workload identity, child-command digest, referenced
+file digest, and bounded Git source snapshot, and the single host-global production
 lock (which cannot be redirected with the evidence-state override). Every tier refuses a pre-existing
 Lamina runtime because it cannot be adopted into the new scope.
 Attestation identity covers the machine, adapter/controllers, architecture,
@@ -95,6 +97,10 @@ limits alone does not permit a retry. Later cleanup failure or controller death
 cannot erase or overwrite prior fences. Concurrent small runs cannot overwrite
 one another, direct shard lookup avoids a global ledger scan, and later distinct
 failures never evict an earlier fence.
+At 64 entries a command/build shard compacts to a permanent saturation fence;
+at 256 shards the repository gains the same fail-closed fence, and at 256
+repositories the host ledger refuses new repository allocations. This bounds
+disk and lookup work without permitting a forgotten failed implementation.
 
 Normal completion writes the report before disarming the watchdog. On an
 abrupt controller exit, the watchdog validates every systemd operation and
@@ -114,6 +120,9 @@ deletion the watchdog creates its own live cleanup claim and rescans the
 directory; a concurrently starting replacement either has already claimed the
 runtime or observes the cleanup claim and exits, so canonical paths alone never
 establish deletion authority.
+Graphd startup likewise proceeds only when its claim is the sole live graphd
+claim. That invariant serializes stale `graphd.lock` replacement, while exact
+start-tick checks prevent a stale lock from signalling a PID-reuse victim.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under

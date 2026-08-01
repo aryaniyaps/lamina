@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,7 +38,7 @@ import {
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import {
-  existingLaminaProcesses, isLaminaProcessCommand, processIdentity,
+  existingLaminaProcesses, identityAlive, isLaminaProcessCommand, processIdentity,
 } from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
@@ -463,13 +464,17 @@ try {
   const brokerOperations = path.join(brokerRuntime, 'graphd.operations');
   fs.mkdirSync(brokerOperations);
   const graphdServer = path.resolve('packages/cli/lib/graph-runtime/server.mjs');
+  const digestFile = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
   const authority = {
     runId: 'unit', tier: 'small', adapter: 'linux-systemd-cgroup-v2',
     unit: 'lamina-safe-unit.scope', cgroup: '/unit',
     enforcement: { memory_max_bytes: 1, memory_high_bytes: 1, pids_max: 1 },
     registrations: brokerRegistrations,
     records: () => authorityRecords,
-    arguments: () => [process.execPath, graphdServer, brokerRoot],
+    arguments: () => [process.execPath, '/proc/self/fd/3', brokerRoot],
+    openFileDigest: () => digestFile(graphdServer),
+    executableDigest: () => process.platform === 'linux' ? digestFile('/proc/self/exe') : null,
+    environment: () => ({}),
     register: (record) => brokerRegistrations.push(record),
   };
   assert.equal(authorizeBrokerRequest({
@@ -487,7 +492,7 @@ try {
 
   const authorizedGraphd = {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
-    command: `${process.execPath} ${graphdServer} ${brokerRoot}`,
+    command: `${process.execPath} /proc/self/fd/3 ${brokerRoot}`,
   };
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
@@ -538,6 +543,35 @@ try {
     token: path.join(root, 'missing-graphd.token'),
   }), undefined, 'stopping an absent graphd must complete without a stray response reference');
   if (process.platform === 'linux') {
+    const reusedPidRuntime = path.join(root, 'reused-pid-runtime');
+    fs.mkdirSync(reusedPidRuntime);
+    const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+      stdio: 'ignore',
+    });
+    let unrelatedIdentity = null;
+    const unrelatedDeadline = Date.now() + 1_000;
+    while (!unrelatedIdentity && Date.now() < unrelatedDeadline) {
+      unrelatedIdentity = processIdentity(unrelated.pid);
+      if (!unrelatedIdentity) await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.ok(unrelatedIdentity);
+    const staleIdentity = { ...unrelatedIdentity, start_ticks: `${unrelatedIdentity.start_ticks}0` };
+    const staleLock = path.join(reusedPidRuntime, 'graphd.lock');
+    fs.writeFileSync(staleLock, JSON.stringify(staleIdentity));
+    try {
+      await stopIncompatibleServer({
+        root,
+        runtime_dir: reusedPidRuntime,
+        lock: staleLock,
+        token: path.join(reusedPidRuntime, 'graphd.token'),
+        socket: path.join(reusedPidRuntime, 'graphd.sock'),
+      });
+      assert.equal(identityAlive(unrelatedIdentity), true,
+        'a stale graphd PID with mismatched start ticks must never signal the reuse victim');
+    } finally {
+      unrelated.kill('SIGKILL');
+      await once(unrelated, 'exit');
+    }
     const graphdRoot = path.join(root, 'source-graphd');
     fs.mkdirSync(graphdRoot);
     assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: graphdRoot }).status, 0);
@@ -563,6 +597,43 @@ try {
     } finally {
       sourceGraphd.kill('SIGTERM');
       if (sourceGraphd.exitCode === null) await once(sourceGraphd, 'exit');
+    }
+    const concurrentRoot = path.join(root, 'concurrent-graphd');
+    fs.mkdirSync(concurrentRoot);
+    assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: concurrentRoot }).status, 0);
+    const concurrentRuntime = path.join(concurrentRoot, '.git', 'lamina');
+    fs.mkdirSync(concurrentRuntime);
+    fs.writeFileSync(path.join(concurrentRuntime, 'graphd.lock'), JSON.stringify({
+      pid: 999_999, start_ticks: '1',
+    }));
+    const fixtureServer = path.resolve('tests/fixtures/graph-runtime/server.mjs');
+    const contenders = [0, 1].map(() => spawn(
+      process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' },
+    ));
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    let liveContenders = contenders.filter((child) => child.exitCode === null);
+    assert.ok(liveContenders.length <= 1,
+      'sole-live-claim startup serialization must never admit two graphd writers');
+    if (liveContenders.length === 0) {
+      liveContenders = [spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' })];
+    }
+    const winner = liveContenders[0];
+    try {
+      const winnerDeadline = Date.now() + 2_000;
+      let winnerLock = null;
+      while (Date.now() < winnerDeadline) {
+        try { winnerLock = JSON.parse(fs.readFileSync(path.join(concurrentRuntime, 'graphd.lock'))); } catch {}
+        if (winnerLock?.pid === winner.pid) break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.equal(winnerLock?.pid, winner.pid);
+    } finally {
+      for (const contender of contenders.concat(liveContenders)) {
+        if (contender.exitCode === null) {
+          contender.kill('SIGTERM');
+          await once(contender, 'exit');
+        }
+      }
     }
   }
 
@@ -599,6 +670,28 @@ try {
     lock: managedRegistrations[0].lock,
   }, authority).ok, true);
   assert.equal(brokerRegistrations.length, 1);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, {
+    ...authority,
+    openFileDigest: () => digestFile(path.resolve('tests/tiny.mjs')),
+  }).ok, false, 'trusted bytes restored at the mutable script path must not authenticate different executing bytes');
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, {
+    ...authority,
+    environment: () => ({ NODE_OPTIONS: '--require=arbitrary-code.cjs' }),
+  }).ok, false, 'a trusted script descriptor must not authorize a code-injected Node process');
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
@@ -696,24 +789,47 @@ try {
 
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
   assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
-  const promotionScript = path.join(root, 'promotion-workload.mjs');
+  const basicPromotionRepository = path.join(root, 'basic-promotion-repository');
+  fs.mkdirSync(basicPromotionRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: basicPromotionRepository }).status, 0);
+  const promotionScript = path.join(basicPromotionRepository, 'promotion-workload.mjs');
   fs.writeFileSync(promotionScript, 'process.exit(0);\n');
+  assert.equal(spawnSync('git', ['add', 'promotion-workload.mjs'], {
+    cwd: basicPromotionRepository,
+  }).status, 0);
+  assert.equal(spawnSync('git', [
+    '-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+    'commit', '--quiet', '-m', 'fixture',
+  ], { cwd: basicPromotionRepository }).status, 0);
   const promotionReport = structuredClone(report);
   promotionReport.command = [process.execPath, promotionScript];
-  recordPromotion(root, 'small', promotionReport, 'unit-workload');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', promotionReport.command).ok, true);
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [...promotionReport.command, '--changed']).ok, false);
-  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload', promotionReport.command).ok, false);
+  recordPromotion(basicPromotionRepository, 'small', promotionReport, 'unit-workload');
+  assert.equal(checkPromotion(
+    basicPromotionRepository, 'medium', 'unit-workload', promotionReport.command,
+  ).ok, true);
+  assert.equal(checkPromotion(
+    basicPromotionRepository, 'medium', 'unit-workload', [...promotionReport.command, '--changed'],
+  ).ok, false);
+  assert.equal(checkPromotion(
+    basicPromotionRepository, 'medium', 'unrelated-workload', promotionReport.command,
+  ).ok, false);
   assert.equal(promotionCommandDigest(promotionReport.command), promotionCommandDigest(redactCommand(promotionReport.command)));
-  const initialImplementation = promotionImplementationDigest(root, promotionReport.command);
+  const initialImplementation = promotionImplementationDigest(
+    basicPromotionRepository, promotionReport.command,
+  );
   fs.writeFileSync(promotionScript, 'process.exit(1);\n');
-  assert.notEqual(promotionImplementationDigest(root, promotionReport.command), initialImplementation);
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', promotionReport.command).ok, false,
+  assert.notEqual(
+    promotionImplementationDigest(basicPromotionRepository, promotionReport.command),
+    initialImplementation,
+  );
+  assert.equal(checkPromotion(
+    basicPromotionRepository, 'medium', 'unit-workload', promotionReport.command,
+  ).ok, false,
     'changing the implementation behind the same argv must invalidate promotion');
   const changedPromotion = structuredClone(promotionReport);
   changedPromotion.command.push('--changed');
   assert.throws(
-    () => recordPromotion(root, 'medium', changedPromotion, 'unit-workload'),
+    () => recordPromotion(basicPromotionRepository, 'medium', changedPromotion, 'unit-workload'),
     /already bound to a different command or implementation/,
   );
   const promotionRepository = path.join(root, 'promotion-repository');
@@ -740,10 +856,35 @@ try {
   assert.equal(checkPromotion(
     promotionRepository, 'medium', 'transitive-workload', transitiveReport.command,
   ).ok, false, 'changing a transitive repository source must invalidate promotion');
+  const outsideGit = path.join(root, 'outside-git');
+  fs.mkdirSync(outsideGit);
+  const outsideImplementation = promotionImplementationDigest(outsideGit, transitiveReport.command);
+  fs.writeFileSync(promotionDependency, 'export const value = 3;\n');
+  assert.notEqual(promotionImplementationDigest(outsideGit, transitiveReport.command), outsideImplementation,
+    'an absolute audited entrypoint must retain its Git source authority from a non-Git cwd');
+  const oversizedSource = path.join(promotionRepository, 'oversized-source.mjs');
+  fs.writeFileSync(oversizedSource, Buffer.alloc((16 * 1024 * 1024) + 1));
+  const oversizedStat = fs.statSync(oversizedSource);
+  const oversizedImplementation = promotionImplementationDigest(
+    promotionRepository, transitiveReport.command,
+  );
+  fs.writeFileSync(oversizedSource, Buffer.alloc((16 * 1024 * 1024) + 1, 1));
+  fs.utimesSync(oversizedSource, oversizedStat.atime, oversizedStat.mtime);
+  assert.notEqual(
+    promotionImplementationDigest(promotionRepository, transitiveReport.command),
+    oversizedImplementation,
+    'large changed source content must invalidate promotion even when size and mtime are restored',
+  );
+  fs.rmSync(oversizedSource);
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
   recordSafetyLimit(root, report.command, report.limits, limitedReport);
   assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false);
+  const retryAlias = `${root}-retry-alias`;
+  fs.symlinkSync(root, retryAlias, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.equal(checkSafetyRetry(retryAlias, report.command, report.limits).ok, false,
+    'a physical repository alias must not select a fresh retry shard');
+  fs.rmSync(retryAlias, { force: true });
   assert.equal(checkSafetyRetry(root, [...report.command, '--changed'], report.limits).ok, true);
   assert.equal(checkSafetyRetry(root, report.command, {
     ...report.limits, timeout_ms: report.limits.timeout_ms - 1,
@@ -798,6 +939,78 @@ try {
   clearRunAttempt(root, activeCommand, report.limits, overlappingReport.run_id);
   assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, true);
 
+  const capacityRoot = path.join(root, 'retry-capacity-root');
+  fs.mkdirSync(capacityRoot);
+  const capacityCommand = [process.execPath, path.join(capacityRoot, 'workload.mjs')];
+  fs.writeFileSync(capacityCommand[1], 'process.exit(0);\n');
+  const ledgerRoot = path.join(process.env.LAMINA_SAFE_RUNNER_STATE_DIR, 'safety-limit-ledger');
+  const repositoriesBefore = new Set(fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  recordSafetyLimit(capacityRoot, capacityCommand, report.limits, {
+    ...limitedReport, run_id: 'capacity-first', command: capacityCommand,
+  });
+  const capacityRepositoryName = fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .find((entry) => entry.isDirectory() && !repositoriesBefore.has(entry.name))?.name;
+  const capacityRepository = path.join(ledgerRoot, capacityRepositoryName);
+  const capacityShard = fs.readdirSync(capacityRepository, { withFileTypes: true })
+    .find((entry) => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name))?.name;
+  const capacityShardPath = path.join(capacityRepository, capacityShard);
+  for (let index = 0; index < 63; index += 1) {
+    const name = crypto.createHash('sha256').update(`capacity-${index}`).digest('hex');
+    fs.writeFileSync(path.join(capacityShardPath, `${name}.json`), '{}\n');
+  }
+  recordSafetyLimit(capacityRoot, capacityCommand, report.limits, {
+    ...limitedReport, run_id: 'capacity-overflow', command: capacityCommand,
+  });
+  const saturatedRetry = checkSafetyRetry(capacityRoot, capacityCommand, report.limits);
+  assert.equal(saturatedRetry.previous.limit, 'retry_ledger_saturated');
+  assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
+    'a saturated command shard must compact to one fail-closed marker');
+
+  const repositoryCapacityRoot = path.join(root, 'retry-repository-capacity-root');
+  fs.mkdirSync(repositoryCapacityRoot);
+  const repositoryCapacityCommand = [process.execPath, '-e', 'repository-capacity-first'];
+  const repositoriesBeforeGlobal = new Set(fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  recordSafetyLimit(repositoryCapacityRoot, repositoryCapacityCommand, report.limits, {
+    ...limitedReport, run_id: 'repository-capacity-first', command: repositoryCapacityCommand,
+  });
+  const repositoryCapacityName = fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .find((entry) => entry.isDirectory() && !repositoriesBeforeGlobal.has(entry.name))?.name;
+  const repositoryCapacityPath = path.join(ledgerRoot, repositoryCapacityName);
+  let shardCount = fs.readdirSync(repositoryCapacityPath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name)).length;
+  for (let index = 0; shardCount < 255; index += 1, shardCount += 1) {
+    const name = crypto.createHash('sha256').update(`repository-capacity-${index}`).digest('hex');
+    fs.mkdirSync(path.join(repositoryCapacityPath, name));
+  }
+  const capacityIds = Array.from({ length: 12 }, (_, index) => `repository-overflow-${index}`);
+  const capacityStatuses = await Promise.all(capacityIds.map(async (id) => {
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', concurrentWriter], {
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        LAMINA_LEDGER_WRITER_ID: id,
+        LAMINA_LEDGER_WRITER_CWD: repositoryCapacityRoot,
+      },
+    });
+    return (await once(child, 'exit'))[0];
+  }));
+  assert.deepEqual(capacityStatuses, capacityStatuses.map(() => 0));
+  const boundedRepositoryEntries = fs.readdirSync(repositoryCapacityPath, { withFileTypes: true });
+  assert.equal(
+    boundedRepositoryEntries.filter((entry) => entry.isDirectory()
+      && /^[a-f0-9]{64}$/.test(entry.name)).length,
+    256,
+    'concurrent command writers must not exceed the repository shard bound',
+  );
+  assert.equal(boundedRepositoryEntries.some((entry) => entry.name === 'saturated.json'), true);
+  const blockedCapacityCommand = [process.execPath, '-e', capacityIds.at(-1)];
+  assert.equal(
+    checkSafetyRetry(repositoryCapacityRoot, blockedCapacityCommand, report.limits).previous.limit,
+    'retry_ledger_saturated',
+  );
+
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };
   writeAttestation(productionProbe, Array.from({ length: 11 }, (_, index) => ({
     id: `wrong-${index}`,
@@ -824,6 +1037,38 @@ try {
   });
   assert.equal(unpromoted.ok, false);
   assert.match(unpromoted.reasons.join('\n'), /tier promotion requires successful cleanup for: small/);
+
+  const repositoriesBeforeRead = fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name)).length;
+  const readOnlyRetryRoot = path.join(root, 'read-only-retry-root');
+  fs.mkdirSync(readOnlyRetryRoot);
+  assert.equal(checkSafetyRetry(readOnlyRetryRoot, ['node', '-e', 'read-only'], {}).ok, true);
+  assert.equal(
+    fs.readdirSync(ledgerRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name)).length,
+    repositoriesBeforeRead,
+    'a retry check without a fence must not consume repository capacity',
+  );
+
+  let retryRepositoryCount = repositoriesBeforeRead;
+  for (let index = 0; retryRepositoryCount < 256; index += 1) {
+    const name = crypto.createHash('sha256').update(`global-repository-${index}`).digest('hex').slice(0, 24);
+    const directory = path.join(ledgerRoot, name);
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory);
+      retryRepositoryCount += 1;
+    }
+  }
+  const globallyBlockedRoot = path.join(root, 'globally-blocked-retry-root');
+  fs.mkdirSync(globallyBlockedRoot);
+  const globallyBlockedCommand = [process.execPath, '-e', 'globally-blocked'];
+  const globalSaturation = recordSafetyLimit(
+    globallyBlockedRoot, globallyBlockedCommand, {},
+    { ...limitedReport, run_id: 'globally-blocked', command: globallyBlockedCommand },
+  );
+  assert.equal(globalSaturation.reason, 'global_repository_capacity');
+  assert.equal(checkSafetyRetry(globallyBlockedRoot, globallyBlockedCommand, {}).ok, false);
+  assert.equal(fs.existsSync(path.join(ledgerRoot, 'saturated.json')), true);
 
   assertAdapterShape({
     id: 'unit', launch() {}, sample() {}, signal() {}, cleanup() {},

@@ -98,6 +98,10 @@ Use `--promote` only for an intended tier-qualification scenario. The stable
 and bounded Git source snapshot bind smaller-tier evidence to the same workload;
 success from a trivial, replaced, or different command cannot unlock another
 workload.
+The snapshot follows the Git roots of absolute audited entrypoints even when
+the workload directory is outside Git. Changed files are content-hashed with a
+bounded streaming reader; files above the promotion bound refuse qualification
+instead of falling back to size and timestamp identity.
 Promotion is
 recorded only after a successful command, schema-valid report, empty descendant
 set, removed scope, removed runner temporary directory, and error-free cleanup.
@@ -116,8 +120,12 @@ observation converts that entry to a durable fence, and a limit-only change does
 not bypass it. The relevant command shard is checked directly rather than scanning
 unrelated failures globally, and
 independent run files prevent concurrent small runs from overwriting one another.
-Entries are not evicted: incomplete cleanup, controller `SIGKILL`, a lost
-session, or later distinct failures cannot erase or overwrite earlier fences.
+Incomplete cleanup, controller `SIGKILL`, a lost session, or later distinct
+failures cannot erase or overwrite earlier fences. A command/build shard is
+capped at 64 records, a repository at 256 shards, and the host ledger at 256
+repositories. Capacity converts the affected scope to one durable saturation
+fence that refuses later unsafe allocations; it never forgets an old failure
+or silently permits the command.
 
 All limit flags are downward-only:
 
@@ -147,13 +155,18 @@ escape hatch. When a scoped CLI starts `graphd`, the client asks the live
 supervisor broker to authorize its PID, Linux start identity, command, parent,
 and canonical socket/lock paths. The graph root must resolve to a Git repository,
 and the socket and lock must be exact children of its Git-common `lamina`
-runtime directory. Source execution must place a content-matched `server.mjs` in
-the interpreter's actual script position. The broker captures the directory's
+runtime directory. For source execution, the client opens the reviewed
+`server.mjs` before spawn and Node executes that inherited descriptor. The
+broker hashes `/proc/<pid>/fd/3` against a trusted digest captured before the
+payload starts, so replacing the mutable pathname after code load cannot grant
+managed status. Standalone execution must match the controller's already-open
+executable digest. The broker captures the directory's
 device/inode/owner identity and the graphd PID/start identity for crash cleanup.
 The lock must carry that same process identity before either runtime entry can
-be removed. A third process-identity operation lock serializes graphd startup
-against watchdog cleanup; if a replacement wins that lock, cleanup leaves its
-paths untouched and fails closed. No child-writable registry is authoritative. After the CLI
+be removed. Each starter holds a unique PID/start-tick/nonce claim for its
+lifetime and proceeds only when no other live graphd or cleanup claim exists.
+This serializes stale-lock replacement against other starters and watchdog
+cleanup. No child-writable registry or mutable source pathname is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
@@ -216,14 +229,15 @@ files, tokens, tier variables, and plain environment flags are not proof.
 Lamina's graph client also registers any graphd it starts by PID and Linux
 start ticks. After the payload exits, the runner gives that exact registered
 daemon a short graceful shutdown window and verifies that its socket, daemon
-lock, operation lock,
+lock, operation claim,
 process tree, and scope are gone. Any unregistered detached process—or any
 registered graphd that outlives the deadline—fails the scenario and triggers
 complete scope termination.
 
-An operation lock whose recorded owner did not exit normally is not guessed
-away by a new graphd. Startup fails closed with the recorded PID so an operator
-can investigate the stale runtime instead of racing watchdog cleanup.
+A stale claim is removed only when its PID/start identity is dead. A stale
+daemon lock with a reused live PID is likewise treated as stale without
+signalling that unrelated process. A new graphd may replace it only while
+holding the sole live operation claim.
 
 See [ADR-014](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/014-crash-safe-resource-supervision.md)
 for the ownership and fail-closed rationale.

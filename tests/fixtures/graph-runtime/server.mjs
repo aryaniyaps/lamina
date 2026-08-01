@@ -12,19 +12,65 @@ const canonicalSocket = paths.socket;
 const lockPath = paths.lock;
 
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
-try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
-const stat = fs.readFileSync('/proc/self/stat', 'utf8');
-const close = stat.lastIndexOf(')');
-const startTicks = stat.slice(close + 2).trim().split(/\s+/)[19];
+const processStartTicks = (pid) => {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    return stat.slice(close + 2).trim().split(/\s+/)[19];
+  } catch { return null; }
+};
+const startTicks = processStartTicks(process.pid);
 fs.mkdirSync(paths.operations_dir, { recursive: true, mode: 0o700 });
+const claimPattern = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
+const claims = () => fs.readdirSync(paths.operations_dir).flatMap((name) => {
+  const match = name.match(claimPattern);
+  if (!match) return [];
+  const file = `${paths.operations_dir}/${name}`;
+  try {
+    const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Number(value.pid) === Number(match[1])
+      && String(value.start_ticks || '') === match[2]
+      && value.nonce === match[3] ? [{ file, value }] : [];
+  } catch { return []; }
+});
+for (const claim of claims()) {
+  if (processStartTicks(claim.value.pid) !== String(claim.value.start_ticks)) {
+    try { fs.rmSync(claim.file); } catch {}
+  }
+}
 const operationNonce = crypto.randomBytes(16).toString('hex');
 const operationClaim = `${paths.operations_dir}/${process.pid}-${startTicks}-${operationNonce}.json`;
-fs.writeFileSync(operationClaim, `${JSON.stringify({
+const operationValue = {
   type: 'graphd', pid: process.pid, start_ticks: startTicks, nonce: operationNonce,
-})}\n`, { flag: 'wx', mode: 0o600 });
-fs.writeFileSync(lockPath, `${JSON.stringify({
-  pid: process.pid, start_ticks: startTicks,
-})}\n`, { mode: 0o600 });
+};
+fs.writeFileSync(operationClaim, `${JSON.stringify(operationValue)}\n`, { flag: 'wx', mode: 0o600 });
+const releaseClaim = () => {
+  try {
+    const current = JSON.parse(fs.readFileSync(operationClaim, 'utf8'));
+    if (current.nonce === operationNonce && current.pid === process.pid
+      && current.start_ticks === startTicks) fs.rmSync(operationClaim);
+  } catch {}
+};
+if (claims().some((claim) => claim.file !== operationClaim
+  && processStartTicks(claim.value.pid) === String(claim.value.start_ticks))) {
+  releaseClaim();
+  process.exit(2);
+}
+const lockValue = { pid: process.pid, start_ticks: startTicks };
+try {
+  fs.writeFileSync(lockPath, `${JSON.stringify(lockValue)}\n`, { flag: 'wx', mode: 0o600 });
+} catch (error) {
+  if (error.code !== 'EEXIST') throw error;
+  let owner = null;
+  try { owner = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  if (processStartTicks(owner?.pid) === String(owner?.start_ticks || '')) {
+    releaseClaim();
+    process.exit(2);
+  }
+  fs.rmSync(lockPath, { force: true });
+  fs.writeFileSync(lockPath, `${JSON.stringify(lockValue)}\n`, { flag: 'wx', mode: 0o600 });
+}
+try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
 
 const server = net.createServer((socket) => socket.end());
 let stopping = false;
@@ -35,7 +81,7 @@ const shutdown = () => {
     if (!['leave-stale', 'exit-stale'].includes(cleanupMode)) {
       try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
       try { fs.rmSync(lockPath, { force: true }); } catch {}
-      try { fs.rmSync(operationClaim, { force: true }); } catch {}
+      releaseClaim();
       try { fs.rmdirSync(paths.operations_dir); } catch {}
     } else if (!fs.existsSync(canonicalSocket)) {
       // Node unlinks a listening Unix socket during graceful close. Recreate a

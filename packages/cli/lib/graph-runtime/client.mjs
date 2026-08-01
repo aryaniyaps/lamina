@@ -11,6 +11,7 @@ import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
 import { registerManagedGraphdWithSupervisor } from '../safe-runner-context.mjs';
 import {
+  daemonIdentityIsRunning,
   ensureAuthToken,
   graphSocketPath,
   parseDaemonLock,
@@ -35,14 +36,19 @@ export function daemonCompatibility(identity) {
 }
 
 function graphdEnvironment() {
-  if (process.platform !== 'win32') return process.env;
+  const environment = { ...process.env };
+  for (const name of [
+    'NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH',
+    'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH',
+  ]) delete environment[name];
+  if (process.platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when
   // graphd starts (the extension directory itself is not searched reliably).
   const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
   return {
-    ...process.env,
-    PATH: [dependencies, process.env.PATH].filter(Boolean).join(path.delimiter),
+    ...environment,
+    PATH: [dependencies, environment.PATH].filter(Boolean).join(path.delimiter),
   };
 }
 
@@ -118,11 +124,21 @@ async function waitForServer(paths, token, child = null) {
   throw new Error(`graphd did not become ready at ${socketPath}`);
 }
 
-export async function stopIncompatibleServer(paths, reportedPid = null) {
+export async function stopIncompatibleServer(paths, reportedIdentity = null) {
   let lock = null;
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
-  const pid = Number(reportedPid) || lock?.pid || null;
-  if (processIsRunning(pid)) {
+  const reported = reportedIdentity && typeof reportedIdentity === 'object'
+    ? reportedIdentity : { pid: Number(reportedIdentity) || null };
+  const identity = Number(reported.pid) === Number(lock?.pid)
+    ? { ...lock, ...reported, start_ticks: reported.start_ticks || lock?.start_ticks || null }
+    : reported;
+  const pid = Number(identity?.pid) || lock?.pid || null;
+  const target = Number(identity?.pid) === Number(pid) ? identity : lock;
+  const exactRunning = () => daemonIdentityIsRunning(target);
+  const hasLinuxIdentity = process.platform !== 'linux'
+    || typeof target?.start_ticks === 'string';
+  const targetRunning = () => hasLinuxIdentity ? exactRunning() : processIsRunning(pid);
+  if (targetRunning()) {
     try {
       const token = fs.readFileSync(paths.token, 'utf8').trim();
       await exchange(graphSocketPath(paths), {
@@ -134,24 +150,29 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
     } catch {}
   }
   let deadline = Date.now() + 2_000;
-  while (Date.now() < deadline && processIsRunning(pid)) {
+  while (Date.now() < deadline && targetRunning()) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  if (processIsRunning(pid)) {
+  if (targetRunning() && !hasLinuxIdentity) {
+    const error = new Error(`Refusing to signal graphd PID ${pid} without a Linux start-tick identity.`);
+    error.code = 'LAMINA_INTERNAL';
+    throw error;
+  }
+  if (exactRunning()) {
     try { process.kill(pid, 'SIGTERM'); } catch {}
   }
   deadline = Date.now() + 2_000;
-  while (Date.now() < deadline && processIsRunning(pid)) {
+  while (Date.now() < deadline && exactRunning()) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  if (processIsRunning(pid)) {
+  if (exactRunning()) {
     try { process.kill(pid, 'SIGKILL'); } catch {}
     deadline = Date.now() + 5_000;
-    while (Date.now() < deadline && processIsRunning(pid)) {
+    while (Date.now() < deadline && exactRunning()) {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
-  if (processIsRunning(pid)) {
+  if (exactRunning()) {
     const error = new Error(`Unable to stop incompatible graphd process ${pid}.`);
     error.code = 'LAMINA_INTERNAL';
     throw error;
@@ -177,7 +198,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
   let lock = null;
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
   if (response || processIsRunning(lock?.pid)) {
-    await stopIncompatibleServer(paths, response?.result?.pid);
+    await stopIncompatibleServer(paths, response?.result || lock);
   }
   const debug = process.env.LAMINA_GRAPHD_DEBUG === '1';
   const logPath = path.join(paths.runtime_dir, 'graphd.log');
@@ -186,21 +207,34 @@ export async function ensureGraphd(cwd = process.cwd()) {
     try { fs.chmodSync(logPath, 0o600); } catch {}
   }
   let child;
+  let sourceFd = null;
   try {
     // A standalone build re-enters its own SEA bootstrap.  Source/development
     // execution keeps using the JavaScript server entrypoint.
-    const daemonArgs = process.env.LAMINA_STANDALONE === '1'
+    const standalone = process.env.LAMINA_STANDALONE === '1';
+    const serverPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs');
+    const descriptorProof = process.platform === 'linux'
+      && Boolean(process.env.LAMINA_SAFE_RUNNER_BROKER) && !standalone;
+    if (descriptorProof) {
+      sourceFd = fs.openSync(
+        serverPath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0),
+      );
+    }
+    const daemonArgs = standalone
       ? ['--graphd', paths.root]
-      : [path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'server.mjs'), paths.root];
+      : [descriptorProof ? '/proc/self/fd/3' : serverPath, paths.root];
     const daemonHost = process.env.LAMINA_STANDALONE_GRAPHD_HOST || process.execPath;
     child = spawn(daemonHost, daemonArgs, {
       detached: true,
-      stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
+      stdio: sourceFd === null
+        ? (debug ? 'inherit' : ['ignore', 'ignore', log])
+        : (debug ? ['inherit', 'inherit', 'inherit', sourceFd] : ['ignore', 'ignore', log, sourceFd]),
       cwd: paths.root,
       env: graphdEnvironment(),
     });
     registerManagedGraphd(child, paths);
   } finally {
+    if (sourceFd !== null) fs.closeSync(sourceFd);
     if (log !== null) fs.closeSync(log);
   }
   child.unref();
@@ -213,10 +247,10 @@ export async function graphdIdentity(cwd = process.cwd()) {
   return paths.daemon;
 }
 
-export async function restartGraphd(cwd = process.cwd(), reportedPid = null) {
+export async function restartGraphd(cwd = process.cwd(), reportedIdentity = null) {
   const paths = runtimePaths(cwd);
-  let pid = reportedPid;
-  if (!pid) {
+  let identity = reportedIdentity;
+  if (!identity) {
     try {
       const token = ensureAuthToken(paths);
       const response = await exchange(graphSocketPath(paths), {
@@ -225,10 +259,10 @@ export async function restartGraphd(cwd = process.cwd(), reportedPid = null) {
         cwd,
         auth: token,
       }, 500);
-      pid = response?.result?.pid;
+      identity = response?.result;
     } catch {}
   }
-  await stopIncompatibleServer(paths, pid);
+  await stopIncompatibleServer(paths, identity);
   return ensureGraphd(cwd);
 }
 

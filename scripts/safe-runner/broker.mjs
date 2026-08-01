@@ -17,6 +17,24 @@ function fileDigest(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+const TRUSTED_GRAPHD_SERVER_DIGEST = fileDigest(TRUSTED_GRAPHD_SERVER);
+const TRUSTED_GRAPHD_FIXTURE_DIGEST = fileDigest(TRUSTED_GRAPHD_FIXTURE);
+const CONTROLLER_EXECUTABLE_DIGEST = process.platform === 'linux'
+  ? fileDigest('/proc/self/exe') : null;
+const CONTROLLER_EXECUTABLE_NAME = path.basename(process.execPath);
+const FORBIDDEN_GRAPHD_ENVIRONMENT = new Set([
+  'NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH',
+  'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH',
+]);
+
+function processEnvironment(pid) {
+  const entries = fs.readFileSync(`/proc/${pid}/environ`).toString('utf8').split('\0').filter(Boolean);
+  return Object.fromEntries(entries.map((entry) => {
+    const separator = entry.indexOf('=');
+    return separator === -1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
+  }));
+}
+
 const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
   && String(left?.start_ticks || '') === String(right?.start_ticks || '');
 const OPERATION_CLAIM_RE = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
@@ -83,20 +101,37 @@ function canonicalGraphdRegistration(request, authority, child) {
   if (!stat.isDirectory() || stat.isSymbolicLink()
     || (typeof process.getuid === 'function' && stat.uid !== process.getuid())) refuse('graph runtime directory ownership is not physical and same-user');
   const argv = authority.arguments?.(child.pid) || [];
+  const environment = authority.environment?.(child.pid) || processEnvironment(child.pid);
+  if ([...FORBIDDEN_GRAPHD_ENVIRONMENT].some((name) => Object.hasOwn(environment, name))) {
+    refuse('graphd process environment contains a code-injection variable');
+  }
   const executable = path.basename(String(argv[0] || ''));
   const sourceScript = String(argv[1] || '').replaceAll('\\', '/');
   let trustedSource = false;
   try {
-    const sourceDigest = fileDigest(fs.realpathSync.native(argv[1]));
-    const productionSource = argv.length === 3 && sourceDigest === fileDigest(TRUSTED_GRAPHD_SERVER);
-    const fixtureSource = argv.length === 4 && sourceDigest === fileDigest(TRUSTED_GRAPHD_FIXTURE)
+    const sourceFd = sourceScript.match(/^\/proc\/(?:self|[1-9]\d*)\/fd\/3$/) ? 3 : null;
+    const sourceDigest = sourceFd === null ? null
+      : authority.openFileDigest?.(child.pid, sourceFd)
+        || fileDigest(`/proc/${child.pid}/fd/${sourceFd}`);
+    const executableDigest = authority.executableDigest?.(child.pid)
+      || fileDigest(`/proc/${child.pid}/exe`);
+    const productionSource = argv.length === 3
+      && sourceDigest === TRUSTED_GRAPHD_SERVER_DIGEST;
+    const fixtureSource = argv.length === 4
+      && sourceDigest === TRUSTED_GRAPHD_FIXTURE_DIGEST
       && ['clean', 'leave-stale', 'exit-stale'].includes(argv[3]);
     trustedSource = /^(?:node|node\.exe)$/i.test(executable)
-      && sourceScript.endsWith('/graph-runtime/server.mjs')
+      && executableDigest === CONTROLLER_EXECUTABLE_DIGEST
       && (productionSource || fixtureSource);
   } catch {}
-  const trustedStandalone = argv.length === 3 && argv[1] === '--graphd'
-    && /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i.test(executable);
+  let trustedStandalone = false;
+  try {
+    trustedStandalone = argv.length === 3 && argv[1] === '--graphd'
+      && /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i.test(executable)
+      && executable === CONTROLLER_EXECUTABLE_NAME
+      && (authority.executableDigest?.(child.pid) || fileDigest(`/proc/${child.pid}/exe`))
+        === CONTROLLER_EXECUTABLE_DIGEST;
+  } catch {}
   const declaredRoot = trustedSource || trustedStandalone ? argv[2] : null;
   try {
     if (!declaredRoot || fs.realpathSync.native(declaredRoot) !== root) refuse('graphd argv does not declare the exact graph root');
