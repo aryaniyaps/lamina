@@ -47,6 +47,20 @@ export function systemdKillArguments(signal, unit, major) {
   return ['kill', selector, `--signal=${signal}`, unit];
 }
 
+export function systemdScopeProperties(limits) {
+  return [
+    '--property', 'MemoryAccounting=yes',
+    '--property', `MemoryMax=${limits.memory_max_bytes}`,
+    '--property', `MemoryHigh=${limits.memory_high_bytes}`,
+    '--property', 'TasksAccounting=yes',
+    '--property', `TasksMax=${limits.pids_max}`,
+    '--property', 'KillMode=control-group',
+    '--property', 'SendSIGKILL=yes',
+    '--property', `RuntimeMaxSec=${Math.ceil((limits.timeout_ms
+      + limits.graceful_stop_ms + 5_000) / 1_000)}s`,
+  ];
+}
+
 function readNumber(file) {
   try {
     const value = fs.readFileSync(file, 'utf8').trim();
@@ -103,16 +117,7 @@ export class LinuxSystemdAdapter {
   }) {
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
-      '--property', 'MemoryAccounting=yes',
-      '--property', `MemoryMax=${this.limits.memory_max_bytes}`,
-      '--property', `MemoryHigh=${this.limits.memory_high_bytes}`,
-      '--property', 'TasksAccounting=yes',
-      '--property', `TasksMax=${this.limits.pids_max}`,
-      '--property', 'KillMode=control-group',
-      '--property', 'SendSIGKILL=yes',
-      '--property', 'OOMPolicy=stop',
-      '--property', `RuntimeMaxSec=${Math.ceil((this.limits.timeout_ms
-        + this.limits.graceful_stop_ms + 5_000) / 1_000)}s`,
+      ...systemdScopeProperties(this.limits),
       '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,

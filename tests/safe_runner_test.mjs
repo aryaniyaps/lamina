@@ -14,6 +14,7 @@ import {
   assertSystemctlSuccess,
   parseSystemdMajor,
   systemdKillArguments,
+  systemdScopeProperties,
 } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
@@ -257,6 +258,19 @@ try {
   ]);
   assert.throws(() => parseSystemdMajor('not systemd'), /unsupported or unparsable/);
   assert.throws(() => systemdKillArguments('SIGTERM', 'unit.scope', 248), /unsupported/);
+  const scopeProperties = systemdScopeProperties({
+    memory_max_bytes: 100,
+    memory_high_bytes: 80,
+    pids_max: 8,
+    timeout_ms: 1_000,
+    graceful_stop_ms: 100,
+  }).join(' ');
+  for (const required of [
+    'MemoryAccounting=yes', 'MemoryMax=100', 'MemoryHigh=80',
+    'TasksAccounting=yes', 'TasksMax=8', 'KillMode=control-group',
+    'SendSIGKILL=yes', 'RuntimeMaxSec=7s',
+  ]) assert.match(scopeProperties, new RegExp(required));
+  assert.doesNotMatch(scopeProperties, /OOMPolicy/);
   assert.equal(await stopIncompatibleServer({
     root,
     lock: path.join(root, 'missing-graphd.lock'),
