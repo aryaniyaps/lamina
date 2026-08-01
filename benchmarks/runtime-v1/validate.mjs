@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateReport as validateSafeRunnerReport } from '../../scripts/safe-runner/report.mjs';
 import {
+  FIXTURE_SCHEMA,
   LIFECYCLE_PHASES,
   MEASUREMENT_OUTCOMES,
   RESULT_SCHEMA,
@@ -14,6 +15,8 @@ import { summarizeLatency } from './statistics.mjs';
 
 const SCHEMA_FILE = fileURLToPath(new URL('./schema/result.schema.json', import.meta.url));
 const BUNDLED_SCHEMA = JSON.parse(fs.readFileSync(SCHEMA_FILE, 'utf8'));
+const MAX_RAW_ARTIFACT_BYTES = 2 * 1024 * 1024;
+const MAX_TELEMETRY_ARTIFACT_BYTES = 128 * 1024;
 
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -149,12 +152,20 @@ function validateSeries(result, errors) {
 }
 
 function validateArtifacts(result, artifactRoot, errors) {
-  const executions = (result.series || []).flatMap((series) => series.executions || []);
+  const contexts = (result.series || []).flatMap((series) =>
+    (series.executions || []).map((execution, executionIndex) => ({
+      execution, executionIndex, series,
+    })));
+  const executions = contexts.map(({ execution }) => execution);
   const artifacts = new Map((result.artifacts || []).map((item) => [item.path, item]));
   if (artifacts.size !== executions.length * 2 || artifacts.size !== (result.artifacts || []).length) {
     errors.push('$.artifacts must reference one raw report and one telemetry sidecar per execution');
   }
-  for (const execution of executions) {
+  if (!artifactRoot) {
+    errors.push('artifactRoot is required to validate referenced execution evidence');
+    return;
+  }
+  for (const { execution, executionIndex, series } of contexts) {
     if (!MEASUREMENT_OUTCOMES.includes(execution.outcome)) continue;
     const artifact = artifacts.get(execution.raw_report);
     const telemetryArtifact = artifacts.get(execution.telemetry);
@@ -168,6 +179,7 @@ function validateArtifacts(result, artifactRoot, errors) {
     }
     if (execution.memory_difference_bytes
       !== Math.abs(execution.aggregate_peak_rss_bytes - execution.runner_peak_rss_bytes)
+      || execution.memory_tolerance_bytes !== 0
       || execution.memory_agrees
         !== (execution.memory_difference_bytes <= execution.memory_tolerance_bytes)) {
       errors.push(`${execution.raw_report} has contradictory aggregate-memory agreement`);
@@ -176,9 +188,8 @@ function validateArtifacts(result, artifactRoot, errors) {
       || execution.remaining_descendants.length !== 0 || !execution.memory_agrees)) {
       errors.push(`${execution.raw_report} cannot be a valid measurement`);
     }
-    if (!artifactRoot) continue;
     const root = path.resolve(artifactRoot);
-    const readArtifact = (relative, expected) => {
+    const readArtifact = (relative, expected, maximumBytes) => {
       const normalized = relative.replaceAll('\\', '/');
       if (path.isAbsolute(normalized) || normalized.split('/').includes('..')) {
         throw new Error('is not a bounded relative artifact path');
@@ -187,39 +198,147 @@ function validateArtifacts(result, artifactRoot, errors) {
       if (!candidate.startsWith(`${root}${path.sep}`)) throw new Error('escapes the artifact root');
       const stat = fs.lstatSync(candidate);
       if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('artifact is not a physical file');
+      if (stat.size > maximumBytes) throw new Error(`artifact exceeds ${maximumBytes} bytes`);
       const bytes = fs.readFileSync(candidate);
       if (expected.bytes !== bytes.length || expected.sha256 !== digest(bytes)) {
         throw new Error('artifact size or digest mismatch');
       }
       return bytes;
     };
+    let report = null;
+    let fixtureRecord = null;
     try {
-      const bytes = readArtifact(execution.raw_report, artifact);
-      const report = JSON.parse(bytes.toString('utf8'));
+      const bytes = readArtifact(execution.raw_report, artifact, MAX_RAW_ARTIFACT_BYTES);
+      report = JSON.parse(bytes.toString('utf8'));
       const safeValidation = validateSafeRunnerReport(report);
       if (!safeValidation.valid) throw new Error(`invalid safe-runner report: ${safeValidation.errors.join('; ')}`);
+      const processPeaks = (report.descendants || []).map((item) => ({
+        pid: item.pid,
+        ppid: item.ppid ?? null,
+        command: item.command || '',
+        peak_rss_bytes: item.peak_rss_bytes || 0,
+      }));
+      const derivedState = {
+        before_bytes: 0,
+        peak_bytes: report.peaks.temporary_bytes,
+        after_bytes: report.cleanup.temporary_directory_removed === true
+          ? 0 : report.peaks.temporary_bytes,
+      };
       if (classifySafeRunnerOutcome(report) !== execution.outcome
         || report.duration_ms !== execution.wall_time_ms
         || report.peaks.aggregate_rss_bytes !== execution.runner_peak_rss_bytes
         || report.peaks.cgroup_memory_bytes !== execution.cgroup_peak_memory_bytes
+        || report.termination.reason !== execution.termination_reason
+        || report.termination.limit !== execution.limit
+        || (report.termination.child_exit_code ?? null) !== execution.exit_status
+        || (report.termination.child_signal || null) !== execution.exit_signal
+        || !same(processPeaks, execution.per_process_peak_rss)
+        || !same(derivedState, execution.derived_state)
         || !same(report.cleanup.descendants_remaining, execution.remaining_descendants)) {
         throw new Error('raw safe-runner report contradicts the summarized execution');
+      }
+      const fixtureLines = String(report.output.stdout_tail || '').trim().split('\n').filter(Boolean);
+      for (const line of fixtureLines.reverse()) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.schema === FIXTURE_SCHEMA) {
+            fixtureRecord = parsed;
+            break;
+          }
+        } catch {}
+      }
+      if (execution.outcome === 'success' && !fixtureRecord) {
+        throw new Error('successful raw report lacks fixture evidence');
+      }
+      if (fixtureRecord) {
+        const observations = fixtureRecord.observations || [];
+        const measured = observations.filter((sample) => sample.classification !== 'warmup');
+        const normalizedMeasured = series.kind === 'cold'
+          ? measured.map((sample) => ({ ...sample, index: execution.run_index })) : measured;
+        const expectedSamples = series.kind === 'cold'
+          ? [series.samples[executionIndex]] : series.samples;
+        const warmupTimes = observations.filter((sample) => sample.classification === 'warmup')
+          .map((sample) => sample.wall_time_ns);
+        if (fixtureRecord.mode !== series.kind
+          || !same(fixtureRecord.phase_order, LIFECYCLE_PHASES)
+          || fixtureRecord.state_removed !== true
+          || fixtureRecord.child_processes !== result.fixture.child_processes
+          || !same(normalizedMeasured, expectedSamples)
+          || !same(fixtureRecord.lifecycle_outer_phase_time_ns, execution.scope_phase_time_ns)
+          || (series.kind === 'warm' && !same(warmupTimes, series.warmup_wall_time_ns))) {
+          throw new Error('raw fixture evidence contradicts the summarized lifecycle');
+        }
       }
     } catch (error) {
       errors.push(`${execution.raw_report}: ${error.message}`);
     }
+    let telemetry = null;
     try {
-      const bytes = readArtifact(execution.telemetry, telemetryArtifact);
-      const telemetry = JSON.parse(bytes.toString('utf8'));
+      const bytes = readArtifact(
+        execution.telemetry, telemetryArtifact, MAX_TELEMETRY_ARTIFACT_BYTES,
+      );
+      telemetry = JSON.parse(bytes.toString('utf8'));
+      const validAccounting = (accounting) => {
+        const cpu = accounting?.cpu;
+        const io = accounting?.io;
+        const cpuValues = [cpu?.usage_usec, cpu?.user_usec, cpu?.system_usec];
+        const ioValues = [io?.read_bytes, io?.write_bytes, io?.read_operations, io?.write_operations];
+        const cpuValid = typeof cpu?.available === 'boolean'
+          && (cpu.available ? cpuValues.every((value) => Number.isFinite(value) && value >= 0)
+            : cpuValues.every((value) => value === null));
+        const ioValid = typeof io?.available === 'boolean'
+          && Number.isSafeInteger(io?.devices) && io.devices >= 0
+          && (io.available ? ioValues.every((value) => Number.isSafeInteger(value) && value >= 0)
+            : ioValues.every((value) => value === null));
+        return cpuValid && ioValid;
+      };
       if (telemetry?.schema !== 'lamina.runtime-benchmark-telemetry/v1'
         || !Array.isArray(telemetry.samples) || telemetry.samples.length > 64
         || telemetry.samples.some((sample) => !Number.isFinite(sample?.elapsed_ms)
           || sample.elapsed_ms < 0 || sample.accounting === null
-          || typeof sample.accounting !== 'object')) {
+          || typeof sample.accounting !== 'object' || !validAccounting(sample.accounting))
+        || telemetry.samples.some((sample, index) => index > 0
+          && sample.elapsed_ms < telemetry.samples[index - 1].elapsed_ms)) {
         throw new Error('invalid bounded telemetry sidecar');
       }
     } catch (error) {
       errors.push(`${execution.telemetry}: ${error.message}`);
+    }
+    if (telemetry) {
+      const accounting = [...telemetry.samples].reverse().find((sample) =>
+        sample.accounting?.cpu?.available || sample.accounting?.io?.available)?.accounting || null;
+      const expectedCpu = accounting?.cpu?.available ? accounting.cpu.usage_usec / 1000 : null;
+      const expectedIo = accounting?.io?.available ? {
+        available: true,
+        read_bytes: accounting.io.read_bytes,
+        write_bytes: accounting.io.write_bytes,
+        read_operations: accounting.io.read_operations,
+        write_operations: accounting.io.write_operations,
+        reason: null,
+      } : {
+        available: false,
+        read_bytes: null,
+        write_bytes: null,
+        read_operations: null,
+        write_operations: null,
+        reason: 'cgroup io.stat was unavailable for this adapter or scope',
+      };
+      if (execution.cpu_time_ms !== expectedCpu || !same(execution.io, expectedIo)) {
+        errors.push(`${execution.telemetry} contradicts summarized CPU or I/O accounting`);
+      }
+      const rawCleanup = report?.cleanup;
+      const expectedMeasurementValid = execution.outcome === 'success'
+        && fixtureRecord !== null
+        && rawCleanup?.descendants_remaining?.length === 0
+        && rawCleanup?.managed_paths_remaining?.length === 0
+        && rawCleanup?.scope_removed === true
+        && rawCleanup?.temporary_directory_removed === true
+        && rawCleanup?.errors?.length === 0
+        && accounting?.cpu?.available === true
+        && execution.memory_agrees === true;
+      if (execution.measurement_valid !== expectedMeasurementValid) {
+        errors.push(`${execution.raw_report} has contradictory measurement validity`);
+      }
     }
   }
 }
@@ -227,27 +346,29 @@ function validateArtifacts(result, artifactRoot, errors) {
 export function validateResult(result, { artifactRoot = null } = {}) {
   const errors = [];
   validateNode(result, BUNDLED_SCHEMA, '$', errors);
-  if (result?.schema !== RESULT_SCHEMA || result?.schema_version !== RESULT_SCHEMA_VERSION) {
-    errors.push('$.schema version is unsupported');
-  }
-  if (!same(result?.lifecycle_phases, LIFECYCLE_PHASES)) {
-    errors.push('$.lifecycle_phases must contain the complete canonical phase order');
-  }
-  validateSeries(result, errors);
-  validateArtifacts(result, artifactRoot, errors);
-  const executions = (result?.series || []).flatMap((series) => series.executions || []);
-  const allValid = executions.length > 0
-    && executions.every((execution) => execution.measurement_valid === true);
-  const refused = executions.some((execution) => execution.outcome === 'safe_refusal');
-  const expectedStatus = allValid ? 'valid' : refused ? 'refused' : 'invalid';
-  if (result?.status !== expectedStatus) errors.push(`$.status must be ${expectedStatus}`);
-  if (result?.status !== 'valid' && executions.some((execution) => execution.measurement_valid)) {
-    errors.push('$.status non-valid cannot mix publishable measurements into an incomplete result');
-  }
-  if (result?.status === 'valid' && (result.errors?.length !== 0
-    || result.cleanup?.remaining_descendants !== 0
-    || result.cleanup?.unexpected_paths?.length !== 0)) {
-    errors.push('$.status valid requires no errors, descendants, or unexpected paths');
+  if (errors.length === 0) {
+    if (result.schema !== RESULT_SCHEMA || result.schema_version !== RESULT_SCHEMA_VERSION) {
+      errors.push('$.schema version is unsupported');
+    }
+    if (!same(result.lifecycle_phases, LIFECYCLE_PHASES)) {
+      errors.push('$.lifecycle_phases must contain the complete canonical phase order');
+    }
+    validateSeries(result, errors);
+    validateArtifacts(result, artifactRoot, errors);
+    const executions = result.series.flatMap((series) => series.executions);
+    const allValid = executions.length > 0
+      && executions.every((execution) => execution.measurement_valid === true);
+    const refused = executions.some((execution) => execution.outcome === 'safe_refusal');
+    const expectedStatus = allValid ? 'valid' : refused ? 'refused' : 'invalid';
+    if (result.status !== expectedStatus) errors.push(`$.status must be ${expectedStatus}`);
+    if (result.status !== 'valid' && executions.some((execution) => execution.measurement_valid)) {
+      errors.push('$.status non-valid cannot mix publishable measurements into an incomplete result');
+    }
+    if (result.status === 'valid' && (result.errors.length !== 0
+      || result.cleanup.remaining_descendants !== 0
+      || result.cleanup.unexpected_paths.length !== 0)) {
+      errors.push('$.status valid requires no errors, descendants, or unexpected paths');
+    }
   }
   return {
     valid: errors.length === 0,

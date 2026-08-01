@@ -59,15 +59,22 @@ function successfulSafeReport(index) {
   return report;
 }
 
-function writeExecutionArtifacts(outputRoot, name, index) {
+function writeExecutionArtifacts(outputRoot, name, index, fixtureRecord) {
   const raw = successfulSafeReport(index);
+  const fixtureLine = `${JSON.stringify(fixtureRecord)}\n`;
+  raw.output.stdout_bytes = Buffer.byteLength(fixtureLine);
+  raw.output.total_bytes = raw.output.stdout_bytes;
+  raw.output.stdout_tail = fixtureLine;
   const telemetry = {
     schema: 'lamina.runtime-benchmark-telemetry/v1',
     samples: [{
       elapsed_ms: 1,
       accounting: {
         cpu: { available: true, usage_usec: 1000, user_usec: 700, system_usec: 300 },
-        io: { available: false },
+        io: {
+          available: false, devices: 0, read_bytes: null, write_bytes: null,
+          read_operations: null, write_operations: null,
+        },
       },
     }],
   };
@@ -97,7 +104,8 @@ function writeExecutionArtifacts(outputRoot, name, index) {
       cpu_time_ms: 1,
       io: {
         available: false, read_bytes: null, write_bytes: null,
-        read_operations: null, write_operations: null, reason: 'not observed',
+        read_operations: null, write_operations: null,
+        reason: 'cgroup io.stat was unavailable for this adapter or scope',
       },
       derived_state: { before_bytes: 0, peak_bytes: 32, after_bytes: 0 },
       remaining_descendants: [],
@@ -115,14 +123,40 @@ function writeExecutionArtifacts(outputRoot, name, index) {
 }
 
 function completeResult(outputRoot) {
-  const coldArtifacts = [0, 1, 2].map((index) => writeExecutionArtifacts(outputRoot, `cold-${index}`, index));
-  const warmArtifact = writeExecutionArtifacts(outputRoot, 'warm', 0);
   const coldValues = [101, 102, 103];
   const warmValues = Array.from({ length: 30 }, (_, index) => 200 + index);
   const warmIndexes = new Set(WARM_MEASURED_PHASES.map((name) => LIFECYCLE_PHASES.indexOf(name)));
   const coldPhaseTimes = LIFECYCLE_PHASES.map((_, index) => index + 1);
   const warmPhaseTimes = LIFECYCLE_PHASES.map((_, index) => warmIndexes.has(index) ? index + 1 : null);
   const warmScopeTimes = LIFECYCLE_PHASES.map((_, index) => warmIndexes.has(index) ? null : index + 1);
+  const fixtureRecord = (mode, observations, outer) => ({
+    schema: 'lamina.runtime-benchmark-fixture/v1',
+    mode,
+    phase_order: LIFECYCLE_PHASES,
+    observations,
+    lifecycle_outer_phase_time_ns: outer,
+    persistent_state_reused: mode === 'warm',
+    persistent_state_identity: mode === 'warm' ? { dev: '1', ino: '2' } : null,
+    child_processes: 1,
+    state_removed: true,
+  });
+  const coldArtifacts = coldValues.map((wall_time_ns, index) => writeExecutionArtifacts(
+    outputRoot,
+    `cold-${index}`,
+    index,
+    fixtureRecord('cold', [{
+      index: 0, classification: 'cold', wall_time_ns, phase_time_ns: coldPhaseTimes,
+    }], LIFECYCLE_PHASES.map(() => null)),
+  ));
+  const warmObservations = [
+    { index: 0, classification: 'warmup', wall_time_ns: 199, phase_time_ns: warmPhaseTimes },
+    ...warmValues.map((wall_time_ns, index) => ({
+      index, classification: 'measured_warm', wall_time_ns, phase_time_ns: warmPhaseTimes,
+    })),
+  ];
+  const warmArtifact = writeExecutionArtifacts(
+    outputRoot, 'warm', 0, fixtureRecord('warm', warmObservations, warmScopeTimes),
+  );
   coldArtifacts.forEach(({ execution }) => { execution.scope_phase_time_ns = LIFECYCLE_PHASES.map(() => null); });
   warmArtifact.execution.scope_phase_time_ns = warmScopeTimes;
   const fixture = fixtureMetadata();
@@ -205,6 +239,10 @@ try {
   const owned = initializeHarnessRoot(path.join(root, 'valid'));
   const result = completeResult(owned.root);
   assert.deepEqual(validateResult(result, { artifactRoot: owned.root }).errors, []);
+  assert.match(validateResult(result).errors.join('; '), /artifactRoot is required/);
+  const malformed = clone(result);
+  malformed.unexpected = true;
+  assert.equal(validateResult(malformed, { artifactRoot: owned.root }).valid, false);
 
   const coldP95 = clone(result);
   coldP95.series[0].statistics.p95 = 103;
@@ -221,6 +259,26 @@ try {
   const digestMismatch = clone(result);
   digestMismatch.series[1].executions[0].telemetry_sha256 = 'd'.repeat(64);
   assert.equal(validateResult(digestMismatch, { artifactRoot: owned.root }).valid, false);
+  const cpuContradiction = clone(result);
+  cpuContradiction.series[1].executions[0].cpu_time_ms = 999;
+  assert.equal(validateResult(cpuContradiction, { artifactRoot: owned.root }).valid, false);
+  const exitContradiction = clone(result);
+  exitContradiction.series[0].executions[0].exit_status = 1;
+  assert.equal(validateResult(exitContradiction, { artifactRoot: owned.root }).valid, false);
+  const partial = clone(result);
+  partial.series[1].samples.pop();
+  partial.series[1].measured_count = 29;
+  partial.series[1].statistics = {
+    samples: partial.series[1].samples.map((sample) => sample.wall_time_ns),
+    median: 0, p90: null, p95: null, maximum: 0,
+  };
+  assert.equal(validateResult(partial, { artifactRoot: owned.root }).valid, false);
+  const incompatible = clone(result);
+  incompatible.schema_version = 2;
+  assert.equal(validateResult(incompatible, { artifactRoot: owned.root }).valid, false);
+  const mislabeled = clone(result);
+  mislabeled.series[0].samples[0].classification = 'measured_warm';
+  assert.equal(validateResult(mislabeled, { artifactRoot: owned.root }).valid, false);
   assert.equal(cleanupHarnessRoot(owned.root).removed, true);
   assert.equal(cleanupHarnessRoot(owned.root).already_absent, true);
 

@@ -66,10 +66,12 @@ an authority. Each execution references and hashes two bounded files:
 - `raw/*.json`: the complete `lamina.safe-runner-report/v1` record;
 - `telemetry/*.json`: bounded cgroup CPU and I/O samples used by the harness.
 
-The validator re-reads both files, checks their sizes and SHA-256 digests, and
-cross-checks outcomes, time, cleanup, and memory with the summarized execution.
-Missing, partial, contradictory, escaping, symlinked, or statistically invalid
-evidence is rejected.
+The validator requires the artifact root, re-reads both physical files, enforces
+a 2 MiB raw-report cap and 128 KiB telemetry cap, checks sizes and SHA-256
+digests, and re-derives outcomes, exit state, time, per-process/aggregate
+memory, temporary state, CPU/I/O, fixture phases, and cleanup. Missing, partial,
+contradictory, escaping, symlinked, or statistically invalid evidence is
+rejected.
 
 `cgroup_peak_memory_bytes` is the authoritative complete-scope, non-double-
 counted memory peak. `aggregate_peak_rss_bytes` is the safe runner's diagnostic

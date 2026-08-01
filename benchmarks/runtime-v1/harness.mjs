@@ -35,6 +35,9 @@ const RESULT_FILE = 'result.json';
 const SUMMARY_FILE = 'summary.md';
 const MAX_FIXTURE_OUTPUT_BYTES = 7 * 1024;
 const MAX_TELEMETRY_SAMPLES = 64;
+const MAX_FIXTURE_MANIFEST_BYTES = 32 * 1024;
+const MAX_FIXTURE_SOURCE_BYTES = 64 * 1024;
+const MAX_RESULT_BYTES = 2 * 1024 * 1024;
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -155,6 +158,7 @@ export function sourceMetadata() {
 
 export function fixtureMetadata() {
   const manifestBytes = fs.readFileSync(FIXTURE_MANIFEST);
+  if (manifestBytes.length > MAX_FIXTURE_MANIFEST_BYTES) throw new Error('fixture manifest is too large');
   const manifest = JSON.parse(manifestBytes.toString('utf8'));
   if (manifest?.schema !== 'lamina.runtime-benchmark-fixture-manifest/v1'
     || manifest.id !== 'tiny-runtime-lifecycle' || manifest.version !== 1) {
@@ -165,6 +169,7 @@ export function fixtureMetadata() {
     const candidate = path.resolve(HERE, relative);
     const stat = fs.lstatSync(candidate);
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`fixture file is not physical: ${relative}`);
+    if (stat.size > MAX_FIXTURE_SOURCE_BYTES) throw new Error(`fixture file is too large: ${relative}`);
     return { relative, bytes: fs.readFileSync(candidate) };
   };
   const tracked = manifest.tracked_files.map(readDeclared);
@@ -372,8 +377,10 @@ async function runFixtureExecution({ root, name, mode, runIndex, warmups, warmSa
 }
 
 function buildSeries(coldRuns, warmRun, configuration) {
-  const coldSamples = coldRuns.flatMap((run) => run.fixture?.observations || [])
-    .filter((sample) => sample.classification === 'cold');
+  const coldSamples = coldRuns.flatMap((run, runIndex) =>
+    (run.fixture?.observations || [])
+      .filter((sample) => sample.classification === 'cold')
+      .map((sample) => ({ ...sample, index: runIndex })));
   const warmObservations = warmRun.fixture?.observations || [];
   const warmups = warmObservations.filter((sample) => sample.classification === 'warmup');
   const warmSamples = warmObservations.filter((sample) => sample.classification === 'measured_warm');
@@ -425,6 +432,15 @@ export function summarizeResult(result) {
     'This tiny-fixture result validates the measurement harness. It is not a Lamina product baseline.',
     '',
   ].join('\n');
+}
+
+function readResultFile(requested) {
+  const file = path.resolve(requested);
+  const stat = fs.lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_RESULT_BYTES) {
+    throw new Error('result must be a bounded physical JSON file');
+  }
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
 export async function runRuntimeBenchmark({
@@ -552,7 +568,7 @@ async function main() {
   if (command === 'validate') {
     const file = option(args, '--file');
     if (!file || args.length !== 2) throw new Error('validate requires exactly --file <result.json>');
-    const result = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
+    const result = readResultFile(file);
     const validation = validateResult(result, { artifactRoot: path.dirname(path.resolve(file)) });
     process.stdout.write(stableJson(validation));
     return validation.valid ? 0 : 1;
@@ -560,7 +576,7 @@ async function main() {
   if (command === 'summary') {
     const file = option(args, '--file');
     if (!file || args.length !== 2) throw new Error('summary requires exactly --file <result.json>');
-    const result = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
+    const result = readResultFile(file);
     assertValidResult(result, { artifactRoot: path.dirname(path.resolve(file)) });
     process.stdout.write(summarizeResult(result));
     return 0;

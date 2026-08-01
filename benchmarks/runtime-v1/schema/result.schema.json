@@ -192,7 +192,7 @@
                     "after_bytes": { "type": "integer", "minimum": 0 }
                   }
                 },
-                "remaining_descendants": { "type": "array", "items": { "type": "integer" } },
+                "remaining_descendants": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
                 "scope_phase_time_ns": {
                   "type": "array", "minItems": 12, "maxItems": 12,
                   "items": { "type": ["integer", "null"], "minimum": 0 }
