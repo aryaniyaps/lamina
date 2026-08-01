@@ -4,7 +4,6 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { baseReport, validateReport } from '../scripts/safe-runner/report.mjs';
 import { parseCgroupCpuStat, parseCgroupIoStat } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
@@ -12,7 +11,7 @@ import {
   WARM_MEASURED_PHASES,
 } from '../benchmarks/runtime-v1/constants.mjs';
 import {
-  cleanupHarnessRoot, initializeHarnessRoot,
+  cleanupHarnessRoot, initializeHarnessRoot, invokeRuntimeBenchmarkCli,
 } from '../benchmarks/runtime-v1/harness.mjs';
 import { fixtureMetadata } from '../benchmarks/runtime-v1/fixture-metadata.mjs';
 import { benchmarkIdentity } from '../benchmarks/runtime-v1/identity.mjs';
@@ -407,11 +406,17 @@ try {
 
   const malformedJson = path.join(root, 'malformed-result.json');
   fs.writeFileSync(malformedJson, '{not-json\n', { mode: 0o600 });
-  const malformedCli = spawnSync(process.execPath, [
-    path.resolve('benchmarks/runtime-v1/harness.mjs'), 'validate', '--file', malformedJson,
-  ], { encoding: 'utf8' });
-  assert.equal(malformedCli.status, 2);
-  assert.equal(JSON.parse(malformedCli.stderr).schema, 'lamina.runtime-benchmark-cli-error/v1');
+  let malformedStdout = '';
+  let malformedStderr = '';
+  const malformedStatus = await invokeRuntimeBenchmarkCli([
+    'validate', '--file', malformedJson,
+  ], {
+    stdout: { write: (value) => { malformedStdout += value; } },
+    stderr: { write: (value) => { malformedStderr += value; } },
+  });
+  assert.equal(malformedStatus, 2);
+  assert.equal(malformedStdout, '');
+  assert.equal(JSON.parse(malformedStderr).schema, 'lamina.runtime-benchmark-cli-error/v1');
 
   const refusedResult = clone(result);
   refusedResult.status = 'refused';

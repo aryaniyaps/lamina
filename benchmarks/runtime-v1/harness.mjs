@@ -630,8 +630,8 @@ function option(args, name) {
   return args[index + 1];
 }
 
-async function main() {
-  const [command, ...args] = process.argv.slice(2);
+async function main(argv, stdout) {
+  const [command, ...args] = argv;
   if (command === 'run') {
     const output = option(args, '--output');
     const allowed = new Set(['--output', '--cold-runs', '--warmups', '--warm-samples']);
@@ -647,7 +647,7 @@ async function main() {
       warmSamples: option(args, '--warm-samples') === null ? MIN_WARM_SAMPLES
         : integer(option(args, '--warm-samples'), '--warm-samples'),
     });
-    process.stdout.write(stableJson({
+    stdout.write(stableJson({
       result: path.join(run.root, RESULT_FILE),
       summary: path.join(run.root, SUMMARY_FILE),
       status: run.result.status,
@@ -660,7 +660,7 @@ async function main() {
     if (!file || args.length !== 2) throw new Error('validate requires exactly --file <result.json>');
     const result = readResultFile(file);
     const validation = validateResult(result, { artifactRoot: path.dirname(path.resolve(file)) });
-    process.stdout.write(stableJson(validation));
+    stdout.write(stableJson(validation));
     return validation.valid ? 0 : 1;
   }
   if (command === 'summary') {
@@ -668,27 +668,34 @@ async function main() {
     if (!file || args.length !== 2) throw new Error('summary requires exactly --file <result.json>');
     const result = readResultFile(file);
     assertValidResult(result, { artifactRoot: path.dirname(path.resolve(file)) });
-    process.stdout.write(summarizeResult(result));
+    stdout.write(summarizeResult(result));
     return 0;
   }
   if (command === 'cleanup') {
     const root = option(args, '--root');
     if (!root || args.length !== 2) throw new Error('cleanup requires exactly --root <owned-directory>');
-    process.stdout.write(stableJson(cleanupHarnessRoot(root)));
+    stdout.write(stableJson(cleanupHarnessRoot(root)));
     return 0;
   }
-  process.stdout.write('Usage: runtime-v1 <run|validate|summary|cleanup> [options]\n');
+  stdout.write('Usage: runtime-v1 <run|validate|summary|cleanup> [options]\n');
   return command ? 2 : 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+export async function invokeRuntimeBenchmarkCli(argv, {
+  stdout = process.stdout,
+  stderr = process.stderr,
+} = {}) {
   try {
-    process.exitCode = await main();
+    return await main(argv, stdout);
   } catch (error) {
-    process.stderr.write(stableJson({
+    stderr.write(stableJson({
       schema: 'lamina.runtime-benchmark-cli-error/v1',
       error: { code: error.code || 'LAMINA_RUNTIME_BENCHMARK_USAGE', message: error.message },
     }));
-    process.exitCode = 2;
+    return 2;
   }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  process.exitCode = await invokeRuntimeBenchmarkCli(process.argv.slice(2));
 }
