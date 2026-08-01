@@ -473,7 +473,7 @@ try {
     records: () => authorityRecords,
     arguments: () => [process.execPath, '/proc/self/fd/3', brokerRoot],
     openFileDigest: () => digestFile(graphdServer),
-    executableDigest: () => process.platform === 'linux' ? digestFile('/proc/self/exe') : null,
+    executableDigest: () => digestFile(process.execPath),
     environment: () => ({}),
     register: (record) => brokerRegistrations.push(record),
   };

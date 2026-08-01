@@ -19,8 +19,7 @@ function fileDigest(file) {
 
 const TRUSTED_GRAPHD_SERVER_DIGEST = fileDigest(TRUSTED_GRAPHD_SERVER);
 const TRUSTED_GRAPHD_FIXTURE_DIGEST = fileDigest(TRUSTED_GRAPHD_FIXTURE);
-const CONTROLLER_EXECUTABLE_DIGEST = process.platform === 'linux'
-  ? fileDigest('/proc/self/exe') : null;
+const CONTROLLER_EXECUTABLE_DIGEST = fileDigest(process.execPath);
 const CONTROLLER_EXECUTABLE_NAME = path.basename(process.execPath);
 const FORBIDDEN_GRAPHD_ENVIRONMENT = new Set([
   'NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH',
