@@ -171,8 +171,9 @@ in a same-filesystem runner registry and declare each repository-contained file
 or directory as either a pure output or copy-on-write output. The primitive
 descriptor-copies bounded payloads, rejects special files, multi-link files,
 escaping or dangling symlinks, changed ancestors, and cross-filesystem targets,
-then seals exact manifests before installation. File and directory permissions
-are preserved without carrying special mode bits.
+and more than 256 output descriptors, then seals exact manifests before
+installation. File and directory permissions are preserved without carrying
+special mode bits.
 
 Its atomic, fsynced, bounded journal advances through `prepared`, `old_saved`,
 `new_installed`, and `committed`. Existing targets remain saved under the exact
@@ -181,14 +182,30 @@ an installed new target back under transaction authority, then atomically
 restores the saved prestate. Recovery is idempotent at every rename, state-write,
 and cleanup boundary: absent validated success authority defaults to restoring
 the exact prestate, while commit requires an explicit caller-supplied authority
-validator. Cleanup is no-follow, same-user, identity-rechecked, bounded, and
-resumable.
+validator. Once the durable rollback fence is set, success cannot reverse it.
+Cleanup is no-follow, same-user, identity-rechecked, bounded, and resumable.
+
+Every operation carries the complete frozen reservation handle. Reservation
+creates a fsynced registry sentinel outside the transaction directory; it binds
+canonical registry and transaction paths plus their identities to a random
+per-transaction capability. The capability itself is never written to the
+journal, sentinel, report, or payload. The sentinel and every complete canonical
+journal body are HMAC-authenticated with it before journal reads or cleanup.
+Seal, install, commit, rollback, and recovery additionally require an explicit
+quiescence authority validator and recheck ancestor, transaction-layout, and
+moved-manifest invariants around mutation hooks and renames.
 
 This checkpoint does not connect the primitive to the safe-runner command,
 sandbox output bindings, controller, or watchdog. No active entrypoint therefore
 receives transactional publication behavior yet. Those integrations require a
-separate reviewed change that binds the success authority and pre-registered
-transaction to the independently owned watchdog lifecycle.
+separate reviewed change. G3b must keep both the transaction and capability
+outside the payload-visible namespace, bind quiescence to an empty payload cgroup
+plus a stopped broker and stopped managed descendants, and bind success and the
+pre-registered transaction to the independently owned watchdog lifecycle. It
+must also maintain a protected monotonic journal head so a stale, otherwise
+valid same-transaction journal cannot be replayed. Until that head exists, this
+core does not claim protection from arbitrary same-UID interference or stale
+same-transaction replay.
 
 For linked worktrees, the descriptor-copied `.git` pointer remains in the
 frozen worktree. A bounded pack containing the reachable HEAD ancestry plus

@@ -1,19 +1,35 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  commitPublication,
-  installPublication,
+  commitPublication as commitPublicationCore,
+  installPublication as installPublicationCore,
   preparePublication,
   readPublicationJournal,
-  recoverPublication,
+  recoverPublication as recoverPublicationCore,
   reservePublication,
-  rollbackPublication,
-  sealPublication,
+  rollbackPublication as rollbackPublicationCore,
+  sealPublication as sealPublicationCore,
 } from '../scripts/safe-runner/publication.mjs';
+
+const quiescence = {
+  quiescenceAuthority: { stopped: true },
+  validateQuiescenceAuthority: (authority) => authority.stopped === true,
+};
+const sealPublication = (handle, options = {}) => sealPublicationCore(handle,
+  { ...quiescence, ...options });
+const installPublication = (handle, options = {}) => installPublicationCore(handle,
+  { ...quiescence, ...options });
+const commitPublication = (handle, options = {}) => commitPublicationCore(handle,
+  { ...quiescence, ...options });
+const rollbackPublication = (handle, options = {}) => rollbackPublicationCore(handle,
+  { ...quiescence, ...options });
+const recoverPublication = (handle, options = {}) => recoverPublicationCore(handle,
+  { ...quiescence, ...options });
 
 const roots = [];
 const fixture = (name) => {
@@ -42,6 +58,43 @@ const crashAt = (expected) => (event) => {
 };
 
 try {
+  {
+    const item = fixture('capability-handle');
+    const reservation = reservePublication({ registry: item.registry });
+    assert.equal(Object.isFrozen(reservation), true);
+    assert.equal(Object.isFrozen(reservation.transaction_identity), true);
+    assert.equal(path.dirname(reservation.sentinel), reservation.registry);
+    assert.equal(reservation.sentinel.startsWith(`${reservation.transaction}${path.sep}`), false);
+    assert.equal(fs.readFileSync(reservation.sentinel, 'utf8').includes(reservation.capability), false);
+    assert.throws(() => readPublicationJournal(reservation.transaction), /full pre-registered capability/);
+    assert.throws(() => recoverPublicationCore(reservation), /quiescence authority/);
+    assert.equal(fs.existsSync(reservation.transaction), true);
+    recoverPublication(reservation);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('forged-no-journal-handle');
+    const reservation = reservePublication({ registry: item.registry });
+    const victim = path.join(item.root, 'victim');
+    fs.mkdirSync(victim);
+    fs.writeFileSync(path.join(victim, 'preserve.txt'), 'preserve');
+    const forged = {
+      ...reservation,
+      transaction: victim,
+      transaction_identity: {
+        dev: String(fs.lstatSync(victim, { bigint: true }).dev),
+        ino: String(fs.lstatSync(victim, { bigint: true }).ino),
+        uid: Number(fs.lstatSync(victim, { bigint: true }).uid),
+        mode: Number(fs.lstatSync(victim, { bigint: true }).mode & 0o777n),
+      },
+    };
+    assert.throws(() => recoverPublication(forged), /canonically registry-contained/);
+    assert.equal(fs.readFileSync(path.join(victim, 'preserve.txt'), 'utf8'), 'preserve');
+    recoverPublication(reservation);
+    noTransactions(item);
+  }
+
   {
     const item = fixture('pure-absent-file');
     const publication = begin(item, [
@@ -106,6 +159,7 @@ try {
     sealPublication(publication);
     installPublication(publication);
     installPublication(publication);
+    sealPublication(publication);
     commitPublication(publication, success);
     assert.equal(fs.readFileSync(path.join(target, 'plain.txt'), 'utf8'), 'changed');
     assert.equal(fs.lstatSync(path.join(target, 'run.sh')).mode & 0o777, 0o751);
@@ -208,6 +262,91 @@ try {
   }
 
   {
+    const item = fixture('before-old-hook-target-mutation');
+    const target = path.join(item.repository, 'out/value.txt');
+    fs.writeFileSync(target, 'old');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'copy-on-write' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    sealPublication(publication);
+    assert.throws(() => installPublication(publication, {
+      crashHook: (event) => {
+        if (event === 'before_old_rename:0') fs.writeFileSync(target, 'tampered');
+      },
+    }), /exact prestate changed before old save/);
+    fs.writeFileSync(target, 'old');
+    rollbackPublication(publication);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('before-new-hook-stage-mutation');
+    const target = path.join(item.repository, 'out/value.txt');
+    fs.writeFileSync(target, 'old');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'copy-on-write' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    sealPublication(publication);
+    assert.throws(() => installPublication(publication, {
+      crashHook: (event) => {
+        if (event === 'before_new_rename:0') {
+          fs.writeFileSync(publication.outputs[0].stage, 'tampered');
+        }
+      },
+    }), /sealed stage changed before install/);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    rollbackPublication(publication);
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old');
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('before-new-hook-parent-mutation');
+    const target = path.join(item.repository, 'out/value.txt');
+    const parent = path.dirname(target);
+    fs.writeFileSync(target, 'old');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'copy-on-write' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    sealPublication(publication);
+    assert.throws(() => installPublication(publication, {
+      crashHook: (event) => {
+        if (event === 'before_new_rename:0') fs.chmodSync(parent, 0o755);
+      },
+    }), /ancestor identity changed/);
+    fs.chmodSync(parent, 0o700);
+    rollbackPublication(publication);
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old');
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('post-old-rename-mismatch-preserved');
+    const target = path.join(item.repository, 'out/value.txt');
+    fs.writeFileSync(target, 'old');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'copy-on-write' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    sealPublication(publication);
+    const saved = path.join(publication.transaction, 'old/0/payload');
+    assert.throws(() => installPublication(publication, {
+      crashHook: (event) => {
+        if (event === 'after_old_rename:0') fs.writeFileSync(saved, 'corrupted');
+      },
+    }), /saved prestate changed after old save/);
+    assert.equal(fs.existsSync(target), false);
+    assert.equal(fs.existsSync(publication.transaction), true);
+    fs.writeFileSync(saved, 'old');
+    recoverPublication(publication);
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old');
+    noTransactions(item);
+  }
+
+  {
     const item = fixture('directory-old-rename-crash');
     const target = path.join(item.repository, 'out/tree');
     fs.mkdirSync(target);
@@ -266,6 +405,28 @@ try {
     assert.equal(fs.existsSync(publication.transaction), true);
     fs.writeFileSync(target, 'old');
     recoverPublication(publication);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('rollback-monotonic');
+    const target = path.join(item.repository, 'out/value.txt');
+    fs.writeFileSync(target, 'old');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'copy-on-write' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    sealPublication(publication);
+    installPublication(publication);
+    assert.throws(() => rollbackPublication(publication, {
+      crashHook: crashAt('after_rollback_started_write'),
+    }), /crash:after_rollback_started_write/);
+    assert.equal(readPublicationJournal(publication).rollback_started, true);
+    assert.throws(() => commitPublication(publication, success), /refuses after rollback has started/);
+    assert.throws(() => installPublication(publication), /refuses after rollback has started/);
+    assert.throws(() => sealPublication(publication), /refuses after rollback has started/);
+    recoverPublication(publication, success);
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old');
     noTransactions(item);
   }
 
@@ -342,6 +503,7 @@ try {
     sealPublication(publication);
     installPublication(publication);
     fs.writeFileSync(target, 'tampered');
+    assert.throws(() => installPublication(publication), /installed state is ambiguous/);
     assert.throws(() => recoverPublication(publication), /unknown target|recorded new state|prestate/);
   }
 
@@ -397,6 +559,38 @@ try {
   }
 
   {
+    const item = fixture('journal-capability-binding');
+    const first = begin(item, [
+      { target: 'out/first.txt', type: 'file', mode: 'pure-output' },
+    ]);
+    const second = begin(item, [
+      { target: 'out/second.txt', type: 'file', mode: 'pure-output' },
+    ]);
+    const firstJournal = fs.readFileSync(path.join(first.transaction, 'journal.json'));
+    const secondJournalPath = path.join(second.transaction, 'journal.json');
+    const secondJournal = fs.readFileSync(secondJournalPath);
+    fs.writeFileSync(secondJournalPath, firstJournal);
+    assert.throws(() => readPublicationJournal(second), /journal authentication failed/);
+
+    const forged = JSON.parse(firstJournal.toString('utf8'));
+    const secondRecord = JSON.parse(secondJournal.toString('utf8'));
+    forged.body.transactionId = secondRecord.body.transactionId;
+    forged.body.transaction = secondRecord.body.transaction;
+    forged.body.registry = secondRecord.body.registry;
+    forged.body.transaction_identity = secondRecord.body.transaction_identity;
+    forged.body.registry_identity = secondRecord.body.registry_identity;
+    forged.mac = crypto.createHash('sha256').update(JSON.stringify(forged.body)).digest('hex');
+    forged.checksum = forged.mac;
+    fs.writeFileSync(secondJournalPath, `${JSON.stringify(forged)}\n`);
+    assert.throws(() => readPublicationJournal(second), /journal authentication failed/);
+
+    fs.writeFileSync(secondJournalPath, secondJournal);
+    rollbackPublication(first);
+    rollbackPublication(second);
+    noTransactions(item);
+  }
+
+  {
     const item = fixture('multi-link-journal');
     const publication = begin(item, [
       { target: 'out/value.txt', type: 'file', mode: 'pure-output' },
@@ -441,6 +635,19 @@ try {
     construct(publication.outputs[0].stage);
     assert.throws(() => sealPublication(publication), pattern);
     rollbackPublication(publication);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('output-bound');
+    const reservation = reservePublication({ registry: item.registry });
+    const outputs = Array.from({ length: 257 }, (_, index) => ({
+      target: `out/value-${index}.txt`, type: 'file', mode: 'pure-output',
+    }));
+    assert.throws(() => preparePublication({
+      repository: item.repository, reservation, outputs,
+    }), /hard 256-output bound/);
+    assert.equal(recoverPublication(reservation).status, 'absent');
     noTransactions(item);
   }
 

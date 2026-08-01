@@ -2,14 +2,24 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const JOURNAL_SCHEMA = 'lamina.safe-runner-publication/v1';
+const JOURNAL_SCHEMA = 'lamina.safe-runner-publication/v2';
+const SENTINEL_SCHEMA = 'lamina.safe-runner-publication-capability/v1';
 const MAX_JOURNAL_BYTES = 1024 * 1024;
+const MAX_SENTINEL_BYTES = 16 * 1024;
+const MAX_OUTPUTS = 256;
 const HARD_LIMITS = Object.freeze({
   maxBytes: 512 * 1024 ** 2,
   maxInodes: 16_384,
   maxDepth: 64,
 });
 const STATES = new Set(['prepared', 'old_saved', 'new_installed', 'committed']);
+const CLEANUP_FIXED_INODES = 3 + 1 + 1 + 1; // transaction/stage/old + journal + temp + sentinel
+const CLEANUP_SLOT_INODES = MAX_OUTPUTS * 2;
+const CLEANUP_PAYLOAD_INODES = HARD_LIMITS.maxInodes * 2; // staged new + saved old
+const CLEANUP_MAX_INODES = CLEANUP_FIXED_INODES + CLEANUP_SLOT_INODES
+  + CLEANUP_PAYLOAD_INODES;
+const CLEANUP_MAX_BYTES = HARD_LIMITS.maxBytes * 2 + MAX_JOURNAL_BYTES * 2
+  + MAX_SENTINEL_BYTES;
 
 function sameUser(stat) {
   return typeof process.getuid !== 'function' || Number(stat.uid) === process.getuid();
@@ -43,19 +53,118 @@ function physicalOwnedDirectory(candidate, label) {
   return { path: physical, identity: identity(stat), dev: String(stat.dev) };
 }
 
-function transactionPath(value) {
-  return path.resolve(typeof value === 'string' ? value : value?.transaction || '');
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const item of Object.values(value)) deepFreeze(item);
+    Object.freeze(value);
+  }
+  return value;
 }
 
-function transactionReservation(value) {
-  if (!value || typeof value === 'string' || !value.transaction_identity
-    || !value.registry || !value.registry_identity) {
-    throw new Error('publication cleanup requires its pre-registered transaction identity');
+function capabilityKey(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value)) {
+    throw new Error('publication requires its full pre-registered capability handle');
   }
-  return {
-    transaction: path.resolve(value.transaction), transaction_identity: value.transaction_identity,
-    registry: path.resolve(value.registry), registry_identity: value.registry_identity,
+  const key = Buffer.from(value, 'base64url');
+  if (key.length !== 32) throw new Error('publication capability is invalid');
+  return key;
+}
+
+function recordMac(schema, body, capability) {
+  return crypto.createHmac('sha256', capabilityKey(capability))
+    .update(JSON.stringify({ schema, body })).digest('hex');
+}
+
+function safeEqualHex(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string'
+    || !/^[a-f0-9]{64}$/.test(left) || !/^[a-f0-9]{64}$/.test(right)) return false;
+  return crypto.timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'));
+}
+
+function readBoundedPhysicalFile(file, maximum, label, expectedIdentity = null) {
+  const stat = fs.lstatSync(file, { bigint: true });
+  if (!stat.isFile() || stat.isSymbolicLink() || !sameUser(stat) || stat.nlink !== 1n
+    || stat.size > BigInt(maximum) || (expectedIdentity && !sameIdentity(stat, expectedIdentity))) {
+    throw new Error(`${label} is not its bounded physical same-user file`);
+  }
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.size !== stat.size
+      || opened.nlink !== 1n) throw new Error(`${label} changed while opening`);
+    const bytes = Buffer.alloc(Number(opened.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (count === 0) break;
+      offset += count;
+    }
+    const final = fs.fstatSync(descriptor, { bigint: true });
+    if (offset !== bytes.length || final.dev !== opened.dev || final.ino !== opened.ino
+      || final.size !== opened.size || final.nlink !== 1n) {
+      throw new Error(`${label} changed while reading`);
+    }
+    return bytes;
+  } finally { fs.closeSync(descriptor); }
+}
+
+function validateCapabilityHandle(value, { allowCompleted = false } = {}) {
+  if (!value || typeof value !== 'object' || typeof value.transactionId !== 'string'
+    || !value.transaction_identity || !value.registry_identity || !value.sentinel_identity) {
+    throw new Error('publication requires its full pre-registered capability handle');
+  }
+  const capability = value.capability;
+  capabilityKey(capability);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value.transactionId)) {
+    throw new Error('publication transaction id is invalid');
+  }
+  const registry = path.resolve(value.registry || '');
+  const transaction = path.resolve(value.transaction || '');
+  const expectedTransaction = path.join(registry, `publication-${value.transactionId}`);
+  const sentinel = path.resolve(value.sentinel || '');
+  const expectedSentinel = path.join(registry, `.publication-${value.transactionId}.capability`);
+  if (transaction !== expectedTransaction || path.dirname(transaction) !== registry
+    || sentinel !== expectedSentinel || path.dirname(sentinel) !== registry) {
+    throw new Error('publication capability paths are not canonically registry-contained');
+  }
+  const transactionPresent = presence(transaction);
+  const sentinelPresent = presence(sentinel);
+  if (!transactionPresent && !sentinelPresent && allowCompleted) {
+    return { ...value, registry, transaction, sentinel, completed: true };
+  }
+  if (!sentinelPresent) throw new Error('publication capability sentinel is absent');
+  const registryAuthority = physicalOwnedDirectory(registry, 'publication registry');
+  if (!sameRecordedIdentity(registryAuthority.identity, value.registry_identity)) {
+    throw new Error('publication registry capability identity changed');
+  }
+  let record;
+  try {
+    record = JSON.parse(readBoundedPhysicalFile(sentinel, MAX_SENTINEL_BYTES,
+      'publication capability sentinel', value.sentinel_identity).toString('utf8'));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error('publication capability sentinel JSON is invalid');
+    throw error;
+  }
+  const expectedBody = {
+    transactionId: value.transactionId, transaction, registry,
+    transaction_identity: value.transaction_identity,
+    registry_identity: value.registry_identity,
+    capability_digest: crypto.createHash('sha256').update(capabilityKey(capability)).digest('hex'),
   };
+  if (record.schema !== SENTINEL_SCHEMA
+    || JSON.stringify(record.body) !== JSON.stringify(expectedBody)
+    || !safeEqualHex(record.mac, recordMac(SENTINEL_SCHEMA, record.body, capability))) {
+    throw new Error('publication capability sentinel authentication failed');
+  }
+  if (transactionPresent) {
+    const transactionStat = fs.lstatSync(transaction, { bigint: true });
+    if (!transactionStat.isDirectory() || transactionStat.isSymbolicLink()
+      || !sameUser(transactionStat)
+      || !sameIdentity(transactionStat, value.transaction_identity)) {
+      throw new Error('publication transaction capability identity changed');
+    }
+  }
+  return { ...value, registry, transaction, sentinel, completed: false };
 }
 
 export function reservePublication({ registry, transactionId = crypto.randomUUID() }) {
@@ -64,12 +173,40 @@ export function reservePublication({ registry, transactionId = crypto.randomUUID
     throw new Error('publication transaction id is invalid');
   }
   const transaction = path.join(authority.path, `publication-${transactionId}`);
+  const sentinel = path.join(authority.path, `.publication-${transactionId}.capability`);
+  const sentinelTemporary = path.join(authority.path,
+    `.publication-${transactionId}-${crypto.randomUUID()}.capability.tmp`);
+  const capability = crypto.randomBytes(32).toString('base64url');
   fs.mkdirSync(transaction, { mode: 0o700 });
-  fsyncDirectory(authority.path);
-  return Object.freeze({
-    transaction, transaction_identity: identity(fs.lstatSync(transaction, { bigint: true })),
-    registry: authority.path, registry_identity: authority.identity,
-  });
+  try {
+    const transactionIdentity = identity(fs.lstatSync(transaction, { bigint: true }));
+    const body = {
+      transactionId, transaction, registry: authority.path,
+      transaction_identity: transactionIdentity, registry_identity: authority.identity,
+      capability_digest: crypto.createHash('sha256').update(capabilityKey(capability)).digest('hex'),
+    };
+    const bytes = Buffer.from(`${JSON.stringify({ schema: SENTINEL_SCHEMA, body,
+      mac: recordMac(SENTINEL_SCHEMA, body, capability) })}\n`);
+    const descriptor = fs.openSync(sentinelTemporary, fs.constants.O_CREAT | fs.constants.O_EXCL
+      | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o600);
+    try {
+      fs.writeFileSync(descriptor, bytes);
+      fs.fsyncSync(descriptor);
+    } finally { fs.closeSync(descriptor); }
+    fs.renameSync(sentinelTemporary, sentinel);
+    fsyncDirectory(authority.path);
+    return deepFreeze({
+      transactionId, transaction, transaction_identity: transactionIdentity,
+      registry: authority.path, registry_identity: authority.identity,
+      sentinel, sentinel_identity: identity(fs.lstatSync(sentinel, { bigint: true })), capability,
+    });
+  } catch (error) {
+    try { fs.unlinkSync(sentinelTemporary); } catch {}
+    try { fs.unlinkSync(sentinel); } catch {}
+    try { fs.rmdirSync(transaction); } catch {}
+    try { fsyncDirectory(authority.path); } catch {}
+    throw error;
+  }
 }
 
 function boundedLimits(values = {}) {
@@ -328,10 +465,6 @@ function validateAncestors(journal, output) {
   }
 }
 
-function bodyChecksum(body) {
-  return crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
-}
-
 function journalPath(transaction) {
   return path.join(path.resolve(transaction), 'journal.json');
 }
@@ -343,6 +476,7 @@ function recordedIdentityShape(value) {
 
 function validateJournalStructure(body) {
   if (!body || !Array.isArray(body.outputs) || body.outputs.length === 0
+    || body.outputs.length > MAX_OUTPUTS || typeof body.transactionId !== 'string'
     || typeof body.repository !== 'string' || path.resolve(body.repository) !== body.repository
     || typeof body.registry !== 'string' || path.resolve(body.registry) !== body.registry
     || typeof body.transaction !== 'string' || path.resolve(body.transaction) !== body.transaction
@@ -352,6 +486,13 @@ function validateJournalStructure(body) {
     || !recordedIdentityShape(body.stage_root_identity)
     || !recordedIdentityShape(body.old_root_identity)) {
     throw new Error('publication journal structure is invalid');
+  }
+  if ((body.rollback_started !== undefined && typeof body.rollback_started !== 'boolean')
+    || (body.rollback_restored !== undefined && typeof body.rollback_restored !== 'boolean')
+    || (body.rollback_restored && !body.rollback_started)
+    || (body.state === 'committed' && (body.rollback_started || body.rollback_restored))
+    || (body.state !== 'prepared' && body.sealed !== true)) {
+    throw new Error('publication journal transition structure is invalid');
   }
   boundedLimits(body.limits);
   const targets = [];
@@ -394,12 +535,13 @@ function validateJournalStructure(body) {
   }
 }
 
-function writeJournal(transaction, body) {
+function writeJournal(handle, body) {
+  const authority = validateCapabilityHandle(handle);
   if (!STATES.has(body.state)) throw new Error('invalid publication journal state');
   const value = Buffer.from(`${JSON.stringify({ schema: JOURNAL_SCHEMA, body,
-    checksum: bodyChecksum(body) })}\n`);
+    mac: recordMac(JOURNAL_SCHEMA, body, authority.capability) })}\n`);
   if (value.length > MAX_JOURNAL_BYTES) throw new Error('publication journal exceeds its bound');
-  const temporary = path.join(transaction, `.journal-${crypto.randomUUID()}.tmp`);
+  const temporary = path.join(authority.transaction, `.journal-${crypto.randomUUID()}.tmp`);
   let descriptor = fs.openSync(temporary, fs.constants.O_CREAT | fs.constants.O_EXCL
     | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o600);
   try {
@@ -407,61 +549,45 @@ function writeJournal(transaction, body) {
     fs.fsyncSync(descriptor);
   } finally { fs.closeSync(descriptor); }
   try {
-    fs.renameSync(temporary, journalPath(transaction));
-    fsyncDirectory(transaction);
+    fs.renameSync(temporary, journalPath(authority.transaction));
+    fsyncDirectory(authority.transaction);
   } catch (error) {
     try { fs.unlinkSync(temporary); } catch {}
     throw error;
   }
 }
 
-function readJournal(transaction, optional = false) {
-  const file = journalPath(transaction);
-  let stat;
-  try { stat = fs.lstatSync(file, { bigint: true }); } catch (error) {
+function readJournal(handle, optional = false) {
+  const authority = validateCapabilityHandle(handle, { allowCompleted: optional });
+  if (authority.completed || !presence(authority.transaction)) {
+    if (optional) return null;
+    throw new Error('publication transaction is absent');
+  }
+  const file = journalPath(authority.transaction);
+  let bytes;
+  try {
+    bytes = readBoundedPhysicalFile(file, MAX_JOURNAL_BYTES, 'publication journal');
+  } catch (error) {
     if (optional && error.code === 'ENOENT') {
-      if (!presence(transaction)) return null;
       const missing = new Error('publication journal is absent from registered transaction');
       missing.code = 'LAMINA_PUBLICATION_JOURNAL_ABSENT';
       throw missing;
     }
     throw error;
   }
-  if (!stat.isFile() || stat.isSymbolicLink() || !sameUser(stat)
-    || stat.nlink !== 1n || stat.size > BigInt(MAX_JOURNAL_BYTES)) {
-    throw new Error('publication journal is not a bounded physical same-user file');
-  }
-  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  let bytes;
-  try {
-    const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.size !== stat.size
-      || opened.nlink !== 1n) {
-      throw new Error('publication journal changed while opening');
-    }
-    bytes = Buffer.alloc(Number(opened.size));
-    let offset = 0;
-    while (offset < bytes.length) {
-      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
-      if (count === 0) break;
-      offset += count;
-    }
-    const final = fs.fstatSync(descriptor, { bigint: true });
-    if (offset !== bytes.length || final.dev !== opened.dev || final.ino !== opened.ino
-      || final.size !== opened.size || final.nlink !== 1n) {
-      throw new Error('publication journal changed while reading');
-    }
-  } finally { fs.closeSync(descriptor); }
   let record;
   try { record = JSON.parse(bytes.toString('utf8')); }
   catch { throw new Error('publication journal JSON is invalid'); }
   if (record.schema !== JOURNAL_SCHEMA || !record.body || !STATES.has(record.body.state)
-    || record.checksum !== bodyChecksum(record.body)) {
-    throw new Error('publication journal integrity check failed');
+    || !safeEqualHex(record.mac, recordMac(JOURNAL_SCHEMA, record.body, authority.capability))) {
+    throw new Error('publication journal authentication failed');
   }
   validateJournalStructure(record.body);
-  const resolved = path.resolve(transaction);
-  if (record.body.transaction !== resolved || path.dirname(resolved) !== record.body.registry) {
+  const resolved = authority.transaction;
+  if (record.body.transactionId !== authority.transactionId
+    || record.body.transaction !== resolved || record.body.registry !== authority.registry
+    || !sameRecordedIdentity(record.body.transaction_identity, authority.transaction_identity)
+    || !sameRecordedIdentity(record.body.registry_identity, authority.registry_identity)) {
     throw new Error('publication journal transaction binding changed');
   }
   const transactionStat = fs.lstatSync(resolved, { bigint: true });
@@ -519,63 +645,77 @@ function crash(hook, event, journal) {
   }
 }
 
-function removeOwnedTransaction(value, crashHook = null) {
-  const reservation = transactionReservation(value);
-  if (!presence(reservation.transaction)) return;
-  const registryStat = fs.lstatSync(reservation.registry, { bigint: true });
-  if (!registryStat.isDirectory() || registryStat.isSymbolicLink()
-    || !sameIdentity(registryStat, reservation.registry_identity)) {
-    throw new Error('publication registry identity changed before cleanup');
+function validateQuiescence(authority, validator, journal = null) {
+  if (authority === undefined || typeof validator !== 'function'
+    || validator(authority, journal ? structuredClone(journal) : null) !== true) {
+    throw new Error('publication operation requires explicitly validated quiescence authority');
   }
-  const rootStat = fs.lstatSync(reservation.transaction, { bigint: true });
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()
-    || !sameIdentity(rootStat, reservation.transaction_identity) || !sameUser(rootStat)) {
-    throw new Error('publication transaction identity changed before cleanup');
-  }
-  const counter = { inodes: 0, bytes: 0 };
-  const walk = (current, relative, depth, expectedRoot = false) => {
-    if (depth > HARD_LIMITS.maxDepth + 4) {
-      throw new Error('publication cleanup exceeds its hard depth');
-    }
-    const stat = fs.lstatSync(current, { bigint: true });
-    if (!sameUser(stat) || String(stat.dev) !== String(rootStat.dev)
-      || (expectedRoot && !sameIdentity(stat, reservation.transaction_identity))) {
-      throw new Error(`publication cleanup object escapes recorded identity: ${relative}`);
-    }
-    counter.inodes += 1;
-    if (stat.isFile()) counter.bytes += Number(stat.size);
-    if (counter.inodes > HARD_LIMITS.maxInodes + 1024
-      || counter.bytes > HARD_LIMITS.maxBytes + MAX_JOURNAL_BYTES * 4) {
-      throw new Error('publication cleanup exceeds its hard transaction bound');
-    }
-    if (stat.isDirectory() && !stat.isSymbolicLink()) {
-      const names = boundedSortedNames(current,
-        HARD_LIMITS.maxInodes + 1024 - counter.inodes, 'publication cleanup')
-        .sort((left, right) => {
-        if (left === 'journal.json') return 1;
-        if (right === 'journal.json') return -1;
-        return left.localeCompare(right);
-      });
-      for (const name of names) walk(path.join(current, name),
-        relative === '.' ? name : `${relative}/${name}`, depth + 1);
-    }
-    crash(crashHook, `before_cleanup_remove:${relative}`, { transaction: reservation.transaction });
-    const currentStat = fs.lstatSync(current, { bigint: true });
-    if (String(currentStat.dev) !== String(stat.dev) || String(currentStat.ino) !== String(stat.ino)
-      || !sameUser(currentStat)) throw new Error(`publication cleanup identity raced: ${relative}`);
-    if (stat.isDirectory() && !stat.isSymbolicLink()) fs.rmdirSync(current);
-    else fs.unlinkSync(current);
-    crash(crashHook, `after_cleanup_remove:${relative}`, { transaction: reservation.transaction });
-  };
-  walk(reservation.transaction, '.', 0, true);
-  fsyncDirectory(reservation.registry);
 }
 
-function cleanupTransaction(journal, crashHook = null) {
-  removeOwnedTransaction({
-    transaction: journal.transaction, transaction_identity: journal.transaction_identity,
-    registry: journal.registry, registry_identity: journal.registry_identity,
-  }, crashHook);
+function removeOwnedTransaction(value, crashHook = null) {
+  const reservation = validateCapabilityHandle(value, { allowCompleted: true });
+  if (reservation.completed) return;
+  const recordedSentinelStat = fs.lstatSync(reservation.sentinel, { bigint: true });
+  if (presence(reservation.transaction)) {
+    const rootStat = fs.lstatSync(reservation.transaction, { bigint: true });
+    const counter = { inodes: 1, bytes: Number(recordedSentinelStat.size) };
+    const walk = (current, relative, depth, expectedRoot = false) => {
+      if (depth > HARD_LIMITS.maxDepth + 4) {
+        throw new Error('publication cleanup exceeds its hard depth');
+      }
+      const stat = fs.lstatSync(current, { bigint: true });
+      if (!sameUser(stat) || String(stat.dev) !== String(rootStat.dev)
+        || (expectedRoot && !sameIdentity(stat, reservation.transaction_identity))) {
+        throw new Error(`publication cleanup object escapes recorded identity: ${relative}`);
+      }
+      counter.inodes += 1;
+      if (stat.isFile()) counter.bytes += Number(stat.size);
+      if (counter.inodes > CLEANUP_MAX_INODES || counter.bytes > CLEANUP_MAX_BYTES) {
+        throw new Error('publication cleanup exceeds its hard transaction bound');
+      }
+      if (stat.isDirectory() && !stat.isSymbolicLink()) {
+        const names = boundedSortedNames(current,
+          CLEANUP_MAX_INODES - counter.inodes, 'publication cleanup')
+          .sort((left, right) => {
+          if (left === 'journal.json') return 1;
+          if (right === 'journal.json') return -1;
+          return left.localeCompare(right);
+        });
+        for (const name of names) walk(path.join(current, name),
+          relative === '.' ? name : `${relative}/${name}`, depth + 1);
+      }
+      crash(crashHook, `before_cleanup_remove:${relative}`,
+        { transaction: reservation.transaction });
+      const currentStat = fs.lstatSync(current, { bigint: true });
+      if (String(currentStat.dev) !== String(stat.dev)
+        || String(currentStat.ino) !== String(stat.ino) || !sameUser(currentStat)) {
+        throw new Error(`publication cleanup identity raced: ${relative}`);
+      }
+      if (stat.isDirectory() && !stat.isSymbolicLink()) fs.rmdirSync(current);
+      else fs.unlinkSync(current);
+      fsyncDirectory(path.dirname(current));
+      crash(crashHook, `after_cleanup_remove:${relative}`,
+        { transaction: reservation.transaction });
+    };
+    walk(reservation.transaction, '.', 0, true);
+    fsyncDirectory(reservation.registry);
+  }
+  validateCapabilityHandle(reservation, { allowCompleted: true });
+  crash(crashHook, 'before_cleanup_remove:capability-sentinel',
+    { transaction: reservation.transaction });
+  const sentinelStat = fs.lstatSync(reservation.sentinel, { bigint: true });
+  if (!sameIdentity(sentinelStat, reservation.sentinel_identity) || sentinelStat.nlink !== 1n
+    || !sentinelStat.isFile() || !sameUser(sentinelStat)) {
+    throw new Error('publication capability sentinel changed before cleanup');
+  }
+  fs.unlinkSync(reservation.sentinel);
+  fsyncDirectory(reservation.registry);
+  crash(crashHook, 'after_cleanup_remove:capability-sentinel',
+    { transaction: reservation.transaction });
+}
+
+function cleanupTransaction(handle, crashHook = null) {
+  removeOwnedTransaction(handle, crashHook);
 }
 
 function validateCommittedTargets(journal) {
@@ -600,11 +740,62 @@ function validateRestoredTargets(journal) {
   }
 }
 
+function refuseRollbackRace(journal, operation) {
+  if (journal.rollback_started || journal.rollback_restored) {
+    throw new Error(`publication ${operation} refuses after rollback has started`);
+  }
+}
+
+function validateStagedState(journal, expectedState) {
+  const limits = boundedLimits(journal.limits);
+  for (const output of journal.outputs) {
+    validateTransactionLayout(journal, output);
+    validateAncestors(journal, output);
+    const { target, stage, old } = outputPaths(journal, output);
+    if (expectedState === 'prepared') {
+      const targetIsPrestate = output.pre_manifest
+        ? exactManifest(target, output.pre_manifest, limits) : !presence(target);
+      const oldIsPrestate = output.pre_manifest
+        ? exactManifest(old, output.pre_manifest, limits) : !presence(old);
+      if (output.pre_manifest ? targetIsPrestate === oldIsPrestate
+        : !targetIsPrestate || !oldIsPrestate) {
+        throw new Error(`publication prepared state is ambiguous: ${output.target}`);
+      }
+      if (!exactManifest(stage, output.new_manifest, limits)) {
+        throw new Error(`sealed publication payload changed: ${output.target}`);
+      }
+      continue;
+    }
+    const oldIsPrestate = output.pre_manifest
+      ? exactManifest(old, output.pre_manifest, limits) : !presence(old);
+    if (!oldIsPrestate) throw new Error(`publication saved prestate changed: ${output.target}`);
+    if (expectedState === 'old_saved') {
+      const stageIsNew = exactManifest(stage, output.new_manifest, limits);
+      const targetIsNew = exactManifest(target, output.new_manifest, limits);
+      if (stageIsNew === targetIsNew) {
+        throw new Error(`publication old-saved state is ambiguous: ${output.target}`);
+      }
+      continue;
+    }
+    if (expectedState === 'new_installed'
+      && (!exactManifest(target, output.new_manifest, limits) || presence(stage))) {
+      throw new Error(`publication installed state is ambiguous: ${output.target}`);
+    }
+  }
+}
+
+function validateRollbackAuthority(journal) {
+  for (const output of journal.outputs) {
+    validateTransactionLayout(journal, output);
+    validateAncestors(journal, output);
+  }
+}
+
 export function preparePublication({
   repository, reservation: value, outputs, limits: values = {}, crashHook = null,
 }) {
   const repositoryAuthority = physicalOwnedDirectory(repository, 'publication repository');
-  const reservation = transactionReservation(value);
+  const reservation = validateCapabilityHandle(value);
   const registryAuthority = physicalOwnedDirectory(reservation.registry, 'publication registry');
   if (!sameRecordedIdentity(registryAuthority.identity, reservation.registry_identity)) {
     throw new Error('publication registry reservation identity changed');
@@ -624,6 +815,10 @@ export function preparePublication({
   const limits = boundedLimits(values);
   if (!Array.isArray(outputs) || outputs.length === 0) {
     throw new Error('publication requires explicit output descriptors');
+  }
+  if (outputs.length > MAX_OUTPUTS) {
+    try { removeOwnedTransaction(reservation); } catch {}
+    throw new Error(`publication exceeds its hard ${MAX_OUTPUTS}-output bound`);
   }
   const normalized = outputs.map((output, index) => {
     const target = String(output.target || '').replaceAll('\\', '/');
@@ -652,7 +847,8 @@ export function preparePublication({
     const stageRootStat = fs.lstatSync(path.join(transaction, 'stage'), { bigint: true });
     const oldRootStat = fs.lstatSync(path.join(transaction, 'old'), { bigint: true });
     const journal = {
-      state: 'prepared', sealed: false,
+      state: 'prepared', sealed: false, rollback_started: false, rollback_restored: false,
+      transactionId: reservation.transactionId,
       repository: repositoryAuthority.path, registry: registryAuthority.path, transaction,
       repository_identity: repositoryAuthority.identity,
       registry_identity: registryAuthority.identity,
@@ -710,15 +906,15 @@ export function preparePublication({
       });
     }
     crash(crashHook, 'before_initial_prepared_write', journal);
-    writeJournal(transaction, journal);
+    writeJournal(reservation, journal);
     crash(crashHook, 'after_initial_prepared_write', journal);
-    return {
+    return deepFreeze({
       ...reservation,
       outputs: journal.outputs.map((output) => ({
         target: output.target, type: output.type, mode: output.mode,
         stage: outputPaths(journal, output).stage,
       })),
-    };
+    });
   } catch (error) {
     if (!error.publicationCrash) {
       try { removeOwnedTransaction(reservation); } catch {}
@@ -727,16 +923,23 @@ export function preparePublication({
   }
 }
 
-export function sealPublication(transaction, { crashHook = null } = {}) {
-  const journal = readJournal(transactionPath(transaction));
-  if (journal.state !== 'prepared') return journal;
+export function sealPublication(handle, {
+  quiescenceAuthority, validateQuiescenceAuthority, crashHook = null,
+} = {}) {
+  const journal = readJournal(handle);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  refuseRollbackRace(journal, 'seal');
+  if (journal.state === 'committed') {
+    validateCommittedTargets(journal);
+    return journal;
+  }
+  if (journal.state !== 'prepared') {
+    validateStagedState(journal, journal.state);
+    return journal;
+  }
   const limits = boundedLimits(journal.limits);
   if (journal.sealed) {
-    for (const output of journal.outputs) {
-      if (!exactManifest(outputPaths(journal, output).stage, output.new_manifest, limits)) {
-        throw new Error(`sealed publication payload changed: ${output.target}`);
-      }
-    }
+    validateStagedState(journal, 'prepared');
     return journal;
   }
   const counter = { bytes: 0, inodes: 0 };
@@ -747,17 +950,35 @@ export function sealPublication(transaction, { crashHook = null } = {}) {
   }
   journal.sealed = true;
   crash(crashHook, 'before_sealed_prepared_write', journal);
-  writeJournal(journal.transaction, journal);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  validateStagedState(journal, 'prepared');
+  writeJournal(handle, journal);
   crash(crashHook, 'after_sealed_prepared_write', journal);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  validateStagedState(journal, 'prepared');
   return journal;
 }
 
-export function installPublication(transaction, { crashHook = null } = {}) {
-  const journal = readJournal(transactionPath(transaction));
-  if (journal.state === 'new_installed' || journal.state === 'committed') return journal;
+export function installPublication(handle, {
+  quiescenceAuthority, validateQuiescenceAuthority, crashHook = null,
+} = {}) {
+  const journal = readJournal(handle);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  refuseRollbackRace(journal, 'install');
+  if (journal.state === 'committed') {
+    validateCommittedTargets(journal);
+    return journal;
+  }
   if (!journal.sealed) throw new Error('publication payload must be sealed before install');
   const limits = boundedLimits(journal.limits);
-  for (const output of journal.outputs) validateAncestors(journal, output);
+  if (journal.state === 'new_installed') {
+    validateStagedState(journal, 'new_installed');
+    return journal;
+  }
+  if (!['prepared', 'old_saved'].includes(journal.state)) {
+    throw new Error(`publication cannot install from state ${journal.state}`);
+  }
+  validateStagedState(journal, journal.state);
   if (journal.state === 'prepared') {
     for (const [index, output] of journal.outputs.entries()) {
       validateTransactionLayout(journal, output);
@@ -776,15 +997,34 @@ export function installPublication(transaction, { crashHook = null } = {}) {
         throw new Error(`publication exact prestate changed: ${output.target}`);
       }
       crash(crashHook, `before_old_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (!exactManifest(target, output.pre_manifest, limits) || presence(old)) {
+        throw new Error(`publication exact prestate changed before old save: ${output.target}`);
+      }
       fs.renameSync(target, old);
       fsyncDirectory(path.dirname(target));
       fsyncDirectory(path.dirname(old));
+      if (presence(target) || !exactManifest(old, output.pre_manifest, limits)) {
+        throw new Error(`publication old save did not preserve exact prestate: ${output.target}`);
+      }
       crash(crashHook, `after_old_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (presence(target) || !exactManifest(old, output.pre_manifest, limits)) {
+        throw new Error(`publication saved prestate changed after old save: ${output.target}`);
+      }
     }
     crash(crashHook, 'before_old_saved_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateStagedState(journal, 'prepared');
     journal.state = 'old_saved';
-    writeJournal(journal.transaction, journal);
+    writeJournal(handle, journal);
     crash(crashHook, 'after_old_saved_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateStagedState(journal, 'old_saved');
   }
   if (journal.state === 'old_saved') {
     for (const [index, output] of journal.outputs.entries()) {
@@ -800,15 +1040,34 @@ export function installPublication(transaction, { crashHook = null } = {}) {
         throw new Error(`publication sealed stage changed: ${output.target}`);
       }
       crash(crashHook, `before_new_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (!exactManifest(stage, output.new_manifest, limits) || presence(target)) {
+        throw new Error(`publication sealed stage changed before install: ${output.target}`);
+      }
       fs.renameSync(stage, target);
       fsyncDirectory(path.dirname(stage));
       fsyncDirectory(path.dirname(target));
+      if (presence(stage) || !exactManifest(target, output.new_manifest, limits)) {
+        throw new Error(`publication install did not preserve sealed payload: ${output.target}`);
+      }
       crash(crashHook, `after_new_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (presence(stage) || !exactManifest(target, output.new_manifest, limits)) {
+        throw new Error(`publication installed target changed after rename: ${output.target}`);
+      }
     }
     crash(crashHook, 'before_new_installed_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateStagedState(journal, 'old_saved');
     journal.state = 'new_installed';
-    writeJournal(journal.transaction, journal);
+    writeJournal(handle, journal);
     crash(crashHook, 'after_new_installed_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateStagedState(journal, 'new_installed');
   }
   return journal;
 }
@@ -820,17 +1079,24 @@ function validatedSuccess(journal, successAuthority, validateSuccessAuthority) {
   }
 }
 
-export function commitPublication(transaction, {
-  successAuthority, validateSuccessAuthority, crashHook = null,
+export function commitPublication(handle, {
+  successAuthority, validateSuccessAuthority,
+  quiescenceAuthority, validateQuiescenceAuthority, crashHook = null,
 } = {}) {
-  const journal = readJournal(transactionPath(transaction), true);
-  if (!journal) return { status: 'absent' };
+  const journal = readJournal(handle, true);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  if (!journal) {
+    cleanupTransaction(handle, crashHook);
+    return { status: 'absent' };
+  }
+  refuseRollbackRace(journal, 'commit');
   if (journal.state === 'committed') {
     validateCommittedTargets(journal);
-    cleanupTransaction(journal, crashHook);
+    cleanupTransaction(handle, crashHook);
     return { status: 'committed' };
   }
   if (journal.state !== 'new_installed') throw new Error('publication is not installed');
+  validateStagedState(journal, 'new_installed');
   validatedSuccess(journal, successAuthority, validateSuccessAuthority);
   const limits = boundedLimits(journal.limits);
   for (const output of journal.outputs) {
@@ -842,28 +1108,43 @@ export function commitPublication(transaction, {
   journal.success_authority_digest = crypto.createHash('sha256')
     .update(JSON.stringify(successAuthority)).digest('hex');
   crash(crashHook, 'before_committed_write', journal);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  refuseRollbackRace(journal, 'commit');
+  validateStagedState(journal, 'new_installed');
   journal.state = 'committed';
-  writeJournal(journal.transaction, journal);
+  writeJournal(handle, journal);
   crash(crashHook, 'after_committed_write', journal);
-  cleanupTransaction(journal, crashHook);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  validateCommittedTargets(journal);
+  cleanupTransaction(handle, crashHook);
   return { status: 'committed' };
 }
 
-export function rollbackPublication(transaction, { crashHook = null } = {}) {
-  let journal = readJournal(transactionPath(transaction), true);
-  if (!journal) return { status: 'absent' };
+export function rollbackPublication(handle, {
+  quiescenceAuthority, validateQuiescenceAuthority, crashHook = null,
+} = {}) {
+  let journal = readJournal(handle, true);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  if (!journal) {
+    cleanupTransaction(handle, crashHook);
+    return { status: 'absent' };
+  }
   if (journal.state === 'committed') throw new Error('committed publication cannot roll back');
   if (journal.rollback_restored) {
     validateRestoredTargets(journal);
-    cleanupTransaction(journal, crashHook);
+    cleanupTransaction(handle, crashHook);
     return { status: 'rolled_back' };
   }
   const limits = boundedLimits(journal.limits);
   if (!journal.rollback_started) {
     crash(crashHook, 'before_rollback_started_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateRollbackAuthority(journal);
     journal.rollback_started = true;
-    writeJournal(journal.transaction, journal);
+    writeJournal(handle, journal);
     crash(crashHook, 'after_rollback_started_write', journal);
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+    validateRollbackAuthority(journal);
   }
   for (const [index, output] of journal.outputs.entries()) {
     validateTransactionLayout(journal, output);
@@ -875,10 +1156,25 @@ export function rollbackPublication(transaction, { crashHook = null } = {}) {
         throw new Error(`publication rollback stage is occupied: ${output.target}`);
       }
       crash(crashHook, `before_rollback_new_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (!exactManifest(target, output.new_manifest, limits) || presence(stage)) {
+        throw new Error(`publication installed target changed before rollback: ${output.target}`);
+      }
       fs.renameSync(target, stage);
       fsyncDirectory(path.dirname(target));
       fsyncDirectory(path.dirname(stage));
+      if (presence(target) || !exactManifest(stage, output.new_manifest, limits)) {
+        throw new Error(`publication rollback did not retain exact installed target: ${output.target}`);
+      }
       crash(crashHook, `after_rollback_new_rename:${index}`, journal);
+      validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+      validateTransactionLayout(journal, output);
+      validateAncestors(journal, output);
+      if (presence(target) || !exactManifest(stage, output.new_manifest, limits)) {
+        throw new Error(`publication rollback stage changed after rename: ${output.target}`);
+      }
     }
     if (output.pre_manifest) {
       if (presence(old)) {
@@ -889,10 +1185,25 @@ export function rollbackPublication(transaction, { crashHook = null } = {}) {
           throw new Error(`publication target blocks exact prestate restore: ${output.target}`);
         }
         crash(crashHook, `before_rollback_old_rename:${index}`, journal);
+        validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+        validateTransactionLayout(journal, output);
+        validateAncestors(journal, output);
+        if (!exactManifest(old, output.pre_manifest, limits) || presence(target)) {
+          throw new Error(`publication saved prestate changed before restore: ${output.target}`);
+        }
         fs.renameSync(old, target);
         fsyncDirectory(path.dirname(old));
         fsyncDirectory(path.dirname(target));
+        if (presence(old) || !exactManifest(target, output.pre_manifest, limits)) {
+          throw new Error(`publication rollback did not restore exact prestate: ${output.target}`);
+        }
         crash(crashHook, `after_rollback_old_rename:${index}`, journal);
+        validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+        validateTransactionLayout(journal, output);
+        validateAncestors(journal, output);
+        if (presence(old) || !exactManifest(target, output.pre_manifest, limits)) {
+          throw new Error(`publication restored target changed after rename: ${output.target}`);
+        }
       } else if (!exactManifest(target, output.pre_manifest, limits)) {
         throw new Error(`publication cannot locate exact prestate: ${output.target}`);
       }
@@ -904,38 +1215,53 @@ export function rollbackPublication(transaction, { crashHook = null } = {}) {
     }
   }
   crash(crashHook, 'before_rollback_restored_write', journal);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  validateRollbackAuthority(journal);
+  validateRestoredTargets(journal);
   journal.rollback_restored = true;
-  writeJournal(journal.transaction, journal);
+  writeJournal(handle, journal);
   crash(crashHook, 'after_rollback_restored_write', journal);
-  cleanupTransaction(journal, crashHook);
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  validateRestoredTargets(journal);
+  cleanupTransaction(handle, crashHook);
   return { status: 'rolled_back' };
 }
 
-export function recoverPublication(transaction, {
-  successAuthority, validateSuccessAuthority, crashHook = null,
+export function recoverPublication(handle, {
+  successAuthority, validateSuccessAuthority,
+  quiescenceAuthority, validateQuiescenceAuthority, crashHook = null,
 } = {}) {
   let journal;
-  try { journal = readJournal(transactionPath(transaction), true); }
+  try { journal = readJournal(handle, true); }
   catch (error) {
     if (error.code !== 'LAMINA_PUBLICATION_JOURNAL_ABSENT'
-      || !presence(transactionPath(transaction))) throw error;
-    removeOwnedTransaction(transaction, crashHook);
+      || !presence(validateCapabilityHandle(handle).transaction)) throw error;
+    validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, null);
+    removeOwnedTransaction(handle, crashHook);
     return { status: 'discarded_prepare' };
   }
-  if (!journal) return { status: 'absent' };
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
+  if (!journal) {
+    cleanupTransaction(handle, crashHook);
+    return { status: 'absent' };
+  }
   if (journal.state === 'committed') {
     validateCommittedTargets(journal);
-    cleanupTransaction(journal, crashHook);
+    cleanupTransaction(handle, crashHook);
     return { status: 'committed' };
   }
-  if (journal.state === 'new_installed' && successAuthority !== undefined) {
-    return commitPublication(transaction, {
-      successAuthority, validateSuccessAuthority, crashHook,
+  if (!journal.rollback_started && !journal.rollback_restored
+    && journal.state === 'new_installed' && successAuthority !== undefined) {
+    return commitPublication(handle, {
+      successAuthority, validateSuccessAuthority,
+      quiescenceAuthority, validateQuiescenceAuthority, crashHook,
     });
   }
-  return rollbackPublication(transaction, { crashHook });
+  return rollbackPublication(handle, {
+    quiescenceAuthority, validateQuiescenceAuthority, crashHook,
+  });
 }
 
-export function readPublicationJournal(transaction) {
-  return structuredClone(readJournal(transactionPath(transaction)));
+export function readPublicationJournal(handle) {
+  return structuredClone(readJournal(handle));
 }
