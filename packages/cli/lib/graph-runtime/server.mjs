@@ -21,14 +21,27 @@ const socketPath = graphSocketPath(paths);
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
 const authToken = ensureAuthToken(paths);
 
+function daemonLockIdentity() {
+  let startTicks = null;
+  if (process.platform === 'linux') {
+    try {
+      const stat = fs.readFileSync('/proc/self/stat', 'utf8');
+      const close = stat.lastIndexOf(')');
+      startTicks = stat.slice(close + 2).trim().split(/\s+/)[19] || null;
+    } catch {}
+  }
+  return {
+    pid: process.pid,
+    start_ticks: startTicks,
+    protocol_version: GRAPH_PROTOCOL_VERSION,
+    runtime_version: CLI_VERSION,
+    capabilities: GRAPH_CAPABILITIES,
+  };
+}
+
 function acquireLock() {
   try {
-    fs.writeFileSync(paths.lock, `${JSON.stringify({
-      pid: process.pid,
-      protocol_version: GRAPH_PROTOCOL_VERSION,
-      runtime_version: CLI_VERSION,
-      capabilities: GRAPH_CAPABILITIES,
-    })}\n`, { flag: 'wx', mode: 0o600 });
+    fs.writeFileSync(paths.lock, `${JSON.stringify(daemonLockIdentity())}\n`, { flag: 'wx', mode: 0o600 });
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
     const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
@@ -37,12 +50,7 @@ function acquireLock() {
       process.exit(2);
     }
     fs.unlinkSync(paths.lock);
-    fs.writeFileSync(paths.lock, `${JSON.stringify({
-      pid: process.pid,
-      protocol_version: GRAPH_PROTOCOL_VERSION,
-      runtime_version: CLI_VERSION,
-      capabilities: GRAPH_CAPABILITIES,
-    })}\n`, { flag: 'wx', mode: 0o600 });
+    fs.writeFileSync(paths.lock, `${JSON.stringify(daemonLockIdentity())}\n`, { flag: 'wx', mode: 0o600 });
   }
 }
 

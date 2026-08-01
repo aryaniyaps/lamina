@@ -57,6 +57,7 @@ import {
   clearRunAttempt,
   recordSafetyLimit,
   promotionCommandDigest,
+  promotionImplementationDigest,
   productionLockDirectory,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
@@ -91,12 +92,23 @@ try {
   const ownedRuntimeIdentity = ownedDirectoryIdentity(ownedRuntime);
   const ownedSocket = path.join(ownedRuntime, 'graphd.sock');
   const ownedLock = path.join(ownedRuntime, 'graphd.lock');
+  const ownedGraphd = { pid: 42001, start_ticks: 'owned-start' };
   fs.writeFileSync(ownedSocket, 'stale socket');
-  fs.writeFileSync(ownedLock, 'stale lock');
+  fs.writeFileSync(ownedLock, JSON.stringify({
+    pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
+  }));
   assert.deepEqual(removeOwnedRuntimePaths([
-    { path: ownedSocket, parent_identity: ownedRuntimeIdentity },
-    { path: ownedLock, parent_identity: ownedRuntimeIdentity },
+    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
   ]), []);
+  fs.writeFileSync(ownedSocket, 'different graphd socket');
+  fs.writeFileSync(ownedLock, JSON.stringify({ pid: ownedGraphd.pid, start_ticks: 'different-start' }));
+  assert.deepEqual(removeOwnedRuntimePaths([
+    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+  ]).sort(), [ownedLock, ownedSocket].sort(), 'another graphd identity must never be deleted');
+  fs.rmSync(ownedSocket);
+  fs.rmSync(ownedLock);
   const protectedFile = path.join(root, 'protected-file');
   fs.writeFileSync(protectedFile, 'preserve');
   fs.symlinkSync(protectedFile, ownedSocket);
@@ -223,6 +235,9 @@ try {
   assert.equal(commandOwnership(['harbor', 'run']).proven, false);
   assert.equal(commandOwnership(['/bin/sh', '-c', 'docker run image']).proven, false);
   assert.equal(commandOwnership(['npm', 'exec', '--', 'podman', 'run']).proven, false);
+  assert.equal(commandOwnership(['npx', 'agent-skills-eval', '--config', 'evals/agent-skills-eval.yaml']).proven, true);
+  assert.equal(commandOwnership(['npx', '--call=docker run image', 'agent-skills-eval']).proven, false);
+  assert.equal(commandOwnership(['npx', '-c', 'docker run image', 'promptfoo']).proven, false);
   const wrapper = path.join(root, 'wrapper.sh');
   fs.writeFileSync(wrapper, '#!/bin/sh\nexec harbor run "$@"\n');
   assert.equal(commandOwnership(['/bin/sh', wrapper], root).proven, false);
@@ -527,6 +542,27 @@ try {
   assert.equal(brokerRegistrations.length, 1);
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, {
+    ...authority,
+    arguments: () => [process.execPath, '-e', 'setInterval(() => {}, 1000)', graphdServer, brokerRoot],
+  }).ok, false, 'a graphd-looking argument must not replace the executed script position');
+  fs.writeFileSync(brokerLock, JSON.stringify({ pid: 99999, start_ticks: 'other-graphd' }));
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, authority).ok, false, 'a pre-existing graphd lock must match the registered child identity');
+  fs.rmSync(brokerLock);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },
     root: brokerRoot,
     runtime_dir: brokerRuntime,
@@ -550,7 +586,7 @@ try {
     socket: path.join(root, 'unrelated-runtime', 'graphd.sock'),
     lock: path.join(root, 'unrelated-runtime', 'graphd.lock'),
   }, authority).ok, false, 'watchdog paths must be derived from the declared graph root');
-  assert.equal(brokerRegistrations[0].runtime_identity.path, brokerRuntime);
+  assert.equal(brokerRegistrations[0].runtime_identity.path, fs.realpathSync.native(brokerRuntime));
   assert.equal(
     classifyRemainingDescendants(managedRegistrations, [graphdRecord, graphdWorker]).kind,
     'managed_graphd',
@@ -588,16 +624,25 @@ try {
 
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
   assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
-  recordPromotion(root, 'small', report, 'unit-workload');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', report.command).ok, true);
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [...report.command, '--changed']).ok, false);
-  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload', report.command).ok, false);
-  assert.equal(promotionCommandDigest(report.command), promotionCommandDigest(redactCommand(report.command)));
-  const changedPromotion = structuredClone(report);
+  const promotionScript = path.join(root, 'promotion-workload.mjs');
+  fs.writeFileSync(promotionScript, 'process.exit(0);\n');
+  const promotionReport = structuredClone(report);
+  promotionReport.command = [process.execPath, promotionScript];
+  recordPromotion(root, 'small', promotionReport, 'unit-workload');
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', promotionReport.command).ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [...promotionReport.command, '--changed']).ok, false);
+  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload', promotionReport.command).ok, false);
+  assert.equal(promotionCommandDigest(promotionReport.command), promotionCommandDigest(redactCommand(promotionReport.command)));
+  const initialImplementation = promotionImplementationDigest(root, promotionReport.command);
+  fs.writeFileSync(promotionScript, 'process.exit(1);\n');
+  assert.notEqual(promotionImplementationDigest(root, promotionReport.command), initialImplementation);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', promotionReport.command).ok, false,
+    'changing the implementation behind the same argv must invalidate promotion');
+  const changedPromotion = structuredClone(promotionReport);
   changedPromotion.command.push('--changed');
   assert.throws(
     () => recordPromotion(root, 'medium', changedPromotion, 'unit-workload'),
-    /already bound to a different command/,
+    /already bound to a different command or implementation/,
   );
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
@@ -612,6 +657,14 @@ try {
   recordSafetyLimit(root, otherLimitedReport.command, report.limits, otherLimitedReport);
   assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false,
     'recording another failed workload must retain prior retry fences');
+  for (let index = 0; index < 129; index += 1) {
+    const boundedCommand = ['node', '-e', `ledger-${index}`];
+    recordSafetyLimit(root, boundedCommand, report.limits, {
+      ...limitedReport, run_id: `ledger-${index}`, command: boundedCommand,
+    });
+  }
+  assert.equal(checkSafetyRetry(root, ['node', '-e', 'ledger-0'], report.limits).ok, false,
+    'later distinct failures must never evict an earlier retry fence');
   const activeCommand = [...report.command, '--controller-may-crash'];
   recordRunAttempt(root, activeCommand, report.limits, report);
   assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, false);

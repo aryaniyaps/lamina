@@ -52,7 +52,8 @@ export function commandOwnership(command = [], cwd = process.cwd()) {
     && path.resolve(cwd) === ROOT
     && normalized[1] === 'run' && AUDITED_NPM_SCRIPTS.has(normalized[2]);
   const npx = /^(?:npx|npx\.cmd)$/i.test(executable)
-    && AUDITED_NPX_TOOLS.has(normalized.find((item, index) => index > 0 && !item.startsWith('-')));
+    && path.resolve(cwd) === ROOT
+    && AUDITED_NPX_TOOLS.has(normalized[1]);
   const bash = /^(?:bash|sh)$/i.test(executable)
     && path.resolve(cwd, normalized[1] || '') === path.join(ROOT, 'evals/hooks/compatibility-matrix.sh');
   const audited = node || npm || npx || bash;
@@ -133,7 +134,7 @@ export function preflightRun({
   if (!ownership.proven) reasons.push(ownership.reason);
   if (!retry.ok) {
     reasons.push(
-      `an identical command/workload/limit configuration already hit ${retry.previous.limit}; change the implementation, workload, or limits before retrying`,
+      `an identical command/workload implementation already hit ${retry.previous.limit}; change the implementation, workload, or concurrency before retrying`,
     );
   }
   const existing = injectedExistingProcesses ?? existingLaminaProcesses();

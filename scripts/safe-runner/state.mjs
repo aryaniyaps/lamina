@@ -224,8 +224,7 @@ function updateSafetyRetryEntries(cwd, mutate) {
     ? { ...existing.entries } : {};
   mutate(entries);
   const retained = Object.fromEntries(Object.entries(entries)
-    .sort((left, right) => String(right[1].recorded_at).localeCompare(String(left[1].recorded_at)))
-    .slice(0, 128));
+    .sort((left, right) => String(right[1].recorded_at).localeCompare(String(left[1].recorded_at))));
   const value = {
     schema: 'lamina.safe-runner-safety-limit-ledger/v2',
     repository: path.resolve(cwd),
@@ -285,15 +284,41 @@ export function promotionCommandDigest(command) {
     : null;
 }
 
+function promotionImplementationPaths(cwd, command) {
+  const candidates = command.map((argument) => path.resolve(cwd, String(argument)));
+  const executable = path.basename(String(command[0] || '')).toLowerCase();
+  if (/^(?:npm|npm\.cmd|npx|npx\.cmd)$/.test(executable)) {
+    for (const manifest of ['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock']) {
+      candidates.push(path.join(cwd, manifest));
+    }
+  }
+  if (/^(?:npx|npx\.cmd)$/.test(executable) && typeof command[1] === 'string') {
+    const localTool = path.join(cwd, 'node_modules', '.bin', command[1]);
+    candidates.push(localTool);
+    try { candidates.push(fs.realpathSync.native(localTool)); } catch {}
+  }
+  return [...new Set(candidates)];
+}
+
+export function promotionImplementationDigest(cwd, command) {
+  if (!Array.isArray(command) || command.length === 0) return null;
+  const workload = workloadIdentity(cwd, command, promotionImplementationPaths(cwd, command));
+  return crypto.createHash('sha256').update(JSON.stringify(workload)).digest('hex');
+}
+
 export function promotionStatus(cwd, workloadId = null, command = null) {
   const value = json(promotionPath(cwd));
   const digest = workloadDigest(workloadId);
   if (value?.build_digest !== runnerBuildDigest() || !digest) return { completed: [], value: null };
   const workload = value.workloads?.[digest];
   const expectedCommand = promotionCommandDigest(command);
-  if (expectedCommand && workload?.command_digest !== expectedCommand) {
+  const expectedImplementation = command ? promotionImplementationDigest(cwd, command) : null;
+  if (expectedCommand && (workload?.command_digest !== expectedCommand
+    || workload?.implementation_digest !== expectedImplementation)) {
     return {
-      completed: [], value, workload_digest: digest, command_matches: false,
+      completed: [], value, workload_digest: digest,
+      command_matches: workload?.command_digest === expectedCommand,
+      implementation_matches: workload?.implementation_digest === expectedImplementation,
     };
   }
   const completed = workload?.completed;
@@ -302,6 +327,8 @@ export function promotionStatus(cwd, workloadId = null, command = null) {
     value,
     workload_digest: digest,
     command_matches: expectedCommand ? workload?.command_digest === expectedCommand : null,
+    implementation_matches: expectedImplementation
+      ? workload?.implementation_digest === expectedImplementation : null,
   };
 }
 
@@ -334,12 +361,14 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
     throw error;
   }
   const commandDigest = promotionCommandDigest(evidence.command);
+  const implementationDigest = promotionImplementationDigest(cwd, evidence.command);
   const status = promotionStatus(cwd, workloadId, evidence.command);
   const existingState = json(promotionPath(cwd));
   const existingWorkload = existingState?.build_digest === runnerBuildDigest()
     ? existingState.workloads?.[digest] : null;
-  if (existingWorkload && existingWorkload.command_digest !== commandDigest) {
-    const error = new Error('tier promotion workload identifier is already bound to a different command');
+  if (existingWorkload && (existingWorkload.command_digest !== commandDigest
+    || existingWorkload.implementation_digest !== implementationDigest)) {
+    const error = new Error('tier promotion workload identifier is already bound to a different command or implementation');
     error.code = 'LAMINA_SAFE_PROMOTION_COMMAND_MISMATCH';
     throw error;
   }
@@ -354,12 +383,14 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
       [digest]: {
         workload_id: workloadId,
         command_digest: commandDigest,
+        implementation_digest: implementationDigest,
         completed,
         evidence: {
           run_id: evidence.run_id,
           tier,
           adapter: evidence.adapter?.id || null,
           command_digest: commandDigest,
+          implementation_digest: implementationDigest,
           finished_at: evidence.finished_at,
         },
       },

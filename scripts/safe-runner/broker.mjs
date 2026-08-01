@@ -1,8 +1,21 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { TIER_ORDER } from './constants.mjs';
+
+const TRUSTED_GRAPHD_SERVER = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)), '../../packages/cli/lib/graph-runtime/server.mjs',
+);
+const TRUSTED_GRAPHD_FIXTURE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)), '../../tests/fixtures/graph-runtime/server.mjs',
+);
+
+function fileDigest(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
 
 const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
   && String(left?.start_ticks || '') === String(right?.start_ticks || '');
@@ -34,16 +47,33 @@ function canonicalGraphdRegistration(request, authority, child) {
   if (!stat.isDirectory() || stat.isSymbolicLink()
     || (typeof process.getuid === 'function' && stat.uid !== process.getuid())) refuse('graph runtime directory ownership is not physical and same-user');
   const argv = authority.arguments?.(child.pid) || [];
-  const sourceIndex = argv.findIndex((argument) =>
-    String(argument).replaceAll('\\', '/').endsWith('/graph-runtime/server.mjs'));
-  const standaloneIndex = argv.findIndex((argument) => argument === '--graphd');
-  const standaloneExecutable = /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i
-    .test(path.basename(argv[0] || ''));
-  const declaredRoot = sourceIndex >= 0 ? argv[sourceIndex + 1]
-    : standaloneIndex >= 0 && standaloneExecutable ? argv[standaloneIndex + 1] : null;
+  const executable = path.basename(String(argv[0] || ''));
+  const sourceScript = String(argv[1] || '').replaceAll('\\', '/');
+  let trustedSource = false;
+  try {
+    const sourceDigest = fileDigest(fs.realpathSync.native(argv[1]));
+    const productionSource = argv.length === 3 && sourceDigest === fileDigest(TRUSTED_GRAPHD_SERVER);
+    const fixtureSource = argv.length === 4 && sourceDigest === fileDigest(TRUSTED_GRAPHD_FIXTURE)
+      && ['clean', 'leave-stale', 'exit-stale'].includes(argv[3]);
+    trustedSource = /^(?:node|node\.exe)$/i.test(executable)
+      && sourceScript.endsWith('/graph-runtime/server.mjs')
+      && (productionSource || fixtureSource);
+  } catch {}
+  const trustedStandalone = argv.length === 3 && argv[1] === '--graphd'
+    && /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i.test(executable);
+  const declaredRoot = trustedSource || trustedStandalone ? argv[2] : null;
   try {
     if (!declaredRoot || fs.realpathSync.native(declaredRoot) !== root) refuse('graphd argv does not declare the exact graph root');
   } catch (error) { refuse(error.message || 'graphd argv root could not be verified'); }
+  let existingLock = null;
+  try { existingLock = JSON.parse(fs.readFileSync(path.join(runtime, 'graphd.lock'), 'utf8')); } catch {}
+  if (existingLock && (Number(existingLock.pid) !== Number(child.pid)
+    || String(existingLock.start_ticks || '') !== String(child.start_ticks))) {
+    refuse('graph runtime lock belongs to a different process identity');
+  }
+  if (fs.existsSync(path.join(runtime, 'graphd.sock')) && !existingLock) {
+    refuse('graph runtime socket exists without a child-owned lock');
+  }
   return {
     root,
     runtime_dir: runtime,
@@ -52,6 +82,7 @@ function canonicalGraphdRegistration(request, authority, child) {
     },
     socket: path.join(runtime, 'graphd.sock'),
     lock: path.join(runtime, 'graphd.lock'),
+    child_identity: { pid: child.pid, start_ticks: child.start_ticks },
   };
 }
 

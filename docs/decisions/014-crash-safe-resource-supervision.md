@@ -70,14 +70,16 @@ The runner:
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
 an online supervisor-broker registration. The runner matches the registered
-PID and Linux start ticks to an in-scope `server.mjs`/`--graphd` process, owns
+  PID and Linux start ticks to an in-scope process whose actual interpreter
+  script is a content-matched `server.mjs`, or whose exact argv is `--graphd`, owns
 its descendants through the same cgroup, and gracefully terminates the scope
 after the CLI payload exits. Any unregistered or mismatched remainder keeps the
 ordinary detached-descendant failure semantics.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion
-for the same explicit workload identity and child-command digest, and the single host-global production
+  for the same explicit workload identity, child-command digest, and referenced
+  implementation-file digest, and the single host-global production
 lock (which cannot be redirected with the evidence-state override). Every tier refuses a pre-existing
 Lamina runtime because it cannot be adopted into the new scope.
 Attestation identity covers the machine, adapter/controllers, architecture,
@@ -85,12 +87,13 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-Before launch, a bounded multi-entry retry ledger records the active repository,
-command, referenced workload file identities, runner build, and fixed
+Before launch, a durable multi-entry retry ledger records bounded per-entry
+metadata for the active repository, command, referenced workload file identities, runner build, and fixed
 concurrency. It is cleared only after a classified result and verified cleanup.
 A safety-limit observation converts that entry to a durable fence; changing
 limits alone does not permit a retry. Later cleanup failure or controller death
-cannot erase or overwrite prior fences.
+cannot erase or overwrite prior fences, and later distinct failures never evict
+an earlier fence.
 
 Normal completion writes the report before disarming the watchdog. On an
 abrupt controller exit, the watchdog validates every systemd operation and
@@ -100,7 +103,9 @@ a symlink or deletes a same-prefix directory without its captured device/inode
 identity.
 Managed graphd cleanup additionally derives the exact Git-common runtime from
 the graph root and rechecks the runtime directory device, inode, and owner
-before removing only physical `graphd.sock` or `graphd.lock` entries.
+before removing only physical `graphd.sock` or `graphd.lock` entries. Deletion
+also requires the graphd lock's PID and Linux start ticks to match the registered
+child identity, so canonical paths alone never establish deletion authority.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under
@@ -153,7 +158,7 @@ prove ownership of descendants created by an external daemon.
   report contract for all resource-intensive work.
 - Safety-limit outcomes are explicit failed scenarios and cannot be promoted
   or used as performance measurements.
-- Promotion state is repository-, workload-, child-command-, and runner-build-specific;
+- Promotion state is repository-, workload-, child-command-, referenced-implementation-, and runner-build-specific;
   changing the runner invalidates prior attestation and promotion evidence.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and

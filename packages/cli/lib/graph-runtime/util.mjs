@@ -220,6 +220,7 @@ export function parseDaemonLock(value) {
     const parsed = JSON.parse(raw);
     return {
       pid: Number(parsed.pid),
+      start_ticks: typeof parsed.start_ticks === 'string' ? parsed.start_ticks : null,
       protocol_version: Number(parsed.protocol_version) || null,
       runtime_version: typeof parsed.runtime_version === 'string' ? parsed.runtime_version : null,
       capabilities: Array.isArray(parsed.capabilities)

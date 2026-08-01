@@ -80,6 +80,10 @@ export async function startCrashWatchdog({
         managed.set(resolved, {
           path: resolved,
           parent_identity: registration.runtime_identity,
+          child_identity: registration.child_identity || {
+            pid: registration.pid,
+            start_ticks: registration.start_ticks,
+          },
         });
       }
       manifest = { ...manifest, managed_paths: [...managed.values()] };

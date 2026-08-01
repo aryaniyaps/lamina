@@ -92,30 +92,53 @@ export function removeOwnedDirectory(directory, expectedPrefix, ownership) {
 
 export function removeOwnedRuntimePaths(candidates) {
   const remaining = [];
+  const grouped = new Map();
   for (const candidate of candidates || []) {
     const resolved = path.resolve(candidate?.path || '');
-    const expected = candidate?.parent_identity;
+    const parent = path.dirname(resolved);
+    if (!grouped.has(parent)) grouped.set(parent, []);
+    grouped.get(parent).push({ ...candidate, path: resolved });
+  }
+  for (const [runtime, entries] of grouped) {
+    const lockCandidate = entries.find((candidate) => path.basename(candidate.path) === 'graphd.lock');
+    const socketCandidate = entries.find((candidate) => path.basename(candidate.path) === 'graphd.sock');
+    const expected = lockCandidate?.parent_identity;
+    const child = lockCandidate?.child_identity;
     let parent;
-    try { parent = fs.lstatSync(path.dirname(resolved)); } catch { parent = null; }
-    const parentOwned = expected?.path === path.dirname(resolved)
+    try { parent = fs.lstatSync(runtime); } catch { parent = null; }
+    const parentOwned = expected?.path === runtime
       && parent?.isDirectory() && !parent.isSymbolicLink()
       && String(parent.dev) === expected.dev && String(parent.ino) === expected.ino
       && Number(parent.uid) === Number(expected.uid);
-    if (!parentOwned || !['graphd.sock', 'graphd.lock'].includes(path.basename(resolved))) {
-      remaining.push(resolved);
+    let lockOwned = false;
+    if (parentOwned && lockCandidate && child?.pid && child?.start_ticks) {
+      try {
+        const entry = fs.lstatSync(lockCandidate.path);
+        const lock = JSON.parse(fs.readFileSync(lockCandidate.path, 'utf8'));
+        lockOwned = entry.isFile() && !entry.isSymbolicLink()
+          && Number(lock.pid) === Number(child.pid)
+          && String(lock.start_ticks || '') === String(child.start_ticks);
+      } catch {}
+    }
+    if (!lockOwned) {
+      for (const candidate of entries) {
+        if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
+      }
       continue;
     }
-    try {
-      const entry = fs.lstatSync(resolved);
-      if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isSocket())) {
-        remaining.push(resolved);
-        continue;
+    for (const candidate of [socketCandidate, lockCandidate].filter(Boolean)) {
+      try {
+        const entry = fs.lstatSync(candidate.path);
+        if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isSocket())) {
+          remaining.push(candidate.path);
+          continue;
+        }
+        fs.rmSync(candidate.path, { force: true });
+      } catch (error) {
+        if (error.code !== 'ENOENT') remaining.push(candidate.path);
       }
-      fs.rmSync(resolved, { force: true });
-    } catch (error) {
-      if (error.code !== 'ENOENT') remaining.push(resolved);
+      if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
     }
-    if (fs.existsSync(resolved)) remaining.push(resolved);
   }
   return [...new Set(remaining)];
 }

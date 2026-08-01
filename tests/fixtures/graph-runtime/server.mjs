@@ -12,7 +12,12 @@ const lockPath = paths.lock;
 
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
 try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
-fs.writeFileSync(lockPath, `${process.pid}\n`, { mode: 0o600 });
+const stat = fs.readFileSync('/proc/self/stat', 'utf8');
+const close = stat.lastIndexOf(')');
+const startTicks = stat.slice(close + 2).trim().split(/\s+/)[19];
+fs.writeFileSync(lockPath, `${JSON.stringify({
+  pid: process.pid, start_ticks: startTicks,
+})}\n`, { mode: 0o600 });
 
 const server = net.createServer((socket) => socket.end());
 let stopping = false;
