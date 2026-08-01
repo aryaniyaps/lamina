@@ -1,15 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { processRecord, readPidList } from './processes.mjs';
 import {
   assertInfrastructureBinaries, infrastructureBinaries, sanitizedEnvironment,
 } from './infrastructure.mjs';
 
-const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
-const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
-const SANDBOX = fileURLToPath(new URL('./sandbox.mjs', import.meta.url));
 export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
 // readback shorter than the overall handshake so one transiently stalled
@@ -156,16 +152,30 @@ export class LinuxSystemdAdapter {
   launch({
     command, cwd, env, readyFile, releaseFile, payloadExitFile,
     quotaReadyFile, quotaReleaseFile, temporaryDirectory,
+    executionAuthority = null,
   }) {
     assertInfrastructureBinaries(this.infrastructure, ['systemdRun', 'shell', 'node', 'bwrap']);
-    const bwrapIdentity = Buffer.from(JSON.stringify(this.infrastructure.identities.bwrap)).toString('base64url');
+    const staged = executionAuthority?.infrastructure;
+    if (!staged?.node || !staged?.bwrap || !staged?.gate_sh || !staged?.quota_gate_sh
+      || !staged?.sandbox_mjs || !staged?.identities?.bwrap) {
+      throw Object.assign(new Error('production launch requires staged execution infrastructure'), {
+        code: 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY',
+      });
+    }
+    const bwrapIdentity = Buffer.from(JSON.stringify(staged.identities.bwrap)).toString('base64url');
+    const encodedExecutionAuthority = Buffer.from(JSON.stringify({
+      repository: executionAuthority.repository,
+      snapshot_repository: executionAuthority.snapshot_repository,
+      writable_bindings: executionAuthority?.writable_bindings || [],
+    })).toString('base64url');
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
       ...systemdScopeProperties(this.limits),
-      '--collect', '--', this.infrastructure.shell, GATE, readyFile, releaseFile, payloadExitFile,
+      '--collect', '--', this.infrastructure.shell, staged.gate_sh, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
-      String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
-      this.infrastructure.node, SANDBOX, this.infrastructure.bwrap, bwrapIdentity,
+      String(this.limits.temporary_max_bytes), cwd, staged.quota_gate_sh,
+      staged.node, staged.sandbox_mjs, staged.bwrap, bwrapIdentity,
+      encodedExecutionAuthority,
       ...command,
     ];
     this.child = spawn(this.infrastructure.systemdRun, args, {

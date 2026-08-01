@@ -197,7 +197,31 @@ export function validateReport(report) {
 
 function fileIdentity(candidate) {
   const stat = fs.lstatSync(candidate, { bigint: true });
-  return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+  return {
+    dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid), nlink: Number(stat.nlink),
+  };
+}
+
+const sameFileIdentity = (left, right) => left?.dev === right?.dev
+  && left?.ino === right?.ino && left?.uid === right?.uid && left?.nlink === right?.nlink;
+
+function reportAuthoritySnapshot(authority) {
+  return {
+    file: authority.file,
+    parent: authority.parent,
+    parent_identity: authority.parent_identity,
+    run_id: authority.run_id,
+    generation: authority.generation,
+    file_identity: authority.file_identity,
+    pending_generation: authority.pending_generation || null,
+  };
+}
+
+export function persistReportAuthorityWith(authority, persist) {
+  if (!authority || typeof persist !== 'function') return;
+  Object.defineProperty(authority, 'persist_transition', {
+    configurable: true, enumerable: false, writable: true, value: persist,
+  });
 }
 
 function fsyncFileAndParent(file) {
@@ -213,10 +237,11 @@ function assertReportAuthority(resolved, authority) {
     throw Object.assign(new Error('report authority path changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
   }
   const parent = fileIdentity(authority.parent);
-  let current = null;
-  try { current = JSON.parse(fs.readFileSync(authority.file, 'utf8')); } catch {}
+  const named = fileIdentity(authority.file);
+  const accepted = [authority.file_identity, authority.pending_generation?.file_identity];
   if (parent.dev !== authority.parent_identity.dev || parent.ino !== authority.parent_identity.ino
-    || parent.uid !== authority.parent_identity.uid || current?.run_id !== authority.run_id) {
+    || parent.uid !== authority.parent_identity.uid
+    || named.nlink !== 1 || !accepted.some((identity) => sameFileIdentity(named, identity))) {
     throw Object.assign(new Error('report authority identity changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
   }
 }
@@ -241,9 +266,32 @@ export function writeReport(file, report, authority = null) {
       flag: 'wx', mode: 0o600,
     });
     fsyncFileAndParent(temporary);
+    const nextIdentity = fileIdentity(temporary);
+    if (nextIdentity.nlink !== 1
+      || (typeof process.getuid === 'function' && nextIdentity.uid !== process.getuid())) {
+      throw Object.assign(new Error('report publication temporary file lost exclusive authority'), {
+        code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+      });
+    }
     assertReportAuthority(resolved, authority);
+    if (authority) {
+      authority.pending_generation = {
+        generation: Number(authority.generation || 0) + 1,
+        file_identity: nextIdentity,
+      };
+      authority.persist_transition?.(reportAuthoritySnapshot(authority));
+      // Persistence may be asynchronous in another process. Recheck the named
+      // generation immediately before the atomic replacement.
+      assertReportAuthority(resolved, authority);
+    }
     fs.renameSync(temporary, resolved);
     fsyncFileAndParent(resolved);
+    if (authority) {
+      authority.generation = authority.pending_generation.generation;
+      authority.file_identity = authority.pending_generation.file_identity;
+      authority.pending_generation = null;
+      authority.persist_transition?.(reportAuthoritySnapshot(authority));
+    }
   } finally { fs.rmSync(temporary, { force: true }); }
   return resolved;
 }
@@ -260,39 +308,46 @@ export function prepareReportAuthority(file, provisionalReport) {
       code: 'LAMINA_SAFE_REPORT_AUTHORITY',
     });
   }
-  let descriptor = null;
+  let existing = null;
   try {
-    descriptor = fs.openSync(resolved,
-      fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
-      0o600);
-    const opened = fs.fstatSync(descriptor, { bigint: true });
-    const named = fs.lstatSync(resolved, { bigint: true });
-    if (!opened.isFile() || named.isSymbolicLink()
-      || opened.dev !== named.dev || opened.ino !== named.ino
-      || (typeof process.getuid === 'function' && Number(opened.uid) !== process.getuid())) {
-      const error = new Error('report authority path must be a same-user physical file');
+    try { existing = fs.lstatSync(resolved, { bigint: true }); }
+    catch (error) { if (error?.code !== 'ENOENT') throw error; }
+    if (existing && existing.isDirectory()) {
+      const error = new Error('report authority path must not be a directory');
       error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
       throw error;
     }
-    fs.fchmodSync(descriptor, 0o600);
-    const authority = {
-      file: resolved,
-      parent,
-      parent_identity: fileIdentity(parent),
-      run_id: provisionalReport?.run_id,
-    };
-    if (typeof authority.run_id !== 'string' || !authority.run_id) {
+    if (typeof provisionalReport?.run_id !== 'string' || !provisionalReport.run_id) {
       throw Object.assign(new Error('report authority requires a run-bound provisional report'), {
         code: 'LAMINA_SAFE_REPORT_AUTHORITY',
       });
     }
-    // O_TRUNC invalidates any stale success at slot acquisition. A crash before
-    // the following durable write can leave an invalid/empty file, never the
-    // previous run's evidence. Completed writes are current-run non-success.
-    fs.writeFileSync(descriptor, `${JSON.stringify(redactEvidence(provisionalReport), null, 2)}\n`);
-    fs.fsyncSync(descriptor);
-    const parentDescriptor = fs.openSync(parent, 'r');
-    try { fs.fsyncSync(parentDescriptor); } finally { fs.closeSync(parentDescriptor); }
+    const temporary = path.join(parent,
+      `.${path.basename(resolved)}.acquire-${crypto.randomBytes(16).toString('hex')}`);
+    try {
+      fs.writeFileSync(temporary, `${JSON.stringify(redactEvidence(provisionalReport), null, 2)}\n`, {
+        flag: 'wx', mode: 0o600,
+      });
+      fsyncFileAndParent(temporary);
+      const acquiredIdentity = fileIdentity(temporary);
+      if (acquiredIdentity.nlink !== 1) throw new Error('report authority temporary file is linked');
+      if (existing) {
+        const current = fs.lstatSync(resolved, { bigint: true });
+        if (current.dev !== existing.dev || current.ino !== existing.ino
+          || current.mode !== existing.mode) {
+          throw Object.assign(new Error('report authority path changed during acquisition'), {
+            code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+          });
+        }
+      }
+      fs.renameSync(temporary, resolved);
+      fsyncFileAndParent(resolved);
+    } finally { fs.rmSync(temporary, { force: true }); }
+    const authority = {
+      file: resolved, parent, parent_identity: fileIdentity(parent),
+      run_id: provisionalReport.run_id, generation: 0, file_identity: fileIdentity(resolved),
+      pending_generation: null,
+    };
     const validation = validateReport(JSON.parse(fs.readFileSync(resolved, 'utf8')));
     if (!validation.valid) {
       throw Object.assign(new Error(`invalid provisional report: ${validation.errors.join('; ')}`), {
@@ -305,8 +360,6 @@ export function prepareReportAuthority(file, provisionalReport) {
     const error = new Error(`report authority path must be a same-user physical file (${cause?.code || 'unknown'})`);
     error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
     throw error;
-  } finally {
-    if (descriptor !== null) fs.closeSync(descriptor);
   }
 }
 

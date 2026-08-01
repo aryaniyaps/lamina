@@ -11,7 +11,8 @@ import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
 import {
   bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
-  sealManagedGraphdWithSupervisor,
+  recordManagedGraphdLockWithSupervisor, sealManagedGraphdWithSupervisor,
+  startManagedGraphdWithSupervisor,
 } from '../safe-runner-context.mjs';
 import {
   ensureAuthToken,
@@ -99,6 +100,35 @@ export function sealManagedGraphd(reservation) {
     throw error;
   }
   return response.sealed;
+}
+
+export async function awaitManagedGraphdStart(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  if (!reservation) {
+    const error = new Error('safe-runner graphd start gate requires a reservation');
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const response = startManagedGraphdWithSupervisor(reservation);
+    if (response?.ok && response.released === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const error = new Error('safe-runner refused or timed out the managed graphd start gate');
+  error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+  throw error;
+}
+
+export function recordManagedGraphdLock(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = recordManagedGraphdLockWithSupervisor(reservation);
+  if (!response?.ok || response.recorded !== true) {
+    const error = new Error(`safe-runner refused managed graphd lock transition: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return true;
 }
 
 export function exchange(socketPath, payload, timeout = 60_000) {

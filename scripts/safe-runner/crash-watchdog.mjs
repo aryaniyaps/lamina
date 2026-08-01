@@ -30,9 +30,19 @@ function validManifest(value, initial = value) {
     || value.report_authority?.run_id !== value.report_seed?.run_id
     || typeof value.report_authority?.parent_identity?.dev !== 'string'
     || typeof value.report_authority?.parent_identity?.ino !== 'string'
+    || !Number.isSafeInteger(value.report_authority?.generation)
+    || typeof value.report_authority?.file_identity?.dev !== 'string'
+    || typeof value.report_authority?.file_identity?.ino !== 'string'
+    || value.report_authority?.file_identity?.nlink !== 1
     || !path.isAbsolute(value.runner_temporary_directory || '')
     || value.runner_temporary_identity?.path !== value.runner_temporary_directory
     || value.watchdog_directory_identity?.path !== path.dirname(path.resolve(manifestFile))) return false;
+  if (value.report_authority.pending_generation !== null
+    && (!Number.isSafeInteger(value.report_authority.pending_generation?.generation)
+      || value.report_authority.pending_generation.generation !== value.report_authority.generation + 1
+      || typeof value.report_authority.pending_generation?.file_identity?.dev !== 'string'
+      || typeof value.report_authority.pending_generation?.file_identity?.ino !== 'string'
+      || value.report_authority.pending_generation?.file_identity?.nlink !== 1)) return false;
   if (value.cgroup !== null && (typeof value.cgroup !== 'string'
     || !value.cgroup.startsWith('/sys/fs/cgroup/') || path.basename(value.cgroup) !== value.unit)) return false;
   if (value.lock_file !== null) {
@@ -41,7 +51,7 @@ function validManifest(value, initial = value) {
   }
   return Array.isArray(value.managed_paths) && value.managed_paths.every((item) =>
     path.isAbsolute(item?.path || '') && ['socket', 'lock'].includes(item?.type)
-      && ['reserved', 'bound', 'sealed'].includes(item.state)
+      && ['reserved', 'bound', 'authorized', 'sealed'].includes(item.state)
       && typeof item.parent_identity?.dev === 'string'
       && typeof item.parent_identity?.ino === 'string'
       && (item.state === 'reserved' || (Array.isArray(item.expected_pids)
@@ -120,6 +130,7 @@ async function crashCleanup(initial) {
     && report.preflight?.ok === true
     && Array.isArray(report.samples)
     && report.samples.length > 0;
+  const cleanupTrusted = cleanupProven && lockReleased !== false;
   report.cleanup = {
     ...(report.cleanup || {}),
     attempted: true,
@@ -133,16 +144,20 @@ async function crashCleanup(initial) {
   };
   report.termination = {
     ...(report.termination || {}),
-    reason: cleanupProven && qualifiedCrashEvidence ? 'interrupted' : 'cleanup_incomplete',
-    limit: cleanupProven && qualifiedCrashEvidence ? 'signal' : 'supervisor_crash',
+    reason: cleanupTrusted
+      ? (qualifiedCrashEvidence ? 'interrupted' : 'supervisor_crash_before_payload')
+      : 'cleanup_incomplete',
+    limit: qualifiedCrashEvidence && cleanupTrusted ? 'signal' : 'supervisor_crash',
     requested_signals: [...new Set([...(report.termination?.requested_signals || []), 'SIGKILL'])],
     child_signal: 'SIGKILL',
   };
-  report.outcome = cleanupProven && lockReleased !== false && qualifiedCrashEvidence
+  report.outcome = cleanupTrusted && qualifiedCrashEvidence
     ? 'interrupted' : 'internal_error';
-  report.error = cleanupProven && lockReleased !== false && qualifiedCrashEvidence ? {
+  report.error = cleanupTrusted ? {
     code: 'LAMINA_SAFE_SUPERVISOR_CRASH',
-    message: 'the independent crash watchdog terminated the exact supervised scope after controller loss',
+    message: qualifiedCrashEvidence
+      ? 'the independent crash watchdog terminated the exact supervised scope after controller loss'
+      : 'the independent crash watchdog cleaned exact runner authority before payload release',
   } : {
     code: 'LAMINA_SAFE_CLEANUP_INCOMPLETE',
     message: 'crash watchdog cleanup could not be authoritatively proven',

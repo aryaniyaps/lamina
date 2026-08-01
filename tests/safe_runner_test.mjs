@@ -32,7 +32,7 @@ import {
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import {
-  bindManagedObjects, lstatPresence, removeManagedObjects, reserveManagedObjects,
+  authorizeManagedObjects, bindManagedObjects, lstatPresence, removeManagedObjects, reserveManagedObjects,
   sealManagedObjects,
 } from '../scripts/safe-runner/managed-paths.mjs';
 import {
@@ -41,6 +41,9 @@ import {
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
+import {
+  assertExecutionSnapshot, prepareExecutionSnapshot,
+} from '../scripts/safe-runner/execution-snapshot.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
@@ -212,6 +215,25 @@ try {
     const index = sandboxArgs.indexOf(name);
     assert.equal(sandboxArgs[index - 1], '--unsetenv');
   }
+  const authorityArgs = bubblewrapSandboxArguments({
+    cwd: root,
+    readyFile: path.join(root, 'quota.ready'),
+    releaseFile: path.join(root, 'quota.release'),
+    temporaryDirectory: path.join(root, 'payload-tmp'),
+    command: ['node', 'tiny.mjs'], masks: { hiddenDirectories: [], sockets: [] },
+    executionAuthority: {
+      repository: root,
+      snapshot_repository: path.join(root, 'execution-authority', 'repository'),
+      writable_bindings: [{
+        source: path.join(root, 'dist'), target: path.join(root, 'dist'),
+        alias: path.join(root, 'execution-authority', 'writable-aliases', '0'),
+      }],
+    },
+  });
+  const repositoryMount = authorityArgs.indexOf(path.join(root, 'execution-authority', 'repository'));
+  assert.equal(authorityArgs[repositoryMount - 1], '--ro-bind');
+  assert.ok(authorityArgs.indexOf(path.join(root, 'execution-authority', 'writable-aliases', '0'))
+    < repositoryMount, 'writable source aliases must be captured before the logical cwd is frozen');
   for (const name of [
     'BASH_FUNC_payload%%', 'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE',
     'NODE_COMPILE_CACHE', 'NODE_REDIRECT_WARNINGS', 'DYLD_INSERT_LIBRARIES',
@@ -309,6 +331,18 @@ try {
   assert.equal(commandOwnership([
     process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success',
   ], root).network_access, 'isolated');
+  const unsealedRetrievalRuntime = preflightRun({
+    tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
+    command: [process.execPath, path.resolve('benchmarks/retrieval-v1/benchmark.mjs'), '--evaluate'],
+  });
+  assert.match(unsealedRetrievalRuntime.reasons.join('\n'),
+    /requires --worker.*uv\/\.venv execution is outside sealed execution authority/);
+  const unsealedEvalRuntime = preflightRun({
+    tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
+    command: [process.execPath, path.resolve('evals/scripts/run-suite.mjs'), '--smoke'],
+  });
+  assert.match(unsealedEvalRuntime.reasons.join('\n'),
+    /ignored \.venv-eval runtime.*not admitted into sealed execution authority/);
   for (const entrypoint of [
     'scripts/build-standalone-cli.mjs', 'scripts/fetch-retrieval-model.mjs',
     'scripts/prepare-retrieval-assets.mjs', 'tests/retrieval_native_index_test.mjs',
@@ -387,13 +421,162 @@ try {
   const provisional = { ...structuredClone(report), report_file: reportAuthority,
     outcome: 'internal_error', termination: { ...report.termination, reason: 'run_in_progress' },
     error: { code: 'LAMINA_SAFE_RUN_IN_PROGRESS', message: 'not complete' } };
-  assert.equal(prepareReportAuthority(reportAuthority, provisional).file, reportAuthority);
+  const preparedReportAuthority = prepareReportAuthority(reportAuthority, provisional);
+  assert.equal(preparedReportAuthority.file, reportAuthority);
   const reportTarget = path.join(root, 'report-target.json');
   fs.writeFileSync(reportTarget, 'preserve');
   const reportSymlink = path.join(root, 'report-symlink.json');
   fs.symlinkSync(reportTarget, reportSymlink);
-  assert.throws(() => prepareReportAuthority(reportSymlink, provisional), /physical file/);
+  const symlinkAuthority = prepareReportAuthority(reportSymlink,
+    { ...provisional, report_file: reportSymlink });
+  assert.equal(symlinkAuthority.file_identity.nlink, 1);
+  assert.equal(fs.lstatSync(reportSymlink).isSymbolicLink(), false,
+    'slot acquisition must atomically replace, never follow, a stale symlink');
   assert.equal(fs.readFileSync(reportTarget, 'utf8'), 'preserve');
+  const hardlinkVictim = path.join(root, 'report-hardlink-victim.json');
+  const hardlinkSlot = path.join(root, 'report-hardlink.json');
+  fs.writeFileSync(hardlinkVictim, 'hardlink victim must survive');
+  fs.linkSync(hardlinkVictim, hardlinkSlot);
+  const hardlinkAuthority = prepareReportAuthority(hardlinkSlot,
+    { ...provisional, report_file: hardlinkSlot });
+  assert.equal(hardlinkAuthority.file_identity.nlink, 1);
+  assert.equal(fs.readFileSync(hardlinkVictim, 'utf8'), 'hardlink victim must survive',
+    'slot acquisition must never truncate through a hardlink');
+  const copiedAuthority = prepareReportAuthority(path.join(root, 'copied-authority.json'),
+    { ...provisional, report_file: path.join(root, 'copied-authority.json') });
+  const copiedBytes = fs.readFileSync(copiedAuthority.file);
+  fs.unlinkSync(copiedAuthority.file);
+  fs.writeFileSync(copiedAuthority.file, copiedBytes, { mode: 0o600 });
+  assert.throws(() => writeReport(copiedAuthority.file,
+    { ...report, report_file: copiedAuthority.file }, copiedAuthority), /identity changed/,
+  'copying the current run id into a replacement inode must not recover report authority');
+
+  const snapshotRepository = path.join(root, 'snapshot-repository');
+  fs.mkdirSync(snapshotRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: snapshotRepository }).status, 0);
+  fs.writeFileSync(path.join(snapshotRepository, '.gitignore'), 'node_modules/\ndist/\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'package.json'), '{"type":"module"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'entry.mjs'),
+    "import tiny from 'tiny-dep';\nimport { workspace } from './packages/cli/worker.mjs';\nexport async function run() { return tiny + workspace + (await import('./lazy.mjs')).value; }\n");
+  fs.writeFileSync(path.join(snapshotRepository, 'lazy.mjs'), "export const value = 'sealed';\n");
+  fs.mkdirSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules', 'workspace-dep'),
+    { recursive: true });
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'package.json'),
+    '{"type":"module"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'worker.mjs'),
+    "import workspaceDep from 'workspace-dep';\nexport const workspace = workspaceDep;\n");
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    'workspace-dep', 'package.json'),
+  '{"name":"workspace-dep","main":"index.js","optionalDependencies":{"workspace-platform":"1.0.0"}}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    'workspace-dep', 'index.js'), "module.exports = 'workspace sealed ';\n");
+  fs.mkdirSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    'workspace-platform'));
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    'workspace-platform', 'package.json'),
+  '{"name":"workspace-platform","main":"index.js"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    'workspace-platform', 'index.js'), "module.exports = 'platform sealed';\n");
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'unrelated'), { recursive: true });
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'unrelated', 'huge.bin'),
+    Buffer.alloc(1024 * 1024));
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep'));
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep', 'package.json'),
+    '{"name":"tiny-dep","main":"index.js"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep', 'index.js'),
+    "module.exports = 'dependency sealed ';\n");
+  fs.mkdirSync(path.join(snapshotRepository, 'dist'));
+  const ignoredModel = path.join(snapshotRepository, 'dist', 'model.bin');
+  fs.writeFileSync(ignoredModel, 'sealed model bytes');
+  const snapshotOne = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs'), ignoredModel],
+    temporaryDirectory: path.join(root, 'snapshot-one'),
+  });
+  const snapshotTwo = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs'), ignoredModel],
+    temporaryDirectory: path.join(root, 'snapshot-two'),
+  });
+  assert.equal(snapshotOne.digest, snapshotTwo.digest,
+    'execution snapshot digest must not depend on its random destination');
+  assert.equal(fs.existsSync(path.join(snapshotOne.snapshot_repository,
+    'node_modules', 'unrelated')), false, 'unrelated dependency trees must not be copied');
+  assert.equal(fs.readFileSync(path.join(snapshotOne.snapshot_repository, 'packages', 'cli',
+    'node_modules', 'workspace-dep', 'index.js'), 'utf8'),
+  "module.exports = 'workspace sealed ';\n",
+  'bare imports in a nested workspace must resolve from that workspace package');
+  assert.equal(fs.readFileSync(path.join(snapshotOne.snapshot_repository, 'packages', 'cli',
+    'node_modules', 'workspace-platform', 'index.js'), 'utf8'),
+  "module.exports = 'platform sealed';\n",
+  'installed platform optional dependencies must remain in the workspace-local closure');
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep', 'index.js'),
+    "module.exports = 'replacement';\n");
+  assert.match(fs.readFileSync(path.join(snapshotOne.snapshot_repository,
+    'node_modules', 'tiny-dep', 'index.js'), 'utf8'), /dependency sealed/,
+  'required package roots must be frozen while unrelated dependencies remain excluded');
+  const ignoredModelAuthority = snapshotOne.entries.find((entry) =>
+    entry.label === 'argv:dist/model.bin');
+  assert.equal(fs.readFileSync(ignoredModelAuthority.path, 'utf8'), 'sealed model bytes',
+    'ignored argv file inputs must be descriptor-copied into execution authority');
+  fs.writeFileSync(path.join(snapshotRepository, 'lazy.mjs'), "export const value = 'replaced';\n");
+  assert.match(fs.readFileSync(path.join(snapshotOne.snapshot_repository, 'lazy.mjs'), 'utf8'), /sealed/,
+    'lazy local imports must use frozen bytes');
+  assert.equal(assertExecutionSnapshot(snapshotOne), true);
+  const fakeInfrastructure = path.join(snapshotRepository, '.git', 'fake-infrastructure');
+  fs.mkdirSync(fakeInfrastructure, { recursive: true });
+  const fakeNode = path.join(fakeInfrastructure, 'node');
+  const fakeBwrap = path.join(fakeInfrastructure, 'bwrap');
+  fs.writeFileSync(fakeNode, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+  fs.writeFileSync(fakeBwrap, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+  const infrastructureSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-infrastructure'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  fs.writeFileSync(fakeBwrap, '#!/bin/sh\necho replacement\n', { mode: 0o700 });
+  assert.equal(fs.readFileSync(infrastructureSnapshot.infrastructure.bwrap, 'utf8'),
+    '#!/bin/sh\nexit 0\n', 'bwrap launch must use descriptor-copied authority, not its checked path');
+  assert.equal(assertExecutionSnapshot(infrastructureSnapshot), true);
+  const fakeNpx = path.join(fakeInfrastructure, 'npx');
+  fs.writeFileSync(fakeNpx, '#!/bin/sh\nexit 99\n', { mode: 0o700 });
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval'));
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval', 'package.json'),
+    '{"name":"agent-skills-eval","bin":{"agent-skills-eval":"cli.mjs"},"dependencies":{"tiny-dep":"1.0.0"}}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval', 'cli.mjs'),
+    "#!/usr/bin/env node\nimport tiny from 'tiny-dep'; console.log(tiny);\n", { mode: 0o700 });
+  const npxSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: [fakeNpx, '--yes', 'agent-skills-eval', '--version'],
+    temporaryDirectory: path.join(root, 'snapshot-npx'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  assert.equal(npxSnapshot.launch_command[0], npxSnapshot.infrastructure.node,
+    'audited npx execution must launch through staged Node');
+  assert.equal(npxSnapshot.launch_command[1], path.join(npxSnapshot.snapshot_repository,
+    'node_modules', 'agent-skills-eval', 'cli.mjs'),
+  'audited npx execution must launch the snapshotted declared package bin');
+  assert.deepEqual(npxSnapshot.launch_command.slice(2), ['--version']);
+  assert.notEqual(npxSnapshot.launch_command[0], fakeNpx,
+    'the mutable npx shim must not remain on the launch path');
+  fs.mkdirSync(path.join(snapshotRepository, 'tests'), { recursive: true });
+  const envEntrypoint = path.join(snapshotRepository, 'tests', 'cli_binary_smoke_test.mjs');
+  fs.writeFileSync(envEntrypoint, "import fs from 'node:fs';\n");
+  const envOnlyModel = path.join(snapshotRepository, 'dist', 'env-only-model.bin');
+  fs.writeFileSync(envOnlyModel, 'env-only sealed bytes');
+  const environmentSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: ['/bin/sh', envEntrypoint],
+    temporaryDirectory: path.join(root, 'snapshot-environment'),
+    environment: { LAMINA_MODEL: envOnlyModel },
+  });
+  const environmentAuthority = environmentSnapshot.entries.find((entry) =>
+    entry.label === 'env:LAMINA_MODEL:dist/env-only-model.bin');
+  fs.writeFileSync(envOnlyModel, 'replacement');
+  assert.equal(fs.readFileSync(environmentAuthority.path, 'utf8'), 'env-only sealed bytes');
+  fs.symlinkSync('/etc/passwd', path.join(snapshotRepository, 'escape.mjs'));
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-escape'),
+  }), /escapes the repository/);
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
   assert.equal(validateReport({
     ...report,
@@ -531,6 +714,12 @@ try {
       };
       return true;
     },
+    release: (record) => {
+      const reserved = brokerReservations.find((item) => item.token === record.reservation);
+      if (reserved) reserved.released = true;
+      return Boolean(reserved);
+    },
+    lockReady: () => true,
     seal: () => [{ state: 'sealed' }],
   };
   assert.equal(authorizeBrokerRequest({
@@ -554,6 +743,56 @@ try {
   await liveBroker.close();
   assert.ok(Date.now() - brokerCloseStarted < 1_000,
     'broker cleanup must be bounded when a requester dies before sending a complete request');
+
+  const limitedBrokerDirectory = path.join(root, 'broker-limits');
+  fs.mkdirSync(limitedBrokerDirectory);
+  const limitedBroker = await createProofBroker(limitedBrokerDirectory, authority, {
+    maxConnections: 1, idleTimeoutMs: 75, maxRequestsPerWindow: 1, requestWindowMs: 1_000,
+  });
+  const saturated = net.createConnection(limitedBroker.socketPath);
+  await once(saturated, 'connect');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const refusedAtCap = net.createConnection(limitedBroker.socketPath);
+  refusedAtCap.on('error', () => {});
+  await Promise.race([
+    once(refusedAtCap, 'close'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('broker cap did not close')), 500)),
+  ]);
+  await Promise.race([
+    once(saturated, 'close'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('idle broker request did not expire')), 500)),
+  ]);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const brokerRpc = (broker, frames) => new Promise((resolve, reject) => {
+    const socket = net.createConnection(broker.socketPath);
+    let response = '';
+    const deadline = setTimeout(() => { socket.destroy(); reject(new Error('broker rpc timeout')); }, 500);
+    socket.setEncoding('utf8');
+    socket.once('connect', () => socket.write(frames));
+    socket.on('data', (chunk) => { response += chunk; });
+    socket.once('error', reject);
+    socket.once('close', () => {
+      clearTimeout(deadline);
+      try { resolve(JSON.parse(response.trim())); } catch (error) { reject(error); }
+    });
+  });
+  const contextFrame = `${JSON.stringify({
+    operation: 'context', requester, minimum_tier: 'small',
+  })}\n`;
+  assert.equal((await brokerRpc(limitedBroker, contextFrame)).ok, true,
+    'a valid request must succeed after the saturated idle connection expires');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.match((await brokerRpc(limitedBroker, contextFrame)).error, /rate exceeded/,
+    'sequential reconnects must remain under a bounded aggregate request rate');
+  await limitedBroker.close();
+
+  const oneRequestDirectory = path.join(root, 'broker-one-request');
+  fs.mkdirSync(oneRequestDirectory);
+  const oneRequestBroker = await createProofBroker(oneRequestDirectory, authority);
+  const pipelined = await brokerRpc(oneRequestBroker, `${contextFrame}${contextFrame}`);
+  assert.equal(pipelined.ok, false);
+  assert.match(pipelined.error, /exactly one request/);
+  await oneRequestBroker.close();
 
   const authorizedGraphd = {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
@@ -662,6 +901,14 @@ try {
   }, authority).ok, true);
   assert.equal(brokerRegistrations.length, 1);
   assert.equal(authorizeBrokerRequest({
+    operation: 'start_graphd', reservation: reservation.reservation,
+    requester: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+  }, authority).ok, true);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'graphd_lock_ready', reservation: reservation.reservation,
+    requester: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+  }, authority).ok, true);
+  assert.equal(authorizeBrokerRequest({
     operation: 'seal_graphd', reservation: reservation.reservation, requester,
   }, authority).ok, true);
   assert.equal(authorizeBrokerRequest({
@@ -708,12 +955,37 @@ try {
   const boundObjects = bindManagedObjects(reservedObjects, [process.pid, 2]);
   assert.equal(boundObjects.every((item) => item.state === 'bound'), true);
   assert.deepEqual(removeManagedObjects(boundObjects), [], 'absent bound objects are already clean');
+  const authorizedObjects = authorizeManagedObjects(boundObjects);
+  assert.equal(authorizedObjects.every((item) => item.state === 'authorized'), true);
+  const lockOnlyRoot = path.join(root, 'managed-lock-only');
+  fs.mkdirSync(lockOnlyRoot);
+  const lockOnlySocket = path.join(lockOnlyRoot, 'graphd.sock');
+  const lockOnlyLock = path.join(lockOnlyRoot, 'graphd.lock');
+  const lockOnlyReserved = reserveManagedObjects(lockOnlySocket, lockOnlyLock, reservationToken);
+  const lockOnlyAuthorized = authorizeManagedObjects(
+    bindManagedObjects(lockOnlyReserved, [process.pid]),
+  );
+  fs.writeFileSync(lockOnlyLock, `${JSON.stringify({
+    pid: process.pid, safe_runner_reservation: reservationToken,
+  })}\n`);
+  assert.deepEqual(removeManagedObjects(lockOnlyAuthorized), [],
+    'an authorized exact lock may be cleaned before its socket is created');
+  const replacementReserved = reserveManagedObjects(lockOnlySocket, lockOnlyLock, reservationToken);
+  const replacementAuthorized = authorizeManagedObjects(
+    bindManagedObjects(replacementReserved, [process.pid]),
+  );
+  fs.writeFileSync(lockOnlyLock, `${JSON.stringify({
+    pid: process.pid, safe_runner_reservation: 'b'.repeat(64),
+  })}\n`);
+  assert.deepEqual(removeManagedObjects(replacementAuthorized), [lockOnlyLock],
+    'a wrong-token reservation replacement must survive cleanup');
+  fs.unlinkSync(lockOnlyLock);
   fs.writeFileSync(managedLock, `${JSON.stringify({
     pid: process.pid, safe_runner_reservation: reservationToken,
   })}\n`);
   const managedServer = net.createServer(() => {});
   await new Promise((resolve, reject) => managedServer.listen(managedSocket, resolve).once('error', reject));
-  const sealedObjects = sealManagedObjects(boundObjects);
+  const sealedObjects = sealManagedObjects(authorizedObjects);
   assert.equal(sealedObjects.every((item) => item.state === 'sealed'), true);
   const lockRecord = sealedObjects.find((item) => item.type === 'lock');
   const originalLock = `${managedLock}.original`;

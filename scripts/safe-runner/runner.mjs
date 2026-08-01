@@ -18,7 +18,7 @@ import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
 import {
-  baseReport, finishReport, prepareReportAuthority, writeReportWithFallback,
+  baseReport, finishReport, persistReportAuthorityWith, prepareReportAuthority, writeReportWithFallback,
 } from './report.mjs';
 import { redactEvidence, redactText } from './redaction.mjs';
 import {
@@ -27,6 +27,7 @@ import {
 } from './state.mjs';
 import { sanitizedEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
+import { assertExecutionSnapshot, prepareExecutionSnapshot } from './execution-snapshot.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -190,6 +191,7 @@ export async function runSafely({
   _testCrashBoundary = null,
   _testCrashMarkerFile = null,
   _testBeforeQuotaRelease = null,
+  _testAfterFinalIdentityCheck = null,
   _testPhaseFile = null,
 } = {}) {
   const startedMs = Date.now();
@@ -217,6 +219,8 @@ export async function runSafely({
   let observedSafetyLimit = null;
   let activeAttempt = null;
   let executionCommand = normalizedCommand;
+  let launchCommand = normalizedCommand;
+  let executionSnapshot = null;
   let launcherStderrTail = '';
   let launchChildState = { ended: false, code: null, signal: null, error: null };
   let scopeHandshakeDiagnostic = null;
@@ -481,7 +485,33 @@ export async function runSafely({
         lock,
         reportAuthority,
       });
+      persistReportAuthorityWith(reportAuthority, (nextAuthority) => {
+        crashWatchdog?.update({ report_authority: nextAuthority });
+      });
       tracePhase('prepare:watchdog-started');
+      let snapshotProgressObserved = false;
+      executionSnapshot = prepareExecutionSnapshot({
+        cwd: path.resolve(cwd), command: executionCommand, temporaryDirectory,
+        infrastructure: activeAdapter.infrastructure,
+        environment: { ...process.env, ...env },
+        onProgress() {
+          if (snapshotProgressObserved) return;
+          snapshotProgressObserved = true;
+          crashBoundary('snapshot_building');
+        },
+      });
+      launchCommand = executionSnapshot.launch_command;
+      if (preflight.source_identity) {
+        assertFrozenWorkloadIdentity(preflight.source_identity, cwd, executionCommand);
+      }
+      report.preflight.execution_snapshot = {
+        schema: 'lamina.safe-runner-execution-snapshot/v1',
+        digest: executionSnapshot.digest,
+        file_count: executionSnapshot.file_count,
+        total_bytes: executionSnapshot.total_bytes,
+        snapshot_roots: [executionSnapshot.snapshot_repository],
+        writable_roots: executionSnapshot.writable_bindings.map((binding) => binding.source),
+      };
     }
     const authority = {
       runId: report.run_id,
@@ -493,6 +523,11 @@ export async function runSafely({
       registrations: managedRegistrations,
       reservations: managedReservations,
       records: () => activeAdapter?.sample()?.records || [],
+      beforeBind() {
+        // The graphd process exists but is still held behind its broker start
+        // gate, so a controller crash cannot leave canonical runtime objects.
+        crashBoundary('graphd_spawned');
+      },
       reserve(record) {
         const paths = crashWatchdog?.reserveManagedPaths(record);
         if (!paths) return null;
@@ -526,9 +561,25 @@ export async function runSafely({
         crashBoundary('graphd_bound');
         return true;
       },
-      seal(record) {
+      release(record) {
         const reservation = managedReservations.find((item) => item.token === record.reservation);
         if (!reservation?.bound) return false;
+        if (!reservation.released) {
+          if (!crashWatchdog?.authorizeManagedPaths(reservation.paths)) return false;
+          reservation.released = true;
+          crashBoundary('graphd_authorized');
+        }
+        return true;
+      },
+      lockReady(record) {
+        const reservation = managedReservations.find((item) => item.token === record.reservation);
+        if (!reservation?.released) return false;
+        crashBoundary('graphd_lock_created');
+        return true;
+      },
+      seal(record) {
+        const reservation = managedReservations.find((item) => item.token === record.reservation);
+        if (!reservation?.bound || !reservation.released) return false;
         crashBoundary('graphd_objects_ready');
         if (!crashWatchdog?.sealManagedPaths(reservation.paths)) return false;
         reservation.sealed = true;
@@ -554,7 +605,7 @@ export async function runSafely({
     }
 
     const child = activeAdapter.launch({
-      command: executionCommand,
+      command: launchCommand,
       cwd: path.resolve(cwd),
       readyFile,
       releaseFile,
@@ -562,6 +613,7 @@ export async function runSafely({
       quotaReadyFile,
       quotaReleaseFile,
       temporaryDirectory: payloadTemporaryDirectory,
+      executionAuthority: executionSnapshot,
       env: sanitizedEnvironment(process.env, env, {
         ...proofBroker.environment,
         TMPDIR: payloadTemporaryDirectory,
@@ -783,7 +835,11 @@ export async function runSafely({
       if (preflight.source_identity) {
         assertFrozenWorkloadIdentity(preflight.source_identity, cwd, executionCommand);
       }
+      if (executionSnapshot) assertExecutionSnapshot(executionSnapshot);
       tracePhase('launch:final-identity-checked');
+      if (typeof _testAfterFinalIdentityCheck === 'function') {
+        await _testAfterFinalIdentityCheck();
+      }
       await releaseFifo(quotaReleaseFile);
       crashBoundary('payload_released');
       tracePhase('launch:payload-released');

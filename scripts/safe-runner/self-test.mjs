@@ -122,7 +122,16 @@ export async function runSupervisorCrashSelfTest({
     && crashReport?.termination?.reason === 'run_in_progress'
     && crashReport?.error?.code === 'LAMINA_SAFE_RUN_IN_PROGRESS'
     && Object.values(evidence).every(Boolean);
-  const passed = earlyPreparationPassed || (crashReport?.outcome === 'interrupted'
+  const snapshotPreparationPassed = boundary === 'snapshot_building'
+    && crashReport?.outcome === 'internal_error'
+    && crashReport?.termination?.reason === 'supervisor_crash_before_payload'
+    && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+    && crashReport?.cleanup?.scope_removed === true
+    && crashReport?.cleanup?.temporary_directory_removed === true
+    && crashReport?.cleanup?.errors?.length === 0
+    && crashReport?.cleanup?.lock_released === true
+    && Object.values(evidence).every(Boolean);
+  const passed = earlyPreparationPassed || snapshotPreparationPassed || (crashReport?.outcome === 'interrupted'
     && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
     && crashReport?.cleanup?.scope_removed === true
     && crashReport?.cleanup?.temporary_directory_removed === true

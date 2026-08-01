@@ -91,15 +91,24 @@ export function bubblewrapSandboxArguments({
   releaseFile,
   temporaryDirectory,
   command,
+  executionAuthority = null,
   allowNetwork = false,
   masks = controlSocketMasks(),
 } = {}) {
   const args = [
     '--unshare-user', '--unshare-pid', '--uid', '0', '--gid', '0',
     '--ro-bind', '/', '/', '--dev-bind', '/dev', '/dev', '--proc', '/proc',
-    '--bind', cwd, cwd,
     '--bind', readyFile, readyFile,
   ];
+  if (executionAuthority) {
+    for (const binding of executionAuthority.writable_bindings) {
+      args.push('--bind', binding.source, binding.alias);
+    }
+    args.push('--ro-bind', executionAuthority.snapshot_repository, executionAuthority.repository);
+    for (const binding of executionAuthority.writable_bindings) {
+      args.push('--bind', binding.alias, binding.target);
+    }
+  }
   if (!allowNetwork) args.splice(2, 0, '--unshare-net');
   for (const directory of masks.hiddenDirectories) args.push('--tmpfs', directory);
   for (const socket of masks.sockets) args.push('--bind', '/dev/null', socket);
@@ -120,13 +129,39 @@ export function bubblewrapSandboxArguments({
 }
 
 async function main() {
-  const [bwrapExecutable, encodedBwrapIdentity, cwd, readyFile, releaseFile,
+  const [bwrapExecutable, encodedBwrapIdentity, encodedExecutionAuthority, cwd, readyFile, releaseFile,
     temporaryDirectory, ...command] = process.argv.slice(2);
   let expectedBwrap = null;
+  let executionAuthority = null;
   try { expectedBwrap = JSON.parse(Buffer.from(encodedBwrapIdentity || '', 'base64url').toString('utf8')); }
   catch {}
+  try {
+    executionAuthority = JSON.parse(Buffer.from(encodedExecutionAuthority || '', 'base64url').toString('utf8'));
+  } catch {}
+  const authorityRoot = path.join(path.dirname(temporaryDirectory || ''), 'execution-authority');
+  const invalidBinding = (binding) => {
+    try {
+      return !path.isAbsolute(binding?.source || '') || !path.isAbsolute(binding?.target || '')
+        || !path.isAbsolute(binding?.alias || '') || !path.isAbsolute(binding?.snapshot_target || '')
+        || binding.source !== binding.target
+        || !binding.source.startsWith(`${executionAuthority.repository}${path.sep}`)
+        || binding.snapshot_target !== path.join(executionAuthority.snapshot_repository,
+          path.relative(executionAuthority.repository, binding.target))
+        || !binding.alias.startsWith(`${path.join(authorityRoot, 'writable-aliases')}${path.sep}`)
+        || !fs.lstatSync(binding.source).isDirectory()
+        || !fs.lstatSync(binding.alias).isDirectory()
+        || !fs.lstatSync(binding.snapshot_target).isDirectory();
+    } catch { return true; }
+  };
   if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
     || expectedBwrap?.path !== bwrapExecutable
+    || !path.isAbsolute(executionAuthority?.repository || '')
+    || !path.isAbsolute(executionAuthority?.snapshot_repository || '')
+    || !(path.resolve(cwd || '') === executionAuthority.repository
+      || path.resolve(cwd || '').startsWith(`${executionAuthority.repository}${path.sep}`))
+    || executionAuthority.snapshot_repository !== path.join(authorityRoot, 'repository')
+    || !Array.isArray(executionAuthority?.writable_bindings)
+    || executionAuthority.writable_bindings.some(invalidBinding)
     || !cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
     || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
     process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');
@@ -139,6 +174,7 @@ async function main() {
   }
   const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
+    executionAuthority,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
   }), { stdio: 'inherit', env: sanitizedEnvironment(process.env) });
   for (const signal of ['SIGTERM', 'SIGINT']) {

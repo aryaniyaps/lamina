@@ -66,6 +66,7 @@ export function authorizeBrokerRequest(request, authority) {
     if (child.ppid !== requester.pid && child.ppid !== 1) {
       return { ok: false, error: 'managed graphd was not spawned by the authorized requester' };
     }
+    authority.beforeBind?.({ reservation: reservation.token, child });
     const registered = authority.bind({
       ...child,
       namespace_pid: Number(request.child.pid),
@@ -86,12 +87,36 @@ export function authorizeBrokerRequest(request, authority) {
       },
     };
   }
+  if (request.operation === 'start_graphd') {
+    const reservation = authority.reservations.find((item) => item.token === request.reservation);
+    if (!reservation?.bound || !sameScopedIdentity(requester, reservation.bound)) {
+      return { ok: false, error: 'managed graphd start gate is not child-bound' };
+    }
+    const child = records.find((record) => sameScopedIdentity(record, reservation.bound));
+    if (!child || !graphdCommand(child.command)) {
+      return { ok: false, error: 'managed graphd child disappeared or changed at the start gate' };
+    }
+    const released = authority.release({ reservation: reservation.token });
+    return released ? { ok: true, released: true }
+      : { ok: false, error: 'managed graphd start gate could not be released' };
+  }
+  if (request.operation === 'graphd_lock_ready') {
+    const reservation = authority.reservations.find((item) => item.token === request.reservation);
+    if (!reservation?.released || !sameScopedIdentity(requester, reservation.bound)) {
+      return { ok: false, error: 'managed graphd lock transition is not start-authorized' };
+    }
+    const recorded = authority.lockReady({ reservation: reservation.token });
+    return recorded ? { ok: true, recorded: true }
+      : { ok: false, error: 'managed graphd lock transition could not be recorded' };
+  }
   if (request.operation === 'seal_graphd') {
     const reservation = authority.reservations.find((item) => item.token === request.reservation
       && ((item.requester.pid === requester.pid
         && item.requester.start_ticks === requester.start_ticks)
         || sameScopedIdentity(requester, item.bound)));
-    if (!reservation?.bound) return { ok: false, error: 'managed graphd reservation is not child-bound' };
+    if (!reservation?.bound || !reservation.released) {
+      return { ok: false, error: 'managed graphd reservation is not start-authorized' };
+    }
     const child = records.find((record) => sameScopedIdentity(record, reservation.bound));
     if (!child || !graphdCommand(child.command)) {
       return { ok: false, error: 'managed graphd child disappeared or changed before object sealing' };
@@ -103,22 +128,59 @@ export function authorizeBrokerRequest(request, authority) {
   return { ok: false, error: 'unsupported proof-broker operation' };
 }
 
-export async function createProofBroker(directory, authority) {
+export async function createProofBroker(directory, authority, {
+  maxConnections = 16,
+  idleTimeoutMs = 1_000,
+  maxRequestBytes = 8 * 1024,
+  maxRequestsPerWindow = 256,
+  requestWindowMs = 1_000,
+} = {}) {
+  if (!Number.isInteger(maxConnections) || maxConnections < 1
+    || !Number.isInteger(idleTimeoutMs) || idleTimeoutMs < 1
+    || !Number.isInteger(maxRequestBytes) || maxRequestBytes < 1
+    || !Number.isInteger(maxRequestsPerWindow) || maxRequestsPerWindow < 1
+    || !Number.isInteger(requestWindowMs) || requestWindowMs < 1) {
+    throw new TypeError('proof broker limits must be positive integers');
+  }
   const socketPath = path.join(directory, 'supervisor.sock');
   const connections = new Set();
+  let windowStartedAt = Date.now();
+  let requestsInWindow = 0;
   const server = net.createServer((socket) => {
+    if (connections.size >= maxConnections) {
+      socket.destroy();
+      return;
+    }
     connections.add(socket);
     socket.once('close', () => connections.delete(socket));
     socket.on('error', () => {});
     let buffer = '';
+    let handled = false;
     socket.setEncoding('utf8');
+    socket.setTimeout(idleTimeoutMs, () => socket.destroy());
     socket.on('data', (chunk) => {
+      if (handled) return socket.destroy();
       buffer += chunk;
-      if (buffer.length > 8 * 1024) return socket.destroy();
+      if (Buffer.byteLength(buffer, 'utf8') > maxRequestBytes) return socket.destroy();
       const newline = buffer.indexOf('\n');
       if (newline === -1) return;
+      handled = true;
+      socket.setTimeout(0);
       let response;
-      try { response = authorizeBrokerRequest(JSON.parse(buffer.slice(0, newline)), authority); }
+      try {
+        // A connection authorizes exactly one framed request. Refuse pipelined
+        // bytes instead of accidentally authorizing the first request while an
+        // attacker keeps using the same supervised connection.
+        if (buffer.slice(newline + 1).length !== 0) throw new Error('proof broker accepts exactly one request per connection');
+        const now = Date.now();
+        if (now - windowStartedAt >= requestWindowMs) {
+          windowStartedAt = now;
+          requestsInWindow = 0;
+        }
+        requestsInWindow += 1;
+        if (requestsInWindow > maxRequestsPerWindow) throw new Error('proof broker request rate exceeded');
+        response = authorizeBrokerRequest(JSON.parse(buffer.slice(0, newline)), authority);
+      }
       catch (error) { response = { ok: false, error: String(error.message || error).slice(0, 500) }; }
       socket.end(`${JSON.stringify(response)}\n`);
     });

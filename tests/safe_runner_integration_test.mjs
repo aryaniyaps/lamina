@@ -117,6 +117,12 @@ try {
     assert.equal(preparationCrash.passed, true, JSON.stringify(preparationCrash, null, 2));
     assert.notEqual(preparationCrash.report.run_id, normal.run_id,
       'preparation crash must never expose the previous successful run');
+    const snapshotCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'snapshot_building',
+    });
+    assert.equal(snapshotCrash.passed, true, JSON.stringify(snapshotCrash, null, 2));
+    assert.equal(snapshotCrash.evidence.temporary_removed, true,
+      'watchdog must remove partial execution authority after controller loss');
     const successPublicationCrash = await runSupervisorCrashSelfTest({
       cwd: process.cwd(), reportDirectory: reports, boundary: 'success_report_published',
     });
@@ -196,6 +202,27 @@ try {
       'payload must remain behind the quota gate after final identity mutation');
     assert.deepEqual(finalIdentityMutation.cleanup.descendants_remaining, []);
 
+    const sealedMarker = path.join(workspaceScratch, 'sealed-payload-executed');
+    let sealedExecution;
+    try {
+      sealedExecution = await runSafely({
+        command: [process.execPath, mutableFixture, sealedMarker],
+        tier: 'small', cwd: workloadCwd,
+        reportFile: path.join(reports, 'sealed-execution.json'),
+        overrides: limits, probe, promote: false,
+        _testAfterFinalIdentityCheck() {
+          fs.writeFileSync(mutableFixture,
+            "#!/usr/bin/env node\nimport fs from 'node:fs';\nfs.writeFileSync(process.argv[2], 'replacement executed\\n');\n");
+        },
+      });
+    } finally {
+      fs.writeFileSync(mutableFixture, mutableOriginal);
+    }
+    assert.equal(sealedExecution.outcome, 'success', JSON.stringify(sealedExecution.error));
+    assert.equal(fs.readFileSync(sealedMarker, 'utf8'), 'payload executed\n',
+      'post-check replacement must execute the already frozen entrypoint bytes');
+    assert.match(sealedExecution.preflight.execution_snapshot.digest, /^[a-f0-9]{64}$/);
+
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
       tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'failure.json'),
@@ -227,7 +254,8 @@ try {
     });
     assert.equal(initialized.status, 0, initialized.stderr);
     for (const boundary of [
-      'graphd_reserved', 'graphd_bound', 'graphd_objects_ready', 'graphd_sealed',
+      'graphd_reserved', 'graphd_spawned', 'graphd_bound', 'graphd_authorized',
+      'graphd_lock_created', 'graphd_objects_ready', 'graphd_sealed',
     ]) {
       const crashRepository = path.join(workspaceScratch, `${boundary}-${'y'.repeat(72)}`);
       fs.mkdirSync(crashRepository);

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import {
+  DEFAULTS,
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
   SELF_TEST_CASE_IDS,
@@ -226,6 +227,29 @@ function deliberatelyTinySelfTest(mode, caseId, overrides, command) {
   return required.every((key) => overrides[key] <= SELF_TEST_LIMIT_MAXIMA[key]);
 }
 
+function externalRuntimeContractReason(ownership, command, cwd) {
+  if (ownership.audited_entrypoint === 'evals/scripts/run-suite.mjs') {
+    return 'eval-suite requires the ignored .venv-eval runtime, which is not admitted into sealed execution authority; use the audited portable npx suite or provide a future bounded runtime contract';
+  }
+  if (ownership.audited_entrypoint !== 'benchmarks/retrieval-v1/benchmark.mjs'
+    || (!command.includes('--evaluate') && !command.includes('--calibrate'))) return null;
+  const workerIndex = command.indexOf('--worker');
+  if (workerIndex < 0 || !command[workerIndex + 1]) {
+    return 'retrieval evaluation requires --worker <repository worker executable>; uv/.venv execution is outside sealed execution authority';
+  }
+  const worker = path.resolve(cwd, command[workerIndex + 1]);
+  const relative = path.relative(REPOSITORY_ROOT, worker);
+  try {
+    const stat = fs.lstatSync(worker);
+    if (!relative.startsWith('..') && !path.isAbsolute(relative)
+      && stat.isFile() && !stat.isSymbolicLink()) {
+      fs.accessSync(worker, fs.constants.X_OK);
+      return null;
+    }
+  } catch {}
+  return 'retrieval --worker must name a physical executable file inside the repository so it can be sealed';
+}
+
 export function preflightRun({
   tier,
   command = [],
@@ -248,6 +272,7 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
+  const externalRuntimeReason = externalRuntimeContractReason(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
   let sourceIdentityError = null;
@@ -269,16 +294,18 @@ export function preflightRun({
   const minimumDisk = portableTinySelfTest
     ? Math.max(64 * 1024 ** 2, envelope.limits.temporary_max_bytes * 2)
     : envelope.limits.minimum_free_disk_bytes;
+  const requiredDisk = minimumDisk + (adapterInfo.production_enforcement
+    ? DEFAULTS.executionAuthorityMaxBytes : 0);
   if (envelope.available_memory_bytes < envelope.limits.memory_max_bytes + memoryReserve) {
     reasons.push('available memory cannot preserve the mandatory 2 GiB OS/desktop reserve');
   }
   if (envelope.free_disk_bytes !== null
-    && envelope.free_disk_bytes < minimumDisk) {
-    reasons.push('free disk is below max(5 GiB, twice the declared temporary budget)');
+    && envelope.free_disk_bytes < requiredDisk) {
+    reasons.push('free disk cannot cover payload temporary limits plus bounded execution authority');
   }
   if (envelope.temporary_free_disk_bytes !== null
-    && envelope.temporary_free_disk_bytes < minimumDisk) {
-    reasons.push('runner temporary filesystem is below max(5 GiB, twice the declared temporary budget)');
+    && envelope.temporary_free_disk_bytes < requiredDisk) {
+    reasons.push('runner temporary filesystem cannot cover payload limits plus bounded execution authority');
   }
   if (!adapterInfo.production_enforcement && !portableTinySelfTest) {
     reasons.push(
@@ -289,6 +316,7 @@ export function preflightRun({
     reasons.push('medium/large execution requires Linux user-systemd cgroup-v2 aggregate enforcement');
   }
   if (!ownership.proven) reasons.push(ownership.reason);
+  if (externalRuntimeReason) reasons.push(externalRuntimeReason);
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
   if (!retry.ok && retry.previous) {
@@ -337,6 +365,11 @@ export function preflightRun({
     writable_worktree: writableWorktree,
     retry,
     envelope,
+    execution_authority_budget: {
+      max_bytes: DEFAULTS.executionAuthorityMaxBytes,
+      max_files: DEFAULTS.executionAuthorityMaxFiles,
+      included_in_free_disk_preflight: adapterInfo.production_enforcement === true,
+    },
     existing_lamina_processes: existing,
     attestation: {
       valid: attestation.valid,

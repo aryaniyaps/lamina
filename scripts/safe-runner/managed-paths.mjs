@@ -87,10 +87,20 @@ export function bindManagedObjects(records, expectedPids) {
   return bound;
 }
 
+export function authorizeManagedObjects(records) {
+  const authorized = [];
+  for (const record of records || []) {
+    if (record?.state !== 'bound' || !sameParent(record.path, record.parent_identity)
+      || lstatPresence(record.path).exists) return null;
+    authorized.push({ ...record, state: 'authorized' });
+  }
+  return authorized;
+}
+
 export function sealManagedObjects(records) {
   const sealed = [];
   for (const record of records || []) {
-    if (record?.state !== 'bound' || !sameParent(record.path, record.parent_identity)) return null;
+    if (record?.state !== 'authorized' || !sameParent(record.path, record.parent_identity)) return null;
     const identity = objectIdentity(record.path, record.type);
     if (!identity) return null;
     if (record.type === 'lock') {
@@ -106,7 +116,8 @@ export function sealManagedObjects(records) {
 
 export function removeManagedObjects(records, { beforeUnlink = null } = {}) {
   const transitional = new Map();
-  const bound = (records || []).filter((record) => record?.state === 'bound');
+  const bound = (records || []).filter((record) =>
+    ['bound', 'authorized'].includes(record?.state));
   if (bound.length) {
     const lock = bound.find((record) => record.type === 'lock');
     const socket = bound.find((record) => record.type === 'socket');
@@ -115,11 +126,11 @@ export function removeManagedObjects(records, { beforeUnlink = null } = {}) {
       const lockIdentity = objectIdentity(lock.path, 'lock');
       const socketIdentity = objectIdentity(socket.path, 'socket');
       const proof = lockIdentity ? readLockProof(lock, lockIdentity) : null;
-      if (socketIdentity && Number.isSafeInteger(proof?.pid)
+      if (Number.isSafeInteger(proof?.pid)
         && lock.expected_pids.includes(proof.pid)
         && proof.reservation === lock.reservation_token) {
         transitional.set(lock.path, lockIdentity);
-        transitional.set(socket.path, socketIdentity);
+        if (socketIdentity) transitional.set(socket.path, socketIdentity);
       }
     }
   }

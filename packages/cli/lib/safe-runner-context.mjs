@@ -90,6 +90,24 @@ export function bindManagedGraphdWithSupervisor(reservation, identity) {
   });
 }
 
+export function startManagedGraphdWithSupervisor(reservation) {
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  return brokerRequest({
+    operation: 'start_graphd',
+    requester: processIdentity(process.pid),
+    reservation,
+  });
+}
+
+export function recordManagedGraphdLockWithSupervisor(reservation) {
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  return brokerRequest({
+    operation: 'graphd_lock_ready',
+    requester: processIdentity(process.pid),
+    reservation,
+  });
+}
+
 export function sealManagedGraphdWithSupervisor(reservation) {
   if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
   return brokerRequest({

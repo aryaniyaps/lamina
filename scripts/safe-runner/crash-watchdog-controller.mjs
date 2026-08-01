@@ -9,7 +9,8 @@ import { identityAlive, processIdentity } from './processes.mjs';
 import { redactEvidence } from './redaction.mjs';
 import { sanitizedEnvironment } from './infrastructure.mjs';
 import {
-  bindManagedObjects, removeManagedObjects, reserveManagedObjects, sealManagedObjects,
+  authorizeManagedObjects, bindManagedObjects, removeManagedObjects, reserveManagedObjects,
+  sealManagedObjects,
 } from './managed-paths.mjs';
 
 const WATCHDOG = fileURLToPath(new URL('./crash-watchdog.mjs', import.meta.url));
@@ -108,6 +109,15 @@ export async function startCrashWatchdog({
     bindManagedPaths(paths, pids) {
       const current = paths.map((item) => manifest.managed_paths.find((entry) => entry.path === item.path));
       const updates = bindManagedObjects(current, pids);
+      if (!updates) return false;
+      const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
+      for (const item of updates) existing.set(item.path, item);
+      persist({ managed_paths: [...existing.values()] });
+      return true;
+    },
+    authorizeManagedPaths(paths) {
+      const current = paths.map((item) => manifest.managed_paths.find((entry) => entry.path === item.path));
+      const updates = authorizeManagedObjects(current);
       if (!updates) return false;
       const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
       for (const item of updates) existing.set(item.path, item);

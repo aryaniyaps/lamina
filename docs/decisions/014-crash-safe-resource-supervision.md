@@ -64,26 +64,41 @@ The runner:
 - identifies processes by PID plus Linux start ticks so stale records cannot
   target a reused PID;
 - lets the graph client durably reserve absent canonical graphd socket/lock
-  paths before spawn, bind that reservation to the exact in-scope child, and
-  seal exact object identities after readiness and lock-PID validation;
-- invalidates the report slot with a current-run non-success provisional before
-  lengthy preparation, then
-  atomically replaces that run-bound slot for every completed outcome;
+  paths before spawn, hold the exact in-scope child behind a broker start gate,
+  persist creation authorization before release, and seal exact object
+  identities after readiness and lock-PID validation;
+- acquires the report slot by atomically replacing it with a current-run
+  non-success provisional, never by truncating a symlink or hardlink target,
+  then advances exact single-link inode generations for completed outcomes;
+- places the audited executable, complete Git-owned source tree, explicit file
+  argv inputs, and bounded resolved dependency roots in a runner-owned
+  read-only execution snapshot before launch; only explicit per-entrypoint
+  output roots are rebound writable into that snapshot; its separate 512 MiB /
+  16,384-object ceiling is included in free-disk preflight rather than charged
+  to the payload's deliberately small private-tmpfs quota;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
 - rejects Docker/Harbor-style external-daemon execution because descendants
   launched by an external daemon are not proven members of the client scope.
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
-an online three-phase supervisor-broker protocol. The broker first proves the
+an online gated supervisor-broker protocol. The broker first proves the
 canonical socket and lock absent under a physical same-user parent and durably
-reserves them. Only then may the client spawn graphd and bind the reservation
-to its host/namespace PIDs plus Linux start ticks. Graphd's reservation-bound
-lock proves the narrow object-creation transition; after readiness the broker
+reserves them. Only then may the client spawn a paused graphd and bind the
+reservation to its host/namespace PIDs plus Linux start ticks. The broker
+persists an `authorized` managed-path generation before releasing the child;
+graphd rechecks both names absent and refuses rather than unlinks a replacement.
+Graphd's reservation-bound lock proves the narrow object-creation transition;
+the watchdog can clean that exact valid lock even if the controller dies before
+socket creation. After readiness the broker
 records exact device/inode/owner/type identities and validates the lock PID.
 Normal and watchdog cleanup share the same `lstat`-based immediate pre-unlink
 identity recheck. Dangling symlinks, unsealed foreign objects, and same-user
 replacements remain in place and keep cleanup incomplete.
+The proof socket itself has a hard concurrent-connection cap, idle and frame
+byte deadlines, exactly one request per connection, and a bounded fixed-window
+request rate. These limits keep proof work performed by the controller outside
+the payload cgroup from becoming an unbounded resource surface.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion,
@@ -95,8 +110,30 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-Immediately before release the runner revalidates its frozen preflight identity
-and writes a durable active-attempt fence. The identity covers the complete
+After creating the runner-owned outer directory, the controller starts its
+independent watchdog before copying any workload bytes. A controller crash
+during construction therefore removes partial execution authority even though
+no scope or payload exists yet. The runner then descriptor-copies the workload
+into private execution authority. Its manifest uses stable logical labels rather than random snapshot
+paths, rejects escaping symlinks, and applies file/byte bounds. Static local
+imports use the copied Git tree; bare packages are copied from the audited
+import closure and resolve from each importer's nearest in-repository package
+boundary, with explicit dependency contracts for non-standard resolvers.
+Ignored file argv inputs (for example model artifacts) are copied separately.
+The process keeps its declared cwd, while entrypoint-specific output roots are
+the only writable bindings into source-relative snapshot locations.
+The same authority descriptor-copies Node, bwrap, the gate scripts, and the
+sandbox launcher/import before systemd launch. The shell and systemd launcher
+remain host-trusted infrastructure; bwrap and later stages execute their staged
+objects, so a post-validation pathname swap cannot choose the sandbox binary.
+Large ignored runtimes are not silently exposed again after the repository
+mount. In particular, eval-suite `.venv-eval` execution is refused with an
+actionable bounded-runtime requirement, while release retrieval evaluation
+must name the already-built repository worker with `--worker`; the uv/project
+venv fallback is outside sealed authority.
+
+Immediately before release the runner revalidates both its frozen preflight
+identity and execution snapshot and writes a durable active-attempt fence. The identity covers the complete
 normalized argv, the exact bounded content-hashed executable object, every
 file argument resolved against the supplied cwd, the
 content-hashed Git snapshot, and runner build. Effective limits are excluded.

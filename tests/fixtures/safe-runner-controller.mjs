@@ -5,7 +5,10 @@ import { MIB } from '../../scripts/safe-runner/constants.mjs';
 
 const [cwd, reportFile, boundary = 'payload_released', graphRepository = null] = process.argv.slice(2);
 if (!cwd || !reportFile) process.exit(64);
-const graphd = ['graphd_reserved', 'graphd_bound', 'graphd_objects_ready', 'graphd_sealed']
+const graphd = [
+  'graphd_reserved', 'graphd_spawned', 'graphd_bound', 'graphd_authorized',
+  'graphd_lock_created', 'graphd_objects_ready', 'graphd_sealed',
+]
   .includes(boundary);
 const fixtureMode = boundary === 'after_limit_observed' ? 'output-flood'
   : boundary === 'success_report_published' ? 'success' : 'hang';

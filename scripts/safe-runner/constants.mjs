@@ -56,6 +56,8 @@ export const DEFAULTS = Object.freeze({
   timeoutMs: 30 * 60 * 1000,
   outputMaxBytes: 32 * MIB,
   tempMaxBytes: 2 * GIB,
+  executionAuthorityMaxBytes: 512 * MIB,
+  executionAuthorityMaxFiles: 16_384,
   sampleIntervalMs: 250,
   sustainedHighSamples: 4,
   gracefulStopMs: 2_000,

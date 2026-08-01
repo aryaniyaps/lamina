@@ -22,6 +22,8 @@ assert.equal(workload(evaluateRuns[0]), 'retrieval-v1');
 assert.equal(workload(evaluateRuns[1]), 'retrieval-v1');
 assert.equal(payload(evaluateRuns[0]), payload(evaluateRuns[1]),
   'promotion must bind the complete frozen evaluation argv across tiers');
+assert.match(evaluateRuns[0], /--worker dist\/lamina-cocoindex-worker-\$\{\{ matrix\.target \}\}/,
+  'release retrieval must execute the sealed native worker instead of an ignored uv venv');
 assert.match(evaluateRuns[0], /--promote\b/);
 assert.match(evaluateRuns[1], /--promote\b/);
 const calibration = safeRuns.find((line) => line.includes('benchmark.mjs --calibrate'));
@@ -33,7 +35,7 @@ assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_PATH=%s/);
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_SHA256=%s/);
 assert.doesNotMatch(safeWorkflow, /echo "\$bin_dir" >> "\$GITHUB_PATH"/);
 assert.match(adapter, /assertTrustedBinaryIdentity\(binaries\.identities\.bwrap\)[\s\S]*spawnSync\(binaries\.bwrap/);
-assert.match(systemd, /assertInfrastructureBinaries\(this\.infrastructure,[\s\S]*this\.infrastructure\.bwrap, bwrapIdentity/);
+assert.match(systemd, /assertInfrastructureBinaries\(this\.infrastructure,[\s\S]*staged\.bwrap, bwrapIdentity/);
 assert.match(sandbox, /assertTrustedBinaryIdentity\(expectedBwrap\)[\s\S]*spawn\(bwrapExecutable/);
 
 const compatibilityReport = path.resolve('evals/reports/compatibility-matrix.json');
