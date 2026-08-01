@@ -3,6 +3,16 @@ import { spawnSync } from 'node:child_process';
 
 let quotaCapability = null;
 
+export function boundedProbeFailure(result) {
+  const parts = [];
+  if (result?.error) parts.push(`error=${String(result.error.code || result.error.message || result.error)}`);
+  if (result?.status !== null && result?.status !== undefined) parts.push(`exit=${result.status}`);
+  if (result?.signal) parts.push(`signal=${result.signal}`);
+  const output = String(result?.stderr || result?.stdout || '').replace(/\s+/g, ' ').trim();
+  if (output) parts.push(`output=${output.slice(0, 500)}`);
+  return parts.join('; ') || 'no process result';
+}
+
 function commandAvailable(command, args = ['--version']) {
   const result = spawnSync(command, args, {
     encoding: 'utf8',
@@ -15,14 +25,27 @@ function commandAvailable(command, args = ['--version']) {
 
 function temporaryQuotaAvailable() {
   if (quotaCapability !== null) return quotaCapability;
-  if (!commandAvailable('bwrap')) return (quotaCapability = false);
+  const version = spawnSync('bwrap', ['--version'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+  });
+  if (version.error || version.status !== 0) {
+    return (quotaCapability = {
+      available: false,
+      reason: `bwrap command is unavailable (${boundedProbeFailure(version)})`,
+    });
+  }
   const result = spawnSync('bwrap', [
     '--unshare-user', '--uid', '0', '--gid', '0', '--ro-bind', '/', '/',
     '--dev-bind', '/dev', '/dev', '--proc', '/proc', '--size', '1048576', '--tmpfs', '/tmp',
     '/bin/sh', '-c',
     'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null',
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024 });
-  quotaCapability = !result.error && result.status === 0;
+  const available = !result.error && result.status === 0;
+  quotaCapability = {
+    available,
+    reason: available ? null
+      : `unprivileged bwrap size-limited tmpfs probe failed (${boundedProbeFailure(result)})`,
+  };
   return quotaCapability;
 }
 
@@ -40,7 +63,7 @@ export function probeLinuxSystemd(platform = process.platform) {
   }
   if (!commandAvailable('systemd-run')) reasons.push('systemd-run is unavailable');
   const temporaryQuota = temporaryQuotaAvailable();
-  if (!temporaryQuota) reasons.push('unprivileged bwrap size-limited tmpfs enforcement is unavailable');
+  if (!temporaryQuota.available) reasons.push(temporaryQuota.reason);
   const userManager = spawnSync('systemctl', ['--user', 'is-system-running'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -57,7 +80,7 @@ export function probeLinuxSystemd(platform = process.platform) {
     aggregate_memory: reasons.length === 0,
     aggregate_pids: reasons.length === 0,
     complete_descendant_ownership: reasons.length === 0,
-    temporary_quota: temporaryQuota,
+    temporary_quota: temporaryQuota.available,
     controllers,
     reasons,
   };

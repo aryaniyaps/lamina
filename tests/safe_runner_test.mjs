@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
-import { adapterProbe, assertAdapterShape } from '../scripts/safe-runner/adapter.mjs';
+import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
@@ -66,6 +66,10 @@ try {
   };
   assert.equal(adapterProbe('darwin').production_enforcement, false);
   assert.equal(adapterProbe('win32').id, 'portable-process-group-small-only');
+  assert.equal(
+    boundedProbeFailure({ status: 1, signal: null, stderr: `denied\n${'x'.repeat(1_000)}` }),
+    `exit=1; output=${`denied ${'x'.repeat(1_000)}`.slice(0, 500)}`,
+  );
   const ordinarySmall = preflightRun({
     tier: 'small', command: ['node', '-e', ''], cwd: root, adapterInfo: portableProbe,
   });
@@ -394,7 +398,7 @@ try {
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
-  assert.match(workflow, /ubuntu-24\.04[\s\S]*apt-get download bubblewrap[\s\S]*package-sha256\.txt[\s\S]*npm run safe:self-test/);
+  assert.match(workflow, /ubuntu-22\.04[\s\S]*apt-get download bubblewrap[\s\S]*package-sha256\.txt[\s\S]*npm run safe:self-test/);
   assert.doesNotMatch(workflow, /\bsudo\b/);
 
   process.stdout.write('safe-runner unit contracts passed\n');

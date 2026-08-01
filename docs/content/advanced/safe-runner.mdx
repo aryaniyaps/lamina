@@ -62,9 +62,12 @@ matrix, because a portable process group cannot prove cleanup of the detached
 descendant case. Portable focused contract tests never qualify medium or large
 execution.
 
-The low-limit Linux CI job provisions Bubblewrap without privilege: it
-downloads Ubuntu's signed package and extracts the binary into the ephemeral
-runner directory. It does not use `sudo` or modify the host package database.
+The low-limit Linux CI job is pinned to Ubuntu 22.04 and provisions Bubblewrap
+without privilege: it downloads Ubuntu's signed package and extracts the binary
+into the ephemeral runner directory. It does not use `sudo` or modify the host
+package database. Ubuntu 24.04's hosted AppArmor policy blocks this rootless
+namespace path unless a privileged package profile is installed, so it is not
+used as the qualification host.
 
 The native release workflow runs source-quality checks on every target before
 an adapter qualification gate. Until issue #57 supplies production enforcement
