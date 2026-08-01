@@ -1040,7 +1040,7 @@ try {
   assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
     'a saturated command shard must compact to one fail-closed marker');
   const staleCandidate = path.join(
-    capacityShardPath, `.mutation-candidate-999999-${'d'.repeat(32)}`,
+    capacityShardPath, `.mutation-candidate-999999-1-${'d'.repeat(32)}`,
   );
   fs.mkdirSync(staleCandidate);
   fs.writeFileSync(path.join(staleCandidate, 'owner.json'), JSON.stringify({
@@ -1055,6 +1055,17 @@ try {
   checkSafetyRetry(capacityRoot, capacityCommand, report.limits);
   assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
     'the next locked mutation must sweep crash-left candidate and quarantine directories');
+
+  const currentIdentity = processIdentity(process.pid);
+  const initializingCandidate = path.join(
+    capacityShardPath,
+    `.mutation-candidate-${process.pid}-${currentIdentity?.start_ticks || 'portable'}-${'f'.repeat(32)}`,
+  );
+  fs.mkdirSync(initializingCandidate);
+  checkSafetyRetry(capacityRoot, capacityCommand, report.limits);
+  assert.equal(fs.existsSync(initializingCandidate), true,
+    'cleanup must not delete a live candidate before its owner metadata is published');
+  fs.rmSync(initializingCandidate, { recursive: true });
 
   const repositoryCapacityRoot = path.join(root, 'retry-repository-capacity-root');
   fs.mkdirSync(repositoryCapacityRoot);

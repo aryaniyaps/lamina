@@ -289,6 +289,27 @@ function retryLockOwnerActive(owner) {
   try { process.kill(owner.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }
 
+function retryProcessIdentity(pid) {
+  if (process.platform !== 'linux') return { pid, start_ticks: null };
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    const startTicks = stat.slice(close + 2).trim().split(/\s+/)[19];
+    return typeof startTicks === 'string' ? { pid, start_ticks: startTicks } : null;
+  } catch { return null; }
+}
+
+function retryCandidateIdentity(name) {
+  const match = name.match(
+    /^\.mutation-candidate-([1-9]\d*)-([1-9]\d*|portable)-[a-f0-9]{32}$/,
+  );
+  if (!match) return null;
+  return {
+    pid: Number(match[1]),
+    start_ticks: match[2] === 'portable' ? null : match[2],
+  };
+}
+
 function sameRetryLockOwner(left, right) {
   return Number(left?.pid) === Number(right?.pid)
     && String(left?.start_ticks || '') === String(right?.start_ticks || '')
@@ -303,10 +324,10 @@ function sweepRetryLockArtifacts(directory, activeCandidate) {
       try { fs.rmSync(artifact, { recursive: true, force: true }); } catch {}
       continue;
     }
-    if (!/^\.mutation-candidate-[1-9]\d*-[a-f0-9]{32}$/.test(entry.name)
-      || artifact === activeCandidate) continue;
+    const candidateIdentity = retryCandidateIdentity(entry.name);
+    if (!candidateIdentity || artifact === activeCandidate) continue;
     const owner = json(path.join(artifact, 'owner.json'));
-    if (!retryLockOwnerActive(owner)) {
+    if (!retryLockOwnerActive(owner) && !retryLockOwnerActive(candidateIdentity)) {
       try { fs.rmSync(artifact, { recursive: true, force: true }); } catch {}
     }
   }
@@ -314,12 +335,15 @@ function sweepRetryLockArtifacts(directory, activeCandidate) {
 
 function acquireRetryShardLock(directory) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const identity = processIdentity(process.pid) || { pid: process.pid, start_ticks: null };
+  const identity = retryProcessIdentity(process.pid) || { pid: process.pid, start_ticks: null };
   const nonce = crypto.randomBytes(16).toString('hex');
   const owner = { ...identity, nonce, created_at: new Date().toISOString() };
   const lock = path.join(directory, '.mutation.lock');
   const recovery = path.join(directory, '.mutation.recovery.lock');
-  const candidate = path.join(directory, `.mutation-candidate-${process.pid}-${nonce}`);
+  const candidateIdentity = identity.start_ticks || 'portable';
+  const candidate = path.join(
+    directory, `.mutation-candidate-${process.pid}-${candidateIdentity}-${nonce}`,
+  );
   fs.mkdirSync(candidate, { mode: 0o700 });
   fs.writeFileSync(path.join(candidate, 'owner.json'), `${JSON.stringify(owner)}\n`, { mode: 0o600 });
   const deadline = Date.now() + RETRY_LOCK_WAIT_MS;
