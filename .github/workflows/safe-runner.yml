@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
+      LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-safe-runner-state
 
     steps:
       - uses: actions/checkout@v6
@@ -86,7 +86,7 @@ jobs:
         if: always()
         with:
           name: safe-runner-low-limit-reports
-          path: ${{ runner.temp }}/lamina-safe-runner-state
+          path: /tmp/lamina-safe-runner-state
 
   portable-contract:
     strategy:
