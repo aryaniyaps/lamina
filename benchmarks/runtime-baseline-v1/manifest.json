@@ -1,0 +1,58 @@
+{
+  "schema": "lamina.runtime-baseline-manifest/v1",
+  "version": 1,
+  "fixtures": [
+    {
+      "id": "small",
+      "name": "Bulletproof React",
+      "url": "https://github.com/alan2207/bulletproof-react.git",
+      "commit": "9506629ed003a561c6627735480cce4994244bb4",
+      "class": "small",
+      "source_loc": { "minimum": 10000, "maximum": 50000 },
+      "languages": ["TypeScript", "React"]
+    },
+    {
+      "id": "medium",
+      "name": "Outline",
+      "url": "https://github.com/outline/outline.git",
+      "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+      "class": "medium",
+      "source_loc": { "minimum": 100000, "maximum": 300000 },
+      "languages": ["TypeScript", "React"]
+    },
+    {
+      "id": "large",
+      "name": "Plane",
+      "url": "https://github.com/makeplane/plane.git",
+      "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+      "class": "large",
+      "source_loc": { "minimum": 300000, "maximum": 1500000 },
+      "languages": ["TypeScript", "React", "Python"],
+      "polyglot": true
+    }
+  ],
+  "source_extensions": [
+    ".c", ".cc", ".cpp", ".cs", ".css", ".go", ".h", ".hpp", ".html",
+    ".java", ".js", ".jsx", ".kt", ".kts", ".mjs", ".php", ".py", ".rb",
+    ".rs", ".scss", ".swift", ".ts", ".tsx", ".vue"
+  ],
+  "exclusions": [
+    ".git", ".agents/skills", ".claude/skills", ".codex/skills", ".opencode/skills",
+    ".lamina/runs", ".lamina/runtime", ".lamina/runtime-cli", "node_modules",
+    "__pycache__", ".venv*", ".next", "dist", "build", "coverage",
+    "benchmarks/results", "evals/fixtures/.vendor-tmp*"
+  ],
+  "runtime_assets": {
+    "release": "cli-v0.3.5",
+    "worker_linux_x64": {
+      "url": "https://github.com/aryaniyaps/lamina/releases/download/cli-v0.3.5/lamina-cocoindex-worker-linux-x64",
+      "sha256": "119247359266f2a5b922b03c76d052bc76d757ec634593fbf52473bfc8ee79cc",
+      "bytes": 88690440
+    },
+    "model": {
+      "url": "https://github.com/aryaniyaps/lamina/releases/download/cli-v0.3.5/lamina-retrieval-model-int8-v1.onnx",
+      "sha256": "ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d",
+      "bytes": 161895621
+    }
+  }
+}
