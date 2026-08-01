@@ -164,6 +164,32 @@ release outputs remain beneath their fixed output subtree; test outputs remain
 inside the exact Git-common `lamina/work` scratch authority. A root, alias, or
 source-bearing output refuses instead of remounting live source over the frozen
 tree.
+
+Publication is implemented as a standalone crash-recoverable primitive in
+`scripts/safe-runner/publication.mjs`. A caller must pre-register a transaction
+in a same-filesystem runner registry and declare each repository-contained file
+or directory as either a pure output or copy-on-write output. The primitive
+descriptor-copies bounded payloads, rejects special files, multi-link files,
+escaping or dangling symlinks, changed ancestors, and cross-filesystem targets,
+then seals exact manifests before installation. File and directory permissions
+are preserved without carrying special mode bits.
+
+Its atomic, fsynced, bounded journal advances through `prepared`, `old_saved`,
+`new_installed`, and `committed`. Existing targets remain saved under the exact
+registered transaction identity until commit is durable. Rollback first moves
+an installed new target back under transaction authority, then atomically
+restores the saved prestate. Recovery is idempotent at every rename, state-write,
+and cleanup boundary: absent validated success authority defaults to restoring
+the exact prestate, while commit requires an explicit caller-supplied authority
+validator. Cleanup is no-follow, same-user, identity-rechecked, bounded, and
+resumable.
+
+This checkpoint does not connect the primitive to the safe-runner command,
+sandbox output bindings, controller, or watchdog. No active entrypoint therefore
+receives transactional publication behavior yet. Those integrations require a
+separate reviewed change that binds the success authority and pre-registered
+transaction to the independently owned watchdog lifecycle.
+
 For linked worktrees, the descriptor-copied `.git` pointer remains in the
 frozen worktree. A bounded pack containing the reachable HEAD ancestry plus
 index objects, copied common config/ref metadata, and copied worktree HEAD/index
