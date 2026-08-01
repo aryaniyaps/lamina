@@ -32,7 +32,7 @@ export class PortableProcessGroupAdapter {
     return this.child;
   }
 
-  sample() {
+  sample(_options = {}) {
     if (process.platform !== 'linux' || !this.child?.pid) {
       const alive = this.child?.exitCode === null && this.child?.signalCode === null;
       return {
@@ -41,6 +41,7 @@ export class PortableProcessGroupAdapter {
         taskCount: alive ? 1 : 0,
         pids: alive ? [this.child.pid] : [],
         records: [],
+        accounting: null,
         events: {},
       };
     }
@@ -65,6 +66,7 @@ export class PortableProcessGroupAdapter {
       taskCount: current.length,
       pids: current.map((record) => record.pid),
       records: current,
+      accounting: null,
       events: {},
     };
   }

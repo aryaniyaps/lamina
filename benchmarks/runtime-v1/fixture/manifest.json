@@ -1,0 +1,17 @@
+{
+  "schema": "lamina.runtime-benchmark-fixture-manifest/v1",
+  "id": "tiny-runtime-lifecycle",
+  "version": 1,
+  "tracked_files": [
+    "constants.mjs",
+    "physical-files.mjs",
+    "fixture-metadata.mjs",
+    "fixture-contract.mjs",
+    "fixture/fixture-data.mjs",
+    "fixture/tiny-runtime.mjs"
+  ],
+  "indexed_files": [
+    "fixture/fixture-data.mjs"
+  ],
+  "child_processes": 1
+}

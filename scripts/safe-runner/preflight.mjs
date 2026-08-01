@@ -33,6 +33,7 @@ const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
+  ['benchmarks/runtime-v1/fixture/tiny-runtime.mjs', false],
   ['evals/scripts/run-suite.mjs', true],
   ['evals/scripts/run-reference-matrix.mjs', true],
   ['evals/scripts/vendor-nextjs-fixture.mjs', true],
@@ -43,6 +44,7 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['scripts/fetch-retrieval-model.mjs', true],
   ['scripts/prepare-retrieval-assets.mjs', false],
   ['tests/retrieval_native_index_test.mjs', false],
+  ['tests/runtime_benchmark_test.mjs', false],
   ['tests/cli_binary_smoke_test.mjs', false],
   ['tests/fixtures/safe-runner-adversary.mjs', false],
   ['tests/fixtures/safe-runner-graphd-client.mjs', false],
@@ -50,6 +52,8 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
 const SMALL_ONLY_SCRATCH_FIXTURES = new Set([
+  'benchmarks/runtime-v1/fixture/tiny-runtime.mjs',
+  'tests/runtime_benchmark_test.mjs',
   'tests/fixtures/safe-runner-graphd-client.mjs',
   'tests/fixtures/safe-runner-mutable.mjs',
 ]);

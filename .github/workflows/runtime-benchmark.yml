@@ -1,0 +1,124 @@
+name: Tiny runtime benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/runtime-v1/**'
+      - 'tests/runtime_benchmark_*.mjs'
+      - 'scripts/safe-runner/**'
+      - 'package.json'
+      - '.github/workflows/runtime-benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/runtime-v1/**'
+      - 'tests/runtime_benchmark_*.mjs'
+      - 'scripts/safe-runner/**'
+      - 'package.json'
+      - '.github/workflows/runtime-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tiny-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-runtime-benchmark-safe-state
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+
+      - name: Stage trusted private Node runtime
+        shell: bash
+        run: |
+          source_node="$(realpath "$(command -v node)")"
+          source_bin="$(dirname "$source_node")"
+          source_root="$(dirname "$source_bin")"
+          trust_root="$RUNNER_TEMP/lamina-safe-node"
+          node_dir="$trust_root/bin"
+          install -d -m 0700 "$trust_root"
+          cp -a --no-preserve=ownership "$source_root/." "$trust_root/"
+          chmod -R go-w "$trust_root"
+          chmod 0700 "$trust_root"
+          test "$(sha256sum "$source_node" | cut -d' ' -f1)" = \
+            "$(sha256sum "$node_dir/node" | cut -d' ' -f1)"
+          test "$("$node_dir/node" -p 'process.execPath')" = "$node_dir/node"
+          printf '%s\n' "$node_dir" >> "$GITHUB_PATH"
+
+      - name: Provision pinned rootless bubblewrap
+        shell: bash
+        run: |
+          package_dir="$RUNNER_TEMP/bubblewrap-package"
+          extract_dir="$RUNNER_TEMP/bubblewrap-root"
+          bin_dir="$RUNNER_TEMP/bubblewrap-bin"
+          mkdir -p "$package_dir" "$extract_dir" "$bin_dir"
+          package="$package_dir/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_url="https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_sha256="3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb"
+          curl --proto '=https' --tlsv1.2 -fsSL "$package_url" -o "$package"
+          printf '%s  %s\n' "$package_sha256" "$package" | sha256sum --check
+          dpkg-deb --extract "$package" "$extract_dir"
+          cp "$extract_dir/usr/bin/bwrap" "$bin_dir/bwrap"
+          chmod 0755 "$bin_dir/bwrap"
+          "$bin_dir/bwrap" --unshare-user --uid 0 --gid 0 --ro-bind / / \
+            --dev-bind /dev /dev --proc /proc --size 1048576 --tmpfs /tmp \
+            /bin/sh -c 'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null'
+          printf 'LAMINA_SAFE_BWRAP_PATH=%s\nLAMINA_SAFE_BWRAP_SHA256=%s\n' \
+            "$bin_dir/bwrap" "$(sha256sum "$bin_dir/bwrap" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Unit contracts through the safe runner
+        env:
+          LAMINA_RUNTIME_BENCHMARK_UNIT_REPORT: ${{ runner.temp }}/runtime-benchmark-unit-report.json
+        run: npm run test:runtime-benchmark
+
+      - name: Default tiny integration matrix
+        shell: bash
+        run: |
+          benchmark_parent="$RUNNER_TEMP/runtime-benchmark"
+          benchmark_output="$benchmark_parent/default"
+          mkdir -p "$benchmark_parent"
+          printf 'LAMINA_RUNTIME_BENCHMARK_INTEGRATION=1\nLAMINA_RUNTIME_BENCHMARK_OUTPUT=%s\n' \
+            "$benchmark_output" >> "$GITHUB_ENV"
+          LAMINA_RUNTIME_BENCHMARK_INTEGRATION=1 \
+            LAMINA_RUNTIME_BENCHMARK_OUTPUT="$benchmark_output" \
+            npm run test:runtime-benchmark:integration
+          npm run bench:runtime -- validate --file "$benchmark_output/result.json"
+
+      - name: Refuse leaked descendants
+        if: always()
+        shell: bash
+        run: |
+          if pgrep -af '[t]iny-runtime.mjs|[l]amina-safe-' > "$RUNNER_TEMP/runtime-leftovers.txt"; then
+            cat "$RUNNER_TEMP/runtime-leftovers.txt"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tiny-runtime-benchmark-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/runtime-benchmark
+            /tmp/lamina-runtime-benchmark-safe-state
+            ${{ runner.temp }}/runtime-benchmark-unit-report.json
+
+      - name: Scoped benchmark cleanup
+        if: always()
+        shell: bash
+        run: |
+          benchmark_output="$RUNNER_TEMP/runtime-benchmark/default"
+          if test -e "$benchmark_output"; then
+            npm run bench:runtime -- cleanup --root "$benchmark_output"
+          fi
