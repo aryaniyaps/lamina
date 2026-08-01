@@ -131,7 +131,7 @@ try {
       tier: 'small', cwd: root, reportFile: path.join(reports, 'managed-graphd.json'),
       overrides: {
         ...limits,
-        pidsMax: 32,
+        pidsMax: 64,
         timeoutMs: 5_000,
         gracefulStopMs: 500,
       },
@@ -156,7 +156,7 @@ try {
     const staleGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'leave-stale'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'stale-graphd.json'),
-      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       probe, promote: false,
     });
     assert.equal(staleGraphd.outcome, 'internal_error');
@@ -171,7 +171,7 @@ try {
     const earlyGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'exit-stale'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'early-graphd.json'),
-      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       promote: false,
     });
     assert.equal(earlyGraphd.outcome, 'internal_error');
@@ -189,7 +189,7 @@ try {
     const cleanupAfterLimit = await runSafely({
       command: retryCommand,
       tier: 'small', cwd: root, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
-      overrides: { ...limits, timeoutMs: 300, gracefulStopMs: 100 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 300, gracefulStopMs: 100 },
       promote: false,
     });
     assert.equal(cleanupAfterLimit.outcome, 'internal_error');
