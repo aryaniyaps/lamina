@@ -40,7 +40,7 @@ import {
   sealManagedObjects,
 } from '../scripts/safe-runner/managed-paths.mjs';
 import {
-  assertTrustedBinaryIdentity, isExecutionHookEnvironment, sanitizedEnvironment,
+  assertTrustedBinaryIdentity, infrastructureBinaries, isExecutionHookEnvironment, sanitizedEnvironment,
   sanitizedPayloadEnvironment, trustedBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
@@ -412,7 +412,7 @@ try {
   )).bounded, false, 'an oversized proc environment must fail closed');
 
   const binaryCopy = path.join(root, 'trusted-bwrap-copy');
-  fs.copyFileSync('/usr/bin/bwrap', binaryCopy);
+  fs.copyFileSync(infrastructureBinaries().bwrap, binaryCopy);
   fs.chmodSync(binaryCopy, 0o755);
   const binaryIdentity = trustedBinaryIdentity(binaryCopy);
   assert.equal(assertTrustedBinaryIdentity(binaryIdentity).path, binaryCopy);

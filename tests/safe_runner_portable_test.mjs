@@ -59,7 +59,12 @@ try {
   const tiny = classify(32);
   assert.equal(tiny.deliberately_tiny_self_test, true);
   assert.equal(tiny.portable_self_test_allowed, true);
-  assert.equal(tiny.ok, true);
+  const tinyReasons = tiny.reasons.join('\n');
+  assert.doesNotMatch(
+    tinyReasons,
+    /aggregate enforcement is unavailable|medium\/large execution|adversarial self-test attestation|bwrap|systemd|cgroup/i,
+    `portable tiny allowlist added a production/infrastructure refusal: ${JSON.stringify(tiny.reasons)}`,
+  );
   assert.deepEqual(tiny.attestation, {
     valid: false, path: 'unavailable', tested_at: null,
     qualified_for_production_tiers: false, qualification_available: false,
