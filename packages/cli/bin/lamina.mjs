@@ -161,7 +161,7 @@ async function run() {
   if (domain === 'setup') {
     const setupOptions = options([command, ...rawArgs].filter(Boolean));
     if (!setupOptions.agent) {
-      throw Object.assign(new Error('Usage: lamina setup --agent <codex|claude-code|cursor> [--check|--remove]'), { code: 'LAMINA_BAD_REQUEST' });
+      throw Object.assign(new Error('Usage: lamina setup --agent <codex|claude-code|opencode|cursor> [--check|--remove]'), { code: 'LAMINA_BAD_REQUEST' });
     }
     return setupAgent({
       agent: setupOptions.agent,

@@ -204,7 +204,8 @@ try {
     item.state === 'conflict_review' &&
     item.surface === 'surface.fixture'),
   'declared operation and Surface states must compile into Persona-bound Experience Cases');
-  assert.ok(packet.activated_skills.includes('lamina-forms'));
+  assert.ok(packet.activated_skills.includes('lamina-ux'));
+  assert.ok(packet.activated_skill_references.includes('skills/lamina-ux/references/forms.md'));
   assert.equal(packet.retrieval.outcome, 'selected');
   assert.equal(packet.retrieval.freshness, 'fresh');
   assert.equal(packet.retrieval.source_chunks[0].file, 'app.ts');

@@ -1,116 +1,74 @@
 ---
 title: Skill map
-description: Capability skills behind Lamina — systems thinking, UX, and agent simulation
+description: The 10 public Lamina workflow and product capability skills
 ---
 
 import { Callout } from 'nextra/components'
 
 # Skill map
 
-Lamina installs as 59 public sibling skills: the `lamina` command router plus
-58 focused workflow and craft skills organized into three taxonomies. The
-orchestrator routes design and verify sections to the right focused skills via
-[audit profiles](/advanced/orchestrator).
+Lamina installs as exactly 10 public skills. Four are workflow entrypoints and
+six group related product capabilities. Each capability keeps its focused
+guidance as topic references that agents load only when relevant.
 
-## Quick path
+## Workflow skills
 
-- **Focused question?** `/lamina <question>` routes to one focused skill (direct mode)
-- **Full workflow?** `/lamina-init` first, then `/lamina-design` or `/lamina-verify` loads multiple sibling skills via audit profiles
-- **Deep dive?** Every skill lives directly under the repository's [skills directory](https://github.com/aryaniyaps/lamina/tree/main/skills)
+| Skill | Use it for |
+|---|---|
+| `lamina` | Route ordinary product implementation and focused questions |
+| `lamina-init` | Initialize a project's business context and provider rules |
+| `lamina-design` | Run the explicit graph-only design phase |
+| `lamina-verify` | Run the explicit source-read-only verification phase |
 
-## Systems thinking
+Ordinary product work starts through `lamina`; design and verification phases
+run implicitly. `/lamina-design` and `/lamina-verify` remain advanced explicit
+overrides.
 
-The structural spine — entities, rules, dependencies, and traps.
+## Capability skills
 
-| Problem signal | Skill |
-|----------------|-------|
-| Entities, relationships, purpose | `lamina-system-structure` |
-| Feedback, delays, oscillation | `lamina-feedback-loops` |
-| Fixes keep failing, structural traps | `lamina-system-traps` |
-| Where to intervene (rules vs UI) | `lamina-leverage-points` |
-| Impossible states, business rules | `lamina-invariants` |
-| Feature reachability, unmet prerequisites | `lamina-dependencies` |
-| Domain boundaries, hide complexity | `lamina-modularity-boundaries` |
-| What users see when (stale data) | `lamina-consistency-guarantees` |
-| Double-submit, concurrent edits | `lamina-idempotency-concurrency` |
-| Name trade-offs before mechanisms | `lamina-tradeoffs` |
-| Multi-actor views stay consistent | `lamina-multi-view-integrity` |
-| Evolving rules safely | `lamina-evolutionary-rules` |
-| Notifications, downstream updates | `lamina-side-effects` |
-
-## UX and product expression
-
-How domain rules become user-facing behavior.
-
-| Problem signal | Skill |
-|----------------|-------|
-| Bootstrap context | `lamina-business-context` |
-| Inclusive design | `lamina-accessibility` |
-| Copy, labels, errors | `lamina-content-design` |
-| Prioritize, resolve conflicts | `lamina-decision-making` |
-| Affordances, signifiers | `lamina-discoverability` |
-| Domain-empty screens | `lamina-empty-states` |
-| Violation recovery UX | `lamina-error-handling` |
-| Permission/conflict scenarios | `lamina-edge-cases` |
-| Async feedback, status | `lamina-feedback-and-status` |
-| User journeys over state | `lamina-flow-design` |
-| Forms under rules | `lamina-forms` |
-| Entity organization | `lamina-information-architecture` |
-| Wayfinding | `lamina-navigation` |
-| First-run paths | `lamina-onboarding` |
-| UI reflects domain truth | `lamina-product-behavior` |
-| Operations actors perform | `lamina-task-analysis` |
-| Actors, roles, permissions | `lamina-user-modeling` |
-
-## Agent simulation
-
-Replaces human labs and workshops with contract + live-product simulation.
-
-| Problem signal | Skill |
-|----------------|-------|
-| Design→build→verify loop | `lamina-design-process` |
-| Scope the design target | `lamina-problem-framing` |
-| Map ask → workflows | `lamina-feature-discovery` |
-| What evidence vs assumption | `lamina-research-scoping` |
-| Plan verify actor walks | `lamina-research-planning` |
-| Merge walk results | `lamina-research-synthesis` |
-| Report verify findings | `lamina-research-communication` |
-| Actor-walk scripts | `lamina-interview-design` |
-| Walkthrough evidence | `lamina-interview-documentation` |
-| Repo + live UI grounding | `lamina-field-research` |
-| Simulated usability (verify) | `lamina-usability-evaluation` |
-| Real metrics only | `lamina-quantitative-validation` |
-| Conflicting actor goals | `lamina-stakeholder-alignment` |
-| User-cited references | `lamina-competitive-analysis` |
-| Workflow priority | `lamina-feature-prioritization` |
-| Group permissions / shared state | `lamina-persuasion-and-groups` |
-| Parallel expert lenses | `lamina-heuristic-review` |
-| Complexity budget / disclosure | `lamina-platform-posture`, `lamina-progressive-disclosure` |
-| Payment / sensitive action honesty | `lamina-trust` |
-| Testable acceptance criteria | `lamina-requirements-definition` |
+| Skill | Topics inside it |
+|---|---|
+| `lamina-research` | Evidence scoping, actor walks, grounding, interviews, task analysis, synthesis, communication |
+| `lamina-product-discovery` | Problem framing, business context, stakeholders, feature discovery and priority, requirements, tradeoffs, decisions |
+| `lamina-ux` | Flows, IA, navigation, content, forms, controls, onboarding, feedback, errors, accessibility, disclosure, trust, edge cases |
+| `lamina-product-behavior` | Represented models, platform posture, side effects, invariants, consistency, concurrency, time, dependencies, boundaries, multi-view integrity |
+| `lamina-systems` | System structure, feedback loops, traps, leverage points, evolutionary rules |
+| `lamina-evaluation` | Persona usability evaluation, heuristic review, quantitative validation |
 
 <Callout type="info">
-**Advanced:** Focused skill files live at
-`skills/lamina-<name>/SKILL.md`. Install with `--skill '*'` so every
-cross-referenced sibling is available in the same agent session.
+Install with `--skill '*'`. All 10 public entrypoints and their nested references
+arrive together, so an audit profile can name an exact topic without exposing
+dozens of focused skills to the user.
 </Callout>
 
-## Direct mode examples
+## Progressive loading
 
-```
+Start with one public skill. Read its `SKILL.md` topic index, then load only the
+references required by the request or audit profile. Internal orchestration
+lives under `skills/lamina/orchestrator/`; it is packaged with `lamina` but is
+not separately discoverable.
+
+Old focused skill names are not aliases. The machine-readable
+[`skills/migration-map.json`](https://github.com/aryaniyaps/lamina/blob/main/skills/migration-map.json)
+maps each former name to its compact skill and exact topic.
+
+## Examples
+
+```text
 /lamina What invariants should a booking hold enforce?
 ```
 
-```
+Routes to `lamina-product-behavior` and its invariants topic.
+
+```text
 /lamina How should permission denial appear during checkout?
 ```
 
-```
-/lamina What dependencies exist between hotel onboarding and booking?
-```
+Routes to `lamina-ux` edge-case and error-handling topics, plus product behavior
+when authorization rules need clarification.
 
 ## Next steps
 
-- [/lamina command](/commands/lamina) — router and direct mode
-- [Orchestrator](/advanced/orchestrator) — how skills are coordinated
-- [Glossary](/reference/glossary) — key terms
+- [/lamina command](/commands/lamina) — router and ordinary mode
+- [Orchestrator](/advanced/orchestrator) — audit-profile coordination
+- [Glossary](/reference/glossary) — product graph terms

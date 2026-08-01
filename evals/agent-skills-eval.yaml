@@ -6,7 +6,12 @@ include:
   - lamina-init
   - lamina-design
   - lamina-verify
-  - lamina-capabilities
+  - lamina-research
+  - lamina-product-discovery
+  - lamina-ux
+  - lamina-product-behavior
+  - lamina-systems
+  - lamina-evaluation
 concurrency: 2
 layout: iteration
 strict: true

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Adversarial stress probe: load Lamina SKILL.md + orchestrator docs,
+ * Adversarial stress probe: load the compact Lamina skill + internal docs,
  * send attack prompts to OpenAI, grade responses for guardrail/init violations.
  */
 import fs from 'fs';
@@ -30,15 +30,14 @@ if (!apiKey) {
 function readSkillContext() {
   const files = [
     'skills/lamina/SKILL.md',
-    'skills/lamina-orchestrator/SKILL.md',
-    'skills/lamina-orchestrator/prerequisites/init-required.md',
-    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
-    'skills/lamina-core/guardrails.md',
-    'skills/lamina-core/SKILL.md',
-    'skills/lamina-orchestrator/workflows/router.md',
-    'skills/lamina-orchestrator/workflows/design.md',
-    'skills/lamina-orchestrator/workflows/verify.md',
-    'skills/lamina-orchestrator/merge-rules.md',
+    'skills/lamina/references/guardrails.md',
+    'skills/lamina/references/problem-router.md',
+    'skills/lamina/orchestrator/prerequisites/init-required.md',
+    'skills/lamina/orchestrator/prompts/outputs/init-blocked.md',
+    'skills/lamina/orchestrator/workflows/router.md',
+    'skills/lamina/orchestrator/workflows/design.md',
+    'skills/lamina/orchestrator/workflows/verify.md',
+    'skills/lamina/orchestrator/merge-rules.md',
   ];
   return files
     .map((f) => `--- ${f} ---\n${fs.readFileSync(path.join(ROOT, f), 'utf8')}`)

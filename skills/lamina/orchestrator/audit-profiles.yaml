@@ -1,0 +1,129 @@
+schema: lamina.audit-profiles/v2
+
+# Load `always` entries for the named lifecycle phase. Load a `conditional`
+# entry only when its `when` signal is present in the active graph closure or
+# user request. Selecting one conditional entry never implies loading its
+# siblings or every reference in that capability.
+profiles:
+  init:
+    always:
+      - skill: lamina-product-discovery
+        reference: skills/lamina-product-discovery/references/business-context.md
+    conditional:
+      - when: the product problem or boundary is unclear
+        skill: lamina-product-discovery
+        reference: skills/lamina-product-discovery/references/problem-framing.md
+      - when: existing product behavior must be inferred from repository or live evidence
+        skill: lamina-research
+        reference: skills/lamina-research/references/field-research.md
+      - when: evidence sources conflict or assumptions need confidence labels
+        skill: lamina-research
+        reference: skills/lamina-research/references/research-scoping.md
+      - when: actors, authority, goals, or constraints must be modeled
+        skill: lamina-research
+        reference: skills/lamina-research/references/user-modeling.md
+      - when: the domain contains important relationships, stocks, flows, or delays
+        skill: lamina-systems
+        reference: skills/lamina-systems/references/system-structure.md
+      - when: multiple actors have conflicting goals or permissions
+        skill: lamina-product-discovery
+        reference: skills/lamina-product-discovery/references/stakeholder-alignment.md
+
+  experience-core:
+    mandatory_for: new-or-changed-workflow-with-active-personas
+    always:
+      - skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/product-behavior.md
+      - skill: lamina-research
+        reference: skills/lamina-research/references/user-modeling.md
+      - skill: lamina-ux
+        reference: skills/lamina-ux/references/flow-design.md
+      - skill: lamina-ux
+        reference: skills/lamina-ux/references/edge-cases.md
+    conditional:
+      - when: a rule must hold in every valid state
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/invariants.md
+      - when: setup, ownership, state, or another workflow changes reachability
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/dependencies.md
+      - when: an action repeats, races, conflicts, or can become stale
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/idempotency-concurrency.md
+      - when: dates, zones, recurrence, duration, deadline, or expiry affect behavior
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/time-semantics.md
+      - when: one mutation updates, notifies, invalidates, audits, or retries elsewhere
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/side-effects.md
+      - when: multiple roles or surfaces must agree on one entity lifecycle
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/multi-view-integrity.md
+      - when: authoritative changes may be temporarily stale across views
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/consistency-guarantees.md
+      - when: actors enter or validate structured data
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/forms.md
+      - when: a failure needs actor-visible explanation and recovery
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/error-handling.md
+      - when: actions are asynchronous or need transient and terminal status
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/feedback-and-status.md
+      - when: labels, instructions, empty copy, or error copy are acceptance targets
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/content-design.md
+      - when: a Surface is in scope or accessibility is a stated risk
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/accessibility.md
+      - when: money, privacy, consent, or irreversible action requires honest consequences
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/trust.md
+      - when: navigation, hierarchy, or findability materially changes
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/information-architecture.md
+      - when: the change is consequential, disputed, or a policy fork
+        skill: lamina-product-discovery
+        reference: skills/lamina-product-discovery/references/tradeoffs.md
+
+  verify-core:
+    mandatory_for: runtime-mission-verification
+    always:
+      - skill: lamina-research
+        reference: skills/lamina-research/references/research-planning.md
+      - skill: lamina-research
+        reference: skills/lamina-research/references/interview-design.md
+      - skill: lamina-evaluation
+        reference: skills/lamina-evaluation/references/usability-evaluation.md
+      - skill: lamina-research
+        reference: skills/lamina-research/references/interview-documentation.md
+      - skill: lamina-research
+        reference: skills/lamina-research/references/research-synthesis.md
+      - skill: lamina-research
+        reference: skills/lamina-research/references/research-communication.md
+    conditional:
+      - when: the Mission closure contains an Invariant
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/invariants.md
+      - when: a prerequisite or degraded mode is part of an Experience Case
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/dependencies.md
+      - when: concurrent, duplicate, retry, or stale actions are in scope
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/idempotency-concurrency.md
+      - when: a Mission crosses roles or independently rendered views
+        skill: lamina-product-behavior
+        reference: skills/lamina-product-behavior/references/multi-view-integrity.md
+      - when: the Mission closure contains a Surface
+        skill: lamina-ux
+        reference: skills/lamina-ux/references/accessibility.md
+      - when: an expert contract or live-product lens review is requested
+        skill: lamina-evaluation
+        reference: skills/lamina-evaluation/references/heuristic-review.md
+      - when: real measurements or a measurement plan are in scope
+        skill: lamina-evaluation
+        reference: skills/lamina-evaluation/references/quantitative-validation.md
+      - when: findings must be ranked or separated into product versus contract fixes
+        skill: lamina-product-discovery
+        reference: skills/lamina-product-discovery/references/decision-making.md

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const contractPath = 'skills/lamina-orchestrator/prerequisites/cli-required.md';
+const contractPath = 'skills/lamina/orchestrator/prerequisites/cli-required.md';
 const contract = fs.readFileSync(contractPath, 'utf8');
 const commandSkills = new Map([
   ['lamina', 'skills/lamina/SKILL.md'],

@@ -40,14 +40,23 @@ if (portableIter) {
   out.portable = readJsonSafe(path.join(portableWs, portableIter, 'benchmark.json'));
 }
 
-const aseWs = path.join(ROOT, 'evals/workspace');
-for (const name of fs.readdirSync(ROOT).filter((n) => n.endsWith('-workspace'))) {
-  const ws = path.join(ROOT, name);
+function findHarnessWorkspaces(dir, depth = 0) {
+  if (!fs.existsSync(dir) || depth > 3) return [];
+  const found = latestIteration(dir) ? [dir] : [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === 'node_modules') continue;
+    found.push(...findHarnessWorkspaces(path.join(dir, entry.name), depth + 1));
+  }
+  return found;
+}
+
+const harnessRoots = [path.join(ROOT, 'eval-workspace'), path.join(ROOT, 'evals/workspace')];
+for (const ws of harnessRoots.flatMap((root) => findHarnessWorkspaces(root))) {
   const iter = latestIteration(ws);
   if (!iter) continue;
   const summary = readJsonSafe(path.join(ws, iter, 'summary.json'));
   const benchmark = readJsonSafe(path.join(ws, iter, 'benchmark.json'));
-  out.harness[name] = { summary, benchmark };
+  out.harness[path.relative(ROOT, ws)] = { summary, benchmark };
 }
 
 const iterNum = Date.now();

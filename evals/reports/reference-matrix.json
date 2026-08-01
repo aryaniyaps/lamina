@@ -1,0 +1,168 @@
+{
+  "schema": "lamina.reference-matrix/v1",
+  "generated_at": "2026-07-31T18:45:27.475Z",
+  "eval_ids": [
+    "router-research",
+    "router-product-discovery",
+    "router-direct-forms",
+    "router-product-behavior",
+    "router-systems",
+    "router-evaluation"
+  ],
+  "agents": [
+    "claude-code",
+    "codex",
+    "opencode"
+  ],
+  "qualification_models": {
+    "claude_code_proxy": "gpt-5.6-terra",
+    "opencode": "openai/gpt-5.6-terra",
+    "codex": "provider default"
+  },
+  "cells": [
+    {
+      "eval_id": "router-research",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 6,
+      "passed": 6,
+      "output_sha256": "559e99a52f517405bb059009a740bae4e2b24784a5b3366176396cf0e6044359"
+    },
+    {
+      "eval_id": "router-research",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 6,
+      "passed": 6,
+      "output_sha256": "4bcadb6ec1e82401caefcdedc07d054b5a872f6250305c6f9fba77b46b1756e1"
+    },
+    {
+      "eval_id": "router-research",
+      "agent": "opencode",
+      "run_id": "35c82c6e",
+      "assertions": 6,
+      "passed": 6,
+      "output_sha256": "922b0d453c70c5a9658122fb1fdb9f08b66cb68f3c77c20fafaa27322b4a344f"
+    },
+    {
+      "eval_id": "router-product-discovery",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "da73a5fab3280662c7703b18c9b867db07face36233142cd2c2e3d5cf62653a4"
+    },
+    {
+      "eval_id": "router-product-discovery",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "40e82af20fcb3441564542825cf930495ea89b0a4033f4a373542f9a204c0e1c"
+    },
+    {
+      "eval_id": "router-product-discovery",
+      "agent": "opencode",
+      "run_id": "a046b383",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "f168540b4e021d3c4a0075fca04c4d8c00bd1a9323809847653ecf71063459cd"
+    },
+    {
+      "eval_id": "router-direct-forms",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "886941ac05471fd86ec05232a93cb1d9ccc62dab5c850a4f9f442e5db6ad7a9e"
+    },
+    {
+      "eval_id": "router-direct-forms",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "1acf9ddf9d0d17c7d41e564ed713eb80a0156da6db38856a4b29c0bec5c179f6"
+    },
+    {
+      "eval_id": "router-direct-forms",
+      "agent": "opencode",
+      "run_id": "35c82c6e",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "12110974a8edf7151fcfe74efdac167f5c0f952f8801deaca4ab9f0ddb0ca7bf"
+    },
+    {
+      "eval_id": "router-product-behavior",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "64a5d7d1a48209b8090dade4c93d532006a5ae67d290d05d57ab4604bb7a2952"
+    },
+    {
+      "eval_id": "router-product-behavior",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "760de7e2baed69a58fd6ed9c2345158bc534623bc5d62bc8052375561ad57196"
+    },
+    {
+      "eval_id": "router-product-behavior",
+      "agent": "opencode",
+      "run_id": "35c82c6e",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "b855cccfd1fae88278abfc03f94f9e3a4d9e10aef6654fdf503462f4fec572a8"
+    },
+    {
+      "eval_id": "router-systems",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "091136dbac51515f414a366dca37888e0ec968b283ad416dd35044d79c88d7c1"
+    },
+    {
+      "eval_id": "router-systems",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "ccbbafd9f29853af6e8dde858f68e42c2938d3b42f8d9a2ed8e95545167c9016"
+    },
+    {
+      "eval_id": "router-systems",
+      "agent": "opencode",
+      "run_id": "a046b383",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "9f90efc2f0bfe63febfdd200acf1ea5cd109097f309a9778cb1a0810de28111d"
+    },
+    {
+      "eval_id": "router-evaluation",
+      "agent": "claude-code",
+      "run_id": "98fb47fe",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "adb268b3b67311a7b788351a218aefb720a107300b087251021e7b03e31a0d4a"
+    },
+    {
+      "eval_id": "router-evaluation",
+      "agent": "codex",
+      "run_id": "36d7eb27",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "79841611db652d66e80f9c4a916db43305961b7777b697704939fd3bc5fa80f1"
+    },
+    {
+      "eval_id": "router-evaluation",
+      "agent": "opencode",
+      "run_id": "35c82c6e",
+      "assertions": 5,
+      "passed": 5,
+      "output_sha256": "a3e2b24e0866eefacfa695178349fbe6bf604ae9e8e8237fe7b05deff834cee1"
+    }
+  ]
+}

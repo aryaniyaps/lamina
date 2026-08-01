@@ -691,10 +691,10 @@ export function buildPilot({
   if (!verified.ok) {
     throw new Error(`skill bundle failed verification after restage: ${verified.reason}`);
   }
-  if (skillBundle.manifest.skills.length !== 59 ||
+  if (skillBundle.manifest.skills.length !== 10 ||
       !skillBundle.manifest.skills.includes('lamina')) {
     throw new Error(
-      `expected 59 public Lamina skills; got ${skillBundle.manifest.skills.length}`,
+      `expected 10 public Lamina skills; got ${skillBundle.manifest.skills.length}`,
     );
   }
 

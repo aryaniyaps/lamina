@@ -5,11 +5,31 @@
  */
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS_ROOT = 'skills';
-const EXPECTED_PUBLIC_SKILLS = 59;
+const EXPECTED_PUBLIC_SKILLS = [
+  'lamina',
+  'lamina-design',
+  'lamina-evaluation',
+  'lamina-init',
+  'lamina-product-behavior',
+  'lamina-product-discovery',
+  'lamina-research',
+  'lamina-systems',
+  'lamina-ux',
+  'lamina-verify',
+].sort();
+const CAPABILITY_SKILLS = [
+  'lamina-research',
+  'lamina-product-discovery',
+  'lamina-ux',
+  'lamina-product-behavior',
+  'lamina-systems',
+  'lamina-evaluation',
+];
 const errors = [];
 
 const absolute = (rel) => path.join(ROOT, rel);
@@ -35,8 +55,9 @@ function publicSkillNames() {
 
 function checkPublicBoundary() {
   const publicSkills = publicSkillNames();
-  if (publicSkills.length !== EXPECTED_PUBLIC_SKILLS) {
-    errors.push(`skills/ must expose ${EXPECTED_PUBLIC_SKILLS} installable Lamina skills; found ${publicSkills.length}`);
+  if (publicSkills.length !== EXPECTED_PUBLIC_SKILLS.length ||
+      publicSkills.some((name, index) => name !== EXPECTED_PUBLIC_SKILLS[index])) {
+    errors.push(`skills/ must expose exactly: ${EXPECTED_PUBLIC_SKILLS.join(', ')}; found: ${publicSkills.join(', ')}`);
   }
   if (!publicSkills.includes('lamina')) {
     errors.push('skills/ must expose the lamina command router');
@@ -54,7 +75,7 @@ function checkPublicBoundary() {
   if (exists('skills/lamina/skills')) {
     errors.push('public skills must be siblings under skills/, not nested under skills/lamina/skills');
   }
-  if (exists('skills/lamina-orchestrator/lib') || exists('skills/lamina-orchestrator/bin')) {
+  if (exists('skills/lamina/orchestrator/lib') || exists('skills/lamina/orchestrator/bin')) {
     errors.push('skills must not embed executable graph runtime code');
   }
 }
@@ -75,22 +96,105 @@ function checkPublicCatalog() {
 }
 
 function checkAuditProfiles() {
-  const yaml = read(skillPath('lamina-orchestrator', 'audit-profiles.yaml'));
-  const names = [...yaml.matchAll(/^\s+-\s+(lamina-[a-z-]+)\s*$/gm)].map((match) => match[1]);
-  for (const name of names) {
-    if (!exists(skillPath(name))) {
-      errors.push(`audit-profiles references missing public skill: ${skillPath(name)}`);
+  const yaml = read('skills/lamina/orchestrator/audit-profiles.yaml');
+  const topics = [...yaml.matchAll(/^\s+(?:-\s+)?skill: (lamina(?:-[a-z-]+)?)\s*\n\s+reference: (skills\/[^\s]+)\s*$/gm)];
+  if (!topics.length) errors.push('audit-profiles must route profiles to compact skills and exact topic references');
+  for (const [, name, reference] of topics) {
+    if (!EXPECTED_PUBLIC_SKILLS.includes(name)) errors.push(`audit-profiles references non-public skill: ${name}`);
+    if (!exists(reference)) errors.push(`audit-profiles references missing topic: ${reference}`);
+    if (exists(skillPath(name))) {
+      const direct = extractMarkdownLinks(read(skillPath(name)), path.dirname(absolute(skillPath(name))))
+        .map((entry) => entry.split(path.sep).join('/'));
+      if (!direct.includes(reference)) {
+        errors.push(`audit profile topic is not directly indexed by ${skillPath(name)}: ${reference}`);
+      }
     }
   }
 }
 
 function checkProblemRouterLinks() {
-  const core = read(skillPath('lamina-core'));
-  const names = [...core.matchAll(/\]\(\.\.\/(lamina-[a-z-]+)\/SKILL\.md\)/g)]
-    .map((match) => match[1]);
-  for (const name of names) {
-    if (!exists(skillPath(name))) {
-      errors.push(`Problem Router link references missing public skill: ${skillPath(name)}`);
+  const router = read('skills/lamina/references/problem-router.md');
+  if (!router.includes('Systems thinking') || !router.includes('UX and product expression')) {
+    errors.push('compact Problem Router is missing routing sections');
+  }
+}
+
+function checkMigrationMap() {
+  const map = JSON.parse(read('skills/migration-map.json'));
+  const former = map.migrations?.map((entry) => entry.from) || [];
+  if (map.schema !== 'lamina.skill-migration/v1') errors.push('migration-map.json has an unsupported schema');
+  if (former.length !== 59 || new Set(former).size !== 59) {
+    errors.push('migration-map.json must map each of the 59 former public skills exactly once');
+  }
+  const formerDigest = crypto.createHash('sha256')
+    .update(JSON.stringify([...former].sort()))
+    .digest('hex');
+  if (formerDigest !== 'faf1f1edfbcda37fe67e8686f2f2d288f8b802a058a5ca812ad7a50b286697a8' ||
+      map.former_catalog_sha256 !== formerDigest) {
+    errors.push('migration-map.json does not match the frozen 59-skill source catalog');
+  }
+  if (map.public_skills?.length !== EXPECTED_PUBLIC_SKILLS.length ||
+      [...map.public_skills].sort().some((name, index) => name !== EXPECTED_PUBLIC_SKILLS[index])) {
+    errors.push('migration-map.json public_skills must equal the canonical compact catalog');
+  }
+  for (const entry of map.migrations || []) {
+    if (!EXPECTED_PUBLIC_SKILLS.includes(entry.to)) errors.push(`migration destination is not public: ${entry.to}`);
+    const topic = `skills/${entry.to}/${entry.topic}`;
+    if (!exists(topic)) errors.push(`migration topic is missing: ${topic}`);
+    if (entry.from !== entry.to && entry.disposition !== 'retained' && exists(skillPath(entry.from))) {
+      errors.push(`deprecated public skill still installable: ${skillPath(entry.from)}`);
+    }
+  }
+
+  const installedLookup = read('skills/lamina/references/migration-map.md');
+  for (const entry of map.migrations || []) {
+    const row = `| \`${entry.from}\` | \`${entry.to}\` | \`${entry.topic}\` |`;
+    if (!installedLookup.includes(row)) {
+      errors.push(`installed migration lookup is missing exact mapping: ${entry.from}`);
+    }
+  }
+}
+
+function checkCapabilityReferenceTopology() {
+  const map = JSON.parse(read('skills/migration-map.json'));
+  for (const name of CAPABILITY_SKILLS) {
+    const entrypoint = skillPath(name);
+    const baseDir = path.dirname(absolute(entrypoint));
+    const direct = extractMarkdownLinks(read(entrypoint), baseDir)
+      .map((entry) => entry.split(path.sep).join('/'))
+      .filter((entry) => entry.startsWith(`skills/${name}/references/`));
+    const physical = fs.readdirSync(absolute(`skills/${name}/references`))
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => `skills/${name}/references/${file}`)
+      .sort();
+
+    if (new Set(direct).size !== direct.length) {
+      errors.push(`${entrypoint} must link each topic reference exactly once`);
+    }
+    const linked = [...new Set(direct)].sort();
+    if (linked.length !== physical.length || linked.some((entry, index) => entry !== physical[index])) {
+      errors.push(`${entrypoint} topic index must equal its physical references directory`);
+    }
+
+    const mapped = (map.migrations || [])
+      .filter((entry) => entry.to === name && entry.topic.startsWith('references/'))
+      .map((entry) => `skills/${name}/${entry.topic}`)
+      .sort();
+    if (mapped.length !== physical.length || mapped.some((entry, index) => entry !== physical[index])) {
+      errors.push(`${entrypoint} topic index must equal its migration-map topics`);
+    }
+  }
+
+  for (const file of walk(absolute(SKILLS_ROOT))) {
+    if (!file.endsWith('.md')) continue;
+    const rel = path.relative(ROOT, file);
+    const content = read(rel);
+    if (/^## Related capabilities\s*$/m.test(content)) {
+      errors.push(`topic references must be terminal; move pairing guidance to the entrypoint: ${rel}`);
+    }
+    if (/^skills\/lamina(?:-[a-z-]+)?\/references\//.test(rel) &&
+        content.split('\n').length > 100 && !/^## Contents\s*$/m.test(content)) {
+      errors.push(`long reference requires a Contents section: ${rel}`);
     }
   }
 }
@@ -118,22 +222,42 @@ function checkReferencedFiles() {
   }
 }
 
+function checkInstalledLinkBoundary() {
+  for (const name of EXPECTED_PUBLIC_SKILLS) {
+    const skillRoot = absolute(`skills/${name}`);
+    for (const file of walk(skillRoot)) {
+      if (!file.endsWith('.md')) continue;
+      const rel = path.relative(ROOT, file);
+      for (const target of extractMarkdownLinks(read(rel), path.dirname(file))) {
+        const normalized = target.split(path.sep).join('/');
+        if (!normalized.startsWith('skills/')) continue;
+        const owner = EXPECTED_PUBLIC_SKILLS.find((candidate) =>
+          normalized === `skills/${candidate}/SKILL.md` || normalized.startsWith(`skills/${candidate}/`)
+        );
+        if (!owner) {
+          errors.push(`installed skill link escapes the copied public catalog in ${rel}: ${normalized}`);
+        }
+      }
+    }
+  }
+}
+
 function checkOutputContracts() {
   const contracts = {
-    [skillPath('lamina-orchestrator', 'prompts/outputs/design.md')]: [
+    ['skills/lamina/orchestrator/prompts/outputs/design.md']: [
       'GraphVersion', 'Source revision', 'Contradictions', 'Validation',
     ],
-    [skillPath('lamina-orchestrator', 'prompts/outputs/verify.md')]: [
+    ['skills/lamina/orchestrator/prompts/outputs/verify.md']: [
       'GraphVersion', 'source revision', 'Runs', 'evidence', 'Verdict',
     ],
-    [skillPath('lamina-orchestrator', 'prompts/outputs/init.md')]: [
+    ['skills/lamina/orchestrator/prompts/outputs/init.md']: [
       'Mode', 'Business context summary', 'Open questions', 'Artifacts',
       'Stale downstream artifacts', 'Passive product workflow', 'Skills applied',
     ],
-    [skillPath('lamina-orchestrator', 'prompts/outputs/init-blocked.md')]: [
+    ['skills/lamina/orchestrator/prompts/outputs/init-blocked.md']: [
       'Status', "What's missing", 'Next step', 'Do not',
     ],
-    [skillPath('lamina-orchestrator', 'prompts/outputs/clarify.md')]: [
+    ['skills/lamina/orchestrator/prompts/outputs/clarify.md']: [
       'Status', 'Clarifying questions', 'Why these block the artifact', 'How to proceed', 'Do not',
     ],
   };
@@ -161,7 +285,7 @@ function checkCommandSkills() {
         (!content.includes('when explicitly invoked') || !content.match(/passive|ordinary implementation/))) {
       errors.push(`phase skill does not support both passive flow and explicit override: ${file}`);
     }
-    if (!rootSkill.includes(`skills/${name}/SKILL.md`)) {
+    if (!rootSkill.includes(`../${name}/SKILL.md`) && !rootSkill.includes(`skills/${name}/SKILL.md`)) {
       errors.push(`Lamina router does not route to public command skill: ${name}`);
     }
   }
@@ -177,21 +301,27 @@ function checkCommandSkills() {
 function checkRequiredPaths() {
   const required = [
     skillPath('lamina'),
-    skillPath('lamina-core'),
     skillPath('lamina-init'),
     skillPath('lamina-design'),
     skillPath('lamina-verify'),
-    skillPath('lamina-business-context'),
-    skillPath('lamina-orchestrator'),
-    skillPath('lamina-orchestrator', 'audit-profiles.yaml'),
-    skillPath('lamina-orchestrator', 'merge-rules.md'),
-    skillPath('lamina-orchestrator', 'workflows/init.md'),
-    skillPath('lamina-orchestrator', 'workflows/design.md'),
-    skillPath('lamina-orchestrator', 'workflows/verify.md'),
-    skillPath('lamina-orchestrator', 'prerequisites/cli-required.md'),
-    skillPath('lamina-orchestrator', 'prerequisites/init-required.md'),
-    skillPath('lamina-orchestrator', 'references/personas.schema.json'),
-    skillPath('lamina-orchestrator', 'references/product-graph.md'),
+    skillPath('lamina-research'),
+    skillPath('lamina-product-discovery'),
+    skillPath('lamina-ux'),
+    skillPath('lamina-product-behavior'),
+    skillPath('lamina-systems'),
+    skillPath('lamina-evaluation'),
+    'skills/migration-map.json',
+    'skills/lamina/references/migration-map.md',
+    'skills/lamina/references/problem-router.md',
+    'skills/lamina/orchestrator/audit-profiles.yaml',
+    'skills/lamina/orchestrator/merge-rules.md',
+    'skills/lamina/orchestrator/workflows/init.md',
+    'skills/lamina/orchestrator/workflows/design.md',
+    'skills/lamina/orchestrator/workflows/verify.md',
+    'skills/lamina/orchestrator/prerequisites/cli-required.md',
+    'skills/lamina/orchestrator/prerequisites/init-required.md',
+    'skills/lamina/orchestrator/references/personas.schema.json',
+    'skills/lamina/orchestrator/references/product-graph.md',
     'packages/cli/bin/lamina.mjs',
     'packages/cli/lib/graph-runtime/engine.mjs',
     'packages/cli/lib/graph-runtime/server.mjs',
@@ -218,8 +348,11 @@ if (check === 'structure' || check === 'all') {
   checkCommandSkills();
   checkAuditProfiles();
   checkProblemRouterLinks();
+  checkMigrationMap();
+  checkCapabilityReferenceTopology();
   checkOutputContracts();
   checkReferencedFiles();
+  checkInstalledLinkBoundary();
 }
 
 if (errors.length) {
@@ -228,4 +361,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`OK — ${EXPECTED_PUBLIC_SKILLS} public Lamina skills validated`);
+console.log(`OK — ${EXPECTED_PUBLIC_SKILLS.length} public Lamina skills validated`);

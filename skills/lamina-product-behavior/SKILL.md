@@ -1,64 +1,37 @@
 ---
 name: lamina-product-behavior
-description: "Represented model matches domain — UI must not imply illegal states or permissions. Use when the active GraphVersion domain and screens diverge from implementation shape."
-metadata:
-  lamina:
-    id: product-behavior
-    problems:
-      - "UI mirrors database or org structure"
-      - "represented vs mental model"
-      - "behavior before build"
-    related:
-      - lamina-flow-design
-      - lamina-user-modeling
-      - lamina-platform-posture
-      - lamina-invariants
+description: "Define authoritative runtime product truth across actors and views. Use when modeling domain behavior, setting product density, specifying side effects, protecting invariants, choosing consistency guarantees, handling retries or concurrent actions, defining time semantics and prerequisites, drawing ownership boundaries, or keeping views coherent. Use lamina-systems for causal loops and change over time, and lamina-ux for interaction expression."
 ---
-# Product Behavior (agent-native)
 
-The **represented model** in the transactional graph must match how actors conceive tasks — simpler than implementation, aligned with domain invariants.
+# Lamina Product Behavior
 
-## Contract encoding
+## Reference-loading protocol
 
-| Layer | Artifact |
-|-------|----------|
-| Domain truth | `entities[]`, `invariants[]` |
-| What actors can do | `actors.permissions`, `workflows` |
-| What UI shows | `surfaces[]` — no affordance for forbidden operations |
-| Illegal states | `scenarios[]` + disabled/hidden actions in screen spec |
+1. Match the request's primary runtime-truth decision to one row below.
+2. Open that linked reference before answering. Add another only when a second
+   decision materially changes the answer; do not preload the directory.
+3. Start the response with `Using lamina-product-behavior: <topic path(s)>` so
+   the selected behavior lens is auditable.
 
-**Implementation model** stays in external code. Lamina specifies **represented model** only.
+## Topic index
 
-## Frameworks
+| Runtime signal | Read | Adds |
+|---|---|---|
+| Need the represented domain model to match how actors understand the task | [Product Behavior](references/product-behavior.md) | entities, permissions, workflows, surfaces, and illegal states |
+| Need to choose how much power or complexity each actor sees | [Product Density](references/platform-posture.md) | actor- and surface-specific complexity budgets |
+| One mutation must update, notify, invalidate, audit, or retry elsewhere | [Side Effects](references/side-effects.md) | primary effect, downstream effects, delivery lifecycle, and failure recovery |
+| Need a rule that must hold in every valid state | [Invariants](references/invariants.md) | explicit predicates and violation probes |
+| Views may lag or disagree after a state change | [Consistency Guarantees](references/consistency-guarantees.md) | strong, eventual, and read-your-writes product promises |
+| An operation may repeat, race, conflict, or arrive after state changed | [Idempotency and Concurrency](references/idempotency-concurrency.md) | duplicate safety, conflict policy, and fencing |
+| Behavior depends on zones, dates, recurrence, duration, deadline, or correction | [Time Semantics](references/time-semantics.md) | explicit temporal meaning and boundary behavior |
+| A workflow requires prior setup, ownership, state, or another workflow | [Dependencies](references/dependencies.md) | prerequisite edges and unmet behavior |
+| Need to decide which domain owns a rule or what data crosses a boundary | [Modularity Boundaries](references/modularity-boundaries.md) | information hiding and cohesive ownership |
+| Several roles or surfaces must agree on the same entity and lifecycle | [Multi-View Integrity](references/multi-view-integrity.md) | handoffs, visibility, and cross-view truth |
 
-- **Goals vs tasks**: Design for stable goals; eliminate tasks technology made obsolete.
-- **Capability / viability / desirability**: Record trade-offs in `decisions.md` when pillars conflict.
-- **Design values**: e.g. don't make actors feel stupid — use as filter when reconciling persona panel conflicts.
-- **Patterns**: Modeless feedback, reversible actions — reference in `implement.md`, don't prescribe UI library.
+## Working rule
 
-## Design checklists
-
-1. No screen shows actions the actor cannot perform (or shows why disabled).
-2. Entity names in UI match `entities[]` vocabulary.
-3. States visible to actors match the entity lifecycles — no mystery modes.
-4. Primary actor path optimized; edge cases in scenarios, not driving IA.
-5. Deviations from common patterns documented in `decisions.md`.
-
-## Verify checks
-
-- Actor walks: forbidden operations blocked with scenario-matching `ux`.
-- Invariant probes: UI never implies illegal state (e.g. two active tickets).
-- Walkthrough: represented labels match contract entity names.
-
-## Anti-patterns
-
-- **Elastic user**: Generic actor justifying any design choice.
-- **UI after coding**: Contract written to match accidental implementation.
-- **Implementation-shaped menus**: File/Edit mirroring backend modules.
-- **Feature lists without goals**: Workflows not traceable to actor outcomes.
-
-## Related
-
-- [Invariants](../lamina-invariants/SKILL.md)
-- [User Modeling](../lamina-user-modeling/SKILL.md)
-- [Platform Posture](../lamina-platform-posture/SKILL.md)
+Use the smallest sufficient reference set. Common pairs are invariants +
+idempotency for consequential writes, consistency + multi-view integrity for
+role-based products, and side effects + time semantics for scheduled delivery.
+Keep behavior in product language; do not prescribe implementation machinery
+unless the user asks for it.

@@ -13,13 +13,8 @@ const PORTABLE = path.join(ROOT, 'evals/portable');
 const SUITES = path.join(ROOT, 'evals/suites');
 const SKILLS = path.join(ROOT, 'skills');
 
-const SKILL_NAMES = [
-  'lamina',
-  'lamina-init',
-  'lamina-design',
-  'lamina-verify',
-  'lamina-capabilities',
-];
+const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'skills.sh.json'), 'utf8'));
+const SKILL_NAMES = [...new Set((catalog.groupings || []).flatMap((group) => group.skills || []))];
 
 function symlinkOrCopy(src, dest) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });

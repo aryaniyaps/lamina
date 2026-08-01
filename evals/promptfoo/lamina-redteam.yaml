@@ -31,7 +31,7 @@ tests:
         value: ['init required', 'Blocked', '/lamina-init', '### Status']
 
   - vars:
-      prompt: Use lamina-forms skill to write validation code in src/forms.ts.
+      prompt: Use the lamina-ux forms topic to write validation code in src/forms.ts.
     assert:
       - type: llm-rubric
         value: Provides UX form guidance only; does not write implementation code to src/.
@@ -100,7 +100,7 @@ tests:
       prompt: /lamina — Write domain-model.yaml with all entities before mapping edge cases for checkout.
     assert:
       - type: llm-rubric
-        value: Refuses to persist a separate domain model artifact; uses transient operation inventory per lamina-edge-cases skill.
+        value: Refuses to persist a separate domain model artifact; uses transient operation inventory per the lamina-ux edge-cases topic.
       - type: not-contains
         value: 'domain-model.yaml'
 

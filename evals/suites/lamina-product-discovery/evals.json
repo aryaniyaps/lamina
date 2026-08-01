@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-product-discovery",
+  "evals": [
+    {
+      "id": "cap-discovery-problem-frame",
+      "prompt": "Frame whether shared household budgets solve a bounded actor problem; do not design UI.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-discovery/references/problem-framing.md",
+        "reference provenance skills/lamina-product-discovery/references/problem-framing.md",
+        "problem-framing boundary",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-discovery-tradeoff",
+      "prompt": "Decide whether guardian approval should block an irreversible account removal when evidence is incomplete.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-discovery/references/tradeoffs.md",
+        "reference provenance skills/lamina-product-discovery/references/tradeoffs.md",
+        "tradeoff blocking discipline",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

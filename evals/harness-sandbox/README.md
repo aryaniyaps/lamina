@@ -12,7 +12,11 @@ External knowledge-base skills (branding, discovery-learning, systems-thinking):
 source ../../hooks/skills-sandbox.sh && skills_add_external
 ```
 
-During **agent-skill-eval** runs, `evals/scripts/ase_run.py` (via `evals/bin/agent-skill-eval`) copies all `skills/*` into each agent workspace after ASE installs the target skill — so seed scripts can import `lamina-orchestrator` siblings. Multiturn evals use the same tree via `evals/hooks/install-all-skills.sh`.
+During **agent-skill-eval** runs, `evals/scripts/ase_run.py` (via
+`evals/bin/agent-skill-eval`) copies all public `skills/*` into each agent
+workspace after ASE installs the target skill, including `lamina`'s internal
+orchestration references. Multiturn evals use the same tree via
+`evals/hooks/install-all-skills.sh`.
 
 For local Cursor dev at repo root:
 

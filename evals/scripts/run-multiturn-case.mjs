@@ -141,7 +141,7 @@ async function main() {
               `Follow $${skillName}. Clarification was answered — EXEC NOW:`,
               'Use a graphd session, publish a validated GraphVersion, then emit the design projection headings:',
               '### Domain and invariants / ### Actors and permissions / ### Workflows / ### Scenarios / ### Implement brief / ### Open questions',
-              'Mention lamina-edge-cases, flows, edge cases, empty/failure/permission.',
+              'Mention lamina-ux, flows, edge cases, empty/failure/permission.',
               '',
             ].join('\n');
     const fullPrompt =

@@ -1,0 +1,49 @@
+# Invariants
+
+Rules the product must never violate. Design so illegal states are unrepresentable — not merely error-handled after the fact.
+
+## Verify
+
+Each Invariant Resource gets a compiled Experience Case and runtime Mission
+probe. Attempt the violation on the live product; the UI must prevent or
+recover according to linked Scenario and recovery Statements.
+
+**Invariants vs dependencies:** Invariants are predicates that must hold in valid states. Dependencies are reachability edges — what must exist before a workflow can succeed. Do not collapse them; use [Dependencies](./dependencies.md) for cross-feature setup.
+
+## Decision frameworks
+
+- **Invariant**: A predicate that must hold for every valid system state (one hall ticket per student per exam; venue capacity not exceeded; cancelled tickets cannot be downloaded).
+  - When to use: Any entity with uniqueness, capacity, lifecycle, or permission constraints.
+  - How: Write in user language in the transactional graph `domain`; link scenarios to violation attempts.
+
+- **Define errors out of existence**: Redesign flows so invalid actions are unavailable, not allowed-then-rejected (disable download when unpaid; hide regenerate when exam completed).
+  - When to use: High-frequency violations that produce support load.
+  - How: Match UI affordances to legal states only.
+
+- **Illegal transitions**: State machine edges that must never occur (confirmed → draft without admin audit; issued → unissued without void record).
+  - When to use: Lifecycle entities (orders, tickets, bookings).
+  - How: Document allowed transitions in `domain`; scenarios cover blocked attempts.
+
+## Checklists
+
+1. List invariants per entity before screens.
+2. For each invariant, define: violation attempt, expected system response, recovery UX.
+3. Prefer preventing violation over catching it.
+4. Write each invariant with an id in the transactional graph for verify-phase checks.
+5. Check UI does not imply states that violate invariants (showing "active" on cancelled ticket).
+
+## Heuristics
+
+- **If it can happen, it will**: Assume users and admins will hit every illegal path.
+- **Invariant coverage**: Link each Scenario Resource to the Invariant it
+  probes so graph queries and Experience Case compilation preserve traceability.
+
+## Anti-patterns
+
+- **Validate late**: Accepting form submit then showing error — design out earlier.
+- **Orphan invariants**: Rules in prose never tied to workflows or scenarios.
+- **UI lies**: Display state that contradicts domain truth.
+
+## Examples
+
+- **Hall ticket invariants**: (1) At most one valid ticket per student per exam. (2) Ticket venue matches exam session venue. (3) Download only when payment confirmed and within availability window. (4) Voided ticket cannot be downloaded.

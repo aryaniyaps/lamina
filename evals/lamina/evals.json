@@ -63,59 +63,130 @@
     },
     {
       "id": "router-direct-forms",
-      "prompt": "/lamina — Help with form validation UX; users abandon signup.",
+      "prompt": "/lamina — Help with form validation UX; users abandon signup. Apply the installed Lamina guidance and show the selected capability/topic.",
       "force_skill_invocation": true,
-      "expected_output": "Direct mode to lamina-forms.",
+      "expected_output": "Direct mode to lamina-ux with the forms topic.",
       "assertions": [
-        "read skill lamina-forms",
-        "Output discusses forms or validation UX"
+        "read skill lamina-ux",
+        "read reference skills/lamina-ux/references/forms.md",
+        "reference provenance skills/lamina-ux/references/forms.md",
+        "forms recovery rules",
+        "no deprecated public skill names"
       ]
     },
     {
       "id": "router-direct-navigation",
       "prompt": "/lamina — Users feel lost in navigation.",
       "force_skill_invocation": true,
-      "expected_output": "Direct lamina-navigation.",
+      "expected_output": "Direct lamina-ux with the navigation topic.",
       "assertions": [
-        "read skill lamina-navigation",
-        "Output addresses navigation or wayfinding"
+        "read skill lamina-ux",
+        "read reference skills/lamina-ux/references/navigation.md",
+        "reference provenance skills/lamina-ux/references/navigation.md",
+        "Output addresses navigation or wayfinding",
+        "no deprecated public skill names"
       ]
     },
     {
       "id": "router-direct-accessibility",
       "prompt": "/lamina — Make our app more accessible for screen reader users.",
       "force_skill_invocation": true,
-      "expected_output": "Direct lamina-accessibility.",
+      "expected_output": "Direct lamina-ux with the accessibility topic.",
       "assertions": [
-        "read skill lamina-accessibility"
+        "read skill lamina-ux",
+        "read reference skills/lamina-ux/references/accessibility.md",
+        "reference provenance skills/lamina-ux/references/accessibility.md",
+        "no deprecated public skill names"
       ]
     },
     {
       "id": "router-direct-onboarding",
       "prompt": "/lamina — New users cannot figure out how to get started.",
       "force_skill_invocation": true,
-      "expected_output": "Direct lamina-onboarding.",
+      "expected_output": "Direct lamina-ux with the onboarding topic.",
       "assertions": [
-        "read skill lamina-onboarding"
+        "read skill lamina-ux",
+        "read reference skills/lamina-ux/references/onboarding.md",
+        "reference provenance skills/lamina-ux/references/onboarding.md",
+        "no deprecated public skill names"
       ]
     },
     {
       "id": "router-direct-error",
       "prompt": "/lamina — Error messages are confusing and users give up.",
       "force_skill_invocation": true,
-      "expected_output": "Direct lamina-error-handling.",
+      "expected_output": "Direct lamina-ux with the error-handling topic.",
       "assertions": [
-        "read skill lamina-error-handling"
+        "read skill lamina-ux",
+        "read reference skills/lamina-ux/references/error-handling.md",
+        "reference provenance skills/lamina-ux/references/error-handling.md",
+        "no deprecated public skill names"
       ]
     },
     {
       "id": "router-research",
-      "prompt": "/lamina — Plan a usability study for our onboarding flow.",
+      "prompt": "/lamina — Scope what evidence we have and still need before studying onboarding. Apply the installed Lamina guidance and show the selected capability/topic.",
       "force_skill_invocation": true,
-      "expected_output": "Direct research skill, not full design workflow.",
+      "expected_output": "Direct research skill with the research-scoping topic.",
       "assertions": [
-        "Output focuses on research planning",
-        "Output does not emit full design output contract"
+        "read skill lamina-research",
+        "read reference skills/lamina-research/references/research-scoping.md",
+        "reference provenance skills/lamina-research/references/research-scoping.md",
+        "research-scoping distinctions",
+        "Output does not emit full design output contract",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "router-product-discovery",
+      "prompt": "/lamina — Help frame whether shared household budgets are a problem worth solving; do not design screens. Apply the installed Lamina guidance and show the selected capability/topic.",
+      "force_skill_invocation": true,
+      "expected_output": "Direct product-discovery skill with the problem-framing topic.",
+      "assertions": [
+        "read skill lamina-product-discovery",
+        "read reference skills/lamina-product-discovery/references/problem-framing.md",
+        "reference provenance skills/lamina-product-discovery/references/problem-framing.md",
+        "problem-framing boundary",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "router-product-behavior",
+      "prompt": "/lamina — How should duplicate and concurrent booking submissions behave when state changes between attempts? Apply the installed Lamina guidance and show the selected capability/topic.",
+      "force_skill_invocation": true,
+      "expected_output": "Direct product-behavior skill with the idempotency-concurrency topic.",
+      "assertions": [
+        "read skill lamina-product-behavior",
+        "read reference skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "reference provenance skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "idempotency-concurrency rules",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "router-systems",
+      "prompt": "/lamina — Why do reminder escalations keep creating notification overload despite local throttling fixes? Apply the installed Lamina guidance and show the selected capability/topic.",
+      "force_skill_invocation": true,
+      "expected_output": "Direct systems skill with the feedback-loops topic.",
+      "assertions": [
+        "read skill lamina-systems",
+        "read reference skills/lamina-systems/references/feedback-loops.md",
+        "reference provenance skills/lamina-systems/references/feedback-loops.md",
+        "feedback-loop diagnosis",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "router-evaluation",
+      "prompt": "/lamina — Plan an expert heuristic review of our dashboard contract before testing the built product. Apply the installed Lamina guidance and show the selected capability/topic.",
+      "force_skill_invocation": true,
+      "expected_output": "Direct evaluation skill with the heuristic-review topic.",
+      "assertions": [
+        "read skill lamina-evaluation",
+        "read reference skills/lamina-evaluation/references/heuristic-review.md",
+        "reference provenance skills/lamina-evaluation/references/heuristic-review.md",
+        "heuristic evidence lenses",
+        "no deprecated public skill names"
       ]
     },
     {
@@ -537,7 +608,7 @@
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "assertions": [
-        "read skill lamina-trust"
+        "read skill lamina-ux"
       ]
     },
     {
@@ -546,7 +617,7 @@
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "assertions": [
-        "read skill lamina-empty-states"
+        "read skill lamina-ux"
       ]
     },
     {
@@ -555,7 +626,7 @@
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "assertions": [
-        "read skill lamina-heuristic-review"
+        "read skill lamina-evaluation"
       ]
     },
     {
@@ -1704,7 +1775,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -1729,7 +1800,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -1754,7 +1825,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -1800,7 +1871,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -2088,7 +2159,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "no writes outside .lamina",
         "ux guidance only",
@@ -2195,7 +2266,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -2239,7 +2310,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -2282,7 +2353,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -2325,7 +2396,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -2850,7 +2921,7 @@
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "assertions": [
-        "read skill lamina-accessibility",
+        "read skill lamina-ux",
         "Output does not claim full-flow audit complete"
       ]
     },
@@ -2880,7 +2951,7 @@
       "assertions": [
         "verify contract headings",
         "persona perspectives in output",
-        "read skill lamina-user-modeling",
+        "read skill lamina-research",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output",
@@ -3492,19 +3563,147 @@
       ]
     },
     {
-      "id": "cap-flow-design-framework",
-      "prompt": "/lamina — Users get lost resetting passwords.",
+      "id": "cap-research-scope",
+      "prompt": "Separate what is known, assumed, and still needs evidence before we study onboarding.",
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
-      "stage_files": true,
       "assertions": [
-        "read skill lamina-flow-design",
-        "Output mentions flows",
-        "no implementation vocabulary"
-      ],
-      "files": [
-        "files/greenfield-with-init/.lamina/business-context.md",
-        "files/greenfield-with-init/.lamina/personas.json"
+        "read reference skills/lamina-research/references/research-scoping.md",
+        "reference provenance skills/lamina-research/references/research-scoping.md",
+        "research-scoping distinctions",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-research-actor-walk",
+      "prompt": "Write a reproducible actor-walk script for an account owner attempting password recovery.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-research/references/interview-design.md",
+        "reference provenance skills/lamina-research/references/interview-design.md",
+        "actor-walk script structure",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-discovery-problem-frame",
+      "prompt": "Frame whether shared household budgets solve a bounded actor problem; do not design UI.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-discovery/references/problem-framing.md",
+        "reference provenance skills/lamina-product-discovery/references/problem-framing.md",
+        "problem-framing boundary",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-discovery-tradeoff",
+      "prompt": "Decide whether guardian approval should block an irreversible account removal when evidence is incomplete.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-discovery/references/tradeoffs.md",
+        "reference provenance skills/lamina-product-discovery/references/tradeoffs.md",
+        "tradeoff blocking discipline",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-ux-forms",
+      "prompt": "Advise on validation and recovery for a signup form that users abandon after errors.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-ux/references/forms.md",
+        "reference provenance skills/lamina-ux/references/forms.md",
+        "forms recovery rules",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-ux-navigation",
+      "prompt": "Users lose orientation between workspace settings and billing. Diagnose the navigation behavior.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-ux/references/navigation.md",
+        "reference provenance skills/lamina-ux/references/navigation.md",
+        "Output addresses navigation or wayfinding",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-behavior-concurrency",
+      "prompt": "Define product behavior for duplicate booking submissions, simultaneous edits, and stale retries.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "reference provenance skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "idempotency-concurrency rules",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-behavior-time",
+      "prompt": "Classify birthday, medicine due time, invite expiry, and recurring local reminder time correctly.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-behavior/references/time-semantics.md",
+        "reference provenance skills/lamina-product-behavior/references/time-semantics.md",
+        "time-semantics classification",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-systems-feedback",
+      "prompt": "Diagnose why escalating reminders create more notification overload after delayed acknowledgements.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-systems/references/feedback-loops.md",
+        "reference provenance skills/lamina-systems/references/feedback-loops.md",
+        "feedback-loop diagnosis",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-systems-leverage",
+      "prompt": "Rank possible interventions for repeated overbooking: copy, information visibility, allocation rules, or product goals.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-systems/references/leverage-points.md",
+        "reference provenance skills/lamina-systems/references/leverage-points.md",
+        "leverage hierarchy",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-evaluation-quantitative",
+      "prompt": "Define honest success metrics for checkout when no analytics have been collected yet.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-evaluation/references/quantitative-validation.md",
+        "reference provenance skills/lamina-evaluation/references/quantitative-validation.md",
+        "quantitative evidence discipline",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-evaluation-heuristic",
+      "prompt": "Plan a lens-based expert review of a dashboard contract with reproducible findings.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-evaluation/references/heuristic-review.md",
+        "reference provenance skills/lamina-evaluation/references/heuristic-review.md",
+        "heuristic evidence lenses",
+        "no deprecated public skill names"
       ]
     }
   ]

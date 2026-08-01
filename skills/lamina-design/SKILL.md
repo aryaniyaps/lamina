@@ -10,16 +10,16 @@ Lamina design writes product knowledge through `graphd`; it never edits applicat
 ## Gate
 
 First read and apply
-`../lamina-orchestrator/prerequisites/cli-required.md`. Stop before all
+`../lamina/orchestrator/prerequisites/cli-required.md`. Stop before all
 mutations unless the CLI API 1 prerequisite passes.
 
-Require a valid `.lamina/business-context.md`. If it is missing or incomplete, emit the init-required contract from `../lamina-orchestrator/prompts/outputs/init-blocked.md` and stop. Business documents and `.lamina/personas.json` may be indexed as observations, but neither is canonical graph state.
+Require a valid `.lamina/business-context.md`. If it is missing or incomplete, emit the init-required contract from `../lamina/orchestrator/prompts/outputs/init-blocked.md` and stop. Business documents and `.lamina/personas.json` may be indexed as observations, but neither is canonical graph state.
 
-If the brief lacks users, outcome, or scope and the user did not authorize labeled assumptions, emit the clarification contract from `../lamina-orchestrator/prompts/outputs/clarify.md` and stop before mutations.
+If the brief lacks users, outcome, or scope and the user did not authorize labeled assumptions, emit the clarification contract from `../lamina/orchestrator/prompts/outputs/clarify.md` and stop before mutations.
 
 ## Required reads
 
-Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/references/product-graph.md`, `../lamina-orchestrator/workflows/design.md`, `../lamina-orchestrator/prerequisites/cli-required.md`, `../lamina-orchestrator/prerequisites/init-required.md`, and `../lamina-orchestrator/audit-profiles.yaml`. Load only the supporting craft skills activated by the risk.
+Read `../lamina/orchestrator/load-protocol.md`, `../lamina/orchestrator/references/product-graph.md`, `../lamina/orchestrator/workflows/design.md`, `../lamina/orchestrator/prerequisites/cli-required.md`, `../lamina/orchestrator/prerequisites/init-required.md`, and `../lamina/orchestrator/audit-profiles.yaml`. Load `experience-core.always`, then only the `experience-core.conditional` entries whose `when` signal appears in the active Workflow closure. For each entry, open the named capability `SKILL.md` and then its exact reference; do not load sibling topics.
 
 ## Workflow
 
@@ -61,8 +61,9 @@ Read `../lamina-orchestrator/load-protocol.md`, `../lamina-orchestrator/referenc
    ... --session <id>`, `patch --session <id>`, or `link --session <id>`.
    Agents must not set epistemic class, approval, or raw Cypher.
 9. Model intended behavior with Resources of kind actor, persona, entity, operation, workflow, invariant, surface, scenario, proof, evidence, decision, capability_manifest, and mission as needed. Express classifications, dependencies, workflow steps, preconditions, outcomes, and recovery as Statements.
-10. For every workflow, load the `experience-core` audit profile in addition to
-   applicable trust/time/concurrency/accessibility skills. Do not author a
+10. For every workflow, apply the already selected `experience-core` entries.
+   Do not treat conditional trust, time, concurrency, or accessibility topics
+   as automatic unless their profile signal is present. Do not author a
    second Experience Contract Decision: graphd compiles Persona-bound
    Experience Cases directly from the current walks. A walk is current only
    when its digest covers the exact Resources and Statements in the Workflow

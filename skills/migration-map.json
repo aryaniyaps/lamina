@@ -1,0 +1,374 @@
+{
+  "schema": "lamina.skill-migration/v1",
+  "former_public_skill_count": 59,
+  "former_catalog_sha256": "faf1f1edfbcda37fe67e8686f2f2d288f8b802a058a5ca812ad7a50b286697a8",
+  "public_skill_count": 10,
+  "public_skills": [
+    "lamina",
+    "lamina-init",
+    "lamina-design",
+    "lamina-verify",
+    "lamina-research",
+    "lamina-product-discovery",
+    "lamina-ux",
+    "lamina-product-behavior",
+    "lamina-systems",
+    "lamina-evaluation"
+  ],
+  "migrations": [
+    {
+      "from": "lamina",
+      "to": "lamina",
+      "disposition": "retained",
+      "topic": "SKILL.md"
+    },
+    {
+      "from": "lamina-accessibility",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/accessibility.md"
+    },
+    {
+      "from": "lamina-business-context",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/business-context.md"
+    },
+    {
+      "from": "lamina-competitive-analysis",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/competitive-analysis.md"
+    },
+    {
+      "from": "lamina-consistency-guarantees",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/consistency-guarantees.md"
+    },
+    {
+      "from": "lamina-content-design",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/content-design.md"
+    },
+    {
+      "from": "lamina-controls-and-menus",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/controls-and-menus.md"
+    },
+    {
+      "from": "lamina-core",
+      "to": "lamina",
+      "disposition": "merged",
+      "topic": "references/problem-router.md"
+    },
+    {
+      "from": "lamina-decision-making",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/decision-making.md"
+    },
+    {
+      "from": "lamina-dependencies",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/dependencies.md"
+    },
+    {
+      "from": "lamina-design",
+      "to": "lamina-design",
+      "disposition": "retained",
+      "topic": "SKILL.md"
+    },
+    {
+      "from": "lamina-design-process",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/design-process.md"
+    },
+    {
+      "from": "lamina-discoverability",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/discoverability.md"
+    },
+    {
+      "from": "lamina-edge-cases",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/edge-cases.md"
+    },
+    {
+      "from": "lamina-empty-states",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/empty-states.md"
+    },
+    {
+      "from": "lamina-error-handling",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/error-handling.md"
+    },
+    {
+      "from": "lamina-evolutionary-rules",
+      "to": "lamina-systems",
+      "disposition": "merged",
+      "topic": "references/evolutionary-rules.md"
+    },
+    {
+      "from": "lamina-feature-discovery",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/feature-discovery.md"
+    },
+    {
+      "from": "lamina-feature-prioritization",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/feature-prioritization.md"
+    },
+    {
+      "from": "lamina-feedback-and-status",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/feedback-and-status.md"
+    },
+    {
+      "from": "lamina-feedback-loops",
+      "to": "lamina-systems",
+      "disposition": "merged",
+      "topic": "references/feedback-loops.md"
+    },
+    {
+      "from": "lamina-field-research",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/field-research.md"
+    },
+    {
+      "from": "lamina-flow-design",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/flow-design.md"
+    },
+    {
+      "from": "lamina-forms",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/forms.md"
+    },
+    {
+      "from": "lamina-heuristic-review",
+      "to": "lamina-evaluation",
+      "disposition": "merged",
+      "topic": "references/heuristic-review.md"
+    },
+    {
+      "from": "lamina-idempotency-concurrency",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/idempotency-concurrency.md"
+    },
+    {
+      "from": "lamina-information-architecture",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/information-architecture.md"
+    },
+    {
+      "from": "lamina-init",
+      "to": "lamina-init",
+      "disposition": "retained",
+      "topic": "SKILL.md"
+    },
+    {
+      "from": "lamina-interview-design",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/interview-design.md"
+    },
+    {
+      "from": "lamina-interview-documentation",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/interview-documentation.md"
+    },
+    {
+      "from": "lamina-invariants",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/invariants.md"
+    },
+    {
+      "from": "lamina-leverage-points",
+      "to": "lamina-systems",
+      "disposition": "merged",
+      "topic": "references/leverage-points.md"
+    },
+    {
+      "from": "lamina-modularity-boundaries",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/modularity-boundaries.md"
+    },
+    {
+      "from": "lamina-multi-view-integrity",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/multi-view-integrity.md"
+    },
+    {
+      "from": "lamina-navigation",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/navigation.md"
+    },
+    {
+      "from": "lamina-onboarding",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/onboarding.md"
+    },
+    {
+      "from": "lamina-orchestrator",
+      "to": "lamina",
+      "disposition": "internalized",
+      "topic": "orchestrator/load-protocol.md"
+    },
+    {
+      "from": "lamina-persuasion-and-groups",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/persuasion-and-groups.md"
+    },
+    {
+      "from": "lamina-platform-posture",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/platform-posture.md"
+    },
+    {
+      "from": "lamina-problem-framing",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/problem-framing.md"
+    },
+    {
+      "from": "lamina-product-behavior",
+      "to": "lamina-product-behavior",
+      "disposition": "expanded",
+      "topic": "references/product-behavior.md"
+    },
+    {
+      "from": "lamina-progressive-disclosure",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/progressive-disclosure.md"
+    },
+    {
+      "from": "lamina-quantitative-validation",
+      "to": "lamina-evaluation",
+      "disposition": "merged",
+      "topic": "references/quantitative-validation.md"
+    },
+    {
+      "from": "lamina-requirements-definition",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/requirements-definition.md"
+    },
+    {
+      "from": "lamina-research-communication",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/research-communication.md"
+    },
+    {
+      "from": "lamina-research-planning",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/research-planning.md"
+    },
+    {
+      "from": "lamina-research-scoping",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/research-scoping.md"
+    },
+    {
+      "from": "lamina-research-synthesis",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/research-synthesis.md"
+    },
+    {
+      "from": "lamina-side-effects",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/side-effects.md"
+    },
+    {
+      "from": "lamina-stakeholder-alignment",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/stakeholder-alignment.md"
+    },
+    {
+      "from": "lamina-system-structure",
+      "to": "lamina-systems",
+      "disposition": "merged",
+      "topic": "references/system-structure.md"
+    },
+    {
+      "from": "lamina-system-traps",
+      "to": "lamina-systems",
+      "disposition": "merged",
+      "topic": "references/system-traps.md"
+    },
+    {
+      "from": "lamina-task-analysis",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/task-analysis.md"
+    },
+    {
+      "from": "lamina-time-semantics",
+      "to": "lamina-product-behavior",
+      "disposition": "merged",
+      "topic": "references/time-semantics.md"
+    },
+    {
+      "from": "lamina-tradeoffs",
+      "to": "lamina-product-discovery",
+      "disposition": "merged",
+      "topic": "references/tradeoffs.md"
+    },
+    {
+      "from": "lamina-trust",
+      "to": "lamina-ux",
+      "disposition": "merged",
+      "topic": "references/trust.md"
+    },
+    {
+      "from": "lamina-usability-evaluation",
+      "to": "lamina-evaluation",
+      "disposition": "merged",
+      "topic": "references/usability-evaluation.md"
+    },
+    {
+      "from": "lamina-user-modeling",
+      "to": "lamina-research",
+      "disposition": "merged",
+      "topic": "references/user-modeling.md"
+    },
+    {
+      "from": "lamina-verify",
+      "to": "lamina-verify",
+      "disposition": "retained",
+      "topic": "SKILL.md"
+    }
+  ]
+}

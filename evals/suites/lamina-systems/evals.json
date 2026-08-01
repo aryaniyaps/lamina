@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-systems",
+  "evals": [
+    {
+      "id": "cap-systems-feedback",
+      "prompt": "Diagnose why escalating reminders create more notification overload after delayed acknowledgements.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-systems/references/feedback-loops.md",
+        "reference provenance skills/lamina-systems/references/feedback-loops.md",
+        "feedback-loop diagnosis",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-systems-leverage",
+      "prompt": "Rank possible interventions for repeated overbooking: copy, information visibility, allocation rules, or product goals.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-systems/references/leverage-points.md",
+        "reference provenance skills/lamina-systems/references/leverage-points.md",
+        "leverage hierarchy",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

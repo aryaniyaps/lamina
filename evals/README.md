@@ -8,6 +8,7 @@ uncapped Persona Missions, and epistemic spoof resistance.
 ```bash
 pnpm test:eval:spec
 pnpm test:eval:validate
+pnpm test:eval:references
 pnpm test:eval:smoke
 pnpm test:eval:full
 pnpm test:eval:redteam
@@ -27,10 +28,22 @@ tests. Other staged cases retain the write-boundary check, which permits
 `.lamina/` evidence and the shared Git-common-dir `lamina/` runtime while
 rejecting product-source writes.
 
-Every eval run installs all 59 public Lamina skills and the supported
-provider's managed passive rule before the first agent turn. A suite's
+Every eval run installs the exact 10-skill catalog for Codex, Claude Code, and
+OpenCode, including every mapped nested topic. When the CLI supports a managed
+passive rule for that provider, the harness installs it before the first agent
+turn. A suite's
 `skill_name` controls forced invocation only when the case requests it; all
-cross-referenced sibling skills remain discoverable in the same workspace.
+cross-referenced compact skills remain discoverable in the same workspace.
+
+`test:eval:references` is the compact cross-provider qualification matrix: one
+root-router case per capability across Claude Code, Codex, and OpenCode. Each
+case must show an actual read of the selected capability and exact topic,
+identify the topic in the response, apply topic-specific rules, and avoid every
+deprecated public skill name. The portable config also stages a direct suite
+for each of the six capabilities, with two topic-selection cases apiece.
+The compatibility matrix pins the local Claude proxy and OpenCode adapter to
+`gpt-5.6-terra` by default; environment overrides remain explicit in the
+generated report.
 
 The current grader has no legacy run-artifact reader. Historical prompts may mention those files only to prove that they are ignored and never treated as runtime state.
 

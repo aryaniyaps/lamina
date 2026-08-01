@@ -9,13 +9,12 @@ const publicEntries = fs.readdirSync(path.join(root, 'skills'), { withFileTypes:
   .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(root, 'skills', entry.name, 'SKILL.md')))
   .map((entry) => entry.name)
   .sort();
-assert.equal(publicEntries.length, 59, 'Lamina must expose all 59 skills directly');
-assert.ok(publicEntries.includes('lamina'), 'Lamina must expose its command router');
-assert.equal(
-  publicEntries.filter((name) => name.startsWith('lamina-')).length,
-  58,
-  'Lamina must expose all 58 focused skills as public siblings',
-);
+const expectedPublicEntries = [
+  'lamina', 'lamina-design', 'lamina-evaluation', 'lamina-init',
+  'lamina-product-behavior', 'lamina-product-discovery', 'lamina-research',
+  'lamina-systems', 'lamina-ux', 'lamina-verify',
+].sort();
+assert.deepEqual(publicEntries, expectedPublicEntries, 'Lamina must expose exactly the compact 10-skill catalog');
 assert.equal(
   fs.existsSync(path.join(root, 'skills/lamina/skills')),
   false,
@@ -24,9 +23,14 @@ assert.equal(
 
 const expectedSuiteSkills = new Map([
   ['lamina', 'lamina'],
-  ['lamina-capabilities', 'lamina-capabilities'],
   ['lamina-design', 'lamina-design'],
+  ['lamina-evaluation', 'lamina-evaluation'],
   ['lamina-init', 'lamina-init'],
+  ['lamina-product-behavior', 'lamina-product-behavior'],
+  ['lamina-product-discovery', 'lamina-product-discovery'],
+  ['lamina-research', 'lamina-research'],
+  ['lamina-systems', 'lamina-systems'],
+  ['lamina-ux', 'lamina-ux'],
   ['lamina-verify', 'lamina-verify'],
 ]);
 for (const suiteDir of fs.readdirSync(path.join(root, 'evals/suites'))) {
@@ -45,7 +49,7 @@ assert.equal(
   'the current eval runtime must not retain a legacy run grader',
 );
 const aseWrapper = fs.readFileSync(path.join(root, 'evals/scripts/ase_run.py'), 'utf8');
-assert.match(aseWrapper, /EXPECTED_PUBLIC_SKILLS = 59/);
+assert.match(aseWrapper, /EXPECTED_PUBLIC_SKILLS = 10/);
 assert.match(aseWrapper, /SKILL_PATHS\[agent_type\]/);
 
 const manifest = JSON.parse(
@@ -100,6 +104,7 @@ for (const rel of [
   'docs/decisions/001-transactional-product-graph.md',
   'docs/decisions/002-single-public-skill-bundle.md',
   'docs/decisions/003-public-sibling-skills.md',
+  'docs/decisions/013-compact-public-skill-catalog.md',
   'docs/content/reference/transactional-plan-acceptance.mdx',
 ]) {
   assert.ok(fs.existsSync(path.join(root, rel)), `missing plan documentation: ${rel}`);

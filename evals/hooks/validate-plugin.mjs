@@ -11,6 +11,15 @@ import crypto from 'crypto';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const SKILLS = 'skills';
+const PUBLIC_SKILLS = new Set([
+  'lamina', 'lamina-init', 'lamina-design', 'lamina-verify',
+  'lamina-research', 'lamina-product-discovery', 'lamina-ux',
+  'lamina-product-behavior', 'lamina-systems', 'lamina-evaluation',
+]);
+const CAPABILITY_SKILLS = [
+  'lamina-research', 'lamina-product-discovery', 'lamina-ux',
+  'lamina-product-behavior', 'lamina-systems', 'lamina-evaluation',
+];
 
 const errors = [];
 
@@ -27,23 +36,17 @@ function modulePath(name, suffix = 'SKILL.md') {
 }
 
 function checkAuditProfiles() {
-  const yaml = read(modulePath('lamina-orchestrator', 'audit-profiles.yaml'));
-  const skills = [...yaml.matchAll(/^\s+-\s+(lamina-[a-z-]+)\s*$/gm)].map((m) => m[1]);
-  for (const skill of skills) {
-    if (!exists(modulePath(skill))) {
-      errors.push(`audit-profiles references missing public skill: ${modulePath(skill)}`);
-    }
+  const yaml = read('skills/lamina/orchestrator/audit-profiles.yaml');
+  const topics = [...yaml.matchAll(/^\s+(?:-\s+)?skill: (lamina(?:-[a-z-]+)?)\s*\n\s+reference: (skills\/[^\s]+)\s*$/gm)];
+  for (const [, skill, reference] of topics) {
+    if (!PUBLIC_SKILLS.has(skill)) errors.push(`audit-profiles references missing public skill: ${skill}`);
+    if (!exists(reference)) errors.push(`audit-profiles references missing topic: ${reference}`);
   }
 }
 
 function checkProblemRouterLinks() {
-  const core = read(modulePath('lamina-core'));
-  const links = [...core.matchAll(/\]\(\.\.\/(lamina-[a-z-]+)\/SKILL\.md\)/g)].map((m) => m[1]);
-  for (const skill of links) {
-    if (!exists(modulePath(skill))) {
-      errors.push(`Problem Router link missing: ${modulePath(skill)}`);
-    }
-  }
+  const router = read('skills/lamina/references/problem-router.md');
+  if (!router.includes('Systems thinking')) errors.push('Problem Router is incomplete');
 }
 
 function checkCommandSkills() {
@@ -77,34 +80,34 @@ function checkCommandSkills() {
 
 function checkProductGraphTooling() {
   for (const rel of [
-    'skills/lamina-orchestrator/prerequisites/cli-required.md',
-    'skills/lamina-orchestrator/references/personas.schema.json',
-    'skills/lamina-orchestrator/references/product-graph.md',
+    'skills/lamina/orchestrator/prerequisites/cli-required.md',
+    'skills/lamina/orchestrator/references/personas.schema.json',
+    'skills/lamina/orchestrator/references/product-graph.md',
   ]) if (!exists(rel)) errors.push(`Missing transactional graph resource: ${rel}`);
 }
 
 function checkOutputContracts() {
   const contracts = {
-    'skills/lamina-orchestrator/prompts/outputs/design.md': [
+    'skills/lamina/orchestrator/prompts/outputs/design.md': [
       'GraphVersion',
       'Source revision',
       'Contradictions',
       'Validation',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/verify.md': [
+    'skills/lamina/orchestrator/prompts/outputs/verify.md': [
       'GraphVersion',
       'Source revision',
       'Runs',
       'Evidence',
       'Verdict',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/init-blocked.md': [
+    'skills/lamina/orchestrator/prompts/outputs/init-blocked.md': [
       'Status',
       "What's missing",
       'Next step',
       'Do not',
     ],
-    'skills/lamina-orchestrator/prompts/outputs/clarify.md': [
+    'skills/lamina/orchestrator/prompts/outputs/clarify.md': [
       'Status',
       'Clarifying questions',
       'Why these block the artifact',
@@ -124,7 +127,7 @@ function checkOutputContracts() {
 }
 
 function checkPromptManifest() {
-  const manifest = read('skills/lamina-orchestrator/prompts/manifest.yaml');
+  const manifest = read('skills/lamina/orchestrator/prompts/manifest.yaml');
   for (const id of ['outputs/clarify', 'outputs/design', 'outputs/implement', 'outputs/verify', 'outputs/fix', 'subagents/persona-panel-spawn']) {
     if (!manifest.includes(`${id}:`)) {
       errors.push(`Prompt manifest missing ${id}`);
@@ -134,8 +137,8 @@ function checkPromptManifest() {
 
 function checkArtifactSubagents() {
   for (const rel of [
-    'skills/lamina-orchestrator/patterns/persona-panel.md',
-    'skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md',
+    'skills/lamina/orchestrator/patterns/persona-panel.md',
+    'skills/lamina/orchestrator/prompts/subagents/persona-panel-spawn.md',
   ]) {
     if (!exists(rel)) errors.push(`Missing artifact subagent file: ${rel}`);
     else if (rel.includes('/agents/') && !read(rel).includes('readonly: true')) errors.push(`Artifact subagent must be readonly: ${rel}`);
@@ -159,6 +162,60 @@ function checkMetadataAlignment() {
   }
 }
 
+function checkCompactCatalog() {
+  const installed = fs.readdirSync(path.join(ROOT, SKILLS), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && exists(modulePath(entry.name)))
+    .map((entry) => entry.name);
+  if (installed.length !== PUBLIC_SKILLS.size || installed.some((name) => !PUBLIC_SKILLS.has(name))) {
+    errors.push(`public skill catalog must contain exactly the 10 compact skills; found ${installed.sort().join(', ')}`);
+  }
+  const migration = JSON.parse(read('skills/migration-map.json'));
+  const former = migration.migrations?.map((entry) => entry.from) || [];
+  if (former.length !== 59 || new Set(former).size !== 59) {
+    errors.push('migration map must cover all 59 former skills exactly once');
+  }
+  const formerDigest = crypto.createHash('sha256')
+    .update(JSON.stringify([...former].sort()))
+    .digest('hex');
+  if (formerDigest !== 'faf1f1edfbcda37fe67e8686f2f2d288f8b802a058a5ca812ad7a50b286697a8' ||
+      migration.former_catalog_sha256 !== formerDigest) {
+    errors.push('migration map does not match the frozen 59-skill source catalog');
+  }
+  for (const entry of migration.migrations || []) {
+    if (!PUBLIC_SKILLS.has(entry.to)) errors.push(`invalid migration destination: ${entry.to}`);
+    if (!exists(`skills/${entry.to}/${entry.topic}`)) errors.push(`missing migration topic: skills/${entry.to}/${entry.topic}`);
+  }
+
+  const installedLookup = read('skills/lamina/references/migration-map.md');
+  for (const entry of migration.migrations || []) {
+    const row = `| \`${entry.from}\` | \`${entry.to}\` | \`${entry.topic}\` |`;
+    if (!installedLookup.includes(row)) errors.push(`installed migration lookup missing ${entry.from}`);
+  }
+}
+
+function checkReferenceTopology() {
+  const migration = JSON.parse(read('skills/migration-map.json'));
+  for (const skill of CAPABILITY_SKILLS) {
+    const entrypoint = read(`skills/${skill}/SKILL.md`);
+    const linked = [...entrypoint.matchAll(/\]\(references\/([a-z0-9-]+\.md)\)/g)]
+      .map((match) => match[1]);
+    const physical = fs.readdirSync(path.join(ROOT, 'skills', skill, 'references'))
+      .filter((name) => name.endsWith('.md'))
+      .sort();
+    const mapped = (migration.migrations || [])
+      .filter((entry) => entry.to === skill && entry.topic.startsWith('references/'))
+      .map((entry) => entry.topic.slice('references/'.length))
+      .sort();
+    if (new Set(linked).size !== linked.length ||
+        JSON.stringify([...linked].sort()) !== JSON.stringify(physical) ||
+        JSON.stringify(mapped) !== JSON.stringify(physical)) {
+      errors.push(`${skill} entrypoint, migration map, and references directory must have exact parity`);
+    }
+  }
+}
+
+checkCompactCatalog();
+checkReferenceTopology();
 checkAuditProfiles();
 checkProductGraphTooling();
 checkProblemRouterLinks();

@@ -15,17 +15,16 @@ function stripFrontmatter(content) {
 
 const files = [
   'skills/lamina/SKILL.md',
-  'skills/lamina-orchestrator/SKILL.md',
-  'skills/lamina-orchestrator/prerequisites/init-required.md',
-  'skills/lamina-orchestrator/prompts/outputs/init-blocked.md',
-  'skills/lamina-core/guardrails.md',
-  'skills/lamina-core/SKILL.md',
-  'skills/lamina-orchestrator/references/product-graph.md',
-  'skills/lamina-orchestrator/workflows/design.md',
-  'skills/lamina-orchestrator/prompts/outputs/fix.md',
-  'skills/lamina-orchestrator/workflows/router.md',
-  'skills/lamina-orchestrator/workflows/verify.md',
-  'skills/lamina-orchestrator/merge-rules.md',
+  'skills/lamina/references/guardrails.md',
+  'skills/lamina/references/problem-router.md',
+  'skills/lamina/orchestrator/prerequisites/init-required.md',
+  'skills/lamina/orchestrator/prompts/outputs/init-blocked.md',
+  'skills/lamina/orchestrator/references/product-graph.md',
+  'skills/lamina/orchestrator/workflows/design.md',
+  'skills/lamina/orchestrator/prompts/outputs/fix.md',
+  'skills/lamina/orchestrator/workflows/router.md',
+  'skills/lamina/orchestrator/workflows/verify.md',
+  'skills/lamina/orchestrator/merge-rules.md',
 ];
 
 const body = files

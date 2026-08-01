@@ -12,6 +12,15 @@ that add or change product behavior, user flows, permissions, states, failures,
 or UI. Skip this workflow for purely mechanical build fixes, formatting,
 dependency maintenance, or tests that do not change product behavior.
 
+For an explicit \`/lamina\` request or a focused product question that asks for
+guidance, critique, explanation, or planning without asking to change files,
+do not enter the graph/implementation workflow. Read the installed
+\`lamina/SKILL.md\`, choose one primary capability, read that capability's
+\`SKILL.md\`, then use a filesystem read tool on the smallest exact topic set.
+Naming a topic from an index is not the same as loading it. Begin the response with
+\`Using <capability>: <topic path(s)>\`. Do not answer a focused product question
+from generic knowledge when the installed reference is available.
+
 Before editing application source:
 1. Put the user's request in a temporary text file outside the working tree (or under \`.git/lamina/work\`).
 2. First run \`lamina work prepare --request-file <file> --output <packet.json>\` so Lamina selects relevant workflows from the request and graph. Do not invent a workflow name. Use \`--workflow <exact-ref>\` only to narrow a genuinely ambiguous result after querying the graph.
@@ -29,8 +38,9 @@ ${END}`;
 function target(agent, root) {
   if (agent === 'codex') return path.join(root, 'AGENTS.md');
   if (agent === 'claude-code') return path.join(root, 'CLAUDE.md');
+  if (agent === 'opencode') return path.join(root, 'AGENTS.md');
   if (agent === 'cursor') return path.join(root, '.cursor', 'rules', 'lamina.mdc');
-  const error = new Error('--agent must be codex, claude-code, or cursor.');
+  const error = new Error('--agent must be codex, claude-code, opencode, or cursor.');
   error.code = 'LAMINA_BAD_REQUEST';
   throw error;
 }

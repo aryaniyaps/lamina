@@ -18,9 +18,9 @@ assert.equal(corpusManifest.version, 'harbor-v4');
 const currentSkillManifest = JSON.parse(
   fs.readFileSync(path.join(root, 'benchmarks/lb6/pilot/skill-bundle/manifest-v3.json'), 'utf8'),
 );
-assert.equal(currentSkillManifest.skills.length, 59);
+assert.equal(currentSkillManifest.skills.length, 10);
 assert.ok(currentSkillManifest.skills.includes('lamina'));
-assert.equal(currentSkillManifest.skills.filter((name) => name.startsWith('lamina-')).length, 58);
+assert.equal(currentSkillManifest.skills.filter((name) => name.startsWith('lamina-')).length, 9);
 assert.equal('contained_module_count' in currentSkillManifest, false);
 
 const lb6TaskRoot = path.join(root, 'benchmarks/lb6/pilot/harbor/tasks-v3/dev-loan-library-lamina-v3');

@@ -30,7 +30,7 @@ Install Lamina for this project.
    `-a '*'`.
    npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
 4. Install passive rules for that provider:
-   lamina setup --agent <codex|claude-code|cursor>
+   lamina setup --agent <codex|claude-code|opencode|cursor>
 5. Node.js/npm are required only for the preceding `npx skills` command. Do not use sudo and do not edit application source during setup. If this is not yet a
    Git project, `/lamina-init` may create Git metadata but must not stage or
    commit files.
@@ -45,7 +45,7 @@ Prefer installing it yourself?
 ```bash
 curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install.sh | sh
 npx skills add aryaniyaps/lamina --skill '*' -a <active-agent> -y
-lamina setup --agent <codex|claude-code|cursor>
+lamina setup --agent <codex|claude-code|opencode|cursor>
 lamina doctor --json
 ```
 
@@ -54,10 +54,10 @@ from GitHub Releases and verifies both against `SHA256SUMS`. Graph observation
 needs no host Node, npm, Python, `uv`, or virtual environment; graphd remains
 the only process that owns Ladybug.
 
-The install adds the `lamina` router plus 58 focused workflow and craft skills.
-They remain first-class siblings so agents can discover and progressively load
-cross-referenced skills directly. Then start a **fresh agent session** so the
-complete skill set is available.
+The install adds 10 public skills: four workflow entrypoints and six capability
+skills. Focused guidance lives in on-demand topic references inside those
+capabilities, keeping discovery small without flattening the underlying craft.
+Then start a **fresh agent session** so the complete skill set is available.
 
 ### Initialize once, then ask normally
 
@@ -262,7 +262,7 @@ Mocks show screens. They do not capture every legal state or verify the build. L
 | Command | What it does |
 |---|---|
 | `/lamina-init` | Establish the product domain, actors, and personas once per project or domain |
-| `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, or Cursor |
+| `lamina setup --agent …` | Install idempotent passive rules for Codex, Claude Code, OpenCode, or Cursor |
 | `lamina context status` | Show retrieval freshness, generation, digests, counts, and failures |
 | `lamina context rebuild` | Discard and reconstruct the disposable local retrieval index |
 | `lamina design prepare-walk` | Compile one coverage-bound design task for one Persona |

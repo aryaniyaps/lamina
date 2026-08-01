@@ -6,13 +6,18 @@ import { ensureRetrieval, queryRetrieval } from './retrieval-runtime/process.mjs
 
 const EXPERIENCE_CORE_SKILLS = [
   'lamina-product-behavior',
-  'lamina-invariants',
-  'lamina-user-modeling',
-  'lamina-edge-cases',
-  'lamina-forms',
-  'lamina-error-handling',
-  'lamina-feedback-and-status',
-  'lamina-content-design',
+  'lamina-research',
+  'lamina-ux',
+];
+const EXPERIENCE_CORE_REFERENCES = [
+  'skills/lamina-product-behavior/references/product-behavior.md',
+  'skills/lamina-product-behavior/references/invariants.md',
+  'skills/lamina-research/references/user-modeling.md',
+  'skills/lamina-ux/references/edge-cases.md',
+  'skills/lamina-ux/references/forms.md',
+  'skills/lamina-ux/references/error-handling.md',
+  'skills/lamina-ux/references/feedback-and-status.md',
+  'skills/lamina-ux/references/content-design.md',
 ];
 
 function bad(message, details = {}) {
@@ -153,6 +158,7 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
       ...graph.workflows.flatMap((item) =>
         item.workflow.data?.skills || item.workflow.data?.activated_skills || []),
     ])],
+    activated_skill_references: hasPersonaWalks ? EXPERIENCE_CORE_REFERENCES : [],
     retrieval: {
       generation: ranked.generation,
       freshness: ranked.freshness,

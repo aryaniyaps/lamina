@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-research",
+  "evals": [
+    {
+      "id": "cap-research-scope",
+      "prompt": "Separate what is known, assumed, and still needs evidence before we study onboarding.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-research/references/research-scoping.md",
+        "reference provenance skills/lamina-research/references/research-scoping.md",
+        "research-scoping distinctions",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-research-actor-walk",
+      "prompt": "Write a reproducible actor-walk script for an account owner attempting password recovery.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-research/references/interview-design.md",
+        "reference provenance skills/lamina-research/references/interview-design.md",
+        "actor-walk script structure",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

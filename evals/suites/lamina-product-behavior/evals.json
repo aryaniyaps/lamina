@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-product-behavior",
+  "evals": [
+    {
+      "id": "cap-behavior-concurrency",
+      "prompt": "Define product behavior for duplicate booking submissions, simultaneous edits, and stale retries.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "reference provenance skills/lamina-product-behavior/references/idempotency-concurrency.md",
+        "idempotency-concurrency rules",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-behavior-time",
+      "prompt": "Classify birthday, medicine due time, invite expiry, and recurring local reminder time correctly.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-product-behavior/references/time-semantics.md",
+        "reference provenance skills/lamina-product-behavior/references/time-semantics.md",
+        "time-semantics classification",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

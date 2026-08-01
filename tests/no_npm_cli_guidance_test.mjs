@@ -7,7 +7,7 @@ const publicFiles = [
   'README.md', 'packages/cli/README.md', 'docs/content/index.mdx',
   'docs/content/getting-started/quickstart.mdx', 'docs/content/getting-started/installation.mdx',
   'docs/content/getting-started/troubleshooting.mdx', 'docs/lib/site-data.mjs',
-  'skills/lamina-orchestrator/prerequisites/cli-required.md', 'skills/lamina-orchestrator/SKILL.md',
+  'skills/lamina/orchestrator/prerequisites/cli-required.md', 'skills/lamina/SKILL.md',
 ];
 for (const file of publicFiles) {
   let text = fs.readFileSync(path.resolve(file), 'utf8');

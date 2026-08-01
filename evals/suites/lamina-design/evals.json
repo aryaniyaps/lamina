@@ -87,7 +87,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -109,7 +109,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -131,7 +131,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -171,7 +171,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -279,7 +279,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "no writes outside .lamina",
         "ux guidance only",
@@ -371,7 +371,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -409,7 +409,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -446,7 +446,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",
@@ -483,7 +483,7 @@
       "stage_files": true,
       "assertions": [
         "design contract headings",
-        "read skill lamina-edge-cases",
+        "read skill lamina-ux",
         "GraphVersion projection present",
         "edge case categories covered",
         "graph domain contract present",

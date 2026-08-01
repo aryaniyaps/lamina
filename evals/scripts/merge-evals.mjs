@@ -40,7 +40,7 @@ function mt(id, prompts, extra = {}) {
 }
 
 const FEATURE_EDGE_ASSERTIONS = [
-  'read skill lamina-edge-cases',
+  'read skill lamina-ux',
   'GraphVersion projection present',
   'edge case categories covered',
   'domain contract present',
@@ -198,29 +198,51 @@ const laminaEvals = {
       expected_output: 'Audit not net-new design — improve existing.',
       assertions: ['Output treats this as improving existing UX', 'Output does not start greenfield design from scratch'],
     }),
-    e('router-direct-forms', '/lamina — Help with form validation UX; users abandon signup.', {
-      expected_output: 'Direct mode to lamina-forms.',
-      assertions: ['read skill lamina-forms', 'Output discusses forms or validation UX'],
+    e('router-direct-forms', '/lamina — Help with form validation UX; users abandon signup. Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct mode to lamina-ux with the forms topic.',
+      assertions: [
+        'read skill lamina-ux',
+        'read reference skills/lamina-ux/references/forms.md',
+        'reference provenance skills/lamina-ux/references/forms.md',
+        'forms recovery rules',
+        'no deprecated public skill names',
+      ],
     }),
     e('router-direct-navigation', '/lamina — Users feel lost in navigation.', {
-      expected_output: 'Direct lamina-navigation.',
-      assertions: ['read skill lamina-navigation', 'Output addresses navigation or wayfinding'],
+      expected_output: 'Direct lamina-ux with the navigation topic.',
+      assertions: ['read skill lamina-ux', 'read reference skills/lamina-ux/references/navigation.md', 'reference provenance skills/lamina-ux/references/navigation.md', 'Output addresses navigation or wayfinding', 'no deprecated public skill names'],
     }),
     e('router-direct-accessibility', '/lamina — Make our app more accessible for screen reader users.', {
-      expected_output: 'Direct lamina-accessibility.',
-      assertions: ['read skill lamina-accessibility'],
+      expected_output: 'Direct lamina-ux with the accessibility topic.',
+      assertions: ['read skill lamina-ux', 'read reference skills/lamina-ux/references/accessibility.md', 'reference provenance skills/lamina-ux/references/accessibility.md', 'no deprecated public skill names'],
     }),
     e('router-direct-onboarding', '/lamina — New users cannot figure out how to get started.', {
-      expected_output: 'Direct lamina-onboarding.',
-      assertions: ['read skill lamina-onboarding'],
+      expected_output: 'Direct lamina-ux with the onboarding topic.',
+      assertions: ['read skill lamina-ux', 'read reference skills/lamina-ux/references/onboarding.md', 'reference provenance skills/lamina-ux/references/onboarding.md', 'no deprecated public skill names'],
     }),
     e('router-direct-error', '/lamina — Error messages are confusing and users give up.', {
-      expected_output: 'Direct lamina-error-handling.',
-      assertions: ['read skill lamina-error-handling'],
+      expected_output: 'Direct lamina-ux with the error-handling topic.',
+      assertions: ['read skill lamina-ux', 'read reference skills/lamina-ux/references/error-handling.md', 'reference provenance skills/lamina-ux/references/error-handling.md', 'no deprecated public skill names'],
     }),
-    e('router-research', '/lamina — Plan a usability study for our onboarding flow.', {
-      expected_output: 'Direct research skill, not full design workflow.',
-      assertions: ['Output focuses on research planning', 'Output does not emit full design output contract'],
+    e('router-research', '/lamina — Scope what evidence we have and still need before studying onboarding. Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct research skill with the research-scoping topic.',
+      assertions: ['read skill lamina-research', 'read reference skills/lamina-research/references/research-scoping.md', 'reference provenance skills/lamina-research/references/research-scoping.md', 'research-scoping distinctions', 'Output does not emit full design output contract', 'no deprecated public skill names'],
+    }),
+    e('router-product-discovery', '/lamina — Help frame whether shared household budgets are a problem worth solving; do not design screens. Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct product-discovery skill with the problem-framing topic.',
+      assertions: ['read skill lamina-product-discovery', 'read reference skills/lamina-product-discovery/references/problem-framing.md', 'reference provenance skills/lamina-product-discovery/references/problem-framing.md', 'problem-framing boundary', 'no deprecated public skill names'],
+    }),
+    e('router-product-behavior', '/lamina — How should duplicate and concurrent booking submissions behave when state changes between attempts? Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct product-behavior skill with the idempotency-concurrency topic.',
+      assertions: ['read skill lamina-product-behavior', 'read reference skills/lamina-product-behavior/references/idempotency-concurrency.md', 'reference provenance skills/lamina-product-behavior/references/idempotency-concurrency.md', 'idempotency-concurrency rules', 'no deprecated public skill names'],
+    }),
+    e('router-systems', '/lamina — Why do reminder escalations keep creating notification overload despite local throttling fixes? Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct systems skill with the feedback-loops topic.',
+      assertions: ['read skill lamina-systems', 'read reference skills/lamina-systems/references/feedback-loops.md', 'reference provenance skills/lamina-systems/references/feedback-loops.md', 'feedback-loop diagnosis', 'no deprecated public skill names'],
+    }),
+    e('router-evaluation', '/lamina — Plan an expert heuristic review of our dashboard contract before testing the built product. Apply the installed Lamina guidance and show the selected capability/topic.', {
+      expected_output: 'Direct evaluation skill with the heuristic-review topic.',
+      assertions: ['read skill lamina-evaluation', 'read reference skills/lamina-evaluation/references/heuristic-review.md', 'reference provenance skills/lamina-evaluation/references/heuristic-review.md', 'heuristic evidence lenses', 'no deprecated public skill names'],
     }),
     e('router-ambiguous', '/lamina — We need better UX.', {
       expected_output: 'One clarifying question only.',
@@ -346,13 +368,13 @@ const laminaEvals = {
 
     // Direct capability (~10 more in lamina)
     e('router-direct-trust', '/lamina — Users do not trust our app after a billing error.', {
-      assertions: ['read skill lamina-trust'],
+      assertions: ['read skill lamina-ux'],
     }),
     e('router-direct-empty-states', '/lamina — What should our empty state look like when there is no data?', {
-      assertions: ['read skill lamina-empty-states'],
+      assertions: ['read skill lamina-ux'],
     }),
     e('router-direct-heuristic', '/lamina — Heuristic review of our dashboard before user testing.', {
-      assertions: ['read skill lamina-heuristic-review'],
+      assertions: ['read skill lamina-evaluation'],
     }),
 
     // Negative controls (~10)
@@ -743,7 +765,7 @@ const laminaVerifyEvals = {
       assertions: ['ux guidance only', 'no product code in output', 'no writes outside .lamina'],
     }),
     e('audit-single-lens', '/lamina — Just check accessibility of our dashboard.', {
-      assertions: ['read skill lamina-accessibility', 'Output does not claim full-flow audit complete'],
+      assertions: ['read skill lamina-ux', 'Output does not claim full-flow audit complete'],
     }),
     e('audit-truncation-resist', '/lamina-verify — Just pick top 3 audit lenses and skip the rest for checkout.', {
       ...fx('greenfield-with-init'),
@@ -754,7 +776,7 @@ const laminaVerifyEvals = {
       assertions: [
         'verify contract headings',
         'persona perspectives in output',
-        'read skill lamina-user-modeling',
+        'read skill lamina-research',
       ],
     }),
     e('audit-invented-ui', '/lamina-verify — Audit @checkout/payment/cta in our storefront.', {
@@ -817,12 +839,74 @@ const laminaVerifyEvals = {
   ],
 };
 
-const laminaCapabilitiesEvals = {
-  skill_name: 'lamina-capabilities',
+const laminaResearchEvals = {
+  skill_name: 'lamina-research',
   evals: [
-    e('cap-flow-design-framework', '/lamina — Users get lost resetting passwords.', {
-      ...fx('greenfield-with-init'),
-      assertions: ['read skill lamina-flow-design', 'Output mentions flows', 'no implementation vocabulary'],
+    e('cap-research-scope', 'Separate what is known, assumed, and still needs evidence before we study onboarding.', {
+      assertions: ['read reference skills/lamina-research/references/research-scoping.md', 'reference provenance skills/lamina-research/references/research-scoping.md', 'research-scoping distinctions', 'no deprecated public skill names'],
+    }),
+    e('cap-research-actor-walk', 'Write a reproducible actor-walk script for an account owner attempting password recovery.', {
+      assertions: ['read reference skills/lamina-research/references/interview-design.md', 'reference provenance skills/lamina-research/references/interview-design.md', 'actor-walk script structure', 'no deprecated public skill names'],
+    }),
+  ],
+};
+
+const laminaProductDiscoveryEvals = {
+  skill_name: 'lamina-product-discovery',
+  evals: [
+    e('cap-discovery-problem-frame', 'Frame whether shared household budgets solve a bounded actor problem; do not design UI.', {
+      assertions: ['read reference skills/lamina-product-discovery/references/problem-framing.md', 'reference provenance skills/lamina-product-discovery/references/problem-framing.md', 'problem-framing boundary', 'no deprecated public skill names'],
+    }),
+    e('cap-discovery-tradeoff', 'Decide whether guardian approval should block an irreversible account removal when evidence is incomplete.', {
+      assertions: ['read reference skills/lamina-product-discovery/references/tradeoffs.md', 'reference provenance skills/lamina-product-discovery/references/tradeoffs.md', 'tradeoff blocking discipline', 'no deprecated public skill names'],
+    }),
+  ],
+};
+
+const laminaUxEvals = {
+  skill_name: 'lamina-ux',
+  evals: [
+    e('cap-ux-forms', 'Advise on validation and recovery for a signup form that users abandon after errors.', {
+      assertions: ['read reference skills/lamina-ux/references/forms.md', 'reference provenance skills/lamina-ux/references/forms.md', 'forms recovery rules', 'no deprecated public skill names'],
+    }),
+    e('cap-ux-navigation', 'Users lose orientation between workspace settings and billing. Diagnose the navigation behavior.', {
+      assertions: ['read reference skills/lamina-ux/references/navigation.md', 'reference provenance skills/lamina-ux/references/navigation.md', 'Output addresses navigation or wayfinding', 'no deprecated public skill names'],
+    }),
+  ],
+};
+
+const laminaProductBehaviorEvals = {
+  skill_name: 'lamina-product-behavior',
+  evals: [
+    e('cap-behavior-concurrency', 'Define product behavior for duplicate booking submissions, simultaneous edits, and stale retries.', {
+      assertions: ['read reference skills/lamina-product-behavior/references/idempotency-concurrency.md', 'reference provenance skills/lamina-product-behavior/references/idempotency-concurrency.md', 'idempotency-concurrency rules', 'no deprecated public skill names'],
+    }),
+    e('cap-behavior-time', 'Classify birthday, medicine due time, invite expiry, and recurring local reminder time correctly.', {
+      assertions: ['read reference skills/lamina-product-behavior/references/time-semantics.md', 'reference provenance skills/lamina-product-behavior/references/time-semantics.md', 'time-semantics classification', 'no deprecated public skill names'],
+    }),
+  ],
+};
+
+const laminaSystemsEvals = {
+  skill_name: 'lamina-systems',
+  evals: [
+    e('cap-systems-feedback', 'Diagnose why escalating reminders create more notification overload after delayed acknowledgements.', {
+      assertions: ['read reference skills/lamina-systems/references/feedback-loops.md', 'reference provenance skills/lamina-systems/references/feedback-loops.md', 'feedback-loop diagnosis', 'no deprecated public skill names'],
+    }),
+    e('cap-systems-leverage', 'Rank possible interventions for repeated overbooking: copy, information visibility, allocation rules, or product goals.', {
+      assertions: ['read reference skills/lamina-systems/references/leverage-points.md', 'reference provenance skills/lamina-systems/references/leverage-points.md', 'leverage hierarchy', 'no deprecated public skill names'],
+    }),
+  ],
+};
+
+const laminaEvaluationEvals = {
+  skill_name: 'lamina-evaluation',
+  evals: [
+    e('cap-evaluation-quantitative', 'Define honest success metrics for checkout when no analytics have been collected yet.', {
+      assertions: ['read reference skills/lamina-evaluation/references/quantitative-validation.md', 'reference provenance skills/lamina-evaluation/references/quantitative-validation.md', 'quantitative evidence discipline', 'no deprecated public skill names'],
+    }),
+    e('cap-evaluation-heuristic', 'Plan a lens-based expert review of a dashboard contract with reproducible findings.', {
+      assertions: ['read reference skills/lamina-evaluation/references/heuristic-review.md', 'reference provenance skills/lamina-evaluation/references/heuristic-review.md', 'heuristic evidence lenses', 'no deprecated public skill names'],
     }),
   ],
 };
@@ -851,7 +935,12 @@ const suites = [
   { path: 'evals/suites/lamina-init/evals.json', data: applyGuardrailsToSuite(laminaInitEvals) },
   { path: 'evals/suites/lamina-design/evals.json', data: applyGuardrailsToSuite(laminaDesignEvals) },
   { path: 'evals/suites/lamina-verify/evals.json', data: applyGuardrailsToSuite(laminaVerifyEvals) },
-  { path: 'evals/suites/lamina-capabilities/evals.json', data: laminaCapabilitiesEvals },
+  { path: 'evals/suites/lamina-research/evals.json', data: laminaResearchEvals },
+  { path: 'evals/suites/lamina-product-discovery/evals.json', data: laminaProductDiscoveryEvals },
+  { path: 'evals/suites/lamina-ux/evals.json', data: laminaUxEvals },
+  { path: 'evals/suites/lamina-product-behavior/evals.json', data: laminaProductBehaviorEvals },
+  { path: 'evals/suites/lamina-systems/evals.json', data: laminaSystemsEvals },
+  { path: 'evals/suites/lamina-evaluation/evals.json', data: laminaEvaluationEvals },
 ];
 
 for (const { path: rel, data } of suites) {
@@ -894,6 +983,11 @@ const smokeIds = [
   'router-feature-01',
   'router-audit-01',
   'router-direct-forms',
+  'router-research',
+  'router-product-discovery',
+  'router-product-behavior',
+  'router-systems',
+  'router-evaluation',
   'router-ambiguous',
   'passive-feature-implementation',
   'passive-ui-live-verification',
@@ -922,6 +1016,15 @@ const smokeIds = [
   'guardrail-brownfield-readonly',
 ];
 
+const referenceSmokeIds = [
+  'router-research',
+  'router-product-discovery',
+  'router-direct-forms',
+  'router-product-behavior',
+  'router-systems',
+  'router-evaluation',
+];
+
 const smokeDir = path.join(ROOT, 'evals/smoke');
 fs.mkdirSync(smokeDir, { recursive: true });
 fs.writeFileSync(
@@ -929,8 +1032,16 @@ fs.writeFileSync(
   JSON.stringify({ ids: smokeIds }, null, 2) + '\n',
 );
 
+const referenceSmokeDir = path.join(ROOT, 'evals/reference-smoke');
+fs.mkdirSync(referenceSmokeDir, { recursive: true });
+fs.writeFileSync(
+  path.join(referenceSmokeDir, 'ids.json'),
+  JSON.stringify({ ids: referenceSmokeIds }, null, 2) + '\n',
+);
+
 console.log(`Merged ${merged.evals.length} eval cases → evals/lamina/evals.json`);
 console.log(`Smoke ids: ${smokeIds.length} cases → evals/smoke/ids.json`);
+console.log(`Reference smoke ids: ${referenceSmokeIds.length} cases → evals/reference-smoke/ids.json`);
 
 const stage = spawnSync('node', [path.join(ROOT, 'evals/scripts/stage-portable-root.mjs')], {
   cwd: ROOT,

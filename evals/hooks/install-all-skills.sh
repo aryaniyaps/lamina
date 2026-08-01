@@ -99,6 +99,7 @@ mkdir -p "$WORKSPACE/.git/lamina"
 case "$AGENT" in
   codex) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent codex >/dev/null) ;;
   claude-code) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent claude-code >/dev/null) ;;
+  opencode) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent opencode >/dev/null) ;;
   cursor) (cd "$WORKSPACE" && "$CLI_PREFIX/bin/lamina" setup --agent cursor >/dev/null) ;;
 esac
 

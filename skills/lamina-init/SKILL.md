@@ -6,7 +6,12 @@ description: "Use only when explicitly invoked as lamina-init. Establish busines
 # /lamina-init
 
 Before any evidence or graph mutation, read and apply
-`../lamina-orchestrator/prerequisites/cli-required.md`.
+`../lamina/orchestrator/prerequisites/cli-required.md`.
+
+Read `../lamina/orchestrator/audit-profiles.yaml`. Load the `init.always`
+references, then only those `init.conditional` references whose `when` signal
+is present. For each selected entry, open the named capability `SKILL.md` and
+then its exact reference; do not load sibling topics.
 
 For a directory that is not yet a Git project, initialize Git metadata as
 specified by that prerequisite before writing evidence. Do not ask for or

@@ -11,13 +11,11 @@ import { loadManifest } from './stage-fixture.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const errors = [];
 
+const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'skills.sh.json'), 'utf8'));
+const publicSkills = [...new Set((catalog.groupings || []).flatMap((group) => group.skills || []))];
 const suites = [
   'evals/lamina/evals.json',
-  'evals/suites/lamina/evals.json',
-  'evals/suites/lamina-init/evals.json',
-  'evals/suites/lamina-design/evals.json',
-  'evals/suites/lamina-verify/evals.json',
-  'evals/suites/lamina-capabilities/evals.json',
+  ...publicSkills.map((name) => `evals/suites/${name}/evals.json`),
 ];
 
 function validateSuite(relPath) {
@@ -112,24 +110,28 @@ for (const suite of suites) {
   }
 }
 
-const smokeIdsPath = path.join(ROOT, 'evals/smoke/ids.json');
-if (!fs.existsSync(smokeIdsPath)) {
-  errors.push('Missing evals/smoke/ids.json');
-} else if (mergedIds.size > 0) {
-  let smoke;
-  try {
-    smoke = JSON.parse(fs.readFileSync(smokeIdsPath, 'utf8'));
-  } catch (err) {
-    errors.push(`evals/smoke/ids.json: invalid JSON — ${err.message}`);
+for (const idsRel of ['evals/smoke/ids.json', 'evals/reference-smoke/ids.json']) {
+  const smokeIdsPath = path.join(ROOT, idsRel);
+  if (!fs.existsSync(smokeIdsPath)) {
+    errors.push(`Missing ${idsRel}`);
+    continue;
   }
-  if (smoke && Array.isArray(smoke.ids)) {
-    for (const id of smoke.ids) {
-      if (!mergedIds.has(id)) {
-        errors.push(`evals/smoke/ids.json: unknown smoke id ${id}`);
-      }
+  if (mergedIds.size > 0) {
+    let smoke;
+    try {
+      smoke = JSON.parse(fs.readFileSync(smokeIdsPath, 'utf8'));
+    } catch (err) {
+      errors.push(`${idsRel}: invalid JSON — ${err.message}`);
     }
-  } else if (smoke) {
-    errors.push('evals/smoke/ids.json: ids must be an array');
+    if (smoke && Array.isArray(smoke.ids)) {
+      for (const id of smoke.ids) {
+        if (!mergedIds.has(id)) {
+          errors.push(`${idsRel}: unknown eval id ${id}`);
+        }
+      }
+    } else if (smoke) {
+      errors.push(`${idsRel}: ids must be an array`);
+    }
   }
 }
 

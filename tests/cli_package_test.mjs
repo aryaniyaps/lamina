@@ -21,7 +21,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.3.0');
+assert.equal(cliPackage.version, '0.3.1');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.equal(retrievalModel.qualification.decision, 'ship_int8');
 assert.ok(
@@ -80,7 +80,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.0']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.1']).status,
   0,
 );
 assert.notEqual(
@@ -126,7 +126,7 @@ try {
 } finally {
   fs.rmSync(disciplineRoot, { recursive: true, force: true });
 }
-for (const runtimePath of ['skills/lamina-orchestrator/bin', 'skills/lamina-orchestrator/lib']) {
+for (const runtimePath of ['skills/lamina/orchestrator/bin', 'skills/lamina/orchestrator/lib']) {
   assert.equal(fs.existsSync(runtimePath), false, `${runtimePath} must not ship with skills`);
 }
 console.log('cli_package_test: ok');

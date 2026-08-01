@@ -63,8 +63,9 @@ curl -fsSL https://github.com/aryaniyaps/lamina/releases/latest/download/install
 npx skills add aryaniyaps/lamina --skill '*' -a codex -a pi -y
 ```
 
-The public skill set contains the `lamina` router plus 58 focused sibling
-skills. Supported installs load all 59 so cross-skill references resolve.
+The public catalog contains 10 skills: four workflow entrypoints and six
+capabilities with progressively loaded topic references. Supported installs
+load all 10 so cross-skill references resolve.
 Lamina outputs GraphVersion-pinned projections your agent already knows how to
 consume — unopinionated on how you manage context or memory.
 

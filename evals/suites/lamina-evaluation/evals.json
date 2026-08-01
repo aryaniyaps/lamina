@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-evaluation",
+  "evals": [
+    {
+      "id": "cap-evaluation-quantitative",
+      "prompt": "Define honest success metrics for checkout when no analytics have been collected yet.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-evaluation/references/quantitative-validation.md",
+        "reference provenance skills/lamina-evaluation/references/quantitative-validation.md",
+        "quantitative evidence discipline",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-evaluation-heuristic",
+      "prompt": "Plan a lens-based expert review of a dashboard contract with reproducible findings.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-evaluation/references/heuristic-review.md",
+        "reference provenance skills/lamina-evaluation/references/heuristic-review.md",
+        "heuristic evidence lenses",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "skill_name": "lamina-ux",
+  "evals": [
+    {
+      "id": "cap-ux-forms",
+      "prompt": "Advise on validation and recovery for a signup form that users abandon after errors.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-ux/references/forms.md",
+        "reference provenance skills/lamina-ux/references/forms.md",
+        "forms recovery rules",
+        "no deprecated public skill names"
+      ]
+    },
+    {
+      "id": "cap-ux-navigation",
+      "prompt": "Users lose orientation between workspace settings and billing. Diagnose the navigation behavior.",
+      "force_skill_invocation": true,
+      "expected_output": "Meets Lamina skill contract for this case.",
+      "assertions": [
+        "read reference skills/lamina-ux/references/navigation.md",
+        "reference provenance skills/lamina-ux/references/navigation.md",
+        "Output addresses navigation or wayfinding",
+        "no deprecated public skill names"
+      ]
+    }
+  ]
+}

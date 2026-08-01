@@ -23,6 +23,7 @@ try {
   for (const [agent, relative] of [
     ['codex', 'AGENTS.md'],
     ['claude-code', 'CLAUDE.md'],
+    ['opencode', 'AGENTS.md'],
     ['cursor', path.join('.cursor', 'rules', 'lamina.mdc')],
   ]) {
     const installed = run(['setup', '--agent', agent]);

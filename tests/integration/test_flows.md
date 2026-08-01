@@ -14,7 +14,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 | "We don't know what problem to solve yet" | design workflow |
 | "Add a wishlist feature" | design workflow |
 | "Audit our checkout flow" | audit workflow |
-| "Help with form validation UX" | direct → lamina-forms |
+| "Help with form validation UX" | direct → lamina-ux forms topic |
 
 ### Init gate (workflow dispatch)
 
@@ -27,7 +27,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 
 - Input: product description or brownfield repo context
 - Expect: `.lamina/business-context.md` with business sections and confidence
-- Expect: init output contract per `skills/lamina-orchestrator/prompts/outputs/init.md`
+- Expect: init output contract per `skills/lamina/orchestrator/prompts/outputs/init.md`
 - Expect: loads skills from `audit-profiles.yaml` `init` profile
 - Update: `/lamina-init update` with pivot description — expect changelog append, stale artifact flags
 
@@ -38,7 +38,7 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 ### Design workflow
 
 - Input: problem statement for a mobile budgeting app
-- Expect: unified output per `skills/lamina-orchestrator/prompts/outputs/design.md`
+- Expect: unified output per `skills/lamina/orchestrator/prompts/outputs/design.md`
 - Expect: step 0 init gate passes; reads `business-context.md`
 - Expect: `.lamina/personas.json` cast when missing or stale
 - Optional: persona panel when flows or a journey exist
@@ -47,8 +47,8 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 ### Scoped capability example
 
 - Input: "Add two-factor authentication to settings"
-- Expect: design output contract headings per `skills/lamina-orchestrator/prompts/outputs/design.md`
-- Expect: loads skills from `audit-profiles.yaml` design-* profiles
+- Expect: design output contract headings per `skills/lamina/orchestrator/prompts/outputs/design.md`
+- Expect: loads `experience-core.always` plus only risk-matched conditional topics from `audit-profiles.yaml`
 - **Without init:** expect init-blocked output; no artifacts created
 
 ### Natural-language routing
@@ -64,16 +64,16 @@ Manual smoke paths for verifying slash commands and skill load chains after inst
 - **Prerequisite:** valid business context (required)
 - Input: checkout flow description or screenshot reference, or post-build live app
 - Expect: verify findings, actor walks, invariant checks
-- Expect: loads `audit-profiles.full-flow` skills
+- Expect: loads `verify-core.always` plus only Mission-matched conditional topics from `audit-profiles.yaml`
 - **Without init:** expect init-blocked output; no artifacts created
 
 ## Direct capability
 
 - Invoke `/lamina` with "users feel lost in navigation"
-- Expect: loads `lamina-core` Problem Router → `lamina-navigation` skill only
+- Expect: loads the `lamina` Problem Router → `lamina-ux/references/navigation.md` only
 
 ## Subagents (optional)
 
-- Persona panel: dynamic spawns — one subagent per persona, each prompt embeds that persona's identity (`skills/lamina-orchestrator/prompts/subagents/persona-panel-spawn.md`)
-- Parallel audit delegates to `skills/lamina-orchestrator/agents/ux-lens-reviewer.md`
-- Large corpus synthesis delegates to `skills/lamina-orchestrator/agents/research-synthesizer.md`
+- Persona panel: dynamic spawns — one subagent per persona, each prompt embeds that persona's identity (`skills/lamina/orchestrator/prompts/subagents/persona-panel-spawn.md`)
+- Parallel audit delegates to `skills/lamina/orchestrator/agents/ux-lens-reviewer.md`
+- Large corpus synthesis delegates to `skills/lamina/orchestrator/agents/research-synthesizer.md`

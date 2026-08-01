@@ -31,7 +31,7 @@ for (const heading of [
 
 assert.match(readme, /releases\/latest\/download\/install\.sh/);
 assert.match(readme, /npx skills add aryaniyaps\/lamina --skill '\*' -a <active-agent> -y/);
-assert.match(readme, /router plus 58 focused workflow and craft skills/);
+assert.match(readme, /10 public skills/);
 assert.match(readme, /lamina doctor --json/);
 assert.match(readme, /Do not use sudo and do not edit application source/);
 assert.match(readme, /Node\.js\/npm are required only for the preceding `npx skills` command/i);

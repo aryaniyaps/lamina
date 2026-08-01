@@ -76,17 +76,17 @@ function hasInitBlockedContract(output) {
 }
 
 const FULL_FLOW_SKILLS = [
-  'lamina-flow-design',
-  'lamina-heuristic-review',
-  'lamina-navigation',
-  'lamina-discoverability',
-  'lamina-forms',
-  'lamina-error-handling',
-  'lamina-content-design',
-  'lamina-accessibility',
-  'lamina-trust',
-  'lamina-feedback-and-status',
-  'lamina-decision-making',
+  'flow-design',
+  'heuristic-review',
+  'navigation',
+  'discoverability',
+  'forms',
+  'error-handling',
+  'content-design',
+  'accessibility',
+  'trust',
+  'feedback-and-status',
+  'decision-making',
 ];
 
 function readJsonSafe(filePath) {
@@ -300,6 +300,87 @@ function combinedOutputText(output, turnOutputs) {
   if (turnOutputs.length) return turnOutputs.join('\n\n');
   return output;
 }
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function didReadPath(logs, requestedPath) {
+  const normalized = String(requestedPath).replaceAll('\\', '/').replace(/^\.\//, '');
+  const suffix = normalized.replace(/^skills\//, '');
+  const readCommand = /(?:^|[\s"'])(?:cat|sed|head|tail|less|bat|rg|awk)(?:[\s"']|$)/i;
+  for (const line of String(logs).split('\n')) {
+    try {
+      const parsed = JSON.parse(line);
+      const item = parsed?.item || parsed;
+      const command = typeof item?.command === 'string' ? item.command.replaceAll('\\', '/') : '';
+      if (item?.type === 'command_execution' && readCommand.test(command) &&
+          (command.includes(normalized) || command.includes(suffix))) {
+        return true;
+      }
+    } catch {}
+  }
+  const flat = String(logs).replaceAll('\\', '/');
+  const toolRead = new RegExp(
+    `(?:read_file|readfile|file_path|tool[^\\n]{0,40}read|(?:cat|sed|head|tail|less|bat|rg|awk)[^\\n]{0,240})[^\\n]{0,240}${escapeRegex(suffix)}`,
+    'i',
+  );
+  return toolRead.test(flat);
+}
+
+function hasReferenceProvenance(output, reference) {
+  const match = reference.match(/^skills\/(lamina(?:-[a-z-]+)?)\/references\/([a-z0-9-]+)\.md$/i);
+  if (!match) return false;
+  const [, capability, topic] = match;
+  return new RegExp(
+    `Using\\s+(?:[*_\`]+)?${escapeRegex(capability)}(?:[*_\`]+)?\\s*:[^\\n]*(?:${escapeRegex(reference)}|(?:[*_\`]+)?${escapeRegex(topic)}(?:[*_\`]+)?)`,
+    'i',
+  ).test(output);
+}
+
+function outputAppliesReference(reference, output) {
+  const tests = {
+    'skills/lamina-research/references/research-scoping.md': [/verified|known evidence/i, /assumption/i, /to[- ]verify|evidence gap|needs? evidence/i],
+    'skills/lamina-research/references/interview-design.md': [/\bgoal\b/i, /starting (?:context|state)/i, /stress probe|edge probe/i, /success criteria|observable success/i],
+    'skills/lamina-product-discovery/references/problem-framing.md': [/actor|user/i, /outcome|success/i, /out of scope|non-goal|boundary|not automatically worth solving/i, /unknown|assumption|open question|key risk|validate/i],
+    'skills/lamina-product-discovery/references/tradeoffs.md': [/reversible/i, /provenance|evidence|confidence/i, /ownership|trust|money|privacy|safety|regulatory|destructive/i],
+    'skills/lamina-ux/references/forms.md': [/validat/i, /preserv(?:e|ing).*?(?:input|data|value)/is, /data immunity|immunity (?:over|versus) rejection|batch[- ]review|requir(?:e|ed).*?(?:invariant|workflow)|(?:invariant|workflow).*?requir(?:e|ed)/is],
+    'skills/lamina-ux/references/navigation.md': [/navigation|wayfinding/i, /current location|orientation|breadcrumb|local nav/i],
+    'skills/lamina-product-behavior/references/idempotency-concurrency.md': [/duplicate|repeat|idempot/i, /concurr|conflict|race/i, /stale|fenc/i],
+    'skills/lamina-product-behavior/references/time-semantics.md': [/instant/i, /local (?:wall )?time|iana|time ?zone/i, /date-only|duration|recurrence|deadline|expiry/i],
+    'skills/lamina-systems/references/feedback-loops.md': [/reinforcing/i, /balancing|control|budget|conditional|stop or downgrade/i, /delay|oscillat|overshoot/i],
+    'skills/lamina-systems/references/leverage-points.md': [/information flow/i, /rule|constraint/i, /goal|purpose/i],
+    'skills/lamina-evaluation/references/quantitative-validation.md': [/do not invent|never invent|real data|user-provided|actual measurement/i, /metric|measurement|completion rate|error rate/i],
+    'skills/lamina-evaluation/references/heuristic-review.md': [/lens|invariant|accessib|consisten|reachab/i, /repro|reproduce/i, /contract ref|graph ref|resource|statement/i],
+  };
+  const required = tests[reference];
+  return Boolean(required && required.every((pattern) => pattern.test(output)));
+}
+
+function outputProvesCapability(output, capability) {
+  const line = output.match(new RegExp(`Using\\s+(?:[*_\`]+)?${escapeRegex(capability)}(?:[*_\`]+)?\\s*:[^\\n]+`, 'i'))?.[0] || '';
+  if (!line) return false;
+  const candidates = Object.keys({
+    'skills/lamina-research/references/research-scoping.md': true,
+    'skills/lamina-research/references/interview-design.md': true,
+    'skills/lamina-product-discovery/references/problem-framing.md': true,
+    'skills/lamina-product-discovery/references/tradeoffs.md': true,
+    'skills/lamina-ux/references/forms.md': true,
+    'skills/lamina-ux/references/navigation.md': true,
+    'skills/lamina-product-behavior/references/idempotency-concurrency.md': true,
+    'skills/lamina-product-behavior/references/time-semantics.md': true,
+    'skills/lamina-systems/references/feedback-loops.md': true,
+    'skills/lamina-systems/references/leverage-points.md': true,
+    'skills/lamina-evaluation/references/quantitative-validation.md': true,
+    'skills/lamina-evaluation/references/heuristic-review.md': true,
+  }).filter((reference) => reference.startsWith(`skills/${capability}/references/`));
+  return candidates.some((reference) => {
+    const topic = path.basename(reference, '.md');
+    return (line.includes(reference) || new RegExp(`\\b${escapeRegex(topic)}\\b`, 'i').test(line)) &&
+      outputAppliesReference(reference, output);
+  });
+}
+
 function gradeAssertion(text, ctx) {
   const lower = text.toLowerCase();
   const { output, workspace, preState, postState, logs, evalMeta, turnOutputs = [] } = ctx;
@@ -874,6 +955,73 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, !emitted, !emitted ? 'No full design output contract' : 'Design output contract headings present');
   }
 
+  if (lower.includes('research-scoping distinctions')) {
+    const passed = /verified|known evidence/i.test(allOutput) && /assumption/i.test(allOutput) &&
+      /to[- ]verify|evidence gap|needs? evidence/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Verified, assumption, and evidence-gap distinctions present' : 'Missing research-scoping distinctions');
+  }
+
+  if (lower.includes('actor-walk script structure')) {
+    const terms = [/\bgoal\b/i, /starting (?:context|state)/i, /happy path|primary path/i, /stress probe|edge probe/i, /success criteria|observable success/i];
+    const missing = terms.filter((term) => !term.test(allOutput));
+    return hookResult(text, missing.length === 0, missing.length ? 'Missing actor-walk script fields' : 'Actor-walk script fields present');
+  }
+
+  if (lower.includes('problem-framing boundary')) {
+    const passed = /actor|user/i.test(allOutput) && /outcome|success/i.test(allOutput) &&
+      /out of scope|non-goal|boundary|not automatically worth solving/i.test(allOutput) &&
+      /unknown|assumption|open question|key risk|validate/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Problem boundary, outcome, and unknowns present' : 'Incomplete problem framing');
+  }
+
+  if (lower.includes('tradeoff blocking discipline')) {
+    const passed = /reversible/i.test(allOutput) && /provenance|evidence|confidence/i.test(allOutput) &&
+      /block|blocking/i.test(allOutput) && /ownership|trust|money|privacy|safety|regulatory|destructive/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Tradeoff classification and consequential blocking rule present' : 'Missing tradeoff blocking discipline');
+  }
+
+  if (lower.includes('forms recovery rules')) {
+    const passed = /validat/i.test(allOutput) && /preserv(?:e|ing).*?(?:input|data|value)/is.test(allOutput) &&
+      /data immunity|immunity (?:over|versus) rejection|batch[- ]review|requir(?:e|ed).*?(?:invariant|workflow)|(?:invariant|workflow).*?requir(?:e|ed)/is.test(allOutput);
+    return hookResult(text, passed, passed ? 'Validation, preserved input, and recovery-policy rules present' : 'Missing forms recovery rules');
+  }
+
+  if (lower.includes('idempotency-concurrency rules')) {
+    const passed = /duplicate|repeat|idempot/i.test(allOutput) && /concurr|conflict|simultaneous|race/i.test(allOutput) &&
+      /stale|fenc/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Duplicate, conflict, and stale-action rules present' : 'Missing idempotency/concurrency rules');
+  }
+
+  if (lower.includes('time-semantics classification')) {
+    const passed = /instant/i.test(allOutput) && /local (?:wall )?time|iana|time ?zone/i.test(allOutput) &&
+      /date-only|duration|recurrence|deadline|expiry/i.test(allOutput) && /correct|disambiguat|dst|overlap|gap/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Temporal kinds and boundary recovery present' : 'Missing time-semantics classification');
+  }
+
+  if (lower.includes('feedback-loop diagnosis')) {
+    const passed = /reinforcing/i.test(allOutput) && /balancing|control|budget|conditional|stop or downgrade/i.test(allOutput) && /delay|oscillat|overshoot/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Reinforcing, balancing, and delay effects present' : 'Missing feedback-loop diagnosis');
+  }
+
+  if (lower.includes('leverage hierarchy')) {
+    const passed = /parameter|number|copy|color/i.test(allOutput) && /information flow/i.test(allOutput) &&
+      /rule|constraint/i.test(allOutput) && /goal|purpose/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Parameter, information, rule, and goal leverage levels present' : 'Missing leverage hierarchy');
+  }
+
+  if (lower.includes('quantitative evidence discipline')) {
+    const passed = /do not invent|never invent|no invented|real data|user-provided|actual measurement/i.test(allOutput) &&
+      /metric|measurement|completion rate|error rate/i.test(allOutput) &&
+      /without (?:real |actual )?(?:data|measurements)|until (?:real |actual )?(?:data|measurements)|advisory|baseline/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Measurement boundaries and workflow metrics present' : 'Missing quantitative evidence discipline');
+  }
+
+  if (lower.includes('heuristic evidence lenses')) {
+    const passed = /lens|invariant|accessib|consisten|reachab/i.test(allOutput) && /repro|reproduce/i.test(allOutput) &&
+      /contract ref|graph ref|resource|statement/i.test(allOutput);
+    return hookResult(text, passed, passed ? 'Lens coverage with reproducible graph evidence present' : 'Missing heuristic evidence lens discipline');
+  }
+
   // Router-only: do not match multiturn "turn N output contains \"Clarifying questions\""
   if (lower.includes('new ux, existing ux') || lower.includes('focused ux question')) {
     const passed =
@@ -887,7 +1035,7 @@ function gradeAssertion(text, ctx) {
     const routes = [
       /\bdesign\s+workflow\b/i.test(allOutput),
       /\b(audit|verify)\s+workflow\b|\b\/lamina-verify\b/i.test(allOutput),
-      /lamina-(forms|navigation|accessibility|onboarding|error-handling|research)/i.test(allOutput),
+      /lamina-(?:ux|research|product-discovery|product-behavior|systems|evaluation)\b/i.test(allOutput),
     ].filter(Boolean).length;
     const passed = routes >= 1;
     return hookResult(text, passed, passed ? `Primary workflow signaled (${routes})` : 'No primary workflow signal');
@@ -938,8 +1086,7 @@ function gradeAssertion(text, ctx) {
   if (lower.includes('all full-flow lenses') || lower.includes('full-flow lenses')) {
     const corpus = `${output}\n${logs}\n${graphEvidenceText(workspace)}`.toLowerCase();
     const missing = FULL_FLOW_SKILLS.filter((s) => {
-      const short = s.replace(/^lamina-/, '');
-      return !corpus.includes(s.toLowerCase()) && !corpus.includes(short.toLowerCase());
+      return !corpus.includes(s.toLowerCase());
     });
     const refusesTruncation =
       /full-flow|all (11 )?lenses|do not truncate|cannot skip|refuse(?:s|d)? truncation|will not skip lenses|do not omit lenses/i.test(
@@ -949,14 +1096,40 @@ function gradeAssertion(text, ctx) {
     return hookResult(text, passed, passed ? 'Full-flow skills referenced or truncation refused' : `Missing refs: ${missing.join(', ')}`);
   }
 
-  const skillMatch = text.match(/read skill (lamina-[a-z-]+)|(?:using|load(?:ed)?) [`']?(lamina-[a-z-]+)/i);
+  const referenceMatch = text.match(/read reference (skills\/(lamina(?:-[a-z-]+)?)\/references\/[a-z0-9-]+\.md)/i);
+  if (referenceMatch) {
+    const reference = referenceMatch[1];
+    const loggedRead = didReadPath(logs, reference);
+    const appliedProof = hasReferenceProvenance(output, reference) && outputAppliesReference(reference, output);
+    const passed = loggedRead || appliedProof;
+    return hookResult(text, passed, passed ? (loggedRead ? `${reference} read by an agent file-read command` : `${reference} identified and applied with reference-specific evidence`) : `${reference} was not read or demonstrably applied`);
+  }
+
+  const provenanceMatch = text.match(/reference provenance (skills\/(lamina(?:-[a-z-]+)?)\/references\/([a-z0-9-]+)\.md)/i);
+  if (provenanceMatch) {
+    const [, reference, capability, topic] = provenanceMatch;
+    const passed = hasReferenceProvenance(output, reference);
+    return hookResult(text, passed, passed ? `Output identifies ${reference}` : `Missing exact Using marker for ${reference}`);
+  }
+
+  if (lower.includes('no deprecated public skill names')) {
+    const migration = readJsonSafe(path.join(ROOT, 'skills/migration-map.json'));
+    const current = new Set(migration?.public_skills || []);
+    const deprecated = (migration?.migrations || [])
+      .map((entry) => entry.from)
+      .filter((name) => !current.has(name));
+    const leaked = deprecated.filter((name) => new RegExp(`(?:^|[^a-z-])${escapeRegex(name)}(?:$|[^a-z-])`, 'i').test(output));
+    return hookResult(text, leaked.length === 0, leaked.length ? `Deprecated names in output: ${leaked.join(', ')}` : 'No deprecated public skill names');
+  }
+
+  const skillMatch = text.match(/read skill (lamina-[a-z-]+)/i);
   if (skillMatch) {
-    const skill = skillMatch[1] || skillMatch[2];
-    const passed =
-      logs.includes(`${skill}/SKILL.md`) ||
-      logs.includes(skill) ||
-      new RegExp(skill.replace('-', '[- ]?'), 'i').test(output);
-    return hookResult(text, passed, passed ? `${skill} referenced` : `${skill} not found in logs or output`);
+    const skill = skillMatch[1];
+    const skillFile = `skills/${skill}/SKILL.md`;
+    const loggedRead = didReadPath(logs, skillFile);
+    const appliedProof = outputProvesCapability(output, skill);
+    const passed = loggedRead || appliedProof;
+    return hookResult(text, passed, passed ? (loggedRead ? `${skillFile} read by an agent file-read command` : `${skill} identified with applied topic evidence`) : `${skillFile} was not read or demonstrably applied`);
   }
 
   const fileMatch = text.match(/file [`'"]([^`'"]+)[`'"] (exists|was created)/i);

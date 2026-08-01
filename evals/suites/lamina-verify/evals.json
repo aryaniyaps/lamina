@@ -107,7 +107,7 @@
       "force_skill_invocation": true,
       "expected_output": "Meets Lamina skill contract for this case.",
       "assertions": [
-        "read skill lamina-accessibility",
+        "read skill lamina-ux",
         "Output does not claim full-flow audit complete"
       ]
     },
@@ -135,7 +135,7 @@
       "assertions": [
         "verify contract headings",
         "persona perspectives in output",
-        "read skill lamina-user-modeling",
+        "read skill lamina-research",
         "no writes outside .lamina",
         "ux guidance only",
         "no product code in output",
