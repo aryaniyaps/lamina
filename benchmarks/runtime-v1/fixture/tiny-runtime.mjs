@@ -26,13 +26,18 @@ function boundedInteger(value, name, minimum, maximum) {
 
 async function runChild() {
   return new Promise((resolve, reject) => {
-    const child = spawn('/bin/sh', ['-c', 'sleep 0.075'], {
+    const child = spawn('/bin/sh', ['-c', 'read _ || exit 0'], {
       cwd: process.cwd(),
       env: process.env,
-      stdio: 'ignore',
+      stdio: ['pipe', 'ignore', 'ignore'],
     });
-    child.once('error', reject);
+    const release = setTimeout(() => child.stdin.end(), 75);
+    child.once('error', (error) => {
+      clearTimeout(release);
+      reject(error);
+    });
     child.once('close', (code, signal) => {
+      clearTimeout(release);
       if (code !== 0 || signal) {
         reject(new Error(`tiny child failed: code=${code} signal=${signal || 'none'}`));
       } else resolve(true);
