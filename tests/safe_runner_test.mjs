@@ -9,7 +9,11 @@ import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../script
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
-import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
+import {
+  deriveLimits,
+  parseHostPageSize,
+  validateLimitOverrides,
+} from '../scripts/safe-runner/envelope.mjs';
 import {
   assertSystemctlSuccess,
   cgroupResolutionState,
@@ -56,6 +60,7 @@ try {
   const eightGib = deriveLimits({}, { totalMemoryBytes: 8 * GIB });
   assert.equal(eightGib.memory_max_bytes, 2 * GIB);
   assert.equal(eightGib.memory_high_bytes, Math.floor(1.6 * GIB));
+  assert.equal(eightGib.memory_page_bytes, null);
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
@@ -63,6 +68,30 @@ try {
     assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
   }
   assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
+  const aligned192Mib = deriveLimits({
+    memoryMaxBytes: 192 * MIB,
+    memoryHighBytes: 160 * MIB,
+  }, {
+    totalMemoryBytes: 8 * GIB,
+    pageSizeBytes: 4_096,
+  });
+  assert.equal(aligned192Mib.memory_max_bytes, 201_326_592);
+  assert.equal(aligned192Mib.memory_high_bytes, 161_058_816);
+  assert.equal(aligned192Mib.memory_page_bytes, 4_096);
+  assert.ok(aligned192Mib.memory_high_bytes < aligned192Mib.memory_max_bytes);
+  assert.equal(parseHostPageSize('KernelPageSize:        4 kB\n', {
+    productionEnforcement: true,
+  }), 4_096);
+  assert.equal(parseHostPageSize('unavailable', {
+    productionEnforcement: false,
+  }), null);
+  assert.throws(() => parseHostPageSize('unavailable', {
+    productionEnforcement: true,
+  }), (error) => error.code === 'LAMINA_SAFE_PAGE_SIZE_UNPROVEN');
+  assert.throws(() => deriveLimits({ memoryMaxBytes: 4_096 }, {
+    totalMemoryBytes: 8 * GIB,
+    pageSizeBytes: 4_096,
+  }), /lower than memoryMaxBytes/);
 
   const portableProbe = {
     id: 'portable-process-group-small-only',

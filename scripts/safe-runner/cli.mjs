@@ -81,7 +81,7 @@ async function main() {
     const cwdIndex = args.indexOf('--cwd');
     const cwd = cwdIndex === -1 ? process.cwd() : path.resolve(take(args, cwdIndex, '--cwd'));
     print({
-      ...hostEnvelope({ cwd }),
+      ...hostEnvelope({ cwd, productionEnforcement: probe.production_enforcement === true }),
       adapter: probe,
       attestation: readAttestation(probe),
       promotion: promotionStatus(cwd),

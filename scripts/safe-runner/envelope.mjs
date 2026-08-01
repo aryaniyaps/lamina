@@ -49,24 +49,85 @@ function availableDiskBytes(target) {
   return Number(output.trim().split(/\s+/)[3]) * 1024;
 }
 
-export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() } = {}) {
+function validPageSize(value) {
+  return Number.isSafeInteger(value)
+    && value >= 4_096
+    && value <= 1024 * 1024
+    && (value & (value - 1)) === 0;
+}
+
+export function parseHostPageSize(text, { productionEnforcement = false } = {}) {
+  if (!productionEnforcement) return null;
+  const kib = Number(String(text || '').match(/^KernelPageSize:\s+(\d+)\s+kB$/m)?.[1]);
+  const value = kib * 1024;
+  if (!Number.isSafeInteger(kib) || !validPageSize(value)) {
+    const error = new Error('cannot prove the Linux host page size from /proc/self/smaps');
+    error.code = 'LAMINA_SAFE_PAGE_SIZE_UNPROVEN';
+    throw error;
+  }
+  return value;
+}
+
+export function hostPageSizeBytes({
+  platform = process.platform,
+  productionEnforcement = false,
+} = {}) {
+  if (platform !== 'linux' || !productionEnforcement) return null;
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync('/proc/self/smaps', 'r');
+    const buffer = Buffer.alloc(64 * 1024);
+    const bytes = fs.readSync(descriptor, buffer, 0, buffer.length, 0);
+    return parseHostPageSize(buffer.subarray(0, bytes).toString('utf8'), {
+      productionEnforcement,
+    });
+  } catch (cause) {
+    if (cause?.code === 'LAMINA_SAFE_PAGE_SIZE_UNPROVEN') throw cause;
+    const error = new Error(`cannot read the Linux host page size: ${cause?.code || 'unknown error'}`);
+    error.code = 'LAMINA_SAFE_PAGE_SIZE_UNPROVEN';
+    throw error;
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+}
+
+function alignDown(value, pageSizeBytes) {
+  return pageSizeBytes === null ? value : Math.floor(value / pageSizeBytes) * pageSizeBytes;
+}
+
+export function deriveLimits(overrides = {}, {
+  totalMemoryBytes = os.totalmem(),
+  pageSizeBytes = null,
+} = {}) {
   validateLimitOverrides(overrides);
   if (!Number.isFinite(totalMemoryBytes) || totalMemoryBytes <= 0) {
     throw new TypeError('totalMemoryBytes must be finite and positive');
+  }
+  if (pageSizeBytes !== null && !validPageSize(pageSizeBytes)) {
+    throw new TypeError('pageSizeBytes must be a proven power of two between 4096 and 1048576');
   }
   const derivedHard = Math.min(
     DEFAULTS.memoryHardMaxBytes,
     Math.floor(totalMemoryBytes * DEFAULTS.memoryFraction),
   );
-  const memoryMaxBytes = Math.min(overrides.memoryMaxBytes ?? derivedHard, derivedHard);
+  const memoryMaxBytes = alignDown(
+    Math.min(overrides.memoryMaxBytes ?? derivedHard, derivedHard),
+    pageSizeBytes,
+  );
   const defaultHigh = Math.floor(memoryMaxBytes * DEFAULTS.memoryHighFraction);
-  const memoryHighBytes = Math.min(overrides.memoryHighBytes ?? defaultHigh, defaultHigh);
-  if (memoryHighBytes > memoryMaxBytes) throw new TypeError('memoryHighBytes cannot exceed memoryMaxBytes');
+  const memoryHighBytes = alignDown(
+    Math.min(overrides.memoryHighBytes ?? defaultHigh, defaultHigh),
+    pageSizeBytes,
+  );
+  if (memoryHighBytes <= 0 || memoryMaxBytes <= 0 || memoryHighBytes >= memoryMaxBytes) {
+    throw new TypeError('effective memoryHighBytes must be positive and lower than memoryMaxBytes');
+  }
   const pidsMax = Math.min(overrides.pidsMax ?? DEFAULTS.pidsMax, DEFAULTS.pidsMax);
   const tempMaxBytes = Math.min(overrides.tempMaxBytes ?? DEFAULTS.tempMaxBytes, DEFAULTS.tempMaxBytes);
   return {
     memory_max_bytes: memoryMaxBytes,
     memory_high_bytes: memoryHighBytes,
+    memory_page_bytes: pageSizeBytes,
     os_reserve_bytes: DEFAULTS.osReserveBytes,
     pids_max: pidsMax,
     timeout_ms: Math.min(overrides.timeoutMs ?? DEFAULTS.timeoutMs, DEFAULTS.timeoutMs),
@@ -90,8 +151,13 @@ export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() 
   };
 }
 
-export function hostEnvelope({ cwd = process.cwd(), overrides = {} } = {}) {
-  const limits = deriveLimits(overrides);
+export function hostEnvelope({
+  cwd = process.cwd(),
+  overrides = {},
+  productionEnforcement = false,
+} = {}) {
+  const pageSizeBytes = hostPageSizeBytes({ productionEnforcement });
+  const limits = deriveLimits(overrides, { pageSizeBytes });
   const diskTarget = fs.existsSync(cwd) ? cwd : path.dirname(cwd);
   const temporaryDiskTarget = os.tmpdir();
   return {
