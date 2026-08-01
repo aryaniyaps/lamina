@@ -10,7 +10,7 @@ if (!Number.isSafeInteger(beforeReleaseDelayMs) || beforeReleaseDelayMs < 0) pro
 await runSafely({
   command: [
     process.execPath, path.resolve('tests/fixtures/safe-runner-graphd-client.mjs'),
-    graphRepository, 'leave-stale', 'hold',
+    graphRepository, 'leave-exact', 'hold',
   ],
   tier: 'small', cwd, reportFile, promote: false,
   overrides: {

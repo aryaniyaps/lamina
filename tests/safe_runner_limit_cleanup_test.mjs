@@ -179,6 +179,11 @@ try {
   assert.doesNotMatch(evidence.output?.stderr_tail || '', /spawnSync git ENOENT/,
     `the sealed graph repository cwd must remain visible to Git; ${artifactHint}`);
   if (payloadReleased) {
+    assert.equal(evidence.outcome, 'safety_limit_exceeded', artifactHint);
+    assert.equal(evidence.termination?.reason, 'safety_limit_exceeded', artifactHint);
+    assert.equal(evidence.termination?.limit, 'timeout', artifactHint);
+    assert.deepEqual(evidence.termination?.requested_signals, ['SIGTERM', 'SIGKILL'], artifactHint);
+    assert.deepEqual(evidence.cleanup?.managed_paths_remaining, [], artifactHint);
     assert.match(finalTrace, /launch:payload-released/, artifactHint);
     const sandboxProbe = String(evidence.output?.stdout_tail || '').split('\n')
       .filter(Boolean)
@@ -227,4 +232,6 @@ try {
   }
 }
 
+assert.equal(fs.existsSync(scratch), false,
+  'exact killed-wrapper cleanup proof must remove its workspace scratch');
 process.stdout.write('safe-runner killed-wrapper cleanup regression passed\n');

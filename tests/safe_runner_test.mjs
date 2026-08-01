@@ -2685,6 +2685,56 @@ try {
     { pid: 41001, start_ticks: 'wrong', role: 'graphd' },
   ], [graphdRecord]), []);
 
+  const leaveExactRepository = path.join(root, 'leave-exact-graph-repository');
+  fs.mkdirSync(leaveExactRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: leaveExactRepository }).status, 0);
+  const leaveExactPaths = runtimePaths(leaveExactRepository);
+  const leaveExactEnvironment = graphdEnvironment();
+  delete leaveExactEnvironment.LAMINA_SAFE_RUNNER_BROKER;
+  delete leaveExactEnvironment.LAMINA_SAFE_GRAPHD_RESERVATION;
+  const leaveExactChild = spawn(process.execPath, [
+    path.resolve('tests/fixtures/graph-runtime/server.mjs'), leaveExactRepository, 'leave-exact',
+  ], { stdio: 'ignore', env: leaveExactEnvironment });
+  const leaveExactExit = once(leaveExactChild, 'exit');
+  const leaveExactIdentity = (file) => {
+    const stat = fs.lstatSync(file, { bigint: true });
+    return { dev: String(stat.dev), ino: String(stat.ino), type: stat.isSocket() ? 'socket' : 'file' };
+  };
+  try {
+    const leaveExactDeadline = Date.now() + 2_000;
+    while (Date.now() < leaveExactDeadline
+      && (!lstatPresence(leaveExactPaths.socket).exists
+        || !lstatPresence(leaveExactPaths.lock).exists)) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(lstatPresence(leaveExactPaths.socket).stat?.isSocket(), true);
+    assert.equal(lstatPresence(leaveExactPaths.lock).stat?.isFile(), true);
+    const leaveExactSocketIdentity = leaveExactIdentity(leaveExactPaths.socket);
+    const leaveExactLockIdentity = leaveExactIdentity(leaveExactPaths.lock);
+    leaveExactChild.kill('SIGTERM');
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(leaveExactChild.exitCode, null,
+      'leave-exact graphd must remain alive until the supervisor sends SIGKILL');
+    assert.deepEqual(leaveExactIdentity(leaveExactPaths.socket), leaveExactSocketIdentity);
+    assert.deepEqual(leaveExactIdentity(leaveExactPaths.lock), leaveExactLockIdentity);
+    leaveExactChild.kill('SIGKILL');
+    await leaveExactExit;
+    assert.deepEqual(leaveExactIdentity(leaveExactPaths.socket), leaveExactSocketIdentity,
+      'abrupt graphd termination must leave the exact sealed socket for supervisor cleanup');
+    assert.deepEqual(leaveExactIdentity(leaveExactPaths.lock), leaveExactLockIdentity,
+      'abrupt graphd termination must leave the exact sealed lock for supervisor cleanup');
+  } finally {
+    if (leaveExactChild.exitCode === null && leaveExactChild.signalCode === null) {
+      leaveExactChild.kill('SIGKILL');
+      await Promise.race([
+        leaveExactExit,
+        new Promise((resolve) => setTimeout(resolve, 2_000)),
+      ]);
+    }
+    fs.rmSync(leaveExactPaths.socket, { force: true });
+    fs.rmSync(leaveExactPaths.lock, { force: true });
+  }
+
   const managedRoot = path.join(root, 'managed-objects');
   fs.mkdirSync(managedRoot);
   const managedSocket = path.join(managedRoot, 'graphd.sock');

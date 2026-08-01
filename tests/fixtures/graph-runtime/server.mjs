@@ -40,8 +40,13 @@ const shutdown = () => {
   });
 };
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+if (cleanupMode === 'leave-exact') {
+  process.on('SIGTERM', () => {});
+  process.on('SIGINT', () => {});
+} else {
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
 server.listen(socketPath, () => {
   fs.chmodSync(canonicalSocket, 0o600);
 });
