@@ -22,10 +22,13 @@ function canonicalGraphdRegistration(request, authority, child) {
       cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000,
     });
     if (git.status !== 0) refuse('graph root is not a readable Git repository');
-    runtime = path.resolve(root, String(git.stdout || '').trim(), 'lamina');
-    if (path.resolve(request.runtime_dir) !== runtime
-      || path.resolve(request.socket) !== path.join(runtime, 'graphd.sock')
-      || path.resolve(request.lock) !== path.join(runtime, 'graphd.lock')) refuse('runtime paths do not match the graph root Git common directory');
+    runtime = fs.realpathSync.native(path.resolve(root, String(git.stdout || '').trim(), 'lamina'));
+    const requestedRuntime = fs.realpathSync.native(request.runtime_dir);
+    const requestedSocketParent = fs.realpathSync.native(path.dirname(request.socket));
+    const requestedLockParent = fs.realpathSync.native(path.dirname(request.lock));
+    if (requestedRuntime !== runtime
+      || requestedSocketParent !== runtime || path.basename(request.socket) !== 'graphd.sock'
+      || requestedLockParent !== runtime || path.basename(request.lock) !== 'graphd.lock') refuse('runtime paths do not match the graph root Git common directory');
     stat = fs.lstatSync(runtime);
   } catch (error) { refuse(error.message || 'graph runtime could not be verified'); }
   if (!stat.isDirectory() || stat.isSymbolicLink()
