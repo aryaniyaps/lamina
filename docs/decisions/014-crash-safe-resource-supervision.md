@@ -127,6 +127,16 @@ optional/platform packages, and required peers. Missing required peers refuse;
 missing optional packages remain absent. Source package-manager links may only
 resolve to physical roots beneath repository `node_modules`, and every emitted
 link terminates inside the sealed store rather than retaining live authority.
+An npm alias keeps its declared logical link name while the physical manifest
+must match the parsed alias target, including scoped targets; malformed aliases
+refuse. Package manifests are descriptor-read with a one-MiB ceiling. Both the
+copy walker and the separate metadata-only closure walker stream directory
+entries and bound depth while counting files, directories, symlinks, inodes,
+and bytes. The latter is diagnostic authority only: on the qualification
+install, Promptfoo reaches 767 packages, 60,435 inodes, and 5,620,609,377 bytes,
+so its package closure alone truthfully refuses the current 16,384-inode and
+512-MiB execution-authority limits. No larger Promptfoo launch tier is admitted
+until a per-entrypoint authority budget is explicitly selected and reviewed.
 Ignored file argv inputs (for example model artifacts) are copied separately.
 The process keeps its declared cwd, while entrypoint-specific output roots are
 the only writable bindings into source-relative snapshot locations. Dynamic

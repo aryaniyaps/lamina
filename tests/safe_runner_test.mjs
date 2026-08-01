@@ -47,8 +47,9 @@ import {
   processEnvironmentAttestation,
 } from '../scripts/safe-runner/processes.mjs';
 import {
-  assertExecutionSnapshot, assertGitObjectClosureBudget, auditedNpxPackage, packageName,
-  prepareExecutionSnapshot,
+  assertExecutionSnapshot, assertGitObjectClosureBudget, auditedNpxPackage,
+  dependencyPackageTarget, measureInstalledPackageClosure, measurePhysicalPackageTree,
+  packageName, prepareExecutionSnapshot, readBoundedPackageManifest,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
@@ -559,10 +560,15 @@ try {
     return directory;
   };
   const parentA = writeSyntheticPackage('parent-a', {
-    name: 'parent-a', dependencies: { 'shared-dep': '1.0.0' },
-    optionalDependencies: { 'platform-opt': '1.0.0', 'missing-opt': '1.0.0' },
+    name: 'parent-a', dependencies: {
+      'shared-dep': '1.0.0', 'required-alias': 'npm:alias-target@1.0.0',
+    },
+    optionalDependencies: {
+      'platform-opt': '1.0.0', 'optional-scoped-alias': 'npm:@scope/platform-target@1.0.0',
+      'missing-opt': '1.0.0', 'missing-alias': 'npm:absent-target@1.0.0',
+    },
     peerDependencies: { 'peer-lib': '1.0.0' },
-  }, "module.exports = `a:${require('shared-dep')}:${require('peer-lib')}:${require('platform-opt')}`;\n");
+  }, "module.exports = `a:${require('shared-dep')}:${require('peer-lib')}:${require('platform-opt')}:${require('required-alias')}:${require('optional-scoped-alias')}`;\n");
   const parentB = writeSyntheticPackage('parent-b', {
     name: 'parent-b', dependencies: { 'shared-dep': '2.0.0', '@scope/tool': '1.0.0' },
   }, "module.exports = `b:${require('shared-dep')}:${require('@scope/tool')}`;\n");
@@ -580,6 +586,11 @@ try {
     "module.exports = 'shared-v1';\n");
   writeNestedPackage(parentA, 'platform-opt', { name: 'platform-opt', version: '1.0.0' },
     "module.exports = 'platform';\n");
+  writeNestedPackage(parentA, 'required-alias', { name: 'alias-target', version: '1.0.0' },
+    "module.exports = 'required-alias';\n");
+  writeNestedPackage(parentA, 'optional-scoped-alias', {
+    name: '@scope/platform-target', version: '1.0.0',
+  }, "module.exports = 'optional-alias';\n");
   writeNestedPackage(parentB, 'shared-dep', { name: 'shared-dep', version: '2.0.0' },
     "module.exports = 'shared-v2';\n");
   writeSyntheticPackage('peer-lib', { name: 'peer-lib', version: '1.0.0' },
@@ -640,8 +651,8 @@ try {
   });
   assert.equal(sealedResolution.status, 0, sealedResolution.stderr);
   assert.equal(sealedResolution.stdout,
-    'a:shared-v1:peer:platform|b:shared-v2:scoped|pnpm:contained',
-  'sealed package links must preserve incompatible nested versions, peers, optionals, scopes, and pnpm roots');
+    'a:shared-v1:peer:platform:required-alias:optional-alias|b:shared-v2:scoped|pnpm:contained',
+  'sealed package links must preserve aliases, incompatible nested versions, peers, optionals, scopes, and pnpm roots');
   for (const packageName of ['parent-a', 'parent-b', 'pnpm-parent']) {
     const logical = path.join(resolutionSnapshot.snapshot_repository, 'node_modules', packageName);
     assert.equal(fs.lstatSync(logical).isSymbolicLink(), true);
@@ -665,8 +676,30 @@ try {
     cwd: resolutionSnapshot.snapshot_repository, encoding: 'utf8',
   });
   assert.equal(isolatedResolution.stdout,
-    'a:shared-v1:peer:platform|b:shared-v2:scoped|pnpm:contained',
+    'a:shared-v1:peer:platform:required-alias:optional-alias|b:shared-v2:scoped|pnpm:contained',
   'later mutation of a live nested dependency must not alter sealed logical resolution');
+
+  assert.deepEqual(dependencyPackageTarget('logical-name', 'npm:physical-name@^1.2.3'), {
+    logical_name: 'logical-name', manifest_name: 'physical-name',
+  });
+  assert.deepEqual(dependencyPackageTarget('platform-alias', 'npm:@scope/platform@1.0.0'), {
+    logical_name: 'platform-alias', manifest_name: '@scope/platform',
+  });
+  for (const malformedAlias of ['npm:', 'npm:target', 'npm:@scope/target',
+    'npm:target@', 'npm:@scope/target@', 'npm:../target@1.0.0']) {
+    assert.throws(() => dependencyPackageTarget('logical-name', malformedAlias),
+      /malformed npm alias/);
+  }
+  assert.throws(() => readBoundedPackageManifest(path.join(parentA, 'package.json'), 8),
+    /physical byte bound/);
+  fs.mkdirSync(path.join(parentA, 'assets', 'nested'), { recursive: true });
+  fs.writeFileSync(path.join(parentA, 'assets', 'nested', 'marker.txt'), 'bounded depth');
+  const parentMeasurement = measurePhysicalPackageTree(parentA);
+  assert.equal(parentMeasurement.inodes,
+    parentMeasurement.files + parentMeasurement.directories + parentMeasurement.symlinks);
+  assert.ok(parentMeasurement.directories > 1);
+  assert.throws(() => measurePhysicalPackageTree(parentA, { maxDepth: 1 }),
+    /bounded depth/);
 
   const missingPeer = writeSyntheticPackage('missing-peer-parent', {
     name: 'missing-peer-parent', peerDependencies: { 'required-missing-peer': '1.0.0' },
@@ -768,6 +801,14 @@ try {
       'dist/cli.js');
     assert.equal(auditedNpxPackage(actualInstallRoot, 'promptfoo').bin_relative,
       'dist/src/entrypoint.js');
+    const promptfooClosure = measureInstalledPackageClosure(actualInstallRoot, 'promptfoo');
+    assert.ok(promptfooClosure.packages >= 587,
+      `actual Promptfoo closure unexpectedly reached only ${promptfooClosure.packages} packages`);
+    assert.equal(promptfooClosure.fits_default_dependency_budget, false,
+      'actual Promptfoo package closure must report refusal under the current default authority budget');
+    assert.match(promptfooClosure.default_authority_refusal, /package closure alone exceeds/);
+    assert.ok(promptfooClosure.inodes > DEFAULTS.executionAuthorityMaxFiles
+      || promptfooClosure.bytes > DEFAULTS.executionAuthorityMaxBytes);
   } else if (process.env.LAMINA_ACTUAL_INSTALL_ROOT) {
     assert.fail('LAMINA_ACTUAL_INSTALL_ROOT must contain the actual audited npx packages');
   }
