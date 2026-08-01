@@ -113,6 +113,7 @@ try {
     const item = fixture('pure-existing-file');
     const target = path.join(item.repository, 'out/result.txt');
     fs.writeFileSync(target, 'old');
+    fs.chmodSync(target, 0o4755);
     const publication = begin(item, [
       { target: 'out/result.txt', type: 'file', mode: 'pure-output' },
     ]);
@@ -122,6 +123,7 @@ try {
     installPublication(publication);
     assert.equal(rollbackPublication(publication).status, 'rolled_back');
     assert.equal(fs.readFileSync(target, 'utf8'), 'old');
+    assert.equal(fs.lstatSync(target).mode & 0o7777, 0o4755);
     assert.equal(rollbackPublication(publication).status, 'absent');
     noTransactions(item);
   }
@@ -164,6 +166,57 @@ try {
     assert.equal(fs.readFileSync(path.join(target, 'plain.txt'), 'utf8'), 'changed');
     assert.equal(fs.lstatSync(path.join(target, 'run.sh')).mode & 0o777, 0o751);
     assert.equal(fs.readlinkSync(path.join(target, 'internal-link')), 'plain.txt');
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('pure-special-mode-sanitized');
+    const target = path.join(item.repository, 'out/result.sh');
+    const publication = begin(item, [
+      { target: 'out/result.sh', type: 'file', mode: 'pure-output' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, '#!/bin/sh\n');
+    fs.chmodSync(publication.outputs[0].stage, 0o4755);
+    sealPublication(publication);
+    assert.equal(fs.lstatSync(publication.outputs[0].stage).mode & 0o7777, 0o755);
+    installPublication(publication);
+    commitPublication(publication, success);
+    assert.equal(fs.lstatSync(target).mode & 0o7777, 0o755);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('cow-special-modes-sanitized');
+    const target = path.join(item.repository, 'out/tree');
+    fs.mkdirSync(target, { mode: 0o750 });
+    fs.writeFileSync(path.join(target, 'run.sh'), '#!/bin/sh\n', { mode: 0o751 });
+    const publication = begin(item, [
+      { target: 'out/tree', type: 'directory', mode: 'copy-on-write' },
+    ]);
+    fs.chmodSync(publication.outputs[0].stage, 0o2750);
+    fs.chmodSync(path.join(publication.outputs[0].stage, 'run.sh'), 0o4751);
+    sealPublication(publication);
+    assert.equal(fs.lstatSync(publication.outputs[0].stage).mode & 0o7777, 0o750);
+    assert.equal(fs.lstatSync(path.join(publication.outputs[0].stage, 'run.sh')).mode & 0o7777,
+      0o751);
+    installPublication(publication);
+    commitPublication(publication, success);
+    assert.equal(fs.lstatSync(target).mode & 0o7000, 0);
+    assert.equal(fs.lstatSync(path.join(target, 'run.sh')).mode & 0o7000, 0);
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('post-seal-special-mode-mutation');
+    const publication = begin(item, [
+      { target: 'out/result.sh', type: 'file', mode: 'pure-output' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, '#!/bin/sh\n', { mode: 0o755 });
+    sealPublication(publication);
+    fs.chmodSync(publication.outputs[0].stage, 0o4755);
+    assert.throws(() => installPublication(publication), /sealed publication payload changed/);
+    fs.chmodSync(publication.outputs[0].stage, 0o755);
+    rollbackPublication(publication);
     noTransactions(item);
   }
 
@@ -216,6 +269,27 @@ try {
       new RegExp(`crash:${event}`));
     recoverPublication(publication);
     assert.equal(fs.readFileSync(target, 'utf8'), 'old');
+    noTransactions(item);
+  }
+
+  {
+    const item = fixture('fixed-journal-next');
+    const publication = begin(item, [
+      { target: 'out/value.txt', type: 'file', mode: 'pure-output' },
+    ]);
+    fs.writeFileSync(publication.outputs[0].stage, 'new');
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      assert.throws(() => sealPublication(publication, {
+        crashHook: crashAt('after_journal_next_fsync'),
+      }), /crash:after_journal_next_fsync/);
+      const names = fs.readdirSync(publication.transaction);
+      assert.equal(names.filter((name) => name === 'journal.next').length, 1);
+      assert.equal(names.some((name) => /^\.journal-.*\.tmp$/.test(name)), false);
+      assert.equal(readPublicationJournal(publication).sealed, false);
+    }
+    assert.equal(sealPublication(publication).sealed, true);
+    assert.equal(fs.existsSync(path.join(publication.transaction, 'journal.next')), false);
+    recoverPublication(publication);
     noTransactions(item);
   }
 
@@ -649,6 +723,58 @@ try {
     }), /hard 256-output bound/);
     assert.equal(recoverPublication(reservation).status, 'absent');
     noTransactions(item);
+  }
+
+  {
+    const item = fixture('registry-contains-target');
+    const marker = path.join(item.repository, 'out/marker');
+    fs.writeFileSync(marker, 'preserve');
+    const reservation = reservePublication({ registry: item.repository });
+    assert.throws(() => preparePublication({
+      repository: item.repository, reservation,
+      outputs: [{ target: 'out/value.txt', type: 'file', mode: 'pure-output' }],
+    }), /output and registry authority overlap/);
+    assert.equal(fs.existsSync(path.join(reservation.transaction, 'stage')), false);
+    assert.equal(recoverPublication(reservation).status, 'discarded_prepare');
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'preserve');
+    assert.equal(fs.existsSync(reservation.transaction), false);
+    assert.equal(fs.existsSync(reservation.sentinel), false);
+  }
+
+  {
+    const item = fixture('target-contains-registry');
+    const target = path.join(item.repository, 'out/tree');
+    const nestedRegistry = path.join(target, 'registry');
+    fs.mkdirSync(target);
+    fs.mkdirSync(nestedRegistry);
+    const marker = path.join(target, 'marker');
+    fs.writeFileSync(marker, 'preserve');
+    const reservation = reservePublication({ registry: nestedRegistry });
+    assert.throws(() => preparePublication({
+      repository: item.repository, reservation,
+      outputs: [{ target: 'out/tree', type: 'directory', mode: 'pure-output' }],
+    }), /output and registry authority overlap/);
+    assert.equal(fs.existsSync(path.join(reservation.transaction, 'stage')), false);
+    recoverPublication(reservation);
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'preserve');
+    assert.deepEqual(fs.readdirSync(nestedRegistry), []);
+  }
+
+  {
+    const item = fixture('target-equals-registry');
+    const nestedRegistry = path.join(item.repository, 'out/registry');
+    fs.mkdirSync(nestedRegistry);
+    const marker = path.join(nestedRegistry, 'marker');
+    fs.writeFileSync(marker, 'preserve');
+    const reservation = reservePublication({ registry: nestedRegistry });
+    assert.throws(() => preparePublication({
+      repository: item.repository, reservation,
+      outputs: [{ target: 'out/registry', type: 'directory', mode: 'pure-output' }],
+    }), /output and registry authority overlap/);
+    assert.equal(fs.existsSync(path.join(reservation.transaction, 'stage')), false);
+    recoverPublication(reservation);
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'preserve');
+    assert.deepEqual(fs.readdirSync(nestedRegistry), ['marker']);
   }
 
   for (const kind of ['external-symlink', 'dangling-symlink', 'hardlink', 'special']) {

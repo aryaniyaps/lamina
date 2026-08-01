@@ -172,8 +172,13 @@ or directory as either a pure output or copy-on-write output. The primitive
 descriptor-copies bounded payloads, rejects special files, multi-link files,
 escaping or dangling symlinks, changed ancestors, and cross-filesystem targets,
 and more than 256 output descriptors, then seals exact manifests before
-installation. File and directory permissions are preserved without carrying
-special mode bits.
+installation. Registry authority refuses equality or either ancestor direction
+with every target before transaction staging begins. Before sealing, the
+primitive descriptor-sanitizes each new file and directory to its ordinary
+permission bits and records the complete `07777` mode so a later special-bit
+change refuses. A saved old prestate retains its exact original mode, including
+special bits, because rollback restores that original object rather than a new
+payload.
 
 Its atomic, fsynced, bounded journal advances through `prepared`, `old_saved`,
 `new_installed`, and `committed`. Existing targets remain saved under the exact
@@ -184,6 +189,9 @@ and cleanup boundary: absent validated success authority defaults to restoring
 the exact prestate, while commit requires an explicit caller-supplied authority
 validator. Once the durable rollback fence is set, success cannot reverse it.
 Cleanup is no-follow, same-user, identity-rechecked, bounded, and resumable.
+Journal replacement uses exactly one authenticated bounded `journal.next` slot;
+a crash after its fsync reuses or safely replaces that same slot rather than
+accumulating UUID-named temporary files.
 
 Every operation carries the complete frozen reservation handle. Reservation
 creates a fsynced registry sentinel outside the transaction directory; it binds

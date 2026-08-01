@@ -28,13 +28,13 @@ function sameUser(stat) {
 function identity(stat) {
   return {
     dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
-    mode: Number(stat.mode & 0o777n), nlink: Number(stat.nlink),
+    mode: Number(stat.mode & 0o7777n), nlink: Number(stat.nlink),
   };
 }
 
 function sameIdentity(stat, expected) {
   return String(stat.dev) === expected.dev && String(stat.ino) === expected.ino
-    && Number(stat.uid) === expected.uid && Number(stat.mode & 0o777n) === expected.mode;
+    && Number(stat.uid) === expected.uid && Number(stat.mode & 0o7777n) === expected.mode;
 }
 
 function sameRecordedIdentity(left, right) {
@@ -191,6 +191,7 @@ export function reservePublication({ registry, transactionId = crypto.randomUUID
       | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o600);
     try {
       fs.writeFileSync(descriptor, bytes);
+      fs.fchmodSync(descriptor, 0o600);
       fs.fsyncSync(descriptor);
     } finally { fs.closeSync(descriptor); }
     fs.renameSync(sentinelTemporary, sentinel);
@@ -432,6 +433,56 @@ function copyTree(source, destination, expectedType, limits,
   fsyncDirectory(path.dirname(destination));
 }
 
+function sanitizeStagedModes(candidate, expectedType, limits,
+  counter = { bytes: 0, inodes: 0 }) {
+  const root = path.resolve(candidate);
+  const rootStat = fs.lstatSync(root, { bigint: true });
+  const actualType = rootStat.isFile() ? 'file' : rootStat.isDirectory() ? 'directory' : null;
+  if (actualType !== expectedType) throw new Error(`publication payload must be ${expectedType}: ${root}`);
+  const walk = (current, depth) => {
+    if (depth > limits.maxDepth) throw new Error('publication content exceeds its bounded depth');
+    const stat = fs.lstatSync(current, { bigint: true });
+    if (!sameUser(stat) || String(stat.dev) !== String(rootStat.dev)) {
+      throw new Error(`publication content crosses filesystem or owner authority: ${current}`);
+    }
+    counter.inodes += 1;
+    if (stat.isFile()) counter.bytes += Number(stat.size);
+    assertBudget(counter, limits);
+    if (stat.isSymbolicLink()) return;
+    if (!stat.isFile() && !stat.isDirectory()) {
+      throw new Error(`publication rejects special file: ${current}`);
+    }
+    if (stat.isFile() && stat.nlink !== 1n) {
+      throw new Error(`publication rejects multi-link file: ${current}`);
+    }
+    if (stat.isDirectory()) {
+      const names = boundedSortedNames(current, limits.maxInodes - counter.inodes,
+        'publication mode sanitization');
+      for (const name of names) walk(path.join(current, name), depth + 1);
+    }
+    const flags = fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW
+      | (stat.isDirectory() ? fs.constants.O_DIRECTORY : 0);
+    const descriptor = fs.openSync(current, flags);
+    try {
+      const opened = fs.fstatSync(descriptor, { bigint: true });
+      if (opened.dev !== stat.dev || opened.ino !== stat.ino || !sameUser(opened)
+        || opened.isDirectory() !== stat.isDirectory() || opened.isFile() !== stat.isFile()
+        || (opened.isFile() && opened.nlink !== 1n)) {
+        throw new Error(`publication payload changed during mode sanitization: ${current}`);
+      }
+      fs.fchmodSync(descriptor, Number(opened.mode & 0o777n));
+      fs.fsyncSync(descriptor);
+      const final = fs.fstatSync(descriptor, { bigint: true });
+      if (final.dev !== opened.dev || final.ino !== opened.ino
+        || Number(final.mode & 0o7000n) !== 0) {
+        throw new Error(`publication payload mode sanitization did not persist: ${current}`);
+      }
+    } finally { fs.closeSync(descriptor); }
+  };
+  walk(root, 0);
+  fsyncDirectory(path.dirname(root));
+}
+
 function ancestorRecords(repository, parent) {
   const relative = path.relative(repository, parent);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -451,6 +502,11 @@ function ancestorRecords(repository, parent) {
       identity: identity(stat) });
   }
   return records;
+}
+
+function pathsOverlapByComponents(left, right) {
+  const relative = path.relative(path.resolve(left), path.resolve(right));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function validateAncestors(journal, output) {
@@ -535,26 +591,45 @@ function validateJournalStructure(body) {
   }
 }
 
-function writeJournal(handle, body) {
+function writeJournal(handle, body, crashHook = null) {
   const authority = validateCapabilityHandle(handle);
   if (!STATES.has(body.state)) throw new Error('invalid publication journal state');
   const value = Buffer.from(`${JSON.stringify({ schema: JOURNAL_SCHEMA, body,
     mac: recordMac(JOURNAL_SCHEMA, body, authority.capability) })}\n`);
   if (value.length > MAX_JOURNAL_BYTES) throw new Error('publication journal exceeds its bound');
-  const temporary = path.join(authority.transaction, `.journal-${crypto.randomUUID()}.tmp`);
-  let descriptor = fs.openSync(temporary, fs.constants.O_CREAT | fs.constants.O_EXCL
-    | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o600);
-  try {
-    fs.writeFileSync(descriptor, value);
-    fs.fsyncSync(descriptor);
-  } finally { fs.closeSync(descriptor); }
-  try {
-    fs.renameSync(temporary, journalPath(authority.transaction));
-    fsyncDirectory(authority.transaction);
-  } catch (error) {
-    try { fs.unlinkSync(temporary); } catch {}
-    throw error;
+  const temporary = path.join(authority.transaction, 'journal.next');
+  let ready = false;
+  if (presence(temporary)) {
+    const existingStat = fs.lstatSync(temporary, { bigint: true });
+    const existingIdentity = identity(existingStat);
+    const existing = readBoundedPhysicalFile(temporary, MAX_JOURNAL_BYTES,
+      'publication next journal', existingIdentity);
+    ready = existingIdentity.mode === 0o600 && existing.equals(value);
+    if (!ready) {
+      const current = fs.lstatSync(temporary, { bigint: true });
+      if (!sameIdentity(current, existingIdentity) || current.nlink !== 1n
+        || !current.isFile() || !sameUser(current)) {
+        throw new Error('publication next journal identity changed before replacement');
+      }
+      fs.unlinkSync(temporary);
+      fsyncDirectory(authority.transaction);
+    }
   }
+  if (!ready) {
+    const descriptor = fs.openSync(temporary, fs.constants.O_CREAT | fs.constants.O_EXCL
+      | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o600);
+    try {
+      fs.writeFileSync(descriptor, value);
+      fs.fchmodSync(descriptor, 0o600);
+      fs.fsyncSync(descriptor);
+    } finally { fs.closeSync(descriptor); }
+  }
+  crash(crashHook, 'after_journal_next_fsync', body);
+  const persisted = readBoundedPhysicalFile(temporary, MAX_JOURNAL_BYTES,
+    'publication next journal');
+  if (!persisted.equals(value)) throw new Error('publication next journal changed before install');
+  fs.renameSync(temporary, journalPath(authority.transaction));
+  fsyncDirectory(authority.transaction);
 }
 
 function readJournal(handle, optional = false) {
@@ -840,6 +915,13 @@ export function preparePublication({
       }
     }
   }
+  for (const output of normalized) {
+    const target = path.join(repositoryAuthority.path, ...output.target.split('/'));
+    if (pathsOverlapByComponents(target, registryAuthority.path)
+      || pathsOverlapByComponents(registryAuthority.path, target)) {
+      throw new Error('publication output and registry authority overlap');
+    }
+  }
   fs.mkdirSync(path.join(transaction, 'stage'), { mode: 0o700 });
   fs.mkdirSync(path.join(transaction, 'old'), { mode: 0o700 });
   fsyncDirectory(transaction);
@@ -865,12 +947,6 @@ export function preparePublication({
       const parentStat = fs.lstatSync(parent, { bigint: true });
       if (String(parentStat.dev) !== registryAuthority.dev) {
         throw new Error(`publication registry is cross-device for target: ${output.target}`);
-      }
-      const relativeRegistry = path.relative(repositoryAuthority.path, registryAuthority.path);
-      if (!relativeRegistry.startsWith('..') && !path.isAbsolute(relativeRegistry)
-        && (output.target === relativeRegistry.replaceAll('\\', '/')
-          || output.target.startsWith(`${relativeRegistry.replaceAll('\\', '/')}/`))) {
-        throw new Error('publication output overlaps its registry');
       }
       let preManifest = null;
       if (presence(target)) {
@@ -906,7 +982,7 @@ export function preparePublication({
       });
     }
     crash(crashHook, 'before_initial_prepared_write', journal);
-    writeJournal(reservation, journal);
+    writeJournal(reservation, journal, crashHook);
     crash(crashHook, 'after_initial_prepared_write', journal);
     return deepFreeze({
       ...reservation,
@@ -942,9 +1018,18 @@ export function sealPublication(handle, {
     validateStagedState(journal, 'prepared');
     return journal;
   }
+  const sanitizeCounter = { bytes: 0, inodes: 0 };
+  for (const output of journal.outputs) {
+    validateTransactionLayout(journal, output);
+    validateAncestors(journal, output);
+    sanitizeStagedModes(outputPaths(journal, output).stage,
+      output.type, limits, sanitizeCounter);
+  }
+  validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
   const counter = { bytes: 0, inodes: 0 };
   for (const output of journal.outputs) {
     validateTransactionLayout(journal, output);
+    validateAncestors(journal, output);
     output.new_manifest = contentManifest(outputPaths(journal, output).stage,
       output.type, limits, counter, true);
   }
@@ -952,7 +1037,7 @@ export function sealPublication(handle, {
   crash(crashHook, 'before_sealed_prepared_write', journal);
   validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
   validateStagedState(journal, 'prepared');
-  writeJournal(handle, journal);
+  writeJournal(handle, journal, crashHook);
   crash(crashHook, 'after_sealed_prepared_write', journal);
   validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
   validateStagedState(journal, 'prepared');
@@ -1021,7 +1106,7 @@ export function installPublication(handle, {
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateStagedState(journal, 'prepared');
     journal.state = 'old_saved';
-    writeJournal(handle, journal);
+    writeJournal(handle, journal, crashHook);
     crash(crashHook, 'after_old_saved_write', journal);
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateStagedState(journal, 'old_saved');
@@ -1064,7 +1149,7 @@ export function installPublication(handle, {
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateStagedState(journal, 'old_saved');
     journal.state = 'new_installed';
-    writeJournal(handle, journal);
+    writeJournal(handle, journal, crashHook);
     crash(crashHook, 'after_new_installed_write', journal);
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateStagedState(journal, 'new_installed');
@@ -1112,7 +1197,7 @@ export function commitPublication(handle, {
   refuseRollbackRace(journal, 'commit');
   validateStagedState(journal, 'new_installed');
   journal.state = 'committed';
-  writeJournal(handle, journal);
+  writeJournal(handle, journal, crashHook);
   crash(crashHook, 'after_committed_write', journal);
   validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
   validateCommittedTargets(journal);
@@ -1141,7 +1226,7 @@ export function rollbackPublication(handle, {
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateRollbackAuthority(journal);
     journal.rollback_started = true;
-    writeJournal(handle, journal);
+    writeJournal(handle, journal, crashHook);
     crash(crashHook, 'after_rollback_started_write', journal);
     validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
     validateRollbackAuthority(journal);
@@ -1219,7 +1304,7 @@ export function rollbackPublication(handle, {
   validateRollbackAuthority(journal);
   validateRestoredTargets(journal);
   journal.rollback_restored = true;
-  writeJournal(handle, journal);
+  writeJournal(handle, journal, crashHook);
   crash(crashHook, 'after_rollback_restored_write', journal);
   validateQuiescence(quiescenceAuthority, validateQuiescenceAuthority, journal);
   validateRestoredTargets(journal);
