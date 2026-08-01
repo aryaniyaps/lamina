@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
@@ -30,18 +30,24 @@ import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
-import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
+import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
   baseReport,
   finishReport,
+  prepareReportAuthority,
   validateReport,
   writeReport,
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
 import { boundedDiagnosticText, outcomeForStop } from '../scripts/safe-runner/runner.mjs';
+import {
+  bubblewrapSandboxArguments,
+  CONTROL_ENVIRONMENT_NAMES,
+  controlSocketMasks,
+} from '../scripts/safe-runner/sandbox.mjs';
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
@@ -52,6 +58,7 @@ import {
   recordSafetyLimit,
   productionLockDirectory,
   promotionCommandDigest,
+  repositorySourceDigest,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
 
@@ -120,6 +127,56 @@ try {
     controllers: [],
     reasons: ['unsupported'],
   };
+  assert.equal(writableWorktreeProof('/').ok, false);
+  assert.equal(writableWorktreeProof('/tmp').ok, false);
+  assert.equal(writableWorktreeProof(process.cwd(), [path.join(process.cwd(), '.runner-authority')]).ok, false);
+  const worktreeSymlink = path.join(root, 'worktree-link');
+  fs.symlinkSync(process.cwd(), worktreeSymlink);
+  assert.equal(writableWorktreeProof(worktreeSymlink, []).ok, false);
+  for (const unsafeCwd of ['/', '/tmp']) {
+    const unsafeWritable = preflightRun({
+      tier: 'small',
+      command: [process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+      cwd: unsafeCwd,
+      adapterInfo: { ...portableProbe, id: 'unit-production', production_enforcement: true },
+      injectedExistingProcesses: [],
+    });
+    assert.equal(unsafeWritable.ok, false);
+    assert.match(unsafeWritable.reasons.join('\n'), /host-sensitive root/);
+  }
+  const masks = controlSocketMasks({
+    uid: 1234,
+    env: {
+      DOCKER_HOST: 'unix:///custom/docker.sock',
+      DBUS_SYSTEM_BUS_ADDRESS: 'unix:path=/custom/system-bus,guid=abc',
+      DBUS_SESSION_BUS_ADDRESS: 'unix:abstract=/cannot-bind',
+    },
+    directoryExists: (candidate) => candidate === '/run/user/1234',
+    socketExists: (candidate) => [
+      '/run/systemd/private', '/custom/docker.sock', '/custom/system-bus',
+    ].includes(candidate),
+  });
+  assert.deepEqual(masks.hiddenDirectories, ['/run/user/1234']);
+  assert.deepEqual(masks.sockets, [
+    '/run/systemd/private', '/custom/system-bus', '/custom/docker.sock',
+  ]);
+  const sandboxArgs = bubblewrapSandboxArguments({
+    cwd: root,
+    readyFile: path.join(root, 'quota.ready'),
+    releaseFile: path.join(root, 'quota.release'),
+    temporaryDirectory: path.join(root, 'payload-tmp'),
+    command: ['node', 'tiny.mjs'],
+    masks,
+  });
+  assert.ok(sandboxArgs.includes('/run/user/1234'));
+  assert.ok(sandboxArgs.includes('/run/systemd/private'));
+  assert.ok(sandboxArgs.includes('/custom/docker.sock'));
+  assert.ok(sandboxArgs.includes('--unshare-pid'));
+  assert.ok(sandboxArgs.includes('--unshare-net'));
+  for (const name of CONTROL_ENVIRONMENT_NAMES) {
+    const index = sandboxArgs.indexOf(name);
+    assert.equal(sandboxArgs[index - 1], '--unsetenv');
+  }
   assert.equal(adapterProbe('darwin').production_enforcement, false);
   assert.equal(adapterProbe('win32').id, 'portable-process-group-small-only');
   assert.equal(
@@ -181,7 +238,41 @@ try {
   fs.writeFileSync(wrapper, '#!/bin/sh\nexec harbor run "$@"\n');
   assert.equal(commandOwnership(['/bin/sh', wrapper], root).proven, false);
   assert.equal(commandOwnership(['node', 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs']).proven, false);
-  assert.equal(commandOwnership(['node', 'tests/tiny.mjs']).proven, true);
+  assert.equal(commandOwnership(['node', 'tests/tiny.mjs']).proven, false);
+  const arbitraryWrapper = path.join(root, 'arbitrary-wrapper.mjs');
+  fs.writeFileSync(arbitraryWrapper, 'import { spawn } from "node:child_process"; spawn("systemd-run", []);\n');
+  assert.equal(commandOwnership([process.execPath, arbitraryWrapper], root).proven, false);
+  assert.match(commandOwnership([process.execPath, arbitraryWrapper], root).reason, /explicitly audited/);
+  assert.equal(commandOwnership([
+    process.execPath, path.resolve('evals/scripts/vendor-plane-fixture.mjs'),
+  ], root).proven, true);
+  assert.equal(commandOwnership([
+    process.execPath, path.resolve('evals/scripts/vendor-plane-fixture.mjs'),
+  ], root).network_access, 'audited-required');
+  assert.equal(commandOwnership([
+    process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success',
+  ], root).network_access, 'isolated');
+  assert.equal(commandOwnership([
+    process.execPath, '--require', path.resolve('evals/scripts/vendor-plane-fixture.mjs'),
+    '--eval', 'require("node:child_process").spawn("systemd-run", [])',
+  ], root).proven, false);
+  assert.equal(commandOwnership([
+    'npx', '-p', 'promptfoo', 'node', arbitraryWrapper,
+  ], root).proven, false);
+  const substitutedBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-bin-'));
+  const substitutedNode = path.join(substitutedBin, 'node');
+  const substitutedNpx = path.join(substitutedBin, 'npx');
+  fs.symlinkSync('/bin/sh', substitutedNode);
+  fs.symlinkSync(process.execPath, substitutedNpx);
+  assert.equal(commandOwnership([
+    substitutedNode, path.resolve('evals/scripts/vendor-plane-fixture.mjs'),
+  ], root).proven, false);
+  assert.equal(commandOwnership([
+    substitutedNpx, 'promptfoo', 'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml',
+  ], root).proven, false);
+  const allowedSymlink = path.join(root, 'vendor-plane-link.mjs');
+  fs.symlinkSync(path.resolve('evals/scripts/vendor-plane-fixture.mjs'), allowedSymlink);
+  assert.equal(commandOwnership([process.execPath, allowedSymlink], root).proven, false);
   assert.deepEqual(redactCommand(['tool', '--token', 'secret-value', '--api-key=abc']), [
     'tool', '--token', '[REDACTED]', '--api-key=[REDACTED]',
   ]);
@@ -227,6 +318,14 @@ try {
   assert.equal(reportValidation.valid, true, reportValidation.errors.join('; '));
   writeReport(report.report_file, report);
   assert.equal(validateReport(JSON.parse(fs.readFileSync(report.report_file))).valid, true);
+  const reportAuthority = path.join(root, 'report-authority.json');
+  assert.equal(prepareReportAuthority(reportAuthority).file, reportAuthority);
+  const reportTarget = path.join(root, 'report-target.json');
+  fs.writeFileSync(reportTarget, 'preserve');
+  const reportSymlink = path.join(root, 'report-symlink.json');
+  fs.symlinkSync(reportTarget, reportSymlink);
+  assert.throws(() => prepareReportAuthority(reportSymlink), /physical file/);
+  assert.equal(fs.readFileSync(reportTarget, 'utf8'), 'preserve');
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
   assert.equal(validateReport({
     ...report,
@@ -487,6 +586,10 @@ try {
     classifyRemainingDescendants(managedRegistrations, [graphdRecord, graphdWorker]).kind,
     'managed_graphd',
   );
+  assert.equal(classifyRemainingDescendants([], [{
+    pid: 77, start_ticks: 'new', state: 'S', command: 'reused-pid',
+  }], [{ pid: 77, start_ticks: 'old' }]).kind, 'unmanaged',
+  'a reused infrastructure PID must not be ignored without its exact start identity');
   assert.equal(
     classifyRemainingDescendants(managedRegistrations, [graphdRecord, {
       pid: 41004, ppid: 1, start_ticks: '103', state: 'Z', command: '',
@@ -515,6 +618,38 @@ try {
     assert.throws(() => acquireConcurrencyLock({ directory: claims }), /another medium\/large safe-runner/);
     assert.equal(lock.release(), true);
     assert.deepEqual(fs.readdirSync(claims), []);
+    const replacementLock = acquireConcurrencyLock({
+      directory: claims,
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-replacement.scope', cgroup: null },
+      proveScopeAbsent: () => true,
+    });
+    const copiedClaim = fs.readFileSync(replacementLock.file, 'utf8');
+    const originalClaim = `${replacementLock.file}.original`;
+    fs.renameSync(replacementLock.file, originalClaim);
+    fs.writeFileSync(replacementLock.file, copiedClaim, { mode: 0o600 });
+    assert.throws(() => replacementLock.release(), /file identity changed/);
+    assert.equal(fs.existsSync(replacementLock.file), true,
+      'same-content replacement claim must not be unlinked');
+    fs.rmSync(replacementLock.file);
+    fs.rmSync(originalClaim);
+    const staleRace = path.join(claims, 'stale-race.json');
+    const staleRaceValue = JSON.stringify({
+      pid: process.pid, start_ticks: 'stale-race', nonce: 'copied-nonce',
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-stale-race.scope', cgroup: null },
+    });
+    fs.writeFileSync(staleRace, staleRaceValue);
+    assert.throws(() => acquireConcurrencyLock({
+      directory: claims,
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-new-race.scope', cgroup: null },
+      proveScopeAbsent() {
+        fs.renameSync(staleRace, `${staleRace}.original`);
+        fs.writeFileSync(staleRace, staleRaceValue);
+        return true;
+      },
+    }), /identity changed during absence proof/);
+    assert.equal(fs.existsSync(staleRace), true);
+    fs.rmSync(staleRace);
+    fs.rmSync(`${staleRace}.original`);
   }
   const globalLock = productionLockDirectory();
   process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'different-state');
@@ -522,25 +657,73 @@ try {
 
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
   assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
-  recordPromotion(root, 'small', report, 'unit-workload');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', report.command).ok, true);
+  const auditedEvidence = {
+    ...report,
+    command: [process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+  };
+  recordPromotion(root, 'small', auditedEvidence, 'unit-workload', auditedEvidence.command);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', auditedEvidence.command).ok, true);
   const unrelatedCommand = ['node', path.join(root, 'unrelated.mjs')];
   fs.writeFileSync(unrelatedCommand[1], 'export {};\n');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload', unrelatedCommand).ok, false);
-  assert.notEqual(promotionCommandDigest(root, report.command), promotionCommandDigest(root, unrelatedCommand));
-  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload').ok, false);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [
+    process.execPath, path.resolve('tests/fixtures/safe-runner-graphd-client.mjs'),
+  ]).ok, false);
+  assert.throws(
+    () => promotionCommandDigest(root, unrelatedCommand),
+    (error) => error.code === 'LAMINA_SAFE_SOURCE_IDENTITY',
+  );
+  const sourceRepository = path.join(root, 'source-identity-repository');
+  fs.mkdirSync(sourceRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: sourceRepository }).status, 0);
+  const sourceEntrypoint = path.join(sourceRepository, 'entry.mjs');
+  const importedSource = path.join(sourceRepository, 'imported.mjs');
+  fs.writeFileSync(sourceEntrypoint, 'import "./imported.mjs";\n');
+  fs.writeFileSync(importedSource, 'export const value = 1;\n');
+  assert.equal(spawnSync('git', ['add', '.'], { cwd: sourceRepository }).status, 0);
+  assert.equal(spawnSync('git', [
+    '-c', 'user.name=Safe Runner Test', '-c', 'user.email=safe-runner@example.invalid',
+    'commit', '--quiet', '-m', 'fixture',
+  ], { cwd: sourceRepository }).status, 0);
+  const sourceBefore = repositorySourceDigest(sourceRepository);
+  const promotionBefore = promotionCommandDigest(sourceRepository, [process.execPath, sourceEntrypoint]);
+  fs.writeFileSync(importedSource, 'export const value = 2;\n');
+  assert.notEqual(repositorySourceDigest(sourceRepository), sourceBefore);
+  assert.notEqual(
+    promotionCommandDigest(sourceRepository, [process.execPath, sourceEntrypoint]),
+    promotionBefore,
+    'an imported source change must invalidate workload promotion identity',
+  );
+  const sourceRetryCommand = [process.execPath, sourceEntrypoint];
+  const sourceRetryReport = structuredClone(report);
+  sourceRetryReport.command = sourceRetryCommand;
+  sourceRetryReport.termination.limit = 'timeout';
+  recordSafetyLimit(sourceRepository, sourceRetryCommand, report.limits, sourceRetryReport);
+  assert.equal(checkSafetyRetry(sourceRepository, sourceRetryCommand, {
+    ...report.limits, timeout_ms: report.limits.timeout_ms - 10,
+  }).ok, false);
+  fs.writeFileSync(importedSource, 'export const value = 3;\n');
+  assert.equal(checkSafetyRetry(sourceRepository, sourceRetryCommand, report.limits).ok, true,
+    'changing imported source must establish a new retry identity');
+  fs.writeFileSync(path.join(sourceRepository, 'oversized-untracked.bin'), '1234');
+  assert.throws(
+    () => repositorySourceDigest(sourceRepository, { maxUntrackedBytes: 3 }),
+    (error) => error.code === 'LAMINA_SAFE_SOURCE_IDENTITY',
+  );
+  fs.rmSync(path.join(sourceRepository, 'oversized-untracked.bin'));
+  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload', auditedEvidence.command).ok, false);
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
-  recordSafetyLimit(root, report.command, report.limits, limitedReport);
-  assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false);
-  assert.equal(checkSafetyRetry(root, [...report.command, '--changed'], report.limits).ok, true);
-  assert.equal(checkSafetyRetry(root, report.command, {
+  limitedReport.command = auditedEvidence.command;
+  recordSafetyLimit(root, limitedReport.command, report.limits, limitedReport);
+  assert.equal(checkSafetyRetry(root, limitedReport.command, report.limits).ok, false);
+  assert.equal(checkSafetyRetry(root, [...limitedReport.command, '--changed'], report.limits).ok, true);
+  assert.equal(checkSafetyRetry(root, limitedReport.command, {
     ...report.limits, timeout_ms: report.limits.timeout_ms - 1,
   }).ok, false, 'limit-only changes must not bypass the retry fence');
   const otherLimitedReport = structuredClone(limitedReport);
-  otherLimitedReport.command = [...report.command, '--other'];
+  otherLimitedReport.command = [...limitedReport.command, '--other'];
   recordSafetyLimit(root, otherLimitedReport.command, report.limits, otherLimitedReport);
-  assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false,
+  assert.equal(checkSafetyRetry(root, limitedReport.command, report.limits).ok, false,
     'recording a different failure must retain the original fence');
 
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };
@@ -564,7 +747,7 @@ try {
   const promotionRoot = path.join(root, 'unpromoted-repository');
   fs.mkdirSync(promotionRoot);
   const unpromoted = preflightRun({
-    tier: 'medium', command: ['node', '-e', ''], cwd: promotionRoot,
+    tier: 'medium', command: auditedEvidence.command, cwd: promotionRoot,
     adapterInfo: productionProbe, injectedExistingProcesses: [],
   });
   assert.equal(unpromoted.ok, false);
@@ -583,12 +766,15 @@ try {
   const guide = fs.readFileSync('docs/content/advanced/safe-runner.mdx', 'utf8');
   const adr = fs.readFileSync('docs/decisions/014-crash-safe-resource-supervision.md', 'utf8');
   const workflow = fs.readFileSync('.github/workflows/safe-runner.yml', 'utf8');
+  const publishWorkflow = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
   assert.match(readme, /npm run safe:envelope/);
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
   assert.match(workflow, /ubuntu-22\.04[\s\S]*bubblewrap_0\.8\.0-2\+deb12u1_amd64\.deb[\s\S]*3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb[\s\S]*npm run safe:self-test/);
   assert.doesNotMatch(workflow, /\bsudo\b/);
+  assert.match(publishWorkflow, /LAMINA_SAFE_RUNNER_STATE_DIR: \$\{\{ runner\.temp \}\}\/lamina-safe-runner-state/);
+  assert.doesNotMatch(publishWorkflow, /LAMINA_SAFE_RUNNER_STATE_DIR:\s+\.lamina-safe-runner/);
 
   process.stdout.write('safe-runner unit contracts passed\n');
 } finally {

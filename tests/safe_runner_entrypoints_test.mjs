@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -36,6 +38,23 @@ for (const [entrypoint, ...args] of entrypoints) {
     /must run through the canonical crash-safe command/,
     `${entrypoint} must explain the canonical command`,
   );
+}
+
+const cliDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-cli-redaction-'));
+const cliReport = path.join(cliDirectory, 'report.json');
+try {
+  const cli = spawnSync(process.execPath, [
+    'scripts/safe-runner/cli.mjs', 'run', '--report', cliReport,
+    '--token=cli-nested-secret', '--', process.execPath,
+    'tests/fixtures/safe-runner-adversary.mjs', 'success',
+  ], { cwd: ROOT, encoding: 'utf8', env: process.env });
+  assert.equal(cli.status, 2);
+  assert.doesNotMatch(
+    `${cli.stdout}\n${cli.stderr}\n${fs.readFileSync(cliReport, 'utf8')}`,
+    /cli-nested-secret/,
+  );
+} finally {
+  fs.rmSync(cliDirectory, { recursive: true, force: true });
 }
 
 process.stdout.write('safe-runner heavy entrypoint guards passed\n');

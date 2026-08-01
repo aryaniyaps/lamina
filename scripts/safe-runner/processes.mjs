@@ -16,6 +16,8 @@ export function processRecord(pid) {
     const stat = parseProcStat(fs.readFileSync(`/proc/${pid}/stat`, 'utf8'));
     const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
     const rss = Number(status.match(/^VmRSS:\s+(\d+)\s+kB$/m)?.[1] || 0) * 1024;
+    const namespacePids = String(status.match(/^NSpid:\s+(.+)$/m)?.[1] || '')
+      .trim().split(/\s+/).filter(Boolean).map(Number);
     const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`).toString('utf8')
       .split('\0').filter(Boolean).join(' ');
     return {
@@ -24,6 +26,7 @@ export function processRecord(pid) {
       start_ticks: stat?.start_ticks ?? null,
       state: stat?.state ?? null,
       rss_bytes: rss,
+      namespace_pids: namespacePids,
       command: cmdline.slice(0, 1_000),
     };
   } catch {

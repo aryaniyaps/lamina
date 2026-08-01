@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import {
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
@@ -11,7 +13,9 @@ import {
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
-import { checkPromotion, checkSafetyRetry, readAttestation } from './state.mjs';
+import {
+  checkPromotion, checkSafetyRetry, productionLockDirectory, readAttestation, stateDirectory,
+} from './state.mjs';
 
 const EXTERNAL_DAEMON_PROGRAMS = new Set(['docker', 'podman', 'harbor']);
 const EXTERNAL_DAEMON_ENTRYPOINTS = [
@@ -20,6 +24,143 @@ const EXTERNAL_DAEMON_ENTRYPOINTS = [
 ];
 
 const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const AUDITED_NODE_ENTRYPOINTS = new Map([
+  ['benchmarks/retrieval-v1/benchmark.mjs', false],
+  ['evals/scripts/run-suite.mjs', true],
+  ['evals/scripts/run-reference-matrix.mjs', true],
+  ['evals/scripts/vendor-nextjs-fixture.mjs', true],
+  ['evals/scripts/vendor-payload-fixture.mjs', true],
+  ['evals/scripts/vendor-plane-fixture.mjs', true],
+  ['evals/scripts/vendor-outline-fixture.mjs', true],
+  ['scripts/build-standalone-cli.mjs', false],
+  ['scripts/fetch-retrieval-model.mjs', true],
+  ['scripts/prepare-retrieval-assets.mjs', false],
+  ['tests/retrieval_native_index_test.mjs', false],
+  ['tests/cli_binary_smoke_test.mjs', false],
+  ['tests/fixtures/safe-runner-adversary.mjs', false],
+  ['tests/fixtures/safe-runner-graphd-client.mjs', false],
+]);
+const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
+const AUDITED_NPX_PACKAGES = new Set(['agent-skills-eval', 'promptfoo']);
+const SENSITIVE_WRITABLE_ROOTS = ['/','/tmp','/run','/proc','/sys','/dev'];
+
+function pathsOverlap(left, right) {
+  return left === right || left.startsWith(`${right}${path.sep}`) || right.startsWith(`${left}${path.sep}`);
+}
+
+export function writableWorktreeProof(cwd, protectedPaths = [stateDirectory(), productionLockDirectory()]) {
+  const declared = path.resolve(cwd);
+  let resolved;
+  try { resolved = fs.realpathSync.native(cwd); } catch { resolved = path.resolve(cwd); }
+  let physical = false;
+  try {
+    const stat = fs.lstatSync(declared);
+    physical = stat.isDirectory() && !stat.isSymbolicLink() && declared === resolved
+      && (typeof process.getuid !== 'function' || stat.uid === process.getuid());
+  } catch {}
+  const sensitive = SENSITIVE_WRITABLE_ROOTS.some((candidate) => resolved === candidate);
+  const git = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd: resolved, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000,
+    maxBuffer: 64 * 1024,
+  });
+  let worktree = null;
+  try { worktree = fs.realpathSync.native(String(git.stdout || '').trim()); } catch {}
+  const insideWorktree = git.status === 0 && worktree
+    && (resolved === worktree || resolved.startsWith(`${worktree}${path.sep}`));
+  const overlap = protectedPaths.map((candidate) => path.resolve(candidate))
+    .find((candidate) => pathsOverlap(resolved, candidate)) || null;
+  return {
+    ok: physical && !sensitive && Boolean(insideWorktree) && overlap === null,
+    cwd: resolved,
+    worktree,
+    protected_path_overlap: overlap,
+    reason: sensitive ? 'writable cwd cannot be a host-sensitive root'
+      : !physical ? 'writable cwd must be a same-user physical directory without symlink indirection'
+      : !insideWorktree ? 'writable cwd must be a physical Git worktree surface'
+        : overlap ? 'writable cwd overlaps runner authority state' : null,
+  };
+}
+
+function repositoryEntrypoint(argument) {
+  const resolved = path.resolve(argument);
+  const relative = path.relative(REPOSITORY_ROOT, resolved).replaceAll('\\', '/');
+  return relative.startsWith('../') || path.isAbsolute(relative) ? null : relative;
+}
+
+function auditedRepositoryFile(candidate, allowlist) {
+  const relative = repositoryEntrypoint(candidate);
+  if (relative === null || !allowlist.has(relative)) return null;
+  const expected = path.join(REPOSITORY_ROOT, relative);
+  try {
+    const stat = fs.lstatSync(candidate);
+    if (!stat.isFile() || stat.isSymbolicLink()
+      || fs.realpathSync.native(candidate) !== fs.realpathSync.native(expected)) return null;
+  } catch { return null; }
+  return relative;
+}
+
+function resolvedExecutable(command, cwd) {
+  const declared = String(command || '');
+  const candidates = declared.includes('/') || declared.includes('\\')
+    ? [path.resolve(cwd, declared)]
+    : String(process.env.PATH || '').split(path.delimiter)
+      .filter(Boolean).map((directory) => path.resolve(directory, declared));
+  for (const candidate of candidates) {
+    try {
+      const stat = fs.statSync(candidate);
+      if (stat.isFile()) return fs.realpathSync.native(candidate);
+    } catch {}
+  }
+  return null;
+}
+
+function trustedExecutable(command, cwd, expected) {
+  const actual = resolvedExecutable(command, cwd);
+  if (!actual) return false;
+  return expected.some((candidate) => {
+    try { return actual === fs.realpathSync.native(candidate); } catch { return false; }
+  });
+}
+
+export function auditedCommand(command = [], cwd = process.cwd()) {
+  const executable = path.basename(String(command[0] || '')).toLowerCase();
+  if (/^node(?:\.exe)?$/.test(executable)) {
+    if (!trustedExecutable(command[0], cwd, [process.execPath])) {
+      return { audited: false, allow_network: false, entrypoint: null };
+    }
+    const entrypoint = command[1];
+    const relative = entrypoint && !String(entrypoint).startsWith('-')
+      ? auditedRepositoryFile(path.resolve(cwd, entrypoint), AUDITED_NODE_ENTRYPOINTS) : null;
+    return relative !== null
+      ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative }
+      : { audited: false, allow_network: false, entrypoint: relative };
+  }
+  if (/^(?:bash|sh)$/.test(executable)) {
+    const trustedShells = executable === 'bash'
+      ? ['/bin/bash', '/usr/bin/bash'] : ['/bin/sh', '/usr/bin/sh'];
+    if (!trustedExecutable(command[0], cwd, trustedShells)) {
+      return { audited: false, allow_network: false, entrypoint: null };
+    }
+    const relative = command[1] && !String(command[1]).startsWith('-')
+      ? auditedRepositoryFile(path.resolve(cwd, command[1]), AUDITED_BASH_ENTRYPOINTS) : null;
+    return relative !== null
+      ? { audited: true, allow_network: true, entrypoint: relative }
+      : { audited: false, allow_network: false, entrypoint: relative };
+  }
+  if (/^(?:npx|npx\.cmd)$/.test(executable)) {
+    const expectedNpx = path.join(path.dirname(process.execPath), process.platform === 'win32' ? 'npx.cmd' : 'npx');
+    if (!trustedExecutable(command[0], cwd, [expectedNpx])) {
+      return { audited: false, allow_network: false, entrypoint: null };
+    }
+    const offset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
+    const packageName = command[offset];
+    return AUDITED_NPX_PACKAGES.has(packageName)
+      ? { audited: true, allow_network: true, entrypoint: `npx:${packageName}` }
+      : { audited: false, allow_network: false, entrypoint: null };
+  }
+  return { audited: false, allow_network: false, entrypoint: null };
+}
 
 function boundedWrapperText(command, cwd) {
   const text = [command.join(' ')];
@@ -43,16 +184,23 @@ function boundedWrapperText(command, cwd) {
 export function commandOwnership(command = [], cwd = process.cwd()) {
   const normalized = command.map((item) => String(item).replaceAll('\\', '/'));
   const executable = path.basename(normalized[0] || '').toLowerCase();
+  const audit = auditedCommand(normalized, cwd);
+  const ownershipText = boundedWrapperText(normalized, cwd)
+    .replace(/\/[^\s'"`]*\/(?:docker|podman|containerd|crio)(?:\/[^\s'"`]*)?\.sock/g, ' [MASKED_CONTROL_SOCKET] ');
   const external = EXTERNAL_DAEMON_PROGRAMS.has(executable)
-    || EXTERNAL_TEXT.test(boundedWrapperText(normalized, cwd))
     || EXTERNAL_DAEMON_ENTRYPOINTS.some((entrypoint) =>
-      normalized.some((argument) => argument.endsWith(entrypoint)));
+      normalized.some((argument) => argument.endsWith(entrypoint)))
+    || EXTERNAL_TEXT.test(ownershipText);
   return {
-    model: external ? 'external-daemon-unproven' : 'adapter-descendant-tree',
-    proven: !external,
+    model: external ? 'external-daemon-unproven'
+      : audit.audited ? 'audited-entrypoint-descendant-tree' : 'entrypoint-unproven',
+    proven: !external && audit.audited,
     reason: external
       ? 'Docker/Harbor descendants are launched by an external daemon and are not proven members of the client scope.'
-      : null,
+      : audit.audited ? null
+        : 'command is not an explicitly audited safe-runner entrypoint; arbitrary wrappers are refused.',
+    audited_entrypoint: audit.entrypoint,
+    network_access: audit.allow_network ? 'audited-required' : 'isolated',
   };
 }
 
@@ -62,7 +210,9 @@ function deliberatelyTinySelfTest(mode, caseId, overrides, command) {
   const normalized = command.map((item) => String(item).replaceAll('\\', '/'));
   if (path.resolve(normalized[0] || '') !== path.resolve(process.execPath)
     || !normalized[1]?.endsWith('/tests/fixtures/safe-runner-adversary.mjs')
-    || normalized[2] !== SELF_TEST_FIXTURE_MODES[caseId]
+    || !(Array.isArray(SELF_TEST_FIXTURE_MODES[caseId])
+      ? SELF_TEST_FIXTURE_MODES[caseId].includes(normalized[2])
+      : normalized[2] === SELF_TEST_FIXTURE_MODES[caseId])
     || normalized.length !== 3) return false;
   const required = Object.keys(SELF_TEST_LIMIT_MAXIMA);
   if (!required.every((key) => Number.isFinite(overrides[key]) && overrides[key] > 0)) return false;
@@ -91,9 +241,16 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
-  const retry = tinySelfTest
+  const writableWorktree = adapterInfo.production_enforcement
+    ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
+  let sourceIdentityError = null;
+  let retry = tinySelfTest
     ? { ok: true, signature: null, previous: null }
-    : checkSafetyRetry(cwd, command, envelope.limits);
+    : { ok: false, signature: null, previous: null, unavailable: true };
+  if (!tinySelfTest && ownership.proven) {
+    try { retry = checkSafetyRetry(cwd, command, envelope.limits); }
+    catch (error) { sourceIdentityError = error; }
+  }
   if (!TIER_ORDER.includes(tier)) reasons.push(`tier must be one of ${TIER_ORDER.join(', ')}`);
   if (!Array.isArray(command) || command.length === 0) reasons.push('command must be a non-empty string array');
   const memoryReserve = portableTinySelfTest ? 128 * 1024 ** 2 : envelope.limits.os_reserve_bytes;
@@ -120,14 +277,23 @@ export function preflightRun({
     reasons.push('medium/large execution requires Linux user-systemd cgroup-v2 aggregate enforcement');
   }
   if (!ownership.proven) reasons.push(ownership.reason);
-  if (!retry.ok) {
+  if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
+  if (sourceIdentityError) reasons.push(sourceIdentityError.message);
+  if (!retry.ok && retry.previous) {
     reasons.push(
-      `an identical command/workload/limit configuration already hit ${retry.previous.limit}; change the implementation, workload, or limits before retrying`,
+      `this command/workload source identity already hit ${retry.previous.limit}; change the implementation, workload, or concurrency model before retrying`,
     );
   }
   const existing = injectedExistingProcesses ?? existingLaminaProcesses();
   const attestation = readAttestation(adapterInfo);
-  const promotion = checkPromotion(cwd, tier, workloadId, command);
+  let promotion = { ok: !production, required: [], missing: [], completed: [] };
+  if (ownership.proven && !sourceIdentityError) {
+    try { promotion = checkPromotion(cwd, tier, workloadId, command); }
+    catch (error) {
+      sourceIdentityError = error;
+      reasons.push(error.message);
+    }
+  }
   if (production && !attestation.valid) {
     reasons.push('medium/large execution requires a current passing adversarial self-test attestation');
   }
@@ -150,6 +316,7 @@ export function preflightRun({
     portable_self_test_allowed: portableTinySelfTest,
     adapter: adapterInfo,
     ownership,
+    writable_worktree: writableWorktree,
     retry,
     envelope,
     existing_lamina_processes: existing,

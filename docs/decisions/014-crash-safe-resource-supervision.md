@@ -47,7 +47,14 @@ The runner:
   runner-owned temporary state;
 - separates summed process RSS from authoritative cgroup memory accounting;
 - runs the payload under unprivileged bwrap with a read-only host root and a
-  hard-cap private tmpfs, sampling allocated blocks and inodes through `/proc`;
+  hard-cap private tmpfs, isolated PID namespace, masked systemd/D-Bus/container
+  control sockets, and an isolated network namespace for offline entrypoints;
+- admits only audited repository entrypoints from a physical Git worktree and
+  refuses arbitrary wrappers, loader/eval indirection, symlink substitution,
+  host-sensitive writable roots, and runner-state overlap;
+- arms an independently owned exact-unit watchdog before payload release so a
+  supervisor `SIGKILL` still proves scope, managed-path, temporary-directory,
+  and nonce/inode-bound production-lock cleanup;
 - terminates the complete scope on memory, PID, timeout, output, temporary
   disk, controller signal, or detached-descendant failure;
 - identifies processes by PID plus Linux start ticks so stale records cannot
@@ -80,10 +87,11 @@ subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
 A safety-limit observation writes a durable retry signature over the repository,
-command, effective limits, referenced workload file identities, and runner
-build. The same signature is refused; changing implementation, workload,
-command, or limits creates a distinct attempt instead of silently repeating a
-known unsafe run. Later cleanup failure may normalize the public outcome to
+command, content-hashed Git source snapshot, referenced workload file identities,
+and runner build. Effective limits are excluded so lowering or editing them
+cannot bypass a known safety failure. The same signature is refused; changing
+implementation, workload, command, or the concurrency model creates a distinct
+attempt. Later cleanup failure may normalize the public outcome to
 `internal_error`, but cannot erase the observed limit or bypass the ledger.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
@@ -137,8 +145,9 @@ prove ownership of descendants created by an external daemon.
   report contract for all resource-intensive work.
 - Safety-limit outcomes are explicit failed scenarios and cannot be promoted
   or used as performance measurements.
-- Promotion state is repository-, workload-, and runner-build-specific;
-  changing the runner invalidates prior attestation and promotion evidence.
+- Promotion state is repository-, workload-, command-entrypoint-, complete
+  Git-source-snapshot-, and runner-build-specific; source or runner changes
+  invalidate prior promotion evidence.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and
   production-refusal contract without claiming enforcement.

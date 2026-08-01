@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import net from 'node:net';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const mode = process.argv[2];
 const hold = () => setInterval(() => {}, 1_000);
@@ -97,6 +98,34 @@ if (mode === 'direct-memory') {
   hold();
 } else if (mode === 'success') {
   setTimeout(() => process.stdout.write('tiny success\n'), 150);
+} else if (mode === 'scope-escape') {
+  const unit = `lamina-safe-escape-${crypto.randomBytes(8).toString('hex')}.scope`;
+  const attempt = spawnSync('systemd-run', [
+    '--user', '--scope', '--quiet', '--unit', unit,
+    '--', '/bin/sh', '-c', 'sleep 30',
+  ], { encoding: 'utf8', timeout: 2_000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const sockets = [
+    `/run/user/${typeof process.getuid === 'function' ? process.getuid() : 0}/bus`,
+    `/run/user/${typeof process.getuid === 'function' ? process.getuid() : 0}/systemd/private`,
+    '/run/dbus/system_bus_socket', '/run/systemd/private',
+    '/run/docker.sock', '/run/podman/podman.sock', '/run/containerd/containerd.sock',
+  ];
+  const visibleControlSockets = sockets.filter((candidate) => {
+    try { return fs.lstatSync(candidate).isSocket(); } catch { return false; }
+  });
+  const inherited = [
+    'DBUS_SESSION_BUS_ADDRESS', 'DOCKER_HOST', 'CONTAINER_HOST',
+    'CONTAINERD_ADDRESS', 'PODMAN_HOST', 'XDG_RUNTIME_DIR',
+  ].filter((name) => process.env[name]);
+  const refused = attempt.status !== 0 && visibleControlSockets.length === 0 && inherited.length === 0;
+  process.stdout.write(`${JSON.stringify({
+    scope_escape_refused: refused,
+    unit,
+    systemd_run_status: attempt.status,
+    visible_control_sockets: visibleControlSockets,
+    inherited_control_environment: inherited,
+  })}\n`);
+  process.exit(refused ? 0 : 70);
 } else if (mode === 'secret-output') {
   process.stdout.write('Authorization: Bearer supersecret\n');
   setTimeout(() => process.exit(0), 100);

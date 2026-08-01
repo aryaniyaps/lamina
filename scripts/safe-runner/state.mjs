@@ -53,6 +53,8 @@ export function runnerBuildDigest() {
   }
   const adversary = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
   hash.update('tests/fixtures/safe-runner-adversary.mjs').update(fs.readFileSync(adversary));
+  const controller = path.resolve(HERE, '../../tests/fixtures/safe-runner-controller.mjs');
+  hash.update('tests/fixtures/safe-runner-controller.mjs').update(fs.readFileSync(controller));
   return hash.digest('hex');
 }
 
@@ -168,11 +170,86 @@ function workloadIdentity(command = []) {
   return files;
 }
 
+export function repositorySourceDigest(cwd, {
+  maxUntrackedBytes = 64 * 1024 * 1024,
+  maxUntrackedFiles = 4_096,
+} = {}) {
+  const root = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000, maxBuffer: 64 * 1024,
+  });
+  if (root.status !== 0 || !String(root.stdout || '').trim()) return null;
+  const repository = String(root.stdout).trim();
+  const tree = spawnSync('git', ['rev-parse', 'HEAD^{tree}'], {
+    cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
+    maxBuffer: 64 * 1024,
+  });
+  const changes = spawnSync('git', ['diff', '--binary', '--no-ext-diff', 'HEAD', '--', '.'], {
+    cwd: repository, encoding: null, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
+    cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (tree.status !== 0 || changes.status !== 0 || untracked.status !== 0) return null;
+  const hash = crypto.createHash('sha256')
+    .update(String(tree.stdout || '').trim())
+    .update(changes.stdout || Buffer.alloc(0));
+  const untrackedFiles = String(untracked.stdout || '').split('\0').filter(Boolean).sort();
+  if (untrackedFiles.length > maxUntrackedFiles) {
+    const error = new Error('untracked source file count exceeds the bounded identity budget');
+    error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+    throw error;
+  }
+  let untrackedBytes = 0n;
+  for (const relative of untrackedFiles) {
+    const absolute = path.join(repository, relative);
+    try {
+      const stat = fs.statSync(absolute, { bigint: true });
+      if (!stat.isFile()) continue;
+      untrackedBytes += stat.size;
+      if (untrackedBytes > BigInt(maxUntrackedBytes)) {
+        const error = new Error('untracked source bytes exceed the bounded identity budget');
+        error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+        throw error;
+      }
+      hash.update(relative).update(String(stat.size));
+      const descriptor = fs.openSync(absolute, 'r');
+      try {
+        const buffer = Buffer.alloc(1024 * 1024);
+        let offset = 0;
+        while (offset < Number(stat.size)) {
+          const bytes = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+          if (bytes === 0) break;
+          hash.update(buffer.subarray(0, bytes));
+          offset += bytes;
+        }
+      } finally { fs.closeSync(descriptor); }
+    } catch (error) {
+      if (error?.code === 'LAMINA_SAFE_SOURCE_IDENTITY') throw error;
+      return null;
+    }
+  }
+  return hash.digest('hex');
+}
+
+function commandSourceDigest(cwd, command) {
+  const candidates = [cwd, ...command.slice(1).map((argument) => path.dirname(path.resolve(cwd, String(argument))))];
+  for (const candidate of candidates) {
+    const digest = repositorySourceDigest(candidate);
+    if (digest) return digest;
+  }
+  const error = new Error('cannot establish a complete Git source snapshot for the workload command');
+  error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+  throw error;
+}
+
 export function safetyRetrySignature(cwd, command, limits) {
   return crypto.createHash('sha256').update(JSON.stringify({
     repository: path.resolve(cwd),
     command,
     workload: workloadIdentity(command),
+    repository_source: commandSourceDigest(cwd, command),
     runner_build: runnerBuildDigest(),
   })).digest('hex');
 }
@@ -224,6 +301,7 @@ export function promotionCommandDigest(cwd, command = []) {
     executable,
     primary,
     fallback_command: primary ? null : command,
+    repository_source: commandSourceDigest(cwd, command),
   })).digest('hex');
 }
 
@@ -341,10 +419,20 @@ export function acquireConcurrencyLock({
     flag: 'wx',
     mode: 0o600,
   });
+  const fileIdentity = () => {
+    const stat = fs.lstatSync(file, { bigint: true });
+    return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+  };
+  let currentFileIdentity = fileIdentity();
   for (const name of fs.readdirSync(directory)) {
     if (!name.endsWith('.json')) continue;
     const candidate = path.join(directory, name);
     if (candidate === file) continue;
+    let candidateIdentity;
+    try {
+      const stat = fs.lstatSync(candidate, { bigint: true });
+      candidateIdentity = { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+    } catch { continue; }
     const existing = json(candidate);
     if (identityAlive(existing)) {
       fs.rmSync(file, { force: true });
@@ -358,6 +446,22 @@ export function acquireConcurrencyLock({
       conflict.code = 'LAMINA_SAFE_STALE_SCOPE_UNPROVEN';
       throw conflict;
     }
+    let currentIdentity = null;
+    try {
+      const stat = fs.lstatSync(candidate, { bigint: true });
+      currentIdentity = { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+    } catch {}
+    const currentOwner = json(candidate);
+    if (!currentIdentity || currentIdentity.dev !== candidateIdentity.dev
+      || currentIdentity.ino !== candidateIdentity.ino || currentIdentity.uid !== candidateIdentity.uid
+      || currentOwner?.nonce !== existing?.nonce
+      || currentOwner?.pid !== existing?.pid
+      || currentOwner?.start_ticks !== existing?.start_ticks) {
+      fs.rmSync(file, { force: true });
+      const conflict = new Error('stale production lock identity changed during absence proof');
+      conflict.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+      throw conflict;
+    }
     // Claim names contain an unguessable nonce and are never reused. Removing
     // this exact stale claim cannot unlink a replacement live lock.
     fs.rmSync(candidate, { force: true });
@@ -365,6 +469,9 @@ export function acquireConcurrencyLock({
   let released = false;
   return {
     file,
+    identity() {
+      return { ...claim, file_identity: { ...currentFileIdentity } };
+    },
     updateScope(nextScope) {
       const owner = json(file);
       if (owner?.nonce !== nonce) {
@@ -374,6 +481,7 @@ export function acquireConcurrencyLock({
       }
       claim.scope = nextScope;
       atomicJson(file, claim);
+      currentFileIdentity = fileIdentity();
       return true;
     },
     release() {
@@ -381,6 +489,13 @@ export function acquireConcurrencyLock({
         const owner = json(file);
         if (owner?.nonce !== nonce) {
           const error = new Error('refusing to remove a concurrency claim whose owner changed');
+          error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+          throw error;
+        }
+        const actual = fileIdentity();
+        if (actual.dev !== currentFileIdentity.dev || actual.ino !== currentFileIdentity.ino
+          || actual.uid !== currentFileIdentity.uid) {
+          const error = new Error('refusing to remove a concurrency claim whose file identity changed');
           error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
           throw error;
         }

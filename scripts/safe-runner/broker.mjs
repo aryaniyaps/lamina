@@ -3,8 +3,10 @@ import net from 'node:net';
 import path from 'node:path';
 import { TIER_ORDER } from './constants.mjs';
 
-const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
-  && String(left?.start_ticks || '') === String(right?.start_ticks || '');
+const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || '')
+  === String(claimed?.start_ticks || '')
+  && (Number(record?.pid) === Number(claimed?.pid)
+    || record?.namespace_pids?.includes(Number(claimed?.pid)));
 
 const graphdCommand = (command = '') =>
   /(?:^|\s)[^\s]*\/graph-runtime\/server\.mjs(?:\s|$)/.test(command)
@@ -13,7 +15,7 @@ const graphdCommand = (command = '') =>
 
 export function authorizeBrokerRequest(request, authority) {
   const records = authority.records();
-  const requester = records.find((record) => sameIdentity(record, request?.requester));
+  const requester = records.find((record) => sameScopedIdentity(record, request?.requester));
   if (!requester) return { ok: false, error: 'requester is not an identity-matched member of the supervised scope' };
   if (!authority.unit || !authority.cgroup) {
     return { ok: false, error: 'supervisor has not established a non-empty unit and cgroup' };
@@ -36,7 +38,7 @@ export function authorizeBrokerRequest(request, authority) {
     };
   }
   if (request.operation === 'register_graphd') {
-    const child = records.find((record) => sameIdentity(record, request.child));
+    const child = records.find((record) => sameScopedIdentity(record, request.child));
     if (!child || !graphdCommand(child.command)) {
       return { ok: false, error: 'managed graphd identity/command is not an in-scope graphd process' };
     }
@@ -59,6 +61,7 @@ export function authorizeBrokerRequest(request, authority) {
       ok: true,
       registered: {
         pid: child.pid,
+        namespace_pid: Number(request.child.pid),
         start_ticks: child.start_ticks,
         role: 'graphd',
         socket: path.resolve(request.socket),

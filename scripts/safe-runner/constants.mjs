@@ -21,7 +21,7 @@ export const SELF_TEST_CASE_IDS = Object.freeze([
   'detached_descendant',
 ]);
 export const SELF_TEST_FIXTURE_MODES = Object.freeze({
-  normal_cleanup: 'success',
+  normal_cleanup: Object.freeze(['success', 'scope-escape']),
   direct_memory_limit: 'direct-memory',
   aggregate_child_memory_limit: 'aggregate-memory',
   ignored_graceful_termination: 'ignore-term',
@@ -29,7 +29,7 @@ export const SELF_TEST_FIXTURE_MODES = Object.freeze({
   rapid_process_spawning: 'spawn-storm',
   stdout_stderr_flood: 'output-flood',
   runner_temporary_disk_growth: 'temp-growth',
-  parent_signal: 'signal-controller',
+  parent_signal: Object.freeze(['signal-controller', 'hang']),
   detached_descendant: 'detached-child',
 });
 export const PORTABLE_SELF_TEST_CASE_IDS = Object.freeze([

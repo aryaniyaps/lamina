@@ -4,6 +4,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { adapterProbe, assertAdapterShape } from './adapter.mjs';
 import { createProofBroker } from './broker.mjs';
+import { startCrashWatchdog } from './crash-watchdog-controller.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
 import {
   boundedDirectorySize,
@@ -16,8 +17,10 @@ import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
-import { baseReport, finishReport, writeReportWithFallback } from './report.mjs';
-import { redactText } from './redaction.mjs';
+import {
+  baseReport, finishReport, prepareReportAuthority, writeReportWithFallback,
+} from './report.mjs';
+import { redactEvidence, redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, recordPromotion, recordSafetyLimit } from './state.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -27,6 +30,13 @@ function errorDetails(error, fallback = 'LAMINA_SAFE_INTERNAL') {
     code: error?.code || fallback,
     message: redactText(String(error?.message || error)).slice(0, 2_000),
   };
+}
+
+function sanitizeReportInPlace(report) {
+  const sanitized = redactEvidence(report);
+  for (const key of Object.keys(report)) delete report[key];
+  Object.assign(report, sanitized);
+  return report;
 }
 
 export function outcomeForStop(reason) {
@@ -135,6 +145,7 @@ export async function runSafely({
   let lock = null;
   let temporaryDirectory = null;
   let temporaryDirectoryIdentity = null;
+  let reportAuthority = null;
   let payloadTemporaryDirectory = null;
   let monitor = null;
   let forceTimer = null;
@@ -147,6 +158,7 @@ export async function runSafely({
   let payloadExitObserved = false;
   let managedCleanupStartedMs = null;
   let proofBroker = null;
+  let crashWatchdog = null;
   let quotaProven = false;
   let observedSafetyLimit = null;
   let launcherStderrTail = '';
@@ -158,6 +170,16 @@ export async function runSafely({
   const outputStreams = [];
   const childStreams = [];
   const signalHandlers = new Map();
+  const infrastructureIdentities = () => report.preflight?.scope_proof?.infrastructure_identities || [];
+  const workloadPids = (measured) => {
+    const ignored = new Set(infrastructureIdentities().map((identity) =>
+      `${identity.pid}:${identity.start_ticks}`));
+    const records = new Map((measured?.records || []).map((record) => [record.pid, record]));
+    return (measured?.pids || []).filter((pid) => {
+      const record = records.get(pid);
+      return !record || !ignored.has(`${record.pid}:${record.start_ticks}`);
+    });
+  };
 
   const requestStop = (reason, limit = null) => {
     if (reason === 'safety_limit_exceeded' && observedSafetyLimit === null) {
@@ -287,7 +309,7 @@ export async function runSafely({
     finishReport(report, startedMs);
     const written = writeReportWithFallback(reportFile, report);
     Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
-    return report;
+    return sanitizeReportInPlace(report);
   };
 
   try {
@@ -320,7 +342,10 @@ export async function runSafely({
     }
 
     activeAdapter = assertAdapterShape(adapterFor(probe, report.run_id, report.limits));
-    if (PRODUCTION_TIERS.has(tier)) {
+    const crashLockSelfTest = activeAdapter.production_enforcement
+      && mode === 'self-test' && selfTestCaseId === 'parent_signal'
+      && normalizedCommand[2] === 'hang';
+    if (PRODUCTION_TIERS.has(tier) || crashLockSelfTest) {
       lock = acquireConcurrencyLock({
         scope: {
           adapter: activeAdapter.id,
@@ -346,6 +371,27 @@ export async function runSafely({
     temporaryDirectoryIdentity = ownedDirectoryIdentity(temporaryDirectory);
     payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
     fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
+    if (activeAdapter.production_enforcement) {
+      reportAuthority = prepareReportAuthority(reportFile);
+      const resolvedCwd = path.resolve(cwd);
+      if (reportAuthority.parent === resolvedCwd
+        || resolvedCwd.startsWith(`${reportAuthority.parent}${path.sep}`)) {
+        throw Object.assign(new Error('report authority parent must not contain the writable payload cwd'), {
+          code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+        });
+      }
+    }
+    if (activeAdapter.production_enforcement) {
+      crashWatchdog = await startCrashWatchdog({
+        report,
+        reportFile,
+        temporaryDirectory,
+        temporaryDirectoryIdentity,
+        adapter: activeAdapter,
+        lock,
+        reportAuthority,
+      });
+    }
     const authority = {
       runId: report.run_id,
       tier,
@@ -368,6 +414,7 @@ export async function runSafely({
             lock: record.lock,
           });
         }
+        crashWatchdog?.registerManagedPaths(record);
       },
     };
     proofBroker = activeAdapter.production_enforcement
@@ -405,6 +452,10 @@ export async function runSafely({
         LAMINA_SAFE_RUNNER_TEMP: payloadTemporaryDirectory,
         LAMINA_SAFE_RUNNER_TEMP_DIR: payloadTemporaryDirectory,
         LAMINA_SAFE_RUNNER_CONTROLLER_PID: String(process.pid),
+        LAMINA_SAFE_RUNNER_ALLOW_NETWORK:
+          preflight.ownership.network_access === 'audited-required' ? '1' : '0',
+        LAMINA_SAFE_REPORT_FILE: path.resolve(reportFile),
+        LAMINA_SAFE_REPORT_PARENT: reportAuthority?.parent || '',
       },
     });
     launched = true;
@@ -494,6 +545,8 @@ export async function runSafely({
               cgroup: activeAdapter.cgroupPath,
               gate_pids: proof.pids,
               gate_pid: gatePid,
+              infrastructure_identities: proof.records
+                .map((record) => ({ pid: record.pid, start_ticks: record.start_ticks })),
               aggregate_rss_bytes: proof.aggregateRssBytes,
               cgroup_memory_bytes: proof.cgroupMemoryCurrentBytes,
               production_enforcement: true,
@@ -507,6 +560,13 @@ export async function runSafely({
               cgroup: activeAdapter.cgroupPath,
             });
             rememberDescendants(report, proof.records, Date.now() - startedMs);
+            sample();
+            crashWatchdog?.update({
+              cgroup: activeAdapter.cgroupPath,
+              lock_identity: lock?.identity?.() || null,
+              report_seed: report,
+              armed: true,
+            });
             break;
           }
         }
@@ -534,11 +594,10 @@ export async function runSafely({
         if (!payloadExitObserved && fs.existsSync(payloadExitFile)) {
           payloadExitObserved = true;
           const measured = activeAdapter.sample();
-          const gatePid = report.preflight.scope_proof.gate_pid;
           const classification = classifyRemainingDescendants(
             managedRegistrations,
             measured.records,
-            [gatePid],
+            infrastructureIdentities(),
           );
           if (classification.kind === 'managed_graphd') {
             beginManagedCleanup(classification);
@@ -560,8 +619,7 @@ export async function runSafely({
         if (!stopping && managedCleanupStartedMs !== null
           && Date.now() - managedCleanupStartedMs >= report.limits.graceful_stop_ms) {
           const measured = activeAdapter.sample();
-          const gatePid = report.preflight.scope_proof.gate_pid;
-          if (measured.pids.some((pid) => pid !== gatePid)) {
+          if (workloadPids(measured).length) {
             requestStop('safety_limit_exceeded', 'managed_descendant_cleanup');
           }
         }
@@ -592,7 +650,20 @@ export async function runSafely({
       }
       report.preflight.temporary_quota_proof = quotaProof;
       quotaProven = true;
+      report.preflight.scope_proof.infrastructure_identities = activeAdapter.sample().records
+        .map((record) => ({ pid: record.pid, start_ticks: record.start_ticks }));
       fs.writeFileSync(quotaReleaseFile, 'release\n', { mode: 0o600 });
+      if (mode === 'self-test' && selfTestCaseId === 'parent_signal'
+        && normalizedCommand[2] === 'hang') {
+        fs.writeFileSync(`${path.resolve(reportFile)}.watchdog-armed`, `${JSON.stringify({
+          controller_pid: process.pid,
+          unit: activeAdapter.unit,
+          cgroup: activeAdapter.cgroupPath,
+          temporary_directory: temporaryDirectory,
+          watchdog_directory: crashWatchdog?.directory || null,
+          lock_file: lock?.file || null,
+        })}\n`, { flag: 'wx', mode: 0o600 });
+      }
     } else {
       report.preflight.scope_proof = {
         production_enforcement: false,
@@ -622,22 +693,20 @@ export async function runSafely({
       report.error = errorDetails(ended.error, 'LAMINA_SAFE_SPAWN');
     } else if (!stopping) {
       const measured = sample();
-      const gatePid = report.preflight?.scope_proof?.gate_pid;
       const classification = classifyRemainingDescendants(
         managedRegistrations,
         measured?.records || [],
-        gatePid ? [gatePid] : [],
+        infrastructureIdentities(),
       );
       if (classification.kind === 'managed_graphd') {
         beginManagedCleanup(classification);
         const deadline = Date.now() + report.limits.graceful_stop_ms;
         let remaining = activeAdapter.sample();
-        while (Date.now() < deadline
-          && remaining.pids.some((pid) => pid !== gatePid)) {
+        while (Date.now() < deadline && workloadPids(remaining).length) {
           await wait(20);
           remaining = activeAdapter.sample();
         }
-        if (remaining.pids.some((pid) => pid !== gatePid)) {
+        if (workloadPids(remaining).length) {
           requestStop('safety_limit_exceeded', 'managed_descendant_cleanup');
         } else {
           report.outcome = ended.code === 0 ? 'success' : 'command_failed';
@@ -780,18 +849,31 @@ export async function runSafely({
     }
   }
   try {
-    const written = writeReportWithFallback(reportFile, report);
+    const written = writeReportWithFallback(reportFile, report, reportAuthority);
     Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
+    if (crashWatchdog) {
+      try {
+        crashWatchdog.update({ report_seed: report });
+        await crashWatchdog.disarm();
+        crashWatchdog = null;
+      } catch (error) {
+        report.outcome = 'internal_error';
+        report.termination.reason = 'watchdog_disarm_failed';
+        report.error = errorDetails(error, 'LAMINA_SAFE_WATCHDOG_DISARM');
+        report.cleanup.errors.push(`watchdog cleanup: ${report.error.message}`);
+        writeReportWithFallback(reportFile, report, reportAuthority);
+      }
+    }
     if (report.outcome === 'success' && promote && written.fallback === false
       && written.path === path.resolve(reportFile)) {
       try { recordPromotion(cwd, tier, report, workloadId, normalizedCommand); } catch (error) {
         report.outcome = 'internal_error';
         report.termination.reason = 'promotion_failed';
         report.error = errorDetails(error, 'LAMINA_SAFE_PROMOTION');
-        writeReportWithFallback(reportFile, report);
+        writeReportWithFallback(reportFile, report, reportAuthority);
       }
     }
-    return report;
+    return sanitizeReportInPlace(report);
   } finally {
     for (const [signal, handler] of signalHandlers) process.off(signal, handler);
   }

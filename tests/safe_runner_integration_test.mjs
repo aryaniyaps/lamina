@@ -8,6 +8,7 @@ import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import { MIB } from '../scripts/safe-runner/constants.mjs';
 import { validateReport } from '../scripts/safe-runner/report.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
+import { runSupervisorCrashSelfTest } from '../scripts/safe-runner/self-test.mjs';
 import { checkPromotion, checkSafetyRetry } from '../scripts/safe-runner/state.mjs';
 
 const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
@@ -20,6 +21,8 @@ const reports = path.join(root, 'reports');
 const fixture = path.resolve('tests/fixtures/safe-runner-adversary.mjs');
 const graphdFixture = path.resolve('tests/fixtures/safe-runner-graphd-client.mjs');
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+const workloadCwd = process.cwd();
+const workspaceScratch = fs.mkdtempSync(path.join(workloadCwd, '.safe-runner-integration-'));
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = state;
 fs.mkdirSync(reports, { recursive: true });
 let completed = false;
@@ -50,7 +53,7 @@ try {
     const injected = await runSafely({
       command: [process.execPath, fixture, 'success'],
       tier,
-      cwd: root,
+      cwd: workloadCwd,
       reportFile: path.join(reports, `injected-${tier}.json`),
       adapter: injectedAdapter,
       probe: { ...probe, id: 'caller-forged-production', production_enforcement: true },
@@ -65,7 +68,7 @@ try {
   const normal = await runSafely({
     ...common,
     command: [process.execPath, fixture, 'success'],
-    tier: 'small', cwd: root, reportFile: path.join(reports, 'normal.json'),
+    tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'normal.json'),
     overrides: limits, promote: false,
   });
   assert.equal(normal.outcome, 'success');
@@ -81,12 +84,12 @@ try {
   const fallbackPromotion = await runSafely({
     ...common,
     command: [process.execPath, fixture, 'success'],
-    tier: 'small', cwd: root, reportFile: path.join(unwritableParent, 'result.json'),
+    tier: 'small', cwd: workloadCwd, reportFile: path.join(unwritableParent, 'result.json'),
     overrides: limits, workloadId: 'fallback-regression', promote: true,
   });
   assert.equal(fallbackPromotion.outcome, 'internal_error');
   assert.equal(fallbackPromotion.writtenReport.fallback, true);
-  assert.equal(checkPromotion(root, 'medium', 'fallback-regression').ok, false,
+  assert.equal(checkPromotion(workloadCwd, 'medium', 'fallback-regression').ok, false,
     'fallback reports must never create promotion evidence');
   fs.rmSync(fallbackPromotion.writtenReport.path, { force: true });
   if (probe.production_enforcement) {
@@ -97,12 +100,16 @@ try {
     });
     assert.ok(normal.samples.every((sample) => Object.hasOwn(sample, 'aggregate_rss_bytes')
       && Object.hasOwn(sample, 'cgroup_memory_bytes')));
+    const supervisorCrash = await runSupervisorCrashSelfTest({ cwd: process.cwd(), reportDirectory: reports });
+    assert.equal(supervisorCrash.passed, true, JSON.stringify(supervisorCrash, null, 2));
+    assert.ok(Object.values(supervisorCrash.evidence).every(Boolean));
+    assert.equal(validateReport(supervisorCrash.report).valid, true);
   }
 
   if (probe.production_enforcement) {
     const redacted = await runSafely({
       command: [process.execPath, fixture, 'secret-output', '--token', 'childsecret'],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'redacted.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'redacted.json'),
       overrides: limits, probe, promote: false,
     });
     assert.equal(redacted.outcome, 'success');
@@ -112,7 +119,7 @@ try {
 
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'failure.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'failure.json'),
       overrides: limits, probe, promote: false,
     });
     assert.equal(failure.outcome, 'command_failed');
@@ -121,7 +128,7 @@ try {
 
     const outputFlood = await runSafely({
       command: [process.execPath, fixture, 'output-flood'],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'output-flood.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'output-flood.json'),
       overrides: { ...limits, outputMaxBytes: 64 * 1024 }, probe, promote: false,
     });
     assert.equal(outputFlood.outcome, 'safety_limit_exceeded');
@@ -133,7 +140,7 @@ try {
     assert.equal(outputFlood.cleanup.errors.length, 0);
     assert.equal(validateReport(outputFlood).valid, true);
 
-    const graphRepository = path.join(root, `graph-repository-${'x'.repeat(80)}`);
+    const graphRepository = path.join(workspaceScratch, `graph-repository-${'x'.repeat(80)}`);
     fs.mkdirSync(graphRepository);
     const initialized = spawnSync('git', ['init', '--quiet'], {
       cwd: graphRepository,
@@ -142,7 +149,7 @@ try {
     assert.equal(initialized.status, 0, initialized.stderr);
     const managedGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'managed-graphd.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'managed-graphd.json'),
       overrides: {
         ...limits,
         pidsMax: 64,
@@ -159,7 +166,9 @@ try {
     assert.ok(Buffer.byteLength(graphdOutput.socket) >= 108,
       'managed graphd fixture must exercise production long-socket handling');
     const registration = JSON.parse(graphdOutput.registration);
-    assert.equal(registration.pid, graphdOutput.pid);
+    assert.equal(registration.namespace_pid, graphdOutput.pid);
+    assert.ok(registration.pid > registration.namespace_pid,
+      'broker evidence must retain the canonical host PID and the payload namespace PID');
     assert.match(registration.start_ticks, /^\d+$/);
     assert.equal(fs.existsSync(graphdOutput.socket), false, 'graphd socket must be removed');
     assert.equal(fs.existsSync(graphdOutput.lock), false, 'graphd lock must be removed');
@@ -171,7 +180,7 @@ try {
     fs.writeFileSync(graphData, 'canonical graph data');
     const staleGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'leave-stale'],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'stale-graphd.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'stale-graphd.json'),
       overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       probe, promote: false,
     });
@@ -186,7 +195,7 @@ try {
 
     const earlyGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'exit-stale'],
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'early-graphd.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'early-graphd.json'),
       overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       promote: false,
     });
@@ -204,13 +213,13 @@ try {
     ];
     const cleanupAfterLimit = await runSafely({
       command: retryCommand,
-      tier: 'small', cwd: root, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
       overrides: { ...limits, pidsMax: 64, timeoutMs: 300, gracefulStopMs: 100 },
       promote: false,
     });
     assert.equal(cleanupAfterLimit.outcome, 'internal_error');
     assert.equal(cleanupAfterLimit.termination.reason, 'cleanup_incomplete');
-    assert.equal(checkSafetyRetry(root, retryCommand, cleanupAfterLimit.limits).ok, false,
+    assert.equal(checkSafetyRetry(workloadCwd, retryCommand, cleanupAfterLimit.limits).ok, false,
       'an observed safety limit must survive cleanup outcome normalization');
     for (const managedPath of cleanupAfterLimit.cleanup.managed_paths_remaining) {
       fs.rmSync(managedPath, { force: true });
@@ -223,7 +232,7 @@ try {
     ]) {
       const temporary = await runSafely({
         command: [process.execPath, fixture, mode],
-        tier: 'small', cwd: root, reportFile: path.join(reports, `${mode}.json`),
+        tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, `${mode}.json`),
         overrides: { ...limits, tempMaxBytes: MIB }, probe, promote: false,
       });
       assert.equal(temporary.outcome, 'safety_limit_exceeded', mode);
@@ -236,7 +245,7 @@ try {
 
   const detached = await runSafely({
     command: [process.execPath, fixture, 'detached-child'],
-    tier: 'small', cwd: root, reportFile: path.join(reports, 'detached.json'),
+    tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'detached.json'),
     overrides: { ...limits, pidsMax: 32 },
     probe,
     mode: 'self-test',
@@ -260,6 +269,7 @@ try {
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
+  fs.rmSync(workspaceScratch, { recursive: true, force: true });
   if (completed && !process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR) {
     fs.rmSync(root, { recursive: true, force: true });
   }

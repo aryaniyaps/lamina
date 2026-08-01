@@ -10,7 +10,9 @@ temporary_directory=$6
 temporary_max_bytes=$7
 payload_cwd=$8
 quota_gate=$9
-shift 9
+node_executable=${10}
+sandbox_launcher=${11}
+shift 11
 
 if [ "$#" -eq 0 ]; then
   echo 'safe-runner gate requires READY RELEASE PAYLOAD_EXIT COMMAND [ARGS]' >&2
@@ -27,13 +29,9 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 IFS= read -r _release < "$release_file"
 
-bwrap --unshare-user --uid 0 --gid 0 \
-  --ro-bind / / --dev-bind /dev /dev --proc /proc \
-  --bind "$payload_cwd" "$payload_cwd" \
-  --bind "$quota_ready_file" "$quota_ready_file" \
-  --size "$temporary_max_bytes" --tmpfs "$temporary_directory" \
-  --chdir "$payload_cwd" -- \
-  /bin/sh "$quota_gate" "$quota_ready_file" "$quota_release_file" "$temporary_directory" "$@" &
+LAMINA_SAFE_QUOTA_GATE=$quota_gate LAMINA_SAFE_TEMP_MAX_BYTES=$temporary_max_bytes \
+  "$node_executable" "$sandbox_launcher" "$payload_cwd" "$quota_ready_file" \
+  "$quota_release_file" "$temporary_directory" "$@" &
 payload_pid=$!
 forward_term() { kill -TERM "$payload_pid" 2>/dev/null || true; }
 forward_int() { kill -INT "$payload_pid" 2>/dev/null || true; }

@@ -6,6 +6,7 @@ import { processRecord, readPidList } from './processes.mjs';
 
 const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
 const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
+const SANDBOX = fileURLToPath(new URL('./sandbox.mjs', import.meta.url));
 export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
 // readback shorter than the overall handshake so one transiently stalled
@@ -157,6 +158,7 @@ export class LinuxSystemdAdapter {
       '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
+      process.execPath, SANDBOX,
       ...command,
     ];
     this.child = spawn('systemd-run', args, {

@@ -47,7 +47,7 @@ The self-test uses only tiny fixtures and low artificial limits. It covers:
 - rapid process spawning;
 - stdout/stderr flooding;
 - runner-owned temporary-file growth;
-- parent interruption;
+- handled parent interruption plus uncatchable supervisor `SIGKILL` recovery;
 - stale PID identity; and
 - a parent that exits with a detached descendant.
 
@@ -86,7 +86,7 @@ npm run safe:run -- \
   --workload retrieval-v1 \
   --report /absolute/path/to/small-result.json \
   --promote \
-  -- <command> [args]
+  -- <audited-entrypoint> [args]
 ```
 
 Use `--promote` only for an intended tier-qualification scenario. The stable
@@ -103,10 +103,12 @@ existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
 
 After a safety-limit observation, the runner stores a durable signature over the
-repository, command, effective limits, referenced workload files, and runner
+repository, command, content-hashed Git source, referenced workload files, and runner
 build. This remains true if incomplete cleanup changes the final outcome to
-`internal_error`. An identical retry is refused. A changed implementation,
-workload input, command, or limit produces a new signature and can be evaluated.
+`internal_error`. Limits are deliberately excluded from that identity, so a
+limits-only edit cannot retry known-unsafe work. A content-hashed Git source
+change, workload input change, command identity change, or concurrency-model
+change produces a new attempt.
 
 All limit flags are downward-only:
 
@@ -115,14 +117,25 @@ All limit flags are downward-only:
 --output-mib --temporary-mib --sample-ms --high-samples --grace-ms
 ```
 
-There is no unrestricted fallback. Docker, Harbor, or another external daemon
+There is no unrestricted fallback or arbitrary child-command surface. Only the
+repository's explicit audited entrypoint allowlist can launch; Node loader/eval
+indirection, package-runner indirection, symlink substitution, and unknown
+wrappers fail closed. Docker, Harbor, or another external daemon
 cannot be used as the payload because the runner cannot prove ownership of the
 daemon-created descendants. This refusal also inspects shell, package-script,
 and local wrapper indirection rather than trusting only argv[0].
 
-On Linux the payload runs in an unprivileged bwrap mount namespace. The host
+On Linux the payload runs in unprivileged bwrap mount, PID, and (for offline
+entrypoints) network namespaces. The host
 root is read-only, the declared working tree is the explicit writable workload
-surface, and the runner temporary directory is a size-limited private tmpfs.
+surface; `/`, `/tmp`, runtime-control directories, and any worktree overlapping
+runner authority state are refused. User/system D-Bus, user-systemd, and common
+Docker/Podman/container control sockets and inherited control addresses are
+masked. Network-required entrypoints are separately and narrowly allowlisted.
+The runner temporary directory is a size-limited private tmpfs.
+The prepared report parent is a separate identity-bound authority mount: it is
+read-only inside the payload namespace, and the controller uses an unpredictable
+exclusive temporary file plus parent/file inode checks before atomic replacement.
 The controller verifies that tmpfs before releasing the payload and reads its
 allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
 deleted-but-open files without an unbounded directory scan. Symlinks in the
@@ -137,6 +150,15 @@ exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
 unregistered detached descendant is a safety failure.
+
+Before either payload gate opens, a detached identity-bound watchdog durably
+records the exact systemd unit, cgroup, temporary-directory identity, and
+production-lock nonce/inode. If the supervisor is killed, the watchdog kills
+and removes that exact scope, removes only identity-matched temporary/managed
+paths, releases the exact lock only after authoritative absence proof, and
+writes a schema-valid crash report. The existing `parent_signal` qualification
+case bundles handled-signal and supervisor-`SIGKILL` subproofs, preserving the
+public eleven-case contract.
 
 ## Reports and outcomes
 
@@ -167,8 +189,9 @@ If the requested report path cannot be written, the runner attempts a bounded
 fallback report in the system temporary directory and marks the run as an
 internal failure. A missing report is never a measurement.
 
-Reports deliberately omit the child environment and redact common credential
+Reports deliberately omit the child environment and recursively redact common credential
 flags, bearer tokens, URL userinfo, and secret-like output patterns. Redaction
+applies to disk, the Node API return, and CLI JSON. It
 is defense in depth, not a data-loss-prevention guarantee: commands can print
 arbitrary sensitive material. Treat reports as sensitive diagnostics, keep
 them mode `0600`, review them before sharing, and never publish raw reports or

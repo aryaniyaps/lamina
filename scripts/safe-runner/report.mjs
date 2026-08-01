@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -190,7 +191,26 @@ export function validateReport(report) {
   return { valid: errors.length === 0, errors, schema: BUNDLED_SCHEMA.$id };
 }
 
-export function writeReport(file, report) {
+function fileIdentity(candidate) {
+  const stat = fs.lstatSync(candidate, { bigint: true });
+  return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+}
+
+function assertReportAuthority(resolved, authority) {
+  if (!authority) return;
+  if (resolved !== authority.file || path.dirname(resolved) !== authority.parent) {
+    throw Object.assign(new Error('report authority path changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
+  }
+  const parent = fileIdentity(authority.parent);
+  const file = fileIdentity(authority.file);
+  if (parent.dev !== authority.parent_identity.dev || parent.ino !== authority.parent_identity.ino
+    || parent.uid !== authority.parent_identity.uid || file.dev !== authority.file_identity.dev
+    || file.ino !== authority.file_identity.ino || file.uid !== authority.file_identity.uid) {
+    throw Object.assign(new Error('report authority identity changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
+  }
+}
+
+export function writeReport(file, report, authority = null) {
   const sanitized = redactEvidence(report);
   const validation = validateReport(sanitized);
   if (!validation.valid) {
@@ -200,18 +220,68 @@ export function writeReport(file, report) {
   }
   const resolved = path.resolve(file);
   fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
-  const temporary = `${resolved}.tmp-${process.pid}`;
-  fs.writeFileSync(temporary, `${JSON.stringify(sanitized, null, 2)}\n`, { mode: 0o600 });
-  fs.renameSync(temporary, resolved);
+  assertReportAuthority(resolved, authority);
+  const temporary = path.join(
+    path.dirname(resolved),
+    `.${path.basename(resolved)}.tmp-${crypto.randomBytes(16).toString('hex')}`,
+  );
+  try {
+    fs.writeFileSync(temporary, `${JSON.stringify(sanitized, null, 2)}\n`, {
+      flag: 'wx', mode: 0o600,
+    });
+    assertReportAuthority(resolved, authority);
+    fs.renameSync(temporary, resolved);
+    if (authority) authority.file_identity = fileIdentity(resolved);
+  } finally { fs.rmSync(temporary, { force: true }); }
   return resolved;
 }
 
-export function writeReportWithFallback(file, report) {
+export function prepareReportAuthority(file) {
+  const resolved = path.resolve(file);
+  const parent = path.dirname(resolved);
+  fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
+  if (fs.realpathSync.native(parent) !== parent) {
+    throw Object.assign(new Error('report authority parent must be a physical directory'), {
+      code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+    });
+  }
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(resolved,
+      fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
+      0o600);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    const named = fs.lstatSync(resolved, { bigint: true });
+    if (!opened.isFile() || named.isSymbolicLink()
+      || opened.dev !== named.dev || opened.ino !== named.ino
+      || (typeof process.getuid === 'function' && Number(opened.uid) !== process.getuid())) {
+      const error = new Error('report authority path must be a same-user physical file');
+      error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
+      throw error;
+    }
+  } catch (cause) {
+    if (cause?.code === 'LAMINA_SAFE_REPORT_AUTHORITY') throw cause;
+    const error = new Error(`report authority path must be a same-user physical file (${cause?.code || 'unknown'})`);
+    error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
+    throw error;
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+  fs.chmodSync(resolved, 0o600);
+  return {
+    file: resolved,
+    parent,
+    parent_identity: fileIdentity(parent),
+    file_identity: fileIdentity(resolved),
+  };
+}
+
+export function writeReportWithFallback(file, report, authority = null) {
   const requested = file ? path.resolve(file) : null;
   const fallback = path.join(os.tmpdir(), `lamina-safe-runner-report-${process.pid}-${Date.now()}.json`);
   report.report_file = requested || fallback;
   try {
-    return { path: writeReport(report.report_file, report), fallback: !requested, write_error: null };
+    return { path: writeReport(report.report_file, report, authority), fallback: !requested, write_error: null };
   } catch (error) {
     report.outcome = 'internal_error';
     report.termination.reason = 'report_write_failed';

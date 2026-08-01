@@ -2,15 +2,20 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { once } from 'node:events';
+import { spawn, spawnSync } from 'node:child_process';
 import { adapterProbe } from './adapter.mjs';
 import { MIB, SELF_TEST_CASE_IDS } from './constants.mjs';
 import { runSafely } from './runner.mjs';
-import { baseReport, finishReport, writeReport } from './report.mjs';
+import { systemdAbsenceProof } from './linux-systemd.mjs';
+import { baseReport, finishReport, validateReport, writeReport } from './report.mjs';
 import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
+const CONTROLLER_FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-controller.mjs');
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function digest(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -35,6 +40,72 @@ export function boundedCaseError(error) {
     code: redactText(String(error.code || 'LAMINA_SAFE_INTERNAL')).slice(0, 128),
     message: redactText(String(error.message || error)).slice(0, 500),
   };
+}
+
+export async function runSupervisorCrashSelfTest({ cwd, reportDirectory }) {
+  const crashReportPath = path.join(reportDirectory, 'parent_signal_supervisor_sigkill.json');
+  const armedFile = `${crashReportPath}.watchdog-armed`;
+  fs.rmSync(crashReportPath, { force: true });
+  fs.rmSync(armedFile, { force: true });
+  const controller = spawn(process.execPath, [CONTROLLER_FIXTURE, cwd, crashReportPath], {
+    cwd, env: process.env, stdio: 'ignore',
+  });
+  let armed = null;
+  const armedDeadline = Date.now() + 5_000;
+  while (Date.now() < armedDeadline && controller.exitCode === null) {
+    try { armed = JSON.parse(fs.readFileSync(armedFile, 'utf8')); break; } catch {}
+    await wait(20);
+  }
+  let crashReport = null;
+  const evidence = {
+    controller_dead: false, scope_absent: false, temporary_removed: false,
+    watchdog_state_removed: false, lock_removed: false, subsequent_claim: false,
+    schema_valid: false,
+  };
+  if (armed?.controller_pid === controller.pid && typeof armed.unit === 'string') {
+    controller.kill('SIGKILL');
+    if (controller.exitCode === null) await once(controller, 'exit');
+    evidence.controller_dead = controller.exitCode !== null || controller.signalCode === 'SIGKILL';
+    const reportDeadline = Date.now() + 5_000;
+    while (Date.now() < reportDeadline) {
+      try { crashReport = JSON.parse(fs.readFileSync(crashReportPath, 'utf8')); break; } catch {}
+      await wait(20);
+    }
+    const shown = spawnSync('systemctl', [
+      '--user', 'show', armed.unit, '--property=LoadState', '--property=ControlGroup',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000 });
+    try {
+      const claim = acquireConcurrencyLock({
+        scope: {
+          adapter: 'linux-systemd-cgroup-v2',
+          unit: 'lamina-safe-post-crash-proof.scope',
+          cgroup: null,
+        },
+      });
+      evidence.subsequent_claim = claim.release() === true;
+    } catch {}
+    evidence.scope_absent = systemdAbsenceProof(shown, false);
+    evidence.temporary_removed = typeof armed.temporary_directory === 'string'
+      && !fs.existsSync(armed.temporary_directory);
+    evidence.watchdog_state_removed = typeof armed.watchdog_directory === 'string'
+      && !fs.existsSync(armed.watchdog_directory);
+    evidence.lock_removed = typeof armed.lock_file === 'string' && !fs.existsSync(armed.lock_file);
+    evidence.schema_valid = validateReport(crashReport || {}).valid;
+  } else if (controller.exitCode === null) {
+    controller.kill('SIGKILL');
+    await once(controller, 'exit');
+  }
+  fs.rmSync(armedFile, { force: true });
+  const passed = crashReport?.outcome === 'interrupted'
+    && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+    && crashReport?.cleanup?.scope_removed === true
+    && crashReport?.cleanup?.temporary_directory_removed === true
+    && crashReport?.cleanup?.descendants_remaining?.length === 0
+    && crashReport?.cleanup?.errors?.length === 0
+    && crashReport?.cleanup?.lock_released === true
+    && crashReport?.termination?.requested_signals?.includes('SIGKILL')
+    && Object.values(evidence).every(Boolean);
+  return { passed, report: crashReport, report_path: crashReportPath, evidence };
 }
 
 export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = adapterProbe() } = {}) {
@@ -118,7 +189,21 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     cases.push(record);
   };
 
-  await runCase({ id: 'normal_cleanup', fixtureMode: 'success', outcome: 'success' });
+  await runCase({
+    id: 'normal_cleanup',
+    fixtureMode: 'scope-escape',
+    outcome: 'success',
+    verify: (report) => {
+      let evidence = null;
+      try { evidence = JSON.parse(report.output.stdout_tail.trim().split('\n').at(-1)); } catch {}
+      const shown = spawnSync('systemctl', [
+        '--user', 'show', evidence?.unit || 'lamina-safe-invalid-escape-proof.scope',
+        '--property=LoadState', '--property=ControlGroup',
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000 });
+      return evidence?.scope_escape_refused === true
+        && systemdAbsenceProof(shown, false);
+    },
+  });
   await runCase({
     id: 'direct_memory_limit',
     fixtureMode: 'direct-memory',
@@ -161,6 +246,21 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
   await runCase({
     id: 'parent_signal', fixtureMode: 'signal-controller', outcome: 'interrupted', limits: ['signal'],
     overrides: { timeoutMs: 1_000 },
+  });
+  const parentSignalRecord = cases.at(-1);
+  const crash = await runSupervisorCrashSelfTest({ cwd, reportDirectory });
+  parentSignalRecord.passed = parentSignalRecord.passed && crash.passed;
+  parentSignalRecord.cleanup_verified = parentSignalRecord.cleanup_verified && crash.passed;
+  parentSignalRecord.supervisor_sigkill = {
+    passed: crash.passed,
+    outcome: crash.report?.outcome || 'missing',
+    cleanup_verified: crash.passed,
+    report: crash.report_path,
+    evidence: crash.evidence,
+  };
+  parentSignalRecord.report_digest = digest({
+    handled_signal_report: parentSignalRecord.report_digest,
+    supervisor_sigkill_report: crash.report,
   });
 
   const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;

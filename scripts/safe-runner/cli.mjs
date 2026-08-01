@@ -11,6 +11,7 @@ import {
   writeReportWithFallback,
 } from './report.mjs';
 import { reportExitCode, runSafely } from './runner.mjs';
+import { redactEvidence } from './redaction.mjs';
 import { runAdversarialSelfTests } from './self-test.mjs';
 import { readAttestation, promotionStatus } from './state.mjs';
 
@@ -30,7 +31,7 @@ a current passing host attestation, sequential tier promotion, and concurrency=1
 `;
 
 function print(value, stream = process.stdout) {
-  stream.write(`${JSON.stringify(value, null, 2)}\n`);
+  stream.write(`${JSON.stringify(redactEvidence(value), null, 2)}\n`);
 }
 
 function take(args, index, name) {

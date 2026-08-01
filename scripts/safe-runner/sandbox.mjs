@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+
+export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
+  'DBUS_SESSION_BUS_ADDRESS',
+  'DBUS_SYSTEM_BUS_ADDRESS',
+  'DBUS_STARTER_ADDRESS',
+  'DBUS_STARTER_BUS_TYPE',
+  'DOCKER_CONTEXT',
+  'DOCKER_HOST',
+  'CONTAINER_HOST',
+  'CONTAINERD_ADDRESS',
+  'PODMAN_HOST',
+  'XDG_RUNTIME_DIR',
+  'NOTIFY_SOCKET',
+  'WATCHDOG_PID',
+  'WATCHDOG_USEC',
+  'LISTEN_FDS',
+  'LISTEN_PID',
+  'LISTEN_FDNAMES',
+  'LAMINA_SAFE_RUNNER_ALLOW_NETWORK',
+  'LAMINA_SAFE_REPORT_FILE',
+  'LAMINA_SAFE_REPORT_PARENT',
+]);
+
+const STANDARD_CONTROL_SOCKETS = Object.freeze([
+  '/run/dbus/system_bus_socket',
+  '/run/systemd/private',
+  '/run/docker.sock',
+  '/var/run/docker.sock',
+  '/run/podman/podman.sock',
+  '/var/run/podman/podman.sock',
+  '/run/containerd/containerd.sock',
+  '/var/run/containerd/containerd.sock',
+  '/run/crio/crio.sock',
+  '/var/run/crio/crio.sock',
+]);
+
+function inheritedUnixSocket(value) {
+  const text = String(value || '');
+  const dbusPath = text.match(/(?:^|;)unix:path=([^,;]+)/)?.[1];
+  if (dbusPath) return dbusPath;
+  if (text.startsWith('unix://')) return text.slice('unix://'.length);
+  if (text.startsWith('unix:')) return text.slice('unix:'.length);
+  return path.isAbsolute(text) ? text : null;
+}
+
+export function controlSocketMasks({
+  uid = typeof process.getuid === 'function' ? process.getuid() : null,
+  env = process.env,
+  socketExists = (candidate) => {
+    try { return fs.lstatSync(candidate).isSocket(); } catch { return false; }
+  },
+  directoryExists = (candidate) => {
+    try { return fs.statSync(candidate).isDirectory(); } catch { return false; }
+  },
+} = {}) {
+  const hiddenDirectories = [];
+  const runtime = Number.isInteger(uid) ? `/run/user/${uid}` : null;
+  if (runtime && directoryExists(runtime)) hiddenDirectories.push(runtime);
+  const inherited = [
+    'DBUS_SESSION_BUS_ADDRESS', 'DBUS_SYSTEM_BUS_ADDRESS', 'DBUS_STARTER_ADDRESS',
+    'DOCKER_HOST', 'CONTAINER_HOST', 'CONTAINERD_ADDRESS', 'PODMAN_HOST',
+  ]
+    .map((name) => inheritedUnixSocket(env[name]))
+    .filter(Boolean);
+  const sockets = [];
+  const identities = new Set();
+  for (const candidate of [...STANDARD_CONTROL_SOCKETS, ...inherited]) {
+    const resolved = path.resolve(candidate);
+    if (runtime && (resolved === runtime || resolved.startsWith(`${runtime}${path.sep}`))) continue;
+    if (!socketExists(resolved)) continue;
+    let identity = resolved;
+    try { identity = fs.realpathSync.native(resolved); } catch {}
+    if (identities.has(identity)) continue;
+    identities.add(identity);
+    sockets.push(resolved);
+  }
+  return { hiddenDirectories, sockets };
+}
+
+export function bubblewrapSandboxArguments({
+  cwd,
+  readyFile,
+  releaseFile,
+  temporaryDirectory,
+  command,
+  allowNetwork = false,
+  masks = controlSocketMasks(),
+} = {}) {
+  const args = [
+    '--unshare-user', '--unshare-pid', '--uid', '0', '--gid', '0',
+    '--ro-bind', '/', '/', '--dev-bind', '/dev', '/dev', '--proc', '/proc',
+    '--bind', cwd, cwd,
+    '--bind', readyFile, readyFile,
+  ];
+  if (!allowNetwork) args.splice(2, 0, '--unshare-net');
+  for (const directory of masks.hiddenDirectories) args.push('--tmpfs', directory);
+  for (const socket of masks.sockets) args.push('--bind', '/dev/null', socket);
+  if (process.env.LAMINA_SAFE_REPORT_PARENT && fs.existsSync(process.env.LAMINA_SAFE_REPORT_PARENT)) {
+    const parent = path.resolve(process.env.LAMINA_SAFE_REPORT_PARENT);
+    args.push('--ro-bind', parent, parent);
+  }
+  for (const name of CONTROL_ENVIRONMENT_NAMES) args.push('--unsetenv', name);
+  args.push(
+    '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
+    '--tmpfs', temporaryDirectory,
+    '--chdir', cwd,
+    '--', '/bin/sh', process.env.LAMINA_SAFE_QUOTA_GATE,
+    readyFile, releaseFile, temporaryDirectory,
+    ...command,
+  );
+  return args;
+}
+
+async function main() {
+  const [cwd, readyFile, releaseFile, temporaryDirectory, ...command] = process.argv.slice(2);
+  if (!cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
+    || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
+    process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');
+    process.exit(125);
+  }
+  const child = spawn('bwrap', bubblewrapSandboxArguments({
+    cwd, readyFile, releaseFile, temporaryDirectory, command,
+    allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
+  }), { stdio: 'inherit', env: process.env });
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.on(signal, () => {
+      try { child.kill(signal); } catch {}
+    });
+  }
+  child.once('error', (error) => {
+    process.stderr.write(`safe-runner sandbox launch failed: ${error.code || error.message}\n`);
+    process.exit(125);
+  });
+  child.once('close', (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    else process.exit(code ?? 125);
+  });
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) await main();
