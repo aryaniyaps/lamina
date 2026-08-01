@@ -57,7 +57,10 @@ async function phase(name, state) {
   } else if (name === 'noop_sync') {
     fs.statSync(path.join(state, 'observed.json'));
   } else if (name === 'incremental_change') {
-    fs.appendFileSync(path.join(state, 'observed.json'), '{"change":1}\n');
+    const source = JSON.parse(fs.readFileSync(path.join(state, 'observed.json'), 'utf8'));
+    fs.writeFileSync(path.join(state, 'observed.json'), `${JSON.stringify({ ...source, change: 1 })}\n`, {
+      mode: 0o600,
+    });
   } else if (name === 'rebuild') {
     const source = fs.readFileSync(path.join(state, 'observed.json'));
     fs.writeFileSync(path.join(state, 'derived.sha256'), crypto.createHash('sha256').update(source).digest('hex'), { mode: 0o600 });
