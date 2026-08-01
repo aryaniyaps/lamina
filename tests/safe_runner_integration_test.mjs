@@ -77,11 +77,7 @@ try {
     ...common,
     command: [process.execPath, fixture, 'success'],
     tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'normal.json'),
-    // Sealing and launching the ~250 MiB repository snapshot can consume the
-    // one-second adversarial timeout before the release FIFO gains a reader.
-    // Keep resource ceilings tiny, but give this non-hanging success control a
-    // startup allowance; explicit hang/limit cases retain their short clocks.
-    overrides: { ...limits, timeoutMs: 5_000 }, promote: false,
+    overrides: limits, promote: false,
   });
   assert.equal(normal.outcome, 'success');
   assert.equal(validateReport(normal).valid, true);

@@ -76,7 +76,7 @@ import {
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
 import {
-  boundedDiagnosticText, closeOutputStreams, outcomeForStop, releaseFifo,
+  boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
 } from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
@@ -109,6 +109,14 @@ const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
 
 try {
+  assert.equal(payloadRuntimeTimedOut(null, 60_000, 1_000), false,
+    'controller preparation time must not consume the workload timeout');
+  assert.equal(payloadRuntimeTimedOut(50_000, 50_999, 1_000), false);
+  assert.equal(payloadRuntimeTimedOut(50_000, 51_000, 1_000), true,
+    'the workload timeout must fire once payload runtime reaches its limit');
+  assert.equal(payloadRuntimeTimedOut(Number.NaN, 51_000, 1_000), true,
+    'invalid runtime timing state must fail closed');
+
   for (const [script, launchMarker] of [
     ['scripts/safe-runner/gate.sh', 'LAMINA_SAFE_QUOTA_GATE='],
     ['scripts/safe-runner/quota-gate.sh', 'exec "$@"'],

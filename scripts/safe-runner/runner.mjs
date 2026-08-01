@@ -51,6 +51,13 @@ export function outcomeForStop(reason) {
   return 'safety_limit_exceeded';
 }
 
+export function payloadRuntimeTimedOut(payloadStartedMs, nowMs, timeoutMs) {
+  if (payloadStartedMs === null) return false;
+  if (!Number.isFinite(payloadStartedMs) || !Number.isFinite(nowMs)
+    || !Number.isFinite(timeoutMs) || timeoutMs < 0 || nowMs < payloadStartedMs) return true;
+  return nowMs - payloadStartedMs >= timeoutMs;
+}
+
 export function boundedDiagnosticText(value) {
   return redactText(String(value || ''))
     .replace(/(^|[\s=:('"`])(?:\/[^\s,;'"`)]+|[A-Za-z]:\\[^\s,;'"`)]+)/g, '$1[REDACTED_PATH]')
@@ -212,6 +219,7 @@ export async function runSafely({
   let retainedOutputBytes = 0;
   let launched = false;
   let payloadExitObserved = false;
+  let payloadStartedMs = null;
   let managedCleanupStartedMs = null;
   let proofBroker = null;
   let crashWatchdog = null;
@@ -310,7 +318,8 @@ export async function runSafely({
 
   const sample = () => {
     if (!activeAdapter || !temporaryDirectory) return null;
-    const elapsed = Date.now() - startedMs;
+    const nowMs = Date.now();
+    const elapsed = nowMs - startedMs;
     const measured = activeAdapter.sample();
     let temporary = null;
     if (activeAdapter.production_enforcement && quotaProven) {
@@ -380,7 +389,9 @@ export async function runSafely({
     if (highSamples >= report.limits.sustained_high_samples) {
       requestStop('safety_limit_exceeded', 'sustained_high_memory');
     }
-    if (elapsed >= report.limits.timeout_ms) requestStop('safety_limit_exceeded', 'timeout');
+    if (payloadRuntimeTimedOut(payloadStartedMs, nowMs, report.limits.timeout_ms)) {
+      requestStop('safety_limit_exceeded', 'timeout');
+    }
     return measured;
   };
 
@@ -628,6 +639,7 @@ export async function runSafely({
       process.on(signal, handler);
     }
 
+    if (!activeAdapter.production_enforcement) payloadStartedMs = Date.now();
     const child = activeAdapter.launch({
       command: launchCommand,
       cwd: path.resolve(cwd),
@@ -869,6 +881,7 @@ export async function runSafely({
       if (typeof _testAfterFinalIdentityCheck === 'function') {
         await _testAfterFinalIdentityCheck();
       }
+      payloadStartedMs = Date.now();
       await releaseFifo(quotaReleaseFile);
       crashBoundary('payload_released');
       tracePhase('launch:payload-released');
