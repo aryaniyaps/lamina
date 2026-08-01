@@ -14,6 +14,9 @@ const systemd = fs.readFileSync('scripts/safe-runner/linux-systemd.mjs', 'utf8')
 const sandbox = fs.readFileSync('scripts/safe-runner/sandbox.mjs', 'utf8');
 const runner = fs.readFileSync('scripts/safe-runner/runner.mjs', 'utf8');
 const executionSnapshot = fs.readFileSync('scripts/safe-runner/execution-snapshot.mjs', 'utf8');
+const sealedGitProbe = fs.readFileSync(
+  'tests/fixtures/safe-runner-sealed-git-probe.mjs', 'utf8',
+);
 const npxAuthority = fs.readFileSync('scripts/safe-runner/npx-authority.mjs', 'utf8');
 const outputPolicy = fs.readFileSync('scripts/safe-runner/output-policy.mjs', 'utf8');
 const retrievalAuthority = fs.readFileSync(
@@ -143,6 +146,19 @@ assert.match(runner,
 assert.match(systemd,
   /audited_entrypoint:[\s\S]*environment_overrides:/,
   'sandbox authority encoding must carry only the snapshot-sealed environment overrides');
+assert.match(executionSnapshot,
+  /gitExecutableIdentity = auditedEntrypoint[\s\S]*trustedGitIdentity\(\)[\s\S]*git_executable_identity: gitExecutableIdentity/,
+  'graphd fixture authority must capture trusted Git on the controller before namespace launch');
+assert.match(systemd, /git_executable_identity: executionAuthority\?\.git_executable_identity/,
+  'closed execution authority must carry the controller-sealed Git identity');
+assert.match(sandbox,
+  /--unsetenv[\s\S]*--setenv', 'LAMINA_SAFE_GIT_IDENTITY'[\s\S]*validatedSealedGitIdentity[\s\S]*trustedHostBinary\('git'\)/,
+  'host sandbox validation must replace inherited Git identity with freshly trusted sealed data');
+assert.doesNotMatch(sealedGitProbe, /trustedHostBinary/,
+  'namespace probe must not reapply host UID ownership rules after user-namespace mapping');
+assert.match(sealedGitProbe,
+  /before\.size > BigInt\(MAX_GIT_BINARY_BYTES\)[\s\S]*Buffer\.alloc\(Number\(before\.size\)\)[\s\S]*fs\.readSync\(descriptor[\s\S]*exceeded its bounded identity size[\s\S]*fs\.fstatSync\(descriptor[\s\S]*timeout: 2_000[\s\S]*maxBuffer: 16 \* 1024[\s\S]*inertGitEnvironment\(\)/,
+  'namespace Git continuity and read-only invocations must remain bounded and inert');
 assert.match(sandbox,
   /validatedSealedEnvironmentNames[\s\S]*preservedEnvironmentNames/,
   'bwrap unset generation must preserve only validated snapshot environment inputs');

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
-import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
+import { inertRepositoryConfig, spawnTrustedGit, trustedGitIdentity } from './git.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -1133,6 +1133,8 @@ export function prepareExecutionSnapshot({
     ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(2)]
     : [executable, ...command.slice(1)];
   const graphdLaunchAuthority = [];
+  const gitExecutableIdentity = auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs'
+    ? trustedGitIdentity() : null;
   if (stagedInfrastructure.node
     && auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
     const fixtureRepository = path.resolve(cwd, command[2]);
@@ -1218,6 +1220,7 @@ export function prepareExecutionSnapshot({
     git_readonly_bindings: gitReadonlyBindings,
     git_common: sourceGit.common,
     git_directory: sourceGit.gitDirectory,
+    git_executable_identity: gitExecutableIdentity,
     environment_overrides: environmentOverrides,
     graphd_launch_authority: graphdLaunchAuthority,
     infrastructure: stagedInfrastructure,

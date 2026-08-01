@@ -20,6 +20,7 @@ export function encodeExecutionAuthority(executionAuthority) {
     git_readonly_bindings: executionAuthority?.git_readonly_bindings || [],
     git_common: executionAuthority?.git_common || null,
     git_directory: executionAuthority?.git_directory || null,
+    git_executable_identity: executionAuthority?.git_executable_identity || null,
     audited_entrypoint: executionAuthority?.audited_entrypoint || null,
     environment_overrides: executionAuthority?.environment_overrides || {},
   })).toString('base64url');

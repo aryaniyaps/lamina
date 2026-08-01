@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import {
   assertTrustedBinaryIdentity, EXECUTION_HOOK_ENVIRONMENT,
   SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT,
-  SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT, sanitizedEnvironment,
+  SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT, sanitizedEnvironment, trustedHostBinary,
 } from './infrastructure.mjs';
 
 export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
@@ -108,6 +108,7 @@ export function bubblewrapSandboxArguments({
   temporaryDirectory,
   command,
   executionAuthority = null,
+  sealedGitIdentity = null,
   preservedEnvironmentNames = [],
   environment = process.env,
   allowNetwork = false,
@@ -141,6 +142,9 @@ export function bubblewrapSandboxArguments({
   ]);
   for (const name of controlEnvironment) {
     if (!preserved.has(name)) args.push('--unsetenv', name);
+  }
+  if (sealedGitIdentity) {
+    args.push('--setenv', 'LAMINA_SAFE_GIT_IDENTITY', sealedGitIdentity);
   }
   args.push(
     '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
@@ -178,6 +182,25 @@ export function validatedSealedEnvironmentNames({
     }
   }
   return names;
+}
+
+export function validatedSealedGitIdentity(executionAuthority) {
+  const graphdFixture = executionAuthority?.audited_entrypoint
+    === 'tests/fixtures/safe-runner-graphd-client.mjs';
+  const expected = executionAuthority?.git_executable_identity;
+  if (!graphdFixture) {
+    if (expected !== null && expected !== undefined) {
+      throw new Error('unexpected sealed Git identity authority');
+    }
+    return null;
+  }
+  const trusted = trustedHostBinary('git');
+  for (const field of ['path', 'dev', 'ino', 'uid', 'mode', 'size', 'digest']) {
+    if (expected?.[field] !== trusted[field]) {
+      throw new Error('sealed Git identity authority changed before sandbox launch');
+    }
+  }
+  return Buffer.from(JSON.stringify(trusted)).toString('base64url');
 }
 
 export function validateSandboxExecutionAuthority({
@@ -243,10 +266,14 @@ export function validateSandboxExecutionAuthority({
     || executionAuthority.git_readonly_bindings.some(invalidGitBinding)) {
     throw new Error('safe-runner sandbox received an invalid execution authority');
   }
+  let sealedGitIdentity;
+  try { sealedGitIdentity = validatedSealedGitIdentity(executionAuthority); }
+  catch { throw new Error('safe-runner sandbox received an invalid execution authority'); }
   return {
     preservedEnvironmentNames: validatedSealedEnvironmentNames({
       executionAuthority, environment,
     }),
+    sealedGitIdentity,
   };
 }
 
@@ -283,6 +310,7 @@ async function main() {
   const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
     executionAuthority,
+    sealedGitIdentity: sandboxContract.sealedGitIdentity,
     preservedEnvironmentNames: sandboxContract.preservedEnvironmentNames,
     environment: process.env,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',

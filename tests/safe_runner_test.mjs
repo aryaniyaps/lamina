@@ -40,8 +40,9 @@ import {
   sealManagedObjects,
 } from '../scripts/safe-runner/managed-paths.mjs';
 import {
-  assertTrustedBinaryIdentity, infrastructureBinaries, isExecutionHookEnvironment, sanitizedEnvironment,
-  sanitizedPayloadEnvironment, trustedBinaryIdentity,
+  assertTrustedBinaryIdentity, infrastructureBinaries, isExecutionHookEnvironment,
+  SAFE_INFRASTRUCTURE_PATH, sanitizedEnvironment, sanitizedPayloadEnvironment,
+  trustedBinaryIdentity, trustedHostBinary,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
@@ -87,6 +88,7 @@ import {
   validatedSealedEnvironmentNames,
 } from '../scripts/safe-runner/sandbox.mjs';
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
+import { sealedSandboxGitProbe } from './fixtures/safe-runner-sealed-git-probe.mjs';
 import {
   acquireConcurrencyLock,
   adoptConcurrencyLock,
@@ -309,6 +311,7 @@ try {
   for (const name of [
     'BASH_FUNC_payload%%', 'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE',
     'NODE_COMPILE_CACHE', 'NODE_REDIRECT_WARNINGS', 'DYLD_INSERT_LIBRARIES',
+    'LAMINA_SAFE_GIT_IDENTITY',
     'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
     'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
   ]) assert.equal(isExecutionHookEnvironment(name), true, name);
@@ -317,11 +320,13 @@ try {
     NODE_COMPILE_CACHE: '/tmp/cache', NODE_REDIRECT_WARNINGS: '/tmp/warnings',
     GIT_DIR: '/tmp/live-git', GIT_CONFIG_NOSYSTEM: '0', GIT_CONFIG_GLOBAL: '/tmp/config',
     'BASH_FUNC_payload%%': '() { touch /tmp/pwned; }',
+    LAMINA_SAFE_GIT_IDENTITY: 'forged',
   });
   assert.equal(poison.SAFE_VALUE, 'kept');
   for (const name of [
     'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE', 'NODE_COMPILE_CACHE',
     'NODE_REDIRECT_WARNINGS', 'BASH_FUNC_payload%%',
+    'LAMINA_SAFE_GIT_IDENTITY',
   ]) assert.equal(poison[name], undefined, name);
   assert.equal(poison.GIT_DIR, undefined);
   assert.equal(poison.GIT_CONFIG_NOSYSTEM, '1');
@@ -1781,6 +1786,16 @@ try {
     environment: {},
   }), /invalid execution authority/,
   'legacy writable alias chaining must fail at the sandbox authority boundary');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...encodedMutableAuthority,
+      git_executable_identity: trustedHostBinary('git'),
+    },
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'non-graph authority must reject an injected sealed Git identity');
   const originalMutableSnapshotTarget = `${mutableSnapshotTarget}-original`;
   fs.renameSync(mutableSnapshotTarget, originalMutableSnapshotTarget);
   assert.throws(() => validateSandboxExecutionAuthority({
@@ -1862,6 +1877,8 @@ try {
   assert.equal(fs.lstatSync(validGraphdSnapshot.writable_bindings[0].snapshot_target).isDirectory(),
     true, 'graphd writable bind target must be scaffolded in the sealed snapshot');
   assert.equal(assertExecutionSnapshot(validGraphdSnapshot), true);
+  assert.deepEqual(validGraphdSnapshot.git_executable_identity, trustedHostBinary('git'),
+    'graphd snapshot authority must capture trusted Git before entering the user namespace');
   const encodedGraphdAuthority = JSON.parse(Buffer.from(
     encodeExecutionAuthority(validGraphdSnapshot), 'base64url',
   ).toString('utf8'));
@@ -1871,6 +1888,30 @@ try {
     cwd: snapshotRepository,
     environment: {},
   });
+  assert.match(graphdSandboxContract.sealedGitIdentity, /^[A-Za-z0-9_-]+$/);
+  assert.deepEqual(JSON.parse(Buffer.from(
+    graphdSandboxContract.sealedGitIdentity, 'base64url',
+  ).toString('utf8')), validGraphdSnapshot.git_executable_identity);
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...encodedGraphdAuthority,
+      git_executable_identity: {
+        ...encodedGraphdAuthority.git_executable_identity,
+        digest: '0'.repeat(64),
+      },
+    },
+    authorityRoot: validGraphdSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'sandbox host validation must reject a forged controller Git identity');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: { ...encodedGraphdAuthority, git_executable_identity: null },
+    authorityRoot: validGraphdSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'graphd authority must reject a missing controller-sealed Git identity');
   const graphdSandboxArgs = bubblewrapSandboxArguments({
     cwd: snapshotRepository,
     readyFile: path.join(root, 'graphd.ready'),
@@ -1878,9 +1919,47 @@ try {
     temporaryDirectory: path.join(root, 'graphd-payload-tmp'),
     command: validGraphdSnapshot.launch_command,
     executionAuthority: encodedGraphdAuthority,
+    sealedGitIdentity: graphdSandboxContract.sealedGitIdentity,
     preservedEnvironmentNames: graphdSandboxContract.preservedEnvironmentNames,
-    environment: {}, masks: { hiddenDirectories: [], sockets: [] },
+    environment: { LAMINA_SAFE_GIT_IDENTITY: 'forged-inherited-value' },
+    masks: { hiddenDirectories: [], sockets: [] },
   });
+  const unsetGitIdentity = graphdSandboxArgs.findIndex((value, index) =>
+    value === '--unsetenv' && graphdSandboxArgs[index + 1] === 'LAMINA_SAFE_GIT_IDENTITY');
+  const setGitIdentity = graphdSandboxArgs.findIndex((value, index) =>
+    value === '--setenv' && graphdSandboxArgs[index + 1] === 'LAMINA_SAFE_GIT_IDENTITY'
+      && graphdSandboxArgs[index + 2] === graphdSandboxContract.sealedGitIdentity);
+  assert.ok(unsetGitIdentity >= 0 && unsetGitIdentity < setGitIdentity,
+    'bwrap must erase inherited Git identity data before setting host-validated sealed authority');
+  const previousProbePath = process.env.PATH;
+  const previousProbeIdentity = process.env.LAMINA_SAFE_GIT_IDENTITY;
+  try {
+    process.env.PATH = SAFE_INFRASTRUCTURE_PATH;
+    process.env.LAMINA_SAFE_GIT_IDENTITY = graphdSandboxContract.sealedGitIdentity;
+    const probeEvidence = sealedSandboxGitProbe(graphdRepository);
+    assert.equal(probeEvidence.git.requested_path,
+      validGraphdSnapshot.git_executable_identity.path);
+    assert.equal(probeEvidence.git.digest, validGraphdSnapshot.git_executable_identity.digest);
+    assert.equal(probeEvidence.git.controller_uid,
+      validGraphdSnapshot.git_executable_identity.uid);
+    assert.equal(Number.isInteger(probeEvidence.git.namespace_uid), true);
+    assert.equal(probeEvidence.named_git_root, graphdRepository);
+    const tamperedIdentity = {
+      ...validGraphdSnapshot.git_executable_identity, digest: 'f'.repeat(64),
+    };
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(
+      JSON.stringify(tamperedIdentity),
+    ).toString('base64url');
+    assert.throws(() => sealedSandboxGitProbe(graphdRepository), /immutable identity changed/,
+      'namespace probe must reject tampered sealed Git identity data');
+    process.env.LAMINA_SAFE_GIT_IDENTITY = 'not-base64!';
+    assert.throws(() => sealedSandboxGitProbe(graphdRepository), /missing or malformed/);
+  } finally {
+    if (previousProbePath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousProbePath;
+    if (previousProbeIdentity === undefined) delete process.env.LAMINA_SAFE_GIT_IDENTITY;
+    else process.env.LAMINA_SAFE_GIT_IDENTITY = previousProbeIdentity;
+  }
   assert.ok(graphdSandboxArgs.some((value, index) => value === fixtureWork
     && graphdSandboxArgs[index - 1] === '--bind'),
   'graphd fixture exact scratch must survive sandbox validation into bwrap mounts');

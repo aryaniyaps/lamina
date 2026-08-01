@@ -185,6 +185,8 @@ try {
     assert.equal(sandboxProbe.git?.requested_path, sandboxProbe.git?.path, artifactHint);
     assert.equal(path.isAbsolute(sandboxProbe.git?.path || ''), true, artifactHint);
     assert.match(sandboxProbe.git?.digest || '', /^[a-f0-9]{64}$/, artifactHint);
+    assert.equal(Number.isInteger(sandboxProbe.git?.controller_uid), true, artifactHint);
+    assert.equal(Number.isInteger(sandboxProbe.git?.namespace_uid), true, artifactHint);
     assert.equal(sandboxProbe.repository?.path, graphRepository, artifactHint);
     assert.equal(sandboxProbe.repository?.writable, true, artifactHint);
     assert.equal(sandboxProbe.named_git_root, graphRepository, artifactHint);
