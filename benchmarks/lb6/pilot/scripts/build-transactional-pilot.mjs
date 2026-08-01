@@ -38,6 +38,7 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
+const CLI_RELEASE_MANIFEST_MAX_BYTES = 4_096;
 
 function pilotBuildPaths(root = DEFAULT_ROOT) {
   const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
@@ -148,30 +149,63 @@ export function readCliReleaseIdentity(root = DEFAULT_ROOT, manifestPath = null)
   }
   const declaredRoot = path.resolve(root);
   const source = path.resolve(declaredRoot, manifestPath);
-  let stat;
+  let named;
   let physicalRoot;
   let physicalSource;
   try {
-    stat = fs.lstatSync(source);
+    named = fs.lstatSync(source, { bigint: true });
     physicalRoot = fs.realpathSync.native(declaredRoot);
     physicalSource = fs.realpathSync.native(source);
   } catch {}
   const relative = physicalRoot && physicalSource
     ? path.relative(physicalRoot, physicalSource) : '..';
-  if (!stat?.isFile() || stat.isSymbolicLink()
+  if (!named?.isFile() || named.isSymbolicLink()
     || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error('LB6 pilot CLI release manifest must be a physical file inside the repository');
   }
-  let value;
+  let descriptor = null;
   try {
-    value = JSON.parse(fs.readFileSync(source, 'utf8'));
+    descriptor = fs.openSync(
+      source,
+      fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0),
+    );
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (!opened.isFile()
+      || opened.dev !== named.dev || opened.ino !== named.ino || opened.size !== named.size) {
+      throw new Error('release manifest identity changed while opening');
+    }
+    if (opened.size > BigInt(CLI_RELEASE_MANIFEST_MAX_BYTES)) {
+      throw new Error(`release manifest exceeds ${CLI_RELEASE_MANIFEST_MAX_BYTES} bytes`);
+    }
+
+    // Keep one overflow byte so growth after fstat cannot be mistaken for a bounded read.
+    const bytes = Buffer.alloc(CLI_RELEASE_MANIFEST_MAX_BYTES + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (count === 0) break;
+      offset += count;
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size
+      || offset !== Number(opened.size)) {
+      throw new Error('release manifest identity or size changed while reading');
+    }
+    if (offset > CLI_RELEASE_MANIFEST_MAX_BYTES) {
+      throw new Error(`release manifest exceeds ${CLI_RELEASE_MANIFEST_MAX_BYTES} bytes`);
+    }
+    return validateCliReleaseIdentity(
+      JSON.parse(bytes.subarray(0, offset).toString('utf8')),
+      'LB6 pilot CLI release authority',
+    );
   } catch (error) {
     throw new Error(
       `LB6 pilot CLI release authority is unavailable at ${source}; ` +
       `unsafe local standalone builds are refused: ${error.message}`,
     );
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
   }
-  return validateCliReleaseIdentity(value, 'LB6 pilot CLI release authority');
 }
 
 export function parseCliReleaseManifest(argv = process.argv.slice(2)) {

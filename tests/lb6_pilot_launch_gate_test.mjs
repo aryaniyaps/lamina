@@ -244,6 +244,29 @@ assert.equal(fs.readFileSync(refusalSentinel, 'utf8'), 'must survive pre-write r
 assertGitStatusUnchanged(tmpRoot, beforeApiRefusal);
 fs.rmSync(refusalSentinel);
 
+const oversizedRelease = path.join(tmpPilotRoot, 'oversized-cli-release.json');
+fs.writeFileSync(oversizedRelease, JSON.stringify({
+  ...cliRelease,
+  padding: 'x'.repeat(4_096),
+}));
+fs.writeFileSync(refusalSentinel, 'must survive oversized authority refusal\n');
+const beforeOversizedRelease = snapshotGitStatus(tmpRoot);
+const oversizedResult = runNodeExpectFail(
+  tmpRoot,
+  'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs',
+  [
+    '--cli-release',
+    'benchmarks/lb6/pilot/oversized-cli-release.json',
+    '--tasks',
+    selectedNewTasks.join(','),
+  ],
+);
+assert.match(oversizedResult, /release manifest exceeds 4096 bytes/);
+assert.equal(fs.readFileSync(refusalSentinel, 'utf8'), 'must survive oversized authority refusal\n');
+assertGitStatusUnchanged(tmpRoot, beforeOversizedRelease);
+fs.rmSync(oversizedRelease);
+fs.rmSync(refusalSentinel);
+
 runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs', [
   '--tasks',
   'dev-care-circle',
