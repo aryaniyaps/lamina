@@ -4,17 +4,30 @@ import { spawnSync } from 'node:child_process';
 import {
   SAFE_INFRASTRUCTURE_PATH, trustedHostBinary,
 } from '../../scripts/safe-runner/infrastructure.mjs';
+import {
+  inertGitEnvironment, trustedGitArguments,
+} from '../../scripts/safe-runner/git.mjs';
+
+function firstSafePathExecutable(name) {
+  for (const directory of SAFE_INFRASTRUCTURE_PATH.split(path.delimiter)) {
+    const candidate = path.join(directory, name);
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      const physical = fs.realpathSync.native(candidate);
+      if (fs.lstatSync(physical).isFile()) return physical;
+    } catch {}
+  }
+  throw new Error(`sealed sandbox PATH is missing ${name}`);
+}
 
 export function sealedSandboxGitProbe(repository) {
   if (process.env.PATH !== SAFE_INFRASTRUCTURE_PATH) {
     throw new Error('sealed sandbox PATH does not match its fixed infrastructure path');
   }
-  if (!fs.existsSync('/usr/bin/git')) {
-    throw new Error('sealed sandbox is missing /usr/bin/git');
-  }
   const gitIdentity = trustedHostBinary('git');
-  if (fs.realpathSync.native('/usr/bin/git') !== gitIdentity.path) {
-    throw new Error('sealed sandbox /usr/bin/git does not match trusted Git identity');
+  const namedGit = firstSafePathExecutable('git');
+  if (namedGit !== gitIdentity.path) {
+    throw new Error('sealed sandbox PATH Git does not match trusted Git identity');
   }
   const repositoryStat = fs.lstatSync(repository, { bigint: true });
   if (!repositoryStat.isDirectory() || repositoryStat.isSymbolicLink()
@@ -33,18 +46,25 @@ export function sealedSandboxGitProbe(repository) {
     fs.unlinkSync(sentinel);
   }
   const invoke = (executable) => {
-    const result = spawnSync(executable, ['rev-parse', '--show-toplevel'], {
-      cwd: repository,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const result = spawnSync(
+      executable,
+      trustedGitArguments(['rev-parse', '--show-toplevel']),
+      {
+        cwd: repository,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 2_000,
+        maxBuffer: 16 * 1024,
+        env: { ...inertGitEnvironment(), PATH: SAFE_INFRASTRUCTURE_PATH },
+      },
+    );
     if (result.error || result.status !== 0) {
       throw new Error(`sealed sandbox Git invocation failed: ${result.error?.code || result.status}`);
     }
     return result.stdout.trim();
   };
   const namedGitRoot = invoke('git');
-  const absoluteGitRoot = invoke('/usr/bin/git');
+  const absoluteGitRoot = invoke(gitIdentity.path);
   if (namedGitRoot !== repository || absoluteGitRoot !== repository) {
     throw new Error('sealed sandbox Git invocation did not resolve the graph repository cwd');
   }
@@ -52,7 +72,7 @@ export function sealedSandboxGitProbe(repository) {
     schema: 'lamina.safe-runner-sealed-sandbox-probe/v1',
     path: process.env.PATH,
     expected_path: SAFE_INFRASTRUCTURE_PATH,
-    git: { requested_path: '/usr/bin/git', ...gitIdentity },
+    git: { named_request: 'git', requested_path: gitIdentity.path, ...gitIdentity },
     repository: {
       path: repository,
       dev: String(repositoryStat.dev),

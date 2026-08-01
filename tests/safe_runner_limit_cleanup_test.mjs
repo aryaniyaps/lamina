@@ -181,7 +181,8 @@ try {
       .find((item) => item?.schema === 'lamina.safe-runner-sealed-sandbox-probe/v1');
     assert.ok(sandboxProbe, `sealed sandbox Git probe evidence is missing; ${artifactHint}`);
     assert.equal(sandboxProbe.path, sandboxProbe.expected_path, artifactHint);
-    assert.equal(sandboxProbe.git?.requested_path, '/usr/bin/git', artifactHint);
+    assert.equal(sandboxProbe.git?.named_request, 'git', artifactHint);
+    assert.equal(sandboxProbe.git?.requested_path, sandboxProbe.git?.path, artifactHint);
     assert.equal(path.isAbsolute(sandboxProbe.git?.path || ''), true, artifactHint);
     assert.match(sandboxProbe.git?.digest || '', /^[a-f0-9]{64}$/, artifactHint);
     assert.equal(sandboxProbe.repository?.path, graphRepository, artifactHint);
