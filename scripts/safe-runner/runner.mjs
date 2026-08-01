@@ -243,6 +243,7 @@ export async function runSafely({
   selfTestCaseId = null,
   promote = false,
   workloadId = null,
+  measurementObserver = null,
   _testCrashBoundary = null,
   _testCrashMarkerFile = null,
   _testBeforeQuotaRelease = null,
@@ -371,7 +372,9 @@ export async function runSafely({
     if (!activeAdapter || !temporaryDirectory) return null;
     const nowMs = Date.now();
     const elapsed = nowMs - startedMs;
-    const measured = activeAdapter.sample();
+    const measured = activeAdapter.sample({
+      accounting: typeof measurementObserver === 'function',
+    });
     let temporary = null;
     if (activeAdapter.production_enforcement && quotaProven) {
       temporary = quotaFilesystemUsage(
@@ -409,6 +412,17 @@ export async function runSafely({
       temporary_bytes: temporary.bytes,
       temporary_inodes: temporary.entries,
     });
+    if (typeof measurementObserver === 'function') {
+      try {
+        measurementObserver(structuredClone({
+          elapsed_ms: elapsed,
+          accounting: measured.accounting || null,
+        }));
+      } catch (error) {
+        report.cleanup.errors.push(`measurement observer: ${error.message}`);
+        requestStop('internal_error', 'measurement_observer');
+      }
+    }
     if (report.samples.length > DEFAULTS.maxSamples) report.samples.shift();
     if ((measured.events?.memory?.oom_kill || 0) > 0
       || (measured.events?.memory?.max || 0) > 0

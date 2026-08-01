@@ -1,5 +1,8 @@
 # LaminaBench
 
+The tiny [practical-runtime harness](runtime-v1/README.md) validates the
+versioned measurement and cleanup contract without claiming a product baseline.
+
 > **Lamina Product Coding Pilot (3-arm):**  
 > Hub → https://hub.harborframework.com/datasets/shiv-eshwar/lb6-dev-pilot-issue18-rewardkit ·  
 > claim → [`lb6/pilot/publication/README.md`](./lb6/pilot/publication/README.md) ·  

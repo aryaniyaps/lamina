@@ -100,6 +100,73 @@ function readKeyValues(file) {
   }
 }
 
+export function parseCgroupIoStat(text) {
+  const totals = {
+    read_bytes: 0,
+    write_bytes: 0,
+    read_operations: 0,
+    write_operations: 0,
+  };
+  let devices = 0;
+  for (const line of String(text || '').trim().split('\n').filter(Boolean)) {
+    const fields = line.trim().split(/\s+/);
+    if (!/^\d+:\d+$/.test(fields.shift() || '')) continue;
+    const values = Object.fromEntries(fields.map((field) => {
+      const separator = field.indexOf('=');
+      return separator === -1 ? [field, Number.NaN]
+        : [field.slice(0, separator), Number(field.slice(separator + 1))];
+    }));
+    if (![values.rbytes, values.wbytes, values.rios, values.wios].every(Number.isFinite)) continue;
+    totals.read_bytes += values.rbytes;
+    totals.write_bytes += values.wbytes;
+    totals.read_operations += values.rios;
+    totals.write_operations += values.wios;
+    devices += 1;
+  }
+  return devices > 0 ? { available: true, devices, ...totals } : {
+    available: false,
+    devices: 0,
+    read_bytes: null,
+    write_bytes: null,
+    read_operations: null,
+    write_operations: null,
+  };
+}
+
+export function parseCgroupCpuStat(text) {
+  const values = {};
+  for (const line of String(text || '').trim().split('\n').filter(Boolean)) {
+    const [key, raw, ...extra] = line.trim().split(/\s+/);
+    const value = Number(raw);
+    if (!key || extra.length > 0 || !Number.isFinite(value) || value < 0) continue;
+    values[key] = value;
+  }
+  const available = [values.usage_usec, values.user_usec, values.system_usec]
+    .every(Number.isFinite);
+  return {
+    available,
+    usage_usec: Number.isFinite(values.usage_usec) ? values.usage_usec : null,
+    user_usec: Number.isFinite(values.user_usec) ? values.user_usec : null,
+    system_usec: Number.isFinite(values.system_usec) ? values.system_usec : null,
+    nr_periods: Number.isFinite(values.nr_periods) ? values.nr_periods : null,
+    nr_throttled: Number.isFinite(values.nr_throttled) ? values.nr_throttled : null,
+    throttled_usec: Number.isFinite(values.throttled_usec) ? values.throttled_usec : null,
+    reason: available ? null : 'cgroup cpu.stat did not contain complete usage accounting',
+  };
+}
+
+function cgroupAccounting(cgroup) {
+  let cpu = null;
+  try { cpu = parseCgroupCpuStat(fs.readFileSync(path.join(cgroup, 'cpu.stat'), 'utf8')); } catch {
+    cpu = parseCgroupCpuStat('');
+  }
+  let io = null;
+  try { io = parseCgroupIoStat(fs.readFileSync(path.join(cgroup, 'io.stat'), 'utf8')); } catch {
+    io = parseCgroupIoStat('');
+  }
+  return { cpu, io };
+}
+
 function cgroupPids(root) {
   const pids = new Set();
   const visit = (directory) => {
@@ -259,11 +326,11 @@ export class LinuxSystemdAdapter {
     return resolved;
   }
 
-  sample() {
+  sample({ accounting = false } = {}) {
     const cgroup = this.resolveCgroup();
     if (!cgroup) return {
       aggregateRssBytes: 0, cgroupMemoryCurrentBytes: 0, cgroupMemoryPeakBytes: 0,
-      taskCount: 0, pids: [], records: [], events: {},
+      taskCount: 0, pids: [], records: [], events: {}, accounting: null,
     };
     const pids = cgroupPids(cgroup);
     const records = pids.map(processRecord).filter(Boolean);
@@ -279,6 +346,7 @@ export class LinuxSystemdAdapter {
       taskCount: readNumber(path.join(cgroup, 'pids.current')),
       pids,
       records,
+      accounting: accounting ? cgroupAccounting(cgroup) : null,
       events: {
         memory: readKeyValues(path.join(cgroup, 'memory.events')),
         pids: readKeyValues(path.join(cgroup, 'pids.events')),

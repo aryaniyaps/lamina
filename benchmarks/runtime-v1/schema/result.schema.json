@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/runtime-benchmark-result-v1.json",
+  "title": "Lamina practical-runtime benchmark result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "schema_version", "result_id", "generated_at", "status",
+    "input_digest", "source", "host", "runtimes", "fixture", "configuration",
+    "lifecycle_phases", "series", "artifacts", "cleanup", "errors"
+  ],
+  "properties": {
+    "schema": { "const": "lamina.runtime-benchmark-result/v1" },
+    "schema_version": { "const": 1 },
+    "result_id": { "type": "string", "minLength": 16 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["valid", "refused", "invalid"] },
+    "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "dirty", "dirty_digest"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "dirty": { "type": "boolean" },
+        "dirty_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "host": {
+      "type": "object", "additionalProperties": false,
+      "required": ["platform", "release", "architecture", "cpu_model", "logical_cores", "total_memory_bytes", "available_memory_bytes"],
+      "properties": {
+        "platform": { "type": "string", "minLength": 1 },
+        "release": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "cpu_model": { "type": "string", "minLength": 1 },
+        "logical_cores": { "type": "integer", "minimum": 1 },
+        "total_memory_bytes": { "type": "integer", "minimum": 1 },
+        "available_memory_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "runtimes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["node", "lamina_cli", "graph_protocol", "safe_runner_report", "harness"],
+      "properties": {
+        "node": { "type": "string", "minLength": 1 },
+        "lamina_cli": { "type": "string", "minLength": 1 },
+        "graph_protocol": { "type": "integer", "minimum": 1 },
+        "safe_runner_report": { "const": "lamina.safe-runner-report/v1" },
+        "harness": { "const": "1" }
+      }
+    },
+    "fixture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "digest", "tracked_files", "indexed_files", "source_bytes", "indexed_bytes", "source_loc", "child_processes"],
+      "properties": {
+        "id": { "const": "tiny-runtime-lifecycle" },
+        "version": { "const": 1 },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "tracked_files": { "type": "integer", "minimum": 1 },
+        "indexed_files": { "type": "integer", "minimum": 1 },
+        "source_bytes": { "type": "integer", "minimum": 1 },
+        "indexed_bytes": { "type": "integer", "minimum": 1 },
+        "source_loc": { "type": "integer", "minimum": 1 },
+        "child_processes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tier", "cold_runs", "warmups", "warm_samples", "limits"],
+      "properties": {
+        "tier": { "const": "small" },
+        "cold_runs": { "type": "integer", "minimum": 3, "maximum": 5 },
+        "warmups": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "warm_samples": { "type": "integer", "minimum": 30, "maximum": 60 },
+        "limits": {
+          "type": "object", "additionalProperties": false,
+          "required": ["memoryMaxBytes", "memoryHighBytes", "pidsMax", "timeoutMs", "outputMaxBytes", "tempMaxBytes", "sampleIntervalMs", "sustainedHighSamples", "gracefulStopMs"],
+          "properties": {
+            "memoryMaxBytes": { "type": "integer", "minimum": 1 },
+            "memoryHighBytes": { "type": "integer", "minimum": 1 },
+            "pidsMax": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "timeoutMs": { "type": "integer", "minimum": 1 },
+            "outputMaxBytes": { "type": "integer", "minimum": 1 },
+            "tempMaxBytes": { "type": "integer", "minimum": 1 },
+            "sampleIntervalMs": { "type": "integer", "minimum": 25 },
+            "sustainedHighSamples": { "type": "integer", "minimum": 1 },
+            "gracefulStopMs": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "lifecycle_phases": {
+      "type": "array", "minItems": 12, "maxItems": 12,
+      "items": { "type": "string" }
+    },
+    "series": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "kind", "warmup_count", "measured_count", "warmup_wall_time_ns", "samples", "statistics", "executions"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["cold", "warm"] },
+          "warmup_count": { "type": "integer", "minimum": 0 },
+          "measured_count": { "type": "integer", "minimum": 0 },
+          "warmup_wall_time_ns": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["index", "classification", "wall_time_ns", "phase_time_ns"],
+              "properties": {
+                "index": { "type": "integer", "minimum": 0 },
+                "classification": { "enum": ["cold", "measured_warm"] },
+                "wall_time_ns": { "type": "integer", "minimum": 0 },
+                "phase_time_ns": {
+                  "type": "array", "minItems": 12, "maxItems": 12,
+                  "items": { "type": ["integer", "null"], "minimum": 0 }
+                }
+              }
+            }
+          },
+          "statistics": {
+            "type": "object", "additionalProperties": false,
+            "required": ["samples", "median", "p90", "p95", "maximum"],
+            "properties": {
+              "samples": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+              "median": { "type": "number", "minimum": 0 },
+              "p90": { "type": ["number", "null"], "minimum": 0 },
+              "p95": { "type": ["number", "null"], "minimum": 0 },
+              "maximum": { "type": "number", "minimum": 0 }
+            }
+          },
+          "executions": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": [
+                "run_index", "outcome", "measurement_valid", "termination_reason", "limit",
+                "wall_time_ms", "exit_status", "exit_signal", "aggregate_peak_rss_bytes", "cgroup_peak_memory_bytes", "runner_peak_rss_bytes",
+                "memory_difference_bytes", "memory_tolerance_bytes", "memory_agrees",
+                "per_process_peak_rss", "cpu_time_ms", "io", "derived_state",
+                "remaining_descendants", "scope_phase_time_ns", "raw_report", "raw_report_sha256", "telemetry", "telemetry_sha256"
+              ],
+              "properties": {
+                "run_index": { "type": "integer", "minimum": 0 },
+                "outcome": { "enum": ["success", "safe_refusal", "timeout", "cancellation", "limit_hit", "command_failure", "internal_error"] },
+                "measurement_valid": { "type": "boolean" },
+                "termination_reason": { "type": ["string", "null"] },
+                "limit": { "type": ["string", "null"] },
+                "wall_time_ms": { "type": "integer", "minimum": 0 },
+                "exit_status": { "type": ["integer", "null"] },
+                "exit_signal": { "type": ["string", "null"] },
+                "aggregate_peak_rss_bytes": { "type": "integer", "minimum": 0 },
+                "cgroup_peak_memory_bytes": { "type": "integer", "minimum": 0 },
+                "runner_peak_rss_bytes": { "type": "integer", "minimum": 0 },
+                "memory_difference_bytes": { "type": "integer", "minimum": 0 },
+                "memory_tolerance_bytes": { "type": "integer", "minimum": 0 },
+                "memory_agrees": { "type": "boolean" },
+                "per_process_peak_rss": {
+                  "type": "array",
+                  "items": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["pid", "ppid", "command", "peak_rss_bytes"],
+                    "properties": {
+                      "pid": { "type": "integer", "minimum": 1 },
+                      "ppid": { "type": ["integer", "null"] },
+                      "command": { "type": "string" },
+                      "peak_rss_bytes": { "type": "integer", "minimum": 0 }
+                    }
+                  }
+                },
+                "cpu_time_ms": { "type": ["number", "null"], "minimum": 0 },
+                "io": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["available", "read_bytes", "write_bytes", "read_operations", "write_operations", "reason"],
+                  "properties": {
+                    "available": { "type": "boolean" },
+                    "read_bytes": { "type": ["integer", "null"], "minimum": 0 },
+                    "write_bytes": { "type": ["integer", "null"], "minimum": 0 },
+                    "read_operations": { "type": ["integer", "null"], "minimum": 0 },
+                    "write_operations": { "type": ["integer", "null"], "minimum": 0 },
+                    "reason": { "type": ["string", "null"] }
+                  }
+                },
+                "derived_state": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["before_bytes", "peak_bytes", "after_bytes"],
+                  "properties": {
+                    "before_bytes": { "type": "integer", "minimum": 0 },
+                    "peak_bytes": { "type": "integer", "minimum": 0 },
+                    "after_bytes": { "type": "integer", "minimum": 0 }
+                  }
+                },
+                "remaining_descendants": { "type": "array", "items": { "type": "integer" } },
+                "scope_phase_time_ns": {
+                  "type": "array", "minItems": 12, "maxItems": 12,
+                  "items": { "type": ["integer", "null"], "minimum": 0 }
+                },
+                "raw_report": { "type": "string", "minLength": 1 },
+                "raw_report_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "telemetry": { "type": "string", "minLength": 1 },
+                "telemetry_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scoped", "marker", "remaining_descendants", "unexpected_paths"],
+      "properties": {
+        "scoped": { "const": true },
+        "marker": { "const": ".lamina-runtime-benchmark-root.json" },
+        "remaining_descendants": { "type": "integer", "minimum": 0 },
+        "unexpected_paths": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  }
+}
