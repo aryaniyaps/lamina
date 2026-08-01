@@ -8,6 +8,7 @@ import {
   REQUIRED_GRAPH_CAPABILITIES,
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
+import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -29,6 +30,18 @@ export function daemonCompatibility(identity) {
     actual_runtime_version: identity?.runtime_version ?? null,
     required_capabilities: [...REQUIRED_GRAPH_CAPABILITIES],
     missing_capabilities: missingCapabilities,
+  };
+}
+
+function graphdEnvironment() {
+  if (process.platform !== 'win32') return process.env;
+  // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
+  // dependencies from the process search path, which must be established when
+  // graphd starts (the extension directory itself is not searched reliably).
+  const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
+  return {
+    ...process.env,
+    PATH: [dependencies, process.env.PATH].filter(Boolean).join(path.delimiter),
   };
 }
 
@@ -161,6 +174,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
       detached: true,
       stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
       cwd: paths.root,
+      env: graphdEnvironment(),
     });
   } finally {
     if (log !== null) fs.closeSync(log);
