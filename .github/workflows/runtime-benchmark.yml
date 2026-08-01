@@ -77,6 +77,8 @@ jobs:
             "$bin_dir/bwrap" "$(sha256sum "$bin_dir/bwrap" | cut -d' ' -f1)" >> "$GITHUB_ENV"
 
       - name: Unit contracts through the safe runner
+        env:
+          LAMINA_RUNTIME_BENCHMARK_UNIT_REPORT: ${{ runner.temp }}/runtime-benchmark-unit-report.json
         run: npm run test:runtime-benchmark
 
       - name: Default tiny integration matrix
@@ -110,7 +112,7 @@ jobs:
           path: |
             ${{ runner.temp }}/runtime-benchmark
             /tmp/lamina-runtime-benchmark-safe-state
-            .lamina-safe-runner/runtime-benchmark-unit.json
+            ${{ runner.temp }}/runtime-benchmark-unit-report.json
 
       - name: Scoped benchmark cleanup
         if: always()

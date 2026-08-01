@@ -12,7 +12,7 @@
     "test:cli": "node tests/cli_package_test.mjs && node tests/cli_doctor_test.mjs && node tests/cli_help_test.mjs && node tests/cli_setup_test.mjs && node tests/greenfield_cli_test.mjs && node tests/skill_cli_prerequisite_test.mjs && node tests/lamina_init_contract_test.mjs && node benchmarks/retrieval-v1/benchmark.mjs && node tests/retrieval_runtime_test.mjs && node tests/retrieval_sync_test.mjs && node tests/passive_context_test.mjs && node tests/graphd_upgrade_test.mjs && node tests/graphd_worktree_test.mjs && node tests/cli_binary_smoke_test.mjs && node tests/observation_cli_test.mjs && node tests/observation_reconciliation_test.mjs && node tests/observation_diagnostics_test.mjs && node tests/no_npm_cli_guidance_test.mjs",
     "bench:retrieval": "npm run safe:run -- --tier small --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate-small.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate",
     "bench:runtime": "node benchmarks/runtime-v1/harness.mjs",
-    "test:runtime-benchmark": "npm run safe:run -- --tier small --workload runtime-benchmark-unit --report .lamina-safe-runner/runtime-benchmark-unit.json --memory-mib 256 --memory-high-mib 224 --pids 32 --timeout-ms 60000 --output-mib 1 --temporary-mib 8 --sample-ms 25 --high-samples 2 --grace-ms 100 -- node tests/runtime_benchmark_test.mjs",
+    "test:runtime-benchmark": "node tests/runtime_benchmark_unit_controller.mjs",
     "test:runtime-benchmark:integration": "node tests/runtime_benchmark_integration_test.mjs",
     "graphd": "node packages/cli/lib/graph-runtime/server.mjs",
     "graph:observe": "node packages/cli/bin/lamina.mjs graph observe",
