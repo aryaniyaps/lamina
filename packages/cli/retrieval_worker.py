@@ -7,6 +7,7 @@ embeddings, and sends generation batches to graphd. It never opens Ladybug.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -421,7 +422,10 @@ def extract_assets(destination: pathlib.Path) -> dict[str, Any]:
         source_file = source / item["embedded_path"]
         target = destination / item["path"]
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_file, target)
+        payload = source_file.read_bytes()
+        if item.get("encoding") == "base64":
+            payload = base64.b64decode(payload, validate=True)
+        target.write_bytes(payload)
         if sha256(target.read_bytes()) != item["sha256"]:
             raise RuntimeError(f"LAMINA_RETRIEVAL_INTEGRITY: failed to extract {item['path']}")
     shutil.copyfile(source / "asset-manifest.json", destination / "asset-manifest.json")

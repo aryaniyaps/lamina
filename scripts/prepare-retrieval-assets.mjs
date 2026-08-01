@@ -66,7 +66,21 @@ for (const role of ['fts', 'vector']) {
   const output = path.join(destination, relative);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.copyFileSync(source, output);
-  files.push({ role, path: relative, embedded_path: relative, source: output });
+  // PyInstaller automatically reclassifies Mach-O-looking DATA as BINARY and
+  // rewrites it during macOS collection. Embed an inert textual representation
+  // so the checksum-authoritative extension bytes survive every platform.
+  const embeddedRelative = `${relative}.base64`;
+  fs.writeFileSync(
+    path.join(destination, embeddedRelative),
+    fs.readFileSync(output).toString('base64'),
+  );
+  files.push({
+    role,
+    path: relative,
+    embedded_path: embeddedRelative,
+    encoding: 'base64',
+    source: output,
+  });
 }
 
 const manifest = {
@@ -80,6 +94,7 @@ const manifest = {
     role: item.role,
     path: item.path,
     embedded_path: item.embedded_path,
+    ...(item.encoding ? { encoding: item.encoding } : {}),
     sha256: sha256(item.source),
     bytes: fs.statSync(item.source).size,
   })),

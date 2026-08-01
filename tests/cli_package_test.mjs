@@ -9,6 +9,8 @@ const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const cliPackage = JSON.parse(fs.readFileSync('packages/cli/package.json', 'utf8'));
 const workflow = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
 const builder = fs.readFileSync('scripts/build-standalone-cli.mjs', 'utf8');
+const retrievalAssetBuilder = fs.readFileSync('scripts/prepare-retrieval-assets.mjs', 'utf8');
+const retrievalWorker = fs.readFileSync('packages/cli/retrieval_worker.py', 'utf8');
 const bootstrap = fs.readFileSync('packages/cli/sea/bootstrap.cjs', 'utf8');
 const graphClient = fs.readFileSync('packages/cli/lib/graph-runtime/client.mjs', 'utf8');
 const binarySmoke = fs.readFileSync('tests/cli_binary_smoke_test.mjs', 'utf8');
@@ -21,7 +23,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.3.2');
+assert.equal(cliPackage.version, '0.3.3');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.equal(retrievalModel.qualification.decision, 'ship_int8');
 assert.ok(
@@ -52,7 +54,11 @@ for (const extension of ['fts', 'vector']) {
     `${extension} must be packaged as immutable data so PyInstaller does not rewrite its bytes`,
   );
   assert.doesNotMatch(extensionLine || '', /'--add-binary'/);
+  assert.match(extensionLine || '', /\.base64/);
 }
+assert.match(retrievalAssetBuilder, /toString\('base64'\)/);
+assert.match(retrievalAssetBuilder, /encoding: 'base64'/);
+assert.match(retrievalWorker, /base64\.b64decode\(payload, validate=True\)/);
 assert.match(builder, /\['pywintypes', 'win32file', 'win32pipe'\]/);
 assert.match(builder, /buildArgs\.push\('--hidden-import', module\)/);
 assert.match(builder, /must be built natively/);
@@ -90,7 +96,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.2']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.3']).status,
   0,
 );
 assert.notEqual(

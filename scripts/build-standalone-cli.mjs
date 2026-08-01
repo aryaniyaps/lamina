@@ -76,11 +76,10 @@ function buildManagedCocoWorker() {
     '--collect-all', 'tokenizers',
     '--add-data', `${path.join(retrievalAssets, 'tokenizer.json')}${pyInstallerSeparator}retrieval-assets`,
     '--add-data', `${path.join(retrievalAssets, 'asset-manifest.json')}${pyInstallerSeparator}retrieval-assets`,
-    // Preserve the extension bytes exactly as hashed in asset-manifest.json.
-    // PyInstaller's macOS binary processing can rewrite Mach-O files added via
-    // --add-binary, which makes the extracted file fail the integrity check.
-    '--add-data', `${path.join(retrievalAssets, 'extensions/fts.lbug_extension')}${pyInstallerSeparator}retrieval-assets/extensions`,
-    '--add-data', `${path.join(retrievalAssets, 'extensions/vector.lbug_extension')}${pyInstallerSeparator}retrieval-assets/extensions`,
+    // Embed textual payloads because PyInstaller automatically reclassifies
+    // Mach-O-looking DATA as BINARY and rewrites it during macOS collection.
+    '--add-data', `${path.join(retrievalAssets, 'extensions/fts.lbug_extension.base64')}${pyInstallerSeparator}retrieval-assets/extensions`,
+    '--add-data', `${path.join(retrievalAssets, 'extensions/vector.lbug_extension.base64')}${pyInstallerSeparator}retrieval-assets/extensions`,
   ];
   if (process.platform === 'win32') {
     // cocoindex_app imports these only inside its Windows named-pipe branch,
