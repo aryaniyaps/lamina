@@ -476,6 +476,7 @@ try {
     executableDigest: () => digestFile(process.execPath),
     environment: () => ({}),
     pathReadOnly: () => true,
+    dependencyRoot: path.resolve('packages/cli'),
     register: (record) => brokerRegistrations.push(record),
   };
   assert.equal(authorizeBrokerRequest({

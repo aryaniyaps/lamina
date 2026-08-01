@@ -29,15 +29,17 @@ IFS= read -r _release < "$release_file"
 
 runner_root=$(CDPATH= cd -- "$(dirname "$quota_gate")/../.." && pwd -P)
 dependency_parent=$runner_root
+dependency_root=$runner_root/packages/cli
 while [ ! -d "$dependency_parent/node_modules" ]; do
   parent=$(dirname "$dependency_parent")
   if [ "$parent" = "$dependency_parent" ]; then
-    echo 'safe-runner dependency root is unavailable' >&2
-    exit 125
+    break
   fi
   dependency_parent=$parent
 done
-dependency_root=$dependency_parent/node_modules
+if [ -d "$dependency_parent/node_modules" ]; then
+  dependency_root=$dependency_parent/node_modules
+fi
 
 bwrap --unshare-user --uid 0 --gid 0 \
   --ro-bind / / --dev-bind /dev /dev --proc /proc \

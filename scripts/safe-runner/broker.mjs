@@ -22,7 +22,7 @@ function dependencyRoot(start) {
     const candidate = path.join(current, 'node_modules');
     if (fs.existsSync(candidate)) return fs.realpathSync.native(candidate);
     const parent = path.dirname(current);
-    if (parent === current) throw new Error('safe-runner dependency root is unavailable');
+    if (parent === current) return null;
     current = parent;
   }
 }
@@ -154,9 +154,11 @@ function canonicalGraphdRegistration(request, authority, child) {
       && ['clean', 'leave-stale', 'exit-stale'].includes(argv[3]);
     const readOnly = (candidate) => authority.pathReadOnly?.(child.pid, candidate)
       ?? processPathIsReadOnly(child.pid, candidate);
+    const effectiveDependencyRoot = authority.dependencyRoot ?? TRUSTED_DEPENDENCY_ROOT;
     const immutableClosure = readOnly(TRUSTED_CLI_ROOT)
-      && readOnly(TRUSTED_DEPENDENCY_ROOT)
-      && (!fixtureSource || readOnly(TRUSTED_FIXTURE_ROOT));
+      && (fixtureSource
+        ? readOnly(TRUSTED_FIXTURE_ROOT)
+        : Boolean(effectiveDependencyRoot) && readOnly(effectiveDependencyRoot));
     trustedSource = /^(?:node|node\.exe)$/i.test(executable)
       && executableDigest === CONTROLLER_EXECUTABLE_DIGEST
       && immutableClosure
