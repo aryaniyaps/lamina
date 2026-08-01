@@ -1,4 +1,66 @@
 import fs from 'node:fs';
+import { isExecutionHookEnvironment } from './infrastructure.mjs';
+
+export const MAX_PROCESS_ENVIRONMENT_BYTES = 64 * 1024;
+
+export function processEnvironmentAttestation(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length > MAX_PROCESS_ENVIRONMENT_BYTES) {
+    return {
+      readable: Buffer.isBuffer(bytes), bounded: false, malformed: false,
+      byte_count: Buffer.isBuffer(bytes) ? bytes.length : null,
+      names: null, execution_hooks: null,
+    };
+  }
+  if (bytes.length > 0 && bytes.at(-1) !== 0) {
+    return {
+      readable: true, bounded: true, malformed: true,
+      byte_count: bytes.length, names: null, execution_hooks: null,
+    };
+  }
+  const names = [];
+  const seen = new Set();
+  for (const item of bytes.toString('utf8').split('\0').filter(Boolean)) {
+    const separator = item.indexOf('=');
+    const name = separator > 0 ? item.slice(0, separator) : '';
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || seen.has(name)) {
+      return {
+        readable: true, bounded: true, malformed: true,
+        byte_count: bytes.length, names: null, execution_hooks: null,
+      };
+    }
+    seen.add(name);
+    names.push(name);
+  }
+  names.sort();
+  return {
+    readable: true, bounded: true, malformed: false,
+    byte_count: bytes.length, names,
+    execution_hooks: names.filter(isExecutionHookEnvironment),
+  };
+}
+
+function readProcessEnvironment(pid) {
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(`/proc/${pid}/environ`,
+      fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const bytes = Buffer.alloc(MAX_PROCESS_ENVIRONMENT_BYTES + 1);
+    let count = 0;
+    while (count < bytes.length) {
+      const read = fs.readSync(descriptor, bytes, count, bytes.length - count, null);
+      if (read === 0) break;
+      count += read;
+    }
+    return processEnvironmentAttestation(bytes.subarray(0, count));
+  } catch {
+    return {
+      readable: false, bounded: false, malformed: false,
+      byte_count: null, names: null, execution_hooks: null,
+    };
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+}
 
 function parseProcStat(text) {
   const close = text.lastIndexOf(')');
@@ -22,6 +84,7 @@ export function processRecord(pid) {
     const argv = cmdlineBytes.length <= 8 * 1024
       ? cmdlineBytes.toString('utf8').split('\0').filter(Boolean) : null;
     const cmdline = (argv || []).join(' ');
+    const environmentAttestation = readProcessEnvironment(pid);
     let cwd = null;
     try { cwd = fs.realpathSync.native(`/proc/${pid}/cwd`); } catch {}
     let executableIdentity = null;
@@ -42,6 +105,7 @@ export function processRecord(pid) {
       argv,
       cwd,
       executable_identity: executableIdentity,
+      environment_attestation: environmentAttestation,
     };
   } catch {
     return null;

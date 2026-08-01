@@ -38,15 +38,30 @@ export function daemonCompatibility(identity) {
   };
 }
 
-function graphdEnvironment() {
-  if (process.platform !== 'win32') return process.env;
+function isGraphdExecutionHook(name) {
+  return [
+    'BASH_ENV', 'ENV', 'CDPATH', 'GLOBIGNORE', 'SHELLOPTS',
+    'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONINSPECT',
+    'PERL5OPT', 'PERL5LIB', 'PERL_LOCAL_LIB_ROOT', 'PERL_MB_OPT', 'PERL_MM_OPT',
+    'RUBYOPT', 'RUBYLIB', 'GEM_HOME', 'GEM_PATH',
+    'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS',
+    'GCONV_PATH', 'GETCONF_DIR', 'LOCPATH', 'NLSPATH', 'HOSTALIASES', 'RES_OPTIONS',
+  ].includes(name) || [
+    'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY', 'GIT_',
+  ].some((prefix) => name.startsWith(prefix));
+}
+
+export function graphdEnvironment() {
+  const environment = Object.fromEntries(Object.entries(process.env)
+    .filter(([name]) => !isGraphdExecutionHook(name)));
+  if (process.platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when
   // graphd starts (the extension directory itself is not searched reliably).
   const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
   return {
-    ...process.env,
-    PATH: [dependencies, process.env.PATH].filter(Boolean).join(path.delimiter),
+    ...environment,
+    PATH: [dependencies, environment.PATH].filter(Boolean).join(path.delimiter),
   };
 }
 

@@ -42,12 +42,17 @@ import {
   trustedBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
-import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
+import {
+  existingLaminaProcesses, isLaminaProcessCommand, MAX_PROCESS_ENVIRONMENT_BYTES,
+  processEnvironmentAttestation,
+} from '../scripts/safe-runner/processes.mjs';
 import {
   assertExecutionSnapshot, assertGitObjectClosureBudget, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
-import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
+import {
+  graphdEnvironment, stopIncompatibleServer,
+} from '../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 import {
   baseReport,
@@ -260,6 +265,35 @@ try {
   assert.equal(poison.GIT_CONFIG_GLOBAL, process.platform === 'win32' ? 'NUL' : '/dev/null');
   assert.equal(sanitizedEnvironment(poison).GIT_CONFIG_NOSYSTEM, '1',
     'repeated sanitizer layers must restore safe Git config overrides');
+  const previousGraphdNodeOptions = process.env.NODE_OPTIONS;
+  const previousGraphdSafeValue = process.env.LAMINA_GRAPH_ENV_TEST;
+  process.env.NODE_OPTIONS = '--require=/tmp/hostile-graphd-loader.cjs';
+  process.env.LAMINA_GRAPH_ENV_TEST = 'kept';
+  try {
+    const graphdEnv = graphdEnvironment();
+    assert.equal(graphdEnv.NODE_OPTIONS, undefined);
+    assert.equal(graphdEnv.LAMINA_GRAPH_ENV_TEST, 'kept');
+  } finally {
+    if (previousGraphdNodeOptions === undefined) delete process.env.NODE_OPTIONS;
+    else process.env.NODE_OPTIONS = previousGraphdNodeOptions;
+    if (previousGraphdSafeValue === undefined) delete process.env.LAMINA_GRAPH_ENV_TEST;
+    else process.env.LAMINA_GRAPH_ENV_TEST = previousGraphdSafeValue;
+  }
+  const cleanProcessEnvironment = processEnvironmentAttestation(
+    Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_RUNNER=1\0'),
+  );
+  assert.deepEqual(cleanProcessEnvironment.execution_hooks, []);
+  assert.deepEqual(processEnvironmentAttestation(
+    Buffer.from('PATH=/usr/bin\0NODE_OPTIONS=--require=/tmp/loader.cjs\0'),
+  ).execution_hooks, ['NODE_OPTIONS']);
+  assert.deepEqual(processEnvironmentAttestation(
+    Buffer.from('NODE_PATH=/tmp/modules\0NODE_LOADER=/tmp/loader.mjs\0'),
+  ).execution_hooks, ['NODE_LOADER', 'NODE_PATH']);
+  assert.equal(processEnvironmentAttestation(Buffer.from('PATH=/usr/bin')).malformed, true,
+    'a non-terminated proc environment must fail closed as malformed');
+  assert.equal(processEnvironmentAttestation(Buffer.alloc(
+    MAX_PROCESS_ENVIRONMENT_BYTES + 1,
+  )).bounded, false, 'an oversized proc environment must fail closed');
 
   const binaryCopy = path.join(root, 'trusted-bwrap-copy');
   fs.copyFileSync('/usr/bin/bwrap', binaryCopy);
@@ -823,24 +857,59 @@ try {
   assert.equal(linkedSnapshot.graphd_launch_authority[0].runtime_directory, linkedRuntime.source,
     'linked graphd broker equality must use the exact mounted common runtime path');
   const linkedGraphdAuthority = linkedSnapshot.graphd_launch_authority[0];
-  assert.equal(exactGraphdLaunchAuthorized({
+  const cleanGraphdEnvironment = processEnvironmentAttestation(
+    Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0'),
+  );
+  const linkedGraphdChild = {
     argv: linkedGraphdAuthority.argv,
+    environment_attestation: cleanGraphdEnvironment,
     executable_identity: {
       dev: linkedGraphdAuthority.executable_identity.dev,
       ino: linkedGraphdAuthority.executable_identity.ino,
       uid: linkedGraphdAuthority.executable_identity.uid,
     },
+  };
+  assert.equal(exactGraphdLaunchAuthorized({
+    ...linkedGraphdChild,
   }, {
     socket: path.join(linkedRuntime.source, 'graphd.sock'),
     lock: path.join(linkedRuntime.source, 'graphd.lock'),
   }, linkedSnapshot.graphd_launch_authority), true);
   assert.equal(exactGraphdLaunchAuthorized({
-    argv: linkedGraphdAuthority.argv,
+    ...linkedGraphdChild,
     executable_identity: { dev: 'spoof', ino: 'spoof', uid: 0 },
   }, {
     socket: path.join(linkedRuntime.source, 'graphd.sock'),
     lock: path.join(linkedRuntime.source, 'graphd.lock'),
   }, linkedSnapshot.graphd_launch_authority), false);
+  for (const hook of [
+    'NODE_OPTIONS=--require=/tmp/hostile-loader.cjs',
+    'NODE_LOADER=/tmp/hostile-loader.mjs',
+  ]) {
+    assert.equal(exactGraphdLaunchAuthorized({
+      ...linkedGraphdChild,
+      environment_attestation: processEnvironmentAttestation(
+        Buffer.from(`PATH=/usr/bin\0${hook}\0`),
+      ),
+    }, {
+      socket: path.join(linkedRuntime.source, 'graphd.sock'),
+      lock: path.join(linkedRuntime.source, 'graphd.lock'),
+    }, linkedSnapshot.graphd_launch_authority), false,
+    `${hook.split('=')[0]} must invalidate otherwise exact graphd launch authority`);
+  }
+  for (const environment_attestation of [
+    { ...cleanGraphdEnvironment, readable: false },
+    { ...cleanGraphdEnvironment, bounded: false },
+    { ...cleanGraphdEnvironment, malformed: true },
+  ]) {
+    assert.equal(exactGraphdLaunchAuthorized({
+      ...linkedGraphdChild, environment_attestation,
+    }, {
+      socket: path.join(linkedRuntime.source, 'graphd.sock'),
+      lock: path.join(linkedRuntime.source, 'graphd.lock'),
+    }, linkedSnapshot.graphd_launch_authority), false,
+    'unreadable, oversized, or malformed graphd environments must fail closed');
+  }
   fs.writeFileSync(path.join(linkedRuntime.source, 'write-through.marker'), 'writable graph runtime');
   assert.equal(fs.readFileSync(path.join(runtimePaths(linkedPrimary).runtime_dir,
     'write-through.marker'), 'utf8'), 'writable graph runtime');
@@ -863,6 +932,19 @@ try {
     cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
     temporaryDirectory: path.join(root, 'snapshot-linked-include'),
   }), /executable Git section include/);
+  const physicalGitdirWorktree = path.join(linkedBase, 'physical-gitdir-worktree');
+  const physicalGitdir = path.join(physicalGitdirWorktree, '.git');
+  fs.mkdirSync(physicalGitdir, { recursive: true });
+  fs.writeFileSync(path.join(physicalGitdir, 'HEAD'), `ref: refs/heads/feature\n`);
+  fs.writeFileSync(path.join(physicalGitdir, 'commondir'), `${path.join(linkedPrimary, '.git')}\n`);
+  assert.equal(path.resolve(physicalGitdirWorktree,
+    linkedGit(physicalGitdirWorktree, ['rev-parse', '--git-common-dir'])),
+  path.join(linkedPrimary, '.git'),
+  'the adversary must be a Git-recognized physical .git/commondir layout');
+  const physicalGitdirProof = writableWorktreeProof(physicalGitdirWorktree, []);
+  assert.equal(physicalGitdirProof.ok, false);
+  assert.match(physicalGitdirProof.reason, /physical \.git directories with external commondir/,
+    'filesystem discovery must refuse physical .git/commondir before any trusted Git spawn');
   }
 
   fs.symlinkSync('/etc/passwd', path.join(snapshotRepository, 'escape.mjs'));

@@ -77,6 +77,9 @@ function gitMetadataFromFilesystem(cwd) {
       const stat = fs.lstatSync(marker);
       if (stat.isDirectory() && !stat.isSymbolicLink()
         && fs.realpathSync.native(marker) === marker) {
+        if (fs.existsSync(path.join(marker, 'commondir'))) {
+          throw new Error('physical .git directories with external commondir are not admitted');
+        }
         return { gitDirectory: marker, common: marker };
       }
       if (!stat.isFile() || stat.isSymbolicLink()) {

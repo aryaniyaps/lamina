@@ -10,7 +10,14 @@ const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || ''
     || record?.namespace_pids?.includes(Number(claimed?.pid)));
 
 export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority = []) {
-  if (!Array.isArray(child?.argv)) return false;
+  const environment = child?.environment_attestation;
+  if (!Array.isArray(child?.argv)
+    || environment?.readable !== true
+    || environment?.bounded !== true
+    || environment?.malformed !== false
+    || !Array.isArray(environment?.names)
+    || !Array.isArray(environment?.execution_hooks)
+    || environment.execution_hooks.length !== 0) return false;
   return launchAuthority.some((expected) => {
     const executableMatches = ['dev', 'ino', 'uid'].every((field) =>
       child.executable_identity?.[field] === expected.executable_identity?.[field]);
