@@ -46,10 +46,13 @@ function graphdEnvironment() {
   // dependencies from the process search path, which must be established when
   // graphd starts (the extension directory itself is not searched reliably).
   const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
-  return {
-    ...environment,
-    PATH: [dependencies, environment.PATH].filter(Boolean).join(path.delimiter),
-  };
+  const pathKey = Object.keys(environment).find((name) => name.toLowerCase() === 'path') || 'Path';
+  const inheritedPath = environment[pathKey];
+  for (const name of Object.keys(environment)) {
+    if (name.toLowerCase() === 'path') delete environment[name];
+  }
+  environment[pathKey] = [dependencies, inheritedPath].filter(Boolean).join(path.delimiter);
+  return environment;
 }
 
 export function registerManagedGraphd(child, paths = null) {
