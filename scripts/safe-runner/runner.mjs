@@ -66,6 +66,30 @@ export function boundedDiagnosticText(value) {
     .slice(0, 1_000);
 }
 
+export function temporaryQuotaHandshakeFailure(childEnded, launcherStderr = '') {
+  if (!childEnded) {
+    return {
+      limit: 'temporary_quota_handshake',
+      error: Object.assign(
+        new Error('size-limited private tmpfs handshake failed before payload release'),
+        { code: 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN' },
+      ),
+    };
+  }
+  const childReason = childEnded.error
+    ? `spawn error: ${boundedDiagnosticText(childEnded.error?.message || childEnded.error)}`
+    : childEnded.signal
+      ? `signal ${boundedDiagnosticText(childEnded.signal)}`
+      : `status ${Number.isInteger(childEnded.code) ? childEnded.code : 'unknown'}`;
+  const diagnostic = boundedDiagnosticText(launcherStderr);
+  return {
+    limit: 'sandbox_launch',
+    error: Object.assign(new Error(
+      `sandbox launcher exited with ${childReason} before private tmpfs readiness${diagnostic ? `: ${diagnostic}` : ''}`,
+    ), { code: 'LAMINA_SAFE_SANDBOX_LAUNCH' }),
+  };
+}
+
 export async function closeOutputStreams(childStreams, outputStreams, deadlineMs = 1_000) {
   for (const stream of childStreams) stream.resume();
   const closures = outputStreams.map((stream) => stream.closed
@@ -879,10 +903,9 @@ export async function runSafely({
         await wait(20);
       }
       if (!quotaProof) {
-        requestStop('internal_error', 'temporary_quota_handshake');
-        throw Object.assign(new Error('size-limited private tmpfs handshake failed before payload release'), {
-          code: 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
-        });
+        const failure = temporaryQuotaHandshakeFailure(childEnded, launcherStderrTail);
+        requestStop('internal_error', failure.limit);
+        throw failure.error;
       }
       report.preflight.temporary_quota_proof = quotaProof;
       quotaProven = true;

@@ -197,7 +197,17 @@ export function validateSandboxExecutionAuthority({
         || !fs.lstatSync(binding.alias).isDirectory()) return true;
       if (binding.kind === 'git-common-work-scratch') {
         const stat = fs.lstatSync(binding.source, { bigint: true });
+        const snapshotGitCommon = executionAuthority.git_directory !== executionAuthority.git_common
+          ? path.join(authorityRoot, 'git-authority', 'common')
+          : path.join(executionAuthority.snapshot_repository, '.git');
+        const snapshotTargetStat = fs.lstatSync(binding.snapshot_target, { bigint: true });
         return binding.source !== path.join(executionAuthority.git_common, 'lamina', 'work')
+          || binding.snapshot_target !== path.join(snapshotGitCommon, 'lamina', 'work')
+          || !snapshotTargetStat.isDirectory() || snapshotTargetStat.isSymbolicLink()
+          || fs.realpathSync.native(binding.snapshot_target) !== binding.snapshot_target
+          || String(snapshotTargetStat.dev) !== binding.snapshot_target_identity?.dev
+          || String(snapshotTargetStat.ino) !== binding.snapshot_target_identity?.ino
+          || Number(snapshotTargetStat.uid) !== binding.snapshot_target_identity?.uid
           || String(stat.dev) !== binding.source_identity?.dev
           || String(stat.ino) !== binding.source_identity?.ino
           || Number(stat.uid) !== binding.source_identity?.uid;

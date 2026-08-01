@@ -152,7 +152,9 @@ assert.doesNotMatch(retrievalBenchmark,
 assert.match(retrievalBenchmark,
   /Object\.keys\(childEnvironment\)[\s\S]*startsWith\('LAMINA_TEST_'\)[\s\S]*startsWith\('LAMINA_RETRIEVAL_'\)/,
   'benchmark worker environment must strip inherited test and retrieval semantic families');
-assert.doesNotMatch(executionSnapshot, /snapshot_target/);
+assert.match(executionSnapshot,
+  /snapshot_target: snapshotTarget[\s\S]*snapshot_target_identity:[\s\S]*assertExecutionSnapshot[\s\S]*writable mount point identity changed/,
+  'writable mounts must carry a physical identity-sealed destination inside snapshot authority');
 assert.match(npxAuthority,
   /package_name:\s*'agent-skills-eval'[\s\S]*launch_admitted:\s*false/);
 assert.match(outputPolicy, /private tmpfs/);

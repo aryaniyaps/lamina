@@ -77,6 +77,7 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
+  temporaryQuotaHandshakeFailure,
 } from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
@@ -116,6 +117,21 @@ try {
     'the workload timeout must fire once payload runtime reaches its limit');
   assert.equal(payloadRuntimeTimedOut(Number.NaN, 51_000, 1_000), true,
     'invalid runtime timing state must fail closed');
+  const liveQuotaTimeout = temporaryQuotaHandshakeFailure(null);
+  assert.equal(liveQuotaTimeout.limit, 'temporary_quota_handshake');
+  assert.equal(liveQuotaTimeout.error.code, 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
+    'a live sandbox that never proves its tmpfs retains the generic quota refusal');
+  const exitedSandbox = temporaryQuotaHandshakeFailure(
+    { code: 125, signal: null },
+    `bwrap: cannot prepare /tmp/private/repository ${'x'.repeat(1_200)}`,
+  );
+  assert.equal(exitedSandbox.limit, 'sandbox_launch');
+  assert.equal(exitedSandbox.error.code, 'LAMINA_SAFE_SANDBOX_LAUNCH',
+    'an exited sandbox wrapper must be classified as infrastructure, not quota readiness');
+  assert.match(exitedSandbox.error.message, /status 125/);
+  assert.doesNotMatch(exitedSandbox.error.message, /\/tmp\/private/);
+  assert.ok(exitedSandbox.error.message.length <= 1_100,
+    'sandbox launch diagnostics must remain bounded');
 
   for (const [script, launchMarker] of [
     ['scripts/safe-runner/gate.sh', 'LAMINA_SAFE_QUOTA_GATE='],
@@ -1663,6 +1679,15 @@ try {
   assert.equal(validMutableSnapshot.writable_bindings[0].target,
     fixtureWork, 'mutable fixture writable target must be the exact lamina/work scratch');
   assert.equal(validMutableSnapshot.writable_bindings[0].kind, 'git-common-work-scratch');
+  const mutableSnapshotTarget = path.join(
+    validMutableSnapshot.snapshot_repository, '.git', 'lamina', 'work',
+  );
+  assert.equal(validMutableSnapshot.writable_bindings[0].snapshot_target,
+    mutableSnapshotTarget);
+  assert.equal(fs.lstatSync(mutableSnapshotTarget).isDirectory(), true,
+    'sealed writable bind target must physically exist before sandbox mount construction');
+  assert.equal(fs.realpathSync.native(mutableSnapshotTarget), mutableSnapshotTarget);
+  assert.equal(assertExecutionSnapshot(validMutableSnapshot), true);
   const encodedMutableAuthority = JSON.parse(Buffer.from(
     encodeExecutionAuthority(validMutableSnapshot), 'base64url',
   ).toString('utf8'));
@@ -1682,9 +1707,25 @@ try {
     preservedEnvironmentNames: mutableSandboxContract.preservedEnvironmentNames,
     environment: {}, masks: { hiddenDirectories: [], sockets: [] },
   });
-  assert.ok(mutableSandboxArgs.some((value, index) => value === fixtureWork
-    && mutableSandboxArgs[index - 1] === '--bind'),
-  'mutable fixture exact scratch must survive sandbox validation into bwrap mounts');
+  const mountOperationIndex = (args, option, source, target) => {
+    for (let index = 0; index <= args.length - 3; index += 1) {
+      if (args[index] === option && args[index + 1] === source && args[index + 2] === target) {
+        return index;
+      }
+    }
+    return -1;
+  };
+  const mutableBinding = encodedMutableAuthority.writable_bindings[0];
+  const mutableSourceAliasMount = mountOperationIndex(mutableSandboxArgs, '--bind',
+    mutableBinding.source, mutableBinding.alias);
+  const mutableRepositoryMount = mountOperationIndex(mutableSandboxArgs, '--ro-bind',
+    encodedMutableAuthority.snapshot_repository, encodedMutableAuthority.repository);
+  const mutableAliasTargetMount = mountOperationIndex(mutableSandboxArgs, '--bind',
+    mutableBinding.alias, mutableBinding.target);
+  assert.ok(mutableSourceAliasMount >= 0
+    && mutableSourceAliasMount < mutableRepositoryMount
+    && mutableRepositoryMount < mutableAliasTargetMount,
+  'bwrap must capture source to alias, seal the repository, then bind alias to its target');
   assert.throws(() => validateSandboxExecutionAuthority({
     executionAuthority: {
       ...encodedMutableAuthority,
@@ -1697,6 +1738,58 @@ try {
     environment: {},
   }), /invalid execution authority/,
   'the former parent-runtime kind must fail at the sandbox authority boundary');
+  const originalMutableSnapshotTarget = `${mutableSnapshotTarget}-original`;
+  fs.renameSync(mutableSnapshotTarget, originalMutableSnapshotTarget);
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: encodedMutableAuthority,
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'a missing sealed bind target must fail sandbox authority validation');
+  fs.symlinkSync(originalMutableSnapshotTarget, mutableSnapshotTarget);
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: encodedMutableAuthority,
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'a symlinked sealed bind target must fail sandbox authority validation');
+  fs.unlinkSync(mutableSnapshotTarget);
+  fs.mkdirSync(mutableSnapshotTarget, { mode: 0o700 });
+  assert.throws(() => assertExecutionSnapshot(validMutableSnapshot),
+    /writable mount point identity changed/,
+    'same-path replacement of the sealed bind target must fail snapshot continuity');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: encodedMutableAuthority,
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'same-path replacement of the sealed bind target must fail sandbox authority validation');
+  fs.rmSync(mutableSnapshotTarget, { recursive: true, force: true });
+  fs.renameSync(originalMutableSnapshotTarget, mutableSnapshotTarget);
+  const outsideSnapshotTarget = path.join(validMutableSnapshot.root, 'outside-snapshot-target');
+  fs.mkdirSync(outsideSnapshotTarget, { mode: 0o700 });
+  const outsideSnapshotTargetStat = fs.lstatSync(outsideSnapshotTarget, { bigint: true });
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...encodedMutableAuthority,
+      writable_bindings: encodedMutableAuthority.writable_bindings.map((binding) => ({
+        ...binding,
+        snapshot_target: outsideSnapshotTarget,
+        snapshot_target_identity: {
+          dev: String(outsideSnapshotTargetStat.dev),
+          ino: String(outsideSnapshotTargetStat.ino),
+          uid: Number(outsideSnapshotTargetStat.uid),
+        },
+      })),
+    },
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'an out-of-authority sealed bind target must fail sandbox authority validation');
   assert.deepEqual(validMutableSnapshot.graphd_launch_authority, [],
     'mutable scratch fixture must not receive graphd launch authority');
   const graphdEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
@@ -1721,6 +1814,11 @@ try {
   assert.equal(validGraphdSnapshot.writable_bindings[0].target,
     fixtureWork, 'graphd fixture writable target must be the exact lamina/work scratch');
   assert.equal(validGraphdSnapshot.writable_bindings[0].kind, 'git-common-work-scratch');
+  assert.equal(validGraphdSnapshot.writable_bindings[0].snapshot_target,
+    path.join(validGraphdSnapshot.snapshot_repository, '.git', 'lamina', 'work'));
+  assert.equal(fs.lstatSync(validGraphdSnapshot.writable_bindings[0].snapshot_target).isDirectory(),
+    true, 'graphd writable bind target must be scaffolded in the sealed snapshot');
+  assert.equal(assertExecutionSnapshot(validGraphdSnapshot), true);
   const encodedGraphdAuthority = JSON.parse(Buffer.from(
     encodeExecutionAuthority(validGraphdSnapshot), 'base64url',
   ).toString('utf8'));
@@ -1831,7 +1929,11 @@ try {
   linkedGit(linkedPrimary, ['config', 'user.email', 'snapshot@lamina.invalid']);
   linkedGit(linkedPrimary, ['config', 'user.name', 'Snapshot Test']);
   fs.writeFileSync(path.join(linkedPrimary, 'entry.mjs'), "export const version = 'one';\n");
-  linkedGit(linkedPrimary, ['add', 'entry.mjs']);
+  const linkedMutableRelative = path.join('tests', 'fixtures', 'safe-runner-mutable.mjs');
+  fs.mkdirSync(path.join(linkedPrimary, 'tests', 'fixtures'), { recursive: true });
+  fs.writeFileSync(path.join(linkedPrimary, linkedMutableRelative),
+    'export const mutableFixture = true;\n');
+  linkedGit(linkedPrimary, ['add', 'entry.mjs', linkedMutableRelative]);
   linkedGit(linkedPrimary, ['commit', '-m', 'first']);
   fs.writeFileSync(path.join(linkedPrimary, 'history.txt'), 'second commit\n');
   linkedGit(linkedPrimary, ['add', 'history.txt']);
@@ -1912,6 +2014,69 @@ try {
   assert.ok(linkedSandboxArgs.indexOf(linkedCommonBinding.source)
     < linkedSandboxArgs.indexOf(linkedWorktreeBinding.source),
   'sealed Git common authority must mount before nested worktree metadata');
+  const linkedFixtureWork = path.join(runtimePaths(linkedWorktree).common, 'lamina', 'work');
+  const linkedMutableDirectory = path.join(linkedFixtureWork, 'mutable-valid');
+  fs.mkdirSync(linkedMutableDirectory, { recursive: true });
+  const linkedMutableSnapshot = prepareExecutionSnapshot({
+    cwd: linkedWorktree,
+    command: ['/bin/sh', path.join(linkedWorktree, linkedMutableRelative),
+      path.join(linkedMutableDirectory, 'result.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-linked-mutable'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  assert.equal(linkedMutableSnapshot.writable_bindings.length, 1);
+  const linkedMutableBinding = linkedMutableSnapshot.writable_bindings[0];
+  const linkedMutableCommon = linkedMutableSnapshot.git_readonly_bindings.find((item) =>
+    item.kind === 'git-common');
+  const linkedMutableWorktree = linkedMutableSnapshot.git_readonly_bindings.find((item) =>
+    item.kind === 'git-worktree');
+  assert.equal(linkedMutableBinding.source, linkedFixtureWork);
+  assert.equal(linkedMutableBinding.snapshot_target,
+    path.join(linkedMutableSnapshot.root, 'git-authority', 'common', 'lamina', 'work'),
+    'linked fixture target must be scaffolded at the exact sealed Git-common backing');
+  assert.equal(linkedMutableBinding.snapshot_target,
+    path.join(linkedMutableCommon.source, 'lamina', 'work'));
+  assert.equal(fs.lstatSync(linkedMutableBinding.snapshot_target).isDirectory(), true,
+    'linked fixture bind target must exist in sealed Git-common authority before bwrap');
+  assert.equal(fs.realpathSync.native(linkedMutableBinding.snapshot_target),
+    linkedMutableBinding.snapshot_target);
+  assert.equal(assertExecutionSnapshot(linkedMutableSnapshot), true);
+  const encodedLinkedMutableAuthority = JSON.parse(Buffer.from(
+    encodeExecutionAuthority(linkedMutableSnapshot), 'base64url',
+  ).toString('utf8'));
+  const linkedMutableContract = validateSandboxExecutionAuthority({
+    executionAuthority: encodedLinkedMutableAuthority,
+    authorityRoot: linkedMutableSnapshot.root,
+    cwd: linkedWorktree,
+    environment: {},
+  });
+  const linkedMutableArgs = bubblewrapSandboxArguments({
+    cwd: linkedWorktree,
+    readyFile: path.join(root, 'linked-mutable.ready'),
+    releaseFile: path.join(root, 'linked-mutable.release'),
+    temporaryDirectory: path.join(root, 'linked-mutable-tmp'),
+    command: linkedMutableSnapshot.launch_command,
+    masks: { hiddenDirectories: [], sockets: [] },
+    executionAuthority: encodedLinkedMutableAuthority,
+    preservedEnvironmentNames: linkedMutableContract.preservedEnvironmentNames,
+    environment: {},
+  });
+  const linkedSourceAliasMount = mountOperationIndex(linkedMutableArgs, '--bind',
+    linkedMutableBinding.source, linkedMutableBinding.alias);
+  const linkedRepositoryMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
+    linkedMutableSnapshot.snapshot_repository, linkedMutableSnapshot.repository);
+  const linkedCommonMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
+    linkedMutableCommon.source, linkedMutableCommon.target);
+  const linkedWorktreeMount = mountOperationIndex(linkedMutableArgs, '--ro-bind',
+    linkedMutableWorktree.source, linkedMutableWorktree.target);
+  const linkedAliasTargetMount = mountOperationIndex(linkedMutableArgs, '--bind',
+    linkedMutableBinding.alias, linkedMutableBinding.target);
+  assert.ok(linkedSourceAliasMount >= 0
+    && linkedSourceAliasMount < linkedRepositoryMount
+    && linkedRepositoryMount < linkedCommonMount
+    && linkedCommonMount < linkedWorktreeMount
+    && linkedWorktreeMount < linkedAliasTargetMount,
+  'linked bwrap mounts must capture scratch, seal repository and Git authorities, then restore scratch');
   fs.appendFileSync(path.join(linkedPrimary, '.git', 'config'),
     '\n[include]\n\tpath = /etc/gitconfig\n');
   assert.throws(() => prepareExecutionSnapshot({
@@ -1949,16 +2114,18 @@ try {
     outcome: 'safety_limit_exceeded',
     termination: { ...report.termination, reason: 'safety_limit_exceeded', limit: null },
   }).valid, false);
-  for (const limit of ['enforcement_handshake', 'temporary_quota_handshake']) {
+  for (const [limit, code] of [
+    ['enforcement_handshake', 'LAMINA_SAFE_ENFORCEMENT_UNPROVEN'],
+    ['temporary_quota_handshake', 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN'],
+    ['sandbox_launch', 'LAMINA_SAFE_SANDBOX_LAUNCH'],
+  ]) {
     const handshakeFailure = structuredClone(report);
     handshakeFailure.outcome = outcomeForStop('internal_error');
     handshakeFailure.samples = [];
     handshakeFailure.termination.reason = 'internal_error';
     handshakeFailure.termination.limit = limit;
     handshakeFailure.error = {
-      code: limit === 'enforcement_handshake'
-        ? 'LAMINA_SAFE_ENFORCEMENT_UNPROVEN'
-        : 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
+      code,
       message: 'proof unavailable before payload release',
     };
     const validation = validateReport(handshakeFailure);

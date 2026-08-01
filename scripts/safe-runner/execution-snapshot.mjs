@@ -1197,10 +1197,19 @@ export function prepareExecutionSnapshot({
     }
     const runtimeAlias = path.join(root, 'writable-aliases', String(writableBindings.length));
     fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
+    const snapshotTarget = path.join(gitCommonSnapshot, 'lamina', 'work');
+    fs.mkdirSync(snapshotTarget, { recursive: true, mode: 0o700 });
+    physicalOwnedDirectory(snapshotTarget, 'sealed Git common Lamina work mount point');
+    const snapshotTargetStat = fs.lstatSync(snapshotTarget, { bigint: true });
     writableBindings.push({
       source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
+      snapshot_target: snapshotTarget,
       kind: 'git-common-work-scratch', source_identity: {
         dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),
+      },
+      snapshot_target_identity: {
+        dev: String(snapshotTargetStat.dev), ino: String(snapshotTargetStat.ino),
+        uid: Number(snapshotTargetStat.uid),
       },
     });
   }
@@ -1231,6 +1240,16 @@ export function assertExecutionSnapshot(snapshot) {
     }
     const digest = crypto.createHash('sha256').update(fs.readFileSync(entry.path)).digest('hex');
     if (digest !== entry.digest) throw new Error('execution snapshot bytes changed');
+  }
+  for (const binding of snapshot?.writable_bindings || []) {
+    const stat = fs.lstatSync(binding.snapshot_target, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()
+      || fs.realpathSync.native(binding.snapshot_target) !== binding.snapshot_target
+      || String(stat.dev) !== binding.snapshot_target_identity?.dev
+      || String(stat.ino) !== binding.snapshot_target_identity?.ino
+      || Number(stat.uid) !== binding.snapshot_target_identity?.uid) {
+      throw new Error('execution snapshot writable mount point identity changed');
+    }
   }
   return true;
 }

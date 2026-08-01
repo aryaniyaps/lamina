@@ -174,8 +174,16 @@ try {
   if (payloadReleased) {
     assert.match(finalTrace, /launch:payload-released/, artifactHint);
   } else {
-    assert.equal(evidence.error?.code, 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
-      `only an exact private-tmpfs refusal may end the local preparation branch; ${artifactHint}`);
+    assert.ok([
+      'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN', 'LAMINA_SAFE_SANDBOX_LAUNCH',
+    ].includes(evidence.error?.code),
+    `only an exact private-tmpfs refusal or bounded sandbox launch failure may end local preparation; ${artifactHint}`);
+    assert.equal(evidence.termination?.limit,
+      evidence.error?.code === 'LAMINA_SAFE_SANDBOX_LAUNCH'
+        ? 'sandbox_launch' : 'temporary_quota_handshake', artifactHint);
+    assert.doesNotMatch(evidence.output?.stderr_tail || '',
+      /bwrap:.*(?:mkdir parents|read-only file system)/i,
+      `a missing sealed bind target must never pass as a local quota refusal; ${artifactHint}`);
   }
   testPassed = true;
 } catch (error) {
