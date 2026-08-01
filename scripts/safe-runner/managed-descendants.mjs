@@ -10,6 +10,7 @@ export function registeredManagedGraphd(registrations = [], records = []) {
       ...record,
       managed_socket: value.socket,
       managed_lock: value.lock,
+      managed_operation_lock: value.operation_lock,
     });
   }
   return registered;

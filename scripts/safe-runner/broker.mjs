@@ -74,6 +74,12 @@ function canonicalGraphdRegistration(request, authority, child) {
   if (fs.existsSync(path.join(runtime, 'graphd.sock')) && !existingLock) {
     refuse('graph runtime socket exists without a child-owned lock');
   }
+  let operationOwner = null;
+  try { operationOwner = JSON.parse(fs.readFileSync(path.join(runtime, 'graphd.operation.lock'), 'utf8')); } catch {}
+  if (operationOwner && (Number(operationOwner.pid) !== Number(child.pid)
+    || String(operationOwner.start_ticks || '') !== String(child.start_ticks))) {
+    refuse('graph runtime operation lock belongs to a different process identity');
+  }
   return {
     root,
     runtime_dir: runtime,
@@ -82,6 +88,7 @@ function canonicalGraphdRegistration(request, authority, child) {
     },
     socket: path.join(runtime, 'graphd.sock'),
     lock: path.join(runtime, 'graphd.lock'),
+    operation_lock: path.join(runtime, 'graphd.operation.lock'),
     child_identity: { pid: child.pid, start_ticks: child.start_ticks },
   };
 }

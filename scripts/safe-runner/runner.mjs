@@ -223,6 +223,7 @@ export async function runSafely({
     for (const root of classification.roots) {
       if (root.managed_socket) managedCleanupPaths.add(root.managed_socket);
       if (root.managed_lock) managedCleanupPaths.add(root.managed_lock);
+      if (root.managed_operation_lock) managedCleanupPaths.add(root.managed_operation_lock);
       try {
         signalIdentity({ pid: root.pid, start_ticks: root.start_ticks }, 'SIGTERM');
       } catch (error) {
@@ -399,6 +400,7 @@ export async function runSafely({
       register(record) {
         managedCleanupPaths.add(record.socket);
         managedCleanupPaths.add(record.lock);
+        managedCleanupPaths.add(record.operation_lock);
         crashWatchdog?.registerManagedPaths(record);
         if (!managedRegistrations.some((item) => item.pid === record.pid
           && item.start_ticks === record.start_ticks)) {
@@ -408,6 +410,7 @@ export async function runSafely({
             role: 'graphd',
             socket: record.socket,
             lock: record.lock,
+            operation_lock: record.operation_lock,
             root: record.root,
             runtime_dir: record.runtime_dir,
             runtime_identity: record.runtime_identity,

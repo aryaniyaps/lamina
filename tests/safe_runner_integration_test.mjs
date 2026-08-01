@@ -163,6 +163,7 @@ try {
     assert.match(registration.start_ticks, /^\d+$/);
     assert.equal(fs.existsSync(graphdOutput.socket), false, 'graphd socket must be removed');
     assert.equal(fs.existsSync(graphdOutput.lock), false, 'graphd lock must be removed');
+    assert.equal(fs.existsSync(registration.operation_lock), false, 'graphd operation lock must be removed');
     assert.deepEqual(managedGraphd.cleanup.descendants_remaining, []);
     assert.equal(managedGraphd.cleanup.scope_removed, true);
     assert.equal(validateReport(managedGraphd).valid, true);
@@ -177,7 +178,7 @@ try {
     });
     assert.equal(staleGraphd.outcome, 'internal_error');
     assert.equal(staleGraphd.termination.reason, 'cleanup_incomplete');
-    assert.equal(staleGraphd.cleanup.managed_paths_remaining.length, 2);
+    assert.equal(staleGraphd.cleanup.managed_paths_remaining.length, 3);
     assert.equal(fs.existsSync(graphData), true, 'cleanup must not delete canonical graph data');
     assert.equal(validateReport(staleGraphd).valid, true);
     for (const managedPath of staleGraphd.cleanup.managed_paths_remaining) {
@@ -192,8 +193,8 @@ try {
     });
     assert.equal(earlyGraphd.outcome, 'internal_error');
     assert.equal(earlyGraphd.termination.reason, 'cleanup_incomplete');
-    assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 2,
-      'every accepted registration must seed socket/lock verification before classification');
+    assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 3,
+      'every accepted registration must seed socket/lock/operation verification before classification');
     assert.equal(fs.existsSync(graphData), true, 'cleanup must preserve canonical graph data');
     for (const managedPath of earlyGraphd.cleanup.managed_paths_remaining) {
       fs.rmSync(managedPath, { force: true });

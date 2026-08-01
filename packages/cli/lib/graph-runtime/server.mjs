@@ -39,6 +39,31 @@ function daemonLockIdentity() {
   };
 }
 
+function releaseOperationLock() {
+  try {
+    const owner = parseDaemonLock(fs.readFileSync(paths.operation_lock, 'utf8'));
+    const identity = daemonLockIdentity();
+    if (owner?.pid === identity.pid && owner?.start_ticks === identity.start_ticks) {
+      fs.unlinkSync(paths.operation_lock);
+    }
+  } catch {}
+}
+
+function acquireOperationLock() {
+  const identity = daemonLockIdentity();
+  const write = () => fs.writeFileSync(
+    paths.operation_lock, `${JSON.stringify(identity)}\n`, { flag: 'wx', mode: 0o600 },
+  );
+  try { write(); } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    let owner = null;
+    try { owner = parseDaemonLock(fs.readFileSync(paths.operation_lock, 'utf8')); } catch {}
+    const state = processIsRunning(owner?.pid) ? 'active' : 'stale';
+    process.stderr.write(`graphd runtime operation lock is ${state}${owner?.pid ? ` for pid ${owner.pid}` : ''}; refusing unsafe replacement\n`);
+    process.exit(2);
+  }
+}
+
 function acquireLock() {
   try {
     fs.writeFileSync(paths.lock, `${JSON.stringify(daemonLockIdentity())}\n`, { flag: 'wx', mode: 0o600 });
@@ -54,6 +79,8 @@ function acquireLock() {
   }
 }
 
+acquireOperationLock();
+process.on('exit', releaseOperationLock);
 acquireLock();
 if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const engine = new GraphEngine(paths);
@@ -188,6 +215,7 @@ function shutdown() {
       const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
       if (lock?.pid === process.pid) fs.unlinkSync(paths.lock);
     } catch {}
+    releaseOperationLock();
     process.exit(0);
   });
 }

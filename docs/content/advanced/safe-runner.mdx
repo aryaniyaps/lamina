@@ -94,8 +94,8 @@ npm run safe:run -- \
 ```
 
 Use `--promote` only for an intended tier-qualification scenario. The stable
-`--workload` identifier, redacted child-command digest, and referenced
-implementation-file digest bind smaller-tier evidence to the same workload;
+`--workload` identifier, redacted child-command digest, referenced file digest,
+and bounded Git source snapshot bind smaller-tier evidence to the same workload;
 success from a trivial, replaced, or different command cannot unlock another
 workload.
 Promotion is
@@ -108,12 +108,16 @@ enforcement, and the global concurrency lock. Every tier refuses while an
 existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
 
-Before launch, a durable multi-entry ledger records bounded metadata for the
-active repository, command, referenced workload files, runner build, and fixed concurrency. It is
+Before launch, a durable ledger writes one atomic entry per run under a bounded
+command/build shard for the active repository, command, referenced workload files,
+runner build, and fixed concurrency. It is
 cleared only after a classified result with verified cleanup. A safety-limit
 observation converts that entry to a durable fence, and a limit-only change does
-not bypass it. Entries are not evicted: incomplete cleanup, controller `SIGKILL`,
-a lost session, or later distinct failures cannot erase or overwrite earlier fences.
+not bypass it. The relevant command shard is checked directly rather than scanning
+unrelated failures globally, and
+independent run files prevent concurrent small runs from overwriting one another.
+Entries are not evicted: incomplete cleanup, controller `SIGKILL`, a lost
+session, or later distinct failures cannot erase or overwrite earlier fences.
 
 All limit flags are downward-only:
 
@@ -147,7 +151,9 @@ runtime directory. Source execution must place a content-matched `server.mjs` in
 the interpreter's actual script position. The broker captures the directory's
 device/inode/owner identity and the graphd PID/start identity for crash cleanup.
 The lock must carry that same process identity before either runtime entry can
-be removed. No child-writable registry is authoritative. After the CLI
+be removed. A third process-identity operation lock serializes graphd startup
+against watchdog cleanup; if a replacement wins that lock, cleanup leaves its
+paths untouched and fails closed. No child-writable registry is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
@@ -209,10 +215,15 @@ files, tokens, tier variables, and plain environment flags are not proof.
 
 Lamina's graph client also registers any graphd it starts by PID and Linux
 start ticks. After the payload exits, the runner gives that exact registered
-daemon a short graceful shutdown window and verifies that its socket, lock,
+daemon a short graceful shutdown window and verifies that its socket, daemon
+lock, operation lock,
 process tree, and scope are gone. Any unregistered detached process—or any
 registered graphd that outlives the deadline—fails the scenario and triggers
 complete scope termination.
+
+An operation lock whose recorded owner did not exit normally is not guessed
+away by a new graphd. Startup fails closed with the recorded PID so an operator
+can investigate the stale runtime instead of racing watchdog cleanup.
 
 See [ADR-014](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/014-crash-safe-resource-supervision.md)
 for the ownership and fail-closed rationale.

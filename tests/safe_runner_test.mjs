@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
 import {
@@ -92,20 +93,38 @@ try {
   const ownedRuntimeIdentity = ownedDirectoryIdentity(ownedRuntime);
   const ownedSocket = path.join(ownedRuntime, 'graphd.sock');
   const ownedLock = path.join(ownedRuntime, 'graphd.lock');
+  const ownedOperationLock = path.join(ownedRuntime, 'graphd.operation.lock');
   const ownedGraphd = { pid: 42001, start_ticks: 'owned-start' };
   fs.writeFileSync(ownedSocket, 'stale socket');
   fs.writeFileSync(ownedLock, JSON.stringify({
     pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
   }));
+  fs.writeFileSync(ownedOperationLock, JSON.stringify({
+    pid: 42002, start_ticks: 'replacement-start',
+  }));
   assert.deepEqual(removeOwnedRuntimePaths([
     { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
     { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+  ]).sort(), [ownedLock, ownedOperationLock, ownedSocket].sort(),
+  'a replacement graphd operation owner must fence cleanup from every runtime path');
+  fs.writeFileSync(ownedOperationLock, JSON.stringify({
+    pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
+  }));
+  assert.deepEqual(removeOwnedRuntimePaths([
+    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
   ]), []);
   fs.writeFileSync(ownedSocket, 'different graphd socket');
   fs.writeFileSync(ownedLock, JSON.stringify({ pid: ownedGraphd.pid, start_ticks: 'different-start' }));
+  fs.writeFileSync(ownedOperationLock, JSON.stringify({
+    pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
+  }));
   assert.deepEqual(removeOwnedRuntimePaths([
     { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
     { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
+    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
   ]).sort(), [ownedLock, ownedSocket].sort(), 'another graphd identity must never be deleted');
   fs.rmSync(ownedSocket);
   fs.rmSync(ownedLock);
@@ -519,6 +538,7 @@ try {
     role: 'graphd',
     socket: brokerSocket,
     lock: brokerLock,
+    operation_lock: path.join(brokerRuntime, 'graphd.operation.lock'),
   }];
   const graphdRecord = { ...authorizedGraphd, ppid: 1 };
   const graphdWorker = {
@@ -528,6 +548,7 @@ try {
     ...graphdRecord,
     managed_socket: managedRegistrations[0].socket,
     managed_lock: managedRegistrations[0].lock,
+    managed_operation_lock: managedRegistrations[0].operation_lock,
   }]);
   authorityRecords.push(graphdRecord);
   assert.equal(authorizeBrokerRequest({
@@ -561,6 +582,18 @@ try {
     lock: managedRegistrations[0].lock,
   }, authority).ok, false, 'a pre-existing graphd lock must match the registered child identity');
   fs.rmSync(brokerLock);
+  fs.writeFileSync(managedRegistrations[0].operation_lock, JSON.stringify({
+    pid: 99999, start_ticks: 'other-graphd',
+  }));
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, authority).ok, false, 'a pre-existing runtime operation must match the registered child identity');
+  fs.rmSync(managedRegistrations[0].operation_lock);
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },
@@ -644,6 +677,30 @@ try {
     () => recordPromotion(root, 'medium', changedPromotion, 'unit-workload'),
     /already bound to a different command or implementation/,
   );
+  const promotionRepository = path.join(root, 'promotion-repository');
+  fs.mkdirSync(promotionRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: promotionRepository }).status, 0);
+  const promotionEntrypoint = path.join(promotionRepository, 'entrypoint.mjs');
+  const promotionDependency = path.join(promotionRepository, 'dependency.mjs');
+  fs.writeFileSync(promotionEntrypoint, "import './dependency.mjs';\n");
+  fs.writeFileSync(promotionDependency, 'export const value = 1;\n');
+  assert.equal(spawnSync('git', ['add', 'entrypoint.mjs', 'dependency.mjs'], {
+    cwd: promotionRepository,
+  }).status, 0);
+  assert.equal(spawnSync('git', [
+    '-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+    'commit', '--quiet', '-m', 'fixture',
+  ], { cwd: promotionRepository }).status, 0);
+  const transitiveReport = structuredClone(report);
+  transitiveReport.command = [process.execPath, promotionEntrypoint];
+  recordPromotion(promotionRepository, 'small', transitiveReport, 'transitive-workload');
+  assert.equal(checkPromotion(
+    promotionRepository, 'medium', 'transitive-workload', transitiveReport.command,
+  ).ok, true);
+  fs.writeFileSync(promotionDependency, 'export const value = 2;\n');
+  assert.equal(checkPromotion(
+    promotionRepository, 'medium', 'transitive-workload', transitiveReport.command,
+  ).ok, false, 'changing a transitive repository source must invalidate promotion');
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
   recordSafetyLimit(root, report.command, report.limits, limitedReport);
@@ -665,10 +722,41 @@ try {
   }
   assert.equal(checkSafetyRetry(root, ['node', '-e', 'ledger-0'], report.limits).ok, false,
     'later distinct failures must never evict an earlier retry fence');
+  const stateModule = pathToFileURL(path.resolve('scripts/safe-runner/state.mjs')).href;
+  const concurrentWriter = `
+    import { recordSafetyLimit } from ${JSON.stringify(stateModule)};
+    const id = process.env.LAMINA_LEDGER_WRITER_ID;
+    const command = ['node', '-e', id];
+    recordSafetyLimit(process.env.LAMINA_LEDGER_WRITER_CWD, command, {}, {
+      run_id: id, termination: { limit: 'timeout' },
+    });
+  `;
+  const concurrentIds = Array.from({ length: 12 }, (_, index) => `concurrent-${index}`);
+  const concurrentStatuses = await Promise.all(concurrentIds.map(async (id) => {
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', concurrentWriter], {
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        LAMINA_LEDGER_WRITER_ID: id,
+        LAMINA_LEDGER_WRITER_CWD: root,
+      },
+    });
+    return (await once(child, 'exit'))[0];
+  }));
+  assert.deepEqual(concurrentStatuses, concurrentStatuses.map(() => 0));
+  for (const id of concurrentIds) {
+    assert.equal(checkSafetyRetry(root, ['node', '-e', id], {}).ok, false,
+      'concurrent distinct writers must retain every fence');
+  }
   const activeCommand = [...report.command, '--controller-may-crash'];
   recordRunAttempt(root, activeCommand, report.limits, report);
+  const overlappingReport = { ...report, run_id: `${report.run_id}-overlap` };
+  recordRunAttempt(root, activeCommand, report.limits, overlappingReport);
   assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, false);
   clearRunAttempt(root, activeCommand, report.limits, report.run_id);
+  assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, false,
+    'clearing one run must not erase an overlapping active attempt');
+  clearRunAttempt(root, activeCommand, report.limits, overlappingReport.run_id);
   assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, true);
 
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };

@@ -104,6 +104,7 @@ export function runtimePaths(cwd = process.cwd()) {
     database: path.join(context.runtime_dir, 'graph.lbdb'),
     socket: path.join(context.runtime_dir, 'graphd.sock'),
     lock: path.join(context.runtime_dir, 'graphd.lock'),
+    operation_lock: path.join(context.runtime_dir, 'graphd.operation.lock'),
     token: path.join(context.runtime_dir, 'graphd.token'),
     evidence: path.join(context.runtime_dir, 'evidence'),
     cocoindex: path.join(context.runtime_dir, 'cocoindex'),

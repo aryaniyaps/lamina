@@ -196,20 +196,51 @@ export function safetyRetrySignature(cwd, command, limits) {
   })).digest('hex');
 }
 
-function safetyRetryPath(cwd) {
+function legacySafetyRetryPath(cwd) {
   return path.join(stateDirectory(), 'safety-limit-ledger', `${repositoryKey(cwd)}.json`);
+}
+
+function safetyRetryCommandKey(cwd, command) {
+  const metadata = retryMetadata(cwd, command);
+  return crypto.createHash('sha256').update(JSON.stringify({
+    repository: path.resolve(cwd),
+    command_digest: metadata.command_digest,
+    runner_build: metadata.runner_build,
+  })).digest('hex');
+}
+
+function safetyRetryDirectory(cwd, commandKey = null) {
+  const repository = path.join(stateDirectory(), 'safety-limit-ledger', repositoryKey(cwd));
+  return commandKey ? path.join(repository, commandKey) : repository;
+}
+
+function safetyRetryEntryPath(cwd, commandKey, runId) {
+  const key = crypto.createHash('sha256').update(String(runId)).digest('hex');
+  return path.join(safetyRetryDirectory(cwd, commandKey), `${key}.json`);
+}
+
+function shardedRetryEntries(cwd, commandKey) {
+  const directory = safetyRetryDirectory(cwd, commandKey);
+  try {
+    return fs.readdirSync(directory)
+      .filter((name) => /^[a-f0-9]{64}\.json$/.test(name))
+      .map((name) => json(path.join(directory, name)))
+      .filter(Boolean);
+  } catch { return []; }
 }
 
 export function checkSafetyRetry(cwd, command, limits) {
   const signature = safetyRetrySignature(cwd, command, limits);
-  const value = json(safetyRetryPath(cwd));
+  const commandKey = safetyRetryCommandKey(cwd, command);
   const metadata = retryMetadata(cwd, command);
-  const entries = Object.values(value?.entries || {});
-  const previous = value?.entries?.[signature]
-    || entries.find((entry) => entry.runner_build === metadata.runner_build
+  const entries = shardedRetryEntries(cwd, commandKey);
+  const legacy = json(legacySafetyRetryPath(cwd));
+  const previous = entries.find((entry) => entry.signature === signature
+    || (entry.runner_build === metadata.runner_build
       && entry.command_digest === metadata.command_digest
-      && entry.workload_digest === retryMetadata(cwd, command, entry.workload_paths).workload_digest)
-    || (value?.signature === signature ? value : null);
+      && entry.workload_digest === retryMetadata(cwd, command, entry.workload_paths).workload_digest))
+    || legacy?.entries?.[signature]
+    || (legacy?.signature === signature ? legacy : null);
   return {
     ok: !previous,
     signature,
@@ -217,61 +248,50 @@ export function checkSafetyRetry(cwd, command, limits) {
   };
 }
 
-function updateSafetyRetryEntries(cwd, mutate) {
-  const file = safetyRetryPath(cwd);
-  const existing = json(file);
-  const entries = existing?.schema === 'lamina.safe-runner-safety-limit-ledger/v2'
-    ? { ...existing.entries } : {};
-  mutate(entries);
-  const retained = Object.fromEntries(Object.entries(entries)
-    .sort((left, right) => String(right[1].recorded_at).localeCompare(String(left[1].recorded_at))));
-  const value = {
-    schema: 'lamina.safe-runner-safety-limit-ledger/v2',
-    repository: path.resolve(cwd),
-    entries: retained,
-    updated_at: new Date().toISOString(),
-  };
-  atomicJson(file, value);
-  return value;
-}
-
 export function recordRunAttempt(cwd, command, limits, report, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
+  const commandKey = safetyRetryCommandKey(cwd, command);
   const metadata = retryMetadata(cwd, command);
-  return updateSafetyRetryEntries(cwd, (entries) => {
-    entries[signature] = {
-      ...metadata,
-      signature,
-      recorded_at: new Date().toISOString(),
-      run_id: report.run_id,
-      status: 'active',
-      limit: 'controller_crash_or_unclassified',
-    };
-  });
+  const value = {
+    schema: 'lamina.safe-runner-safety-limit-entry/v3',
+    repository: path.resolve(cwd),
+    ...metadata,
+    signature,
+    recorded_at: new Date().toISOString(),
+    run_id: report.run_id,
+    status: 'active',
+    limit: 'controller_crash_or_unclassified',
+  };
+  atomicJson(safetyRetryEntryPath(cwd, commandKey, report.run_id), value);
+  return value;
 }
 
 export function clearRunAttempt(cwd, command, limits, runId, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
-  return updateSafetyRetryEntries(cwd, (entries) => {
-    if (entries[signature]?.status === 'active' && entries[signature]?.run_id === runId) {
-      delete entries[signature];
-    }
-  });
+  const commandKey = safetyRetryCommandKey(cwd, command);
+  const file = safetyRetryEntryPath(cwd, commandKey, runId);
+  const entry = json(file);
+  if (entry?.status === 'active' && entry?.run_id === runId) fs.rmSync(file, { force: true });
+  return entry;
 }
 
 export function recordSafetyLimit(cwd, command, limits, report, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
-  return updateSafetyRetryEntries(cwd, (entries) => {
-    const metadata = entries[signature] || retryMetadata(cwd, command);
-    entries[signature] = {
-      ...metadata,
-      signature,
-      recorded_at: new Date().toISOString(),
-      run_id: report.run_id,
-      status: 'safety_limit_exceeded',
-      limit: report.termination.limit,
-    };
-  });
+  const commandKey = safetyRetryCommandKey(cwd, command);
+  const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);
+  const metadata = json(file) || retryMetadata(cwd, command);
+  const value = {
+    schema: 'lamina.safe-runner-safety-limit-entry/v3',
+    repository: path.resolve(cwd),
+    ...metadata,
+    signature,
+    recorded_at: new Date().toISOString(),
+    run_id: report.run_id,
+    status: 'safety_limit_exceeded',
+    limit: report.termination.limit,
+  };
+  atomicJson(file, value);
+  return value;
 }
 
 function promotionPath(cwd) {
@@ -300,10 +320,43 @@ function promotionImplementationPaths(cwd, command) {
   return [...new Set(candidates)];
 }
 
+function gitSnapshotCommand(cwd, args, maxBuffer = 16 * 1024 * 1024) {
+  return spawnSync('git', args, {
+    cwd, encoding: 'buffer', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000, maxBuffer,
+  });
+}
+
+function repositorySourceDigest(cwd) {
+  const rootResult = gitSnapshotCommand(cwd, ['rev-parse', '--show-toplevel']);
+  if (rootResult.status !== 0) return null;
+  const root = fs.realpathSync.native(String(rootResult.stdout).trim());
+  const commands = [
+    ['rev-parse', '--verify', 'HEAD'],
+    ['ls-files', '-s', '-z'],
+    ['diff', '--name-only', '-z'],
+    ['ls-files', '--others', '--exclude-standard', '-z'],
+  ];
+  const results = commands.map((args) => gitSnapshotCommand(root, args));
+  if (results.some((result) => result.status !== 0 || result.error)) {
+    const error = new Error('tier promotion could not capture a bounded Git source snapshot');
+    error.code = 'LAMINA_SAFE_PROMOTION_SOURCE_UNPROVEN';
+    throw error;
+  }
+  const changed = Buffer.concat([results[2].stdout, results[3].stdout])
+    .toString('utf8').split('\0').filter(Boolean).map((relative) => path.join(root, relative));
+  const hash = crypto.createHash('sha256').update(root);
+  for (const result of results) hash.update('\0').update(result.stdout);
+  hash.update('\0').update(JSON.stringify(workloadIdentity(root, [], changed)));
+  return hash.digest('hex');
+}
+
 export function promotionImplementationDigest(cwd, command) {
   if (!Array.isArray(command) || command.length === 0) return null;
   const workload = workloadIdentity(cwd, command, promotionImplementationPaths(cwd, command));
-  return crypto.createHash('sha256').update(JSON.stringify(workload)).digest('hex');
+  return crypto.createHash('sha256').update(JSON.stringify({
+    workload,
+    repository_source: repositorySourceDigest(cwd),
+  })).digest('hex');
 }
 
 export function promotionStatus(cwd, workloadId = null, command = null) {

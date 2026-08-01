@@ -15,6 +15,9 @@ try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
 const stat = fs.readFileSync('/proc/self/stat', 'utf8');
 const close = stat.lastIndexOf(')');
 const startTicks = stat.slice(close + 2).trim().split(/\s+/)[19];
+fs.writeFileSync(paths.operation_lock, `${JSON.stringify({
+  pid: process.pid, start_ticks: startTicks,
+})}\n`, { flag: 'wx', mode: 0o600 });
 fs.writeFileSync(lockPath, `${JSON.stringify({
   pid: process.pid, start_ticks: startTicks,
 })}\n`, { mode: 0o600 });
@@ -28,6 +31,7 @@ const shutdown = () => {
     if (!['leave-stale', 'exit-stale'].includes(cleanupMode)) {
       try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
       try { fs.rmSync(lockPath, { force: true }); } catch {}
+      try { fs.rmSync(paths.operation_lock, { force: true }); } catch {}
     } else if (!fs.existsSync(canonicalSocket)) {
       // Node unlinks a listening Unix socket during graceful close. Recreate a
       // stale path so the supervisor regression exercises both registered
