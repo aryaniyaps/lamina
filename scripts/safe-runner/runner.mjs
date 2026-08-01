@@ -28,6 +28,12 @@ function errorDetails(error, fallback = 'LAMINA_SAFE_INTERNAL') {
   };
 }
 
+export function outcomeForStop(reason) {
+  if (reason === 'interrupted') return 'interrupted';
+  if (reason === 'internal_error') return 'internal_error';
+  return 'safety_limit_exceeded';
+}
+
 function appendTail(previous, chunk, maximum) {
   const combined = Buffer.concat([Buffer.from(previous), Buffer.from(chunk)]);
   return redactText(combined.subarray(Math.max(0, combined.length - maximum)).toString('utf8'));
@@ -118,7 +124,7 @@ export async function runSafely({
     stopping = true;
     report.termination.reason = reason;
     report.termination.limit = limit;
-    report.outcome = reason === 'interrupted' ? 'interrupted' : 'safety_limit_exceeded';
+    report.outcome = outcomeForStop(reason);
     report.termination.requested_signals.push('SIGTERM');
     try { activeAdapter?.signal('SIGTERM'); } catch (error) {
       report.cleanup.errors.push(`SIGTERM: ${error.message}`);
@@ -424,7 +430,7 @@ export async function runSafely({
         await wait(20);
       }
       if (!report.preflight.scope_proof) {
-        requestStop('safety_limit_exceeded', 'enforcement_handshake');
+        requestStop('internal_error', 'enforcement_handshake');
         throw Object.assign(
           new Error(childEnded?.error?.message || 'systemd cgroup ownership handshake failed before payload release'),
           { code: 'LAMINA_SAFE_ENFORCEMENT_UNPROVEN' },
@@ -485,7 +491,7 @@ export async function runSafely({
         await wait(20);
       }
       if (!quotaProof) {
-        requestStop('safety_limit_exceeded', 'temporary_quota_handshake');
+        requestStop('internal_error', 'temporary_quota_handshake');
         throw Object.assign(new Error('size-limited private tmpfs handshake failed before payload release'), {
           code: 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
         });

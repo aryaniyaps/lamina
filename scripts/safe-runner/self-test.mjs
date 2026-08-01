@@ -6,6 +6,7 @@ import { adapterProbe } from './adapter.mjs';
 import { MIB, SELF_TEST_CASE_IDS } from './constants.mjs';
 import { runSafely } from './runner.mjs';
 import { baseReport, finishReport, writeReport } from './report.mjs';
+import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,14 @@ function expected(report, outcome, limits = []) {
   return report.outcome === outcome
     && (limits.length === 0 || limits.includes(report.termination.limit))
     && cleanupVerified(report);
+}
+
+export function boundedCaseError(error) {
+  if (!error) return null;
+  return {
+    code: redactText(String(error.code || 'LAMINA_SAFE_INTERNAL')).slice(0, 128),
+    message: redactText(String(error.message || error)).slice(0, 500),
+  };
 }
 
 export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = adapterProbe() } = {}) {
@@ -50,6 +59,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
       skipped: true,
       outcome: 'preflight_refused',
       cleanup_verified: true,
+      error: boundedCaseError(refusal),
       report_digest: digest({ id, refusal }),
       report: null,
     }));
@@ -69,7 +79,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
   const baseOverrides = {
     memoryMaxBytes: 192 * MIB,
     memoryHighBytes: 160 * MIB,
-    pidsMax: 32,
+    pidsMax: 64,
     timeoutMs: 2_000,
     outputMaxBytes: 256 * 1024,
     tempMaxBytes: 4 * MIB,
@@ -101,6 +111,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
       peak_pids: report.peaks.pids,
       requested_signals: report.termination.requested_signals,
       cleanup_verified: cleanupVerified(report),
+      error: boundedCaseError(report.error),
       report_digest: digest(report),
       report: report.report_file,
     };
@@ -203,6 +214,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     passed: stalePassed,
     outcome: staleReport.outcome,
     cleanup_verified: stalePassed,
+    error: boundedCaseError(staleReport.error),
     report_digest: digest(staleReport),
     report: staleReportPath,
   });
