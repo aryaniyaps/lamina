@@ -4,7 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildPilot } from '../benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs';
+import {
+  buildPilot,
+  parseCliReleaseManifest,
+  readCliReleaseIdentity,
+  validateCliReleaseIdentity,
+} from '../benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs';
 import {
   buildTaskCluster,
   extractCellRecord,
@@ -37,8 +42,32 @@ import { scanPilotTaskSecrets } from '../benchmarks/lb6/pilot/lib/secret-scan.mj
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
 const buildPilotScript = path.join(root, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs');
+const buildPilotSource = fs.readFileSync(buildPilotScript, 'utf8');
+const packageScripts = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts;
 const manifest = JSON.parse(fs.readFileSync(path.join(pilotRoot, 'corpus/manifest.json'), 'utf8'));
 const selectedNewTasks = manifest.pilot.default_run_tasks;
+
+assert.doesNotMatch(
+  buildPilotSource,
+  /build-standalone-cli\.mjs/,
+  'the pilot builder must not bypass the standalone build safe-runner refusal',
+);
+assert.throws(
+  () => validateCliReleaseIdentity({ version: '0.2.0', sha256: 'not-a-digest' }),
+  /semver version and SHA-256/,
+);
+assert.throws(() => parseCliReleaseManifest(['--cli-release']), /requires a repository-contained/);
+assert.throws(
+  () => parseCliReleaseManifest(['--cli-release', 'one.json', '--cli-release', 'two.json']),
+  /specified only once/,
+);
+for (const scriptName of ['test', 'bench:lb6:v3:build']) {
+  assert.match(
+    packageScripts[scriptName],
+    /build-transactional-pilot\.mjs --cli-release benchmarks\/lb6\/pilot\/cli-release\.json/,
+    `${scriptName} must select the committed CLI release identity explicitly`,
+  );
+}
 
 function snapshotGitStatus(cwd) {
   const result = spawnSync('git', ['status', '--porcelain=v1', '-z'], { cwd, encoding: 'buffer' });
@@ -71,7 +100,13 @@ function runNodeExpectFail(cwd, scriptRel, args = []) {
 }
 
 function copyPilotWorkspace(sourceRoot, destRoot) {
-  for (const rel of ['benchmarks/lb6/pilot', 'benchmarks/lib', 'packages/cli', 'skills']) {
+  for (const rel of [
+    'benchmarks/lb6/pilot',
+    'benchmarks/lib',
+    'packages/cli',
+    'scripts/safe-runner',
+    'skills',
+  ]) {
     const src = path.join(sourceRoot, rel);
     const dest = path.join(destRoot, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -156,6 +191,81 @@ const cliRelease = JSON.parse(fs.readFileSync(path.join(
   root,
   'benchmarks/lb6/pilot/harbor/tasks-v3/dev-simple-list-lamina-v3/environment/lamina-release.json',
 ), 'utf8'));
+
+assert.deepEqual(readCliReleaseIdentity(
+  tmpRoot,
+  'benchmarks/lb6/pilot/cli-release.json',
+), cliRelease);
+
+if (process.platform !== 'win32') {
+  const outsideReleaseRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lb6-release-outside-'));
+  const linkedReleaseRoot = path.join(tmpRoot, '.linked-release-authority');
+  try {
+    fs.writeFileSync(path.join(outsideReleaseRoot, 'release.json'), `${JSON.stringify(cliRelease)}\n`);
+    fs.symlinkSync(outsideReleaseRoot, linkedReleaseRoot, 'dir');
+    assert.throws(
+      () => readCliReleaseIdentity(tmpRoot, '.linked-release-authority/release.json'),
+      /physical file inside the repository/,
+    );
+  } finally {
+    fs.rmSync(linkedReleaseRoot, { force: true });
+    fs.rmSync(outsideReleaseRoot, { recursive: true, force: true });
+  }
+}
+
+const cliReleaseAuthorityPath = path.join(tmpPilotRoot, 'cli-release.json');
+assert.equal(fs.existsSync(cliReleaseAuthorityPath), true);
+const beforeMissingRelease = snapshotGitStatus(tmpRoot);
+const missingRelease = runNodeExpectFail(
+  tmpRoot,
+  'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs',
+  ['--tasks', selectedNewTasks.join(',')],
+);
+assert.match(missingRelease, /unsafe local standalone builds are refused/);
+assert.equal(fs.existsSync(path.join(tmpRoot, 'dist')), false);
+assertGitStatusUnchanged(tmpRoot, beforeMissingRelease);
+
+const refusalSentinel = path.join(
+  tmpTasksRoot,
+  `${selectedNewTasks[0]}-direct-v3`,
+  'unsafe-build-refusal-sentinel',
+);
+fs.writeFileSync(refusalSentinel, 'must survive pre-write refusal\n');
+const beforeApiRefusal = snapshotGitStatus(tmpRoot);
+assert.throws(
+  () => buildPilot({
+    root: tmpRoot,
+    selectedTaskIds: selectedNewTasks,
+    sourceSkillCommit: tmpSourceSkillCommit,
+  }),
+  /unsafe local standalone builds are refused/,
+);
+assert.equal(fs.readFileSync(refusalSentinel, 'utf8'), 'must survive pre-write refusal\n');
+assertGitStatusUnchanged(tmpRoot, beforeApiRefusal);
+fs.rmSync(refusalSentinel);
+
+const oversizedRelease = path.join(tmpPilotRoot, 'oversized-cli-release.json');
+fs.writeFileSync(oversizedRelease, JSON.stringify({
+  ...cliRelease,
+  padding: 'x'.repeat(4_096),
+}));
+fs.writeFileSync(refusalSentinel, 'must survive oversized authority refusal\n');
+const beforeOversizedRelease = snapshotGitStatus(tmpRoot);
+const oversizedResult = runNodeExpectFail(
+  tmpRoot,
+  'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs',
+  [
+    '--cli-release',
+    'benchmarks/lb6/pilot/oversized-cli-release.json',
+    '--tasks',
+    selectedNewTasks.join(','),
+  ],
+);
+assert.match(oversizedResult, /release manifest exceeds 4096 bytes/);
+assert.equal(fs.readFileSync(refusalSentinel, 'utf8'), 'must survive oversized authority refusal\n');
+assertGitStatusUnchanged(tmpRoot, beforeOversizedRelease);
+fs.rmSync(oversizedRelease);
+fs.rmSync(refusalSentinel);
 
 runNodeExpectFail(tmpRoot, 'benchmarks/lb6/pilot/scripts/build-transactional-pilot.mjs', [
   '--tasks',

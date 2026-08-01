@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { assertSafeRunnerContext } from '../scripts/safe-runner/context.mjs';
+
+assertSafeRunnerContext('native retrieval index qualification');
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RetrievalStore } from '../packages/cli/lib/retrieval-runtime/store.mjs';
+const { RetrievalStore } = await import('../packages/cli/lib/retrieval-runtime/store.mjs');
 
 if (!process.env.LAMINA_RETRIEVAL_FTS_EXTENSION_PATH ||
     !process.env.LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH ||

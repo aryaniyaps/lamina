@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   buildPublicActionSchema,
@@ -40,6 +38,7 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
+const CLI_RELEASE_MANIFEST_MAX_BYTES = 4_096;
 
 function pilotBuildPaths(root = DEFAULT_ROOT) {
   const pilotRoot = path.join(root, 'benchmarks/lb6/pilot');
@@ -132,39 +131,104 @@ function dockerfile(arm = 'direct', cliBinarySha256 = null, cliVersion = null) {
   );
 }
 
-let cachedCliRelease = null;
+export function validateCliReleaseIdentity(value, source = 'supplied CLI release identity') {
+  if (!value || typeof value !== 'object'
+    || !/^\d+\.\d+\.\d+$/.test(value.version || '')
+    || !/^[a-f0-9]{64}$/.test(value.sha256 || '')) {
+    throw new Error(`${source} must contain a semver version and SHA-256`);
+  }
+  return { version: value.version, sha256: value.sha256 };
+}
 
-function packCli(root, environmentDir, suppliedRelease = null) {
-  const reusable = suppliedRelease || cachedCliRelease;
-  if (reusable) {
-    if (!/^\d+\.\d+\.\d+$/.test(reusable.version) || !/^[a-f0-9]{64}$/.test(reusable.sha256)) {
-      throw new Error('supplied CLI release identity must contain a semver version and SHA-256');
-    }
-    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(reusable, null, 2)}\n`);
-    return reusable;
-  }
-  const packDir = fs.mkdtempSync(path.join(environmentDir, '.cli-build-'));
-  try {
-    const built = spawnSync(
-      process.execPath, ['scripts/build-standalone-cli.mjs'],
-      { cwd: root, encoding: 'utf8', env: { ...process.env, LAMINA_SEA_TARGET: 'linux-x64', LAMINA_DIST_DIR: packDir } },
+export function readCliReleaseIdentity(root = DEFAULT_ROOT, manifestPath = null) {
+  if (!manifestPath) {
+    throw new Error(
+      'LB6 pilot build requires --cli-release <repo-contained manifest>; ' +
+      'unsafe local standalone builds are refused',
     );
-    if (built.status !== 0) {
-      throw new Error(`failed to build local Lamina CLI: ${built.stderr || built.stdout}`);
-    }
-    const source = path.join(packDir, 'lamina-linux-x64');
-    if (!fs.existsSync(source)) throw new Error('standalone Linux CLI build did not produce lamina-linux-x64');
-    const binary = fs.readFileSync(source);
-    const sha256 = createHash('sha256').update(binary).digest('hex');
-    cachedCliRelease = {
-      version: JSON.parse(fs.readFileSync(path.join(root, 'packages/cli/package.json'), 'utf8')).version,
-      sha256,
-    };
-    fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(cachedCliRelease, null, 2)}\n`);
-    return cachedCliRelease;
-  } finally {
-    fs.rmSync(packDir, { recursive: true, force: true });
   }
+  const declaredRoot = path.resolve(root);
+  const source = path.resolve(declaredRoot, manifestPath);
+  let named;
+  let physicalRoot;
+  let physicalSource;
+  try {
+    named = fs.lstatSync(source, { bigint: true });
+    physicalRoot = fs.realpathSync.native(declaredRoot);
+    physicalSource = fs.realpathSync.native(source);
+  } catch {}
+  const relative = physicalRoot && physicalSource
+    ? path.relative(physicalRoot, physicalSource) : '..';
+  if (!named?.isFile() || named.isSymbolicLink()
+    || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('LB6 pilot CLI release manifest must be a physical file inside the repository');
+  }
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(
+      source,
+      fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0),
+    );
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (!opened.isFile()
+      || opened.dev !== named.dev || opened.ino !== named.ino || opened.size !== named.size) {
+      throw new Error('release manifest identity changed while opening');
+    }
+    if (opened.size > BigInt(CLI_RELEASE_MANIFEST_MAX_BYTES)) {
+      throw new Error(`release manifest exceeds ${CLI_RELEASE_MANIFEST_MAX_BYTES} bytes`);
+    }
+
+    // Keep one overflow byte so growth after fstat cannot be mistaken for a bounded read.
+    const bytes = Buffer.alloc(CLI_RELEASE_MANIFEST_MAX_BYTES + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (count === 0) break;
+      offset += count;
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size
+      || offset !== Number(opened.size)) {
+      throw new Error('release manifest identity or size changed while reading');
+    }
+    if (offset > CLI_RELEASE_MANIFEST_MAX_BYTES) {
+      throw new Error(`release manifest exceeds ${CLI_RELEASE_MANIFEST_MAX_BYTES} bytes`);
+    }
+    return validateCliReleaseIdentity(
+      JSON.parse(bytes.subarray(0, offset).toString('utf8')),
+      'LB6 pilot CLI release authority',
+    );
+  } catch (error) {
+    throw new Error(
+      `LB6 pilot CLI release authority is unavailable at ${source}; ` +
+      `unsafe local standalone builds are refused: ${error.message}`,
+    );
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+}
+
+export function parseCliReleaseManifest(argv = process.argv.slice(2)) {
+  const indexes = argv.flatMap((value, index) => value === '--cli-release' ? [index] : []);
+  if (indexes.length > 1) throw new Error('--cli-release may be specified only once');
+  if (indexes.length === 0) return null;
+  const value = argv[indexes[0] + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error('--cli-release requires a repository-contained manifest path');
+  }
+  return value;
+}
+
+function packCli(environmentDir, suppliedRelease = null) {
+  if (!suppliedRelease) {
+    throw new Error(
+      'LB6 pilot build requires an explicit validated CLI release identity; ' +
+      'unsafe local standalone builds are refused',
+    );
+  }
+  const release = validateCliReleaseIdentity(suppliedRelease);
+  fs.writeFileSync(path.join(environmentDir, 'lamina-release.json'), `${JSON.stringify(release, null, 2)}\n`);
+  return release;
 }
 
 function taskToml(task, arm) {
@@ -600,7 +664,7 @@ function writeTask(task, arm, ctx) {
 
   fs.writeFileSync(path.join(dir, 'task.toml'), taskToml(task, arm));
   const cliRelease = arm === 'lamina'
-    ? packCli(ctx.root, path.join(dir, 'environment'), ctx.cliRelease)
+    ? packCli(path.join(dir, 'environment'), ctx.cliRelease)
     : null;
   fs.writeFileSync(path.join(dir, 'environment/Dockerfile'), dockerfile(arm, cliRelease?.sha256, cliRelease?.version));
 }
@@ -614,8 +678,15 @@ export function buildPilot({
   sourceSkillCommit = PINNED_SKILL_COMMIT,
   cliRelease = null,
 } = {}) {
+  if (!cliRelease) {
+    throw new Error(
+      'LB6 pilot build requires an explicit validated CLI release identity; ' +
+      'unsafe local standalone builds are refused',
+    );
+  }
+  const validatedCliRelease = validateCliReleaseIdentity(cliRelease);
   const ctx = pilotBuildPaths(root);
-  ctx.cliRelease = cliRelease;
+  ctx.cliRelease = validatedCliRelease;
   const manifest = loadPilotManifest(ctx.corpusRoot);
   const allTasks = manifest.tasks;
   if (!allTasks.length) {
@@ -742,7 +813,8 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const selectedTaskIds = parseSelectedTaskIds();
   const migrateFrozen = parseMigrateFrozen();
-  const result = buildPilot({ selectedTaskIds, migrateFrozen });
+  const cliRelease = readCliReleaseIdentity(DEFAULT_ROOT, parseCliReleaseManifest());
+  const result = buildPilot({ selectedTaskIds, migrateFrozen, cliRelease });
 
   console.log(
     `${result.selective ? 'Selectively generated' : 'Generated'} ${result.builtTaskIds.length} tasks × ${PILOT_ARMS.length} arms ` +

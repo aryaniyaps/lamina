@@ -8,6 +8,9 @@ import { RetrievalEmbedder } from '../retrieval-runtime/embedder.mjs';
 import { ERROR, GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import {
+  recordManagedGraphdLockWithSupervisor, startManagedGraphdWithSupervisor,
+} from '../safe-runner-context.mjs';
+import {
   ensureAuthToken,
   graphSocketPath,
   parseDaemonLock,
@@ -19,18 +22,60 @@ const cwd = process.argv[2] || process.cwd();
 const paths = runtimePaths(cwd);
 const socketPath = graphSocketPath(paths);
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
+const safeReservation = process.env.LAMINA_SAFE_GRAPHD_RESERVATION || null;
+
+function assertReservedPathsAbsent() {
+  for (const candidate of [paths.lock, socketPath]) {
+    try {
+      fs.lstatSync(candidate);
+      const error = new Error(`safe-runner reserved graphd path already exists: ${candidate}`);
+      error.code = 'LAMINA_SAFE_GRAPHD_PATH_REPLACED';
+      throw error;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+async function awaitSafeStartGate() {
+  if (!safeReservation) return;
+  assertReservedPathsAbsent();
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const response = startManagedGraphdWithSupervisor(safeReservation);
+    if (response?.ok && response.released === true) {
+      // Binding only proves the paths that were absent at bind time. Refuse a
+      // reservation replacement after release; a safe daemon never removes it.
+      assertReservedPathsAbsent();
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const error = new Error('safe-runner graphd start gate was not authorized');
+  error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+  throw error;
+}
+
+await awaitSafeStartGate();
 const authToken = ensureAuthToken(paths);
 
 function acquireLock() {
   try {
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
+      ...(process.env.LAMINA_SAFE_GRAPHD_RESERVATION
+        ? { safe_runner_reservation: process.env.LAMINA_SAFE_GRAPHD_RESERVATION } : {}),
       protocol_version: GRAPH_PROTOCOL_VERSION,
       runtime_version: CLI_VERSION,
       capabilities: GRAPH_CAPABILITIES,
     })}\n`, { flag: 'wx', mode: 0o600 });
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
+    if (safeReservation) {
+      const refused = new Error('safe-runner reserved graphd lock was replaced before creation');
+      refused.code = 'LAMINA_SAFE_GRAPHD_PATH_REPLACED';
+      throw refused;
+    }
     const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
     if (processIsRunning(lock?.pid)) {
       process.stderr.write(`graphd already running with pid ${lock.pid}\n`);
@@ -39,6 +84,8 @@ function acquireLock() {
     fs.unlinkSync(paths.lock);
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
+      ...(process.env.LAMINA_SAFE_GRAPHD_RESERVATION
+        ? { safe_runner_reservation: process.env.LAMINA_SAFE_GRAPHD_RESERVATION } : {}),
       protocol_version: GRAPH_PROTOCOL_VERSION,
       runtime_version: CLI_VERSION,
       capabilities: GRAPH_CAPABILITIES,
@@ -47,7 +94,27 @@ function acquireLock() {
 }
 
 acquireLock();
-if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+if (safeReservation) {
+  const recorded = recordManagedGraphdLockWithSupervisor(safeReservation);
+  if (!recorded?.ok || recorded.recorded !== true) {
+    const error = new Error(`safe-runner graphd lock transition failed: ${recorded?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+}
+if (process.platform !== 'win32') {
+  try {
+    fs.lstatSync(socketPath);
+    if (safeReservation) {
+      const error = new Error('safe-runner reserved graphd socket was replaced before creation');
+      error.code = 'LAMINA_SAFE_GRAPHD_PATH_REPLACED';
+      throw error;
+    }
+    fs.unlinkSync(socketPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
 const engine = new GraphEngine(paths);
 const retrieval = new RetrievalStore(paths);
 const retrievalEmbedder = new RetrievalEmbedder();

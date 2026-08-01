@@ -10,6 +10,11 @@ import {
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
 import {
+  bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
+  recordManagedGraphdLockWithSupervisor, sealManagedGraphdWithSupervisor,
+  startManagedGraphdWithSupervisor,
+} from '../safe-runner-context.mjs';
+import {
   ensureAuthToken,
   graphSocketPath,
   parseDaemonLock,
@@ -33,16 +38,126 @@ export function daemonCompatibility(identity) {
   };
 }
 
-function graphdEnvironment() {
-  if (process.platform !== 'win32') return process.env;
+function isGraphdExecutionHook(name, platform = process.platform) {
+  const normalized = platform === 'win32' ? name.toUpperCase() : name;
+  return [
+    'BASH_ENV', 'ENV', 'CDPATH', 'GLOBIGNORE', 'SHELLOPTS',
+    'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONINSPECT',
+    'PERL5OPT', 'PERL5LIB', 'PERL_LOCAL_LIB_ROOT', 'PERL_MB_OPT', 'PERL_MM_OPT',
+    'RUBYOPT', 'RUBYLIB', 'GEM_HOME', 'GEM_PATH',
+    'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS',
+    'GCONV_PATH', 'GETCONF_DIR', 'LOCPATH', 'NLSPATH', 'HOSTALIASES', 'RES_OPTIONS',
+    'LAMINA_SAFE_GIT_IDENTITY',
+  ].includes(normalized) || [
+    'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY', 'GIT_',
+  ].some((prefix) => normalized.startsWith(prefix));
+}
+
+export function graphdEnvironmentFor(
+  inheritedEnvironment,
+  {
+    platform = process.platform,
+    extensionDirectory = path.join(retrievalRuntimeDirectory(), 'extensions'),
+  } = {},
+) {
+  const entries = Object.entries(inheritedEnvironment || {});
+  const inheritedPath = entries.find(([name]) => name.toLowerCase() === 'path')?.[1];
+  const environment = Object.fromEntries(entries
+    .filter(([name]) => !isGraphdExecutionHook(name, platform)
+      && (platform !== 'win32' || name.toLowerCase() !== 'path')));
+  if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when
   // graphd starts (the extension directory itself is not searched reliably).
-  const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
   return {
-    ...process.env,
-    PATH: [dependencies, process.env.PATH].filter(Boolean).join(path.delimiter),
+    ...environment,
+    Path: [extensionDirectory, inheritedPath].filter(Boolean).join(';'),
   };
+}
+
+export function graphdEnvironment() {
+  return graphdEnvironmentFor(process.env);
+}
+
+export function reserveManagedGraphd(paths = null) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = reserveManagedGraphdWithSupervisor(
+    paths ? { socket: paths.socket || graphSocketPath(paths), lock: paths.lock } : null,
+  );
+  if (!response?.ok || typeof response.reservation !== 'string') {
+    const error = new Error(`safe-runner refused managed graphd path reservation: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.reservation;
+}
+
+export function registerManagedGraphd(child, paths = null, reservation = null) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return;
+  let startTicks = null;
+  try {
+    const stat = fs.readFileSync(`/proc/${child.pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    startTicks = stat.slice(close + 2).trim().split(/\s+/)[19] || null;
+  } catch {}
+  if (!startTicks) return;
+  if (!reservation) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    const error = new Error('safe-runner requires managed graphd paths to be reserved before spawn');
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  const response = bindManagedGraphdWithSupervisor(
+    reservation,
+    { pid: child.pid, start_ticks: startTicks },
+  );
+  if (!response?.ok) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    const error = new Error(`safe-runner refused managed graphd registration: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.registered;
+}
+
+export function sealManagedGraphd(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = sealManagedGraphdWithSupervisor(reservation);
+  if (!response?.ok) {
+    const error = new Error(`safe-runner refused managed graphd object seal: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.sealed;
+}
+
+export async function awaitManagedGraphdStart(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  if (!reservation) {
+    const error = new Error('safe-runner graphd start gate requires a reservation');
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const response = startManagedGraphdWithSupervisor(reservation);
+    if (response?.ok && response.released === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const error = new Error('safe-runner refused or timed out the managed graphd start gate');
+  error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+  throw error;
+}
+
+export function recordManagedGraphdLock(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = recordManagedGraphdLockWithSupervisor(reservation);
+  if (!response?.ok || response.recorded !== true) {
+    const error = new Error(`safe-runner refused managed graphd lock transition: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return true;
 }
 
 export function exchange(socketPath, payload, timeout = 60_000) {
@@ -163,6 +278,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
     try { fs.chmodSync(logPath, 0o600); } catch {}
   }
   let child;
+  const reservation = reserveManagedGraphd(paths);
   try {
     // A standalone build re-enters its own SEA bootstrap.  Source/development
     // execution keeps using the JavaScript server entrypoint.
@@ -174,13 +290,23 @@ export async function ensureGraphd(cwd = process.cwd()) {
       detached: true,
       stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
       cwd: paths.root,
-      env: graphdEnvironment(),
+      env: {
+        ...graphdEnvironment(),
+        ...(reservation ? { LAMINA_SAFE_GRAPHD_RESERVATION: reservation } : {}),
+      },
     });
+    registerManagedGraphd(child, paths, reservation);
   } finally {
     if (log !== null) fs.closeSync(log);
   }
   child.unref();
   const daemon = await waitForServer(paths, token, child);
+  try {
+    sealManagedGraphd(reservation);
+  } catch (error) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    throw error;
+  }
   return { ...paths, auth_token: token, daemon };
 }
 

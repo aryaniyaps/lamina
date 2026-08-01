@@ -22,3 +22,18 @@ export function removeTemporaryTree(directory) {
     }
   }
 }
+
+export function throwLifecycleErrors(primaryError, cleanupErrors, context) {
+  const errors = [primaryError, ...(cleanupErrors || [])].filter(Boolean);
+  if (errors.length === 0) return;
+  if (errors.length === 1) throw errors[0];
+  const primary = primaryError
+    ? `primary: ${primaryError.message}`
+    : `cleanup: ${errors[0].message}`;
+  const cleanup = errors.slice(1)
+    .map((error) => error.message).join('; ');
+  throw new AggregateError(
+    errors,
+    `${context} had multiple failures (${primary}${cleanup ? `; cleanup: ${cleanup}` : ''})`,
+  );
+}

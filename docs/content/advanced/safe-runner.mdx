@@ -1,0 +1,283 @@
+---
+title: Crash-safe runner
+description: Mandatory process-tree safety boundary for resource-intensive Lamina development and qualification
+---
+
+import { Callout } from 'nextra/components'
+
+# Crash-safe runner
+
+The crash-safe runner is the mandatory host-safety boundary for
+resource-intensive benchmark, experiment, fixture, and Lamina commands in the
+practical-runtime program. It controls and measures the complete descendant
+tree on supported Linux hosts.
+
+<Callout type="warning">
+  A safety-limit hit is a failed scenario. Never report it as a product
+  measurement, rerun it without limits, add swap, or alter host/kernel memory
+  behavior.
+</Callout>
+
+## 1. Inspect the effective envelope
+
+```bash
+npm run safe:envelope
+```
+
+This command is read-only. It reports host memory and disk, derived limits,
+cgroup-v2 controller availability, the selected adapter, current self-test
+attestation, and completed tier promotions. It does not create a scope or
+launch a payload.
+
+The default hard memory ceiling is `min(3 GiB, 25% of physical RAM)`. The 8 GB
+profile cannot exceed 2 GiB, and launch must preserve at least 2 GiB for the
+OS/desktop. The default process ceiling is 64 and production concurrency is
+one.
+
+## 2. Qualify the current host and runner build
+
+```bash
+npm run safe:self-test
+```
+
+The self-test uses only tiny fixtures and low artificial limits, including a
+maximum of 32 aggregate tasks (24 for the process-storm case). It covers:
+
+- direct and aggregate child memory;
+- ignored graceful termination and timeout;
+- rapid process spawning;
+- stdout/stderr flooding;
+- runner-owned temporary-file growth;
+- handled parent interruption plus uncatchable supervisor `SIGKILL` recovery;
+- stale PID identity; and
+- a parent that exits with a detached descendant.
+
+Every case writes a versioned report, proves cleanup, and contributes a digest
+to the host attestation. The attestation is invalidated when the host,
+architecture, controllers, adapter, runner source, gate, or schema changes.
+
+If user-systemd or cgroup-v2 aggregate enforcement is unavailable, the
+portable adapter can run only the exact built-in low-limit self-test allowlist.
+The host-qualification command itself refuses before launching the adversarial
+matrix, because a portable process group cannot prove cleanup of the detached
+descendant case. Portable focused contract tests never qualify medium or large
+execution. macOS and Windows CI run that dedicated adapter/refusal contract;
+they do not execute the Linux/POSIX unit harness. Portable preflight reports
+attestation as explicitly unavailable and unqualified without probing Linux
+infrastructure binaries or computing a host fingerprint.
+
+The low-limit Linux CI job is pinned to Ubuntu 22.04 and provisions Bubblewrap
+without privilege. It downloads the official Debian Bookworm 0.8.0 package by
+an immutable URL, verifies the pinned SHA-256 digest, records package and ABI
+dependency evidence, and extracts only the binary into the ephemeral runner
+directory. Bookworm's declared glibc, libcap, and libselinux minima are
+satisfied by Jammy. The job then runs the real hard-quota probe before the
+adversarial matrix; it does not use `sudo` or modify the host package database.
+The job also copies setup-node's complete runtime root—including its relative
+npm/npx links and npm package—into a mode-0700 current-user directory, removes
+group/world write permission, records source/staged Node and physical npx-target
+SHA-256 plus ancestor evidence, and puts its physical `bin` first on subsequent
+PATHs. This satisfies the existing trusted-ancestor and exact-npx policies
+without weakening either for the hosted tool-cache layout.
+Ubuntu 24.04's hosted AppArmor policy blocks this rootless namespace path
+unless a privileged package profile is installed, so it is not used as the
+qualification host.
+
+The native release workflow runs source-quality checks on every target before
+an adapter qualification gate. Until issue #57 supplies production enforcement
+for macOS and Windows, those targets refuse qualification and the workflow does
+not enter packaging or artifact-upload steps.
+
+## 3. Run one scenario
+
+```bash
+npm run safe:run -- \
+  --tier small \
+  --workload retrieval-v1 \
+  --report /absolute/path/to/small-result.json \
+  --promote \
+  -- <audited-entrypoint> [args]
+```
+
+Use `--promote` only for an intended tier-qualification scenario. The stable
+`--workload` identifier binds smaller-tier evidence to the same workload;
+success from a trivial or unrelated command cannot unlock another workload.
+Promotion is
+recorded only after a successful command, schema-valid report, empty descendant
+set, removed scope, removed runner temporary directory, and error-free cleanup.
+
+Medium requires current small promotion. Large requires current small and
+medium promotion. Both also require a valid production attestation, aggregate
+enforcement, and the global concurrency lock. Every tier refuses while an
+existing Lamina runtime is already active, because a pre-existing process is
+outside the new scope.
+
+Immediately before release, the runner revalidates its frozen preflight
+identity and persists an active-attempt fence. The identity covers the complete
+normalized argv, ordinary file arguments resolved against the supplied cwd,
+the dedicated manifest-bound retrieval authority when applicable,
+content-hashed Git source, and runner build. The exact frozen identity is reused
+after execution, so a payload that edits its checkout cannot promote the edited
+source. Limits are deliberately excluded: a limits-only edit cannot retry known
+unsafe work. The fence is cleared only after a non-limit clean outcome, final
+report publication, and watchdog disarm; a limit or controller crash retains it.
+
+All limit flags are downward-only:
+
+```text
+--memory-mib --memory-high-mib --pids --timeout-ms
+--output-mib --temporary-mib --sample-ms --high-samples --grace-ms
+```
+
+There is no unrestricted fallback or arbitrary child-command surface. Only the
+repository's explicit audited entrypoint allowlist can launch; Node loader/eval
+indirection, package-runner indirection, symlink substitution, and unknown
+wrappers fail closed. Docker, Harbor, or another external daemon
+cannot be used as the payload because the runner cannot prove ownership of the
+daemon-created descendants. This refusal also inspects shell, package-script,
+and local wrapper indirection rather than trusting only argv[0].
+
+On Linux the payload runs in unprivileged bwrap mount, PID, and (for offline
+entrypoints) network namespaces. The host root and repository snapshot are
+read-only. Repository-output entrypoints are refused because their live output
+trees do not have sealed, same-filesystem hard-quota authority. The only mutable
+repository-adjacent surface is the reviewed Git-common `lamina/work` scratch
+authority used only by the graphd-client and mutable test fixtures at `small`;
+medium and large refuse those fixture entrypoints. `/`, `/tmp`,
+runtime-control directories, and any worktree overlapping runner authority
+state are refused. User/system D-Bus, user-systemd, and common
+Docker/Podman/container control sockets and inherited control addresses are
+masked. Network-required entrypoints are separately and narrowly allowlisted.
+The runner temporary directory is a size-limited private tmpfs.
+The prepared report parent is a separate identity-bound authority mount: it is
+read-only inside the payload namespace. Slot acquisition uses `O_NOFOLLOW` and
+`O_TRUNC` before lengthy preparation, so a crash can leave an invalid/empty or
+current-run non-success file, never a previous success. Completed reports use
+an unpredictable exclusive temporary file plus immutable parent/run identity
+before atomic replacement.
+The controller verifies that tmpfs before releasing the payload and reads its
+allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
+deleted-but-open files without an unbounded directory scan. Symlinks in the
+temporary tree, inode storms, quota exhaustion, or absence of this enforcement
+capability fail closed.
+
+Managed `graphd` is a fixture-only exception, not an ordinary workload or
+detached-tree escape hatch. The small graphd-client fixture uses its nested Git
+repository beneath Git-common `lamina/work`; standalone CLI smoke uses only its
+child-cwd repository created inside private payload tmpfs and cannot reserve
+source Git-common paths. Before spawn, the fixture asks the live supervisor
+broker to prove the socket/lock paths absent and durably reserve them. After
+spawn it binds that reservation to the authorized host/namespace PIDs, Linux
+start identity, command, child cwd, and exact runtime path. The reservation
+nonce is embedded in the graphd lock for the creation-to-seal transition. Once
+readiness creates both objects, graphd and the client seal their exact `lstat`
+type, device, inode, owner, mode, and size; the lock PID must match the bound
+PID set. No child-writable registry is authoritative. After the CLI
+exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
+root and its in-scope descendants, sends the complete scope `SIGTERM`, and
+still requires an empty scope. A mismatched identity, unrelated process, or
+unregistered detached descendant is a safety failure.
+
+Immediately after the current-run non-success report slot is durable, the
+controller starts a detached identity-bound watchdog child without creating a
+lock or temporary directory first. The child creates and returns exact
+device/inode/owner identities for its watchdog, runner, and payload temporary
+directories, acquires the exact-unit production lock when required, and writes
+those identities into its initial manifest before declaring ready. A ready
+timeout or child exit cleans only progress-reported exact identities; there is
+no stale-prefix sweep. The manifest later records the exact cgroup and graphd
+reservation/bind/seal state. If the supervisor is killed, the watchdog kills
+and removes that exact scope, removes only identity-matched temporary/managed
+paths after an immediate identity recheck, releases the exact lock only after authoritative absence proof, and
+writes a schema-valid crash report. The existing `parent_signal` qualification
+case bundles handled-signal and supervisor-`SIGKILL` subproofs, preserving the
+public eleven-case contract. Focused CI additionally kills the controller at
+pre-watchdog report preparation, child-owned watchdog and runner-directory
+bootstrap boundaries, and graphd reserved, bound, objects-created, and sealed
+boundaries.
+
+The requested report slot contains a schema-valid current-run non-success
+provisional record before adapter probing or payload preparation. Final outcomes atomically replace that run-bound
+slot. Because watchdog write authority uses the immutable parent and run rather
+than a changing report inode, controller death after success publication but
+before disarm overwrites that success with schema-valid crash evidence.
+
+Infrastructure binaries are resolved and identity-bound independently of the
+caller and rechecked at launch. CI supplies bwrap through an absolute physical
+path plus SHA-256; local runs retain a fixed-system-path fallback, and probe and
+launch use the same persisted identity. PATH and complete dynamic-loader,
+Node, exported Bash-function, and analogous shell/runtime hook families are sanitized
+before `systemd-run`, the gates, bwrap, and the payload launcher start, including
+for reusable API environment overrides.
+
+Retrieval evaluation and calibration have no environment or uv fallback. They
+require exactly one explicit repository-contained physical `--worker`,
+`--model`, `--tokenizer`, and lowercase `--model-digest`; the worker must be
+executable, and no unknown flags or positional tokens are accepted. Model
+bytes, size, and digest must match the canonical retrieval
+model manifest. Tokenizer bytes are not separately manifest-pinned, but all
+three inputs and the manifest are descriptor-copied into the frozen launch and
+execution-snapshot identities. This dedicated authority admits the canonical
+model above the generic 64-MiB argv-input ceiling without increasing that
+ceiling: the manifest is capped at 1 MiB before read, its declared model and the
+worker at 256 MiB, and the tokenizer at 64 MiB. Snapshot construction must
+match both its recomputed source identity and copied bytes to the original
+preflight authority. Inherited `LAMINA_TEST_*` controls are removed for
+non-self-test payloads, and retrieval semantic environment names are stripped
+before launch. Only exact descriptor-copied native/smoke values encoded in the
+snapshot authority survive the final bwrap unset layer.
+
+## Reports and outcomes
+
+Each run writes `lamina.safe-runner-report/v1`. It includes:
+
+- limits and complete preflight data;
+- aggregate process RSS and cgroup `memory.current`/`memory.peak` as distinct
+  measures, plus bounded per-process samples and peaks;
+- bounded output counts/tails and temporary disk usage;
+- every observed descendant with PID start identity;
+- cgroup memory/PID events;
+- exit status, signal, termination reason, and requested signals; and
+- descendant, scope, temporary-directory, lock, and report cleanup.
+
+Host attestation binds the evidence to the boot ID, kernel release, systemd
+version, user-manager identity, root controller/subtree state, architecture,
+adapter, schemas, runner sources, graphd integration, and adversarial fixture.
+
+The outcome is one of `success`, `command_failed`,
+`safety_limit_exceeded`, `preflight_refused`, `interrupted`, or
+`internal_error`. Validate a report independently with:
+
+```bash
+node scripts/safe-runner/cli.mjs validate-report --file /absolute/path/to/result.json
+```
+
+If the requested report path cannot be written, the runner attempts a bounded
+fallback report in the system temporary directory and marks the run as an
+internal failure. A missing report is never a measurement.
+
+Reports deliberately omit the child environment and recursively redact common credential
+flags, bearer tokens, URL userinfo, and secret-like output patterns. Redaction
+applies to disk, the Node API return, and CLI JSON. It
+is defense in depth, not a data-loss-prevention guarantee: commands can print
+arbitrary sensitive material. Treat reports as sensitive diagnostics, keep
+them mode `0600`, review them before sharing, and never publish raw reports or
+CI artifacts containing real credentials.
+
+## Child-command integration
+
+Resource-intensive repository entrypoints can call
+`assertSafeRunnerContext()` from `scripts/safe-runner/index.mjs`. It obtains
+the authoritative tier, unit, and limits from a live supervisor-held broker,
+then independently reads the caller's cgroup and controller values. Context
+files, tokens, tier variables, and plain environment flags are not proof.
+
+Lamina's graph client also reserves, binds, and object-seals any graphd it starts
+by host/namespace PID and Linux start ticks. After the payload exits, the runner gives that exact registered
+daemon a short graceful shutdown window and verifies that its socket, lock,
+process tree, and scope are gone. Any unregistered detached process—or any
+registered graphd that outlives the deadline—fails the scenario and triggers
+complete scope termination.
+
+See [ADR-014](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/014-crash-safe-resource-supervision.md)
+for the ownership and fail-closed rationale.

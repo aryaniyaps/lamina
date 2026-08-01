@@ -6,6 +6,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -230,6 +231,7 @@ export function extractUsage(text) {
  * @returns {Promise<{output, stdout, stderr, session_id, cost_usd, usage, exitCode, duration_ms, timed_out}>}
  */
 export async function invokeAgent(agent, prompt, cwd, options = {}) {
+  assertSafeRunnerContext('agent evaluation invocation', { minimumTier: 'medium' });
   const resolved = resolveAgentCommand(agent);
   if (!resolved) {
     throw new Error(`Unknown agent: ${agent}. Supported: ${Object.keys(AGENT_COMMANDS).join(', ')}`);

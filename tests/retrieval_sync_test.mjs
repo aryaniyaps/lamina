@@ -10,11 +10,28 @@ import {
   ensureRetrieval,
   queryRetrieval,
 } from '../packages/cli/lib/retrieval-runtime/process.mjs';
+import { removeTemporaryTree, throwLifecycleErrors } from './test-util.mjs';
+
+const primaryPrecedenceProbe = new Error('primary lifecycle probe');
+const cleanupPrecedenceProbe = new Error('cleanup lifecycle probe');
+assert.throws(
+  () => throwLifecycleErrors(
+    primaryPrecedenceProbe,
+    [cleanupPrecedenceProbe],
+    'retrieval sync lifecycle probe',
+  ),
+  (error) => error instanceof AggregateError
+    && error.errors[0] === primaryPrecedenceProbe
+    && error.errors[1] === cleanupPrecedenceProbe
+    && /primary: primary lifecycle probe; cleanup: cleanup lifecycle probe/.test(error.message),
+  'cleanup aggregation must preserve the original product failure first',
+);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-retrieval-sync-'));
 process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER = 'deterministic';
 process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS = '1';
 
+let primaryError = null;
 try {
   execFileSync('git', ['init', '-b', 'main'], { cwd: root });
   execFileSync('git', ['config', 'user.email', 'test@lamina.invalid'], { cwd: root });
@@ -71,11 +88,24 @@ try {
   const graphAfter = await graphRequest('status', {}, root);
   assert.equal(graphAfter.graph_version, graphBefore.graph_version,
     'retrieval generations must never mutate the canonical graph');
+} catch (error) {
+  primaryError = error;
 } finally {
-  try { await stopIncompatibleServer(runtimePaths(root)); } catch {}
-  fs.rmSync(root, { recursive: true, force: true });
-  delete process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER;
-  delete process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS;
+  const cleanupErrors = [];
+  try {
+    await stopIncompatibleServer(runtimePaths(root));
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+  try {
+    removeTemporaryTree(root);
+  } catch (error) {
+    cleanupErrors.push(error);
+  } finally {
+    delete process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER;
+    delete process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS;
+  }
+  throwLifecycleErrors(primaryError, cleanupErrors, 'retrieval sync lifecycle');
 }
 
 console.log('retrieval_sync_test: ok');

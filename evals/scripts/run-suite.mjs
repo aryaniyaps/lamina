@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP = path.join(ROOT, 'evals/tmp');
@@ -235,6 +236,7 @@ function runMultiturnBatch(multiEvals, evalsPath, agent) {
 }
 
 function main() {
+  assertSafeRunnerContext('evaluation suite', { minimumTier: 'medium' });
   spawnSync('node', [path.join(ROOT, 'evals/scripts/merge-evals.mjs')], { cwd: ROOT, stdio: 'inherit' });
 
   const opts = parseArgs(process.argv);

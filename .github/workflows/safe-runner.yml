@@ -1,0 +1,173 @@
+name: Crash-safe runner
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/safe-runner/**'
+      - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'packages/cli/lib/safe-runner-*.mjs'
+      - 'tests/safe_runner_*.mjs'
+      - 'tests/fixtures/safe-runner-*.mjs'
+      - 'tests/fixtures/graph-runtime/**'
+      - 'docs/content/advanced/safe-runner.mdx'
+      - 'docs/decisions/014-crash-safe-resource-supervision.md'
+      - 'package.json'
+      - 'benchmarks/retrieval-v1/benchmark.mjs'
+      - 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'
+      - 'benchmarks/lb6/pilot/scripts/build-runtime.mjs'
+      - 'evals/scripts/invoke-agent.mjs'
+      - 'evals/scripts/run-suite.mjs'
+      - 'evals/scripts/vendor-*-fixture.mjs'
+      - 'evals/hooks/compatibility-matrix.*'
+      - '.github/workflows/publish-cli.yml'
+      - 'README.md'
+      - '.gitignore'
+      - '.github/workflows/safe-runner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/safe-runner/**'
+      - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'packages/cli/lib/safe-runner-*.mjs'
+      - 'tests/safe_runner_*.mjs'
+      - 'tests/fixtures/safe-runner-*.mjs'
+      - 'tests/fixtures/graph-runtime/**'
+      - 'docs/content/advanced/safe-runner.mdx'
+      - 'docs/decisions/014-crash-safe-resource-supervision.md'
+      - 'package.json'
+      - 'benchmarks/retrieval-v1/benchmark.mjs'
+      - 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'
+      - 'benchmarks/lb6/pilot/scripts/build-runtime.mjs'
+      - 'evals/scripts/invoke-agent.mjs'
+      - 'evals/scripts/run-suite.mjs'
+      - 'evals/scripts/vendor-*-fixture.mjs'
+      - 'evals/hooks/compatibility-matrix.*'
+      - '.github/workflows/publish-cli.yml'
+      - 'README.md'
+      - '.gitignore'
+      - '.github/workflows/safe-runner.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  low-limit-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-safe-runner-state
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+
+      - name: Stage trusted private Node runtime
+        shell: bash
+        run: |
+          source_node="$(realpath "$(command -v node)")"
+          source_bin="$(dirname "$source_node")"
+          source_root="$(dirname "$source_bin")"
+          trust_root="$RUNNER_TEMP/lamina-safe-node"
+          node_dir="$trust_root/bin"
+          evidence_dir="$RUNNER_TEMP/safe-runner-test-artifacts/provisioning"
+          install -d -m 0700 "$trust_root"
+          install -d -m 0700 "$evidence_dir"
+          cp -a --no-preserve=ownership "$source_root/." "$trust_root/"
+          chmod -R go-w "$trust_root"
+          chmod 0700 "$trust_root"
+          source_sha256="$(sha256sum "$source_node" | cut -d' ' -f1)"
+          staged_sha256="$(sha256sum "$node_dir/node" | cut -d' ' -f1)"
+          test "$source_sha256" = "$staged_sha256"
+          test "$("$node_dir/node" -p 'process.execPath')" = "$node_dir/node"
+          source_npx_target="$(realpath "$source_bin/npx")"
+          staged_npx_target="$(realpath "$node_dir/npx")"
+          test -f "$staged_npx_target"
+          case "$staged_npx_target" in "$trust_root"/*) ;; *) exit 1 ;; esac
+          source_npx_sha256="$(sha256sum "$source_npx_target" | cut -d' ' -f1)"
+          staged_npx_sha256="$(sha256sum "$staged_npx_target" | cut -d' ' -f1)"
+          test "$source_npx_sha256" = "$staged_npx_sha256"
+          PATH="$node_dir:$PATH" "$node_dir/npx" --version
+          printf 'source_node=%s\nsource_node_sha256=%s\nstaged_node=%s\nstaged_node_sha256=%s\nsource_npx_target=%s\nsource_npx_sha256=%s\nstaged_npx_target=%s\nstaged_npx_sha256=%s\n' \
+            "$source_node" "$source_sha256" "$node_dir/node" "$staged_sha256" \
+            "$source_npx_target" "$source_npx_sha256" "$staged_npx_target" "$staged_npx_sha256" \
+            | tee "$evidence_dir/node-identity.txt"
+          namei -l "$node_dir/node" "$node_dir/npx" "$staged_npx_target" \
+            | tee "$evidence_dir/node-ancestors.txt"
+          printf '%s\n' "$node_dir" >> "$GITHUB_PATH"
+
+      - name: Provision pinned rootless bubblewrap
+        shell: bash
+        run: |
+          package_dir="$RUNNER_TEMP/bubblewrap-package"
+          extract_dir="$RUNNER_TEMP/bubblewrap-root"
+          bin_dir="$RUNNER_TEMP/bubblewrap-bin"
+          evidence_dir="$RUNNER_TEMP/safe-runner-test-artifacts/provisioning"
+          mkdir -p "$package_dir" "$extract_dir" "$bin_dir" "$evidence_dir"
+          package="$package_dir/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_url="https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_sha256="3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb"
+          curl --proto '=https' --tlsv1.2 -fsSL "$package_url" -o "$package"
+          printf '%s  %s\n' "$package_sha256" "$package" | tee "$evidence_dir/package-sha256.txt" | sha256sum --check
+          printf 'source=%s\nsha256=%s\n' "$package_url" "$package_sha256" > "$evidence_dir/package-source.txt"
+          dpkg-deb --info "$package" | tee "$evidence_dir/package-info.txt"
+          dpkg-deb --extract "$package" "$extract_dir"
+          cp "$extract_dir/usr/bin/bwrap" "$bin_dir/bwrap"
+          chmod 0755 "$bin_dir/bwrap"
+          ldd "$bin_dir/bwrap" | tee "$evidence_dir/runtime-dependencies.txt"
+          "$bin_dir/bwrap" --version | tee "$evidence_dir/bwrap-version.txt"
+          "$bin_dir/bwrap" --unshare-user --uid 0 --gid 0 --ro-bind / / \
+            --dev-bind /dev /dev --proc /proc --size 1048576 --tmpfs /tmp \
+            /bin/sh -c 'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null'
+          printf 'LAMINA_SAFE_BWRAP_PATH=%s\nLAMINA_SAFE_BWRAP_SHA256=%s\n' \
+            "$bin_dir/bwrap" "$(sha256sum "$bin_dir/bwrap" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Static and focused contract tests
+        env:
+          LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR: ${{ runner.temp }}/safe-runner-test-artifacts
+        run: npm run test:safe-runner
+
+      - name: Low-limit adversarial self-test
+        run: npm run safe:self-test -- --require-production
+
+      - name: Refuse leftover adversarial descendants
+        if: always()
+        shell: bash
+        run: |
+          if pgrep -af '[s]afe-runner-adversary|[l]amina-safe-' > "$RUNNER_TEMP/leftovers.txt"; then
+            cat "$RUNNER_TEMP/leftovers.txt"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safe-runner-low-limit-reports
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            /tmp/lamina-safe-runner-state
+            ${{ runner.temp }}/safe-runner-test-artifacts
+
+  portable-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+      - name: Portable interface and production refusal contracts
+        run: npm run test:safe-runner:portable

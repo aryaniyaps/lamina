@@ -2,6 +2,12 @@
 
 This document is the **operator checklist** for reproducing the development-only **Lamina Product Coding Pilot** (direct / plan / lamina). Anyone with Harbor, Docker, and API keys should be able to rebuild tasks, run the same three arms, collect results, and recompute the median claim.
 
+> Current safety boundary: the live Harbor steps in this historical checklist
+> are blocked. Docker-daemon descendants are outside the crash-safe client
+> scope, so `run-three-arm.mjs` refuses direct and wrapped launches. Do not
+> bypass that guard. You can still recompute and inspect the committed three
+> seed packages; new live collection requires daemon-side ownership support.
+
 *(Operator note: LB6 / GitHub issue #18 / Harbor RewardKit.)*
 
 **Claim surface:** per-cell **median of 3 seeds** → [`local-v3-issue18-rewardkit-median.md`](./local-v3-issue18-rewardkit-median.md)
@@ -137,15 +143,9 @@ npm run bench:lb6:v3:validate
 # 3) Open a clean campaign window (ignore older jobs/)
 node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs --force-marker
 
-# 4) Run matrix (one task at a time; tee logs locally)
-mkdir -p benchmarks/lb6/pilot/logs/seed-N
-for task in dev-loan-library dev-review-room dev-simple-list dev-toggle-preference; do
-  node benchmarks/lb6/pilot/scripts/run-three-arm.mjs \
-    --allow-dirty-harness \
-    --concurrency 1 \
-    --tasks "$task" \
-    2>&1 | tee "benchmarks/lb6/pilot/logs/seed-N/seed-N-${task}.log"
-done
+# 4) Historical live matrix entrypoint. This now emits a safety refusal report;
+# do not bypass it while Harbor descendants remain externally owned.
+npm run bench:lb6:v3:run
 
 # 5) Collect live claim files
 npm run bench:lb6:v3:collect-issue18

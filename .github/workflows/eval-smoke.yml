@@ -31,9 +31,6 @@ jobs:
           pnpm install --frozen-lockfile
           pip install -r evals/requirements.txt
 
-      - name: Sync and validate
-        run: npm run test:eval:validate
-
       - name: Run smoke evals (requires agent CLIs + API keys)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

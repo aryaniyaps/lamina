@@ -3,8 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+assertSafeRunnerContext('reference evaluation matrix', { minimumTier: 'medium' });
 const ids = JSON.parse(fs.readFileSync(path.join(ROOT, 'evals/reference-smoke/ids.json'), 'utf8')).ids;
 const iteration = path.join(ROOT, 'eval-workspace/lamina-workspace/iteration-1');
 const matrixEnv = {

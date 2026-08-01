@@ -33,9 +33,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          npm run test:eval:validate
-          npm run test:eval:full
+        run: npm run test:eval:full
         continue-on-error: true
 
       - name: Portable evals

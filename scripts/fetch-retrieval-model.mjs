@@ -2,6 +2,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertSafeRunnerContext } from './safe-runner/context.mjs';
+
+assertSafeRunnerContext('retrieval model fetch');
 
 const root = path.resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(

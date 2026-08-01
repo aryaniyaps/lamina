@@ -4,11 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { assertSafeRunnerContext } from '../../../../scripts/safe-runner/context.mjs';
 import { fileURLToPath } from 'node:url';
 import { AGENT_RUNTIME_IMAGE, CURSOR_CLI_SHA256, CURSOR_CLI_VERSION } from '../lib/constants.mjs';
 import { applyBenchEnv } from '../../../lib/load-env.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+assertSafeRunnerContext('LB6 Docker runtime build', { minimumTier: 'medium' });
 applyBenchEnv(ROOT);
 
 const pilotRoot = path.join(ROOT, 'benchmarks/lb6/pilot');

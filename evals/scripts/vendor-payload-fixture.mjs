@@ -6,8 +6,10 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseRefArg, vendorFixture } from './vendor-fixture-lib.mjs';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+assertSafeRunnerContext('Payload fixture vendoring', { minimumTier: 'medium' });
 const OUT = path.join(ROOT, 'evals/fixtures/_base/payload-website');
 const ref = parseRefArg(process.argv, 'main');
 

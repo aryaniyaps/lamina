@@ -9,6 +9,7 @@ agent-skills-workspace/
 evals/reports/iteration-*/
 promptfoo-output/
 jobs/
+.lamina-safe-runner/
 .env
 
 # Native CocoIndex worker build intermediates

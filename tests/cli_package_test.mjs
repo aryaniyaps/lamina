@@ -13,6 +13,8 @@ const retrievalAssetBuilder = fs.readFileSync('scripts/prepare-retrieval-assets.
 const retrievalWorker = fs.readFileSync('packages/cli/retrieval_worker.py', 'utf8');
 const bootstrap = fs.readFileSync('packages/cli/sea/bootstrap.cjs', 'utf8');
 const graphClient = fs.readFileSync('packages/cli/lib/graph-runtime/client.mjs', 'utf8');
+const safeRunnerContext = fs.readFileSync('packages/cli/lib/safe-runner-context.mjs', 'utf8');
+const safeRunnerBrokerClient = fs.readFileSync('packages/cli/lib/safe-runner-broker-client.mjs', 'utf8');
 const binarySmoke = fs.readFileSync('tests/cli_binary_smoke_test.mjs', 'utf8');
 const cocoWorker = fs.readFileSync('packages/cli/cocoindex_worker.py', 'utf8');
 const retrievalModel = JSON.parse(
@@ -23,7 +25,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.3.5');
+assert.equal(cliPackage.version, '0.3.6');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.equal(retrievalModel.qualification.decision, 'ship_int8');
 assert.ok(
@@ -77,11 +79,47 @@ assert.match(bootstrap, /path\.join\(runtime, 'node\.exe'\)/);
 assert.match(bootstrap, /LAMINA_STANDALONE_GRAPHD_HOST/);
 assert.match(graphClient, /LAMINA_STANDALONE_GRAPHD_HOST \|\| process\.execPath/);
 assert.match(graphClient, /retrievalRuntimeDirectory\(\), 'extensions'/);
-assert.match(graphClient, /env: graphdEnvironment\(\)/);
+assert.match(graphClient, /\.\.\.graphdEnvironment\(\)[\s\S]*LAMINA_SAFE_GRAPHD_RESERVATION/);
+assert.match(graphClient, /reserveManagedGraphd\(paths\)[\s\S]*registerManagedGraphd\(child, paths, reservation\)[\s\S]*sealManagedGraphd\(reservation\)/);
 assert.match(graphClient, /identity\?\.runtime_version === CLI_VERSION/);
+assert.match(graphClient, /from '\.\.\/safe-runner-context\.mjs'/);
+assert.doesNotMatch(graphClient, /scripts\/safe-runner/);
+assert.match(safeRunnerContext, /safe-runner-broker-client\.mjs/);
+assert.match(safeRunnerContext, /reserveManagedGraphdWithSupervisor/);
+assert.match(safeRunnerContext, /bindManagedGraphdWithSupervisor/);
+assert.match(safeRunnerBrokerClient, /LAMINA_SAFE_RUNNER_BROKER/);
+assert.match(builder, /copy\(path\.join\(cli, 'lib'\), path\.join\(payload, 'app\/lib'\)\)/);
 assert.match(binarySmoke, /process\.platform === 'win32'/);
 assert.match(binarySmoke, /LOCALAPPDATA: cache/);
 assert.match(binarySmoke, /XDG_CACHE_HOME: cache/);
+assert.match(binarySmoke,
+  /assert\.notEqual\(process\.env\.LAMINA_SAFE_RUNNER, '1',[\s\S]*snapshot-sealed LAMINA_BINARY/,
+  'safe-runner native qualification must fail instead of taking the build-only early exit');
+assert.match(binarySmoke,
+  /if \(!binary\) \{[\s\S]*process\.exit\(0\);[\s\S]*assertSafeRunnerContext\('standalone CLI smoke test'\)/,
+  'direct build-contract mode must exit before resource-intensive context enforcement');
+const smokeEnvironment = { ...process.env };
+for (const name of [
+  'LAMINA_BINARY', 'LAMINA_WORKER', 'LAMINA_MODEL', 'LAMINA_SAFE_RUNNER',
+  'LAMINA_SAFE_RUNNER_BROKER',
+]) delete smokeEnvironment[name];
+const directSmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8', env: smokeEnvironment,
+});
+assert.equal(directSmoke.status, 0, directSmoke.stderr);
+assert.match(directSmoke.stdout, /build contract ok/);
+const forgedSmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8',
+  env: { ...smokeEnvironment, LAMINA_SAFE_RUNNER: '1' },
+});
+assert.notEqual(forgedSmoke.status, 0);
+assert.match(forgedSmoke.stderr, /snapshot-sealed LAMINA_BINARY/);
+const unqualifiedBinarySmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8',
+  env: { ...smokeEnvironment, LAMINA_BINARY: path.join(os.tmpdir(), 'unqualified-lamina') },
+});
+assert.notEqual(unqualifiedBinarySmoke.status, 0);
+assert.match(unqualifiedBinarySmoke.stderr, /LAMINA_SAFE_RUNNER_REQUIRED|canonical crash-safe command/);
 assert.match(cocoWorker, /multiprocessing\.freeze_support\(\)/);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);
@@ -102,7 +140,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.5']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.6']).status,
   0,
 );
 assert.notEqual(
