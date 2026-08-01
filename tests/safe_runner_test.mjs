@@ -1937,6 +1937,8 @@ try {
     process.env.PATH = SAFE_INFRASTRUCTURE_PATH;
     process.env.LAMINA_SAFE_GIT_IDENTITY = graphdSandboxContract.sealedGitIdentity;
     const probeEvidence = sealedSandboxGitProbe(graphdRepository);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined,
+      'sealed Git identity must be consumed before the probe continues');
     assert.equal(probeEvidence.git.requested_path,
       validGraphdSnapshot.git_executable_identity.path);
     assert.equal(probeEvidence.git.digest, validGraphdSnapshot.git_executable_identity.digest);
@@ -1952,8 +1954,12 @@ try {
     ).toString('base64url');
     assert.throws(() => sealedSandboxGitProbe(graphdRepository), /immutable identity changed/,
       'namespace probe must reject tampered sealed Git identity data');
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined,
+      'rejected sealed Git identity must be consumed before validation');
     process.env.LAMINA_SAFE_GIT_IDENTITY = 'not-base64!';
     assert.throws(() => sealedSandboxGitProbe(graphdRepository), /missing or malformed/);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined,
+      'malformed sealed Git identity must be consumed before parsing');
   } finally {
     if (previousProbePath === undefined) delete process.env.PATH;
     else process.env.PATH = previousProbePath;

@@ -87,10 +87,12 @@ function firstSafePathExecutable(name) {
 }
 
 export function sealedSandboxGitProbe(repository) {
+  const encodedGitIdentity = process.env.LAMINA_SAFE_GIT_IDENTITY;
+  delete process.env.LAMINA_SAFE_GIT_IDENTITY;
   if (process.env.PATH !== SAFE_INFRASTRUCTURE_PATH) {
     throw new Error('sealed sandbox PATH does not match its fixed infrastructure path');
   }
-  const expectedGitIdentity = sealedGitIdentity(process.env.LAMINA_SAFE_GIT_IDENTITY);
+  const expectedGitIdentity = sealedGitIdentity(encodedGitIdentity);
   const namedGit = firstSafePathExecutable('git');
   if (namedGit !== expectedGitIdentity.path) {
     throw new Error('sealed sandbox PATH Git does not match trusted Git identity');
