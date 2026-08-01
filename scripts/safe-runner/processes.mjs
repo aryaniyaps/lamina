@@ -65,7 +65,7 @@ function basename(token) {
 
 function isSourceScript(token) {
   const normalized = String(token || '').replaceAll('\\', '/');
-  return /\/(?:packages\/cli|app)\/lib\/graph-runtime\/server\.mjs$/i.test(normalized)
+  return normalized.toLowerCase().endsWith('/graph-runtime/server.mjs')
     || basename(normalized).toLowerCase() === 'lamina.mjs'
     || WORKER_SCRIPT_RE.test(basename(normalized));
 }

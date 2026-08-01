@@ -44,6 +44,7 @@ export async function startCrashWatchdog({
     watchdog_directory_identity: directoryIdentity,
     adapter: { id: adapter.id, production_enforcement: adapter.production_enforcement === true },
     unit: adapter.unit || null,
+    systemd_major: adapter.systemdMajor || null,
     cgroup: null,
     payload: null,
     payload_process_group: null,

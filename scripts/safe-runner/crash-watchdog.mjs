@@ -8,7 +8,7 @@ import {
 } from './processes.mjs';
 import { finishReport, writeReportWithFallback } from './report.mjs';
 import { removeOwnedDirectory } from './filesystem.mjs';
-import { systemctlKillArguments } from './linux-systemd.mjs';
+import { systemdKillArguments } from './linux-systemd.mjs';
 
 const [manifestFile, readyFile, disarmFile] = process.argv.slice(2);
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -110,7 +110,7 @@ async function supervise() {
     const before = unitAbsent(manifest.unit);
     if (!before.absent) {
       for (const [args, label] of [
-        [systemctlKillArguments(manifest.unit, 'SIGKILL'), 'systemctl kill'],
+        [systemdKillArguments('SIGKILL', manifest.unit, manifest.systemd_major), 'systemctl kill'],
         [['stop', manifest.unit], 'systemctl stop'],
         [['reset-failed', manifest.unit], 'systemctl reset-failed'],
       ]) {

@@ -16,10 +16,6 @@ function systemctl(args) {
   });
 }
 
-export function systemctlKillArguments(unit, signal) {
-  return ['kill', '--kill-who=all', `--signal=${signal}`, unit];
-}
-
 export function assertSystemctlSuccess(result, operation) {
   if (result?.error) throw result.error;
   if (result?.status !== 0) {
@@ -29,6 +25,40 @@ export function assertSystemctlSuccess(result, operation) {
     throw error;
   }
   return result;
+}
+
+export function parseSystemdMajor(versionText) {
+  const major = Number(String(versionText || '').match(/^systemd\s+(\d+)\b/m)?.[1]);
+  if (!Number.isSafeInteger(major) || major < 249) {
+    const error = new Error(`unsupported or unparsable systemd version: ${String(versionText || '').trim() || 'empty output'}`);
+    error.code = 'LAMINA_SAFE_SYSTEMD_VERSION';
+    throw error;
+  }
+  return major;
+}
+
+export function systemdKillArguments(signal, unit, major) {
+  if (!Number.isSafeInteger(major) || major < 249) {
+    const error = new Error(`unsupported systemd major version: ${major}`);
+    error.code = 'LAMINA_SAFE_SYSTEMD_VERSION';
+    throw error;
+  }
+  const selector = major >= 252 ? '--kill-whom=all' : '--kill-who=all';
+  return ['kill', selector, `--signal=${signal}`, unit];
+}
+
+export function systemdScopeProperties(limits) {
+  return [
+    '--property', 'MemoryAccounting=yes',
+    '--property', `MemoryMax=${limits.memory_max_bytes}`,
+    '--property', `MemoryHigh=${limits.memory_high_bytes}`,
+    '--property', 'TasksAccounting=yes',
+    '--property', `TasksMax=${limits.pids_max}`,
+    '--property', 'KillMode=control-group',
+    '--property', 'SendSIGKILL=yes',
+    '--property', `RuntimeMaxSec=${Math.ceil((limits.timeout_ms
+      + limits.graceful_stop_ms + 5_000) / 1_000)}s`,
+  ];
 }
 
 function readNumber(file) {
@@ -75,6 +105,8 @@ export class LinuxSystemdAdapter {
     this.controllers = probe.controllers || [];
     this.unit = `lamina-safe-${runId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(-48)}.scope`;
     this.limits = limits;
+    const version = assertSystemctlSuccess(systemctl(['--version']), 'systemctl --version');
+    this.systemdMajor = parseSystemdMajor(version.stdout);
     this.child = null;
     this.cgroupPath = null;
   }
@@ -85,16 +117,7 @@ export class LinuxSystemdAdapter {
   }) {
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
-      '--property', 'MemoryAccounting=yes',
-      '--property', `MemoryMax=${this.limits.memory_max_bytes}`,
-      '--property', `MemoryHigh=${this.limits.memory_high_bytes}`,
-      '--property', 'TasksAccounting=yes',
-      '--property', `TasksMax=${this.limits.pids_max}`,
-      '--property', 'KillMode=control-group',
-      '--property', 'SendSIGKILL=yes',
-      '--property', 'OOMPolicy=stop',
-      '--property', `RuntimeMaxSec=${Math.ceil((this.limits.timeout_ms
-        + this.limits.graceful_stop_ms + 5_000) / 1_000)}s`,
+      ...systemdScopeProperties(this.limits),
       '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
@@ -168,7 +191,7 @@ export class LinuxSystemdAdapter {
   }
 
   signal(signal) {
-    const result = systemctl(systemctlKillArguments(this.unit, signal));
+    const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 

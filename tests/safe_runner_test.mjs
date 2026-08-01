@@ -14,7 +14,10 @@ import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
 import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-runner/filesystem.mjs';
 import {
-  assertSystemctlSuccess, systemctlKillArguments,
+  assertSystemctlSuccess,
+  parseSystemdMajor,
+  systemdKillArguments,
+  systemdScopeProperties,
 } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
@@ -102,9 +105,6 @@ try {
     boundedProbeFailure({ status: 1, signal: null, stderr: `denied\n${'x'.repeat(1_000)}` }),
     `exit=1; output=${`denied ${'x'.repeat(1_000)}`.slice(0, 500)}`,
   );
-  assert.deepEqual(systemctlKillArguments('lamina-safe-unit.scope', 'SIGKILL'), [
-    'kill', '--kill-who=all', '--signal=SIGKILL', 'lamina-safe-unit.scope',
-  ]);
   assert.equal(systemdKillControlSupported({ status: 1, stderr: 'Unit not loaded' }), true);
   assert.equal(systemdKillControlSupported({
     status: 1, stderr: "systemctl: unrecognized option '--kill-who=all'",
@@ -283,6 +283,29 @@ try {
     () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
     /systemctl stop unit failed: access denied/,
   );
+  assert.equal(parseSystemdMajor('systemd 249 (249.11-0ubuntu3.17)'), 249);
+  assert.equal(parseSystemdMajor('systemd 259 (259.5-0ubuntu3)'), 259);
+  assert.deepEqual(systemdKillArguments('SIGKILL', 'lamina-safe-unit.scope', 249), [
+    'kill', '--kill-who=all', '--signal=SIGKILL', 'lamina-safe-unit.scope',
+  ]);
+  assert.deepEqual(systemdKillArguments('SIGTERM', 'lamina-safe-unit.scope', 252), [
+    'kill', '--kill-whom=all', '--signal=SIGTERM', 'lamina-safe-unit.scope',
+  ]);
+  assert.throws(() => parseSystemdMajor('not systemd'), /unsupported or unparsable/);
+  assert.throws(() => systemdKillArguments('SIGTERM', 'unit.scope', 248), /unsupported/);
+  const scopeProperties = systemdScopeProperties({
+    memory_max_bytes: 100,
+    memory_high_bytes: 80,
+    pids_max: 8,
+    timeout_ms: 1_000,
+    graceful_stop_ms: 100,
+  }).join(' ');
+  for (const required of [
+    'MemoryAccounting=yes', 'MemoryMax=100', 'MemoryHigh=80',
+    'TasksAccounting=yes', 'TasksMax=8', 'KillMode=control-group',
+    'SendSIGKILL=yes', 'RuntimeMaxSec=7s',
+  ]) assert.match(scopeProperties, new RegExp(required));
+  assert.doesNotMatch(scopeProperties, /OOMPolicy/);
   assert.equal(await stopIncompatibleServer({
     root,
     lock: path.join(root, 'missing-graphd.lock'),

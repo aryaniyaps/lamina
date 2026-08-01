@@ -120,7 +120,7 @@ try {
     assert.equal(failure.termination.child_exit_code, 7);
     assert.equal(validateReport(failure).valid, true);
 
-    const graphRepository = path.join(root, 'graph-repository');
+    const graphRepository = path.join(root, `graph-repository-${'x'.repeat(80)}`);
     fs.mkdirSync(graphRepository);
     const initialized = spawnSync('git', ['init', '--quiet'], {
       cwd: graphRepository,
@@ -132,7 +132,7 @@ try {
       tier: 'small', cwd: root, reportFile: path.join(reports, 'managed-graphd.json'),
       overrides: {
         ...limits,
-        pidsMax: 32,
+        pidsMax: 64,
         timeoutMs: 5_000,
         gracefulStopMs: 500,
       },
@@ -142,6 +142,8 @@ try {
     assert.equal(managedGraphd.preflight.managed_descendant_cleanup.role, 'graphd');
     assert.equal(managedGraphd.preflight.managed_descendant_cleanup.registered_roots.length, 1);
     const graphdOutput = JSON.parse(managedGraphd.output.stdout_tail.trim().split('\n').at(-1));
+    assert.ok(Buffer.byteLength(graphdOutput.socket) >= 108,
+      'managed graphd fixture must exercise production long-socket handling');
     const registration = JSON.parse(graphdOutput.registration);
     assert.equal(registration.pid, graphdOutput.pid);
     assert.match(registration.start_ticks, /^\d+$/);
@@ -156,7 +158,7 @@ try {
     const staleGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'leave-stale'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'stale-graphd.json'),
-      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       promote: false,
     });
     assert.equal(staleGraphd.outcome, 'internal_error');
@@ -171,14 +173,14 @@ try {
     const earlyGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository, 'exit-stale'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'early-graphd.json'),
-      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 5_000, gracefulStopMs: 500 },
       promote: false,
     });
     assert.equal(earlyGraphd.outcome, 'internal_error');
     assert.equal(earlyGraphd.termination.reason, 'cleanup_incomplete');
     assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 2,
       'every accepted registration must seed socket/lock verification before classification');
-    assert.equal(fs.existsSync(graphData), true);
+    assert.equal(fs.existsSync(graphData), true, 'cleanup must preserve canonical graph data');
     for (const managedPath of earlyGraphd.cleanup.managed_paths_remaining) {
       fs.rmSync(managedPath, { force: true });
     }
@@ -189,7 +191,7 @@ try {
     const cleanupAfterLimit = await runSafely({
       command: retryCommand,
       tier: 'small', cwd: root, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
-      overrides: { ...limits, timeoutMs: 300, gracefulStopMs: 100 },
+      overrides: { ...limits, pidsMax: 64, timeoutMs: 300, gracefulStopMs: 100 },
       promote: false,
     });
     assert.equal(cleanupAfterLimit.outcome, 'internal_error');
