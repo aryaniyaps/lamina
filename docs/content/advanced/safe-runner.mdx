@@ -127,10 +127,13 @@ daemon-created descendants. This refusal also inspects shell, package-script,
 and local wrapper indirection rather than trusting only argv[0].
 
 On Linux the payload runs in unprivileged bwrap mount, PID, and (for offline
-entrypoints) network namespaces. The host
-root is read-only, the declared working tree is the explicit writable workload
-surface; `/`, `/tmp`, runtime-control directories, and any worktree overlapping
-runner authority state are refused. User/system D-Bus, user-systemd, and common
+entrypoints) network namespaces. The host root and repository snapshot are
+read-only. Repository-output entrypoints are refused because their live output
+trees do not have sealed, same-filesystem hard-quota authority. The only mutable
+repository-adjacent surface is the reviewed Git-common `lamina/work` scratch
+authority used by the graphd-client and mutable test fixtures; `/`, `/tmp`,
+runtime-control directories, and any worktree overlapping runner authority
+state are refused. User/system D-Bus, user-systemd, and common
 Docker/Podman/container control sockets and inherited control addresses are
 masked. Network-required entrypoints are separately and narrowly allowlisted.
 The runner temporary directory is a size-limited private tmpfs.

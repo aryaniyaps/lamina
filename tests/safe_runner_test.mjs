@@ -54,6 +54,7 @@ import {
   readBoundedPackageManifest,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { auditedNpxCommand } from '../scripts/safe-runner/npx-authority.mjs';
+import { repositoryOutputRefusal } from '../scripts/safe-runner/output-policy.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
   graphdEnvironment, stopIncompatibleServer,
@@ -392,14 +393,16 @@ try {
     tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
     command: [process.execPath, path.resolve('evals/scripts/run-suite.mjs'), '--smoke'],
   });
-  assert.match(unsealedEvalRuntime.reasons.join('\n'),
-    /ignored \.venv-eval runtime.*not admitted into sealed execution authority/);
+  assert.ok(unsealedEvalRuntime.reasons.includes(
+    repositoryOutputRefusal('evals/scripts/run-suite.mjs')),
+  'eval-suite preflight must return the exact owning-leaf runtime/output refusal');
   const indirectUnsealedEvalRuntime = preflightRun({
     tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
     command: [process.execPath, path.resolve('evals/scripts/run-reference-matrix.mjs')],
   });
-  assert.match(indirectUnsealedEvalRuntime.reasons.join('\n'),
-    /ignored \.venv-eval runtime.*not admitted into sealed execution authority/);
+  assert.ok(indirectUnsealedEvalRuntime.reasons.includes(
+    repositoryOutputRefusal('evals/scripts/run-reference-matrix.mjs')),
+  'reference-matrix preflight must return the exact owning-leaf runtime/output refusal');
   for (const entrypoint of [
     'scripts/build-standalone-cli.mjs', 'scripts/fetch-retrieval-model.mjs',
     'scripts/prepare-retrieval-assets.mjs', 'tests/retrieval_native_index_test.mjs',
@@ -436,7 +439,15 @@ try {
   assert.equal(commandOwnership(agentSkillsArgv, process.cwd()).proven, true,
     'only the exact agent-skills package-script argv with its physical config is audited');
   assert.equal(commandOwnership(agentSkillsArgv, process.cwd()).npx_authority.launch_admitted,
-    true, 'the bounded agent-skills contract must remain launch-admitted');
+    false, 'recognized agent-skills metadata authority must remain distinct from launch admission');
+  const refusedAgentSkillsPreflight = preflightRun({
+    tier: 'small', command: agentSkillsArgv, cwd: process.cwd(), adapterInfo: portableProbe,
+    injectedExistingProcesses: [],
+  });
+  assert.equal(refusedAgentSkillsPreflight.ownership.proven, true);
+  assert.ok(refusedAgentSkillsPreflight.reasons.includes(
+    commandOwnership(agentSkillsArgv, process.cwd()).npx_authority.launch_refusal),
+  'agent-skills preflight must return its exact owning-leaf input/output refusal');
   for (const arbitraryNpx of [
     ['npx', 'promptfoo', '--version'],
     promptfooArgv.slice(0, -2),
@@ -913,21 +924,19 @@ try {
   assert.throws(() => auditedNpxCommand(snapshotRepository, syntheticAgentArgv),
     /no longer matches package script/);
   fs.writeFileSync(syntheticPackageManifest, originalSyntheticManifest);
-  const npxSnapshot = prepareExecutionSnapshot({
+  const agentSkillsRefusal = auditedNpxCommand(
+    snapshotRepository, syntheticAgentArgv,
+  ).launch_refusal;
+  const agentSkillsTemporaryDirectory = path.join(root, 'snapshot-npx-refusal');
+  assert.throws(() => prepareExecutionSnapshot({
     cwd: snapshotRepository,
     command: syntheticAgentArgv,
-    temporaryDirectory: path.join(root, 'snapshot-npx'),
+    temporaryDirectory: agentSkillsTemporaryDirectory,
     infrastructure: { node: fakeNode, bwrap: fakeBwrap },
-  });
-  assert.equal(npxSnapshot.launch_command[0], npxSnapshot.infrastructure.node,
-    'audited npx execution must launch through staged Node');
-  assert.equal(npxSnapshot.launch_command[1], path.join(npxSnapshot.snapshot_repository,
-    'node_modules', 'agent-skills-eval', 'cli.mjs'),
-  'audited npx execution must launch the snapshotted declared package bin');
-  assert.deepEqual(npxSnapshot.launch_command.slice(2),
-    ['--config', 'evals/agent-skills-eval.yaml']);
-  assert.notEqual(npxSnapshot.launch_command[0], fakeNpx,
-    'the mutable npx shim must not remain on the launch path');
+  }), (error) => error.message === agentSkillsRefusal,
+  'recognized agent-skills argv must refuse before execution authority creation');
+  assert.equal(fs.existsSync(path.join(agentSkillsTemporaryDirectory, 'execution-authority')), false,
+    'agent-skills refusal must not create snapshot authority');
   const syntheticAgentConfig = path.join(snapshotRepository, 'evals', 'agent-skills-eval.yaml');
   const redirectedAgentConfig = path.join(snapshotRepository, 'evals', 'agent-skills-real.yaml');
   fs.renameSync(syntheticAgentConfig, redirectedAgentConfig);
@@ -991,27 +1000,26 @@ try {
   const buildEntrypoint = path.join(snapshotRepository, 'scripts', 'build-standalone-cli.mjs');
   fs.mkdirSync(path.dirname(buildEntrypoint), { recursive: true });
   fs.writeFileSync(buildEntrypoint, "export const build = true;\n");
-  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'postject'));
-  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'postject', 'package.json'),
-    '{"name":"postject","main":"index.js"}\n');
-  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'postject', 'index.js'),
-    "module.exports = {};\n");
-  const fakeUv = path.join(fakeInfrastructure, 'uv');
-  fs.writeFileSync(fakeUv, '#!/bin/sh\necho sealed uv\n', { mode: 0o700 });
-  const buildSnapshot = prepareExecutionSnapshot({
+  const syntheticTrackedStatus = () => spawnSync(
+    'git', ['status', '--short', '--untracked-files=no'], {
+      cwd: snapshotRepository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  ).stdout;
+  const buildTrackedBefore = syntheticTrackedStatus();
+  const buildDistBefore = fs.readdirSync(path.join(snapshotRepository, 'dist')).sort();
+  const buildTemporaryDirectory = path.join(root, 'snapshot-build-refusal');
+  assert.throws(() => prepareExecutionSnapshot({
     cwd: snapshotRepository, command: ['/bin/sh', buildEntrypoint],
-    temporaryDirectory: path.join(root, 'snapshot-build-tools'),
+    temporaryDirectory: buildTemporaryDirectory,
     infrastructure: { node: fakeNode, bwrap: fakeBwrap },
-    environment: { LAMINA_UV_BINARY: fakeUv },
-  });
-  assert.equal(buildSnapshot.environment_overrides.LAMINA_UV_BINARY,
-    buildSnapshot.infrastructure.uv);
-  assert.equal(buildSnapshot.environment_overrides.LAMINA_NODE_BINARY,
-    buildSnapshot.infrastructure.node);
-  fs.writeFileSync(fakeUv, '#!/bin/sh\necho mutable replacement\n', { mode: 0o700 });
-  assert.equal(fs.readFileSync(buildSnapshot.infrastructure.uv, 'utf8'),
-    '#!/bin/sh\necho sealed uv\n',
-  'build child tooling must execute the staged uv bytes after host-path replacement');
+  }), (error) => error.message === repositoryOutputRefusal('scripts/build-standalone-cli.mjs'),
+  'standalone build must return its exact same-filesystem hard-quota refusal');
+  assert.equal(fs.existsSync(path.join(buildTemporaryDirectory, 'execution-authority')), false,
+    'standalone build must refuse before snapshot authority creation');
+  assert.deepEqual(fs.readdirSync(path.join(snapshotRepository, 'dist')).sort(), buildDistBefore,
+    'standalone build refusal must not create or replace a dist target');
+  assert.equal(syntheticTrackedStatus(), buildTrackedBefore,
+    'standalone build refusal must not change tracked files');
   fs.mkdirSync(path.join(snapshotRepository, 'tests'), { recursive: true });
   const envEntrypoint = path.join(snapshotRepository, 'tests', 'cli_binary_smoke_test.mjs');
   fs.writeFileSync(envEntrypoint, "import fs from 'node:fs';\n");
@@ -1066,54 +1074,25 @@ try {
   const prepareEntrypoint = path.join(snapshotRepository, 'scripts', 'prepare-retrieval-assets.mjs');
   fs.mkdirSync(path.dirname(prepareEntrypoint), { recursive: true });
   fs.writeFileSync(prepareEntrypoint, "export const prepare = true;\n");
-  const ladybug = path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
-    '@ladybugdb', 'core');
-  fs.mkdirSync(ladybug, { recursive: true });
-  fs.writeFileSync(path.join(ladybug, 'package.json'),
-    '{"name":"@ladybugdb/core","main":"index.js"}\n');
-  fs.writeFileSync(path.join(ladybug, 'index.js'), "module.exports = {};\n");
-  const collapsedOutputSnapshot = prepareExecutionSnapshot({
-    cwd: snapshotRepository,
-    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'dist', 'nested')],
-    temporaryDirectory: path.join(root, 'snapshot-collapsed-output'),
-  });
-  assert.deepEqual(collapsedOutputSnapshot.writable_bindings
-    .filter((item) => item.kind !== 'git-common-runtime').map((item) => item.source),
-  [path.join(snapshotRepository, 'dist')],
-  'a declared parent output must safely collapse its nested dynamic output');
+  const requestedPrepareTarget = path.join(snapshotRepository, 'dist', 'must-not-exist', 'nested');
+  const prepareTrackedBefore = syntheticTrackedStatus();
+  const prepareDistBefore = fs.readdirSync(path.join(snapshotRepository, 'dist')).sort();
+  const prepareTemporaryDirectory = path.join(root, 'snapshot-prepare-refusal');
   assert.throws(() => prepareExecutionSnapshot({
     cwd: snapshotRepository,
-    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'arbitrary-new-dir')],
-    temporaryDirectory: path.join(root, 'snapshot-arbitrary-prepare-output'),
-  }), /beneath the declared dist subtree/);
-  const savedDist = path.join(snapshotRepository, 'dist.saved');
-  const escapedOutput = path.join(root, 'escaped-output-target');
-  fs.mkdirSync(escapedOutput);
-  fs.renameSync(path.join(snapshotRepository, 'dist'), savedDist);
-  fs.symlinkSync(escapedOutput, path.join(snapshotRepository, 'dist'));
-  try {
-    assert.throws(() => prepareExecutionSnapshot({
-      cwd: snapshotRepository,
-      command: ['/bin/sh', prepareEntrypoint,
-        path.join(snapshotRepository, 'dist', 'must-not-exist', 'nested')],
-      temporaryDirectory: path.join(root, 'snapshot-output-ancestor-alias'),
-    }), /symlink escapes the repository|ancestor is not a canonical physical directory/);
-    assert.equal(fs.existsSync(path.join(escapedOutput, 'must-not-exist')), false,
-      'writable-root validation must not create through a symlink ancestor');
-  } finally {
-    fs.unlinkSync(path.join(snapshotRepository, 'dist'));
-    fs.renameSync(savedDist, path.join(snapshotRepository, 'dist'));
-  }
-  fs.writeFileSync(path.join(snapshotRepository, 'dist', 'tracked-source.txt'), 'tracked source\n');
-  assert.equal(spawnSync('git', ['add', '-f', 'dist/tracked-source.txt'], {
-    cwd: snapshotRepository,
-  }).status, 0);
-  assert.throws(() => prepareExecutionSnapshot({
-    cwd: snapshotRepository,
-    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'dist', 'nested')],
-    temporaryDirectory: path.join(root, 'snapshot-fixed-source-output'),
-  }), /re-expose sealed source/,
-  'fixed writable roots must also refuse tracked source overlap');
+    command: ['/bin/sh', prepareEntrypoint, requestedPrepareTarget],
+    temporaryDirectory: prepareTemporaryDirectory,
+  }), (error) => error.message
+    === repositoryOutputRefusal('scripts/prepare-retrieval-assets.mjs'),
+  'retrieval-asset preparation must return its exact same-filesystem hard-quota refusal');
+  assert.equal(fs.existsSync(path.join(prepareTemporaryDirectory, 'execution-authority')), false,
+    'retrieval-asset preparation must refuse before snapshot authority creation');
+  assert.equal(fs.existsSync(requestedPrepareTarget), false,
+    'retrieval-asset refusal must not create its requested target');
+  assert.deepEqual(fs.readdirSync(path.join(snapshotRepository, 'dist')).sort(), prepareDistBefore,
+    'retrieval-asset refusal must preserve the existing dist tree');
+  assert.equal(syntheticTrackedStatus(), prepareTrackedBefore,
+    'retrieval-asset refusal must not change tracked files');
   const runtimeAuthority = path.join(snapshotRepository, '.git', 'lamina');
   const savedRuntimeAuthority = `${runtimeAuthority}.saved`;
   fs.renameSync(runtimeAuthority, savedRuntimeAuthority);

@@ -6,6 +6,9 @@ import { spawnSync } from 'node:child_process';
 
 const publish = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
 const safeWorkflow = fs.readFileSync('.github/workflows/safe-runner.yml', 'utf8');
+const evalNightly = fs.readFileSync('.github/workflows/eval-nightly.yml', 'utf8');
+const evalSmoke = fs.readFileSync('.github/workflows/eval-smoke.yml', 'utf8');
+const packageManifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const adapter = fs.readFileSync('scripts/safe-runner/adapter.mjs', 'utf8');
 const systemd = fs.readFileSync('scripts/safe-runner/linux-systemd.mjs', 'utf8');
 const sandbox = fs.readFileSync('scripts/safe-runner/sandbox.mjs', 'utf8');
@@ -59,6 +62,18 @@ assert.match(supervisionDecision,
   /Atomic publication is also refused in issue #59[\s\S]*sampled usage[\s\S]*hard enforcement/);
 assert.match(runner,
   /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*startCrashWatchdog/);
+
+for (const scriptName of ['test:eval:portable', 'test:eval:redteam']) {
+  const script = packageManifest.scripts[scriptName];
+  assert.match(script, /^npm run safe:run -- /,
+    `${scriptName} must enter the canonical refusal before any workload preparation`);
+  assert.doesNotMatch(script, /merge-evals|build-skill-context|&&/,
+    `${scriptName} must not mutate repository inputs before safe-runner refusal`);
+}
+assert.doesNotMatch(evalNightly, /test:eval:validate/,
+  'nightly must not merge eval inputs before the refused full-eval wrapper');
+assert.doesNotMatch(evalSmoke, /test:eval:validate/,
+  'smoke must not merge eval inputs before the refused smoke-eval wrapper');
 
 const compatibilityReport = path.resolve('evals/reports/compatibility-matrix.json');
 const before = fs.existsSync(compatibilityReport) ? fs.readFileSync(compatibilityReport) : null;
