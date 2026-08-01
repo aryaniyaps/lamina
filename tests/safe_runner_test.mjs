@@ -127,31 +127,35 @@ try {
     pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
   }));
   writeOwnedClaim();
-  const replacementIdentity = processIdentity(process.pid);
-  const replacementNonce = 'b'.repeat(32);
-  const replacementClaim = path.join(
-    ownedOperations,
-    `${replacementIdentity.pid}-${replacementIdentity.start_ticks}-${replacementNonce}.json`,
-  );
-  fs.writeFileSync(replacementClaim, JSON.stringify({
-    type: 'graphd', ...replacementIdentity, nonce: replacementNonce,
-  }));
-  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
-    ownedLock, ownedOperationClaim, ownedSocket,
-  ].sort(), 'a live replacement graphd claim must fence cleanup from every registered runtime path');
-  fs.rmSync(replacementClaim);
-  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()), []);
-  fs.mkdirSync(ownedOperations);
-  ownedOperationsIdentity = ownedDirectoryIdentity(ownedOperations);
-  ownedOperationClaim = path.join(
-    ownedOperations, `${ownedGraphd.pid}-${ownedGraphd.start_ticks}-${ownedNonce}.json`,
-  );
-  fs.writeFileSync(ownedSocket, 'different graphd socket');
-  fs.writeFileSync(ownedLock, JSON.stringify({ pid: ownedGraphd.pid, start_ticks: 'different-start' }));
-  writeOwnedClaim();
-  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
-    ownedLock, ownedOperationClaim, ownedSocket,
-  ].sort(), 'another graphd lock identity must never be deleted');
+  if (process.platform === 'linux') {
+    const replacementIdentity = processIdentity(process.pid);
+    const replacementNonce = 'b'.repeat(32);
+    const replacementClaim = path.join(
+      ownedOperations,
+      `${replacementIdentity.pid}-${replacementIdentity.start_ticks}-${replacementNonce}.json`,
+    );
+    fs.writeFileSync(replacementClaim, JSON.stringify({
+      type: 'graphd', ...replacementIdentity, nonce: replacementNonce,
+    }));
+    assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
+      ownedLock, ownedOperationClaim, ownedSocket,
+    ].sort(), 'a live replacement graphd claim must fence cleanup from every registered runtime path');
+    fs.rmSync(replacementClaim);
+    assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()), []);
+    fs.mkdirSync(ownedOperations);
+    ownedOperationsIdentity = ownedDirectoryIdentity(ownedOperations);
+    ownedOperationClaim = path.join(
+      ownedOperations, `${ownedGraphd.pid}-${ownedGraphd.start_ticks}-${ownedNonce}.json`,
+    );
+    fs.writeFileSync(ownedSocket, 'different graphd socket');
+    fs.writeFileSync(ownedLock, JSON.stringify({
+      pid: ownedGraphd.pid, start_ticks: 'different-start',
+    }));
+    writeOwnedClaim();
+    assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
+      ownedLock, ownedOperationClaim, ownedSocket,
+    ].sort(), 'another graphd lock identity must never be deleted');
+  }
   fs.rmSync(ownedSocket);
   fs.rmSync(ownedLock);
   fs.rmSync(ownedOperationClaim);
