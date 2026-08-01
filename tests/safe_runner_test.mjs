@@ -34,7 +34,8 @@ import {
   writeReport,
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
-import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
+import { outcomeForStop } from '../scripts/safe-runner/runner.mjs';
+import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
   checkPromotion,
@@ -211,6 +212,30 @@ try {
     outcome: 'safety_limit_exceeded',
     termination: { ...report.termination, reason: 'safety_limit_exceeded', limit: null },
   }).valid, false);
+  for (const limit of ['enforcement_handshake', 'temporary_quota_handshake']) {
+    const handshakeFailure = structuredClone(report);
+    handshakeFailure.outcome = outcomeForStop('internal_error');
+    handshakeFailure.samples = [];
+    handshakeFailure.termination.reason = 'internal_error';
+    handshakeFailure.termination.limit = limit;
+    handshakeFailure.error = {
+      code: limit === 'enforcement_handshake'
+        ? 'LAMINA_SAFE_ENFORCEMENT_UNPROVEN'
+        : 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
+      message: 'proof unavailable before payload release',
+    };
+    const validation = validateReport(handshakeFailure);
+    assert.equal(validation.valid, true, validation.errors.join('; '));
+  }
+  assert.equal(outcomeForStop('safety_limit_exceeded'), 'safety_limit_exceeded');
+  assert.equal(outcomeForStop('interrupted'), 'interrupted');
+  const summarizedError = boundedCaseError({
+    code: `LAMINA_${'X'.repeat(200)}`,
+    message: 'Authorization: Bearer secret-token',
+  });
+  assert.equal(summarizedError.code.length, 128);
+  assert.doesNotMatch(JSON.stringify(summarizedError), /secret-token/);
+  assert.equal(boundedCaseError({ code: 'TEST', message: 'y'.repeat(600) }).message.length, 500);
   const unwritableParent = path.join(root, 'not-a-directory');
   fs.writeFileSync(unwritableParent, 'file');
   const fallbackReport = structuredClone(report);
