@@ -16,10 +16,10 @@ jobs:
       matrix:
         runner: [macos-14, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
     runs-on: ${{ matrix.runner }}
-    env:
-      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -38,6 +38,8 @@ jobs:
           node tests/graphd_protocol_test.mjs
           node tests/graphd_long_socket_test.mjs
       - name: Require a production crash-safe adapter before any packaging
+        env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
         run: npm run safe:self-test -- --require-production
       - uses: actions/upload-artifact@v4
         if: always()
@@ -67,10 +69,10 @@ jobs:
           - runner: windows-2025
             target: win32-x64
     runs-on: ${{ matrix.runner }}
-    env:
-      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -90,15 +92,21 @@ jobs:
           node tests/graphd_long_socket_test.mjs
       - name: Build native executable
         env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
           LAMINA_SEA_TARGET: ${{ matrix.target }}
         run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/build-${{ matrix.target }}.json -- node scripts/build-standalone-cli.mjs
       - name: Verify isolated native assets
+        env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
         run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/fetch-model-${{ matrix.target }}.json -- node scripts/fetch-retrieval-model.mjs
       - name: Prepare frozen hybrid retrieval assets
+        env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
         run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/prepare-retrieval-${{ matrix.target }}.json -- node scripts/prepare-retrieval-assets.mjs dist/retrieval-benchmark-runtime
       - name: Qualify frozen hybrid retrieval on enforced Linux
         if: runner.os == 'Linux'
         env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
           LAMINA_RETRIEVAL_TOKENIZER_PATH: ${{ github.workspace }}/dist/retrieval-benchmark-runtime/tokenizer.json
           LAMINA_RETRIEVAL_FTS_EXTENSION_PATH: ${{ github.workspace }}/dist/retrieval-benchmark-runtime/extensions/fts.lbug_extension
           LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH: ${{ github.workspace }}/dist/retrieval-benchmark-runtime/extensions/vector.lbug_extension
@@ -110,6 +118,7 @@ jobs:
           npm run safe:run -- --tier medium --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate --worker dist/lamina-cocoindex-worker-${{ matrix.target }} --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
       - name: Smoke-test isolated native assets
         env:
+          LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
           LAMINA_BINARY: ${{ github.workspace }}/dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
           LAMINA_WORKER: ${{ github.workspace }}/dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
           LAMINA_MODEL: ${{ github.workspace }}/dist/lamina-retrieval-model-int8-v1.onnx
@@ -136,6 +145,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           path: dist

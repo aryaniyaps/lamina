@@ -24,6 +24,53 @@ const supervisionDecision = fs.readFileSync(
   'docs/decisions/014-crash-safe-resource-supervision.md', 'utf8',
 );
 
+const checkoutSteps = (workflow) => workflow.split('\n      - ')
+  .filter((step) => step.startsWith('uses: actions/checkout@v6'));
+for (const [name, workflow, expected] of [
+  ['safe-runner', safeWorkflow, 2],
+  ['publish-cli', publish, 3],
+]) {
+  const checkouts = checkoutSteps(workflow);
+  assert.equal(checkouts.length, expected, `${name} checkout count changed`);
+  assert.ok(
+    checkouts.every((step) => /\n        with:\n          persist-credentials: false(?:\n|$)/.test(step)),
+    `${name} checkout must not inject executable credential/includeIf Git config`,
+  );
+}
+
+assert.doesNotMatch(
+  publish,
+  /^    env:\n(?:^      .*\n)*?^      LAMINA_SAFE_RUNNER_STATE_DIR:.*runner\.temp/m,
+  'runner.temp is unavailable while GitHub validates job-level env',
+);
+const publishStep = (name) => {
+  const marker = `      - name: ${name}`;
+  const start = publish.indexOf(marker);
+  assert.notEqual(start, -1, `missing publish step: ${name}`);
+  const end = publish.indexOf('\n      - ', start + marker.length);
+  return publish.slice(start, end === -1 ? publish.length : end);
+};
+const runnerStateEnv =
+  'LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state';
+for (const name of [
+  'Require a production crash-safe adapter before any packaging',
+  'Build native executable',
+  'Verify isolated native assets',
+  'Prepare frozen hybrid retrieval assets',
+  'Qualify frozen hybrid retrieval on enforced Linux',
+  'Smoke-test isolated native assets',
+]) {
+  assert.ok(
+    publishStep(name).includes(`\n        env:\n          ${runnerStateEnv}\n`),
+    `${name} must resolve runner.temp in step-level env`,
+  );
+}
+assert.equal(
+  publish.match(/^          LAMINA_SAFE_RUNNER_STATE_DIR:/gm)?.length,
+  6,
+  'only the six safe-runner execution steps should receive runner-scoped state authority',
+);
+
 const safeRuns = publish.split('\n').map((line) => line.trim())
   .filter((line) => line.startsWith('npm run safe:run'));
 const evaluateRuns = safeRuns.filter((line) => line.includes('benchmark.mjs --evaluate'));

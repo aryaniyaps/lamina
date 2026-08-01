@@ -17,6 +17,7 @@ import { spawnTrustedGit } from './git.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const MAX_STATE_JSON_BYTES = 1024 * 1024;
 
 export function stateDirectory() {
   return path.resolve(
@@ -29,19 +30,43 @@ function json(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
 
+function fsyncParentDirectory(file) {
+  // Windows does not support opening directory handles through fs.openSync.
+  // The temporary file is still flushed before the atomic rename there.
+  if (process.platform === 'win32') return;
+  const parent = fs.openSync(path.dirname(file), 'r');
+  try { fs.fsyncSync(parent); } finally { fs.closeSync(parent); }
+}
+
 function atomicJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.tmp-${crypto.randomBytes(16).toString('hex')}`;
+  const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+  if (bytes.length > MAX_STATE_JSON_BYTES) {
+    throw new Error(`safe-runner state JSON exceeds ${MAX_STATE_JSON_BYTES} bytes`);
+  }
+  let descriptor = null;
   try {
-    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
-      flag: 'wx', mode: 0o600,
-    });
-    const descriptor = fs.openSync(temporary, 'r');
-    try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    descriptor = fs.openSync(
+      temporary,
+      fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY,
+      0o600,
+    );
+    let offset = 0;
+    while (offset < bytes.length) {
+      const written = fs.writeSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (written <= 0) throw new Error('safe-runner state JSON write was incomplete');
+      offset += written;
+    }
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
     fs.renameSync(temporary, file);
-    const parent = fs.openSync(path.dirname(file), 'r');
-    try { fs.fsyncSync(parent); } finally { fs.closeSync(parent); }
-  } finally { fs.rmSync(temporary, { force: true }); }
+    fsyncParentDirectory(file);
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    fs.rmSync(temporary, { force: true });
+  }
 }
 
 export function runnerBuildDigest() {

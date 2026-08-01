@@ -10,6 +10,19 @@ import { preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import { readAttestation } from '../scripts/safe-runner/state.mjs';
 
+const stateSource = fs.readFileSync('scripts/safe-runner/state.mjs', 'utf8');
+assert.match(
+  stateSource,
+  /function fsyncParentDirectory[\s\S]*process\.platform === 'win32'\) return;[\s\S]*fs\.openSync\(path\.dirname\(file\), 'r'\)[\s\S]*fs\.fsyncSync\(parent\)/,
+  'Windows may skip only unsupported parent-directory fsync',
+);
+assert.match(
+  stateSource,
+  /fs\.constants\.O_CREAT \| fs\.constants\.O_EXCL \| fs\.constants\.O_WRONLY[\s\S]*fs\.writeSync\(descriptor[\s\S]*fs\.fsyncSync\(descriptor\)[\s\S]*fs\.renameSync\(temporary, file\)[\s\S]*fsyncParentDirectory\(file\)/,
+  'state publication must write and flush one writable descriptor before atomic rename',
+);
+assert.doesNotMatch(stateSource, /fs\.openSync\(temporary, 'r'\)/);
+
 for (const platform of ['darwin', 'win32']) {
   const probe = adapterProbe(platform);
   assert.equal(probe.id, 'portable-process-group-small-only');
