@@ -14,6 +14,7 @@ import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
 import { spawnTrustedGit } from './git.mjs';
+import { optionalAuditedNpxCommand } from './npx-authority.mjs';
 import {
   checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
   readAttestation, stateDirectory,
@@ -45,7 +46,6 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['tests/fixtures/safe-runner-mutable.mjs', false],
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
-const AUDITED_NPX_PACKAGES = new Set(['agent-skills-eval', 'promptfoo']);
 const SENSITIVE_WRITABLE_ROOTS = ['/','/tmp','/run','/proc','/sys','/dev'];
 
 function pathsOverlap(left, right) {
@@ -165,10 +165,10 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     if (!resolved || !trustedExecutable(command[0], cwd, [expectedNpx])) {
       return { audited: false, allow_network: false, entrypoint: null };
     }
-    const offset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
-    const packageName = command[offset];
-    return AUDITED_NPX_PACKAGES.has(packageName)
-      ? { audited: true, allow_network: true, entrypoint: `npx:${packageName}`, executable: resolved }
+    const contract = optionalAuditedNpxCommand(REPOSITORY_ROOT, command, cwd);
+    return contract
+      ? { audited: true, allow_network: true, entrypoint: `npx:${contract.package_name}`,
+        executable: resolved, npx_authority: contract }
       : { audited: false, allow_network: false, entrypoint: null };
   }
   return { audited: false, allow_network: false, entrypoint: null };

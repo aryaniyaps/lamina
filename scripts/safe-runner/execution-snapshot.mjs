@@ -5,6 +5,7 @@ import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
+import { auditedNpxCommand } from './npx-authority.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
@@ -22,6 +23,15 @@ export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, cur
     || !Number.isSafeInteger(currentBytes) || currentBytes < 0
     || currentBytes + uncompressedBytes > MAX_BYTES) {
     throw new Error('execution Git object closure exceeds its bounded budget');
+  }
+  return true;
+}
+
+export function assertExecutionDependencyInodeBudget(entryCount, createdDirectoryCount) {
+  if (!Number.isSafeInteger(entryCount) || entryCount < 0
+    || !Number.isSafeInteger(createdDirectoryCount) || createdDirectoryCount < 0
+    || entryCount + createdDirectoryCount > MAX_FILES) {
+    throw new Error('execution dependency snapshot exceeds its bounded inode budget');
   }
   return true;
 }
@@ -331,7 +341,7 @@ export function readBoundedPackageManifest(manifestPath,
   }
 }
 
-function packageEdges(manifest) {
+function packageEdges(manifest, { omitOptionalDependencies = false } = {}) {
   const edges = new Map();
   const add = (values, optional, kind) => {
     for (const [logicalName, specification] of Object.entries(values || {})) {
@@ -348,8 +358,11 @@ function packageEdges(manifest) {
       });
     }
   };
-  add(manifest.dependencies, false, 'dependency');
-  add(manifest.optionalDependencies, true, 'optional');
+  const optionalDependencies = manifest.optionalDependencies || {};
+  const requiredDependencies = Object.fromEntries(Object.entries(manifest.dependencies || {})
+    .filter(([name]) => !Object.hasOwn(optionalDependencies, name)));
+  add(requiredDependencies, false, 'dependency');
+  if (!omitOptionalDependencies) add(optionalDependencies, true, 'optional');
   for (const [name, specification] of Object.entries(manifest.peerDependencies || {})) {
     add({ [name]: specification }, manifest.peerDependenciesMeta?.[name]?.optional === true, 'peer');
   }
@@ -466,7 +479,7 @@ export function resolveInstalledPackage(repository, resolverFile, logicalName, o
   throw new Error(`cannot resolve installed execution dependency: ${logicalName}`);
 }
 
-export function measureInstalledPackageClosure(repository, rootName, limits = {}) {
+function measurePackageClosure(repository, rootName, limits = {}, rootPolicy = {}) {
   const physicalRepository = fs.realpathSync.native(repository);
   const maximumPackages = boundedTreeLimit(limits.maxPackages, MAX_CLOSURE_PACKAGES,
     MAX_CLOSURE_PACKAGES, 'package-closure package bound');
@@ -474,7 +487,7 @@ export function measureInstalledPackageClosure(repository, rootName, limits = {}
     MAX_CLOSURE_INODES, 'package-closure inode bound');
   const maximumBytes = boundedTreeLimit(limits.maxBytes, MAX_CLOSURE_BYTES,
     MAX_CLOSURE_BYTES, 'package-closure byte bound');
-  const maximumDepth = boundedTreeLimit(limits.maxDepth, 128, 256,
+  const maximumDepth = boundedTreeLimit(limits.maxDepth, MAX_PACKAGE_TREE_DEPTH, 256,
     'package-closure depth bound');
   const root = resolveInstalledPackage(physicalRepository,
     path.join(physicalRepository, 'package.json'), rootName);
@@ -482,7 +495,9 @@ export function measureInstalledPackageClosure(repository, rootName, limits = {}
   const visited = new Set();
   const result = {
     root: rootName, packages: 0, logical_edges: 0, optional_missing: 0,
-    files: 0, directories: 0, symlinks: 0, inodes: 0, bytes: 0, max_depth: 0,
+    files: 0, directories: 0, symlinks: 0, content_inodes: 0,
+    logical_links: 1, synthetic_directories: 2 + (rootName.startsWith('@') ? 1 : 0),
+    inodes: 0, bytes: 0, max_depth: 0,
   };
   while (pending.length > 0) {
     const dependency = pending.pop();
@@ -498,14 +513,17 @@ export function measureInstalledPackageClosure(repository, rootName, limits = {}
       maxBytes: Math.min(maximumBytes, 8 * 1024 ** 3),
       maxDepth: maximumDepth,
     });
-    for (const key of ['files', 'directories', 'symlinks', 'inodes', 'bytes']) {
+    for (const key of ['files', 'directories', 'symlinks', 'bytes']) {
       result[key] += tree[key];
     }
+    result.content_inodes += tree.inodes;
     result.max_depth = Math.max(result.max_depth, tree.max_depth);
-    if (result.inodes > maximumInodes || result.bytes > maximumBytes) {
-      throw new Error(`execution dependency closure exceeds its bounded metadata budget: ${result.inodes} inodes, ${result.bytes} bytes`);
-    }
-    for (const edge of packageEdges(dependency.manifest).values()) {
+    let installedEdges = 0;
+    const installedScopes = new Set();
+    const isRoot = physicalRoot === fs.realpathSync.native(root.root);
+    for (const edge of packageEdges(dependency.manifest, {
+      omitOptionalDependencies: isRoot && rootPolicy.omit_direct_optional_dependencies === true,
+    }).values()) {
       result.logical_edges += 1;
       const child = resolveInstalledPackage(physicalRepository, dependency.manifest_path,
         edge.logical_name, edge.optional, edge.manifest_name);
@@ -513,13 +531,32 @@ export function measureInstalledPackageClosure(repository, rootName, limits = {}
         result.optional_missing += 1;
         continue;
       }
+      installedEdges += 1;
+      if (edge.logical_name.startsWith('@')) installedScopes.add(edge.logical_name.split('/')[0]);
       pending.push(child);
     }
+    if (installedEdges > 0) result.synthetic_directories += 1 + installedScopes.size;
+    result.logical_links += installedEdges;
+    result.inodes = result.content_inodes + result.logical_links + result.synthetic_directories;
+    if (result.inodes > maximumInodes || result.bytes > maximumBytes) {
+      throw new Error(`execution dependency closure exceeds its bounded metadata budget: ${result.inodes} inodes, ${result.bytes} bytes`);
+    }
   }
-  result.fits_default_dependency_budget = result.inodes <= MAX_FILES && result.bytes <= MAX_BYTES;
+  result.fits_default_dependency_budget = result.inodes <= MAX_FILES && result.bytes <= MAX_BYTES
+    && result.max_depth <= MAX_PACKAGE_TREE_DEPTH;
   result.default_authority_refusal = result.fits_default_dependency_budget ? null
-    : `package closure alone exceeds ${MAX_FILES} inodes or ${MAX_BYTES} bytes`;
+    : `package closure exceeds ${MAX_FILES} inodes, ${MAX_BYTES} bytes, or depth ${MAX_PACKAGE_TREE_DEPTH}`;
   return result;
+}
+
+export function measureInstalledPackageClosure(repository, rootName, limits = {}) {
+  return measurePackageClosure(repository, rootName, limits);
+}
+
+export function measureAuditedNpxPackageClosure(repository, command, limits = {}) {
+  const contract = auditedNpxCommand(repository, command, repository);
+  const measurement = measurePackageClosure(repository, contract.package_name, limits, contract);
+  return { ...measurement, npx_authority: contract };
 }
 
 export function auditedNpxPackage(repository, name) {
@@ -560,7 +597,7 @@ function importerPackageAuthority(repository, importer) {
   throw new Error(`cannot resolve package authority for importer: ${importer}`);
 }
 
-function dependencyNames(repository, command, cwd) {
+function dependencyNames(repository, command, cwd, npxAuthority = null) {
   const pending = [];
   for (const argument of command.slice(1)) {
     const candidate = path.resolve(cwd, String(argument));
@@ -571,10 +608,11 @@ function dependencyNames(repository, command, cwd) {
   const addPackage = (record) => packages.set(
     `${record.resolver}\0${record.destination}\0${record.name}`, record,
   );
-  const npxOffset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
-  if (/^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
-    && ['agent-skills-eval', 'promptfoo'].includes(command[npxOffset])) {
-    addPackage({ name: command[npxOffset], resolver: 'package.json', destination: 'node_modules' });
+  if (npxAuthority) {
+    addPackage({
+      name: npxAuthority.package_name, resolver: 'package.json', destination: 'node_modules',
+      omit_direct_optional_dependencies: npxAuthority.omit_direct_optional_dependencies,
+    });
   }
   for (const argument of command.slice(1)) {
     const relative = path.relative(repository, path.resolve(cwd, String(argument)))
@@ -608,6 +646,8 @@ export function prepareExecutionSnapshot({
   cwd, command, temporaryDirectory, infrastructure = null, environment = {}, onProgress = null,
 }) {
   const repository = repositoryRoot(cwd);
+  const npxAuthority = /^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
+    ? auditedNpxCommand(repository, command, cwd) : null;
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
   const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');
@@ -615,6 +655,7 @@ export function prepareExecutionSnapshot({
   fs.mkdirSync(snapshotRepository, { recursive: true, mode: 0o700 });
   const entries = [];
   let totalBytes = 0;
+  let dependencyCreatedDirectories = 0;
   const sourceFiles = repositoryFiles(repository);
   for (const relative of sourceFiles) {
     const source = path.join(repository, relative);
@@ -639,6 +680,17 @@ export function prepareExecutionSnapshot({
     if (totalBytes > MAX_BYTES) throw new Error(`execution snapshot exceeds ${MAX_BYTES} bytes`);
     entries.push({ label: `repository:${relative}`, path: destination, type: 'file', ...copied });
     onProgress?.({ files: entries.length, bytes: totalBytes });
+  }
+  if (npxAuthority) {
+    for (const [relative, authority] of [
+      [npxAuthority.config_relative, npxAuthority.config],
+      ['package.json', npxAuthority.package_manifest],
+    ]) {
+      const copied = entries.find((entry) => entry.label === `repository:${relative}`);
+      if (!copied || copied.type !== 'file' || copied.digest !== authority.digest) {
+        throw new Error('copied npx command authority does not match its dependency policy');
+      }
+    }
   }
   const copiedDestinations = new Set(entries.map((entry) => entry.path));
   for (const argument of command.slice(1)) {
@@ -822,22 +874,45 @@ export function prepareExecutionSnapshot({
   // hundreds of thousands of unrelated files. Resolve only package roots in
   // the audited entrypoint's static import closure, then recurse through those
   // packages' declared runtime dependencies.
-  const requiredPackages = dependencyNames(repository, command, cwd);
+  const requiredPackages = dependencyNames(repository, command, cwd, npxAuthority);
   if (requiredPackages.length > 0) {
     const sealedPackages = new Map();
+    const sealedPackagePolicies = new Map();
     const logicalLinks = new Map();
     const sealedStore = path.join(snapshotRepository, 'node_modules', '.lamina-sealed');
-    let dependencyDirectories = 0;
+    const ensureDependencyDirectory = (directory) => {
+      const absolute = path.resolve(directory);
+      if (absolute !== snapshotRepository
+        && !absolute.startsWith(`${snapshotRepository}${path.sep}`)) {
+        throw new Error('execution dependency directory escapes sealed authority');
+      }
+      const missing = [];
+      let current = absolute;
+      while (current !== snapshotRepository) {
+        try {
+          const stat = fs.lstatSync(current);
+          if (!stat.isDirectory() || stat.isSymbolicLink()) {
+            throw new Error(`execution dependency ancestor is not physical: ${current}`);
+          }
+          break;
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+          missing.push(current);
+          current = path.dirname(current);
+        }
+      }
+      for (const target of missing.reverse()) {
+        assertExecutionDependencyInodeBudget(entries.length, dependencyCreatedDirectories + 1);
+        fs.mkdirSync(target, { mode: 0o700 });
+        dependencyCreatedDirectories += 1;
+      }
+    };
     const visit = (sourceDirectory, destinationDirectory, logicalDirectory,
       packageBoundary, sealedBoundary, depth = 0) => {
       if (depth > MAX_PACKAGE_TREE_DEPTH) {
         throw new Error('execution dependency package tree exceeds its bounded depth');
       }
-      dependencyDirectories += 1;
-      if (entries.length + dependencyDirectories > MAX_FILES) {
-        throw new Error('execution dependency snapshot exceeds its bounded inode budget');
-      }
-      fs.mkdirSync(destinationDirectory, { recursive: true, mode: 0o700 });
+      ensureDependencyDirectory(destinationDirectory);
       const handle = fs.opendirSync(sourceDirectory);
       try {
         for (let item = handle.readSync(); item; item = handle.readSync()) {
@@ -847,6 +922,8 @@ export function prepareExecutionSnapshot({
           const logical = path.join(logicalDirectory, item.name).replaceAll('\\', '/');
           const stat = fs.lstatSync(source);
           if (stat.isSymbolicLink()) {
+            assertExecutionDependencyInodeBudget(entries.length + 1,
+              dependencyCreatedDirectories);
             const physical = fs.realpathSync.native(source);
             const relative = path.relative(packageBoundary, physical);
             if (!relative || relative.startsWith('..') || path.isAbsolute(relative)
@@ -861,6 +938,8 @@ export function prepareExecutionSnapshot({
           } else if (stat.isDirectory()) {
             visit(source, destination, logical, packageBoundary, sealedBoundary, depth + 1);
           } else if (stat.isFile()) {
+            assertExecutionDependencyInodeBudget(entries.length + 1,
+              dependencyCreatedDirectories);
             const copied = copyPhysicalFile(source, destination,
               (stat.mode & 0o111) !== 0);
             totalBytes += copied.size;
@@ -870,7 +949,8 @@ export function prepareExecutionSnapshot({
           } else {
             throw new Error(`execution dependency package tree contains a special file: ${logical}`);
           }
-          if (entries.length + dependencyDirectories > MAX_FILES || totalBytes > MAX_BYTES) {
+          assertExecutionDependencyInodeBudget(entries.length, dependencyCreatedDirectories);
+          if (totalBytes > MAX_BYTES) {
             throw new Error('execution dependency snapshot exceeds its bounded budget');
           }
         }
@@ -891,27 +971,32 @@ export function prepareExecutionSnapshot({
         throw new Error(`execution dependency logical path resolves to incompatible roots: ${label}`);
       }
       if (prior) return;
-      fs.mkdirSync(path.dirname(absoluteLink), { recursive: true, mode: 0o700 });
+      ensureDependencyDirectory(path.dirname(absoluteLink));
       try {
         fs.lstatSync(absoluteLink);
         throw new Error(`execution dependency logical path collides with sealed source: ${label}`);
       } catch (error) { if (error.code !== 'ENOENT') throw error; }
       const relativeTarget = path.relative(path.dirname(absoluteLink), absoluteTarget);
+      assertExecutionDependencyInodeBudget(entries.length + 1, dependencyCreatedDirectories);
       fs.symlinkSync(relativeTarget, absoluteLink, 'dir');
       entries.push({
         label: `dependency-link:${label}`, path: absoluteLink, type: 'symlink',
         target: relativeTarget,
       });
       logicalLinks.set(absoluteLink, absoluteTarget);
-      if (entries.length + dependencyDirectories > MAX_FILES) {
-        throw new Error('execution dependency snapshot exceeds its bounded budget');
-      }
+      assertExecutionDependencyInodeBudget(entries.length, dependencyCreatedDirectories);
     };
 
-    const stagePackage = (dependency) => {
+    const stagePackage = (dependency, policy = {}) => {
       const physicalRoot = fs.realpathSync.native(dependency.root);
       const existing = sealedPackages.get(physicalRoot);
-      if (existing) return existing;
+      const policyKey = policy.omit_direct_optional_dependencies === true ? 'omit-optional' : 'full';
+      if (existing) {
+        if (sealedPackagePolicies.get(physicalRoot) !== policyKey) {
+          throw new Error('execution dependency root was selected with incompatible policies');
+        }
+        return existing;
+      }
       const sourceRelative = path.relative(repository, physicalRoot).replaceAll('\\', '/');
       if (!sourceRelative || sourceRelative.startsWith('../')
         || !sourceRelative.split('/').includes('node_modules')) {
@@ -920,10 +1005,13 @@ export function prepareExecutionSnapshot({
       const id = crypto.createHash('sha256').update(sourceRelative).digest('hex');
       const sealedRoot = path.join(sealedStore, id);
       sealedPackages.set(physicalRoot, sealedRoot);
+      sealedPackagePolicies.set(physicalRoot, policyKey);
       visit(physicalRoot, sealedRoot, `node_modules/.lamina-sealed/${id}`, physicalRoot,
         sealedRoot);
 
-      for (const edge of packageEdges(dependency.manifest).values()) {
+      for (const edge of packageEdges(dependency.manifest, {
+        omitOptionalDependencies: policy.omit_direct_optional_dependencies === true,
+      }).values()) {
         const child = resolveInstalledPackage(
           repository, dependency.manifest_path, edge.logical_name, edge.optional,
           edge.manifest_name,
@@ -939,7 +1027,7 @@ export function prepareExecutionSnapshot({
     for (const record of requiredPackages) {
       const resolverFile = path.resolve(repository, record.resolver);
       const dependency = resolveInstalledPackage(repository, resolverFile, record.name);
-      const sealedRoot = stagePackage(dependency);
+      const sealedRoot = stagePackage(dependency, record);
       linkPackage(path.join(snapshotRepository, record.destination, ...record.name.split('/')),
         sealedRoot, `${record.destination}/${record.name}`);
     }
@@ -984,10 +1072,7 @@ export function prepareExecutionSnapshot({
     }
   }
   const physicalExecutable = fs.realpathSync.native(command[0]);
-  const npxOffset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
-  const npxPackage = /^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
-    && ['agent-skills-eval', 'promptfoo'].includes(command[npxOffset])
-    ? command[npxOffset] : null;
+  const npxPackage = npxAuthority?.package_name || null;
   let npxEntrypoint = null;
   if (npxPackage) {
     if (!infrastructure) throw new Error('audited npx execution requires staged Node authority');
@@ -1005,11 +1090,11 @@ export function prepareExecutionSnapshot({
     totalBytes += executableCopy.size;
     entries.push({ label: 'executable', path: executable, type: 'file', ...executableCopy });
   }
-  if (entries.length > MAX_FILES || totalBytes > MAX_BYTES) {
+  if (entries.length + dependencyCreatedDirectories > MAX_FILES || totalBytes > MAX_BYTES) {
     throw new Error(`execution snapshot exceeds ${MAX_FILES} files or ${MAX_BYTES} bytes`);
   }
   const launchCommand = npxPackage
-    ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(npxOffset + 1)]
+    ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(2)]
     : [executable, ...command.slice(1)];
   const graphdLaunchAuthority = [];
   if (stagedInfrastructure.node) {

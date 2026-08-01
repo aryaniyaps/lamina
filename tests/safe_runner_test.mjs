@@ -47,10 +47,13 @@ import {
   processEnvironmentAttestation,
 } from '../scripts/safe-runner/processes.mjs';
 import {
-  assertExecutionSnapshot, assertGitObjectClosureBudget, auditedNpxPackage,
-  dependencyPackageTarget, measureInstalledPackageClosure, measurePhysicalPackageTree,
-  packageName, prepareExecutionSnapshot, readBoundedPackageManifest,
+  assertExecutionDependencyInodeBudget, assertExecutionSnapshot,
+  assertGitObjectClosureBudget, auditedNpxPackage, dependencyPackageTarget,
+  measureAuditedNpxPackageClosure, measureInstalledPackageClosure,
+  measurePhysicalPackageTree, packageName, prepareExecutionSnapshot,
+  readBoundedPackageManifest,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
+import { auditedNpxCommand } from '../scripts/safe-runner/npx-authority.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
   graphdEnvironment, stopIncompatibleServer,
@@ -412,6 +415,24 @@ try {
   assert.equal(commandOwnership([
     'npx', '-p', 'promptfoo', 'node', arbitraryWrapper,
   ], root).proven, false);
+  const promptfooArgv = [
+    'npx', 'promptfoo', 'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml',
+    '--max-concurrency', '1',
+  ];
+  const agentSkillsArgv = [
+    'npx', 'agent-skills-eval', '--config', 'evals/agent-skills-eval.yaml',
+  ];
+  assert.equal(commandOwnership(promptfooArgv, process.cwd()).proven, true,
+    'only the exact Promptfoo package-script argv with its physical config is audited');
+  assert.equal(commandOwnership(agentSkillsArgv, process.cwd()).proven, true,
+    'only the exact agent-skills package-script argv with its physical config is audited');
+  for (const arbitraryNpx of [
+    ['npx', 'promptfoo', '--version'],
+    promptfooArgv.slice(0, -2),
+    [...promptfooArgv, '--verbose'],
+    ['npx', '--yes', ...promptfooArgv.slice(1)],
+    ['npx', 'agent-skills-eval', '--config', 'evals/agent-skills-eval.yaml', '--verbose'],
+  ]) assert.equal(commandOwnership(arbitraryNpx, process.cwd()).proven, false);
   const substitutedBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-bin-'));
   const substitutedNode = path.join(substitutedBin, 'node');
   const substitutedNpx = path.join(substitutedBin, 'npx');
@@ -520,7 +541,13 @@ try {
   fs.mkdirSync(snapshotRepository);
   assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: snapshotRepository }).status, 0);
   fs.writeFileSync(path.join(snapshotRepository, '.gitignore'), 'node_modules/\ndist/\n');
-  fs.writeFileSync(path.join(snapshotRepository, 'package.json'), '{"type":"module"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'package.json'), `${JSON.stringify({
+    type: 'module',
+    scripts: {
+      'test:eval:portable': 'npm run safe:run -- --tier medium -- npx agent-skills-eval --config evals/agent-skills-eval.yaml',
+      'test:eval:redteam': 'npm run safe:run -- --tier medium -- npx promptfoo eval -c evals/promptfoo/lamina-redteam.yaml --max-concurrency 1',
+    },
+  })}\n`);
   fs.writeFileSync(path.join(snapshotRepository, 'entry.mjs'),
     "import tiny from 'tiny-dep';\nimport { workspace } from './packages/cli/worker.mjs';\nexport async function run() { return tiny + workspace + (await import('./lazy.mjs')).value; }\n");
   fs.writeFileSync(path.join(snapshotRepository, 'lazy.mjs'), "export const value = 'sealed';\n");
@@ -562,13 +589,15 @@ try {
   const parentA = writeSyntheticPackage('parent-a', {
     name: 'parent-a', dependencies: {
       'shared-dep': '1.0.0', 'required-alias': 'npm:alias-target@1.0.0',
+      'override-same': '1.0.0', 'override-different': 'npm:required-target@1.0.0',
     },
     optionalDependencies: {
       'platform-opt': '1.0.0', 'optional-scoped-alias': 'npm:@scope/platform-target@1.0.0',
       'missing-opt': '1.0.0', 'missing-alias': 'npm:absent-target@1.0.0',
+      'override-same': '1.0.0', 'override-different': 'npm:optional-target@1.0.0',
     },
     peerDependencies: { 'peer-lib': '1.0.0' },
-  }, "module.exports = `a:${require('shared-dep')}:${require('peer-lib')}:${require('platform-opt')}:${require('required-alias')}:${require('optional-scoped-alias')}`;\n");
+  }, "module.exports = `a:${require('shared-dep')}:${require('peer-lib')}:${require('platform-opt')}:${require('required-alias')}:${require('optional-scoped-alias')}:${require('override-different')}`;\n");
   const parentB = writeSyntheticPackage('parent-b', {
     name: 'parent-b', dependencies: { 'shared-dep': '2.0.0', '@scope/tool': '1.0.0' },
   }, "module.exports = `b:${require('shared-dep')}:${require('@scope/tool')}`;\n");
@@ -591,6 +620,9 @@ try {
   writeNestedPackage(parentA, 'optional-scoped-alias', {
     name: '@scope/platform-target', version: '1.0.0',
   }, "module.exports = 'optional-alias';\n");
+  writeNestedPackage(parentA, 'override-different', {
+    name: 'optional-target', version: '1.0.0',
+  }, "module.exports = 'optional-override';\n");
   writeNestedPackage(parentB, 'shared-dep', { name: 'shared-dep', version: '2.0.0' },
     "module.exports = 'shared-v2';\n");
   writeSyntheticPackage('peer-lib', { name: 'peer-lib', version: '1.0.0' },
@@ -651,7 +683,7 @@ try {
   });
   assert.equal(sealedResolution.status, 0, sealedResolution.stderr);
   assert.equal(sealedResolution.stdout,
-    'a:shared-v1:peer:platform:required-alias:optional-alias|b:shared-v2:scoped|pnpm:contained',
+    'a:shared-v1:peer:platform:required-alias:optional-alias:optional-override|b:shared-v2:scoped|pnpm:contained',
   'sealed package links must preserve aliases, incompatible nested versions, peers, optionals, scopes, and pnpm roots');
   for (const packageName of ['parent-a', 'parent-b', 'pnpm-parent']) {
     const logical = path.join(resolutionSnapshot.snapshot_repository, 'node_modules', packageName);
@@ -676,7 +708,7 @@ try {
     cwd: resolutionSnapshot.snapshot_repository, encoding: 'utf8',
   });
   assert.equal(isolatedResolution.stdout,
-    'a:shared-v1:peer:platform:required-alias:optional-alias|b:shared-v2:scoped|pnpm:contained',
+    'a:shared-v1:peer:platform:required-alias:optional-alias:optional-override|b:shared-v2:scoped|pnpm:contained',
   'later mutation of a live nested dependency must not alter sealed logical resolution');
 
   assert.deepEqual(dependencyPackageTarget('logical-name', 'npm:physical-name@^1.2.3'), {
@@ -700,6 +732,34 @@ try {
   assert.ok(parentMeasurement.directories > 1);
   assert.throws(() => measurePhysicalPackageTree(parentA, { maxDepth: 1 }),
     /bounded depth/);
+  const parentBClosure = measureInstalledPackageClosure(snapshotRepository, 'parent-b');
+  assert.equal(parentBClosure.logical_links, 3,
+    'diagnostics must count the root link and both installed dependency links');
+  assert.equal(parentBClosure.synthetic_directories, 4,
+    'diagnostics must count store parents plus package-local node_modules and scope directories');
+  assert.equal(parentBClosure.inodes, parentBClosure.content_inodes
+    + parentBClosure.logical_links + parentBClosure.synthetic_directories);
+  assert.equal(assertExecutionDependencyInodeBudget(
+    DEFAULTS.executionAuthorityMaxFiles - 3, 3), true);
+  assert.throws(() => assertExecutionDependencyInodeBudget(
+    DEFAULTS.executionAuthorityMaxFiles - 3, 4), /bounded inode budget/);
+  const overDepthPackage = writeSyntheticPackage('over-depth-package', {
+    name: 'over-depth-package', version: '1.0.0',
+  }, "module.exports = 'over-depth';\n");
+  let overDepthDirectory = overDepthPackage;
+  for (let depth = 0; depth < 65; depth += 1) {
+    overDepthDirectory = path.join(overDepthDirectory, `d${depth}`);
+    fs.mkdirSync(overDepthDirectory);
+  }
+  assert.throws(() => measureInstalledPackageClosure(snapshotRepository, 'over-depth-package'),
+    /bounded depth/, 'metadata admission must use the copier depth-64 ceiling');
+  fs.writeFileSync(path.join(snapshotRepository, 'over-depth.mjs'),
+    "import value from 'over-depth-package'; export default value;\n");
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'over-depth.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-over-depth'),
+  }), /bounded depth/, 'the copy walker must enforce the same depth-64 ceiling');
 
   const missingPeer = writeSyntheticPackage('missing-peer-parent', {
     name: 'missing-peer-parent', peerDependencies: { 'required-missing-peer': '1.0.0' },
@@ -806,14 +866,45 @@ try {
       `actual Promptfoo closure unexpectedly reached only ${promptfooClosure.packages} packages`);
     assert.equal(promptfooClosure.fits_default_dependency_budget, false,
       'actual Promptfoo package closure must report refusal under the current default authority budget');
-    assert.match(promptfooClosure.default_authority_refusal, /package closure alone exceeds/);
+    assert.match(promptfooClosure.default_authority_refusal, /package closure exceeds/);
     assert.ok(promptfooClosure.inodes > DEFAULTS.executionAuthorityMaxFiles
       || promptfooClosure.bytes > DEFAULTS.executionAuthorityMaxBytes);
+    const targetedPromptfooClosure = measureAuditedNpxPackageClosure(
+      actualInstallRoot, promptfooArgv,
+    );
+    assert.equal(targetedPromptfooClosure.npx_authority.config.digest,
+      '9033e19f151b29d8fbc5d6739d5941692ed7f923456c95906d67a00492e1b194');
+    assert.ok(targetedPromptfooClosure.packages < promptfooClosure.packages,
+      'the config-bound policy must omit Promptfoo direct optional provider/plugin packages');
+    assert.equal(targetedPromptfooClosure.fits_default_dependency_budget, false,
+      'targeted Promptfoo closure must still refuse unless it truthfully fits the global cap');
   } else if (process.env.LAMINA_ACTUAL_INSTALL_ROOT) {
     assert.fail('LAMINA_ACTUAL_INSTALL_ROOT must contain the actual audited npx packages');
   }
+  fs.mkdirSync(path.join(snapshotRepository, 'evals'), { recursive: true });
+  fs.copyFileSync(path.resolve('evals/agent-skills-eval.yaml'),
+    path.join(snapshotRepository, 'evals', 'agent-skills-eval.yaml'));
+  const syntheticAgentArgv = [
+    fakeNpx, 'agent-skills-eval', '--config', 'evals/agent-skills-eval.yaml',
+  ];
+  assert.equal(auditedNpxCommand(snapshotRepository, syntheticAgentArgv).config.digest,
+    'f9fbd91dcd907d555833a8379c76fe2741f87903114f6a4e922c7f855a904f5c');
+  fs.appendFileSync(path.join(snapshotRepository, 'evals', 'agent-skills-eval.yaml'), '# changed\n');
+  assert.throws(() => auditedNpxCommand(snapshotRepository, syntheticAgentArgv),
+    /config digest changed/);
+  fs.copyFileSync(path.resolve('evals/agent-skills-eval.yaml'),
+    path.join(snapshotRepository, 'evals', 'agent-skills-eval.yaml'));
+  const syntheticPackageManifest = path.join(snapshotRepository, 'package.json');
+  const originalSyntheticManifest = fs.readFileSync(syntheticPackageManifest, 'utf8');
+  const changedSyntheticManifest = JSON.parse(originalSyntheticManifest);
+  changedSyntheticManifest.scripts['test:eval:portable'] += ' --verbose';
+  fs.writeFileSync(syntheticPackageManifest, `${JSON.stringify(changedSyntheticManifest)}\n`);
+  assert.throws(() => auditedNpxCommand(snapshotRepository, syntheticAgentArgv),
+    /no longer matches package script/);
+  fs.writeFileSync(syntheticPackageManifest, originalSyntheticManifest);
   const npxSnapshot = prepareExecutionSnapshot({
-    cwd: snapshotRepository, command: [fakeNpx, '--yes', 'agent-skills-eval', '--version'],
+    cwd: snapshotRepository,
+    command: syntheticAgentArgv,
     temporaryDirectory: path.join(root, 'snapshot-npx'),
     infrastructure: { node: fakeNode, bwrap: fakeBwrap },
   });
@@ -822,9 +913,72 @@ try {
   assert.equal(npxSnapshot.launch_command[1], path.join(npxSnapshot.snapshot_repository,
     'node_modules', 'agent-skills-eval', 'cli.mjs'),
   'audited npx execution must launch the snapshotted declared package bin');
-  assert.deepEqual(npxSnapshot.launch_command.slice(2), ['--version']);
+  assert.deepEqual(npxSnapshot.launch_command.slice(2),
+    ['--config', 'evals/agent-skills-eval.yaml']);
   assert.notEqual(npxSnapshot.launch_command[0], fakeNpx,
     'the mutable npx shim must not remain on the launch path');
+  const syntheticAgentConfig = path.join(snapshotRepository, 'evals', 'agent-skills-eval.yaml');
+  const redirectedAgentConfig = path.join(snapshotRepository, 'evals', 'agent-skills-real.yaml');
+  fs.renameSync(syntheticAgentConfig, redirectedAgentConfig);
+  fs.symlinkSync('agent-skills-real.yaml', syntheticAgentConfig);
+  assert.throws(() => auditedNpxCommand(snapshotRepository, syntheticAgentArgv),
+    /bounded physical repository file/);
+  fs.unlinkSync(syntheticAgentConfig);
+  fs.renameSync(redirectedAgentConfig, syntheticAgentConfig);
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: [fakeNpx, 'agent-skills-eval', '--config', 'evals/agent-skills-eval.yaml', '--verbose'],
+    temporaryDirectory: path.join(root, 'snapshot-arbitrary-npx'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  }), /exact repository package-script argv/,
+  'arbitrary arguments to an otherwise audited npx package must refuse before snapshotting');
+  const syntheticPromptfoo = writeSyntheticPackage('promptfoo', {
+    name: 'promptfoo', bin: { promptfoo: 'index.js' },
+    dependencies: { 'promptfoo-required': '1.0.0' },
+    optionalDependencies: { 'omitted-provider': '1.0.0' },
+  }, "module.exports = require('promptfoo-required');\n");
+  const promptfooRequired = writeSyntheticPackage('promptfoo-required', {
+    name: 'promptfoo-required', optionalDependencies: { 'downstream-platform': '1.0.0' },
+  }, "module.exports = require('downstream-platform');\n");
+  writeNestedPackage(promptfooRequired, 'downstream-platform', {
+    name: 'downstream-platform', version: '1.0.0',
+  }, "module.exports = 'downstream-platform';\n");
+  writeSyntheticPackage('omitted-provider', { name: 'omitted-provider', version: '1.0.0' },
+    "module.exports = 'must-not-be-sealed';\n");
+  const syntheticPromptfooConfig = path.join(snapshotRepository,
+    'evals', 'promptfoo', 'lamina-redteam.yaml');
+  fs.mkdirSync(path.dirname(syntheticPromptfooConfig), { recursive: true });
+  fs.copyFileSync(path.resolve('evals/promptfoo/lamina-redteam.yaml'), syntheticPromptfooConfig);
+  const syntheticPromptfooArgv = [
+    fakeNpx, 'promptfoo', 'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml',
+    '--max-concurrency', '1',
+  ];
+  const promptfooSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: syntheticPromptfooArgv,
+    temporaryDirectory: path.join(root, 'snapshot-promptfoo-policy'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  const sealedPromptfoo = fs.realpathSync.native(path.join(
+    promptfooSnapshot.snapshot_repository, 'node_modules', 'promptfoo'));
+  const sealedPromptfooRequired = fs.realpathSync.native(path.join(
+    sealedPromptfoo, 'node_modules', 'promptfoo-required'));
+  assert.equal(fs.existsSync(path.join(sealedPromptfoo, 'node_modules', 'omitted-provider')), false,
+    'the digest-bound OpenAI-only command must omit Promptfoo direct optional providers');
+  assert.equal(fs.existsSync(path.join(
+    sealedPromptfooRequired, 'node_modules', 'downstream-platform')), true,
+  'required packages must retain their installed optional/platform dependencies');
+  assert.deepEqual(promptfooSnapshot.launch_command.slice(2), [
+    'eval', '-c', 'evals/promptfoo/lamina-redteam.yaml', '--max-concurrency', '1',
+  ]);
+  assert.ok(fs.existsSync(syntheticPromptfoo));
+  fs.appendFileSync(syntheticPromptfooConfig, '# changed\n');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: syntheticPromptfooArgv,
+    temporaryDirectory: path.join(root, 'snapshot-changed-promptfoo-config'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  }), /config digest changed/,
+  'a changed Promptfoo config must not retain the direct-optional omission policy');
+  fs.copyFileSync(path.resolve('evals/promptfoo/lamina-redteam.yaml'), syntheticPromptfooConfig);
   const buildEntrypoint = path.join(snapshotRepository, 'scripts', 'build-standalone-cli.mjs');
   fs.mkdirSync(path.dirname(buildEntrypoint), { recursive: true });
   fs.writeFileSync(buildEntrypoint, "export const build = true;\n");

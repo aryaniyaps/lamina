@@ -12,7 +12,7 @@ include:
   - lamina-product-behavior
   - lamina-systems
   - lamina-evaluation
-concurrency: 2
+concurrency: 1
 layout: iteration
 strict: true
 report:

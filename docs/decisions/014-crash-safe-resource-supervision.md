@@ -129,14 +129,28 @@ resolve to physical roots beneath repository `node_modules`, and every emitted
 link terminates inside the sealed store rather than retaining live authority.
 An npm alias keeps its declared logical link name while the physical manifest
 must match the parsed alias target, including scoped targets; malformed aliases
-refuse. Package manifests are descriptor-read with a one-MiB ceiling. Both the
-copy walker and the separate metadata-only closure walker stream directory
-entries and bound depth while counting files, directories, symlinks, inodes,
-and bytes. The latter is diagnostic authority only: on the qualification
-install, Promptfoo reaches 767 packages, 60,435 inodes, and 5,620,609,377 bytes,
-so its package closure alone truthfully refuses the current 16,384-inode and
-512-MiB execution-authority limits. No larger Promptfoo launch tier is admitted
-until a per-entrypoint authority budget is explicitly selected and reviewed.
+refuse. npm's `optionalDependencies` precedence over a same-name `dependencies`
+entry is preserved, including when the override changes an alias target.
+Package manifests are descriptor-read with a one-MiB ceiling. Both the copy
+walker and the separate metadata-only closure walker stream directory entries
+and enforce depth 64. The inode budget includes copied files and symlinks plus
+every created store, `node_modules`, scoped-parent, package, and logical-link
+inode; the diagnostic models the same synthetic resolution overhead.
+
+`npx` is not a package-level allowlist. It admits only the exact argv tails of
+`test:eval:portable` and `test:eval:redteam`, run from the physical repository
+root through the trusted npx shim. The copied `package.json` and physical config
+must retain the descriptor-read digests used to select policy. Agent-skills is
+digest-bound to its concurrency-1 config. Promptfoo is digest-bound to
+`9033e19f151b29d8fbc5d6739d5941692ed7f923456c95906d67a00492e1b194`
+and the exact CLI adds `--max-concurrency 1`. That OpenAI-only config permits
+omission of Promptfoo's direct optional provider/plugin dependencies only;
+required dependencies and installed downstream optional/platform dependencies
+remain sealed. The full diagnostic closure remains a refusal. The narrower
+command-specific measurement still reaches 445 packages, 30,356 physical
+package-content inodes, and 555,525,917 bytes before synthetic resolution
+overhead, exceeding both the global 16,384-inode and 512-MiB caps. Promptfoo is
+therefore safely refused; this policy does not admit a launch or raise a cap.
 Ignored file argv inputs (for example model artifacts) are copied separately.
 The process keeps its declared cwd, while entrypoint-specific output roots are
 the only writable bindings into source-relative snapshot locations. Dynamic
