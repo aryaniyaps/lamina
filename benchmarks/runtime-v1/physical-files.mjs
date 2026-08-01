@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+const MAX_DESCRIPTOR_READ_BYTES = 4 * 1024 * 1024;
+
 export function physicalIdentity(candidate, expected = 'directory', { requireSameOwner = true } = {}) {
   const resolved = path.resolve(candidate);
   const stat = fs.lstatSync(resolved, { bigint: true });
@@ -50,8 +52,9 @@ export function readBoundedPhysicalFile(file, maximumBytes, {
   rootIdentity = null,
 } = {}) {
   const resolved = path.resolve(file);
-  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) {
-    throw new Error('physical read requires a positive safe byte bound');
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1
+    || maximumBytes > MAX_DESCRIPTOR_READ_BYTES) {
+    throw new Error(`physical read requires a 1-${MAX_DESCRIPTOR_READ_BYTES} byte bound`);
   }
   if (root) {
     const resolvedRoot = path.resolve(root);
@@ -70,12 +73,26 @@ export function readBoundedPhysicalFile(file, maximumBytes, {
       || (typeof process.getuid === 'function' && Number(opened.uid) !== process.getuid())) {
       throw new Error(`${resolved} is not a bounded single-link physical file`);
     }
-    const bytes = fs.readFileSync(descriptor);
+    const bounded = Buffer.allocUnsafe(maximumBytes + 1);
+    let length = 0;
+    while (length < bounded.length) {
+      const read = fs.readSync(descriptor, bounded, length, bounded.length - length, length);
+      if (read === 0) break;
+      length += read;
+    }
+    const afterRead = fs.fstatSync(descriptor, { bigint: true });
+    if (length > maximumBytes || afterRead.size !== opened.size
+      || Number(afterRead.size) !== length || afterRead.dev !== opened.dev
+      || afterRead.ino !== opened.ino || afterRead.uid !== opened.uid
+      || afterRead.nlink !== opened.nlink) {
+      throw new Error(`${resolved} changed or exceeded its bound while it was read`);
+    }
+    const bytes = bounded.subarray(0, length);
     const named = physicalIdentity(resolved, 'file');
     const openedIdentity = {
       dev: String(opened.dev), ino: String(opened.ino), uid: Number(opened.uid), nlink: Number(opened.nlink),
     };
-    if (!samePhysicalIdentity(named, openedIdentity) || named.nlink !== 1 || bytes.length !== Number(opened.size)) {
+    if (!samePhysicalIdentity(named, openedIdentity) || named.nlink !== 1) {
       throw new Error(`${resolved} changed while it was read`);
     }
     if (root) assertDirectoryIdentity(root, rootIdentity);

@@ -385,6 +385,8 @@ try {
   }
 
   for (const mutate of [
+    (telemetry) => { telemetry.samples[0].elapsed_ms = 0.5; },
+    (telemetry) => { telemetry.samples[0].elapsed_ms = Number.MAX_SAFE_INTEGER + 1; },
     (telemetry) => { telemetry.samples[0].accounting.cpu.usage_usec = 0.5; },
     (telemetry) => { telemetry.samples[0].accounting.cpu.usage_usec = Number.MAX_SAFE_INTEGER + 1; },
     (telemetry) => { telemetry.samples[0].accounting.extra = true; },

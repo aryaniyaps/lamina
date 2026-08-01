@@ -207,7 +207,7 @@ function validateTelemetrySidecar(telemetry) {
     || telemetry.schema !== 'lamina.runtime-benchmark-telemetry/v1'
     || !Array.isArray(telemetry.samples) || telemetry.samples.length > 64) return false;
   return telemetry.samples.every((sample, index) => exactKeys(sample, ['elapsed_ms', 'accounting'])
-    && Number.isFinite(sample.elapsed_ms) && sample.elapsed_ms >= 0
+    && nonNegativeSafeInteger(sample.elapsed_ms)
     && validAccounting(sample.accounting)
     && (index === 0 || sample.elapsed_ms >= telemetry.samples[index - 1].elapsed_ms)
     && monotonicAccounting(telemetry.samples[index - 1]?.accounting, sample.accounting));
