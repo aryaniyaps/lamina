@@ -16,6 +16,7 @@ import {
   parseDaemonLock,
   runtimePaths,
 } from '../packages/cli/lib/graph-runtime/util.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-graphd-upgrade-'));
 const cli = path.resolve('packages/cli/bin/lamina.mjs');
@@ -261,22 +262,21 @@ try {
   assert.equal(lock.protocol_version, 9);
   assert.ok(lock.capabilities.includes('observation.status.source_key_count'));
 } finally {
-  if (fake?.exitCode === null) {
-    fake.kill('SIGTERM');
-    await once(fake, 'exit');
-  }
   try {
-    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-    if (lock?.pid) await stopIncompatibleServer(paths, lock.pid);
-  } catch {}
-  // Windows can keep Ladybug's final file handle briefly after graphd exits.
-  // `rmSync` retries only when explicitly configured.
-  fs.rmSync(root, {
-    recursive: true,
-    force: true,
-    maxRetries: 20,
-    retryDelay: 100,
-  });
+    if (fake?.exitCode === null) {
+      fake.kill('SIGTERM');
+      await once(fake, 'exit');
+    }
+    let finalLock = null;
+    try {
+      finalLock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (finalLock?.pid) await stopIncompatibleServer(paths, finalLock.pid);
+  } finally {
+    removeTemporaryTree(root);
+  }
 }
 
 console.log('graphd_upgrade_test: ok');

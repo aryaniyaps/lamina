@@ -10,6 +10,7 @@ import {
   ensureRetrieval,
   queryRetrieval,
 } from '../packages/cli/lib/retrieval-runtime/process.mjs';
+import { removeTemporaryTree } from './test-util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-retrieval-sync-'));
 process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER = 'deterministic';
@@ -72,10 +73,13 @@ try {
   assert.equal(graphAfter.graph_version, graphBefore.graph_version,
     'retrieval generations must never mutate the canonical graph');
 } finally {
-  try { await stopIncompatibleServer(runtimePaths(root)); } catch {}
-  fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-  delete process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER;
-  delete process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS;
+  try {
+    await stopIncompatibleServer(runtimePaths(root));
+  } finally {
+    removeTemporaryTree(root);
+    delete process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER;
+    delete process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS;
+  }
 }
 
 console.log('retrieval_sync_test: ok');
