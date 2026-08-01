@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
-import { MIB } from '../scripts/safe-runner/constants.mjs';
+import { DEFAULTS, MIB } from '../scripts/safe-runner/constants.mjs';
 import { validateReport } from '../scripts/safe-runner/report.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
 import { runSupervisorCrashSelfTest } from '../scripts/safe-runner/self-test.mjs';
@@ -395,7 +395,7 @@ try {
   const detached = await runSafely({
     command: [process.execPath, fixture, 'detached-child'],
     tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'detached.json'),
-    overrides: { ...limits, pidsMax: 32 },
+    overrides: { ...limits, pidsMax: DEFAULTS.pidsMax },
     probe,
     mode: 'self-test',
     selfTestCaseId: 'detached_descendant',
@@ -404,7 +404,12 @@ try {
   if (probe.production_enforcement) {
     assert.equal(detached.outcome, 'safety_limit_exceeded');
     assert.equal(detached.termination.limit, 'detached_descendant');
+    assert.equal(detached.limits.pids_max, DEFAULTS.pidsMax,
+      'detached classification needs headroom for sandbox and Node runtime tasks');
+    assert.equal(detached.termination.cgroup_events.pids.max, 0,
+      'detached classification must not be preempted by the dedicated PID limit');
     assert.ok(detached.peaks.pids >= 2);
+    assert.ok(detached.peaks.pids < detached.limits.pids_max);
     assert.deepEqual(detached.cleanup.descendants_remaining, []);
     assert.equal(detached.cleanup.scope_removed, true);
     assert.equal(detached.cleanup.temporary_directory_removed, true);

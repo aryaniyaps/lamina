@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
 import { adapterProbe } from './adapter.mjs';
-import { MIB, SELF_TEST_CASE_IDS } from './constants.mjs';
+import { DEFAULTS, MIB, SELF_TEST_CASE_IDS } from './constants.mjs';
 import { runSafely } from './runner.mjs';
 import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { baseReport, finishReport, validateReport, writeReport } from './report.mjs';
@@ -787,8 +787,10 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     fixtureMode: 'detached-child',
     outcome: 'safety_limit_exceeded',
     limits: ['detached_descendant'],
-    overrides: { timeoutMs: 1_500 },
-    verify: (report) => report.peaks.pids >= 2,
+    overrides: { pidsMax: DEFAULTS.pidsMax, timeoutMs: 1_500 },
+    verify: (report) => report.limits.pids_max === DEFAULTS.pidsMax
+      && report.termination.cgroup_events.pids.max === 0
+      && report.peaks.pids >= 2 && report.peaks.pids < report.limits.pids_max,
   });
 
   const attestation = writeAttestation(probe, cases);

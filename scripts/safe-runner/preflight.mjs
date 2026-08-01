@@ -237,7 +237,8 @@ function deliberatelyTinySelfTest(mode, caseId, overrides, command) {
     || normalized.length !== 3) return false;
   const required = Object.keys(SELF_TEST_LIMIT_MAXIMA);
   if (!required.every((key) => Number.isFinite(overrides[key]) && overrides[key] > 0)) return false;
-  return required.every((key) => overrides[key] <= SELF_TEST_LIMIT_MAXIMA[key]);
+  return required.every((key) => overrides[key] <= (caseId === 'detached_descendant'
+    && key === 'pidsMax' ? DEFAULTS.pidsMax : SELF_TEST_LIMIT_MAXIMA[key]));
 }
 
 function externalRuntimeContract(ownership, command, cwd) {

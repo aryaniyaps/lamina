@@ -521,12 +521,28 @@ try {
     mode: 'self-test',
     selfTestCaseId: 'detached_descendant',
     overrides: {
-      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: 8,
+      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: DEFAULTS.pidsMax,
       outputMaxBytes: 64 * 1024, tempMaxBytes: 1 * MIB,
     },
   });
   assert.equal(unsafePortable.ok, false);
+  assert.equal(unsafePortable.deliberately_tiny_self_test, true,
+    'detached self-test alone may use the default PID ceiling for runtime thread headroom');
   assert.equal(unsafePortable.portable_self_test_allowed, false);
+  const oversizedDetached = preflightRun({
+    tier: 'small',
+    command: [process.execPath, path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'detached-child'],
+    cwd: root,
+    adapterInfo: portableProbe,
+    mode: 'self-test',
+    selfTestCaseId: 'detached_descendant',
+    overrides: {
+      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: DEFAULTS.pidsMax + 1,
+      outputMaxBytes: 64 * 1024, tempMaxBytes: 1 * MIB,
+    },
+  });
+  assert.equal(oversizedDetached.deliberately_tiny_self_test, false,
+    'detached self-test PID headroom must remain capped at the production default');
   const productionPortable = preflightRun({
     tier: 'medium', command: ['node', '-e', ''], cwd: root, adapterInfo: portableProbe,
   });

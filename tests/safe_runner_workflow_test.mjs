@@ -198,6 +198,12 @@ assert.match(watchdog,
 assert.match(selfTest,
   /const baseOverrides = \{[\s\S]*pidsMax: 32,[\s\S]*passed: report\.preflight\?\.deliberately_tiny_self_test === true/,
   'every standard adversarial runCase must remain within the deliberately-tiny PID ceiling');
+assert.match(selfTest,
+  /id: 'rapid_process_spawning'[\s\S]*?overrides: \{ pidsMax: 24, timeoutMs: 1_500 \}/,
+  'the rapid-spawn adversary must retain its dedicated PID-limit ceiling');
+assert.match(selfTest,
+  /id: 'detached_descendant'[\s\S]*?overrides: \{ pidsMax: DEFAULTS\.pidsMax, timeoutMs: 1_500 \}/,
+  'canonical detached classification must share the direct integration PID headroom');
 
 for (const scriptName of ['test:eval:portable', 'test:eval:redteam']) {
   const script = packageManifest.scripts[scriptName];
