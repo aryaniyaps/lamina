@@ -78,7 +78,7 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
-  recordChildTermination, temporaryQuotaHandshakeFailure,
+  recordChildTermination, temporaryQuotaHandshakeFailure, waitForChildResult,
 } from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
@@ -176,6 +176,21 @@ try {
   assert.equal(nonClosingChild.resumed, true);
   assert.equal(nonClosingChild.destroyed, true);
   assert.equal(nonClosingSink.destroyed, true);
+  let scheduledDeadline = null;
+  let cancelledDeadline = null;
+  const immediateChild = await waitForChildResult(Promise.resolve({ code: 0 }), 123, {
+    schedule(handler, milliseconds) {
+      scheduledDeadline = { handler, milliseconds };
+      return 'deadline-token';
+    },
+    cancel(token) { cancelledDeadline = token; },
+  });
+  assert.deepEqual(immediateChild, { code: 0 });
+  assert.equal(scheduledDeadline.milliseconds, 123);
+  assert.equal(cancelledDeadline, 'deadline-token',
+    'the losing controller deadline must not keep the runner process alive');
+  const deadlineChild = await waitForChildResult(new Promise(() => {}), 1);
+  assert.deepEqual(deadlineChild, { controllerDeadline: true });
   const readerlessFifo = path.join(root, 'readerless.fifo');
   assert.equal(spawnSync('/usr/bin/mkfifo', ['-m', '600', readerlessFifo]).status, 0);
   const fifoStarted = Date.now();
@@ -513,6 +528,37 @@ try {
   assert.equal(portableSelfTest.deliberately_tiny_self_test, true);
   assert.equal(portableSelfTest.portable_self_test_allowed, true);
   assert.doesNotMatch(portableSelfTest.reasons.join('\n'), /only the built-in deliberately tiny self-test/);
+  const aggregatePortable = preflightRun({
+    tier: 'small',
+    command: [process.execPath,
+      path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'aggregate-memory'],
+    cwd: root,
+    adapterInfo: portableProbe,
+    mode: 'self-test',
+    selfTestCaseId: 'aggregate_child_memory_limit',
+    overrides: {
+      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: DEFAULTS.pidsMax,
+      outputMaxBytes: 64 * 1024, tempMaxBytes: 1 * MIB,
+    },
+  });
+  assert.equal(aggregatePortable.deliberately_tiny_self_test, true,
+    'aggregate-memory may use only the production-default PID ceiling for runtime threads');
+  assert.equal(aggregatePortable.portable_self_test_allowed, false,
+    'aggregate-memory still requires Linux aggregate enforcement');
+  const oversizedAggregate = preflightRun({
+    tier: 'small',
+    command: [process.execPath,
+      path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'aggregate-memory'],
+    cwd: root,
+    adapterInfo: portableProbe,
+    mode: 'self-test',
+    selfTestCaseId: 'aggregate_child_memory_limit',
+    overrides: {
+      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: DEFAULTS.pidsMax + 1,
+      outputMaxBytes: 64 * 1024, tempMaxBytes: 1 * MIB,
+    },
+  });
+  assert.equal(oversizedAggregate.deliberately_tiny_self_test, false);
   const unsafePortable = preflightRun({
     tier: 'small',
     command: [process.execPath, path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'detached-child'],
@@ -527,7 +573,7 @@ try {
   });
   assert.equal(unsafePortable.ok, false);
   assert.equal(unsafePortable.deliberately_tiny_self_test, true,
-    'detached self-test alone may use the default PID ceiling for runtime thread headroom');
+    'detached self-test may use the default PID ceiling for runtime thread headroom');
   assert.equal(unsafePortable.portable_self_test_allowed, false);
   const oversizedDetached = preflightRun({
     tier: 'small',

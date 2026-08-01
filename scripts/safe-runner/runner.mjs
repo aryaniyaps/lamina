@@ -116,6 +116,23 @@ export async function closeOutputStreams(childStreams, outputStreams, deadlineMs
   return closed;
 }
 
+export async function waitForChildResult(childResult, deadlineMs, {
+  schedule = setTimeout,
+  cancel = clearTimeout,
+} = {}) {
+  let deadlineTimer = null;
+  try {
+    return await Promise.race([
+      childResult,
+      new Promise((resolve) => {
+        deadlineTimer = schedule(() => resolve({ controllerDeadline: true }), deadlineMs);
+      }),
+    ]);
+  } finally {
+    if (deadlineTimer !== null) cancel(deadlineTimer);
+  }
+}
+
 export async function releaseFifo(file, deadlineMs = 1_000) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
@@ -946,10 +963,7 @@ export async function runSafely({
     sample();
     const controllerDeadlineMs = report.limits.timeout_ms
       + report.limits.graceful_stop_ms + DEFAULTS.scopeHandshakeMs + 5_000;
-    const ended = await Promise.race([
-      childResult,
-      wait(controllerDeadlineMs).then(() => ({ controllerDeadline: true })),
-    ]);
+    const ended = await waitForChildResult(childResult, controllerDeadlineMs);
     tracePhase('run:child-race-settled');
     if (ended.controllerDeadline) {
       requestStop('safety_limit_exceeded', 'controller_deadline');

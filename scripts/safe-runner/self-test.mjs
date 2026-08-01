@@ -656,8 +656,12 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     fixtureMode: 'aggregate-memory',
     outcome: 'safety_limit_exceeded',
     limits: ['memory', 'sustained_high_memory'],
-    overrides: { memoryMaxBytes: 192 * MIB, memoryHighBytes: 152 * MIB },
-    verify: (report) => report.peaks.pids >= 3,
+    overrides: {
+      memoryMaxBytes: 192 * MIB, memoryHighBytes: 152 * MIB, pidsMax: DEFAULTS.pidsMax,
+    },
+    verify: (report) => report.limits.pids_max === DEFAULTS.pidsMax
+      && report.termination.cgroup_events.pids.max === 0
+      && report.peaks.pids >= 3 && report.peaks.pids < report.limits.pids_max,
   });
   await runCase({
     id: 'ignored_graceful_termination',

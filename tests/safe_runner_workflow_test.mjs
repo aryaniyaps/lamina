@@ -202,6 +202,9 @@ assert.match(selfTest,
   /id: 'rapid_process_spawning'[\s\S]*?overrides: \{ pidsMax: 24, timeoutMs: 1_500 \}/,
   'the rapid-spawn adversary must retain its dedicated PID-limit ceiling');
 assert.match(selfTest,
+  /id: 'aggregate_child_memory_limit'[\s\S]*?pidsMax: DEFAULTS\.pidsMax[\s\S]*?cgroup_events\.pids\.max === 0/,
+  'aggregate-memory qualification must reserve runtime thread headroom without hitting pids.max');
+assert.match(selfTest,
   /id: 'detached_descendant'[\s\S]*?overrides: \{ pidsMax: DEFAULTS\.pidsMax, timeoutMs: 1_500 \}/,
   'canonical detached classification must share the direct integration PID headroom');
 
