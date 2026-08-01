@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { builtinModules, createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
@@ -248,10 +248,75 @@ function importSpecifiers(source) {
   return [...values];
 }
 
-function packageName(specifier) {
-  if (specifier.startsWith('node:') || specifier.startsWith('.') || path.isAbsolute(specifier)) return null;
+const BUILTIN_MODULES = new Set(builtinModules.flatMap((name) => [
+  name, name.startsWith('node:') ? name.slice(5) : `node:${name}`,
+]));
+
+export function packageName(specifier) {
+  if (BUILTIN_MODULES.has(specifier) || specifier.startsWith('.') || path.isAbsolute(specifier)) return null;
   const parts = specifier.split('/');
   return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+}
+
+function validPackageName(name) {
+  if (typeof name !== 'string') return false;
+  const components = name.split('/');
+  return components.every((component) => component !== '.' && component !== '..')
+    && (/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(name)
+      || /^@[a-zA-Z0-9_-][a-zA-Z0-9_.-]*\/[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(name));
+}
+
+export function resolveInstalledPackage(repository, resolverFile, expectedName, optional = false) {
+  if (!validPackageName(expectedName) || BUILTIN_MODULES.has(expectedName)) {
+    if (optional || BUILTIN_MODULES.has(expectedName)) return null;
+    throw new Error(`invalid execution dependency package name: ${expectedName}`);
+  }
+  const physicalRepository = fs.realpathSync.native(repository);
+  let current = fs.realpathSync.native(path.dirname(resolverFile));
+  while (current === physicalRepository || current.startsWith(`${physicalRepository}${path.sep}`)) {
+    const declared = path.join(current, 'node_modules', ...expectedName.split('/'), 'package.json');
+    try {
+      const physicalManifest = fs.realpathSync.native(declared);
+      const relative = path.relative(physicalRepository, physicalManifest);
+      if (!relative || relative.startsWith('..') || path.isAbsolute(relative)
+        || !relative.split(path.sep).includes('node_modules')) {
+        throw new Error(`execution dependency resolves outside repository node_modules: ${expectedName}`);
+      }
+      const stat = fs.lstatSync(physicalManifest);
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        throw new Error(`execution dependency manifest is not physical: ${expectedName}`);
+      }
+      const manifest = JSON.parse(fs.readFileSync(physicalManifest, 'utf8'));
+      if (manifest.name !== expectedName) {
+        throw new Error(`execution dependency manifest name mismatch: ${expectedName}`);
+      }
+      return { root: path.dirname(physicalManifest), manifest, manifest_path: physicalManifest };
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    if (current === physicalRepository) break;
+    current = path.dirname(current);
+  }
+  if (optional) return null;
+  throw new Error(`cannot resolve installed execution dependency: ${expectedName}`);
+}
+
+export function auditedNpxPackage(repository, name) {
+  const dependency = resolveInstalledPackage(
+    repository, path.join(repository, 'package.json'), name,
+  );
+  const bins = typeof dependency.manifest.bin === 'string'
+    ? { [name.split('/').at(-1)]: dependency.manifest.bin }
+    : dependency.manifest.bin || {};
+  const binRelative = bins[name.split('/').at(-1)] || Object.values(bins)[0];
+  if (typeof binRelative !== 'string') throw new Error(`audited npx package has no declared bin: ${name}`);
+  const bin = path.resolve(dependency.root, binRelative);
+  const relative = path.relative(dependency.root, bin);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)
+    || !fs.lstatSync(bin).isFile() || fs.lstatSync(bin).isSymbolicLink()) {
+    throw new Error(`audited npx package bin escapes its physical package root: ${name}`);
+  }
+  return { ...dependency, bin_relative: relative.replaceAll('\\', '/') };
 }
 
 function packageRoot(resolved, expectedName) {
@@ -300,7 +365,10 @@ function dependencyNames(repository, command, cwd) {
   const npxOffset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
   if (/^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
     && ['agent-skills-eval', 'promptfoo'].includes(command[npxOffset])) {
-    addPackage({ name: command[npxOffset], resolver: 'package.json', destination: 'node_modules' });
+    addPackage({
+      name: command[npxOffset], resolver: 'package.json', destination: 'node_modules',
+      auditedNpxRoot: true,
+    });
   }
   for (const argument of command.slice(1)) {
     const relative = path.relative(repository, path.resolve(cwd, String(argument)))
@@ -584,14 +652,19 @@ export function prepareExecutionSnapshot({
       const record = pendingPackages.shift();
       const key = `${record.destination}\0${record.name}`;
       const resolverFile = path.join(repository, record.resolver);
-      const require = createRequire(resolverFile);
-      let resolved;
-      try { resolved = require.resolve(record.name); }
-      catch (error) {
-        try { resolved = require.resolve(`${record.name}/package.json`); }
-        catch { if (record.optional) continue; throw error; }
+      let dependency;
+      if (record.auditedNpxRoot) {
+        dependency = resolveInstalledPackage(repository, resolverFile, record.name);
+      } else {
+        const require = createRequire(resolverFile);
+        let resolved;
+        try { resolved = require.resolve(record.name); }
+        catch (error) {
+          try { resolved = require.resolve(`${record.name}/package.json`); }
+          catch { if (record.optional) continue; throw error; }
+        }
+        dependency = packageRoot(resolved, record.name);
       }
-      const dependency = packageRoot(resolved, record.name);
       const priorRoot = copiedPackages.get(key);
       if (priorRoot && priorRoot !== dependency.root) {
         throw new Error(`execution dependency closure has incompatible versions for ${record.name}`);
@@ -663,17 +736,10 @@ export function prepareExecutionSnapshot({
   let npxEntrypoint = null;
   if (npxPackage) {
     if (!infrastructure) throw new Error('audited npx execution requires staged Node authority');
-    const require = createRequire(path.join(repository, 'package.json'));
-    let resolved;
-    try { resolved = require.resolve(npxPackage); }
-    catch { resolved = require.resolve(`${npxPackage}/package.json`); }
-    const dependency = packageRoot(resolved, npxPackage);
-    const bins = typeof dependency.manifest.bin === 'string'
-      ? { [npxPackage.split('/').at(-1)]: dependency.manifest.bin }
-      : dependency.manifest.bin || {};
-    const binRelative = bins[npxPackage.split('/').at(-1)] || Object.values(bins)[0];
-    if (typeof binRelative !== 'string') throw new Error(`audited npx package has no declared bin: ${npxPackage}`);
-    npxEntrypoint = path.join(snapshotRepository, 'node_modules', npxPackage, binRelative);
+    const dependency = auditedNpxPackage(repository, npxPackage);
+    npxEntrypoint = path.join(
+      snapshotRepository, 'node_modules', npxPackage, dependency.bin_relative,
+    );
     if (!fs.existsSync(npxEntrypoint)) throw new Error(`audited npx package bin was not snapshotted: ${npxPackage}`);
   }
   const executable = npxPackage || (infrastructure

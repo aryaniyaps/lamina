@@ -47,7 +47,8 @@ import {
   processEnvironmentAttestation,
 } from '../scripts/safe-runner/processes.mjs';
 import {
-  assertExecutionSnapshot, assertGitObjectClosureBudget, prepareExecutionSnapshot,
+  assertExecutionSnapshot, assertGitObjectClosureBudget, auditedNpxPackage, packageName,
+  prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
@@ -605,9 +606,38 @@ try {
   fs.writeFileSync(fakeNpx, '#!/bin/sh\nexit 99\n', { mode: 0o700 });
   fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval'));
   fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval', 'package.json'),
-    '{"name":"agent-skills-eval","bin":{"agent-skills-eval":"cli.mjs"},"dependencies":{"tiny-dep":"1.0.0"}}\n');
+    '{"name":"agent-skills-eval","exports":{"./provider":"./provider.mjs"},"bin":{"agent-skills-eval":"cli.mjs"},"dependencies":{"tiny-dep":"1.0.0"}}\n');
   fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'agent-skills-eval', 'cli.mjs'),
     "#!/usr/bin/env node\nimport tiny from 'tiny-dep'; console.log(tiny);\n", { mode: 0o700 });
+  assert.equal(auditedNpxPackage(snapshotRepository, 'agent-skills-eval').bin_relative, 'cli.mjs',
+    'audited npx discovery must read the physical manifest without requiring a root export');
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', '@scope', 'sealed-cli'), {
+    recursive: true,
+  });
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', '@scope', 'sealed-cli',
+    'package.json'), JSON.stringify({
+    name: '@scope/sealed-cli', exports: { '.': './index.mjs' }, bin: 'bin/cli.mjs',
+  }));
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', '@scope', 'sealed-cli', 'bin'));
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', '@scope', 'sealed-cli', 'bin',
+    'cli.mjs'), '#!/usr/bin/env node\n', { mode: 0o700 });
+  assert.equal(auditedNpxPackage(snapshotRepository, '@scope/sealed-cli').bin_relative,
+    'bin/cli.mjs', 'scoped audited packages must resolve their physical manifest and string bin');
+  assert.throws(() => auditedNpxPackage(snapshotRepository, '../escape'), /invalid execution dependency/);
+  for (const builtin of ['events', 'node:events', 'fs', 'node:fs', 'fs/promises',
+    'node:fs/promises']) assert.equal(packageName(builtin), null, `${builtin} is a Node builtin`);
+  assert.equal(packageName('@scope/runtime/subpath'), '@scope/runtime');
+  assert.equal(packageName('ordinary/subpath'), 'ordinary');
+  const actualInstallRoot = process.env.LAMINA_ACTUAL_INSTALL_ROOT || process.cwd();
+  if (fs.existsSync(path.join(actualInstallRoot, 'node_modules', 'agent-skills-eval',
+    'package.json'))) {
+    assert.equal(auditedNpxPackage(actualInstallRoot, 'agent-skills-eval').bin_relative,
+      'dist/cli.js');
+    assert.equal(auditedNpxPackage(actualInstallRoot, 'promptfoo').bin_relative,
+      'dist/src/entrypoint.js');
+  } else if (process.env.LAMINA_ACTUAL_INSTALL_ROOT) {
+    assert.fail('LAMINA_ACTUAL_INSTALL_ROOT must contain the actual audited npx packages');
+  }
   const npxSnapshot = prepareExecutionSnapshot({
     cwd: snapshotRepository, command: [fakeNpx, '--yes', 'agent-skills-eval', '--version'],
     temporaryDirectory: path.join(root, 'snapshot-npx'),
