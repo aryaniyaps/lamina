@@ -16,7 +16,7 @@ import {
   parseDaemonLock,
   runtimePaths,
 } from '../packages/cli/lib/graph-runtime/util.mjs';
-import { removeTemporaryTree } from './test-util.mjs';
+import { removeTemporaryTree, throwLifecycleErrors } from './test-util.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-graphd-upgrade-'));
 const cli = path.resolve('packages/cli/bin/lamina.mjs');
@@ -143,6 +143,7 @@ async function startFake(identity) {
 }
 
 let fake = null;
+let primaryError = null;
 try {
   // Reproduce the 0.1.12 incident: protocol 3 returns a superficially complete
   // status but omits source_key_count. The 0.1.13 client must replace it before
@@ -261,22 +262,37 @@ try {
   lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
   assert.equal(lock.protocol_version, 9);
   assert.ok(lock.capabilities.includes('observation.status.source_key_count'));
+} catch (error) {
+  primaryError = error;
 } finally {
+  const cleanupErrors = [];
   try {
     if (fake?.exitCode === null) {
       fake.kill('SIGTERM');
       await once(fake, 'exit');
     }
-    let finalLock = null;
-    try {
-      finalLock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-    }
-    if (finalLock?.pid) await stopIncompatibleServer(paths, finalLock.pid);
-  } finally {
-    removeTemporaryTree(root);
+  } catch (error) {
+    cleanupErrors.push(error);
   }
+  let finalLock = null;
+  try {
+    finalLock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') cleanupErrors.push(error);
+  }
+  if (finalLock?.pid) {
+    try {
+      await stopIncompatibleServer(paths, finalLock.pid);
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+  try {
+    removeTemporaryTree(root);
+  } catch (error) {
+    cleanupErrors.push(error);
+  }
+  throwLifecycleErrors(primaryError, cleanupErrors, 'graphd upgrade lifecycle');
 }
 
 console.log('graphd_upgrade_test: ok');
