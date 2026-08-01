@@ -59,7 +59,6 @@ jobs:
     timeout-minutes: 10
     env:
       LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-safe-runner-state
-      LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR: ${{ runner.temp }}/safe-runner-test-artifacts
 
     steps:
       - uses: actions/checkout@v6
@@ -70,6 +69,8 @@ jobs:
           package-manager-cache: false
 
       - name: Static and focused contract tests
+        env:
+          LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR: ${{ runner.temp }}/safe-runner-test-artifacts
         run: npm run test:safe-runner
 
       - name: Low-limit adversarial self-test

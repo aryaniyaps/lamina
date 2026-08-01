@@ -156,7 +156,6 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
     error.code = 'LAMINA_INTERNAL';
     throw error;
   }
-  return response.registered;
 }
 
 export async function ensureGraphd(cwd = process.cwd()) {

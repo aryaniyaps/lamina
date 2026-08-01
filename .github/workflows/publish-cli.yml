@@ -17,7 +17,7 @@ jobs:
         runner: [macos-14, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
     runs-on: ${{ matrix.runner }}
     env:
-      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
+      LAMINA_SAFE_RUNNER_STATE_DIR: .lamina-safe-runner/state
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -47,7 +47,6 @@ jobs:
           if-no-files-found: warn
           path: |
             .lamina-safe-runner
-            ${{ runner.temp }}/lamina-safe-runner-state
 
   build:
     if: startsWith(github.ref_name, 'cli-v')
@@ -68,7 +67,7 @@ jobs:
             target: win32-x64
     runs-on: ${{ matrix.runner }}
     env:
-      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
+      LAMINA_SAFE_RUNNER_STATE_DIR: .lamina-safe-runner/state
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -121,7 +120,6 @@ jobs:
           if-no-files-found: warn
           path: |
             .lamina-safe-runner
-            ${{ runner.temp }}/lamina-safe-runner-state
       - uses: actions/upload-artifact@v4
         with:
           name: lamina-${{ matrix.target }}

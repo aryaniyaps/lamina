@@ -18,6 +18,7 @@ import {
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
+import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
   baseReport,
   finishReport,
@@ -231,6 +232,11 @@ try {
     () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
     /systemctl stop unit failed: access denied/,
   );
+  assert.equal(await stopIncompatibleServer({
+    root,
+    lock: path.join(root, 'missing-graphd.lock'),
+    token: path.join(root, 'missing-graphd.token'),
+  }), undefined, 'stopping an absent graphd must complete without a stray response reference');
   if (process.platform === 'linux') {
     const sourceGraphd = spawn(process.execPath, [
       '-e', 'setInterval(() => {}, 1_000)', '/repo/packages/cli/lib/graph-runtime/server.mjs',
