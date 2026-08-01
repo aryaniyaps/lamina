@@ -253,7 +253,7 @@ try {
       assert.match(refused.reasons.join('\n'), new RegExp(`existing Lamina processes.*${sourceGraphd.pid}`));
     } finally {
       sourceGraphd.kill('SIGTERM');
-      await once(sourceGraphd, 'exit');
+      if (sourceGraphd.exitCode === null) await once(sourceGraphd, 'exit');
     }
   }
 

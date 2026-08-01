@@ -16,27 +16,38 @@ jobs:
       matrix:
         runner: [macos-14, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
     runs-on: ${{ matrix.runner }}
+    env:
+      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Require a production crash-safe adapter before any dependency or test work
-        run: npm run safe:self-test -- --require-production
       - uses: astral-sh/setup-uv@v9.0.0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - run: npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/install.json -- corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm install --frozen-lockfile
       - name: Verify release identity and cross-platform source contracts
         run: |
           node scripts/check-cli-release-tag.mjs "${{ github.ref_name }}"
           node scripts/check-cli-version-discipline.mjs
-          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/test-cli.json -- corepack pnpm test:cli
-          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/transactional-graph.json -- node tests/transactional_graph_test.mjs
-          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/graphd-protocol.json -- node tests/graphd_protocol_test.mjs
-          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/graphd-long-socket.json -- node tests/graphd_long_socket_test.mjs
+          corepack pnpm test:cli
+          node tests/transactional_graph_test.mjs
+          node tests/graphd_protocol_test.mjs
+          node tests/graphd_long_socket_test.mjs
+      - name: Require a production crash-safe adapter before any packaging
+        run: npm run safe:self-test -- --require-production
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-qualification-${{ matrix.runner }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .lamina-safe-runner
+            ${{ runner.temp }}/lamina-safe-runner-state
 
   build:
     if: startsWith(github.ref_name, 'cli-v')
@@ -56,6 +67,8 @@ jobs:
           - runner: windows-2025
             target: win32-x64
     runs-on: ${{ matrix.runner }}
+    env:
+      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -99,13 +112,23 @@ jobs:
           LAMINA_BINARY: ${{ github.workspace }}/dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
           LAMINA_WORKER: ${{ github.workspace }}/dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
           LAMINA_MODEL: ${{ github.workspace }}/dist/lamina-retrieval-model-int8-v1.onnx
-        run: node tests/cli_binary_smoke_test.mjs
+        run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/native-smoke-${{ matrix.target }}.json -- node tests/cli_binary_smoke_test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safe-runner-release-${{ matrix.target }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .lamina-safe-runner
+            ${{ runner.temp }}/lamina-safe-runner-state
       - uses: actions/upload-artifact@v4
         with:
           name: lamina-${{ matrix.target }}
           path: |
             dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
             dist/lamina-cocoindex-worker-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}
+            dist/lamina-retrieval-model-int8-v1.onnx
 
   release-assets:
     needs: build
@@ -121,7 +144,6 @@ jobs:
           chmod +x scripts/install.sh
           cp scripts/install.sh dist/install.sh
           cp scripts/install.ps1 dist/install.ps1
-          node scripts/fetch-retrieval-model.mjs
           cd dist
           sha256sum lamina-* > SHA256SUMS
       - name: Verify Linux release installer and checksum rejection

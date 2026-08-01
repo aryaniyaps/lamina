@@ -135,13 +135,17 @@ Constants: [`../lib/constants.mjs`](../lib/constants.mjs). Full checklist: [`REP
 
 From the repo root — see [`REPRODUCE.md`](./REPRODUCE.md) for the full 3-seed protocol:
 
+> The commands below describe the historical Issue #18 collection. New live
+> Harbor runs now fail closed because Docker-daemon descendants are outside the
+> crash-safe client scope. Do not invoke `run-three-arm.mjs` directly or bypass
+> its guard. Recompute the committed seed evidence until daemon-side ownership
+> enforcement exists.
+
 ```bash
 npm run bench:lb6:v3:build -- --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference
 npm run bench:lb6:v3:validate
 node benchmarks/lb6/pilot/scripts/collect-local-v3-issue18-run.mjs --force-marker
-node benchmarks/lb6/pilot/scripts/run-three-arm.mjs \
-  --allow-dirty-harness --concurrency 1 --tasks dev-loan-library
-# … repeat for the other three tasks …
+npm run bench:lb6:v3:run # expected safety refusal today
 npm run bench:lb6:v3:collect-issue18
 node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs --seed 1
 # … seeds 2 and 3 with new --force-marker each time …

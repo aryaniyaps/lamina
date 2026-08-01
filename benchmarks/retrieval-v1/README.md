@@ -18,7 +18,10 @@ node benchmarks/retrieval-v1/benchmark.mjs
 Calibrate and freeze thresholds using only development rows:
 
 ```bash
-node benchmarks/retrieval-v1/benchmark.mjs --calibrate \
+npm run safe:self-test -- --require-production
+npm run safe:run -- --tier small --workload retrieval-v1 --promote \
+  --report .lamina-safe-runner/retrieval-calibrate.json -- \
+  node benchmarks/retrieval-v1/benchmark.mjs --calibrate \
   --model /path/to/lamina-retrieval-model-int8-v1.onnx \
   --tokenizer /path/to/tokenizer.json \
   --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
@@ -27,7 +30,9 @@ node benchmarks/retrieval-v1/benchmark.mjs --calibrate \
 After committing the frozen constants, run the held-out release gate:
 
 ```bash
-node benchmarks/retrieval-v1/benchmark.mjs --evaluate \
+npm run safe:run -- --tier medium --workload retrieval-v1 \
+  --report .lamina-safe-runner/retrieval-evaluate.json -- \
+  node benchmarks/retrieval-v1/benchmark.mjs --evaluate \
   --model /path/to/lamina-retrieval-model-int8-v1.onnx \
   --tokenizer /path/to/tokenizer.json \
   --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d

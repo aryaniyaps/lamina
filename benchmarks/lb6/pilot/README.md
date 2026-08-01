@@ -29,11 +29,18 @@ Forbidden for this pilot: `checklist`.
 # from repo root
 npm run bench:lb6:v3:build -- --tasks dev-loan-library,dev-review-room,dev-simple-list,dev-toggle-preference
 npm run bench:lb6:v3:validate
-node benchmarks/lb6/pilot/scripts/run-three-arm.mjs --allow-dirty-harness --concurrency 1 --tasks dev-loan-library
+npm run bench:lb6:v3:run
 npm run bench:lb6:v3:collect-issue18
 node benchmarks/lb6/pilot/scripts/archive-issue18-seed.mjs --seed 1
 npm run bench:lb6:v3:median-issue18
 ```
+
+The live three-arm command currently fails closed before Harbor launches.
+Harbor creates workload descendants through an external Docker daemon, so the
+Linux client scope cannot prove ownership or cleanup. Do not bypass the guard;
+live reruns remain unavailable until a supervisor can enforce the daemon-side
+descendant boundary. The committed seed packages remain reproducible without
+launching Harbor.
 
 Full multi-seed checklist: [`publication/REPRODUCE.md`](./publication/REPRODUCE.md).
 

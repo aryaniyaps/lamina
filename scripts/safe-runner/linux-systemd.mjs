@@ -16,6 +16,17 @@ function systemctl(args) {
   });
 }
 
+export function assertSystemctlSuccess(result, operation) {
+  if (result?.error) throw result.error;
+  if (result?.status !== 0) {
+    const detail = String(result?.stderr || '').trim() || `status ${result?.status}`;
+    const error = new Error(`${operation} failed: ${detail}`);
+    error.code = 'LAMINA_SAFE_SYSTEMD_CONTROL';
+    throw error;
+  }
+  return result;
+}
+
 function readNumber(file) {
   try {
     const value = fs.readFileSync(file, 'utf8').trim();
@@ -154,17 +165,11 @@ export class LinuxSystemdAdapter {
 
   signal(signal) {
     const result = systemctl(['kill', '--kill-whom=all', `--signal=${signal}`, this.unit]);
-    if (result.error) throw result.error;
-    if (result.status !== 0) {
-      const error = new Error(`systemctl kill ${signal} failed for ${this.unit}: ${String(result.stderr || '').trim() || `status ${result.status}`}`);
-      error.code = 'LAMINA_SAFE_SYSTEMD_KILL';
-      throw error;
-    }
-    return result;
+    return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 
   stop() {
-    return systemctl(['stop', this.unit]);
+    return assertSystemctlSuccess(systemctl(['stop', this.unit]), `systemctl stop ${this.unit}`);
   }
 
   cleanup() {

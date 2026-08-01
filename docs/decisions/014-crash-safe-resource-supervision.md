@@ -75,7 +75,15 @@ for the same explicit workload identity, and the single host-global production
 lock (which cannot be redirected with the evidence-state override). Every tier refuses a pre-existing
 Lamina runtime because it cannot be adopted into the new scope.
 Attestation identity covers the machine, adapter/controllers, architecture,
-and digest of the runner implementation and schemas.
+boot ID, kernel release, systemd/user-manager identity, root controller and
+subtree state, and a digest of the runner, graphd integration, schemas, and
+adversarial fixture.
+
+A safety-limit outcome writes a durable retry signature over the repository,
+command, effective limits, referenced workload file identities, and runner
+build. The same signature is refused; changing implementation, workload,
+command, or limits creates a distinct attempt instead of silently repeating a
+known unsafe run.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under

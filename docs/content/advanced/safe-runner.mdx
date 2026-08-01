@@ -62,6 +62,11 @@ matrix, because a portable process group cannot prove cleanup of the detached
 descendant case. Portable focused contract tests never qualify medium or large
 execution.
 
+The native release workflow runs source-quality checks on every target before
+an adapter qualification gate. Until issue #57 supplies production enforcement
+for macOS and Windows, those targets refuse qualification and the workflow does
+not enter packaging or artifact-upload steps.
+
 ## 3. Run one scenario
 
 ```bash
@@ -85,6 +90,11 @@ medium promotion. Both also require a valid production attestation, aggregate
 enforcement, and the global concurrency lock. Every tier refuses while an
 existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
+
+After a safety-limit outcome, the runner stores a durable signature over the
+repository, command, effective limits, referenced workload files, and runner
+build. An identical retry is refused. A changed implementation, workload
+input, command, or limit produces a new signature and can be evaluated.
 
 All limit flags are downward-only:
 
@@ -128,6 +138,10 @@ Each run writes `lamina.safe-runner-report/v1`. It includes:
 - cgroup memory/PID events;
 - exit status, signal, termination reason, and requested signals; and
 - descendant, scope, temporary-directory, lock, and report cleanup.
+
+Host attestation binds the evidence to the boot ID, kernel release, systemd
+version, user-manager identity, root controller/subtree state, architecture,
+adapter, schemas, runner sources, graphd integration, and adversarial fixture.
 
 The outcome is one of `success`, `command_failed`,
 `safety_limit_exceeded`, `preflight_refused`, `interrupted`, or
