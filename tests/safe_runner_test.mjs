@@ -9,15 +9,23 @@ import {
   adapterProbe, assertAdapterShape, boundedProbeFailure, systemdKillControlSupported,
 } from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
-import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
-import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
+import {
+  deriveLimits,
+  parseHostPageSize,
+  validateLimitOverrides,
+} from '../scripts/safe-runner/envelope.mjs';
 import {
   ownedDirectoryIdentity, removeOwnedDirectory, removeOwnedRuntimePaths,
 } from '../scripts/safe-runner/filesystem.mjs';
 import {
   assertSystemctlSuccess,
+  cgroupResolutionState,
+  LinuxSystemdAdapter,
   parseSystemdMajor,
+  SYSTEMCTL_CONTROL_TIMEOUT_MS,
+  SYSTEMCTL_READBACK_TIMEOUT_MS,
   systemdKillArguments,
   systemdScopeProperties,
   systemdUnitAbsent,
@@ -37,7 +45,7 @@ import {
   writeReport,
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
-import { outcomeForStop } from '../scripts/safe-runner/runner.mjs';
+import { boundedDiagnosticText, outcomeForStop } from '../scripts/safe-runner/runner.mjs';
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
@@ -110,9 +118,8 @@ try {
 
   const eightGib = deriveLimits({}, { totalMemoryBytes: 8 * GIB });
   assert.equal(eightGib.memory_max_bytes, 2 * GIB);
-  assert.equal(eightGib.memory_high_bytes, Math.floor(Math.floor(1.6 * GIB) / 65536) * 65536);
-  assert.equal(eightGib.memory_max_bytes % 65536, 0);
-  assert.equal(eightGib.memory_high_bytes % 65536, 0);
+  assert.equal(eightGib.memory_high_bytes, Math.floor(1.6 * GIB));
+  assert.equal(eightGib.memory_page_bytes, null);
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
@@ -120,7 +127,30 @@ try {
     assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
   }
   assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
-  assert.throws(() => deriveLimits({ memoryMaxBytes: 1 }), /at least 65536 bytes/);
+  const aligned192Mib = deriveLimits({
+    memoryMaxBytes: 192 * MIB,
+    memoryHighBytes: 160 * MIB,
+  }, {
+    totalMemoryBytes: 8 * GIB,
+    pageSizeBytes: 4_096,
+  });
+  assert.equal(aligned192Mib.memory_max_bytes, 201_326_592);
+  assert.equal(aligned192Mib.memory_high_bytes, 161_058_816);
+  assert.equal(aligned192Mib.memory_page_bytes, 4_096);
+  assert.ok(aligned192Mib.memory_high_bytes < aligned192Mib.memory_max_bytes);
+  assert.equal(parseHostPageSize('KernelPageSize:        4 kB\n', {
+    productionEnforcement: true,
+  }), 4_096);
+  assert.equal(parseHostPageSize('unavailable', {
+    productionEnforcement: false,
+  }), null);
+  assert.throws(() => parseHostPageSize('unavailable', {
+    productionEnforcement: true,
+  }), (error) => error.code === 'LAMINA_SAFE_PAGE_SIZE_UNPROVEN');
+  assert.throws(() => deriveLimits({ memoryMaxBytes: 4_096 }, {
+    totalMemoryBytes: 8 * GIB,
+    pageSizeBytes: 4_096,
+  }), /lower than memoryMaxBytes/);
 
   const portableProbe = {
     id: 'portable-process-group-small-only',
@@ -265,6 +295,47 @@ try {
   }
   assert.equal(outcomeForStop('safety_limit_exceeded'), 'safety_limit_exceeded');
   assert.equal(outcomeForStop('interrupted'), 'interrupted');
+  assert.ok(SYSTEMCTL_READBACK_TIMEOUT_MS < DEFAULTS.scopeHandshakeMs,
+    'one transient readback must not consume the complete handshake window');
+  assert.ok(SYSTEMCTL_CONTROL_TIMEOUT_MS >= DEFAULTS.scopeHandshakeMs,
+    'destructive systemd control operations retain their complete timeout');
+  const timedOutReadback = new Error('spawnSync systemctl ETIMEDOUT at /tmp/private');
+  timedOutReadback.code = 'ETIMEDOUT';
+  const timedOutState = cgroupResolutionState({
+    status: null,
+    signal: 'SIGTERM',
+    error: timedOutReadback,
+    stderr: 'Authorization: Bearer diagnostic-secret',
+  });
+  assert.deepEqual({
+    ok: timedOutState.ok,
+    status: timedOutState.status,
+    signal: timedOutState.signal,
+    error_code: timedOutState.error_code,
+  }, { ok: false, status: null, signal: 'SIGTERM', error_code: 'ETIMEDOUT' });
+  assert.match(timedOutState.error_message, /ETIMEDOUT/);
+  assert.match(timedOutState.stderr, /diagnostic-secret/,
+    'the adapter retains raw in-memory evidence for the report sanitizer');
+  const unavailableAdapter = Object.assign(Object.create(LinuxSystemdAdapter.prototype), {
+    limits: eightGib,
+    resolveCgroup: () => null,
+  });
+  assert.deepEqual(unavailableAdapter.enforcementProof(), {
+    ok: false,
+    reason: 'cgroup path is unavailable',
+    actual: null,
+    expected: {
+      memory_max_bytes: eightGib.memory_max_bytes,
+      memory_high_bytes: eightGib.memory_high_bytes,
+      pids_max: eightGib.pids_max,
+    },
+  });
+  const diagnostic = boundedDiagnosticText(
+    `Authorization: Bearer diagnostic-secret failed at /tmp/private/scope.ready ${'x'.repeat(1_200)}`,
+  );
+  assert.doesNotMatch(diagnostic, /diagnostic-secret|\/tmp\/private/);
+  assert.match(diagnostic, /\[REDACTED\]|\[REDACTED_PATH\]/);
+  assert.ok(diagnostic.length <= 1_000);
   const summarizedError = boundedCaseError({
     code: `LAMINA_${'X'.repeat(200)}`,
     message: 'Authorization: Bearer secret-token',

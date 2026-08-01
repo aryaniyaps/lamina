@@ -92,7 +92,11 @@ export function preflightRun({
   workloadId = null,
   promotionRequested = false,
 } = {}) {
-  const envelope = hostEnvelope({ cwd, overrides });
+  const envelope = hostEnvelope({
+    cwd,
+    overrides,
+    productionEnforcement: adapterInfo.production_enforcement === true,
+  });
   const reasons = [];
   const production = PRODUCTION_TIERS.has(tier);
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);

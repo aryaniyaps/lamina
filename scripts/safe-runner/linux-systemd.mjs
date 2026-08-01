@@ -6,12 +6,17 @@ import { processRecord, readPidList } from './processes.mjs';
 
 const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
 const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
+export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
+// Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
+// readback shorter than the overall handshake so one transiently stalled
+// `systemctl show` cannot consume the complete proof window.
+export const SYSTEMCTL_READBACK_TIMEOUT_MS = 500;
 
-function systemctl(args) {
+function systemctl(args, timeout = SYSTEMCTL_CONTROL_TIMEOUT_MS) {
   return spawnSync('systemctl', ['--user', ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 3_000,
+    timeout,
     maxBuffer: 64 * 1024,
   });
 }
@@ -102,6 +107,20 @@ function cgroupPids(root) {
   return [...pids].sort((left, right) => left - right);
 }
 
+export function cgroupResolutionState(shown, controlGroup = '', pathExists = false) {
+  return {
+    ok: shown?.status === 0 && controlGroup.startsWith('/') && pathExists,
+    source: 'systemctl_show',
+    status: Number.isInteger(shown?.status) ? shown.status : null,
+    signal: shown?.signal || null,
+    error_code: shown?.error?.code || null,
+    error_message: String(shown?.error?.message || ''),
+    stderr: String(shown?.stderr || ''),
+    control_group_present: controlGroup.startsWith('/'),
+    path_exists: pathExists,
+  };
+}
+
 export class LinuxSystemdAdapter {
   constructor({ runId, limits, probe = {} }) {
     this.id = 'linux-systemd-cgroup-v2';
@@ -116,6 +135,7 @@ export class LinuxSystemdAdapter {
     this.systemdMajor = parseSystemdMajor(version.stdout);
     this.child = null;
     this.cgroupPath = null;
+    this.lastCgroupResolution = null;
   }
 
   launch({
@@ -139,17 +159,24 @@ export class LinuxSystemdAdapter {
   }
 
   enforcementProof() {
-    const cgroup = this.resolveCgroup();
-    if (!cgroup) return { ok: false, reason: 'cgroup path is unavailable' };
-    const actual = {
-      memory_max_bytes: readNumber(path.join(cgroup, 'memory.max')),
-      memory_high_bytes: readNumber(path.join(cgroup, 'memory.high')),
-      pids_max: readNumber(path.join(cgroup, 'pids.max')),
-    };
     const expected = {
       memory_max_bytes: this.limits.memory_max_bytes,
       memory_high_bytes: this.limits.memory_high_bytes,
       pids_max: this.limits.pids_max,
+    };
+    const cgroup = this.resolveCgroup();
+    if (!cgroup) {
+      return {
+        ok: false,
+        reason: 'cgroup path is unavailable',
+        actual: null,
+        expected,
+      };
+    }
+    const actual = {
+      memory_max_bytes: readNumber(path.join(cgroup, 'memory.max')),
+      memory_high_bytes: readNumber(path.join(cgroup, 'memory.high')),
+      pids_max: readNumber(path.join(cgroup, 'pids.max')),
     };
     return {
       ok: Object.keys(expected).every((key) => actual[key] === expected[key]),
@@ -160,13 +187,36 @@ export class LinuxSystemdAdapter {
   }
 
   resolveCgroup() {
-    if (this.cgroupPath && fs.existsSync(this.cgroupPath)) return this.cgroupPath;
-    const shown = systemctl(['show', this.unit, '--property=ControlGroup', '--value']);
+    if (this.cgroupPath && fs.existsSync(this.cgroupPath)) {
+      this.lastCgroupResolution = {
+        ok: true,
+        source: 'cache',
+        status: 0,
+        signal: null,
+        error_code: null,
+        error_message: '',
+        stderr: '',
+        control_group_present: true,
+        path_exists: true,
+      };
+      return this.cgroupPath;
+    }
+    const shown = systemctl(
+      ['show', this.unit, '--property=ControlGroup', '--value'],
+      SYSTEMCTL_READBACK_TIMEOUT_MS,
+    );
     const controlGroup = String(shown.stdout || '').trim();
+    this.lastCgroupResolution = cgroupResolutionState(shown, controlGroup);
     if (shown.status !== 0 || !controlGroup.startsWith('/')) return null;
     const resolved = path.join('/sys/fs/cgroup', controlGroup);
-    if (!fs.existsSync(resolved)) return null;
+    this.lastCgroupResolution = cgroupResolutionState(
+      shown,
+      controlGroup,
+      fs.existsSync(resolved),
+    );
+    if (!this.lastCgroupResolution.path_exists) return null;
     this.cgroupPath = resolved;
+    this.lastCgroupResolution.ok = true;
     return resolved;
   }
 

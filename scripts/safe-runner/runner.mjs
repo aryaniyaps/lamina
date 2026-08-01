@@ -44,9 +44,47 @@ export function outcomeForStop(reason) {
   return 'safety_limit_exceeded';
 }
 
+export function boundedDiagnosticText(value) {
+  return redactText(String(value || ''))
+    .replace(/(^|[\s=:('"`])(?:\/[^\s,;'"`)]+|[A-Za-z]:\\[^\s,;'"`)]+)/g, '$1[REDACTED_PATH]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 1_000);
+}
+
+function cgroupResolutionDiagnostic(value) {
+  if (!value) return null;
+  return {
+    ok: value.ok === true,
+    source: value.source || null,
+    status: Number.isInteger(value.status) ? value.status : null,
+    signal: value.signal || null,
+    error_code: value.error_code || null,
+    error_message: boundedDiagnosticText(value.error_message),
+    stderr: boundedDiagnosticText(value.stderr),
+    control_group_present: value.control_group_present === true,
+    path_exists: value.path_exists === true,
+  };
+}
+
+function controllerReadbackDiagnostic(value) {
+  if (!value) return null;
+  return {
+    ok: value.ok === true,
+    reason: value.reason || null,
+    actual: value.actual || null,
+    expected: value.expected || null,
+  };
+}
+
 function appendTail(previous, chunk, maximum) {
   const combined = Buffer.concat([Buffer.from(previous), Buffer.from(chunk)]);
   return redactText(combined.subarray(Math.max(0, combined.length - maximum)).toString('utf8'));
+}
+
+function appendRawTail(previous, chunk, maximum) {
+  const combined = Buffer.concat([Buffer.from(previous), Buffer.from(chunk)]);
+  return combined.subarray(Math.max(0, combined.length - maximum)).toString('utf8');
 }
 
 function rememberDescendants(report, records, elapsedMs) {
@@ -124,6 +162,9 @@ export async function runSafely({
   let runAttemptRecorded = false;
   let retryLedgerError = null;
   let retrySignature = null;
+  let launcherStderrTail = '';
+  let launchChildState = { ended: false, code: null, signal: null, error: null };
+  let scopeHandshakeDiagnostic = null;
   let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
   const managedRegistrations = [];
   const managedCleanupPaths = new Set();
@@ -420,11 +461,22 @@ export async function runSafely({
     const childResult = new Promise((resolve) => {
       let settled = false;
       child.once('error', (error) => {
-        if (!settled) resolve(childEnded = { error });
+        if (!settled) {
+          launchChildState = {
+            ended: true,
+            code: null,
+            signal: null,
+            error: boundedDiagnosticText(error?.message || error),
+          };
+          resolve(childEnded = { error });
+        }
         settled = true;
       });
       child.once('close', (code, signal) => {
-        if (!settled) resolve(childEnded = { code, signal });
+        if (!settled) {
+          launchChildState = { ended: true, code: code ?? null, signal: signal || null, error: null };
+          resolve(childEnded = { code, signal });
+        }
         settled = true;
       });
     });
@@ -440,6 +492,13 @@ export async function runSafely({
       });
       stream.on('data', (chunk) => {
         const value = Buffer.from(chunk);
+        if (key === 'stderr') {
+          launcherStderrTail = appendRawTail(
+            launcherStderrTail,
+            value,
+            DEFAULTS.diagnosticTailBytes,
+          );
+        }
         report.output[`${key}_bytes`] += value.length;
         report.output.total_bytes += value.length;
         const remaining = Math.max(0, report.limits.output_max_bytes - retainedOutputBytes);
@@ -466,20 +525,18 @@ export async function runSafely({
 
     if (activeAdapter.id === 'linux-systemd-cgroup-v2') {
       const deadline = Date.now() + DEFAULTS.scopeHandshakeMs;
-      let handshakeDiagnostic = { ready_file: false, cgroup: null, gate_pid: null, pids: [] };
+      let attempts = 0;
+      let lastEnforcement = null;
       while (Date.now() < deadline && !childEnded) {
-        if (fs.existsSync(readyFile) && activeAdapter.resolveCgroup()) {
+        attempts += 1;
+        const ready = fs.existsSync(readyFile);
+        const cgroup = activeAdapter.resolveCgroup();
+        if (ready && cgroup) {
           const proof = activeAdapter.sample();
           const enforcement = activeAdapter.enforcementProof();
+          lastEnforcement = enforcement;
           let gatePid = null;
           try { gatePid = Number(JSON.parse(fs.readFileSync(readyFile, 'utf8')).pid); } catch {}
-          handshakeDiagnostic = {
-            ready_file: true,
-            cgroup: activeAdapter.cgroupPath,
-            gate_pid: gatePid,
-            pids: proof.pids,
-            enforcement,
-          };
           if (gatePid && proof.pids.includes(gatePid) && enforcement.ok) {
             report.preflight.scope_proof = {
               cgroup: activeAdapter.cgroupPath,
@@ -503,7 +560,17 @@ export async function runSafely({
         await wait(20);
       }
       if (!report.preflight.scope_proof) {
-        report.preflight.enforcement_handshake_diagnostic = handshakeDiagnostic;
+        lastEnforcement ||= activeAdapter.enforcementProof();
+        scopeHandshakeDiagnostic = {
+          attempts,
+          elapsed_ms: Date.now() - (deadline - DEFAULTS.scopeHandshakeMs),
+          ready_file: fs.existsSync(readyFile),
+          child: launchChildState,
+          resolve_cgroup: cgroupResolutionDiagnostic(activeAdapter.lastCgroupResolution),
+          controller_readback: controllerReadbackDiagnostic(lastEnforcement),
+          systemd_stderr: '',
+        };
+        report.preflight.enforcement_handshake_diagnostic = scopeHandshakeDiagnostic;
         requestStop('internal_error', 'enforcement_handshake');
         throw Object.assign(
           new Error(childEnded?.error?.message || 'systemd cgroup ownership handshake failed before payload release'),
@@ -697,6 +764,15 @@ export async function runSafely({
     await Promise.all(outputStreams.map((stream) => stream.closed
       ? null
       : once(stream, 'close').catch(() => null)));
+    if (scopeHandshakeDiagnostic) {
+      scopeHandshakeDiagnostic.child = launchChildState;
+      scopeHandshakeDiagnostic.systemd_stderr = boundedDiagnosticText(launcherStderrTail);
+      if (scopeHandshakeDiagnostic.systemd_stderr
+        && report.error?.code === 'LAMINA_SAFE_ENFORCEMENT_UNPROVEN') {
+        report.error.message = `${report.error.message}; systemd-run: ${scopeHandshakeDiagnostic.systemd_stderr}`
+          .slice(0, 2_000);
+      }
+    }
     if (temporaryDirectory) {
       try {
         report.cleanup.temporary_directory_removed = removeOwnedDirectory(
