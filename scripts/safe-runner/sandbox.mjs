@@ -105,6 +105,9 @@ export function bubblewrapSandboxArguments({
       args.push('--bind', binding.source, binding.alias);
     }
     args.push('--ro-bind', executionAuthority.snapshot_repository, executionAuthority.repository);
+    for (const binding of executionAuthority.git_readonly_bindings || []) {
+      args.push('--ro-bind', binding.source, binding.target);
+    }
     for (const binding of executionAuthority.writable_bindings) {
       args.push('--bind', binding.alias, binding.target);
     }
@@ -141,27 +144,56 @@ async function main() {
   const authorityRoot = path.join(path.dirname(temporaryDirectory || ''), 'execution-authority');
   const invalidBinding = (binding) => {
     try {
-      return !path.isAbsolute(binding?.source || '') || !path.isAbsolute(binding?.target || '')
-        || !path.isAbsolute(binding?.alias || '') || !path.isAbsolute(binding?.snapshot_target || '')
-        || binding.source !== binding.target
+      if (!path.isAbsolute(binding?.source || '') || !path.isAbsolute(binding?.target || '')
+        || !path.isAbsolute(binding?.alias || '') || binding.source !== binding.target
+        || !binding.alias.startsWith(`${path.join(authorityRoot, 'writable-aliases')}${path.sep}`)
+        || !fs.lstatSync(binding.source).isDirectory()
+        || fs.lstatSync(binding.source).isSymbolicLink()
+        || fs.realpathSync.native(binding.source) !== binding.source
+        || !fs.lstatSync(binding.alias).isDirectory()) return true;
+      if (binding.kind === 'git-common-runtime') {
+        const stat = fs.lstatSync(binding.source, { bigint: true });
+        return binding.source !== path.join(executionAuthority.git_common, 'lamina')
+          || String(stat.dev) !== binding.source_identity?.dev
+          || String(stat.ino) !== binding.source_identity?.ino
+          || Number(stat.uid) !== binding.source_identity?.uid;
+      }
+      return binding.kind !== undefined
+        || !path.isAbsolute(binding?.snapshot_target || '')
         || !binding.source.startsWith(`${executionAuthority.repository}${path.sep}`)
         || binding.snapshot_target !== path.join(executionAuthority.snapshot_repository,
           path.relative(executionAuthority.repository, binding.target))
-        || !binding.alias.startsWith(`${path.join(authorityRoot, 'writable-aliases')}${path.sep}`)
-        || !fs.lstatSync(binding.source).isDirectory()
-        || !fs.lstatSync(binding.alias).isDirectory()
         || !fs.lstatSync(binding.snapshot_target).isDirectory();
+    } catch { return true; }
+  };
+  const invalidGitBinding = (binding) => {
+    try {
+      const expectedTarget = binding?.kind === 'git-common' ? executionAuthority.git_common
+        : binding?.kind === 'git-worktree' ? executionAuthority.git_directory : null;
+      return !expectedTarget || binding.target !== expectedTarget
+        || !path.isAbsolute(binding.source || '') || !path.isAbsolute(binding.target || '')
+        || !binding.source.startsWith(`${path.join(authorityRoot, 'git-authority')}${path.sep}`)
+        || !fs.lstatSync(binding.source).isDirectory()
+        || fs.lstatSync(binding.source).isSymbolicLink()
+        || fs.realpathSync.native(binding.source) !== binding.source
+        || !fs.lstatSync(binding.target).isDirectory()
+        || fs.lstatSync(binding.target).isSymbolicLink()
+        || fs.realpathSync.native(binding.target) !== binding.target;
     } catch { return true; }
   };
   if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
     || expectedBwrap?.path !== bwrapExecutable
     || !path.isAbsolute(executionAuthority?.repository || '')
     || !path.isAbsolute(executionAuthority?.snapshot_repository || '')
+    || !path.isAbsolute(executionAuthority?.git_common || '')
+    || !path.isAbsolute(executionAuthority?.git_directory || '')
     || !(path.resolve(cwd || '') === executionAuthority.repository
       || path.resolve(cwd || '').startsWith(`${executionAuthority.repository}${path.sep}`))
     || executionAuthority.snapshot_repository !== path.join(authorityRoot, 'repository')
     || !Array.isArray(executionAuthority?.writable_bindings)
     || executionAuthority.writable_bindings.some(invalidBinding)
+    || !Array.isArray(executionAuthority?.git_readonly_bindings)
+    || executionAuthority.git_readonly_bindings.some(invalidGitBinding)
     || !cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
     || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
     process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');

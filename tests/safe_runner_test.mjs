@@ -7,7 +7,9 @@ import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
-import { authorizeBrokerRequest, createProofBroker } from '../scripts/safe-runner/broker.mjs';
+import {
+  authorizeBrokerRequest, createProofBroker, exactGraphdLaunchAuthorized,
+} from '../scripts/safe-runner/broker.mjs';
 import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import {
@@ -42,10 +44,11 @@ import {
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
 import {
-  assertExecutionSnapshot, prepareExecutionSnapshot,
+  assertExecutionSnapshot, assertGitObjectClosureBudget, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
+import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 import {
   baseReport,
   finishReport,
@@ -66,6 +69,7 @@ import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runne
 import {
   acquireConcurrencyLock,
   beginSafetyAttempt,
+  bindExecutionSnapshotIdentity,
   checkPromotion,
   checkSafetyRetry,
   clearSafetyAttempt,
@@ -237,10 +241,13 @@ try {
   for (const name of [
     'BASH_FUNC_payload%%', 'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE',
     'NODE_COMPILE_CACHE', 'NODE_REDIRECT_WARNINGS', 'DYLD_INSERT_LIBRARIES',
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
   ]) assert.equal(isExecutionHookEnvironment(name), true, name);
   const poison = sanitizedEnvironment({
     SAFE_VALUE: 'kept', LD_DEBUG_OUTPUT: '/tmp/ld', NODE_V8_COVERAGE: '/tmp/v8',
     NODE_COMPILE_CACHE: '/tmp/cache', NODE_REDIRECT_WARNINGS: '/tmp/warnings',
+    GIT_DIR: '/tmp/live-git', GIT_CONFIG_NOSYSTEM: '0', GIT_CONFIG_GLOBAL: '/tmp/config',
     'BASH_FUNC_payload%%': '() { touch /tmp/pwned; }',
   });
   assert.equal(poison.SAFE_VALUE, 'kept');
@@ -248,6 +255,11 @@ try {
     'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE', 'NODE_COMPILE_CACHE',
     'NODE_REDIRECT_WARNINGS', 'BASH_FUNC_payload%%',
   ]) assert.equal(poison[name], undefined, name);
+  assert.equal(poison.GIT_DIR, undefined);
+  assert.equal(poison.GIT_CONFIG_NOSYSTEM, '1');
+  assert.equal(poison.GIT_CONFIG_GLOBAL, process.platform === 'win32' ? 'NUL' : '/dev/null');
+  assert.equal(sanitizedEnvironment(poison).GIT_CONFIG_NOSYSTEM, '1',
+    'repeated sanitizer layers must restore safe Git config overrides');
 
   const binaryCopy = path.join(root, 'trusted-bwrap-copy');
   fs.copyFileSync('/usr/bin/bwrap', binaryCopy);
@@ -342,6 +354,12 @@ try {
     command: [process.execPath, path.resolve('evals/scripts/run-suite.mjs'), '--smoke'],
   });
   assert.match(unsealedEvalRuntime.reasons.join('\n'),
+    /ignored \.venv-eval runtime.*not admitted into sealed execution authority/);
+  const indirectUnsealedEvalRuntime = preflightRun({
+    tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
+    command: [process.execPath, path.resolve('evals/scripts/run-reference-matrix.mjs')],
+  });
+  assert.match(indirectUnsealedEvalRuntime.reasons.join('\n'),
     /ignored \.venv-eval runtime.*not admitted into sealed execution authority/);
   for (const entrypoint of [
     'scripts/build-standalone-cli.mjs', 'scripts/fetch-retrieval-model.mjs',
@@ -450,6 +468,17 @@ try {
   assert.throws(() => writeReport(copiedAuthority.file,
     { ...report, report_file: copiedAuthority.file }, copiedAuthority), /identity changed/,
   'copying the current run id into a replacement inode must not recover report authority');
+  assert.equal(assertGitObjectClosureBudget(20_000, 128 * MIB), true,
+    'a canonical 20k-object history must fit the separate packed-object enumeration cap');
+  assert.throws(() => assertGitObjectClosureBudget(262_145, 1), /bounded budget/);
+  assert.throws(() => assertGitObjectClosureBudget(1, 513 * MIB), /bounded budget/);
+  const portableSnapshotImport = spawnSync(process.execPath, ['--input-type=module', '--eval',
+    `await import(${JSON.stringify(`file://${path.resolve('scripts/safe-runner/execution-snapshot.mjs')}`)})`], {
+    cwd: process.cwd(), encoding: 'utf8',
+    env: { ...process.env, PATH: '/definitely-no-git-here', GIT_DIR: '/tmp/poison-git-dir' },
+  });
+  assert.equal(portableSnapshotImport.status, 0, portableSnapshotImport.stderr,
+    'portable refusal/module import must not eagerly require a Unix Git executable');
 
   const snapshotRepository = path.join(root, 'snapshot-repository');
   fs.mkdirSync(snapshotRepository);
@@ -558,6 +587,30 @@ try {
   assert.deepEqual(npxSnapshot.launch_command.slice(2), ['--version']);
   assert.notEqual(npxSnapshot.launch_command[0], fakeNpx,
     'the mutable npx shim must not remain on the launch path');
+  const buildEntrypoint = path.join(snapshotRepository, 'scripts', 'build-standalone-cli.mjs');
+  fs.mkdirSync(path.dirname(buildEntrypoint), { recursive: true });
+  fs.writeFileSync(buildEntrypoint, "export const build = true;\n");
+  fs.mkdirSync(path.join(snapshotRepository, 'node_modules', 'postject'));
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'postject', 'package.json'),
+    '{"name":"postject","main":"index.js"}\n');
+  fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'postject', 'index.js'),
+    "module.exports = {};\n");
+  const fakeUv = path.join(fakeInfrastructure, 'uv');
+  fs.writeFileSync(fakeUv, '#!/bin/sh\necho sealed uv\n', { mode: 0o700 });
+  const buildSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: ['/bin/sh', buildEntrypoint],
+    temporaryDirectory: path.join(root, 'snapshot-build-tools'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+    environment: { LAMINA_UV_BINARY: fakeUv },
+  });
+  assert.equal(buildSnapshot.environment_overrides.LAMINA_UV_BINARY,
+    buildSnapshot.infrastructure.uv);
+  assert.equal(buildSnapshot.environment_overrides.LAMINA_NODE_BINARY,
+    buildSnapshot.infrastructure.node);
+  fs.writeFileSync(fakeUv, '#!/bin/sh\necho mutable replacement\n', { mode: 0o700 });
+  assert.equal(fs.readFileSync(buildSnapshot.infrastructure.uv, 'utf8'),
+    '#!/bin/sh\necho sealed uv\n',
+  'build child tooling must execute the staged uv bytes after host-path replacement');
   fs.mkdirSync(path.join(snapshotRepository, 'tests'), { recursive: true });
   const envEntrypoint = path.join(snapshotRepository, 'tests', 'cli_binary_smoke_test.mjs');
   fs.writeFileSync(envEntrypoint, "import fs from 'node:fs';\n");
@@ -572,6 +625,221 @@ try {
     entry.label === 'env:LAMINA_MODEL:dist/env-only-model.bin');
   fs.writeFileSync(envOnlyModel, 'replacement');
   assert.equal(fs.readFileSync(environmentAuthority.path, 'utf8'), 'env-only sealed bytes');
+  const mutableEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
+    'safe-runner-mutable.mjs');
+  fs.mkdirSync(path.dirname(mutableEntrypoint), { recursive: true });
+  fs.writeFileSync(mutableEntrypoint, "import fs from 'node:fs';\n");
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', mutableEntrypoint, path.join(snapshotRepository, 'root-output.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-root-output'),
+  }), /exact Git common lamina\/work scratch authority/,
+  'an argv output must never rebind the repository root over sealed source');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', mutableEntrypoint,
+      path.join(snapshotRepository, 'packages', 'cli', 'result.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-source-output'),
+  }), /exact Git common lamina\/work scratch authority/,
+  'a fixture argv output must never admit an arbitrary top-level subtree');
+  const maliciousScratch = path.join(snapshotRepository, '.safe-runner-malicious');
+  fs.mkdirSync(maliciousScratch);
+  fs.writeFileSync(path.join(maliciousScratch, 'source.mjs'), 'export const malicious = true;\n');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', mutableEntrypoint, path.join(maliciousScratch, 'result.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-malicious-scratch'),
+  }), /exact Git common lamina\/work scratch authority/,
+  'a pre-existing source-bearing .safe-runner-* path must not disappear from sealing');
+  const fixtureWork = path.join(snapshotRepository, '.git', 'lamina', 'work');
+  fs.mkdirSync(fixtureWork, { recursive: true });
+  const fixtureAlias = path.join(fixtureWork, 'alias');
+  fs.symlinkSync(path.join(snapshotRepository, 'dist'), fixtureAlias);
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', mutableEntrypoint,
+      path.join(fixtureAlias, 'result.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-output-alias'),
+  }), /existing canonical physical directory/,
+  'an ignored symlink alias must not redirect a writable binding');
+  const prepareEntrypoint = path.join(snapshotRepository, 'scripts', 'prepare-retrieval-assets.mjs');
+  fs.mkdirSync(path.dirname(prepareEntrypoint), { recursive: true });
+  fs.writeFileSync(prepareEntrypoint, "export const prepare = true;\n");
+  const ladybug = path.join(snapshotRepository, 'packages', 'cli', 'node_modules',
+    '@ladybugdb', 'core');
+  fs.mkdirSync(ladybug, { recursive: true });
+  fs.writeFileSync(path.join(ladybug, 'package.json'),
+    '{"name":"@ladybugdb/core","main":"index.js"}\n');
+  fs.writeFileSync(path.join(ladybug, 'index.js'), "module.exports = {};\n");
+  const collapsedOutputSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'dist', 'nested')],
+    temporaryDirectory: path.join(root, 'snapshot-collapsed-output'),
+  });
+  assert.deepEqual(collapsedOutputSnapshot.writable_bindings
+    .filter((item) => item.kind !== 'git-common-runtime').map((item) => item.source),
+  [path.join(snapshotRepository, 'dist')],
+  'a declared parent output must safely collapse its nested dynamic output');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'arbitrary-new-dir')],
+    temporaryDirectory: path.join(root, 'snapshot-arbitrary-prepare-output'),
+  }), /beneath the declared dist subtree/);
+  const savedDist = path.join(snapshotRepository, 'dist.saved');
+  const escapedOutput = path.join(root, 'escaped-output-target');
+  fs.mkdirSync(escapedOutput);
+  fs.renameSync(path.join(snapshotRepository, 'dist'), savedDist);
+  fs.symlinkSync(escapedOutput, path.join(snapshotRepository, 'dist'));
+  try {
+    assert.throws(() => prepareExecutionSnapshot({
+      cwd: snapshotRepository,
+      command: ['/bin/sh', prepareEntrypoint,
+        path.join(snapshotRepository, 'dist', 'must-not-exist', 'nested')],
+      temporaryDirectory: path.join(root, 'snapshot-output-ancestor-alias'),
+    }), /symlink escapes the repository|ancestor is not a canonical physical directory/);
+    assert.equal(fs.existsSync(path.join(escapedOutput, 'must-not-exist')), false,
+      'writable-root validation must not create through a symlink ancestor');
+  } finally {
+    fs.unlinkSync(path.join(snapshotRepository, 'dist'));
+    fs.renameSync(savedDist, path.join(snapshotRepository, 'dist'));
+  }
+  fs.writeFileSync(path.join(snapshotRepository, 'dist', 'tracked-source.txt'), 'tracked source\n');
+  assert.equal(spawnSync('git', ['add', '-f', 'dist/tracked-source.txt'], {
+    cwd: snapshotRepository,
+  }).status, 0);
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', prepareEntrypoint, path.join(snapshotRepository, 'dist', 'nested')],
+    temporaryDirectory: path.join(root, 'snapshot-fixed-source-output'),
+  }), /re-expose sealed source/,
+  'fixed writable roots must also refuse tracked source overlap');
+  const runtimeAuthority = path.join(snapshotRepository, '.git', 'lamina');
+  const savedRuntimeAuthority = `${runtimeAuthority}.saved`;
+  fs.renameSync(runtimeAuthority, savedRuntimeAuthority);
+  fs.symlinkSync(path.join(snapshotRepository, 'dist'), runtimeAuthority);
+  try {
+    assert.throws(() => prepareExecutionSnapshot({
+      cwd: snapshotRepository, command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs')],
+      temporaryDirectory: path.join(root, 'snapshot-runtime-symlink'),
+    }), /Git common Lamina runtime.*canonical physical directory/,
+    'the writable Git-common runtime source must never follow a symlink');
+  } finally {
+    fs.unlinkSync(runtimeAuthority);
+    fs.renameSync(savedRuntimeAuthority, runtimeAuthority);
+  }
+
+  if (process.platform === 'linux') {
+  const linkedBase = path.join(root, 'linked-authority');
+  const linkedPrimary = path.join(linkedBase, 'primary');
+  const linkedWorktree = path.join(linkedBase, 'feature');
+  fs.mkdirSync(linkedPrimary, { recursive: true });
+  const linkedGit = (cwd, args) => {
+    const result = spawnSync('/usr/bin/git', args, {
+      cwd, encoding: 'utf8', env: {
+        PATH: '/usr/bin:/bin', HOME: '/nonexistent', GIT_CONFIG_NOSYSTEM: '1',
+        GIT_CONFIG_GLOBAL: '/dev/null', LANG: 'C', LC_ALL: 'C',
+      },
+    });
+    assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+    return result.stdout.trim();
+  };
+  linkedGit(linkedPrimary, ['init', '-b', 'main']);
+  linkedGit(linkedPrimary, ['config', 'user.email', 'snapshot@lamina.invalid']);
+  linkedGit(linkedPrimary, ['config', 'user.name', 'Snapshot Test']);
+  fs.writeFileSync(path.join(linkedPrimary, 'entry.mjs'), "export const version = 'one';\n");
+  linkedGit(linkedPrimary, ['add', 'entry.mjs']);
+  linkedGit(linkedPrimary, ['commit', '-m', 'first']);
+  fs.writeFileSync(path.join(linkedPrimary, 'history.txt'), 'second commit\n');
+  linkedGit(linkedPrimary, ['add', 'history.txt']);
+  linkedGit(linkedPrimary, ['commit', '-m', 'second']);
+  linkedGit(linkedPrimary, ['worktree', 'add', '-b', 'feature', linkedWorktree]);
+  fs.writeFileSync(path.join(linkedWorktree, 'entry.mjs'), "export const version = 'staged';\n");
+  linkedGit(linkedWorktree, ['add', 'entry.mjs']);
+  const linkedHeadBefore = linkedGit(linkedWorktree, ['rev-parse', 'HEAD']);
+  const linkedHistoryBefore = linkedGit(linkedWorktree, ['rev-list', 'HEAD']);
+  const linkedSnapshot = prepareExecutionSnapshot({
+    cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-linked'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  assert.equal(fs.lstatSync(path.join(linkedSnapshot.snapshot_repository, '.git')).isFile(), true,
+    'a linked snapshot must retain its descriptor-copied .git pointer');
+  assert.equal(linkedSnapshot.git_readonly_bindings.length, 2);
+  const linkedCommonBinding = linkedSnapshot.git_readonly_bindings.find((item) =>
+    item.kind === 'git-common');
+  const linkedWorktreeBinding = linkedSnapshot.git_readonly_bindings.find((item) =>
+    item.kind === 'git-worktree');
+  assert.equal(linkedCommonBinding.target, runtimePaths(linkedWorktree).common);
+  assert.ok(linkedWorktreeBinding.source.startsWith(`${linkedCommonBinding.source}${path.sep}`));
+  const sealedGit = (args) => linkedGit(linkedSnapshot.snapshot_repository, [
+    `--git-dir=${linkedWorktreeBinding.source}`,
+    `--work-tree=${linkedSnapshot.snapshot_repository}`,
+    ...args,
+  ]);
+  assert.equal(sealedGit(['rev-parse', 'HEAD']), linkedHeadBefore);
+  assert.equal(sealedGit(['rev-list', 'HEAD']), linkedHistoryBefore,
+    'the packed authority must preserve bounded reachable ancestry');
+  assert.match(sealedGit(['status', '--porcelain=v1']), /^M  entry\.mjs$/m,
+    'the linked worktree index must preserve staged semantics');
+  assert.equal(fs.existsSync(path.join(linkedCommonBinding.source,
+    'objects', 'info', 'alternates')), false,
+  'sealed objects must never retain a live external alternates dependency');
+  linkedGit(linkedWorktree, ['commit', '-m', 'mutate live worktree']);
+  fs.writeFileSync(path.join(linkedWorktree, 'entry.mjs'), "export const version = 'live replacement';\n");
+  assert.equal(sealedGit(['rev-parse', 'HEAD']), linkedHeadBefore,
+    'later live ref/index mutation must not alter sealed Git authority');
+  assert.match(fs.readFileSync(path.join(linkedSnapshot.snapshot_repository, 'entry.mjs'), 'utf8'),
+    /version = 'staged'/, 'later live source mutation must not alter sealed bytes');
+  const linkedRuntime = linkedSnapshot.writable_bindings.find((item) =>
+    item.kind === 'git-common-runtime');
+  assert.equal(linkedRuntime.source, path.join(runtimePaths(linkedWorktree).common, 'lamina'));
+  assert.equal(linkedRuntime.target, linkedRuntime.source,
+    'broker-visible graphd paths and the writable bind must use the same physical common authority');
+  assert.equal(linkedSnapshot.graphd_launch_authority[0].runtime_directory, linkedRuntime.source,
+    'linked graphd broker equality must use the exact mounted common runtime path');
+  const linkedGraphdAuthority = linkedSnapshot.graphd_launch_authority[0];
+  assert.equal(exactGraphdLaunchAuthorized({
+    argv: linkedGraphdAuthority.argv,
+    executable_identity: {
+      dev: linkedGraphdAuthority.executable_identity.dev,
+      ino: linkedGraphdAuthority.executable_identity.ino,
+      uid: linkedGraphdAuthority.executable_identity.uid,
+    },
+  }, {
+    socket: path.join(linkedRuntime.source, 'graphd.sock'),
+    lock: path.join(linkedRuntime.source, 'graphd.lock'),
+  }, linkedSnapshot.graphd_launch_authority), true);
+  assert.equal(exactGraphdLaunchAuthorized({
+    argv: linkedGraphdAuthority.argv,
+    executable_identity: { dev: 'spoof', ino: 'spoof', uid: 0 },
+  }, {
+    socket: path.join(linkedRuntime.source, 'graphd.sock'),
+    lock: path.join(linkedRuntime.source, 'graphd.lock'),
+  }, linkedSnapshot.graphd_launch_authority), false);
+  fs.writeFileSync(path.join(linkedRuntime.source, 'write-through.marker'), 'writable graph runtime');
+  assert.equal(fs.readFileSync(path.join(runtimePaths(linkedPrimary).runtime_dir,
+    'write-through.marker'), 'utf8'), 'writable graph runtime');
+  const linkedSandboxArgs = bubblewrapSandboxArguments({
+    cwd: linkedWorktree, readyFile: path.join(root, 'linked.ready'),
+    releaseFile: path.join(root, 'linked.release'), temporaryDirectory: path.join(root, 'linked-tmp'),
+    command: linkedSnapshot.launch_command, masks: { hiddenDirectories: [], sockets: [] },
+    executionAuthority: linkedSnapshot,
+  });
+  assert.ok(linkedSandboxArgs.indexOf(linkedRuntime.alias)
+    < linkedSandboxArgs.indexOf(linkedCommonBinding.source));
+  assert.ok(linkedSandboxArgs.indexOf(linkedCommonBinding.source)
+    < linkedSandboxArgs.indexOf(linkedWorktreeBinding.source));
+  assert.ok(linkedSandboxArgs.lastIndexOf(linkedRuntime.target)
+    > linkedSandboxArgs.indexOf(linkedWorktreeBinding.source),
+  'Git common must mount before nested worktree metadata and exact runtime write-through');
+  fs.appendFileSync(path.join(linkedPrimary, '.git', 'config'),
+    '\n[include]\n\tpath = /etc/gitconfig\n');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-linked-include'),
+  }), /external include or worktree path/);
+  }
+
   fs.symlinkSync('/etc/passwd', path.join(snapshotRepository, 'escape.mjs'));
   assert.throws(() => prepareExecutionSnapshot({
     cwd: snapshotRepository, command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs')],
@@ -721,6 +989,12 @@ try {
     },
     lockReady: () => true,
     seal: () => [{ state: 'sealed' }],
+    graphdLaunchAuthorized: (child) => Array.isArray(child.argv)
+      && child.argv[0] === process.execPath
+      && child.argv[1] === '/repo/packages/cli/lib/graph-runtime/server.mjs'
+      && child.argv[2] === '/repo'
+      && child.executable_identity?.dev === 'sealed-node-dev'
+      && child.executable_identity?.ino === 'sealed-node-ino',
   };
   assert.equal(authorizeBrokerRequest({
     operation: 'context', requester, minimum_tier: 'small',
@@ -734,6 +1008,31 @@ try {
   assert.equal(authorizeBrokerRequest({
     operation: 'context', requester, minimum_tier: 'small',
   }, { ...authority, unit: '' }).ok, false, 'an empty unit must fail closed');
+  for (const [label, argv] of [
+    ['spoof argv', [process.execPath, '/tmp/spoof.mjs', '--graphd', '/repo']],
+    ['spoof script', [process.execPath, '/tmp/graph-runtime/server.mjs', '/repo']],
+    ['spoof executable', ['/tmp/node', '/repo/packages/cli/lib/graph-runtime/server.mjs', '/repo']],
+    ['spoof process title', [process.execPath, '/repo/packages/cli/lib/graph-runtime/server.mjs', '/repo']],
+  ]) {
+    const spoof = {
+      pid: 42000 + authorityRecords.length, ppid: requester.pid,
+      start_ticks: `spoof-${authorityRecords.length}`, argv, command: argv.join(' '), cwd: '/repo',
+      executable_identity: label === 'spoof process title'
+        ? { dev: 'bin-sh-dev', ino: 'bin-sh-ino', uid: 0 }
+        : { dev: 'sealed-node-dev', ino: 'sealed-node-ino', uid: 0 },
+    };
+    authorityRecords.push(spoof);
+    const spoofReservation = authorizeBrokerRequest({
+      operation: 'reserve_graphd', requester,
+      socket: `/repo/.git/${label.replaceAll(' ', '-')}/graphd.sock`,
+      lock: `/repo/.git/${label.replaceAll(' ', '-')}/graphd.lock`,
+    }, authority);
+    assert.equal(spoofReservation.ok, true);
+    assert.equal(authorizeBrokerRequest({
+      operation: 'bind_graphd', requester, reservation: spoofReservation.reservation,
+      child: { pid: spoof.pid, start_ticks: spoof.start_ticks },
+    }, authority).ok, false, `${label} must not gain the managed-daemon exception`);
+  }
   const brokerDirectory = path.join(root, 'broker-close');
   fs.mkdirSync(brokerDirectory);
   const liveBroker = await createProofBroker(brokerDirectory, authority);
@@ -794,9 +1093,36 @@ try {
   assert.match(pipelined.error, /exactly one request/);
   await oneRequestBroker.close();
 
+  const responseDeadlineDirectory = path.join(root, 'broker-response-deadline');
+  fs.mkdirSync(responseDeadlineDirectory);
+  const responseDeadlineBroker = await createProofBroker(responseDeadlineDirectory, authority, {
+    maxConnections: 16, idleTimeoutMs: 60, maxRequestsPerWindow: 64, requestWindowMs: 1_000,
+  });
+  const validHalfOpenClients = await Promise.all(Array.from({ length: 16 }, () =>
+    new Promise((resolve, reject) => {
+      const socket = net.createConnection({ path: responseDeadlineBroker.socketPath, allowHalfOpen: true });
+      const deadline = setTimeout(() => { socket.destroy(); reject(new Error('half-open response timeout')); }, 500);
+      socket.setEncoding('utf8');
+      socket.once('connect', () => socket.write(contextFrame));
+      socket.once('data', (value) => {
+        clearTimeout(deadline);
+        assert.equal(JSON.parse(value.trim()).ok, true);
+        resolve(socket);
+      });
+      socket.once('error', reject);
+    })));
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal((await brokerRpc(responseDeadlineBroker, contextFrame)).ok, true,
+    'valid clients withholding FIN must be reclaimed by the post-response deadline');
+  for (const socket of validHalfOpenClients) socket.destroy();
+  await responseDeadlineBroker.close();
+
   const authorizedGraphd = {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
     command: `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
+    argv: [process.execPath, '/repo/packages/cli/lib/graph-runtime/server.mjs', '/repo'],
+    cwd: '/repo',
+    executable_identity: { dev: 'sealed-node-dev', ino: 'sealed-node-ino', uid: 0 },
   };
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
@@ -1095,6 +1421,15 @@ try {
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', [
     process.execPath, path.resolve('tests/fixtures/safe-runner-graphd-client.mjs'),
   ]).ok, false);
+  const sealedIdentityA = bindExecutionSnapshotIdentity({ digest: 'a'.repeat(64) }, 'b'.repeat(64));
+  const sealedIdentityB = bindExecutionSnapshotIdentity({ digest: 'a'.repeat(64) }, 'c'.repeat(64));
+  recordPromotion(root, 'small', auditedEvidence, 'sealed-unit-workload',
+    auditedEvidence.command, sealedIdentityA);
+  assert.equal(checkPromotion(root, 'medium', 'sealed-unit-workload', auditedEvidence.command,
+    sealedIdentityA).ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'sealed-unit-workload', auditedEvidence.command,
+    sealedIdentityB).ok, false,
+  'small-to-medium promotion must bind dependency/tool bytes through the execution snapshot digest');
   assert.throws(
     () => promotionCommandDigest(root, unrelatedCommand),
     (error) => error.code === 'LAMINA_SAFE_SOURCE_IDENTITY',
@@ -1194,7 +1529,9 @@ try {
     adapterInfo: productionProbe, injectedExistingProcesses: [],
   });
   assert.equal(unpromoted.ok, false);
-  assert.match(unpromoted.reasons.join('\n'), /tier promotion requires successful cleanup for: small/);
+  assert.equal(unpromoted.promotion.deferred_to_execution_snapshot, true);
+  assert.doesNotMatch(unpromoted.reasons.join('\n'), /tier promotion requires successful cleanup/,
+    'production promotion is decided only after dependency/tool launch bytes are sealed');
 
   assertAdapterShape({
     id: 'unit', launch() {}, sample() {}, signal() {}, cleanup() {},

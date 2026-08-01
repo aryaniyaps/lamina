@@ -18,8 +18,19 @@ export function processRecord(pid) {
     const rss = Number(status.match(/^VmRSS:\s+(\d+)\s+kB$/m)?.[1] || 0) * 1024;
     const namespacePids = String(status.match(/^NSpid:\s+(.+)$/m)?.[1] || '')
       .trim().split(/\s+/).filter(Boolean).map(Number);
-    const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`).toString('utf8')
-      .split('\0').filter(Boolean).join(' ');
+    const cmdlineBytes = fs.readFileSync(`/proc/${pid}/cmdline`);
+    const argv = cmdlineBytes.length <= 8 * 1024
+      ? cmdlineBytes.toString('utf8').split('\0').filter(Boolean) : null;
+    const cmdline = (argv || []).join(' ');
+    let cwd = null;
+    try { cwd = fs.realpathSync.native(`/proc/${pid}/cwd`); } catch {}
+    let executableIdentity = null;
+    try {
+      const executable = fs.statSync(`/proc/${pid}/exe`, { bigint: true });
+      executableIdentity = {
+        dev: String(executable.dev), ino: String(executable.ino), uid: Number(executable.uid),
+      };
+    } catch {}
     return {
       pid: Number(pid),
       ppid: stat?.ppid ?? null,
@@ -28,6 +39,9 @@ export function processRecord(pid) {
       rss_bytes: rss,
       namespace_pids: namespacePids,
       command: cmdline.slice(0, 1_000),
+      argv,
+      cwd,
+      executable_identity: executableIdentity,
     };
   } catch {
     return null;

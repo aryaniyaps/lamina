@@ -9,10 +9,25 @@ const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || ''
   && (Number(record?.pid) === Number(claimed?.pid)
     || record?.namespace_pids?.includes(Number(claimed?.pid)));
 
-const graphdCommand = (command = '') =>
-  /(?:^|\s)[^\s]*\/graph-runtime\/server\.mjs(?:\s|$)/.test(command)
-  || /(?:^|\s)[^\s]*\/tests\/fixtures\/safe-runner-graphd\/server\.mjs(?:\s|$)/.test(command)
-  || /(?:^|\s)--graphd(?:\s|$)/.test(command);
+export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority = []) {
+  if (!Array.isArray(child?.argv)) return false;
+  return launchAuthority.some((expected) => {
+    const executableMatches = ['dev', 'ino', 'uid'].every((field) =>
+      child.executable_identity?.[field] === expected.executable_identity?.[field]);
+    if (!executableMatches) return false;
+    if (expected.kind === 'exact') {
+      return child.argv.length === expected.argv.length
+        && child.argv.every((value, index) => value === expected.argv[index])
+        && reservation.socket === path.join(expected.runtime_directory, 'graphd.sock')
+        && reservation.lock === path.join(expected.runtime_directory, 'graphd.lock');
+    }
+    if (expected.kind === 'standalone-cwd') {
+      return child.argv.length === 3 && child.argv[0] === expected.executable
+        && child.argv[1] === '--graphd' && child.argv[2] === child.cwd;
+    }
+    return false;
+  });
+}
 
 export function authorizeBrokerRequest(request, authority) {
   const records = authority.records();
@@ -60,8 +75,8 @@ export function authorizeBrokerRequest(request, authority) {
       && item.requester.start_ticks === requester.start_ticks);
     if (!reservation) return { ok: false, error: 'managed graphd reservation is missing or requester-bound' };
     const child = records.find((record) => sameScopedIdentity(record, request.child));
-    if (!child || !graphdCommand(child.command)) {
-      return { ok: false, error: 'managed graphd identity/command is not an in-scope graphd process' };
+    if (!child || !authority.graphdLaunchAuthorized?.(child, reservation)) {
+      return { ok: false, error: 'managed graphd launch is not exact sealed authority' };
     }
     if (child.ppid !== requester.pid && child.ppid !== 1) {
       return { ok: false, error: 'managed graphd was not spawned by the authorized requester' };
@@ -93,7 +108,7 @@ export function authorizeBrokerRequest(request, authority) {
       return { ok: false, error: 'managed graphd start gate is not child-bound' };
     }
     const child = records.find((record) => sameScopedIdentity(record, reservation.bound));
-    if (!child || !graphdCommand(child.command)) {
+    if (!child || !authority.graphdLaunchAuthorized?.(child, reservation)) {
       return { ok: false, error: 'managed graphd child disappeared or changed at the start gate' };
     }
     const released = authority.release({ reservation: reservation.token });
@@ -118,7 +133,7 @@ export function authorizeBrokerRequest(request, authority) {
       return { ok: false, error: 'managed graphd reservation is not start-authorized' };
     }
     const child = records.find((record) => sameScopedIdentity(record, reservation.bound));
-    if (!child || !graphdCommand(child.command)) {
+    if (!child || !authority.graphdLaunchAuthorized?.(child, reservation)) {
       return { ok: false, error: 'managed graphd child disappeared or changed before object sealing' };
     }
     const sealed = authority.seal({ reservation: reservation.token });
@@ -165,7 +180,6 @@ export async function createProofBroker(directory, authority, {
       const newline = buffer.indexOf('\n');
       if (newline === -1) return;
       handled = true;
-      socket.setTimeout(0);
       let response;
       try {
         // A connection authorizes exactly one framed request. Refuse pipelined

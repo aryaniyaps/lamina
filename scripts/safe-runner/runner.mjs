@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
 import { adapterProbe, assertAdapterShape } from './adapter.mjs';
-import { createProofBroker } from './broker.mjs';
+import { createProofBroker, exactGraphdLaunchAuthorized } from './broker.mjs';
 import { startCrashWatchdog } from './crash-watchdog-controller.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
 import {
@@ -23,7 +23,7 @@ import {
 import { redactEvidence, redactText } from './redaction.mjs';
 import {
   acquireConcurrencyLock, assertFrozenWorkloadIdentity, beginSafetyAttempt,
-  clearSafetyAttempt, recordPromotion, recordSafetyLimit,
+  bindExecutionSnapshotIdentity, checkPromotion, clearSafetyAttempt, recordPromotion, recordSafetyLimit,
 } from './state.mjs';
 import { sanitizedEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
@@ -509,9 +509,29 @@ export async function runSafely({
         digest: executionSnapshot.digest,
         file_count: executionSnapshot.file_count,
         total_bytes: executionSnapshot.total_bytes,
-        snapshot_roots: [executionSnapshot.snapshot_repository],
+        snapshot_roots: [executionSnapshot.snapshot_repository,
+          ...(executionSnapshot.git_readonly_bindings || []).map((binding) => binding.source)],
         writable_roots: executionSnapshot.writable_bindings.map((binding) => binding.source),
       };
+      if (preflight.source_identity) {
+        report.preflight.execution_identity = bindExecutionSnapshotIdentity(
+          preflight.source_identity, executionSnapshot.digest,
+        );
+        const sealedPromotion = checkPromotion(cwd, tier, workloadId, executionCommand,
+          report.preflight.execution_identity);
+        report.preflight.promotion = {
+          ...sealedPromotion, deferred_to_execution_snapshot: false,
+        };
+        if (PRODUCTION_TIERS.has(tier) && !sealedPromotion.ok) {
+          report.outcome = 'preflight_refused';
+          report.termination.reason = 'preflight_refused';
+          report.error = {
+            code: 'LAMINA_SAFE_PROMOTION_IDENTITY',
+            message: `tier promotion requires the same sealed launch authority for: ${sealedPromotion.missing.join(', ')}`,
+          };
+          throw Object.assign(new Error(report.error.message), { safeEarly: true });
+        }
+      }
     }
     const authority = {
       runId: report.run_id,
@@ -523,6 +543,10 @@ export async function runSafely({
       registrations: managedRegistrations,
       reservations: managedReservations,
       records: () => activeAdapter?.sample()?.records || [],
+      graphdLaunchAuthorized(child, reservation) {
+        return exactGraphdLaunchAuthorized(child, reservation,
+          executionSnapshot?.graphd_launch_authority || []);
+      },
       beforeBind() {
         // The graphd process exists but is still held behind its broker start
         // gate, so a controller crash cannot leave canonical runtime objects.
@@ -626,6 +650,7 @@ export async function runSafely({
           preflight.ownership.network_access === 'audited-required' ? '1' : '0',
         LAMINA_SAFE_REPORT_FILE: path.resolve(reportFile),
         LAMINA_SAFE_REPORT_PARENT: reportAuthority?.parent || '',
+        ...(executionSnapshot?.environment_overrides || {}),
       }),
     });
     launched = true;
@@ -1062,7 +1087,7 @@ export async function runSafely({
       && written.path === path.resolve(reportFile)) {
       try {
         recordPromotion(cwd, tier, report, workloadId, executionCommand,
-          report.preflight.source_identity);
+          report.preflight.execution_identity || report.preflight.source_identity);
       } catch (error) {
         report.outcome = 'internal_error';
         report.termination.reason = 'promotion_failed';

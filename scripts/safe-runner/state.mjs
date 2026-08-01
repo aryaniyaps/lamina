@@ -431,6 +431,23 @@ export function promotionCommandDigest(cwd, command = [], frozen = null) {
   return (frozen || frozenWorkloadIdentity(cwd, command)).digest;
 }
 
+export function bindExecutionSnapshotIdentity(frozen, executionSnapshotDigest) {
+  if (!frozen?.digest || !/^[a-f0-9]{64}$/.test(executionSnapshotDigest || '')) {
+    const error = new Error('promotion identity requires frozen source and execution snapshot digests');
+    error.code = 'LAMINA_SAFE_PROMOTION_IDENTITY';
+    throw error;
+  }
+  const value = {
+    source_identity_digest: frozen.digest,
+    execution_snapshot_digest: executionSnapshotDigest,
+  };
+  return {
+    ...frozen,
+    ...value,
+    digest: crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'),
+  };
+}
+
 export function promotionStatus(cwd, workloadId = null, command = null, frozen = null) {
   const value = json(promotionPath(cwd));
   const digest = workloadDigest(workloadId);

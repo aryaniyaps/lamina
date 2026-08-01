@@ -167,6 +167,9 @@ export class LinuxSystemdAdapter {
       repository: executionAuthority.repository,
       snapshot_repository: executionAuthority.snapshot_repository,
       writable_bindings: executionAuthority?.writable_bindings || [],
+      git_readonly_bindings: executionAuthority?.git_readonly_bindings || [],
+      git_common: executionAuthority?.git_common || null,
+      git_directory: executionAuthority?.git_directory || null,
     })).toString('base64url');
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,

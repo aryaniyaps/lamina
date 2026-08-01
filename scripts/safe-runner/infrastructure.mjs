@@ -13,7 +13,7 @@ const EXACT_EXECUTION_HOOKS = new Set([
   'GCONV_PATH', 'GETCONF_DIR', 'LOCPATH', 'NLSPATH', 'HOSTALIASES', 'RES_OPTIONS',
 ]);
 const EXECUTION_HOOK_PREFIXES = Object.freeze([
-  'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY',
+  'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY', 'GIT_',
 ]);
 
 export const SAFE_INFRASTRUCTURE_PATH = Object.freeze([
@@ -163,5 +163,7 @@ export function sanitizedEnvironment(...sources) {
     if (isExecutionHookEnvironment(name)) delete result[name];
   }
   result.PATH = SAFE_INFRASTRUCTURE_PATH;
+  result.GIT_CONFIG_NOSYSTEM = '1';
+  result.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
   return result;
 }

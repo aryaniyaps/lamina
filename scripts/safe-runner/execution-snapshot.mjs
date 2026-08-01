@@ -5,10 +5,31 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
+import { trustedHostBinary } from './infrastructure.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
+const MAX_GIT_OBJECTS = 262_144;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const GIT_ENVIRONMENT = Object.freeze({
+  PATH: '/usr/bin:/bin', HOME: '/nonexistent', GIT_CONFIG_NOSYSTEM: '1',
+  GIT_CONFIG_GLOBAL: '/dev/null', LANG: 'C', LC_ALL: 'C',
+});
+
+export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, currentBytes = 0) {
+  if (!Number.isSafeInteger(objectCount) || objectCount < 0 || objectCount > MAX_GIT_OBJECTS
+    || !Number.isSafeInteger(uncompressedBytes) || uncompressedBytes < 0
+    || !Number.isSafeInteger(currentBytes) || currentBytes < 0
+    || currentBytes + uncompressedBytes > MAX_BYTES) {
+    throw new Error('execution Git object closure exceeds its bounded budget');
+  }
+  return true;
+}
+let cachedGit = null;
+const gitExecutable = () => {
+  cachedGit ||= trustedHostBinary('git').path;
+  return cachedGit;
+};
 const EXPLICIT_ENTRYPOINT_DEPENDENCIES = new Map([
   ['scripts/build-standalone-cli.mjs', [
     { name: 'postject', resolver: 'package.json', destination: 'node_modules' },
@@ -31,10 +52,10 @@ const EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS = new Map([
   ['evals/scripts/run-suite.mjs', [
     'eval-workspace', 'evals/workspace', 'evals/reports', 'evals/tmp',
   ]],
-  ['evals/scripts/vendor-nextjs-fixture.mjs', ['evals/fixtures']],
-  ['evals/scripts/vendor-outline-fixture.mjs', ['evals/fixtures']],
-  ['evals/scripts/vendor-payload-fixture.mjs', ['evals/fixtures']],
-  ['evals/scripts/vendor-plane-fixture.mjs', ['evals/fixtures']],
+  ['evals/scripts/vendor-nextjs-fixture.mjs', ['evals/fixtures/_base/nextjs-commerce']],
+  ['evals/scripts/vendor-outline-fixture.mjs', ['evals/fixtures/_base/outline']],
+  ['evals/scripts/vendor-payload-fixture.mjs', ['evals/fixtures/_base/payload-website']],
+  ['evals/scripts/vendor-plane-fixture.mjs', ['evals/fixtures/_base/plane']],
 ]);
 const EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS = new Map([
   ['scripts/prepare-retrieval-assets.mjs', [{ index: 2, kind: 'directory' }]],
@@ -90,23 +111,134 @@ function copyPhysicalFile(source, destination, executable = false) {
 }
 
 function repositoryRoot(cwd) {
-  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+  const result = spawnSync(gitExecutable(), ['rev-parse', '--show-toplevel'], {
     cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
-    maxBuffer: 64 * 1024,
+    maxBuffer: 64 * 1024, env: GIT_ENVIRONMENT,
   });
   if (result.status !== 0) throw new Error('execution snapshot requires a Git worktree');
   return fs.realpathSync.native(String(result.stdout).trim());
 }
 
+function gitOutput(repository, args, { input = undefined, maxBuffer = 16 * 1024 * 1024 } = {}) {
+  const result = spawnSync(gitExecutable(), args, {
+    cwd: repository, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 15_000, maxBuffer, env: GIT_ENVIRONMENT,
+  });
+  if (result.status !== 0) {
+    throw new Error(`cannot construct sealed Git authority: ${String(result.stderr || '').trim()}`);
+  }
+  return String(result.stdout || '').trim();
+}
+
+function gitBuffer(repository, args, { input = undefined, maxBuffer = MAX_BYTES,
+  environment = {} } = {}) {
+  const result = spawnSync(gitExecutable(), args, {
+    cwd: repository, input, encoding: null, stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 30_000, maxBuffer, env: { ...GIT_ENVIRONMENT, ...environment },
+  });
+  if (result.status !== 0) {
+    throw new Error(`cannot construct sealed Git authority: ${String(result.stderr || '').trim()}`);
+  }
+  return result.stdout;
+}
+
+function optionalGitOutput(repository, args, options = {}) {
+  try { return gitOutput(repository, args, options); } catch { return null; }
+}
+
+function physicalOwnedDirectory(candidate, label) {
+  const declared = path.resolve(candidate);
+  const physical = fs.realpathSync.native(declared);
+  const stat = fs.lstatSync(declared);
+  if (declared !== physical || !stat.isDirectory() || stat.isSymbolicLink()
+    || (typeof process.getuid === 'function' && stat.uid !== process.getuid())) {
+    throw new Error(`${label} must be a physical same-user directory without symlink indirection`);
+  }
+  return physical;
+}
+
+function ensureContainedWritableDirectory(boundary, target, label) {
+  const physicalBoundary = physicalOwnedDirectory(boundary, `${label} boundary`);
+  const absolute = path.resolve(target);
+  const relative = path.relative(physicalBoundary, absolute);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${label} escapes its physical boundary`);
+  }
+  let current = physicalBoundary;
+  for (const component of relative.split(path.sep)) {
+    current = path.join(current, component);
+    try {
+      const stat = fs.lstatSync(current);
+      if (!stat.isDirectory() || stat.isSymbolicLink()
+        || fs.realpathSync.native(current) !== current) {
+        throw new Error(`${label} ancestor is not a canonical physical directory: ${current}`);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      fs.mkdirSync(current, { mode: 0o700 });
+      const created = fs.lstatSync(current);
+      if (!created.isDirectory() || created.isSymbolicLink()
+        || fs.realpathSync.native(current) !== current) {
+        throw new Error(`${label} creation lost canonical containment: ${current}`);
+      }
+    }
+  }
+  return absolute;
+}
+
+function gitAuthority(repository) {
+  const declaredGitDirectory = path.resolve(repository,
+    gitOutput(repository, ['rev-parse', '--absolute-git-dir']));
+  const declaredCommon = path.resolve(repository,
+    gitOutput(repository, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const gitDirectory = physicalOwnedDirectory(declaredGitDirectory, 'Git worktree directory');
+  const common = physicalOwnedDirectory(declaredCommon, 'Git common directory');
+  const marker = path.join(repository, '.git');
+  const markerStat = fs.lstatSync(marker);
+  if (markerStat.isFile() && !markerStat.isSymbolicLink()) {
+    const markerFd = fs.openSync(marker, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    let markerText;
+    try { markerText = fs.readFileSync(markerFd, 'utf8').trim(); } finally { fs.closeSync(markerFd); }
+    const match = markerText.match(/^gitdir:\s*(.+)$/i);
+    if (!match || fs.realpathSync.native(path.resolve(repository, match[1])) !== gitDirectory) {
+      throw new Error('linked-worktree .git marker does not bind the resolved Git directory');
+    }
+    const relative = path.relative(path.join(common, 'worktrees'), gitDirectory);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('linked-worktree Git directory escapes the common worktrees authority');
+    }
+  } else if (!markerStat.isDirectory() || markerStat.isSymbolicLink()
+    || fs.realpathSync.native(marker) !== gitDirectory || gitDirectory !== common) {
+    throw new Error('primary-worktree .git authority is not a physical common directory');
+  }
+  return { gitDirectory, common, linked: gitDirectory !== common };
+}
+
 function repositoryFiles(root) {
-  const result = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+  const result = spawnSync(gitExecutable(), ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5_000,
-    maxBuffer: 16 * 1024 * 1024,
+    maxBuffer: 16 * 1024 * 1024, env: GIT_ENVIRONMENT,
   });
   if (result.status !== 0) throw new Error('cannot enumerate the bounded execution source snapshot');
   const files = String(result.stdout).split('\0').filter(Boolean).sort();
   if (files.length > MAX_FILES) throw new Error(`execution snapshot exceeds ${MAX_FILES} files`);
   return files;
+}
+
+function resolveProgram(candidate, cwd, environment) {
+  const value = String(candidate || '');
+  const candidates = path.isAbsolute(value) || value.includes(path.sep)
+    ? [path.resolve(cwd, value)]
+    : String(environment.PATH || process.env.PATH || '').split(path.delimiter)
+      .filter(Boolean).map((directory) => path.resolve(directory, value));
+  for (const item of candidates) {
+    try {
+      const physical = fs.realpathSync.native(item);
+      const stat = fs.lstatSync(physical);
+      if (stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o111) !== 0) return physical;
+    } catch {}
+  }
+  throw new Error(`required audited child executable is unavailable: ${value}`);
 }
 
 function entrypointRelative(repository, command, cwd = repository) {
@@ -212,12 +344,15 @@ export function prepareExecutionSnapshot({
   cwd, command, temporaryDirectory, infrastructure = null, environment = {}, onProgress = null,
 }) {
   const repository = repositoryRoot(cwd);
+  const auditedEntrypoint = entrypointRelative(repository, command, cwd);
+  const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');
   const snapshotRepository = path.join(root, 'repository');
   fs.mkdirSync(snapshotRepository, { recursive: true, mode: 0o700 });
   const entries = [];
   let totalBytes = 0;
-  for (const relative of repositoryFiles(repository)) {
+  const sourceFiles = repositoryFiles(repository);
+  for (const relative of sourceFiles) {
     const source = path.join(repository, relative);
     const destination = path.join(snapshotRepository, relative);
     const stat = fs.lstatSync(source, { bigint: true });
@@ -283,44 +418,159 @@ export function prepareExecutionSnapshot({
       throw new Error('execution environment snapshot exceeds its bounded budget');
     }
   }
-  const gitSource = path.join(repository, '.git');
-  const gitDestination = path.join(snapshotRepository, '.git');
-  const copyGit = (sourceDirectory, destinationDirectory, logicalDirectory = '.git') => {
-    fs.mkdirSync(destinationDirectory, { recursive: true, mode: 0o700 });
-    for (const item of fs.readdirSync(sourceDirectory, { withFileTypes: true })) {
-      if (logicalDirectory === '.git' && item.name === 'lamina') continue;
-      if (/\.lock$/.test(item.name)) continue;
-      const source = path.join(sourceDirectory, item.name);
-      const destination = path.join(destinationDirectory, item.name);
-      const logical = path.join(logicalDirectory, item.name).replaceAll('\\', '/');
-      if (item.isDirectory()) copyGit(source, destination, logical);
-      else if (item.isSymbolicLink()) {
-        const physical = fs.realpathSync.native(source);
-        const relative = path.relative(gitSource, physical);
-        if (relative.startsWith('..') || path.isAbsolute(relative)) {
-          throw new Error(`execution Git metadata symlink escapes authority: ${logical}`);
-        }
-        const target = fs.readlinkSync(source);
-        fs.symlinkSync(target, destination);
-        entries.push({ label: `git:${logical}`, path: destination, type: 'symlink', target });
-      } else if (item.isFile()) {
-        const copied = copyPhysicalFile(source, destination, false);
-        totalBytes += copied.size;
-        entries.push({ label: `git:${logical}`, path: destination, type: 'file', ...copied });
-      }
-      if (entries.length > MAX_FILES || totalBytes > MAX_BYTES) {
-        throw new Error('execution Git metadata snapshot exceeds its bounded budget');
-      }
+  const gitCommonSnapshot = sourceGit.linked
+    ? path.join(root, 'git-authority', 'common') : path.join(snapshotRepository, '.git');
+  const gitWorktreeSnapshot = sourceGit.linked
+    ? path.join(gitCommonSnapshot, 'worktrees', path.basename(sourceGit.gitDirectory))
+    : gitCommonSnapshot;
+  fs.mkdirSync(gitCommonSnapshot, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(gitWorktreeSnapshot, { recursive: true, mode: 0o700 });
+  const assertGitBudget = () => {
+    if (entries.length > MAX_FILES || totalBytes > MAX_BYTES) {
+      throw new Error('execution Git metadata snapshot exceeds its bounded budget');
     }
   };
-  copyGit(gitSource, gitDestination);
+  const recordGeneratedFile = (file, label) => {
+    const stat = fs.lstatSync(file, { bigint: true });
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`generated Git authority is not physical: ${label}`);
+    const bytes = fs.readFileSync(file);
+    fs.chmodSync(file, 0o400);
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    totalBytes += bytes.length;
+    entries.push({
+      label: `git:${label}`, path: file, type: 'file', size: bytes.length,
+      digest: crypto.createHash('sha256').update(bytes).digest('hex'),
+    });
+    assertGitBudget();
+  };
+  const copyGitFile = (source, destination, label, optional = false) => {
+    let stat;
+    try { stat = fs.lstatSync(source); } catch (error) {
+      if (optional && error.code === 'ENOENT') return;
+      throw error;
+    }
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`execution Git metadata must be a physical file: ${label}`);
+    }
+    const copied = copyPhysicalFile(source, destination, false);
+    totalBytes += copied.size;
+    entries.push({ label: `git:${label}`, path: destination, type: 'file', ...copied });
+    assertGitBudget();
+  };
+  const writeGitFile = (destination, value, label) => {
+    fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
+    const descriptor = fs.openSync(destination, fs.constants.O_CREAT | fs.constants.O_EXCL
+      | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o400);
+    try {
+      fs.writeFileSync(descriptor, value);
+      fs.fsyncSync(descriptor);
+    } finally { fs.closeSync(descriptor); }
+    recordGeneratedFile(destination, label);
+  };
+  if (sourceGit.linked) {
+    copyGitFile(path.join(repository, '.git'), path.join(snapshotRepository, '.git'), 'worktree-marker');
+    const sealedMarker = fs.readFileSync(path.join(snapshotRepository, '.git'), 'utf8').trim();
+    const markerMatch = sealedMarker.match(/^gitdir:\s*(.+)$/i);
+    if (!markerMatch
+      || fs.realpathSync.native(path.resolve(repository, markerMatch[1])) !== sourceGit.gitDirectory) {
+      throw new Error('descriptor-copied worktree marker changed Git authority');
+    }
+    copyGitFile(path.join(sourceGit.gitDirectory, 'commondir'),
+      path.join(gitWorktreeSnapshot, 'commondir'), 'worktree/commondir');
+    const sealedCommon = fs.readFileSync(path.join(gitWorktreeSnapshot, 'commondir'), 'utf8').trim();
+    if (fs.realpathSync.native(path.resolve(sourceGit.gitDirectory, sealedCommon)) !== sourceGit.common) {
+      throw new Error('descriptor-copied commondir escapes Git common authority');
+    }
+  }
+  const configSource = path.join(sourceGit.common, 'config');
+  copyGitFile(configSource, path.join(gitCommonSnapshot, 'config'), 'common/config');
+  const configText = fs.readFileSync(path.join(gitCommonSnapshot, 'config'), 'utf8');
+  if (/^\s*\[include(?:If)?\b/im.test(configText) || /^\s*worktree\s*=/im.test(configText)) {
+    throw new Error('execution Git config contains an external include or worktree path');
+  }
+  copyGitFile(path.join(sourceGit.common, 'shallow'), path.join(gitCommonSnapshot, 'shallow'),
+    'common/shallow', true);
+  copyGitFile(path.join(sourceGit.common, 'info', 'exclude'),
+    path.join(gitCommonSnapshot, 'info', 'exclude'), 'common/info/exclude', true);
+  for (const name of fs.readdirSync(sourceGit.gitDirectory)) {
+    if (!name.startsWith('sharedindex.')) continue;
+    copyGitFile(path.join(sourceGit.gitDirectory, name), path.join(gitWorktreeSnapshot, name),
+      `worktree/${name}`);
+  }
+  for (const name of ['HEAD', 'index', 'config.worktree', 'MERGE_HEAD', 'CHERRY_PICK_HEAD',
+    'REVERT_HEAD', 'BISECT_LOG', 'AUTO_MERGE']) {
+    copyGitFile(path.join(sourceGit.gitDirectory, name), path.join(gitWorktreeSnapshot, name),
+      `worktree/${name}`, name !== 'HEAD');
+  }
+  const sealedWorktreeConfig = path.join(gitWorktreeSnapshot, 'config.worktree');
+  if (fs.existsSync(sealedWorktreeConfig)) {
+    const value = fs.readFileSync(sealedWorktreeConfig, 'utf8');
+    if (/^\s*\[include(?:If)?\b/im.test(value) || /^\s*worktree\s*=/im.test(value)) {
+      throw new Error('execution Git worktree config contains an external include or worktree path');
+    }
+  }
+  copyGitFile(path.join(sourceGit.gitDirectory, 'info', 'sparse-checkout'),
+    path.join(gitWorktreeSnapshot, 'info', 'sparse-checkout'), 'worktree/info/sparse-checkout', true);
+  const head = optionalGitOutput(repository, ['rev-parse', '--verify', 'HEAD^{commit}']);
+  const symbolicHead = optionalGitOutput(repository, ['symbolic-ref', '--quiet', 'HEAD']);
+  if (symbolicHead) {
+    if (!/^refs\/heads\/[A-Za-z0-9._\/-]+$/.test(symbolicHead)
+      || symbolicHead.split('/').includes('..')) throw new Error('Git HEAD ref escapes sealed authority');
+    writeGitFile(path.join(gitCommonSnapshot, symbolicHead), `${head || ''}\n`, `common/${symbolicHead}`);
+  }
+  const objectIds = new Set();
+  if (head) {
+    const reachable = gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
+    for (const item of reachable.split('\n').filter(Boolean)) {
+      const oid = item.match(/^([a-f0-9]{40,64})(?:\s|$)/)?.[1];
+      if (!oid) throw new Error('cannot parse reachable Git object closure');
+      objectIds.add(oid);
+    }
+  }
+  const staged = gitOutput(repository, ['ls-files', '--stage', '-z']);
+  for (const item of staged.split('\0').filter(Boolean)) {
+    const oid = item.match(/^[0-7]{6}\s+([a-f0-9]{40,64})\s+[0-3]\t/)?.[1];
+    if (!oid) throw new Error('cannot parse Git index object closure');
+    objectIds.add(oid);
+  }
+  if (objectIds.size > 0) {
+    const objectInput = `${[...objectIds].join('\n')}\n`;
+    const checks = gitOutput(repository, ['cat-file', '--batch-check'], { input: objectInput });
+    let uncompressedBytes = 0;
+    for (const line of checks.split('\n').filter(Boolean)) {
+      const match = line.match(/^[a-f0-9]{40,64}\s+\S+\s+(\d+)$/);
+      if (!match) throw new Error('Git object closure contains a missing or invalid object');
+      uncompressedBytes += Number(match[1]);
+    }
+    assertGitObjectClosureBudget(objectIds.size, uncompressedBytes, totalBytes);
+    const packDirectory = path.join(gitCommonSnapshot, 'objects', 'pack');
+    fs.mkdirSync(packDirectory, { recursive: true, mode: 0o700 });
+    const pack = gitBuffer(repository, ['pack-objects', '--stdout', '--window=0'], {
+      input: objectInput, maxBuffer: Math.min(MAX_BYTES, MAX_BYTES - totalBytes + 1024 * 1024),
+    });
+    if (totalBytes + pack.length > MAX_BYTES) {
+      throw new Error('execution Git pack exceeds its bounded budget');
+    }
+    gitBuffer(repository, ['index-pack', '--stdin'], {
+      input: pack, maxBuffer: 64 * 1024,
+      environment: { GIT_OBJECT_DIRECTORY: path.join(gitCommonSnapshot, 'objects') },
+    });
+    for (const name of fs.readdirSync(packDirectory).sort()) {
+      recordGeneratedFile(path.join(packDirectory, name), `common/objects/pack/${name}`);
+    }
+  }
+  const gitReadonlyBindings = sourceGit.linked ? [
+    { source: gitCommonSnapshot, target: sourceGit.common, kind: 'git-common' },
+    { source: gitWorktreeSnapshot, target: sourceGit.gitDirectory, kind: 'git-worktree' },
+  ] : [];
   // Dependencies are executable source too, but an installation can contain
   // hundreds of thousands of unrelated files. Resolve only package roots in
   // the audited entrypoint's static import closure, then recurse through those
   // packages' declared runtime dependencies.
   const requiredPackages = dependencyNames(repository, command, cwd);
   if (requiredPackages.length > 0) {
-    const copiedPackages = new Set();
+    const copiedPackages = new Map();
     const pendingPackages = requiredPackages.map((record) => ({ ...record, optional: false }));
     const visit = (sourceDirectory, destinationDirectory, logicalDirectory, packageBoundary) => {
       fs.mkdirSync(destinationDirectory, { recursive: true, mode: 0o700 });
@@ -353,7 +603,6 @@ export function prepareExecutionSnapshot({
     while (pendingPackages.length) {
       const record = pendingPackages.shift();
       const key = `${record.destination}\0${record.name}`;
-      if (copiedPackages.has(key)) continue;
       const resolverFile = path.join(repository, record.resolver);
       const require = createRequire(resolverFile);
       let resolved;
@@ -363,9 +612,14 @@ export function prepareExecutionSnapshot({
         catch { if (record.optional) continue; throw error; }
       }
       const dependency = packageRoot(resolved, record.name);
+      const priorRoot = copiedPackages.get(key);
+      if (priorRoot && priorRoot !== dependency.root) {
+        throw new Error(`execution dependency closure has incompatible versions for ${record.name}`);
+      }
+      if (priorRoot) continue;
       visit(dependency.root, path.join(snapshotRepository, record.destination, record.name),
         `${record.destination}/${record.name}`, dependency.root);
-      copiedPackages.add(key);
+      copiedPackages.set(key, dependency.root);
       for (const transitive of Object.keys(dependency.manifest.dependencies || {})) {
         pendingPackages.push({
           name: transitive, resolver: path.relative(repository,
@@ -383,6 +637,7 @@ export function prepareExecutionSnapshot({
     }
   }
   const stagedInfrastructure = { identities: {} };
+  const environmentOverrides = {};
   if (infrastructure) {
     const binarySources = {
       node: infrastructure.node,
@@ -407,6 +662,17 @@ export function prepareExecutionSnapshot({
       totalBytes += copied.size;
       entries.push({ label: `infrastructure:${name}`, path: destination, type: 'file', ...copied });
       stagedInfrastructure[name.replaceAll(/[-.]/g, '_')] = destination;
+    }
+    if (auditedEntrypoint === 'scripts/build-standalone-cli.mjs') {
+      const uvSource = resolveProgram(environment.LAMINA_UV_BINARY
+        || (process.platform === 'win32' ? 'uv.exe' : 'uv'), cwd, environment);
+      const stagedUv = path.join(root, 'infrastructure', process.platform === 'win32' ? 'uv.exe' : 'uv');
+      const copied = copyPhysicalFile(uvSource, stagedUv, true);
+      totalBytes += copied.size;
+      entries.push({ label: 'infrastructure:uv', path: stagedUv, type: 'file', ...copied });
+      stagedInfrastructure.uv = stagedUv;
+      environmentOverrides.LAMINA_UV_BINARY = stagedUv;
+      environmentOverrides.LAMINA_NODE_BINARY = stagedInfrastructure.node;
     }
   }
   const physicalExecutable = fs.realpathSync.native(command[0]);
@@ -438,41 +704,141 @@ export function prepareExecutionSnapshot({
     totalBytes += executableCopy.size;
     entries.push({ label: 'executable', path: executable, type: 'file', ...executableCopy });
   }
-  if (totalBytes > MAX_BYTES) throw new Error(`execution snapshot exceeds ${MAX_BYTES} bytes`);
+  if (entries.length > MAX_FILES || totalBytes > MAX_BYTES) {
+    throw new Error(`execution snapshot exceeds ${MAX_FILES} files or ${MAX_BYTES} bytes`);
+  }
   const launchCommand = npxPackage
     ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(npxOffset + 1)]
     : [executable, ...command.slice(1)];
+  const graphdLaunchAuthority = [];
+  if (stagedInfrastructure.node) {
+    graphdLaunchAuthority.push({
+      kind: 'exact',
+      argv: [stagedInfrastructure.node,
+        path.join(repository, 'packages/cli/lib/graph-runtime/server.mjs'), repository],
+      runtime_directory: path.join(sourceGit.common, 'lamina'),
+      executable_identity: stagedInfrastructure.identities.node,
+    });
+    if (auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
+      const fixtureRepository = path.resolve(cwd, command[2]);
+      const fixtureCommon = path.resolve(fixtureRepository,
+        gitOutput(fixtureRepository, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
+      graphdLaunchAuthority.push({
+        kind: 'exact',
+        argv: [stagedInfrastructure.node,
+          path.join(repository, 'tests/fixtures/graph-runtime/server.mjs'),
+          fixtureRepository, command[3] || 'clean'],
+        runtime_directory: path.join(fs.realpathSync.native(fixtureCommon), 'lamina'),
+        executable_identity: stagedInfrastructure.identities.node,
+      });
+    }
+  }
+  if (environment.LAMINA_BINARY) {
+    const standalone = path.resolve(cwd, String(environment.LAMINA_BINARY));
+    if (!standalone.startsWith(`${repository}${path.sep}`)) {
+      throw new Error('standalone graphd host escapes sealed repository authority');
+    }
+    const relative = path.relative(repository, standalone);
+    const sealedStandalone = path.join(snapshotRepository, relative);
+    const stat = fs.lstatSync(sealedStandalone, { bigint: true });
+    graphdLaunchAuthority.push({
+      kind: 'standalone-cwd', executable: standalone,
+      executable_identity: { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) },
+    });
+  }
   const writableBindings = [];
-  const entrypoint = entrypointRelative(repository, command, cwd);
-  const declaredWritableRoots = new Set([
-    '.git/lamina',
-    ...(EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS.get(entrypoint) || []),
-  ]);
+  const entrypoint = auditedEntrypoint;
+  const declaredWritableRoots = new Map((EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS.get(entrypoint) || [])
+    .map((relative) => [relative, 'entrypoint']));
   for (const output of EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.get(entrypoint) || []) {
     if (!command[output.index]) continue;
     const candidate = path.resolve(cwd, command[output.index]);
     const root = output.kind === 'file' ? path.dirname(candidate) : candidate;
+    const fixtureEntrypoint = ['tests/fixtures/safe-runner-graphd-client.mjs',
+      'tests/fixtures/safe-runner-mutable.mjs'].includes(entrypoint);
+    if (fixtureEntrypoint) {
+      const runtimeWork = path.join(sourceGit.common, 'lamina', 'work');
+      if (root !== runtimeWork && !root.startsWith(`${runtimeWork}${path.sep}`)) {
+        throw new Error('safe-runner fixture output must remain beneath exact Git common lamina/work scratch authority');
+      }
+      try { physicalOwnedDirectory(root, 'safe-runner fixture scratch'); }
+      catch { throw new Error('safe-runner fixture scratch must be an existing canonical physical directory'); }
+      if (entrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
+        let physical;
+        try { physical = physicalOwnedDirectory(root, 'safe-runner graph fixture repository'); }
+        catch { throw new Error('safe-runner graph fixture output must be an existing physical nested Git repository'); }
+        if (repositoryRoot(physical) !== physical) {
+          throw new Error('safe-runner graph fixture output must be an existing physical nested Git repository');
+        }
+      }
+      continue;
+    }
     const relative = path.relative(repository, root);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    if (!relative || relative === '.' || relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`declared workload output escapes the writable repository contract: ${root}`);
     }
-    declaredWritableRoots.add(relative || '.');
+    if (entrypoint === 'scripts/prepare-retrieval-assets.mjs'
+      && relative !== 'dist' && !relative.startsWith('dist/')) {
+      throw new Error('retrieval asset output must remain beneath the declared dist subtree');
+    }
+    if (sourceFiles.some((file) => file === relative || file.startsWith(`${relative}/`))) {
+      throw new Error(`declared workload output would re-expose sealed source: ${root}`);
+    }
+    declaredWritableRoots.set(relative, 'argv');
   }
-  const collapsedWritableRoots = [...declaredWritableRoots].filter((candidate, _index, all) =>
+  const writableRootNames = [...declaredWritableRoots.keys()];
+  for (const relative of writableRootNames) {
+    if (!relative || relative === '.' || relative.startsWith('../') || path.isAbsolute(relative)) {
+      throw new Error(`writable root escapes the sealed repository: ${relative || '.'}`);
+    }
+    if (sourceFiles.some((file) => file === relative || file.startsWith(`${relative}/`))) {
+      throw new Error(`writable root would re-expose sealed source: ${relative}`);
+    }
+  }
+  const collapsedWritableRoots = writableRootNames.filter((candidate, _index, all) =>
     !all.some((parent) => parent !== candidate && (candidate === parent
       || candidate.startsWith(`${parent.replace(/\/$/, '')}/`))));
   for (const relative of collapsedWritableRoots) {
     const source = path.resolve(repository, relative);
     const target = path.resolve(snapshotRepository, relative);
-    fs.mkdirSync(source, { recursive: true, mode: 0o700 });
+    if (source === repository || !source.startsWith(`${repository}${path.sep}`)) {
+      throw new Error(`writable root escapes the sealed repository: ${relative}`);
+    }
+    ensureContainedWritableDirectory(repository, source, 'writable root');
     fs.mkdirSync(target, { recursive: true, mode: 0o700 });
+    const sourceStat = fs.lstatSync(source);
+    if (!sourceStat.isDirectory() || sourceStat.isSymbolicLink()
+      || fs.realpathSync.native(source) !== source) {
+      throw new Error(`writable root must be a canonical physical directory: ${relative}`);
+    }
     const alias = path.join(root, 'writable-aliases', String(writableBindings.length));
     fs.mkdirSync(alias, { recursive: true, mode: 0o700 });
     writableBindings.push({ source, target: source, alias, snapshot_target: target });
   }
+  const runtimeSource = path.join(sourceGit.common, 'lamina');
+  ensureContainedWritableDirectory(sourceGit.common, runtimeSource, 'Git common Lamina runtime');
+  const runtimeStat = fs.lstatSync(runtimeSource, { bigint: true });
+  if (!runtimeStat.isDirectory() || runtimeStat.isSymbolicLink()
+    || fs.realpathSync.native(runtimeSource) !== runtimeSource
+    || (typeof process.getuid === 'function' && Number(runtimeStat.uid) !== process.getuid())) {
+    throw new Error('Git common Lamina runtime must be a canonical same-user physical directory');
+  }
+  const runtimeAlias = path.join(root, 'writable-aliases', String(writableBindings.length));
+  fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
+  writableBindings.push({
+    source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
+    kind: 'git-common-runtime', source_identity: {
+      dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),
+    },
+  });
   return {
     root, repository, snapshot_repository: snapshotRepository,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
+    git_readonly_bindings: gitReadonlyBindings,
+    git_common: sourceGit.common,
+    git_directory: sourceGit.gitDirectory,
+    environment_overrides: environmentOverrides,
+    graphd_launch_authority: graphdLaunchAuthority,
     infrastructure: stagedInfrastructure,
     file_count: entries.length, total_bytes: totalBytes,
     digest: crypto.createHash('sha256').update(JSON.stringify(entries.map(({ path: _path, ...entry }) => entry))).digest('hex'),

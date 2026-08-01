@@ -24,7 +24,9 @@ const graphdFixture = path.resolve('tests/fixtures/safe-runner-graphd-client.mjs
 const mutableFixture = path.resolve('tests/fixtures/safe-runner-mutable.mjs');
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 const workloadCwd = process.cwd();
-const workspaceScratch = fs.mkdtempSync(path.join(workloadCwd, '.safe-runner-integration-'));
+const workspaceScratchRoot = runtimePaths(workloadCwd).work;
+fs.mkdirSync(workspaceScratchRoot, { recursive: true, mode: 0o700 });
+const workspaceScratch = fs.mkdtempSync(path.join(workspaceScratchRoot, 'safe-runner-integration-'));
 const cleanupWorkspaceScratch = () => {
   try { fs.rmSync(workspaceScratch, { recursive: true, force: true }); } catch {}
 };

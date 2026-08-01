@@ -74,7 +74,7 @@ The runner:
   argv inputs, and bounded resolved dependency roots in a runner-owned
   read-only execution snapshot before launch; only explicit per-entrypoint
   output roots are rebound writable into that snapshot; its separate 512 MiB /
-  16,384-object ceiling is included in free-disk preflight rather than charged
+  16,384-emitted-file ceiling is included in free-disk preflight rather than charged
   to the payload's deliberately small private-tmpfs quota;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
@@ -97,7 +97,8 @@ identity recheck. Dangling symlinks, unsealed foreign objects, and same-user
 replacements remain in place and keep cleanup incomplete.
 The proof socket itself has a hard concurrent-connection cap, idle and frame
 byte deadlines, exactly one request per connection, and a bounded fixed-window
-request rate. These limits keep proof work performed by the controller outside
+request rate. Its deadline remains armed after a response until the connection
+closes, so clients withholding FIN cannot retain all accepted slots. These limits keep proof work performed by the controller outside
 the payload cgroup from becoming an unbounded resource surface.
 
 Medium and large runs require all of the following: aggregate enforcement, a
@@ -119,18 +120,40 @@ paths, rejects escaping symlinks, and applies file/byte bounds. Static local
 imports use the copied Git tree; bare packages are copied from the audited
 import closure and resolve from each importer's nearest in-repository package
 boundary, with explicit dependency contracts for non-standard resolvers.
+If two resolvers require incompatible physical versions at one flattened
+snapshot destination, preparation refuses instead of silently selecting the
+first version.
 Ignored file argv inputs (for example model artifacts) are copied separately.
 The process keeps its declared cwd, while entrypoint-specific output roots are
-the only writable bindings into source-relative snapshot locations.
+the only writable bindings into source-relative snapshot locations. Dynamic
+release outputs remain beneath their fixed output subtree; test outputs remain
+inside the exact Git-common `lamina/work` scratch authority. A root, alias, or
+source-bearing output refuses instead of remounting live source over the frozen
+tree.
+For linked worktrees, the descriptor-copied `.git` pointer remains in the
+frozen worktree. A bounded pack containing the reachable HEAD ancestry plus
+index objects, copied common config/ref metadata, and copied worktree HEAD/index
+are mounted read-only at the original absolute common/worktree Git paths.
+The exact original common `lamina` directory is captured before those mounts
+and rebound writable afterward. This keeps Git and graphd path semantics
+aligned without reading live external gitdir data. Object alternates and config
+includes are never admitted. Inherited `GIT_*` controls are removed, while
+system and global Git config reads are deterministically disabled.
 The same authority descriptor-copies Node, bwrap, the gate scripts, and the
 sandbox launcher/import before systemd launch. The shell and systemd launcher
 remain host-trusted infrastructure; bwrap and later stages execute their staged
 objects, so a post-validation pathname swap cannot choose the sandbox binary.
+The standalone build also receives descriptor-copied `uv` and Node paths;
+replacement of the discovered host `uv` cannot change the launched child.
 Large ignored runtimes are not silently exposed again after the repository
 mount. In particular, eval-suite `.venv-eval` execution is refused with an
 actionable bounded-runtime requirement, while release retrieval evaluation
 must name the already-built repository worker with `--worker`; the uv/project
 venv fallback is outside sealed authority.
+Graphd's managed-daemon exception additionally requires the kernel-observed
+executable inode/owner identity and exact argv to match a snapshotted Node plus
+canonical server, or an exact snapshotted standalone executable. A process-title
+or `--graphd` argv spoof cannot qualify.
 
 Immediately before release the runner revalidates both its frozen preflight
 identity and execution snapshot and writes a durable active-attempt fence. The identity covers the complete
@@ -142,6 +165,10 @@ change which attempt is recorded or promoted. The full identity is checked
 again immediately before the inner quota gate releases the payload. The active fence is cleared only
 after a non-limit success/command failure has a trustworthy final report and
 proven watchdog disarm. A limit or controller crash retains it.
+Tier promotion is rechecked only after snapshot construction and binds the
+source identity to the execution-snapshot digest. A small run using dependency
+or staged-tool bytes A therefore cannot qualify a medium run that discovers
+bytes B under otherwise identical argv and Git source.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under
@@ -201,3 +228,7 @@ prove ownership of descendants created by an external daemon.
   production-refusal contract without claiming enforcement.
 - macOS and Windows cannot claim medium/large qualification until issue #57
   supplies and tests complete native descendant enforcement.
+- Declared persistent output directories are outside the private temporary
+  tmpfs. Their write-through behavior is intentional, but an atomic publication
+  budget and rollback protocol remains separate follow-up work; until then each
+  entrypoint receives only its narrow audited output subtree.
