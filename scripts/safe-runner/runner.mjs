@@ -7,9 +7,10 @@ import { createContext } from './context.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
 import { boundedDirectorySize, removeOwnedDirectory } from './filesystem.mjs';
 import { LinuxSystemdAdapter } from './linux-systemd.mjs';
+import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
-import { existingLaminaProcesses } from './processes.mjs';
+import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
 import { baseReport, finishReport, writeReportWithFallback } from './report.mjs';
 import { acquireConcurrencyLock, recordPromotion } from './state.mjs';
 
@@ -86,9 +87,12 @@ export async function runSafely({
   let activeAdapter = null;
   let stopping = false;
   let highSamples = 0;
+  let previousHighEvents = 0;
   let retainedOutputBytes = 0;
   let launched = false;
   let payloadExitObserved = false;
+  let managedCleanupStartedMs = null;
+  let managedDescendantsFile = null;
   const outputStreams = [];
   const childStreams = [];
   const signalHandlers = new Map();
@@ -109,6 +113,28 @@ export async function runSafely({
         report.cleanup.errors.push(`SIGKILL: ${error.message}`);
       }
     }, report.limits?.graceful_stop_ms || DEFAULTS.gracefulStopMs);
+  };
+
+  const beginManagedCleanup = (classification) => {
+    if (managedCleanupStartedMs !== null) return;
+    managedCleanupStartedMs = Date.now();
+    report.preflight.managed_descendant_cleanup = {
+      role: 'graphd',
+      registered_roots: classification.roots.map((record) => record.pid),
+      descendants: classification.records.map((record) => record.pid),
+      requested_signal: 'SIGTERM',
+    };
+    if (!report.termination.requested_signals.includes('SIGTERM')) {
+      report.termination.requested_signals.push('SIGTERM');
+    }
+    for (const root of classification.roots) {
+      try {
+        signalIdentity({ pid: root.pid, start_ticks: root.start_ticks }, 'SIGTERM');
+      } catch (error) {
+        report.cleanup.errors.push(`managed graphd SIGTERM: ${error.message}`);
+        requestStop('safety_limit_exceeded', 'managed_descendant_cleanup');
+      }
+    }
   };
 
   const sample = () => {
@@ -139,7 +165,19 @@ export async function runSafely({
       requestStop('safety_limit_exceeded', 'pids');
     }
     if (temporary.exceeded) requestStop('safety_limit_exceeded', 'temporary_disk');
-    highSamples = (measured.aggregateRssBytes || 0) >= report.limits.memory_high_bytes ? highSamples + 1 : 0;
+    const highEvents = measured.events?.memory?.high || 0;
+    const newHighEvents = Math.max(0, highEvents - previousHighEvents);
+    previousHighEvents = highEvents;
+    if ((measured.aggregateRssBytes || 0) >= report.limits.memory_high_bytes) {
+      highSamples += 1;
+    } else if (newHighEvents > 0) {
+      // memory.events:high counts kernel throttling/reclaim attempts. Multiple
+      // events are stronger evidence of sustained pressure than a point-in-time
+      // userspace sample, which may observe memory.current after reclaim.
+      highSamples += Math.min(newHighEvents, report.limits.sustained_high_samples);
+    } else {
+      highSamples = 0;
+    }
     if (highSamples >= report.limits.sustained_high_samples) {
       requestStop('safety_limit_exceeded', 'sustained_high_memory');
     }
@@ -208,6 +246,7 @@ export async function runSafely({
     const readyFile = path.join(temporaryDirectory, 'scope.ready');
     const releaseFile = path.join(temporaryDirectory, 'scope.release');
     const payloadExitFile = path.join(temporaryDirectory, 'payload.exit');
+    managedDescendantsFile = path.join(temporaryDirectory, 'managed-descendants.jsonl');
 
     for (const signal of ['SIGINT', 'SIGTERM']) {
       const handler = () => requestStop('interrupted', 'signal');
@@ -316,8 +355,34 @@ export async function runSafely({
           payloadExitObserved = true;
           const measured = activeAdapter.sample();
           const gatePid = report.preflight.scope_proof.gate_pid;
-          if (measured.pids.some((pid) => pid !== gatePid)) {
+          const classification = classifyRemainingDescendants(
+            managedDescendantsFile,
+            measured.records,
+            [gatePid],
+          );
+          if (classification.kind === 'managed_graphd') {
+            beginManagedCleanup(classification);
+          } else if (classification.kind === 'unmanaged') {
+            report.preflight.detached_descendant_observation = {
+              pids: classification.records.map((record) => record.pid),
+              registered_roots: classification.roots.map((record) => record.pid),
+              unmanaged: (classification.unmanaged || classification.records)
+                .map((record) => ({
+                  pid: record.pid,
+                  ppid: record.ppid,
+                  start_ticks: record.start_ticks,
+                  command: record.command,
+                })),
+            };
             requestStop('safety_limit_exceeded', 'detached_descendant');
+          }
+        }
+        if (!stopping && managedCleanupStartedMs !== null
+          && Date.now() - managedCleanupStartedMs >= report.limits.graceful_stop_ms) {
+          const measured = activeAdapter.sample();
+          const gatePid = report.preflight.scope_proof.gate_pid;
+          if (measured.pids.some((pid) => pid !== gatePid)) {
+            requestStop('safety_limit_exceeded', 'managed_descendant_cleanup');
           }
         }
         sample();
@@ -341,7 +406,34 @@ export async function runSafely({
       report.error = errorDetails(ended.error, 'LAMINA_SAFE_SPAWN');
     } else if (!stopping) {
       const measured = sample();
-      if ((measured?.pids || []).length > 0) {
+      const gatePid = report.preflight?.scope_proof?.gate_pid;
+      const classification = classifyRemainingDescendants(
+        managedDescendantsFile,
+        measured?.records || [],
+        gatePid ? [gatePid] : [],
+      );
+      if (classification.kind === 'managed_graphd') {
+        beginManagedCleanup(classification);
+        const deadline = Date.now() + report.limits.graceful_stop_ms;
+        let remaining = activeAdapter.sample();
+        while (Date.now() < deadline
+          && remaining.pids.some((pid) => pid !== gatePid)) {
+          await wait(20);
+          remaining = activeAdapter.sample();
+        }
+        if (remaining.pids.some((pid) => pid !== gatePid)) {
+          requestStop('safety_limit_exceeded', 'managed_descendant_cleanup');
+        } else {
+          report.outcome = ended.code === 0 ? 'success' : 'command_failed';
+          report.termination.reason = ended.code === 0 ? 'completed' : 'command_failed';
+          if (ended.code !== 0) {
+            report.error = {
+              code: 'LAMINA_SAFE_COMMAND_FAILED',
+              message: `command exited with status ${ended.code ?? 'unknown'}`,
+            };
+          }
+        }
+      } else if (classification.kind !== 'empty') {
         requestStop('safety_limit_exceeded', 'detached_descendant');
       } else {
         report.outcome = ended.code === 0 ? 'success' : 'command_failed';
@@ -423,6 +515,16 @@ export async function runSafely({
     report.error = {
       code: 'LAMINA_SAFE_CLEANUP_INCOMPLETE',
       message: 'runner cleanup was not fully verified; this result cannot be promoted or measured',
+    };
+  } else if (report.outcome === 'safety_limit_exceeded' && report.error === null) {
+    report.error = {
+      code: 'LAMINA_SAFE_LIMIT_EXCEEDED',
+      message: `safe runner stopped the command at ${report.termination.limit || 'an enforced limit'}`,
+    };
+  } else if (report.outcome === 'interrupted' && report.error === null) {
+    report.error = {
+      code: 'LAMINA_SAFE_INTERRUPTED',
+      message: 'safe runner received a parent signal and stopped the complete descendant tree',
     };
   }
   finishReport(report, startedMs);

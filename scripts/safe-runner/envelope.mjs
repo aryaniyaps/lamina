@@ -62,6 +62,7 @@ export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() 
 export function hostEnvelope({ cwd = process.cwd(), overrides = {} } = {}) {
   const limits = deriveLimits(overrides);
   const diskTarget = fs.existsSync(cwd) ? cwd : path.dirname(cwd);
+  const temporaryDiskTarget = os.tmpdir();
   return {
     schema: ENVELOPE_SCHEMA,
     inspected_at: new Date().toISOString(),
@@ -72,6 +73,8 @@ export function hostEnvelope({ cwd = process.cwd(), overrides = {} } = {}) {
     available_memory_bytes: availableMemoryBytes(),
     free_disk_bytes: availableDiskBytes(diskTarget),
     disk_target: path.resolve(diskTarget),
+    temporary_free_disk_bytes: availableDiskBytes(temporaryDiskTarget),
+    temporary_disk_target: path.resolve(temporaryDiskTarget),
     limits,
   };
 }

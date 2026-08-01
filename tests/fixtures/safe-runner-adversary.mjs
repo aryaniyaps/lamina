@@ -7,25 +7,27 @@ import { spawn } from 'node:child_process';
 const mode = process.argv[2];
 const hold = () => setInterval(() => {}, 1_000);
 
-if (mode === 'direct-memory') {
+function allocateBounded(blockCount, fill, intervalMs) {
   const blocks = [];
   setInterval(() => {
-    const block = Buffer.alloc(16 * 1024 * 1024, 0x5a);
+    // Keep the interval (and therefore the bounded block array) live so the
+    // allocation remains resident long enough for sustained sampling.
+    if (blocks.length >= blockCount) return;
+    const block = Buffer.alloc(16 * 1024 * 1024, fill);
     for (let index = 0; index < block.length; index += 4096) block[index] = index % 251;
     blocks.push(block);
-  }, 10);
+  }, intervalMs);
+}
+
+if (mode === 'direct-memory') {
+  allocateBounded(12, 0x5a, 10);
 } else if (mode === 'aggregate-memory') {
   for (let index = 0; index < 2; index += 1) {
     spawn(process.execPath, [new URL(import.meta.url).pathname, 'memory-child'], { stdio: 'ignore' });
   }
   hold();
 } else if (mode === 'memory-child') {
-  const blocks = [];
-  setInterval(() => {
-    const block = Buffer.alloc(16 * 1024 * 1024, 0x3c);
-    for (let index = 0; index < block.length; index += 4096) block[index] = index % 199;
-    blocks.push(block);
-  }, 20);
+  allocateBounded(8, 0x3c, 20);
 } else if (mode === 'ignore-term') {
   process.on('SIGTERM', () => {});
   hold();

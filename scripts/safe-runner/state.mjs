@@ -41,6 +41,8 @@ export function runnerBuildDigest() {
     }
   };
   visit(HERE);
+  const graphdClient = path.resolve(HERE, '../../packages/cli/lib/graph-runtime/client.mjs');
+  hash.update('packages/cli/lib/graph-runtime/client.mjs').update(fs.readFileSync(graphdClient));
   return hash.digest('hex');
 }
 

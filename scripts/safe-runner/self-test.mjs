@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { adapterProbe } from './adapter.mjs';
-import { MIB } from './constants.mjs';
+import { MIB, SELF_TEST_CASE_IDS } from './constants.mjs';
 import { runSafely } from './runner.mjs';
+import { baseReport, finishReport, writeReport } from './report.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -27,10 +28,43 @@ function expected(report, outcome, limits = []) {
     && cleanupVerified(report);
 }
 
-export async function runAdversarialSelfTests({ cwd = process.cwd() } = {}) {
-  const probe = adapterProbe();
+export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = adapterProbe() } = {}) {
   const reportDirectory = path.join(stateDirectory(), 'self-tests');
   fs.mkdirSync(reportDirectory, { recursive: true, mode: 0o700 });
+
+  // A portable process group cannot prove ownership of a child that creates a
+  // new session. Refuse host qualification before launching an adversarial
+  // matrix that could leave such a child behind. Individual, deliberately
+  // tiny portable fixtures remain allowlisted for focused contract tests.
+  if (!probe.production_enforcement) {
+    const refusal = {
+      code: 'LAMINA_SAFE_PRODUCTION_ENFORCEMENT_REQUIRED',
+      message: [
+        'full adversarial host qualification requires Linux user-systemd cgroup-v2 enforcement',
+        ...(probe.reasons || []),
+      ].join('; '),
+    };
+    const cases = SELF_TEST_CASE_IDS.map((id) => ({
+      id,
+      passed: false,
+      skipped: true,
+      outcome: 'preflight_refused',
+      cleanup_verified: true,
+      report_digest: digest({ id, refusal }),
+      report: null,
+    }));
+    const attestation = writeAttestation(probe, cases);
+    return {
+      schema: 'lamina.safe-runner-self-test/v1',
+      passed: false,
+      qualified_for_production_tiers: false,
+      adapter: probe,
+      refusal,
+      attestation,
+      cases,
+    };
+  }
+
   const cases = [];
   const baseOverrides = {
     memoryMaxBytes: 192 * MIB,
@@ -137,14 +171,35 @@ export async function runAdversarialSelfTests({ cwd = process.cwd() } = {}) {
     if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
     else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
   }
-  const staleEvidence = { stalePassed, claims: fs.readdirSync(claims) };
+  const staleReportPath = path.join(reportDirectory, 'stale_process_record.json');
+  const staleReport = baseReport({
+    tier: 'small', command: ['internal:stale-process-record'], cwd,
+  });
+  staleReport.report_file = staleReportPath;
+  staleReport.outcome = stalePassed ? 'success' : 'internal_error';
+  staleReport.adapter = probe;
+  staleReport.preflight = { ok: true, deliberately_tiny_self_test: true };
+  staleReport.termination.reason = stalePassed ? 'completed' : 'cleanup_incomplete';
+  staleReport.cleanup = {
+    attempted: true,
+    descendants_remaining: [],
+    scope_removed: true,
+    temporary_directory_removed: true,
+    lock_released: stalePassed,
+    errors: stalePassed ? [] : ['stale concurrency claim was not safely replaced and released'],
+  };
+  staleReport.error = stalePassed ? null : {
+    code: 'LAMINA_SAFE_STALE_LOCK', message: staleReport.cleanup.errors[0],
+  };
+  finishReport(staleReport, Date.now());
+  writeReport(staleReportPath, staleReport);
   cases.push({
     id: 'stale_process_record',
     passed: stalePassed,
-    outcome: 'cleanup_verified',
+    outcome: staleReport.outcome,
     cleanup_verified: stalePassed,
-    report_digest: digest(staleEvidence),
-    report: null,
+    report_digest: digest(staleReport),
+    report: staleReportPath,
   });
 
   await runCase({

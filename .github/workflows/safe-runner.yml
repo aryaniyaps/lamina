@@ -1,0 +1,105 @@
+name: Crash-safe runner
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/safe-runner/**'
+      - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'tests/safe_runner_test.mjs'
+      - 'tests/safe_runner_integration_test.mjs'
+      - 'tests/safe_runner_entrypoints_test.mjs'
+      - 'tests/fixtures/safe-runner-adversary.mjs'
+      - 'tests/fixtures/safe-runner-graphd-client.mjs'
+      - 'tests/fixtures/graph-runtime/**'
+      - 'docs/content/advanced/safe-runner.mdx'
+      - 'docs/decisions/014-crash-safe-resource-supervision.md'
+      - 'package.json'
+      - 'benchmarks/retrieval-v1/benchmark.mjs'
+      - 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'
+      - 'benchmarks/lb6/pilot/scripts/build-runtime.mjs'
+      - 'evals/scripts/invoke-agent.mjs'
+      - 'evals/scripts/run-suite.mjs'
+      - 'evals/scripts/vendor-*-fixture.mjs'
+      - '.github/workflows/publish-cli.yml'
+      - 'README.md'
+      - '.gitignore'
+      - '.github/workflows/safe-runner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/safe-runner/**'
+      - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'tests/safe_runner_test.mjs'
+      - 'tests/safe_runner_integration_test.mjs'
+      - 'tests/safe_runner_entrypoints_test.mjs'
+      - 'tests/fixtures/safe-runner-adversary.mjs'
+      - 'tests/fixtures/safe-runner-graphd-client.mjs'
+      - 'tests/fixtures/graph-runtime/**'
+      - 'docs/content/advanced/safe-runner.mdx'
+      - 'docs/decisions/014-crash-safe-resource-supervision.md'
+      - 'package.json'
+      - 'benchmarks/retrieval-v1/benchmark.mjs'
+      - 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs'
+      - 'benchmarks/lb6/pilot/scripts/build-runtime.mjs'
+      - 'evals/scripts/invoke-agent.mjs'
+      - 'evals/scripts/run-suite.mjs'
+      - 'evals/scripts/vendor-*-fixture.mjs'
+      - '.github/workflows/publish-cli.yml'
+      - 'README.md'
+      - '.gitignore'
+      - '.github/workflows/safe-runner.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  low-limit-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LAMINA_SAFE_RUNNER_STATE_DIR: ${{ runner.temp }}/lamina-safe-runner-state
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+
+      - name: Static and focused contract tests
+        run: npm run test:safe-runner
+
+      - name: Low-limit adversarial self-test
+        run: npm run safe:self-test -- --require-production
+
+      - name: Refuse leftover adversarial descendants
+        if: always()
+        shell: bash
+        run: |
+          if pgrep -af '[s]afe-runner-adversary|[l]amina-safe-' > "$RUNNER_TEMP/leftovers.txt"; then
+            cat "$RUNNER_TEMP/leftovers.txt"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safe-runner-low-limit-reports
+          path: ${{ runner.temp }}/lamina-safe-runner-state
+
+  portable-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+      - name: Portable interface and production refusal contracts
+        run: node tests/safe_runner_test.mjs

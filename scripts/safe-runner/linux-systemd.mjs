@@ -101,11 +101,14 @@ export class LinuxSystemdAdapter {
     if (!cgroup) return { aggregateRssBytes: 0, taskCount: 0, pids: [], records: [], events: {} };
     const pids = cgroupPids(cgroup);
     const records = pids.map(processRecord).filter(Boolean);
-    const processRss = records.reduce((sum, record) => sum + record.rss_bytes, 0);
     const cgroupCurrent = readNumber(path.join(cgroup, 'memory.current'));
     return {
-      aggregateRssBytes: Math.max(cgroupCurrent, processRss),
-      aggregatePeakBytes: Math.max(readNumber(path.join(cgroup, 'memory.peak')), processRss),
+      // memory.current/peak are the authoritative non-double-counted aggregate
+      // for the complete scope. Per-process RSS remains in `records` for
+      // diagnostics and must not be summed as shared pages would be counted
+      // once per process.
+      aggregateRssBytes: cgroupCurrent,
+      aggregatePeakBytes: readNumber(path.join(cgroup, 'memory.peak')),
       cgroupMemoryCurrentBytes: cgroupCurrent,
       taskCount: readNumber(path.join(cgroup, 'pids.current')),
       pids,

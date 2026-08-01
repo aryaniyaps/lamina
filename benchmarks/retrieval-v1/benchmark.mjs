@@ -4,17 +4,17 @@ import { performance } from 'node:perf_hooks';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
-import {
-  bm25Ranking,
-  classifyWorkflowOutcome,
-  denseRanking,
-  hybridRanking,
-} from '../../packages/cli/lib/retrieval-runtime/store.mjs';
 import { retrievalFixture } from './fixtures.mjs';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const fixture = retrievalFixture();
 const evaluate = process.argv.includes('--evaluate');
 const calibrate = process.argv.includes('--calibrate');
+if (evaluate || calibrate) {
+  assertSafeRunnerContext('retrieval benchmark evaluation', {
+    minimumTier: evaluate ? 'medium' : 'small',
+  });
+}
 if (!evaluate && !calibrate) {
   const heldOutWorkflow = fixture.workflowQueries.filter((item) => item.split === 'held_out');
   const heldOutSource = fixture.sourceQueries.filter((item) => item.split === 'held_out');
@@ -50,6 +50,13 @@ const modelDigest = argument('--model-digest') || process.env.LAMINA_RETRIEVAL_M
 if (!model || !tokenizer || !modelDigest) {
   throw new Error('--evaluate requires model, tokenizer, and model digest inputs.');
 }
+
+const {
+  bm25Ranking,
+  classifyWorkflowOutcome,
+  denseRanking,
+  hybridRanking,
+} = await import('../../packages/cli/lib/retrieval-runtime/store.mjs');
 
 function invocation() {
   if (worker) return { command: path.resolve(worker), args: ['retrieval', 'serve'] };

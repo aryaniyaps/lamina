@@ -19,6 +19,7 @@ import {
 } from '../lib/constants.mjs';
 import { loadSkillBundleManifest, resolveHarnessGitProvenance, resolveStagedSkillPaths } from '../lib/skill-bundle.mjs';
 import { validateSemanticRows } from '../lib/semantic-measurement.mjs';
+import { assertSafeRunnerContext } from '../../../../scripts/safe-runner/context.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
@@ -1203,6 +1204,7 @@ function assertNoForbiddenClaims(text) {
 export async function main(argv = process.argv.slice(2), options = {}) {
   const root = options.root || DEFAULT_ROOT;
   const dryRun = hasFlag(argv, '--dry-run');
+  if (!dryRun) assertSafeRunnerContext('LB6 three-arm campaign', { minimumTier: 'medium' });
   const skipPackageScripts = hasFlag(argv, '--skip-package-scripts');
   const allowDirtyHarness = hasFlag(argv, '--allow-dirty-harness');
   const concurrencyFlag = readFlag(argv, '--concurrency', undefined);

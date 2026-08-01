@@ -15,12 +15,15 @@ export function createContext(directory, { runId, tier, adapter, unit }) {
     token,
   };
   fs.writeFileSync(file, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+  const managedDescendants = path.join(directory, 'managed-descendants.jsonl');
+  fs.writeFileSync(managedDescendants, '', { mode: 0o600 });
   return {
     value,
     environment: {
       LAMINA_SAFE_RUNNER_CONTEXT: file,
       LAMINA_SAFE_RUNNER_TOKEN: token,
       LAMINA_SAFE_RUNNER_TIER: tier,
+      LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS: managedDescendants,
     },
   };
 }

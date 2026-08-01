@@ -23,6 +23,7 @@ const HELP = `Usage:
 Downward-only limit overrides:
   --memory-mib N --memory-high-mib N --pids N --timeout-ms N
   --output-mib N --temporary-mib N --sample-ms N --high-samples N --grace-ms N
+  --promote records a tier only after success and fully verified cleanup
 
 Medium and large runs fail closed unless Linux user-systemd/cgroup-v2 enforcement,
 a current passing host attestation, sequential tier promotion, and concurrency=1 are proven.
@@ -91,7 +92,8 @@ async function main() {
     const cwd = cwdIndex === -1 ? process.cwd() : path.resolve(take(args, cwdIndex, '--cwd'));
     const result = await runAdversarialSelfTests({ cwd });
     print(result);
-    return result.passed ? 0 : 1;
+    const requireProduction = args.includes('--require-production');
+    return result.passed && (!requireProduction || result.qualified_for_production_tiers) ? 0 : 1;
   }
   if (subcommand === 'validate-report') {
     const fileIndex = args.indexOf('--file');

@@ -45,6 +45,25 @@ function graphdEnvironment() {
   };
 }
 
+export function registerManagedGraphd(child) {
+  const registry = process.env.LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS;
+  if (process.platform !== 'linux' || !registry || !process.env.LAMINA_SAFE_RUNNER_TOKEN) return;
+  let startTicks = null;
+  try {
+    const stat = fs.readFileSync(`/proc/${child.pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    startTicks = stat.slice(close + 2).trim().split(/\s+/)[19] || null;
+  } catch {}
+  if (!startTicks) return;
+  const record = {
+    schema: 'lamina.safe-runner-managed-descendant/v1',
+    role: 'graphd',
+    pid: child.pid,
+    start_ticks: startTicks,
+  };
+  try { fs.appendFileSync(registry, `${JSON.stringify(record)}\n`, { mode: 0o600 }); } catch {}
+}
+
 export function exchange(socketPath, payload, timeout = 60_000) {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath);
@@ -176,6 +195,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
       cwd: paths.root,
       env: graphdEnvironment(),
     });
+    registerManagedGraphd(child);
   } finally {
     if (log !== null) fs.closeSync(log);
   }

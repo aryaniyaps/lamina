@@ -11,10 +11,12 @@ if [ "$#" -eq 0 ]; then
   exit 125
 fi
 
-printf '{"pid":%s,"ready_at":"%s"}\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$ready_file"
-while [ ! -f "$release_file" ]; do
-  sleep 0.02
-done
+rm -f "$release_file"
+mkfifo -m 600 "$release_file"
+printf '{"pid":%s}\n' "$$" > "$ready_file"
+trap 'exit 143' TERM
+trap 'exit 130' INT
+IFS= read -r _release < "$release_file"
 
 "$@" &
 payload_pid=$!

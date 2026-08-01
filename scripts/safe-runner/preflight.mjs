@@ -69,6 +69,10 @@ export function preflightRun({
     && envelope.free_disk_bytes < envelope.limits.minimum_free_disk_bytes) {
     reasons.push('free disk is below max(5 GiB, twice the declared temporary budget)');
   }
+  if (envelope.temporary_free_disk_bytes !== null
+    && envelope.temporary_free_disk_bytes < envelope.limits.minimum_free_disk_bytes) {
+    reasons.push('runner temporary filesystem is below max(5 GiB, twice the declared temporary budget)');
+  }
   if (!adapterInfo.production_enforcement && !tinySelfTest) {
     reasons.push(
       'aggregate enforcement is unavailable; only the built-in deliberately tiny self-test allowlist may use the portable adapter',
@@ -77,7 +81,7 @@ export function preflightRun({
   if (production && !adapterInfo.production_enforcement) {
     reasons.push('medium/large execution requires Linux user-systemd cgroup-v2 aggregate enforcement');
   }
-  if (production && !ownership.proven) reasons.push(ownership.reason);
+  if (!ownership.proven) reasons.push(ownership.reason);
   const existing = injectedExistingProcesses ?? existingLaminaProcesses();
   const attestation = readAttestation(adapterInfo);
   const promotion = checkPromotion(cwd, tier);
@@ -87,7 +91,7 @@ export function preflightRun({
   if (production && !promotion.ok) {
     reasons.push(`tier promotion requires successful cleanup for: ${promotion.missing.join(', ')}`);
   }
-  if (production && existing.length) {
+  if (existing.length) {
     reasons.push(`existing Lamina processes must stop before launch: ${existing.map((item) => item.pid).join(', ')}`);
   }
   return {
