@@ -1,20 +1,15 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
-import { trustedHostBinary } from './infrastructure.mjs';
+import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
 const MAX_GIT_OBJECTS = 262_144;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const GIT_ENVIRONMENT = Object.freeze({
-  PATH: '/usr/bin:/bin', HOME: '/nonexistent', GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: '/dev/null', LANG: 'C', LC_ALL: 'C',
-});
 
 export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, currentBytes = 0) {
   if (!Number.isSafeInteger(objectCount) || objectCount < 0 || objectCount > MAX_GIT_OBJECTS
@@ -25,11 +20,6 @@ export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, cur
   }
   return true;
 }
-let cachedGit = null;
-const gitExecutable = () => {
-  cachedGit ||= trustedHostBinary('git').path;
-  return cachedGit;
-};
 const EXPLICIT_ENTRYPOINT_DEPENDENCIES = new Map([
   ['scripts/build-standalone-cli.mjs', [
     { name: 'postject', resolver: 'package.json', destination: 'node_modules' },
@@ -111,18 +101,18 @@ function copyPhysicalFile(source, destination, executable = false) {
 }
 
 function repositoryRoot(cwd) {
-  const result = spawnSync(gitExecutable(), ['rev-parse', '--show-toplevel'], {
-    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
-    maxBuffer: 64 * 1024, env: GIT_ENVIRONMENT,
+  const result = spawnTrustedGit(cwd, ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
+    maxBuffer: 64 * 1024,
   });
   if (result.status !== 0) throw new Error('execution snapshot requires a Git worktree');
   return fs.realpathSync.native(String(result.stdout).trim());
 }
 
 function gitOutput(repository, args, { input = undefined, maxBuffer = 16 * 1024 * 1024 } = {}) {
-  const result = spawnSync(gitExecutable(), args, {
-    cwd: repository, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 15_000, maxBuffer, env: GIT_ENVIRONMENT,
+  const result = spawnTrustedGit(repository, args, {
+    input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 15_000, maxBuffer,
   });
   if (result.status !== 0) {
     throw new Error(`cannot construct sealed Git authority: ${String(result.stderr || '').trim()}`);
@@ -131,10 +121,10 @@ function gitOutput(repository, args, { input = undefined, maxBuffer = 16 * 1024 
 }
 
 function gitBuffer(repository, args, { input = undefined, maxBuffer = MAX_BYTES,
-  environment = {} } = {}) {
-  const result = spawnSync(gitExecutable(), args, {
-    cwd: repository, input, encoding: null, stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 30_000, maxBuffer, env: { ...GIT_ENVIRONMENT, ...environment },
+  objectDirectory = null } = {}) {
+  const result = spawnTrustedGit(repository, args, {
+    input, encoding: null, stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 30_000, maxBuffer, objectDirectory,
   });
   if (result.status !== 0) {
     throw new Error(`cannot construct sealed Git authority: ${String(result.stderr || '').trim()}`);
@@ -215,9 +205,9 @@ function gitAuthority(repository) {
 }
 
 function repositoryFiles(root) {
-  const result = spawnSync(gitExecutable(), ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
-    cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5_000,
-    maxBuffer: 16 * 1024 * 1024, env: GIT_ENVIRONMENT,
+  const result = spawnTrustedGit(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5_000,
+    maxBuffer: 16 * 1024 * 1024,
   });
   if (result.status !== 0) throw new Error('cannot enumerate the bounded execution source snapshot');
   const files = String(result.stdout).split('\0').filter(Boolean).sort();
@@ -483,12 +473,9 @@ export function prepareExecutionSnapshot({
       throw new Error('descriptor-copied commondir escapes Git common authority');
     }
   }
-  const configSource = path.join(sourceGit.common, 'config');
-  copyGitFile(configSource, path.join(gitCommonSnapshot, 'config'), 'common/config');
-  const configText = fs.readFileSync(path.join(gitCommonSnapshot, 'config'), 'utf8');
-  if (/^\s*\[include(?:If)?\b/im.test(configText) || /^\s*worktree\s*=/im.test(configText)) {
-    throw new Error('execution Git config contains an external include or worktree path');
-  }
+  const objectFormat = gitOutput(repository, ['rev-parse', '--show-object-format']);
+  writeGitFile(path.join(gitCommonSnapshot, 'config'),
+    inertRepositoryConfig({ objectFormat }), 'common/config');
   copyGitFile(path.join(sourceGit.common, 'shallow'), path.join(gitCommonSnapshot, 'shallow'),
     'common/shallow', true);
   copyGitFile(path.join(sourceGit.common, 'info', 'exclude'),
@@ -498,17 +485,10 @@ export function prepareExecutionSnapshot({
     copyGitFile(path.join(sourceGit.gitDirectory, name), path.join(gitWorktreeSnapshot, name),
       `worktree/${name}`);
   }
-  for (const name of ['HEAD', 'index', 'config.worktree', 'MERGE_HEAD', 'CHERRY_PICK_HEAD',
+  for (const name of ['HEAD', 'index', 'MERGE_HEAD', 'CHERRY_PICK_HEAD',
     'REVERT_HEAD', 'BISECT_LOG', 'AUTO_MERGE']) {
     copyGitFile(path.join(sourceGit.gitDirectory, name), path.join(gitWorktreeSnapshot, name),
       `worktree/${name}`, name !== 'HEAD');
-  }
-  const sealedWorktreeConfig = path.join(gitWorktreeSnapshot, 'config.worktree');
-  if (fs.existsSync(sealedWorktreeConfig)) {
-    const value = fs.readFileSync(sealedWorktreeConfig, 'utf8');
-    if (/^\s*\[include(?:If)?\b/im.test(value) || /^\s*worktree\s*=/im.test(value)) {
-      throw new Error('execution Git worktree config contains an external include or worktree path');
-    }
   }
   copyGitFile(path.join(sourceGit.gitDirectory, 'info', 'sparse-checkout'),
     path.join(gitWorktreeSnapshot, 'info', 'sparse-checkout'), 'worktree/info/sparse-checkout', true);
@@ -554,7 +534,7 @@ export function prepareExecutionSnapshot({
     }
     gitBuffer(repository, ['index-pack', '--stdin'], {
       input: pack, maxBuffer: 64 * 1024,
-      environment: { GIT_OBJECT_DIRECTORY: path.join(gitCommonSnapshot, 'objects') },
+      objectDirectory: path.join(gitCommonSnapshot, 'objects'),
     });
     for (const name of fs.readdirSync(packDirectory).sort()) {
       recordGeneratedFile(path.join(packDirectory, name), `common/objects/pack/${name}`);

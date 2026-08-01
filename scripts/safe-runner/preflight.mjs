@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import {
   DEFAULTS,
   PRODUCTION_TIERS,
@@ -14,6 +13,7 @@ import {
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
+import { spawnTrustedGit } from './git.mjs';
 import {
   checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
   readAttestation, stateDirectory,
@@ -63,10 +63,14 @@ export function writableWorktreeProof(cwd, protectedPaths = [stateDirectory(), p
       && (typeof process.getuid !== 'function' || stat.uid === process.getuid());
   } catch {}
   const sensitive = SENSITIVE_WRITABLE_ROOTS.some((candidate) => resolved === candidate);
-  const git = spawnSync('git', ['rev-parse', '--show-toplevel'], {
-    cwd: resolved, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000,
-    maxBuffer: 64 * 1024,
-  });
+  let git = { status: null, stdout: '' };
+  let gitConfigError = null;
+  try {
+    git = spawnTrustedGit(resolved, ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000,
+      maxBuffer: 64 * 1024,
+    });
+  } catch (error) { gitConfigError = error; }
   let worktree = null;
   try { worktree = fs.realpathSync.native(String(git.stdout || '').trim()); } catch {}
   const insideWorktree = git.status === 0 && worktree
@@ -80,6 +84,7 @@ export function writableWorktreeProof(cwd, protectedPaths = [stateDirectory(), p
     protected_path_overlap: overlap,
     reason: sensitive ? 'writable cwd cannot be a host-sensitive root'
       : !physical ? 'writable cwd must be a same-user physical directory without symlink indirection'
+      : gitConfigError ? `writable cwd has unsafe Git authority: ${gitConfigError.message}`
       : !insideWorktree ? 'writable cwd must be a physical Git worktree surface'
         : overlap ? 'writable cwd overlaps runner authority state' : null,
   };

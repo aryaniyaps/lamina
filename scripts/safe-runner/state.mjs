@@ -13,6 +13,7 @@ import {
 import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
+import { spawnTrustedGit } from './git.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -238,21 +239,22 @@ export function repositorySourceDigest(cwd, {
   maxUntrackedBytes = 64 * 1024 * 1024,
   maxUntrackedFiles = 4_096,
 } = {}) {
-  const root = spawnSync('git', ['rev-parse', '--show-toplevel'], {
-    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000, maxBuffer: 64 * 1024,
+  const root = spawnTrustedGit(cwd, ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000, maxBuffer: 64 * 1024,
   });
   if (root.status !== 0 || !String(root.stdout || '').trim()) return null;
   const repository = String(root.stdout).trim();
-  const tree = spawnSync('git', ['rev-parse', 'HEAD^{tree}'], {
-    cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
+  const tree = spawnTrustedGit(repository, ['rev-parse', 'HEAD^{tree}'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
     maxBuffer: 64 * 1024,
   });
-  const changes = spawnSync('git', ['diff', '--binary', '--no-ext-diff', 'HEAD', '--', '.'], {
-    cwd: repository, encoding: null, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000,
+  const changes = spawnTrustedGit(repository,
+    ['diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--', '.'], {
+    encoding: null, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000,
     maxBuffer: 64 * 1024 * 1024,
   });
-  const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
-    cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
+  const untracked = spawnTrustedGit(repository, ['ls-files', '--others', '--exclude-standard', '-z'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3_000,
     maxBuffer: 8 * 1024 * 1024,
   });
   if (tree.status !== 0 || changes.status !== 0 || untracked.status !== 0) return null;

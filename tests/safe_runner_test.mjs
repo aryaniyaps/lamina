@@ -757,6 +757,25 @@ try {
   linkedGit(linkedWorktree, ['add', 'entry.mjs']);
   const linkedHeadBefore = linkedGit(linkedWorktree, ['rev-parse', 'HEAD']);
   const linkedHistoryBefore = linkedGit(linkedWorktree, ['rev-list', 'HEAD']);
+  const fsmonitorSentinel = path.join(linkedBase, 'fsmonitor-executed');
+  const hostileFsmonitor = path.join(linkedBase, 'hostile-fsmonitor.sh');
+  fs.writeFileSync(hostileFsmonitor,
+    `#!/bin/sh\ntouch ${JSON.stringify(fsmonitorSentinel)}\nexit 1\n`, { mode: 0o700 });
+  linkedGit(linkedWorktree, ['config', 'core.fsmonitor', hostileFsmonitor]);
+  linkedGit(linkedWorktree, ['config', 'core.hooksPath', path.join(linkedBase, 'hostile-hooks')]);
+  linkedGit(linkedWorktree, ['config', 'credential.helper', '!false']);
+  fs.rmSync(fsmonitorSentinel, { force: true });
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-linked-hostile-config'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  }), /executable Git (?:setting|section)/,
+  'repository-local executable config must refuse before any Git subprocess runs');
+  assert.equal(fs.existsSync(fsmonitorSentinel), false);
+  linkedGit(linkedWorktree, ['config', '--unset-all', 'core.fsmonitor']);
+  linkedGit(linkedWorktree, ['config', '--unset-all', 'core.hooksPath']);
+  linkedGit(linkedWorktree, ['config', '--unset-all', 'credential.helper']);
+  fs.rmSync(fsmonitorSentinel, { force: true });
   const linkedSnapshot = prepareExecutionSnapshot({
     cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
     temporaryDirectory: path.join(root, 'snapshot-linked'),
@@ -771,6 +790,12 @@ try {
     item.kind === 'git-worktree');
   assert.equal(linkedCommonBinding.target, runtimePaths(linkedWorktree).common);
   assert.ok(linkedWorktreeBinding.source.startsWith(`${linkedCommonBinding.source}${path.sep}`));
+  const sealedConfig = fs.readFileSync(path.join(linkedCommonBinding.source, 'config'), 'utf8');
+  assert.match(sealedConfig, /^\s*fsmonitor = false$/m);
+  assert.doesNotMatch(sealedConfig, /hostile|credential|include|sshcommand/i,
+    'sealed Git authority must synthesize inert structural config, never copy executable config');
+  assert.equal(fs.existsSync(fsmonitorSentinel), false,
+    'execution snapshot Git reads must never execute repository-local fsmonitor');
   const sealedGit = (args) => linkedGit(linkedSnapshot.snapshot_repository, [
     `--git-dir=${linkedWorktreeBinding.source}`,
     `--work-tree=${linkedSnapshot.snapshot_repository}`,
@@ -837,7 +862,7 @@ try {
   assert.throws(() => prepareExecutionSnapshot({
     cwd: linkedWorktree, command: ['/bin/sh', path.join(linkedWorktree, 'entry.mjs')],
     temporaryDirectory: path.join(root, 'snapshot-linked-include'),
-  }), /external include or worktree path/);
+  }), /executable Git section include/);
   }
 
   fs.symlinkSync('/etc/passwd', path.join(snapshotRepository, 'escape.mjs'));
@@ -1446,6 +1471,45 @@ try {
     '-c', 'user.name=Safe Runner Test', '-c', 'user.email=safe-runner@example.invalid',
     'commit', '--quiet', '-m', 'fixture',
   ], { cwd: sourceRepository }).status, 0);
+  if (process.platform === 'linux') {
+    const hostilePath = path.join(sourceRepository, 'hostile-path');
+    const pathGitSentinel = path.join(sourceRepository, 'path-git-executed');
+    const localFsmonitorSentinel = path.join(sourceRepository, 'local-fsmonitor-executed');
+    const localFsmonitor = path.join(sourceRepository, 'local-fsmonitor.sh');
+    fs.mkdirSync(hostilePath);
+    fs.writeFileSync(path.join(hostilePath, 'git'),
+      `#!/bin/sh\ntouch ${JSON.stringify(pathGitSentinel)}\nexit 99\n`, { mode: 0o700 });
+    fs.writeFileSync(localFsmonitor,
+      `#!/bin/sh\ntouch ${JSON.stringify(localFsmonitorSentinel)}\nexit 1\n`, { mode: 0o700 });
+    assert.equal(spawnSync('/usr/bin/git', ['config', 'core.fsmonitor', localFsmonitor], {
+      cwd: sourceRepository,
+    }).status, 0);
+    const originalPath = process.env.PATH;
+    process.env.PATH = hostilePath;
+    try {
+      const unsafeGitProof = writableWorktreeProof(sourceRepository, []);
+      assert.equal(unsafeGitProof.ok, false);
+      assert.match(unsafeGitProof.reason, /unsafe Git authority.*core\.fsmonitor/);
+      assert.throws(() => repositorySourceDigest(sourceRepository), /core\.fsmonitor/);
+      assert.equal(fs.existsSync(pathGitSentinel), false);
+      assert.equal(fs.existsSync(localFsmonitorSentinel), false);
+      spawnSync('/usr/bin/git', ['config', '--unset-all', 'core.fsmonitor'], {
+        cwd: sourceRepository,
+      });
+      assert.equal(writableWorktreeProof(sourceRepository, []).ok, true);
+      assert.match(repositorySourceDigest(sourceRepository), /^[a-f0-9]{64}$/);
+    } finally {
+      process.env.PATH = originalPath;
+    }
+    assert.equal(fs.existsSync(pathGitSentinel), false,
+      'controller Git must never resolve through inherited PATH');
+    assert.equal(fs.existsSync(localFsmonitorSentinel), false,
+      'controller Git must force repository-local fsmonitor execution off');
+    fs.rmSync(pathGitSentinel, { force: true });
+    fs.rmSync(localFsmonitorSentinel, { force: true });
+    fs.rmSync(localFsmonitor, { force: true });
+    fs.rmSync(hostilePath, { recursive: true, force: true });
+  }
   const sourceBefore = repositorySourceDigest(sourceRepository);
   const frozenA = frozenWorkloadIdentity(sourceRepository, [process.execPath, 'entry.mjs']);
   assert.equal(frozenA.executable.path, fs.realpathSync.native(process.execPath));
