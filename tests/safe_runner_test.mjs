@@ -549,6 +549,70 @@ try {
     '{"name":"tiny-dep","main":"index.js"}\n');
   fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep', 'index.js'),
     "module.exports = 'dependency sealed ';\n");
+  const writeSyntheticPackage = (relative, manifest, source) => {
+    const directory = path.join(snapshotRepository, 'node_modules', relative);
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'package.json'), `${JSON.stringify({
+      main: 'index.js', ...manifest,
+    })}\n`);
+    fs.writeFileSync(path.join(directory, 'index.js'), source);
+    return directory;
+  };
+  const parentA = writeSyntheticPackage('parent-a', {
+    name: 'parent-a', dependencies: { 'shared-dep': '1.0.0' },
+    optionalDependencies: { 'platform-opt': '1.0.0', 'missing-opt': '1.0.0' },
+    peerDependencies: { 'peer-lib': '1.0.0' },
+  }, "module.exports = `a:${require('shared-dep')}:${require('peer-lib')}:${require('platform-opt')}`;\n");
+  const parentB = writeSyntheticPackage('parent-b', {
+    name: 'parent-b', dependencies: { 'shared-dep': '2.0.0', '@scope/tool': '1.0.0' },
+  }, "module.exports = `b:${require('shared-dep')}:${require('@scope/tool')}`;\n");
+  fs.symlinkSync(path.join(parentA, 'index.js'), path.join(parentA, 'absolute-internal-link.js'));
+  const writeNestedPackage = (parent, relative, manifest, source) => {
+    const directory = path.join(parent, 'node_modules', ...relative.split('/'));
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'package.json'), `${JSON.stringify({
+      main: 'index.js', ...manifest,
+    })}\n`);
+    fs.writeFileSync(path.join(directory, 'index.js'), source);
+    return directory;
+  };
+  writeNestedPackage(parentA, 'shared-dep', { name: 'shared-dep', version: '1.0.0' },
+    "module.exports = 'shared-v1';\n");
+  writeNestedPackage(parentA, 'platform-opt', { name: 'platform-opt', version: '1.0.0' },
+    "module.exports = 'platform';\n");
+  writeNestedPackage(parentB, 'shared-dep', { name: 'shared-dep', version: '2.0.0' },
+    "module.exports = 'shared-v2';\n");
+  writeSyntheticPackage('peer-lib', { name: 'peer-lib', version: '1.0.0' },
+    "module.exports = 'peer';\n");
+  writeSyntheticPackage('@scope/tool', { name: '@scope/tool', version: '1.0.0' },
+    "module.exports = 'scoped';\n");
+
+  const pnpmStore = path.join(snapshotRepository, 'node_modules', '.pnpm');
+  const pnpmParent = path.join(pnpmStore, 'pnpm-parent@1.0.0', 'node_modules', 'pnpm-parent');
+  const pnpmDependency = path.join(pnpmStore, 'contained-dep@1.0.0', 'node_modules',
+    'contained-dep');
+  fs.mkdirSync(pnpmParent, { recursive: true });
+  fs.mkdirSync(pnpmDependency, { recursive: true });
+  fs.writeFileSync(path.join(pnpmParent, 'package.json'),
+    '{"name":"pnpm-parent","main":"index.js","dependencies":{"contained-dep":"1.0.0"}}\n');
+  fs.writeFileSync(path.join(pnpmParent, 'index.js'),
+    "module.exports = `pnpm:${require('contained-dep')}`;\n");
+  fs.writeFileSync(path.join(pnpmDependency, 'package.json'),
+    '{"name":"contained-dep","main":"index.js","version":"1.0.0"}\n');
+  fs.writeFileSync(path.join(pnpmDependency, 'index.js'), "module.exports = 'contained';\n");
+  fs.symlinkSync(path.relative(path.dirname(path.join(pnpmStore, 'pnpm-parent@1.0.0',
+    'node_modules', 'contained-dep')), pnpmDependency), path.join(pnpmStore,
+  'pnpm-parent@1.0.0', 'node_modules', 'contained-dep'), 'dir');
+  fs.symlinkSync(path.relative(path.join(snapshotRepository, 'node_modules'), pnpmParent),
+    path.join(snapshotRepository, 'node_modules', 'pnpm-parent'), 'dir');
+
+  fs.writeFileSync(path.join(snapshotRepository, 'resolution.mjs'), [
+    "import parentA from 'parent-a';",
+    "import parentB from 'parent-b';",
+    "import pnpmParent from 'pnpm-parent';",
+    'export default `${parentA}|${parentB}|${pnpmParent}`;',
+    '',
+  ].join('\n'));
   fs.mkdirSync(path.join(snapshotRepository, 'dist'));
   const ignoredModel = path.join(snapshotRepository, 'dist', 'model.bin');
   fs.writeFileSync(ignoredModel, 'sealed model bytes');
@@ -564,16 +628,85 @@ try {
   });
   assert.equal(snapshotOne.digest, snapshotTwo.digest,
     'execution snapshot digest must not depend on its random destination');
+  const resolutionSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'resolution.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-package-resolution'),
+  });
+  const sealedResolution = spawnSync(process.execPath, ['--input-type=module', '--eval',
+    `const value = (await import(${JSON.stringify(`file://${path.join(
+      resolutionSnapshot.snapshot_repository, 'resolution.mjs')}`)})).default; process.stdout.write(value);`], {
+    cwd: resolutionSnapshot.snapshot_repository, encoding: 'utf8',
+  });
+  assert.equal(sealedResolution.status, 0, sealedResolution.stderr);
+  assert.equal(sealedResolution.stdout,
+    'a:shared-v1:peer:platform|b:shared-v2:scoped|pnpm:contained',
+  'sealed package links must preserve incompatible nested versions, peers, optionals, scopes, and pnpm roots');
+  for (const packageName of ['parent-a', 'parent-b', 'pnpm-parent']) {
+    const logical = path.join(resolutionSnapshot.snapshot_repository, 'node_modules', packageName);
+    assert.equal(fs.lstatSync(logical).isSymbolicLink(), true);
+    assert.ok(fs.realpathSync.native(logical).startsWith(path.join(
+      resolutionSnapshot.snapshot_repository, 'node_modules', '.lamina-sealed') + path.sep),
+    'logical package links must terminate inside the sealed snapshot store');
+  }
+  const sealedParentA = fs.realpathSync.native(path.join(resolutionSnapshot.snapshot_repository,
+    'node_modules', 'parent-a'));
+  const sealedInternalLink = path.join(sealedParentA, 'absolute-internal-link.js');
+  assert.equal(fs.lstatSync(sealedInternalLink).isSymbolicLink(), true);
+  assert.ok(fs.realpathSync.native(sealedInternalLink).startsWith(`${sealedParentA}${path.sep}`),
+    'copied package symlinks must be rewritten to sealed relative targets, never live absolute paths');
+  assert.equal(fs.existsSync(path.join(sealedParentA, 'node_modules', 'missing-opt')), false,
+    'an absent optional platform dependency must remain absent without failing the snapshot');
+  fs.writeFileSync(path.join(parentA, 'node_modules', 'shared-dep', 'index.js'),
+    "module.exports = 'live-mutated';\n");
+  const isolatedResolution = spawnSync(process.execPath, ['--input-type=module', '--eval',
+    `const value = (await import(${JSON.stringify(`file://${path.join(
+      resolutionSnapshot.snapshot_repository, 'resolution.mjs')}`)})).default; process.stdout.write(value);`], {
+    cwd: resolutionSnapshot.snapshot_repository, encoding: 'utf8',
+  });
+  assert.equal(isolatedResolution.stdout,
+    'a:shared-v1:peer:platform|b:shared-v2:scoped|pnpm:contained',
+  'later mutation of a live nested dependency must not alter sealed logical resolution');
+
+  const missingPeer = writeSyntheticPackage('missing-peer-parent', {
+    name: 'missing-peer-parent', peerDependencies: { 'required-missing-peer': '1.0.0' },
+  }, "module.exports = 'unreachable';\n");
+  fs.writeFileSync(path.join(snapshotRepository, 'missing-peer.mjs'),
+    "import value from 'missing-peer-parent'; export default value;\n");
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'missing-peer.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-missing-peer'),
+  }), /cannot resolve installed execution dependency: required-missing-peer/,
+  'a required peer must fail closed when it is not installed');
+  assert.ok(fs.existsSync(missingPeer));
+  const externalPackage = path.join(root, 'external-package');
+  fs.mkdirSync(externalPackage);
+  fs.writeFileSync(path.join(externalPackage, 'package.json'),
+    '{"name":"external-package","main":"index.js"}\n');
+  fs.writeFileSync(path.join(externalPackage, 'index.js'), "module.exports = 'external';\n");
+  fs.symlinkSync(externalPackage, path.join(snapshotRepository, 'node_modules',
+    'external-package'), 'dir');
+  fs.writeFileSync(path.join(snapshotRepository, 'external-package.mjs'),
+    "import value from 'external-package'; export default value;\n");
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', path.join(snapshotRepository, 'external-package.mjs')],
+    temporaryDirectory: path.join(root, 'snapshot-external-package'),
+  }), /resolves outside repository node_modules/,
+  'a live package symlink outside repository node_modules must fail closed');
   assert.equal(fs.existsSync(path.join(snapshotOne.snapshot_repository,
     'node_modules', 'unrelated')), false, 'unrelated dependency trees must not be copied');
   assert.equal(fs.readFileSync(path.join(snapshotOne.snapshot_repository, 'packages', 'cli',
     'node_modules', 'workspace-dep', 'index.js'), 'utf8'),
   "module.exports = 'workspace sealed ';\n",
   'bare imports in a nested workspace must resolve from that workspace package');
-  assert.equal(fs.readFileSync(path.join(snapshotOne.snapshot_repository, 'packages', 'cli',
-    'node_modules', 'workspace-platform', 'index.js'), 'utf8'),
+  const sealedWorkspacePackage = fs.realpathSync.native(path.join(snapshotOne.snapshot_repository,
+    'packages', 'cli', 'node_modules', 'workspace-dep'));
+  assert.equal(fs.readFileSync(path.join(sealedWorkspacePackage, 'node_modules',
+    'workspace-platform', 'index.js'), 'utf8'),
   "module.exports = 'platform sealed';\n",
-  'installed platform optional dependencies must remain in the workspace-local closure');
+  'installed platform optional dependencies must remain in the package-local resolution closure');
   fs.writeFileSync(path.join(snapshotRepository, 'node_modules', 'tiny-dep', 'index.js'),
     "module.exports = 'replacement';\n");
   assert.match(fs.readFileSync(path.join(snapshotOne.snapshot_repository,

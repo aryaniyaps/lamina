@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { builtinModules, createRequire } from 'node:module';
+import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
@@ -319,18 +319,6 @@ export function auditedNpxPackage(repository, name) {
   return { ...dependency, bin_relative: relative.replaceAll('\\', '/') };
 }
 
-function packageRoot(resolved, expectedName) {
-  let current = path.dirname(resolved);
-  while (path.dirname(current) !== current) {
-    try {
-      const value = JSON.parse(fs.readFileSync(path.join(current, 'package.json'), 'utf8'));
-      if (value.name === expectedName) return { root: current, manifest: value };
-    } catch {}
-    current = path.dirname(current);
-  }
-  throw new Error(`cannot bind resolved dependency root for ${expectedName}`);
-}
-
 function importerPackageAuthority(repository, importer) {
   let current = path.dirname(importer);
   while (current === repository || current.startsWith(`${repository}${path.sep}`)) {
@@ -365,10 +353,7 @@ function dependencyNames(repository, command, cwd) {
   const npxOffset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
   if (/^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
     && ['agent-skills-eval', 'promptfoo'].includes(command[npxOffset])) {
-    addPackage({
-      name: command[npxOffset], resolver: 'package.json', destination: 'node_modules',
-      auditedNpxRoot: true,
-    });
+    addPackage({ name: command[npxOffset], resolver: 'package.json', destination: 'node_modules' });
   }
   for (const argument of command.slice(1)) {
     const relative = path.relative(repository, path.resolve(cwd, String(argument)))
@@ -618,9 +603,11 @@ export function prepareExecutionSnapshot({
   // packages' declared runtime dependencies.
   const requiredPackages = dependencyNames(repository, command, cwd);
   if (requiredPackages.length > 0) {
-    const copiedPackages = new Map();
-    const pendingPackages = requiredPackages.map((record) => ({ ...record, optional: false }));
-    const visit = (sourceDirectory, destinationDirectory, logicalDirectory, packageBoundary) => {
+    const sealedPackages = new Map();
+    const logicalLinks = new Map();
+    const sealedStore = path.join(snapshotRepository, 'node_modules', '.lamina-sealed');
+    const visit = (sourceDirectory, destinationDirectory, logicalDirectory,
+      packageBoundary, sealedBoundary) => {
       fs.mkdirSync(destinationDirectory, { recursive: true, mode: 0o700 });
       for (const item of fs.readdirSync(sourceDirectory, { withFileTypes: true })) {
         if (item.name === 'node_modules') continue;
@@ -630,13 +617,16 @@ export function prepareExecutionSnapshot({
         if (item.isSymbolicLink()) {
           const physical = fs.realpathSync.native(source);
           const relative = path.relative(packageBoundary, physical);
-          if (relative.startsWith('..') || path.isAbsolute(relative)) {
+          if (!relative || relative.startsWith('..') || path.isAbsolute(relative)
+            || relative === 'node_modules' || relative.startsWith(`node_modules${path.sep}`)) {
             throw new Error(`execution dependency symlink escapes node_modules: ${logical}`);
           }
-          const target = fs.readlinkSync(source);
+          const target = path.relative(path.dirname(destination), path.join(sealedBoundary, relative));
           fs.symlinkSync(target, destination);
           entries.push({ label: `dependency:${logical}`, path: destination, type: 'symlink', target });
-        } else if (item.isDirectory()) visit(source, destination, logical, packageBoundary);
+        } else if (item.isDirectory()) {
+          visit(source, destination, logical, packageBoundary, sealedBoundary);
+        }
         else if (item.isFile()) {
           const copied = copyPhysicalFile(source, destination,
             (fs.lstatSync(source).mode & 0o111) !== 0);
@@ -648,45 +638,86 @@ export function prepareExecutionSnapshot({
         }
       }
     };
-    while (pendingPackages.length) {
-      const record = pendingPackages.shift();
-      const key = `${record.destination}\0${record.name}`;
-      const resolverFile = path.join(repository, record.resolver);
-      let dependency;
-      if (record.auditedNpxRoot) {
-        dependency = resolveInstalledPackage(repository, resolverFile, record.name);
-      } else {
-        const require = createRequire(resolverFile);
-        let resolved;
-        try { resolved = require.resolve(record.name); }
-        catch (error) {
-          try { resolved = require.resolve(`${record.name}/package.json`); }
-          catch { if (record.optional) continue; throw error; }
+
+    const linkPackage = (link, target, label) => {
+      const absoluteLink = path.resolve(link);
+      const absoluteTarget = path.resolve(target);
+      if (!absoluteLink.startsWith(`${snapshotRepository}${path.sep}`)
+        || !absoluteTarget.startsWith(`${sealedStore}${path.sep}`)) {
+        throw new Error(`execution dependency link escapes sealed authority: ${label}`);
+      }
+      const prior = logicalLinks.get(absoluteLink);
+      if (prior && prior !== absoluteTarget) {
+        throw new Error(`execution dependency logical path resolves to incompatible roots: ${label}`);
+      }
+      if (prior) return;
+      fs.mkdirSync(path.dirname(absoluteLink), { recursive: true, mode: 0o700 });
+      try {
+        fs.lstatSync(absoluteLink);
+        throw new Error(`execution dependency logical path collides with sealed source: ${label}`);
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      const relativeTarget = path.relative(path.dirname(absoluteLink), absoluteTarget);
+      fs.symlinkSync(relativeTarget, absoluteLink, 'dir');
+      entries.push({
+        label: `dependency-link:${label}`, path: absoluteLink, type: 'symlink',
+        target: relativeTarget,
+      });
+      logicalLinks.set(absoluteLink, absoluteTarget);
+      if (entries.length > MAX_FILES) {
+        throw new Error('execution dependency snapshot exceeds its bounded budget');
+      }
+    };
+
+    const stagePackage = (dependency) => {
+      const physicalRoot = fs.realpathSync.native(dependency.root);
+      const existing = sealedPackages.get(physicalRoot);
+      if (existing) return existing;
+      const sourceRelative = path.relative(repository, physicalRoot).replaceAll('\\', '/');
+      if (!sourceRelative || sourceRelative.startsWith('../')
+        || !sourceRelative.split('/').includes('node_modules')) {
+        throw new Error(`execution dependency physical root escapes repository node_modules: ${dependency.manifest.name}`);
+      }
+      const id = crypto.createHash('sha256').update(sourceRelative).digest('hex');
+      const sealedRoot = path.join(sealedStore, id);
+      sealedPackages.set(physicalRoot, sealedRoot);
+      visit(physicalRoot, sealedRoot, `node_modules/.lamina-sealed/${id}`, physicalRoot,
+        sealedRoot);
+
+      const edges = new Map();
+      const addEdges = (values, optional, kind) => {
+        for (const name of Object.keys(values || {})) {
+          if (BUILTIN_MODULES.has(name)) continue;
+          const prior = edges.get(name);
+          edges.set(name, {
+            optional: prior ? prior.optional && optional : optional,
+            kinds: [...new Set([...(prior?.kinds || []), kind])],
+          });
         }
-        dependency = packageRoot(resolved, record.name);
+      };
+      addEdges(dependency.manifest.dependencies, false, 'dependency');
+      addEdges(dependency.manifest.optionalDependencies, true, 'optional');
+      for (const [name] of Object.entries(dependency.manifest.peerDependencies || {})) {
+        const optional = dependency.manifest.peerDependenciesMeta?.[name]?.optional === true;
+        addEdges({ [name]: true }, optional, 'peer');
       }
-      const priorRoot = copiedPackages.get(key);
-      if (priorRoot && priorRoot !== dependency.root) {
-        throw new Error(`execution dependency closure has incompatible versions for ${record.name}`);
+      for (const [name, edge] of edges) {
+        const child = resolveInstalledPackage(
+          repository, dependency.manifest_path, name, edge.optional,
+        );
+        if (!child) continue;
+        const childRoot = stagePackage(child);
+        linkPackage(path.join(sealedRoot, 'node_modules', ...name.split('/')), childRoot,
+          `${dependency.manifest.name}:${name}:${edge.kinds.join('+')}`);
       }
-      if (priorRoot) continue;
-      visit(dependency.root, path.join(snapshotRepository, record.destination, record.name),
-        `${record.destination}/${record.name}`, dependency.root);
-      copiedPackages.set(key, dependency.root);
-      for (const transitive of Object.keys(dependency.manifest.dependencies || {})) {
-        pendingPackages.push({
-          name: transitive, resolver: path.relative(repository,
-            path.join(dependency.root, 'package.json')),
-          destination: record.destination, optional: false,
-        });
-      }
-      for (const optional of Object.keys(dependency.manifest.optionalDependencies || {})) {
-        pendingPackages.push({
-          name: optional, resolver: path.relative(repository,
-            path.join(dependency.root, 'package.json')),
-          destination: record.destination, optional: true,
-        });
-      }
+      return sealedRoot;
+    };
+
+    for (const record of requiredPackages) {
+      const resolverFile = path.resolve(repository, record.resolver);
+      const dependency = resolveInstalledPackage(repository, resolverFile, record.name);
+      const sealedRoot = stagePackage(dependency);
+      linkPackage(path.join(snapshotRepository, record.destination, ...record.name.split('/')),
+        sealedRoot, `${record.destination}/${record.name}`);
     }
   }
   const stagedInfrastructure = { identities: {} };

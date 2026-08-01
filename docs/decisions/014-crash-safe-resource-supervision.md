@@ -120,9 +120,13 @@ paths, rejects escaping symlinks, and applies file/byte bounds. Static local
 imports use the copied Git tree; bare packages are copied from the audited
 import closure and resolve from each importer's nearest in-repository package
 boundary, with explicit dependency contracts for non-standard resolvers.
-If two resolvers require incompatible physical versions at one flattened
-snapshot destination, preparation refuses instead of silently selecting the
-first version.
+Each distinct physical package root is copied once into a bounded private
+store. Synthesized relative links reproduce the exact package selected for
+each root and parent, including incompatible nested versions, installed
+optional/platform packages, and required peers. Missing required peers refuse;
+missing optional packages remain absent. Source package-manager links may only
+resolve to physical roots beneath repository `node_modules`, and every emitted
+link terminates inside the sealed store rather than retaining live authority.
 Ignored file argv inputs (for example model artifacts) are copied separately.
 The process keeps its declared cwd, while entrypoint-specific output roots are
 the only writable bindings into source-relative snapshot locations. Dynamic
