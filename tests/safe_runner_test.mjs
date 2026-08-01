@@ -806,8 +806,23 @@ try {
   const copiedAuthority = prepareReportAuthority(path.join(root, 'copied-authority.json'),
     { ...provisional, report_file: path.join(root, 'copied-authority.json') });
   const copiedBytes = fs.readFileSync(copiedAuthority.file);
-  fs.unlinkSync(copiedAuthority.file);
+  const copiedAuthorityBackup = path.join(root, 'copied-authority-retained.json');
+  fs.renameSync(copiedAuthority.file, copiedAuthorityBackup);
+  const reportFileIdentity = (candidate) => {
+    const stat = fs.lstatSync(candidate, { bigint: true });
+    return {
+      dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid), nlink: Number(stat.nlink),
+    };
+  };
+  assert.deepEqual(reportFileIdentity(copiedAuthorityBackup), copiedAuthority.file_identity,
+    'the retained backup must preserve the prepared authority inode');
   fs.writeFileSync(copiedAuthority.file, copiedBytes, { mode: 0o600 });
+  const replacementIdentity = reportFileIdentity(copiedAuthority.file);
+  assert.notEqual(
+    `${replacementIdentity.dev}:${replacementIdentity.ino}`,
+    `${copiedAuthority.file_identity.dev}:${copiedAuthority.file_identity.ino}`,
+    'retaining the prepared inode must force the replacement onto a distinct inode',
+  );
   assert.throws(() => writeReport(copiedAuthority.file,
     { ...report, report_file: copiedAuthority.file }, copiedAuthority), /identity changed/,
   'copying the current run id into a replacement inode must not recover report authority');
