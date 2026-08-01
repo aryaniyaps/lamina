@@ -21,7 +21,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.3.1');
+assert.equal(cliPackage.version, '0.3.2');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.equal(retrievalModel.qualification.decision, 'ship_int8');
 assert.ok(
@@ -43,6 +43,16 @@ assert.match(builder, /onnxruntime/);
 assert.match(builder, /tokenizers/);
 assert.match(builder, /fts\.lbug_extension/);
 assert.match(builder, /vector\.lbug_extension/);
+for (const extension of ['fts', 'vector']) {
+  const extensionLine = builder.split('\n').find((line) =>
+    line.includes(`extensions/${extension}.lbug_extension`));
+  assert.match(
+    extensionLine || '',
+    /'--add-data'/,
+    `${extension} must be packaged as immutable data so PyInstaller does not rewrite its bytes`,
+  );
+  assert.doesNotMatch(extensionLine || '', /'--add-binary'/);
+}
 assert.match(builder, /\['pywintypes', 'win32file', 'win32pipe'\]/);
 assert.match(builder, /buildArgs\.push\('--hidden-import', module\)/);
 assert.match(builder, /must be built natively/);
@@ -80,7 +90,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.1']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.2']).status,
   0,
 );
 assert.notEqual(

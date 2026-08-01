@@ -202,6 +202,13 @@ function retrievalFailure(message, details = {}) {
   return error;
 }
 
+export function extensionLoadStatement(file) {
+  // Ladybug accepts forward slashes on Windows. Backslashes inside its quoted
+  // extension path are parsed as escapes, so normalize before SQL quoting.
+  const escaped = String(file).replaceAll('\\', '/').replaceAll("'", "''");
+  return `LOAD EXTENSION '${escaped}'`;
+}
+
 export class RetrievalStore {
   constructor(paths) {
     this.paths = paths;
@@ -284,8 +291,7 @@ export class RetrievalStore {
     if (this.extensionsLoaded || process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') return;
     const assets = verifyRetrievalRuntimeAssets();
     for (const file of [assets.fts, assets.vector]) {
-      const escaped = file.replaceAll("'", "''");
-      this.connection.querySync(`LOAD EXTENSION '${escaped}'`);
+      this.connection.querySync(extensionLoadStatement(file));
     }
     this.extensionsLoaded = true;
   }

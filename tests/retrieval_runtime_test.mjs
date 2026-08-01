@@ -4,7 +4,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RetrievalStore } from '../packages/cli/lib/retrieval-runtime/store.mjs';
+import {
+  extensionLoadStatement,
+  RetrievalStore,
+} from '../packages/cli/lib/retrieval-runtime/store.mjs';
 import { retrievalIdentity } from '../packages/cli/lib/retrieval-runtime/documents.mjs';
 import {
   verifyRetrievalModel,
@@ -14,6 +17,12 @@ import { deriveWorkMap } from '../packages/cli/lib/work-context.mjs';
 import { removeTemporaryTree } from './test-util.mjs';
 
 process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS = '1';
+
+assert.equal(
+  extensionLoadStatement("C:\\Users\\runner's account\\fts.lbug_extension"),
+  "LOAD EXTENSION 'C:/Users/runner''s account/fts.lbug_extension'",
+  'Windows extension paths must be normalized before Ladybug parses them',
+);
 
 function digest(items) {
   return crypto.createHash('sha256').update(JSON.stringify(items
