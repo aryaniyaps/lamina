@@ -119,7 +119,7 @@ try {
     assert.equal(failure.termination.child_exit_code, 7);
     assert.equal(validateReport(failure).valid, true);
 
-    const graphRepository = path.join(root, 'graph-repository');
+    const graphRepository = path.join(root, `graph-repository-${'x'.repeat(80)}`);
     fs.mkdirSync(graphRepository);
     const initialized = spawnSync('git', ['init', '--quiet'], {
       cwd: graphRepository,
@@ -142,6 +142,8 @@ try {
     assert.equal(managedGraphd.preflight.managed_descendant_cleanup.role, 'graphd');
     assert.equal(managedGraphd.preflight.managed_descendant_cleanup.registered_roots.length, 1);
     const graphdOutput = JSON.parse(managedGraphd.output.stdout_tail.trim().split('\n').at(-1));
+    assert.ok(Buffer.byteLength(graphdOutput.socket) >= 108,
+      'managed graphd fixture must exercise production long-socket handling');
     const registration = JSON.parse(graphdOutput.registration);
     assert.equal(registration.pid, graphdOutput.pid);
     assert.match(registration.start_ticks, /^\d+$/);
