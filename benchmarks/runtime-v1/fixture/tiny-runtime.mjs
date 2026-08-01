@@ -13,6 +13,7 @@ import {
   WARM_MEASURED_PHASES,
 } from '../constants.mjs';
 import { TINY_SOURCE } from './fixture-data.mjs';
+import { fixtureMetadata } from '../fixture-metadata.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -158,6 +159,7 @@ async function main() {
   process.stdout.write(`${JSON.stringify({
     schema: FIXTURE_SCHEMA,
     mode,
+    fixture_metadata: fixtureMetadata(),
     phase_order: LIFECYCLE_PHASES,
     observations,
     lifecycle_outer_phase_time_ns: warm?.lifecycle_outer_phase_time_ns

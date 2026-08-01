@@ -4,6 +4,9 @@
   "version": 1,
   "tracked_files": [
     "constants.mjs",
+    "physical-files.mjs",
+    "fixture-metadata.mjs",
+    "fixture-contract.mjs",
     "fixture/fixture-data.mjs",
     "fixture/tiny-runtime.mjs"
   ],

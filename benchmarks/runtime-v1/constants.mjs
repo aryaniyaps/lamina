@@ -27,7 +27,7 @@ export const WARM_MEASURED_PHASES = Object.freeze([
 ]);
 
 export const MIN_WARM_SAMPLES = 30;
-export const MAX_WARM_SAMPLES = 60;
+export const MAX_WARM_SAMPLES = 30;
 export const MIN_WARMUPS = 1;
 export const MAX_WARMUPS = 5;
 export const MIN_COLD_RUNS = 3;

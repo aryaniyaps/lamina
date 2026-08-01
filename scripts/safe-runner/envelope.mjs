@@ -29,7 +29,7 @@ export function validateLimitOverrides(overrides = {}) {
   return overrides;
 }
 
-function availableMemoryBytes() {
+export function availableMemoryBytes() {
   if (process.platform === 'linux') {
     try {
       const kib = Number(fs.readFileSync('/proc/meminfo', 'utf8').match(/^MemAvailable:\s+(\d+)\s+kB$/m)?.[1]);

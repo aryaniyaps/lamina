@@ -32,8 +32,8 @@ export function nearestRank(values, percentile) {
 export function summarizeLatency(values, kind) {
   const sorted = numeric(values);
   if (kind === 'warm') {
-    if (sorted.length < MIN_WARM_SAMPLES || sorted.length > MAX_WARM_SAMPLES) {
-      throw new Error(`warm statistics require ${MIN_WARM_SAMPLES}-${MAX_WARM_SAMPLES} measured samples`);
+    if (sorted.length !== MIN_WARM_SAMPLES || sorted.length !== MAX_WARM_SAMPLES) {
+      throw new Error(`warm statistics require exactly ${MIN_WARM_SAMPLES} measured samples`);
     }
     return {
       samples: [...values],

@@ -9,8 +9,8 @@ warm execution. Every fixture process and its child shell run inside the
 crash-safe small-tier supervisor defined by
 [ADR-014](../../docs/decisions/014-crash-safe-resource-supervision.md). Warm-up
 observations are retained as evidence but excluded from statistics. Warm p90
-and p95 require 30–60 measured observations; cold series report every one of
-their 3–5 samples, median, and maximum, with no cold p95.
+and p95 require exactly 30 measured observations in v1; cold series report
+every one of their 3–5 samples, median, and maximum, with no cold p95.
 
 ## Reproduce the default scenario
 
@@ -38,9 +38,12 @@ rmdir "$benchmark_parent"
 ```
 
 The output directory must be a new physical path outside the source repository.
-The controller creates an identity-bound ownership marker and cleanup refuses
-symlinks, replacements, or unexpected files. Repeating cleanup after a
-successful removal is safe.
+The controller atomically extends an identity-and-digest ownership ledger for
+each file it creates. Cleanup descriptor-reads and verifies the exact ledger,
+refuses matching-name foreign files as well as symlinks, hard links,
+replacements, or omissions, then renames the owned directory to an
+identity-checked quarantine before recursive removal. Repeating cleanup after
+a successful removal is safe.
 
 ## Small validation matrix
 
@@ -51,7 +54,7 @@ fixture or safety tier.
 |---|---:|---:|---:|
 | Minimum/default | 3 | 1 | 30 |
 | Additional cold evidence | 5 | 1 | 30 |
-| Larger warm sample | 3 | 3 | 60 |
+| Additional warm-up evidence | 3 | 3 | 30 |
 
 Use the same command as above with the corresponding numeric options. This
 issue intentionally provides no medium or large mode.
@@ -66,11 +69,13 @@ an authority. Each execution references and hashes two bounded files:
 - `raw/*.json`: the complete `lamina.safe-runner-report/v1` record;
 - `telemetry/*.json`: bounded cgroup CPU and I/O samples used by the harness.
 
-The validator requires the artifact root, re-reads both physical files, enforces
-a 2 MiB raw-report cap and 128 KiB telemetry cap, checks sizes and SHA-256
-digests, and re-derives outcomes, exit state, time, per-process/aggregate
-memory, temporary state, CPU/I/O, fixture phases, and cleanup. Missing, partial,
-contradictory, escaping, symlinked, or statistically invalid evidence is
+The validator requires the artifact root, verifies every physical ancestor,
+descriptor-reads both single-link files with `O_NOFOLLOW`, enforces a 2 MiB
+raw-report cap and 128 KiB telemetry cap, checks sizes and SHA-256 digests, and
+re-derives the result identity, outcomes, exit state, time,
+per-process/aggregate memory, temporary state, monotonic CPU/I/O counters,
+fixture metadata and phases, and cleanup. Missing, partial, contradictory,
+escaping, symlinked, hard-linked, or statistically invalid evidence is
 rejected.
 
 `cgroup_peak_memory_bytes` is the authoritative complete-scope, non-double-
@@ -90,9 +95,11 @@ or failed evidence is `status: invalid`.
 
 ## Fixture contract
 
-The manifest records three tracked source files, one indexed data file, source
-and indexed bytes, nonblank source LOC, and one child process. The canonical
-phase order is doctor/status, startup, observation, retrieval readiness,
+The manifest declares the complete tracked fixture closure, including its
+shared validator and physical-read contract, plus one indexed data file and
+one child process. Its digest, source and indexed bytes, and nonblank source LOC
+are copied into every raw fixture record and revalidated against the result.
+The canonical phase order is doctor/status, startup, observation, retrieval readiness,
 preparation, no-op sync, incremental change, rebuild, idle, shutdown, and
 cleanup. Cold runs measure all phases inside separate scopes. The warm run
 creates one state identity, performs explicit discarded warm-ups and measured

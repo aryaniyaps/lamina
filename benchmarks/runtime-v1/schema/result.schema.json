@@ -71,7 +71,7 @@
         "tier": { "const": "small" },
         "cold_runs": { "type": "integer", "minimum": 3, "maximum": 5 },
         "warmups": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "warm_samples": { "type": "integer", "minimum": 30, "maximum": 60 },
+        "warm_samples": { "const": 30 },
         "limits": {
           "type": "object", "additionalProperties": false,
           "required": ["memoryMaxBytes", "memoryHighBytes", "pidsMax", "timeoutMs", "outputMaxBytes", "tempMaxBytes", "sampleIntervalMs", "sustainedHighSamples", "gracefulStopMs"],

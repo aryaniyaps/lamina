@@ -108,6 +108,7 @@ export function parseCgroupIoStat(text) {
     write_operations: 0,
   };
   let devices = 0;
+  let invalidTotal = false;
   for (const line of String(text || '').trim().split('\n').filter(Boolean)) {
     const fields = line.trim().split(/\s+/);
     if (!/^\d+:\d+$/.test(fields.shift() || '')) continue;
@@ -116,14 +117,22 @@ export function parseCgroupIoStat(text) {
       return separator === -1 ? [field, Number.NaN]
         : [field.slice(0, separator), Number(field.slice(separator + 1))];
     }));
-    if (![values.rbytes, values.wbytes, values.rios, values.wios].every(Number.isFinite)) continue;
-    totals.read_bytes += values.rbytes;
-    totals.write_bytes += values.wbytes;
-    totals.read_operations += values.rios;
-    totals.write_operations += values.wios;
+    if (![values.rbytes, values.wbytes, values.rios, values.wios]
+      .every((value) => Number.isSafeInteger(value) && value >= 0)) continue;
+    const next = {
+      read_bytes: totals.read_bytes + values.rbytes,
+      write_bytes: totals.write_bytes + values.wbytes,
+      read_operations: totals.read_operations + values.rios,
+      write_operations: totals.write_operations + values.wios,
+    };
+    if (!Object.values(next).every(Number.isSafeInteger)) {
+      invalidTotal = true;
+      break;
+    }
+    Object.assign(totals, next);
     devices += 1;
   }
-  return devices > 0 ? { available: true, devices, ...totals } : {
+  return devices > 0 && !invalidTotal ? { available: true, devices, ...totals } : {
     available: false,
     devices: 0,
     read_bytes: null,
@@ -138,19 +147,19 @@ export function parseCgroupCpuStat(text) {
   for (const line of String(text || '').trim().split('\n').filter(Boolean)) {
     const [key, raw, ...extra] = line.trim().split(/\s+/);
     const value = Number(raw);
-    if (!key || extra.length > 0 || !Number.isFinite(value) || value < 0) continue;
+    if (!key || extra.length > 0 || !Number.isSafeInteger(value) || value < 0) continue;
     values[key] = value;
   }
   const available = [values.usage_usec, values.user_usec, values.system_usec]
-    .every(Number.isFinite);
+    .every(Number.isSafeInteger);
   return {
     available,
-    usage_usec: Number.isFinite(values.usage_usec) ? values.usage_usec : null,
-    user_usec: Number.isFinite(values.user_usec) ? values.user_usec : null,
-    system_usec: Number.isFinite(values.system_usec) ? values.system_usec : null,
-    nr_periods: Number.isFinite(values.nr_periods) ? values.nr_periods : null,
-    nr_throttled: Number.isFinite(values.nr_throttled) ? values.nr_throttled : null,
-    throttled_usec: Number.isFinite(values.throttled_usec) ? values.throttled_usec : null,
+    usage_usec: Number.isSafeInteger(values.usage_usec) ? values.usage_usec : null,
+    user_usec: Number.isSafeInteger(values.user_usec) ? values.user_usec : null,
+    system_usec: Number.isSafeInteger(values.system_usec) ? values.system_usec : null,
+    nr_periods: Number.isSafeInteger(values.nr_periods) ? values.nr_periods : null,
+    nr_throttled: Number.isSafeInteger(values.nr_throttled) ? values.nr_throttled : null,
+    throttled_usec: Number.isSafeInteger(values.throttled_usec) ? values.throttled_usec : null,
     reason: available ? null : 'cgroup cpu.stat did not contain complete usage accounting',
   };
 }

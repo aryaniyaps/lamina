@@ -45,4 +45,18 @@ assert.equal(run.result.series[1].executions[0].scope_phase_time_ns.every(
 ), true);
 assert.equal(fs.existsSync(path.join(output, 'result.json')), true);
 assert.equal(fs.existsSync(path.join(output, 'summary.md')), true);
+const marker = JSON.parse(fs.readFileSync(
+  path.join(output, '.lamina-runtime-benchmark-root.json'), 'utf8',
+));
+assert.equal(marker.generation, 10);
+assert.deepEqual(Object.keys(marker.owned_entries).sort(), [
+  'raw', 'raw/cold-0.json', 'raw/cold-1.json', 'raw/cold-2.json', 'raw/warm.json',
+  'result.json', 'summary.md', 'telemetry', 'telemetry/cold-0.json',
+  'telemetry/cold-1.json', 'telemetry/cold-2.json', 'telemetry/warm.json',
+].sort());
+const warmRaw = JSON.parse(fs.readFileSync(path.join(output, 'raw/warm.json'), 'utf8'));
+const fixtureLine = String(warmRaw.output.stdout_tail).trim().split('\n').at(-1);
+assert.equal(Buffer.byteLength(fixtureLine) <= 7 * 1024, true);
+assert.equal(JSON.parse(fixtureLine).observations.length, 31);
+assert.equal(JSON.parse(fixtureLine).child_processes, 1);
 process.stdout.write(`${JSON.stringify({ status: 'passed', output })}\n`);

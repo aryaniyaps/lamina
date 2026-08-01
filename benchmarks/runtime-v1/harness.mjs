@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GRAPH_PROTOCOL_VERSION } from '../../packages/cli/lib/graph-runtime/constants.mjs';
+import { availableMemoryBytes } from '../../scripts/safe-runner/envelope.mjs';
 import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
 import { validateReport as validateSafeRunnerReport } from '../../scripts/safe-runner/report.mjs';
 import { runSafely } from '../../scripts/safe-runner/runner.mjs';
@@ -21,45 +22,55 @@ import {
   RESULT_SCHEMA,
   RESULT_SCHEMA_VERSION,
   ROOT_MARKER_SCHEMA,
-  WARM_MEASURED_PHASES,
 } from './constants.mjs';
+import { assertValidFixtureRecord } from './fixture-contract.mjs';
+import { fixtureMetadata } from './fixture-metadata.mjs';
+import { benchmarkIdentity } from './identity.mjs';
+import {
+  assertDirectoryIdentity,
+  assertPhysicalDirectoryAncestry,
+  physicalIdentity,
+  readBoundedPhysicalFile,
+  samePhysicalIdentity,
+} from './physical-files.mjs';
 import { summarizeLatency } from './statistics.mjs';
 import { assertValidResult, classifySafeRunnerOutcome, validateResult } from './validate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPOSITORY = path.resolve(HERE, '../..');
 const FIXTURE = path.join(HERE, 'fixture/tiny-runtime.mjs');
-const FIXTURE_MANIFEST = path.join(HERE, 'fixture/manifest.json');
 const ROOT_MARKER = '.lamina-runtime-benchmark-root.json';
 const RESULT_FILE = 'result.json';
 const SUMMARY_FILE = 'summary.md';
 const MAX_FIXTURE_OUTPUT_BYTES = 7 * 1024;
 const MAX_TELEMETRY_SAMPLES = 64;
-const MAX_FIXTURE_MANIFEST_BYTES = 32 * 1024;
-const MAX_FIXTURE_SOURCE_BYTES = 64 * 1024;
+const MAX_RAW_ARTIFACT_BYTES = 2 * 1024 * 1024;
+const MAX_TELEMETRY_ARTIFACT_BYTES = 128 * 1024;
 const MAX_RESULT_BYTES = 2 * 1024 * 1024;
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
-function physicalDirectoryIdentity(candidate) {
-  const stat = fs.lstatSync(candidate, { bigint: true });
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${candidate} is not a physical directory`);
-  return {
-    dev: String(stat.dev),
-    ino: String(stat.ino),
-    uid: Number(stat.uid),
-  };
+function pathLexicallyExists(candidate) {
+  try { fs.lstatSync(candidate); return true; } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
 }
 
-function sameIdentity(left, right) {
-  return left?.dev === right?.dev && left?.ino === right?.ino && left?.uid === right?.uid;
-}
-
-function atomicWrite(file, bytes) {
+function atomicWrite(file, bytes, { root = null, rootIdentity = null } = {}) {
   const destination = path.resolve(file);
+  if (rootIdentity) assertDirectoryIdentity(root, rootIdentity);
   const temporary = path.join(path.dirname(destination), `.${path.basename(destination)}.${process.pid}.${crypto.randomUUID()}.tmp`);
-  fs.writeFileSync(temporary, bytes, { flag: 'wx', mode: 0o600 });
+  const descriptor = fs.openSync(temporary,
+    fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
+    0o600);
+  try {
+    fs.writeFileSync(descriptor, bytes);
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
   try {
     // link(2) gives this fresh output root a no-replace publication primitive;
     // a same-user replacement at a reserved name is refused, never overwritten.
@@ -67,6 +78,72 @@ function atomicWrite(file, bytes) {
   } finally {
     fs.unlinkSync(temporary);
   }
+  if (rootIdentity) assertDirectoryIdentity(root, rootIdentity);
+}
+
+function markerFile(root) {
+  return path.join(root, ROOT_MARKER);
+}
+
+function readMarker(root, rootIdentity) {
+  return JSON.parse(readBoundedPhysicalFile(markerFile(root), 128 * 1024, {
+    root, rootIdentity,
+  }).toString('utf8'));
+}
+
+function assertOwnershipMarker(marker) {
+  const keys = Object.keys(marker || {}).sort();
+  if (JSON.stringify(keys) !== JSON.stringify([
+    'generation', 'nonce', 'owned_entries', 'parent_identity', 'root', 'root_identity', 'schema',
+  ].sort()) || marker.schema !== ROOT_MARKER_SCHEMA || typeof marker.nonce !== 'string'
+    || marker.nonce.length < 16 || !Number.isSafeInteger(marker.generation) || marker.generation < 0
+    || !marker.owned_entries || typeof marker.owned_entries !== 'object'
+    || Array.isArray(marker.owned_entries)) {
+    throw new Error('benchmark ownership marker is malformed');
+  }
+  return marker;
+}
+
+function replaceMarker(root, previous, next) {
+  assertDirectoryIdentity(root, previous.root_identity);
+  const current = assertOwnershipMarker(readMarker(root, previous.root_identity));
+  if (JSON.stringify(current) !== JSON.stringify(previous)) {
+    throw new Error('benchmark ownership marker changed before registration');
+  }
+  const temporary = path.join(root, `.${ROOT_MARKER}.${process.pid}.${crypto.randomUUID()}.tmp`);
+  const descriptor = fs.openSync(temporary,
+    fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
+    0o600);
+  try {
+    fs.writeFileSync(descriptor, stableJson(next));
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  fs.renameSync(temporary, markerFile(root));
+  assertDirectoryIdentity(root, previous.root_identity);
+  Object.assign(previous, next);
+}
+
+function registerOwnedFile(root, marker, relative, maximumBytes) {
+  if (!/^(?:raw|telemetry)\/[a-z0-9_-]+\.json$/.test(relative)
+    && ![RESULT_FILE, SUMMARY_FILE].includes(relative)) {
+    throw new Error(`cannot register unexpected benchmark path: ${relative}`);
+  }
+  const file = path.join(root, relative);
+  const bytes = readBoundedPhysicalFile(file, maximumBytes, {
+    root, rootIdentity: marker.root_identity,
+  });
+  const next = structuredClone(marker);
+  next.generation += 1;
+  next.owned_entries[relative] = {
+    type: 'file',
+    identity: physicalIdentity(file, 'file'),
+    bytes: bytes.length,
+    sha256: sha256(bytes),
+  };
+  replaceMarker(root, marker, next);
+  return next.owned_entries[relative];
 }
 
 export function initializeHarnessRoot(requested) {
@@ -75,67 +152,120 @@ export function initializeHarnessRoot(requested) {
     throw new Error('benchmark output must be outside the source repository');
   }
   const parent = path.dirname(root);
-  const parentIdentity = physicalDirectoryIdentity(parent);
-  if (fs.realpathSync.native(parent) !== parent) throw new Error('benchmark output parent cannot use symlink indirection');
-  if (fs.existsSync(root)) throw new Error('benchmark output root must not already exist');
+  const parentIdentity = assertPhysicalDirectoryAncestry(parent);
+  if (pathLexicallyExists(root)) throw new Error('benchmark output root must not already exist');
   fs.mkdirSync(root, { mode: 0o700 });
+  assertDirectoryIdentity(parent, parentIdentity);
+  fs.mkdirSync(path.join(root, 'raw'), { mode: 0o700 });
+  fs.mkdirSync(path.join(root, 'telemetry'), { mode: 0o700 });
+  const rootIdentity = physicalIdentity(root, 'directory');
   const marker = {
     schema: ROOT_MARKER_SCHEMA,
     nonce: crypto.randomUUID(),
     root,
-    root_identity: physicalDirectoryIdentity(root),
+    root_identity: rootIdentity,
     parent_identity: parentIdentity,
+    generation: 0,
+    owned_entries: {
+      raw: { type: 'directory', identity: physicalIdentity(path.join(root, 'raw'), 'directory') },
+      telemetry: {
+        type: 'directory', identity: physicalIdentity(path.join(root, 'telemetry'), 'directory'),
+      },
+    },
   };
   atomicWrite(path.join(root, ROOT_MARKER), stableJson(marker));
-  fs.mkdirSync(path.join(root, 'raw'), { mode: 0o700 });
-  fs.mkdirSync(path.join(root, 'telemetry'), { mode: 0o700 });
+  assertDirectoryIdentity(parent, parentIdentity);
+  assertDirectoryIdentity(root, rootIdentity);
   return { root, marker };
 }
 
-function ownedTreeEntries(root) {
+function ownedTreeEntries(root, marker) {
   const unexpected = [];
+  const seen = new Set();
   const visit = (directory, relative = '') => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const childRelative = relative ? `${relative}/${entry.name}` : entry.name;
-      const top = childRelative.split('/')[0];
-      const allowedTop = [ROOT_MARKER, RESULT_FILE, SUMMARY_FILE, 'raw', 'telemetry'].includes(top);
-      const expectedTopDirectory = ['raw', 'telemetry'].includes(childRelative);
-      const expectedTopFile = [ROOT_MARKER, RESULT_FILE, SUMMARY_FILE].includes(childRelative);
-      if (!allowedTop || entry.isSymbolicLink()
-        || (!entry.isDirectory() && !entry.isFile())
-        || (expectedTopDirectory && !entry.isDirectory())
-        || (expectedTopFile && !entry.isFile())
-        || (entry.isDirectory() && !expectedTopDirectory)
-        || (entry.isFile() && childRelative.startsWith('raw/') && !/^raw\/[a-z0-9_-]+\.json$/.test(childRelative))
-        || (entry.isFile() && childRelative.startsWith('telemetry/')
-          && !/^telemetry\/[a-z0-9_-]+\.json$/.test(childRelative))) {
+      if (childRelative === ROOT_MARKER) continue;
+      const expected = marker.owned_entries?.[childRelative];
+      let matches = Boolean(expected) && !entry.isSymbolicLink()
+        && ((expected.type === 'directory' && entry.isDirectory())
+          || (expected.type === 'file' && entry.isFile()));
+      try {
+        if (matches) {
+          const identity = physicalIdentity(path.join(root, childRelative), expected.type);
+          matches = samePhysicalIdentity(identity, expected.identity)
+            && (expected.type !== 'file' || identity.nlink === 1);
+          if (matches && expected.type === 'file') {
+            const bytes = readBoundedPhysicalFile(path.join(root, childRelative), MAX_RESULT_BYTES, {
+              root, rootIdentity: marker.root_identity,
+            });
+            matches = bytes.length === expected.bytes && sha256(bytes) === expected.sha256;
+          }
+        }
+      } catch { matches = false; }
+      if (!matches) {
         unexpected.push(childRelative);
         continue;
       }
+      seen.add(childRelative);
       if (entry.isDirectory()) visit(path.join(directory, entry.name), childRelative);
     }
   };
   visit(root);
+  for (const relative of Object.keys(marker.owned_entries || {})) {
+    if (!seen.has(relative)) unexpected.push(`missing:${relative}`);
+  }
   return unexpected.sort();
 }
 
 export function cleanupHarnessRoot(requested) {
   const root = path.resolve(requested);
-  if (!fs.existsSync(root)) return { removed: false, already_absent: true };
-  if (fs.realpathSync.native(root) !== root) throw new Error('benchmark cleanup refuses symlink indirection');
-  const markerFile = path.join(root, ROOT_MARKER);
+  if (!pathLexicallyExists(root)) return { removed: false, already_absent: true };
+  const actualRootIdentity = assertPhysicalDirectoryAncestry(root);
   let marker = null;
-  try { marker = JSON.parse(fs.readFileSync(markerFile, 'utf8')); } catch {
+  try { marker = assertOwnershipMarker(readMarker(root, actualRootIdentity)); } catch {
     throw new Error('benchmark cleanup requires its exact ownership marker');
   }
   if (marker?.schema !== ROOT_MARKER_SCHEMA || marker.root !== root
-    || !sameIdentity(marker.root_identity, physicalDirectoryIdentity(root))
-    || !sameIdentity(marker.parent_identity, physicalDirectoryIdentity(path.dirname(root)))) {
+    || !samePhysicalIdentity(marker.root_identity, actualRootIdentity)
+    || !samePhysicalIdentity(marker.parent_identity, assertPhysicalDirectoryAncestry(path.dirname(root)))) {
     throw new Error('benchmark cleanup marker does not own the current directory identity');
   }
-  const unexpected = ownedTreeEntries(root);
+  const unexpected = ownedTreeEntries(root, marker);
   if (unexpected.length) throw new Error(`benchmark cleanup refuses unexpected paths: ${unexpected.join(', ')}`);
-  fs.rmSync(root, { recursive: true, force: true });
+  const quarantine = path.join(path.dirname(root), `.lamina-runtime-benchmark-quarantine-${crypto.randomUUID()}`);
+  assertDirectoryIdentity(path.dirname(root), marker.parent_identity);
+  fs.renameSync(root, quarantine);
+  try {
+    assertDirectoryIdentity(path.dirname(root), marker.parent_identity);
+    const quarantineIdentity = assertPhysicalDirectoryAncestry(quarantine);
+    if (!samePhysicalIdentity(quarantineIdentity, marker.root_identity) || pathLexicallyExists(root)) {
+      throw new Error('benchmark quarantine did not preserve the owned root identity');
+    }
+    const quarantinedUnexpected = ownedTreeEntries(quarantine, marker);
+    if (quarantinedUnexpected.length) {
+      throw new Error(`benchmark quarantine contains unexpected paths: ${quarantinedUnexpected.join(', ')}`);
+    }
+    const quarantinedMarker = assertOwnershipMarker(
+      readMarker(quarantine, marker.root_identity),
+    );
+    if (JSON.stringify(quarantinedMarker) !== JSON.stringify(marker)) {
+      throw new Error('benchmark ownership marker changed after quarantine');
+    }
+    assertDirectoryIdentity(quarantine, marker.root_identity);
+    fs.rmSync(quarantine, { recursive: true, force: false });
+  } catch (error) {
+    if (!pathLexicallyExists(root) && pathLexicallyExists(quarantine)) {
+      try {
+        assertDirectoryIdentity(quarantine, marker.root_identity);
+        fs.renameSync(quarantine, root);
+      } catch {}
+    }
+    throw error;
+  }
+  if (pathLexicallyExists(quarantine) || pathLexicallyExists(root)) {
+    throw new Error('benchmark quarantine removal was incomplete');
+  }
   return { removed: true, already_absent: false };
 }
 
@@ -156,41 +286,6 @@ export function sourceMetadata() {
   };
 }
 
-export function fixtureMetadata() {
-  const manifestBytes = fs.readFileSync(FIXTURE_MANIFEST);
-  if (manifestBytes.length > MAX_FIXTURE_MANIFEST_BYTES) throw new Error('fixture manifest is too large');
-  const manifest = JSON.parse(manifestBytes.toString('utf8'));
-  if (manifest?.schema !== 'lamina.runtime-benchmark-fixture-manifest/v1'
-    || manifest.id !== 'tiny-runtime-lifecycle' || manifest.version !== 1) {
-    throw new Error('unsupported runtime benchmark fixture manifest');
-  }
-  const readDeclared = (relative) => {
-    if (path.isAbsolute(relative) || relative.split('/').includes('..')) throw new Error('fixture path escapes runtime-v1');
-    const candidate = path.resolve(HERE, relative);
-    const stat = fs.lstatSync(candidate);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`fixture file is not physical: ${relative}`);
-    if (stat.size > MAX_FIXTURE_SOURCE_BYTES) throw new Error(`fixture file is too large: ${relative}`);
-    return { relative, bytes: fs.readFileSync(candidate) };
-  };
-  const tracked = manifest.tracked_files.map(readDeclared);
-  const indexedNames = new Set(manifest.indexed_files);
-  const indexed = tracked.filter((item) => indexedNames.has(item.relative));
-  if (indexed.length !== indexedNames.size) throw new Error('fixture indexed files must be tracked files');
-  const digestInput = [manifestBytes, ...tracked.flatMap((item) => [Buffer.from(item.relative), item.bytes])];
-  return {
-    id: manifest.id,
-    version: manifest.version,
-    digest: sha256(Buffer.concat(digestInput)),
-    tracked_files: tracked.length,
-    indexed_files: indexed.length,
-    source_bytes: tracked.reduce((sum, item) => sum + item.bytes.length, 0),
-    indexed_bytes: indexed.reduce((sum, item) => sum + item.bytes.length, 0),
-    source_loc: tracked.reduce((sum, item) => sum
-      + item.bytes.toString('utf8').split('\n').filter((line) => line.trim().length > 0).length, 0),
-    child_processes: manifest.child_processes,
-  };
-}
-
 export function hostMetadata() {
   const cpus = os.cpus();
   return {
@@ -200,11 +295,11 @@ export function hostMetadata() {
     cpu_model: cpus[0]?.model || 'unknown',
     logical_cores: Math.max(1, cpus.length),
     total_memory_bytes: os.totalmem(),
-    available_memory_bytes: os.freemem(),
+    available_memory_bytes: availableMemoryBytes(),
   };
 }
 
-function parseFixtureRecord(report) {
+function parseFixtureRecord(report, options) {
   const tail = String(report?.output?.stdout_tail || '');
   const lines = tail.trim().split('\n').filter(Boolean).reverse();
   for (const line of lines) {
@@ -212,36 +307,7 @@ function parseFixtureRecord(report) {
       const value = JSON.parse(line);
       if (value?.schema === FIXTURE_SCHEMA) {
         if (Buffer.byteLength(line) > MAX_FIXTURE_OUTPUT_BYTES) throw new Error('fixture record exceeds its retained-tail budget');
-        const observations = Array.isArray(value.observations) ? value.observations : [];
-        const warmIndexes = new Set(WARM_MEASURED_PHASES.map((name) => LIFECYCLE_PHASES.indexOf(name)));
-        const correctPhases = (sample, measuredWarm) => Array.isArray(sample.phase_time_ns)
-          && sample.phase_time_ns.length === LIFECYCLE_PHASES.length
-          && sample.phase_time_ns.every((phaseValue, index) => measuredWarm === warmIndexes.has(index)
-            ? Number.isSafeInteger(phaseValue) && phaseValue >= 0 : phaseValue === null);
-        const coldValid = value.mode !== 'cold' || (observations.length === 1
-          && observations[0]?.classification === 'cold'
-          && Array.isArray(observations[0]?.phase_time_ns)
-          && observations[0].phase_time_ns.length === LIFECYCLE_PHASES.length
-          && observations[0].phase_time_ns.every((phaseValue) => Number.isSafeInteger(phaseValue))
-          && value.persistent_state_reused === false
-          && value.persistent_state_identity === null
-          && value.lifecycle_outer_phase_time_ns?.every((phaseValue) => phaseValue === null));
-        const warmValid = value.mode !== 'warm' || (observations.length >= MIN_WARMUPS + MIN_WARM_SAMPLES
-          && observations.filter((sample) => sample.classification === 'warmup').length >= MIN_WARMUPS
-          && observations.filter((sample) => sample.classification === 'measured_warm').length >= MIN_WARM_SAMPLES
-          && observations.every((sample) => ['warmup', 'measured_warm'].includes(sample.classification)
-            && correctPhases(sample, true))
-          && value.persistent_state_reused === true
-          && typeof value.persistent_state_identity?.dev === 'string'
-          && typeof value.persistent_state_identity?.ino === 'string'
-          && value.lifecycle_outer_phase_time_ns?.every((phaseValue, index) =>
-            warmIndexes.has(index) ? phaseValue === null : Number.isSafeInteger(phaseValue)));
-        if (JSON.stringify(value.phase_order) !== JSON.stringify(LIFECYCLE_PHASES)
-          || value.state_removed !== true || value.child_processes !== 1
-          || !coldValid || !warmValid) {
-          throw new Error('fixture record has incomplete lifecycle or cleanup evidence');
-        }
-        return value;
+        return assertValidFixtureRecord(value, options);
       }
     } catch (error) {
       if (error.message.includes('fixture record')) throw error;
@@ -276,7 +342,9 @@ function telemetrySummary(accounting) {
   };
 }
 
-async function runFixtureExecution({ root, name, mode, runIndex, warmups, warmSamples }) {
+async function runFixtureExecution({
+  root, marker, fixtureMetadata: fixtureSource, name, mode, runIndex, warmups, warmSamples,
+}) {
   const rawRelative = `raw/${name}.json`;
   const telemetryRelative = `telemetry/${name}.json`;
   const rawFile = path.join(root, rawRelative);
@@ -299,21 +367,35 @@ async function runFixtureExecution({ root, name, mode, runIndex, warmups, warmSa
       }
     },
   });
+  const rawRegistration = registerOwnedFile(
+    root, marker, rawRelative, MAX_RAW_ARTIFACT_BYTES,
+  );
   const safeValidation = validateSafeRunnerReport(report);
   const outcome = classifySafeRunnerOutcome(report);
   let fixture = null;
   let fixtureError = null;
   if (outcome === 'success') {
-    try { fixture = parseFixtureRecord(report); } catch (error) { fixtureError = error.message; }
+    try {
+      fixture = parseFixtureRecord(report, {
+        mode,
+        warmups: mode === 'warm' ? warmups : 0,
+        warmSamples: mode === 'warm' ? warmSamples : 1,
+        childProcesses: 1,
+        fixtureMetadata: fixtureSource,
+      });
+    } catch (error) { fixtureError = error.message; }
   }
   const accounting = latestAccounting(telemetrySamples);
   const telemetry = {
     schema: 'lamina.runtime-benchmark-telemetry/v1',
     samples: telemetrySamples,
   };
-  atomicWrite(telemetryFile, stableJson(telemetry));
-  const rawBytes = fs.readFileSync(rawFile);
-  const telemetryBytes = fs.readFileSync(telemetryFile);
+  atomicWrite(telemetryFile, stableJson(telemetry), {
+    root, rootIdentity: marker.root_identity,
+  });
+  const telemetryRegistration = registerOwnedFile(
+    root, marker, telemetryRelative, MAX_TELEMETRY_ARTIFACT_BYTES,
+  );
   const runnerPeak = report.peaks?.aggregate_rss_bytes || 0;
   const aggregatePeak = runnerPeak;
   const difference = Math.abs(aggregatePeak - runnerPeak);
@@ -359,9 +441,9 @@ async function runFixtureExecution({ root, name, mode, runIndex, warmups, warmSa
       scope_phase_time_ns: fixture?.lifecycle_outer_phase_time_ns
         || new Array(LIFECYCLE_PHASES.length).fill(null),
       raw_report: rawRelative,
-      raw_report_sha256: sha256(rawBytes),
+      raw_report_sha256: rawRegistration.sha256,
       telemetry: telemetryRelative,
-      telemetry_sha256: sha256(telemetryBytes),
+      telemetry_sha256: telemetryRegistration.sha256,
     },
     fixture,
     errors: [
@@ -370,8 +452,12 @@ async function runFixtureExecution({ root, name, mode, runIndex, warmups, warmSa
       ...(!accounting?.cpu?.available ? ['cgroup CPU accounting was unavailable'] : []),
     ],
     artifacts: [
-      { path: rawRelative, sha256: sha256(rawBytes), bytes: rawBytes.length },
-      { path: telemetryRelative, sha256: sha256(telemetryBytes), bytes: telemetryBytes.length },
+      { path: rawRelative, sha256: rawRegistration.sha256, bytes: rawRegistration.bytes },
+      {
+        path: telemetryRelative,
+        sha256: telemetryRegistration.sha256,
+        bytes: telemetryRegistration.bytes,
+      },
     ],
   };
 }
@@ -436,11 +522,7 @@ export function summarizeResult(result) {
 
 function readResultFile(requested) {
   const file = path.resolve(requested);
-  const stat = fs.lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_RESULT_BYTES) {
-    throw new Error('result must be a bounded physical JSON file');
-  }
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  return JSON.parse(readBoundedPhysicalFile(file, MAX_RESULT_BYTES).toString('utf8'));
 }
 
 export async function runRuntimeBenchmark({
@@ -460,7 +542,7 @@ export async function runRuntimeBenchmark({
     || warmSamples < MIN_WARM_SAMPLES || warmSamples > MAX_WARM_SAMPLES) {
     throw new Error(`warm samples must be ${MIN_WARM_SAMPLES}-${MAX_WARM_SAMPLES}`);
   }
-  const { root } = initializeHarnessRoot(output);
+  const { root, marker } = initializeHarnessRoot(output);
   const sourceBefore = sourceMetadata();
   const fixture = fixtureMetadata();
   const configuration = {
@@ -470,11 +552,13 @@ export async function runRuntimeBenchmark({
   const cold = [];
   for (let index = 0; index < coldRuns; index += 1) {
     cold.push(await runFixtureExecution({
-      root, name: `cold-${index}`, mode: 'cold', runIndex: index, warmups, warmSamples,
+      root, marker, fixtureMetadata: fixture, name: `cold-${index}`,
+      mode: 'cold', runIndex: index, warmups, warmSamples,
     }));
   }
   const warm = await runFixtureExecution({
-    root, name: 'warm', mode: 'warm', runIndex: 0, warmups, warmSamples,
+    root, marker, fixtureMetadata: fixture, name: 'warm',
+    mode: 'warm', runIndex: 0, warmups, warmSamples,
   });
   const sourceAfter = sourceMetadata();
   const errors = [...cold, warm].flatMap((run) => run.errors);
@@ -486,15 +570,15 @@ export async function runRuntimeBenchmark({
   const status = executions.every((execution) => execution.measurement_valid)
     ? 'valid' : executions.some((execution) => execution.outcome === 'safe_refusal')
       ? 'refused' : 'invalid';
-  const inputDigest = sha256(JSON.stringify({ source: sourceBefore, fixture, configuration }));
+  const identity = benchmarkIdentity(sourceBefore, fixture, configuration);
   const cliManifest = JSON.parse(fs.readFileSync(path.join(REPOSITORY, 'packages/cli/package.json'), 'utf8'));
   const result = {
     schema: RESULT_SCHEMA,
     schema_version: RESULT_SCHEMA_VERSION,
-    result_id: `runtime-v1-${inputDigest.slice(0, 24)}`,
+    result_id: identity.result_id,
     generated_at: new Date().toISOString(),
     status,
-    input_digest: inputDigest,
+    input_digest: identity.input_digest,
     source: sourceBefore,
     host: hostMetadata(),
     runtimes: {
@@ -514,14 +598,20 @@ export async function runRuntimeBenchmark({
       marker: ROOT_MARKER,
       remaining_descendants: executions.reduce((sum, execution) =>
         sum + execution.remaining_descendants.length, 0),
-      unexpected_paths: ownedTreeEntries(root),
+      unexpected_paths: ownedTreeEntries(root, marker),
     },
     errors,
   };
-  atomicWrite(path.join(root, RESULT_FILE), stableJson(result));
+  atomicWrite(path.join(root, RESULT_FILE), stableJson(result), {
+    root, rootIdentity: marker.root_identity,
+  });
+  registerOwnedFile(root, marker, RESULT_FILE, MAX_RESULT_BYTES);
   const validation = validateResult(result, { artifactRoot: root });
   if (status === 'valid') assertValidResult(result, { artifactRoot: root });
-  atomicWrite(path.join(root, SUMMARY_FILE), summarizeResult(result));
+  atomicWrite(path.join(root, SUMMARY_FILE), summarizeResult(result), {
+    root, rootIdentity: marker.root_identity,
+  });
+  registerOwnedFile(root, marker, SUMMARY_FILE, MAX_RESULT_BYTES);
   return { result, validation, root };
 }
 

@@ -4,13 +4,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateReport as validateSafeRunnerReport } from '../../scripts/safe-runner/report.mjs';
 import {
-  FIXTURE_SCHEMA,
   LIFECYCLE_PHASES,
   MEASUREMENT_OUTCOMES,
   RESULT_SCHEMA,
   RESULT_SCHEMA_VERSION,
   WARM_MEASURED_PHASES,
 } from './constants.mjs';
+import { validateFixtureRecord } from './fixture-contract.mjs';
+import { benchmarkIdentity } from './identity.mjs';
+import {
+  assertPhysicalDirectoryAncestry, readBoundedPhysicalFile,
+} from './physical-files.mjs';
 import { summarizeLatency } from './statistics.mjs';
 
 const SCHEMA_FILE = fileURLToPath(new URL('./schema/result.schema.json', import.meta.url));
@@ -24,7 +28,7 @@ function matchesType(value, expected) {
   if (expected === 'null') return value === null;
   if (expected === 'array') return Array.isArray(value);
   if (expected === 'object') return value !== null && typeof value === 'object' && !Array.isArray(value);
-  if (expected === 'integer') return Number.isInteger(value);
+  if (expected === 'integer') return Number.isSafeInteger(value);
   if (expected === 'number') return typeof value === 'number' && Number.isFinite(value);
   return typeof value === expected;
 }
@@ -78,6 +82,10 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+  && same(Object.keys(value).sort(), [...keys].sort());
+const nonNegativeSafeInteger = (value) => Number.isSafeInteger(value) && value >= 0;
+
 export function classifySafeRunnerOutcome(report) {
   if (report?.outcome === 'success') return 'success';
   if (report?.outcome === 'preflight_refused') return 'safe_refusal';
@@ -104,7 +112,8 @@ function validateSeries(result, errors) {
     || cold.samples?.length > result.configuration?.cold_runs
     || cold.executions?.length !== result.configuration?.cold_runs
     || cold.warmup_wall_time_ns?.length !== 0
-    || cold.samples?.some((sample) => sample.classification !== 'cold')
+    || cold.samples?.some((sample, index) => sample.classification !== 'cold' || sample.index !== index)
+    || cold.executions?.some((execution, index) => execution.run_index !== index)
     || (complete && cold.samples?.length !== result.configuration?.cold_runs)) {
     errors.push('$.series cold runs must be separately executed, measured, and never labeled warm');
   }
@@ -114,7 +123,9 @@ function validateSeries(result, errors) {
     || warm.measured_count !== warm.samples?.length
     || warm.samples?.length > result.configuration?.warm_samples
     || warm.executions?.length !== 1
-    || warm.samples?.some((sample) => sample.classification !== 'measured_warm')
+    || warm.samples?.some((sample, index) => sample.classification !== 'measured_warm'
+      || sample.index !== index)
+    || warm.executions?.[0]?.run_index !== 0
     || (complete && (warm.warmup_count !== result.configuration?.warmups
       || warm.samples?.length !== result.configuration?.warm_samples))) {
     errors.push('$.series warm statistics must exclude explicit warm-ups and contain the configured measurements');
@@ -151,6 +162,57 @@ function validateSeries(result, errors) {
   }
 }
 
+function validAccounting(accounting) {
+  if (!exactKeys(accounting, ['cpu', 'io'])) return false;
+  const { cpu, io } = accounting;
+  if (!exactKeys(cpu, [
+    'available', 'usage_usec', 'user_usec', 'system_usec', 'nr_periods',
+    'nr_throttled', 'throttled_usec', 'reason',
+  ]) || typeof cpu.available !== 'boolean') return false;
+  const cpuUsage = [cpu.usage_usec, cpu.user_usec, cpu.system_usec];
+  const cpuOptional = [cpu.nr_periods, cpu.nr_throttled, cpu.throttled_usec];
+  const cpuValid = cpu.available
+    ? cpuUsage.every(nonNegativeSafeInteger)
+      && cpuOptional.every((value) => value === null || nonNegativeSafeInteger(value))
+      && cpu.reason === null
+    : cpuUsage.every((value) => value === null)
+      && cpuOptional.every((value) => value === null || nonNegativeSafeInteger(value))
+      && typeof cpu.reason === 'string' && cpu.reason.length > 0;
+  if (!cpuValid || !exactKeys(io, [
+    'available', 'devices', 'read_bytes', 'write_bytes', 'read_operations', 'write_operations',
+  ]) || typeof io.available !== 'boolean' || !nonNegativeSafeInteger(io.devices)) return false;
+  const ioValues = [io.read_bytes, io.write_bytes, io.read_operations, io.write_operations];
+  return io.available
+    ? io.devices > 0 && ioValues.every(nonNegativeSafeInteger)
+    : io.devices === 0 && ioValues.every((value) => value === null);
+}
+
+function monotonicAccounting(previous, current) {
+  if (!previous) return true;
+  const monotonic = (left, right, keys) => keys.every((key) =>
+    left[key] === null || right[key] === null || right[key] >= left[key]);
+  if (previous.cpu.available && current.cpu.available
+    && !monotonic(previous.cpu, current.cpu, [
+      'usage_usec', 'user_usec', 'system_usec', 'nr_periods', 'nr_throttled', 'throttled_usec',
+    ])) return false;
+  if (previous.io.available && current.io.available
+    && !monotonic(previous.io, current.io, [
+      'read_bytes', 'write_bytes', 'read_operations', 'write_operations',
+    ])) return false;
+  return true;
+}
+
+function validateTelemetrySidecar(telemetry) {
+  if (!exactKeys(telemetry, ['schema', 'samples'])
+    || telemetry.schema !== 'lamina.runtime-benchmark-telemetry/v1'
+    || !Array.isArray(telemetry.samples) || telemetry.samples.length > 64) return false;
+  return telemetry.samples.every((sample, index) => exactKeys(sample, ['elapsed_ms', 'accounting'])
+    && Number.isFinite(sample.elapsed_ms) && sample.elapsed_ms >= 0
+    && validAccounting(sample.accounting)
+    && (index === 0 || sample.elapsed_ms >= telemetry.samples[index - 1].elapsed_ms)
+    && monotonicAccounting(telemetry.samples[index - 1]?.accounting, sample.accounting));
+}
+
 function validateArtifacts(result, artifactRoot, errors) {
   const contexts = (result.series || []).flatMap((series) =>
     (series.executions || []).map((execution, executionIndex) => ({
@@ -163,6 +225,12 @@ function validateArtifacts(result, artifactRoot, errors) {
   }
   if (!artifactRoot) {
     errors.push('artifactRoot is required to validate referenced execution evidence');
+    return;
+  }
+  const root = path.resolve(artifactRoot);
+  let rootIdentity = null;
+  try { rootIdentity = assertPhysicalDirectoryAncestry(root); } catch (error) {
+    errors.push(`artifactRoot: ${error.message}`);
     return;
   }
   for (const { execution, executionIndex, series } of contexts) {
@@ -188,7 +256,6 @@ function validateArtifacts(result, artifactRoot, errors) {
       || execution.remaining_descendants.length !== 0 || !execution.memory_agrees)) {
       errors.push(`${execution.raw_report} cannot be a valid measurement`);
     }
-    const root = path.resolve(artifactRoot);
     const readArtifact = (relative, expected, maximumBytes) => {
       const normalized = relative.replaceAll('\\', '/');
       if (path.isAbsolute(normalized) || normalized.split('/').includes('..')) {
@@ -196,10 +263,7 @@ function validateArtifacts(result, artifactRoot, errors) {
       }
       const candidate = path.resolve(root, normalized);
       if (!candidate.startsWith(`${root}${path.sep}`)) throw new Error('escapes the artifact root');
-      const stat = fs.lstatSync(candidate);
-      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('artifact is not a physical file');
-      if (stat.size > maximumBytes) throw new Error(`artifact exceeds ${maximumBytes} bytes`);
-      const bytes = fs.readFileSync(candidate);
+      const bytes = readBoundedPhysicalFile(candidate, maximumBytes, { root, rootIdentity });
       if (expected.bytes !== bytes.length || expected.sha256 !== digest(bytes)) {
         throw new Error('artifact size or digest mismatch');
       }
@@ -241,16 +305,31 @@ function validateArtifacts(result, artifactRoot, errors) {
       for (const line of fixtureLines.reverse()) {
         try {
           const parsed = JSON.parse(line);
-          if (parsed?.schema === FIXTURE_SCHEMA) {
+          if (parsed?.schema === 'lamina.runtime-benchmark-fixture/v1') {
+            if (Buffer.byteLength(line) > 7 * 1024) {
+              throw new Error('fixture record exceeds its retained-tail budget');
+            }
             fixtureRecord = parsed;
             break;
           }
-        } catch {}
+        } catch (error) {
+          if (error.message.includes('fixture record')) throw error;
+        }
       }
       if (execution.outcome === 'success' && !fixtureRecord) {
         throw new Error('successful raw report lacks fixture evidence');
       }
       if (fixtureRecord) {
+        const fixtureValidation = validateFixtureRecord(fixtureRecord, {
+          mode: series.kind,
+          warmups: series.kind === 'warm' ? result.configuration.warmups : 0,
+          warmSamples: series.kind === 'warm' ? result.configuration.warm_samples : 1,
+          childProcesses: result.fixture.child_processes,
+          fixtureMetadata: result.fixture,
+        });
+        if (!fixtureValidation.valid) {
+          throw new Error(`invalid fixture record: ${fixtureValidation.errors.join('; ')}`);
+        }
         const observations = fixtureRecord.observations || [];
         const measured = observations.filter((sample) => sample.classification !== 'warmup');
         const normalizedMeasured = series.kind === 'cold'
@@ -278,31 +357,12 @@ function validateArtifacts(result, artifactRoot, errors) {
         execution.telemetry, telemetryArtifact, MAX_TELEMETRY_ARTIFACT_BYTES,
       );
       telemetry = JSON.parse(bytes.toString('utf8'));
-      const validAccounting = (accounting) => {
-        const cpu = accounting?.cpu;
-        const io = accounting?.io;
-        const cpuValues = [cpu?.usage_usec, cpu?.user_usec, cpu?.system_usec];
-        const ioValues = [io?.read_bytes, io?.write_bytes, io?.read_operations, io?.write_operations];
-        const cpuValid = typeof cpu?.available === 'boolean'
-          && (cpu.available ? cpuValues.every((value) => Number.isFinite(value) && value >= 0)
-            : cpuValues.every((value) => value === null));
-        const ioValid = typeof io?.available === 'boolean'
-          && Number.isSafeInteger(io?.devices) && io.devices >= 0
-          && (io.available ? ioValues.every((value) => Number.isSafeInteger(value) && value >= 0)
-            : ioValues.every((value) => value === null));
-        return cpuValid && ioValid;
-      };
-      if (telemetry?.schema !== 'lamina.runtime-benchmark-telemetry/v1'
-        || !Array.isArray(telemetry.samples) || telemetry.samples.length > 64
-        || telemetry.samples.some((sample) => !Number.isFinite(sample?.elapsed_ms)
-          || sample.elapsed_ms < 0 || sample.accounting === null
-          || typeof sample.accounting !== 'object' || !validAccounting(sample.accounting))
-        || telemetry.samples.some((sample, index) => index > 0
-          && sample.elapsed_ms < telemetry.samples[index - 1].elapsed_ms)) {
+      if (!validateTelemetrySidecar(telemetry)) {
         throw new Error('invalid bounded telemetry sidecar');
       }
     } catch (error) {
       errors.push(`${execution.telemetry}: ${error.message}`);
+      telemetry = null;
     }
     if (telemetry) {
       const accounting = [...telemetry.samples].reverse().find((sample) =>
@@ -352,6 +412,10 @@ export function validateResult(result, { artifactRoot = null } = {}) {
     }
     if (!same(result.lifecycle_phases, LIFECYCLE_PHASES)) {
       errors.push('$.lifecycle_phases must contain the complete canonical phase order');
+    }
+    const identity = benchmarkIdentity(result.source, result.fixture, result.configuration);
+    if (result.input_digest !== identity.input_digest || result.result_id !== identity.result_id) {
+      errors.push('$.input_digest and $.result_id must be derived from source, fixture, and configuration');
     }
     validateSeries(result, errors);
     validateArtifacts(result, artifactRoot, errors);
