@@ -112,9 +112,9 @@ function canonicalGraphdRegistration(request, authority, child) {
     const sourceFd = sourceScript.match(/^\/proc\/(?:self|[1-9]\d*)\/fd\/3$/) ? 3 : null;
     const sourceDigest = sourceFd === null ? null
       : authority.openFileDigest?.(child.pid, sourceFd)
-        || fileDigest(`/proc/${child.pid}/fd/${sourceFd}`);
+        ?? fileDigest(`/proc/${child.pid}/fd/${sourceFd}`);
     const executableDigest = authority.executableDigest?.(child.pid)
-      || fileDigest(`/proc/${child.pid}/exe`);
+      ?? fileDigest(`/proc/${child.pid}/exe`);
     const productionSource = argv.length === 3
       && sourceDigest === TRUSTED_GRAPHD_SERVER_DIGEST;
     const fixtureSource = argv.length === 4
@@ -129,7 +129,7 @@ function canonicalGraphdRegistration(request, authority, child) {
     trustedStandalone = argv.length === 3 && argv[1] === '--graphd'
       && /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i.test(executable)
       && executable === CONTROLLER_EXECUTABLE_NAME
-      && (authority.executableDigest?.(child.pid) || fileDigest(`/proc/${child.pid}/exe`))
+      && (authority.executableDigest?.(child.pid) ?? fileDigest(`/proc/${child.pid}/exe`))
         === CONTROLLER_EXECUTABLE_DIGEST;
   } catch {}
   const declaredRoot = trustedSource || trustedStandalone ? argv[2] : null;
