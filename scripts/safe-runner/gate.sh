@@ -24,13 +24,15 @@ fi
 
 rm -f "$release_file"
 mkfifo -m 600 "$release_file"
+exec 3<> "$release_file"
 rm -f "$quota_release_file"
 mkfifo -m 600 "$quota_release_file"
 : > "$quota_ready_file"
 printf '{"pid":%s}\n' "$$" > "$ready_file"
 trap 'exit 143' TERM
 trap 'exit 130' INT
-IFS= read -r _release < "$release_file"
+IFS= read -r _release <&3
+exec 3>&-
 
 LAMINA_SAFE_QUOTA_GATE=$quota_gate LAMINA_SAFE_TEMP_MAX_BYTES=$temporary_max_bytes \
   "$node_executable" "$sandbox_launcher" "$bwrap_executable" "$bwrap_identity" "$execution_authority" "$payload_cwd" "$quota_ready_file" \

@@ -109,6 +109,20 @@ const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
 
 try {
+  for (const [script, launchMarker] of [
+    ['scripts/safe-runner/gate.sh', 'LAMINA_SAFE_QUOTA_GATE='],
+    ['scripts/safe-runner/quota-gate.sh', 'exec "$@"'],
+  ]) {
+    const source = fs.readFileSync(script, 'utf8');
+    const open = source.indexOf('exec 3<> "$release_file"');
+    const ready = source.indexOf('> "$ready_file"', open);
+    const read = source.indexOf('IFS= read -r _release <&3', ready);
+    const close = source.indexOf('exec 3>&-', read);
+    const launch = source.indexOf(launchMarker, close);
+    assert.ok(open >= 0 && open < ready && ready < read && read < close && close < launch,
+      `${script} must open a live release reader before READY, then read and close it before launch`);
+  }
+
   const ownedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-owned-'));
   const ownedIdentity = ownedDirectoryIdentity(ownedTemporary);
   assert.equal(removeOwnedDirectory(ownedTemporary, 'lamina-safe-runner-', ownedIdentity), true);
