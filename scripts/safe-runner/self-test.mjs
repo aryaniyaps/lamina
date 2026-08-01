@@ -10,7 +10,9 @@ import { runSafely } from './runner.mjs';
 import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { baseReport, finishReport, validateReport, writeReport } from './report.mjs';
 import { redactText } from './redaction.mjs';
-import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
+import {
+  acquireConcurrencyLock, productionLockDirectory, stateDirectory, writeAttestation,
+} from './state.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
@@ -24,6 +26,106 @@ export const SUPERVISOR_CRASH_REPORT_TIMEOUT_MS = 10_000;
 
 function boundedTestTimeout(value, fallback) {
   return Number.isSafeInteger(value) && value > 0 && value <= 60_000 ? value : fallback;
+}
+
+export function proveExternalControllerCleanup({
+  controllerIdentity,
+  resourceState,
+  report,
+  claimDirectory = productionLockDirectory(),
+  claimUnit = 'lamina-safe-post-external-cleanup-proof.scope',
+  attemptClaim = true,
+}) {
+  const explicitLockAuthority = Object.hasOwn(resourceState || {}, 'lock_file')
+    && (resourceState.lock_file === null
+      || (typeof resourceState.lock_file === 'string'
+        && path.isAbsolute(resourceState.lock_file)));
+  const explicitTemporaryAuthority = Object.hasOwn(resourceState || {}, 'temporary_directory')
+    && (resourceState.temporary_directory === null
+      || (typeof resourceState.temporary_directory === 'string'
+        && path.isAbsolute(resourceState.temporary_directory)));
+  const explicitWatchdogAuthority = typeof resourceState?.watchdog_directory === 'string'
+    && path.isAbsolute(resourceState.watchdog_directory);
+  const validResourceState = Number.isSafeInteger(resourceState?.controller_pid)
+    && Number.isSafeInteger(controllerIdentity?.pid)
+    && resourceState.controller_pid === controllerIdentity.pid
+    && /^lamina-safe-[A-Za-z0-9_-]+\.scope$/.test(resourceState?.unit || '')
+    && Number.isSafeInteger(resourceState?.watchdog_process?.pid)
+    && typeof resourceState?.watchdog_process?.start_ticks === 'string'
+    && explicitTemporaryAuthority
+    && explicitWatchdogAuthority
+    && explicitLockAuthority;
+  const controllerDead = Boolean(controllerIdentity) && !identityAlive(controllerIdentity);
+  const temporaryRemoved = validResourceState
+    && (resourceState.temporary_directory === null
+      || (typeof resourceState.temporary_directory === 'string'
+        && !fs.existsSync(resourceState.temporary_directory)));
+  const watchdogStateRemoved = validResourceState
+    && !identityAlive(resourceState.watchdog_process)
+    && typeof resourceState.watchdog_directory === 'string'
+    && !fs.existsSync(resourceState.watchdog_directory);
+  const lockRemoved = validResourceState && (resourceState.lock_file === null
+    || (typeof resourceState.lock_file === 'string'
+      && !lstatPresence(resourceState.lock_file).exists));
+  const cleanup = report?.cleanup;
+  const schemaValid = validateReport(report || {}).valid;
+  const descendantsAbsent = cleanup?.descendants_remaining?.length === 0;
+  const managedPathsAbsent = cleanup?.managed_paths_remaining?.length === 0;
+  const reportLockReleased = cleanup?.lock_released === true
+    || (explicitLockAuthority && resourceState.lock_file === null
+      && cleanup?.lock_released === null);
+  const authoritativeCleanupProven = validResourceState && schemaValid
+    && cleanup?.attempted === true
+    && descendantsAbsent
+    && managedPathsAbsent
+    && cleanup?.scope_removed === true
+    && cleanup?.temporary_directory_removed === true
+    && reportLockReleased
+    && cleanup?.errors?.length === 0;
+  let scopeAbsent = false;
+  if (controllerDead && temporaryRemoved && watchdogStateRemoved && lockRemoved
+    && authoritativeCleanupProven) {
+    const shown = spawnSync(infrastructureBinaries().systemctl, [
+      '--user', 'show', resourceState.unit, '--property=LoadState', '--property=ControlGroup',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
+      env: sanitizedEnvironment(process.env) });
+    scopeAbsent = systemdAbsenceProof(shown, false);
+  }
+  const baseCleanupProven = controllerDead && scopeAbsent && temporaryRemoved
+    && watchdogStateRemoved && lockRemoved && authoritativeCleanupProven;
+  const claimAttempted = baseCleanupProven && attemptClaim;
+  let subsequentClaim = false;
+  if (claimAttempted) {
+    try {
+      fs.mkdirSync(path.dirname(claimDirectory), { recursive: true, mode: 0o700 });
+      const claim = acquireConcurrencyLock({
+        directory: claimDirectory,
+        scope: {
+          adapter: 'linux-systemd-cgroup-v2',
+          unit: claimUnit,
+          cgroup: null,
+        },
+      });
+      subsequentClaim = claim.release() === true;
+    } catch {}
+  }
+  return {
+    controller_dead: controllerDead,
+    scope_absent: scopeAbsent,
+    temporary_removed: temporaryRemoved,
+    watchdog_state_removed: watchdogStateRemoved,
+    lock_removed: lockRemoved,
+    subsequent_claim: subsequentClaim,
+    descendants_absent: descendantsAbsent,
+    managed_paths_absent: managedPathsAbsent,
+    schema_valid: schemaValid,
+    authoritative_cleanup_proven: authoritativeCleanupProven,
+    base_cleanup_proven: baseCleanupProven,
+    claim_attempted: claimAttempted,
+    claim_status: !claimAttempted ? 'not_attempted'
+      : subsequentClaim ? 'succeeded' : 'failed',
+    exact_cleanup_proven: baseCleanupProven && subsequentClaim,
+  };
 }
 
 function digest(value) {
@@ -359,98 +461,52 @@ export async function runHandledParentSignalSelfTest({
     try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
   }
   const resourceState = boundaryReached ? armed : progress;
-  const validResourceState = resourceState?.controller_pid === controller.pid
-    && typeof resourceState?.unit === 'string'
-    && Number.isSafeInteger(resourceState?.watchdog_process?.pid)
-    && typeof resourceState?.watchdog_process?.start_ticks === 'string';
   let report = null;
-  let scopeAbsent = false;
-  const ownedStateRemoved = () => validResourceState
-    && !identityAlive(resourceState.watchdog_process)
-    && (resourceState.temporary_directory === null
-      || (typeof resourceState.temporary_directory === 'string'
-        && !fs.existsSync(resourceState.temporary_directory)))
-    && typeof resourceState.watchdog_directory === 'string'
-    && !fs.existsSync(resourceState.watchdog_directory)
-    && (resourceState.lock_file === null
-      || (typeof resourceState.lock_file === 'string'
-        && !lstatPresence(resourceState.lock_file).exists));
-  const completeCleanupReport = () => {
-    const cleanup = report?.cleanup;
-    return validateReport(report || {}).valid
-      && cleanup?.attempted === true
-      && cleanup?.descendants_remaining?.length === 0
-      && cleanup?.managed_paths_remaining?.length === 0
-      && cleanup?.scope_removed === true
-      && cleanup?.temporary_directory_removed === true
-      && cleanup?.lock_released === true
-      && cleanup?.errors?.length === 0;
-  };
+  let claimAttempted = false;
+  let cleanupEvidence = null;
   const refreshReport = () => {
     try {
       const candidate = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
       if (candidate?.error?.code !== 'LAMINA_SAFE_RUN_IN_PROGRESS') report = candidate;
     } catch {}
   };
-  const refreshScopeAbsence = () => {
-    if (scopeAbsent || !validResourceState) return;
-    const shown = spawnSync(infrastructureBinaries().systemctl, [
-      '--user', 'show', resourceState.unit, '--property=LoadState', '--property=ControlGroup',
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
-      env: sanitizedEnvironment(process.env) });
-    scopeAbsent = systemdAbsenceProof(shown, false);
+  const refreshCleanupEvidence = () => {
+    cleanupEvidence = proveExternalControllerCleanup({
+      controllerIdentity,
+      resourceState,
+      report,
+      claimUnit: 'lamina-safe-post-sigint-proof.scope',
+      attemptClaim: !claimAttempted,
+    });
+    if (cleanupEvidence.base_cleanup_proven) claimAttempted = true;
   };
-  const cleanupProven = () => !identityAlive(controllerIdentity)
-    && ownedStateRemoved() && completeCleanupReport() && scopeAbsent;
+  refreshCleanupEvidence();
   let reportDeadline = Date.now() + reportTimeoutMs;
   while (Date.now() < reportDeadline) {
     refreshReport();
-    if (!identityAlive(controllerIdentity) && ownedStateRemoved() && completeCleanupReport()) {
-      refreshScopeAbsence();
-    }
-    if (cleanupProven()) break;
+    refreshCleanupEvidence();
+    if (cleanupEvidence.exact_cleanup_proven) break;
     await wait(20);
   }
   let handledTimeout = false;
-  if (!cleanupProven() && identityAlive(controllerIdentity)) {
+  if (!cleanupEvidence.exact_cleanup_proven && identityAlive(controllerIdentity)) {
     handledTimeout = boundaryReached;
     try { controller.kill('SIGKILL'); } catch {}
     reportDeadline = Date.now() + reportTimeoutMs;
     while (Date.now() < reportDeadline) {
       refreshReport();
-      if (!identityAlive(controllerIdentity) && ownedStateRemoved() && completeCleanupReport()) {
-        refreshScopeAbsence();
-      }
-      if (cleanupProven()) break;
+      refreshCleanupEvidence();
+      if (cleanupEvidence.exact_cleanup_proven) break;
       await wait(20);
     }
   }
-  let subsequentClaim = false;
-  if (cleanupProven()) {
-    try {
-      const claim = acquireConcurrencyLock({
-        scope: {
-          adapter: 'linux-systemd-cgroup-v2',
-          unit: 'lamina-safe-post-sigint-proof.scope',
-          cgroup: null,
-        },
-      });
-      subsequentClaim = claim.release() === true;
-    } catch {}
-  }
-  const exactCleanupProven = cleanupProven() && subsequentClaim;
-  if (!exactCleanupProven) {
+  if (!cleanupEvidence.exact_cleanup_proven) {
     const error = new Error('handled SIGINT self-test exact cleanup was not proven');
     error.code = 'LAMINA_SAFE_SELF_TEST_CLEANUP_UNPROVEN';
     error.diagnostic = {
       ...(diagnostic || { code: 'handled_signal_cleanup_unproven', boundary: 'payload_released' }),
       report_observed: report !== null,
-      controller_removed: !identityAlive(controllerIdentity),
-      watchdog_state_removed: ownedStateRemoved(),
-      scope_absent: scopeAbsent,
-      authoritative_cleanup_proven: completeCleanupReport(),
-      subsequent_claim: subsequentClaim,
-      exact_cleanup_proven: false,
+      ...cleanupEvidence,
     };
     throw error;
   }
@@ -478,10 +534,7 @@ export async function runHandledParentSignalSelfTest({
   } : null);
   if (resultDiagnostic) {
     resultDiagnostic.report_observed = report !== null;
-    resultDiagnostic.authoritative_cleanup_proven = completeCleanupReport();
-    resultDiagnostic.scope_absent = scopeAbsent;
-    resultDiagnostic.subsequent_claim = subsequentClaim;
-    resultDiagnostic.exact_cleanup_proven = true;
+    Object.assign(resultDiagnostic, cleanupEvidence);
   }
   return {
     passed,
@@ -489,20 +542,7 @@ export async function runHandledParentSignalSelfTest({
     report_path: reportPath,
     signal_requested: sigintRequested,
     diagnostic: resultDiagnostic,
-    evidence: {
-      controller_dead: true,
-      scope_absent: scopeAbsent,
-      temporary_removed: resourceState.temporary_directory === null
-        || !fs.existsSync(resourceState.temporary_directory),
-      watchdog_state_removed: !identityAlive(resourceState.watchdog_process)
-        && !fs.existsSync(resourceState.watchdog_directory),
-      lock_removed: resourceState.lock_file === null
-        || !lstatPresence(resourceState.lock_file).exists,
-      subsequent_claim: subsequentClaim,
-      descendants_absent: report.cleanup.descendants_remaining.length === 0,
-      managed_paths_absent: report.cleanup.managed_paths_remaining.length === 0,
-      schema_valid: validateReport(report).valid,
-    },
+    evidence: cleanupEvidence,
   };
 }
 

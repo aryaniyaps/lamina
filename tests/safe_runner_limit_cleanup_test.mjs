@@ -3,40 +3,197 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
+import { identityAlive, processIdentity } from '../scripts/safe-runner/processes.mjs';
+import {
+  proveExternalControllerCleanup,
+  SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS,
+  SUPERVISOR_CRASH_REPORT_TIMEOUT_MS,
+} from '../scripts/safe-runner/self-test.mjs';
+import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-limit-cleanup-'));
-const scratch = fs.mkdtempSync(path.join(process.cwd(), '.safe-runner-limit-cleanup-'));
-const report = path.join(root, 'report.json');
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const POST_PAYLOAD_TIMEOUT_MS = 15_000;
+const DELAYED_PREPARATION_MS = 15_100;
+const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
+  ? path.resolve(process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR)
+  : os.tmpdir();
+fs.mkdirSync(artifactBase, { recursive: true });
+const root = fs.mkdtempSync(path.join(artifactBase, 'lamina-safe-limit-cleanup-'));
+const workspaceScratchRoot = runtimePaths(process.cwd()).work;
+fs.mkdirSync(workspaceScratchRoot, { recursive: true, mode: 0o700 });
+const scratch = fs.mkdtempSync(path.join(workspaceScratchRoot, 'safe-runner-limit-cleanup-'));
+const reportFile = path.join(root, 'report.json');
 const phases = path.join(root, 'phases.txt');
+const progressFile = path.join(root, 'crash-progress.json');
+const stateDirectory = path.join(root, 'state');
 const graphRepository = path.join(scratch, 'graph-repository');
 fs.mkdirSync(graphRepository);
 assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: graphRepository }).status, 0);
 const child = spawn(process.execPath, [
-  'tests/fixtures/safe-runner-limit-controller.mjs', process.cwd(), report,
-  graphRepository, phases,
+  'tests/fixtures/safe-runner-limit-controller.mjs', process.cwd(), reportFile,
+  graphRepository, phases, progressFile, String(DELAYED_PREPARATION_MS),
 ], {
   cwd: process.cwd(), stdio: 'ignore',
-  env: { ...process.env, LAMINA_SAFE_RUNNER_STATE_DIR: path.join(root, 'state') },
+  env: { ...process.env, LAMINA_SAFE_RUNNER_STATE_DIR: stateDirectory },
 });
-let timedOut = false;
-const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, 15_000);
+
+let controllerIdentity = null;
+const identityDeadline = Date.now() + 250;
+while (Date.now() < identityDeadline && !controllerIdentity
+  && child.exitCode === null && child.signalCode === null) {
+  controllerIdentity = processIdentity(child.pid);
+  if (!controllerIdentity) await wait(10);
+}
+if (!controllerIdentity) {
+  child.kill('SIGKILL');
+  const exitDeadline = Date.now() + SUPERVISOR_CRASH_REPORT_TIMEOUT_MS;
+  while (Date.now() < exitDeadline && child.exitCode === null && child.signalCode === null) {
+    await wait(20);
+  }
+  throw new Error('could not establish exact killed-wrapper controller identity');
+}
+
+let exactCleanupProven = false;
+let testPassed = false;
+let timeoutPhase = null;
+let progress = null;
+let evidence = null;
+const trace = () => fs.existsSync(phases) ? fs.readFileSync(phases, 'utf8') : '';
 try {
-  await once(child, 'exit');
-  clearTimeout(timer);
-  const trace = fs.existsSync(phases) ? fs.readFileSync(phases, 'utf8') : '';
-  assert.equal(timedOut, false, `killed-wrapper cleanup hung; phases:\n${trace}`);
-  assert.match(trace, /finally:broker-closed/);
-  assert.match(trace, /finally:output-(?:closed|close-timeout)/);
-  assert.match(trace, /finally:complete/);
-  assert.match(trace, /report:write-start/);
-  const evidence = JSON.parse(fs.readFileSync(report, 'utf8'));
-  assert.ok(['safety_limit_exceeded', 'internal_error'].includes(evidence.outcome));
+  const preparationStartedMs = Date.now();
+  const preparationDeadline = preparationStartedMs + SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS;
+  let payloadReleased = false;
+  while (Date.now() < preparationDeadline && identityAlive(controllerIdentity)) {
+    try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
+    payloadReleased = /launch:payload-released/.test(trace());
+    if (payloadReleased) break;
+    await wait(20);
+  }
+  if (identityAlive(controllerIdentity) && !payloadReleased) {
+    timeoutPhase = 'preparation';
+    child.kill('SIGKILL');
+  } else if (payloadReleased && identityAlive(controllerIdentity)) {
+    const postPayloadDeadline = Date.now() + POST_PAYLOAD_TIMEOUT_MS;
+    while (Date.now() < postPayloadDeadline && identityAlive(controllerIdentity)) await wait(20);
+    if (identityAlive(controllerIdentity)) {
+      timeoutPhase = 'post_payload_cleanup';
+      child.kill('SIGKILL');
+    }
+  }
+
+  if (!progress) {
+    try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
+  }
+  const validProgress = progress?.controller_pid === child.pid
+    && typeof progress?.unit === 'string'
+    && Number.isSafeInteger(progress?.watchdog_process?.pid)
+    && typeof progress?.watchdog_process?.start_ticks === 'string';
+  let claimAttempted = false;
+  let cleanupEvidence = null;
+  const refreshCleanupEvidence = () => {
+    cleanupEvidence = proveExternalControllerCleanup({
+      controllerIdentity,
+      resourceState: progress,
+      report: evidence,
+      claimDirectory: path.join(stateDirectory, 'production-locks'),
+      claimUnit: 'lamina-safe-post-limit-cleanup-proof.scope',
+      attemptClaim: !claimAttempted,
+    });
+    if (cleanupEvidence.base_cleanup_proven) claimAttempted = true;
+  };
+  refreshCleanupEvidence();
+  const cleanupDeadline = Date.now() + SUPERVISOR_CRASH_REPORT_TIMEOUT_MS;
+  while (Date.now() < cleanupDeadline) {
+    try {
+      const candidate = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      if (candidate?.error?.code !== 'LAMINA_SAFE_RUN_IN_PROGRESS') evidence = candidate;
+    } catch {}
+    refreshCleanupEvidence();
+    if (cleanupEvidence.exact_cleanup_proven) break;
+    await wait(20);
+  }
+  exactCleanupProven = cleanupEvidence.exact_cleanup_proven;
+  if (!exactCleanupProven) {
+    const error = new Error(
+      `killed-wrapper exact watchdog cleanup was not proven; artifacts retained at ${root}`,
+    );
+    error.code = 'LAMINA_SAFE_SELF_TEST_CLEANUP_UNPROVEN';
+    error.diagnostic = {
+      timeout_phase: timeoutPhase,
+      artifact_root: root,
+      scratch_root: scratch,
+      trace: trace(),
+      progress_observed: progress !== null,
+      report_observed: evidence !== null,
+      valid_progress: validProgress,
+      ...cleanupEvidence,
+    };
+    throw error;
+  }
+
+  const missingLockAuthority = { ...progress };
+  delete missingLockAuthority.lock_file;
+  const missingLockProof = proveExternalControllerCleanup({
+    controllerIdentity,
+    resourceState: missingLockAuthority,
+    report: evidence,
+    claimDirectory: path.join(stateDirectory, 'production-locks'),
+    attemptClaim: false,
+  });
+  assert.equal(missingLockProof.authoritative_cleanup_proven, false,
+    'a missing lock_file field must never inherit the explicit no-lock cleanup rule');
+  assert.equal(missingLockProof.exact_cleanup_proven, false);
+  for (const [field, value] of [
+    ['lock_file', 42],
+    ['temporary_directory', { path: progress.temporary_directory }],
+    ['watchdog_directory', { path: progress.watchdog_directory }],
+  ]) {
+    const malformedProof = proveExternalControllerCleanup({
+      controllerIdentity,
+      resourceState: { ...progress, [field]: value },
+      report: evidence,
+      claimDirectory: path.join(stateDirectory, 'production-locks'),
+      attemptClaim: false,
+    });
+    assert.equal(malformedProof.authoritative_cleanup_proven, false,
+      `malformed ${field} authority must fail closed without throwing`);
+    assert.equal(malformedProof.exact_cleanup_proven, false);
+  }
+  const finalTrace = trace();
+  const artifactHint = `artifacts retained at ${root}`;
+  assert.equal(timeoutPhase, null,
+    `killed-wrapper cleanup hung; ${artifactHint}; phases:\n${finalTrace}`);
+  assert.ok(Date.now() - preparationStartedMs >= DELAYED_PREPARATION_MS,
+    `preparation delay must exceed the removed total-run timeout; ${artifactHint}`);
+  assert.match(finalTrace, /finally:broker-closed/, artifactHint);
+  assert.match(finalTrace, /finally:output-(?:closed|close-timeout)/, artifactHint);
+  assert.match(finalTrace, /finally:complete/, artifactHint);
+  assert.match(finalTrace, /report:write-start/, artifactHint);
+  assert.ok(['safety_limit_exceeded', 'internal_error'].includes(evidence.outcome), artifactHint);
+  if (payloadReleased) {
+    assert.match(finalTrace, /launch:payload-released/, artifactHint);
+  } else {
+    assert.equal(evidence.error?.code, 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
+      `only an exact private-tmpfs refusal may end the local preparation branch; ${artifactHint}`);
+  }
+  testPassed = true;
+} catch (error) {
+  if (error && typeof error === 'object') {
+    error.artifact_root ||= root;
+    if (!exactCleanupProven) error.scratch_root ||= scratch;
+  }
+  throw error;
 } finally {
-  if (child.exitCode === null) child.kill('SIGKILL');
-  fs.rmSync(scratch, { recursive: true, force: true });
-  fs.rmSync(root, { recursive: true, force: true });
+  if (identityAlive(controllerIdentity)) {
+    try { child.kill('SIGKILL'); } catch {}
+  }
+  if (exactCleanupProven) {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+  if (testPassed) {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
 
 process.stdout.write('safe-runner killed-wrapper cleanup regression passed\n');
