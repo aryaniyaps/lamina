@@ -135,8 +135,11 @@ Docker/Podman/container control sockets and inherited control addresses are
 masked. Network-required entrypoints are separately and narrowly allowlisted.
 The runner temporary directory is a size-limited private tmpfs.
 The prepared report parent is a separate identity-bound authority mount: it is
-read-only inside the payload namespace, and the controller uses an unpredictable
-exclusive temporary file plus immutable parent/run identity before atomic replacement.
+read-only inside the payload namespace. Slot acquisition uses `O_NOFOLLOW` and
+`O_TRUNC` before lengthy preparation, so a crash can leave an invalid/empty or
+current-run non-success file, never a previous success. Completed reports use
+an unpredictable exclusive temporary file plus immutable parent/run identity
+before atomic replacement.
 The controller verifies that tmpfs before releasing the payload and reads its
 allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
 deleted-but-open files without an unbounded directory scan. Symlinks in the
@@ -147,29 +150,39 @@ Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
 escape hatch. Before spawn, the client asks the live supervisor broker to prove
 the canonical socket/lock paths absent under a physical same-user parent and
 durably reserve them. After spawn it binds that reservation to the authorized
-PID, Linux start identity, command, and parent. No child-writable registry is authoritative. After the CLI
+host/namespace PIDs, Linux start identity, command, and parent. The reservation
+nonce is embedded in the graphd lock for the creation-to-seal transition. Once
+readiness creates both objects, graphd and the client seal their exact `lstat`
+type, device, inode, owner, mode, and size; the lock PID must match the bound
+PID set. No child-writable registry is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
 unregistered detached descendant is a safety failure.
 
 Before either payload gate opens, a detached identity-bound watchdog durably
-records the exact systemd unit, cgroup, temporary-directory identity, and
+records the exact systemd unit, cgroup, temporary-directory identity, graphd
+reservation/bind/seal state, and
 production-lock nonce/inode. If the supervisor is killed, the watchdog kills
 and removes that exact scope, removes only identity-matched temporary/managed
-paths, releases the exact lock only after authoritative absence proof, and
+paths after an immediate identity recheck, releases the exact lock only after authoritative absence proof, and
 writes a schema-valid crash report. The existing `parent_signal` qualification
 case bundles handled-signal and supervisor-`SIGKILL` subproofs, preserving the
-public eleven-case contract.
+public eleven-case contract. Focused CI additionally kills the controller at
+pre-watchdog report preparation and graphd reserved, bound, objects-created,
+and sealed boundaries.
 
-The requested report slot contains a schema-valid non-success provisional
-record before payload release. Final outcomes atomically replace that run-bound
+The requested report slot contains a schema-valid current-run non-success
+provisional record before adapter probing or payload preparation. Final outcomes atomically replace that run-bound
 slot. Because watchdog write authority uses the immutable parent and run rather
 than a changing report inode, controller death after success publication but
 before disarm overwrites that success with schema-valid crash evidence.
 
 Infrastructure binaries are resolved and identity-bound independently of the
-caller. PATH and dynamic-loader, Node, and shell execution hooks are sanitized
+caller and rechecked at launch. CI supplies bwrap through an absolute physical
+path plus SHA-256; local runs retain a fixed-system-path fallback, and probe and
+launch use the same persisted identity. PATH and complete dynamic-loader,
+Node, exported Bash-function, and analogous shell/runtime hook families are sanitized
 before `systemd-run`, the gates, bwrap, and the payload launcher start, including
 for reusable API environment overrides.
 
@@ -218,8 +231,8 @@ the authoritative tier, unit, and limits from a live supervisor-held broker,
 then independently reads the caller's cgroup and controller values. Context
 files, tokens, tier variables, and plain environment flags are not proof.
 
-Lamina's graph client also registers any graphd it starts by PID and Linux
-start ticks. After the payload exits, the runner gives that exact registered
+Lamina's graph client also reserves, binds, and object-seals any graphd it starts
+by host/namespace PID and Linux start ticks. After the payload exits, the runner gives that exact registered
 daemon a short graceful shutdown window and verifies that its socket, lock,
 process tree, and scope are gone. Any unregistered detached process—or any
 registered graphd that outlives the deadline—fails the scenario and triggers

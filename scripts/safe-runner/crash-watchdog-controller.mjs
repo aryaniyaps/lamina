@@ -8,6 +8,9 @@ import { ownedDirectoryIdentity } from './filesystem.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { redactEvidence } from './redaction.mjs';
 import { sanitizedEnvironment } from './infrastructure.mjs';
+import {
+  bindManagedObjects, removeManagedObjects, reserveManagedObjects, sealManagedObjects,
+} from './managed-paths.mjs';
 
 const WATCHDOG = fileURLToPath(new URL('./crash-watchdog.mjs', import.meta.url));
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -25,29 +28,6 @@ function atomicJson(file, value) {
     const parent = fs.openSync(path.dirname(file), 'r');
     try { fs.fsyncSync(parent); } finally { fs.closeSync(parent); }
   } finally { fs.rmSync(temporary, { force: true }); }
-}
-
-function parentIdentity(candidate) {
-  try {
-    const stat = fs.lstatSync(path.dirname(candidate), { bigint: true });
-    if (!stat.isDirectory() || stat.isSymbolicLink()
-      || (typeof process.getuid === 'function' && Number(stat.uid) !== process.getuid())) return null;
-    return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
-  } catch { return null; }
-}
-
-function pendingPath(candidate, expectedType) {
-  const parent = parentIdentity(candidate);
-  if (!parent || fs.existsSync(candidate)) return null;
-  return {
-    path: path.resolve(candidate), type: expectedType, state: 'reserved',
-    parent_identity: parent, expected_pid: null, uid: typeof process.getuid === 'function' ? process.getuid() : 0,
-  };
-}
-
-function boundPath(pending, expectedPids) {
-  if (!pending || pending.state !== 'reserved') return null;
-  return { ...pending, state: 'bound', expected_pids: expectedPids };
 }
 
 export async function startCrashWatchdog({
@@ -116,20 +96,39 @@ export async function startCrashWatchdog({
       });
     },
     reserveManagedPaths(registration) {
-      const identities = [pendingPath(registration.socket, 'socket'), pendingPath(registration.lock, 'lock')];
-      if (identities.some((item) => !item)) return null;
+      const identities = reserveManagedObjects(
+        registration.socket, registration.lock, registration.token,
+      );
+      if (!identities) return null;
       const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
       for (const item of identities) existing.set(item.path, item);
       persist({ managed_paths: [...existing.values()] });
       return identities;
     },
     bindManagedPaths(paths, pids) {
-      const updates = paths.map((item) => boundPath(item, pids));
-      if (updates.some((item) => !item)) return false;
+      const current = paths.map((item) => manifest.managed_paths.find((entry) => entry.path === item.path));
+      const updates = bindManagedObjects(current, pids);
+      if (!updates) return false;
       const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
       for (const item of updates) existing.set(item.path, item);
       persist({ managed_paths: [...existing.values()] });
       return true;
+    },
+    sealManagedPaths(paths) {
+      const current = paths.map((item) => manifest.managed_paths.find((entry) => entry.path === item.path));
+      if (current.length > 0 && current.every((item) => item?.state === 'sealed')) return true;
+      const updates = sealManagedObjects(current);
+      if (!updates) return false;
+      const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
+      for (const item of updates) existing.set(item.path, item);
+      persist({ managed_paths: [...existing.values()] });
+      return true;
+    },
+    managedPaths() {
+      return structuredClone(manifest.managed_paths);
+    },
+    cleanupManagedPaths() {
+      return removeManagedObjects(manifest.managed_paths);
     },
     async disarm() {
       fs.writeFileSync(disarmFile, `${token}\n`, { mode: 0o600 });

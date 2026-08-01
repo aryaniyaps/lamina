@@ -21,6 +21,7 @@ const state = path.join(root, 'state');
 const reports = path.join(root, 'reports');
 const fixture = path.resolve('tests/fixtures/safe-runner-adversary.mjs');
 const graphdFixture = path.resolve('tests/fixtures/safe-runner-graphd-client.mjs');
+const mutableFixture = path.resolve('tests/fixtures/safe-runner-mutable.mjs');
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 const workloadCwd = process.cwd();
 const workspaceScratch = fs.mkdtempSync(path.join(workloadCwd, '.safe-runner-integration-'));
@@ -109,6 +110,13 @@ try {
     assert.equal(supervisorCrash.passed, true, JSON.stringify(supervisorCrash, null, 2));
     assert.ok(Object.values(supervisorCrash.evidence).every(Boolean));
     assert.equal(validateReport(supervisorCrash.report).valid, true);
+    const preparationCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'report_slot_acquired',
+      previousReport: normal,
+    });
+    assert.equal(preparationCrash.passed, true, JSON.stringify(preparationCrash, null, 2));
+    assert.notEqual(preparationCrash.report.run_id, normal.run_id,
+      'preparation crash must never expose the previous successful run');
     const successPublicationCrash = await runSupervisorCrashSelfTest({
       cwd: process.cwd(), reportDirectory: reports, boundary: 'success_report_published',
     });
@@ -144,14 +152,49 @@ try {
         PATH: path.join(root, 'attacker-bin'), LD_PRELOAD: '/tmp/attacker.so',
         LD_AUDIT: '/tmp/audit.so', NODE_OPTIONS: '--require=/tmp/attacker.cjs',
         NODE_PATH: '/tmp/node-path', BASH_ENV: '/tmp/bash-env',
+        'BASH_FUNC_payload%%': `() { touch ${path.join(root, 'bash-function-ran')}; }`,
+        LD_DEBUG_OUTPUT: path.join(root, 'ld-debug'),
+        NODE_V8_COVERAGE: path.join(root, 'v8-coverage'),
+        NODE_COMPILE_CACHE: path.join(root, 'node-cache'),
+        NODE_REDIRECT_WARNINGS: path.join(root, 'node-warnings'),
       },
     });
     assert.equal(poisonedEnvironment.outcome, 'success');
     const environmentEvidence = JSON.parse(poisonedEnvironment.output.stdout_tail.trim().split('\n').at(-1));
     assert.notEqual(environmentEvidence.path, path.join(root, 'attacker-bin'));
-    for (const name of ['ld_preload', 'ld_audit', 'node_options', 'node_path', 'bash_env']) {
+    for (const name of [
+      'ld_preload', 'ld_audit', 'node_options', 'node_path', 'bash_env',
+      'bash_function', 'ld_debug_output', 'node_v8_coverage', 'node_compile_cache',
+      'node_redirect_warnings',
+    ]) {
       assert.equal(environmentEvidence[name], null, `${name} must be stripped from reusable API overrides`);
     }
+    for (const candidate of [
+      'bash-function-ran', 'ld-debug', 'v8-coverage', 'node-cache', 'node-warnings',
+    ]) assert.equal(fs.existsSync(path.join(root, candidate)), false,
+    `${candidate} must not be executed or written by host-side launch stages`);
+
+    const mutableOriginal = fs.readFileSync(mutableFixture, 'utf8');
+    const mutableMarker = path.join(root, 'mutated-payload-executed');
+    let finalIdentityMutation;
+    try {
+      finalIdentityMutation = await runSafely({
+        command: [process.execPath, mutableFixture, mutableMarker],
+        tier: 'small', cwd: workloadCwd,
+        reportFile: path.join(reports, 'final-identity-mutation.json'),
+        overrides: limits, probe, promote: false,
+        _testBeforeQuotaRelease() {
+          fs.appendFileSync(mutableFixture, '\n// deterministic quota-handshake mutation\n');
+        },
+      });
+    } finally {
+      fs.writeFileSync(mutableFixture, mutableOriginal);
+    }
+    assert.equal(finalIdentityMutation.outcome, 'internal_error');
+    assert.equal(finalIdentityMutation.error.code, 'LAMINA_SAFE_SOURCE_IDENTITY_CHANGED');
+    assert.equal(fs.existsSync(mutableMarker), false,
+      'payload must remain behind the quota gate after final identity mutation');
+    assert.deepEqual(finalIdentityMutation.cleanup.descendants_remaining, []);
 
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
@@ -183,7 +226,9 @@ try {
       encoding: 'utf8',
     });
     assert.equal(initialized.status, 0, initialized.stderr);
-    for (const boundary of ['graphd_reserved', 'graphd_bound']) {
+    for (const boundary of [
+      'graphd_reserved', 'graphd_bound', 'graphd_objects_ready', 'graphd_sealed',
+    ]) {
       const crashRepository = path.join(workspaceScratch, `${boundary}-${'y'.repeat(72)}`);
       fs.mkdirSync(crashRepository);
       assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: crashRepository }).status, 0);
@@ -234,7 +279,8 @@ try {
     });
     assert.equal(staleGraphd.outcome, 'internal_error');
     assert.equal(staleGraphd.termination.reason, 'cleanup_incomplete');
-    assert.equal(staleGraphd.cleanup.managed_paths_remaining.length, 2);
+    assert.deepEqual(staleGraphd.cleanup.managed_paths_remaining, [runtimePaths(graphRepository).socket],
+      'exact sealed lock may be removed, but a foreign socket replacement must remain');
     assert.equal(fs.existsSync(graphData), true, 'cleanup must not delete canonical graph data');
     assert.equal(validateReport(staleGraphd).valid, true);
     for (const managedPath of staleGraphd.cleanup.managed_paths_remaining) {
@@ -249,8 +295,8 @@ try {
     });
     assert.equal(earlyGraphd.outcome, 'internal_error');
     assert.equal(earlyGraphd.termination.reason, 'cleanup_incomplete');
-    assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 2,
-      'accepted registration must seed socket/lock verification before classification');
+    assert.deepEqual(earlyGraphd.cleanup.managed_paths_remaining, [runtimePaths(graphRepository).socket],
+      'early foreign socket replacement must remain while the exact sealed lock is removed');
     assert.equal(fs.existsSync(graphData), true, 'cleanup must preserve canonical graph data');
     for (const managedPath of earlyGraphd.cleanup.managed_paths_remaining) {
       fs.rmSync(managedPath, { force: true });

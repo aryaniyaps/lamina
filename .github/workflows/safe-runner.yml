@@ -6,11 +6,8 @@ on:
       - 'scripts/safe-runner/**'
       - 'packages/cli/lib/graph-runtime/client.mjs'
       - 'packages/cli/lib/safe-runner-*.mjs'
-      - 'tests/safe_runner_test.mjs'
-      - 'tests/safe_runner_integration_test.mjs'
-      - 'tests/safe_runner_entrypoints_test.mjs'
-      - 'tests/fixtures/safe-runner-adversary.mjs'
-      - 'tests/fixtures/safe-runner-graphd-client.mjs'
+      - 'tests/safe_runner_*.mjs'
+      - 'tests/fixtures/safe-runner-*.mjs'
       - 'tests/fixtures/graph-runtime/**'
       - 'docs/content/advanced/safe-runner.mdx'
       - 'docs/decisions/014-crash-safe-resource-supervision.md'
@@ -21,6 +18,7 @@ on:
       - 'evals/scripts/invoke-agent.mjs'
       - 'evals/scripts/run-suite.mjs'
       - 'evals/scripts/vendor-*-fixture.mjs'
+      - 'evals/hooks/compatibility-matrix.*'
       - '.github/workflows/publish-cli.yml'
       - 'README.md'
       - '.gitignore'
@@ -31,11 +29,8 @@ on:
       - 'scripts/safe-runner/**'
       - 'packages/cli/lib/graph-runtime/client.mjs'
       - 'packages/cli/lib/safe-runner-*.mjs'
-      - 'tests/safe_runner_test.mjs'
-      - 'tests/safe_runner_integration_test.mjs'
-      - 'tests/safe_runner_entrypoints_test.mjs'
-      - 'tests/fixtures/safe-runner-adversary.mjs'
-      - 'tests/fixtures/safe-runner-graphd-client.mjs'
+      - 'tests/safe_runner_*.mjs'
+      - 'tests/fixtures/safe-runner-*.mjs'
       - 'tests/fixtures/graph-runtime/**'
       - 'docs/content/advanced/safe-runner.mdx'
       - 'docs/decisions/014-crash-safe-resource-supervision.md'
@@ -46,6 +41,7 @@ on:
       - 'evals/scripts/invoke-agent.mjs'
       - 'evals/scripts/run-suite.mjs'
       - 'evals/scripts/vendor-*-fixture.mjs'
+      - 'evals/hooks/compatibility-matrix.*'
       - '.github/workflows/publish-cli.yml'
       - 'README.md'
       - '.gitignore'
@@ -93,7 +89,8 @@ jobs:
           "$bin_dir/bwrap" --unshare-user --uid 0 --gid 0 --ro-bind / / \
             --dev-bind /dev /dev --proc /proc --size 1048576 --tmpfs /tmp \
             /bin/sh -c 'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null'
-          echo "$bin_dir" >> "$GITHUB_PATH"
+          printf 'LAMINA_SAFE_BWRAP_PATH=%s\nLAMINA_SAFE_BWRAP_SHA256=%s\n' \
+            "$bin_dir/bwrap" "$(sha256sum "$bin_dir/bwrap" | cut -d' ' -f1)" >> "$GITHUB_ENV"
 
       - name: Static and focused contract tests
         env:

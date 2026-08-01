@@ -89,3 +89,12 @@ export function bindManagedGraphdWithSupervisor(reservation, identity) {
     reservation,
   });
 }
+
+export function sealManagedGraphdWithSupervisor(reservation) {
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  return brokerRequest({
+    operation: 'seal_graphd',
+    requester: processIdentity(process.pid),
+    reservation,
+  });
+}

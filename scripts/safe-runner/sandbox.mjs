@@ -2,7 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { EXECUTION_HOOK_ENVIRONMENT, sanitizedEnvironment } from './infrastructure.mjs';
+import {
+  assertTrustedBinaryIdentity, EXECUTION_HOOK_ENVIRONMENT, sanitizedEnvironment,
+} from './infrastructure.mjs';
 
 export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
   'DBUS_SESSION_BUS_ADDRESS',
@@ -118,11 +120,21 @@ export function bubblewrapSandboxArguments({
 }
 
 async function main() {
-  const [bwrapExecutable, cwd, readyFile, releaseFile, temporaryDirectory, ...command] = process.argv.slice(2);
+  const [bwrapExecutable, encodedBwrapIdentity, cwd, readyFile, releaseFile,
+    temporaryDirectory, ...command] = process.argv.slice(2);
+  let expectedBwrap = null;
+  try { expectedBwrap = JSON.parse(Buffer.from(encodedBwrapIdentity || '', 'base64url').toString('utf8')); }
+  catch {}
   if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
+    || expectedBwrap?.path !== bwrapExecutable
     || !cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
     || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
     process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');
+    process.exit(125);
+  }
+  try { assertTrustedBinaryIdentity(expectedBwrap); }
+  catch (error) {
+    process.stderr.write(`safe-runner bwrap identity changed: ${error.code || error.message}\n`);
     process.exit(125);
   }
   const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({

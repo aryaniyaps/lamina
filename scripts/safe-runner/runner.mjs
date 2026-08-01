@@ -26,6 +26,7 @@ import {
   clearSafetyAttempt, recordPromotion, recordSafetyLimit,
 } from './state.mjs';
 import { sanitizedEnvironment } from './infrastructure.mjs';
+import { lstatPresence } from './managed-paths.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -55,6 +56,53 @@ export function boundedDiagnosticText(value) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 1_000);
+}
+
+export async function closeOutputStreams(childStreams, outputStreams, deadlineMs = 1_000) {
+  for (const stream of childStreams) stream.resume();
+  const closures = outputStreams.map((stream) => stream.closed
+    ? Promise.resolve() : once(stream, 'close').catch(() => null));
+  for (const stream of outputStreams) {
+    try { stream.end(); } catch {}
+  }
+  const closed = await Promise.race([
+    Promise.all(closures).then(() => true),
+    wait(deadlineMs).then(() => false),
+  ]);
+  if (!closed) {
+    for (const stream of [...childStreams, ...outputStreams]) {
+      try { stream.destroy(); } catch {}
+    }
+  }
+  return closed;
+}
+
+export async function releaseFifo(file, deadlineMs = 1_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    let descriptor = null;
+    try {
+      const named = fs.lstatSync(file, { bigint: true });
+      if (!named.isFIFO() || named.isSymbolicLink()) throw new Error('release path is not a physical FIFO');
+      descriptor = fs.openSync(file,
+        fs.constants.O_WRONLY | fs.constants.O_NONBLOCK | fs.constants.O_NOFOLLOW);
+      const opened = fs.fstatSync(descriptor, { bigint: true });
+      if (!opened.isFIFO() || opened.dev !== named.dev || opened.ino !== named.ino
+        || opened.uid !== named.uid) throw new Error('release FIFO identity changed while opening');
+      fs.writeSync(descriptor, 'release\n');
+      return true;
+    } catch (error) {
+      if (error?.code !== 'ENXIO' && error?.code !== 'ENOENT') {
+        const refused = new Error(`safe-runner release FIFO refused: ${error.message}`);
+        refused.code = 'LAMINA_SAFE_RELEASE_FIFO';
+        throw refused;
+      }
+    } finally { if (descriptor !== null) fs.closeSync(descriptor); }
+    await wait(10);
+  }
+  const error = new Error('safe-runner release FIFO had no live reader before deadline');
+  error.code = 'LAMINA_SAFE_RELEASE_FIFO';
+  throw error;
 }
 
 function cgroupResolutionDiagnostic(value) {
@@ -141,13 +189,13 @@ export async function runSafely({
   workloadId = null,
   _testCrashBoundary = null,
   _testCrashMarkerFile = null,
+  _testBeforeQuotaRelease = null,
+  _testPhaseFile = null,
 } = {}) {
   const startedMs = Date.now();
-  // The reusable API is a safety boundary too: callers cannot attest one
-  // adapter while launching another through injected objects.
-  const probe = adapterProbe();
   const normalizedCommand = Array.isArray(command) ? command : [];
   const report = baseReport({ tier, command: normalizedCommand, cwd: path.resolve(cwd) });
+  let probe = null;
   let lock = null;
   let temporaryDirectory = null;
   let temporaryDirectoryIdentity = null;
@@ -180,11 +228,16 @@ export async function runSafely({
   const childStreams = [];
   const signalHandlers = new Map();
   const infrastructureIdentities = () => report.preflight?.scope_proof?.infrastructure_identities || [];
+  const tracePhase = (phase) => {
+    if (!_testPhaseFile) return;
+    try { fs.appendFileSync(_testPhaseFile, `${phase}\n`, { mode: 0o600 }); } catch {}
+  };
   const crashBoundary = (name) => {
-    if (_testCrashBoundary !== name || !_testCrashMarkerFile || !activeAdapter?.production_enforcement) return;
+    if (_testCrashBoundary !== name || !_testCrashMarkerFile
+      || (name !== 'report_slot_acquired' && !activeAdapter?.production_enforcement)) return;
     fs.writeFileSync(_testCrashMarkerFile, `${JSON.stringify({
-      boundary: name, controller_pid: process.pid, unit: activeAdapter.unit,
-      cgroup: activeAdapter.cgroupPath, temporary_directory: temporaryDirectory,
+      boundary: name, controller_pid: process.pid, unit: activeAdapter?.unit || null,
+      cgroup: activeAdapter?.cgroupPath || null, temporary_directory: temporaryDirectory,
       watchdog_directory: crashWatchdog?.directory || null, lock_file: lock?.file || null,
     })}\n`, { flag: 'wx', mode: 0o600 });
     if (name === 'payload_released') return;
@@ -329,7 +382,7 @@ export async function runSafely({
 
   const finishAndWrite = () => {
     finishReport(report, startedMs);
-    const written = writeReportWithFallback(reportFile, report);
+    const written = writeReportWithFallback(reportFile, report, reportAuthority);
     Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
     return sanitizeReportInPlace(report);
   };
@@ -342,6 +395,29 @@ export async function runSafely({
       report.preflight = { ok: false, reasons: [report.error.message] };
       return finishAndWrite();
     }
+    const provisional = structuredClone(report);
+    provisional.report_file = path.resolve(reportFile);
+    provisional.outcome = 'internal_error';
+    provisional.termination.reason = 'run_in_progress';
+    provisional.error = {
+      code: 'LAMINA_SAFE_RUN_IN_PROGRESS',
+      message: 'payload has not completed; this provisional report cannot be used as success evidence',
+    };
+    finishReport(provisional, startedMs);
+    reportAuthority = prepareReportAuthority(reportFile, provisional);
+    tracePhase('prepare:report-slot-acquired');
+    crashBoundary('report_slot_acquired');
+    const resolvedCwd = path.resolve(cwd);
+    if (reportAuthority.parent === resolvedCwd
+      || resolvedCwd.startsWith(`${reportAuthority.parent}${path.sep}`)) {
+      throw Object.assign(new Error('report authority parent must not contain the writable payload cwd'), {
+        code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+      });
+    }
+    // The reusable API is a safety boundary too: callers cannot attest one
+    // adapter while launching another through injected objects.
+    probe = adapterProbe();
+    tracePhase('prepare:adapter-probed');
     const preflight = preflightRun({
       tier,
       command: normalizedCommand,
@@ -357,6 +433,7 @@ export async function runSafely({
     report.limits = preflight.envelope.limits;
     report.preflight = preflight;
     executionCommand = preflight.execution_command || normalizedCommand;
+    tracePhase('prepare:preflight-complete');
     if (!preflight.ok) {
       report.outcome = 'preflight_refused';
       report.termination.reason = 'preflight_refused';
@@ -395,24 +472,6 @@ export async function runSafely({
     payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
     fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
     if (activeAdapter.production_enforcement) {
-      const provisional = structuredClone(report);
-      provisional.outcome = 'internal_error';
-      provisional.termination.reason = 'run_in_progress';
-      provisional.error = {
-        code: 'LAMINA_SAFE_RUN_IN_PROGRESS',
-        message: 'payload has not completed; this provisional report cannot be used as success evidence',
-      };
-      finishReport(provisional, startedMs);
-      reportAuthority = prepareReportAuthority(reportFile, provisional);
-      const resolvedCwd = path.resolve(cwd);
-      if (reportAuthority.parent === resolvedCwd
-        || resolvedCwd.startsWith(`${reportAuthority.parent}${path.sep}`)) {
-        throw Object.assign(new Error('report authority parent must not contain the writable payload cwd'), {
-          code: 'LAMINA_SAFE_REPORT_AUTHORITY',
-        });
-      }
-    }
-    if (activeAdapter.production_enforcement) {
       crashWatchdog = await startCrashWatchdog({
         report,
         reportFile,
@@ -422,6 +481,7 @@ export async function runSafely({
         lock,
         reportAuthority,
       });
+      tracePhase('prepare:watchdog-started');
     }
     const authority = {
       runId: report.run_id,
@@ -448,6 +508,9 @@ export async function runSafely({
         if (!reservation || !crashWatchdog?.bindManagedPaths(
           reservation.paths, [record.pid, record.namespace_pid],
         )) return false;
+        reservation.bound = {
+          pid: record.pid, namespace_pid: record.namespace_pid, start_ticks: record.start_ticks,
+        };
         managedCleanupPaths.add(record.socket);
         managedCleanupPaths.add(record.lock);
         if (!managedRegistrations.some((item) => item.pid === record.pid
@@ -463,10 +526,21 @@ export async function runSafely({
         crashBoundary('graphd_bound');
         return true;
       },
+      seal(record) {
+        const reservation = managedReservations.find((item) => item.token === record.reservation);
+        if (!reservation?.bound) return false;
+        crashBoundary('graphd_objects_ready');
+        if (!crashWatchdog?.sealManagedPaths(reservation.paths)) return false;
+        reservation.sealed = true;
+        crashBoundary('graphd_sealed');
+        return crashWatchdog.managedPaths()
+          .filter((item) => reservation.paths.some((candidate) => candidate.path === item.path));
+      },
     };
     proofBroker = activeAdapter.production_enforcement
       ? await createProofBroker(temporaryDirectory, authority)
       : { environment: {}, async close() {} };
+    tracePhase('prepare:broker-started');
     const readyFile = path.join(temporaryDirectory, 'scope.ready');
     const releaseFile = path.join(temporaryDirectory, 'scope.release');
     const payloadExitFile = path.join(temporaryDirectory, 'payload.exit');
@@ -503,6 +577,7 @@ export async function runSafely({
       }),
     });
     launched = true;
+    tracePhase('launch:wrapper-started');
     let childEnded = null;
     const childResult = new Promise((resolve) => {
       let settled = false;
@@ -676,7 +751,7 @@ export async function runSafely({
         activeAttempt = beginSafetyAttempt(cwd, preflight.source_identity, report);
         crashWatchdog?.update({ active_attempt: activeAttempt, report_seed: report });
       }
-      fs.writeFileSync(releaseFile, 'release\n', { mode: 0o600 });
+      await releaseFifo(releaseFile);
       const quotaDeadline = Date.now() + DEFAULTS.scopeHandshakeMs;
       let quotaProof = null;
       while (Date.now() < quotaDeadline && !childEnded) {
@@ -701,10 +776,17 @@ export async function runSafely({
       }
       report.preflight.temporary_quota_proof = quotaProof;
       quotaProven = true;
+      tracePhase('launch:quota-proven');
       report.preflight.scope_proof.infrastructure_identities = activeAdapter.sample().records
         .map((record) => ({ pid: record.pid, start_ticks: record.start_ticks }));
-      fs.writeFileSync(quotaReleaseFile, 'release\n', { mode: 0o600 });
+      if (typeof _testBeforeQuotaRelease === 'function') await _testBeforeQuotaRelease();
+      if (preflight.source_identity) {
+        assertFrozenWorkloadIdentity(preflight.source_identity, cwd, executionCommand);
+      }
+      tracePhase('launch:final-identity-checked');
+      await releaseFifo(quotaReleaseFile);
       crashBoundary('payload_released');
+      tracePhase('launch:payload-released');
     } else {
       report.preflight.scope_proof = {
         production_enforcement: false,
@@ -720,6 +802,7 @@ export async function runSafely({
       childResult,
       wait(controllerDeadlineMs).then(() => ({ controllerDeadline: true })),
     ]);
+    tracePhase('run:child-race-settled');
     if (ended.controllerDeadline) {
       requestStop('safety_limit_exceeded', 'controller_deadline');
       throw Object.assign(new Error('controller deadline elapsed before the child exit was observed'), {
@@ -779,6 +862,7 @@ export async function runSafely({
       report.error ||= errorDetails(error);
     }
   } finally {
+    tracePhase('finally:start');
     if (monitor) clearInterval(monitor);
     if (forceTimer) clearTimeout(forceTimer);
     report.cleanup.attempted = true;
@@ -804,26 +888,36 @@ export async function runSafely({
         report.cleanup.scope_removed = false;
       }
     }
+    tracePhase('finally:adapter-clean');
     if (proofBroker) {
       try { await proofBroker.close(); } catch (error) {
         report.cleanup.errors.push(`proof broker cleanup: ${error.message}`);
       }
       proofBroker = null;
     }
+    tracePhase('finally:broker-closed');
+    if (crashWatchdog && report.cleanup.scope_removed === true) {
+      try {
+        for (const candidate of crashWatchdog.cleanupManagedPaths()) managedCleanupPaths.add(candidate);
+      } catch (error) {
+        report.cleanup.errors.push(`managed graphd cleanup: ${error.message}`);
+      }
+    }
     report.cleanup.managed_paths_remaining = [...managedCleanupPaths]
-      .filter((candidate) => fs.existsSync(candidate));
+      .filter((candidate) => {
+        try { return lstatPresence(candidate).exists; } catch { return true; }
+      });
     if (report.cleanup.managed_paths_remaining.length) {
       report.cleanup.errors.push(
         `managed graphd socket/lock remained: ${report.cleanup.managed_paths_remaining.join(', ')}`,
       );
     }
-    for (const stream of childStreams) stream.resume();
-    for (const stream of outputStreams) {
-      try { stream.end(); } catch {}
+    tracePhase('finally:output-end-requested');
+    const outputClosed = await closeOutputStreams(childStreams, outputStreams);
+    if (!outputClosed) {
+      report.cleanup.errors.push('output cleanup: stream close deadline exceeded');
     }
-    await Promise.all(outputStreams.map((stream) => stream.closed
-      ? null
-      : once(stream, 'close').catch(() => null)));
+    tracePhase(outputClosed ? 'finally:output-closed' : 'finally:output-close-timeout');
     if (scopeHandshakeDiagnostic) {
       scopeHandshakeDiagnostic.child = launchChildState;
       scopeHandshakeDiagnostic.systemd_stderr = boundedDiagnosticText(launcherStderrTail);
@@ -849,6 +943,7 @@ export async function runSafely({
         report.cleanup.lock_released = false;
       }
     }
+    tracePhase('finally:complete');
   }
 
   const cleanupFailed = launched && (
@@ -890,6 +985,7 @@ export async function runSafely({
     }
   }
   try {
+    tracePhase('report:write-start');
     const written = writeReportWithFallback(reportFile, report, reportAuthority);
     Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
     if (report.outcome === 'success') crashBoundary('success_report_published');

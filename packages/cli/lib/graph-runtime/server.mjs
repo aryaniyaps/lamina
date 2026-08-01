@@ -7,6 +7,7 @@ import { RetrievalStore } from '../retrieval-runtime/store.mjs';
 import { RetrievalEmbedder } from '../retrieval-runtime/embedder.mjs';
 import { ERROR, GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
+import { sealManagedGraphdWithSupervisor } from '../safe-runner-context.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -25,6 +26,8 @@ function acquireLock() {
   try {
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
+      ...(process.env.LAMINA_SAFE_GRAPHD_RESERVATION
+        ? { safe_runner_reservation: process.env.LAMINA_SAFE_GRAPHD_RESERVATION } : {}),
       protocol_version: GRAPH_PROTOCOL_VERSION,
       runtime_version: CLI_VERSION,
       capabilities: GRAPH_CAPABILITIES,
@@ -39,6 +42,8 @@ function acquireLock() {
     fs.unlinkSync(paths.lock);
     fs.writeFileSync(paths.lock, `${JSON.stringify({
       pid: process.pid,
+      ...(process.env.LAMINA_SAFE_GRAPHD_RESERVATION
+        ? { safe_runner_reservation: process.env.LAMINA_SAFE_GRAPHD_RESERVATION } : {}),
       protocol_version: GRAPH_PROTOCOL_VERSION,
       runtime_version: CLI_VERSION,
       capabilities: GRAPH_CAPABILITIES,
@@ -47,7 +52,11 @@ function acquireLock() {
 }
 
 acquireLock();
-if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+if (process.platform !== 'win32') {
+  try { fs.lstatSync(socketPath); fs.unlinkSync(socketPath); } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
 const engine = new GraphEngine(paths);
 const retrieval = new RetrievalStore(paths);
 const retrievalEmbedder = new RetrievalEmbedder();
@@ -188,4 +197,11 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 server.listen(socketPath, () => {
   if (process.platform !== 'win32') fs.chmodSync(socketPath, 0o600);
+  if (process.env.LAMINA_SAFE_GRAPHD_RESERVATION) {
+    const sealed = sealManagedGraphdWithSupervisor(process.env.LAMINA_SAFE_GRAPHD_RESERVATION);
+    if (!sealed?.ok) {
+      process.stderr.write(`safe-runner graphd seal failed: ${sealed?.error || 'proof broker unavailable'}\n`);
+      shutdown();
+    }
+  }
 });

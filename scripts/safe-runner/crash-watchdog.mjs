@@ -7,6 +7,7 @@ import { systemdAbsenceProof, systemdKillArguments } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { finishReport, writeReportWithFallback } from './report.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
+import { lstatPresence, removeManagedObjects } from './managed-paths.mjs';
 
 const [manifestFile, readyFile, disarmFile] = process.argv.slice(2);
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -40,11 +41,14 @@ function validManifest(value, initial = value) {
   }
   return Array.isArray(value.managed_paths) && value.managed_paths.every((item) =>
     path.isAbsolute(item?.path || '') && ['socket', 'lock'].includes(item?.type)
-      && ['reserved', 'bound'].includes(item.state)
+      && ['reserved', 'bound', 'sealed'].includes(item.state)
       && typeof item.parent_identity?.dev === 'string'
       && typeof item.parent_identity?.ino === 'string'
       && (item.state === 'reserved' || (Array.isArray(item.expected_pids)
-        && item.expected_pids.length >= 1 && item.expected_pids.every(Number.isSafeInteger))));
+        && item.expected_pids.length >= 1 && item.expected_pids.every(Number.isSafeInteger)))
+      && (item.state !== 'sealed' || (typeof item.object_identity?.dev === 'string'
+        && typeof item.object_identity?.ino === 'string'
+        && item.object_identity?.type === item.type)));
 }
 
 function systemctl(args) {
@@ -78,37 +82,9 @@ async function terminateScope(manifest) {
   return false;
 }
 
-function samePathIdentity(candidate, expected) {
-  try {
-    const stat = fs.lstatSync(candidate, { bigint: true });
-    const typeMatches = expected.type === 'socket' ? stat.isSocket() : stat.isFile();
-    if (!typeMatches || stat.isSymbolicLink() || expected.state !== 'bound'
-      || Number(stat.uid) !== expected.uid) return false;
-    const parent = fs.lstatSync(path.dirname(candidate), { bigint: true });
-    if (!parent.isDirectory() || parent.isSymbolicLink()
-      || String(parent.dev) !== expected.parent_identity.dev
-      || String(parent.ino) !== expected.parent_identity.ino
-      || Number(parent.uid) !== expected.parent_identity.uid) return false;
-    return true;
-  } catch { return false; }
-}
-
-function removeManagedPaths(records) {
-  const remaining = [];
-  for (const record of records || []) {
-    if (!fs.existsSync(record.path)) continue;
-    if (!samePathIdentity(record.path, record)) {
-      remaining.push(record.path);
-      continue;
-    }
-    try { fs.unlinkSync(record.path); } catch { remaining.push(record.path); }
-  }
-  return remaining;
-}
-
 function releaseLock(manifest, cleanupProven) {
   if (!manifest.lock_file) return null;
-  if (!fs.existsSync(manifest.lock_file)) return true;
+  if (!lstatPresence(manifest.lock_file).exists) return true;
   const owner = readJson(manifest.lock_file);
   const expected = manifest.lock_identity;
   let stat = null;
@@ -119,14 +95,14 @@ function releaseLock(manifest, cleanupProven) {
     || String(stat?.ino) !== expected?.file_identity?.ino
     || Number(stat?.uid) !== expected?.file_identity?.uid) return false;
   try { fs.unlinkSync(manifest.lock_file); } catch { return false; }
-  return !fs.existsSync(manifest.lock_file);
+  return !lstatPresence(manifest.lock_file).exists;
 }
 
 async function crashCleanup(initial) {
   const candidate = readJson(manifestFile);
   const manifest = validManifest(candidate, initial) ? candidate : initial;
   const scopeRemoved = await terminateScope(manifest);
-  const managedRemaining = scopeRemoved ? removeManagedPaths(manifest.managed_paths) : [];
+  const managedRemaining = scopeRemoved ? removeManagedObjects(manifest.managed_paths) : [];
   let temporaryRemoved = false;
   if (scopeRemoved) {
     try {

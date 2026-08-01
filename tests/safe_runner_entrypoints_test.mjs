@@ -22,6 +22,7 @@ const entrypoints = [
   ['scripts/prepare-retrieval-assets.mjs'],
   ['tests/retrieval_native_index_test.mjs'],
   ['tests/cli_binary_smoke_test.mjs'],
+  ['evals/hooks/compatibility-matrix.mjs'],
 ];
 
 for (const [entrypoint, ...args] of entrypoints) {
@@ -44,6 +45,17 @@ for (const [entrypoint, ...args] of entrypoints) {
     `${entrypoint} must explain the canonical command`,
   );
 }
+
+const compatibilityShell = spawnSync('/bin/bash', [
+  path.join(ROOT, 'evals/hooks/compatibility-matrix.sh'),
+], {
+  cwd: ROOT, env: process.env, encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'], timeout: 5_000, maxBuffer: 64 * 1024,
+});
+assert.notEqual(compatibilityShell.status, 0,
+  'compatibility shell must hand off to a guarded implementation and refuse direct launch');
+assert.match(`${compatibilityShell.stdout}\n${compatibilityShell.stderr}`,
+  /must run through the canonical crash-safe command/);
 
 const cliDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-cli-redaction-'));
 const cliReport = path.join(cliDirectory, 'report.json');

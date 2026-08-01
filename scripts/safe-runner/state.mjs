@@ -198,6 +198,42 @@ export function workloadIdentity(cwd, command = []) {
   return files;
 }
 
+function executableIdentity(candidate, maximumBytes = 256 * 1024 * 1024) {
+  let descriptor = null;
+  try {
+    const physical = fs.realpathSync.native(candidate);
+    const named = fs.lstatSync(physical, { bigint: true });
+    if (!named.isFile() || named.isSymbolicLink() || (named.mode & 0o111n) === 0n
+      || named.size > BigInt(maximumBytes)) throw new Error('executable is not a bounded physical file');
+    descriptor = fs.openSync(physical, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (opened.dev !== named.dev || opened.ino !== named.ino || opened.uid !== named.uid
+      || opened.size !== named.size) throw new Error('executable identity changed while opening');
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.alloc(1024 * 1024);
+    let offset = 0;
+    while (offset < Number(opened.size)) {
+      const bytes = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+      if (bytes === 0) break;
+      hash.update(buffer.subarray(0, bytes));
+      offset += bytes;
+    }
+    const final = fs.fstatSync(descriptor, { bigint: true });
+    if (offset !== Number(opened.size) || final.dev !== opened.dev || final.ino !== opened.ino
+      || final.uid !== opened.uid || final.size !== opened.size) {
+      throw new Error('executable identity changed while hashing');
+    }
+    return {
+      path: physical, dev: String(opened.dev), ino: String(opened.ino), uid: Number(opened.uid),
+      mode: Number(opened.mode & 0o777n), size: String(opened.size), digest: hash.digest('hex'),
+    };
+  } catch (cause) {
+    const error = new Error(`cannot establish bounded executable identity: ${cause?.message || cause}`);
+    error.code = 'LAMINA_SAFE_EXECUTABLE_IDENTITY';
+    throw error;
+  } finally { if (descriptor !== null) fs.closeSync(descriptor); }
+}
+
 export function repositorySourceDigest(cwd, {
   maxUntrackedBytes = 64 * 1024 * 1024,
   maxUntrackedFiles = 4_096,
@@ -277,6 +313,7 @@ export function frozenWorkloadIdentity(cwd, command) {
   const normalizedCommand = command.map((argument, index) => {
     const value = String(argument);
     if (index === 0) {
+      if (value === 'node') return fs.realpathSync.native(process.execPath);
       try { return fs.realpathSync.native(value); } catch { return path.resolve(normalizedCwd, value); }
     }
     return value;
@@ -284,6 +321,7 @@ export function frozenWorkloadIdentity(cwd, command) {
   const value = {
     repository: normalizedCwd,
     command: normalizedCommand,
+    executable: executableIdentity(normalizedCommand[0]),
     workload_inputs: workloadIdentity(normalizedCwd, normalizedCommand.slice(1)),
     repository_source: commandSourceDigest(normalizedCwd, normalizedCommand),
     runner_build: runnerBuildDigest(),

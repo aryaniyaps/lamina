@@ -263,7 +263,7 @@ export function prepareReportAuthority(file, provisionalReport) {
   let descriptor = null;
   try {
     descriptor = fs.openSync(resolved,
-      fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
+      fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW,
       0o600);
     const opened = fs.fstatSync(descriptor, { bigint: true });
     const named = fs.lstatSync(resolved, { bigint: true });
@@ -274,45 +274,40 @@ export function prepareReportAuthority(file, provisionalReport) {
       error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
       throw error;
     }
+    fs.fchmodSync(descriptor, 0o600);
+    const authority = {
+      file: resolved,
+      parent,
+      parent_identity: fileIdentity(parent),
+      run_id: provisionalReport?.run_id,
+    };
+    if (typeof authority.run_id !== 'string' || !authority.run_id) {
+      throw Object.assign(new Error('report authority requires a run-bound provisional report'), {
+        code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+      });
+    }
+    // O_TRUNC invalidates any stale success at slot acquisition. A crash before
+    // the following durable write can leave an invalid/empty file, never the
+    // previous run's evidence. Completed writes are current-run non-success.
+    fs.writeFileSync(descriptor, `${JSON.stringify(redactEvidence(provisionalReport), null, 2)}\n`);
+    fs.fsyncSync(descriptor);
+    const parentDescriptor = fs.openSync(parent, 'r');
+    try { fs.fsyncSync(parentDescriptor); } finally { fs.closeSync(parentDescriptor); }
+    const validation = validateReport(JSON.parse(fs.readFileSync(resolved, 'utf8')));
+    if (!validation.valid) {
+      throw Object.assign(new Error(`invalid provisional report: ${validation.errors.join('; ')}`), {
+        code: 'LAMINA_SAFE_REPORT_INVALID',
+      });
+    }
+    return authority;
   } catch (cause) {
-    if (cause?.code === 'LAMINA_SAFE_REPORT_AUTHORITY') throw cause;
+    if (String(cause?.code || '').startsWith('LAMINA_SAFE_')) throw cause;
     const error = new Error(`report authority path must be a same-user physical file (${cause?.code || 'unknown'})`);
     error.code = 'LAMINA_SAFE_REPORT_AUTHORITY';
     throw error;
   } finally {
     if (descriptor !== null) fs.closeSync(descriptor);
   }
-  fs.chmodSync(resolved, 0o600);
-  const authority = {
-    file: resolved,
-    parent,
-    parent_identity: fileIdentity(parent),
-    run_id: provisionalReport?.run_id,
-  };
-  if (typeof authority.run_id !== 'string' || !authority.run_id) {
-    throw Object.assign(new Error('report authority requires a run-bound provisional report'), {
-      code: 'LAMINA_SAFE_REPORT_AUTHORITY',
-    });
-  }
-  // The slot becomes a schema-valid non-success record before any payload can
-  // be released. Atomic later replacements retain authority through run_id and
-  // immutable parent identity, avoiding an inode-refresh race with watchdog.
-  const provisionalTemporary = path.join(parent,
-    `.${path.basename(resolved)}.provisional-${crypto.randomBytes(16).toString('hex')}`);
-  try {
-    fs.writeFileSync(provisionalTemporary,
-      `${JSON.stringify(redactEvidence(provisionalReport), null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    fsyncFileAndParent(provisionalTemporary);
-    fs.renameSync(provisionalTemporary, resolved);
-    fsyncFileAndParent(resolved);
-  } finally { fs.rmSync(provisionalTemporary, { force: true }); }
-  const validation = validateReport(JSON.parse(fs.readFileSync(resolved, 'utf8')));
-  if (!validation.valid) {
-    throw Object.assign(new Error(`invalid provisional report: ${validation.errors.join('; ')}`), {
-      code: 'LAMINA_SAFE_REPORT_INVALID',
-    });
-  }
-  return authority;
 }
 
 export function writeReportWithFallback(file, report, authority = null) {

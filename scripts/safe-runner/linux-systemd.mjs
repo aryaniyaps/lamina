@@ -3,7 +3,9 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { processRecord, readPidList } from './processes.mjs';
-import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
+import {
+  assertInfrastructureBinaries, infrastructureBinaries, sanitizedEnvironment,
+} from './infrastructure.mjs';
 
 const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
 const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
@@ -155,13 +157,15 @@ export class LinuxSystemdAdapter {
     command, cwd, env, readyFile, releaseFile, payloadExitFile,
     quotaReadyFile, quotaReleaseFile, temporaryDirectory,
   }) {
+    assertInfrastructureBinaries(this.infrastructure, ['systemdRun', 'shell', 'node', 'bwrap']);
+    const bwrapIdentity = Buffer.from(JSON.stringify(this.infrastructure.identities.bwrap)).toString('base64url');
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
       ...systemdScopeProperties(this.limits),
-      '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
+      '--collect', '--', this.infrastructure.shell, GATE, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
-      this.infrastructure.node, SANDBOX, this.infrastructure.bwrap,
+      this.infrastructure.node, SANDBOX, this.infrastructure.bwrap, bwrapIdentity,
       ...command,
     ];
     this.child = spawn(this.infrastructure.systemdRun, args, {

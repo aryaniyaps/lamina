@@ -12,6 +12,7 @@ import { baseReport, finishReport, validateReport, writeReport } from './report.
 import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
+import { lstatPresence } from './managed-paths.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
@@ -45,12 +46,14 @@ export function boundedCaseError(error) {
 
 export async function runSupervisorCrashSelfTest({
   cwd, reportDirectory, boundary = 'payload_released', graphRepository = null,
+  previousReport = null,
 }) {
   const safeBoundary = boundary.replace(/[^a-z0-9_-]/gi, '-');
   const crashReportPath = path.join(reportDirectory, `parent_signal_sigkill_${safeBoundary}.json`);
   const armedFile = `${crashReportPath}.crash-boundary`;
   fs.rmSync(crashReportPath, { force: true });
   fs.rmSync(armedFile, { force: true });
+  if (previousReport) fs.writeFileSync(crashReportPath, `${JSON.stringify(previousReport)}\n`);
   const controller = spawn(process.execPath, [
     CONTROLLER_FIXTURE, cwd, crashReportPath, boundary, graphRepository || '',
   ], {
@@ -68,15 +71,17 @@ export async function runSupervisorCrashSelfTest({
     watchdog_state_removed: false, lock_removed: false, subsequent_claim: false,
     schema_valid: false,
   };
-  if (armed?.controller_pid === controller.pid && typeof armed.unit === 'string') {
+  if (armed?.controller_pid === controller.pid
+    && (typeof armed.unit === 'string' || boundary === 'report_slot_acquired')) {
     controller.kill('SIGKILL');
     if (controller.exitCode === null) await once(controller, 'exit');
     evidence.controller_dead = controller.exitCode !== null || controller.signalCode === 'SIGKILL';
-    const reportDeadline = Date.now() + 5_000;
+    const reportDeadline = Date.now() + (boundary === 'report_slot_acquired' ? 250 : 5_000);
     while (Date.now() < reportDeadline) {
       try {
         const candidate = JSON.parse(fs.readFileSync(crashReportPath, 'utf8'));
-        if (candidate?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+        if (boundary === 'report_slot_acquired'
+          || candidate?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
           || candidate?.error?.code === 'LAMINA_SAFE_CLEANUP_INCOMPLETE') {
           crashReport = candidate;
           break;
@@ -84,10 +89,11 @@ export async function runSupervisorCrashSelfTest({
       } catch {}
       await wait(20);
     }
-    const shown = spawnSync(infrastructureBinaries().systemctl, [
-      '--user', 'show', armed.unit, '--property=LoadState', '--property=ControlGroup',
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
-      env: sanitizedEnvironment(process.env) });
+    const shown = boundary === 'report_slot_acquired' ? null
+      : spawnSync(infrastructureBinaries().systemctl, [
+        '--user', 'show', armed.unit, '--property=LoadState', '--property=ControlGroup',
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
+        env: sanitizedEnvironment(process.env) });
     try {
       const claim = acquireConcurrencyLock({
         scope: {
@@ -98,19 +104,25 @@ export async function runSupervisorCrashSelfTest({
       });
       evidence.subsequent_claim = claim.release() === true;
     } catch {}
-    evidence.scope_absent = systemdAbsenceProof(shown, false);
-    evidence.temporary_removed = typeof armed.temporary_directory === 'string'
-      && !fs.existsSync(armed.temporary_directory);
-    evidence.watchdog_state_removed = typeof armed.watchdog_directory === 'string'
-      && !fs.existsSync(armed.watchdog_directory);
-    evidence.lock_removed = typeof armed.lock_file === 'string' && !fs.existsSync(armed.lock_file);
+    evidence.scope_absent = boundary === 'report_slot_acquired' || systemdAbsenceProof(shown, false);
+    evidence.temporary_removed = boundary === 'report_slot_acquired'
+      || (typeof armed.temporary_directory === 'string' && !fs.existsSync(armed.temporary_directory));
+    evidence.watchdog_state_removed = boundary === 'report_slot_acquired'
+      || (typeof armed.watchdog_directory === 'string' && !fs.existsSync(armed.watchdog_directory));
+    evidence.lock_removed = boundary === 'report_slot_acquired'
+      || (typeof armed.lock_file === 'string' && !lstatPresence(armed.lock_file).exists);
     evidence.schema_valid = validateReport(crashReport || {}).valid;
   } else if (controller.exitCode === null) {
     controller.kill('SIGKILL');
     await once(controller, 'exit');
   }
   fs.rmSync(armedFile, { force: true });
-  const passed = crashReport?.outcome === 'interrupted'
+  const earlyPreparationPassed = boundary === 'report_slot_acquired'
+    && crashReport?.outcome === 'internal_error'
+    && crashReport?.termination?.reason === 'run_in_progress'
+    && crashReport?.error?.code === 'LAMINA_SAFE_RUN_IN_PROGRESS'
+    && Object.values(evidence).every(Boolean);
+  const passed = earlyPreparationPassed || (crashReport?.outcome === 'interrupted'
     && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
     && crashReport?.cleanup?.scope_removed === true
     && crashReport?.cleanup?.temporary_directory_removed === true
@@ -118,7 +130,7 @@ export async function runSupervisorCrashSelfTest({
     && crashReport?.cleanup?.errors?.length === 0
     && crashReport?.cleanup?.lock_released === true
     && crashReport?.termination?.requested_signals?.includes('SIGKILL')
-    && Object.values(evidence).every(Boolean);
+    && Object.values(evidence).every(Boolean));
   return { passed, report: crashReport, report_path: crashReportPath, evidence };
 }
 

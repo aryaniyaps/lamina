@@ -55,16 +55,19 @@ The runner:
 - arms an independently owned exact-unit watchdog before payload release so a
   supervisor `SIGKILL` still proves scope, managed-path, temporary-directory,
   and nonce/inode-bound production-lock cleanup;
-- resolves `systemd-run`, `systemctl`, bwrap, Node, and the shell from immutable
-  host identities and strips PATH/preload/runtime hook overrides before any
+- resolves `systemd-run`, `systemctl`, bwrap, Node, and the shell from persisted,
+  launch-rechecked host identities (including absolute SHA-pinned CI bwrap) and
+  strips PATH plus loader/Node/exported-function/runtime-hook families before any
   infrastructure process starts;
 - terminates the complete scope on memory, PID, timeout, output, temporary
   disk, controller signal, or detached-descendant failure;
 - identifies processes by PID plus Linux start ticks so stale records cannot
   target a reused PID;
 - lets the graph client durably reserve absent canonical graphd socket/lock
-  paths before spawn, then bind that reservation to the exact in-scope child;
-- publishes a schema-valid non-success provisional report before release, then
+  paths before spawn, bind that reservation to the exact in-scope child, and
+  seal exact object identities after readiness and lock-PID validation;
+- invalidates the report slot with a current-run non-success provisional before
+  lengthy preparation, then
   atomically replaces that run-bound slot for every completed outcome;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
@@ -72,12 +75,15 @@ The runner:
   launched by an external daemon are not proven members of the client scope.
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
-an online two-phase supervisor-broker protocol. The broker first proves the
+an online three-phase supervisor-broker protocol. The broker first proves the
 canonical socket and lock absent under a physical same-user parent and durably
 reserves them. Only then may the client spawn graphd and bind the reservation
-to its PID plus Linux start ticks. After binding, watchdog cleanup is limited to
-the reserved path types under the unchanged parent. Missing, unregistered, or
-mismatched authority keeps cleanup incomplete.
+to its host/namespace PIDs plus Linux start ticks. Graphd's reservation-bound
+lock proves the narrow object-creation transition; after readiness the broker
+records exact device/inode/owner/type identities and validates the lock PID.
+Normal and watchdog cleanup share the same `lstat`-based immediate pre-unlink
+identity recheck. Dangling symlinks, unsealed foreign objects, and same-user
+replacements remain in place and keep cleanup incomplete.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion,
@@ -91,10 +97,12 @@ adversarial fixture.
 
 Immediately before release the runner revalidates its frozen preflight identity
 and writes a durable active-attempt fence. The identity covers the complete
-normalized argv, every file argument resolved against the supplied cwd, the
+normalized argv, the exact bounded content-hashed executable object, every
+file argument resolved against the supplied cwd, the
 content-hashed Git snapshot, and runner build. Effective limits are excluded.
 The frozen identity is reused after execution, so payload source mutation cannot
-change which attempt is recorded or promoted. The active fence is cleared only
+change which attempt is recorded or promoted. The full identity is checked
+again immediately before the inner quota gate releases the payload. The active fence is cleared only
 after a non-limit success/command failure has a trustworthy final report and
 proven watchdog disarm. A limit or controller crash retains it.
 

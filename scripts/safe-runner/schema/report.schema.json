@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lamina.dev/schemas/safe-runner-report-v1.json",
+  "$comment": "The report slot is invalidated at acquisition with an empty/invalid or current-run internal_error record. LAMINA_SAFE_RUN_IN_PROGRESS is non-success evidence only; completed outcomes require the cleanup invariants below.",
   "title": "Lamina crash-safe runner report",
   "type": "object",
   "additionalProperties": false,

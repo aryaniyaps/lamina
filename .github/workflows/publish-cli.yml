@@ -105,7 +105,8 @@ jobs:
         run: |
           npm run safe:self-test -- --require-production
           npm run safe:run -- --tier small --workload retrieval-v1 --report .lamina-safe-runner/retrieval-native-index.json -- node tests/retrieval_native_index_test.mjs
-          npm run safe:run -- --tier small --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-calibrate.json -- node benchmarks/retrieval-v1/benchmark.mjs --calibrate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
+          npm run safe:run -- --tier small --workload retrieval-calibration-v1 --report .lamina-safe-runner/retrieval-calibrate.json -- node benchmarks/retrieval-v1/benchmark.mjs --calibrate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
+          npm run safe:run -- --tier small --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate-small.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
           npm run safe:run -- --tier medium --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
       - name: Smoke-test isolated native assets
         env:

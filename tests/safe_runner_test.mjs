@@ -5,8 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
+import net from 'node:net';
 import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
-import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
+import { authorizeBrokerRequest, createProofBroker } from '../scripts/safe-runner/broker.mjs';
 import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import {
@@ -30,6 +31,14 @@ import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
+import {
+  bindManagedObjects, lstatPresence, removeManagedObjects, reserveManagedObjects,
+  sealManagedObjects,
+} from '../scripts/safe-runner/managed-paths.mjs';
+import {
+  assertTrustedBinaryIdentity, isExecutionHookEnvironment, sanitizedEnvironment,
+  trustedBinaryIdentity,
+} from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
@@ -42,7 +51,9 @@ import {
   writeReport,
   writeReportWithFallback,
 } from '../scripts/safe-runner/report.mjs';
-import { boundedDiagnosticText, outcomeForStop } from '../scripts/safe-runner/runner.mjs';
+import {
+  boundedDiagnosticText, closeOutputStreams, outcomeForStop, releaseFifo,
+} from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
   CONTROL_ENVIRONMENT_NAMES,
@@ -73,6 +84,27 @@ try {
   const ownedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-owned-'));
   const ownedIdentity = ownedDirectoryIdentity(ownedTemporary);
   assert.equal(removeOwnedDirectory(ownedTemporary, 'lamina-safe-runner-', ownedIdentity), true);
+  const nonClosingChild = {
+    resumed: false, destroyed: false,
+    resume() { this.resumed = true; }, destroy() { this.destroyed = true; },
+  };
+  const nonClosingSink = {
+    closed: false, destroyed: false,
+    once() {}, on() {},
+    end() {}, destroy() { this.destroyed = true; },
+  };
+  const outputCloseStarted = Date.now();
+  assert.equal(await closeOutputStreams([nonClosingChild], [nonClosingSink], 25), false);
+  assert.ok(Date.now() - outputCloseStarted < 500);
+  assert.equal(nonClosingChild.resumed, true);
+  assert.equal(nonClosingChild.destroyed, true);
+  assert.equal(nonClosingSink.destroyed, true);
+  const readerlessFifo = path.join(root, 'readerless.fifo');
+  assert.equal(spawnSync('/usr/bin/mkfifo', ['-m', '600', readerlessFifo]).status, 0);
+  const fifoStarted = Date.now();
+  await assert.rejects(() => releaseFifo(readerlessFifo, 25), /no live reader/);
+  assert.ok(Date.now() - fifoStarted < 500,
+    'a dead wrapper must not leave the controller blocked opening its release FIFO');
   const replacedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-replaced-'));
   const replacedIdentity = ownedDirectoryIdentity(replacedTemporary);
   fs.renameSync(replacedTemporary, `${replacedTemporary}-original`);
@@ -180,6 +212,28 @@ try {
     const index = sandboxArgs.indexOf(name);
     assert.equal(sandboxArgs[index - 1], '--unsetenv');
   }
+  for (const name of [
+    'BASH_FUNC_payload%%', 'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE',
+    'NODE_COMPILE_CACHE', 'NODE_REDIRECT_WARNINGS', 'DYLD_INSERT_LIBRARIES',
+  ]) assert.equal(isExecutionHookEnvironment(name), true, name);
+  const poison = sanitizedEnvironment({
+    SAFE_VALUE: 'kept', LD_DEBUG_OUTPUT: '/tmp/ld', NODE_V8_COVERAGE: '/tmp/v8',
+    NODE_COMPILE_CACHE: '/tmp/cache', NODE_REDIRECT_WARNINGS: '/tmp/warnings',
+    'BASH_FUNC_payload%%': '() { touch /tmp/pwned; }',
+  });
+  assert.equal(poison.SAFE_VALUE, 'kept');
+  for (const name of [
+    'LD_DEBUG_OUTPUT', 'NODE_V8_COVERAGE', 'NODE_COMPILE_CACHE',
+    'NODE_REDIRECT_WARNINGS', 'BASH_FUNC_payload%%',
+  ]) assert.equal(poison[name], undefined, name);
+
+  const binaryCopy = path.join(root, 'trusted-bwrap-copy');
+  fs.copyFileSync('/usr/bin/bwrap', binaryCopy);
+  fs.chmodSync(binaryCopy, 0o755);
+  const binaryIdentity = trustedBinaryIdentity(binaryCopy);
+  assert.equal(assertTrustedBinaryIdentity(binaryIdentity).path, binaryCopy);
+  fs.appendFileSync(binaryCopy, 'changed');
+  assert.throws(() => assertTrustedBinaryIdentity(binaryIdentity), /digest mismatch|identity changed/);
   assert.equal(adapterProbe('darwin').production_enforcement, false);
   assert.equal(adapterProbe('win32').id, 'portable-process-group-small-only');
   assert.equal(
@@ -469,7 +523,15 @@ try {
     reservations: brokerReservations,
     records: () => authorityRecords,
     reserve: (record) => { brokerReservations.push(record); return record; },
-    bind: (record) => { brokerRegistrations.push(record); return true; },
+    bind: (record) => {
+      brokerRegistrations.push(record);
+      const reserved = brokerReservations.find((item) => item.token === record.reservation);
+      if (reserved) reserved.bound = {
+        pid: record.pid, namespace_pid: record.namespace_pid, start_ticks: record.start_ticks,
+      };
+      return true;
+    },
+    seal: () => [{ state: 'sealed' }],
   };
   assert.equal(authorizeBrokerRequest({
     operation: 'context', requester, minimum_tier: 'small',
@@ -483,6 +545,15 @@ try {
   assert.equal(authorizeBrokerRequest({
     operation: 'context', requester, minimum_tier: 'small',
   }, { ...authority, unit: '' }).ok, false, 'an empty unit must fail closed');
+  const brokerDirectory = path.join(root, 'broker-close');
+  fs.mkdirSync(brokerDirectory);
+  const liveBroker = await createProofBroker(brokerDirectory, authority);
+  const halfOpenClient = net.createConnection(liveBroker.socketPath);
+  await once(halfOpenClient, 'connect');
+  const brokerCloseStarted = Date.now();
+  await liveBroker.close();
+  assert.ok(Date.now() - brokerCloseStarted < 1_000,
+    'broker cleanup must be bounded when a requester dies before sending a complete request');
 
   const authorizedGraphd = {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
@@ -591,6 +662,9 @@ try {
   }, authority).ok, true);
   assert.equal(brokerRegistrations.length, 1);
   assert.equal(authorizeBrokerRequest({
+    operation: 'seal_graphd', reservation: reservation.reservation, requester,
+  }, authority).ok, true);
+  assert.equal(authorizeBrokerRequest({
     operation: 'bind_graphd', requester, reservation: reservation.reservation,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },
   }, authority).ok, false, 'payload cannot self-assert a graphd identity');
@@ -623,6 +697,63 @@ try {
   assert.deepEqual(registeredManagedGraphd([
     { pid: 41001, start_ticks: 'wrong', role: 'graphd' },
   ], [graphdRecord]), []);
+
+  const managedRoot = path.join(root, 'managed-objects');
+  fs.mkdirSync(managedRoot);
+  const managedSocket = path.join(managedRoot, 'graphd.sock');
+  const managedLock = path.join(managedRoot, 'graphd.lock');
+  const reservationToken = 'a'.repeat(64);
+  const reservedObjects = reserveManagedObjects(managedSocket, managedLock, reservationToken);
+  assert.equal(reservedObjects.every((item) => item.state === 'reserved'), true);
+  const boundObjects = bindManagedObjects(reservedObjects, [process.pid, 2]);
+  assert.equal(boundObjects.every((item) => item.state === 'bound'), true);
+  assert.deepEqual(removeManagedObjects(boundObjects), [], 'absent bound objects are already clean');
+  fs.writeFileSync(managedLock, `${JSON.stringify({
+    pid: process.pid, safe_runner_reservation: reservationToken,
+  })}\n`);
+  const managedServer = net.createServer(() => {});
+  await new Promise((resolve, reject) => managedServer.listen(managedSocket, resolve).once('error', reject));
+  const sealedObjects = sealManagedObjects(boundObjects);
+  assert.equal(sealedObjects.every((item) => item.state === 'sealed'), true);
+  const lockRecord = sealedObjects.find((item) => item.type === 'lock');
+  const originalLock = `${managedLock}.original`;
+  const refusedToctou = removeManagedObjects(sealedObjects, {
+    beforeUnlink(record) {
+      if (record.type !== 'lock') return;
+      fs.renameSync(managedLock, originalLock);
+      fs.writeFileSync(managedLock, 'foreign same-uid replacement\n');
+    },
+  });
+  assert.deepEqual(refusedToctou, [managedLock]);
+  assert.equal(fs.readFileSync(managedLock, 'utf8'), 'foreign same-uid replacement\n');
+  assert.equal(lstatPresence(managedSocket).exists, false);
+  fs.rmSync(managedLock);
+  fs.rmSync(originalLock);
+  await new Promise((resolve) => managedServer.close(resolve));
+  fs.symlinkSync(path.join(managedRoot, 'absent-target'), managedSocket);
+  assert.equal(lstatPresence(managedSocket).exists, true, 'dangling symlink is present by lstat');
+  assert.equal(reserveManagedObjects(managedSocket, managedLock, reservationToken), null);
+  fs.unlinkSync(managedSocket);
+  fs.symlinkSync(path.join(managedRoot, 'absent-lock-target'), managedLock);
+  assert.equal(lstatPresence(managedLock).exists, true, 'dangling lock symlink is present by lstat');
+  assert.equal(reserveManagedObjects(managedSocket, managedLock, reservationToken), null);
+  fs.unlinkSync(managedLock);
+  const unsealedObjects = bindManagedObjects(
+    reserveManagedObjects(managedSocket, managedLock, reservationToken), [process.pid, 2],
+  );
+  fs.writeFileSync(managedLock, `${JSON.stringify({
+    pid: process.pid, safe_runner_reservation: 'b'.repeat(64),
+  })}\n`);
+  const foreignServer = net.createServer(() => {});
+  await new Promise((resolve, reject) => foreignServer.listen(managedSocket, resolve).once('error', reject));
+  assert.deepEqual(removeManagedObjects(unsealedObjects), [managedSocket, managedLock],
+    'unsealed objects without the reservation-bound lock proof must remain incomplete');
+  fs.unlinkSync(managedSocket);
+  fs.unlinkSync(managedLock);
+  await new Promise((resolve) => foreignServer.close(resolve));
+  assert.ok(reserveManagedObjects(managedSocket, managedLock, reservationToken),
+    'a subsequent run can reserve after exact path recovery');
+  assert.equal(lockRecord.object_identity.lock_pid, process.pid);
 
   if (process.platform === 'linux') {
     const claims = path.join(root, 'production-locks');
@@ -710,6 +841,9 @@ try {
   ], { cwd: sourceRepository }).status, 0);
   const sourceBefore = repositorySourceDigest(sourceRepository);
   const frozenA = frozenWorkloadIdentity(sourceRepository, [process.execPath, 'entry.mjs']);
+  assert.equal(frozenA.executable.path, fs.realpathSync.native(process.execPath));
+  assert.match(frozenA.executable.digest, /^[a-f0-9]{64}$/);
+  assert.ok(Number(frozenA.executable.size) > 0);
   const promotionBefore = promotionCommandDigest(sourceRepository, [process.execPath, sourceEntrypoint]);
   fs.writeFileSync(importedSource, 'export const value = 2;\n');
   assert.notEqual(repositorySourceDigest(sourceRepository), sourceBefore);

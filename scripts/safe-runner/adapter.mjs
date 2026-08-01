@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
+import {
+  assertTrustedBinaryIdentity, infrastructureBinaries, sanitizedEnvironment,
+} from './infrastructure.mjs';
 
 let quotaCapability = null;
 
@@ -14,7 +16,8 @@ export function boundedProbeFailure(result) {
   return parts.join('; ') || 'no process result';
 }
 
-function commandAvailable(command, args = ['--version']) {
+function commandAvailable(command, args = ['--version'], identity = null) {
+  if (identity) assertTrustedBinaryIdentity(identity);
   const result = spawnSync(command, args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -26,6 +29,7 @@ function commandAvailable(command, args = ['--version']) {
 
 function temporaryQuotaAvailable(binaries) {
   if (quotaCapability !== null) return quotaCapability;
+  assertTrustedBinaryIdentity(binaries.identities.bwrap);
   const version = spawnSync(binaries.bwrap, ['--version'], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
     env: sanitizedEnvironment(process.env),
@@ -36,6 +40,7 @@ function temporaryQuotaAvailable(binaries) {
       reason: `bwrap command is unavailable (${boundedProbeFailure(version)})`,
     });
   }
+  assertTrustedBinaryIdentity(binaries.identities.bwrap);
   const result = spawnSync(binaries.bwrap, [
     '--unshare-user', '--uid', '0', '--gid', '0', '--ro-bind', '/', '/',
     '--dev-bind', '/dev', '/dev', '--proc', '/proc', '--size', '1048576', '--tmpfs', '/tmp',
@@ -66,7 +71,9 @@ export function probeLinuxSystemd(platform = process.platform) {
   for (const controller of ['memory', 'pids']) {
     if (!controllers.includes(controller)) reasons.push(`cgroup v2 ${controller} controller is unavailable`);
   }
-  if (binaries && !commandAvailable(binaries.systemdRun)) reasons.push('systemd-run is unavailable');
+  if (binaries && !commandAvailable(
+    binaries.systemdRun, ['--version'], binaries.identities.systemdRun,
+  )) reasons.push('systemd-run is unavailable');
   const temporaryQuota = binaries ? temporaryQuotaAvailable(binaries)
     : { available: false, reason: 'trusted bwrap identity is unavailable' };
   if (!temporaryQuota.available) reasons.push(temporaryQuota.reason);

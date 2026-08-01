@@ -11,6 +11,7 @@ import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
 import {
   bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
+  sealManagedGraphdWithSupervisor,
 } from '../safe-runner-context.mjs';
 import {
   ensureAuthToken,
@@ -87,6 +88,17 @@ export function registerManagedGraphd(child, paths = null, reservation = null) {
     throw error;
   }
   return response.registered;
+}
+
+export function sealManagedGraphd(reservation) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = sealManagedGraphdWithSupervisor(reservation);
+  if (!response?.ok) {
+    const error = new Error(`safe-runner refused managed graphd object seal: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.sealed;
 }
 
 export function exchange(socketPath, payload, timeout = 60_000) {
@@ -219,7 +231,10 @@ export async function ensureGraphd(cwd = process.cwd()) {
       detached: true,
       stdio: debug ? 'inherit' : ['ignore', 'ignore', log],
       cwd: paths.root,
-      env: graphdEnvironment(),
+      env: {
+        ...graphdEnvironment(),
+        ...(reservation ? { LAMINA_SAFE_GRAPHD_RESERVATION: reservation } : {}),
+      },
     });
     registerManagedGraphd(child, paths, reservation);
   } finally {
@@ -227,6 +242,12 @@ export async function ensureGraphd(cwd = process.cwd()) {
   }
   child.unref();
   const daemon = await waitForServer(paths, token, child);
+  try {
+    sealManagedGraphd(reservation);
+  } catch (error) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    throw error;
+  }
   return { ...paths, auth_token: token, daemon };
 }
 

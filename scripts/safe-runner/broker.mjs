@@ -86,12 +86,29 @@ export function authorizeBrokerRequest(request, authority) {
       },
     };
   }
+  if (request.operation === 'seal_graphd') {
+    const reservation = authority.reservations.find((item) => item.token === request.reservation
+      && ((item.requester.pid === requester.pid
+        && item.requester.start_ticks === requester.start_ticks)
+        || sameScopedIdentity(requester, item.bound)));
+    if (!reservation?.bound) return { ok: false, error: 'managed graphd reservation is not child-bound' };
+    const child = records.find((record) => sameScopedIdentity(record, reservation.bound));
+    if (!child || !graphdCommand(child.command)) {
+      return { ok: false, error: 'managed graphd child disappeared or changed before object sealing' };
+    }
+    const sealed = authority.seal({ reservation: reservation.token });
+    return sealed ? { ok: true, sealed }
+      : { ok: false, error: 'managed graphd socket/lock objects could not be identity-sealed' };
+  }
   return { ok: false, error: 'unsupported proof-broker operation' };
 }
 
 export async function createProofBroker(directory, authority) {
   const socketPath = path.join(directory, 'supervisor.sock');
+  const connections = new Set();
   const server = net.createServer((socket) => {
+    connections.add(socket);
+    socket.once('close', () => connections.delete(socket));
     socket.on('error', () => {});
     let buffer = '';
     socket.setEncoding('utf8');
@@ -119,7 +136,21 @@ export async function createProofBroker(directory, authority) {
     environment: { LAMINA_SAFE_RUNNER_BROKER: socketPath },
     registrations: authority.registrations,
     async close() {
-      await new Promise((resolve) => server.close(resolve));
+      // A requester can die between connect and newline/response. Destroy all
+      // accepted sockets before closing the listener so finalization cannot be
+      // held indefinitely by a half-open proof request from a killed scope.
+      for (const socket of connections) socket.destroy();
+      await new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(deadline);
+          resolve();
+        };
+        const deadline = setTimeout(finish, 500);
+        server.close(finish);
+      });
       try { fs.rmSync(socketPath, { force: true }); } catch {}
     },
   };

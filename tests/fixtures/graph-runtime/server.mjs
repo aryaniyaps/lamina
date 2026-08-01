@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import { graphSocketPath, runtimePaths } from '../../../packages/cli/lib/graph-runtime/util.mjs';
+import { sealManagedGraphdWithSupervisor } from '../../../packages/cli/lib/safe-runner-context.mjs';
 
 const [repository, cleanupMode = 'clean'] = process.argv.slice(2);
 if (!repository) throw new Error('repository path is required');
@@ -12,7 +13,10 @@ const lockPath = paths.lock;
 
 fs.mkdirSync(paths.runtime_dir, { recursive: true });
 try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
-fs.writeFileSync(lockPath, `${process.pid}\n`, { mode: 0o600 });
+fs.writeFileSync(lockPath, `${JSON.stringify({
+  pid: process.pid,
+  safe_runner_reservation: process.env.LAMINA_SAFE_GRAPHD_RESERVATION || null,
+})}\n`, { mode: 0o600 });
 
 const server = net.createServer((socket) => socket.end());
 let stopping = false;
@@ -35,5 +39,11 @@ const shutdown = () => {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
-server.listen(socketPath, () => fs.chmodSync(canonicalSocket, 0o600));
+server.listen(socketPath, () => {
+  fs.chmodSync(canonicalSocket, 0o600);
+  if (process.env.LAMINA_SAFE_GRAPHD_RESERVATION) {
+    const sealed = sealManagedGraphdWithSupervisor(process.env.LAMINA_SAFE_GRAPHD_RESERVATION);
+    if (!sealed?.ok) shutdown();
+  }
+});
 if (cleanupMode === 'exit-stale') setTimeout(shutdown, 250);

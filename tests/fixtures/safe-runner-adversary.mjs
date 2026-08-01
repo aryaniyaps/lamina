@@ -133,6 +133,11 @@ if (mode === 'direct-memory') {
     node_options: process.env.NODE_OPTIONS || null,
     node_path: process.env.NODE_PATH || null,
     bash_env: process.env.BASH_ENV || null,
+    bash_function: process.env['BASH_FUNC_payload%%'] || null,
+    ld_debug_output: process.env.LD_DEBUG_OUTPUT || null,
+    node_v8_coverage: process.env.NODE_V8_COVERAGE || null,
+    node_compile_cache: process.env.NODE_COMPILE_CACHE || null,
+    node_redirect_warnings: process.env.NODE_REDIRECT_WARNINGS || null,
   })}\n`);
 } else if (mode === 'failure') {
   process.stderr.write('tiny failure\n');
