@@ -80,11 +80,15 @@ The runner:
 - rejects Docker/Harbor-style external-daemon execution because descendants
   launched by an external daemon are not proven members of the client scope.
 
-The scoped Lamina CLI may start its normal detached `graphd`, but only through
-an online gated supervisor-broker protocol. The broker first proves the
-canonical socket and lock absent under a physical same-user parent and durably
-reserves them. Only then may the client spawn a paused graphd and bind the
-reservation to its host/namespace PIDs plus Linux start ticks. The broker
+Managed `graphd` authority is not available to ordinary workloads. It is
+retained only for the deliberately tiny graphd-client fixture beneath the exact
+Git-common `lamina/work` scratch tree and for the standalone CLI smoke fixture's
+child-cwd repository inside private payload tmpfs. The broker first proves the
+fixture socket and lock absent and durably reserves them. Only then may the
+fixture spawn a paused graphd and bind the reservation to its host/namespace
+PIDs plus Linux start ticks. The standalone form additionally requires the
+reservation runtime to equal the attested child's `<cwd>/.git/lamina`; it
+cannot reserve the source repository's Git-common paths. The broker
 persists an `authorized` managed-path generation before releasing the child;
 graphd rechecks both names absent and refuses rather than unlinks a replacement.
 Graphd's reservation-bound lock proves the narrow object-creation transition;
@@ -164,6 +168,22 @@ preflight and again by direct snapshot construction. The only retained mutable
 argv-output contracts are the graphd-client and mutable fixtures beneath the
 exact Git-common `lamina/work` scratch authority.
 
+Retrieval `--evaluate` and `--calibrate` are semantic-authority contracts, not
+generic argv. Each requires exactly one explicit `--worker`, `--model`,
+`--tokenizer`, and lowercase 64-hex `--model-digest`; both modes together,
+duplicates, assignment forms, environment-only inputs, uv fallback, and
+external or symlinked paths refuse. All three paths must have canonical
+physical same-user, single-link repository ancestry, and the worker must be
+executable. The model's digest and byte size must match both its physical bytes
+and `packages/cli/retrieval-model-manifest.json`. The tokenizer has no separate
+manifest pin in this decision; its descriptor-copied bytes are bound into the
+frozen and execution-snapshot digests. A dedicated retrieval identity excludes
+these recognized path-value positions from the generic 64-MiB argv-input cap,
+then records the bounded worker/model/tokenizer identities and manifest
+authority directly. This admits the canonical 161,895,621-byte model without
+raising the global cap. Small evaluation is the exact promotion precursor for
+the same normalized medium command.
+
 Atomic publication is also refused in issue #59. Correct rename-based
 publication requires its stage and saved-old objects to share the target's
 filesystem. The payload's hard temporary quota is a different private tmpfs,
@@ -179,10 +199,10 @@ For linked worktrees, the descriptor-copied `.git` pointer remains in the
 frozen worktree. A bounded pack containing the reachable HEAD ancestry plus
 index objects, copied common config/ref metadata, and copied worktree HEAD/index
 are mounted read-only at the original absolute common/worktree Git paths.
-The exact original common `lamina` directory is captured before those mounts
-and rebound writable afterward. This keeps Git and graphd path semantics
-aligned without reading live external gitdir data. Object alternates and config
-includes are never admitted. Inherited `GIT_*` controls are removed, while
+The original common `lamina` directory is not rebound for ordinary workloads;
+only the two small scratch fixtures receive that entrypoint-specific binding.
+Object alternates and config includes are never admitted. Inherited `GIT_*`
+controls are removed, while
 system and global Git config reads are deterministically disabled.
 The same authority descriptor-copies Node, bwrap, the gate scripts, and the
 sandbox launcher/import before systemd launch. The shell and systemd launcher
@@ -190,18 +210,19 @@ remain host-trusted infrastructure; bwrap and later stages execute their staged
 objects, so a post-validation pathname swap cannot choose the sandbox binary.
 Large ignored runtimes are not silently exposed again after the repository
 mount. In particular, eval-suite `.venv-eval` execution is refused with an
-actionable bounded-runtime requirement, while release retrieval evaluation
-must name the already-built repository worker with `--worker`; the uv/project
-venv fallback is outside sealed authority.
-Graphd's managed-daemon exception additionally requires the kernel-observed
-executable inode/owner identity and exact argv to match a snapshotted Node plus
-canonical server, or an exact snapshotted standalone executable. A process-title
-or `--graphd` argv spoof cannot qualify.
+actionable bounded-runtime requirement. Retrieval qualification has no uv or
+environment fallback. Test-only `LAMINA_TEST_*` controls are stripped from
+non-self-test payloads; retrieval semantic environment families are stripped
+before the benchmark and only descriptor-copied native/smoke inputs are
+reintroduced for those separate entrypoints. The two graphd fixture forms also
+require kernel-observed executable inode/owner identity and exact argv. A
+process-title or `--graphd` argv spoof cannot qualify.
 
 Immediately before release the runner revalidates both its frozen preflight
 identity and execution snapshot and writes a durable active-attempt fence. The identity covers the complete
 normalized argv, the exact bounded content-hashed executable object, every
-file argument resolved against the supplied cwd, the
+ordinary file argument resolved against the supplied cwd, the dedicated
+manifest-bound retrieval semantic identity when applicable, the
 content-hashed Git snapshot, and runner build. Effective limits are excluded.
 The frozen identity is reused after execution, so payload source mutation cannot
 change which attempt is recorded or promoted. The full identity is checked

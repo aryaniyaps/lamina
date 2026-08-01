@@ -77,7 +77,11 @@ try {
     ...common,
     command: [process.execPath, fixture, 'success'],
     tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'normal.json'),
-    overrides: limits, promote: false,
+    // Sealing and launching the ~250 MiB repository snapshot can consume the
+    // one-second adversarial timeout before the release FIFO gains a reader.
+    // Keep resource ceilings tiny, but give this non-hanging success control a
+    // startup allowance; explicit hang/limit cases retain their short clocks.
+    overrides: { ...limits, timeoutMs: 5_000 }, promote: false,
   });
   assert.equal(normal.outcome, 'success');
   assert.equal(validateReport(normal).valid, true);
@@ -183,7 +187,7 @@ try {
     `${candidate} must not be executed or written by host-side launch stages`);
 
     const mutableOriginal = fs.readFileSync(mutableFixture, 'utf8');
-    const mutableMarker = path.join(root, 'mutated-payload-executed');
+    const mutableMarker = path.join(workspaceScratch, 'mutated-payload-executed');
     let finalIdentityMutation;
     try {
       finalIdentityMutation = await runSafely({

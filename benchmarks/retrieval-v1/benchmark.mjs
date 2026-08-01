@@ -4,15 +4,18 @@ import { performance } from 'node:perf_hooks';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { retrievalFixture } from './fixtures.mjs';
 import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
+import { SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT } from '../../scripts/safe-runner/infrastructure.mjs';
+import { retrievalQualificationAuthority } from '../../scripts/safe-runner/retrieval-authority.mjs';
 
 const fixture = retrievalFixture();
 const evaluate = process.argv.includes('--evaluate');
 const calibrate = process.argv.includes('--calibrate');
 if (evaluate || calibrate) {
   assertSafeRunnerContext('retrieval benchmark evaluation', {
-    minimumTier: evaluate ? 'medium' : 'small',
+    minimumTier: 'small',
   });
 }
 if (!evaluate && !calibrate) {
@@ -39,17 +42,14 @@ if (!evaluate && !calibrate) {
   process.exit(0);
 }
 
-const argument = (name) => {
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : null;
-};
-const worker = argument('--worker');
-const model = argument('--model') || process.env.LAMINA_RETRIEVAL_MODEL_PATH;
-const tokenizer = argument('--tokenizer') || process.env.LAMINA_RETRIEVAL_TOKENIZER_PATH;
-const modelDigest = argument('--model-digest') || process.env.LAMINA_RETRIEVAL_MODEL_DIGEST;
-if (!model || !tokenizer || !modelDigest) {
-  throw new Error('--evaluate requires model, tokenizer, and model digest inputs.');
-}
+const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const qualification = retrievalQualificationAuthority({
+  repository, cwd: process.cwd(), command: process.argv,
+});
+const worker = qualification.worker.path;
+const model = qualification.model.path;
+const tokenizer = qualification.tokenizer.path;
+const modelDigest = qualification.model_digest;
 
 const {
   bm25Ranking,
@@ -59,26 +59,27 @@ const {
 } = await import('../../packages/cli/lib/retrieval-runtime/store.mjs');
 
 function invocation() {
-  if (worker) return { command: path.resolve(worker), args: ['retrieval', 'serve'] };
-  return {
-    command: process.env.LAMINA_UV_BINARY || 'uv',
-    args: [
-      'run', '--locked', '--project', path.resolve('packages/cli'), 'python',
-      path.resolve('packages/cli/retrieval_worker.py'), 'serve',
-    ],
-  };
+  return { command: worker, args: ['retrieval', 'serve'] };
 }
 
 function embeddingClient() {
   const command = invocation();
+  const childEnvironment = {
+    ...process.env,
+  };
+  for (const name of Object.keys(childEnvironment)) {
+    if (name.startsWith('LAMINA_TEST_') || name.startsWith('LAMINA_RETRIEVAL_')
+      || ['LAMINA_UV_BINARY', 'LAMINA_STANDALONE', 'LAMINA_WORKER', 'LAMINA_MODEL',
+        'LAMINA_BINARY'].includes(name)) delete childEnvironment[name];
+  }
+  Object.assign(childEnvironment, {
+    LAMINA_RETRIEVAL_MODEL_PATH: model,
+    LAMINA_RETRIEVAL_MODEL_DIGEST: modelDigest,
+    LAMINA_RETRIEVAL_TOKENIZER_PATH: tokenizer,
+    LAMINA_RETRIEVAL_LEXICAL_ONLY: '0',
+  });
   const child = spawn(command.command, command.args, {
-    env: {
-      ...process.env,
-      LAMINA_RETRIEVAL_MODEL_PATH: path.resolve(model),
-      LAMINA_RETRIEVAL_MODEL_DIGEST: modelDigest,
-      LAMINA_RETRIEVAL_TOKENIZER_PATH: path.resolve(tokenizer),
-      LAMINA_RETRIEVAL_LEXICAL_ONLY: '0',
-    },
+    env: childEnvironment,
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   const lines = readline.createInterface({ input: child.stdout });

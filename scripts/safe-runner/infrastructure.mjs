@@ -24,6 +24,22 @@ export const SAFE_INFRASTRUCTURE_PATH = Object.freeze([
 // additionally rejects whole dangerous families, including dynamically named
 // exported Bash functions and runtime output/cache hooks.
 export const EXECUTION_HOOK_ENVIRONMENT = Object.freeze([...EXACT_EXECUTION_HOOKS]);
+export const SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT = Object.freeze([
+  'LAMINA_TEST_RETRIEVAL_EMBEDDER',
+  'LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS',
+]);
+export const SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT = Object.freeze([
+  'LAMINA_UV_BINARY',
+  'LAMINA_STANDALONE',
+  'LAMINA_WORKER',
+  'LAMINA_MODEL',
+  'LAMINA_BINARY',
+]);
+const SEALED_RETRIEVAL_ENV_ENTRYPOINTS = new Set([
+  'benchmarks/retrieval-v1/benchmark.mjs',
+  'tests/retrieval_native_index_test.mjs',
+  'tests/cli_binary_smoke_test.mjs',
+]);
 
 export function isExecutionHookEnvironment(name) {
   return EXACT_EXECUTION_HOOKS.has(name)
@@ -165,5 +181,19 @@ export function sanitizedEnvironment(...sources) {
   result.PATH = SAFE_INFRASTRUCTURE_PATH;
   result.GIT_CONFIG_NOSYSTEM = '1';
   result.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  return result;
+}
+
+export function sanitizedPayloadEnvironment({
+  sources = [], mode = 'run', auditedEntrypoint = null, sealedOverrides = {},
+} = {}) {
+  const result = sanitizedEnvironment(...sources);
+  const stripsRetrievalSemantics = SEALED_RETRIEVAL_ENV_ENTRYPOINTS.has(auditedEntrypoint);
+  for (const name of Object.keys(result)) {
+    if (mode !== 'self-test' && name.startsWith('LAMINA_TEST_')) delete result[name];
+    if (stripsRetrievalSemantics && (name.startsWith('LAMINA_RETRIEVAL_')
+      || SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT.includes(name))) delete result[name];
+  }
+  Object.assign(result, sealedOverrides);
   return result;
 }

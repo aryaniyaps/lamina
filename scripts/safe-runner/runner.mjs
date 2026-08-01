@@ -25,7 +25,7 @@ import {
   acquireConcurrencyLock, assertFrozenWorkloadIdentity, beginSafetyAttempt,
   bindExecutionSnapshotIdentity, checkPromotion, clearSafetyAttempt, recordPromotion, recordSafetyLimit,
 } from './state.mjs';
-import { sanitizedEnvironment } from './infrastructure.mjs';
+import { sanitizedPayloadEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
 import { assertExecutionSnapshot, prepareExecutionSnapshot } from './execution-snapshot.mjs';
 
@@ -638,19 +638,23 @@ export async function runSafely({
       quotaReleaseFile,
       temporaryDirectory: payloadTemporaryDirectory,
       executionAuthority: executionSnapshot,
-      env: sanitizedEnvironment(process.env, env, {
-        ...proofBroker.environment,
-        TMPDIR: payloadTemporaryDirectory,
-        TMP: payloadTemporaryDirectory,
-        TEMP: payloadTemporaryDirectory,
-        LAMINA_SAFE_RUNNER: '1',
-        LAMINA_SAFE_RUNNER_TEMP: payloadTemporaryDirectory,
-        LAMINA_SAFE_RUNNER_TEMP_DIR: payloadTemporaryDirectory,
-        LAMINA_SAFE_RUNNER_ALLOW_NETWORK:
-          preflight.ownership.network_access === 'audited-required' ? '1' : '0',
-        LAMINA_SAFE_REPORT_FILE: path.resolve(reportFile),
-        LAMINA_SAFE_REPORT_PARENT: reportAuthority?.parent || '',
-        ...(executionSnapshot?.environment_overrides || {}),
+      env: sanitizedPayloadEnvironment({
+        sources: [process.env, env, {
+          ...proofBroker.environment,
+          TMPDIR: payloadTemporaryDirectory,
+          TMP: payloadTemporaryDirectory,
+          TEMP: payloadTemporaryDirectory,
+          LAMINA_SAFE_RUNNER: '1',
+          LAMINA_SAFE_RUNNER_TEMP: payloadTemporaryDirectory,
+          LAMINA_SAFE_RUNNER_TEMP_DIR: payloadTemporaryDirectory,
+          LAMINA_SAFE_RUNNER_ALLOW_NETWORK:
+            preflight.ownership.network_access === 'audited-required' ? '1' : '0',
+          LAMINA_SAFE_REPORT_FILE: path.resolve(reportFile),
+          LAMINA_SAFE_REPORT_PARENT: reportAuthority?.parent || '',
+        }],
+        mode,
+        auditedEntrypoint: preflight.ownership.audited_entrypoint,
+        sealedOverrides: executionSnapshot?.environment_overrides || {},
       }),
     });
     launched = true;

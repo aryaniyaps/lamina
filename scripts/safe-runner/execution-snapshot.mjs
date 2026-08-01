@@ -7,6 +7,10 @@ import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
+import {
+  RETRIEVAL_BENCHMARK_ENTRYPOINT,
+  retrievalQualificationAuthority,
+} from './retrieval-authority.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
@@ -58,7 +62,6 @@ const EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS = new Map([
     'LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH',
   ]],
   ['tests/retrieval_native_index_test.mjs', [
-    'LAMINA_BINARY', 'LAMINA_WORKER', 'LAMINA_MODEL',
     'LAMINA_RETRIEVAL_TOKENIZER_PATH', 'LAMINA_RETRIEVAL_FTS_EXTENSION_PATH',
     'LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH',
   ]],
@@ -235,7 +238,9 @@ function entrypointRelative(repository, command, cwd = repository) {
     const relative = path.relative(repository, path.resolve(cwd, String(argument)))
       .replaceAll('\\', '/');
     if (!relative.startsWith('../') && (repositoryOutputRefusal(relative)
-      || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative))) return relative;
+      || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative)
+      || EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS.has(relative)
+      || relative === RETRIEVAL_BENCHMARK_ENTRYPOINT)) return relative;
   }
   return null;
 }
@@ -638,11 +643,13 @@ export function prepareExecutionSnapshot({
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
+  const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
   const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');
   const snapshotRepository = path.join(root, 'repository');
   fs.mkdirSync(snapshotRepository, { recursive: true, mode: 0o700 });
   const entries = [];
+  const environmentOverrides = {};
   let totalBytes = 0;
   let dependencyCreatedDirectories = 0;
   const sourceFiles = repositoryFiles(repository);
@@ -699,6 +706,22 @@ export function prepareExecutionSnapshot({
       throw new Error('execution argv snapshot exceeds its bounded budget');
     }
   }
+  for (const input of retrievalAuthority
+    ? [retrievalAuthority.worker, retrievalAuthority.model, retrievalAuthority.tokenizer] : []) {
+    const copied = entries.find((entry) => entry.label === `argv:${input.relative}`
+      || entry.label === `repository:${input.relative}`);
+    if (!copied || copied.type !== 'file' || copied.digest !== input.digest) {
+      throw new Error(`copied retrieval ${input.flag} authority does not match its physical input`);
+    }
+  }
+  if (retrievalAuthority) {
+    const manifest = entries.find((entry) =>
+      entry.label === `repository:${retrievalAuthority.manifest.relative}`);
+    if (!manifest || manifest.type !== 'file'
+      || manifest.digest !== retrievalAuthority.manifest.digest) {
+      throw new Error('copied retrieval model manifest authority does not match canonical bytes');
+    }
+  }
   const entrypointForInputs = command.slice(1).map((argument) =>
     path.relative(repository, path.resolve(cwd, String(argument))).replaceAll('\\', '/'))
     .find((relative) => EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS.has(relative));
@@ -714,6 +737,7 @@ export function prepareExecutionSnapshot({
       throw new Error(`declared environment input is not a physical file: ${name}`);
     }
     const destination = path.join(snapshotRepository, relative);
+    environmentOverrides[name] = source;
     if (copiedDestinations.has(destination)) continue;
     const copied = copyPhysicalFile(source, destination, (stat.mode & 0o111n) !== 0n);
     totalBytes += copied.size;
@@ -1022,7 +1046,6 @@ export function prepareExecutionSnapshot({
     }
   }
   const stagedInfrastructure = { identities: {} };
-  const environmentOverrides = {};
   if (infrastructure) {
     const binarySources = {
       node: infrastructure.node,
@@ -1086,38 +1109,29 @@ export function prepareExecutionSnapshot({
     ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(2)]
     : [executable, ...command.slice(1)];
   const graphdLaunchAuthority = [];
-  if (stagedInfrastructure.node) {
+  if (stagedInfrastructure.node
+    && auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
+    const fixtureRepository = path.resolve(cwd, command[2]);
+    const fixtureCommon = path.resolve(fixtureRepository,
+      gitOutput(fixtureRepository, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
     graphdLaunchAuthority.push({
       kind: 'exact',
       argv: [stagedInfrastructure.node,
-        path.join(repository, 'packages/cli/lib/graph-runtime/server.mjs'), repository],
-      runtime_directory: path.join(sourceGit.common, 'lamina'),
+        path.join(repository, 'tests/fixtures/graph-runtime/server.mjs'),
+        fixtureRepository, command[3] || 'clean'],
+      runtime_directory: path.join(fs.realpathSync.native(fixtureCommon), 'lamina'),
       executable_identity: stagedInfrastructure.identities.node,
     });
-    if (auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
-      const fixtureRepository = path.resolve(cwd, command[2]);
-      const fixtureCommon = path.resolve(fixtureRepository,
-        gitOutput(fixtureRepository, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
-      graphdLaunchAuthority.push({
-        kind: 'exact',
-        argv: [stagedInfrastructure.node,
-          path.join(repository, 'tests/fixtures/graph-runtime/server.mjs'),
-          fixtureRepository, command[3] || 'clean'],
-        runtime_directory: path.join(fs.realpathSync.native(fixtureCommon), 'lamina'),
-        executable_identity: stagedInfrastructure.identities.node,
-      });
-    }
   }
-  if (environment.LAMINA_BINARY) {
-    const standalone = path.resolve(cwd, String(environment.LAMINA_BINARY));
-    if (!standalone.startsWith(`${repository}${path.sep}`)) {
-      throw new Error('standalone graphd host escapes sealed repository authority');
-    }
+  if (auditedEntrypoint === 'tests/cli_binary_smoke_test.mjs'
+    && environmentOverrides.LAMINA_BINARY) {
+    const standalone = environmentOverrides.LAMINA_BINARY;
     const relative = path.relative(repository, standalone);
     const sealedStandalone = path.join(snapshotRepository, relative);
     const stat = fs.lstatSync(sealedStandalone, { bigint: true });
     graphdLaunchAuthority.push({
       kind: 'standalone-cwd', executable: standalone,
+      private_tmp_root: path.join(temporaryDirectory, 'payload-tmp'),
       executable_identity: { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) },
     });
   }
@@ -1148,22 +1162,24 @@ export function prepareExecutionSnapshot({
     }
     throw new Error('unreviewed execution snapshot argv output authority');
   }
-  const runtimeSource = path.join(sourceGit.common, 'lamina');
-  ensureContainedWritableDirectory(sourceGit.common, runtimeSource, 'Git common Lamina runtime');
-  const runtimeStat = fs.lstatSync(runtimeSource, { bigint: true });
-  if (!runtimeStat.isDirectory() || runtimeStat.isSymbolicLink()
-    || fs.realpathSync.native(runtimeSource) !== runtimeSource
-    || (typeof process.getuid === 'function' && Number(runtimeStat.uid) !== process.getuid())) {
-    throw new Error('Git common Lamina runtime must be a canonical same-user physical directory');
+  if (EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(entrypoint)) {
+    const runtimeSource = path.join(sourceGit.common, 'lamina', 'work');
+    ensureContainedWritableDirectory(sourceGit.common, runtimeSource, 'Git common Lamina work scratch');
+    const runtimeStat = fs.lstatSync(runtimeSource, { bigint: true });
+    if (!runtimeStat.isDirectory() || runtimeStat.isSymbolicLink()
+      || fs.realpathSync.native(runtimeSource) !== runtimeSource
+      || (typeof process.getuid === 'function' && Number(runtimeStat.uid) !== process.getuid())) {
+      throw new Error('Git common Lamina work scratch must be a canonical same-user physical directory');
+    }
+    const runtimeAlias = path.join(root, 'writable-aliases', String(writableBindings.length));
+    fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
+    writableBindings.push({
+      source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
+      kind: 'git-common-runtime', source_identity: {
+        dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),
+      },
+    });
   }
-  const runtimeAlias = path.join(root, 'writable-aliases', String(writableBindings.length));
-  fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
-  writableBindings.push({
-    source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
-    kind: 'git-common-runtime', source_identity: {
-      dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),
-    },
-  });
   return {
     root, repository, snapshot_repository: snapshotRepository,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,

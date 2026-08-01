@@ -19,24 +19,47 @@ Calibrate and freeze thresholds using only development rows:
 
 ```bash
 npm run safe:self-test -- --require-production
-npm run safe:run -- --tier small --workload retrieval-v1 --promote \
+npm run safe:run -- --tier small --workload retrieval-calibration-v1 \
   --report .lamina-safe-runner/retrieval-calibrate.json -- \
   node benchmarks/retrieval-v1/benchmark.mjs --calibrate \
-  --model /path/to/lamina-retrieval-model-int8-v1.onnx \
-  --tokenizer /path/to/tokenizer.json \
+  --worker dist/lamina-cocoindex-worker-linux-x64 \
+  --model dist/lamina-retrieval-model-int8-v1.onnx \
+  --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json \
   --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
 ```
 
-After committing the frozen constants, run the held-out release gate:
+After committing the frozen constants, run the exact held-out command at small
+to create promotion evidence. `bench:retrieval` is intentionally incomplete
+without caller-supplied repository asset arguments and returns an actionable
+preflight refusal when they are absent:
+
+```bash
+npm run bench:retrieval -- \
+  --worker dist/lamina-cocoindex-worker-linux-x64 \
+  --model dist/lamina-retrieval-model-int8-v1.onnx \
+  --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json \
+  --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
+```
+
+Then run the byte-for-byte same benchmark payload at medium:
 
 ```bash
 npm run safe:run -- --tier medium --workload retrieval-v1 \
-  --report .lamina-safe-runner/retrieval-evaluate.json -- \
+  --promote --report .lamina-safe-runner/retrieval-evaluate.json -- \
   node benchmarks/retrieval-v1/benchmark.mjs --evaluate \
-  --model /path/to/lamina-retrieval-model-int8-v1.onnx \
-  --tokenizer /path/to/tokenizer.json \
+  --worker dist/lamina-cocoindex-worker-linux-x64 \
+  --model dist/lamina-retrieval-model-int8-v1.onnx \
+  --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json \
   --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
 ```
+
+All three asset paths must be canonical physical files inside this repository;
+the worker must be executable. The supplied digest must match both the model
+bytes and `packages/cli/retrieval-model-manifest.json`, including its declared
+byte size. The tokenizer is not independently pinned in that manifest; its
+descriptor-copied bytes are instead bound into the frozen and snapshot
+identities. Environment variables and uv fallback cannot supply or replace
+these four explicit arguments.
 
 The evaluator reports the former term-count baseline, BM25, dense, and hybrid
 results, then enforces the held-out quality, determinism, and latency gates

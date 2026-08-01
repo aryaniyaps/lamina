@@ -14,6 +14,7 @@ import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 import { spawnTrustedGit } from './git.mjs';
+import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -320,11 +321,26 @@ export function frozenWorkloadIdentity(cwd, command) {
     }
     return value;
   });
+  const retrievalAuthority = retrievalQualificationAuthority({
+    repository: normalizedCwd, cwd: normalizedCwd, command: normalizedCommand,
+  });
+  const retrievalValueIndexes = new Set(retrievalAuthority?.argument_value_indexes || []);
+  const genericWorkloadArguments = normalizedCommand.slice(1).filter(
+    (_argument, index) => !retrievalValueIndexes.has(index + 1),
+  );
   const value = {
     repository: normalizedCwd,
     command: normalizedCommand,
     executable: executableIdentity(normalizedCommand[0]),
-    workload_inputs: workloadIdentity(normalizedCwd, normalizedCommand.slice(1)),
+    workload_inputs: workloadIdentity(normalizedCwd, genericWorkloadArguments),
+    retrieval_authority: retrievalAuthority ? {
+      mode: retrievalAuthority.mode,
+      model_digest: retrievalAuthority.model_digest,
+      manifest: retrievalAuthority.manifest,
+      worker: retrievalAuthority.worker,
+      model: retrievalAuthority.model,
+      tokenizer: retrievalAuthority.tokenizer,
+    } : null,
     repository_source: commandSourceDigest(normalizedCwd, normalizedCommand),
     runner_build: runnerBuildDigest(),
   };

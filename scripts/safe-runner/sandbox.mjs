@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
-  assertTrustedBinaryIdentity, EXECUTION_HOOK_ENVIRONMENT, sanitizedEnvironment,
+  assertTrustedBinaryIdentity, EXECUTION_HOOK_ENVIRONMENT,
+  SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT,
+  SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT, sanitizedEnvironment,
 } from './infrastructure.mjs';
 
 export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
@@ -26,6 +28,8 @@ export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
   'LAMINA_SAFE_RUNNER_ALLOW_NETWORK',
   'LAMINA_SAFE_REPORT_FILE',
   'LAMINA_SAFE_REPORT_PARENT',
+  ...SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT,
+  ...SAFE_RUNNER_TEST_ONLY_RETRIEVAL_ENVIRONMENT,
   ...EXECUTION_HOOK_ENVIRONMENT,
 ]);
 

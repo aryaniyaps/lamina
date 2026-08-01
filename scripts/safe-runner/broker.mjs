@@ -29,8 +29,17 @@ export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority 
         && reservation.lock === path.join(expected.runtime_directory, 'graphd.lock');
     }
     if (expected.kind === 'standalone-cwd') {
+      const runtimeDirectory = path.join(child.cwd || '', '.git', 'lamina');
+      const privateRoot = typeof expected.private_tmp_root === 'string'
+        && path.isAbsolute(expected.private_tmp_root)
+        ? path.resolve(expected.private_tmp_root) : null;
+      const relativeCwd = privateRoot && path.isAbsolute(child.cwd || '')
+        ? path.relative(privateRoot, path.resolve(child.cwd)) : null;
       return child.argv.length === 3 && child.argv[0] === expected.executable
-        && child.argv[1] === '--graphd' && child.argv[2] === child.cwd;
+        && child.argv[1] === '--graphd' && child.argv[2] === child.cwd
+        && relativeCwd && !relativeCwd.startsWith('..') && !path.isAbsolute(relativeCwd)
+        && reservation.socket === path.join(runtimeDirectory, 'graphd.sock')
+        && reservation.lock === path.join(runtimeDirectory, 'graphd.lock');
     }
     return false;
   });

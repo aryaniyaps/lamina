@@ -16,6 +16,10 @@ const runner = fs.readFileSync('scripts/safe-runner/runner.mjs', 'utf8');
 const executionSnapshot = fs.readFileSync('scripts/safe-runner/execution-snapshot.mjs', 'utf8');
 const npxAuthority = fs.readFileSync('scripts/safe-runner/npx-authority.mjs', 'utf8');
 const outputPolicy = fs.readFileSync('scripts/safe-runner/output-policy.mjs', 'utf8');
+const retrievalAuthority = fs.readFileSync(
+  'scripts/safe-runner/retrieval-authority.mjs', 'utf8',
+);
+const retrievalBenchmark = fs.readFileSync('benchmarks/retrieval-v1/benchmark.mjs', 'utf8');
 const supervisionDecision = fs.readFileSync(
   'docs/decisions/014-crash-safe-resource-supervision.md', 'utf8',
 );
@@ -32,14 +36,21 @@ assert.equal(workload(evaluateRuns[0]), 'retrieval-v1');
 assert.equal(workload(evaluateRuns[1]), 'retrieval-v1');
 assert.equal(payload(evaluateRuns[0]), payload(evaluateRuns[1]),
   'promotion must bind the complete frozen evaluation argv across tiers');
-assert.match(evaluateRuns[0], /--worker dist\/lamina-cocoindex-worker-\$\{\{ matrix\.target \}\}/,
-  'release retrieval must execute the sealed native worker instead of an ignored uv venv');
+for (const flag of ['--worker', '--model', '--tokenizer', '--model-digest']) {
+  assert.equal(evaluateRuns[0].match(new RegExp(`${flag}\\s+\\S+`, 'g'))?.length, 1,
+    `release retrieval must provide exactly one ${flag}`);
+}
 assert.match(evaluateRuns[0], /--promote\b/);
 assert.match(evaluateRuns[1], /--promote\b/);
 const calibration = safeRuns.find((line) => line.includes('benchmark.mjs --calibrate'));
 assert.ok(calibration);
 assert.doesNotMatch(calibration, /--promote\b/);
 assert.equal(workload(calibration), 'retrieval-calibration-v1');
+assert.match(calibration, /--worker\s+\S+[\s\S]*--model\s+\S+[\s\S]*--tokenizer\s+\S+[\s\S]*--model-digest\s+[a-f0-9]{64}/);
+assert.match(packageManifest.scripts['bench:retrieval'], /--tier small[\s\S]*--promote[\s\S]*benchmark\.mjs --evaluate$/,
+  'public retrieval wrapper must be a small promotion precursor with caller-appended exact assets');
+assert.doesNotMatch(packageManifest.scripts['bench:retrieval'], /--worker|--model|--tokenizer|--model-digest/,
+  'base retrieval wrapper must refuse actionably instead of pretending repository assets exist');
 
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_PATH=%s/);
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_SHA256=%s/);
@@ -54,6 +65,17 @@ assert.match(executionSnapshot,
   /repositoryOutputRefusal\(auditedEntrypoint\)[\s\S]*throw new Error\(repositoryOutputReason\)/);
 assert.match(executionSnapshot,
   /EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS[\s\S]*safe-runner-graphd-client\.mjs[\s\S]*safe-runner-mutable\.mjs/);
+assert.match(executionSnapshot,
+  /if \(EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS\.has\(entrypoint\)\)[\s\S]*kind: 'git-common-runtime'/,
+  'Git-common writable binding must be reachable only for the two scratch fixtures');
+assert.match(retrievalAuthority,
+  /requires exactly one[\s\S]*nlink !== 1n[\s\S]*canonical model manifest[\s\S]*physical --model bytes/);
+assert.doesNotMatch(retrievalBenchmark,
+  /process\.env\.LAMINA_RETRIEVAL_(?:MODEL_PATH|TOKENIZER_PATH|MODEL_DIGEST)|LAMINA_UV_BINARY \|\| 'uv'/,
+  'retrieval qualification must not recover inherited semantic or uv fallback inputs');
+assert.match(retrievalBenchmark,
+  /Object\.keys\(childEnvironment\)[\s\S]*startsWith\('LAMINA_TEST_'\)[\s\S]*startsWith\('LAMINA_RETRIEVAL_'\)/,
+  'benchmark worker environment must strip inherited test and retrieval semantic families');
 assert.doesNotMatch(executionSnapshot, /snapshot_target/);
 assert.match(npxAuthority,
   /package_name:\s*'agent-skills-eval'[\s\S]*launch_admitted:\s*false/);
@@ -61,7 +83,8 @@ assert.match(outputPolicy, /private tmpfs/);
 assert.match(supervisionDecision,
   /Atomic publication is also refused in issue #59[\s\S]*sampled usage[\s\S]*hard enforcement/);
 assert.match(runner,
-  /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*startCrashWatchdog/);
+  /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*temporaryDirectory = fs\.mkdtempSync[\s\S]*startCrashWatchdog/,
+  'preflight refusal must precede temporary, watchdog, and snapshot authority creation');
 
 for (const scriptName of ['test:eval:portable', 'test:eval:redteam']) {
   const script = packageManifest.scripts[scriptName];

@@ -16,6 +16,7 @@ import { existingLaminaProcesses } from './processes.mjs';
 import { spawnTrustedGit } from './git.mjs';
 import { optionalAuditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
+import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import {
   checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
   readAttestation, stateDirectory,
@@ -47,6 +48,10 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['tests/fixtures/safe-runner-mutable.mjs', false],
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
+const SMALL_ONLY_SCRATCH_FIXTURES = new Set([
+  'tests/fixtures/safe-runner-graphd-client.mjs',
+  'tests/fixtures/safe-runner-mutable.mjs',
+]);
 const SENSITIVE_WRITABLE_ROOTS = ['/','/tmp','/run','/proc','/sys','/dev'];
 
 function pathsOverlap(left, right) {
@@ -242,21 +247,12 @@ function externalRuntimeContractReason(ownership, command, cwd) {
   if (repositoryOutputReason) return repositoryOutputReason;
   if (ownership.audited_entrypoint !== 'benchmarks/retrieval-v1/benchmark.mjs'
     || (!command.includes('--evaluate') && !command.includes('--calibrate'))) return null;
-  const workerIndex = command.indexOf('--worker');
-  if (workerIndex < 0 || !command[workerIndex + 1]) {
-    return 'retrieval evaluation requires --worker <repository worker executable>; uv/.venv execution is outside sealed execution authority';
-  }
-  const worker = path.resolve(cwd, command[workerIndex + 1]);
-  const relative = path.relative(REPOSITORY_ROOT, worker);
   try {
-    const stat = fs.lstatSync(worker);
-    if (!relative.startsWith('..') && !path.isAbsolute(relative)
-      && stat.isFile() && !stat.isSymbolicLink()) {
-      fs.accessSync(worker, fs.constants.X_OK);
-      return null;
-    }
-  } catch {}
-  return 'retrieval --worker must name a physical executable file inside the repository so it can be sealed';
+    retrievalQualificationAuthority({ repository: REPOSITORY_ROOT, cwd, command });
+    return null;
+  } catch (error) {
+    return error.message;
+  }
 }
 
 export function preflightRun({
@@ -326,6 +322,9 @@ export function preflightRun({
   }
   if (!ownership.proven) reasons.push(ownership.reason);
   if (externalRuntimeReason) reasons.push(externalRuntimeReason);
+  if (SMALL_ONLY_SCRATCH_FIXTURES.has(ownership.audited_entrypoint) && tier !== 'small') {
+    reasons.push('safe-runner scratch fixtures are deliberately tiny and require --tier small');
+  }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
   if (!retry.ok && retry.previous) {

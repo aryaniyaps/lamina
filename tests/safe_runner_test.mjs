@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,7 +40,7 @@ import {
 } from '../scripts/safe-runner/managed-paths.mjs';
 import {
   assertTrustedBinaryIdentity, isExecutionHookEnvironment, sanitizedEnvironment,
-  trustedBinaryIdentity,
+  sanitizedPayloadEnvironment, trustedBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
@@ -55,6 +56,9 @@ import {
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { auditedNpxCommand } from '../scripts/safe-runner/npx-authority.mjs';
 import { repositoryOutputRefusal } from '../scripts/safe-runner/output-policy.mjs';
+import {
+  assertRetrievalModelManifest, retrievalQualificationAuthority,
+} from '../scripts/safe-runner/retrieval-authority.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
   graphdEnvironment, stopIncompatibleServer,
@@ -271,6 +275,80 @@ try {
   assert.equal(poison.GIT_CONFIG_GLOBAL, process.platform === 'win32' ? 'NUL' : '/dev/null');
   assert.equal(sanitizedEnvironment(poison).GIT_CONFIG_NOSYSTEM, '1',
     'repeated sanitizer layers must restore safe Git config overrides');
+  const semanticPoison = {
+    LAMINA_TEST_RETRIEVAL_EMBEDDER: 'deterministic',
+    LAMINA_TEST_ARBITRARY_BYPASS: '1',
+    LAMINA_RETRIEVAL_MODEL_PATH: '/host/model',
+    LAMINA_RETRIEVAL_TOKENIZER_PATH: '/host/tokenizer',
+    LAMINA_UV_BINARY: '/host/uv',
+    LAMINA_STANDALONE: '/host/standalone',
+    LAMINA_WORKER: '/host/worker',
+    LAMINA_MODEL: '/host/model',
+    LAMINA_BINARY: '/host/binary',
+  };
+  const retrievalPayloadEnvironment = sanitizedPayloadEnvironment({
+    sources: [semanticPoison], mode: 'run',
+    auditedEntrypoint: 'benchmarks/retrieval-v1/benchmark.mjs',
+  });
+  for (const name of Object.keys(semanticPoison)) {
+    assert.equal(retrievalPayloadEnvironment[name], undefined,
+      `retrieval payload must strip inherited semantic override ${name}`);
+  }
+  const selfTestPayloadEnvironment = sanitizedPayloadEnvironment({
+    sources: [semanticPoison], mode: 'self-test',
+    auditedEntrypoint: 'tests/fixtures/safe-runner-adversary.mjs',
+  });
+  assert.equal(selfTestPayloadEnvironment.LAMINA_TEST_ARBITRARY_BYPASS, '1',
+    'deliberately tiny self-tests must retain their fixture controls');
+  const sealedNativeEnvironment = sanitizedPayloadEnvironment({
+    sources: [semanticPoison], mode: 'run',
+    auditedEntrypoint: 'tests/retrieval_native_index_test.mjs',
+    sealedOverrides: {
+      LAMINA_RETRIEVAL_TOKENIZER_PATH: '/sealed/tokenizer',
+      LAMINA_RETRIEVAL_FTS_EXTENSION_PATH: '/sealed/fts',
+      LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH: '/sealed/vector',
+    },
+  });
+  assert.equal(sealedNativeEnvironment.LAMINA_RETRIEVAL_TOKENIZER_PATH, '/sealed/tokenizer');
+  assert.equal(sealedNativeEnvironment.LAMINA_RETRIEVAL_FTS_EXTENSION_PATH, '/sealed/fts');
+  assert.equal(sealedNativeEnvironment.LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH, '/sealed/vector');
+  assert.equal(sealedNativeEnvironment.LAMINA_MODEL, undefined,
+    'native-index payload must not recover unsealed model shorthand');
+  const sealedSmokeEnvironment = sanitizedPayloadEnvironment({
+    sources: [semanticPoison], mode: 'run',
+    auditedEntrypoint: 'tests/cli_binary_smoke_test.mjs',
+    sealedOverrides: {
+      LAMINA_BINARY: '/sealed/binary',
+      LAMINA_WORKER: '/sealed/worker',
+      LAMINA_MODEL: '/sealed/model',
+    },
+  });
+  assert.deepEqual([
+    sealedSmokeEnvironment.LAMINA_BINARY,
+    sealedSmokeEnvironment.LAMINA_WORKER,
+    sealedSmokeEnvironment.LAMINA_MODEL,
+  ], ['/sealed/binary', '/sealed/worker', '/sealed/model']);
+  assert.equal(sealedSmokeEnvironment.LAMINA_RETRIEVAL_MODEL_PATH, undefined);
+  const canonicalModelManifest = JSON.parse(fs.readFileSync(
+    'packages/cli/retrieval-model-manifest.json', 'utf8',
+  ));
+  assert.ok(canonicalModelManifest.bytes > 64 * MIB,
+    'canonical retrieval model must exercise the dedicated identity path above the generic cap');
+  assert.equal(assertRetrievalModelManifest({
+    model: { size: canonicalModelManifest.bytes, digest: canonicalModelManifest.sha256 },
+    modelDigest: canonicalModelManifest.sha256,
+    manifest: canonicalModelManifest,
+  }), true, 'manifest identity validation must accept canonical large-model metadata without allocation');
+  assert.throws(() => assertRetrievalModelManifest({
+    model: { size: canonicalModelManifest.bytes - 1, digest: canonicalModelManifest.sha256 },
+    modelDigest: canonicalModelManifest.sha256,
+    manifest: canonicalModelManifest,
+  }), /model size does not match/);
+  assert.throws(() => assertRetrievalModelManifest({
+    model: { size: canonicalModelManifest.bytes, digest: '0'.repeat(64) },
+    modelDigest: canonicalModelManifest.sha256,
+    manifest: canonicalModelManifest,
+  }), /does not match the physical --model bytes/);
   const previousGraphdNodeOptions = process.env.NODE_OPTIONS;
   const previousGraphdSafeValue = process.env.LAMINA_GRAPH_ENV_TEST;
   process.env.NODE_OPTIONS = '--require=/tmp/hostile-graphd-loader.cjs';
@@ -388,7 +466,152 @@ try {
     command: [process.execPath, path.resolve('benchmarks/retrieval-v1/benchmark.mjs'), '--evaluate'],
   });
   assert.match(unsealedRetrievalRuntime.reasons.join('\n'),
-    /requires --worker.*uv\/\.venv execution is outside sealed execution authority/);
+    /retrieval qualification requires exactly one --worker <value>/);
+  const retrievalEntrypoint = path.resolve('benchmarks/retrieval-v1/benchmark.mjs');
+  const retrievalWorker = path.resolve('packages/cli/bin/lamina.mjs');
+  const retrievalModel = path.resolve('package.json');
+  const retrievalTokenizer = path.resolve('pnpm-lock.yaml');
+  const canonicalModelDigest = canonicalModelManifest.sha256;
+  const retrievalCommand = [
+    process.execPath, retrievalEntrypoint, '--evaluate',
+    '--worker', retrievalWorker,
+    '--model', retrievalModel,
+    '--tokenizer', retrievalTokenizer,
+    '--model-digest', canonicalModelDigest,
+  ];
+  const assertRetrievalRefusal = (label, command, pattern, environment = {}) => {
+    const result = preflightRun({
+      tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
+      command, injectedExistingProcesses: [],
+    });
+    assert.match(result.reasons.join('\n'), pattern, `${label} preflight`);
+    const temporaryDirectory = fs.mkdtempSync(path.join(root, 'retrieval-refusal-'));
+    try {
+      assert.throws(() => prepareExecutionSnapshot({
+        cwd: process.cwd(), command, temporaryDirectory, environment,
+      }), pattern, `${label} direct snapshot`);
+      assert.equal(fs.existsSync(path.join(temporaryDirectory, 'execution-authority')), false,
+        `${label} must refuse before snapshot authority creation`);
+    } finally {
+      fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+  };
+  assertRetrievalRefusal('both qualification modes',
+    [...retrievalCommand, '--calibrate'],
+    /requires exactly one of --evaluate or --calibrate/);
+  assertRetrievalRefusal('qualification flags without a mode',
+    retrievalCommand.filter((value) => value !== '--evaluate'),
+    /requires exactly one of --evaluate or --calibrate/);
+  for (const flag of ['--worker', '--model', '--tokenizer', '--model-digest']) {
+    const index = retrievalCommand.indexOf(flag);
+    assertRetrievalRefusal(`missing ${flag}`,
+      retrievalCommand.filter((_value, item) => item !== index && item !== index + 1),
+      new RegExp(`requires exactly one ${flag.replaceAll('-', '\\-')} <value>`));
+    assertRetrievalRefusal(`duplicate ${flag}`,
+      [...retrievalCommand, flag, retrievalCommand[index + 1]],
+      new RegExp(`requires exactly one ${flag.replaceAll('-', '\\-')} <value>`));
+  }
+  assertRetrievalRefusal('equals-form flag', [
+    ...retrievalCommand.slice(0, retrievalCommand.indexOf('--worker')),
+    `--worker=${retrievalWorker}`,
+    ...retrievalCommand.slice(retrievalCommand.indexOf('--worker') + 2),
+  ], /requires exactly one --worker <value>/);
+  assertRetrievalRefusal('flag-like missing value', [
+    ...retrievalCommand.slice(0, retrievalCommand.indexOf('--worker') + 1),
+    ...retrievalCommand.slice(retrievalCommand.indexOf('--worker') + 2),
+  ], /requires exactly one --worker <value>/);
+  const externalRetrievalInput = path.join(root, 'external-retrieval-input');
+  fs.writeFileSync(externalRetrievalInput, 'external');
+  for (const flag of ['--worker', '--model', '--tokenizer']) {
+    const command = [...retrievalCommand];
+    command[command.indexOf(flag) + 1] = externalRetrievalInput;
+    assertRetrievalRefusal(`external ${flag}`, command,
+      new RegExp(`retrieval ${flag.replaceAll('-', '\\-')} must name a physical file inside the repository`));
+  }
+  fs.mkdirSync(runtimePaths(process.cwd()).work, { recursive: true, mode: 0o700 });
+  const invalidRetrievalRoot = fs.mkdtempSync(path.join(
+    runtimePaths(process.cwd()).work, 'retrieval-authority-',
+  ));
+  try {
+    const leafSymlink = path.join(invalidRetrievalRoot, 'leaf-symlink');
+    fs.symlinkSync(retrievalTokenizer, leafSymlink);
+    const symlinkTokenizerCommand = [...retrievalCommand];
+    symlinkTokenizerCommand[symlinkTokenizerCommand.indexOf('--tokenizer') + 1] = leafSymlink;
+    assertRetrievalRefusal('symlink leaf', symlinkTokenizerCommand,
+      /retrieval --tokenizer must name a physical file inside the repository/);
+    const physicalAncestor = path.join(invalidRetrievalRoot, 'physical-ancestor');
+    fs.mkdirSync(physicalAncestor);
+    fs.copyFileSync(retrievalTokenizer, path.join(physicalAncestor, 'tokenizer'));
+    const ancestorSymlink = path.join(invalidRetrievalRoot, 'ancestor-symlink');
+    fs.symlinkSync(physicalAncestor, ancestorSymlink, 'dir');
+    const symlinkAncestorCommand = [...retrievalCommand];
+    symlinkAncestorCommand[symlinkAncestorCommand.indexOf('--tokenizer') + 1]
+      = path.join(ancestorSymlink, 'tokenizer');
+    assertRetrievalRefusal('symlink ancestor', symlinkAncestorCommand,
+      /retrieval --tokenizer must name a physical file inside the repository/);
+    for (const [flag, source] of [
+      ['--worker', retrievalWorker], ['--model', retrievalModel],
+      ['--tokenizer', retrievalTokenizer],
+    ]) {
+      const hardlink = path.join(invalidRetrievalRoot, `hardlink-${flag.slice(2)}`);
+      fs.linkSync(source, hardlink);
+      try {
+        const hardlinkCommand = [...retrievalCommand];
+        hardlinkCommand[hardlinkCommand.indexOf(flag) + 1] = hardlink;
+        assertRetrievalRefusal(`hardlinked ${flag}`, hardlinkCommand,
+          new RegExp(`retrieval ${flag.replaceAll('-', '\\-')} must name a physical file inside the repository`));
+      } finally {
+        fs.unlinkSync(hardlink);
+      }
+    }
+  } finally {
+    fs.rmSync(invalidRetrievalRoot, { recursive: true, force: true });
+  }
+  const nonExecutableWorker = [...retrievalCommand];
+  nonExecutableWorker[nonExecutableWorker.indexOf('--worker') + 1] = retrievalModel;
+  assertRetrievalRefusal('non-executable worker', nonExecutableWorker,
+    /retrieval --worker must name an executable physical file inside the repository/);
+  const uppercaseDigest = [...retrievalCommand];
+  uppercaseDigest[uppercaseDigest.indexOf('--model-digest') + 1] = canonicalModelDigest.toUpperCase();
+  assertRetrievalRefusal('uppercase digest', uppercaseDigest,
+    /normalized lowercase 64-hex SHA-256/);
+  const wrongDigest = [...retrievalCommand];
+  wrongDigest[wrongDigest.indexOf('--model-digest') + 1] = '0'.repeat(64);
+  assertRetrievalRefusal('manifest digest mismatch', wrongDigest,
+    /does not match the canonical model manifest/);
+  assertRetrievalRefusal('manifest size mismatch', retrievalCommand,
+    /model size does not match the canonical model manifest/);
+  assertRetrievalRefusal('environment-only retrieval inputs', [
+    process.execPath, retrievalEntrypoint, '--evaluate',
+  ], /requires exactly one --worker <value>/, {
+    LAMINA_WORKER: retrievalWorker,
+    LAMINA_MODEL: retrievalModel,
+    LAMINA_RETRIEVAL_TOKENIZER_PATH: retrievalTokenizer,
+    LAMINA_RETRIEVAL_MODEL_DIGEST: canonicalModelDigest,
+  });
+  const fixtureTierReason = 'safe-runner scratch fixtures are deliberately tiny and require --tier small';
+  const fixtureScratch = path.join(runtimePaths(process.cwd()).work, 'tier-contract');
+  for (const [entrypoint, output] of [
+    ['tests/fixtures/safe-runner-graphd-client.mjs', fixtureScratch],
+    ['tests/fixtures/safe-runner-mutable.mjs', path.join(fixtureScratch, 'result.txt')],
+  ]) {
+    for (const tier of ['medium', 'large']) {
+      const refusedFixtureTier = preflightRun({
+        tier, cwd: process.cwd(), adapterInfo: portableProbe,
+        command: [process.execPath, path.resolve(entrypoint), output],
+        injectedExistingProcesses: [],
+      });
+      assert.ok(refusedFixtureTier.reasons.includes(fixtureTierReason),
+        `${entrypoint} must refuse ${tier} before snapshot preparation`);
+    }
+    const smallFixtureTier = preflightRun({
+      tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
+      command: [process.execPath, path.resolve(entrypoint), output],
+      injectedExistingProcesses: [],
+    });
+    assert.equal(smallFixtureTier.reasons.includes(fixtureTierReason), false,
+      `${entrypoint} must retain its deliberately tiny small-tier path`);
+  }
   const unsealedEvalRuntime = preflightRun({
     tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
     command: [process.execPath, path.resolve('evals/scripts/run-suite.mjs'), '--smoke'],
@@ -1032,8 +1255,144 @@ try {
   });
   const environmentAuthority = environmentSnapshot.entries.find((entry) =>
     entry.label === 'env:LAMINA_MODEL:dist/env-only-model.bin');
+  assert.deepEqual(environmentSnapshot.writable_bindings, [],
+    'CLI smoke snapshot must not receive source Git-common write authority');
   fs.writeFileSync(envOnlyModel, 'replacement');
   assert.equal(fs.readFileSync(environmentAuthority.path, 'utf8'), 'env-only sealed bytes');
+  const standaloneBinary = path.join(snapshotRepository, 'dist', 'standalone-binary');
+  const standaloneWorker = path.join(snapshotRepository, 'dist', 'standalone-worker');
+  fs.writeFileSync(standaloneBinary, 'standalone bytes', { mode: 0o700 });
+  fs.writeFileSync(standaloneWorker, 'worker bytes', { mode: 0o700 });
+  const standaloneSnapshotTemporary = path.join(root, 'snapshot-standalone-smoke');
+  const standaloneSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository, command: ['/bin/sh', envEntrypoint],
+    temporaryDirectory: standaloneSnapshotTemporary,
+    environment: {
+      LAMINA_BINARY: standaloneBinary,
+      LAMINA_WORKER: standaloneWorker,
+      LAMINA_MODEL: envOnlyModel,
+    },
+  });
+  assert.deepEqual(standaloneSnapshot.writable_bindings, [],
+    'standalone smoke must not bind the source repository Git-common runtime');
+  assert.equal(standaloneSnapshot.graphd_launch_authority.length, 1);
+  assert.equal(standaloneSnapshot.graphd_launch_authority[0].kind, 'standalone-cwd');
+  const standaloneCwd = path.join(standaloneSnapshotTemporary, 'payload-tmp',
+    'private-lamina-smoke', 'fixture');
+  const standaloneChild = {
+    argv: [standaloneBinary, '--graphd', standaloneCwd], cwd: standaloneCwd,
+    executable_identity: standaloneSnapshot.graphd_launch_authority[0].executable_identity,
+    environment_attestation: processEnvironmentAttestation(Buffer.from('PATH=/usr/bin\0')),
+  };
+  const standaloneRuntime = path.join(standaloneCwd, '.git', 'lamina');
+  assert.equal(exactGraphdLaunchAuthorized(standaloneChild, {
+    socket: path.join(standaloneRuntime, 'graphd.sock'),
+    lock: path.join(standaloneRuntime, 'graphd.lock'),
+  }, standaloneSnapshot.graphd_launch_authority), true,
+  'standalone smoke graphd must bind only its attested child-cwd private runtime');
+  assert.equal(exactGraphdLaunchAuthorized(standaloneChild, {
+    socket: path.join(snapshotRepository, '.git', 'lamina', 'graphd.sock'),
+    lock: path.join(snapshotRepository, '.git', 'lamina', 'graphd.lock'),
+  }, standaloneSnapshot.graphd_launch_authority), false,
+  'standalone smoke graphd must not reserve source Git-common paths');
+  const retrievalRepository = path.join(root, 'retrieval-authority-repository');
+  fs.mkdirSync(retrievalRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: retrievalRepository }).status, 0);
+  fs.mkdirSync(path.join(retrievalRepository, 'benchmarks', 'retrieval-v1'), { recursive: true });
+  fs.mkdirSync(path.join(retrievalRepository, 'packages', 'cli'), { recursive: true });
+  fs.writeFileSync(path.join(retrievalRepository, '.gitignore'), 'assets/\n');
+  fs.writeFileSync(path.join(retrievalRepository, 'package.json'), '{"type":"module"}\n');
+  fs.writeFileSync(path.join(retrievalRepository, 'benchmarks', 'retrieval-v1', 'benchmark.mjs'),
+    'export const retrievalBenchmark = true;\n');
+  const retrievalAssets = path.join(retrievalRepository, 'assets');
+  fs.mkdirSync(retrievalAssets);
+  const sealedWorker = path.join(retrievalAssets, 'worker');
+  const sealedModel = path.join(retrievalAssets, 'model.onnx');
+  const sealedTokenizer = path.join(retrievalAssets, 'tokenizer.json');
+  fs.writeFileSync(sealedWorker, 'worker-v1', { mode: 0o700 });
+  fs.writeFileSync(sealedModel, 'model-v1');
+  fs.writeFileSync(sealedTokenizer, 'tokenizer-v1');
+  const sealedModelDigest = crypto.createHash('sha256')
+    .update(fs.readFileSync(sealedModel)).digest('hex');
+  fs.writeFileSync(path.join(retrievalRepository, 'packages', 'cli',
+    'retrieval-model-manifest.json'), `${JSON.stringify({
+    schema: 'lamina.retrieval-model/v1', sha256: sealedModelDigest,
+    bytes: fs.statSync(sealedModel).size,
+  })}\n`);
+  assert.equal(spawnSync('git', ['add', '.'], { cwd: retrievalRepository }).status, 0);
+  assert.equal(spawnSync('git', [
+    '-c', 'user.name=Safe Runner Test', '-c', 'user.email=safe-runner@example.invalid',
+    'commit', '--quiet', '-m', 'retrieval fixture',
+  ], { cwd: retrievalRepository }).status, 0);
+  const sealedRetrievalCommand = [
+    process.execPath,
+    path.join(retrievalRepository, 'benchmarks', 'retrieval-v1', 'benchmark.mjs'),
+    '--evaluate', '--worker', sealedWorker, '--model', sealedModel,
+    '--tokenizer', sealedTokenizer, '--model-digest', sealedModelDigest,
+  ];
+  const sealedRetrievalAuthority = retrievalQualificationAuthority({
+    repository: retrievalRepository, command: sealedRetrievalCommand,
+  });
+  assert.equal(sealedRetrievalAuthority.model.digest, sealedModelDigest);
+  assert.match(sealedRetrievalAuthority.manifest.digest, /^[a-f0-9]{64}$/);
+  const frozenRetrievalOne = frozenWorkloadIdentity(
+    retrievalRepository, sealedRetrievalCommand,
+  );
+  assert.equal(frozenRetrievalOne.retrieval_authority.model.digest, sealedModelDigest);
+  assert.equal(frozenRetrievalOne.workload_inputs.some((item) => item.path === sealedModel), false,
+    'dedicated retrieval identity must exclude the model from the generic 64MiB argv budget');
+  const sealedRetrievalSnapshotOne = prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-one'),
+  });
+  assert.deepEqual(sealedRetrievalSnapshotOne.writable_bindings, [],
+    'retrieval qualification must not receive source Git-common write authority');
+  assert.deepEqual(sealedRetrievalSnapshotOne.graphd_launch_authority, []);
+  for (const [relative, expectedDigest] of [
+    ['assets/worker', crypto.createHash('sha256').update('worker-v1').digest('hex')],
+    ['assets/model.onnx', sealedModelDigest],
+    ['assets/tokenizer.json', crypto.createHash('sha256').update('tokenizer-v1').digest('hex')],
+  ]) {
+    assert.equal(sealedRetrievalSnapshotOne.entries.find((entry) =>
+      entry.label === `argv:${relative}`)?.digest, expectedDigest,
+    `ignored retrieval input ${relative} must be descriptor-copied into snapshot identity`);
+  }
+  fs.writeFileSync(sealedTokenizer, 'tokenizer-v2');
+  const frozenRetrievalTwo = frozenWorkloadIdentity(
+    retrievalRepository, sealedRetrievalCommand,
+  );
+  const sealedRetrievalSnapshotTwo = prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-two'),
+  });
+  assert.notEqual(frozenRetrievalTwo.digest, frozenRetrievalOne.digest,
+    'tokenizer byte changes must alter frozen retrieval semantics');
+  assert.notEqual(sealedRetrievalSnapshotTwo.digest, sealedRetrievalSnapshotOne.digest,
+    'tokenizer byte changes must alter sealed snapshot identity');
+  fs.writeFileSync(sealedWorker, 'worker-v2', { mode: 0o700 });
+  const sealedRetrievalSnapshotThree = prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-three'),
+  });
+  assert.notEqual(sealedRetrievalSnapshotThree.digest, sealedRetrievalSnapshotTwo.digest,
+    'worker byte changes must alter sealed snapshot identity');
+  fs.writeFileSync(sealedModel, 'model-v2');
+  const sealedModelDigestTwo = crypto.createHash('sha256')
+    .update(fs.readFileSync(sealedModel)).digest('hex');
+  fs.writeFileSync(path.join(retrievalRepository, 'packages', 'cli',
+    'retrieval-model-manifest.json'), `${JSON.stringify({
+    schema: 'lamina.retrieval-model/v1', sha256: sealedModelDigestTwo,
+    bytes: fs.statSync(sealedModel).size,
+  })}\n`);
+  const sealedRetrievalCommandTwo = [...sealedRetrievalCommand];
+  sealedRetrievalCommandTwo[sealedRetrievalCommandTwo.indexOf('--model-digest') + 1]
+    = sealedModelDigestTwo;
+  const sealedRetrievalSnapshotFour = prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommandTwo,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-four'),
+  });
+  assert.notEqual(sealedRetrievalSnapshotFour.digest, sealedRetrievalSnapshotThree.digest,
+    'model and canonical manifest byte changes must alter sealed snapshot identity');
   const mutableEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
     'safe-runner-mutable.mjs');
   fs.mkdirSync(path.dirname(mutableEntrypoint), { recursive: true });
@@ -1062,6 +1421,62 @@ try {
   'a pre-existing source-bearing .safe-runner-* path must not disappear from sealing');
   const fixtureWork = path.join(snapshotRepository, '.git', 'lamina', 'work');
   fs.mkdirSync(fixtureWork, { recursive: true });
+  const validMutableDirectory = path.join(fixtureWork, 'mutable-valid');
+  fs.mkdirSync(validMutableDirectory);
+  const validMutableSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: ['/bin/sh', mutableEntrypoint, path.join(validMutableDirectory, 'result.txt')],
+    temporaryDirectory: path.join(root, 'snapshot-mutable-valid'),
+  });
+  assert.equal(validMutableSnapshot.writable_bindings.length, 1);
+  assert.equal(validMutableSnapshot.writable_bindings[0].source,
+    fixtureWork, 'mutable fixture writable source must be the exact lamina/work scratch');
+  assert.equal(validMutableSnapshot.writable_bindings[0].target,
+    fixtureWork, 'mutable fixture writable target must be the exact lamina/work scratch');
+  assert.deepEqual(validMutableSnapshot.graphd_launch_authority, [],
+    'mutable scratch fixture must not receive graphd launch authority');
+  const graphdEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
+    'safe-runner-graphd-client.mjs');
+  const graphdServer = path.join(snapshotRepository, 'tests', 'fixtures',
+    'graph-runtime', 'server.mjs');
+  fs.mkdirSync(path.dirname(graphdServer), { recursive: true });
+  fs.writeFileSync(graphdEntrypoint, 'export const graphdFixture = true;\n');
+  fs.writeFileSync(graphdServer, 'export const graphdServer = true;\n');
+  const graphdRepository = path.join(fixtureWork, 'graphd-valid');
+  fs.mkdirSync(graphdRepository);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: graphdRepository }).status, 0);
+  const validGraphdSnapshot = prepareExecutionSnapshot({
+    cwd: snapshotRepository,
+    command: [fakeNode, graphdEntrypoint, graphdRepository],
+    temporaryDirectory: path.join(root, 'snapshot-graphd-valid'),
+    infrastructure: { node: fakeNode, bwrap: fakeBwrap },
+  });
+  assert.equal(validGraphdSnapshot.writable_bindings.length, 1);
+  assert.equal(validGraphdSnapshot.writable_bindings[0].source,
+    fixtureWork, 'graphd fixture writable source must be the exact lamina/work scratch');
+  assert.equal(validGraphdSnapshot.writable_bindings[0].target,
+    fixtureWork, 'graphd fixture writable target must be the exact lamina/work scratch');
+  assert.equal(validGraphdSnapshot.graphd_launch_authority.length, 1,
+    'graphd-client scratch fixture must receive only its exact fixture graphd authority');
+  assert.equal(validGraphdSnapshot.graphd_launch_authority[0].runtime_directory,
+    path.join(graphdRepository, '.git', 'lamina'));
+  const fixtureGraphdAuthority = validGraphdSnapshot.graphd_launch_authority[0];
+  const fixtureGraphdChild = {
+    argv: fixtureGraphdAuthority.argv,
+    executable_identity: fixtureGraphdAuthority.executable_identity,
+    environment_attestation: processEnvironmentAttestation(
+      Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0'),
+    ),
+  };
+  assert.equal(exactGraphdLaunchAuthorized(fixtureGraphdChild, {
+    socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
+    lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
+  }, validGraphdSnapshot.graphd_launch_authority), true);
+  assert.equal(exactGraphdLaunchAuthorized(fixtureGraphdChild, {
+    socket: path.join(snapshotRepository, '.git', 'lamina', 'graphd.sock'),
+    lock: path.join(snapshotRepository, '.git', 'lamina', 'graphd.lock'),
+  }, validGraphdSnapshot.graphd_launch_authority), false,
+  'graphd-client fixture authority must remain bound to its nested scratch repository');
   const fixtureAlias = path.join(fixtureWork, 'alias');
   fs.symlinkSync(path.join(snapshotRepository, 'dist'), fixtureAlias);
   assert.throws(() => prepareExecutionSnapshot({
@@ -1098,11 +1513,13 @@ try {
   fs.renameSync(runtimeAuthority, savedRuntimeAuthority);
   fs.symlinkSync(path.join(snapshotRepository, 'dist'), runtimeAuthority);
   try {
-    assert.throws(() => prepareExecutionSnapshot({
+    const ordinaryRuntimeSnapshot = prepareExecutionSnapshot({
       cwd: snapshotRepository, command: ['/bin/sh', path.join(snapshotRepository, 'entry.mjs')],
       temporaryDirectory: path.join(root, 'snapshot-runtime-symlink'),
-    }), /Git common Lamina runtime.*canonical physical directory/,
-    'the writable Git-common runtime source must never follow a symlink');
+    });
+    assert.deepEqual(ordinaryRuntimeSnapshot.writable_bindings, [],
+      'ordinary workloads must not inspect or bind a source Git-common runtime');
+    assert.deepEqual(ordinaryRuntimeSnapshot.graphd_launch_authority, []);
   } finally {
     fs.unlinkSync(runtimeAuthority);
     fs.renameSync(savedRuntimeAuthority, runtimeAuthority);
@@ -1195,83 +1612,19 @@ try {
     'later live ref/index mutation must not alter sealed Git authority');
   assert.match(fs.readFileSync(path.join(linkedSnapshot.snapshot_repository, 'entry.mjs'), 'utf8'),
     /version = 'staged'/, 'later live source mutation must not alter sealed bytes');
-  const linkedRuntime = linkedSnapshot.writable_bindings.find((item) =>
-    item.kind === 'git-common-runtime');
-  assert.equal(linkedRuntime.source, path.join(runtimePaths(linkedWorktree).common, 'lamina'));
-  assert.equal(linkedRuntime.target, linkedRuntime.source,
-    'broker-visible graphd paths and the writable bind must use the same physical common authority');
-  assert.equal(linkedSnapshot.graphd_launch_authority[0].runtime_directory, linkedRuntime.source,
-    'linked graphd broker equality must use the exact mounted common runtime path');
-  const linkedGraphdAuthority = linkedSnapshot.graphd_launch_authority[0];
-  const cleanGraphdEnvironment = processEnvironmentAttestation(
-    Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0'),
-  );
-  const linkedGraphdChild = {
-    argv: linkedGraphdAuthority.argv,
-    environment_attestation: cleanGraphdEnvironment,
-    executable_identity: {
-      dev: linkedGraphdAuthority.executable_identity.dev,
-      ino: linkedGraphdAuthority.executable_identity.ino,
-      uid: linkedGraphdAuthority.executable_identity.uid,
-    },
-  };
-  assert.equal(exactGraphdLaunchAuthorized({
-    ...linkedGraphdChild,
-  }, {
-    socket: path.join(linkedRuntime.source, 'graphd.sock'),
-    lock: path.join(linkedRuntime.source, 'graphd.lock'),
-  }, linkedSnapshot.graphd_launch_authority), true);
-  assert.equal(exactGraphdLaunchAuthorized({
-    ...linkedGraphdChild,
-    executable_identity: { dev: 'spoof', ino: 'spoof', uid: 0 },
-  }, {
-    socket: path.join(linkedRuntime.source, 'graphd.sock'),
-    lock: path.join(linkedRuntime.source, 'graphd.lock'),
-  }, linkedSnapshot.graphd_launch_authority), false);
-  for (const hook of [
-    'NODE_OPTIONS=--require=/tmp/hostile-loader.cjs',
-    'NODE_LOADER=/tmp/hostile-loader.mjs',
-  ]) {
-    assert.equal(exactGraphdLaunchAuthorized({
-      ...linkedGraphdChild,
-      environment_attestation: processEnvironmentAttestation(
-        Buffer.from(`PATH=/usr/bin\0${hook}\0`),
-      ),
-    }, {
-      socket: path.join(linkedRuntime.source, 'graphd.sock'),
-      lock: path.join(linkedRuntime.source, 'graphd.lock'),
-    }, linkedSnapshot.graphd_launch_authority), false,
-    `${hook.split('=')[0]} must invalidate otherwise exact graphd launch authority`);
-  }
-  for (const environment_attestation of [
-    { ...cleanGraphdEnvironment, readable: false },
-    { ...cleanGraphdEnvironment, bounded: false },
-    { ...cleanGraphdEnvironment, malformed: true },
-  ]) {
-    assert.equal(exactGraphdLaunchAuthorized({
-      ...linkedGraphdChild, environment_attestation,
-    }, {
-      socket: path.join(linkedRuntime.source, 'graphd.sock'),
-      lock: path.join(linkedRuntime.source, 'graphd.lock'),
-    }, linkedSnapshot.graphd_launch_authority), false,
-    'unreadable, oversized, or malformed graphd environments must fail closed');
-  }
-  fs.writeFileSync(path.join(linkedRuntime.source, 'write-through.marker'), 'writable graph runtime');
-  assert.equal(fs.readFileSync(path.join(runtimePaths(linkedPrimary).runtime_dir,
-    'write-through.marker'), 'utf8'), 'writable graph runtime');
+  assert.deepEqual(linkedSnapshot.writable_bindings, [],
+    'ordinary linked-worktree workloads must not receive Git-common write authority');
+  assert.deepEqual(linkedSnapshot.graphd_launch_authority, [],
+    'ordinary linked-worktree workloads must not receive managed graphd authority');
   const linkedSandboxArgs = bubblewrapSandboxArguments({
     cwd: linkedWorktree, readyFile: path.join(root, 'linked.ready'),
     releaseFile: path.join(root, 'linked.release'), temporaryDirectory: path.join(root, 'linked-tmp'),
     command: linkedSnapshot.launch_command, masks: { hiddenDirectories: [], sockets: [] },
     executionAuthority: linkedSnapshot,
   });
-  assert.ok(linkedSandboxArgs.indexOf(linkedRuntime.alias)
-    < linkedSandboxArgs.indexOf(linkedCommonBinding.source));
   assert.ok(linkedSandboxArgs.indexOf(linkedCommonBinding.source)
-    < linkedSandboxArgs.indexOf(linkedWorktreeBinding.source));
-  assert.ok(linkedSandboxArgs.lastIndexOf(linkedRuntime.target)
-    > linkedSandboxArgs.indexOf(linkedWorktreeBinding.source),
-  'Git common must mount before nested worktree metadata and exact runtime write-through');
+    < linkedSandboxArgs.indexOf(linkedWorktreeBinding.source),
+  'sealed Git common authority must mount before nested worktree metadata');
   fs.appendFileSync(path.join(linkedPrimary, '.git', 'config'),
     '\n[include]\n\tpath = /etc/gitconfig\n');
   assert.throws(() => prepareExecutionSnapshot({

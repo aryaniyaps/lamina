@@ -104,7 +104,8 @@ outside the new scope.
 
 Immediately before release, the runner revalidates its frozen preflight
 identity and persists an active-attempt fence. The identity covers the complete
-normalized argv, every file argument resolved against the supplied cwd,
+normalized argv, ordinary file arguments resolved against the supplied cwd,
+the dedicated manifest-bound retrieval authority when applicable,
 content-hashed Git source, and runner build. The exact frozen identity is reused
 after execution, so a payload that edits its checkout cannot promote the edited
 source. Limits are deliberately excluded: a limits-only edit cannot retry known
@@ -131,7 +132,8 @@ entrypoints) network namespaces. The host root and repository snapshot are
 read-only. Repository-output entrypoints are refused because their live output
 trees do not have sealed, same-filesystem hard-quota authority. The only mutable
 repository-adjacent surface is the reviewed Git-common `lamina/work` scratch
-authority used by the graphd-client and mutable test fixtures; `/`, `/tmp`,
+authority used only by the graphd-client and mutable test fixtures at `small`;
+medium and large refuse those fixture entrypoints. `/`, `/tmp`,
 runtime-control directories, and any worktree overlapping runner authority
 state are refused. User/system D-Bus, user-systemd, and common
 Docker/Podman/container control sockets and inherited control addresses are
@@ -149,11 +151,14 @@ deleted-but-open files without an unbounded directory scan. Symlinks in the
 temporary tree, inode storms, quota exhaustion, or absence of this enforcement
 capability fail closed.
 
-Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
-escape hatch. Before spawn, the client asks the live supervisor broker to prove
-the canonical socket/lock paths absent under a physical same-user parent and
-durably reserve them. After spawn it binds that reservation to the authorized
-host/namespace PIDs, Linux start identity, command, and parent. The reservation
+Managed `graphd` is a fixture-only exception, not an ordinary workload or
+detached-tree escape hatch. The small graphd-client fixture uses its nested Git
+repository beneath Git-common `lamina/work`; standalone CLI smoke uses only its
+child-cwd repository created inside private payload tmpfs and cannot reserve
+source Git-common paths. Before spawn, the fixture asks the live supervisor
+broker to prove the socket/lock paths absent and durably reserve them. After
+spawn it binds that reservation to the authorized host/namespace PIDs, Linux
+start identity, command, child cwd, and exact runtime path. The reservation
 nonce is embedded in the graphd lock for the creation-to-seal transition. Once
 readiness creates both objects, graphd and the client seal their exact `lstat`
 type, device, inode, owner, mode, and size; the lock PID must match the bound
@@ -188,6 +193,17 @@ launch use the same persisted identity. PATH and complete dynamic-loader,
 Node, exported Bash-function, and analogous shell/runtime hook families are sanitized
 before `systemd-run`, the gates, bwrap, and the payload launcher start, including
 for reusable API environment overrides.
+
+Retrieval evaluation and calibration have no environment or uv fallback. They
+require exactly one explicit repository-contained physical `--worker`,
+`--model`, `--tokenizer`, and lowercase `--model-digest`; the worker must be
+executable. Model bytes, size, and digest must match the canonical retrieval
+model manifest. Tokenizer bytes are not separately manifest-pinned, but all
+three inputs and the manifest are descriptor-copied into the frozen launch and
+execution-snapshot identities. This dedicated authority admits the canonical
+model above the generic 64-MiB argv-input ceiling without increasing that
+ceiling. Inherited `LAMINA_TEST_*` controls are removed for non-self-test
+payloads, and retrieval semantic environment names are stripped before launch.
 
 ## Reports and outcomes
 
