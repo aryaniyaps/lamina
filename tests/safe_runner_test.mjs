@@ -638,12 +638,16 @@ try {
   const contenders = [0, 1].map(() => spawn(
     process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' },
   ));
+  const contenderClosures = contenders.map((child) => once(child, 'close'));
   await new Promise((resolve) => setTimeout(resolve, 250));
   let liveContenders = contenders.filter((child) => child.exitCode === null);
   assert.ok(liveContenders.length <= 1,
     'cross-platform startup serialization must never admit two graphd writers');
   if (liveContenders.length === 0) {
-    liveContenders = [spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' })];
+    const recovery = spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' });
+    contenders.push(recovery);
+    contenderClosures.push(once(recovery, 'close'));
+    liveContenders = [recovery];
   }
   const winner = liveContenders[0];
   try {
@@ -656,12 +660,10 @@ try {
     }
     assert.equal(winnerLock?.pid, winner.pid);
   } finally {
-    for (const contender of contenders.concat(liveContenders)) {
-      if (contender.exitCode === null) {
-        contender.kill('SIGTERM');
-        await once(contender, 'exit');
-      }
+    for (const contender of contenders) {
+      if (contender.exitCode === null) contender.kill('SIGTERM');
     }
+    await Promise.all(contenderClosures);
   }
 
   const managedRegistrations = [{
