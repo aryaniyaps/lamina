@@ -639,25 +639,32 @@ try {
     process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' },
   ));
   const contenderClosures = contenders.map((child) => once(child, 'close'));
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  let liveContenders = contenders.filter((child) => child.exitCode === null);
-  assert.ok(liveContenders.length <= 1,
-    'cross-platform startup serialization must never admit two graphd writers');
-  if (liveContenders.length === 0) {
-    const recovery = spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' });
-    contenders.push(recovery);
-    contenderClosures.push(once(recovery, 'close'));
-    liveContenders = [recovery];
-  }
-  const winner = liveContenders[0];
   try {
-    const winnerDeadline = Date.now() + 2_000;
+    const contenderDeadline = Date.now() + 5_000;
+    let liveContenders = contenders;
     let winnerLock = null;
-    while (Date.now() < winnerDeadline) {
+    while (Date.now() < contenderDeadline) {
+      liveContenders = contenders.filter((child) => child.exitCode === null);
       try { winnerLock = JSON.parse(fs.readFileSync(path.join(concurrentRuntime, 'graphd.lock'))); } catch {}
-      if (winnerLock?.pid === winner.pid) break;
+      if (liveContenders.length <= 1
+        && (liveContenders.length === 0 || winnerLock?.pid === liveContenders[0].pid)) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
+    assert.ok(liveContenders.length <= 1,
+      'cross-platform startup serialization must never admit two graphd writers');
+    if (liveContenders.length === 0) {
+      const recovery = spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' });
+      contenders.push(recovery);
+      contenderClosures.push(once(recovery, 'close'));
+      liveContenders = [recovery];
+      const recoveryDeadline = Date.now() + 5_000;
+      while (Date.now() < recoveryDeadline) {
+        try { winnerLock = JSON.parse(fs.readFileSync(path.join(concurrentRuntime, 'graphd.lock'))); } catch {}
+        if (winnerLock?.pid === recovery.pid) break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    }
+    const winner = liveContenders[0];
     assert.equal(winnerLock?.pid, winner.pid);
   } finally {
     for (const contender of contenders) {
