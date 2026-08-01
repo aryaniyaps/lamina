@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import net from 'node:net';
 
-const [socketPath, lockPath] = process.argv.slice(2);
+const [socketPath, lockPath, cleanupMode = 'clean'] = process.argv.slice(2);
 if (!socketPath || !lockPath) throw new Error('socket and lock paths are required');
 
 try { fs.rmSync(socketPath, { force: true }); } catch {}
@@ -14,8 +14,10 @@ const shutdown = () => {
   if (stopping) return;
   stopping = true;
   server.close(() => {
-    try { fs.rmSync(socketPath, { force: true }); } catch {}
-    try { fs.rmSync(lockPath, { force: true }); } catch {}
+    if (cleanupMode !== 'leave-stale') {
+      try { fs.rmSync(socketPath, { force: true }); } catch {}
+      try { fs.rmSync(lockPath, { force: true }); } catch {}
+    }
     process.exit(0);
   });
 };

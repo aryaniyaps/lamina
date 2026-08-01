@@ -17,7 +17,7 @@ import { readAttestation, promotionStatus } from './state.mjs';
 const HELP = `Usage:
   npm run safe:envelope
   npm run safe:self-test
-  npm run safe:run -- --tier <small|medium|large> --report <file> [limits] -- <command> [args]
+  npm run safe:run -- --tier <small|medium|large> --workload <stable-id> --report <file> [limits] -- <command> [args]
   node scripts/safe-runner/cli.mjs validate-report --file <report.json>
 
 Downward-only limit overrides:
@@ -46,12 +46,14 @@ function parseRun(args) {
   const command = args.slice(separator + 1);
   const options = {
     tier: 'small', cwd: process.cwd(), reportFile: null, overrides: {}, command, promote: false,
+    workloadId: null,
   };
   for (let index = 0; index < flags.length; index += 1) {
     const flag = flags[index];
     if (flag === '--tier') options.tier = take(flags, index++, flag);
     else if (flag === '--cwd') options.cwd = path.resolve(take(flags, index++, flag));
     else if (flag === '--report') options.reportFile = path.resolve(take(flags, index++, flag));
+    else if (flag === '--workload') options.workloadId = take(flags, index++, flag);
     else if (flag === '--promote') options.promote = true;
     else if (flag === '--memory-mib') options.overrides.memoryMaxBytes = bytesForMib(take(flags, index++, flag), flag);
     else if (flag === '--memory-high-mib') options.overrides.memoryHighBytes = bytesForMib(take(flags, index++, flag), flag);

@@ -51,7 +51,34 @@ if (mode === 'direct-memory') {
   if (!directory) throw new Error('LAMINA_SAFE_RUNNER_TEMP is required');
   const descriptor = fs.openSync(path.join(directory, 'growth.bin'), 'w', 0o600);
   const block = Buffer.alloc(256 * 1024, 0x7f);
-  setInterval(() => fs.writeSync(descriptor, block), 5);
+  const timer = setInterval(() => {
+    try { fs.writeSync(descriptor, block); } catch (error) {
+      if (error.code !== 'ENOSPC') throw error;
+      clearInterval(timer);
+      hold();
+    }
+  }, 5);
+} else if (mode === 'temp-deleted-open') {
+  const file = path.join(process.env.LAMINA_SAFE_RUNNER_TEMP, 'deleted-open.bin');
+  const descriptor = fs.openSync(file, 'w', 0o600);
+  fs.unlinkSync(file);
+  const block = Buffer.alloc(256 * 1024, 0x55);
+  while (true) {
+    try { fs.writeSync(descriptor, block); } catch (error) {
+      if (error.code !== 'ENOSPC') throw error;
+      break;
+    }
+  }
+  hold();
+} else if (mode === 'temp-inode-storm') {
+  const directory = process.env.LAMINA_SAFE_RUNNER_TEMP;
+  for (let index = 0; index < 2_000; index += 1) {
+    fs.closeSync(fs.openSync(path.join(directory, `inode-${index}`), 'w'));
+  }
+  hold();
+} else if (mode === 'temp-symlink') {
+  fs.symlinkSync(process.cwd(), path.join(process.env.LAMINA_SAFE_RUNNER_TEMP, 'escape'));
+  hold();
 } else if (mode === 'signal-controller') {
   const controller = Number(process.env.LAMINA_SAFE_RUNNER_CONTROLLER_PID);
   setTimeout(() => process.kill(controller, 'SIGINT'), 100);
@@ -70,6 +97,9 @@ if (mode === 'direct-memory') {
   hold();
 } else if (mode === 'success') {
   setTimeout(() => process.stdout.write('tiny success\n'), 150);
+} else if (mode === 'secret-output') {
+  process.stdout.write('Authorization: Bearer supersecret\n');
+  setTimeout(() => process.exit(0), 100);
 } else if (mode === 'failure') {
   process.stderr.write('tiny failure\n');
   process.exit(7);

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { REPORT_SCHEMA, REPORT_SCHEMA_VERSION } from './constants.mjs';
+import { redactCommand } from './redaction.mjs';
 
 const SCHEMA_FILE = fileURLToPath(new URL('./schema/report.schema.json', import.meta.url));
 const BUNDLED_SCHEMA = JSON.parse(fs.readFileSync(SCHEMA_FILE, 'utf8'));
@@ -15,7 +16,7 @@ export function baseReport({ tier = null, command = [], cwd = process.cwd() } = 
     report_file: null,
     outcome: 'internal_error',
     tier,
-    command,
+    command: redactCommand(command),
     cwd,
     started_at: new Date().toISOString(),
     finished_at: null,
@@ -24,7 +25,13 @@ export function baseReport({ tier = null, command = [], cwd = process.cwd() } = 
     limits: null,
     preflight: null,
     samples: [],
-    peaks: { aggregate_rss_bytes: 0, pids: 0, temporary_bytes: 0 },
+    peaks: {
+      aggregate_rss_bytes: 0,
+      cgroup_memory_bytes: 0,
+      pids: 0,
+      temporary_bytes: 0,
+      temporary_inodes: 0,
+    },
     descendants: [],
     output: {
       stdout_bytes: 0,
@@ -45,6 +52,7 @@ export function baseReport({ tier = null, command = [], cwd = process.cwd() } = 
     cleanup: {
       attempted: false,
       descendants_remaining: [],
+      managed_paths_remaining: [],
       scope_removed: null,
       temporary_directory_removed: null,
       lock_released: null,
@@ -122,6 +130,63 @@ function validateNode(value, schema, location, errors) {
 export function validateReport(report) {
   const errors = [];
   validateNode(report, BUNDLED_SCHEMA, '$', errors);
+  if (errors.length === 0) {
+    const launchedOutcome = ['success', 'command_failed', 'safety_limit_exceeded', 'interrupted']
+      .includes(report.outcome);
+    if (launchedOutcome) {
+      if (!report.adapter?.id || !report.limits || report.preflight?.ok !== true) {
+        errors.push('$.outcome requires a concrete adapter, limits, and successful preflight');
+      }
+      if (!Array.isArray(report.samples) || report.samples.length === 0) {
+        errors.push('$.outcome requires at least one measurement sample');
+      }
+      if (report.cleanup?.attempted !== true
+        || report.cleanup?.descendants_remaining?.length !== 0
+        || report.cleanup?.managed_paths_remaining?.length !== 0
+        || report.cleanup?.scope_removed !== true
+        || report.cleanup?.temporary_directory_removed !== true
+        || report.cleanup?.errors?.length !== 0) {
+        errors.push('$.outcome requires complete verified cleanup');
+      }
+    }
+    if (report.outcome === 'success' && report.termination?.reason !== 'completed') {
+      errors.push('$.termination.reason must be completed for success');
+    }
+    if (report.outcome === 'command_failed'
+      && (report.termination?.reason !== 'command_failed'
+        || !Number.isInteger(report.termination?.child_exit_code)
+        || report.termination.child_exit_code === 0)) {
+      errors.push('$.command_failed requires a concrete nonzero child exit code');
+    }
+    if (report.outcome === 'safety_limit_exceeded'
+      && (report.termination?.reason !== 'safety_limit_exceeded'
+        || typeof report.termination?.limit !== 'string'
+        || report.termination.limit.length === 0)) {
+      errors.push('$.safety_limit_exceeded requires a concrete limit and reason');
+    }
+    if (report.outcome === 'interrupted'
+      && (report.termination?.reason !== 'interrupted' || report.termination?.limit !== 'signal')) {
+      errors.push('$.interrupted requires the signal limit and reason');
+    }
+    if (report.outcome === 'preflight_refused' && report.preflight?.ok !== false) {
+      errors.push('$.preflight must explicitly refuse a preflight_refused outcome');
+    }
+    if (report.output?.total_bytes !== report.output?.stdout_bytes + report.output?.stderr_bytes) {
+      errors.push('$.output.total_bytes must equal stdout_bytes plus stderr_bytes');
+    }
+    const sampleMemoryPeak = Math.max(0, ...(report.samples || []).map((item) => item.aggregate_rss_bytes));
+    const sampleCgroupPeak = Math.max(0, ...(report.samples || []).map((item) => item.cgroup_memory_bytes));
+    const samplePidPeak = Math.max(0, ...(report.samples || []).map((item) => item.pids));
+    const sampleTempPeak = Math.max(0, ...(report.samples || []).map((item) => item.temporary_bytes));
+    const sampleInodePeak = Math.max(0, ...(report.samples || []).map((item) => item.temporary_inodes));
+    if (report.peaks.aggregate_rss_bytes < sampleMemoryPeak
+      || report.peaks.cgroup_memory_bytes < sampleCgroupPeak
+      || report.peaks.pids < samplePidPeak
+      || report.peaks.temporary_bytes < sampleTempPeak
+      || report.peaks.temporary_inodes < sampleInodePeak) {
+      errors.push('$.peaks must cover every retained measurement sample');
+    }
+  }
   return { valid: errors.length === 0, errors, schema: BUNDLED_SCHEMA.$id };
 }
 

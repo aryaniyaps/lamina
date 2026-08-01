@@ -4,14 +4,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { adapterProbe, assertAdapterShape } from '../scripts/safe-runner/adapter.mjs';
+import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
-import { createContext, safeRunnerContext } from '../scripts/safe-runner/context.mjs';
-import { deriveLimits } from '../scripts/safe-runner/envelope.mjs';
+import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
+import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
 import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
+import { isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
+import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
   baseReport,
   finishReport,
@@ -23,8 +26,11 @@ import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
   checkPromotion,
+  checkSafetyRetry,
   readAttestation,
   recordPromotion,
+  recordSafetyLimit,
+  productionLockDirectory,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
 
@@ -39,6 +45,10 @@ try {
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
+  for (const invalid of [NaN, Infinity, 0, -1, 1.5]) {
+    assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
+  }
+  assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
 
   const portableProbe = {
     id: 'portable-process-group-small-only',
@@ -72,8 +82,23 @@ try {
       tempMaxBytes: 1 * MIB,
     },
   });
-  assert.equal(portableSelfTest.ok, true);
   assert.equal(portableSelfTest.deliberately_tiny_self_test, true);
+  assert.equal(portableSelfTest.portable_self_test_allowed, true);
+  assert.doesNotMatch(portableSelfTest.reasons.join('\n'), /only the built-in deliberately tiny self-test/);
+  const unsafePortable = preflightRun({
+    tier: 'small',
+    command: [process.execPath, path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'detached-child'],
+    cwd: root,
+    adapterInfo: portableProbe,
+    mode: 'self-test',
+    selfTestCaseId: 'detached_descendant',
+    overrides: {
+      memoryMaxBytes: 64 * MIB, timeoutMs: 1_000, pidsMax: 8,
+      outputMaxBytes: 64 * 1024, tempMaxBytes: 1 * MIB,
+    },
+  });
+  assert.equal(unsafePortable.ok, false);
+  assert.equal(unsafePortable.portable_self_test_allowed, false);
   const productionPortable = preflightRun({
     tier: 'medium', command: ['node', '-e', ''], cwd: root, adapterInfo: portableProbe,
   });
@@ -86,8 +111,17 @@ try {
   assert.equal(portableQualification.cases.length, SELF_TEST_CASE_IDS.length);
   assert.ok(portableQualification.cases.every((item) => item.skipped === true));
   assert.equal(commandOwnership(['harbor', 'run']).proven, false);
+  assert.equal(commandOwnership(['/bin/sh', '-c', 'docker run image']).proven, false);
+  assert.equal(commandOwnership(['npm', 'exec', '--', 'podman', 'run']).proven, false);
+  const wrapper = path.join(root, 'wrapper.sh');
+  fs.writeFileSync(wrapper, '#!/bin/sh\nexec harbor run "$@"\n');
+  assert.equal(commandOwnership(['/bin/sh', wrapper], root).proven, false);
   assert.equal(commandOwnership(['node', 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs']).proven, false);
   assert.equal(commandOwnership(['node', 'tests/tiny.mjs']).proven, true);
+  assert.deepEqual(redactCommand(['tool', '--token', 'secret-value', '--api-key=abc']), [
+    'tool', '--token', '[REDACTED]', '--api-key=[REDACTED]',
+  ]);
+  assert.equal(redactText('Authorization: Bearer abc.def'), 'Authorization: Bearer [REDACTED]');
   const externalSmall = preflightRun({
     tier: 'small', command: ['docker', 'run', 'tiny'], cwd: root,
   });
@@ -99,18 +133,36 @@ try {
   }), Date.now());
   report.report_file = path.join(root, 'report.json');
   report.outcome = 'success';
+  report.adapter = portableProbe;
+  report.limits = eightGib;
+  report.preflight = { ok: true };
+  report.samples.push({
+    elapsed_ms: 0,
+    aggregate_rss_bytes: 0,
+    cgroup_memory_bytes: 0,
+    pids: 0,
+    temporary_bytes: 0,
+    temporary_inodes: 0,
+  });
   report.termination.reason = 'completed';
   report.cleanup.attempted = true;
   report.cleanup.descendants_remaining = [];
   report.cleanup.scope_removed = true;
   report.cleanup.temporary_directory_removed = true;
-  assert.equal(validateReport(report).valid, true);
+  const reportValidation = validateReport(report);
+  assert.equal(reportValidation.valid, true, reportValidation.errors.join('; '));
   writeReport(report.report_file, report);
   assert.equal(validateReport(JSON.parse(fs.readFileSync(report.report_file))).valid, true);
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
   assert.equal(validateReport({
     ...report,
     cleanup: { ...report.cleanup, scope_removed: 'yes' },
+  }).valid, false);
+  assert.equal(validateReport({ ...report, samples: [] }).valid, false);
+  assert.equal(validateReport({
+    ...report,
+    outcome: 'safety_limit_exceeded',
+    termination: { ...report.termination, reason: 'safety_limit_exceeded', limit: null },
   }).valid, false);
   const unwritableParent = path.join(root, 'not-a-directory');
   fs.writeFileSync(unwritableParent, 'file');
@@ -120,80 +172,145 @@ try {
   assert.equal(validateReport(JSON.parse(fs.readFileSync(fallback.path))).valid, true);
   fs.rmSync(fallback.path, { force: true });
 
-  const contextDirectory = path.join(root, 'context');
-  fs.mkdirSync(contextDirectory);
-  const context = createContext(contextDirectory, {
-    runId: 'unit', tier: 'small', adapter: portableProbe.id, unit: null,
-  });
-  const priorContext = process.env.LAMINA_SAFE_RUNNER_CONTEXT;
-  const priorToken = process.env.LAMINA_SAFE_RUNNER_TOKEN;
-  Object.assign(process.env, context.environment);
-  assert.equal(safeRunnerContext()?.run_id, 'unit');
-  assert.equal(
-    context.environment.LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS,
-    path.join(contextDirectory, 'managed-descendants.jsonl'),
-  );
-  if (priorContext === undefined) delete process.env.LAMINA_SAFE_RUNNER_CONTEXT;
-  else process.env.LAMINA_SAFE_RUNNER_CONTEXT = priorContext;
-  if (priorToken === undefined) delete process.env.LAMINA_SAFE_RUNNER_TOKEN;
-  else process.env.LAMINA_SAFE_RUNNER_TOKEN = priorToken;
+  const priorBroker = process.env.LAMINA_SAFE_RUNNER_BROKER;
+  process.env.LAMINA_SAFE_RUNNER_BROKER = path.join(root, 'caller-forged.sock');
+  assert.equal(safeRunnerContext(), null, 'caller-authored environment must never authorize work');
+  if (priorBroker === undefined) delete process.env.LAMINA_SAFE_RUNNER_BROKER;
+  else process.env.LAMINA_SAFE_RUNNER_BROKER = priorBroker;
 
-  const managedFile = context.environment.LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS;
-  const graphdRecord = {
-    pid: 41001,
-    ppid: 1,
-    start_ticks: '100',
+  const requester = { pid: 41000, ppid: 1, start_ticks: '99', command: 'node guarded.mjs' };
+  const authorityRecords = [requester];
+  const brokerRegistrations = [];
+  const authority = {
+    runId: 'unit', tier: 'small', adapter: 'linux-systemd-cgroup-v2',
+    unit: 'lamina-safe-unit.scope', cgroup: '/unit',
+    enforcement: { memory_max_bytes: 1, memory_high_bytes: 1, pids_max: 1 },
+    registrations: brokerRegistrations,
+    records: () => authorityRecords,
+    register: (record) => brokerRegistrations.push(record),
+  };
+  assert.equal(authorizeBrokerRequest({
+    operation: 'context', requester, minimum_tier: 'small',
+  }, authority).ok, true);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'context', requester, minimum_tier: 'medium',
+  }, authority).ok, false, 'a child cannot escalate its tier');
+  assert.equal(authorizeBrokerRequest({
+    operation: 'context', requester: { ...requester, start_ticks: 'tampered' }, minimum_tier: 'small',
+  }, authority).ok, false, 'PID identity tampering must fail');
+  assert.equal(authorizeBrokerRequest({
+    operation: 'context', requester, minimum_tier: 'small',
+  }, { ...authority, unit: '' }).ok, false, 'an empty unit must fail closed');
+
+  const authorizedGraphd = {
+    pid: 41001, ppid: requester.pid, start_ticks: '100',
     command: `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
   };
+  const brokerRegistrations = [];
+  const graphAuthority = {
+    ...authority,
+    records: () => [requester, authorizedGraphd],
+    register: (record) => brokerRegistrations.push(record),
+  };
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester, child: authorizedGraphd,
+    socket: '/repo/.git/lamina/graphd.sock', lock: '/repo/.git/lamina/graphd.lock',
+  }, graphAuthority).ok, true);
+  assert.equal(brokerRegistrations.length, 1);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester, child: { ...authorizedGraphd, start_ticks: 'forged' },
+    socket: '/repo/.git/lamina/graphd.sock', lock: '/repo/.git/lamina/graphd.lock',
+  }, graphAuthority).ok, false, 'payload cannot self-assert a graphd identity');
+
+  for (const command of [
+    `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
+    '/usr/local/bin/lamina-linux-x64 --graphd /repo',
+    '/opt/lamina/runtime/cocoindex-worker retrieval serve',
+    '/tmp/lamina-cocoindex-worker-linux-x64 observe',
+    `${process.execPath} /repo/packages/cli/retrieval_worker.py serve`,
+  ]) assert.equal(isLaminaProcessCommand(command), true, command);
+  assert.equal(isLaminaProcessCommand(`${process.execPath} tests/tiny.mjs`), false);
+
+  const managedRegistrations = [{
+    pid: 41001,
+    start_ticks: '100',
+    role: 'graphd',
+    socket: '/repo/.git/lamina/graphd.sock',
+    lock: '/repo/.git/lamina/graphd.lock',
+  }];
+  const graphdRecord = { ...authorizedGraphd, ppid: 1 };
   const graphdWorker = {
     pid: 41002, ppid: graphdRecord.pid, start_ticks: '101', command: 'retrieval_worker.py',
   };
-  fs.appendFileSync(managedFile, `${JSON.stringify({
-    schema: 'lamina.safe-runner-managed-descendant/v1',
-    role: 'graphd',
-    pid: graphdRecord.pid,
-    start_ticks: graphdRecord.start_ticks,
-  })}\n`);
-  assert.deepEqual(registeredManagedGraphd(managedFile, [graphdRecord]), [graphdRecord]);
+  assert.deepEqual(registeredManagedGraphd(managedRegistrations, [graphdRecord]), [{
+    ...graphdRecord,
+    managed_socket: managedRegistrations[0].socket,
+    managed_lock: managedRegistrations[0].lock,
+  }]);
+  authorityRecords.push(graphdRecord);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd',
+    requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, authority).ok, true);
+  assert.equal(brokerRegistrations.length, 1);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd',
+    requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    socket: 'relative.sock',
+    lock: 'relative.lock',
+  }, authority).ok, false);
   assert.equal(
-    classifyRemainingDescendants(managedFile, [graphdRecord, graphdWorker]).kind,
+    classifyRemainingDescendants(managedRegistrations, [graphdRecord, graphdWorker]).kind,
     'managed_graphd',
   );
   assert.equal(
-    classifyRemainingDescendants(managedFile, [graphdRecord, {
+    classifyRemainingDescendants(managedRegistrations, [graphdRecord, {
       pid: 41004, ppid: 1, start_ticks: '103', state: 'Z', command: '',
     }]).kind,
     'managed_graphd',
   );
   assert.equal(
-    classifyRemainingDescendants(managedFile, [graphdRecord, graphdWorker, {
+    classifyRemainingDescendants(managedRegistrations, [graphdRecord, graphdWorker, {
       pid: 41003, ppid: 1, start_ticks: '102', command: 'unregistered-daemon',
     }]).kind,
     'unmanaged',
   );
-  fs.writeFileSync(managedFile, `${JSON.stringify({
-    schema: 'lamina.safe-runner-managed-descendant/v1',
-    role: 'graphd',
-    pid: 41001,
-    start_ticks: 'wrong',
-  })}\n`);
-  assert.deepEqual(registeredManagedGraphd(managedFile, [graphdRecord]), []);
+  assert.deepEqual(registeredManagedGraphd([
+    { pid: 41001, start_ticks: 'wrong', role: 'graphd' },
+  ], [graphdRecord]), []);
 
   if (process.platform === 'linux') {
-    const claims = path.join(process.env.LAMINA_SAFE_RUNNER_STATE_DIR, 'production-locks');
+    const claims = path.join(root, 'production-locks');
     fs.mkdirSync(claims, { recursive: true });
     fs.writeFileSync(path.join(claims, 'stale.json'), JSON.stringify({
       pid: process.pid, start_ticks: 'stale', nonce: 'never-reused',
     }));
-    const lock = acquireConcurrencyLock();
-    assert.throws(() => acquireConcurrencyLock(), /another medium\/large safe-runner/);
+    const lock = acquireConcurrencyLock({ directory: claims });
+    assert.throws(() => acquireConcurrencyLock({ directory: claims }), /another medium\/large safe-runner/);
     assert.equal(lock.release(), true);
     assert.deepEqual(fs.readdirSync(claims), []);
   }
+  const globalLock = productionLockDirectory();
+  process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'different-state');
+  assert.equal(productionLockDirectory(), globalLock, 'state override must not split the host-global lock');
 
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
-  recordPromotion(root, 'small', report);
-  assert.equal(checkPromotion(root, 'medium').ok, true);
+  assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
+  recordPromotion(root, 'small', report, 'unit-workload');
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload').ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload').ok, false);
+  const limitedReport = structuredClone(report);
+  limitedReport.termination.limit = 'timeout';
+  recordSafetyLimit(root, report.command, report.limits, limitedReport);
+  assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false);
+  assert.equal(checkSafetyRetry(root, [...report.command, '--changed'], report.limits).ok, true);
+  assert.equal(checkSafetyRetry(root, report.command, {
+    ...report.limits, timeout_ms: report.limits.timeout_ms - 1,
+  }).ok, true);
 
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };
   writeAttestation(productionProbe, Array.from({ length: 11 }, (_, index) => ({

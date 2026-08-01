@@ -54,7 +54,16 @@ function ancestorPids() {
   return ancestors;
 }
 
-const LAMINA_PROCESS_RE = /(?:^|[\/\s])(?:lamina(?:\.mjs)?|graphd|cocoindex(?:_worker)?|retrieval_worker\.py)(?:$|[\s])/i;
+const LAMINA_EXECUTABLE_RE = /(?:^|\s)(?:\S*\/)?(?:lamina(?:\.mjs)?|lamina-(?:linux|darwin|win32)-[^\s/]+|cocoindex-worker(?:\.exe)?|lamina-cocoindex-worker-[^\s/]+|cocoindex_worker\.py|retrieval_worker\.py)(?:\s|$)/i;
+const SOURCE_GRAPHD_RE = /(?:^|\s)[^\s]*\/packages\/cli\/lib\/graph-runtime\/server\.mjs(?:\s|$)/i;
+const NATIVE_GRAPHD_RE = /(?:^|\s)--graphd(?:\s|$)/i;
+
+export function isLaminaProcessCommand(command = '') {
+  const normalized = String(command).replaceAll('\\', '/');
+  return LAMINA_EXECUTABLE_RE.test(normalized)
+    || SOURCE_GRAPHD_RE.test(normalized)
+    || NATIVE_GRAPHD_RE.test(normalized);
+}
 
 export function existingLaminaProcesses() {
   if (process.platform !== 'linux') return [];
@@ -65,7 +74,7 @@ export function existingLaminaProcesses() {
     const pid = Number(name);
     if (ancestors.has(pid)) continue;
     const record = processRecord(pid);
-    if (record?.command && LAMINA_PROCESS_RE.test(record.command)) found.push(record);
+    if (record?.command && isLaminaProcessCommand(record.command)) found.push(record);
   }
   return found.sort((left, right) => left.pid - right.pid);
 }

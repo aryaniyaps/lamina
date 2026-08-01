@@ -4,6 +4,31 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DEFAULTS, ENVELOPE_SCHEMA } from './constants.mjs';
 
+const OVERRIDE_RULES = Object.freeze({
+  memoryMaxBytes: { integer: true },
+  memoryHighBytes: { integer: true },
+  pidsMax: { integer: true },
+  timeoutMs: { integer: true },
+  outputMaxBytes: { integer: true },
+  tempMaxBytes: { integer: true },
+  sampleIntervalMs: { integer: true },
+  sustainedHighSamples: { integer: true },
+  gracefulStopMs: { integer: true },
+});
+
+export function validateLimitOverrides(overrides = {}) {
+  if (overrides === null || typeof overrides !== 'object' || Array.isArray(overrides)) {
+    throw new TypeError('safe-runner limit overrides must be an object');
+  }
+  for (const [name, value] of Object.entries(overrides)) {
+    if (!Object.hasOwn(OVERRIDE_RULES, name)) throw new TypeError(`unknown safe-runner limit override: ${name}`);
+    if (!Number.isFinite(value) || value <= 0 || (OVERRIDE_RULES[name].integer && !Number.isInteger(value))) {
+      throw new TypeError(`${name} must be a finite positive integer`);
+    }
+  }
+  return overrides;
+}
+
 function availableMemoryBytes() {
   if (process.platform === 'linux') {
     try {
@@ -25,6 +50,10 @@ function availableDiskBytes(target) {
 }
 
 export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() } = {}) {
+  validateLimitOverrides(overrides);
+  if (!Number.isFinite(totalMemoryBytes) || totalMemoryBytes <= 0) {
+    throw new TypeError('totalMemoryBytes must be finite and positive');
+  }
   const derivedHard = Math.min(
     DEFAULTS.memoryHardMaxBytes,
     Math.floor(totalMemoryBytes * DEFAULTS.memoryFraction),
@@ -32,6 +61,7 @@ export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() 
   const memoryMaxBytes = Math.min(overrides.memoryMaxBytes ?? derivedHard, derivedHard);
   const defaultHigh = Math.floor(memoryMaxBytes * DEFAULTS.memoryHighFraction);
   const memoryHighBytes = Math.min(overrides.memoryHighBytes ?? defaultHigh, defaultHigh);
+  if (memoryHighBytes > memoryMaxBytes) throw new TypeError('memoryHighBytes cannot exceed memoryMaxBytes');
   const pidsMax = Math.min(overrides.pidsMax ?? DEFAULTS.pidsMax, DEFAULTS.pidsMax);
   const tempMaxBytes = Math.min(overrides.tempMaxBytes ?? DEFAULTS.tempMaxBytes, DEFAULTS.tempMaxBytes);
   return {
@@ -42,6 +72,7 @@ export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() 
     timeout_ms: Math.min(overrides.timeoutMs ?? DEFAULTS.timeoutMs, DEFAULTS.timeoutMs),
     output_max_bytes: Math.min(overrides.outputMaxBytes ?? DEFAULTS.outputMaxBytes, DEFAULTS.outputMaxBytes),
     temporary_max_bytes: tempMaxBytes,
+    temporary_max_inodes: Math.max(256, Math.min(8_192, Math.floor(tempMaxBytes / 4096))),
     minimum_free_disk_bytes: Math.max(DEFAULTS.minFreeDiskBytes, tempMaxBytes * 2),
     sample_interval_ms: Math.min(
       DEFAULTS.sampleIntervalMs,

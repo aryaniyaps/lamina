@@ -17,11 +17,12 @@ const graphdFixture = path.resolve('tests/fixtures/safe-runner-graphd-client.mjs
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = state;
 fs.mkdirSync(reports, { recursive: true });
+let completed = false;
 
 const limits = {
   memoryMaxBytes: 256 * MIB,
   memoryHighBytes: 192 * MIB,
-  pidsMax: 8,
+  pidsMax: 32,
   timeoutMs: 1_000,
   outputMaxBytes: MIB,
   tempMaxBytes: MIB,
@@ -49,8 +50,27 @@ try {
   assert.deepEqual(normal.cleanup.descendants_remaining, []);
   assert.equal(normal.cleanup.scope_removed, true);
   assert.equal(normal.cleanup.temporary_directory_removed, true);
+  if (probe.production_enforcement) {
+    assert.deepEqual(normal.preflight.scope_proof.controller_readback.actual, {
+      memory_max_bytes: normal.limits.memory_max_bytes,
+      memory_high_bytes: normal.limits.memory_high_bytes,
+      pids_max: normal.limits.pids_max,
+    });
+    assert.ok(normal.samples.every((sample) => Object.hasOwn(sample, 'aggregate_rss_bytes')
+      && Object.hasOwn(sample, 'cgroup_memory_bytes')));
+  }
 
   if (probe.production_enforcement) {
+    const redacted = await runSafely({
+      command: [process.execPath, fixture, 'secret-output', '--token', 'childsecret'],
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'redacted.json'),
+      overrides: limits, probe, promote: false,
+    });
+    assert.equal(redacted.outcome, 'success');
+    const serializedRedacted = JSON.stringify(redacted);
+    assert.doesNotMatch(serializedRedacted, /supersecret|childsecret/);
+    assert.match(serializedRedacted, /\[REDACTED\]/);
+
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'failure.json'),
@@ -91,6 +111,23 @@ try {
     assert.deepEqual(managedGraphd.cleanup.descendants_remaining, []);
     assert.equal(managedGraphd.cleanup.scope_removed, true);
     assert.equal(validateReport(managedGraphd).valid, true);
+
+    for (const [mode, expectedLimit] of [
+      ['temp-deleted-open', 'temporary_disk'],
+      ['temp-inode-storm', 'temporary_inodes'],
+      ['temp-symlink', 'temporary_symlink'],
+    ]) {
+      const temporary = await runSafely({
+        command: [process.execPath, fixture, mode],
+        tier: 'small', cwd: root, reportFile: path.join(reports, `${mode}.json`),
+        overrides: { ...limits, tempMaxBytes: MIB }, probe, promote: false,
+      });
+      assert.equal(temporary.outcome, 'safety_limit_exceeded', mode);
+      assert.equal(temporary.termination.limit, expectedLimit, mode);
+      assert.equal(temporary.preflight.temporary_quota_proof.production_enforcement, true);
+      assert.deepEqual(temporary.cleanup.descendants_remaining, []);
+      assert.equal(validateReport(temporary).valid, true);
+    }
   }
 
   const detached = await runSafely({
@@ -109,10 +146,12 @@ try {
   assert.equal(detached.cleanup.scope_removed, true);
   assert.equal(detached.cleanup.temporary_directory_removed, true);
   assert.equal(validateReport(detached).valid, true);
+  completed = true;
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
-  fs.rmSync(root, { recursive: true, force: true });
+  if (completed) fs.rmSync(root, { recursive: true, force: true });
+  else process.stderr.write(`safe-runner integration evidence preserved at ${root}\n`);
 }
 
 console.log('safe_runner_integration_test: ok');

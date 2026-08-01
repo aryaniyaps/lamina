@@ -33,22 +33,26 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["elapsed_ms", "aggregate_rss_bytes", "pids", "temporary_bytes"],
+        "required": ["elapsed_ms", "aggregate_rss_bytes", "cgroup_memory_bytes", "pids", "temporary_bytes", "temporary_inodes"],
         "properties": {
           "elapsed_ms": { "type": "integer", "minimum": 0 },
           "aggregate_rss_bytes": { "type": "integer", "minimum": 0 },
+          "cgroup_memory_bytes": { "type": "integer", "minimum": 0 },
           "pids": { "type": "integer", "minimum": 0 },
-          "temporary_bytes": { "type": "integer", "minimum": 0 }
+          "temporary_bytes": { "type": "integer", "minimum": 0 },
+          "temporary_inodes": { "type": "integer", "minimum": 0 }
         }
       }
     },
     "peaks": {
       "type": "object",
-      "required": ["aggregate_rss_bytes", "pids", "temporary_bytes"],
+      "required": ["aggregate_rss_bytes", "cgroup_memory_bytes", "pids", "temporary_bytes", "temporary_inodes"],
       "properties": {
         "aggregate_rss_bytes": { "type": "integer", "minimum": 0 },
+        "cgroup_memory_bytes": { "type": "integer", "minimum": 0 },
         "pids": { "type": "integer", "minimum": 0 },
-        "temporary_bytes": { "type": "integer", "minimum": 0 }
+        "temporary_bytes": { "type": "integer", "minimum": 0 },
+        "temporary_inodes": { "type": "integer", "minimum": 0 }
       }
     },
     "descendants": { "type": "array", "items": { "type": "object" } },
@@ -78,10 +82,11 @@
     },
     "cleanup": {
       "type": "object",
-      "required": ["attempted", "descendants_remaining", "scope_removed", "temporary_directory_removed", "lock_released", "errors"],
+      "required": ["attempted", "descendants_remaining", "managed_paths_remaining", "scope_removed", "temporary_directory_removed", "lock_released", "errors"],
       "properties": {
         "attempted": { "type": "boolean" },
         "descendants_remaining": { "type": "array", "items": { "type": "integer" } },
+        "managed_paths_remaining": { "type": "array", "items": { "type": "string" } },
         "scope_removed": { "type": ["boolean", "null"] },
         "temporary_directory_removed": { "type": ["boolean", "null"] },
         "lock_released": { "type": ["boolean", "null"] },

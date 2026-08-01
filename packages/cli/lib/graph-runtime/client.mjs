@@ -9,6 +9,7 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
+import { registerManagedGraphdWithSupervisor } from '../../../../scripts/safe-runner/context.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -45,9 +46,8 @@ function graphdEnvironment() {
   };
 }
 
-export function registerManagedGraphd(child) {
-  const registry = process.env.LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS;
-  if (process.platform !== 'linux' || !registry || !process.env.LAMINA_SAFE_RUNNER_TOKEN) return;
+export function registerManagedGraphd(child, paths = null) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return;
   let startTicks = null;
   try {
     const stat = fs.readFileSync(`/proc/${child.pid}/stat`, 'utf8');
@@ -55,13 +55,17 @@ export function registerManagedGraphd(child) {
     startTicks = stat.slice(close + 2).trim().split(/\s+/)[19] || null;
   } catch {}
   if (!startTicks) return;
-  const record = {
-    schema: 'lamina.safe-runner-managed-descendant/v1',
-    role: 'graphd',
-    pid: child.pid,
-    start_ticks: startTicks,
-  };
-  try { fs.appendFileSync(registry, `${JSON.stringify(record)}\n`, { mode: 0o600 }); } catch {}
+  const response = registerManagedGraphdWithSupervisor(
+    { pid: child.pid, start_ticks: startTicks },
+    paths ? { socket: graphSocketPath(paths), lock: paths.lock } : null,
+  );
+  if (!response?.ok) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    const error = new Error(`safe-runner refused managed graphd registration: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.registered;
 }
 
 export function exchange(socketPath, payload, timeout = 60_000) {
@@ -152,6 +156,7 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
     error.code = 'LAMINA_INTERNAL';
     throw error;
   }
+  return response.registered;
 }
 
 export async function ensureGraphd(cwd = process.cwd()) {
@@ -195,7 +200,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
       cwd: paths.root,
       env: graphdEnvironment(),
     });
-    registerManagedGraphd(child);
+    registerManagedGraphd(child, paths);
   } finally {
     if (log !== null) fs.closeSync(log);
   }

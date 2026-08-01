@@ -1,50 +1,52 @@
-import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { CONTEXT_SCHEMA, TIER_ORDER } from './constants.mjs';
+import { fileURLToPath } from 'node:url';
+import { processIdentity } from './processes.mjs';
 
-export function createContext(directory, { runId, tier, adapter, unit }) {
-  const token = crypto.randomBytes(32).toString('hex');
-  const file = path.join(directory, 'context.json');
-  const value = {
-    schema: CONTEXT_SCHEMA,
-    run_id: runId,
-    tier,
-    adapter,
-    unit,
-    token,
-  };
-  fs.writeFileSync(file, `${JSON.stringify(value)}\n`, { mode: 0o600 });
-  const managedDescendants = path.join(directory, 'managed-descendants.jsonl');
-  fs.writeFileSync(managedDescendants, '', { mode: 0o600 });
-  return {
-    value,
-    environment: {
-      LAMINA_SAFE_RUNNER_CONTEXT: file,
-      LAMINA_SAFE_RUNNER_TOKEN: token,
-      LAMINA_SAFE_RUNNER_TIER: tier,
-      LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS: managedDescendants,
-    },
-  };
+const CLIENT = fileURLToPath(new URL('./broker-client.mjs', import.meta.url));
+
+function brokerRequest(request) {
+  const result = spawnSync(process.execPath, [CLIENT, JSON.stringify(request)], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 2_000,
+    maxBuffer: 16 * 1024,
+  });
+  if (result.status !== 0) return null;
+  try { return JSON.parse(result.stdout); } catch { return null; }
 }
 
 export function safeRunnerContext({ minimumTier = 'small' } = {}) {
-  const file = process.env.LAMINA_SAFE_RUNNER_CONTEXT;
-  const token = process.env.LAMINA_SAFE_RUNNER_TOKEN;
-  if (!file || !token) return null;
-  let value;
-  try { value = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
-  if (value.schema !== CONTEXT_SCHEMA || value.token !== token) return null;
-  if (TIER_ORDER.indexOf(value.tier) < TIER_ORDER.indexOf(minimumTier)) return null;
-  if (process.platform === 'linux' && value.adapter === 'linux-systemd-cgroup-v2') {
-    try {
-      const cgroup = fs.readFileSync('/proc/self/cgroup', 'utf8');
-      if (!cgroup.includes(value.unit.replace(/\.scope$/, ''))) return null;
-    } catch {
-      return null;
-    }
-  }
-  return value;
+  if (process.platform !== 'linux') return null;
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = brokerRequest({
+    operation: 'context',
+    requester: processIdentity(process.pid),
+    minimum_tier: minimumTier,
+  });
+  const context = response?.ok ? response.context : null;
+  if (!context || context.adapter !== 'linux-systemd-cgroup-v2'
+    || typeof context.unit !== 'string' || !context.unit.startsWith('lamina-safe-')
+    || !context.unit.endsWith('.scope') || !context.enforcement) return null;
+  try {
+    const currentLine = fs.readFileSync('/proc/self/cgroup', 'utf8')
+      .split('\n').find((line) => line.startsWith('0::'));
+    if (!currentLine) return null;
+    const current = fs.realpathSync(path.join(
+      '/sys/fs/cgroup', currentLine.slice(3).replace(/^\/+/, ''),
+    ));
+    const declared = fs.realpathSync(context.cgroup);
+    if (current !== declared || path.basename(declared) !== context.unit) return null;
+    const readLimit = (name) => {
+      const value = fs.readFileSync(path.join(declared, name), 'utf8').trim();
+      return value === 'max' ? Number.POSITIVE_INFINITY : Number(value);
+    };
+    if (readLimit('memory.max') !== context.enforcement.memory_max_bytes
+      || readLimit('memory.high') !== context.enforcement.memory_high_bytes
+      || readLimit('pids.max') !== context.enforcement.pids_max) return null;
+  } catch { return null; }
+  return context;
 }
 
 export function assertSafeRunnerContext(operation, options = {}) {
@@ -56,4 +58,15 @@ export function assertSafeRunnerContext(operation, options = {}) {
   );
   error.code = 'LAMINA_SAFE_RUNNER_REQUIRED';
   throw error;
+}
+
+export function registerManagedGraphdWithSupervisor(identity, paths) {
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  return brokerRequest({
+    operation: 'register_graphd',
+    requester: processIdentity(process.pid),
+    child: identity,
+    socket: paths?.socket,
+    lock: paths?.lock,
+  });
 }

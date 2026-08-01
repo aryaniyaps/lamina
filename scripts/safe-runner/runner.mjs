@@ -3,29 +3,34 @@ import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
 import { adapterProbe, assertAdapterShape } from './adapter.mjs';
-import { createContext } from './context.mjs';
+import { createProofBroker } from './broker.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
-import { boundedDirectorySize, removeOwnedDirectory } from './filesystem.mjs';
+import {
+  boundedDirectorySize,
+  quotaFilesystemUsage,
+  removeOwnedDirectory,
+} from './filesystem.mjs';
 import { LinuxSystemdAdapter } from './linux-systemd.mjs';
 import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
 import { baseReport, finishReport, writeReportWithFallback } from './report.mjs';
-import { acquireConcurrencyLock, recordPromotion } from './state.mjs';
+import { redactText } from './redaction.mjs';
+import { acquireConcurrencyLock, recordPromotion, recordSafetyLimit } from './state.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function errorDetails(error, fallback = 'LAMINA_SAFE_INTERNAL') {
   return {
     code: error?.code || fallback,
-    message: String(error?.message || error).slice(0, 2_000),
+    message: redactText(String(error?.message || error)).slice(0, 2_000),
   };
 }
 
 function appendTail(previous, chunk, maximum) {
   const combined = Buffer.concat([Buffer.from(previous), Buffer.from(chunk)]);
-  return combined.subarray(Math.max(0, combined.length - maximum)).toString('utf8');
+  return redactText(combined.subarray(Math.max(0, combined.length - maximum)).toString('utf8'));
 }
 
 function rememberDescendants(report, records, elapsedMs) {
@@ -40,7 +45,7 @@ function rememberDescendants(report, records, elapsedMs) {
       pid: record.pid,
       ppid: record.ppid,
       start_ticks: record.start_ticks,
-      command: record.command,
+      command: redactText(record.command),
       first_seen_ms: existing?.first_seen_ms ?? elapsedMs,
       last_seen_ms: elapsedMs,
       peak_rss_bytes: Math.max(existing?.peak_rss_bytes || 0, record.rss_bytes || 0),
@@ -76,12 +81,14 @@ export async function runSafely({
   mode = 'run',
   selfTestCaseId = null,
   promote = false,
+  workloadId = null,
 } = {}) {
   const startedMs = Date.now();
   const normalizedCommand = Array.isArray(command) ? command : [];
   const report = baseReport({ tier, command: normalizedCommand, cwd: path.resolve(cwd) });
   let lock = null;
   let temporaryDirectory = null;
+  let payloadTemporaryDirectory = null;
   let monitor = null;
   let forceTimer = null;
   let activeAdapter = null;
@@ -92,7 +99,11 @@ export async function runSafely({
   let launched = false;
   let payloadExitObserved = false;
   let managedCleanupStartedMs = null;
-  let managedDescendantsFile = null;
+  let proofBroker = null;
+  let quotaProven = false;
+  let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
+  const managedRegistrations = [];
+  const managedCleanupPaths = new Set();
   const outputStreams = [];
   const childStreams = [];
   const signalHandlers = new Map();
@@ -128,6 +139,8 @@ export async function runSafely({
       report.termination.requested_signals.push('SIGTERM');
     }
     for (const root of classification.roots) {
+      if (root.managed_socket) managedCleanupPaths.add(root.managed_socket);
+      if (root.managed_lock) managedCleanupPaths.add(root.managed_lock);
       try {
         signalIdentity({ pid: root.pid, start_ticks: root.start_ticks }, 'SIGTERM');
       } catch (error) {
@@ -141,34 +154,62 @@ export async function runSafely({
     if (!activeAdapter || !temporaryDirectory) return null;
     const elapsed = Date.now() - startedMs;
     const measured = activeAdapter.sample();
-    const temporary = boundedDirectorySize(temporaryDirectory, report.limits.temporary_max_bytes);
-    const rss = Math.max(measured.aggregateRssBytes || 0, measured.aggregatePeakBytes || 0);
-    report.peaks.aggregate_rss_bytes = Math.max(report.peaks.aggregate_rss_bytes, rss);
+    let temporary = null;
+    if (activeAdapter.production_enforcement && quotaProven) {
+      temporary = quotaFilesystemUsage(
+        measured.records,
+        payloadTemporaryDirectory,
+        report.limits.temporary_max_bytes,
+        report.limits.temporary_max_inodes,
+      );
+    } else if (!activeAdapter.production_enforcement) {
+      temporary = boundedDirectorySize(
+        payloadTemporaryDirectory,
+        report.limits.temporary_max_bytes,
+        report.limits.temporary_max_inodes,
+      );
+    }
+    if (temporary) lastTemporary = temporary;
+    temporary = temporary || lastTemporary;
+    const aggregateRss = measured.aggregateRssBytes ?? (measured.records || [])
+      .reduce((sum, record) => sum + (record.rss_bytes || 0), 0);
+    const cgroupMemory = measured.cgroupMemoryCurrentBytes ?? measured.aggregateRssBytes ?? 0;
+    const cgroupPeak = Math.max(cgroupMemory, measured.cgroupMemoryPeakBytes || 0);
+    report.peaks.aggregate_rss_bytes = Math.max(report.peaks.aggregate_rss_bytes, aggregateRss);
+    report.peaks.cgroup_memory_bytes = Math.max(report.peaks.cgroup_memory_bytes, cgroupPeak);
     const taskCount = measured.taskCount ?? measured.pids?.length ?? 0;
     report.peaks.pids = Math.max(report.peaks.pids, taskCount);
     report.peaks.temporary_bytes = Math.max(report.peaks.temporary_bytes, temporary.bytes);
+    report.peaks.temporary_inodes = Math.max(report.peaks.temporary_inodes, temporary.entries);
     rememberDescendants(report, measured.records, elapsed);
     report.termination.cgroup_events = measured.events || {};
     report.samples.push({
       elapsed_ms: elapsed,
-      aggregate_rss_bytes: measured.aggregateRssBytes || 0,
+      aggregate_rss_bytes: aggregateRss,
+      cgroup_memory_bytes: cgroupMemory,
       pids: taskCount,
       temporary_bytes: temporary.bytes,
+      temporary_inodes: temporary.entries,
     });
     if (report.samples.length > DEFAULTS.maxSamples) report.samples.shift();
     if ((measured.events?.memory?.oom_kill || 0) > 0
       || (measured.events?.memory?.max || 0) > 0
-      || (measured.aggregateRssBytes || 0) >= report.limits.memory_max_bytes) {
+      || cgroupMemory >= report.limits.memory_max_bytes) {
       requestStop('safety_limit_exceeded', 'memory');
     }
     if ((measured.events?.pids?.max || 0) > 0 || taskCount > report.limits.pids_max) {
       requestStop('safety_limit_exceeded', 'pids');
     }
-    if (temporary.exceeded) requestStop('safety_limit_exceeded', 'temporary_disk');
+    if (temporary.exceeded) {
+      const temporaryLimit = temporary.reason === 'inodes'
+        ? 'temporary_inodes'
+        : temporary.reason === 'symlink' ? 'temporary_symlink' : 'temporary_disk';
+      requestStop('safety_limit_exceeded', temporaryLimit);
+    }
     const highEvents = measured.events?.memory?.high || 0;
     const newHighEvents = Math.max(0, highEvents - previousHighEvents);
     previousHighEvents = highEvents;
-    if ((measured.aggregateRssBytes || 0) >= report.limits.memory_high_bytes) {
+    if (cgroupMemory >= report.limits.memory_high_bytes) {
       highSamples += 1;
     } else if (newHighEvents > 0) {
       // memory.events:high counts kernel throttling/reclaim attempts. Multiple
@@ -208,6 +249,7 @@ export async function runSafely({
       adapterInfo: probe,
       mode,
       selfTestCaseId,
+      workloadId,
     });
     report.adapter = probe;
     report.limits = preflight.envelope.limits;
@@ -236,17 +278,39 @@ export async function runSafely({
 
     temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
     fs.chmodSync(temporaryDirectory, 0o700);
+    payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
+    fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
     activeAdapter = assertAdapterShape(adapter || adapterFor(probe, report.run_id, report.limits));
-    const context = createContext(temporaryDirectory, {
+    const authority = {
       runId: report.run_id,
       tier,
       adapter: activeAdapter.id,
       unit: activeAdapter.unit || null,
-    });
+      cgroup: null,
+      enforcement: null,
+      registrations: managedRegistrations,
+      records: () => activeAdapter?.sample()?.records || [],
+      register(record) {
+        if (!managedRegistrations.some((item) => item.pid === record.pid
+          && item.start_ticks === record.start_ticks)) {
+          managedRegistrations.push({
+            pid: record.pid,
+            start_ticks: record.start_ticks,
+            role: 'graphd',
+            socket: record.socket,
+            lock: record.lock,
+          });
+        }
+      },
+    };
+    proofBroker = activeAdapter.production_enforcement
+      ? await createProofBroker(temporaryDirectory, authority)
+      : { environment: {}, async close() {} };
     const readyFile = path.join(temporaryDirectory, 'scope.ready');
     const releaseFile = path.join(temporaryDirectory, 'scope.release');
     const payloadExitFile = path.join(temporaryDirectory, 'payload.exit');
-    managedDescendantsFile = path.join(temporaryDirectory, 'managed-descendants.jsonl');
+    const quotaReadyFile = path.join(temporaryDirectory, 'quota.ready');
+    const quotaReleaseFile = path.join(temporaryDirectory, 'quota.release');
 
     for (const signal of ['SIGINT', 'SIGTERM']) {
       const handler = () => requestStop('interrupted', 'signal');
@@ -260,16 +324,19 @@ export async function runSafely({
       readyFile,
       releaseFile,
       payloadExitFile,
+      quotaReadyFile,
+      quotaReleaseFile,
+      temporaryDirectory: payloadTemporaryDirectory,
       env: {
         ...process.env,
         ...env,
-        ...context.environment,
-        TMPDIR: temporaryDirectory,
-        TMP: temporaryDirectory,
-        TEMP: temporaryDirectory,
+        ...proofBroker.environment,
+        TMPDIR: payloadTemporaryDirectory,
+        TMP: payloadTemporaryDirectory,
+        TEMP: payloadTemporaryDirectory,
         LAMINA_SAFE_RUNNER: '1',
-        LAMINA_SAFE_RUNNER_TEMP: temporaryDirectory,
-        LAMINA_SAFE_RUNNER_TEMP_DIR: temporaryDirectory,
+        LAMINA_SAFE_RUNNER_TEMP: payloadTemporaryDirectory,
+        LAMINA_SAFE_RUNNER_TEMP_DIR: payloadTemporaryDirectory,
         LAMINA_SAFE_RUNNER_CONTROLLER_PID: String(process.pid),
       },
     });
@@ -327,16 +394,21 @@ export async function runSafely({
       while (Date.now() < deadline && !childEnded) {
         if (fs.existsSync(readyFile) && activeAdapter.resolveCgroup()) {
           const proof = activeAdapter.sample();
+          const enforcement = activeAdapter.enforcementProof();
           let gatePid = null;
           try { gatePid = Number(JSON.parse(fs.readFileSync(readyFile, 'utf8')).pid); } catch {}
-          if (gatePid && proof.pids.includes(gatePid)) {
+          if (gatePid && proof.pids.includes(gatePid) && enforcement.ok) {
             report.preflight.scope_proof = {
               cgroup: activeAdapter.cgroupPath,
               gate_pids: proof.pids,
               gate_pid: gatePid,
               aggregate_rss_bytes: proof.aggregateRssBytes,
+              cgroup_memory_bytes: proof.cgroupMemoryCurrentBytes,
               production_enforcement: true,
+              controller_readback: enforcement,
             };
+            authority.cgroup = activeAdapter.cgroupPath;
+            authority.enforcement = enforcement.actual;
             rememberDescendants(report, proof.records, Date.now() - startedMs);
             break;
           }
@@ -356,7 +428,7 @@ export async function runSafely({
           const measured = activeAdapter.sample();
           const gatePid = report.preflight.scope_proof.gate_pid;
           const classification = classifyRemainingDescendants(
-            managedDescendantsFile,
+            managedRegistrations,
             measured.records,
             [gatePid],
           );
@@ -388,6 +460,31 @@ export async function runSafely({
         sample();
       }, report.limits.sample_interval_ms);
       fs.writeFileSync(releaseFile, 'release\n', { mode: 0o600 });
+      const quotaDeadline = Date.now() + DEFAULTS.scopeHandshakeMs;
+      let quotaProof = null;
+      while (Date.now() < quotaDeadline && !childEnded) {
+        try {
+          const value = JSON.parse(fs.readFileSync(quotaReadyFile, 'utf8'));
+          const totalBytes = Number(value.block_size) * Number(value.blocks);
+          if (value.filesystem_type === 'tmpfs'
+            && Number.isSafeInteger(totalBytes)
+            && totalBytes > 0
+            && totalBytes <= report.limits.temporary_max_bytes + Number(value.block_size)) {
+            quotaProof = { ...value, total_bytes: totalBytes, production_enforcement: true };
+            break;
+          }
+        } catch {}
+        await wait(20);
+      }
+      if (!quotaProof) {
+        requestStop('safety_limit_exceeded', 'temporary_quota_handshake');
+        throw Object.assign(new Error('size-limited private tmpfs handshake failed before payload release'), {
+          code: 'LAMINA_SAFE_TEMP_QUOTA_UNPROVEN',
+        });
+      }
+      report.preflight.temporary_quota_proof = quotaProof;
+      quotaProven = true;
+      fs.writeFileSync(quotaReleaseFile, 'release\n', { mode: 0o600 });
     } else {
       report.preflight.scope_proof = {
         production_enforcement: false,
@@ -397,7 +494,18 @@ export async function runSafely({
       monitor = setInterval(sample, report.limits.sample_interval_ms);
     }
     sample();
-    const ended = await childResult;
+    const controllerDeadlineMs = report.limits.timeout_ms
+      + report.limits.graceful_stop_ms + DEFAULTS.scopeHandshakeMs + 5_000;
+    const ended = await Promise.race([
+      childResult,
+      wait(controllerDeadlineMs).then(() => ({ controllerDeadline: true })),
+    ]);
+    if (ended.controllerDeadline) {
+      requestStop('safety_limit_exceeded', 'controller_deadline');
+      throw Object.assign(new Error('controller deadline elapsed before the child exit was observed'), {
+        code: 'LAMINA_SAFE_CONTROLLER_DEADLINE',
+      });
+    }
     report.termination.child_exit_code = ended.code ?? null;
     report.termination.child_signal = ended.signal ?? null;
     if (ended.error) {
@@ -408,7 +516,7 @@ export async function runSafely({
       const measured = sample();
       const gatePid = report.preflight?.scope_proof?.gate_pid;
       const classification = classifyRemainingDescendants(
-        managedDescendantsFile,
+        managedRegistrations,
         measured?.records || [],
         gatePid ? [gatePid] : [],
       );
@@ -455,7 +563,6 @@ export async function runSafely({
   } finally {
     if (monitor) clearInterval(monitor);
     if (forceTimer) clearTimeout(forceTimer);
-    for (const [signal, handler] of signalHandlers) process.off(signal, handler);
     report.cleanup.attempted = true;
     if (activeAdapter) {
       try {
@@ -471,12 +578,26 @@ export async function runSafely({
           }
         }
         const cleanup = activeAdapter.cleanup();
+        for (const error of cleanup.errors || []) report.cleanup.errors.push(`adapter cleanup: ${error}`);
         report.cleanup.descendants_remaining = cleanup.pids || [];
         report.cleanup.scope_removed = cleanup.removed === true;
       } catch (error) {
         report.cleanup.errors.push(`adapter cleanup: ${error.message}`);
         report.cleanup.scope_removed = false;
       }
+    }
+    if (proofBroker) {
+      try { await proofBroker.close(); } catch (error) {
+        report.cleanup.errors.push(`proof broker cleanup: ${error.message}`);
+      }
+      proofBroker = null;
+    }
+    report.cleanup.managed_paths_remaining = [...managedCleanupPaths]
+      .filter((candidate) => fs.existsSync(candidate));
+    if (report.cleanup.managed_paths_remaining.length) {
+      report.cleanup.errors.push(
+        `managed graphd socket/lock remained: ${report.cleanup.managed_paths_remaining.join(', ')}`,
+      );
     }
     for (const stream of childStreams) stream.resume();
     for (const stream of outputStreams) {
@@ -505,6 +626,7 @@ export async function runSafely({
 
   const cleanupFailed = launched && (
     report.cleanup.descendants_remaining.length > 0
+    || report.cleanup.managed_paths_remaining.length > 0
     || report.cleanup.scope_removed !== true
     || report.cleanup.temporary_directory_removed !== true
     || report.cleanup.errors.length > 0
@@ -528,14 +650,27 @@ export async function runSafely({
     };
   }
   finishReport(report, startedMs);
-  if (report.outcome === 'success' && promote) {
-    try { recordPromotion(cwd, tier, report); } catch (error) {
+  if (report.outcome === 'safety_limit_exceeded' && mode !== 'self-test') {
+    try { recordSafetyLimit(cwd, normalizedCommand, report.limits, report); } catch (error) {
       report.outcome = 'internal_error';
-      report.termination.reason = 'promotion_failed';
-      report.error = errorDetails(error, 'LAMINA_SAFE_PROMOTION');
+      report.termination.reason = 'retry_ledger_failed';
+      report.error = errorDetails(error, 'LAMINA_SAFE_RETRY_LEDGER');
     }
   }
-  const written = writeReportWithFallback(reportFile, report);
-  Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
-  return report;
+  try {
+    const written = writeReportWithFallback(reportFile, report);
+    Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
+    if (report.outcome === 'success' && promote && written.fallback === false
+      && written.path === path.resolve(reportFile)) {
+      try { recordPromotion(cwd, tier, report, workloadId); } catch (error) {
+        report.outcome = 'internal_error';
+        report.termination.reason = 'promotion_failed';
+        report.error = errorDetails(error, 'LAMINA_SAFE_PROMOTION');
+        writeReportWithFallback(reportFile, report);
+      }
+    }
+    return report;
+  } finally {
+    for (const [signal, handler] of signalHandlers) process.off(signal, handler);
+  }
 }

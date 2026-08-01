@@ -13,11 +13,16 @@ const socket = path.join(runtime, 'graphd.sock');
 const lock = path.join(runtime, 'graphd.lock');
 const server = fileURLToPath(new URL('./graph-runtime/server.mjs', import.meta.url));
 fs.mkdirSync(runtime, { recursive: true });
-const child = spawn(process.execPath, [server, socket, lock], {
+const child = spawn(process.execPath, [server, socket, lock, process.argv[3] || 'clean'], {
   detached: true,
   stdio: 'ignore',
 });
-registerManagedGraphd(child);
+const registration = registerManagedGraphd(child, {
+  root: repository,
+  runtime_dir: runtime,
+  socket,
+  lock,
+});
 child.unref();
 
 const deadline = Date.now() + 2_000;
@@ -30,5 +35,5 @@ process.stdout.write(`${JSON.stringify({
   pid: child.pid,
   socket,
   lock,
-  registration: fs.readFileSync(process.env.LAMINA_SAFE_RUNNER_MANAGED_DESCENDANTS, 'utf8').trim(),
+  registration: JSON.stringify(registration),
 })}\n`);

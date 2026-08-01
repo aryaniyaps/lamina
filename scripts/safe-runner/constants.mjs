@@ -32,6 +32,9 @@ export const SELF_TEST_FIXTURE_MODES = Object.freeze({
   parent_signal: 'signal-controller',
   detached_descendant: 'detached-child',
 });
+export const PORTABLE_SELF_TEST_CASE_IDS = Object.freeze([
+  'normal_cleanup',
+]);
 export const SELF_TEST_LIMIT_MAXIMA = Object.freeze({
   memoryMaxBytes: 256 * 1024 ** 2,
   timeoutMs: 5_000,

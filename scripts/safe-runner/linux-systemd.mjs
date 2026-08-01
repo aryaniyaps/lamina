@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { processRecord, readPidList } from './processes.mjs';
 
 const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
+const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
 
 function systemctl(args) {
   return spawnSync('systemctl', ['--user', ...args], {
@@ -63,7 +64,10 @@ export class LinuxSystemdAdapter {
     this.cgroupPath = null;
   }
 
-  launch({ command, cwd, env, readyFile, releaseFile, payloadExitFile }) {
+  launch({
+    command, cwd, env, readyFile, releaseFile, payloadExitFile,
+    quotaReadyFile, quotaReleaseFile, temporaryDirectory,
+  }) {
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
       '--property', 'MemoryAccounting=yes',
@@ -74,7 +78,11 @@ export class LinuxSystemdAdapter {
       '--property', 'KillMode=control-group',
       '--property', 'SendSIGKILL=yes',
       '--property', 'OOMPolicy=stop',
+      '--property', `RuntimeMaxSec=${Math.ceil((this.limits.timeout_ms
+        + this.limits.graceful_stop_ms + 5_000) / 1_000)}s`,
       '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
+      quotaReadyFile, quotaReleaseFile, temporaryDirectory,
+      String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
       ...command,
     ];
     this.child = spawn('systemd-run', args, {
@@ -83,6 +91,27 @@ export class LinuxSystemdAdapter {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return this.child;
+  }
+
+  enforcementProof() {
+    const cgroup = this.resolveCgroup();
+    if (!cgroup) return { ok: false, reason: 'cgroup path is unavailable' };
+    const actual = {
+      memory_max_bytes: readNumber(path.join(cgroup, 'memory.max')),
+      memory_high_bytes: readNumber(path.join(cgroup, 'memory.high')),
+      pids_max: readNumber(path.join(cgroup, 'pids.max')),
+    };
+    const expected = {
+      memory_max_bytes: this.limits.memory_max_bytes,
+      memory_high_bytes: this.limits.memory_high_bytes,
+      pids_max: this.limits.pids_max,
+    };
+    return {
+      ok: Object.keys(expected).every((key) => actual[key] === expected[key]),
+      cgroup,
+      actual,
+      expected,
+    };
   }
 
   resolveCgroup() {
@@ -98,7 +127,10 @@ export class LinuxSystemdAdapter {
 
   sample() {
     const cgroup = this.resolveCgroup();
-    if (!cgroup) return { aggregateRssBytes: 0, taskCount: 0, pids: [], records: [], events: {} };
+    if (!cgroup) return {
+      aggregateRssBytes: 0, cgroupMemoryCurrentBytes: 0, cgroupMemoryPeakBytes: 0,
+      taskCount: 0, pids: [], records: [], events: {},
+    };
     const pids = cgroupPids(cgroup);
     const records = pids.map(processRecord).filter(Boolean);
     const cgroupCurrent = readNumber(path.join(cgroup, 'memory.current'));
@@ -107,9 +139,9 @@ export class LinuxSystemdAdapter {
       // for the complete scope. Per-process RSS remains in `records` for
       // diagnostics and must not be summed as shared pages would be counted
       // once per process.
-      aggregateRssBytes: cgroupCurrent,
-      aggregatePeakBytes: readNumber(path.join(cgroup, 'memory.peak')),
+      aggregateRssBytes: records.reduce((sum, record) => sum + (record.rss_bytes || 0), 0),
       cgroupMemoryCurrentBytes: cgroupCurrent,
+      cgroupMemoryPeakBytes: readNumber(path.join(cgroup, 'memory.peak')),
       taskCount: readNumber(path.join(cgroup, 'pids.current')),
       pids,
       records,
@@ -122,7 +154,12 @@ export class LinuxSystemdAdapter {
 
   signal(signal) {
     const result = systemctl(['kill', '--kill-whom=all', `--signal=${signal}`, this.unit]);
-    if (result.error && result.error.code !== 'ETIMEDOUT') throw result.error;
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      const error = new Error(`systemctl kill ${signal} failed for ${this.unit}: ${String(result.stderr || '').trim() || `status ${result.status}`}`);
+      error.code = 'LAMINA_SAFE_SYSTEMD_KILL';
+      throw error;
+    }
     return result;
   }
 
@@ -137,11 +174,15 @@ export class LinuxSystemdAdapter {
     const pids = this.sample().pids;
     const shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
     const state = String(shown.stdout || '').trim();
+    const absent = shown.status !== 0 || state === 'not-found' || !state;
+    const errors = [];
+    if (!absent && stopped.status !== 0) errors.push(`systemctl stop failed with status ${stopped.status}`);
+    if (!absent && reset.status !== 0) errors.push(`systemctl reset-failed failed with status ${reset.status}`);
     return {
       pids,
       knownPids: before,
-      removed: (shown.status !== 0 || state === 'not-found' || !state)
-        && !stopped.error && !reset.error,
+      removed: absent && !stopped.error && !reset.error && errors.length === 0,
+      errors,
       commands: {
         stop_status: stopped.status,
         reset_status: reset.status,

@@ -176,13 +176,18 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     tier: 'small', command: ['internal:stale-process-record'], cwd,
   });
   staleReport.report_file = staleReportPath;
-  staleReport.outcome = stalePassed ? 'success' : 'internal_error';
+  staleReport.outcome = stalePassed ? 'preflight_refused' : 'internal_error';
   staleReport.adapter = probe;
-  staleReport.preflight = { ok: true, deliberately_tiny_self_test: true };
-  staleReport.termination.reason = stalePassed ? 'completed' : 'cleanup_incomplete';
+  staleReport.preflight = {
+    ok: false,
+    deliberately_tiny_self_test: true,
+    reasons: ['internal stale process identity exercise; no payload launched'],
+  };
+  staleReport.termination.reason = stalePassed ? 'preflight_refused' : 'cleanup_incomplete';
   staleReport.cleanup = {
     attempted: true,
     descendants_remaining: [],
+    managed_paths_remaining: [],
     scope_removed: true,
     temporary_directory_removed: true,
     lock_released: stalePassed,
