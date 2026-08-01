@@ -160,6 +160,12 @@ try {
     'managed_graphd',
   );
   assert.equal(
+    classifyRemainingDescendants(managedFile, [graphdRecord, {
+      pid: 41004, ppid: 1, start_ticks: '103', state: 'Z', command: '',
+    }]).kind,
+    'managed_graphd',
+  );
+  assert.equal(
     classifyRemainingDescendants(managedFile, [graphdRecord, graphdWorker, {
       pid: 41003, ppid: 1, start_ticks: '102', command: 'unregistered-daemon',
     }]).kind,

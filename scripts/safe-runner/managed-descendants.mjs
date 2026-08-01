@@ -32,7 +32,11 @@ export function registeredManagedGraphd(file, records = []) {
 
 export function classifyRemainingDescendants(file, records = [], ignoredPids = []) {
   const ignored = new Set(ignoredPids.map(Number));
-  const remaining = records.filter((record) => !ignored.has(Number(record.pid)));
+  // A waited child can remain visible for a very short period as a zombie.
+  // It owns no memory, cannot execute, and will be reaped by its parent; do not
+  // misclassify that exit-state record as a live detached daemon.
+  const remaining = records.filter((record) =>
+    record.state !== 'Z' && !ignored.has(Number(record.pid)));
   if (remaining.length === 0) return { kind: 'empty', records: [], roots: [] };
   const roots = registeredManagedGraphd(file, remaining);
   if (roots.length === 0) return { kind: 'unmanaged', records: remaining, roots: [] };

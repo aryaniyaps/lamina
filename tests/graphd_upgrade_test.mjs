@@ -177,7 +177,7 @@ try {
 
   let lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
   assert.equal(lock.protocol_version, 9);
-  assert.equal(lock.runtime_version, '0.3.5');
+  assert.equal(lock.runtime_version, '0.3.6');
   assert.deepEqual(lock.capabilities, [
     'observation.status.source_key_count',
     'observation.status.generation',
@@ -216,7 +216,7 @@ try {
   ));
   if (fake.exitCode === null) await once(fake, 'exit');
   lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-  assert.equal(lock.runtime_version, '0.3.5');
+  assert.equal(lock.runtime_version, '0.3.6');
   await stopIncompatibleServer(paths, lock.pid);
 
   // Even a daemon that claims the required capabilities is replaced if its
