@@ -77,7 +77,7 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
-  temporaryQuotaHandshakeFailure,
+  recordChildTermination, temporaryQuotaHandshakeFailure,
 } from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
@@ -814,6 +814,39 @@ try {
   report.cleanup.temporary_directory_removed = true;
   const reportValidation = validateReport(report);
   assert.equal(reportValidation.valid, true, reportValidation.errors.join('; '));
+  for (const { childEnded, expected, reason, error } of [
+    {
+      childEnded: { code: 125, signal: null },
+      expected: { child_exit_code: 125, child_signal: null },
+      reason: 'internal_error',
+      error: { code: 'LAMINA_SAFE_SANDBOX_LAUNCH', message: 'sandbox launcher exited' },
+    },
+    {
+      childEnded: { code: null, signal: 'SIGKILL' },
+      expected: { child_exit_code: null, child_signal: 'SIGKILL' },
+      reason: 'internal_error',
+      error: { code: 'LAMINA_SAFE_SANDBOX_LAUNCH', message: 'sandbox launcher was signaled' },
+    },
+    {
+      childEnded: { error: new Error('spawn failed') },
+      expected: { child_exit_code: null, child_signal: null },
+      reason: 'spawn_failed',
+      error: { code: 'LAMINA_SAFE_SPAWN', message: 'spawn failed' },
+    },
+  ]) {
+    const childReport = structuredClone(report);
+    childReport.outcome = 'internal_error';
+    childReport.termination.reason = reason;
+    childReport.termination.limit = reason === 'internal_error' ? 'sandbox_launch' : null;
+    childReport.error = error;
+    recordChildTermination(childReport.termination, childEnded);
+    assert.deepEqual({
+      child_exit_code: childReport.termination.child_exit_code,
+      child_signal: childReport.termination.child_signal,
+    }, expected);
+    const childValidation = validateReport(childReport);
+    assert.equal(childValidation.valid, true, childValidation.errors.join('; '));
+  }
   writeReport(report.report_file, report);
   assert.equal(validateReport(JSON.parse(fs.readFileSync(report.report_file))).valid, true);
   const reportAuthority = path.join(root, 'report-authority.json');

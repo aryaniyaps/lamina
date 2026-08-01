@@ -90,6 +90,13 @@ export function temporaryQuotaHandshakeFailure(childEnded, launcherStderr = '') 
   };
 }
 
+export function recordChildTermination(termination, childEnded) {
+  termination.child_exit_code = Number.isInteger(childEnded?.code) ? childEnded.code : null;
+  termination.child_signal = typeof childEnded?.signal === 'string' && childEnded.signal
+    ? childEnded.signal : null;
+  return termination;
+}
+
 export async function closeOutputStreams(childStreams, outputStreams, deadlineMs = 1_000) {
   for (const stream of childStreams) stream.resume();
   const closures = outputStreams.map((stream) => stream.closed
@@ -904,6 +911,7 @@ export async function runSafely({
       }
       if (!quotaProof) {
         const failure = temporaryQuotaHandshakeFailure(childEnded, launcherStderrTail);
+        recordChildTermination(report.termination, childEnded);
         requestStop('internal_error', failure.limit);
         throw failure.error;
       }
@@ -949,8 +957,7 @@ export async function runSafely({
         code: 'LAMINA_SAFE_CONTROLLER_DEADLINE',
       });
     }
-    report.termination.child_exit_code = ended.code ?? null;
-    report.termination.child_signal = ended.signal ?? null;
+    recordChildTermination(report.termination, ended);
     if (ended.error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'spawn_failed';
