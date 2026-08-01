@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '..');
 const cli = path.join(root, 'packages/cli');
@@ -22,6 +23,39 @@ const tokenizer = {
 
 function sha256(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function encodeEmbeddedAsset(source, relative) {
+  const embeddedRelative = `${relative}.base64`;
+  fs.writeFileSync(
+    path.join(destination, embeddedRelative),
+    fs.readFileSync(source).toString('base64'),
+  );
+  return embeddedRelative;
+}
+
+function windowsOpenSslDependency(name) {
+  const candidates = [];
+  const where = spawnSync('where.exe', [name], { encoding: 'utf8' });
+  if (where.status === 0) candidates.push(...where.stdout.split(/\r?\n/).filter(Boolean));
+  for (const root of [
+    process.env.ProgramFiles,
+    process.env['ProgramFiles(x86)'],
+    'C:\\Program Files',
+  ].filter(Boolean)) {
+    candidates.push(
+      path.join(root, 'OpenSSL', 'bin', name),
+      path.join(root, 'OpenSSL-Win64', 'bin', name),
+    );
+  }
+  for (const directory of String(process.env.PATH || '').split(path.delimiter).filter(Boolean)) {
+    candidates.push(path.join(directory, name));
+  }
+  const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!resolved) {
+    throw new Error(`Required Windows OpenSSL runtime dependency was not found: ${name}`);
+  }
+  return path.resolve(resolved);
 }
 
 async function download(item, output) {
@@ -69,11 +103,7 @@ for (const role of ['fts', 'vector']) {
   // PyInstaller automatically reclassifies Mach-O-looking DATA as BINARY and
   // rewrites it during macOS collection. Embed an inert textual representation
   // so the checksum-authoritative extension bytes survive every platform.
-  const embeddedRelative = `${relative}.base64`;
-  fs.writeFileSync(
-    path.join(destination, embeddedRelative),
-    fs.readFileSync(output).toString('base64'),
-  );
+  const embeddedRelative = encodeEmbeddedAsset(output, relative);
   files.push({
     role,
     path: relative,
@@ -81,6 +111,20 @@ for (const role of ['fts', 'vector']) {
     encoding: 'base64',
     source: output,
   });
+}
+
+if (process.platform === 'win32') {
+  for (const name of ['libssl-3-x64.dll', 'libcrypto-3-x64.dll']) {
+    const source = windowsOpenSslDependency(name);
+    const relative = `extensions/${name}`;
+    files.push({
+      role: `openssl_${name.startsWith('libssl') ? 'ssl' : 'crypto'}`,
+      path: relative,
+      embedded_path: encodeEmbeddedAsset(source, relative),
+      encoding: 'base64',
+      source,
+    });
+  }
 }
 
 const manifest = {

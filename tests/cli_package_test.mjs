@@ -23,7 +23,7 @@ assert.equal(rootPackage.private, true);
 assert.equal(rootPackage.bin, undefined);
 assert.equal(cliPackage.private, true);
 assert.equal(cliPackage.bin, undefined);
-assert.equal(cliPackage.version, '0.3.3');
+assert.equal(cliPackage.version, '0.3.4');
 assert.equal(cliPackage.dependencies['@ladybugdb/core'], '0.19.0');
 assert.equal(retrievalModel.qualification.decision, 'ship_int8');
 assert.ok(
@@ -58,6 +58,10 @@ for (const extension of ['fts', 'vector']) {
 }
 assert.match(retrievalAssetBuilder, /toString\('base64'\)/);
 assert.match(retrievalAssetBuilder, /encoding: 'base64'/);
+assert.match(retrievalAssetBuilder, /libssl-3-x64\.dll/);
+assert.match(retrievalAssetBuilder, /libcrypto-3-x64\.dll/);
+assert.match(retrievalAssetBuilder, /windowsOpenSslDependency/);
+assert.match(builder, /extensions\/\$\{name\}\.base64/);
 assert.match(retrievalWorker, /base64\.b64decode\(payload, validate=True\)/);
 assert.match(builder, /\['pywintypes', 'win32file', 'win32pipe'\]/);
 assert.match(builder, /buildArgs\.push\('--hidden-import', module\)/);
@@ -96,7 +100,7 @@ assert.match(workflow, /transactional_graph_test/);
 assert.match(workflow, /graphd_protocol_test/);
 assert.doesNotMatch(workflow, /npm publish|npm view|npm audit signatures|npm trust/i);
 assert.equal(
-  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.3']).status,
+  spawnSync(process.execPath, ['scripts/check-cli-release-tag.mjs', 'cli-v0.3.4']).status,
   0,
 );
 assert.notEqual(

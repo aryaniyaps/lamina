@@ -82,6 +82,12 @@ function buildManagedCocoWorker() {
     '--add-data', `${path.join(retrievalAssets, 'extensions/vector.lbug_extension.base64')}${pyInstallerSeparator}retrieval-assets/extensions`,
   ];
   if (process.platform === 'win32') {
+    for (const name of ['libssl-3-x64.dll', 'libcrypto-3-x64.dll']) {
+      buildArgs.push(
+        '--add-data',
+        `${path.join(retrievalAssets, `extensions/${name}.base64`)}${pyInstallerSeparator}retrieval-assets/extensions`,
+      );
+    }
     // cocoindex_app imports these only inside its Windows named-pipe branch,
     // so PyInstaller cannot discover them through static analysis.
     for (const module of ['pywintypes', 'win32file', 'win32pipe']) {
