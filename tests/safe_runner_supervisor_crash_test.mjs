@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  runHandledParentSignalSelfTest,
   runSupervisorCrashSelfTest,
   SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS,
   SUPERVISOR_CRASH_REPORT_TIMEOUT_MS,
@@ -32,6 +33,27 @@ try {
   assert.equal(delayed.passed, true, JSON.stringify(delayed, null, 2));
   assert.equal(delayed.report.samples.length, 1);
 
+  const handledStarted = Date.now();
+  const handled = await runHandledParentSignalSelfTest({
+    cwd: process.cwd(),
+    reportDirectory: reports,
+    _testControllerFixture: fixture,
+    _testControllerArguments: ['handled-sigint', '5100'],
+    _testReportTimeoutMs: 2_000,
+  });
+  assert.ok(Date.now() - handledStarted >= 5_000,
+    'handled SIGINT qualification must tolerate preparation longer than five seconds');
+  assert.equal(handled.diagnostic, null);
+  assert.equal(handled.passed, true, JSON.stringify(handled, null, 2));
+  assert.equal(handled.signal_requested, true,
+    'the handled helper must prove that it delivered SIGINT after the valid marker');
+  assert.equal(handled.report?.termination?.requested_signals?.includes('SIGINT'), true,
+    'the delayed fixture must write its result only in response to SIGINT');
+  assert.deepEqual(JSON.parse(fs.readFileSync(
+    path.join(reports, 'parent_signal_host_sigint.json.sigint-ready'), 'utf8',
+  )), { report_exists_before_signal: false });
+  assert.ok(Object.values(handled.evidence).every(Boolean));
+
   const missing = await runSupervisorCrashSelfTest({
     cwd: process.cwd(),
     reportDirectory: reports,
@@ -51,6 +73,21 @@ try {
   assert.equal(missing.report?.error?.code, 'LAMINA_SAFE_SUPERVISOR_CRASH',
     'missing-boundary handling must still wait for the bounded crash report');
   assert.equal(missing.report?.termination?.reason, 'supervisor_crash_before_payload');
+
+  const missingHandled = await runHandledParentSignalSelfTest({
+    cwd: process.cwd(),
+    reportDirectory: reports,
+    _testControllerArguments: ['5000'],
+    _testPreparationTimeoutMs: 3_000,
+    _testReportTimeoutMs: 10_000,
+  });
+  assert.equal(missingHandled.passed, false);
+  assert.equal(missingHandled.signal_requested, false);
+  assert.equal(missingHandled.diagnostic?.code, 'boundary_not_reached');
+  assert.equal(missingHandled.diagnostic?.exact_cleanup_proven, true);
+  assert.equal(missingHandled.report?.error?.code, 'LAMINA_SAFE_SUPERVISOR_CRASH');
+  assert.equal(missingHandled.report?.termination?.reason, 'supervisor_crash_before_payload');
+  assert.ok(Object.values(missingHandled.evidence).every(Boolean));
 
   const runner = fs.readFileSync('scripts/safe-runner/runner.mjs', 'utf8');
   const scopeSample = runner.indexOf('rememberDescendants(report, proof.records');
