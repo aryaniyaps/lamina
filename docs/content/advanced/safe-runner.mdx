@@ -1,0 +1,144 @@
+---
+title: Crash-safe runner
+description: Mandatory process-tree safety boundary for resource-intensive Lamina development and qualification
+---
+
+import { Callout } from 'nextra/components'
+
+# Crash-safe runner
+
+The crash-safe runner is the mandatory host-safety boundary for
+resource-intensive benchmark, experiment, fixture, and Lamina commands in the
+practical-runtime program. It controls and measures the complete descendant
+tree on supported Linux hosts.
+
+<Callout type="warning">
+  A safety-limit hit is a failed scenario. Never report it as a product
+  measurement, rerun it without limits, add swap, or alter host/kernel memory
+  behavior.
+</Callout>
+
+## 1. Inspect the effective envelope
+
+```bash
+npm run safe:envelope
+```
+
+This command is read-only. It reports host memory and disk, derived limits,
+cgroup-v2 controller availability, the selected adapter, current self-test
+attestation, and completed tier promotions. It does not create a scope or
+launch a payload.
+
+The default hard memory ceiling is `min(3 GiB, 25% of physical RAM)`. The 8 GB
+profile cannot exceed 2 GiB, and launch must preserve at least 2 GiB for the
+OS/desktop. The default process ceiling is 64 and production concurrency is
+one.
+
+## 2. Qualify the current host and runner build
+
+```bash
+npm run safe:self-test
+```
+
+The self-test uses only tiny fixtures and low artificial limits. It covers:
+
+- direct and aggregate child memory;
+- ignored graceful termination and timeout;
+- rapid process spawning;
+- stdout/stderr flooding;
+- runner-owned temporary-file growth;
+- parent interruption;
+- stale PID identity; and
+- a parent that exits with a detached descendant.
+
+Every case writes a versioned report, proves cleanup, and contributes a digest
+to the host attestation. The attestation is invalidated when the host,
+architecture, controllers, adapter, runner source, gate, or schema changes.
+
+If user-systemd or cgroup-v2 aggregate enforcement is unavailable, the
+portable adapter can run only the exact built-in low-limit self-test allowlist.
+The host-qualification command itself refuses before launching the adversarial
+matrix, because a portable process group cannot prove cleanup of the detached
+descendant case. Portable focused contract tests never qualify medium or large
+execution.
+
+## 3. Run one scenario
+
+```bash
+npm run safe:run -- \
+  --tier small \
+  --report /absolute/path/to/small-result.json \
+  --promote \
+  -- <command> [args]
+```
+
+Use `--promote` only for an intended tier-qualification scenario. Promotion is
+recorded only after a successful command, schema-valid report, empty descendant
+set, removed scope, removed runner temporary directory, and error-free cleanup.
+
+Medium requires current small promotion. Large requires current small and
+medium promotion. Both also require a valid production attestation, aggregate
+enforcement, and the global concurrency lock. Every tier refuses while an
+existing Lamina runtime is already active, because a pre-existing process is
+outside the new scope.
+
+All limit flags are downward-only:
+
+```text
+--memory-mib --memory-high-mib --pids --timeout-ms
+--output-mib --temporary-mib --sample-ms --high-samples --grace-ms
+```
+
+There is no unrestricted fallback. Docker, Harbor, or another external daemon
+cannot be used as the payload because the runner cannot prove ownership of the
+daemon-created descendants.
+
+Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
+escape hatch. When a scoped CLI starts `graphd`, the client records its PID and
+Linux start identity in the runner-owned temporary registry. After the CLI
+exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
+root and its in-scope descendants, sends the complete scope `SIGTERM`, and
+still requires an empty scope. A mismatched identity, unrelated process, or
+unregistered detached descendant is a safety failure.
+
+## Reports and outcomes
+
+Each run writes `lamina.safe-runner-report/v1`. It includes:
+
+- limits and complete preflight data;
+- bounded aggregate/per-process samples and peaks;
+- bounded output counts/tails and temporary disk usage;
+- every observed descendant with PID start identity;
+- cgroup memory/PID events;
+- exit status, signal, termination reason, and requested signals; and
+- descendant, scope, temporary-directory, lock, and report cleanup.
+
+The outcome is one of `success`, `command_failed`,
+`safety_limit_exceeded`, `preflight_refused`, `interrupted`, or
+`internal_error`. Validate a report independently with:
+
+```bash
+node scripts/safe-runner/cli.mjs validate-report --file /absolute/path/to/result.json
+```
+
+If the requested report path cannot be written, the runner attempts a bounded
+fallback report in the system temporary directory and marks the run as an
+internal failure. A missing report is never a measurement.
+
+## Child-command integration
+
+Resource-intensive repository entrypoints can call
+`assertSafeRunnerContext()` from `scripts/safe-runner/index.mjs`. The signed
+temporary context proves the tier and, on Linux, verifies that the process is
+inside the expected systemd scope. Do not accept a plain environment flag as
+proof.
+
+Lamina's graph client also registers any graphd it starts by PID and Linux
+start ticks. After the payload exits, the runner gives that exact registered
+daemon a short graceful shutdown window and verifies that its socket, lock,
+process tree, and scope are gone. Any unregistered detached process—or any
+registered graphd that outlives the deadline—fails the scenario and triggers
+complete scope termination.
+
+See [ADR-014](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/014-crash-safe-resource-supervision.md)
+for the ownership and fail-closed rationale.

@@ -286,6 +286,20 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm test
 ```
 
+Before any resource-intensive benchmark, experiment, fixture, or Lamina
+subprocess, inspect and qualify the crash-safe runner, then execute one tier at
+a time through its canonical command:
+
+```bash
+npm run safe:envelope
+npm run safe:self-test
+npm run safe:run -- --tier small --report /absolute/path/to/result.json --promote -- <command> [args]
+```
+
+Medium and large runs fail closed without aggregate Linux cgroup-v2
+enforcement, a current self-test attestation, sequential promotion evidence,
+and complete cleanup. See the [crash-safe runner guide](docs/content/advanced/safe-runner.mdx).
+
 The standalone CLI, matching private native CocoIndex worker, and shared
 offline retrieval model are published as checksum-verified assets on the
 [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).
