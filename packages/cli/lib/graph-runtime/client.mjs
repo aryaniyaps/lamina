@@ -38,7 +38,8 @@ export function daemonCompatibility(identity) {
   };
 }
 
-function isGraphdExecutionHook(name) {
+function isGraphdExecutionHook(name, platform = process.platform) {
+  const normalized = platform === 'win32' ? name.toUpperCase() : name;
   return [
     'BASH_ENV', 'ENV', 'CDPATH', 'GLOBIGNORE', 'SHELLOPTS',
     'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONINSPECT',
@@ -46,23 +47,35 @@ function isGraphdExecutionHook(name) {
     'RUBYOPT', 'RUBYLIB', 'GEM_HOME', 'GEM_PATH',
     'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS',
     'GCONV_PATH', 'GETCONF_DIR', 'LOCPATH', 'NLSPATH', 'HOSTALIASES', 'RES_OPTIONS',
-  ].includes(name) || [
+  ].includes(normalized) || [
     'LD_', 'DYLD_', 'NODE_', 'BASH_FUNC_', 'PYTHON', 'PERL', 'RUBY', 'GIT_',
-  ].some((prefix) => name.startsWith(prefix));
+  ].some((prefix) => normalized.startsWith(prefix));
 }
 
-export function graphdEnvironment() {
-  const environment = Object.fromEntries(Object.entries(process.env)
-    .filter(([name]) => !isGraphdExecutionHook(name)));
-  if (process.platform !== 'win32') return environment;
+export function graphdEnvironmentFor(
+  inheritedEnvironment,
+  {
+    platform = process.platform,
+    extensionDirectory = path.join(retrievalRuntimeDirectory(), 'extensions'),
+  } = {},
+) {
+  const entries = Object.entries(inheritedEnvironment || {});
+  const inheritedPath = entries.find(([name]) => name.toLowerCase() === 'path')?.[1];
+  const environment = Object.fromEntries(entries
+    .filter(([name]) => !isGraphdExecutionHook(name, platform)
+      && (platform !== 'win32' || name.toLowerCase() !== 'path')));
+  if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when
   // graphd starts (the extension directory itself is not searched reliably).
-  const dependencies = path.join(retrievalRuntimeDirectory(), 'extensions');
   return {
     ...environment,
-    PATH: [dependencies, environment.PATH].filter(Boolean).join(path.delimiter),
+    Path: [extensionDirectory, inheritedPath].filter(Boolean).join(';'),
   };
+}
+
+export function graphdEnvironment() {
+  return graphdEnvironmentFor(process.env);
 }
 
 export function reserveManagedGraphd(paths = null) {

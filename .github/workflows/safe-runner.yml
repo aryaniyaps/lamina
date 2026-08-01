@@ -66,6 +66,40 @@ jobs:
           node-version: '20'
           package-manager-cache: false
 
+      - name: Stage trusted private Node runtime
+        shell: bash
+        run: |
+          source_node="$(realpath "$(command -v node)")"
+          source_bin="$(dirname "$source_node")"
+          source_root="$(dirname "$source_bin")"
+          trust_root="$RUNNER_TEMP/lamina-safe-node"
+          node_dir="$trust_root/bin"
+          evidence_dir="$RUNNER_TEMP/safe-runner-test-artifacts/provisioning"
+          install -d -m 0700 "$trust_root"
+          install -d -m 0700 "$evidence_dir"
+          cp -a --no-preserve=ownership "$source_root/." "$trust_root/"
+          chmod -R go-w "$trust_root"
+          chmod 0700 "$trust_root"
+          source_sha256="$(sha256sum "$source_node" | cut -d' ' -f1)"
+          staged_sha256="$(sha256sum "$node_dir/node" | cut -d' ' -f1)"
+          test "$source_sha256" = "$staged_sha256"
+          test "$("$node_dir/node" -p 'process.execPath')" = "$node_dir/node"
+          source_npx_target="$(realpath "$source_bin/npx")"
+          staged_npx_target="$(realpath "$node_dir/npx")"
+          test -f "$staged_npx_target"
+          case "$staged_npx_target" in "$trust_root"/*) ;; *) exit 1 ;; esac
+          source_npx_sha256="$(sha256sum "$source_npx_target" | cut -d' ' -f1)"
+          staged_npx_sha256="$(sha256sum "$staged_npx_target" | cut -d' ' -f1)"
+          test "$source_npx_sha256" = "$staged_npx_sha256"
+          PATH="$node_dir:$PATH" "$node_dir/npx" --version
+          printf 'source_node=%s\nsource_node_sha256=%s\nstaged_node=%s\nstaged_node_sha256=%s\nsource_npx_target=%s\nsource_npx_sha256=%s\nstaged_npx_target=%s\nstaged_npx_sha256=%s\n' \
+            "$source_node" "$source_sha256" "$node_dir/node" "$staged_sha256" \
+            "$source_npx_target" "$source_npx_sha256" "$staged_npx_target" "$staged_npx_sha256" \
+            | tee "$evidence_dir/node-identity.txt"
+          namei -l "$node_dir/node" "$node_dir/npx" "$staged_npx_target" \
+            | tee "$evidence_dir/node-ancestors.txt"
+          printf '%s\n' "$node_dir" >> "$GITHUB_PATH"
+
       - name: Provision pinned rootless bubblewrap
         shell: bash
         run: |

@@ -64,7 +64,7 @@ import {
 } from '../scripts/safe-runner/retrieval-authority.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
-  graphdEnvironment, stopIncompatibleServer,
+  graphdEnvironment, graphdEnvironmentFor, stopIncompatibleServer,
 } from '../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 import {
@@ -369,6 +369,32 @@ try {
     if (previousGraphdSafeValue === undefined) delete process.env.LAMINA_GRAPH_ENV_TEST;
     else process.env.LAMINA_GRAPH_ENV_TEST = previousGraphdSafeValue;
   }
+  for (const inherited of [
+    { Path: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
+    { PATH: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
+  ]) {
+    const graphdEnv = graphdEnvironmentFor({
+      ...inherited,
+      node_options: '--require=C:\\hostile.cjs',
+      gIt_Config_Global: 'C:\\hostile.gitconfig',
+      LAMINA_GRAPH_ENV_TEST: 'kept',
+    }, { platform: 'win32', extensionDirectory: 'C:\\Lamina\\extensions' });
+    const pathEntries = Object.entries(graphdEnv)
+      .filter(([name]) => name.toLowerCase() === 'path');
+    assert.deepEqual(pathEntries, [[
+      'Path',
+      'C:\\Lamina\\extensions;C:\\Program Files\\Git\\cmd;C:\\Windows\\System32',
+    ]]);
+    assert.equal(graphdEnv.node_options, undefined);
+    assert.equal(graphdEnv.gIt_Config_Global, undefined);
+    assert.equal(graphdEnv.LAMINA_GRAPH_ENV_TEST, 'kept');
+  }
+  const defaultWindowsGraphdEnv = graphdEnvironmentFor(
+    { Path: 'C:\\Program Files\\Git\\cmd' }, { platform: 'win32' },
+  );
+  assert.equal(path.basename(defaultWindowsGraphdEnv.Path.split(';')[0]), 'extensions',
+    'default Windows graphd PATH must prepend the retrieval extension directory itself');
+  assert.equal(defaultWindowsGraphdEnv.Path.split(';').at(-1), 'C:\\Program Files\\Git\\cmd');
   const cleanProcessEnvironment = processEnvironmentAttestation(
     Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_RUNNER=1\0'),
   );

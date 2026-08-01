@@ -55,6 +55,12 @@ assert.doesNotMatch(packageManifest.scripts['bench:retrieval'], /--worker|--mode
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_PATH=%s/);
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_SHA256=%s/);
 assert.doesNotMatch(safeWorkflow, /echo "\$bin_dir" >> "\$GITHUB_PATH"/);
+assert.match(safeWorkflow,
+  /Stage trusted private Node runtime[\s\S]*install -d -m 0700 "\$trust_root"[\s\S]*cp -a --no-preserve=ownership "\$source_root\/\." "\$trust_root\/"[\s\S]*chmod -R go-w "\$trust_root"/,
+  'Linux CI must stage the complete setup-node runtime beneath exact private current-user ancestors');
+assert.match(safeWorkflow,
+  /source_sha256=.*sha256sum[\s\S]*test "\$source_sha256" = "\$staged_sha256"[\s\S]*staged_npx_target=.*realpath[\s\S]*test "\$source_npx_sha256" = "\$staged_npx_sha256"[\s\S]*node-ancestors\.txt[\s\S]*"\$GITHUB_PATH"/,
+  'staged Node and sibling npx must retain digest, ancestor, and PATH evidence');
 assert.match(safeWorkflow, /portable-contract:[\s\S]*npm run test:safe-runner:portable/);
 assert.doesNotMatch(safeWorkflow,
   /portable-contract:[\s\S]*node tests\/safe_runner_test\.mjs/,

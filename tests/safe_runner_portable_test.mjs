@@ -8,6 +8,7 @@ import { MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { PortableProcessGroupAdapter } from '../scripts/safe-runner/portable-process-group.mjs';
 import { preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
+import { readAttestation } from '../scripts/safe-runner/state.mjs';
 
 for (const platform of ['darwin', 'win32']) {
   const probe = adapterProbe(platform);
@@ -22,9 +23,23 @@ assert.equal(assertAdapterShape(new PortableProcessGroupAdapter()).id,
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-portable-contract-'));
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+const previousBwrapPath = process.env.LAMINA_SAFE_BWRAP_PATH;
+const previousBwrapSha = process.env.LAMINA_SAFE_BWRAP_SHA256;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
+process.env.LAMINA_SAFE_BWRAP_PATH = 'deliberately-relative-portable-poison';
+process.env.LAMINA_SAFE_BWRAP_SHA256 = 'not-a-digest';
 try {
   const probe = process.platform === 'linux' ? adapterProbe('darwin') : adapterProbe();
+  const portableAttestation = readAttestation(probe);
+  assert.deepEqual(portableAttestation, {
+    valid: false,
+    expected_fingerprint: null,
+    value: null,
+    qualification_available: false,
+    qualified_for_production_tiers: false,
+    adapter: 'portable-process-group-small-only',
+    reason: 'production attestation is unavailable without aggregate production enforcement',
+  });
   const fixture = path.resolve('tests/fixtures/safe-runner-adversary.mjs');
   const base = {
     memoryMaxBytes: 192 * MIB,
@@ -45,6 +60,11 @@ try {
   assert.equal(tiny.deliberately_tiny_self_test, true);
   assert.equal(tiny.portable_self_test_allowed, true);
   assert.equal(tiny.ok, true);
+  assert.deepEqual(tiny.attestation, {
+    valid: false, path: 'unavailable', tested_at: null,
+    qualified_for_production_tiers: false, qualification_available: false,
+    reason: 'production attestation is unavailable without aggregate production enforcement',
+  });
   const oversized = classify(64);
   assert.equal(oversized.deliberately_tiny_self_test, false);
   assert.equal(oversized.portable_self_test_allowed, false);
@@ -64,9 +84,17 @@ try {
   assert.equal(qualification.cases.length, SELF_TEST_CASE_IDS.length);
   assert.ok(qualification.cases.every((item) => item.skipped === true));
   assert.match(qualification.refusal.message, /requires Linux user-systemd cgroup-v2/);
+  const persisted = JSON.parse(fs.readFileSync(path.join(root, 'state', 'self-test.json'), 'utf8'));
+  assert.equal(persisted.qualified_for_production_tiers, false);
+  assert.equal(persisted.host_fingerprint, null,
+    'portable refusal evidence must not compute a Linux infrastructure fingerprint');
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
+  if (previousBwrapPath === undefined) delete process.env.LAMINA_SAFE_BWRAP_PATH;
+  else process.env.LAMINA_SAFE_BWRAP_PATH = previousBwrapPath;
+  if (previousBwrapSha === undefined) delete process.env.LAMINA_SAFE_BWRAP_SHA256;
+  else process.env.LAMINA_SAFE_BWRAP_SHA256 = previousBwrapSha;
   fs.rmSync(root, { recursive: true, force: true });
 }
 

@@ -100,6 +100,9 @@ records exact device/inode/owner/type identities and validates the lock PID.
 Normal and watchdog cleanup share the same `lstat`-based immediate pre-unlink
 identity recheck. Dangling symlinks, unsealed foreign objects, and same-user
 replacements remain in place and keep cleanup incomplete.
+On Windows, graphd emits one canonical `Path` entry: the native-extension
+directory is prepended to the inherited path found case-insensitively, retaining
+Git discovery while all execution-hook environment families remain stripped.
 The proof socket itself has a hard concurrent-connection cap, idle and frame
 byte deadlines, exactly one request per connection, and a bounded fixed-window
 request rate. Its deadline remains armed after a response until the connection
@@ -256,7 +259,15 @@ When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under
 strict low maxima. It can exercise refusal and cleanup behavior but cannot
 produce an attestation that qualifies medium or large work. Production-grade
-macOS and Windows enforcement remains part of issue #57.
+macOS and Windows enforcement remains part of issue #57. Portable preflight
+returns explicit unavailable/unqualified attestation metadata without reading
+Linux infrastructure identities or computing a host fingerprint.
+
+The standalone CLI smoke script retains one direct, no-binary build-contract
+check because that path only verifies installer surfaces. Supplying a binary
+still requires a valid live safe-runner context. A safe-runner-marked invocation
+that loses its snapshot-sealed binary refuses rather than taking the direct
+early exit.
 
 ## Alternatives considered
 
@@ -309,6 +320,10 @@ prove ownership of descendants created by an external daemon.
   attestation. macOS and Windows CI exercise the portable interface and
   production-refusal contract through a dedicated cross-platform test rather
   than the Linux/POSIX unit harness.
+- Linux CI copies setup-node's complete runtime root, including sibling npm/npx
+  authority, into private current-user ancestry. It records source/staged Node
+  and physical npx-target digests plus ancestor evidence and uses that runtime
+  for tests. The trusted-ancestor policy remains unchanged.
 - macOS and Windows cannot claim medium/large qualification until issue #57
   supplies and tests complete native descendant enforcement.
 - Repository-output workloads refuse before watchdog, snapshot, or payload

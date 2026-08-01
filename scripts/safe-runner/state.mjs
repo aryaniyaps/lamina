@@ -110,7 +110,20 @@ export function attestationPath() {
   return path.join(stateDirectory(), 'self-test.json');
 }
 
+export function unqualifiedAttestation(adapter) {
+  return {
+    valid: false,
+    expected_fingerprint: null,
+    value: null,
+    qualification_available: false,
+    qualified_for_production_tiers: false,
+    adapter: adapter?.id || null,
+    reason: 'production attestation is unavailable without aggregate production enforcement',
+  };
+}
+
 export function readAttestation(adapter) {
+  if (adapter?.production_enforcement !== true) return unqualifiedAttestation(adapter);
   const value = json(attestationPath());
   const expected = hostFingerprint(adapter);
   const caseIds = Array.isArray(value?.cases) ? value.cases.map((item) => item.id).sort() : [];
@@ -142,7 +155,7 @@ export function writeAttestation(adapter, cases) {
     qualified_for_production_tiers: adapter.production_enforcement === true
       && casesValid,
     tested_at: new Date().toISOString(),
-    host_fingerprint: hostFingerprint(adapter),
+    host_fingerprint: adapter.production_enforcement === true ? hostFingerprint(adapter) : null,
     adapter: adapter.id,
     cases,
   };

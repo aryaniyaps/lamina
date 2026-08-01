@@ -62,7 +62,9 @@ The host-qualification command itself refuses before launching the adversarial
 matrix, because a portable process group cannot prove cleanup of the detached
 descendant case. Portable focused contract tests never qualify medium or large
 execution. macOS and Windows CI run that dedicated adapter/refusal contract;
-they do not execute the Linux/POSIX unit harness.
+they do not execute the Linux/POSIX unit harness. Portable preflight reports
+attestation as explicitly unavailable and unqualified without probing Linux
+infrastructure binaries or computing a host fingerprint.
 
 The low-limit Linux CI job is pinned to Ubuntu 22.04 and provisions Bubblewrap
 without privilege. It downloads the official Debian Bookworm 0.8.0 package by
@@ -71,6 +73,12 @@ dependency evidence, and extracts only the binary into the ephemeral runner
 directory. Bookworm's declared glibc, libcap, and libselinux minima are
 satisfied by Jammy. The job then runs the real hard-quota probe before the
 adversarial matrix; it does not use `sudo` or modify the host package database.
+The job also copies setup-node's complete runtime root—including its relative
+npm/npx links and npm package—into a mode-0700 current-user directory, removes
+group/world write permission, records source/staged Node and physical npx-target
+SHA-256 plus ancestor evidence, and puts its physical `bin` first on subsequent
+PATHs. This satisfies the existing trusted-ancestor and exact-npx policies
+without weakening either for the hosted tool-cache layout.
 Ubuntu 24.04's hosted AppArmor policy blocks this rootless namespace path
 unless a privileged package profile is installed, so it is not used as the
 qualification host.

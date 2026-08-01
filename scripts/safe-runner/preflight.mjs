@@ -30,6 +30,7 @@ const EXTERNAL_DAEMON_ENTRYPOINTS = [
 
 const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
   ['evals/scripts/run-suite.mjs', true],
@@ -385,9 +386,12 @@ export function preflightRun({
     existing_lamina_processes: existing,
     attestation: {
       valid: attestation.valid,
-      path: attestation.value ? 'present' : 'missing',
+      path: attestation.qualification_available === false
+        ? 'unavailable' : attestation.value ? 'present' : 'missing',
       tested_at: attestation.value?.tested_at || null,
       qualified_for_production_tiers: attestation.value?.qualified_for_production_tiers === true,
+      qualification_available: attestation.qualification_available !== false,
+      reason: attestation.reason || null,
     },
     promotion,
     workload_id: workloadId,

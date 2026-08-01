@@ -95,6 +95,31 @@ assert.match(binarySmoke, /XDG_CACHE_HOME: cache/);
 assert.match(binarySmoke,
   /assert\.notEqual\(process\.env\.LAMINA_SAFE_RUNNER, '1',[\s\S]*snapshot-sealed LAMINA_BINARY/,
   'safe-runner native qualification must fail instead of taking the build-only early exit');
+assert.match(binarySmoke,
+  /if \(!binary\) \{[\s\S]*process\.exit\(0\);[\s\S]*assertSafeRunnerContext\('standalone CLI smoke test'\)/,
+  'direct build-contract mode must exit before resource-intensive context enforcement');
+const smokeEnvironment = { ...process.env };
+for (const name of [
+  'LAMINA_BINARY', 'LAMINA_WORKER', 'LAMINA_MODEL', 'LAMINA_SAFE_RUNNER',
+  'LAMINA_SAFE_RUNNER_BROKER',
+]) delete smokeEnvironment[name];
+const directSmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8', env: smokeEnvironment,
+});
+assert.equal(directSmoke.status, 0, directSmoke.stderr);
+assert.match(directSmoke.stdout, /build contract ok/);
+const forgedSmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8',
+  env: { ...smokeEnvironment, LAMINA_SAFE_RUNNER: '1' },
+});
+assert.notEqual(forgedSmoke.status, 0);
+assert.match(forgedSmoke.stderr, /snapshot-sealed LAMINA_BINARY/);
+const unqualifiedBinarySmoke = spawnSync(process.execPath, ['tests/cli_binary_smoke_test.mjs'], {
+  cwd: process.cwd(), encoding: 'utf8',
+  env: { ...smokeEnvironment, LAMINA_BINARY: path.join(os.tmpdir(), 'unqualified-lamina') },
+});
+assert.notEqual(unqualifiedBinarySmoke.status, 0);
+assert.match(unqualifiedBinarySmoke.stderr, /LAMINA_SAFE_RUNNER_REQUIRED|canonical crash-safe command/);
 assert.match(cocoWorker, /multiprocessing\.freeze_support\(\)/);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);

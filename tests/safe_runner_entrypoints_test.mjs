@@ -30,7 +30,6 @@ const entrypoints = [
   ['scripts/fetch-retrieval-model.mjs'],
   ['scripts/prepare-retrieval-assets.mjs'],
   ['tests/retrieval_native_index_test.mjs'],
-  ['tests/cli_binary_smoke_test.mjs'],
   ['evals/hooks/compatibility-matrix.mjs'],
 ];
 
