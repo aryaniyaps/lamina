@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
+import { repositoryOutputRefusal } from './output-policy.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
@@ -46,24 +47,7 @@ const EXPLICIT_ENTRYPOINT_DEPENDENCIES = new Map([
     },
   ]],
 ]);
-const EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS = new Map([
-  ['scripts/build-standalone-cli.mjs', ['dist']],
-  ['scripts/fetch-retrieval-model.mjs', ['dist']],
-  ['scripts/prepare-retrieval-assets.mjs', ['dist']],
-  ['evals/hooks/compatibility-matrix.sh', ['evals/reports']],
-  ['evals/scripts/run-reference-matrix.mjs', [
-    'eval-workspace', 'evals/workspace', 'evals/reports', 'evals/tmp',
-  ]],
-  ['evals/scripts/run-suite.mjs', [
-    'eval-workspace', 'evals/workspace', 'evals/reports', 'evals/tmp',
-  ]],
-  ['evals/scripts/vendor-nextjs-fixture.mjs', ['evals/fixtures/_base/nextjs-commerce']],
-  ['evals/scripts/vendor-outline-fixture.mjs', ['evals/fixtures/_base/outline']],
-  ['evals/scripts/vendor-payload-fixture.mjs', ['evals/fixtures/_base/payload-website']],
-  ['evals/scripts/vendor-plane-fixture.mjs', ['evals/fixtures/_base/plane']],
-]);
 const EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS = new Map([
-  ['scripts/prepare-retrieval-assets.mjs', [{ index: 2, kind: 'directory' }]],
   ['tests/fixtures/safe-runner-graphd-client.mjs', [{ index: 2, kind: 'directory' }]],
   ['tests/fixtures/safe-runner-mutable.mjs', [{ index: 2, kind: 'file' }]],
 ]);
@@ -250,7 +234,7 @@ function entrypointRelative(repository, command, cwd = repository) {
   for (const argument of command.slice(1)) {
     const relative = path.relative(repository, path.resolve(cwd, String(argument)))
       .replaceAll('\\', '/');
-    if (!relative.startsWith('../') && (EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS.has(relative)
+    if (!relative.startsWith('../') && (repositoryOutputRefusal(relative)
       || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative))) return relative;
   }
   return null;
@@ -652,6 +636,8 @@ export function prepareExecutionSnapshot({
     throw new Error(npxAuthority.launch_refusal);
   }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
+  const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
+  if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');
   const snapshotRepository = path.join(root, 'repository');
@@ -1137,8 +1123,6 @@ export function prepareExecutionSnapshot({
   }
   const writableBindings = [];
   const entrypoint = auditedEntrypoint;
-  const declaredWritableRoots = new Map((EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS.get(entrypoint) || [])
-    .map((relative) => [relative, 'entrypoint']));
   for (const output of EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.get(entrypoint) || []) {
     if (!command[output.index]) continue;
     const candidate = path.resolve(cwd, command[output.index]);
@@ -1162,47 +1146,7 @@ export function prepareExecutionSnapshot({
       }
       continue;
     }
-    const relative = path.relative(repository, root);
-    if (!relative || relative === '.' || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(`declared workload output escapes the writable repository contract: ${root}`);
-    }
-    if (entrypoint === 'scripts/prepare-retrieval-assets.mjs'
-      && relative !== 'dist' && !relative.startsWith('dist/')) {
-      throw new Error('retrieval asset output must remain beneath the declared dist subtree');
-    }
-    if (sourceFiles.some((file) => file === relative || file.startsWith(`${relative}/`))) {
-      throw new Error(`declared workload output would re-expose sealed source: ${root}`);
-    }
-    declaredWritableRoots.set(relative, 'argv');
-  }
-  const writableRootNames = [...declaredWritableRoots.keys()];
-  for (const relative of writableRootNames) {
-    if (!relative || relative === '.' || relative.startsWith('../') || path.isAbsolute(relative)) {
-      throw new Error(`writable root escapes the sealed repository: ${relative || '.'}`);
-    }
-    if (sourceFiles.some((file) => file === relative || file.startsWith(`${relative}/`))) {
-      throw new Error(`writable root would re-expose sealed source: ${relative}`);
-    }
-  }
-  const collapsedWritableRoots = writableRootNames.filter((candidate, _index, all) =>
-    !all.some((parent) => parent !== candidate && (candidate === parent
-      || candidate.startsWith(`${parent.replace(/\/$/, '')}/`))));
-  for (const relative of collapsedWritableRoots) {
-    const source = path.resolve(repository, relative);
-    const target = path.resolve(snapshotRepository, relative);
-    if (source === repository || !source.startsWith(`${repository}${path.sep}`)) {
-      throw new Error(`writable root escapes the sealed repository: ${relative}`);
-    }
-    ensureContainedWritableDirectory(repository, source, 'writable root');
-    fs.mkdirSync(target, { recursive: true, mode: 0o700 });
-    const sourceStat = fs.lstatSync(source);
-    if (!sourceStat.isDirectory() || sourceStat.isSymbolicLink()
-      || fs.realpathSync.native(source) !== source) {
-      throw new Error(`writable root must be a canonical physical directory: ${relative}`);
-    }
-    const alias = path.join(root, 'writable-aliases', String(writableBindings.length));
-    fs.mkdirSync(alias, { recursive: true, mode: 0o700 });
-    writableBindings.push({ source, target: source, alias, snapshot_target: target });
+    throw new Error('unreviewed execution snapshot argv output authority');
   }
   const runtimeSource = path.join(sourceGit.common, 'lamina');
   ensureContainedWritableDirectory(sourceGit.common, runtimeSource, 'Git common Lamina runtime');

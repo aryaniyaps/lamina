@@ -72,10 +72,9 @@ The runner:
   then advances exact single-link inode generations for completed outcomes;
 - places the audited executable, complete Git-owned source tree, explicit file
   argv inputs, and bounded resolved dependency roots in a runner-owned
-  read-only execution snapshot before launch; only explicit per-entrypoint
-  output roots are rebound writable into that snapshot; its separate 512 MiB /
-  16,384-emitted-file ceiling is included in free-disk preflight rather than charged
-  to the payload's deliberately small private-tmpfs quota;
+  read-only execution snapshot before launch; repository-output entrypoints are
+  refused rather than rebound to live source, while only the exact Git-common
+  `lamina/work` fixture scratch contracts remain mutable;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
 - rejects Docker/Harbor-style external-daemon execution because descendants
@@ -141,9 +140,10 @@ inode; the diagnostic models the same synthetic resolution overhead.
 of `test:eval:portable` and `test:eval:redteam`, run from the physical repository
 root through the trusted npx shim. Recognition and launch admission are
 separate contract fields. The copied `package.json` and physical config must
-retain the descriptor-read digests used to select policy. Agent-skills remains
-launch-admitted and digest-bound to its concurrency-1 config. Promptfoo is
-explicitly `launch_admitted: false`, digest-bound to
+retain the descriptor-read digests used to select policy. Agent-skills is
+recognized but `launch_admitted: false` because its generated ignored input and
+copy-on-write workspace lack sealed same-filesystem hard-quota authority.
+Promptfoo remains `launch_admitted: false`, digest-bound to
 `9033e19f151b29d8fbc5d6739d5941692ed7f923456c95906d67a00492e1b194`
 and the exact CLI adds `--max-concurrency 1`. That OpenAI-only config permits
 omission of Promptfoo's direct optional provider/plugin dependencies only;
@@ -158,62 +158,22 @@ overhead. Those numbers are supporting local evidence, not the CI gate. They
 exceed both the global 16,384-inode and 512-MiB caps; enabling launch requires a
 future reviewed bounded artifact, not a cap increase or silent pruning.
 Ignored file argv inputs (for example model artifacts) are copied separately.
-The process keeps its declared cwd, while entrypoint-specific output roots are
-the only writable bindings into source-relative snapshot locations. Dynamic
-release outputs remain beneath their fixed output subtree; test outputs remain
-inside the exact Git-common `lamina/work` scratch authority. A root, alias, or
-source-bearing output refuses instead of remounting live source over the frozen
-tree.
+Repository outputs are not live writable bindings. Build, retrieval-asset,
+compatibility, eval workspace, and vendor-fixture writers are refused during
+preflight and again by direct snapshot construction. The only retained mutable
+argv-output contracts are the graphd-client and mutable fixtures beneath the
+exact Git-common `lamina/work` scratch authority.
 
-Publication is implemented as a standalone crash-recoverable primitive in
-`scripts/safe-runner/publication.mjs`. A caller must pre-register a transaction
-in a same-filesystem runner registry and declare each repository-contained file
-or directory as either a pure output or copy-on-write output. The primitive
-descriptor-copies bounded payloads, rejects special files, multi-link files,
-escaping or dangling symlinks, changed ancestors, and cross-filesystem targets,
-and more than 256 output descriptors, then seals exact manifests before
-installation. Registry authority refuses equality or either ancestor direction
-with every target before transaction staging begins. Before sealing, the
-primitive descriptor-sanitizes each new file and directory to its ordinary
-permission bits and records the complete `07777` mode so a later special-bit
-change refuses. A saved old prestate retains its exact original mode, including
-special bits, because rollback restores that original object rather than a new
-payload.
-
-Its atomic, fsynced, bounded journal advances through `prepared`, `old_saved`,
-`new_installed`, and `committed`. Existing targets remain saved under the exact
-registered transaction identity until commit is durable. Rollback first moves
-an installed new target back under transaction authority, then atomically
-restores the saved prestate. Recovery is idempotent at every rename, state-write,
-and cleanup boundary: absent validated success authority defaults to restoring
-the exact prestate, while commit requires an explicit caller-supplied authority
-validator. Once the durable rollback fence is set, success cannot reverse it.
-Cleanup is no-follow, same-user, identity-rechecked, bounded, and resumable.
-Journal replacement uses exactly one authenticated bounded `journal.next` slot;
-a crash after its fsync reuses or safely replaces that same slot rather than
-accumulating UUID-named temporary files.
-
-Every operation carries the complete frozen reservation handle. Reservation
-creates a fsynced registry sentinel outside the transaction directory; it binds
-canonical registry and transaction paths plus their identities to a random
-per-transaction capability. The capability itself is never written to the
-journal, sentinel, report, or payload. The sentinel and every complete canonical
-journal body are HMAC-authenticated with it before journal reads or cleanup.
-Seal, install, commit, rollback, and recovery additionally require an explicit
-quiescence authority validator and recheck ancestor, transaction-layout, and
-moved-manifest invariants around mutation hooks and renames.
-
-This checkpoint does not connect the primitive to the safe-runner command,
-sandbox output bindings, controller, or watchdog. No active entrypoint therefore
-receives transactional publication behavior yet. Those integrations require a
-separate reviewed change. G3b must keep both the transaction and capability
-outside the payload-visible namespace, bind quiescence to an empty payload cgroup
-plus a stopped broker and stopped managed descendants, and bind success and the
-pre-registered transaction to the independently owned watchdog lifecycle. It
-must also maintain a protected monotonic journal head so a stale, otherwise
-valid same-transaction journal cannot be replayed. Until that head exists, this
-core does not claim protection from arbitrary same-UID interference or stale
-same-transaction replay.
+Atomic publication is also refused in issue #59. Correct rename-based
+publication requires its stage and saved-old objects to share the target's
+filesystem. The payload's hard temporary quota is a different private tmpfs,
+while sampled usage on a host-filesystem staging area is observation rather
+than hard enforcement. This issue does not weaken the hard-quota invariant to
+make publication fit. A future owning leaf may add publication only with a
+proven same-filesystem hard quota or a separately reviewed revision to this
+accepted contract. The standalone prototypes in checkpoints `339f5d12`,
+`1e85392b`, and `5bcba5f0` were rejected from final integration for this
+structural quota conflict, not retained as a dead API.
 
 For linked worktrees, the descriptor-copied `.git` pointer remains in the
 frozen worktree. A bounded pack containing the reachable HEAD ancestry plus
@@ -228,8 +188,6 @@ The same authority descriptor-copies Node, bwrap, the gate scripts, and the
 sandbox launcher/import before systemd launch. The shell and systemd launcher
 remain host-trusted infrastructure; bwrap and later stages execute their staged
 objects, so a post-validation pathname swap cannot choose the sandbox binary.
-The standalone build also receives descriptor-copied `uv` and Node paths;
-replacement of the discovered host `uv` cannot change the launched child.
 Large ignored runtimes are not silently exposed again after the repository
 mount. In particular, eval-suite `.venv-eval` execution is refused with an
 actionable bounded-runtime requirement, while release retrieval evaluation
@@ -313,7 +271,6 @@ prove ownership of descendants created by an external daemon.
   production-refusal contract without claiming enforcement.
 - macOS and Windows cannot claim medium/large qualification until issue #57
   supplies and tests complete native descendant enforcement.
-- Declared persistent output directories are outside the private temporary
-  tmpfs. Their write-through behavior is intentional, but an atomic publication
-  budget and rollback protocol remains separate follow-up work; until then each
-  entrypoint receives only its narrow audited output subtree.
+- Repository-output workloads refuse before watchdog, snapshot, or payload
+  authority. Enabling one requires a proven same-filesystem hard quota or a
+  separately accepted contract revision; sampled host usage is insufficient.

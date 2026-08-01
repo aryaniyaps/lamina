@@ -9,6 +9,13 @@ const safeWorkflow = fs.readFileSync('.github/workflows/safe-runner.yml', 'utf8'
 const adapter = fs.readFileSync('scripts/safe-runner/adapter.mjs', 'utf8');
 const systemd = fs.readFileSync('scripts/safe-runner/linux-systemd.mjs', 'utf8');
 const sandbox = fs.readFileSync('scripts/safe-runner/sandbox.mjs', 'utf8');
+const runner = fs.readFileSync('scripts/safe-runner/runner.mjs', 'utf8');
+const executionSnapshot = fs.readFileSync('scripts/safe-runner/execution-snapshot.mjs', 'utf8');
+const npxAuthority = fs.readFileSync('scripts/safe-runner/npx-authority.mjs', 'utf8');
+const outputPolicy = fs.readFileSync('scripts/safe-runner/output-policy.mjs', 'utf8');
+const supervisionDecision = fs.readFileSync(
+  'docs/decisions/014-crash-safe-resource-supervision.md', 'utf8',
+);
 
 const safeRuns = publish.split('\n').map((line) => line.trim())
   .filter((line) => line.startsWith('npm run safe:run'));
@@ -37,6 +44,21 @@ assert.doesNotMatch(safeWorkflow, /echo "\$bin_dir" >> "\$GITHUB_PATH"/);
 assert.match(adapter, /assertTrustedBinaryIdentity\(binaries\.identities\.bwrap\)[\s\S]*spawnSync\(binaries\.bwrap/);
 assert.match(systemd, /assertInfrastructureBinaries\(this\.infrastructure,[\s\S]*staged\.bwrap, bwrapIdentity/);
 assert.match(sandbox, /assertTrustedBinaryIdentity\(expectedBwrap\)[\s\S]*spawn\(bwrapExecutable/);
+assert.doesNotMatch(executionSnapshot, /EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS/);
+assert.doesNotMatch(executionSnapshot,
+  /prepare-retrieval-assets\.mjs[^\n]*index:\s*2/);
+assert.match(executionSnapshot,
+  /repositoryOutputRefusal\(auditedEntrypoint\)[\s\S]*throw new Error\(repositoryOutputReason\)/);
+assert.match(executionSnapshot,
+  /EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS[\s\S]*safe-runner-graphd-client\.mjs[\s\S]*safe-runner-mutable\.mjs/);
+assert.doesNotMatch(executionSnapshot, /snapshot_target/);
+assert.match(npxAuthority,
+  /package_name:\s*'agent-skills-eval'[\s\S]*launch_admitted:\s*false/);
+assert.match(outputPolicy, /private tmpfs/);
+assert.match(supervisionDecision,
+  /Atomic publication is also refused in issue #59[\s\S]*sampled usage[\s\S]*hard enforcement/);
+assert.match(runner,
+  /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*startCrashWatchdog/);
 
 const compatibilityReport = path.resolve('evals/reports/compatibility-matrix.json');
 const before = fs.existsSync(compatibilityReport) ? fs.readFileSync(compatibilityReport) : null;

@@ -16,7 +16,8 @@ const CONTRACTS = Object.freeze([
     config_relative: 'evals/agent-skills-eval.yaml',
     config_digest: AGENT_SKILLS_CONFIG_DIGEST,
     omit_direct_optional_dependencies: false,
-    launch_admitted: true,
+    launch_admitted: false,
+    launch_refusal: 'agent-skills-eval launch authority is refused because its generated ignored input and copy-on-write workspace are not admitted into sealed same-filesystem hard-quota authority; add a reviewed owning-leaf input and output contract before enabling this exact eval command',
   }),
   Object.freeze({
     package_name: 'promptfoo',

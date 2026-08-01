@@ -15,6 +15,7 @@ import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
 import { spawnTrustedGit } from './git.mjs';
 import { optionalAuditedNpxCommand } from './npx-authority.mjs';
+import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
   checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
   readAttestation, stateDirectory,
@@ -237,10 +238,8 @@ function externalRuntimeContractReason(ownership, command, cwd) {
   if (ownership.npx_authority?.launch_admitted === false) {
     return ownership.npx_authority.launch_refusal;
   }
-  if (['evals/scripts/run-suite.mjs', 'evals/scripts/run-reference-matrix.mjs']
-    .includes(ownership.audited_entrypoint)) {
-    return 'eval-suite requires the ignored .venv-eval runtime, which is not admitted into sealed execution authority; use the audited portable npx suite or provide a future bounded runtime contract';
-  }
+  const repositoryOutputReason = repositoryOutputRefusal(ownership.audited_entrypoint);
+  if (repositoryOutputReason) return repositoryOutputReason;
   if (ownership.audited_entrypoint !== 'benchmarks/retrieval-v1/benchmark.mjs'
     || (!command.includes('--evaluate') && !command.includes('--calibrate'))) return null;
   const workerIndex = command.indexOf('--worker');
