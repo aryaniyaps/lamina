@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import net from 'node:net';
+import crypto from 'node:crypto';
 import { graphSocketPath, runtimePaths } from '../../../packages/cli/lib/graph-runtime/util.mjs';
 
 const [repository, cleanupMode = 'clean'] = process.argv.slice(2);
@@ -15,8 +16,11 @@ try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
 const stat = fs.readFileSync('/proc/self/stat', 'utf8');
 const close = stat.lastIndexOf(')');
 const startTicks = stat.slice(close + 2).trim().split(/\s+/)[19];
-fs.writeFileSync(paths.operation_lock, `${JSON.stringify({
-  pid: process.pid, start_ticks: startTicks,
+fs.mkdirSync(paths.operations_dir, { recursive: true, mode: 0o700 });
+const operationNonce = crypto.randomBytes(16).toString('hex');
+const operationClaim = `${paths.operations_dir}/${process.pid}-${startTicks}-${operationNonce}.json`;
+fs.writeFileSync(operationClaim, `${JSON.stringify({
+  type: 'graphd', pid: process.pid, start_ticks: startTicks, nonce: operationNonce,
 })}\n`, { flag: 'wx', mode: 0o600 });
 fs.writeFileSync(lockPath, `${JSON.stringify({
   pid: process.pid, start_ticks: startTicks,
@@ -31,7 +35,8 @@ const shutdown = () => {
     if (!['leave-stale', 'exit-stale'].includes(cleanupMode)) {
       try { fs.rmSync(canonicalSocket, { force: true }); } catch {}
       try { fs.rmSync(lockPath, { force: true }); } catch {}
-      try { fs.rmSync(paths.operation_lock, { force: true }); } catch {}
+      try { fs.rmSync(operationClaim, { force: true }); } catch {}
+      try { fs.rmdirSync(paths.operations_dir); } catch {}
     } else if (!fs.existsSync(canonicalSocket)) {
       // Node unlinks a listening Unix socket during graceful close. Recreate a
       // stale path so the supervisor regression exercises both registered

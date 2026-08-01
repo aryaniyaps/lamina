@@ -36,7 +36,9 @@ import {
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
-import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
+import {
+  existingLaminaProcesses, isLaminaProcessCommand, processIdentity,
+} from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
@@ -93,41 +95,67 @@ try {
   const ownedRuntimeIdentity = ownedDirectoryIdentity(ownedRuntime);
   const ownedSocket = path.join(ownedRuntime, 'graphd.sock');
   const ownedLock = path.join(ownedRuntime, 'graphd.lock');
-  const ownedOperationLock = path.join(ownedRuntime, 'graphd.operation.lock');
-  const ownedGraphd = { pid: 42001, start_ticks: 'owned-start' };
+  const ownedOperations = path.join(ownedRuntime, 'graphd.operations');
+  fs.mkdirSync(ownedOperations);
+  let ownedOperationsIdentity = ownedDirectoryIdentity(ownedOperations);
+  const ownedGraphd = { pid: 42001, start_ticks: '4200100' };
+  const ownedNonce = 'a'.repeat(32);
+  let ownedOperationClaim = path.join(
+    ownedOperations, `${ownedGraphd.pid}-${ownedGraphd.start_ticks}-${ownedNonce}.json`,
+  );
+  const writeOwnedClaim = () => fs.writeFileSync(ownedOperationClaim, JSON.stringify({
+    type: 'graphd', ...ownedGraphd, nonce: ownedNonce,
+  }));
+  const ownedCandidates = () => [
+    {
+      path: ownedSocket,
+      parent_identity: ownedRuntimeIdentity,
+      child_identity: ownedGraphd,
+      operation_claim: ownedOperationClaim,
+      operations_identity: ownedOperationsIdentity,
+    },
+    {
+      path: ownedLock,
+      parent_identity: ownedRuntimeIdentity,
+      child_identity: ownedGraphd,
+      operation_claim: ownedOperationClaim,
+      operations_identity: ownedOperationsIdentity,
+    },
+  ];
   fs.writeFileSync(ownedSocket, 'stale socket');
   fs.writeFileSync(ownedLock, JSON.stringify({
     pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
   }));
-  fs.writeFileSync(ownedOperationLock, JSON.stringify({
-    pid: 42002, start_ticks: 'replacement-start',
+  writeOwnedClaim();
+  const replacementIdentity = processIdentity(process.pid);
+  const replacementNonce = 'b'.repeat(32);
+  const replacementClaim = path.join(
+    ownedOperations,
+    `${replacementIdentity.pid}-${replacementIdentity.start_ticks}-${replacementNonce}.json`,
+  );
+  fs.writeFileSync(replacementClaim, JSON.stringify({
+    type: 'graphd', ...replacementIdentity, nonce: replacementNonce,
   }));
-  assert.deepEqual(removeOwnedRuntimePaths([
-    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-  ]).sort(), [ownedLock, ownedOperationLock, ownedSocket].sort(),
-  'a replacement graphd operation owner must fence cleanup from every runtime path');
-  fs.writeFileSync(ownedOperationLock, JSON.stringify({
-    pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
-  }));
-  assert.deepEqual(removeOwnedRuntimePaths([
-    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-  ]), []);
+  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
+    ownedLock, ownedOperationClaim, ownedSocket,
+  ].sort(), 'a live replacement graphd claim must fence cleanup from every registered runtime path');
+  fs.rmSync(replacementClaim);
+  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()), []);
+  fs.mkdirSync(ownedOperations);
+  ownedOperationsIdentity = ownedDirectoryIdentity(ownedOperations);
+  ownedOperationClaim = path.join(
+    ownedOperations, `${ownedGraphd.pid}-${ownedGraphd.start_ticks}-${ownedNonce}.json`,
+  );
   fs.writeFileSync(ownedSocket, 'different graphd socket');
   fs.writeFileSync(ownedLock, JSON.stringify({ pid: ownedGraphd.pid, start_ticks: 'different-start' }));
-  fs.writeFileSync(ownedOperationLock, JSON.stringify({
-    pid: ownedGraphd.pid, start_ticks: ownedGraphd.start_ticks,
-  }));
-  assert.deepEqual(removeOwnedRuntimePaths([
-    { path: ownedSocket, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-    { path: ownedOperationLock, parent_identity: ownedRuntimeIdentity, child_identity: ownedGraphd },
-  ]).sort(), [ownedLock, ownedSocket].sort(), 'another graphd identity must never be deleted');
+  writeOwnedClaim();
+  assert.deepEqual(removeOwnedRuntimePaths(ownedCandidates()).sort(), [
+    ownedLock, ownedOperationClaim, ownedSocket,
+  ].sort(), 'another graphd lock identity must never be deleted');
   fs.rmSync(ownedSocket);
   fs.rmSync(ownedLock);
+  fs.rmSync(ownedOperationClaim);
+  fs.rmdirSync(ownedOperations);
   const protectedFile = path.join(root, 'protected-file');
   fs.writeFileSync(protectedFile, 'preserve');
   fs.symlinkSync(protectedFile, ownedSocket);
@@ -428,6 +456,8 @@ try {
   fs.mkdirSync(brokerRuntime);
   const brokerSocket = path.join(brokerRuntime, 'graphd.sock');
   const brokerLock = path.join(brokerRuntime, 'graphd.lock');
+  const brokerOperations = path.join(brokerRuntime, 'graphd.operations');
+  fs.mkdirSync(brokerOperations);
   const graphdServer = path.resolve('packages/cli/lib/graph-runtime/server.mjs');
   const authority = {
     runId: 'unit', tier: 'small', adapter: 'linux-systemd-cgroup-v2',
@@ -538,8 +568,12 @@ try {
     role: 'graphd',
     socket: brokerSocket,
     lock: brokerLock,
-    operation_lock: path.join(brokerRuntime, 'graphd.operation.lock'),
+    operation_claim: path.join(brokerOperations, `41001-100-${'c'.repeat(32)}.json`),
+    operations_identity: ownedDirectoryIdentity(brokerOperations),
   }];
+  fs.writeFileSync(managedRegistrations[0].operation_claim, JSON.stringify({
+    type: 'graphd', pid: 41001, start_ticks: '100', nonce: 'c'.repeat(32),
+  }));
   const graphdRecord = { ...authorizedGraphd, ppid: 1 };
   const graphdWorker = {
     pid: 41002, ppid: graphdRecord.pid, start_ticks: '101', command: 'retrieval_worker.py',
@@ -548,7 +582,7 @@ try {
     ...graphdRecord,
     managed_socket: managedRegistrations[0].socket,
     managed_lock: managedRegistrations[0].lock,
-    managed_operation_lock: managedRegistrations[0].operation_lock,
+    managed_operation_claim: managedRegistrations[0].operation_claim,
   }]);
   authorityRecords.push(graphdRecord);
   assert.equal(authorizeBrokerRequest({
@@ -582,8 +616,9 @@ try {
     lock: managedRegistrations[0].lock,
   }, authority).ok, false, 'a pre-existing graphd lock must match the registered child identity');
   fs.rmSync(brokerLock);
-  fs.writeFileSync(managedRegistrations[0].operation_lock, JSON.stringify({
-    pid: 99999, start_ticks: 'other-graphd',
+  const duplicateClaim = path.join(brokerOperations, `41001-100-${'d'.repeat(32)}.json`);
+  fs.writeFileSync(duplicateClaim, JSON.stringify({
+    type: 'graphd', pid: 41001, start_ticks: '100', nonce: 'd'.repeat(32),
   }));
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
@@ -592,8 +627,8 @@ try {
     runtime_dir: brokerRuntime,
     socket: managedRegistrations[0].socket,
     lock: managedRegistrations[0].lock,
-  }, authority).ok, false, 'a pre-existing runtime operation must match the registered child identity');
-  fs.rmSync(managedRegistrations[0].operation_lock);
+  }, authority).ok, false, 'a child must have exactly one identity-bound runtime operation claim');
+  fs.rmSync(duplicateClaim);
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },

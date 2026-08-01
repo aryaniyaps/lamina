@@ -163,7 +163,7 @@ try {
     assert.match(registration.start_ticks, /^\d+$/);
     assert.equal(fs.existsSync(graphdOutput.socket), false, 'graphd socket must be removed');
     assert.equal(fs.existsSync(graphdOutput.lock), false, 'graphd lock must be removed');
-    assert.equal(fs.existsSync(registration.operation_lock), false, 'graphd operation lock must be removed');
+    assert.equal(fs.existsSync(registration.operation_claim), false, 'graphd operation claim must be removed');
     assert.deepEqual(managedGraphd.cleanup.descendants_remaining, []);
     assert.equal(managedGraphd.cleanup.scope_removed, true);
     assert.equal(validateReport(managedGraphd).valid, true);

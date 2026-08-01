@@ -39,27 +39,91 @@ function daemonLockIdentity() {
   };
 }
 
-function releaseOperationLock() {
+const OPERATION_CLAIM_RE = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
+
+function processStartTicks(pid) {
+  if (process.platform !== 'linux') return null;
   try {
-    const owner = parseDaemonLock(fs.readFileSync(paths.operation_lock, 'utf8'));
-    const identity = daemonLockIdentity();
-    if (owner?.pid === identity.pid && owner?.start_ticks === identity.start_ticks) {
-      fs.unlinkSync(paths.operation_lock);
-    }
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    return stat.slice(close + 2).trim().split(/\s+/)[19] || null;
+  } catch { return null; }
+}
+
+function readOperationClaims() {
+  const claims = [];
+  for (const name of fs.readdirSync(paths.operations_dir)) {
+    const match = name.match(OPERATION_CLAIM_RE);
+    if (!match) continue;
+    const file = `${paths.operations_dir}/${name}`;
+    try {
+      const stat = fs.lstatSync(file);
+      const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (!stat.isFile() || stat.isSymbolicLink()
+        || (typeof process.getuid === 'function' && stat.uid !== process.getuid())
+        || !['graphd', 'cleanup'].includes(value.type)
+        || Number(value.pid) !== Number(match[1])
+        || String(value.start_ticks || '') !== match[2]
+        || String(value.nonce || '') !== match[3]) continue;
+      claims.push({ file, name, value });
+    } catch {}
+  }
+  return claims;
+}
+
+function operationClaimAlive(claim) {
+  return processStartTicks(claim?.value?.pid) === String(claim?.value?.start_ticks || '');
+}
+
+function removeExactOperationClaim(claim) {
+  try {
+    const current = JSON.parse(fs.readFileSync(claim.file, 'utf8'));
+    if (current.type === claim.value.type
+      && Number(current.pid) === Number(claim.value.pid)
+      && String(current.start_ticks || '') === String(claim.value.start_ticks || '')
+      && current.nonce === claim.value.nonce) fs.unlinkSync(claim.file);
   } catch {}
 }
 
-function acquireOperationLock() {
+let operationClaim = null;
+
+function releaseOperationClaim() {
+  if (!operationClaim) return;
+  removeExactOperationClaim(operationClaim);
+  try { fs.rmdirSync(paths.operations_dir); } catch {}
+  operationClaim = null;
+}
+
+function acquireOperationClaim() {
+  if (process.platform !== 'linux') return;
+  fs.mkdirSync(paths.operations_dir, { recursive: true, mode: 0o700 });
+  const directory = fs.lstatSync(paths.operations_dir);
+  if (!directory.isDirectory() || directory.isSymbolicLink()
+    || (typeof process.getuid === 'function' && directory.uid !== process.getuid())) {
+    throw new Error('graphd operations path is not a physical same-user directory');
+  }
+  for (const claim of readOperationClaims()) {
+    if (!operationClaimAlive(claim)) removeExactOperationClaim(claim);
+  }
   const identity = daemonLockIdentity();
-  const write = () => fs.writeFileSync(
-    paths.operation_lock, `${JSON.stringify(identity)}\n`, { flag: 'wx', mode: 0o600 },
-  );
-  try { write(); } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
-    let owner = null;
-    try { owner = parseDaemonLock(fs.readFileSync(paths.operation_lock, 'utf8')); } catch {}
-    const state = processIsRunning(owner?.pid) ? 'active' : 'stale';
-    process.stderr.write(`graphd runtime operation lock is ${state}${owner?.pid ? ` for pid ${owner.pid}` : ''}; refusing unsafe replacement\n`);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const name = `${identity.pid}-${identity.start_ticks}-${nonce}.json`;
+  operationClaim = {
+    file: `${paths.operations_dir}/${name}`,
+    name,
+    value: { type: 'graphd', pid: identity.pid, start_ticks: identity.start_ticks, nonce },
+  };
+  fs.writeFileSync(operationClaim.file, `${JSON.stringify(operationClaim.value)}\n`, {
+    flag: 'wx', mode: 0o600,
+  });
+  const live = readOperationClaims().filter(operationClaimAlive);
+  const cleanup = live.find((claim) => claim.value.type === 'cleanup');
+  const graphdWinner = live
+    .filter((claim) => claim.value.type === 'graphd')
+    .sort((left, right) => left.name.localeCompare(right.name))[0];
+  if (cleanup || graphdWinner?.name !== operationClaim.name) {
+    releaseOperationClaim();
+    process.stderr.write('graphd runtime has an active operation claim; refusing unsafe replacement\n');
     process.exit(2);
   }
 }
@@ -79,8 +143,8 @@ function acquireLock() {
   }
 }
 
-acquireOperationLock();
-process.on('exit', releaseOperationLock);
+acquireOperationClaim();
+process.on('exit', releaseOperationClaim);
 acquireLock();
 if (process.platform !== 'win32' && fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
 const engine = new GraphEngine(paths);
@@ -215,7 +279,7 @@ function shutdown() {
       const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
       if (lock?.pid === process.pid) fs.unlinkSync(paths.lock);
     } catch {}
-    releaseOperationLock();
+    releaseOperationClaim();
     process.exit(0);
   });
 }

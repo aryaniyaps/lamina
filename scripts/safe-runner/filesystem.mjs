@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { identityAlive, processIdentity } from './processes.mjs';
 
 export function boundedDirectorySize(
   root,
@@ -91,6 +92,44 @@ export function removeOwnedDirectory(directory, expectedPrefix, ownership) {
   return !fs.existsSync(resolved);
 }
 
+const OPERATION_CLAIM_RE = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
+
+function readOperationClaim(file) {
+  const name = path.basename(file);
+  const match = name.match(OPERATION_CLAIM_RE);
+  if (!match) return null;
+  try {
+    const stat = fs.lstatSync(file);
+    const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!stat.isFile() || stat.isSymbolicLink()
+      || (typeof process.getuid === 'function' && stat.uid !== process.getuid())
+      || !['graphd', 'cleanup'].includes(value.type)
+      || Number(value.pid) !== Number(match[1])
+      || String(value.start_ticks || '') !== match[2]
+      || String(value.nonce || '') !== match[3]) return null;
+    return { file, name, value };
+  } catch { return null; }
+}
+
+function operationClaims(directory) {
+  try {
+    return fs.readdirSync(directory)
+      .map((name) => readOperationClaim(path.join(directory, name)))
+      .filter(Boolean);
+  } catch { return []; }
+}
+
+function removeExactOperationClaim(claim) {
+  const current = readOperationClaim(claim.file);
+  if (!current
+    || current.value.type !== claim.value.type
+    || Number(current.value.pid) !== Number(claim.value.pid)
+    || String(current.value.start_ticks || '') !== String(claim.value.start_ticks || '')
+    || current.value.nonce !== claim.value.nonce) return false;
+  try { fs.unlinkSync(claim.file); } catch { return false; }
+  return !fs.existsSync(claim.file);
+}
+
 export function removeOwnedRuntimePaths(candidates) {
   const remaining = [];
   const grouped = new Map();
@@ -103,46 +142,78 @@ export function removeOwnedRuntimePaths(candidates) {
   for (const [runtime, entries] of grouped) {
     const lockCandidate = entries.find((candidate) => path.basename(candidate.path) === 'graphd.lock');
     const socketCandidate = entries.find((candidate) => path.basename(candidate.path) === 'graphd.sock');
-    const operationCandidate = entries.find((candidate) => path.basename(candidate.path) === 'graphd.operation.lock');
-    const expected = operationCandidate?.parent_identity || lockCandidate?.parent_identity;
-    const child = operationCandidate?.child_identity || lockCandidate?.child_identity;
+    const expected = lockCandidate?.parent_identity || socketCandidate?.parent_identity;
+    const child = lockCandidate?.child_identity || socketCandidate?.child_identity;
+    const operationClaimPath = lockCandidate?.operation_claim || socketCandidate?.operation_claim;
+    const operationsExpected = lockCandidate?.operations_identity || socketCandidate?.operations_identity;
+    const managedPaths = [...new Set([
+      ...entries.map((candidate) => candidate.path),
+      operationClaimPath ? path.resolve(operationClaimPath) : null,
+    ].filter(Boolean))];
+    const keepExisting = () => {
+      for (const candidate of managedPaths) {
+        if (fs.existsSync(candidate)) remaining.push(candidate);
+      }
+    };
     let parent;
     try { parent = fs.lstatSync(runtime); } catch { parent = null; }
     const parentOwned = expected?.path === runtime
       && parent?.isDirectory() && !parent.isSymbolicLink()
       && String(parent.dev) === expected.dev && String(parent.ino) === expected.ino
       && Number(parent.uid) === Number(expected.uid);
-    const existing = entries.filter((candidate) => fs.existsSync(candidate.path));
-    if (existing.length === 0) continue;
-    let operationOwned = false;
-    if (parentOwned && operationCandidate && child?.pid && child?.start_ticks) {
-      try {
-        const entry = fs.lstatSync(operationCandidate.path);
-        const owner = JSON.parse(fs.readFileSync(operationCandidate.path, 'utf8'));
-        operationOwned = entry.isFile() && !entry.isSymbolicLink()
-          && Number(owner.pid) === Number(child.pid)
-          && String(owner.start_ticks || '') === String(child.start_ticks);
-      } catch {}
-    }
-    if (!operationOwned) {
-      for (const candidate of existing) remaining.push(candidate.path);
+    if (!managedPaths.some((candidate) => fs.existsSync(candidate))) continue;
+    let operations;
+    try { operations = fs.lstatSync(path.dirname(operationClaimPath || '')); } catch { operations = null; }
+    const operationsOwned = parentOwned && operationClaimPath
+      && operationsExpected?.path === path.dirname(path.resolve(operationClaimPath))
+      && operations?.isDirectory() && !operations.isSymbolicLink()
+      && String(operations.dev) === operationsExpected.dev
+      && String(operations.ino) === operationsExpected.ino
+      && Number(operations.uid) === Number(operationsExpected.uid);
+    const childClaim = operationsOwned ? readOperationClaim(path.resolve(operationClaimPath)) : null;
+    const claimOwned = childClaim?.value.type === 'graphd'
+      && Number(childClaim.value.pid) === Number(child?.pid)
+      && String(childClaim.value.start_ticks || '') === String(child?.start_ticks || '');
+    if (!claimOwned || identityAlive(child)) {
+      keepExisting();
       continue;
     }
-    try { fs.rmSync(operationCandidate.path); } catch {
-      for (const candidate of entries) {
-        if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
-      }
+    const operationsDirectory = path.dirname(childClaim.file);
+    let blocked = false;
+    for (const claim of operationClaims(operationsDirectory)) {
+      if (claim.file === childClaim.file) continue;
+      if (identityAlive(claim.value)) blocked = true;
+      else removeExactOperationClaim(claim);
+    }
+    if (blocked) {
+      keepExisting();
       continue;
     }
+    const cleanupIdentity = processIdentity(process.pid);
     const nonce = crypto.randomBytes(16).toString('hex');
+    const cleanupClaim = cleanupIdentity ? {
+      file: path.join(
+        operationsDirectory,
+        `${cleanupIdentity.pid}-${cleanupIdentity.start_ticks}-${nonce}.json`,
+      ),
+      value: { type: 'cleanup', ...cleanupIdentity, nonce },
+    } : null;
     try {
-      fs.writeFileSync(operationCandidate.path, `${JSON.stringify({
-        pid: process.pid, nonce, cleanup: true,
-      })}\n`, { flag: 'wx', mode: 0o600 });
+      if (!cleanupClaim) throw new Error('cleanup process identity is unavailable');
+      fs.writeFileSync(cleanupClaim.file, `${JSON.stringify(cleanupClaim.value)}\n`, {
+        flag: 'wx', mode: 0o600,
+      });
     } catch {
-      for (const candidate of entries) {
-        if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
-      }
+      keepExisting();
+      continue;
+    }
+    const replacement = operationClaims(operationsDirectory).find((claim) =>
+      claim.file !== childClaim.file
+      && claim.file !== cleanupClaim.file
+      && identityAlive(claim.value));
+    if (replacement) {
+      removeExactOperationClaim(cleanupClaim);
+      keepExisting();
       continue;
     }
     let lockOwned = false;
@@ -155,6 +226,10 @@ export function removeOwnedRuntimePaths(candidates) {
           && String(lock.start_ticks || '') === String(child.start_ticks);
       } catch {}
     }
+    const socketExistsWithoutLock = socketCandidate && fs.existsSync(socketCandidate.path)
+      && (!lockCandidate || !fs.existsSync(lockCandidate.path));
+    const runtimeArtifactsAbsent = [socketCandidate, lockCandidate]
+      .filter(Boolean).every((candidate) => !fs.existsSync(candidate.path));
     if (lockOwned) {
       for (const candidate of [socketCandidate, lockCandidate].filter(Boolean)) {
         try {
@@ -169,18 +244,17 @@ export function removeOwnedRuntimePaths(candidates) {
         }
         if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
       }
-    } else {
-      for (const candidate of [socketCandidate, lockCandidate].filter(Boolean)) {
-        if (fs.existsSync(candidate.path)) remaining.push(candidate.path);
-      }
+    } else if (!runtimeArtifactsAbsent || socketExistsWithoutLock) {
+      removeExactOperationClaim(cleanupClaim);
+      keepExisting();
+      continue;
     }
-    try {
-      const claim = JSON.parse(fs.readFileSync(operationCandidate.path, 'utf8'));
-      if (claim.nonce === nonce) fs.rmSync(operationCandidate.path);
-    } catch {}
-    if (fs.existsSync(operationCandidate.path)) {
-      remaining.push(operationCandidate.path);
-    }
+    const artifactsRemain = [socketCandidate, lockCandidate]
+      .filter(Boolean).some((candidate) => fs.existsSync(candidate.path));
+    if (!artifactsRemain) removeExactOperationClaim(childClaim);
+    removeExactOperationClaim(cleanupClaim);
+    try { fs.rmdirSync(operationsDirectory); } catch {}
+    keepExisting();
   }
   return [...new Set(remaining)];
 }

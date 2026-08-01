@@ -75,11 +75,13 @@ export async function startCrashWatchdog({
     },
     registerManagedPaths(registration) {
       const managed = new Map((manifest.managed_paths || []).map((item) => [item.path, item]));
-      for (const candidate of [registration.socket, registration.lock, registration.operation_lock]) {
+      for (const candidate of [registration.socket, registration.lock]) {
         const resolved = path.resolve(candidate);
         managed.set(resolved, {
           path: resolved,
           parent_identity: registration.runtime_identity,
+          operation_claim: registration.operation_claim,
+          operations_identity: registration.operations_identity,
           child_identity: registration.child_identity || {
             pid: registration.pid,
             start_ticks: registration.start_ticks,

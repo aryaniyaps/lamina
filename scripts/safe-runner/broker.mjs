@@ -19,6 +19,42 @@ function fileDigest(file) {
 
 const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
   && String(left?.start_ticks || '') === String(right?.start_ticks || '');
+const OPERATION_CLAIM_RE = /^([1-9]\d*)-([1-9]\d*)-([a-f0-9]{32})\.json$/;
+const pause = (milliseconds) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+
+function graphdOperationClaim(runtime, child) {
+  const directory = path.join(runtime, 'graphd.operations');
+  let directoryStat;
+  try { directoryStat = fs.lstatSync(directory); } catch { return null; }
+  if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()
+    || (typeof process.getuid === 'function' && directoryStat.uid !== process.getuid())) return null;
+  const matches = [];
+  for (const name of fs.readdirSync(directory)) {
+    const match = name.match(OPERATION_CLAIM_RE);
+    if (!match || Number(match[1]) !== Number(child.pid)
+      || match[2] !== String(child.start_ticks || '')) continue;
+    const file = path.join(directory, name);
+    try {
+      const stat = fs.lstatSync(file);
+      const claim = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (stat.isFile() && !stat.isSymbolicLink()
+        && (typeof process.getuid !== 'function' || stat.uid === process.getuid())
+        && claim.type === 'graphd'
+        && Number(claim.pid) === Number(child.pid)
+        && String(claim.start_ticks || '') === String(child.start_ticks || '')
+        && claim.nonce === match[3]) matches.push(file);
+    } catch {}
+  }
+  return matches.length === 1 ? {
+    claim: matches[0],
+    directory_identity: {
+      path: directory,
+      dev: String(directoryStat.dev),
+      ino: String(directoryStat.ino),
+      uid: Number(directoryStat.uid),
+    },
+  } : null;
+}
 
 function canonicalGraphdRegistration(request, authority, child) {
   const refuse = (message) => { throw new Error(message); };
@@ -74,12 +110,14 @@ function canonicalGraphdRegistration(request, authority, child) {
   if (fs.existsSync(path.join(runtime, 'graphd.sock')) && !existingLock) {
     refuse('graph runtime socket exists without a child-owned lock');
   }
-  let operationOwner = null;
-  try { operationOwner = JSON.parse(fs.readFileSync(path.join(runtime, 'graphd.operation.lock'), 'utf8')); } catch {}
-  if (operationOwner && (Number(operationOwner.pid) !== Number(child.pid)
-    || String(operationOwner.start_ticks || '') !== String(child.start_ticks))) {
-    refuse('graph runtime operation lock belongs to a different process identity');
-  }
+  let operation = null;
+  const operationDeadline = Date.now() + 500;
+  do {
+    operation = graphdOperationClaim(runtime, child);
+    if (operation) break;
+    pause(10);
+  } while (Date.now() < operationDeadline);
+  if (!operation) refuse('graph runtime does not have exactly one child-owned operation claim');
   return {
     root,
     runtime_dir: runtime,
@@ -88,7 +126,8 @@ function canonicalGraphdRegistration(request, authority, child) {
     },
     socket: path.join(runtime, 'graphd.sock'),
     lock: path.join(runtime, 'graphd.lock'),
-    operation_lock: path.join(runtime, 'graphd.operation.lock'),
+    operation_claim: operation.claim,
+    operations_identity: operation.directory_identity,
     child_identity: { pid: child.pid, start_ticks: child.start_ticks },
   };
 }

@@ -104,12 +104,15 @@ a symlink or deletes a same-prefix directory without its captured device/inode
 identity.
 Managed graphd cleanup additionally derives the exact Git-common runtime from
 the graph root and rechecks the runtime directory device, inode, and owner
-before removing only physical `graphd.sock`, `graphd.lock`, or
-`graphd.operation.lock` entries. Deletion
+before removing only physical `graphd.sock`, `graphd.lock`, or an exact
+identity-bound claim in `graphd.operations`. Deletion
 also requires the graphd lock's PID and Linux start ticks to match the registered
-child identity. A child-owned operation lock is atomically replaced by a live
-watchdog cleanup claim before deletion; a concurrently starting replacement
-either owns that claim first or is refused, so canonical paths alone never
+child identity. Graphd and the watchdog use unique, never-reused claim names
+containing PID, Linux start ticks, and a random nonce. A stale claim can be
+removed after SIGKILL without reopening a fixed-path replacement race. Before
+deletion the watchdog creates its own live cleanup claim and rescans the
+directory; a concurrently starting replacement either has already claimed the
+runtime or observes the cleanup claim and exits, so canonical paths alone never
 establish deletion authority.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
