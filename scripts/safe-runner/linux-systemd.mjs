@@ -16,6 +16,10 @@ function systemctl(args) {
   });
 }
 
+export function systemctlKillArguments(unit, signal) {
+  return ['kill', '--kill-who=all', `--signal=${signal}`, unit];
+}
+
 export function assertSystemctlSuccess(result, operation) {
   if (result?.error) throw result.error;
   if (result?.status !== 0) {
@@ -164,7 +168,7 @@ export class LinuxSystemdAdapter {
   }
 
   signal(signal) {
-    const result = systemctl(['kill', '--kill-whom=all', `--signal=${signal}`, this.unit]);
+    const result = systemctl(systemctlKillArguments(this.unit, signal));
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 

@@ -23,6 +23,22 @@ function commandAvailable(command, args = ['--version']) {
   return !result.error && result.status === 0;
 }
 
+export function systemdKillControlSupported(result) {
+  if (result?.error) return false;
+  const detail = `${result?.stdout || ''}\n${result?.stderr || ''}`;
+  return !/(?:unrecognized|unknown|invalid) option[^\n]*kill-who/i.test(detail);
+}
+
+function killControlAvailable() {
+  const result = spawnSync('systemctl', [
+    '--user', 'kill', '--kill-who=all', '--signal=SIGCONT',
+    'lamina-safe-capability-probe-does-not-exist.scope',
+  ], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+  });
+  return systemdKillControlSupported(result);
+}
+
 function temporaryQuotaAvailable() {
   if (quotaCapability !== null) return quotaCapability;
   const version = spawnSync('bwrap', ['--version'], {
@@ -62,6 +78,7 @@ export function probeLinuxSystemd(platform = process.platform) {
     if (!controllers.includes(controller)) reasons.push(`cgroup v2 ${controller} controller is unavailable`);
   }
   if (!commandAvailable('systemd-run')) reasons.push('systemd-run is unavailable');
+  if (!killControlAvailable()) reasons.push('systemctl does not support --kill-who=all');
   const temporaryQuota = temporaryQuotaAvailable();
   if (!temporaryQuota.available) reasons.push(temporaryQuota.reason);
   const userManager = spawnSync('systemctl', ['--user', 'is-system-running'], {

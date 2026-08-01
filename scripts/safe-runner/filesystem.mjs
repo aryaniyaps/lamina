@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export function boundedDirectorySize(
@@ -62,11 +63,26 @@ export function quotaFilesystemUsage(records, temporaryDirectory, maximumBytes, 
   return null;
 }
 
-export function removeOwnedDirectory(directory, expectedPrefix) {
+export function ownedDirectoryIdentity(directory) {
   const resolved = path.resolve(directory);
-  const parent = path.dirname(resolved);
-  if (!path.basename(resolved).startsWith(expectedPrefix) || !fs.existsSync(parent)) {
+  const stat = fs.lstatSync(resolved);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error(`runner-owned path is not a physical directory: ${resolved}`);
+  }
+  return { path: resolved, dev: String(stat.dev), ino: String(stat.ino) };
+}
+
+export function removeOwnedDirectory(directory, expectedPrefix, ownership) {
+  const resolved = path.resolve(directory);
+  if (path.dirname(resolved) !== path.resolve(os.tmpdir())
+    || !path.basename(resolved).startsWith(expectedPrefix)
+    || ownership?.path !== resolved) {
     throw new Error(`refusing to remove non-runner directory: ${resolved}`);
+  }
+  const stat = fs.lstatSync(resolved);
+  if (stat.isSymbolicLink() || !stat.isDirectory()
+    || String(stat.dev) !== ownership.dev || String(stat.ino) !== ownership.ino) {
+    throw new Error(`refusing to remove runner directory whose ownership identity changed: ${resolved}`);
   }
   fs.rmSync(resolved, { recursive: true, force: true });
   return !fs.existsSync(resolved);

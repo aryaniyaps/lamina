@@ -58,9 +58,20 @@ export function deriveLimits(overrides = {}, { totalMemoryBytes = os.totalmem() 
     DEFAULTS.memoryHardMaxBytes,
     Math.floor(totalMemoryBytes * DEFAULTS.memoryFraction),
   );
-  const memoryMaxBytes = Math.min(overrides.memoryMaxBytes ?? derivedHard, derivedHard);
+  // A 64 KiB quantum is exact on Linux hosts with 4, 16, or 64 KiB pages and
+  // avoids systemd readback rounding the requested byte value differently.
+  const cgroupQuantum = 64 * 1024;
+  const alignForCgroup = (value) => Math.floor(value / cgroupQuantum) * cgroupQuantum;
+  const memoryMaxBytes = alignForCgroup(
+    Math.min(overrides.memoryMaxBytes ?? derivedHard, derivedHard),
+  );
   const defaultHigh = Math.floor(memoryMaxBytes * DEFAULTS.memoryHighFraction);
-  const memoryHighBytes = Math.min(overrides.memoryHighBytes ?? defaultHigh, defaultHigh);
+  const memoryHighBytes = alignForCgroup(
+    Math.min(overrides.memoryHighBytes ?? defaultHigh, defaultHigh),
+  );
+  if (memoryMaxBytes === 0 || memoryHighBytes === 0) {
+    throw new TypeError('memory limits must be at least 65536 bytes');
+  }
   if (memoryHighBytes > memoryMaxBytes) throw new TypeError('memoryHighBytes cannot exceed memoryMaxBytes');
   const pidsMax = Math.min(overrides.pidsMax ?? DEFAULTS.pidsMax, DEFAULTS.pidsMax);
   const tempMaxBytes = Math.min(overrides.tempMaxBytes ?? DEFAULTS.tempMaxBytes, DEFAULTS.tempMaxBytes);

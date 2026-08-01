@@ -50,8 +50,15 @@ export function runnerBuildDigest() {
     const safeRunnerClient = path.resolve(HERE, '../../packages/cli/lib', name);
     hash.update(`packages/cli/lib/${name}`).update(fs.readFileSync(safeRunnerClient));
   }
-  const adversary = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
-  hash.update('tests/fixtures/safe-runner-adversary.mjs').update(fs.readFileSync(adversary));
+  for (const relative of [
+    'tests/fixtures/safe-runner-adversary.mjs',
+    'tests/fixtures/safe-runner-controller.mjs',
+    'tests/fixtures/safe-runner-graphd-client.mjs',
+    'tests/fixtures/graph-runtime/server.mjs',
+  ]) {
+    const fixture = path.resolve(HERE, '../..', relative);
+    hash.update(relative).update(fs.readFileSync(fixture));
+  }
   return hash.digest('hex');
 }
 

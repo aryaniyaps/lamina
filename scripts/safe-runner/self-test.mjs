@@ -86,7 +86,6 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
       cwd,
       reportFile: reportPath,
       overrides: { ...baseOverrides, ...overrides },
-      probe,
       mode: 'self-test',
       selfTestCaseId: id,
       promote: false,

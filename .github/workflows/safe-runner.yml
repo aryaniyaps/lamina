@@ -10,6 +10,7 @@ on:
       - 'tests/safe_runner_integration_test.mjs'
       - 'tests/safe_runner_entrypoints_test.mjs'
       - 'tests/fixtures/safe-runner-adversary.mjs'
+      - 'tests/fixtures/safe-runner-controller.mjs'
       - 'tests/fixtures/safe-runner-graphd-client.mjs'
       - 'tests/fixtures/graph-runtime/**'
       - 'docs/content/advanced/safe-runner.mdx'
@@ -35,6 +36,7 @@ on:
       - 'tests/safe_runner_integration_test.mjs'
       - 'tests/safe_runner_entrypoints_test.mjs'
       - 'tests/fixtures/safe-runner-adversary.mjs'
+      - 'tests/fixtures/safe-runner-controller.mjs'
       - 'tests/fixtures/safe-runner-graphd-client.mjs'
       - 'tests/fixtures/graph-runtime/**'
       - 'docs/content/advanced/safe-runner.mdx'
@@ -70,7 +72,7 @@ jobs:
           node-version: '20'
           package-manager-cache: false
 
-      - name: Provision rootless bubblewrap from the Ubuntu archive
+      - name: Provision pinned rootless bubblewrap
         shell: bash
         run: |
           package_dir="$RUNNER_TEMP/bubblewrap-package"
@@ -78,17 +80,21 @@ jobs:
           bin_dir="$RUNNER_TEMP/bubblewrap-bin"
           evidence_dir="$RUNNER_TEMP/safe-runner-test-artifacts/provisioning"
           mkdir -p "$package_dir" "$extract_dir" "$bin_dir" "$evidence_dir"
-          cd "$package_dir"
-          apt-cache policy bubblewrap | tee "$evidence_dir/apt-policy.txt"
-          apt-get download bubblewrap
-          package="$(find . -maxdepth 1 -type f -name 'bubblewrap_*.deb' -print -quit)"
-          test -n "$package"
-          sha256sum "$package" | tee "$evidence_dir/package-sha256.txt"
+          package="$package_dir/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_url="https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_sha256="3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb"
+          curl --proto '=https' --tlsv1.2 -fsSL "$package_url" -o "$package"
+          printf '%s  %s\n' "$package_sha256" "$package" | tee "$evidence_dir/package-sha256.txt" | sha256sum --check
+          printf 'source=%s\nsha256=%s\n' "$package_url" "$package_sha256" > "$evidence_dir/package-source.txt"
           dpkg-deb --info "$package" | tee "$evidence_dir/package-info.txt"
           dpkg-deb --extract "$package" "$extract_dir"
           cp "$extract_dir/usr/bin/bwrap" "$bin_dir/bwrap"
           chmod 0755 "$bin_dir/bwrap"
+          ldd "$bin_dir/bwrap" | tee "$evidence_dir/runtime-dependencies.txt"
           "$bin_dir/bwrap" --version | tee "$evidence_dir/bwrap-version.txt"
+          "$bin_dir/bwrap" --unshare-user --uid 0 --gid 0 --ro-bind / / \
+            --dev-bind /dev /dev --proc /proc --size 1048576 --tmpfs /tmp \
+            /bin/sh -c 'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null'
           echo "$bin_dir" >> "$GITHUB_PATH"
 
       - name: Static and focused contract tests
@@ -96,8 +102,15 @@ jobs:
           LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR: ${{ runner.temp }}/safe-runner-test-artifacts
         run: npm run test:safe-runner
 
-      - name: Low-limit adversarial self-test
-        run: npm run safe:self-test -- --require-production
+      - name: Record production qualification or exact fail-closed refusal
+        shell: bash
+        run: |
+          result="$RUNNER_TEMP/safe-runner-test-artifacts/qualification.json"
+          set +e
+          node scripts/safe-runner/cli.mjs self-test --require-production > "$result"
+          status=$?
+          set -e
+          node scripts/safe-runner/verify-qualification-result.mjs --file "$result" --status "$status"
 
       - name: Refuse leftover adversarial descendants
         if: always()

@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { once } from 'node:events';
+import { spawn, spawnSync } from 'node:child_process';
 import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import { MIB } from '../scripts/safe-runner/constants.mjs';
 import { validateReport } from '../scripts/safe-runner/report.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
-import { checkPromotion } from '../scripts/safe-runner/state.mjs';
+import { checkPromotion, checkSafetyRetry } from '../scripts/safe-runner/state.mjs';
 
 const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
   ? path.resolve(process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR)
@@ -38,9 +39,30 @@ const limits = {
 
 try {
   const probe = adapterProbe();
+  let injectedLaunches = 0;
+  const injectedAdapter = {
+    id: 'caller-injected-portable',
+    launch() { injectedLaunches += 1; throw new Error('must not launch'); },
+    sample() { return { pids: [], records: [] }; },
+    signal() {},
+    cleanup() { return { pids: [], removed: true, errors: [] }; },
+  };
+  for (const tier of ['medium', 'large']) {
+    const injected = await runSafely({
+      command: [process.execPath, fixture, 'success'],
+      tier,
+      cwd: root,
+      reportFile: path.join(reports, `injected-${tier}.json`),
+      adapter: injectedAdapter,
+      probe: { ...probe, id: 'caller-forged-production', production_enforcement: true },
+    });
+    assert.equal(injected.outcome, 'preflight_refused');
+    assert.deepEqual(injected.adapter, probe);
+  }
+  assert.equal(injectedLaunches, 0, 'public calls must not inject an enforcement adapter');
   const common = probe.production_enforcement
-    ? { probe }
-    : { probe, mode: 'self-test', selfTestCaseId: 'normal_cleanup' };
+    ? {}
+    : { mode: 'self-test', selfTestCaseId: 'normal_cleanup' };
   const normal = await runSafely({
     ...common,
     command: [process.execPath, fixture, 'success'],
@@ -82,7 +104,7 @@ try {
     const redacted = await runSafely({
       command: [process.execPath, fixture, 'secret-output', '--token', 'childsecret'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'redacted.json'),
-      overrides: limits, probe, promote: false,
+      overrides: limits, promote: false,
     });
     assert.equal(redacted.outcome, 'success');
     const serializedRedacted = JSON.stringify(redacted);
@@ -92,7 +114,7 @@ try {
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'failure.json'),
-      overrides: limits, probe, promote: false,
+      overrides: limits, promote: false,
     });
     assert.equal(failure.outcome, 'command_failed');
     assert.equal(failure.termination.child_exit_code, 7);
@@ -114,7 +136,6 @@ try {
         timeoutMs: 5_000,
         gracefulStopMs: 500,
       },
-      probe,
       promote: false,
     });
     assert.equal(managedGraphd.outcome, 'success');
@@ -136,7 +157,7 @@ try {
       command: [process.execPath, graphdFixture, graphRepository, 'leave-stale'],
       tier: 'small', cwd: root, reportFile: path.join(reports, 'stale-graphd.json'),
       overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
-      probe, promote: false,
+      promote: false,
     });
     assert.equal(staleGraphd.outcome, 'internal_error');
     assert.equal(staleGraphd.termination.reason, 'cleanup_incomplete');
@@ -147,6 +168,72 @@ try {
       fs.rmSync(managedPath, { force: true });
     }
 
+    const earlyGraphd = await runSafely({
+      command: [process.execPath, graphdFixture, graphRepository, 'exit-stale'],
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'early-graphd.json'),
+      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      promote: false,
+    });
+    assert.equal(earlyGraphd.outcome, 'internal_error');
+    assert.equal(earlyGraphd.termination.reason, 'cleanup_incomplete');
+    assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 2,
+      'every accepted registration must seed socket/lock verification before classification');
+    assert.equal(fs.existsSync(graphData), true);
+    for (const managedPath of earlyGraphd.cleanup.managed_paths_remaining) {
+      fs.rmSync(managedPath, { force: true });
+    }
+
+    const retryCommand = [
+      process.execPath, graphdFixture, graphRepository, 'leave-stale', 'hold',
+    ];
+    const cleanupAfterLimit = await runSafely({
+      command: retryCommand,
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
+      overrides: { ...limits, timeoutMs: 300, gracefulStopMs: 100 },
+      promote: false,
+    });
+    assert.equal(cleanupAfterLimit.outcome, 'internal_error');
+    assert.equal(cleanupAfterLimit.termination.reason, 'cleanup_incomplete');
+    assert.equal(checkSafetyRetry(root, retryCommand, cleanupAfterLimit.limits).ok, false,
+      'an observed safety limit must be recorded even when cleanup normalizes the outcome');
+    for (const managedPath of cleanupAfterLimit.cleanup.managed_paths_remaining) {
+      fs.rmSync(managedPath, { force: true });
+    }
+
+    const crashReportFile = path.join(reports, 'controller-crash.json');
+    const crashMarker = path.join(root, 'controller-crash.marker');
+    const controllerFixture = path.resolve('tests/fixtures/safe-runner-controller.mjs');
+    const controller = spawn(process.execPath, [controllerFixture, crashReportFile, crashMarker, root], {
+      stdio: 'ignore',
+      env: { ...process.env, LAMINA_SAFE_RUNNER_STATE_DIR: state },
+    });
+    const controllerExit = once(controller, 'exit');
+    const markerDeadline = Date.now() + 8_000;
+    while (!fs.existsSync(crashMarker) && controller.exitCode === null && Date.now() < markerDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.equal(fs.existsSync(crashMarker), true, 'controller fixture must reach the bounded workload');
+    const payloadPid = Number(fs.readFileSync(crashMarker, 'utf8').trim());
+    process.kill(controller.pid, 'SIGKILL');
+    await controllerExit;
+    const reportDeadline = Date.now() + 8_000;
+    while (!fs.existsSync(crashReportFile) && Date.now() < reportDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.equal(fs.existsSync(crashReportFile), true, 'external watchdog must write a crash report');
+    const crashReport = JSON.parse(fs.readFileSync(crashReportFile, 'utf8'));
+    assert.equal(crashReport.outcome, 'internal_error');
+    assert.equal(crashReport.termination.reason, 'controller_crashed');
+    assert.equal(crashReport.error.code, 'LAMINA_SAFE_CONTROLLER_CRASH');
+    assert.deepEqual(crashReport.cleanup.descendants_remaining, []);
+    assert.deepEqual(crashReport.cleanup.managed_paths_remaining, []);
+    assert.equal(crashReport.cleanup.scope_removed, true);
+    assert.equal(crashReport.cleanup.temporary_directory_removed, true);
+    assert.deepEqual(crashReport.cleanup.errors, []);
+    assert.equal(validateReport(crashReport).valid, true);
+    assert.equal(fs.existsSync(crashReport.preflight.crash_watchdog.temporary_directory), false);
+    assert.throws(() => process.kill(payloadPid, 0), /ESRCH/);
+
     for (const [mode, expectedLimit] of [
       ['temp-deleted-open', 'temporary_disk'],
       ['temp-inode-storm', 'temporary_inodes'],
@@ -155,7 +242,7 @@ try {
       const temporary = await runSafely({
         command: [process.execPath, fixture, mode],
         tier: 'small', cwd: root, reportFile: path.join(reports, `${mode}.json`),
-        overrides: { ...limits, tempMaxBytes: MIB }, probe, promote: false,
+        overrides: { ...limits, tempMaxBytes: MIB }, promote: false,
       });
       assert.equal(temporary.outcome, 'safety_limit_exceeded', mode);
       assert.equal(temporary.termination.limit, expectedLimit, mode);
@@ -169,7 +256,6 @@ try {
     command: [process.execPath, fixture, 'detached-child'],
     tier: 'small', cwd: root, reportFile: path.join(reports, 'detached.json'),
     overrides: { ...limits, pidsMax: 32 },
-    probe,
     mode: 'self-test',
     selfTestCaseId: 'detached_descendant',
     promote: false,

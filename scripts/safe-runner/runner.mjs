@@ -4,9 +4,11 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { adapterProbe, assertAdapterShape } from './adapter.mjs';
 import { createProofBroker } from './broker.mjs';
+import { startCrashWatchdog } from './crash-watchdog-controller.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
 import {
   boundedDirectorySize,
+  ownedDirectoryIdentity,
   quotaFilesystemUsage,
   removeOwnedDirectory,
 } from './filesystem.mjs';
@@ -14,7 +16,9 @@ import { LinuxSystemdAdapter } from './linux-systemd.mjs';
 import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
-import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
+import {
+  existingLaminaProcesses, processIdentity, processRecord, signalIdentity,
+} from './processes.mjs';
 import { baseReport, finishReport, writeReportWithFallback } from './report.mjs';
 import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, recordPromotion, recordSafetyLimit } from './state.mjs';
@@ -76,19 +80,21 @@ export async function runSafely({
   reportFile = null,
   overrides = {},
   env = {},
-  adapter = null,
-  probe = adapterProbe(),
   mode = 'run',
   selfTestCaseId = null,
   promote = false,
   workloadId = null,
 } = {}) {
   const startedMs = Date.now();
+  // Enforcement is selected exclusively from the current host.  Callers may
+  // not attest one adapter and launch another through this public entrypoint.
+  const probe = adapterProbe();
   const normalizedCommand = Array.isArray(command) ? command : [];
   const report = baseReport({ tier, command: normalizedCommand, cwd: path.resolve(cwd) });
   let lock = null;
   let temporaryDirectory = null;
   let payloadTemporaryDirectory = null;
+  let temporaryDirectoryIdentity = null;
   let monitor = null;
   let forceTimer = null;
   let activeAdapter = null;
@@ -100,7 +106,9 @@ export async function runSafely({
   let payloadExitObserved = false;
   let managedCleanupStartedMs = null;
   let proofBroker = null;
+  let crashWatchdog = null;
   let quotaProven = false;
+  let observedSafetyLimit = null;
   let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
   const managedRegistrations = [];
   const managedCleanupPaths = new Set();
@@ -109,6 +117,9 @@ export async function runSafely({
   const signalHandlers = new Map();
 
   const requestStop = (reason, limit = null) => {
+    if (reason === 'safety_limit_exceeded' && observedSafetyLimit === null) {
+      observedSafetyLimit = limit;
+    }
     if (stopping) return;
     stopping = true;
     report.termination.reason = reason;
@@ -279,9 +290,25 @@ export async function runSafely({
 
     temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
     fs.chmodSync(temporaryDirectory, 0o700);
+    temporaryDirectoryIdentity = ownedDirectoryIdentity(temporaryDirectory);
     payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
     fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
-    activeAdapter = assertAdapterShape(adapter || adapterFor(probe, report.run_id, report.limits));
+    activeAdapter = assertAdapterShape(adapterFor(probe, report.run_id, report.limits));
+    crashWatchdog = await startCrashWatchdog({
+      report,
+      reportFile,
+      temporaryDirectory,
+      temporaryDirectoryIdentity,
+      adapter: activeAdapter,
+      lock,
+    });
+    if (crashWatchdog) {
+      report.preflight.crash_watchdog = {
+        active: true,
+        temporary_directory: crashWatchdog.directory,
+      };
+      crashWatchdog.update({ report_seed: structuredClone(report) });
+    }
     const authority = {
       runId: report.run_id,
       tier,
@@ -292,6 +319,9 @@ export async function runSafely({
       registrations: managedRegistrations,
       records: () => activeAdapter?.sample()?.records || [],
       register(record) {
+        managedCleanupPaths.add(record.socket);
+        managedCleanupPaths.add(record.lock);
+        crashWatchdog?.registerManagedPath(record.socket, record.lock);
         if (!managedRegistrations.some((item) => item.pid === record.pid
           && item.start_ticks === record.start_ticks)) {
           managedRegistrations.push({
@@ -341,6 +371,13 @@ export async function runSafely({
         LAMINA_SAFE_RUNNER_CONTROLLER_PID: String(process.pid),
       },
     });
+    const launchedRecord = processRecord(child.pid);
+    crashWatchdog?.update({
+      payload: processIdentity(child.pid),
+      payload_process_group: activeAdapter.id === 'portable-process-group-small-only'
+        && launchedRecord?.process_group === child.pid ? child.pid : null,
+      report_seed: structuredClone(report),
+    });
     launched = true;
     let childEnded = null;
     const childResult = new Promise((resolve) => {
@@ -370,12 +407,12 @@ export async function runSafely({
         report.output.total_bytes += value.length;
         const remaining = Math.max(0, report.limits.output_max_bytes - retainedOutputBytes);
         const retained = value.subarray(0, remaining);
-        if (retained.length > 0 && !stopping) {
+        if (retained.length > 0) {
           retainedOutputBytes += retained.length;
           report.output[`${key}_tail`] = appendTail(
             report.output[`${key}_tail`], retained, DEFAULTS.diagnosticTailBytes,
           );
-          if (!sink.write(retained)) {
+          if (!stopping && !sink.write(retained)) {
             stream.pause();
             sink.once('drain', () => { if (!stopping) stream.resume(); });
           }
@@ -392,12 +429,20 @@ export async function runSafely({
 
     if (activeAdapter.id === 'linux-systemd-cgroup-v2') {
       const deadline = Date.now() + DEFAULTS.scopeHandshakeMs;
+      let handshakeDiagnostic = { ready_file: false, cgroup: null, gate_pid: null, pids: [] };
       while (Date.now() < deadline && !childEnded) {
         if (fs.existsSync(readyFile) && activeAdapter.resolveCgroup()) {
           const proof = activeAdapter.sample();
           const enforcement = activeAdapter.enforcementProof();
           let gatePid = null;
           try { gatePid = Number(JSON.parse(fs.readFileSync(readyFile, 'utf8')).pid); } catch {}
+          handshakeDiagnostic = {
+            ready_file: true,
+            cgroup: activeAdapter.cgroupPath,
+            gate_pid: gatePid,
+            pids: proof.pids,
+            enforcement,
+          };
           if (gatePid && proof.pids.includes(gatePid) && enforcement.ok) {
             report.preflight.scope_proof = {
               cgroup: activeAdapter.cgroupPath,
@@ -410,6 +455,10 @@ export async function runSafely({
             };
             authority.cgroup = activeAdapter.cgroupPath;
             authority.enforcement = enforcement.actual;
+            crashWatchdog?.update({
+              cgroup: activeAdapter.cgroupPath,
+              report_seed: structuredClone(report),
+            });
             rememberDescendants(report, proof.records, Date.now() - startedMs);
             break;
           }
@@ -417,6 +466,7 @@ export async function runSafely({
         await wait(20);
       }
       if (!report.preflight.scope_proof) {
+        report.preflight.enforcement_handshake_diagnostic = handshakeDiagnostic;
         requestStop('safety_limit_exceeded', 'enforcement_handshake');
         throw Object.assign(
           new Error(childEnded?.error?.message || 'systemd cgroup ownership handshake failed before payload release'),
@@ -557,7 +607,10 @@ export async function runSafely({
     }
   } catch (error) {
     if (!error.safeEarly) {
-      if (report.outcome === 'internal_error' || !stopping) report.outcome = 'internal_error';
+      if (report.outcome === 'internal_error' || !stopping || report.samples.length === 0) {
+        report.outcome = 'internal_error';
+        report.termination.reason = 'internal_error';
+      }
       report.termination.reason ||= 'internal_error';
       report.error ||= errorDetails(error);
     }
@@ -611,6 +664,7 @@ export async function runSafely({
       try {
         report.cleanup.temporary_directory_removed = removeOwnedDirectory(
           temporaryDirectory, 'lamina-safe-runner-',
+          temporaryDirectoryIdentity,
         );
       } catch (error) {
         report.cleanup.errors.push(`temporary cleanup: ${error.message}`);
@@ -651,8 +705,13 @@ export async function runSafely({
     };
   }
   finishReport(report, startedMs);
-  if (report.outcome === 'safety_limit_exceeded' && mode !== 'self-test') {
-    try { recordSafetyLimit(cwd, normalizedCommand, report.limits, report); } catch (error) {
+  if (observedSafetyLimit !== null && mode !== 'self-test') {
+    try {
+      recordSafetyLimit(cwd, normalizedCommand, report.limits, {
+        ...report,
+        termination: { ...report.termination, limit: observedSafetyLimit },
+      });
+    } catch (error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'retry_ledger_failed';
       report.error = errorDetails(error, 'LAMINA_SAFE_RETRY_LEDGER');
@@ -667,6 +726,16 @@ export async function runSafely({
         report.outcome = 'internal_error';
         report.termination.reason = 'promotion_failed';
         report.error = errorDetails(error, 'LAMINA_SAFE_PROMOTION');
+        writeReportWithFallback(reportFile, report);
+      }
+    }
+    if (crashWatchdog) {
+      try {
+        await crashWatchdog.disarm();
+      } catch (error) {
+        report.outcome = 'internal_error';
+        report.termination.reason = 'watchdog_disarm_failed';
+        report.error = errorDetails(error, 'LAMINA_SAFE_WATCHDOG_DISARM');
         writeReportWithFallback(reportFile, report);
       }
     }

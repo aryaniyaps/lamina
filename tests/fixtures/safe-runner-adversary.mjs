@@ -83,6 +83,10 @@ if (mode === 'direct-memory') {
   const controller = Number(process.env.LAMINA_SAFE_RUNNER_CONTROLLER_PID);
   setTimeout(() => process.kill(controller, 'SIGINT'), 100);
   hold();
+} else if (mode === 'crash-marker-hang') {
+  fs.writeFileSync(process.argv[3], `${process.pid}\n`, { mode: 0o600 });
+  process.on('SIGTERM', () => {});
+  hold();
 } else if (mode === 'detached-child') {
   spawn(process.execPath, [new URL(import.meta.url).pathname, 'socket-child'], {
     detached: true,

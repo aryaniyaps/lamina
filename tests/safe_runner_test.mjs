@@ -4,13 +4,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
-import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../scripts/safe-runner/adapter.mjs';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  adapterProbe, assertAdapterShape, boundedProbeFailure, systemdKillControlSupported,
+} from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
-import { assertSystemctlSuccess } from '../scripts/safe-runner/linux-systemd.mjs';
+import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-runner/filesystem.mjs';
+import {
+  assertSystemctlSuccess, systemctlKillArguments,
+} from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
@@ -43,9 +48,35 @@ const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
 
 try {
+  const unownedSamePrefix = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-unowned-'));
+  assert.throws(
+    () => removeOwnedDirectory(unownedSamePrefix, 'lamina-safe-runner-', null),
+    /refusing to remove non-runner directory/,
+  );
+  assert.equal(fs.existsSync(unownedSamePrefix), true);
+  fs.rmSync(unownedSamePrefix, { recursive: true, force: true });
+  const symlinkTarget = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-target-'));
+  const symlinkPath = `${path.join(os.tmpdir(), 'lamina-safe-runner-symlink')}-${process.pid}-${Date.now()}`;
+  fs.symlinkSync(symlinkTarget, symlinkPath);
+  assert.throws(() => ownedDirectoryIdentity(symlinkPath), /not a physical directory/);
+  assert.throws(
+    () => removeOwnedDirectory(symlinkPath, 'lamina-safe-runner-', {
+      path: symlinkPath, dev: '0', ino: '0',
+    }),
+    /ownership identity changed/,
+  );
+  assert.equal(fs.existsSync(symlinkTarget), true);
+  fs.rmSync(symlinkPath, { force: true });
+  fs.rmSync(symlinkTarget, { recursive: true, force: true });
+  const ownedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-owned-'));
+  const ownedIdentity = ownedDirectoryIdentity(ownedTemporary);
+  assert.equal(removeOwnedDirectory(ownedTemporary, 'lamina-safe-runner-', ownedIdentity), true);
+
   const eightGib = deriveLimits({}, { totalMemoryBytes: 8 * GIB });
   assert.equal(eightGib.memory_max_bytes, 2 * GIB);
-  assert.equal(eightGib.memory_high_bytes, Math.floor(1.6 * GIB));
+  assert.equal(eightGib.memory_high_bytes, Math.floor(Math.floor(1.6 * GIB) / 65536) * 65536);
+  assert.equal(eightGib.memory_max_bytes % 65536, 0);
+  assert.equal(eightGib.memory_high_bytes % 65536, 0);
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
@@ -53,6 +84,7 @@ try {
     assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
   }
   assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
+  assert.throws(() => deriveLimits({ memoryMaxBytes: 1 }), /at least 65536 bytes/);
 
   const portableProbe = {
     id: 'portable-process-group-small-only',
@@ -70,6 +102,13 @@ try {
     boundedProbeFailure({ status: 1, signal: null, stderr: `denied\n${'x'.repeat(1_000)}` }),
     `exit=1; output=${`denied ${'x'.repeat(1_000)}`.slice(0, 500)}`,
   );
+  assert.deepEqual(systemctlKillArguments('lamina-safe-unit.scope', 'SIGKILL'), [
+    'kill', '--kill-who=all', '--signal=SIGKILL', 'lamina-safe-unit.scope',
+  ]);
+  assert.equal(systemdKillControlSupported({ status: 1, stderr: 'Unit not loaded' }), true);
+  assert.equal(systemdKillControlSupported({
+    status: 1, stderr: "systemctl: unrecognized option '--kill-who=all'",
+  }), false);
   const ordinarySmall = preflightRun({
     tier: 'small', command: ['node', '-e', ''], cwd: root, adapterInfo: portableProbe,
   });
@@ -226,12 +265,20 @@ try {
   };
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
+    `${process.execPath} /tmp/lamina/runtime/app/lib/graph-runtime/server.mjs /repo`,
     '/usr/local/bin/lamina-linux-x64 --graphd /repo',
     '/opt/lamina/runtime/cocoindex-worker retrieval serve',
     '/tmp/lamina-cocoindex-worker-linux-x64 observe',
     `${process.execPath} /repo/packages/cli/retrieval_worker.py serve`,
   ]) assert.equal(isLaminaProcessCommand(command), true, command);
-  assert.equal(isLaminaProcessCommand(`${process.execPath} tests/tiny.mjs`), false);
+  for (const command of [
+    `${process.execPath} tests/tiny.mjs`,
+    'gh run view 123 --repo aryaniyaps/lamina',
+    `${process.execPath} tests/tiny.mjs /repo/lamina`,
+    `${process.execPath} tests/tiny.mjs /repo/packages/cli/lib/graph-runtime/server.mjs`,
+    'tool --graphd /repo',
+    'sh -c /usr/local/bin/lamina',
+  ]) assert.equal(isLaminaProcessCommand(command), false, command);
   assert.throws(
     () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
     /systemctl stop unit failed: access denied/,
@@ -242,8 +289,11 @@ try {
     token: path.join(root, 'missing-graphd.token'),
   }), undefined, 'stopping an absent graphd must complete without a stray response reference');
   if (process.platform === 'linux') {
+    const graphdRoot = path.join(root, 'source-graphd');
+    fs.mkdirSync(graphdRoot);
+    assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: graphdRoot }).status, 0);
     const sourceGraphd = spawn(process.execPath, [
-      '-e', 'setInterval(() => {}, 1_000)', '/repo/packages/cli/lib/graph-runtime/server.mjs',
+      path.resolve('packages/cli/lib/graph-runtime/server.mjs'), graphdRoot,
     ], { stdio: 'ignore' });
     try {
       let found = [];
@@ -398,7 +448,8 @@ try {
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
-  assert.match(workflow, /ubuntu-22\.04[\s\S]*apt-get download bubblewrap[\s\S]*package-sha256\.txt[\s\S]*npm run safe:self-test/);
+  assert.match(workflow, /ubuntu-22\.04[\s\S]*bubblewrap_0\.8\.0-2\+deb12u1_amd64\.deb[\s\S]*3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb[\s\S]*verify-qualification-result\.mjs/);
+  assert.match(workflow, /test:safe-runner/);
   assert.doesNotMatch(workflow, /\bsudo\b/);
 
   process.stdout.write('safe-runner unit contracts passed\n');
