@@ -77,7 +77,10 @@ try {
     ...common,
     command: [process.execPath, fixture, 'success'],
     tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'normal.json'),
-    overrides: limits, promote: false,
+    // Workload runtime starts immediately before final FIFO release, so this
+    // success control allows for sandbox and Node startup after release.
+    // Explicit hang and limit cases retain the one-second runtime clock.
+    overrides: { ...limits, timeoutMs: 5_000 }, promote: false,
   });
   assert.equal(normal.outcome, 'success');
   assert.equal(validateReport(normal).valid, true);
