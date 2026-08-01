@@ -31,7 +31,9 @@ safe runner. The public Node API is
 On Linux, create a transient user-systemd scope with cgroup-v2 memory and PID
 controllers. A one-process POSIX shell gate enters the scope first and does not
 release the payload until the controller has observed the exact gate PID in
-the expected cgroup. This prevents an unbounded payload from running during a
+the expected cgroup and read back the exact `memory.max`, `memory.high`, and
+`pids.max` values. A second gate proves a size-limited private tmpfs before the
+payload starts. This prevents an unbounded payload from running during a
 scope-discovery race. The shell gate avoids consuming a second Node/V8 thread
 pool because cgroup `TasksMax` counts threads as well as processes.
 
@@ -43,6 +45,9 @@ The runner:
   aggregate cgroup and individual `/proc` records;
 - keeps bounded samples, diagnostic tails, stdout/stderr files, and
   runner-owned temporary state;
+- separates summed process RSS from authoritative cgroup memory accounting;
+- runs the payload under unprivileged bwrap with a read-only host root and a
+  hard-cap private tmpfs, sampling allocated blocks and inodes through `/proc`;
 - terminates the complete scope on memory, PID, timeout, output, temporary
   disk, controller signal, or detached-descendant failure;
 - identifies processes by PID plus Linux start ticks so stale records cannot
@@ -58,7 +63,7 @@ The runner:
   launched by an external daemon are not proven members of the client scope.
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
-an explicit managed-descendant registration. The runner matches the registered
+an online supervisor-broker registration. The runner matches the registered
 PID and Linux start ticks to an in-scope `server.mjs`/`--graphd` process, owns
 its descendants through the same cgroup, and gracefully terminates the scope
 after the CLI payload exits. Any unregistered or mismatched remainder keeps the
@@ -66,7 +71,8 @@ ordinary detached-descendant failure semantics.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion,
-and the single global production lock. Every tier refuses a pre-existing
+for the same explicit workload identity, and the single host-global production
+lock (which cannot be redirected with the evidence-state override). Every tier refuses a pre-existing
 Lamina runtime because it cannot be adopted into the new scope.
 Attestation identity covers the machine, adapter/controllers, architecture,
 and digest of the runner implementation and schemas.
@@ -91,6 +97,15 @@ Rejected. Process groups are useful for deliberately tiny fallback tests, but
 a child can create a new session or become reparented. They cannot prove
 complete production ownership.
 
+### Poll a normal temporary directory
+
+Rejected. Directory sizes miss deleted-but-open files, can follow symlink
+escapes incorrectly, and make inode storms turn the safety monitor itself into
+unbounded work. The private tmpfs supplies the hard byte quota; constant-size
+`statfs` accounting plus a bounded no-follow walk supplies diagnostics and
+inode/symlink refusal. Hosts without unprivileged bwrap tmpfs support refuse
+production qualification.
+
 ### Launch the payload before discovering its cgroup
 
 Rejected. Even a short discovery race lets the unbounded command start before
@@ -113,8 +128,8 @@ prove ownership of descendants created by an external daemon.
   report contract for all resource-intensive work.
 - Safety-limit outcomes are explicit failed scenarios and cannot be promoted
   or used as performance measurements.
-- Promotion state is repository- and runner-build-specific; changing the
-  runner invalidates prior attestation and promotion evidence.
+- Promotion state is repository-, workload-, and runner-build-specific;
+  changing the runner invalidates prior attestation and promotion evidence.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and
   production-refusal contract without claiming enforcement.

@@ -46,6 +46,7 @@ export function authorizeBrokerRequest(request, authority) {
     if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
       || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)
       || path.dirname(request.socket) !== path.dirname(request.lock)
+      || path.basename(request.socket) !== 'graphd.sock'
       || path.basename(request.lock) !== 'graphd.lock') {
       return { ok: false, error: 'managed graphd registration requires canonical absolute socket/lock siblings' };
     }

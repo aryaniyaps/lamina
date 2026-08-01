@@ -3,17 +3,20 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { once } from 'node:events';
+import { spawn } from 'node:child_process';
 import { adapterProbe, assertAdapterShape } from '../scripts/safe-runner/adapter.mjs';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
+import { assertSystemctlSuccess } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
-import { isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
+import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
 import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
   baseReport,
@@ -173,10 +176,20 @@ try {
   fs.rmSync(fallback.path, { force: true });
 
   const priorBroker = process.env.LAMINA_SAFE_RUNNER_BROKER;
+  const priorContext = process.env.LAMINA_SAFE_RUNNER_CONTEXT;
+  const priorToken = process.env.LAMINA_SAFE_RUNNER_TOKEN;
+  process.env.LAMINA_SAFE_RUNNER_CONTEXT = JSON.stringify({
+    schema: 'lamina.safe-runner-context/v1', tier: 'large', adapter: 'linux-systemd-cgroup-v2',
+  });
+  process.env.LAMINA_SAFE_RUNNER_TOKEN = 'caller-forged';
   process.env.LAMINA_SAFE_RUNNER_BROKER = path.join(root, 'caller-forged.sock');
   assert.equal(safeRunnerContext(), null, 'caller-authored environment must never authorize work');
   if (priorBroker === undefined) delete process.env.LAMINA_SAFE_RUNNER_BROKER;
   else process.env.LAMINA_SAFE_RUNNER_BROKER = priorBroker;
+  if (priorContext === undefined) delete process.env.LAMINA_SAFE_RUNNER_CONTEXT;
+  else process.env.LAMINA_SAFE_RUNNER_CONTEXT = priorContext;
+  if (priorToken === undefined) delete process.env.LAMINA_SAFE_RUNNER_TOKEN;
+  else process.env.LAMINA_SAFE_RUNNER_TOKEN = priorToken;
 
   const requester = { pid: 41000, ppid: 1, start_ticks: '99', command: 'node guarded.mjs' };
   const authorityRecords = [requester];
@@ -206,22 +219,6 @@ try {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
     command: `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
   };
-  const brokerRegistrations = [];
-  const graphAuthority = {
-    ...authority,
-    records: () => [requester, authorizedGraphd],
-    register: (record) => brokerRegistrations.push(record),
-  };
-  assert.equal(authorizeBrokerRequest({
-    operation: 'register_graphd', requester, child: authorizedGraphd,
-    socket: '/repo/.git/lamina/graphd.sock', lock: '/repo/.git/lamina/graphd.lock',
-  }, graphAuthority).ok, true);
-  assert.equal(brokerRegistrations.length, 1);
-  assert.equal(authorizeBrokerRequest({
-    operation: 'register_graphd', requester, child: { ...authorizedGraphd, start_ticks: 'forged' },
-    socket: '/repo/.git/lamina/graphd.sock', lock: '/repo/.git/lamina/graphd.lock',
-  }, graphAuthority).ok, false, 'payload cannot self-assert a graphd identity');
-
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
     '/usr/local/bin/lamina-linux-x64 --graphd /repo',
@@ -230,6 +227,35 @@ try {
     `${process.execPath} /repo/packages/cli/retrieval_worker.py serve`,
   ]) assert.equal(isLaminaProcessCommand(command), true, command);
   assert.equal(isLaminaProcessCommand(`${process.execPath} tests/tiny.mjs`), false);
+  assert.throws(
+    () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
+    /systemctl stop unit failed: access denied/,
+  );
+  if (process.platform === 'linux') {
+    const sourceGraphd = spawn(process.execPath, [
+      '-e', 'setInterval(() => {}, 1_000)', '/repo/packages/cli/lib/graph-runtime/server.mjs',
+    ], { stdio: 'ignore' });
+    try {
+      let found = [];
+      const deadline = Date.now() + 2_000;
+      while (Date.now() < deadline) {
+        found = existingLaminaProcesses();
+        if (found.some((record) => record.pid === sourceGraphd.pid)) break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.ok(found.some((record) => record.pid === sourceGraphd.pid),
+        'a pre-existing source graphd must be detected outside a new scope');
+      const refused = preflightRun({
+        tier: 'small', command: [process.execPath, 'tests/tiny.mjs'], cwd: root,
+        adapterInfo: portableProbe, injectedExistingProcesses: found,
+      });
+      assert.equal(refused.ok, false);
+      assert.match(refused.reasons.join('\n'), new RegExp(`existing Lamina processes.*${sourceGraphd.pid}`));
+    } finally {
+      sourceGraphd.kill('SIGTERM');
+      await once(sourceGraphd, 'exit');
+    }
+  }
 
   const managedRegistrations = [{
     pid: 41001,
@@ -256,6 +282,12 @@ try {
     lock: managedRegistrations[0].lock,
   }, authority).ok, true);
   assert.equal(brokerRegistrations.length, 1);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: 'forged' },
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, authority).ok, false, 'payload cannot self-assert a graphd identity');
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd',
     requester,

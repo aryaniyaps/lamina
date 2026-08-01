@@ -71,7 +71,13 @@ function runNodeExpectFail(cwd, scriptRel, args = []) {
 }
 
 function copyPilotWorkspace(sourceRoot, destRoot) {
-  for (const rel of ['benchmarks/lb6/pilot', 'benchmarks/lib', 'packages/cli', 'skills']) {
+  for (const rel of [
+    'benchmarks/lb6/pilot',
+    'benchmarks/lib',
+    'packages/cli',
+    'scripts/safe-runner',
+    'skills',
+  ]) {
     const src = path.join(sourceRoot, rel);
     const dest = path.join(destRoot, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });

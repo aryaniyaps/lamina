@@ -293,7 +293,7 @@ a time through its canonical command:
 ```bash
 npm run safe:envelope
 npm run safe:self-test
-npm run safe:run -- --tier small --report /absolute/path/to/result.json --promote -- <command> [args]
+npm run safe:run -- --tier small --workload <stable-id> --report /absolute/path/to/result.json --promote -- <command> [args]
 ```
 
 Medium and large runs fail closed without aggregate Linux cgroup-v2

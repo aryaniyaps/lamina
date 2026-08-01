@@ -59,6 +59,7 @@ jobs:
     timeout-minutes: 10
     env:
       LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-safe-runner-state
+      LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR: ${{ runner.temp }}/safe-runner-test-artifacts
 
     steps:
       - uses: actions/checkout@v6
@@ -86,7 +87,11 @@ jobs:
         if: always()
         with:
           name: safe-runner-low-limit-reports
-          path: /tmp/lamina-safe-runner-state
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            /tmp/lamina-safe-runner-state
+            ${{ runner.temp }}/safe-runner-test-artifacts
 
   portable-contract:
     strategy:

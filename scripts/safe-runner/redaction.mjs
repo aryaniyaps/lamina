@@ -2,6 +2,7 @@ const SENSITIVE_FLAG = /^(?:--?)?(?:api[-_]?key|access[-_]?token|auth(?:orizatio
 
 export function redactText(value) {
   return String(value)
+    .replace(/((?:--?)(?:api[-_]?key|access[-_]?token|auth(?:orization)?|password|secret|token)\s+)[^\s]+/gi, '$1[REDACTED]')
     .replace(/(Authorization\s*:\s*Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[REDACTED]')
     .replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[REDACTED]')
     .replace(/((?:api[-_]?key|access[-_]?token|password|secret|token)\s*[:=]\s*)[^\s,;"']+/gi, '$1[REDACTED]')

@@ -8,8 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assertSafeRunnerContext } from '../../scripts/safe-runner/context.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+assertSafeRunnerContext('evaluation batch loop', { minimumTier: 'medium' });
 const limitIdx = process.argv.indexOf('--limit');
 const limit = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 8;
 

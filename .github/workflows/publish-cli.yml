@@ -9,8 +9,38 @@ permissions:
   contents: write
 
 jobs:
+  adapter-qualification:
+    if: startsWith(github.ref_name, 'cli-v')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-14, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Require a production crash-safe adapter before any dependency or test work
+        run: npm run safe:self-test -- --require-production
+      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/install.json -- corepack pnpm install --frozen-lockfile
+      - name: Verify release identity and cross-platform source contracts
+        run: |
+          node scripts/check-cli-release-tag.mjs "${{ github.ref_name }}"
+          node scripts/check-cli-version-discipline.mjs
+          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/test-cli.json -- corepack pnpm test:cli
+          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/transactional-graph.json -- node tests/transactional_graph_test.mjs
+          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/graphd-protocol.json -- node tests/graphd_protocol_test.mjs
+          npm run safe:run -- --tier small --workload release-qualification --report .lamina-safe-runner/graphd-long-socket.json -- node tests/graphd_long_socket_test.mjs
+
   build:
     if: startsWith(github.ref_name, 'cli-v')
+    needs: adapter-qualification
     strategy:
       fail-fast: false
       matrix:
@@ -48,11 +78,11 @@ jobs:
       - name: Build native executable
         env:
           LAMINA_SEA_TARGET: ${{ matrix.target }}
-        run: node scripts/build-standalone-cli.mjs
+        run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/build-${{ matrix.target }}.json -- node scripts/build-standalone-cli.mjs
       - name: Verify isolated native assets
-        run: node scripts/fetch-retrieval-model.mjs
+        run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/fetch-model-${{ matrix.target }}.json -- node scripts/fetch-retrieval-model.mjs
       - name: Prepare frozen hybrid retrieval assets
-        run: node scripts/prepare-retrieval-assets.mjs dist/retrieval-benchmark-runtime
+        run: npm run safe:run -- --tier small --workload release-${{ matrix.target }} --report .lamina-safe-runner/prepare-retrieval-${{ matrix.target }}.json -- node scripts/prepare-retrieval-assets.mjs dist/retrieval-benchmark-runtime
       - name: Qualify frozen hybrid retrieval on enforced Linux
         if: runner.os == 'Linux'
         env:
@@ -61,9 +91,9 @@ jobs:
           LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH: ${{ github.workspace }}/dist/retrieval-benchmark-runtime/extensions/vector.lbug_extension
         run: |
           npm run safe:self-test -- --require-production
-          node tests/retrieval_native_index_test.mjs
-          npm run safe:run -- --tier small --promote --report .lamina-safe-runner/retrieval-calibrate.json -- node benchmarks/retrieval-v1/benchmark.mjs --calibrate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
-          npm run safe:run -- --tier medium --promote --report .lamina-safe-runner/retrieval-evaluate.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
+          npm run safe:run -- --tier small --workload retrieval-v1 --report .lamina-safe-runner/retrieval-native-index.json -- node tests/retrieval_native_index_test.mjs
+          npm run safe:run -- --tier small --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-calibrate.json -- node benchmarks/retrieval-v1/benchmark.mjs --calibrate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
+          npm run safe:run -- --tier medium --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate --model dist/lamina-retrieval-model-int8-v1.onnx --tokenizer dist/retrieval-benchmark-runtime/tokenizer.json --model-digest ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d
       - name: Smoke-test isolated native assets
         env:
           LAMINA_BINARY: ${{ github.workspace }}/dist/lamina-${{ matrix.target }}${{ runner.os == 'Windows' && '.exe' || '' }}

@@ -33,6 +33,7 @@
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["elapsed_ms", "aggregate_rss_bytes", "cgroup_memory_bytes", "pids", "temporary_bytes", "temporary_inodes"],
         "properties": {
           "elapsed_ms": { "type": "integer", "minimum": 0 },
@@ -46,6 +47,7 @@
     },
     "peaks": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["aggregate_rss_bytes", "cgroup_memory_bytes", "pids", "temporary_bytes", "temporary_inodes"],
       "properties": {
         "aggregate_rss_bytes": { "type": "integer", "minimum": 0 },
@@ -58,6 +60,7 @@
     "descendants": { "type": "array", "items": { "type": "object" } },
     "output": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["stdout_bytes", "stderr_bytes", "total_bytes", "stdout_tail", "stderr_tail", "truncated"],
       "properties": {
         "stdout_bytes": { "type": "integer", "minimum": 0 },
@@ -70,6 +73,7 @@
     },
     "termination": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["reason", "limit", "requested_signals", "child_exit_code", "child_signal", "cgroup_events"],
       "properties": {
         "reason": { "type": ["string", "null"] },
@@ -82,6 +86,7 @@
     },
     "cleanup": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["attempted", "descendants_remaining", "managed_paths_remaining", "scope_removed", "temporary_directory_removed", "lock_released", "errors"],
       "properties": {
         "attempted": { "type": "boolean" },
@@ -98,6 +103,7 @@
         { "type": "null" },
         {
           "type": "object",
+          "additionalProperties": false,
           "required": ["code", "message"],
           "properties": {
             "code": { "type": "string" },

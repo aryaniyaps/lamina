@@ -267,7 +267,9 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
 }
 
 export function productionLockDirectory() {
-  return path.join(os.tmpdir(), 'lamina-safe-runner-production-locks');
+  return process.platform === 'linux'
+    ? '/tmp/lamina-safe-runner-production-locks'
+    : path.join(os.tmpdir(), 'lamina-safe-runner-production-locks');
 }
 
 export function acquireConcurrencyLock({ directory = productionLockDirectory() } = {}) {

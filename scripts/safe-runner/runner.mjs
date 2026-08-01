@@ -250,6 +250,7 @@ export async function runSafely({
       mode,
       selfTestCaseId,
       workloadId,
+      promotionRequested: promote,
     });
     report.adapter = probe;
     report.limits = preflight.envelope.limits;

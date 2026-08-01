@@ -79,6 +79,7 @@ export function preflightRun({
   selfTestCaseId = null,
   injectedExistingProcesses = null,
   workloadId = null,
+  promotionRequested = false,
 } = {}) {
   const envelope = hostEnvelope({ cwd, overrides });
   const reasons = [];
@@ -130,6 +131,7 @@ export function preflightRun({
     reasons.push(`tier promotion requires successful cleanup for: ${promotion.missing.join(', ')}`);
   }
   if (production && !workloadId) reasons.push('medium/large execution requires --workload <stable-id>');
+  if (promotionRequested && !workloadId) reasons.push('--promote requires --workload <stable-id>');
   if (existing.length) {
     reasons.push(`existing Lamina processes must stop before launch: ${existing.map((item) => item.pid).join(', ')}`);
   }

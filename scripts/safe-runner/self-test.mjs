@@ -164,7 +164,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
   process.env.LAMINA_SAFE_RUNNER_STATE_DIR = staleDirectory;
   let stalePassed = false;
   try {
-    const lock = acquireConcurrencyLock();
+    const lock = acquireConcurrencyLock({ directory: claims });
     stalePassed = lock.release() === true
       && fs.readdirSync(claims).filter((name) => name.endsWith('.json')).length === 0;
   } finally {

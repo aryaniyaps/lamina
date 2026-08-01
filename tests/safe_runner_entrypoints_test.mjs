@@ -7,6 +7,8 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const entrypoints = [
   ['benchmarks/retrieval-v1/benchmark.mjs', '--evaluate'],
   ['evals/scripts/run-suite.mjs'],
+  ['evals/scripts/run-reference-matrix.mjs'],
+  ['evals/scripts/loop-next-batch.mjs'],
   ['evals/scripts/vendor-nextjs-fixture.mjs'],
   ['evals/scripts/vendor-payload-fixture.mjs'],
   ['benchmarks/lb6/pilot/scripts/build-runtime.mjs'],

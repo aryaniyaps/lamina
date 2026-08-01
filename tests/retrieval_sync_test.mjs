@@ -73,7 +73,7 @@ try {
     'retrieval generations must never mutate the canonical graph');
 } finally {
   try { await stopIncompatibleServer(runtimePaths(root)); } catch {}
-  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   delete process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER;
   delete process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS;
 }

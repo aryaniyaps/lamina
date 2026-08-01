@@ -67,12 +67,16 @@ execution.
 ```bash
 npm run safe:run -- \
   --tier small \
+  --workload retrieval-v1 \
   --report /absolute/path/to/small-result.json \
   --promote \
   -- <command> [args]
 ```
 
-Use `--promote` only for an intended tier-qualification scenario. Promotion is
+Use `--promote` only for an intended tier-qualification scenario. The stable
+`--workload` identifier binds smaller-tier evidence to the same workload;
+success from a trivial or unrelated command cannot unlock another workload.
+Promotion is
 recorded only after a successful command, schema-valid report, empty descendant
 set, removed scope, removed runner temporary directory, and error-free cleanup.
 
@@ -91,11 +95,22 @@ All limit flags are downward-only:
 
 There is no unrestricted fallback. Docker, Harbor, or another external daemon
 cannot be used as the payload because the runner cannot prove ownership of the
-daemon-created descendants.
+daemon-created descendants. This refusal also inspects shell, package-script,
+and local wrapper indirection rather than trusting only argv[0].
+
+On Linux the payload runs in an unprivileged bwrap mount namespace. The host
+root is read-only, the declared working tree is the explicit writable workload
+surface, and the runner temporary directory is a size-limited private tmpfs.
+The controller verifies that tmpfs before releasing the payload and reads its
+allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
+deleted-but-open files without an unbounded directory scan. Symlinks in the
+temporary tree, inode storms, quota exhaustion, or absence of this enforcement
+capability fail closed.
 
 Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
-escape hatch. When a scoped CLI starts `graphd`, the client records its PID and
-Linux start identity in the runner-owned temporary registry. After the CLI
+escape hatch. When a scoped CLI starts `graphd`, the client asks the live
+supervisor broker to authorize its PID, Linux start identity, command, parent,
+and canonical socket/lock paths. No child-writable registry is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
@@ -106,7 +121,8 @@ unregistered detached descendant is a safety failure.
 Each run writes `lamina.safe-runner-report/v1`. It includes:
 
 - limits and complete preflight data;
-- bounded aggregate/per-process samples and peaks;
+- aggregate process RSS and cgroup `memory.current`/`memory.peak` as distinct
+  measures, plus bounded per-process samples and peaks;
 - bounded output counts/tails and temporary disk usage;
 - every observed descendant with PID start identity;
 - cgroup memory/PID events;
@@ -125,13 +141,20 @@ If the requested report path cannot be written, the runner attempts a bounded
 fallback report in the system temporary directory and marks the run as an
 internal failure. A missing report is never a measurement.
 
+Reports deliberately omit the child environment and redact common credential
+flags, bearer tokens, URL userinfo, and secret-like output patterns. Redaction
+is defense in depth, not a data-loss-prevention guarantee: commands can print
+arbitrary sensitive material. Treat reports as sensitive diagnostics, keep
+them mode `0600`, review them before sharing, and never publish raw reports or
+CI artifacts containing real credentials.
+
 ## Child-command integration
 
 Resource-intensive repository entrypoints can call
-`assertSafeRunnerContext()` from `scripts/safe-runner/index.mjs`. The signed
-temporary context proves the tier and, on Linux, verifies that the process is
-inside the expected systemd scope. Do not accept a plain environment flag as
-proof.
+`assertSafeRunnerContext()` from `scripts/safe-runner/index.mjs`. It obtains
+the authoritative tier, unit, and limits from a live supervisor-held broker,
+then independently reads the caller's cgroup and controller values. Context
+files, tokens, tier variables, and plain environment flags are not proof.
 
 Lamina's graph client also registers any graphd it starts by PID and Linux
 start ticks. After the payload exits, the runner gives that exact registered
