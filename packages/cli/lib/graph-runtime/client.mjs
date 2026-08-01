@@ -9,7 +9,9 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
-import { registerManagedGraphdWithSupervisor } from '../safe-runner-context.mjs';
+import {
+  bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
+} from '../safe-runner-context.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,
@@ -46,7 +48,20 @@ function graphdEnvironment() {
   };
 }
 
-export function registerManagedGraphd(child, paths = null) {
+export function reserveManagedGraphd(paths = null) {
+  if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  const response = reserveManagedGraphdWithSupervisor(
+    paths ? { socket: paths.socket || graphSocketPath(paths), lock: paths.lock } : null,
+  );
+  if (!response?.ok || typeof response.reservation !== 'string') {
+    const error = new Error(`safe-runner refused managed graphd path reservation: ${response?.error || 'proof broker unavailable'}`);
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  return response.reservation;
+}
+
+export function registerManagedGraphd(child, paths = null, reservation = null) {
   if (process.platform !== 'linux' || !process.env.LAMINA_SAFE_RUNNER_BROKER) return;
   let startTicks = null;
   try {
@@ -55,9 +70,15 @@ export function registerManagedGraphd(child, paths = null) {
     startTicks = stat.slice(close + 2).trim().split(/\s+/)[19] || null;
   } catch {}
   if (!startTicks) return;
-  const response = registerManagedGraphdWithSupervisor(
+  if (!reservation) {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+    const error = new Error('safe-runner requires managed graphd paths to be reserved before spawn');
+    error.code = 'LAMINA_SAFE_GRAPHD_UNAUTHORIZED';
+    throw error;
+  }
+  const response = bindManagedGraphdWithSupervisor(
+    reservation,
     { pid: child.pid, start_ticks: startTicks },
-    paths ? { socket: paths.socket || graphSocketPath(paths), lock: paths.lock } : null,
   );
   if (!response?.ok) {
     try { process.kill(child.pid, 'SIGKILL'); } catch {}
@@ -186,6 +207,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
     try { fs.chmodSync(logPath, 0o600); } catch {}
   }
   let child;
+  const reservation = reserveManagedGraphd(paths);
   try {
     // A standalone build re-enters its own SEA bootstrap.  Source/development
     // execution keeps using the JavaScript server entrypoint.
@@ -199,7 +221,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
       cwd: paths.root,
       env: graphdEnvironment(),
     });
-    registerManagedGraphd(child, paths);
+    registerManagedGraphd(child, paths, reservation);
   } finally {
     if (log !== null) fs.closeSync(log);
   }

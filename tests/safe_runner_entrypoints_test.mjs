@@ -17,6 +17,11 @@ const entrypoints = [
   ['evals/scripts/vendor-outline-fixture.mjs'],
   ['benchmarks/lb6/pilot/scripts/build-runtime.mjs'],
   ['benchmarks/lb6/pilot/scripts/run-three-arm.mjs'],
+  ['scripts/build-standalone-cli.mjs'],
+  ['scripts/fetch-retrieval-model.mjs'],
+  ['scripts/prepare-retrieval-assets.mjs'],
+  ['tests/retrieval_native_index_test.mjs'],
+  ['tests/cli_binary_smoke_test.mjs'],
 ];
 
 for (const [entrypoint, ...args] of entrypoints) {

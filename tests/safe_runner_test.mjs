@@ -51,8 +51,11 @@ import {
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
+  beginSafetyAttempt,
   checkPromotion,
   checkSafetyRetry,
+  clearSafetyAttempt,
+  frozenWorkloadIdentity,
   readAttestation,
   recordPromotion,
   recordSafetyLimit,
@@ -252,6 +255,14 @@ try {
   assert.equal(commandOwnership([
     process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success',
   ], root).network_access, 'isolated');
+  for (const entrypoint of [
+    'scripts/build-standalone-cli.mjs', 'scripts/fetch-retrieval-model.mjs',
+    'scripts/prepare-retrieval-assets.mjs', 'tests/retrieval_native_index_test.mjs',
+    'tests/cli_binary_smoke_test.mjs',
+  ]) {
+    assert.equal(commandOwnership([process.execPath, path.resolve(entrypoint)], root).proven, true,
+      `${entrypoint} must remain available through the canonical wrapper`);
+  }
   assert.equal(commandOwnership([
     process.execPath, '--require', path.resolve('evals/scripts/vendor-plane-fixture.mjs'),
     '--eval', 'require("node:child_process").spawn("systemd-run", [])',
@@ -319,12 +330,15 @@ try {
   writeReport(report.report_file, report);
   assert.equal(validateReport(JSON.parse(fs.readFileSync(report.report_file))).valid, true);
   const reportAuthority = path.join(root, 'report-authority.json');
-  assert.equal(prepareReportAuthority(reportAuthority).file, reportAuthority);
+  const provisional = { ...structuredClone(report), report_file: reportAuthority,
+    outcome: 'internal_error', termination: { ...report.termination, reason: 'run_in_progress' },
+    error: { code: 'LAMINA_SAFE_RUN_IN_PROGRESS', message: 'not complete' } };
+  assert.equal(prepareReportAuthority(reportAuthority, provisional).file, reportAuthority);
   const reportTarget = path.join(root, 'report-target.json');
   fs.writeFileSync(reportTarget, 'preserve');
   const reportSymlink = path.join(root, 'report-symlink.json');
   fs.symlinkSync(reportTarget, reportSymlink);
-  assert.throws(() => prepareReportAuthority(reportSymlink), /physical file/);
+  assert.throws(() => prepareReportAuthority(reportSymlink, provisional), /physical file/);
   assert.equal(fs.readFileSync(reportTarget, 'utf8'), 'preserve');
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
   assert.equal(validateReport({
@@ -446,13 +460,16 @@ try {
   const requester = { pid: 41000, ppid: 1, start_ticks: '99', command: 'node guarded.mjs' };
   const authorityRecords = [requester];
   const brokerRegistrations = [];
+  const brokerReservations = [];
   const authority = {
     runId: 'unit', tier: 'small', adapter: 'linux-systemd-cgroup-v2',
     unit: 'lamina-safe-unit.scope', cgroup: '/unit',
     enforcement: { memory_max_bytes: 1, memory_high_bytes: 1, pids_max: 1 },
     registrations: brokerRegistrations,
+    reservations: brokerReservations,
     records: () => authorityRecords,
-    register: (record) => brokerRegistrations.push(record),
+    reserve: (record) => { brokerReservations.push(record); return record; },
+    bind: (record) => { brokerRegistrations.push(record); return true; },
   };
   assert.equal(authorizeBrokerRequest({
     operation: 'context', requester, minimum_tier: 'small',
@@ -561,24 +578,25 @@ try {
     managed_lock: managedRegistrations[0].lock,
   }]);
   authorityRecords.push(graphdRecord);
-  assert.equal(authorizeBrokerRequest({
-    operation: 'register_graphd',
-    requester,
-    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+  const reservation = authorizeBrokerRequest({
+    operation: 'reserve_graphd', requester,
     socket: managedRegistrations[0].socket,
     lock: managedRegistrations[0].lock,
+  }, authority);
+  assert.equal(reservation.ok, true);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'bind_graphd', reservation: reservation.reservation,
+    requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
   }, authority).ok, true);
   assert.equal(brokerRegistrations.length, 1);
   assert.equal(authorizeBrokerRequest({
-    operation: 'register_graphd', requester,
+    operation: 'bind_graphd', requester, reservation: reservation.reservation,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },
-    socket: managedRegistrations[0].socket,
-    lock: managedRegistrations[0].lock,
   }, authority).ok, false, 'payload cannot self-assert a graphd identity');
   assert.equal(authorizeBrokerRequest({
-    operation: 'register_graphd',
+    operation: 'reserve_graphd',
     requester,
-    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
     socket: 'relative.sock',
     lock: 'relative.lock',
   }, authority).ok, false);
@@ -608,7 +626,10 @@ try {
 
   if (process.platform === 'linux') {
     const claims = path.join(root, 'production-locks');
-    fs.mkdirSync(claims, { recursive: true });
+    fs.mkdirSync(claims, { recursive: true, mode: 0o755 });
+    assert.throws(() => acquireConcurrencyLock({ directory: claims }),
+      /physical same-user mode-0700/);
+    fs.chmodSync(claims, 0o700);
     fs.writeFileSync(path.join(claims, 'stale.json'), JSON.stringify({
       pid: process.pid, start_ticks: 'stale', nonce: 'never-reused',
       scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-stale.scope', cgroup: null },
@@ -663,6 +684,9 @@ try {
   };
   recordPromotion(root, 'small', auditedEvidence, 'unit-workload', auditedEvidence.command);
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', auditedEvidence.command).ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [
+    ...auditedEvidence.command, '--different-workload-semantics',
+  ]).ok, false, 'promotion must bind the complete normalized argv');
   const unrelatedCommand = ['node', path.join(root, 'unrelated.mjs')];
   fs.writeFileSync(unrelatedCommand[1], 'export {};\n');
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', [
@@ -685,6 +709,7 @@ try {
     'commit', '--quiet', '-m', 'fixture',
   ], { cwd: sourceRepository }).status, 0);
   const sourceBefore = repositorySourceDigest(sourceRepository);
+  const frozenA = frozenWorkloadIdentity(sourceRepository, [process.execPath, 'entry.mjs']);
   const promotionBefore = promotionCommandDigest(sourceRepository, [process.execPath, sourceEntrypoint]);
   fs.writeFileSync(importedSource, 'export const value = 2;\n');
   assert.notEqual(repositorySourceDigest(sourceRepository), sourceBefore);
@@ -693,6 +718,18 @@ try {
     promotionBefore,
     'an imported source change must invalidate workload promotion identity',
   );
+  const mutationEvidence = { ...structuredClone(report), command: [process.execPath, 'entry.mjs'] };
+  recordPromotion(sourceRepository, 'small', mutationEvidence, 'self-mutation',
+    mutationEvidence.command, frozenA);
+  assert.equal(checkPromotion(sourceRepository, 'medium', 'self-mutation',
+    mutationEvidence.command).ok, false,
+  'payload mutation must not promote the post-release source as tested evidence');
+  const frozenB = frozenWorkloadIdentity(sourceRepository, mutationEvidence.command);
+  const activeAttempt = beginSafetyAttempt(sourceRepository, frozenB, mutationEvidence);
+  assert.equal(checkSafetyRetry(sourceRepository, mutationEvidence.command, report.limits).ok, false,
+    'a controller-crash-capable active attempt must durably fence unchanged work');
+  assert.equal(clearSafetyAttempt(sourceRepository, activeAttempt), true);
+  assert.equal(checkSafetyRetry(sourceRepository, mutationEvidence.command, report.limits).ok, true);
   const sourceRetryCommand = [process.execPath, sourceEntrypoint];
   const sourceRetryReport = structuredClone(report);
   sourceRetryReport.command = sourceRetryCommand;

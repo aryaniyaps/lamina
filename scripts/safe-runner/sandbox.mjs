@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { EXECUTION_HOOK_ENVIRONMENT, sanitizedEnvironment } from './infrastructure.mjs';
 
 export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
   'DBUS_SESSION_BUS_ADDRESS',
@@ -23,6 +24,7 @@ export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
   'LAMINA_SAFE_RUNNER_ALLOW_NETWORK',
   'LAMINA_SAFE_REPORT_FILE',
   'LAMINA_SAFE_REPORT_PARENT',
+  ...EXECUTION_HOOK_ENVIRONMENT,
 ]);
 
 const STANDARD_CONTROL_SOCKETS = Object.freeze([
@@ -116,16 +118,17 @@ export function bubblewrapSandboxArguments({
 }
 
 async function main() {
-  const [cwd, readyFile, releaseFile, temporaryDirectory, ...command] = process.argv.slice(2);
-  if (!cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
+  const [bwrapExecutable, cwd, readyFile, releaseFile, temporaryDirectory, ...command] = process.argv.slice(2);
+  if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
+    || !cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
     || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
     process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');
     process.exit(125);
   }
-  const child = spawn('bwrap', bubblewrapSandboxArguments({
+  const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
-  }), { stdio: 'inherit', env: process.env });
+  }), { stdio: 'inherit', env: sanitizedEnvironment(process.env) });
   for (const signal of ['SIGTERM', 'SIGINT']) {
     process.on(signal, () => {
       try { child.kill(signal); } catch {}

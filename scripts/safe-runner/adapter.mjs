@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 
 let quotaCapability = null;
 
@@ -18,15 +19,16 @@ function commandAvailable(command, args = ['--version']) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 3_000,
-    maxBuffer: 64 * 1024,
+    maxBuffer: 64 * 1024, env: sanitizedEnvironment(process.env),
   });
   return !result.error && result.status === 0;
 }
 
-function temporaryQuotaAvailable() {
+function temporaryQuotaAvailable(binaries) {
   if (quotaCapability !== null) return quotaCapability;
-  const version = spawnSync('bwrap', ['--version'], {
+  const version = spawnSync(binaries.bwrap, ['--version'], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+    env: sanitizedEnvironment(process.env),
   });
   if (version.error || version.status !== 0) {
     return (quotaCapability = {
@@ -34,12 +36,13 @@ function temporaryQuotaAvailable() {
       reason: `bwrap command is unavailable (${boundedProbeFailure(version)})`,
     });
   }
-  const result = spawnSync('bwrap', [
+  const result = spawnSync(binaries.bwrap, [
     '--unshare-user', '--uid', '0', '--gid', '0', '--ro-bind', '/', '/',
     '--dev-bind', '/dev', '/dev', '--proc', '/proc', '--size', '1048576', '--tmpfs', '/tmp',
     '/bin/sh', '-c',
     'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null',
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024 });
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+    env: sanitizedEnvironment(process.env) });
   const available = !result.error && result.status === 0;
   quotaCapability = {
     available,
@@ -51,6 +54,8 @@ function temporaryQuotaAvailable() {
 
 export function probeLinuxSystemd(platform = process.platform) {
   const reasons = [];
+  let binaries = null;
+  try { binaries = infrastructureBinaries(); } catch (error) { reasons.push(error.message); }
   if (platform !== 'linux') reasons.push(`platform ${platform} is unsupported`);
   let controllers = [];
   try {
@@ -61,14 +66,15 @@ export function probeLinuxSystemd(platform = process.platform) {
   for (const controller of ['memory', 'pids']) {
     if (!controllers.includes(controller)) reasons.push(`cgroup v2 ${controller} controller is unavailable`);
   }
-  if (!commandAvailable('systemd-run')) reasons.push('systemd-run is unavailable');
-  const temporaryQuota = temporaryQuotaAvailable();
+  if (binaries && !commandAvailable(binaries.systemdRun)) reasons.push('systemd-run is unavailable');
+  const temporaryQuota = binaries ? temporaryQuotaAvailable(binaries)
+    : { available: false, reason: 'trusted bwrap identity is unavailable' };
   if (!temporaryQuota.available) reasons.push(temporaryQuota.reason);
-  const userManager = spawnSync('systemctl', ['--user', 'is-system-running'], {
+  const userManager = spawnSync(binaries?.systemctl || '/nonexistent', ['--user', 'is-system-running'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 3_000,
-    maxBuffer: 64 * 1024,
+    maxBuffer: 64 * 1024, env: sanitizedEnvironment(process.env),
   });
   if (userManager.error || !['running', 'degraded'].includes(String(userManager.stdout || '').trim())) {
     reasons.push('the systemd user manager is unavailable');
@@ -82,6 +88,7 @@ export function probeLinuxSystemd(platform = process.platform) {
     complete_descendant_ownership: reasons.length === 0,
     temporary_quota: temporaryQuota.available,
     controllers,
+    infrastructure: binaries,
     reasons,
   };
 }

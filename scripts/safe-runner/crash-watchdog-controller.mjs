@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { ownedDirectoryIdentity } from './filesystem.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { redactEvidence } from './redaction.mjs';
+import { sanitizedEnvironment } from './infrastructure.mjs';
 
 const WATCHDOG = fileURLToPath(new URL('./crash-watchdog.mjs', import.meta.url));
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -15,29 +16,38 @@ const readJson = (file) => {
 };
 
 function atomicJson(file, value) {
-  const temporary = `${file}.tmp-${process.pid}`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
-  fs.renameSync(temporary, file);
+  const temporary = `${file}.tmp-${crypto.randomBytes(16).toString('hex')}`;
+  try {
+    fs.writeFileSync(temporary, `${JSON.stringify(value)}\n`, { flag: 'wx', mode: 0o600 });
+    const descriptor = fs.openSync(temporary, 'r');
+    try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    fs.renameSync(temporary, file);
+    const parent = fs.openSync(path.dirname(file), 'r');
+    try { fs.fsyncSync(parent); } finally { fs.closeSync(parent); }
+  } finally { fs.rmSync(temporary, { force: true }); }
 }
 
-function pathIdentity(candidate, expectedType, expectedPid = null) {
+function parentIdentity(candidate) {
   try {
-    const stat = fs.lstatSync(candidate, { bigint: true });
-    const typeMatches = expectedType === 'socket' ? stat.isSocket() : stat.isFile();
-    if (!typeMatches || stat.isSymbolicLink()) return null;
-    if (expectedType === 'lock') {
-      const value = readJson(candidate);
-      if (Number(value?.pid) !== Number(expectedPid)) return null;
-    }
-    return {
-      path: path.resolve(candidate),
-      dev: String(stat.dev),
-      ino: String(stat.ino),
-      uid: Number(stat.uid),
-      type: expectedType,
-      expected_pid: expectedPid,
-    };
+    const stat = fs.lstatSync(path.dirname(candidate), { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()
+      || (typeof process.getuid === 'function' && Number(stat.uid) !== process.getuid())) return null;
+    return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
   } catch { return null; }
+}
+
+function pendingPath(candidate, expectedType) {
+  const parent = parentIdentity(candidate);
+  if (!parent || fs.existsSync(candidate)) return null;
+  return {
+    path: path.resolve(candidate), type: expectedType, state: 'reserved',
+    parent_identity: parent, expected_pid: null, uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+  };
+}
+
+function boundPath(pending, expectedPids) {
+  if (!pending || pending.state !== 'reserved') return null;
+  return { ...pending, state: 'bound', expected_pids: expectedPids };
 }
 
 export async function startCrashWatchdog({
@@ -80,6 +90,7 @@ export async function startCrashWatchdog({
   const child = spawn(process.execPath, [WATCHDOG, manifestFile, readyFile, disarmFile], {
     detached: true,
     stdio: 'ignore',
+    env: sanitizedEnvironment(process.env),
   });
   child.unref();
   const deadline = Date.now() + 2_000;
@@ -104,14 +115,21 @@ export async function startCrashWatchdog({
         ...(fields.report_seed ? { report_seed: redactEvidence(fields.report_seed) } : {}),
       });
     },
-    registerManagedPaths(registration) {
-      const identities = [
-        pathIdentity(registration.socket, 'socket', registration.pid),
-        pathIdentity(registration.lock, 'lock', registration.pid),
-      ].filter(Boolean);
+    reserveManagedPaths(registration) {
+      const identities = [pendingPath(registration.socket, 'socket'), pendingPath(registration.lock, 'lock')];
+      if (identities.some((item) => !item)) return null;
       const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
       for (const item of identities) existing.set(item.path, item);
       persist({ managed_paths: [...existing.values()] });
+      return identities;
+    },
+    bindManagedPaths(paths, pids) {
+      const updates = paths.map((item) => boundPath(item, pids));
+      if (updates.some((item) => !item)) return false;
+      const existing = new Map(manifest.managed_paths.map((item) => [item.path, item]));
+      for (const item of updates) existing.set(item.path, item);
+      persist({ managed_paths: [...existing.values()] });
+      return true;
     },
     async disarm() {
       fs.writeFileSync(disarmFile, `${token}\n`, { mode: 0o600 });

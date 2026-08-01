@@ -11,6 +11,7 @@ import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { baseReport, finishReport, validateReport, writeReport } from './report.mjs';
 import { redactText } from './redaction.mjs';
 import { acquireConcurrencyLock, stateDirectory, writeAttestation } from './state.mjs';
+import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
@@ -42,13 +43,18 @@ export function boundedCaseError(error) {
   };
 }
 
-export async function runSupervisorCrashSelfTest({ cwd, reportDirectory }) {
-  const crashReportPath = path.join(reportDirectory, 'parent_signal_supervisor_sigkill.json');
-  const armedFile = `${crashReportPath}.watchdog-armed`;
+export async function runSupervisorCrashSelfTest({
+  cwd, reportDirectory, boundary = 'payload_released', graphRepository = null,
+}) {
+  const safeBoundary = boundary.replace(/[^a-z0-9_-]/gi, '-');
+  const crashReportPath = path.join(reportDirectory, `parent_signal_sigkill_${safeBoundary}.json`);
+  const armedFile = `${crashReportPath}.crash-boundary`;
   fs.rmSync(crashReportPath, { force: true });
   fs.rmSync(armedFile, { force: true });
-  const controller = spawn(process.execPath, [CONTROLLER_FIXTURE, cwd, crashReportPath], {
-    cwd, env: process.env, stdio: 'ignore',
+  const controller = spawn(process.execPath, [
+    CONTROLLER_FIXTURE, cwd, crashReportPath, boundary, graphRepository || '',
+  ], {
+    cwd, env: sanitizedEnvironment(process.env), stdio: 'ignore',
   });
   let armed = null;
   const armedDeadline = Date.now() + 5_000;
@@ -68,12 +74,20 @@ export async function runSupervisorCrashSelfTest({ cwd, reportDirectory }) {
     evidence.controller_dead = controller.exitCode !== null || controller.signalCode === 'SIGKILL';
     const reportDeadline = Date.now() + 5_000;
     while (Date.now() < reportDeadline) {
-      try { crashReport = JSON.parse(fs.readFileSync(crashReportPath, 'utf8')); break; } catch {}
+      try {
+        const candidate = JSON.parse(fs.readFileSync(crashReportPath, 'utf8'));
+        if (candidate?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+          || candidate?.error?.code === 'LAMINA_SAFE_CLEANUP_INCOMPLETE') {
+          crashReport = candidate;
+          break;
+        }
+      } catch {}
       await wait(20);
     }
-    const shown = spawnSync('systemctl', [
+    const shown = spawnSync(infrastructureBinaries().systemctl, [
       '--user', 'show', armed.unit, '--property=LoadState', '--property=ControlGroup',
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000 });
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
+      env: sanitizedEnvironment(process.env) });
     try {
       const claim = acquireConcurrencyLock({
         scope: {
@@ -106,6 +120,45 @@ export async function runSupervisorCrashSelfTest({ cwd, reportDirectory }) {
     && crashReport?.termination?.requested_signals?.includes('SIGKILL')
     && Object.values(evidence).every(Boolean);
   return { passed, report: crashReport, report_path: crashReportPath, evidence };
+}
+
+export async function runHandledParentSignalSelfTest({ cwd, reportDirectory }) {
+  const reportPath = path.join(reportDirectory, 'parent_signal_host_sigint.json');
+  const armedFile = `${reportPath}.crash-boundary`;
+  fs.rmSync(reportPath, { force: true });
+  fs.rmSync(armedFile, { force: true });
+  const controller = spawn(process.execPath, [CONTROLLER_FIXTURE, cwd, reportPath], {
+    cwd, env: sanitizedEnvironment(process.env), stdio: 'ignore',
+  });
+  let armed = null;
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline && controller.exitCode === null) {
+    try { armed = JSON.parse(fs.readFileSync(armedFile, 'utf8')); break; } catch {}
+    await wait(20);
+  }
+  if (armed?.controller_pid === controller.pid) controller.kill('SIGINT');
+  else controller.kill('SIGKILL');
+  if (controller.exitCode === null) await once(controller, 'exit');
+  let report = null;
+  const reportDeadline = Date.now() + 5_000;
+  while (Date.now() < reportDeadline) {
+    try {
+      const candidate = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      if (candidate?.error?.code !== 'LAMINA_SAFE_RUN_IN_PROGRESS') {
+        report = candidate;
+        break;
+      }
+    } catch {}
+    await wait(20);
+  }
+  fs.rmSync(armedFile, { force: true });
+  const passed = report?.outcome === 'interrupted'
+    && report?.termination?.limit === 'signal'
+    && report?.cleanup?.scope_removed === true
+    && report?.cleanup?.temporary_directory_removed === true
+    && report?.cleanup?.errors?.length === 0
+    && validateReport(report).valid;
+  return { passed, report, report_path: reportPath };
 }
 
 export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = adapterProbe() } = {}) {
@@ -196,10 +249,11 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     verify: (report) => {
       let evidence = null;
       try { evidence = JSON.parse(report.output.stdout_tail.trim().split('\n').at(-1)); } catch {}
-      const shown = spawnSync('systemctl', [
+      const shown = spawnSync(infrastructureBinaries().systemctl, [
         '--user', 'show', evidence?.unit || 'lamina-safe-invalid-escape-proof.scope',
         '--property=LoadState', '--property=ControlGroup',
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000 });
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000,
+        env: sanitizedEnvironment(process.env) });
       return evidence?.scope_escape_refused === true
         && systemdAbsenceProof(shown, false);
     },
@@ -243,11 +297,23 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     id: 'runner_temporary_disk_growth', fixtureMode: 'temp-growth', outcome: 'safety_limit_exceeded', limits: ['temporary_disk'],
     overrides: { tempMaxBytes: 1 * MIB },
   });
-  await runCase({
-    id: 'parent_signal', fixtureMode: 'signal-controller', outcome: 'interrupted', limits: ['signal'],
-    overrides: { timeoutMs: 1_000 },
-  });
-  const parentSignalRecord = cases.at(-1);
+  const handled = await runHandledParentSignalSelfTest({ cwd, reportDirectory });
+  const parentSignalRecord = {
+    id: 'parent_signal',
+    passed: handled.passed,
+    outcome: handled.report?.outcome || 'missing',
+    termination_reason: handled.report?.termination?.reason || null,
+    limit: handled.report?.termination?.limit || null,
+    peak_rss_bytes: handled.report?.peaks?.aggregate_rss_bytes || 0,
+    peak_pids: handled.report?.peaks?.pids || 0,
+    requested_signals: handled.report?.termination?.requested_signals || [],
+    cleanup_verified: handled.passed,
+    error: boundedCaseError(handled.report?.error),
+    report_digest: digest(handled.report),
+    report: handled.report_path,
+    handled_host_sigint: { passed: handled.passed, report: handled.report_path },
+  };
+  cases.push(parentSignalRecord);
   const crash = await runSupervisorCrashSelfTest({ cwd, reportDirectory });
   parentSignalRecord.passed = parentSignalRecord.passed && crash.passed;
   parentSignalRecord.cleanup_verified = parentSignalRecord.cleanup_verified && crash.passed;

@@ -12,6 +12,7 @@ import {
 } from './constants.mjs';
 import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
+import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,9 +29,17 @@ function json(file) {
 
 function atomicJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const temporary = `${file}.tmp-${process.pid}`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  fs.renameSync(temporary, file);
+  const temporary = `${file}.tmp-${crypto.randomBytes(16).toString('hex')}`;
+  try {
+    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+      flag: 'wx', mode: 0o600,
+    });
+    const descriptor = fs.openSync(temporary, 'r');
+    try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    fs.renameSync(temporary, file);
+    const parent = fs.openSync(path.dirname(file), 'r');
+    try { fs.fsyncSync(parent); } finally { fs.closeSync(parent); }
+  } finally { fs.rmSync(temporary, { force: true }); }
 }
 
 export function runnerBuildDigest() {
@@ -65,6 +74,7 @@ function readText(file) {
 function commandIdentity(command, args) {
   const result = spawnSync(command, args, {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000, maxBuffer: 32 * 1024,
+    env: sanitizedEnvironment(process.env),
   });
   return {
     status: result.status,
@@ -86,8 +96,8 @@ export function hostFingerprint(adapter) {
     kernel_release: os.release(),
     root_controllers: readText('/sys/fs/cgroup/cgroup.controllers'),
     root_subtree_control: readText('/sys/fs/cgroup/cgroup.subtree_control'),
-    systemd: commandIdentity('systemctl', ['--version']),
-    user_manager: commandIdentity('systemctl', [
+    systemd: commandIdentity(infrastructureBinaries().systemctl, ['--version']),
+    user_manager: commandIdentity(infrastructureBinaries().systemctl, [
       '--user', 'show', '--property=Id', '--property=ControlGroup', '--property=ManagerTimestamp',
     ]),
     build: runnerBuildDigest(),
@@ -149,23 +159,41 @@ export function workloadDigest(workloadId) {
   return crypto.createHash('sha256').update(workloadId).digest('hex');
 }
 
-function workloadIdentity(command = []) {
+export function workloadIdentity(cwd, command = []) {
   const files = [];
+  let totalBytes = 0n;
   for (const argument of command) {
-    const candidate = path.resolve(String(argument));
+    const candidate = path.resolve(cwd, String(argument));
     try {
       const stat = fs.statSync(candidate, { bigint: true });
       if (!stat.isFile()) continue;
       const identity = {
         path: candidate,
         size: String(stat.size),
-        mtime_ns: String(stat.mtimeNs),
       };
-      if (stat.size <= 16n * 1024n * 1024n) {
-        identity.digest = crypto.createHash('sha256').update(fs.readFileSync(candidate)).digest('hex');
+      totalBytes += stat.size;
+      if (files.length >= 4_096 || totalBytes > 64n * 1024n * 1024n) {
+        const error = new Error('referenced workload inputs exceed the bounded identity budget');
+        error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+        throw error;
       }
+      const hash = crypto.createHash('sha256');
+      const descriptor = fs.openSync(candidate, 'r');
+      try {
+        const buffer = Buffer.alloc(1024 * 1024);
+        let offset = 0;
+        while (offset < Number(stat.size)) {
+          const bytes = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+          if (bytes === 0) break;
+          hash.update(buffer.subarray(0, bytes));
+          offset += bytes;
+        }
+      } finally { fs.closeSync(descriptor); }
+      identity.digest = hash.digest('hex');
       files.push(identity);
-    } catch {}
+    } catch (error) {
+      if (error?.code === 'LAMINA_SAFE_SOURCE_IDENTITY') throw error;
+    }
   }
   return files;
 }
@@ -244,34 +272,61 @@ function commandSourceDigest(cwd, command) {
   throw error;
 }
 
-export function safetyRetrySignature(cwd, command, limits) {
-  return crypto.createHash('sha256').update(JSON.stringify({
-    repository: path.resolve(cwd),
-    command,
-    workload: workloadIdentity(command),
-    repository_source: commandSourceDigest(cwd, command),
+export function frozenWorkloadIdentity(cwd, command) {
+  const normalizedCwd = fs.realpathSync.native(cwd);
+  const normalizedCommand = command.map((argument, index) => {
+    const value = String(argument);
+    if (index === 0) {
+      try { return fs.realpathSync.native(value); } catch { return path.resolve(normalizedCwd, value); }
+    }
+    return value;
+  });
+  const value = {
+    repository: normalizedCwd,
+    command: normalizedCommand,
+    workload_inputs: workloadIdentity(normalizedCwd, normalizedCommand.slice(1)),
+    repository_source: commandSourceDigest(normalizedCwd, normalizedCommand),
     runner_build: runnerBuildDigest(),
-  })).digest('hex');
+  };
+  return {
+    ...value,
+    digest: crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'),
+  };
+}
+
+export function assertFrozenWorkloadIdentity(expected, cwd, command) {
+  const actual = frozenWorkloadIdentity(cwd, command);
+  if (!expected || actual.digest !== expected.digest) {
+    const error = new Error('workload source or command identity changed before payload release');
+    error.code = 'LAMINA_SAFE_SOURCE_IDENTITY_CHANGED';
+    throw error;
+  }
+  return actual;
+}
+
+export function safetyRetrySignature(cwd, command, limits, frozen = null) {
+  return (frozen || frozenWorkloadIdentity(cwd, command)).digest;
 }
 
 function safetyRetryPath(cwd) {
   return path.join(stateDirectory(), 'safety-limit-ledger', `${repositoryKey(cwd)}.json`);
 }
 
-export function checkSafetyRetry(cwd, command, limits) {
-  const signature = safetyRetrySignature(cwd, command, limits);
+export function checkSafetyRetry(cwd, command, limits, frozen = null) {
+  const identity = frozen || frozenWorkloadIdentity(cwd, command);
+  const signature = safetyRetrySignature(cwd, command, limits, identity);
   const value = json(safetyRetryPath(cwd));
   const previous = value?.entries?.[signature]
     || (value?.signature === signature ? value : null);
   return {
     ok: previous === null || previous === undefined,
     signature,
-    previous,
+    previous, identity,
   };
 }
 
-export function recordSafetyLimit(cwd, command, limits, report) {
-  const signature = safetyRetrySignature(cwd, command, limits);
+export function recordSafetyLimit(cwd, command, limits, report, frozen = null) {
+  const signature = frozen?.digest || safetyRetrySignature(cwd, command, limits);
   const current = json(safetyRetryPath(cwd));
   const record = {
     signature,
@@ -290,27 +345,60 @@ export function recordSafetyLimit(cwd, command, limits, report) {
   return record;
 }
 
+export function beginSafetyAttempt(cwd, frozen, report) {
+  if (!frozen?.digest) throw new Error('active attempt requires a frozen workload identity');
+  const file = safetyRetryPath(cwd);
+  const current = json(file);
+  const entries = current?.entries || (current?.signature ? { [current.signature]: current } : {});
+  if (entries[frozen.digest]) {
+    const error = new Error('workload identity already has an active or failed safety attempt');
+    error.code = 'LAMINA_SAFE_RETRY_FENCE';
+    throw error;
+  }
+  const record = {
+    signature: frozen.digest,
+    recorded_at: new Date().toISOString(),
+    run_id: report.run_id,
+    limit: 'active_attempt',
+    state: 'active',
+  };
+  atomicJson(file, {
+    schema: 'lamina.safe-runner-safety-limit-ledger/v3',
+    entries: { ...entries, [frozen.digest]: record },
+  });
+  return { file, signature: frozen.digest, run_id: report.run_id };
+}
+
+export function clearSafetyAttempt(cwd, attempt) {
+  if (!attempt?.signature || !attempt?.run_id) return false;
+  const file = safetyRetryPath(cwd);
+  const current = json(file);
+  const entries = { ...(current?.entries || {}) };
+  const record = entries[attempt.signature];
+  if (record?.run_id !== attempt.run_id || record?.state !== 'active') {
+    const error = new Error('refusing to clear a changed active-attempt fence');
+    error.code = 'LAMINA_SAFE_RETRY_FENCE';
+    throw error;
+  }
+  delete entries[attempt.signature];
+  atomicJson(file, { schema: 'lamina.safe-runner-safety-limit-ledger/v3', entries });
+  return true;
+}
+
 function promotionPath(cwd) {
   return path.join(stateDirectory(), 'promotions', `${repositoryKey(cwd)}.json`);
 }
 
-export function promotionCommandDigest(cwd, command = []) {
-  const executable = path.resolve(cwd, String(command[0] || ''));
-  const primary = workloadIdentity(command.slice(1)).at(0) || null;
-  return crypto.createHash('sha256').update(JSON.stringify({
-    executable,
-    primary,
-    fallback_command: primary ? null : command,
-    repository_source: commandSourceDigest(cwd, command),
-  })).digest('hex');
+export function promotionCommandDigest(cwd, command = [], frozen = null) {
+  return (frozen || frozenWorkloadIdentity(cwd, command)).digest;
 }
 
-export function promotionStatus(cwd, workloadId = null, command = null) {
+export function promotionStatus(cwd, workloadId = null, command = null, frozen = null) {
   const value = json(promotionPath(cwd));
   const digest = workloadDigest(workloadId);
   if (value?.build_digest !== runnerBuildDigest() || !digest) return { completed: [], value: null };
   const workload = value.workloads?.[digest];
-  const commandDigest = Array.isArray(command) ? promotionCommandDigest(cwd, command) : null;
+  const commandDigest = Array.isArray(command) ? promotionCommandDigest(cwd, command, frozen) : null;
   const bound = !commandDigest || workload?.command_digest === commandDigest;
   const completed = bound ? workload?.completed : [];
   return {
@@ -322,15 +410,15 @@ export function promotionStatus(cwd, workloadId = null, command = null) {
   };
 }
 
-export function checkPromotion(cwd, tier, workloadId = null, command = null) {
+export function checkPromotion(cwd, tier, workloadId = null, command = null, frozen = null) {
   const index = TIER_ORDER.indexOf(tier);
   const required = index <= 0 ? [] : TIER_ORDER.slice(0, index);
-  const status = promotionStatus(cwd, workloadId, command);
+  const status = promotionStatus(cwd, workloadId, command, frozen);
   const missing = required.filter((item) => !status.completed.includes(item));
   return { ok: missing.length === 0, required, missing, completed: status.completed };
 }
 
-export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand = evidence?.command) {
+export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand = evidence?.command, frozen = null) {
   if (evidence?.outcome !== 'success'
     || evidence?.cleanup?.descendants_remaining?.length !== 0
     || evidence?.cleanup?.managed_paths_remaining?.length !== 0
@@ -350,7 +438,7 @@ export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand =
     error.code = 'LAMINA_SAFE_WORKLOAD_REQUIRED';
     throw error;
   }
-  const commandDigest = promotionCommandDigest(cwd, actualCommand);
+  const commandDigest = promotionCommandDigest(cwd, actualCommand, frozen);
   const existing = json(promotionPath(cwd));
   const existingWorkload = existing?.build_digest === runnerBuildDigest()
     ? existing.workloads?.[digest] : null;
@@ -359,7 +447,7 @@ export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand =
     error.code = 'LAMINA_SAFE_WORKLOAD_IDENTITY';
     throw error;
   }
-  const status = promotionStatus(cwd, workloadId, actualCommand);
+  const status = promotionStatus(cwd, workloadId, actualCommand, frozen);
   const completed = TIER_ORDER.filter((item) => new Set([...status.completed, tier]).has(item));
   const value = {
     schema: PROMOTION_SCHEMA,
@@ -392,14 +480,41 @@ export function productionLockDirectory() {
     : path.join(os.tmpdir(), 'lamina-safe-runner-production-locks');
 }
 
+function lockDirectoryIdentity(directory, expected = null) {
+  const resolved = path.resolve(directory);
+  const stat = fs.lstatSync(resolved, { bigint: true });
+  const identity = {
+    path: resolved, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+    mode: Number(stat.mode & 0o777n),
+  };
+  if (!stat.isDirectory() || stat.isSymbolicLink()
+    || fs.realpathSync.native(resolved) !== resolved
+    || (typeof process.getuid === 'function' && identity.uid !== process.getuid())
+    || identity.mode !== 0o700
+    || (expected && (identity.dev !== expected.dev || identity.ino !== expected.ino
+      || identity.uid !== expected.uid || identity.mode !== expected.mode))) {
+    const error = new Error('production lock directory must be a physical same-user mode-0700 directory');
+    error.code = 'LAMINA_SAFE_LOCK_DIRECTORY_AUTHORITY';
+    throw error;
+  }
+  return identity;
+}
+
+function prepareLockDirectory(directory) {
+  try { fs.mkdirSync(directory, { mode: 0o700 }); }
+  catch (error) { if (error?.code !== 'EEXIST') throw error; }
+  return lockDirectoryIdentity(directory);
+}
+
 function productionScopeAbsent(scope) {
   if (scope?.adapter !== 'linux-systemd-cgroup-v2'
     || typeof scope.unit !== 'string'
     || !/^lamina-safe-[A-Za-z0-9_-]+\.scope$/.test(scope.unit)) return false;
-  const shown = spawnSync('systemctl', [
+  const shown = spawnSync(infrastructureBinaries().systemctl, [
     '--user', 'show', scope.unit, '--property=LoadState', '--property=ControlGroup',
   ], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+    env: sanitizedEnvironment(process.env),
   });
   const cachedCgroupExists = typeof scope.cgroup === 'string' && fs.existsSync(scope.cgroup);
   return systemdAbsenceProof(shown, cachedCgroupExists);
@@ -410,11 +525,13 @@ export function acquireConcurrencyLock({
   scope = null,
   proveScopeAbsent = productionScopeAbsent,
 } = {}) {
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const directoryIdentity = prepareLockDirectory(directory);
+  const recheckDirectory = () => lockDirectoryIdentity(directory, directoryIdentity);
   const identity = processIdentity(process.pid);
   const nonce = crypto.randomBytes(16).toString('hex');
   const file = path.join(directory, `${identity.pid}-${identity.start_ticks}-${nonce}.json`);
   const claim = { ...identity, nonce, scope, created_at: new Date().toISOString() };
+  recheckDirectory();
   fs.writeFileSync(file, `${JSON.stringify(claim)}\n`, {
     flag: 'wx',
     mode: 0o600,
@@ -424,10 +541,24 @@ export function acquireConcurrencyLock({
     return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
   };
   let currentFileIdentity = fileIdentity();
+  const removeCurrentClaim = () => {
+    recheckDirectory();
+    const owner = json(file);
+    const actual = fileIdentity();
+    if (owner?.nonce !== nonce || actual.dev !== currentFileIdentity.dev
+      || actual.ino !== currentFileIdentity.ino || actual.uid !== currentFileIdentity.uid) {
+      const error = new Error('refusing to remove a changed concurrency claim');
+      error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+      throw error;
+    }
+    fs.rmSync(file);
+  };
+  recheckDirectory();
   for (const name of fs.readdirSync(directory)) {
     if (!name.endsWith('.json')) continue;
     const candidate = path.join(directory, name);
     if (candidate === file) continue;
+    recheckDirectory();
     let candidateIdentity;
     try {
       const stat = fs.lstatSync(candidate, { bigint: true });
@@ -435,13 +566,13 @@ export function acquireConcurrencyLock({
     } catch { continue; }
     const existing = json(candidate);
     if (identityAlive(existing)) {
-      fs.rmSync(file, { force: true });
+      removeCurrentClaim();
       const conflict = new Error(`another medium/large safe-runner is active as PID ${existing.pid}`);
       conflict.code = 'LAMINA_SAFE_CONCURRENCY';
       throw conflict;
     }
     if (!proveScopeAbsent(existing?.scope)) {
-      fs.rmSync(file, { force: true });
+      removeCurrentClaim();
       const conflict = new Error('stale production lock cannot be reclaimed until its associated scope is proven absent');
       conflict.code = 'LAMINA_SAFE_STALE_SCOPE_UNPROVEN';
       throw conflict;
@@ -457,13 +588,14 @@ export function acquireConcurrencyLock({
       || currentOwner?.nonce !== existing?.nonce
       || currentOwner?.pid !== existing?.pid
       || currentOwner?.start_ticks !== existing?.start_ticks) {
-      fs.rmSync(file, { force: true });
+      removeCurrentClaim();
       const conflict = new Error('stale production lock identity changed during absence proof');
       conflict.code = 'LAMINA_SAFE_LOCK_IDENTITY';
       throw conflict;
     }
     // Claim names contain an unguessable nonce and are never reused. Removing
     // this exact stale claim cannot unlink a replacement live lock.
+    recheckDirectory();
     fs.rmSync(candidate, { force: true });
   }
   let released = false;
@@ -473,19 +605,26 @@ export function acquireConcurrencyLock({
       return { ...claim, file_identity: { ...currentFileIdentity } };
     },
     updateScope(nextScope) {
+      recheckDirectory();
       const owner = json(file);
       if (owner?.nonce !== nonce) {
         const error = new Error('refusing to update a concurrency claim whose owner changed');
         error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
         throw error;
       }
-      claim.scope = nextScope;
-      atomicJson(file, claim);
-      currentFileIdentity = fileIdentity();
+      if (nextScope?.adapter !== claim.scope?.adapter || nextScope?.unit !== claim.scope?.unit) {
+        const error = new Error('refusing to change the exact unit bound to a concurrency claim');
+        error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+        throw error;
+      }
+      // The exact unit is bound in the initial durable claim. Avoid replacing
+      // the claim inode merely to cache a cgroup path; authoritative stale
+      // recovery queries that unit and fails closed if absence is unproven.
       return true;
     },
     release() {
       if (!released) {
+        recheckDirectory();
         const owner = json(file);
         if (owner?.nonce !== nonce) {
           const error = new Error('refusing to remove a concurrency claim whose owner changed');
@@ -499,7 +638,7 @@ export function acquireConcurrencyLock({
           error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
           throw error;
         }
-        fs.rmSync(file, { force: true });
+        removeCurrentClaim();
       }
       released = true;
       return true;

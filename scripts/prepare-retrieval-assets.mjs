@@ -5,6 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
+import { assertSafeRunnerContext } from './safe-runner/context.mjs';
+
+assertSafeRunnerContext('retrieval asset preparation');
 
 const root = path.resolve(import.meta.dirname, '..');
 const cli = path.join(root, 'packages/cli');

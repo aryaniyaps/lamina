@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { TIER_ORDER } from './constants.mjs';
 
 const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || '')
@@ -37,7 +38,27 @@ export function authorizeBrokerRequest(request, authority) {
       },
     };
   }
-  if (request.operation === 'register_graphd') {
+  if (request.operation === 'reserve_graphd') {
+    if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
+      || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)
+      || path.dirname(request.socket) !== path.dirname(request.lock)
+      || path.basename(request.socket) !== 'graphd.sock'
+      || path.basename(request.lock) !== 'graphd.lock') {
+      return { ok: false, error: 'managed graphd reservation requires canonical absolute socket/lock siblings' };
+    }
+    const reservation = authority.reserve({
+      token: crypto.randomBytes(32).toString('hex'),
+      requester: { pid: requester.pid, start_ticks: requester.start_ticks },
+      socket: path.resolve(request.socket), lock: path.resolve(request.lock),
+    });
+    return reservation ? { ok: true, reservation: reservation.token }
+      : { ok: false, error: 'managed graphd paths were not proven absent and durably reserved' };
+  }
+  if (request.operation === 'bind_graphd') {
+    const reservation = authority.reservations.find((item) => item.token === request.reservation
+      && item.requester.pid === requester.pid
+      && item.requester.start_ticks === requester.start_ticks);
+    if (!reservation) return { ok: false, error: 'managed graphd reservation is missing or requester-bound' };
     const child = records.find((record) => sameScopedIdentity(record, request.child));
     if (!child || !graphdCommand(child.command)) {
       return { ok: false, error: 'managed graphd identity/command is not an in-scope graphd process' };
@@ -45,18 +66,14 @@ export function authorizeBrokerRequest(request, authority) {
     if (child.ppid !== requester.pid && child.ppid !== 1) {
       return { ok: false, error: 'managed graphd was not spawned by the authorized requester' };
     }
-    if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
-      || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)
-      || path.dirname(request.socket) !== path.dirname(request.lock)
-      || path.basename(request.socket) !== 'graphd.sock'
-      || path.basename(request.lock) !== 'graphd.lock') {
-      return { ok: false, error: 'managed graphd registration requires canonical absolute socket/lock siblings' };
-    }
-    authority.register({
+    const registered = authority.bind({
       ...child,
-      socket: path.resolve(request.socket),
-      lock: path.resolve(request.lock),
+      namespace_pid: Number(request.child.pid),
+      socket: reservation.socket,
+      lock: reservation.lock,
+      reservation: reservation.token,
     });
+    if (!registered) return { ok: false, error: 'managed graphd reservation could not be identity-bound' };
     return {
       ok: true,
       registered: {
@@ -64,8 +81,8 @@ export function authorizeBrokerRequest(request, authority) {
         namespace_pid: Number(request.child.pid),
         start_ticks: child.start_ticks,
         role: 'graphd',
-        socket: path.resolve(request.socket),
-        lock: path.resolve(request.lock),
+        socket: reservation.socket,
+        lock: reservation.lock,
       },
     };
   }
@@ -75,6 +92,7 @@ export function authorizeBrokerRequest(request, authority) {
 export async function createProofBroker(directory, authority) {
   const socketPath = path.join(directory, 'supervisor.sock');
   const server = net.createServer((socket) => {
+    socket.on('error', () => {});
     let buffer = '';
     socket.setEncoding('utf8');
     socket.on('data', (chunk) => {

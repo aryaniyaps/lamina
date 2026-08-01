@@ -6,12 +6,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { assertSafeRunnerContext } from '../scripts/safe-runner/context.mjs';
+
+assertSafeRunnerContext('standalone CLI smoke test');
 import { execFileSync, spawnSync } from 'node:child_process';
-import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
-import {
-  parseDaemonLock,
-  runtimePaths,
-} from '../packages/cli/lib/graph-runtime/util.mjs';
+const { stopIncompatibleServer } = await import('../packages/cli/lib/graph-runtime/client.mjs');
+const { parseDaemonLock, runtimePaths } = await import('../packages/cli/lib/graph-runtime/util.mjs');
 
 const binary = process.env.LAMINA_BINARY && path.resolve(process.env.LAMINA_BINARY);
 const worker = process.env.LAMINA_WORKER && path.resolve(process.env.LAMINA_WORKER);

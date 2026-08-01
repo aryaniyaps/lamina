@@ -36,7 +36,7 @@ export function redactEvidence(value, key = '') {
     return redactText(value);
   }
   if (Array.isArray(value)) {
-    if (key === 'command') return redactCommand(value);
+    if (key === 'command' || key.endsWith('_command')) return redactCommand(value);
     return value.map((item) => redactEvidence(item, key));
   }
   if (value && typeof value === 'object') {

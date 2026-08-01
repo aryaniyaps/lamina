@@ -102,13 +102,14 @@ enforcement, and the global concurrency lock. Every tier refuses while an
 existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
 
-After a safety-limit observation, the runner stores a durable signature over the
-repository, command, content-hashed Git source, referenced workload files, and runner
-build. This remains true if incomplete cleanup changes the final outcome to
-`internal_error`. Limits are deliberately excluded from that identity, so a
-limits-only edit cannot retry known-unsafe work. A content-hashed Git source
-change, workload input change, command identity change, or concurrency-model
-change produces a new attempt.
+Immediately before release, the runner revalidates its frozen preflight
+identity and persists an active-attempt fence. The identity covers the complete
+normalized argv, every file argument resolved against the supplied cwd,
+content-hashed Git source, and runner build. The exact frozen identity is reused
+after execution, so a payload that edits its checkout cannot promote the edited
+source. Limits are deliberately excluded: a limits-only edit cannot retry known
+unsafe work. The fence is cleared only after a non-limit clean outcome, final
+report publication, and watchdog disarm; a limit or controller crash retains it.
 
 All limit flags are downward-only:
 
@@ -135,7 +136,7 @@ masked. Network-required entrypoints are separately and narrowly allowlisted.
 The runner temporary directory is a size-limited private tmpfs.
 The prepared report parent is a separate identity-bound authority mount: it is
 read-only inside the payload namespace, and the controller uses an unpredictable
-exclusive temporary file plus parent/file inode checks before atomic replacement.
+exclusive temporary file plus immutable parent/run identity before atomic replacement.
 The controller verifies that tmpfs before releasing the payload and reads its
 allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
 deleted-but-open files without an unbounded directory scan. Symlinks in the
@@ -143,9 +144,10 @@ temporary tree, inode storms, quota exhaustion, or absence of this enforcement
 capability fail closed.
 
 Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
-escape hatch. When a scoped CLI starts `graphd`, the client asks the live
-supervisor broker to authorize its PID, Linux start identity, command, parent,
-and canonical socket/lock paths. No child-writable registry is authoritative. After the CLI
+escape hatch. Before spawn, the client asks the live supervisor broker to prove
+the canonical socket/lock paths absent under a physical same-user parent and
+durably reserve them. After spawn it binds that reservation to the authorized
+PID, Linux start identity, command, and parent. No child-writable registry is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
@@ -159,6 +161,17 @@ paths, releases the exact lock only after authoritative absence proof, and
 writes a schema-valid crash report. The existing `parent_signal` qualification
 case bundles handled-signal and supervisor-`SIGKILL` subproofs, preserving the
 public eleven-case contract.
+
+The requested report slot contains a schema-valid non-success provisional
+record before payload release. Final outcomes atomically replace that run-bound
+slot. Because watchdog write authority uses the immutable parent and run rather
+than a changing report inode, controller death after success publication but
+before disarm overwrites that success with schema-valid crash evidence.
+
+Infrastructure binaries are resolved and identity-bound independently of the
+caller. PATH and dynamic-loader, Node, and shell execution hooks are sanitized
+before `systemd-run`, the gates, bwrap, and the payload launcher start, including
+for reusable API environment overrides.
 
 ## Reports and outcomes
 

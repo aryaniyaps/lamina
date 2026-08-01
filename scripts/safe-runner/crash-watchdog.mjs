@@ -6,6 +6,7 @@ import { removeOwnedDirectory } from './filesystem.mjs';
 import { systemdAbsenceProof, systemdKillArguments } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { finishReport, writeReportWithFallback } from './report.mjs';
+import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 
 const [manifestFile, readyFile, disarmFile] = process.argv.slice(2);
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -25,10 +26,9 @@ function validManifest(value, initial = value) {
     || !path.isAbsolute(value.report_file || '')
     || value.report_authority?.file !== value.report_file
     || value.report_authority?.parent !== path.dirname(value.report_file)
+    || value.report_authority?.run_id !== value.report_seed?.run_id
     || typeof value.report_authority?.parent_identity?.dev !== 'string'
     || typeof value.report_authority?.parent_identity?.ino !== 'string'
-    || typeof value.report_authority?.file_identity?.dev !== 'string'
-    || typeof value.report_authority?.file_identity?.ino !== 'string'
     || !path.isAbsolute(value.runner_temporary_directory || '')
     || value.runner_temporary_identity?.path !== value.runner_temporary_directory
     || value.watchdog_directory_identity?.path !== path.dirname(path.resolve(manifestFile))) return false;
@@ -40,12 +40,17 @@ function validManifest(value, initial = value) {
   }
   return Array.isArray(value.managed_paths) && value.managed_paths.every((item) =>
     path.isAbsolute(item?.path || '') && ['socket', 'lock'].includes(item?.type)
-      && typeof item.dev === 'string' && typeof item.ino === 'string');
+      && ['reserved', 'bound'].includes(item.state)
+      && typeof item.parent_identity?.dev === 'string'
+      && typeof item.parent_identity?.ino === 'string'
+      && (item.state === 'reserved' || (Array.isArray(item.expected_pids)
+        && item.expected_pids.length >= 1 && item.expected_pids.every(Number.isSafeInteger))));
 }
 
 function systemctl(args) {
-  return spawnSync('systemctl', ['--user', ...args], {
+  return spawnSync(infrastructureBinaries().systemctl, ['--user', ...args], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,
+    env: sanitizedEnvironment(process.env),
   });
 }
 
@@ -77,12 +82,13 @@ function samePathIdentity(candidate, expected) {
   try {
     const stat = fs.lstatSync(candidate, { bigint: true });
     const typeMatches = expected.type === 'socket' ? stat.isSocket() : stat.isFile();
-    if (!typeMatches || stat.isSymbolicLink()
-      || String(stat.dev) !== expected.dev || String(stat.ino) !== expected.ino
+    if (!typeMatches || stat.isSymbolicLink() || expected.state !== 'bound'
       || Number(stat.uid) !== expected.uid) return false;
-    if (expected.type === 'lock') {
-      return Number(readJson(candidate)?.pid) === Number(expected.expected_pid);
-    }
+    const parent = fs.lstatSync(path.dirname(candidate), { bigint: true });
+    if (!parent.isDirectory() || parent.isSymbolicLink()
+      || String(parent.dev) !== expected.parent_identity.dev
+      || String(parent.ino) !== expected.parent_identity.ino
+      || Number(parent.uid) !== expected.parent_identity.uid) return false;
     return true;
   } catch { return false; }
 }

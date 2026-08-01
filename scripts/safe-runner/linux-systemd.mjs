@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { processRecord, readPidList } from './processes.mjs';
+import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 
 const GATE = fileURLToPath(new URL('./gate.sh', import.meta.url));
 const QUOTA_GATE = fileURLToPath(new URL('./quota-gate.sh', import.meta.url));
@@ -13,12 +14,12 @@ export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // `systemctl show` cannot consume the complete proof window.
 export const SYSTEMCTL_READBACK_TIMEOUT_MS = 500;
 
-function systemctl(args, timeout = SYSTEMCTL_CONTROL_TIMEOUT_MS) {
-  return spawnSync('systemctl', ['--user', ...args], {
+function systemctl(args, timeout = SYSTEMCTL_CONTROL_TIMEOUT_MS, binary = infrastructureBinaries().systemctl) {
+  return spawnSync(binary, ['--user', ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout,
-    maxBuffer: 64 * 1024,
+    maxBuffer: 64 * 1024, env: sanitizedEnvironment(process.env),
   });
 }
 
@@ -141,7 +142,9 @@ export class LinuxSystemdAdapter {
     this.controllers = probe.controllers || [];
     this.unit = `lamina-safe-${runId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(-48)}.scope`;
     this.limits = limits;
-    const version = assertSystemctlSuccess(systemctl(['--version']), 'systemctl --version');
+    this.infrastructure = probe.infrastructure || infrastructureBinaries();
+    const version = assertSystemctlSuccess(systemctl(['--version'], SYSTEMCTL_CONTROL_TIMEOUT_MS,
+      this.infrastructure.systemctl), 'systemctl --version');
     this.systemdMajor = parseSystemdMajor(version.stdout);
     this.child = null;
     this.cgroupPath = null;
@@ -158,12 +161,12 @@ export class LinuxSystemdAdapter {
       '--collect', '--', '/bin/sh', GATE, readyFile, releaseFile, payloadExitFile,
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, QUOTA_GATE,
-      process.execPath, SANDBOX,
+      this.infrastructure.node, SANDBOX, this.infrastructure.bwrap,
       ...command,
     ];
-    this.child = spawn('systemd-run', args, {
+    this.child = spawn(this.infrastructure.systemdRun, args, {
       cwd,
-      env,
+      env: sanitizedEnvironment(env),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return this.child;
@@ -215,6 +218,7 @@ export class LinuxSystemdAdapter {
     const shown = systemctl(
       ['show', this.unit, '--property=ControlGroup', '--value'],
       SYSTEMCTL_READBACK_TIMEOUT_MS,
+      this.infrastructure.systemctl,
     );
     const controlGroup = String(shown.stdout || '').trim();
     this.lastCgroupResolution = cgroupResolutionState(shown, controlGroup);
@@ -259,7 +263,8 @@ export class LinuxSystemdAdapter {
   }
 
   signal(signal) {
-    const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
+    const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor),
+      SYSTEMCTL_CONTROL_TIMEOUT_MS, this.infrastructure.systemctl);
     if (result?.status !== 0 || result?.error) {
       const shown = systemctl([
         'show', this.unit, '--property=LoadState', '--property=ControlGroup',

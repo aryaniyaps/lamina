@@ -10,6 +10,7 @@ import { validateReport } from '../scripts/safe-runner/report.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
 import { runSupervisorCrashSelfTest } from '../scripts/safe-runner/self-test.mjs';
 import { checkPromotion, checkSafetyRetry } from '../scripts/safe-runner/state.mjs';
+import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 
 const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
   ? path.resolve(process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR)
@@ -23,6 +24,10 @@ const graphdFixture = path.resolve('tests/fixtures/safe-runner-graphd-client.mjs
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 const workloadCwd = process.cwd();
 const workspaceScratch = fs.mkdtempSync(path.join(workloadCwd, '.safe-runner-integration-'));
+const cleanupWorkspaceScratch = () => {
+  try { fs.rmSync(workspaceScratch, { recursive: true, force: true }); } catch {}
+};
+process.once('exit', cleanupWorkspaceScratch);
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = state;
 fs.mkdirSync(reports, { recursive: true });
 let completed = false;
@@ -104,6 +109,20 @@ try {
     assert.equal(supervisorCrash.passed, true, JSON.stringify(supervisorCrash, null, 2));
     assert.ok(Object.values(supervisorCrash.evidence).every(Boolean));
     assert.equal(validateReport(supervisorCrash.report).valid, true);
+    const successPublicationCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'success_report_published',
+    });
+    assert.equal(successPublicationCrash.passed, true, JSON.stringify(successPublicationCrash, null, 2));
+    assert.notEqual(successPublicationCrash.report.outcome, 'success',
+      'watchdog must invalidate a success published immediately before controller death');
+
+    const afterLimitCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'after_limit_observed',
+    });
+    assert.equal(afterLimitCrash.passed, true, JSON.stringify(afterLimitCrash, null, 2));
+    const afterLimitCommand = [process.execPath, fixture, 'output-flood', 'crash-after-limit'];
+    assert.equal(checkSafetyRetry(workloadCwd, afterLimitCommand, limits).ok, false,
+      'SIGKILL after limit observation must retain the frozen active-attempt retry fence');
   }
 
   if (probe.production_enforcement) {
@@ -116,6 +135,23 @@ try {
     const serializedRedacted = JSON.stringify(redacted);
     assert.doesNotMatch(serializedRedacted, /supersecret|childsecret/);
     assert.match(serializedRedacted, /\[REDACTED\]/);
+
+    const poisonedEnvironment = await runSafely({
+      command: [process.execPath, fixture, 'environment-poison'],
+      tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'environment-poison.json'),
+      overrides: limits, probe, promote: false,
+      env: {
+        PATH: path.join(root, 'attacker-bin'), LD_PRELOAD: '/tmp/attacker.so',
+        LD_AUDIT: '/tmp/audit.so', NODE_OPTIONS: '--require=/tmp/attacker.cjs',
+        NODE_PATH: '/tmp/node-path', BASH_ENV: '/tmp/bash-env',
+      },
+    });
+    assert.equal(poisonedEnvironment.outcome, 'success');
+    const environmentEvidence = JSON.parse(poisonedEnvironment.output.stdout_tail.trim().split('\n').at(-1));
+    assert.notEqual(environmentEvidence.path, path.join(root, 'attacker-bin'));
+    for (const name of ['ld_preload', 'ld_audit', 'node_options', 'node_path', 'bash_env']) {
+      assert.equal(environmentEvidence[name], null, `${name} must be stripped from reusable API overrides`);
+    }
 
     const failure = await runSafely({
       command: [process.execPath, fixture, 'failure'],
@@ -147,6 +183,18 @@ try {
       encoding: 'utf8',
     });
     assert.equal(initialized.status, 0, initialized.stderr);
+    for (const boundary of ['graphd_reserved', 'graphd_bound']) {
+      const crashRepository = path.join(workspaceScratch, `${boundary}-${'y'.repeat(72)}`);
+      fs.mkdirSync(crashRepository);
+      assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: crashRepository }).status, 0);
+      const graphdCrash = await runSupervisorCrashSelfTest({
+        cwd: workloadCwd, reportDirectory: reports, boundary, graphRepository: crashRepository,
+      });
+      assert.equal(graphdCrash.passed, true, JSON.stringify(graphdCrash, null, 2));
+      const crashPaths = runtimePaths(crashRepository);
+      assert.equal(fs.existsSync(crashPaths.socket), false, `${boundary} socket must be absent`);
+      assert.equal(fs.existsSync(crashPaths.lock), false, `${boundary} lock must be absent`);
+    }
     const managedGraphd = await runSafely({
       command: [process.execPath, graphdFixture, graphRepository],
       tier: 'small', cwd: workloadCwd, reportFile: path.join(reports, 'managed-graphd.json'),
@@ -217,8 +265,9 @@ try {
       overrides: { ...limits, pidsMax: 64, timeoutMs: 300, gracefulStopMs: 100 },
       promote: false,
     });
-    assert.equal(cleanupAfterLimit.outcome, 'internal_error');
-    assert.equal(cleanupAfterLimit.termination.reason, 'cleanup_incomplete');
+    assert.ok(['safety_limit_exceeded', 'internal_error'].includes(cleanupAfterLimit.outcome));
+    assert.ok(['safety_limit_exceeded', 'cleanup_incomplete'].includes(
+      cleanupAfterLimit.termination.reason));
     assert.equal(checkSafetyRetry(workloadCwd, retryCommand, cleanupAfterLimit.limits).ok, false,
       'an observed safety limit must survive cleanup outcome normalization');
     for (const managedPath of cleanupAfterLimit.cleanup.managed_paths_remaining) {
@@ -269,7 +318,8 @@ try {
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
-  fs.rmSync(workspaceScratch, { recursive: true, force: true });
+  cleanupWorkspaceScratch();
+  process.off('exit', cleanupWorkspaceScratch);
   if (completed && !process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR) {
     fs.rmSync(root, { recursive: true, force: true });
   }

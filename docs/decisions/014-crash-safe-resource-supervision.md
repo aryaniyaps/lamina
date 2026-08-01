@@ -55,26 +55,29 @@ The runner:
 - arms an independently owned exact-unit watchdog before payload release so a
   supervisor `SIGKILL` still proves scope, managed-path, temporary-directory,
   and nonce/inode-bound production-lock cleanup;
+- resolves `systemd-run`, `systemctl`, bwrap, Node, and the shell from immutable
+  host identities and strips PATH/preload/runtime hook overrides before any
+  infrastructure process starts;
 - terminates the complete scope on memory, PID, timeout, output, temporary
   disk, controller signal, or detached-descendant failure;
 - identifies processes by PID plus Linux start ticks so stale records cannot
   target a reused PID;
-- lets the graph client register a graphd by that exact identity, then verifies
-  graceful daemon/socket cleanup after the payload exits; all unknown detached
-  descendants remain safety failures;
-- writes an atomic `lamina.safe-runner-report/v1` report for success, command
-  failure, refusal, limit, interruption, and internal failure;
+- lets the graph client durably reserve absent canonical graphd socket/lock
+  paths before spawn, then bind that reservation to the exact in-scope child;
+- publishes a schema-valid non-success provisional report before release, then
+  atomically replaces that run-bound slot for every completed outcome;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
 - rejects Docker/Harbor-style external-daemon execution because descendants
   launched by an external daemon are not proven members of the client scope.
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
-an online supervisor-broker registration. The runner matches the registered
-PID and Linux start ticks to an in-scope `server.mjs`/`--graphd` process, owns
-its descendants through the same cgroup, and gracefully terminates the scope
-after the CLI payload exits. Any unregistered or mismatched remainder keeps the
-ordinary detached-descendant failure semantics.
+an online two-phase supervisor-broker protocol. The broker first proves the
+canonical socket and lock absent under a physical same-user parent and durably
+reserves them. Only then may the client spawn graphd and bind the reservation
+to its PID plus Linux start ticks. After binding, watchdog cleanup is limited to
+the reserved path types under the unchanged parent. Missing, unregistered, or
+mismatched authority keeps cleanup incomplete.
 
 Medium and large runs require all of the following: aggregate enforcement, a
 current host-bound adversarial attestation, successful smaller-tier promotion,
@@ -86,13 +89,14 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-A safety-limit observation writes a durable retry signature over the repository,
-command, content-hashed Git source snapshot, referenced workload file identities,
-and runner build. Effective limits are excluded so lowering or editing them
-cannot bypass a known safety failure. The same signature is refused; changing
-implementation, workload, command, or the concurrency model creates a distinct
-attempt. Later cleanup failure may normalize the public outcome to
-`internal_error`, but cannot erase the observed limit or bypass the ledger.
+Immediately before release the runner revalidates its frozen preflight identity
+and writes a durable active-attempt fence. The identity covers the complete
+normalized argv, every file argument resolved against the supplied cwd, the
+content-hashed Git snapshot, and runner build. Effective limits are excluded.
+The frozen identity is reused after execution, so payload source mutation cannot
+change which attempt is recorded or promoted. The active fence is cleared only
+after a non-limit success/command failure has a trustworthy final report and
+proven watchdog disarm. A limit or controller crash retains it.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under
@@ -145,9 +149,8 @@ prove ownership of descendants created by an external daemon.
   report contract for all resource-intensive work.
 - Safety-limit outcomes are explicit failed scenarios and cannot be promoted
   or used as performance measurements.
-- Promotion state is repository-, workload-, command-entrypoint-, complete
-  Git-source-snapshot-, and runner-build-specific; source or runner changes
-  invalidate prior promotion evidence.
+- Promotion state is repository-, workload-, complete-argv-, referenced-input-,
+  Git-source-snapshot-, and runner-build-specific.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and
   production-refusal contract without claiming enforcement.

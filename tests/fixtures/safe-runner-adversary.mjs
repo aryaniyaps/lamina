@@ -80,10 +80,6 @@ if (mode === 'direct-memory') {
 } else if (mode === 'temp-symlink') {
   fs.symlinkSync(process.cwd(), path.join(process.env.LAMINA_SAFE_RUNNER_TEMP, 'escape'));
   hold();
-} else if (mode === 'signal-controller') {
-  const controller = Number(process.env.LAMINA_SAFE_RUNNER_CONTROLLER_PID);
-  setTimeout(() => process.kill(controller, 'SIGINT'), 100);
-  hold();
 } else if (mode === 'detached-child') {
   spawn(process.execPath, [new URL(import.meta.url).pathname, 'socket-child'], {
     detached: true,
@@ -129,6 +125,15 @@ if (mode === 'direct-memory') {
 } else if (mode === 'secret-output') {
   process.stdout.write('Authorization: Bearer supersecret\n');
   setTimeout(() => process.exit(0), 100);
+} else if (mode === 'environment-poison') {
+  process.stdout.write(`${JSON.stringify({
+    path: process.env.PATH,
+    ld_preload: process.env.LD_PRELOAD || null,
+    ld_audit: process.env.LD_AUDIT || null,
+    node_options: process.env.NODE_OPTIONS || null,
+    node_path: process.env.NODE_PATH || null,
+    bash_env: process.env.BASH_ENV || null,
+  })}\n`);
 } else if (mode === 'failure') {
   process.stderr.write('tiny failure\n');
   process.exit(7);

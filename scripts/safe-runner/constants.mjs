@@ -29,7 +29,7 @@ export const SELF_TEST_FIXTURE_MODES = Object.freeze({
   rapid_process_spawning: 'spawn-storm',
   stdout_stderr_flood: 'output-flood',
   runner_temporary_disk_growth: 'temp-growth',
-  parent_signal: Object.freeze(['signal-controller', 'hang']),
+  parent_signal: Object.freeze(['hang', 'success']),
   detached_descendant: 'detached-child',
 });
 export const PORTABLE_SELF_TEST_CASE_IDS = Object.freeze([

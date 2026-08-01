@@ -1,5 +1,6 @@
 export {
   assertSafeRunnerContext,
-  registerManagedGraphdWithSupervisor,
+  bindManagedGraphdWithSupervisor,
+  reserveManagedGraphdWithSupervisor,
   safeRunnerContext,
 } from '../../packages/cli/lib/safe-runner-context.mjs';

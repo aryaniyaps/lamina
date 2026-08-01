@@ -172,6 +172,10 @@ export function validateReport(report) {
     if (report.outcome === 'preflight_refused' && report.preflight?.ok !== false) {
       errors.push('$.preflight must explicitly refuse a preflight_refused outcome');
     }
+    if (report.error?.code === 'LAMINA_SAFE_RUN_IN_PROGRESS'
+      && (report.outcome !== 'internal_error' || report.termination?.reason !== 'run_in_progress')) {
+      errors.push('$.LAMINA_SAFE_RUN_IN_PROGRESS must be a non-success run_in_progress record');
+    }
     if (report.output?.total_bytes !== report.output?.stdout_bytes + report.output?.stderr_bytes) {
       errors.push('$.output.total_bytes must equal stdout_bytes plus stderr_bytes');
     }
@@ -196,16 +200,23 @@ function fileIdentity(candidate) {
   return { dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
 }
 
+function fsyncFileAndParent(file) {
+  const descriptor = fs.openSync(file, 'r');
+  try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+  const parentDescriptor = fs.openSync(path.dirname(file), 'r');
+  try { fs.fsyncSync(parentDescriptor); } finally { fs.closeSync(parentDescriptor); }
+}
+
 function assertReportAuthority(resolved, authority) {
   if (!authority) return;
   if (resolved !== authority.file || path.dirname(resolved) !== authority.parent) {
     throw Object.assign(new Error('report authority path changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
   }
   const parent = fileIdentity(authority.parent);
-  const file = fileIdentity(authority.file);
+  let current = null;
+  try { current = JSON.parse(fs.readFileSync(authority.file, 'utf8')); } catch {}
   if (parent.dev !== authority.parent_identity.dev || parent.ino !== authority.parent_identity.ino
-    || parent.uid !== authority.parent_identity.uid || file.dev !== authority.file_identity.dev
-    || file.ino !== authority.file_identity.ino || file.uid !== authority.file_identity.uid) {
+    || parent.uid !== authority.parent_identity.uid || current?.run_id !== authority.run_id) {
     throw Object.assign(new Error('report authority identity changed'), { code: 'LAMINA_SAFE_REPORT_AUTHORITY' });
   }
 }
@@ -229,19 +240,23 @@ export function writeReport(file, report, authority = null) {
     fs.writeFileSync(temporary, `${JSON.stringify(sanitized, null, 2)}\n`, {
       flag: 'wx', mode: 0o600,
     });
+    fsyncFileAndParent(temporary);
     assertReportAuthority(resolved, authority);
     fs.renameSync(temporary, resolved);
-    if (authority) authority.file_identity = fileIdentity(resolved);
+    fsyncFileAndParent(resolved);
   } finally { fs.rmSync(temporary, { force: true }); }
   return resolved;
 }
 
-export function prepareReportAuthority(file) {
+export function prepareReportAuthority(file, provisionalReport) {
   const resolved = path.resolve(file);
   const parent = path.dirname(resolved);
   fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
-  if (fs.realpathSync.native(parent) !== parent) {
-    throw Object.assign(new Error('report authority parent must be a physical directory'), {
+  const parentStat = fs.lstatSync(parent);
+  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()
+    || fs.realpathSync.native(parent) !== parent
+    || (typeof process.getuid === 'function' && parentStat.uid !== process.getuid())) {
+    throw Object.assign(new Error('report authority parent must be a physical same-user directory'), {
       code: 'LAMINA_SAFE_REPORT_AUTHORITY',
     });
   }
@@ -268,12 +283,36 @@ export function prepareReportAuthority(file) {
     if (descriptor !== null) fs.closeSync(descriptor);
   }
   fs.chmodSync(resolved, 0o600);
-  return {
+  const authority = {
     file: resolved,
     parent,
     parent_identity: fileIdentity(parent),
-    file_identity: fileIdentity(resolved),
+    run_id: provisionalReport?.run_id,
   };
+  if (typeof authority.run_id !== 'string' || !authority.run_id) {
+    throw Object.assign(new Error('report authority requires a run-bound provisional report'), {
+      code: 'LAMINA_SAFE_REPORT_AUTHORITY',
+    });
+  }
+  // The slot becomes a schema-valid non-success record before any payload can
+  // be released. Atomic later replacements retain authority through run_id and
+  // immutable parent identity, avoiding an inode-refresh race with watchdog.
+  const provisionalTemporary = path.join(parent,
+    `.${path.basename(resolved)}.provisional-${crypto.randomBytes(16).toString('hex')}`);
+  try {
+    fs.writeFileSync(provisionalTemporary,
+      `${JSON.stringify(redactEvidence(provisionalReport), null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+    fsyncFileAndParent(provisionalTemporary);
+    fs.renameSync(provisionalTemporary, resolved);
+    fsyncFileAndParent(resolved);
+  } finally { fs.rmSync(provisionalTemporary, { force: true }); }
+  const validation = validateReport(JSON.parse(fs.readFileSync(resolved, 'utf8')));
+  if (!validation.valid) {
+    throw Object.assign(new Error(`invalid provisional report: ${validation.errors.join('; ')}`), {
+      code: 'LAMINA_SAFE_REPORT_INVALID',
+    });
+  }
+  return authority;
 }
 
 export function writeReportWithFallback(file, report, authority = null) {

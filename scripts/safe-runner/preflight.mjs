@@ -14,7 +14,8 @@ import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
 import {
-  checkPromotion, checkSafetyRetry, productionLockDirectory, readAttestation, stateDirectory,
+  checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
+  readAttestation, stateDirectory,
 } from './state.mjs';
 
 const EXTERNAL_DAEMON_PROGRAMS = new Set(['docker', 'podman', 'harbor']);
@@ -126,37 +127,41 @@ function trustedExecutable(command, cwd, expected) {
 export function auditedCommand(command = [], cwd = process.cwd()) {
   const executable = path.basename(String(command[0] || '')).toLowerCase();
   if (/^node(?:\.exe)?$/.test(executable)) {
-    if (!trustedExecutable(command[0], cwd, [process.execPath])) {
+    const resolved = resolvedExecutable(command[0], cwd);
+    if (!resolved || !trustedExecutable(command[0], cwd, [process.execPath])) {
       return { audited: false, allow_network: false, entrypoint: null };
     }
     const entrypoint = command[1];
     const relative = entrypoint && !String(entrypoint).startsWith('-')
       ? auditedRepositoryFile(path.resolve(cwd, entrypoint), AUDITED_NODE_ENTRYPOINTS) : null;
     return relative !== null
-      ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative }
+      ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative,
+        executable: resolved }
       : { audited: false, allow_network: false, entrypoint: relative };
   }
   if (/^(?:bash|sh)$/.test(executable)) {
     const trustedShells = executable === 'bash'
       ? ['/bin/bash', '/usr/bin/bash'] : ['/bin/sh', '/usr/bin/sh'];
-    if (!trustedExecutable(command[0], cwd, trustedShells)) {
+    const resolved = resolvedExecutable(command[0], cwd);
+    if (!resolved || !trustedExecutable(command[0], cwd, trustedShells)) {
       return { audited: false, allow_network: false, entrypoint: null };
     }
     const relative = command[1] && !String(command[1]).startsWith('-')
       ? auditedRepositoryFile(path.resolve(cwd, command[1]), AUDITED_BASH_ENTRYPOINTS) : null;
     return relative !== null
-      ? { audited: true, allow_network: true, entrypoint: relative }
+      ? { audited: true, allow_network: true, entrypoint: relative, executable: resolved }
       : { audited: false, allow_network: false, entrypoint: relative };
   }
   if (/^(?:npx|npx\.cmd)$/.test(executable)) {
     const expectedNpx = path.join(path.dirname(process.execPath), process.platform === 'win32' ? 'npx.cmd' : 'npx');
-    if (!trustedExecutable(command[0], cwd, [expectedNpx])) {
+    const resolved = resolvedExecutable(command[0], cwd);
+    if (!resolved || !trustedExecutable(command[0], cwd, [expectedNpx])) {
       return { audited: false, allow_network: false, entrypoint: null };
     }
     const offset = ['--yes', '-y'].includes(command[1]) ? 2 : 1;
     const packageName = command[offset];
     return AUDITED_NPX_PACKAGES.has(packageName)
-      ? { audited: true, allow_network: true, entrypoint: `npx:${packageName}` }
+      ? { audited: true, allow_network: true, entrypoint: `npx:${packageName}`, executable: resolved }
       : { audited: false, allow_network: false, entrypoint: null };
   }
   return { audited: false, allow_network: false, entrypoint: null };
@@ -200,6 +205,7 @@ export function commandOwnership(command = [], cwd = process.cwd()) {
       : audit.audited ? null
         : 'command is not an explicitly audited safe-runner entrypoint; arbitrary wrappers are refused.',
     audited_entrypoint: audit.entrypoint,
+    executable: audit.executable || null,
     network_access: audit.allow_network ? 'audited-required' : 'isolated',
   };
 }
@@ -244,11 +250,16 @@ export function preflightRun({
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
   let sourceIdentityError = null;
+  let sourceIdentity = null;
   let retry = tinySelfTest
     ? { ok: true, signature: null, previous: null }
     : { ok: false, signature: null, previous: null, unavailable: true };
   if (!tinySelfTest && ownership.proven) {
-    try { retry = checkSafetyRetry(cwd, command, envelope.limits); }
+    try {
+      const executionCommand = [ownership.executable, ...command.slice(1)];
+      sourceIdentity = frozenWorkloadIdentity(cwd, executionCommand);
+      retry = checkSafetyRetry(cwd, executionCommand, envelope.limits, sourceIdentity);
+    }
     catch (error) { sourceIdentityError = error; }
   }
   if (!TIER_ORDER.includes(tier)) reasons.push(`tier must be one of ${TIER_ORDER.join(', ')}`);
@@ -288,7 +299,11 @@ export function preflightRun({
   const attestation = readAttestation(adapterInfo);
   let promotion = { ok: !production, required: [], missing: [], completed: [] };
   if (ownership.proven && !sourceIdentityError) {
-    try { promotion = checkPromotion(cwd, tier, workloadId, command); }
+    try {
+      const executionCommand = [ownership.executable, ...command.slice(1)];
+      sourceIdentity ||= frozenWorkloadIdentity(cwd, executionCommand);
+      promotion = checkPromotion(cwd, tier, workloadId, executionCommand, sourceIdentity);
+    }
     catch (error) {
       sourceIdentityError = error;
       reasons.push(error.message);
@@ -316,6 +331,8 @@ export function preflightRun({
     portable_self_test_allowed: portableTinySelfTest,
     adapter: adapterInfo,
     ownership,
+    execution_command: ownership.proven ? [ownership.executable, ...command.slice(1)] : null,
+    source_identity: sourceIdentity,
     writable_worktree: writableWorktree,
     retry,
     envelope,

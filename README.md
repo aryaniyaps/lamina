@@ -299,7 +299,11 @@ npm run safe:run -- --tier small --workload <stable-id> --report /absolute/path/
 Medium and large runs fail closed without aggregate Linux cgroup-v2
 enforcement, a current self-test attestation, sequential promotion evidence,
 and complete cleanup. Unknown commands and direct fixture-vendoring launches are
-refused. See the [crash-safe runner guide](docs/content/advanced/safe-runner.mdx).
+refused. Retry and promotion bind complete argv, cwd-relative input files,
+frozen Git source, and runner build. A provisional non-success report and
+active-attempt fence exist before release, and graphd uses a durable
+reserve-before-spawn/bind-after-spawn cleanup protocol. See the
+[crash-safe runner guide](docs/content/advanced/safe-runner.mdx).
 
 The standalone CLI, matching private native CocoIndex worker, and shared
 offline retrieval model are published as checksum-verified assets on the

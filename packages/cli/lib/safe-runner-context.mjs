@@ -70,13 +70,22 @@ export function assertSafeRunnerContext(operation, options = {}) {
   throw error;
 }
 
-export function registerManagedGraphdWithSupervisor(identity, paths) {
+export function reserveManagedGraphdWithSupervisor(paths) {
   if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
   return brokerRequest({
-    operation: 'register_graphd',
+    operation: 'reserve_graphd',
     requester: processIdentity(process.pid),
-    child: identity,
     socket: paths?.socket,
     lock: paths?.lock,
+  });
+}
+
+export function bindManagedGraphdWithSupervisor(reservation, identity) {
+  if (!process.env.LAMINA_SAFE_RUNNER_BROKER) return null;
+  return brokerRequest({
+    operation: 'bind_graphd',
+    requester: processIdentity(process.pid),
+    child: identity,
+    reservation,
   });
 }
