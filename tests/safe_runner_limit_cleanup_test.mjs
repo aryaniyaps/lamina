@@ -15,6 +15,11 @@ import { runtimePaths } from '../packages/cli/lib/graph-runtime/util.mjs';
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const POST_PAYLOAD_TIMEOUT_MS = 15_000;
 const DELAYED_PREPARATION_MS = 15_100;
+const DELAYED_PREPARATION_TIMEOUT_MS = SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS
+  + DELAYED_PREPARATION_MS;
+assert.equal(DELAYED_PREPARATION_TIMEOUT_MS - DELAYED_PREPARATION_MS,
+  SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS,
+  'delayed preparation must retain the complete shared preparation budget');
 const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
   ? path.resolve(process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR)
   : os.tmpdir();
@@ -62,7 +67,7 @@ let evidence = null;
 const trace = () => fs.existsSync(phases) ? fs.readFileSync(phases, 'utf8') : '';
 try {
   const preparationStartedMs = Date.now();
-  const preparationDeadline = preparationStartedMs + SUPERVISOR_CRASH_PREPARATION_TIMEOUT_MS;
+  const preparationDeadline = preparationStartedMs + DELAYED_PREPARATION_TIMEOUT_MS;
   let payloadReleased = false;
   while (Date.now() < preparationDeadline && identityAlive(controllerIdentity)) {
     try { progress = JSON.parse(fs.readFileSync(progressFile, 'utf8')); } catch {}
