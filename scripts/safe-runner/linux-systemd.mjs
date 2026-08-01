@@ -114,6 +114,22 @@ export function cgroupResolutionState(shown, controlGroup = '', pathExists = fal
   };
 }
 
+function systemdShowProperties(output) {
+  return Object.fromEntries(String(output || '').split('\n').filter(Boolean).map((line) => {
+    const separator = line.indexOf('=');
+    return separator === -1 ? [line, ''] : [line.slice(0, separator), line.slice(separator + 1)];
+  }));
+}
+
+export function systemdAbsenceProof(shown, cachedCgroupExists = false) {
+  const properties = systemdShowProperties(shown?.stdout);
+  return shown?.status === 0
+    && !shown?.error
+    && properties.LoadState === 'not-found'
+    && !properties.ControlGroup
+    && cachedCgroupExists === false;
+}
+
 export class LinuxSystemdAdapter {
   constructor({ runId, limits, probe = {} }) {
     this.id = 'linux-systemd-cgroup-v2';
@@ -242,6 +258,15 @@ export class LinuxSystemdAdapter {
 
   signal(signal) {
     const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
+    if (result?.status !== 0 || result?.error) {
+      const shown = systemctl([
+        'show', this.unit, '--property=LoadState', '--property=ControlGroup',
+      ]);
+      const cachedCgroupExists = Boolean(this.cgroupPath && fs.existsSync(this.cgroupPath));
+      if (systemdAbsenceProof(shown, cachedCgroupExists)) {
+        return { ...result, alreadyAbsent: true };
+      }
+    }
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 

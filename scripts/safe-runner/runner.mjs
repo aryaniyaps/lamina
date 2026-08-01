@@ -171,8 +171,11 @@ export async function runSafely({
       report.cleanup.errors.push(`SIGTERM: ${error.message}`);
     }
     forceTimer = setTimeout(() => {
-      report.termination.requested_signals.push('SIGKILL');
-      try { activeAdapter?.signal('SIGKILL'); } catch (error) {
+      try {
+        if ((activeAdapter?.sample()?.pids || []).length === 0) return;
+        report.termination.requested_signals.push('SIGKILL');
+        activeAdapter?.signal('SIGKILL');
+      } catch (error) {
         report.cleanup.errors.push(`SIGKILL: ${error.message}`);
       }
     }, report.limits?.graceful_stop_ms || DEFAULTS.gracefulStopMs);
@@ -449,12 +452,13 @@ export async function runSafely({
           );
           if (!sink.write(retained)) {
             stream.pause();
-            sink.once('drain', () => { if (!stopping) stream.resume(); });
+            // Even after a stop request, the wrapper pipe must be drained so
+            // Node can observe its close event. Excess bytes are discarded.
+            sink.once('drain', () => stream.resume());
           }
         }
         if (retained.length < value.length || report.output.total_bytes > report.limits.output_max_bytes) {
           report.output.truncated = true;
-          stream.pause();
           requestStop('safety_limit_exceeded', 'output');
         }
       });
