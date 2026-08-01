@@ -69,7 +69,7 @@ export async function runSupervisorCrashSelfTest({
   const evidence = {
     controller_dead: false, scope_absent: false, temporary_removed: false,
     watchdog_state_removed: false, lock_removed: false, subsequent_claim: false,
-    schema_valid: false,
+    descendants_absent: false, managed_paths_absent: false, schema_valid: false,
   };
   if (armed?.controller_pid === controller.pid
     && (typeof armed.unit === 'string' || boundary === 'report_slot_acquired')) {
@@ -106,11 +106,17 @@ export async function runSupervisorCrashSelfTest({
     } catch {}
     evidence.scope_absent = boundary === 'report_slot_acquired' || systemdAbsenceProof(shown, false);
     evidence.temporary_removed = boundary === 'report_slot_acquired'
-      || (typeof armed.temporary_directory === 'string' && !fs.existsSync(armed.temporary_directory));
+      || (armed.temporary_directory === null
+        || (typeof armed.temporary_directory === 'string' && !fs.existsSync(armed.temporary_directory)));
     evidence.watchdog_state_removed = boundary === 'report_slot_acquired'
       || (typeof armed.watchdog_directory === 'string' && !fs.existsSync(armed.watchdog_directory));
     evidence.lock_removed = boundary === 'report_slot_acquired'
+      || armed.lock_file === null
       || (typeof armed.lock_file === 'string' && !lstatPresence(armed.lock_file).exists);
+    evidence.descendants_absent = boundary === 'report_slot_acquired'
+      || crashReport?.cleanup?.descendants_remaining?.length === 0;
+    evidence.managed_paths_absent = boundary === 'report_slot_acquired'
+      || crashReport?.cleanup?.managed_paths_remaining?.length === 0;
     evidence.schema_valid = validateReport(crashReport || {}).valid;
   } else if (controller.exitCode === null) {
     controller.kill('SIGKILL');
@@ -131,7 +137,19 @@ export async function runSupervisorCrashSelfTest({
     && crashReport?.cleanup?.errors?.length === 0
     && crashReport?.cleanup?.lock_released === true
     && Object.values(evidence).every(Boolean);
-  const passed = earlyPreparationPassed || snapshotPreparationPassed || (crashReport?.outcome === 'interrupted'
+  const bootstrapPreparationPassed = [
+    'watchdog_state_created', 'runner_temporary_created',
+  ].includes(boundary)
+    && crashReport?.outcome === 'internal_error'
+    && crashReport?.termination?.reason === 'supervisor_crash_before_payload'
+    && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
+    && crashReport?.cleanup?.scope_removed === true
+    && crashReport?.cleanup?.temporary_directory_removed === true
+    && crashReport?.cleanup?.lock_released === true
+    && crashReport?.cleanup?.errors?.length === 0
+    && Object.values(evidence).every(Boolean);
+  const passed = earlyPreparationPassed || bootstrapPreparationPassed
+    || snapshotPreparationPassed || (crashReport?.outcome === 'interrupted'
     && crashReport?.error?.code === 'LAMINA_SAFE_SUPERVISOR_CRASH'
     && crashReport?.cleanup?.scope_removed === true
     && crashReport?.cleanup?.temporary_directory_removed === true
@@ -224,7 +242,7 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
   const baseOverrides = {
     memoryMaxBytes: 192 * MIB,
     memoryHighBytes: 160 * MIB,
-    pidsMax: 64,
+    pidsMax: 32,
     timeoutMs: 2_000,
     outputMaxBytes: 256 * 1024,
     tempMaxBytes: 4 * MIB,
@@ -248,7 +266,8 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     });
     const record = {
       id,
-      passed: expected(report, outcome, limits) && verify(report),
+      passed: report.preflight?.deliberately_tiny_self_test === true
+        && expected(report, outcome, limits) && verify(report),
       outcome: report.outcome,
       termination_reason: report.termination.reason,
       limit: report.termination.limit,

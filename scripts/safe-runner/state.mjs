@@ -675,7 +675,11 @@ export function acquireConcurrencyLock({
   return {
     file,
     identity() {
-      return { ...claim, file_identity: { ...currentFileIdentity } };
+      return {
+        ...claim,
+        file_identity: { ...currentFileIdentity },
+        directory_identity: { ...directoryIdentity },
+      };
     },
     updateScope(nextScope) {
       recheckDirectory();
@@ -715,6 +719,63 @@ export function acquireConcurrencyLock({
       }
       released = true;
       return true;
+    },
+  };
+}
+
+export function adoptConcurrencyLock(file, identity) {
+  const resolved = path.resolve(file || '');
+  if (!file || path.dirname(resolved) !== path.resolve(productionLockDirectory())
+    || !identity?.nonce || !identity?.file_identity || !identity?.directory_identity) {
+    const error = new Error('refusing to adopt an invalid concurrency claim');
+    error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+    throw error;
+  }
+  const expected = {
+    dev: String(identity.file_identity.dev),
+    ino: String(identity.file_identity.ino),
+    uid: Number(identity.file_identity.uid),
+  };
+  const verify = () => {
+    try { lockDirectoryIdentity(path.dirname(resolved), identity.directory_identity); } catch {
+      const error = new Error('refusing to use a changed concurrency claim directory');
+      error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+      throw error;
+    }
+    const owner = json(resolved);
+    let stat = null;
+    try { stat = fs.lstatSync(resolved, { bigint: true }); } catch {}
+    if (!owner || owner.nonce !== identity.nonce || owner.pid !== identity.pid
+      || owner.start_ticks !== identity.start_ticks
+      || String(stat?.dev) !== expected.dev || String(stat?.ino) !== expected.ino
+      || Number(stat?.uid) !== expected.uid) {
+      const error = new Error('refusing to use a changed concurrency claim');
+      error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+      throw error;
+    }
+    return owner;
+  };
+  verify();
+  let released = false;
+  return {
+    file: resolved,
+    identity() { return structuredClone(identity); },
+    updateScope(nextScope) {
+      const owner = verify();
+      if (nextScope?.adapter !== owner.scope?.adapter || nextScope?.unit !== owner.scope?.unit) {
+        const error = new Error('refusing to change the exact unit bound to a concurrency claim');
+        error.code = 'LAMINA_SAFE_LOCK_IDENTITY';
+        throw error;
+      }
+      return true;
+    },
+    release() {
+      if (!released) {
+        verify();
+        fs.unlinkSync(resolved);
+      }
+      released = true;
+      return !fs.existsSync(resolved);
     },
   };
 }

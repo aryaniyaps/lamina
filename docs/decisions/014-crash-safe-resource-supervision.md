@@ -52,9 +52,11 @@ The runner:
 - admits only audited repository entrypoints from a physical Git worktree and
   refuses arbitrary wrappers, loader/eval indirection, symlink substitution,
   host-sensitive writable roots, and runner-state overlap;
-- arms an independently owned exact-unit watchdog before payload release so a
-  supervisor `SIGKILL` still proves scope, managed-path, temporary-directory,
-  and nonce/inode-bound production-lock cleanup;
+- starts an independent watchdog child before creating any cleanup-critical
+  lock or temporary state; that child creates and identity-binds its watchdog,
+  runner/payload temporary directories, and exact-unit production lock before
+  returning a ready handshake, so a supervisor `SIGKILL` during bootstrap or
+  execution still proves exact cleanup;
 - resolves `systemd-run`, `systemctl`, bwrap, Node, and the shell from persisted,
   launch-rechecked host identities (including absolute SHA-pinned CI bwrap) and
   strips PATH plus loader/Node/exported-function/runtime-hook families before any
@@ -114,10 +116,17 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-After creating the runner-owned outer directory, the controller starts its
-independent watchdog before copying any workload bytes. A controller crash
-during construction therefore removes partial execution authority even though
-no scope or payload exists yet. The runner then descriptor-copies the workload
+After publishing the current-run non-success report slot, the controller starts
+the independent watchdog over a token-bound IPC bootstrap without first
+creating a lock or temporary directory. The child creates and reports exact
+device/inode/owner identities for its watchdog, runner, and payload temporary
+directories, acquires the unit-bound concurrency lock when required, and writes
+all of those identities to its initial manifest before ready. The controller
+adopts only that nonce/inode-bound lock identity. Progress identities let the
+controller clean an exact partial bootstrap if the child exits or misses the
+ready deadline; they never authorize prefix-wide deletion. A controller crash
+at any creation boundary is instead handled by the already-independent child.
+The runner then descriptor-copies the workload
 into private execution authority. Its manifest uses stable logical labels rather than random snapshot
 paths, rejects escaping symlinks, and applies file/byte bounds. Static local
 imports use the copied Git tree; bare packages are copied from the audited

@@ -88,6 +88,7 @@ import {
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
   acquireConcurrencyLock,
+  adoptConcurrencyLock,
   beginSafetyAttempt,
   bindExecutionSnapshotIdentity,
   checkPromotion,
@@ -2429,6 +2430,18 @@ try {
     assert.equal(fs.existsSync(staleRace), true);
     fs.rmSync(staleRace);
     fs.rmSync(`${staleRace}.original`);
+    const childOwned = acquireConcurrencyLock({
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-adopted.scope', cgroup: null },
+      proveScopeAbsent: () => true,
+    });
+    const adopted = adoptConcurrencyLock(childOwned.file, childOwned.identity());
+    assert.equal(adopted.updateScope({
+      adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-adopted.scope', cgroup: '/ignored',
+    }), true);
+    assert.throws(() => adopted.updateScope({
+      adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-replaced.scope', cgroup: null,
+    }), /refusing to change the exact unit/);
+    assert.equal(adopted.release(), true, 'controller proxy must release the exact child-owned claim');
   }
   const globalLock = productionLockDirectory();
   process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'different-state');

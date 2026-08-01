@@ -40,7 +40,8 @@ one.
 npm run safe:self-test
 ```
 
-The self-test uses only tiny fixtures and low artificial limits. It covers:
+The self-test uses only tiny fixtures and low artificial limits, including a
+maximum of 32 aggregate tasks (24 for the process-storm case). It covers:
 
 - direct and aggregate child memory;
 - ignored graceful termination and timeout;
@@ -168,17 +169,23 @@ root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or
 unregistered detached descendant is a safety failure.
 
-Before either payload gate opens, a detached identity-bound watchdog durably
-records the exact systemd unit, cgroup, temporary-directory identity, graphd
-reservation/bind/seal state, and
-production-lock nonce/inode. If the supervisor is killed, the watchdog kills
+Immediately after the current-run non-success report slot is durable, the
+controller starts a detached identity-bound watchdog child without creating a
+lock or temporary directory first. The child creates and returns exact
+device/inode/owner identities for its watchdog, runner, and payload temporary
+directories, acquires the exact-unit production lock when required, and writes
+those identities into its initial manifest before declaring ready. A ready
+timeout or child exit cleans only progress-reported exact identities; there is
+no stale-prefix sweep. The manifest later records the exact cgroup and graphd
+reservation/bind/seal state. If the supervisor is killed, the watchdog kills
 and removes that exact scope, removes only identity-matched temporary/managed
 paths after an immediate identity recheck, releases the exact lock only after authoritative absence proof, and
 writes a schema-valid crash report. The existing `parent_signal` qualification
 case bundles handled-signal and supervisor-`SIGKILL` subproofs, preserving the
 public eleven-case contract. Focused CI additionally kills the controller at
-pre-watchdog report preparation and graphd reserved, bound, objects-created,
-and sealed boundaries.
+pre-watchdog report preparation, child-owned watchdog and runner-directory
+bootstrap boundaries, and graphd reserved, bound, objects-created, and sealed
+boundaries.
 
 The requested report slot contains a schema-valid current-run non-success
 provisional record before adapter probing or payload preparation. Final outcomes atomically replace that run-bound

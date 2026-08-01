@@ -16,7 +16,7 @@
     "safe:envelope": "node scripts/safe-runner/cli.mjs envelope",
     "safe:run": "node scripts/safe-runner/cli.mjs run",
     "safe:self-test": "node scripts/safe-runner/cli.mjs self-test",
-    "test:safe-runner": "node tests/safe_runner_test.mjs && node tests/safe_runner_entrypoints_test.mjs && node tests/safe_runner_workflow_test.mjs && node tests/safe_runner_limit_cleanup_test.mjs && node tests/safe_runner_integration_test.mjs",
+    "test:safe-runner": "node tests/safe_runner_test.mjs && node tests/safe_runner_entrypoints_test.mjs && node tests/safe_runner_workflow_test.mjs && node tests/safe_runner_watchdog_bootstrap_test.mjs && node tests/safe_runner_limit_cleanup_test.mjs && node tests/safe_runner_integration_test.mjs",
     "verify:bundle": "node scripts/verify_lamina_bundle.mjs --check structure",
     "test:eval:spec": "node evals/hooks/validate-plugin.mjs && node evals/hooks/validate-skills-strict.mjs",
     "test:eval:validate": "node evals/scripts/merge-evals.mjs && node evals/scripts/validate-evals.mjs",

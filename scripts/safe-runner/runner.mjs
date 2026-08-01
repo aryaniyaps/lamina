@@ -22,7 +22,7 @@ import {
 } from './report.mjs';
 import { redactEvidence, redactText } from './redaction.mjs';
 import {
-  acquireConcurrencyLock, assertFrozenWorkloadIdentity, beginSafetyAttempt,
+  assertFrozenWorkloadIdentity, beginSafetyAttempt,
   bindExecutionSnapshotIdentity, checkPromotion, clearSafetyAttempt, recordPromotion, recordSafetyLimit,
 } from './state.mjs';
 import { sanitizedPayloadEnvironment } from './infrastructure.mjs';
@@ -449,14 +449,32 @@ export async function runSafely({
     const crashLockSelfTest = activeAdapter.production_enforcement
       && ((mode === 'self-test' && selfTestCaseId === 'parent_signal')
         || Boolean(_testCrashBoundary));
-    if (PRODUCTION_TIERS.has(tier) || crashLockSelfTest) {
-      lock = acquireConcurrencyLock({
-        scope: {
-          adapter: activeAdapter.id,
-          unit: activeAdapter.unit || null,
-          cgroup: null,
-        },
+    if (activeAdapter.production_enforcement) {
+      crashWatchdog = await startCrashWatchdog({
+        report,
+        reportFile,
+        adapter: activeAdapter,
+        reportAuthority,
+        acquireLock: PRODUCTION_TIERS.has(tier) || crashLockSelfTest,
+        testCrashBoundary: _testCrashBoundary,
+        testCrashMarkerFile: _testCrashMarkerFile,
       });
+      temporaryDirectory = crashWatchdog.temporaryDirectory;
+      temporaryDirectoryIdentity = crashWatchdog.temporaryDirectoryIdentity;
+      payloadTemporaryDirectory = crashWatchdog.payloadTemporaryDirectory;
+      lock = crashWatchdog.lock;
+      persistReportAuthorityWith(reportAuthority, (nextAuthority) => {
+        crashWatchdog?.update({ report_authority: nextAuthority });
+      });
+      tracePhase('prepare:watchdog-started');
+    } else {
+      temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
+      fs.chmodSync(temporaryDirectory, 0o700);
+      temporaryDirectoryIdentity = ownedDirectoryIdentity(temporaryDirectory);
+      payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
+      fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
+    }
+    if (lock) {
       const rescanned = existingLaminaProcesses();
       report.preflight.post_lock_existing_lamina_processes = rescanned;
       if (rescanned.length) {
@@ -469,26 +487,7 @@ export async function runSafely({
         throw Object.assign(new Error(report.error.message), { safeEarly: true });
       }
     }
-
-    temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
-    fs.chmodSync(temporaryDirectory, 0o700);
-    temporaryDirectoryIdentity = ownedDirectoryIdentity(temporaryDirectory);
-    payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
-    fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
     if (activeAdapter.production_enforcement) {
-      crashWatchdog = await startCrashWatchdog({
-        report,
-        reportFile,
-        temporaryDirectory,
-        temporaryDirectoryIdentity,
-        adapter: activeAdapter,
-        lock,
-        reportAuthority,
-      });
-      persistReportAuthorityWith(reportAuthority, (nextAuthority) => {
-        crashWatchdog?.update({ report_authority: nextAuthority });
-      });
-      tracePhase('prepare:watchdog-started');
       let snapshotProgressObserved = false;
       executionSnapshot = prepareExecutionSnapshot({
         cwd: path.resolve(cwd), command: executionCommand, temporaryDirectory,

@@ -100,8 +100,22 @@ assert.match(outputPolicy, /private tmpfs/);
 assert.match(supervisionDecision,
   /Atomic publication is also refused in issue #59[\s\S]*sampled usage[\s\S]*hard enforcement/);
 assert.match(runner,
-  /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*temporaryDirectory = fs\.mkdtempSync[\s\S]*startCrashWatchdog/,
+  /if \(!preflight\.ok\)[\s\S]*return finishAndWrite\(\);[\s\S]*startCrashWatchdog[\s\S]*temporaryDirectory = fs\.mkdtempSync/,
   'preflight refusal must precede temporary, watchdog, and snapshot authority creation');
+const watchdogController = fs.readFileSync(
+  'scripts/safe-runner/crash-watchdog-controller.mjs', 'utf8',
+);
+const watchdog = fs.readFileSync('scripts/safe-runner/crash-watchdog.mjs', 'utf8');
+const selfTest = fs.readFileSync('scripts/safe-runner/self-test.mjs', 'utf8');
+assert.match(watchdogController,
+  /spawn\(process\.execPath,[\s\S]*stdio: \['ignore', 'ignore', 'ignore', 'ipc'\][\s\S]*child\.send\(\{ type: 'bootstrap'/,
+  'controller must start the independent child before creating cleanup-critical state');
+assert.match(watchdog,
+  /lamina-safe-watchdog-[\s\S]*lamina-safe-runner-[\s\S]*acquireConcurrencyLock[\s\S]*atomicJson[\s\S]*'ready'/,
+  'watchdog child must own directories and lock before publishing ready');
+assert.match(selfTest,
+  /const baseOverrides = \{[\s\S]*pidsMax: 32,[\s\S]*passed: report\.preflight\?\.deliberately_tiny_self_test === true/,
+  'every standard adversarial runCase must remain within the deliberately-tiny PID ceiling');
 
 for (const scriptName of ['test:eval:portable', 'test:eval:redteam']) {
   const script = packageManifest.scripts[scriptName];

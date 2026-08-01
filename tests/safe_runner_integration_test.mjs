@@ -123,6 +123,19 @@ try {
     assert.equal(preparationCrash.passed, true, JSON.stringify(preparationCrash, null, 2));
     assert.notEqual(preparationCrash.report.run_id, normal.run_id,
       'preparation crash must never expose the previous successful run');
+    for (const boundary of ['watchdog_state_created', 'runner_temporary_created']) {
+      const bootstrapCrash = await runSupervisorCrashSelfTest({
+        cwd: process.cwd(), reportDirectory: reports, boundary,
+      });
+      assert.equal(bootstrapCrash.passed, true, JSON.stringify(bootstrapCrash, null, 2));
+      assert.equal(bootstrapCrash.evidence.temporary_removed, true);
+      assert.equal(bootstrapCrash.evidence.watchdog_state_removed, true);
+      assert.equal(bootstrapCrash.evidence.lock_removed, true);
+      assert.equal(bootstrapCrash.evidence.subsequent_claim, true);
+      assert.equal(bootstrapCrash.evidence.descendants_absent, true);
+      assert.equal(bootstrapCrash.evidence.scope_absent, true);
+      assert.equal(validateReport(bootstrapCrash.report).valid, true);
+    }
     const snapshotCrash = await runSupervisorCrashSelfTest({
       cwd: process.cwd(), reportDirectory: reports, boundary: 'snapshot_building',
     });
