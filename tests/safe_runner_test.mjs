@@ -1028,6 +1028,11 @@ try {
   fs.writeFileSync(path.join(staleCandidate, 'owner.json'), JSON.stringify({
     pid: 999999, start_ticks: '1', created_at: '1970-01-01T00:00:00.000Z',
   }));
+  const staleMutationLock = path.join(capacityShardPath, '.mutation.lock');
+  fs.mkdirSync(staleMutationLock);
+  fs.writeFileSync(path.join(staleMutationLock, 'owner.json'), JSON.stringify({
+    pid: 999999, start_ticks: '1', nonce: 'e'.repeat(32),
+  }));
   fs.mkdirSync(path.join(capacityShardPath, '.mutation.lock.release-deadbeef'));
   checkSafetyRetry(capacityRoot, capacityCommand, report.limits);
   assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
@@ -1170,5 +1175,5 @@ try {
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
-  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 }

@@ -19,7 +19,6 @@ const MAX_PROMOTION_FILE_BYTES = 256n * 1024n * 1024n;
 const MAX_RETRY_ENTRIES_PER_SHARD = 64;
 const MAX_RETRY_SHARDS_PER_REPOSITORY = 256;
 const MAX_RETRY_REPOSITORIES = 256;
-const RETRY_LOCK_STALE_MS = 10_000;
 const RETRY_LOCK_WAIT_MS = 15_000;
 const pause = (milliseconds) => Atomics.wait(
   new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds,
@@ -279,9 +278,14 @@ function safetyRetryEntryPath(cwd, commandKey, runId) {
 
 function retryLockOwnerActive(owner) {
   if (process.platform === 'linux') return identityAlive(owner);
-  const created = Date.parse(owner?.created_at || '');
-  return Number.isInteger(owner?.pid) && Number.isFinite(created)
-    && Date.now() - created < RETRY_LOCK_STALE_MS;
+  if (!Number.isInteger(owner?.pid) || owner.pid <= 1) return false;
+  try { process.kill(owner.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
+}
+
+function sameRetryLockOwner(left, right) {
+  return Number(left?.pid) === Number(right?.pid)
+    && String(left?.start_ticks || '') === String(right?.start_ticks || '')
+    && typeof left?.nonce === 'string' && left.nonce === right?.nonce;
 }
 
 function sweepRetryLockArtifacts(directory, activeCandidate) {
@@ -307,13 +311,29 @@ function acquireRetryShardLock(directory) {
   const nonce = crypto.randomBytes(16).toString('hex');
   const owner = { ...identity, nonce, created_at: new Date().toISOString() };
   const lock = path.join(directory, '.mutation.lock');
+  const recovery = path.join(directory, '.mutation.recovery.lock');
   const candidate = path.join(directory, `.mutation-candidate-${process.pid}-${nonce}`);
   fs.mkdirSync(candidate, { mode: 0o700 });
   fs.writeFileSync(path.join(candidate, 'owner.json'), `${JSON.stringify(owner)}\n`, { mode: 0o600 });
   const deadline = Date.now() + RETRY_LOCK_WAIT_MS;
   while (Date.now() < deadline) {
+    if (fs.existsSync(recovery)) {
+      pause(5);
+      continue;
+    }
     try {
       fs.renameSync(candidate, lock);
+      if (fs.existsSync(recovery)) {
+        const current = json(path.join(lock, 'owner.json'));
+        if (!sameRetryLockOwner(current, owner)) {
+          const error = new Error('retry-ledger lock changed during stale recovery');
+          error.code = 'LAMINA_SAFE_RETRY_LEDGER_LOCK';
+          throw error;
+        }
+        fs.renameSync(lock, candidate);
+        pause(5);
+        continue;
+      }
       sweepRetryLockArtifacts(directory, lock);
       return {
         release() {
@@ -335,12 +355,20 @@ function acquireRetryShardLock(directory) {
       }
     }
     const existing = json(path.join(lock, 'owner.json'));
-    if (!retryLockOwnerActive(existing)) {
-      const quarantine = `${lock}.stale-${crypto.randomBytes(8).toString('hex')}`;
+    if (existing?.nonce && !retryLockOwnerActive(existing)) {
       try {
-        fs.renameSync(lock, quarantine);
-        fs.rmSync(quarantine, { recursive: true, force: true });
-      } catch {}
+        fs.mkdirSync(recovery, { mode: 0o700 });
+        try {
+          const current = json(path.join(lock, 'owner.json'));
+          if (sameRetryLockOwner(current, existing) && !retryLockOwnerActive(current)) {
+            const quarantine = `${lock}.stale-${crypto.randomBytes(8).toString('hex')}`;
+            fs.renameSync(lock, quarantine);
+            fs.rmSync(quarantine, { recursive: true, force: true });
+          }
+        } finally { fs.rmSync(recovery, { recursive: true, force: true }); }
+      } catch (error) {
+        if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'ENOENT'].includes(error.code)) throw error;
+      }
     } else pause(5);
   }
   try { fs.rmSync(candidate, { recursive: true, force: true }); } catch {}
