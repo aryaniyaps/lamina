@@ -421,6 +421,18 @@ try {
     if (previousGraphdSafeValue === undefined) delete process.env.LAMINA_GRAPH_ENV_TEST;
     else process.env.LAMINA_GRAPH_ENV_TEST = previousGraphdSafeValue;
   }
+  const supervisedGraphdEnv = graphdEnvironmentFor({
+    PATH: '/usr/bin',
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    LAMINA_SAFE_RUNNER_BROKER: '/run/lamina-safe/broker.sock',
+    LAMINA_SAFE_GRAPHD_RESERVATION: 'sealed-reservation',
+  }, { platform: 'linux' });
+  assert.equal(supervisedGraphdEnv.GIT_CONFIG_NOSYSTEM, undefined);
+  assert.equal(supervisedGraphdEnv.GIT_CONFIG_GLOBAL, undefined);
+  assert.equal(supervisedGraphdEnv.LAMINA_SAFE_RUNNER_BROKER,
+    '/run/lamina-safe/broker.sock');
+  assert.equal(supervisedGraphdEnv.LAMINA_SAFE_GRAPHD_RESERVATION, 'sealed-reservation');
   for (const inherited of [
     { Path: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
     { PATH: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
@@ -1985,6 +1997,20 @@ try {
     socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
     lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
   }, validGraphdSnapshot.graphd_launch_authority), true);
+  const gitHookGraphdChild = {
+    ...fixtureGraphdChild,
+    environment_attestation: processEnvironmentAttestation(Buffer.from(
+      'PATH=/usr/bin\0GIT_CONFIG_NOSYSTEM=1\0GIT_CONFIG_GLOBAL=/dev/null\0'
+      + 'LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0',
+    )),
+  };
+  assert.deepEqual(gitHookGraphdChild.environment_attestation.execution_hooks,
+    ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM']);
+  assert.equal(exactGraphdLaunchAuthorized(gitHookGraphdChild, {
+    socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
+    lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
+  }, validGraphdSnapshot.graphd_launch_authority), false,
+  'safe Git config overrides must still be removed before managed graphd launch');
   assert.equal(exactGraphdLaunchAuthorized(fixtureGraphdChild, {
     socket: path.join(snapshotRepository, '.git', 'lamina', 'graphd.sock'),
     lock: path.join(snapshotRepository, '.git', 'lamina', 'graphd.lock'),

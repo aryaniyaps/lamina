@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import {
-  registerManagedGraphd, reserveManagedGraphd, sealManagedGraphd,
+  graphdEnvironment, registerManagedGraphd, reserveManagedGraphd, sealManagedGraphd,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
 import { sealedSandboxGitProbe } from './safe-runner-sealed-git-probe.mjs';
@@ -22,7 +22,7 @@ const reservation = reserveManagedGraphd(paths);
 const child = spawn(process.execPath, [server, repository, process.argv[3] || 'clean'], {
   detached: true,
   stdio: 'ignore',
-  env: { ...process.env, LAMINA_SAFE_GRAPHD_RESERVATION: reservation || '' },
+  env: { ...graphdEnvironment(), LAMINA_SAFE_GRAPHD_RESERVATION: reservation || '' },
 });
 const childExit = once(child, 'exit');
 const registration = registerManagedGraphd(child, paths, reservation);
