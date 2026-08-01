@@ -115,7 +115,54 @@ function hashRepositoryInput(record) {
   return { ...input, ...sha256PhysicalFile(record.path, named, maximumBytes) };
 }
 
-function modelManifestAuthority(repository, injectedManifest = null) {
+function readBoundedManifestDescriptor(file, named, afterDescriptorRead = null) {
+  if (named.size > BigInt(RETRIEVAL_MANIFEST_MAX_BYTES)) {
+    throw new Error('retrieval model manifest exceeds its 1 MiB pre-read size cap');
+  }
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (!opened.isFile() || opened.dev !== named.dev || opened.ino !== named.ino
+      || opened.size !== named.size || opened.uid !== named.uid || opened.mode !== named.mode
+      || opened.nlink !== named.nlink || opened.size > BigInt(RETRIEVAL_MANIFEST_MAX_BYTES)) {
+      throw new Error('retrieval model manifest changed while opening');
+    }
+    const bytes = Buffer.alloc(Number(opened.size));
+    const hash = crypto.createHash('sha256');
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (count === 0) break;
+      hash.update(bytes.subarray(offset, offset + count));
+      offset += count;
+    }
+    afterDescriptorRead?.();
+    const final = fs.fstatSync(descriptor, { bigint: true });
+    const finalPath = fs.lstatSync(file, { bigint: true });
+    if (offset !== bytes.length || final.dev !== opened.dev || final.ino !== opened.ino
+      || final.size !== opened.size || final.uid !== opened.uid || final.mode !== opened.mode
+      || final.nlink !== opened.nlink || finalPath.dev !== opened.dev
+      || finalPath.ino !== opened.ino || finalPath.size !== opened.size
+      || finalPath.uid !== opened.uid || finalPath.mode !== opened.mode
+      || finalPath.nlink !== opened.nlink || finalPath.isSymbolicLink()
+      || fs.realpathSync.native(file) !== file) {
+      throw new Error('retrieval model manifest changed while reading');
+    }
+    return {
+      bytes,
+      identity: {
+        digest: hash.digest('hex'), size: Number(opened.size),
+        dev: String(opened.dev), ino: String(opened.ino), uid: Number(opened.uid),
+        nlink: Number(opened.nlink), mode: Number(opened.mode & 0o777n),
+      },
+    };
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+function modelManifestAuthority(repository, injectedManifest = null,
+  afterDescriptorRead = null) {
   if (injectedManifest) {
     const bytes = Buffer.from(JSON.stringify(injectedManifest));
     if (bytes.length > RETRIEVAL_MANIFEST_MAX_BYTES) {
@@ -137,17 +184,7 @@ function modelManifestAuthority(repository, injectedManifest = null) {
     || (uid !== null && Number(named.uid) !== uid)) {
     throw new Error('retrieval model manifest must be a same-user canonical physical file');
   }
-  if (named.size > BigInt(RETRIEVAL_MANIFEST_MAX_BYTES)) {
-    throw new Error('retrieval model manifest exceeds its 1 MiB pre-read size cap');
-  }
-  const identity = sha256PhysicalFile(file, named, RETRIEVAL_MANIFEST_MAX_BYTES);
-  const bytes = fs.readFileSync(file);
-  const final = fs.lstatSync(file, { bigint: true });
-  if (final.dev !== named.dev || final.ino !== named.ino || final.uid !== named.uid
-    || final.size !== named.size || final.mode !== named.mode || final.nlink !== named.nlink
-    || crypto.createHash('sha256').update(bytes).digest('hex') !== identity.digest) {
-    throw new Error('retrieval model manifest changed while reading');
-  }
+  const { bytes, identity } = readBoundedManifestDescriptor(file, named, afterDescriptorRead);
   return {
     manifest: JSON.parse(bytes.toString('utf8')),
     authority: { path: file, relative: MODEL_MANIFEST_RELATIVE, ...identity },
@@ -175,6 +212,7 @@ export function assertRetrievalModelManifest({ model, modelDigest, manifest }) {
 
 export function retrievalQualificationAuthority({
   repository, cwd = repository, command = [], manifest: injectedManifest = null,
+  _testAfterManifestDescriptorRead = null,
 }) {
   const physicalRepository = fs.realpathSync.native(repository);
   const normalized = command.map((value) => String(value));
@@ -207,7 +245,9 @@ export function retrievalQualificationAuthority({
   if (!/^[a-f0-9]{64}$/.test(modelDigest)) {
     throw new Error('retrieval --model-digest must be a normalized lowercase 64-hex SHA-256');
   }
-  const manifestRecord = modelManifestAuthority(physicalRepository, injectedManifest);
+  const manifestRecord = modelManifestAuthority(
+    physicalRepository, injectedManifest, _testAfterManifestDescriptorRead,
+  );
   const manifest = manifestRecord.manifest;
   assertRetrievalModelManifest({
     model: { size: manifest?.bytes, digest: modelDigest }, modelDigest, manifest,

@@ -73,6 +73,11 @@ assert.match(retrievalAuthority,
 assert.match(retrievalAuthority,
   /normalized\.length !== 11 \|\| consumed\.size !== normalized\.length/,
   'retrieval qualification must consume a closed argv grammar with no extra tokens');
+assert.match(retrievalAuthority,
+  /readBoundedManifestDescriptor[\s\S]*O_NOFOLLOW[\s\S]*Buffer\.alloc\(Number\(opened\.size\)\)/,
+  'manifest parsing must use one bounded no-follow descriptor');
+assert.doesNotMatch(retrievalAuthority, /fs\.readFileSync\(file\)/,
+  'manifest authority must not reopen the path after descriptor hashing');
 assert.match(runner,
   /expectedRetrievalAuthority: preflight\.retrieval_authority/,
   'snapshot construction must retain the authority established before watchdog setup');

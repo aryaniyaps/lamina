@@ -1500,6 +1500,25 @@ try {
   } finally {
     fs.writeFileSync(manifestPath, originalManifestBytes);
   }
+  const swappedManifestBackup = `${manifestPath}.preflight-authority`;
+  try {
+    assert.throws(() => retrievalQualificationAuthority({
+      repository: retrievalRepository, command: sealedRetrievalCommand,
+      _testAfterManifestDescriptorRead() {
+        fs.renameSync(manifestPath, swappedManifestBackup);
+        fs.writeFileSync(manifestPath, '');
+        fs.truncateSync(manifestPath, RETRIEVAL_MANIFEST_MAX_BYTES + 1);
+      },
+    }), /manifest changed while reading/,
+    'an oversized path replacement after the bounded descriptor read must refuse by identity');
+  } finally {
+    fs.rmSync(manifestPath, { force: true });
+    if (fs.existsSync(swappedManifestBackup)) {
+      fs.renameSync(swappedManifestBackup, manifestPath);
+    }
+  }
+  assert.deepEqual(fs.readFileSync(manifestPath), originalManifestBytes,
+    'the manifest swap seam must restore the original descriptor-read authority');
   fs.writeFileSync(sealedTokenizer, 'tokenizer-v2');
   assert.throws(() => prepareExecutionSnapshot({
     cwd: retrievalRepository, command: sealedRetrievalCommand,
