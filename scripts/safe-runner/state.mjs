@@ -46,6 +46,10 @@ export function runnerBuildDigest() {
   visit(HERE);
   const graphdClient = path.resolve(HERE, '../../packages/cli/lib/graph-runtime/client.mjs');
   hash.update('packages/cli/lib/graph-runtime/client.mjs').update(fs.readFileSync(graphdClient));
+  for (const name of ['safe-runner-context.mjs', 'safe-runner-broker-client.mjs']) {
+    const safeRunnerClient = path.resolve(HERE, '../../packages/cli/lib', name);
+    hash.update(`packages/cli/lib/${name}`).update(fs.readFileSync(safeRunnerClient));
+  }
   const adversary = path.resolve(HERE, '../../tests/fixtures/safe-runner-adversary.mjs');
   hash.update('tests/fixtures/safe-runner-adversary.mjs').update(fs.readFileSync(adversary));
   return hash.digest('hex');

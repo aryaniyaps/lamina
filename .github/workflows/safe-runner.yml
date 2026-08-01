@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/safe-runner/**'
       - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'packages/cli/lib/safe-runner-*.mjs'
       - 'tests/safe_runner_test.mjs'
       - 'tests/safe_runner_integration_test.mjs'
       - 'tests/safe_runner_entrypoints_test.mjs'
@@ -29,6 +30,7 @@ on:
     paths:
       - 'scripts/safe-runner/**'
       - 'packages/cli/lib/graph-runtime/client.mjs'
+      - 'packages/cli/lib/safe-runner-*.mjs'
       - 'tests/safe_runner_test.mjs'
       - 'tests/safe_runner_integration_test.mjs'
       - 'tests/safe_runner_entrypoints_test.mjs'
@@ -55,7 +57,7 @@ permissions:
 
 jobs:
   low-limit-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-safe-runner-state
@@ -67,6 +69,27 @@ jobs:
         with:
           node-version: '20'
           package-manager-cache: false
+
+      - name: Provision rootless bubblewrap from the Ubuntu archive
+        shell: bash
+        run: |
+          package_dir="$RUNNER_TEMP/bubblewrap-package"
+          extract_dir="$RUNNER_TEMP/bubblewrap-root"
+          bin_dir="$RUNNER_TEMP/bubblewrap-bin"
+          evidence_dir="$RUNNER_TEMP/safe-runner-test-artifacts/provisioning"
+          mkdir -p "$package_dir" "$extract_dir" "$bin_dir" "$evidence_dir"
+          cd "$package_dir"
+          apt-cache policy bubblewrap | tee "$evidence_dir/apt-policy.txt"
+          apt-get download bubblewrap
+          package="$(find . -maxdepth 1 -type f -name 'bubblewrap_*.deb' -print -quit)"
+          test -n "$package"
+          sha256sum "$package" | tee "$evidence_dir/package-sha256.txt"
+          dpkg-deb --info "$package" | tee "$evidence_dir/package-info.txt"
+          dpkg-deb --extract "$package" "$extract_dir"
+          cp "$extract_dir/usr/bin/bwrap" "$bin_dir/bwrap"
+          chmod 0755 "$bin_dir/bwrap"
+          "$bin_dir/bwrap" --version | tee "$evidence_dir/bwrap-version.txt"
+          echo "$bin_dir" >> "$GITHUB_PATH"
 
       - name: Static and focused contract tests
         env:

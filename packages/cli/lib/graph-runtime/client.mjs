@@ -9,7 +9,7 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
-import { registerManagedGraphdWithSupervisor } from '../../../../scripts/safe-runner/context.mjs';
+import { registerManagedGraphdWithSupervisor } from '../safe-runner-context.mjs';
 import {
   ensureAuthToken,
   graphSocketPath,

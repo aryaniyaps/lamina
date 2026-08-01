@@ -394,7 +394,8 @@ try {
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
-  assert.match(workflow, /ubuntu-latest[\s\S]*npm run safe:self-test/);
+  assert.match(workflow, /ubuntu-24\.04[\s\S]*apt-get download bubblewrap[\s\S]*package-sha256\.txt[\s\S]*npm run safe:self-test/);
+  assert.doesNotMatch(workflow, /\bsudo\b/);
 
   process.stdout.write('safe-runner unit contracts passed\n');
 } finally {

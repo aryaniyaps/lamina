@@ -62,6 +62,10 @@ matrix, because a portable process group cannot prove cleanup of the detached
 descendant case. Portable focused contract tests never qualify medium or large
 execution.
 
+The low-limit Linux CI job provisions Bubblewrap without privilege: it
+downloads Ubuntu's signed package and extracts the binary into the ephemeral
+runner directory. It does not use `sudo` or modify the host package database.
+
 The native release workflow runs source-quality checks on every target before
 an adapter qualification gate. Until issue #57 supplies production enforcement
 for macOS and Windows, those targets refuse qualification and the workflow does
