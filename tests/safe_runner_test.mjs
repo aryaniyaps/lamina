@@ -10,7 +10,11 @@ import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
-import { assertSystemctlSuccess } from '../scripts/safe-runner/linux-systemd.mjs';
+import {
+  assertSystemctlSuccess,
+  parseSystemdMajor,
+  systemdKillArguments,
+} from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
   registeredManagedGraphd,
@@ -243,6 +247,16 @@ try {
     () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
     /systemctl stop unit failed: access denied/,
   );
+  assert.equal(parseSystemdMajor('systemd 249 (249.11-0ubuntu3.17)'), 249);
+  assert.equal(parseSystemdMajor('systemd 259 (259.5-0ubuntu3)'), 259);
+  assert.deepEqual(systemdKillArguments('SIGKILL', 'lamina-safe-unit.scope', 249), [
+    'kill', '--kill-who=all', '--signal=SIGKILL', 'lamina-safe-unit.scope',
+  ]);
+  assert.deepEqual(systemdKillArguments('SIGTERM', 'lamina-safe-unit.scope', 252), [
+    'kill', '--kill-whom=all', '--signal=SIGTERM', 'lamina-safe-unit.scope',
+  ]);
+  assert.throws(() => parseSystemdMajor('not systemd'), /unsupported or unparsable/);
+  assert.throws(() => systemdKillArguments('SIGTERM', 'unit.scope', 248), /unsupported/);
   assert.equal(await stopIncompatibleServer({
     root,
     lock: path.join(root, 'missing-graphd.lock'),

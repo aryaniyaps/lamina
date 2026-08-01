@@ -27,6 +27,26 @@ export function assertSystemctlSuccess(result, operation) {
   return result;
 }
 
+export function parseSystemdMajor(versionText) {
+  const major = Number(String(versionText || '').match(/^systemd\s+(\d+)\b/m)?.[1]);
+  if (!Number.isSafeInteger(major) || major < 249) {
+    const error = new Error(`unsupported or unparsable systemd version: ${String(versionText || '').trim() || 'empty output'}`);
+    error.code = 'LAMINA_SAFE_SYSTEMD_VERSION';
+    throw error;
+  }
+  return major;
+}
+
+export function systemdKillArguments(signal, unit, major) {
+  if (!Number.isSafeInteger(major) || major < 249) {
+    const error = new Error(`unsupported systemd major version: ${major}`);
+    error.code = 'LAMINA_SAFE_SYSTEMD_VERSION';
+    throw error;
+  }
+  const selector = major >= 252 ? '--kill-whom=all' : '--kill-who=all';
+  return ['kill', selector, `--signal=${signal}`, unit];
+}
+
 function readNumber(file) {
   try {
     const value = fs.readFileSync(file, 'utf8').trim();
@@ -71,6 +91,8 @@ export class LinuxSystemdAdapter {
     this.controllers = probe.controllers || [];
     this.unit = `lamina-safe-${runId.replace(/[^a-zA-Z0-9_-]/g, '-').slice(-48)}.scope`;
     this.limits = limits;
+    const version = assertSystemctlSuccess(systemctl(['--version']), 'systemctl --version');
+    this.systemdMajor = parseSystemdMajor(version.stdout);
     this.child = null;
     this.cgroupPath = null;
   }
@@ -164,7 +186,7 @@ export class LinuxSystemdAdapter {
   }
 
   signal(signal) {
-    const result = systemctl(['kill', '--kill-whom=all', `--signal=${signal}`, this.unit]);
+    const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 
