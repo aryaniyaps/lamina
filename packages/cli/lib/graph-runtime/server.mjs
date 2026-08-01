@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { GraphEngine } from './engine.mjs';
 import { RetrievalStore } from '../retrieval-runtime/store.mjs';
 import { RetrievalEmbedder } from '../retrieval-runtime/embedder.mjs';
@@ -82,13 +83,48 @@ let operationClaim = null;
 
 function releaseOperationClaim() {
   if (!operationClaim) return;
+  if (operationClaim.portable) {
+    try {
+      const current = JSON.parse(fs.readFileSync(path.join(operationClaim.directory, 'owner.json'), 'utf8'));
+      if (current.pid === process.pid && current.nonce === operationClaim.nonce) {
+        fs.rmSync(operationClaim.directory, { recursive: true, force: true });
+      }
+    } catch {}
+    operationClaim = null;
+    return;
+  }
   removeExactOperationClaim(operationClaim);
   try { fs.rmdirSync(paths.operations_dir); } catch {}
   operationClaim = null;
 }
 
+function acquirePortableOperationClaim() {
+  const directory = path.join(paths.runtime_dir, 'graphd.startup.lock');
+  const nonce = crypto.randomBytes(16).toString('hex');
+  try {
+    fs.mkdirSync(directory, { mode: 0o700 });
+  } catch (error) {
+    if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw error;
+    let owner = null;
+    try { owner = JSON.parse(fs.readFileSync(path.join(directory, 'owner.json'), 'utf8')); } catch {}
+    if (Number.isInteger(owner?.pid) && processIsRunning(owner.pid)) {
+      process.stderr.write('graphd runtime has an active portable operation claim; refusing unsafe replacement\n');
+    } else {
+      process.stderr.write('graphd runtime has a stale portable operation claim; refusing automatic replacement\n');
+    }
+    process.exit(2);
+  }
+  fs.writeFileSync(path.join(directory, 'owner.json'), `${JSON.stringify({
+    pid: process.pid, nonce, created_at: new Date().toISOString(),
+  })}\n`, { flag: 'wx', mode: 0o600 });
+  operationClaim = { portable: true, directory, nonce };
+}
+
 function acquireOperationClaim() {
-  if (process.platform !== 'linux') return;
+  if (process.platform !== 'linux') {
+    acquirePortableOperationClaim();
+    return;
+  }
   fs.mkdirSync(paths.operations_dir, { recursive: true, mode: 0o700 });
   const directory = fs.lstatSync(paths.operations_dir);
   if (!directory.isDirectory() || directory.isSymbolicLink()

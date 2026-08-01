@@ -475,6 +475,7 @@ try {
     openFileDigest: () => digestFile(graphdServer),
     executableDigest: () => digestFile(process.execPath),
     environment: () => ({}),
+    pathReadOnly: () => true,
     register: (record) => brokerRegistrations.push(record),
   };
   assert.equal(authorizeBrokerRequest({
@@ -598,41 +599,66 @@ try {
       sourceGraphd.kill('SIGTERM');
       if (sourceGraphd.exitCode === null) await once(sourceGraphd, 'exit');
     }
-    const concurrentRoot = path.join(root, 'concurrent-graphd');
-    fs.mkdirSync(concurrentRoot);
-    assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: concurrentRoot }).status, 0);
-    const concurrentRuntime = path.join(concurrentRoot, '.git', 'lamina');
-    fs.mkdirSync(concurrentRuntime);
-    fs.writeFileSync(path.join(concurrentRuntime, 'graphd.lock'), JSON.stringify({
-      pid: 999_999, start_ticks: '1',
+  }
+  if (process.platform !== 'linux') {
+    const portablePidRuntime = path.join(root, 'portable-pid-runtime');
+    fs.mkdirSync(portablePidRuntime);
+    const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+      stdio: 'ignore',
+    });
+    fs.writeFileSync(path.join(portablePidRuntime, 'graphd.lock'), JSON.stringify({
+      pid: unrelated.pid, start_ticks: null,
     }));
-    const fixtureServer = path.resolve('tests/fixtures/graph-runtime/server.mjs');
-    const contenders = [0, 1].map(() => spawn(
-      process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' },
-    ));
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    let liveContenders = contenders.filter((child) => child.exitCode === null);
-    assert.ok(liveContenders.length <= 1,
-      'sole-live-claim startup serialization must never admit two graphd writers');
-    if (liveContenders.length === 0) {
-      liveContenders = [spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' })];
-    }
-    const winner = liveContenders[0];
     try {
-      const winnerDeadline = Date.now() + 2_000;
-      let winnerLock = null;
-      while (Date.now() < winnerDeadline) {
-        try { winnerLock = JSON.parse(fs.readFileSync(path.join(concurrentRuntime, 'graphd.lock'))); } catch {}
-        if (winnerLock?.pid === winner.pid) break;
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      }
-      assert.equal(winnerLock?.pid, winner.pid);
+      await assert.rejects(() => stopIncompatibleServer({
+        root,
+        runtime_dir: portablePidRuntime,
+        lock: path.join(portablePidRuntime, 'graphd.lock'),
+        token: path.join(portablePidRuntime, 'graphd.token'),
+        socket: path.join(portablePidRuntime, 'graphd.sock'),
+      }), /Refusing to signal graphd PID .* without a non-reusable process identity/);
+      assert.equal(unrelated.exitCode, null,
+        'a non-Linux graphd stop must fail closed instead of signalling a PID-only target');
     } finally {
-      for (const contender of contenders.concat(liveContenders)) {
-        if (contender.exitCode === null) {
-          contender.kill('SIGTERM');
-          await once(contender, 'exit');
-        }
+      unrelated.kill('SIGKILL');
+      await once(unrelated, 'exit');
+    }
+  }
+
+  const concurrentRoot = path.join(root, 'concurrent-graphd');
+  fs.mkdirSync(concurrentRoot);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: concurrentRoot }).status, 0);
+  const concurrentRuntime = path.join(concurrentRoot, '.git', 'lamina');
+  fs.mkdirSync(concurrentRuntime);
+  fs.writeFileSync(path.join(concurrentRuntime, 'graphd.lock'), JSON.stringify({
+    pid: 999_999, start_ticks: '1',
+  }));
+  const fixtureServer = path.resolve('tests/fixtures/graph-runtime/server.mjs');
+  const contenders = [0, 1].map(() => spawn(
+    process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' },
+  ));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  let liveContenders = contenders.filter((child) => child.exitCode === null);
+  assert.ok(liveContenders.length <= 1,
+    'cross-platform startup serialization must never admit two graphd writers');
+  if (liveContenders.length === 0) {
+    liveContenders = [spawn(process.execPath, [fixtureServer, concurrentRoot], { stdio: 'ignore' })];
+  }
+  const winner = liveContenders[0];
+  try {
+    const winnerDeadline = Date.now() + 2_000;
+    let winnerLock = null;
+    while (Date.now() < winnerDeadline) {
+      try { winnerLock = JSON.parse(fs.readFileSync(path.join(concurrentRuntime, 'graphd.lock'))); } catch {}
+      if (winnerLock?.pid === winner.pid) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(winnerLock?.pid, winner.pid);
+  } finally {
+    for (const contender of contenders.concat(liveContenders)) {
+      if (contender.exitCode === null) {
+        contender.kill('SIGTERM');
+        await once(contender, 'exit');
       }
     }
   }
@@ -692,6 +718,17 @@ try {
     ...authority,
     environment: () => ({ NODE_OPTIONS: '--require=arbitrary-code.cjs' }),
   }).ok, false, 'a trusted script descriptor must not authorize a code-injected Node process');
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
+    socket: managedRegistrations[0].socket,
+    lock: managedRegistrations[0].lock,
+  }, {
+    ...authority,
+    pathReadOnly: () => false,
+  }).ok, false, 'trusted entrypoint bytes must not authorize a writable transitive module closure');
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
@@ -876,6 +913,7 @@ try {
     'large changed source content must invalidate promotion even when size and mtime are restored',
   );
   fs.rmSync(oversizedSource);
+  const ledgerRoot = path.join(process.env.LAMINA_SAFE_RUNNER_STATE_DIR, 'safety-limit-ledger');
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
   recordSafetyLimit(root, report.command, report.limits, limitedReport);
@@ -939,11 +977,25 @@ try {
   clearRunAttempt(root, activeCommand, report.limits, overlappingReport.run_id);
   assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, true);
 
+  const repositoriesBeforeSuccess = fs.readdirSync(ledgerRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name)).length;
+  const successfulRetryRoot = path.join(root, 'successful-retry-root');
+  fs.mkdirSync(successfulRetryRoot);
+  const successfulCommand = [process.execPath, '-e', 'process.exit(0)'];
+  const successfulReport = { ...report, run_id: 'successful-capacity-reclamation' };
+  recordRunAttempt(successfulRetryRoot, successfulCommand, {}, successfulReport);
+  clearRunAttempt(successfulRetryRoot, successfulCommand, {}, successfulReport.run_id);
+  assert.equal(
+    fs.readdirSync(ledgerRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name)).length,
+    repositoriesBeforeSuccess,
+    'a successful run must reclaim its empty command shard and repository capacity',
+  );
+
   const capacityRoot = path.join(root, 'retry-capacity-root');
   fs.mkdirSync(capacityRoot);
   const capacityCommand = [process.execPath, path.join(capacityRoot, 'workload.mjs')];
   fs.writeFileSync(capacityCommand[1], 'process.exit(0);\n');
-  const ledgerRoot = path.join(process.env.LAMINA_SAFE_RUNNER_STATE_DIR, 'safety-limit-ledger');
   const repositoriesBefore = new Set(fs.readdirSync(ledgerRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory()).map((entry) => entry.name));
   recordSafetyLimit(capacityRoot, capacityCommand, report.limits, {
@@ -966,6 +1018,17 @@ try {
   assert.equal(saturatedRetry.previous.limit, 'retry_ledger_saturated');
   assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
     'a saturated command shard must compact to one fail-closed marker');
+  const staleCandidate = path.join(
+    capacityShardPath, `.mutation-candidate-999999-${'d'.repeat(32)}`,
+  );
+  fs.mkdirSync(staleCandidate);
+  fs.writeFileSync(path.join(staleCandidate, 'owner.json'), JSON.stringify({
+    pid: 999999, start_ticks: '1', created_at: '1970-01-01T00:00:00.000Z',
+  }));
+  fs.mkdirSync(path.join(capacityShardPath, '.mutation.lock.release-deadbeef'));
+  checkSafetyRetry(capacityRoot, capacityCommand, report.limits);
+  assert.deepEqual(fs.readdirSync(capacityShardPath), ['saturated.json'],
+    'the next locked mutation must sweep crash-left candidate and quarantine directories');
 
   const repositoryCapacityRoot = path.join(root, 'retry-repository-capacity-root');
   fs.mkdirSync(repositoryCapacityRoot);
@@ -982,7 +1045,11 @@ try {
     .filter((entry) => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name)).length;
   for (let index = 0; shardCount < 255; index += 1, shardCount += 1) {
     const name = crypto.createHash('sha256').update(`repository-capacity-${index}`).digest('hex');
-    fs.mkdirSync(path.join(repositoryCapacityPath, name));
+    const directory = path.join(repositoryCapacityPath, name);
+    fs.mkdirSync(directory);
+    fs.writeFileSync(path.join(directory, 'saturated.json'), JSON.stringify({
+      limit: 'retry_ledger_saturated', reason: 'fixture_capacity',
+    }));
   }
   const capacityIds = Array.from({ length: 12 }, (_, index) => `repository-overflow-${index}`);
   const capacityStatuses = await Promise.all(capacityIds.map(async (id) => {
@@ -1056,6 +1123,9 @@ try {
     const directory = path.join(ledgerRoot, name);
     if (!fs.existsSync(directory)) {
       fs.mkdirSync(directory);
+      fs.writeFileSync(path.join(directory, 'saturated.json'), JSON.stringify({
+        limit: 'retry_ledger_saturated', reason: 'fixture_capacity',
+      }));
       retryRepositoryCount += 1;
     }
   }
@@ -1082,11 +1152,13 @@ try {
   const readme = fs.readFileSync('README.md', 'utf8');
   const guide = fs.readFileSync('docs/content/advanced/safe-runner.mdx', 'utf8');
   const adr = fs.readFileSync('docs/decisions/014-crash-safe-resource-supervision.md', 'utf8');
+  const gate = fs.readFileSync('scripts/safe-runner/gate.sh', 'utf8');
   const workflow = fs.readFileSync('.github/workflows/safe-runner.yml', 'utf8');
   assert.match(readme, /npm run safe:envelope/);
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
+  assert.match(gate, /--bind "\$payload_cwd"[\s\S]*--ro-bind "\$runner_root\/packages\/cli"[\s\S]*--ro-bind "\$dependency_root"/);
   assert.match(workflow, /ubuntu-22\.04[\s\S]*bubblewrap_0\.8\.0-2\+deb12u1_amd64\.deb[\s\S]*3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb[\s\S]*verify-qualification-result\.mjs/);
   assert.match(workflow, /test:safe-runner/);
   assert.doesNotMatch(workflow, /\bsudo\b/);

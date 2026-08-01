@@ -138,9 +138,9 @@ export async function stopIncompatibleServer(paths, reportedIdentity = null) {
   const pid = Number(identity?.pid) || lock?.pid || null;
   const target = Number(identity?.pid) === Number(pid) ? identity : lock;
   const exactRunning = () => daemonIdentityIsRunning(target);
-  const hasLinuxIdentity = process.platform !== 'linux'
-    || typeof target?.start_ticks === 'string';
-  const targetRunning = () => hasLinuxIdentity ? exactRunning() : processIsRunning(pid);
+  const hasSignalIdentity = process.platform === 'linux'
+    && typeof target?.start_ticks === 'string';
+  const targetRunning = () => hasSignalIdentity ? exactRunning() : processIsRunning(pid);
   if (targetRunning()) {
     try {
       const token = fs.readFileSync(paths.token, 'utf8').trim();
@@ -156,8 +156,8 @@ export async function stopIncompatibleServer(paths, reportedIdentity = null) {
   while (Date.now() < deadline && targetRunning()) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  if (targetRunning() && !hasLinuxIdentity) {
-    const error = new Error(`Refusing to signal graphd PID ${pid} without a Linux start-tick identity.`);
+  if (targetRunning() && !hasSignalIdentity) {
+    const error = new Error(`Refusing to signal graphd PID ${pid} without a non-reusable process identity.`);
     error.code = 'LAMINA_INTERNAL';
     throw error;
   }

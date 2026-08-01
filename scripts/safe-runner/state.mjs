@@ -284,6 +284,23 @@ function retryLockOwnerActive(owner) {
     && Date.now() - created < RETRY_LOCK_STALE_MS;
 }
 
+function sweepRetryLockArtifacts(directory, activeCandidate) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const artifact = path.join(directory, entry.name);
+    if (/^\.mutation\.lock\.(?:stale|release)-[a-f0-9]+$/.test(entry.name)) {
+      try { fs.rmSync(artifact, { recursive: true, force: true }); } catch {}
+      continue;
+    }
+    if (!/^\.mutation-candidate-[1-9]\d*-[a-f0-9]{32}$/.test(entry.name)
+      || artifact === activeCandidate) continue;
+    const owner = json(path.join(artifact, 'owner.json'));
+    if (!retryLockOwnerActive(owner)) {
+      try { fs.rmSync(artifact, { recursive: true, force: true }); } catch {}
+    }
+  }
+}
+
 function acquireRetryShardLock(directory) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const identity = processIdentity(process.pid) || { pid: process.pid, start_ticks: null };
@@ -297,6 +314,7 @@ function acquireRetryShardLock(directory) {
   while (Date.now() < deadline) {
     try {
       fs.renameSync(candidate, lock);
+      sweepRetryLockArtifacts(directory, lock);
       return {
         release() {
           const current = json(path.join(lock, 'owner.json'));
@@ -331,68 +349,6 @@ function acquireRetryShardLock(directory) {
   throw error;
 }
 
-function withRetryShardLock(cwd, commandKey, callback) {
-  const directory = safetyRetryDirectory(cwd, commandKey);
-  const lock = acquireRetryShardLock(directory);
-  try { return callback(directory); } finally { lock.release(); }
-}
-
-function retryGlobalState(cwd, reserve) {
-  const ledger = safetyRetryLedgerDirectory();
-  const repository = safetyRetryDirectory(cwd);
-  const lock = acquireRetryShardLock(ledger);
-  try {
-    if (fs.existsSync(repository)) return null;
-    const saturated = json(path.join(ledger, 'saturated.json'));
-    if (saturated) return saturated;
-    if (!reserve) return null;
-    const repositories = fs.readdirSync(ledger, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{24}$/.test(entry.name));
-    if (repositories.length < MAX_RETRY_REPOSITORIES) {
-      fs.mkdirSync(repository, { mode: 0o700 });
-      return null;
-    }
-    const value = {
-      schema: 'lamina.safe-runner-safety-limit-saturation/v1',
-      status: 'safety_limit_exceeded',
-      limit: 'retry_ledger_saturated',
-      reason: 'global_repository_capacity',
-      recorded_at: new Date().toISOString(),
-    };
-    atomicJson(path.join(ledger, 'saturated.json'), value);
-    return value;
-  } finally { lock.release(); }
-}
-
-function retryRepositoryState(cwd, commandKey, { reserve = false } = {}) {
-  const repository = safetyRetryDirectory(cwd);
-  const globalSaturated = retryGlobalState(cwd, reserve);
-  if (globalSaturated) return globalSaturated;
-  if (!fs.existsSync(repository)) return null;
-  return withRetryShardLock(cwd, null, (directory) => {
-    const saturated = json(path.join(directory, 'saturated.json'));
-    if (saturated) return saturated;
-    const commandDirectory = path.join(repository, commandKey);
-    if (fs.existsSync(commandDirectory)) return null;
-    if (!reserve) return null;
-    const shards = fs.readdirSync(repository, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name));
-    if (shards.length < MAX_RETRY_SHARDS_PER_REPOSITORY) {
-      fs.mkdirSync(commandDirectory, { mode: 0o700 });
-      return null;
-    }
-    const value = {
-      schema: 'lamina.safe-runner-safety-limit-saturation/v1',
-      status: 'safety_limit_exceeded',
-      limit: 'retry_ledger_saturated',
-      reason: 'repository_capacity',
-      recorded_at: new Date().toISOString(),
-    };
-    atomicJson(path.join(directory, 'saturated.json'), value);
-    return value;
-  });
-}
-
 function retryEntryFiles(directory) {
   try {
     return fs.readdirSync(directory)
@@ -401,27 +357,91 @@ function retryEntryFiles(directory) {
   } catch { return []; }
 }
 
-function saturateRetryShard(directory, reason = 'capacity') {
-  const file = path.join(directory, 'saturated.json');
-  const value = {
+function retrySaturation(reason) {
+  return {
     schema: 'lamina.safe-runner-safety-limit-saturation/v1',
     status: 'safety_limit_exceeded',
     limit: 'retry_ledger_saturated',
     reason,
     recorded_at: new Date().toISOString(),
   };
+}
+
+function saturateRetryShard(directory, reason = 'capacity') {
+  const file = path.join(directory, 'saturated.json');
+  const value = retrySaturation(reason);
   atomicJson(file, value);
   for (const entry of retryEntryFiles(directory)) fs.rmSync(entry, { force: true });
   return value;
 }
 
-function boundedRetryShard(cwd, commandKey) {
-  const repositorySaturated = retryRepositoryState(cwd, commandKey);
-  if (repositorySaturated) return { saturated: repositorySaturated, entries: [] };
-  if (!fs.existsSync(safetyRetryDirectory(cwd, commandKey))) {
-    return { saturated: null, entries: [] };
+function retryDirectories(directory, pattern) {
+  try {
+    return fs.readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && pattern.test(entry.name));
+  } catch { return []; }
+}
+
+function pruneEmptyRetryDirectory(directory) {
+  if (json(path.join(directory, 'saturated.json')) || retryEntryFiles(directory).length > 0) return;
+  try { fs.rmdirSync(directory); } catch {}
+}
+
+function withRetryLedgerState(cwd, commandKey, { reserve = false } = {}, callback) {
+  const ledger = safetyRetryLedgerDirectory();
+  const repository = safetyRetryDirectory(cwd);
+  const commandDirectory = safetyRetryDirectory(cwd, commandKey);
+  const ledgerLock = acquireRetryShardLock(ledger);
+  let repositoryLock = null;
+  let commandLock = null;
+  try {
+    if (!fs.existsSync(repository)) {
+      const saturated = json(path.join(ledger, 'saturated.json'));
+      if (saturated) return saturated;
+      if (!reserve) return null;
+      const repositories = retryDirectories(ledger, /^[a-f0-9]{24}$/);
+      if (repositories.length >= MAX_RETRY_REPOSITORIES) {
+        const value = retrySaturation('global_repository_capacity');
+        atomicJson(path.join(ledger, 'saturated.json'), value);
+        return value;
+      }
+      fs.mkdirSync(repository, { mode: 0o700 });
+    }
+
+    repositoryLock = acquireRetryShardLock(repository);
+    const repositorySaturated = json(path.join(repository, 'saturated.json'));
+    if (repositorySaturated) return repositorySaturated;
+    if (!fs.existsSync(commandDirectory)) {
+      if (!reserve) return null;
+      const shards = retryDirectories(repository, /^[a-f0-9]{64}$/);
+      if (shards.length >= MAX_RETRY_SHARDS_PER_REPOSITORY) {
+        const value = retrySaturation('repository_capacity');
+        atomicJson(path.join(repository, 'saturated.json'), value);
+        return value;
+      }
+      fs.mkdirSync(commandDirectory, { mode: 0o700 });
+    }
+
+    commandLock = acquireRetryShardLock(commandDirectory);
+    const result = callback(commandDirectory);
+    commandLock.release();
+    commandLock = null;
+    pruneEmptyRetryDirectory(commandDirectory);
+    return result;
+  } finally {
+    if (commandLock) commandLock.release();
+    if (repositoryLock) repositoryLock.release();
+    if (fs.existsSync(repository)
+      && !json(path.join(repository, 'saturated.json'))
+      && retryDirectories(repository, /^[a-f0-9]{64}$/).length === 0) {
+      pruneEmptyRetryDirectory(repository);
+    }
+    ledgerLock.release();
   }
-  return withRetryShardLock(cwd, commandKey, (directory) => {
+}
+
+function boundedRetryShard(cwd, commandKey) {
+  const result = withRetryLedgerState(cwd, commandKey, {}, (directory) => {
     const saturated = json(path.join(directory, 'saturated.json'));
     if (saturated) return { saturated, entries: [] };
     const files = retryEntryFiles(directory);
@@ -430,6 +450,10 @@ function boundedRetryShard(cwd, commandKey) {
     }
     return { saturated: null, entries: files.map(json).filter(Boolean) };
   });
+  if (result?.limit === 'retry_ledger_saturated') {
+    return { saturated: result, entries: [] };
+  }
+  return result || { saturated: null, entries: [] };
 }
 
 export function checkSafetyRetry(cwd, command, limits) {
@@ -466,9 +490,7 @@ export function recordRunAttempt(cwd, command, limits, report, signatureOverride
     status: 'active',
     limit: 'controller_crash_or_unclassified',
   };
-  const repositorySaturated = retryRepositoryState(cwd, commandKey, { reserve: true });
-  if (repositorySaturated) return repositorySaturated;
-  return withRetryShardLock(cwd, commandKey, (directory) => {
+  return withRetryLedgerState(cwd, commandKey, { reserve: true }, (directory) => {
     const saturated = json(path.join(directory, 'saturated.json'));
     if (saturated) return saturated;
     const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);
@@ -482,12 +504,10 @@ export function recordRunAttempt(cwd, command, limits, report, signatureOverride
 }
 
 export function clearRunAttempt(cwd, command, limits, runId, signatureOverride = null) {
-  const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
+  void limits;
+  void signatureOverride;
   const commandKey = safetyRetryCommandKey(cwd, command);
-  const repositorySaturated = retryRepositoryState(cwd, commandKey);
-  if (repositorySaturated) return repositorySaturated;
-  if (!fs.existsSync(safetyRetryDirectory(cwd, commandKey))) return null;
-  return withRetryShardLock(cwd, commandKey, (directory) => {
+  return withRetryLedgerState(cwd, commandKey, {}, (directory) => {
     const saturated = json(path.join(directory, 'saturated.json'));
     if (saturated) return saturated;
     const file = safetyRetryEntryPath(cwd, commandKey, runId);
@@ -500,9 +520,7 @@ export function clearRunAttempt(cwd, command, limits, runId, signatureOverride =
 export function recordSafetyLimit(cwd, command, limits, report, signatureOverride = null) {
   const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
   const commandKey = safetyRetryCommandKey(cwd, command);
-  const repositorySaturated = retryRepositoryState(cwd, commandKey, { reserve: true });
-  if (repositorySaturated) return repositorySaturated;
-  return withRetryShardLock(cwd, commandKey, (directory) => {
+  return withRetryLedgerState(cwd, commandKey, { reserve: true }, (directory) => {
     const saturated = json(path.join(directory, 'saturated.json'));
     if (saturated) return saturated;
     const file = safetyRetryEntryPath(cwd, commandKey, report.run_id);

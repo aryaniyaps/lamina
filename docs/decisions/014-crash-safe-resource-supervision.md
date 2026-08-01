@@ -101,6 +101,9 @@ At 64 entries a command/build shard compacts to a permanent saturation fence;
 at 256 shards the repository gains the same fail-closed fence, and at 256
 repositories the host ledger refuses new repository allocations. This bounds
 disk and lookup work without permitting a forgotten failed implementation.
+Verified success reclaims empty command/repository directories, while each
+successful lock acquisition sweeps identity-stale candidate and quarantine
+artifacts; normal successful work therefore cannot exhaust the failure ledger.
 
 Normal completion writes the report before disarming the watchdog. On an
 abrupt controller exit, the watchdog validates every systemd operation and
@@ -123,6 +126,13 @@ establish deletion authority.
 Graphd startup likewise proceeds only when its claim is the sole live graphd
 claim. That invariant serializes stale `graphd.lock` replacement, while exact
 start-tick checks prevent a stale lock from signalling a PID-reuse victim.
+macOS and Windows use a conservative fixed startup claim because they do not
+expose the same non-reusable identity; stale replacement remains serialized,
+crash-stale claims refuse automatic replacement, and the client refuses PID-only
+OS signalling if authenticated shutdown fails.
+For Linux source execution, the entry descriptor plus read-only nested bwrap
+mounts bind the CLI, dependency, and fixture closure; broker registration
+verifies those child mount protections before granting the managed exception.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under

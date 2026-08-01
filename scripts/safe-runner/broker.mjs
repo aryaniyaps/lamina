@@ -12,6 +12,22 @@ const TRUSTED_GRAPHD_SERVER = path.resolve(
 const TRUSTED_GRAPHD_FIXTURE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)), '../../tests/fixtures/graph-runtime/server.mjs',
 );
+const TRUSTED_REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const TRUSTED_CLI_ROOT = path.join(TRUSTED_REPOSITORY_ROOT, 'packages', 'cli');
+const TRUSTED_FIXTURE_ROOT = path.join(TRUSTED_REPOSITORY_ROOT, 'tests', 'fixtures');
+
+function dependencyRoot(start) {
+  let current = start;
+  while (true) {
+    const candidate = path.join(current, 'node_modules');
+    if (fs.existsSync(candidate)) return fs.realpathSync.native(candidate);
+    const parent = path.dirname(current);
+    if (parent === current) throw new Error('safe-runner dependency root is unavailable');
+    current = parent;
+  }
+}
+
+const TRUSTED_DEPENDENCY_ROOT = dependencyRoot(TRUSTED_REPOSITORY_ROOT);
 
 function fileDigest(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -32,6 +48,23 @@ function processEnvironment(pid) {
     const separator = entry.indexOf('=');
     return separator === -1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
   }));
+}
+
+function decodeMountPath(value) {
+  return value.replace(/\\([0-7]{3})/g, (_match, octal) =>
+    String.fromCharCode(Number.parseInt(octal, 8)));
+}
+
+function processPathIsReadOnly(pid, candidate) {
+  const target = fs.realpathSync.native(candidate);
+  const mounts = fs.readFileSync(`/proc/${pid}/mountinfo`, 'utf8').trim().split('\n')
+    .map((line) => {
+      const fields = line.split(' ');
+      return { mount: decodeMountPath(fields[4] || ''), options: (fields[5] || '').split(',') };
+    })
+    .filter((entry) => target === entry.mount || target.startsWith(`${entry.mount}/`))
+    .sort((left, right) => right.mount.length - left.mount.length);
+  return mounts[0]?.options.includes('ro') === true;
 }
 
 const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
@@ -119,8 +152,14 @@ function canonicalGraphdRegistration(request, authority, child) {
     const fixtureSource = argv.length === 4
       && sourceDigest === TRUSTED_GRAPHD_FIXTURE_DIGEST
       && ['clean', 'leave-stale', 'exit-stale'].includes(argv[3]);
+    const readOnly = (candidate) => authority.pathReadOnly?.(child.pid, candidate)
+      ?? processPathIsReadOnly(child.pid, candidate);
+    const immutableClosure = readOnly(TRUSTED_CLI_ROOT)
+      && readOnly(TRUSTED_DEPENDENCY_ROOT)
+      && (!fixtureSource || readOnly(TRUSTED_FIXTURE_ROOT));
     trustedSource = /^(?:node|node\.exe)$/i.test(executable)
       && executableDigest === CONTROLLER_EXECUTABLE_DIGEST
+      && immutableClosure
       && (productionSource || fixtureSource);
   } catch {}
   let trustedStandalone = false;

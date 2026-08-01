@@ -125,7 +125,11 @@ failures cannot erase or overwrite earlier fences. A command/build shard is
 capped at 64 records, a repository at 256 shards, and the host ledger at 256
 repositories. Capacity converts the affected scope to one durable saturation
 fence that refuses later unsafe allocations; it never forgets an old failure
-or silently permits the command.
+or silently permits the command. A verified successful run removes its last
+active record and atomically reclaims the empty command shard and repository,
+so healthy sequential work does not consume failure capacity. The same
+process-identity locks sweep stale mutation candidates and release/stale
+quarantines left by a killed controller.
 
 All limit flags are downward-only:
 
@@ -144,6 +148,10 @@ Adding an entrypoint requires a code change and review, not a caller flag.
 On Linux the payload runs in an unprivileged bwrap mount namespace. The host
 root is read-only, the declared working tree is the explicit writable workload
 surface, and the runner temporary directory is a size-limited private tmpfs.
+Nested read-only mounts cover the safe-runner implementation, the CLI package,
+its dependency tree, and reviewed graphd fixtures even when the Lamina source
+tree itself is the writable workload. Thus a scoped command cannot rewrite a
+transitive graphd module and then ask the broker to bless it.
 The controller verifies that tmpfs before releasing the payload and reads its
 allocated blocks and inode usage through `/proc/<pid>/root`; this accounts for
 deleted-but-open files without an unbounded directory scan. Symlinks in the
@@ -159,14 +167,20 @@ runtime directory. For source execution, the client opens the reviewed
 `server.mjs` before spawn and Node executes that inherited descriptor. The
 broker hashes `/proc/<pid>/fd/3` against a trusted digest captured before the
 payload starts, so replacing the mutable pathname after code load cannot grant
-managed status. Standalone execution must match the controller's already-open
+managed status. It also verifies from the child mount table that the effective
+CLI/dependency/fixture closure is read-only. Standalone execution must match the controller's already-open
 executable digest. The broker captures the directory's
 device/inode/owner identity and the graphd PID/start identity for crash cleanup.
 The lock must carry that same process identity before either runtime entry can
 be removed. Each starter holds a unique PID/start-tick/nonce claim for its
 lifetime and proceeds only when no other live graphd or cleanup claim exists.
 This serializes stale-lock replacement against other starters and watchdog
-cleanup. No child-writable registry or mutable source pathname is authoritative. After the CLI
+cleanup. On macOS and Windows, where a reusable PID cannot be paired with Linux
+start ticks, a conservative fixed operation claim serializes startup and stale
+lock replacement. A crash-stale portable claim fails closed instead of being
+automatically replaced, and client shutdown refuses OS signals if authenticated
+shutdown does not stop the PID-only target. No child-writable registry, mutable source
+pathname, or PID-only signal target is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or

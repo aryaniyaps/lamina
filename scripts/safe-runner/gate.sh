@@ -27,9 +27,25 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 IFS= read -r _release < "$release_file"
 
+runner_root=$(CDPATH= cd -- "$(dirname "$quota_gate")/../.." && pwd -P)
+dependency_parent=$runner_root
+while [ ! -d "$dependency_parent/node_modules" ]; do
+  parent=$(dirname "$dependency_parent")
+  if [ "$parent" = "$dependency_parent" ]; then
+    echo 'safe-runner dependency root is unavailable' >&2
+    exit 125
+  fi
+  dependency_parent=$parent
+done
+dependency_root=$dependency_parent/node_modules
+
 bwrap --unshare-user --uid 0 --gid 0 \
   --ro-bind / / --dev-bind /dev /dev --proc /proc \
   --bind "$payload_cwd" "$payload_cwd" \
+  --ro-bind "$runner_root/scripts/safe-runner" "$runner_root/scripts/safe-runner" \
+  --ro-bind "$runner_root/packages/cli" "$runner_root/packages/cli" \
+  --ro-bind "$dependency_root" "$dependency_root" \
+  --ro-bind "$runner_root/tests/fixtures" "$runner_root/tests/fixtures" \
   --bind "$quota_ready_file" "$quota_ready_file" \
   --size "$temporary_max_bytes" --tmpfs "$temporary_directory" \
   --chdir "$payload_cwd" -- \
