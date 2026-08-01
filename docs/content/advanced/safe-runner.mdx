@@ -63,11 +63,15 @@ descendant case. Portable focused contract tests never qualify medium or large
 execution.
 
 The low-limit Linux CI job is pinned to Ubuntu 22.04 and provisions Bubblewrap
-without privilege: it downloads Ubuntu's signed package and extracts the binary
-into the ephemeral runner directory. It does not use `sudo` or modify the host
-package database. Ubuntu 24.04's hosted AppArmor policy blocks this rootless
-namespace path unless a privileged package profile is installed, so it is not
-used as the qualification host.
+without privilege. It downloads the official Debian Bookworm 0.8.0 package by
+an immutable URL, verifies the pinned SHA-256 digest, records package and ABI
+dependency evidence, and extracts only the binary into the ephemeral runner
+directory. Bookworm's declared glibc, libcap, and libselinux minima are
+satisfied by Jammy. The job then runs the real hard-quota probe before the
+adversarial matrix; it does not use `sudo` or modify the host package database.
+Ubuntu 24.04's hosted AppArmor policy blocks this rootless namespace path
+unless a privileged package profile is installed, so it is not used as the
+qualification host.
 
 The native release workflow runs source-quality checks on every target before
 an adapter qualification gate. Until issue #57 supplies production enforcement
@@ -98,10 +102,11 @@ enforcement, and the global concurrency lock. Every tier refuses while an
 existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
 
-After a safety-limit outcome, the runner stores a durable signature over the
+After a safety-limit observation, the runner stores a durable signature over the
 repository, command, effective limits, referenced workload files, and runner
-build. An identical retry is refused. A changed implementation, workload
-input, command, or limit produces a new signature and can be evaluated.
+build. This remains true if incomplete cleanup changes the final outcome to
+`internal_error`. An identical retry is refused. A changed implementation,
+workload input, command, or limit produces a new signature and can be evaluated.
 
 All limit flags are downward-only:
 

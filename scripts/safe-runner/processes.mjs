@@ -54,15 +54,33 @@ function ancestorPids() {
   return ancestors;
 }
 
-const LAMINA_EXECUTABLE_RE = /(?:^|\s)(?:\S*\/)?(?:lamina(?:\.mjs)?|lamina-(?:linux|darwin|win32)-[^\s/]+|cocoindex-worker(?:\.exe)?|lamina-cocoindex-worker-[^\s/]+|cocoindex_worker\.py|retrieval_worker\.py)(?:\s|$)/i;
-const SOURCE_GRAPHD_RE = /(?:^|\s)[^\s]*\/packages\/cli\/lib\/graph-runtime\/server\.mjs(?:\s|$)/i;
-const NATIVE_GRAPHD_RE = /(?:^|\s)--graphd(?:\s|$)/i;
+const LAMINA_EXECUTABLE_RE = /^(?:lamina(?:\.mjs)?|lamina-(?:linux|darwin|win32)-[^/]+|cocoindex-worker(?:\.exe)?|lamina-cocoindex-worker-[^/]+)$/i;
+const WORKER_SCRIPT_RE = /^(?:cocoindex_worker|retrieval_worker)\.py$/i;
+
+function basename(token) {
+  return String(token || '').replaceAll('\\', '/').split('/').at(-1);
+}
+
+function isLaminaScript(token) {
+  const normalized = String(token || '').replaceAll('\\', '/');
+  return normalized.endsWith('/graph-runtime/server.mjs')
+    || basename(normalized).toLowerCase() === 'lamina.mjs'
+    || WORKER_SCRIPT_RE.test(basename(normalized));
+}
 
 export function isLaminaProcessCommand(command = '') {
-  const normalized = String(command).replaceAll('\\', '/');
-  return LAMINA_EXECUTABLE_RE.test(normalized)
-    || SOURCE_GRAPHD_RE.test(normalized)
-    || NATIVE_GRAPHD_RE.test(normalized);
+  const tokens = String(command).trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+  const executable = basename(tokens[0]);
+  if (LAMINA_EXECUTABLE_RE.test(executable)) return true;
+  if (/^(?:node(?:\.exe)?|python(?:3(?:\.\d+)?)?(?:\.exe)?)$/i.test(executable)) {
+    return tokens.slice(1).some((token) => !token.startsWith('-') && isLaminaScript(token));
+  }
+  if (/^uv(?:\.exe)?$/i.test(executable)) {
+    const pythonIndex = tokens.findIndex((token, index) => index > 0 && /^python(?:3)?$/i.test(token));
+    return pythonIndex >= 0 && isLaminaScript(tokens[pythonIndex + 1]);
+  }
+  return false;
 }
 
 export function existingLaminaProcesses() {

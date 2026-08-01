@@ -79,11 +79,12 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-A safety-limit outcome writes a durable retry signature over the repository,
+A safety-limit observation writes a durable retry signature over the repository,
 command, effective limits, referenced workload file identities, and runner
 build. The same signature is refused; changing implementation, workload,
 command, or limits creates a distinct attempt instead of silently repeating a
-known unsafe run.
+known unsafe run. Later cleanup failure may normalize the public outcome to
+`internal_error`, but cannot erase the observed limit or bypass the ledger.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under

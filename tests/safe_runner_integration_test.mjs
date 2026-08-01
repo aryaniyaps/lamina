@@ -8,7 +8,7 @@ import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import { MIB } from '../scripts/safe-runner/constants.mjs';
 import { validateReport } from '../scripts/safe-runner/report.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
-import { checkPromotion } from '../scripts/safe-runner/state.mjs';
+import { checkPromotion, checkSafetyRetry } from '../scripts/safe-runner/state.mjs';
 
 const artifactBase = process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR
   ? path.resolve(process.env.LAMINA_SAFE_RUNNER_TEST_ARTIFACT_DIR)
@@ -38,6 +38,27 @@ const limits = {
 
 try {
   const probe = adapterProbe();
+  let injectedLaunches = 0;
+  const injectedAdapter = {
+    id: 'caller-injected-portable',
+    launch() { injectedLaunches += 1; throw new Error('must not launch'); },
+    sample() { return { pids: [], records: [] }; },
+    signal() {},
+    cleanup() { return { pids: [], removed: true, errors: [] }; },
+  };
+  for (const tier of ['medium', 'large']) {
+    const injected = await runSafely({
+      command: [process.execPath, fixture, 'success'],
+      tier,
+      cwd: root,
+      reportFile: path.join(reports, `injected-${tier}.json`),
+      adapter: injectedAdapter,
+      probe: { ...probe, id: 'caller-forged-production', production_enforcement: true },
+    });
+    assert.equal(injected.outcome, 'preflight_refused');
+    assert.equal(injected.adapter.id, probe.id);
+  }
+  assert.equal(injectedLaunches, 0, 'public calls must not inject an enforcement adapter');
   const common = probe.production_enforcement
     ? { probe }
     : { probe, mode: 'self-test', selfTestCaseId: 'normal_cleanup' };
@@ -144,6 +165,38 @@ try {
     assert.equal(fs.existsSync(graphData), true, 'cleanup must not delete canonical graph data');
     assert.equal(validateReport(staleGraphd).valid, true);
     for (const managedPath of staleGraphd.cleanup.managed_paths_remaining) {
+      fs.rmSync(managedPath, { force: true });
+    }
+
+    const earlyGraphd = await runSafely({
+      command: [process.execPath, graphdFixture, graphRepository, 'exit-stale'],
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'early-graphd.json'),
+      overrides: { ...limits, timeoutMs: 5_000, gracefulStopMs: 500 },
+      promote: false,
+    });
+    assert.equal(earlyGraphd.outcome, 'internal_error');
+    assert.equal(earlyGraphd.termination.reason, 'cleanup_incomplete');
+    assert.equal(earlyGraphd.cleanup.managed_paths_remaining.length, 2,
+      'accepted registration must seed socket/lock verification before classification');
+    assert.equal(fs.existsSync(graphData), true, 'cleanup must preserve canonical graph data');
+    for (const managedPath of earlyGraphd.cleanup.managed_paths_remaining) {
+      fs.rmSync(managedPath, { force: true });
+    }
+
+    const retryCommand = [
+      process.execPath, graphdFixture, graphRepository, 'leave-stale', 'hold',
+    ];
+    const cleanupAfterLimit = await runSafely({
+      command: retryCommand,
+      tier: 'small', cwd: root, reportFile: path.join(reports, 'limit-cleanup-failure.json'),
+      overrides: { ...limits, timeoutMs: 300, gracefulStopMs: 100 },
+      promote: false,
+    });
+    assert.equal(cleanupAfterLimit.outcome, 'internal_error');
+    assert.equal(cleanupAfterLimit.termination.reason, 'cleanup_incomplete');
+    assert.equal(checkSafetyRetry(root, retryCommand, cleanupAfterLimit.limits).ok, false,
+      'an observed safety limit must survive cleanup outcome normalization');
+    for (const managedPath of cleanupAfterLimit.cleanup.managed_paths_remaining) {
       fs.rmSync(managedPath, { force: true });
     }
 

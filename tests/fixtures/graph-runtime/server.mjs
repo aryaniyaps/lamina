@@ -14,7 +14,7 @@ const shutdown = () => {
   if (stopping) return;
   stopping = true;
   server.close(() => {
-    if (cleanupMode !== 'leave-stale') {
+    if (!['leave-stale', 'exit-stale'].includes(cleanupMode)) {
       try { fs.rmSync(socketPath, { force: true }); } catch {}
       try { fs.rmSync(lockPath, { force: true }); } catch {}
     } else if (!fs.existsSync(socketPath)) {
@@ -30,3 +30,4 @@ const shutdown = () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 server.listen(socketPath, () => fs.chmodSync(socketPath, 0o600));
+if (cleanupMode === 'exit-stale') setTimeout(shutdown, 250);

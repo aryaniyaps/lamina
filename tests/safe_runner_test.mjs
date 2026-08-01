@@ -226,12 +226,19 @@ try {
   };
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
+    `${process.execPath} /tmp/lamina/runtime/app/lib/graph-runtime/server.mjs /repo`,
     '/usr/local/bin/lamina-linux-x64 --graphd /repo',
     '/opt/lamina/runtime/cocoindex-worker retrieval serve',
     '/tmp/lamina-cocoindex-worker-linux-x64 observe',
     `${process.execPath} /repo/packages/cli/retrieval_worker.py serve`,
   ]) assert.equal(isLaminaProcessCommand(command), true, command);
-  assert.equal(isLaminaProcessCommand(`${process.execPath} tests/tiny.mjs`), false);
+  for (const command of [
+    `${process.execPath} tests/tiny.mjs`,
+    'gh run view 123 --repo aryaniyaps/lamina',
+    `${process.execPath} tests/tiny.mjs /repo/lamina`,
+    'tool --graphd /repo',
+    'sh -c /usr/local/bin/lamina',
+  ]) assert.equal(isLaminaProcessCommand(command), false, command);
   assert.throws(
     () => assertSystemctlSuccess({ status: 1, stderr: 'access denied' }, 'systemctl stop unit'),
     /systemctl stop unit failed: access denied/,
@@ -398,7 +405,7 @@ try {
   assert.match(guide, /--tier small[\s\S]*--report[\s\S]*--promote/);
   assert.match(guide, /There is no unrestricted fallback/);
   assert.match(adr, /# ADR-014:[\s\S]*## Decision[\s\S]*systemd scope/);
-  assert.match(workflow, /ubuntu-22\.04[\s\S]*apt-get download bubblewrap[\s\S]*package-sha256\.txt[\s\S]*npm run safe:self-test/);
+  assert.match(workflow, /ubuntu-22\.04[\s\S]*bubblewrap_0\.8\.0-2\+deb12u1_amd64\.deb[\s\S]*3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb[\s\S]*npm run safe:self-test/);
   assert.doesNotMatch(workflow, /\bsudo\b/);
 
   process.stdout.write('safe-runner unit contracts passed\n');

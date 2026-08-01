@@ -76,14 +76,15 @@ export async function runSafely({
   reportFile = null,
   overrides = {},
   env = {},
-  adapter = null,
-  probe = adapterProbe(),
   mode = 'run',
   selfTestCaseId = null,
   promote = false,
   workloadId = null,
 } = {}) {
   const startedMs = Date.now();
+  // The reusable API is a safety boundary too: callers cannot attest one
+  // adapter while launching another through injected objects.
+  const probe = adapterProbe();
   const normalizedCommand = Array.isArray(command) ? command : [];
   const report = baseReport({ tier, command: normalizedCommand, cwd: path.resolve(cwd) });
   let lock = null;
@@ -101,6 +102,7 @@ export async function runSafely({
   let managedCleanupStartedMs = null;
   let proofBroker = null;
   let quotaProven = false;
+  let observedSafetyLimit = null;
   let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
   const managedRegistrations = [];
   const managedCleanupPaths = new Set();
@@ -109,6 +111,9 @@ export async function runSafely({
   const signalHandlers = new Map();
 
   const requestStop = (reason, limit = null) => {
+    if (reason === 'safety_limit_exceeded' && observedSafetyLimit === null) {
+      observedSafetyLimit = limit;
+    }
     if (stopping) return;
     stopping = true;
     report.termination.reason = reason;
@@ -281,7 +286,7 @@ export async function runSafely({
     fs.chmodSync(temporaryDirectory, 0o700);
     payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
     fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
-    activeAdapter = assertAdapterShape(adapter || adapterFor(probe, report.run_id, report.limits));
+    activeAdapter = assertAdapterShape(adapterFor(probe, report.run_id, report.limits));
     const authority = {
       runId: report.run_id,
       tier,
@@ -292,6 +297,8 @@ export async function runSafely({
       registrations: managedRegistrations,
       records: () => activeAdapter?.sample()?.records || [],
       register(record) {
+        managedCleanupPaths.add(record.socket);
+        managedCleanupPaths.add(record.lock);
         if (!managedRegistrations.some((item) => item.pid === record.pid
           && item.start_ticks === record.start_ticks)) {
           managedRegistrations.push({
@@ -651,8 +658,13 @@ export async function runSafely({
     };
   }
   finishReport(report, startedMs);
-  if (report.outcome === 'safety_limit_exceeded' && mode !== 'self-test') {
-    try { recordSafetyLimit(cwd, normalizedCommand, report.limits, report); } catch (error) {
+  if (observedSafetyLimit !== null && mode !== 'self-test') {
+    try {
+      recordSafetyLimit(cwd, normalizedCommand, report.limits, {
+        ...report,
+        termination: { ...report.termination, limit: observedSafetyLimit },
+      });
+    } catch (error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'retry_ledger_failed';
       report.error = errorDetails(error, 'LAMINA_SAFE_RETRY_LEDGER');
