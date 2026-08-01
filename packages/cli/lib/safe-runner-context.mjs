@@ -76,6 +76,8 @@ export function registerManagedGraphdWithSupervisor(identity, paths) {
     operation: 'register_graphd',
     requester: processIdentity(process.pid),
     child: identity,
+    root: paths?.root,
+    runtime_dir: paths?.runtime_dir,
     socket: paths?.socket,
     lock: paths?.lock,
   });

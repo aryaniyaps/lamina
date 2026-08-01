@@ -11,6 +11,7 @@ import {
   TIER_ORDER,
 } from './constants.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
+import { redactCommand } from './redaction.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -153,10 +154,10 @@ export function workloadDigest(workloadId) {
   return crypto.createHash('sha256').update(workloadId).digest('hex');
 }
 
-function workloadIdentity(command = []) {
+function workloadIdentity(cwd, command = [], selectedPaths = null) {
   const files = [];
-  for (const argument of command) {
-    const candidate = path.resolve(String(argument));
+  const candidates = selectedPaths || command.map((argument) => path.resolve(cwd, String(argument)));
+  for (const candidate of candidates) {
     try {
       const stat = fs.statSync(candidate, { bigint: true });
       if (!stat.isFile()) continue;
@@ -174,13 +175,24 @@ function workloadIdentity(command = []) {
   return files;
 }
 
+function retryMetadata(cwd, command, selectedPaths = null) {
+  const workload = workloadIdentity(cwd, command, selectedPaths);
+  return {
+    runner_build: runnerBuildDigest(),
+    command_digest: crypto.createHash('sha256').update(JSON.stringify(command)).digest('hex'),
+    workload_paths: workload.map((item) => item.path),
+    workload_digest: crypto.createHash('sha256').update(JSON.stringify(workload)).digest('hex'),
+  };
+}
+
 export function safetyRetrySignature(cwd, command, limits) {
+  const metadata = retryMetadata(cwd, command);
   return crypto.createHash('sha256').update(JSON.stringify({
     repository: path.resolve(cwd),
-    command,
-    limits,
-    workload: workloadIdentity(command),
-    runner_build: runnerBuildDigest(),
+    command_digest: metadata.command_digest,
+    workload_digest: metadata.workload_digest,
+    runner_build: metadata.runner_build,
+    concurrency: 1,
   })).digest('hex');
 }
 
@@ -191,41 +203,112 @@ function safetyRetryPath(cwd) {
 export function checkSafetyRetry(cwd, command, limits) {
   const signature = safetyRetrySignature(cwd, command, limits);
   const value = json(safetyRetryPath(cwd));
+  const metadata = retryMetadata(cwd, command);
+  const entries = Object.values(value?.entries || {});
+  const previous = value?.entries?.[signature]
+    || entries.find((entry) => entry.runner_build === metadata.runner_build
+      && entry.command_digest === metadata.command_digest
+      && entry.workload_digest === retryMetadata(cwd, command, entry.workload_paths).workload_digest)
+    || (value?.signature === signature ? value : null);
   return {
-    ok: value?.signature !== signature,
+    ok: !previous,
     signature,
-    previous: value?.signature === signature ? value : null,
+    previous,
   };
 }
 
-export function recordSafetyLimit(cwd, command, limits, report) {
+function updateSafetyRetryEntries(cwd, mutate) {
+  const file = safetyRetryPath(cwd);
+  const existing = json(file);
+  const entries = existing?.schema === 'lamina.safe-runner-safety-limit-ledger/v2'
+    ? { ...existing.entries } : {};
+  mutate(entries);
+  const retained = Object.fromEntries(Object.entries(entries)
+    .sort((left, right) => String(right[1].recorded_at).localeCompare(String(left[1].recorded_at)))
+    .slice(0, 128));
   const value = {
-    schema: 'lamina.safe-runner-safety-limit-ledger/v1',
-    signature: safetyRetrySignature(cwd, command, limits),
-    recorded_at: new Date().toISOString(),
-    run_id: report.run_id,
-    limit: report.termination.limit,
+    schema: 'lamina.safe-runner-safety-limit-ledger/v2',
+    repository: path.resolve(cwd),
+    entries: retained,
+    updated_at: new Date().toISOString(),
   };
-  atomicJson(safetyRetryPath(cwd), value);
+  atomicJson(file, value);
   return value;
+}
+
+export function recordRunAttempt(cwd, command, limits, report, signatureOverride = null) {
+  const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
+  const metadata = retryMetadata(cwd, command);
+  return updateSafetyRetryEntries(cwd, (entries) => {
+    entries[signature] = {
+      ...metadata,
+      signature,
+      recorded_at: new Date().toISOString(),
+      run_id: report.run_id,
+      status: 'active',
+      limit: 'controller_crash_or_unclassified',
+    };
+  });
+}
+
+export function clearRunAttempt(cwd, command, limits, runId, signatureOverride = null) {
+  const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
+  return updateSafetyRetryEntries(cwd, (entries) => {
+    if (entries[signature]?.status === 'active' && entries[signature]?.run_id === runId) {
+      delete entries[signature];
+    }
+  });
+}
+
+export function recordSafetyLimit(cwd, command, limits, report, signatureOverride = null) {
+  const signature = signatureOverride || safetyRetrySignature(cwd, command, limits);
+  return updateSafetyRetryEntries(cwd, (entries) => {
+    const metadata = entries[signature] || retryMetadata(cwd, command);
+    entries[signature] = {
+      ...metadata,
+      signature,
+      recorded_at: new Date().toISOString(),
+      run_id: report.run_id,
+      status: 'safety_limit_exceeded',
+      limit: report.termination.limit,
+    };
+  });
 }
 
 function promotionPath(cwd) {
   return path.join(stateDirectory(), 'promotions', `${repositoryKey(cwd)}.json`);
 }
 
-export function promotionStatus(cwd, workloadId = null) {
+export function promotionCommandDigest(command) {
+  return Array.isArray(command) && command.length > 0
+    ? crypto.createHash('sha256').update(JSON.stringify(redactCommand(command))).digest('hex')
+    : null;
+}
+
+export function promotionStatus(cwd, workloadId = null, command = null) {
   const value = json(promotionPath(cwd));
   const digest = workloadDigest(workloadId);
   if (value?.build_digest !== runnerBuildDigest() || !digest) return { completed: [], value: null };
-  const completed = value.workloads?.[digest]?.completed;
-  return { completed: Array.isArray(completed) ? completed : [], value, workload_digest: digest };
+  const workload = value.workloads?.[digest];
+  const expectedCommand = promotionCommandDigest(command);
+  if (expectedCommand && workload?.command_digest !== expectedCommand) {
+    return {
+      completed: [], value, workload_digest: digest, command_matches: false,
+    };
+  }
+  const completed = workload?.completed;
+  return {
+    completed: Array.isArray(completed) ? completed : [],
+    value,
+    workload_digest: digest,
+    command_matches: expectedCommand ? workload?.command_digest === expectedCommand : null,
+  };
 }
 
-export function checkPromotion(cwd, tier, workloadId = null) {
+export function checkPromotion(cwd, tier, workloadId = null, command = null) {
   const index = TIER_ORDER.indexOf(tier);
   const required = index <= 0 ? [] : TIER_ORDER.slice(0, index);
-  const status = promotionStatus(cwd, workloadId);
+  const status = promotionStatus(cwd, workloadId, command);
   const missing = required.filter((item) => !status.completed.includes(item));
   return { ok: missing.length === 0, required, missing, completed: status.completed };
 }
@@ -250,7 +333,16 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
     error.code = 'LAMINA_SAFE_WORKLOAD_REQUIRED';
     throw error;
   }
-  const status = promotionStatus(cwd, workloadId);
+  const commandDigest = promotionCommandDigest(evidence.command);
+  const status = promotionStatus(cwd, workloadId, evidence.command);
+  const existingState = json(promotionPath(cwd));
+  const existingWorkload = existingState?.build_digest === runnerBuildDigest()
+    ? existingState.workloads?.[digest] : null;
+  if (existingWorkload && existingWorkload.command_digest !== commandDigest) {
+    const error = new Error('tier promotion workload identifier is already bound to a different command');
+    error.code = 'LAMINA_SAFE_PROMOTION_COMMAND_MISMATCH';
+    throw error;
+  }
   const completed = TIER_ORDER.filter((item) => new Set([...status.completed, tier]).has(item));
   const existing = json(promotionPath(cwd));
   const value = {
@@ -261,12 +353,13 @@ export function recordPromotion(cwd, tier, evidence, workloadId) {
       ...(existing?.build_digest === runnerBuildDigest() ? existing.workloads : {}),
       [digest]: {
         workload_id: workloadId,
+        command_digest: commandDigest,
         completed,
         evidence: {
           run_id: evidence.run_id,
           tier,
           adapter: evidence.adapter?.id || null,
-          command_digest: crypto.createHash('sha256').update(JSON.stringify(evidence.command)).digest('hex'),
+          command_digest: commandDigest,
           finished_at: evidence.finished_at,
         },
       },

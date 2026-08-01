@@ -12,12 +12,15 @@ import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import { GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import { deriveLimits, validateLimitOverrides } from '../scripts/safe-runner/envelope.mjs';
-import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-runner/filesystem.mjs';
+import {
+  ownedDirectoryIdentity, removeOwnedDirectory, removeOwnedRuntimePaths,
+} from '../scripts/safe-runner/filesystem.mjs';
 import {
   assertSystemctlSuccess,
   parseSystemdMajor,
   systemdKillArguments,
   systemdScopeProperties,
+  systemdUnitAbsent,
 } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   classifyRemainingDescendants,
@@ -42,7 +45,10 @@ import {
   checkSafetyRetry,
   readAttestation,
   recordPromotion,
+  recordRunAttempt,
+  clearRunAttempt,
   recordSafetyLimit,
+  promotionCommandDigest,
   productionLockDirectory,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
@@ -72,6 +78,32 @@ try {
   assert.equal(fs.existsSync(symlinkTarget), true);
   fs.rmSync(symlinkPath, { force: true });
   fs.rmSync(symlinkTarget, { recursive: true, force: true });
+  const ownedRuntime = path.join(root, 'owned-runtime');
+  fs.mkdirSync(ownedRuntime);
+  const ownedRuntimeIdentity = ownedDirectoryIdentity(ownedRuntime);
+  const ownedSocket = path.join(ownedRuntime, 'graphd.sock');
+  const ownedLock = path.join(ownedRuntime, 'graphd.lock');
+  fs.writeFileSync(ownedSocket, 'stale socket');
+  fs.writeFileSync(ownedLock, 'stale lock');
+  assert.deepEqual(removeOwnedRuntimePaths([
+    { path: ownedSocket, parent_identity: ownedRuntimeIdentity },
+    { path: ownedLock, parent_identity: ownedRuntimeIdentity },
+  ]), []);
+  const protectedFile = path.join(root, 'protected-file');
+  fs.writeFileSync(protectedFile, 'preserve');
+  fs.symlinkSync(protectedFile, ownedSocket);
+  assert.deepEqual(removeOwnedRuntimePaths([
+    { path: ownedSocket, parent_identity: ownedRuntimeIdentity },
+  ]), [ownedSocket]);
+  assert.equal(fs.readFileSync(protectedFile, 'utf8'), 'preserve');
+  fs.rmSync(ownedSocket);
+  fs.renameSync(ownedRuntime, `${ownedRuntime}-original`);
+  fs.mkdirSync(ownedRuntime);
+  fs.writeFileSync(ownedLock, 'replacement');
+  assert.deepEqual(removeOwnedRuntimePaths([
+    { path: ownedLock, parent_identity: ownedRuntimeIdentity },
+  ]), [ownedLock]);
+  assert.equal(fs.existsSync(ownedLock), true, 'replacement runtime identity must never be deleted');
   const ownedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-owned-'));
   const ownedIdentity = ownedDirectoryIdentity(ownedTemporary);
   assert.equal(removeOwnedDirectory(ownedTemporary, 'lamina-safe-runner-', ownedIdentity), true);
@@ -165,7 +197,11 @@ try {
   fs.writeFileSync(wrapper, '#!/bin/sh\nexec harbor run "$@"\n');
   assert.equal(commandOwnership(['/bin/sh', wrapper], root).proven, false);
   assert.equal(commandOwnership(['node', 'benchmarks/lb6/pilot/scripts/run-three-arm.mjs']).proven, false);
-  assert.equal(commandOwnership(['node', 'tests/tiny.mjs']).proven, true);
+  assert.equal(commandOwnership([process.execPath, path.join(process.cwd(), 'tests/fixtures/safe-runner-adversary.mjs'), 'success'], root).proven, true);
+  assert.equal(commandOwnership(['node', 'tests/tiny.mjs']).proven, false);
+  const oversizedWrapper = path.join(root, 'oversized-wrapper.mjs');
+  fs.writeFileSync(oversizedWrapper, `${' '.repeat(70 * 1024)}\n`);
+  assert.equal(commandOwnership([process.execPath, oversizedWrapper], root).proven, false);
   assert.deepEqual(redactCommand(['tool', '--token', 'secret-value', '--api-key=abc']), [
     'tool', '--token', '[REDACTED]', '--api-key=[REDACTED]',
   ]);
@@ -263,12 +299,21 @@ try {
   const requester = { pid: 41000, ppid: 1, start_ticks: '99', command: 'node guarded.mjs' };
   const authorityRecords = [requester];
   const brokerRegistrations = [];
+  const brokerRoot = path.join(root, 'broker-repository');
+  fs.mkdirSync(brokerRoot);
+  assert.equal(spawnSync('git', ['init', '--quiet'], { cwd: brokerRoot }).status, 0);
+  const brokerRuntime = path.join(brokerRoot, '.git', 'lamina');
+  fs.mkdirSync(brokerRuntime);
+  const brokerSocket = path.join(brokerRuntime, 'graphd.sock');
+  const brokerLock = path.join(brokerRuntime, 'graphd.lock');
+  const graphdServer = path.resolve('packages/cli/lib/graph-runtime/server.mjs');
   const authority = {
     runId: 'unit', tier: 'small', adapter: 'linux-systemd-cgroup-v2',
     unit: 'lamina-safe-unit.scope', cgroup: '/unit',
     enforcement: { memory_max_bytes: 1, memory_high_bytes: 1, pids_max: 1 },
     registrations: brokerRegistrations,
     records: () => authorityRecords,
+    arguments: () => [process.execPath, graphdServer, brokerRoot],
     register: (record) => brokerRegistrations.push(record),
   };
   assert.equal(authorizeBrokerRequest({
@@ -286,7 +331,7 @@ try {
 
   const authorizedGraphd = {
     pid: 41001, ppid: requester.pid, start_ticks: '100',
-    command: `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
+    command: `${process.execPath} ${graphdServer} ${brokerRoot}`,
   };
   for (const command of [
     `${process.execPath} /repo/packages/cli/lib/graph-runtime/server.mjs /repo`,
@@ -318,6 +363,10 @@ try {
   ]);
   assert.throws(() => parseSystemdMajor('not systemd'), /unsupported or unparsable/);
   assert.throws(() => systemdKillArguments('SIGTERM', 'unit.scope', 248), /unsupported/);
+  assert.equal(systemdUnitAbsent({ status: 1, stderr: 'Unit example.scope not loaded.' }), true);
+  assert.equal(systemdUnitAbsent({ status: 0, stdout: 'not-found\n' }), true);
+  assert.equal(systemdUnitAbsent({ status: 1, stderr: 'Access denied' }), false);
+  assert.equal(systemdUnitAbsent({ status: 0, stdout: 'loaded\n' }), false);
   const scopeProperties = systemdScopeProperties({
     memory_max_bytes: 100,
     memory_high_bytes: 80,
@@ -369,8 +418,8 @@ try {
     pid: 41001,
     start_ticks: '100',
     role: 'graphd',
-    socket: '/repo/.git/lamina/graphd.sock',
-    lock: '/repo/.git/lamina/graphd.lock',
+    socket: brokerSocket,
+    lock: brokerLock,
   }];
   const graphdRecord = { ...authorizedGraphd, ppid: 1 };
   const graphdWorker = {
@@ -386,6 +435,8 @@ try {
     operation: 'register_graphd',
     requester,
     child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
     socket: managedRegistrations[0].socket,
     lock: managedRegistrations[0].lock,
   }, authority).ok, true);
@@ -393,6 +444,8 @@ try {
   assert.equal(authorizeBrokerRequest({
     operation: 'register_graphd', requester,
     child: { pid: graphdRecord.pid, start_ticks: 'forged' },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
     socket: managedRegistrations[0].socket,
     lock: managedRegistrations[0].lock,
   }, authority).ok, false, 'payload cannot self-assert a graphd identity');
@@ -400,9 +453,20 @@ try {
     operation: 'register_graphd',
     requester,
     child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: brokerRuntime,
     socket: 'relative.sock',
     lock: 'relative.lock',
   }, authority).ok, false);
+  assert.equal(authorizeBrokerRequest({
+    operation: 'register_graphd', requester,
+    child: { pid: graphdRecord.pid, start_ticks: graphdRecord.start_ticks },
+    root: brokerRoot,
+    runtime_dir: path.join(root, 'unrelated-runtime'),
+    socket: path.join(root, 'unrelated-runtime', 'graphd.sock'),
+    lock: path.join(root, 'unrelated-runtime', 'graphd.lock'),
+  }, authority).ok, false, 'watchdog paths must be derived from the declared graph root');
+  assert.equal(brokerRegistrations[0].runtime_identity.path, brokerRuntime);
   assert.equal(
     classifyRemainingDescendants(managedRegistrations, [graphdRecord, graphdWorker]).kind,
     'managed_graphd',
@@ -441,8 +505,16 @@ try {
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
   assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
   recordPromotion(root, 'small', report, 'unit-workload');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload').ok, true);
-  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload').ok, false);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', report.command).ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', [...report.command, '--changed']).ok, false);
+  assert.equal(checkPromotion(root, 'medium', 'unrelated-workload', report.command).ok, false);
+  assert.equal(promotionCommandDigest(report.command), promotionCommandDigest(redactCommand(report.command)));
+  const changedPromotion = structuredClone(report);
+  changedPromotion.command.push('--changed');
+  assert.throws(
+    () => recordPromotion(root, 'medium', changedPromotion, 'unit-workload'),
+    /already bound to a different command/,
+  );
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
   recordSafetyLimit(root, report.command, report.limits, limitedReport);
@@ -450,7 +522,17 @@ try {
   assert.equal(checkSafetyRetry(root, [...report.command, '--changed'], report.limits).ok, true);
   assert.equal(checkSafetyRetry(root, report.command, {
     ...report.limits, timeout_ms: report.limits.timeout_ms - 1,
-  }).ok, true);
+  }).ok, false, 'limit-only changes must not bypass the retry fence');
+  const otherLimitedReport = structuredClone(limitedReport);
+  otherLimitedReport.command.push('--other');
+  recordSafetyLimit(root, otherLimitedReport.command, report.limits, otherLimitedReport);
+  assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false,
+    'recording another failed workload must retain prior retry fences');
+  const activeCommand = [...report.command, '--controller-may-crash'];
+  recordRunAttempt(root, activeCommand, report.limits, report);
+  assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, false);
+  clearRunAttempt(root, activeCommand, report.limits, report.run_id);
+  assert.equal(checkSafetyRetry(root, activeCommand, report.limits).ok, true);
 
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };
   writeAttestation(productionProbe, Array.from({ length: 11 }, (_, index) => ({

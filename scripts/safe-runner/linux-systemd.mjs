@@ -61,6 +61,13 @@ export function systemdScopeProperties(limits) {
   ];
 }
 
+export function systemdUnitAbsent(result) {
+  const state = String(result?.stdout || '').trim();
+  const detail = String(result?.stderr || '').trim();
+  return !result?.error && (state === 'not-found'
+    || (result?.status !== 0 && /(?:not loaded|not found|could not be found)/i.test(detail)));
+}
+
 function readNumber(file) {
   try {
     const value = fs.readFileSync(file, 'utf8').trim();
@@ -192,6 +199,9 @@ export class LinuxSystemdAdapter {
 
   signal(signal) {
     const result = systemctl(systemdKillArguments(signal, this.unit, this.systemdMajor));
+    if (result.status !== 0 && systemdUnitAbsent(
+      systemctl(['show', this.unit, '--property=LoadState', '--value']),
+    )) return result;
     return assertSystemctlSuccess(result, `systemctl kill ${signal} for ${this.unit}`);
   }
 
@@ -199,14 +209,18 @@ export class LinuxSystemdAdapter {
     return assertSystemctlSuccess(systemctl(['stop', this.unit]), `systemctl stop ${this.unit}`);
   }
 
-  cleanup() {
+  async cleanup() {
     const before = this.sample().pids;
     const stopped = systemctl(['stop', this.unit]);
     const reset = systemctl(['reset-failed', this.unit]);
     const pids = this.sample().pids;
-    const shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
-    const state = String(shown.stdout || '').trim();
-    const absent = shown.status !== 0 || state === 'not-found' || !state;
+    let shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
+    const deadline = Date.now() + 1_000;
+    while (!systemdUnitAbsent(shown) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
+    }
+    const absent = systemdUnitAbsent(shown);
     const errors = [];
     if (!absent && stopped.status !== 0) errors.push(`systemctl stop failed with status ${stopped.status}`);
     if (!absent && reset.status !== 0) errors.push(`systemctl reset-failed failed with status ${reset.status}`);

@@ -235,6 +235,11 @@ try {
     assert.equal(validateReport(crashReport).valid, true);
     assert.equal(fs.existsSync(crashReport.preflight.crash_watchdog.temporary_directory), false);
     assert.throws(() => process.kill(payloadPid, 0), /ESRCH/);
+    const crashedCommand = [
+      process.execPath, fixture, 'crash-marker-hang', path.resolve(crashMarker),
+    ];
+    assert.equal(checkSafetyRetry(root, crashedCommand, crashReport.limits).ok, false,
+      'controller death must retain the pre-launch retry fence');
 
     for (const [mode, expectedLimit] of [
       ['temp-deleted-open', 'temporary_disk'],

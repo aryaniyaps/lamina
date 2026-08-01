@@ -94,8 +94,9 @@ npm run safe:run -- \
 ```
 
 Use `--promote` only for an intended tier-qualification scenario. The stable
-`--workload` identifier binds smaller-tier evidence to the same workload;
-success from a trivial or unrelated command cannot unlock another workload.
+`--workload` identifier and redacted child-command digest bind smaller-tier
+evidence to the same workload; success from a trivial or different command
+cannot unlock another workload.
 Promotion is
 recorded only after a successful command, schema-valid report, empty descendant
 set, removed scope, removed runner temporary directory, and error-free cleanup.
@@ -106,11 +107,12 @@ enforcement, and the global concurrency lock. Every tier refuses while an
 existing Lamina runtime is already active, because a pre-existing process is
 outside the new scope.
 
-After a safety-limit observation, the runner stores a durable signature over the
-repository, command, effective limits, referenced workload files, and runner
-build. This remains true if incomplete cleanup changes the final outcome to
-`internal_error`. An identical retry is refused. A changed implementation,
-workload input, command, or limit produces a new signature and can be evaluated.
+Before launch, a bounded multi-entry ledger records the active repository,
+command, referenced workload files, runner build, and fixed concurrency. It is
+cleared only after a classified result with verified cleanup. A safety-limit
+observation converts that entry to a durable fence, and a limit-only change does
+not bypass it. Incomplete cleanup, controller `SIGKILL`, or a lost session cannot
+erase or overwrite earlier fences.
 
 All limit flags are downward-only:
 
@@ -119,10 +121,11 @@ All limit flags are downward-only:
 --output-mib --temporary-mib --sample-ms --high-samples --grace-ms
 ```
 
-There is no unrestricted fallback. Docker, Harbor, or another external daemon
-cannot be used as the payload because the runner cannot prove ownership of the
-daemon-created descendants. This refusal also inspects shell, package-script,
-and local wrapper indirection rather than trusting only argv[0].
+There is no unrestricted fallback. Only exact reviewed internal entrypoints are
+accepted; unknown shell, package, generated, oversized, or indirect launchers
+fail closed. Docker, Podman, Harbor, and the LB6 daemon entrypoints are refused
+because the client scope cannot prove ownership of daemon-created descendants.
+Adding an entrypoint requires a code change and review, not a caller flag.
 
 On Linux the payload runs in an unprivileged bwrap mount namespace. The host
 root is read-only, the declared working tree is the explicit writable workload
@@ -136,7 +139,10 @@ capability fail closed.
 Lamina's own `graphd` is a narrow managed-daemon exception, not a detached-tree
 escape hatch. When a scoped CLI starts `graphd`, the client asks the live
 supervisor broker to authorize its PID, Linux start identity, command, parent,
-and canonical socket/lock paths. No child-writable registry is authoritative. After the CLI
+and canonical socket/lock paths. The graph root must resolve to a Git repository,
+and the socket and lock must be exact children of its Git-common `lamina`
+runtime directory. The broker captures that directory's device, inode, and
+owner identity for crash cleanup. No child-writable registry is authoritative. After the CLI
 exits, the runner accepts only that exact registered `server.mjs`/`--graphd`
 root and its in-scope descendants, sends the complete scope `SIGTERM`, and
 still requires an empty scope. A mismatched identity, unrelated process, or

@@ -64,7 +64,8 @@ The runner:
   bounded cleanup and a schema-valid `controller_crashed` report;
 - refuses a result when cleanup, scope removal, temporary cleanup, or report
   validation cannot be proven; and
-- rejects Docker/Harbor-style external-daemon execution because descendants
+- accepts only reviewed internal entrypoints and rejects unknown indirection or
+  Docker/Podman/Harbor-style external-daemon execution because descendants
   launched by an external daemon are not proven members of the client scope.
 
 The scoped Lamina CLI may start its normal detached `graphd`, but only through
@@ -75,8 +76,8 @@ after the CLI payload exits. Any unregistered or mismatched remainder keeps the
 ordinary detached-descendant failure semantics.
 
 Medium and large runs require all of the following: aggregate enforcement, a
-current host-bound adversarial attestation, successful smaller-tier promotion,
-for the same explicit workload identity, and the single host-global production
+current host-bound adversarial attestation, successful smaller-tier promotion
+for the same explicit workload identity and child-command digest, and the single host-global production
 lock (which cannot be redirected with the evidence-state override). Every tier refuses a pre-existing
 Lamina runtime because it cannot be adopted into the new scope.
 Attestation identity covers the machine, adapter/controllers, architecture,
@@ -84,12 +85,12 @@ boot ID, kernel release, systemd/user-manager identity, root controller and
 subtree state, and a digest of the runner, graphd integration, schemas, and
 adversarial fixture.
 
-A safety-limit observation writes a durable retry signature over the repository,
-command, effective limits, referenced workload file identities, and runner
-build. The same signature is refused; changing implementation, workload,
-command, or limits creates a distinct attempt instead of silently repeating a
-known unsafe run. Later cleanup failure may normalize the public outcome to
-`internal_error`, but cannot erase the observed limit or bypass the ledger.
+Before launch, a bounded multi-entry retry ledger records the active repository,
+command, referenced workload file identities, runner build, and fixed
+concurrency. It is cleared only after a classified result and verified cleanup.
+A safety-limit observation converts that entry to a durable fence; changing
+limits alone does not permit a retry. Later cleanup failure or controller death
+cannot erase or overwrite prior fences.
 
 Normal completion writes the report before disarming the watchdog. On an
 abrupt controller exit, the watchdog validates every systemd operation and
@@ -97,6 +98,9 @@ requires the exact transient unit to be absent before reporting scope removal.
 It never treats an empty cgroup alone as proof of collection and never follows
 a symlink or deletes a same-prefix directory without its captured device/inode
 identity.
+Managed graphd cleanup additionally derives the exact Git-common runtime from
+the graph root and rechecks the runtime directory device, inode, and owner
+before removing only physical `graphd.sock` or `graphd.lock` entries.
 
 When aggregate enforcement is unavailable, the portable process-group adapter
 may execute only the exact built-in self-test fixture/mode allowlist under
@@ -149,7 +153,7 @@ prove ownership of descendants created by an external daemon.
   report contract for all resource-intensive work.
 - Safety-limit outcomes are explicit failed scenarios and cannot be promoted
   or used as performance measurements.
-- Promotion state is repository-, workload-, and runner-build-specific;
+- Promotion state is repository-, workload-, child-command-, and runner-build-specific;
   changing the runner invalidates prior attestation and promotion evidence.
 - Linux low-limit CI must produce a production-qualified adversarial
   attestation. macOS and Windows CI exercise the portable interface and

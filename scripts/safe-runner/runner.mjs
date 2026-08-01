@@ -17,11 +17,17 @@ import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import {
-  existingLaminaProcesses, processIdentity, processRecord, signalIdentity,
+  existingLaminaProcesses, processArguments, processIdentity, processRecord, signalIdentity,
 } from './processes.mjs';
 import { baseReport, finishReport, writeReportWithFallback } from './report.mjs';
 import { redactText } from './redaction.mjs';
-import { acquireConcurrencyLock, recordPromotion, recordSafetyLimit } from './state.mjs';
+import {
+  acquireConcurrencyLock,
+  clearRunAttempt,
+  recordPromotion,
+  recordRunAttempt,
+  recordSafetyLimit,
+} from './state.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -115,6 +121,9 @@ export async function runSafely({
   let crashWatchdog = null;
   let quotaProven = false;
   let observedSafetyLimit = null;
+  let runAttemptRecorded = false;
+  let retryLedgerError = null;
+  let retrySignature = null;
   let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
   const managedRegistrations = [];
   const managedCleanupPaths = new Set();
@@ -123,6 +132,7 @@ export async function runSafely({
   const signalHandlers = new Map();
 
   const requestStop = (reason, limit = null) => {
+    const firstSafetyLimit = reason === 'safety_limit_exceeded' && observedSafetyLimit === null;
     if (reason === 'safety_limit_exceeded' && observedSafetyLimit === null) {
       observedSafetyLimit = limit;
     }
@@ -131,6 +141,17 @@ export async function runSafely({
     report.termination.reason = reason;
     report.termination.limit = limit;
     report.outcome = outcomeForStop(reason);
+    if (firstSafetyLimit && mode !== 'self-test') {
+      try {
+        recordSafetyLimit(cwd, normalizedCommand, report.limits, report, retrySignature);
+      } catch (error) {
+        retryLedgerError = error;
+      }
+    }
+    crashWatchdog?.update({
+      observed_safety_limit: observedSafetyLimit,
+      report_seed: structuredClone(report),
+    });
     report.termination.requested_signals.push('SIGTERM');
     try { activeAdapter?.signal('SIGTERM'); } catch (error) {
       report.cleanup.errors.push(`SIGTERM: ${error.message}`);
@@ -272,6 +293,7 @@ export async function runSafely({
     report.adapter = probe;
     report.limits = preflight.envelope.limits;
     report.preflight = preflight;
+    retrySignature = preflight.retry.signature;
     if (!preflight.ok) {
       report.outcome = 'preflight_refused';
       report.termination.reason = 'preflight_refused';
@@ -292,6 +314,11 @@ export async function runSafely({
         };
         throw Object.assign(new Error(report.error.message), { safeEarly: true });
       }
+    }
+
+    if (mode !== 'self-test') {
+      recordRunAttempt(cwd, normalizedCommand, report.limits, report, retrySignature);
+      runAttemptRecorded = true;
     }
 
     temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
@@ -324,10 +351,11 @@ export async function runSafely({
       enforcement: null,
       registrations: managedRegistrations,
       records: () => activeAdapter?.sample()?.records || [],
+      arguments: (pid) => processArguments(pid),
       register(record) {
         managedCleanupPaths.add(record.socket);
         managedCleanupPaths.add(record.lock);
-        crashWatchdog?.registerManagedPath(record.socket, record.lock);
+        crashWatchdog?.registerManagedPaths(record);
         if (!managedRegistrations.some((item) => item.pid === record.pid
           && item.start_ticks === record.start_ticks)) {
           managedRegistrations.push({
@@ -336,6 +364,9 @@ export async function runSafely({
             role: 'graphd',
             socket: record.socket,
             lock: record.lock,
+            root: record.root,
+            runtime_dir: record.runtime_dir,
+            runtime_identity: record.runtime_identity,
           });
         }
       },
@@ -637,7 +668,7 @@ export async function runSafely({
             await wait(100);
           }
         }
-        const cleanup = activeAdapter.cleanup();
+        const cleanup = await activeAdapter.cleanup();
         for (const error of cleanup.errors || []) report.cleanup.errors.push(`adapter cleanup: ${error}`);
         report.cleanup.descendants_remaining = cleanup.pids || [];
         report.cleanup.scope_removed = cleanup.removed === true;
@@ -711,12 +742,14 @@ export async function runSafely({
     };
   }
   finishReport(report, startedMs);
-  if (observedSafetyLimit !== null && mode !== 'self-test') {
+  if (retryLedgerError) {
+    report.outcome = 'internal_error';
+    report.termination.reason = 'retry_ledger_failed';
+    report.error = errorDetails(retryLedgerError, 'LAMINA_SAFE_RETRY_LEDGER');
+  } else if (runAttemptRecorded && observedSafetyLimit === null && !cleanupFailed
+    && ['success', 'command_failed', 'interrupted'].includes(report.outcome)) {
     try {
-      recordSafetyLimit(cwd, normalizedCommand, report.limits, {
-        ...report,
-        termination: { ...report.termination, limit: observedSafetyLimit },
-      });
+      clearRunAttempt(cwd, normalizedCommand, report.limits, report.run_id, retrySignature);
     } catch (error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'retry_ledger_failed';

@@ -1,5 +1,5 @@
-import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
@@ -13,46 +13,57 @@ import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
 import { checkPromotion, checkSafetyRetry, readAttestation } from './state.mjs';
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const EXTERNAL_DAEMON_PROGRAMS = new Set(['docker', 'podman', 'harbor']);
-const EXTERNAL_DAEMON_ENTRYPOINTS = [
-  'benchmarks/lb6/pilot/scripts/run-three-arm.mjs',
-  'benchmarks/lb6/pilot/scripts/build-runtime.mjs',
+const AUDITED_NODE_ENTRYPOINTS = [
+  'benchmarks/retrieval-v1/benchmark.mjs',
+  'evals/scripts/run-reference-matrix.mjs',
+  'evals/scripts/run-suite.mjs',
+  'evals/scripts/vendor-nextjs-fixture.mjs',
+  'evals/scripts/vendor-payload-fixture.mjs',
+  'tests/fixtures/safe-runner-adversary.mjs',
+  'tests/fixtures/safe-runner-controller.mjs',
+  'tests/fixtures/safe-runner-graphd-client.mjs',
 ];
+const AUDITED_NPM_SCRIPTS = new Set(['test', 'test:cli']);
+const AUDITED_NPX_TOOLS = new Set(['agent-skills-eval', 'promptfoo']);
 
-const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
+function firstScriptArgument(command) {
+  for (const argument of command.slice(1)) {
+    if (argument === '--') continue;
+    if (argument.startsWith('-')) return null;
+    return argument;
+  }
+  return null;
+}
 
-function boundedWrapperText(command, cwd) {
-  const text = [command.join(' ')];
-  for (const argument of command.slice(1, 5)) {
-    const candidate = path.resolve(cwd, argument);
-    try {
-      const stat = fs.statSync(candidate);
-      if (stat.isFile() && stat.size <= 64 * 1024) text.push(fs.readFileSync(candidate, 'utf8'));
-    } catch {}
-  }
-  const executable = path.basename(command[0] || '').toLowerCase();
-  if (['npm', 'pnpm', 'yarn'].includes(executable) && command[1] === 'run' && command[2]) {
-    try {
-      const packageJson = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
-      text.push(String(packageJson.scripts?.[command[2]] || ''));
-    } catch {}
-  }
-  return text.join('\n').replaceAll('\\', '/');
+function auditedNodeEntrypoint(command, cwd) {
+  const script = firstScriptArgument(command);
+  if (!script) return false;
+  const resolved = path.resolve(cwd, script);
+  return AUDITED_NODE_ENTRYPOINTS.some((entrypoint) => resolved === path.join(ROOT, entrypoint));
 }
 
 export function commandOwnership(command = [], cwd = process.cwd()) {
   const normalized = command.map((item) => String(item).replaceAll('\\', '/'));
   const executable = path.basename(normalized[0] || '').toLowerCase();
-  const external = EXTERNAL_DAEMON_PROGRAMS.has(executable)
-    || EXTERNAL_TEXT.test(boundedWrapperText(normalized, cwd))
-    || EXTERNAL_DAEMON_ENTRYPOINTS.some((entrypoint) =>
-      normalized.some((argument) => argument.endsWith(entrypoint)));
+  const node = /^(?:node|node\.exe)$/i.test(executable) && auditedNodeEntrypoint(normalized, cwd);
+  const npm = /^(?:npm|npm\.cmd)$/i.test(executable)
+    && path.resolve(cwd) === ROOT
+    && normalized[1] === 'run' && AUDITED_NPM_SCRIPTS.has(normalized[2]);
+  const npx = /^(?:npx|npx\.cmd)$/i.test(executable)
+    && AUDITED_NPX_TOOLS.has(normalized.find((item, index) => index > 0 && !item.startsWith('-')));
+  const bash = /^(?:bash|sh)$/i.test(executable)
+    && path.resolve(cwd, normalized[1] || '') === path.join(ROOT, 'evals/hooks/compatibility-matrix.sh');
+  const audited = node || npm || npx || bash;
+  const explicitlyExternal = EXTERNAL_DAEMON_PROGRAMS.has(executable)
+    || normalized.some((argument) => /(?:^|\/)(?:docker|podman|harbor)(?:$|\/)/i.test(argument));
   return {
-    model: external ? 'external-daemon-unproven' : 'adapter-descendant-tree',
-    proven: !external,
-    reason: external
-      ? 'Docker/Harbor descendants are launched by an external daemon and are not proven members of the client scope.'
-      : null,
+    model: audited ? 'audited-adapter-descendant-tree' : 'unproven-entrypoint',
+    proven: audited,
+    reason: audited ? null : explicitlyExternal
+      ? 'Docker/Podman/Harbor descendants are launched by an external daemon and are not proven members of the client scope.'
+      : 'command entrypoint is not on the audited descendant-ownership allowlist; add and review the exact entrypoint before execution',
   };
 }
 
@@ -123,7 +134,7 @@ export function preflightRun({
   }
   const existing = injectedExistingProcesses ?? existingLaminaProcesses();
   const attestation = readAttestation(adapterInfo);
-  const promotion = checkPromotion(cwd, tier, workloadId);
+  const promotion = checkPromotion(cwd, tier, workloadId, command);
   if (production && !attestation.valid) {
     reasons.push('medium/large execution requires a current passing adversarial self-test attestation');
   }

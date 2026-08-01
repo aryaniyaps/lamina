@@ -57,7 +57,7 @@ export function registerManagedGraphd(child, paths = null) {
   if (!startTicks) return;
   const response = registerManagedGraphdWithSupervisor(
     { pid: child.pid, start_ticks: startTicks },
-    paths ? { socket: paths.socket || graphSocketPath(paths), lock: paths.lock } : null,
+    paths ? { ...paths, socket: paths.socket || graphSocketPath(paths) } : null,
   );
   if (!response?.ok) {
     try { process.kill(child.pid, 'SIGKILL'); } catch {}

@@ -1,15 +1,56 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { TIER_ORDER } from './constants.mjs';
 
 const sameIdentity = (left, right) => Number(left?.pid) === Number(right?.pid)
   && String(left?.start_ticks || '') === String(right?.start_ticks || '');
 
-const graphdCommand = (command = '') =>
-  /(?:^|\s)[^\s]*\/graph-runtime\/server\.mjs(?:\s|$)/.test(command)
-  || /(?:^|\s)[^\s]*\/tests\/fixtures\/safe-runner-graphd\/server\.mjs(?:\s|$)/.test(command)
-  || /(?:^|\s)--graphd(?:\s|$)/.test(command);
+function canonicalGraphdRegistration(request, authority, child) {
+  const refuse = (message) => { throw new Error(message); };
+  if (typeof request.root !== 'string' || !path.isAbsolute(request.root)
+    || typeof request.runtime_dir !== 'string' || !path.isAbsolute(request.runtime_dir)
+    || typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
+    || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)) refuse('paths must be absolute');
+  let root;
+  let runtime;
+  let stat;
+  try {
+    root = fs.realpathSync.native(request.root);
+    const git = spawnSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000,
+    });
+    if (git.status !== 0) refuse('graph root is not a readable Git repository');
+    runtime = path.resolve(root, String(git.stdout || '').trim(), 'lamina');
+    if (path.resolve(request.runtime_dir) !== runtime
+      || path.resolve(request.socket) !== path.join(runtime, 'graphd.sock')
+      || path.resolve(request.lock) !== path.join(runtime, 'graphd.lock')) refuse('runtime paths do not match the graph root Git common directory');
+    stat = fs.lstatSync(runtime);
+  } catch (error) { refuse(error.message || 'graph runtime could not be verified'); }
+  if (!stat.isDirectory() || stat.isSymbolicLink()
+    || (typeof process.getuid === 'function' && stat.uid !== process.getuid())) refuse('graph runtime directory ownership is not physical and same-user');
+  const argv = authority.arguments?.(child.pid) || [];
+  const sourceIndex = argv.findIndex((argument) =>
+    String(argument).replaceAll('\\', '/').endsWith('/graph-runtime/server.mjs'));
+  const standaloneIndex = argv.findIndex((argument) => argument === '--graphd');
+  const standaloneExecutable = /^(?:lamina|lamina-(?:linux|darwin|win32)-[^/]+)$/i
+    .test(path.basename(argv[0] || ''));
+  const declaredRoot = sourceIndex >= 0 ? argv[sourceIndex + 1]
+    : standaloneIndex >= 0 && standaloneExecutable ? argv[standaloneIndex + 1] : null;
+  try {
+    if (!declaredRoot || fs.realpathSync.native(declaredRoot) !== root) refuse('graphd argv does not declare the exact graph root');
+  } catch (error) { refuse(error.message || 'graphd argv root could not be verified'); }
+  return {
+    root,
+    runtime_dir: runtime,
+    runtime_identity: {
+      path: runtime, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+    },
+    socket: path.join(runtime, 'graphd.sock'),
+    lock: path.join(runtime, 'graphd.lock'),
+  };
+}
 
 export function authorizeBrokerRequest(request, authority) {
   const records = authority.records();
@@ -37,23 +78,18 @@ export function authorizeBrokerRequest(request, authority) {
   }
   if (request.operation === 'register_graphd') {
     const child = records.find((record) => sameIdentity(record, request.child));
-    if (!child || !graphdCommand(child.command)) {
-      return { ok: false, error: 'managed graphd identity/command is not an in-scope graphd process' };
-    }
+    if (!child) return { ok: false, error: 'managed graphd identity is not in the supervised scope' };
     if (child.ppid !== requester.pid && child.ppid !== 1) {
       return { ok: false, error: 'managed graphd was not spawned by the authorized requester' };
     }
-    if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
-      || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)
-      || path.dirname(request.socket) !== path.dirname(request.lock)
-      || path.basename(request.socket) !== 'graphd.sock'
-      || path.basename(request.lock) !== 'graphd.lock') {
-      return { ok: false, error: 'managed graphd registration requires canonical absolute socket/lock siblings' };
+    let registration;
+    try { registration = canonicalGraphdRegistration(request, authority, child); }
+    catch (error) {
+      return { ok: false, error: `managed graphd registration refused: ${error.message}` };
     }
     authority.register({
       ...child,
-      socket: path.resolve(request.socket),
-      lock: path.resolve(request.lock),
+      ...registration,
     });
     return {
       ok: true,
@@ -61,8 +97,7 @@ export function authorizeBrokerRequest(request, authority) {
         pid: child.pid,
         start_ticks: child.start_ticks,
         role: 'graphd',
-        socket: path.resolve(request.socket),
-        lock: path.resolve(request.lock),
+        ...registration,
       },
     };
   }

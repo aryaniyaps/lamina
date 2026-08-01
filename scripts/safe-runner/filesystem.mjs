@@ -69,7 +69,9 @@ export function ownedDirectoryIdentity(directory) {
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
     throw new Error(`runner-owned path is not a physical directory: ${resolved}`);
   }
-  return { path: resolved, dev: String(stat.dev), ino: String(stat.ino) };
+  return {
+    path: resolved, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+  };
 }
 
 export function removeOwnedDirectory(directory, expectedPrefix, ownership) {
@@ -86,4 +88,34 @@ export function removeOwnedDirectory(directory, expectedPrefix, ownership) {
   }
   fs.rmSync(resolved, { recursive: true, force: true });
   return !fs.existsSync(resolved);
+}
+
+export function removeOwnedRuntimePaths(candidates) {
+  const remaining = [];
+  for (const candidate of candidates || []) {
+    const resolved = path.resolve(candidate?.path || '');
+    const expected = candidate?.parent_identity;
+    let parent;
+    try { parent = fs.lstatSync(path.dirname(resolved)); } catch { parent = null; }
+    const parentOwned = expected?.path === path.dirname(resolved)
+      && parent?.isDirectory() && !parent.isSymbolicLink()
+      && String(parent.dev) === expected.dev && String(parent.ino) === expected.ino
+      && Number(parent.uid) === Number(expected.uid);
+    if (!parentOwned || !['graphd.sock', 'graphd.lock'].includes(path.basename(resolved))) {
+      remaining.push(resolved);
+      continue;
+    }
+    try {
+      const entry = fs.lstatSync(resolved);
+      if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isSocket())) {
+        remaining.push(resolved);
+        continue;
+      }
+      fs.rmSync(resolved, { force: true });
+    } catch (error) {
+      if (error.code !== 'ENOENT') remaining.push(resolved);
+    }
+    if (fs.existsSync(resolved)) remaining.push(resolved);
+  }
+  return [...new Set(remaining)];
 }

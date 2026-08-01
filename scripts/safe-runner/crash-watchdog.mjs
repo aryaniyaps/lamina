@@ -7,7 +7,7 @@ import {
   identityAlive, processIdentity, processRecord, readPidList, signalIdentity,
 } from './processes.mjs';
 import { finishReport, writeReportWithFallback } from './report.mjs';
-import { removeOwnedDirectory } from './filesystem.mjs';
+import { removeOwnedDirectory, removeOwnedRuntimePaths } from './filesystem.mjs';
 import { systemdKillArguments } from './linux-systemd.mjs';
 
 const [manifestFile, readyFile, disarmFile] = process.argv.slice(2);
@@ -57,20 +57,6 @@ function unitAbsent(unit) {
 function operationError(result, operation) {
   if (!result.error && result.status === 0) return null;
   return `${operation}: ${result.error?.message || String(result.stderr || '').trim() || `status ${result.status}`}`;
-}
-
-function removeManagedPaths(candidates) {
-  const remaining = [];
-  for (const candidate of candidates || []) {
-    const resolved = path.resolve(candidate);
-    if (!['graphd.sock', 'graphd.lock'].includes(path.basename(resolved))) {
-      remaining.push(resolved);
-      continue;
-    }
-    try { fs.rmSync(resolved, { force: true }); } catch {}
-    if (fs.existsSync(resolved)) remaining.push(resolved);
-  }
-  return remaining;
 }
 
 function releaseLock(file, expected) {
@@ -155,7 +141,7 @@ async function supervise() {
   } else {
     scopeRemoved = descendantsRemaining.length === 0;
   }
-  const managedRemaining = removeManagedPaths(manifest.managed_paths);
+  const managedRemaining = removeOwnedRuntimePaths(manifest.managed_paths);
   let temporaryRemoved = false;
   try {
     temporaryRemoved = !fs.existsSync(manifest.runner_temporary_directory)
@@ -176,7 +162,7 @@ async function supervise() {
   report.outcome = 'internal_error';
   report.report_file = path.resolve(manifest.report_file);
   report.termination.reason = 'controller_crashed';
-  report.termination.limit = null;
+  report.termination.limit = manifest.observed_safety_limit || null;
   if (!report.termination.requested_signals.includes('SIGKILL')) report.termination.requested_signals.push('SIGKILL');
   report.cleanup = {
     attempted: true,

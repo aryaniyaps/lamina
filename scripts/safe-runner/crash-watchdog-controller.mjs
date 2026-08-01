@@ -73,10 +73,16 @@ export async function startCrashWatchdog({
       manifest = { ...manifest, ...fields };
       atomicJson(manifestFile, manifest);
     },
-    registerManagedPath(...candidates) {
-      const managed = new Set(manifest.managed_paths);
-      for (const candidate of candidates) managed.add(path.resolve(candidate));
-      manifest = { ...manifest, managed_paths: [...managed] };
+    registerManagedPaths(registration) {
+      const managed = new Map((manifest.managed_paths || []).map((item) => [item.path, item]));
+      for (const candidate of [registration.socket, registration.lock]) {
+        const resolved = path.resolve(candidate);
+        managed.set(resolved, {
+          path: resolved,
+          parent_identity: registration.runtime_identity,
+        });
+      }
+      manifest = { ...manifest, managed_paths: [...managed.values()] };
       atomicJson(manifestFile, manifest);
     },
     async disarm() {
