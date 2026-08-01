@@ -66,10 +66,22 @@ assert.match(executionSnapshot,
 assert.match(executionSnapshot,
   /EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS[\s\S]*safe-runner-graphd-client\.mjs[\s\S]*safe-runner-mutable\.mjs/);
 assert.match(executionSnapshot,
-  /if \(EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS\.has\(entrypoint\)\)[\s\S]*kind: 'git-common-runtime'/,
+  /if \(EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS\.has\(entrypoint\)\)[\s\S]*kind: 'git-common-work-scratch'/,
   'Git-common writable binding must be reachable only for the two scratch fixtures');
 assert.match(retrievalAuthority,
   /requires exactly one[\s\S]*nlink !== 1n[\s\S]*canonical model manifest[\s\S]*physical --model bytes/);
+assert.match(retrievalAuthority,
+  /normalized\.length !== 11 \|\| consumed\.size !== normalized\.length/,
+  'retrieval qualification must consume a closed argv grammar with no extra tokens');
+assert.match(runner,
+  /expectedRetrievalAuthority: preflight\.retrieval_authority/,
+  'snapshot construction must retain the authority established before watchdog setup');
+assert.match(systemd,
+  /audited_entrypoint:[\s\S]*environment_overrides:/,
+  'sandbox authority encoding must carry only the snapshot-sealed environment overrides');
+assert.match(sandbox,
+  /validatedSealedEnvironmentNames[\s\S]*preservedEnvironmentNames/,
+  'bwrap unset generation must preserve only validated snapshot environment inputs');
 assert.doesNotMatch(retrievalBenchmark,
   /process\.env\.LAMINA_RETRIEVAL_(?:MODEL_PATH|TOKENIZER_PATH|MODEL_DIGEST)|LAMINA_UV_BINARY \|\| 'uv'/,
   'retrieval qualification must not recover inherited semantic or uv fallback inputs');

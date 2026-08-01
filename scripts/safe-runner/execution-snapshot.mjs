@@ -8,6 +8,7 @@ import { inertRepositoryConfig, spawnTrustedGit } from './git.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
+  assertRetrievalAuthorityContinuity,
   RETRIEVAL_BENCHMARK_ENTRYPOINT,
   retrievalQualificationAuthority,
 } from './retrieval-authority.mjs';
@@ -74,7 +75,8 @@ function copyPhysicalFile(source, destination, executable = false) {
   let output = null;
   try {
     const opened = fs.fstatSync(input, { bigint: true });
-    if (opened.dev !== named.dev || opened.ino !== named.ino || opened.size !== named.size) {
+    if (opened.dev !== named.dev || opened.ino !== named.ino || opened.size !== named.size
+      || opened.uid !== named.uid || opened.mode !== named.mode || opened.nlink !== named.nlink) {
       throw new Error(`snapshot source changed while opening: ${source}`);
     }
     fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
@@ -92,10 +94,16 @@ function copyPhysicalFile(source, destination, executable = false) {
     }
     const final = fs.fstatSync(input, { bigint: true });
     if (offset !== Number(opened.size) || final.dev !== opened.dev || final.ino !== opened.ino
-      || final.size !== opened.size) throw new Error(`snapshot source changed while copying: ${source}`);
+      || final.size !== opened.size || final.uid !== opened.uid || final.mode !== opened.mode
+      || final.nlink !== opened.nlink) throw new Error(`snapshot source changed while copying: ${source}`);
     fs.fchmodSync(output, executable ? 0o500 : 0o400);
     fs.fsyncSync(output);
-    return { size: offset, digest: hash.digest('hex') };
+    return {
+      size: offset, digest: hash.digest('hex'),
+      source_dev: String(opened.dev), source_ino: String(opened.ino),
+      source_uid: Number(opened.uid), source_nlink: Number(opened.nlink),
+      source_mode: Number(opened.mode & 0o777n),
+    };
   } finally {
     if (output !== null) fs.closeSync(output);
     fs.closeSync(input);
@@ -633,6 +641,9 @@ function dependencyNames(repository, command, cwd, npxAuthority = null) {
 
 export function prepareExecutionSnapshot({
   cwd, command, temporaryDirectory, infrastructure = null, environment = {}, onProgress = null,
+  expectedRetrievalAuthority = null,
+  _testAfterRetrievalAuthorityValidated = null,
+  _testBeforeRetrievalCopyValidation = null,
 }) {
   const repository = repositoryRoot(cwd);
   const npxAuthority = /^npx(?:\.cmd)?$/i.test(path.basename(command[0]))
@@ -644,6 +655,8 @@ export function prepareExecutionSnapshot({
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
+  assertRetrievalAuthorityContinuity(expectedRetrievalAuthority, retrievalAuthority);
+  _testAfterRetrievalAuthorityValidated?.(retrievalAuthority);
   const sourceGit = gitAuthority(repository);
   const root = path.join(temporaryDirectory, 'execution-authority');
   const snapshotRepository = path.join(root, 'repository');
@@ -706,19 +719,30 @@ export function prepareExecutionSnapshot({
       throw new Error('execution argv snapshot exceeds its bounded budget');
     }
   }
-  for (const input of retrievalAuthority
+  _testBeforeRetrievalCopyValidation?.(retrievalAuthority);
+  for (const input of expectedRetrievalAuthority
     ? [retrievalAuthority.worker, retrievalAuthority.model, retrievalAuthority.tokenizer] : []) {
     const copied = entries.find((entry) => entry.label === `argv:${input.relative}`
       || entry.label === `repository:${input.relative}`);
-    if (!copied || copied.type !== 'file' || copied.digest !== input.digest) {
+    const expected = expectedRetrievalAuthority[input.flag.slice(2)];
+    if (!copied || copied.type !== 'file' || copied.digest !== expected.digest
+      || copied.size !== expected.size || copied.source_dev !== expected.dev
+      || copied.source_ino !== expected.ino || copied.source_uid !== expected.uid
+      || copied.source_nlink !== expected.nlink || copied.source_mode !== expected.mode) {
       throw new Error(`copied retrieval ${input.flag} authority does not match its physical input`);
     }
   }
-  if (retrievalAuthority) {
+  if (expectedRetrievalAuthority) {
     const manifest = entries.find((entry) =>
-      entry.label === `repository:${retrievalAuthority.manifest.relative}`);
+      entry.label === `repository:${expectedRetrievalAuthority.manifest.relative}`);
     if (!manifest || manifest.type !== 'file'
-      || manifest.digest !== retrievalAuthority.manifest.digest) {
+      || manifest.digest !== expectedRetrievalAuthority.manifest.digest
+      || manifest.size !== expectedRetrievalAuthority.manifest.size
+      || manifest.source_dev !== expectedRetrievalAuthority.manifest.dev
+      || manifest.source_ino !== expectedRetrievalAuthority.manifest.ino
+      || manifest.source_uid !== expectedRetrievalAuthority.manifest.uid
+      || manifest.source_nlink !== expectedRetrievalAuthority.manifest.nlink
+      || manifest.source_mode !== expectedRetrievalAuthority.manifest.mode) {
       throw new Error('copied retrieval model manifest authority does not match canonical bytes');
     }
   }
@@ -1175,13 +1199,14 @@ export function prepareExecutionSnapshot({
     fs.mkdirSync(runtimeAlias, { recursive: true, mode: 0o700 });
     writableBindings.push({
       source: runtimeSource, target: runtimeSource, alias: runtimeAlias,
-      kind: 'git-common-runtime', source_identity: {
+      kind: 'git-common-work-scratch', source_identity: {
         dev: String(runtimeStat.dev), ino: String(runtimeStat.ino), uid: Number(runtimeStat.uid),
       },
     });
   }
   return {
     root, repository, snapshot_repository: snapshotRepository,
+    audited_entrypoint: auditedEntrypoint,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
     git_readonly_bindings: gitReadonlyBindings,
     git_common: sourceGit.common,

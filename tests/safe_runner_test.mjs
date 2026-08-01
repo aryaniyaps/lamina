@@ -22,6 +22,7 @@ import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-ru
 import {
   assertSystemctlSuccess,
   cgroupResolutionState,
+  encodeExecutionAuthority,
   LinuxSystemdAdapter,
   parseSystemdMajor,
   SYSTEMCTL_CONTROL_TIMEOUT_MS,
@@ -58,6 +59,8 @@ import { auditedNpxCommand } from '../scripts/safe-runner/npx-authority.mjs';
 import { repositoryOutputRefusal } from '../scripts/safe-runner/output-policy.mjs';
 import {
   assertRetrievalModelManifest, retrievalQualificationAuthority,
+  RETRIEVAL_MANIFEST_MAX_BYTES, RETRIEVAL_MODEL_MAX_BYTES,
+  RETRIEVAL_TOKENIZER_MAX_BYTES, RETRIEVAL_WORKER_MAX_BYTES,
 } from '../scripts/safe-runner/retrieval-authority.mjs';
 import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import {
@@ -79,6 +82,8 @@ import {
   bubblewrapSandboxArguments,
   CONTROL_ENVIRONMENT_NAMES,
   controlSocketMasks,
+  validateSandboxExecutionAuthority,
+  validatedSealedEnvironmentNames,
 } from '../scripts/safe-runner/sandbox.mjs';
 import { boundedCaseError, runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
 import {
@@ -499,6 +504,15 @@ try {
   assertRetrievalRefusal('both qualification modes',
     [...retrievalCommand, '--calibrate'],
     /requires exactly one of --evaluate or --calibrate/);
+  assertRetrievalRefusal('unknown qualification flag',
+    [...retrievalCommand, '--unknown'],
+    /unknown flag or positional token/);
+  assertRetrievalRefusal('unknown qualification positional',
+    [...retrievalCommand, 'positional-junk'],
+    /unknown flag or positional token/);
+  assertRetrievalRefusal('unknown-only benchmark argument', [
+    process.execPath, retrievalEntrypoint, '--unknown',
+  ], /requires exactly one of --evaluate or --calibrate/);
   assertRetrievalRefusal('qualification flags without a mode',
     retrievalCommand.filter((value) => value !== '--evaluate'),
     /requires exactly one of --evaluate or --calibrate/);
@@ -1277,6 +1291,63 @@ try {
     'standalone smoke must not bind the source repository Git-common runtime');
   assert.equal(standaloneSnapshot.graphd_launch_authority.length, 1);
   assert.equal(standaloneSnapshot.graphd_launch_authority[0].kind, 'standalone-cwd');
+  const composedSmokeEnvironment = sanitizedPayloadEnvironment({
+    sources: [semanticPoison, { LAMINA_SAFE_RUNNER: '1' }], mode: 'run',
+    auditedEntrypoint: standaloneSnapshot.audited_entrypoint,
+    sealedOverrides: standaloneSnapshot.environment_overrides,
+  });
+  const encodedSmokeAuthority = JSON.parse(Buffer.from(
+    encodeExecutionAuthority(standaloneSnapshot), 'base64url',
+  ).toString('utf8'));
+  assert.deepEqual(encodedSmokeAuthority.environment_overrides,
+    standaloneSnapshot.environment_overrides,
+    'systemd handoff must encode the exact snapshot-sealed smoke environment values');
+  const smokePreservedNames = validatedSealedEnvironmentNames({
+    executionAuthority: encodedSmokeAuthority,
+    environment: composedSmokeEnvironment,
+  });
+  assert.deepEqual(smokePreservedNames.sort(), [
+    'LAMINA_BINARY', 'LAMINA_MODEL', 'LAMINA_WORKER',
+  ], 'only snapshot-sealed native smoke inputs may survive sandbox unsets');
+  const smokeSandboxContract = validateSandboxExecutionAuthority({
+    executionAuthority: encodedSmokeAuthority,
+    authorityRoot: standaloneSnapshot.root,
+    cwd: snapshotRepository,
+    environment: composedSmokeEnvironment,
+  });
+  const smokeSandboxArgs = bubblewrapSandboxArguments({
+    cwd: snapshotRepository,
+    readyFile: path.join(root, 'smoke.ready'),
+    releaseFile: path.join(root, 'smoke.release'),
+    temporaryDirectory: path.join(root, 'smoke-payload-tmp'),
+    command: standaloneSnapshot.launch_command,
+    executionAuthority: encodedSmokeAuthority,
+    preservedEnvironmentNames: smokeSandboxContract.preservedEnvironmentNames,
+    environment: composedSmokeEnvironment,
+    masks: { hiddenDirectories: [], sockets: [] },
+  });
+  for (const name of smokePreservedNames) {
+    assert.equal(smokeSandboxArgs.some((value, index) => value === name
+      && smokeSandboxArgs[index - 1] === '--unsetenv'), false,
+    `${name} must reach native qualification instead of the smoke early-exit path`);
+    assert.equal(composedSmokeEnvironment[name], standaloneSnapshot.environment_overrides[name]);
+  }
+  assert.equal(composedSmokeEnvironment.LAMINA_RETRIEVAL_MODEL_PATH, undefined,
+    'an inherited semantic alias must remain stripped in the composed payload environment');
+  assert.throws(() => validatedSealedEnvironmentNames({
+    executionAuthority: {
+      ...encodedSmokeAuthority,
+      environment_overrides: {
+        ...encodedSmokeAuthority.environment_overrides,
+        LAMINA_RETRIEVAL_ARBITRARY: standaloneBinary,
+      },
+    },
+    environment: {
+      ...composedSmokeEnvironment,
+      LAMINA_RETRIEVAL_ARBITRARY: standaloneBinary,
+    },
+  }), /unsealed environment override/,
+  'sandbox must not preserve an arbitrary re-added retrieval environment name');
   const standaloneCwd = path.join(standaloneSnapshotTemporary, 'payload-tmp',
     'private-lamina-smoke', 'fixture');
   const standaloneChild = {
@@ -1333,6 +1404,14 @@ try {
   const sealedRetrievalAuthority = retrievalQualificationAuthority({
     repository: retrievalRepository, command: sealedRetrievalCommand,
   });
+  const prepareSealedRetrievalSnapshot = (command, temporaryDirectory, options = {}) =>
+    prepareExecutionSnapshot({
+      cwd: retrievalRepository, command, temporaryDirectory,
+      expectedRetrievalAuthority: retrievalQualificationAuthority({
+        repository: retrievalRepository, command,
+      }),
+      ...options,
+    });
   assert.equal(sealedRetrievalAuthority.model.digest, sealedModelDigest);
   assert.match(sealedRetrievalAuthority.manifest.digest, /^[a-f0-9]{64}$/);
   const frozenRetrievalOne = frozenWorkloadIdentity(
@@ -1341,10 +1420,9 @@ try {
   assert.equal(frozenRetrievalOne.retrieval_authority.model.digest, sealedModelDigest);
   assert.equal(frozenRetrievalOne.workload_inputs.some((item) => item.path === sealedModel), false,
     'dedicated retrieval identity must exclude the model from the generic 64MiB argv budget');
-  const sealedRetrievalSnapshotOne = prepareExecutionSnapshot({
-    cwd: retrievalRepository, command: sealedRetrievalCommand,
-    temporaryDirectory: path.join(root, 'snapshot-retrieval-one'),
-  });
+  const sealedRetrievalSnapshotOne = prepareSealedRetrievalSnapshot(
+    sealedRetrievalCommand, path.join(root, 'snapshot-retrieval-one'),
+  );
   assert.deepEqual(sealedRetrievalSnapshotOne.writable_bindings, [],
     'retrieval qualification must not receive source Git-common write authority');
   assert.deepEqual(sealedRetrievalSnapshotOne.graphd_launch_authority, []);
@@ -1357,23 +1435,92 @@ try {
       entry.label === `argv:${relative}`)?.digest, expectedDigest,
     `ignored retrieval input ${relative} must be descriptor-copied into snapshot identity`);
   }
+  const originalModelBytes = fs.readFileSync(sealedModel);
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-swap-copy-restore'),
+    expectedRetrievalAuthority: sealedRetrievalAuthority,
+    _testAfterRetrievalAuthorityValidated() {
+      fs.writeFileSync(sealedModel, 'swapped!');
+    },
+    _testBeforeRetrievalCopyValidation() {
+      fs.writeFileSync(sealedModel, originalModelBytes);
+    },
+  }), /copied retrieval --model authority does not match/,
+  'snapshot must reject swapped bytes copied after preflight even when the source is restored');
+  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(sealedModel)).digest('hex'),
+    sealedModelDigest, 'the deterministic race seam must restore the preflight source bytes');
+  const swappedModelBackup = path.join(retrievalAssets, 'model-preflight-inode');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-same-bytes-inode-swap'),
+    expectedRetrievalAuthority: sealedRetrievalAuthority,
+    _testAfterRetrievalAuthorityValidated() {
+      fs.renameSync(sealedModel, swappedModelBackup);
+      fs.writeFileSync(sealedModel, originalModelBytes);
+    },
+    _testBeforeRetrievalCopyValidation() {
+      fs.unlinkSync(sealedModel);
+      fs.renameSync(swappedModelBackup, sealedModel);
+    },
+  }), /copied retrieval --model authority does not match/,
+  'same bytes from a substituted inode must not satisfy the original preflight authority');
+
+  const oversizeWorker = path.join(retrievalAssets, 'worker-oversize');
+  const oversizeModel = path.join(retrievalAssets, 'model-oversize.onnx');
+  const oversizeTokenizer = path.join(retrievalAssets, 'tokenizer-oversize.json');
+  for (const [file, bytes, mode] of [
+    [oversizeWorker, RETRIEVAL_WORKER_MAX_BYTES + 1, 0o700],
+    [oversizeModel, RETRIEVAL_MODEL_MAX_BYTES + 1, 0o600],
+    [oversizeTokenizer, RETRIEVAL_TOKENIZER_MAX_BYTES + 1, 0o600],
+  ]) {
+    fs.writeFileSync(file, '', { mode });
+    fs.truncateSync(file, bytes);
+  }
+  for (const [flag, file, pattern] of [
+    ['--worker', oversizeWorker, /--worker exceeds its pre-hash size cap/],
+    ['--model', oversizeModel, /--model exceeds its pre-hash size cap/],
+    ['--tokenizer', oversizeTokenizer, /--tokenizer exceeds its pre-hash size cap/],
+  ]) {
+    const command = [...sealedRetrievalCommand];
+    command[command.indexOf(flag) + 1] = file;
+    assert.throws(() => retrievalQualificationAuthority({
+      repository: retrievalRepository, command,
+    }), pattern, `${flag} sparse oversize input must refuse before hashing its bytes`);
+  }
+  const manifestPath = path.join(retrievalRepository, 'packages', 'cli',
+    'retrieval-model-manifest.json');
+  const originalManifestBytes = fs.readFileSync(manifestPath);
+  try {
+    fs.truncateSync(manifestPath, RETRIEVAL_MANIFEST_MAX_BYTES + 1);
+    assert.throws(() => retrievalQualificationAuthority({
+      repository: retrievalRepository, command: sealedRetrievalCommand,
+    }), /manifest exceeds its 1 MiB pre-read size cap/,
+    'sparse oversize manifest must refuse before hashing or parsing its bytes');
+  } finally {
+    fs.writeFileSync(manifestPath, originalManifestBytes);
+  }
   fs.writeFileSync(sealedTokenizer, 'tokenizer-v2');
+  assert.throws(() => prepareExecutionSnapshot({
+    cwd: retrievalRepository, command: sealedRetrievalCommand,
+    temporaryDirectory: path.join(root, 'snapshot-retrieval-preflight-mismatch'),
+    expectedRetrievalAuthority: sealedRetrievalAuthority,
+  }), /retrieval qualification authority changed after preflight/,
+  'snapshot must reject a semantic input changed after the original preflight');
   const frozenRetrievalTwo = frozenWorkloadIdentity(
     retrievalRepository, sealedRetrievalCommand,
   );
-  const sealedRetrievalSnapshotTwo = prepareExecutionSnapshot({
-    cwd: retrievalRepository, command: sealedRetrievalCommand,
-    temporaryDirectory: path.join(root, 'snapshot-retrieval-two'),
-  });
+  const sealedRetrievalSnapshotTwo = prepareSealedRetrievalSnapshot(
+    sealedRetrievalCommand, path.join(root, 'snapshot-retrieval-two'),
+  );
   assert.notEqual(frozenRetrievalTwo.digest, frozenRetrievalOne.digest,
     'tokenizer byte changes must alter frozen retrieval semantics');
   assert.notEqual(sealedRetrievalSnapshotTwo.digest, sealedRetrievalSnapshotOne.digest,
     'tokenizer byte changes must alter sealed snapshot identity');
   fs.writeFileSync(sealedWorker, 'worker-v2', { mode: 0o700 });
-  const sealedRetrievalSnapshotThree = prepareExecutionSnapshot({
-    cwd: retrievalRepository, command: sealedRetrievalCommand,
-    temporaryDirectory: path.join(root, 'snapshot-retrieval-three'),
-  });
+  const sealedRetrievalSnapshotThree = prepareSealedRetrievalSnapshot(
+    sealedRetrievalCommand, path.join(root, 'snapshot-retrieval-three'),
+  );
   assert.notEqual(sealedRetrievalSnapshotThree.digest, sealedRetrievalSnapshotTwo.digest,
     'worker byte changes must alter sealed snapshot identity');
   fs.writeFileSync(sealedModel, 'model-v2');
@@ -1387,10 +1534,9 @@ try {
   const sealedRetrievalCommandTwo = [...sealedRetrievalCommand];
   sealedRetrievalCommandTwo[sealedRetrievalCommandTwo.indexOf('--model-digest') + 1]
     = sealedModelDigestTwo;
-  const sealedRetrievalSnapshotFour = prepareExecutionSnapshot({
-    cwd: retrievalRepository, command: sealedRetrievalCommandTwo,
-    temporaryDirectory: path.join(root, 'snapshot-retrieval-four'),
-  });
+  const sealedRetrievalSnapshotFour = prepareSealedRetrievalSnapshot(
+    sealedRetrievalCommandTwo, path.join(root, 'snapshot-retrieval-four'),
+  );
   assert.notEqual(sealedRetrievalSnapshotFour.digest, sealedRetrievalSnapshotThree.digest,
     'model and canonical manifest byte changes must alter sealed snapshot identity');
   const mutableEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
@@ -1433,6 +1579,41 @@ try {
     fixtureWork, 'mutable fixture writable source must be the exact lamina/work scratch');
   assert.equal(validMutableSnapshot.writable_bindings[0].target,
     fixtureWork, 'mutable fixture writable target must be the exact lamina/work scratch');
+  assert.equal(validMutableSnapshot.writable_bindings[0].kind, 'git-common-work-scratch');
+  const encodedMutableAuthority = JSON.parse(Buffer.from(
+    encodeExecutionAuthority(validMutableSnapshot), 'base64url',
+  ).toString('utf8'));
+  const mutableSandboxContract = validateSandboxExecutionAuthority({
+    executionAuthority: encodedMutableAuthority,
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  });
+  const mutableSandboxArgs = bubblewrapSandboxArguments({
+    cwd: snapshotRepository,
+    readyFile: path.join(root, 'mutable.ready'),
+    releaseFile: path.join(root, 'mutable.release'),
+    temporaryDirectory: path.join(root, 'mutable-payload-tmp'),
+    command: validMutableSnapshot.launch_command,
+    executionAuthority: encodedMutableAuthority,
+    preservedEnvironmentNames: mutableSandboxContract.preservedEnvironmentNames,
+    environment: {}, masks: { hiddenDirectories: [], sockets: [] },
+  });
+  assert.ok(mutableSandboxArgs.some((value, index) => value === fixtureWork
+    && mutableSandboxArgs[index - 1] === '--bind'),
+  'mutable fixture exact scratch must survive sandbox validation into bwrap mounts');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...encodedMutableAuthority,
+      writable_bindings: encodedMutableAuthority.writable_bindings.map((binding) => ({
+        ...binding, kind: 'git-common-runtime',
+      })),
+    },
+    authorityRoot: validMutableSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'the former parent-runtime kind must fail at the sandbox authority boundary');
   assert.deepEqual(validMutableSnapshot.graphd_launch_authority, [],
     'mutable scratch fixture must not receive graphd launch authority');
   const graphdEntrypoint = path.join(snapshotRepository, 'tests', 'fixtures',
@@ -1456,6 +1637,29 @@ try {
     fixtureWork, 'graphd fixture writable source must be the exact lamina/work scratch');
   assert.equal(validGraphdSnapshot.writable_bindings[0].target,
     fixtureWork, 'graphd fixture writable target must be the exact lamina/work scratch');
+  assert.equal(validGraphdSnapshot.writable_bindings[0].kind, 'git-common-work-scratch');
+  const encodedGraphdAuthority = JSON.parse(Buffer.from(
+    encodeExecutionAuthority(validGraphdSnapshot), 'base64url',
+  ).toString('utf8'));
+  const graphdSandboxContract = validateSandboxExecutionAuthority({
+    executionAuthority: encodedGraphdAuthority,
+    authorityRoot: validGraphdSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  });
+  const graphdSandboxArgs = bubblewrapSandboxArguments({
+    cwd: snapshotRepository,
+    readyFile: path.join(root, 'graphd.ready'),
+    releaseFile: path.join(root, 'graphd.release'),
+    temporaryDirectory: path.join(root, 'graphd-payload-tmp'),
+    command: validGraphdSnapshot.launch_command,
+    executionAuthority: encodedGraphdAuthority,
+    preservedEnvironmentNames: graphdSandboxContract.preservedEnvironmentNames,
+    environment: {}, masks: { hiddenDirectories: [], sockets: [] },
+  });
+  assert.ok(graphdSandboxArgs.some((value, index) => value === fixtureWork
+    && graphdSandboxArgs[index - 1] === '--bind'),
+  'graphd fixture exact scratch must survive sandbox validation into bwrap mounts');
   assert.equal(validGraphdSnapshot.graphd_launch_authority.length, 1,
     'graphd-client scratch fixture must receive only its exact fixture graphd authority');
   assert.equal(validGraphdSnapshot.graphd_launch_authority[0].runtime_directory,

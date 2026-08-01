@@ -17,6 +17,8 @@ const binary = process.env.LAMINA_BINARY && path.resolve(process.env.LAMINA_BINA
 const worker = process.env.LAMINA_WORKER && path.resolve(process.env.LAMINA_WORKER);
 const model = process.env.LAMINA_MODEL && path.resolve(process.env.LAMINA_MODEL);
 if (!binary) {
+  assert.notEqual(process.env.LAMINA_SAFE_RUNNER, '1',
+    'safe-runner native qualification must retain its snapshot-sealed LAMINA_BINARY');
   assert.equal(fs.existsSync('scripts/install.sh'), true);
   assert.equal(fs.existsSync('scripts/install.ps1'), true);
   console.log('cli_binary_smoke_test: build contract ok (set LAMINA_BINARY for isolated binary smoke)');

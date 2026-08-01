@@ -239,19 +239,24 @@ function deliberatelyTinySelfTest(mode, caseId, overrides, command) {
   return required.every((key) => overrides[key] <= SELF_TEST_LIMIT_MAXIMA[key]);
 }
 
-function externalRuntimeContractReason(ownership, command, cwd) {
+function externalRuntimeContract(ownership, command, cwd) {
   if (ownership.npx_authority?.launch_admitted === false) {
-    return ownership.npx_authority.launch_refusal;
+    return { reason: ownership.npx_authority.launch_refusal, retrieval_authority: null };
   }
   const repositoryOutputReason = repositoryOutputRefusal(ownership.audited_entrypoint);
-  if (repositoryOutputReason) return repositoryOutputReason;
-  if (ownership.audited_entrypoint !== 'benchmarks/retrieval-v1/benchmark.mjs'
-    || (!command.includes('--evaluate') && !command.includes('--calibrate'))) return null;
+  if (repositoryOutputReason) return { reason: repositoryOutputReason, retrieval_authority: null };
+  if (ownership.audited_entrypoint !== 'benchmarks/retrieval-v1/benchmark.mjs') {
+    return { reason: null, retrieval_authority: null };
+  }
   try {
-    retrievalQualificationAuthority({ repository: REPOSITORY_ROOT, cwd, command });
-    return null;
+    return {
+      reason: null,
+      retrieval_authority: retrievalQualificationAuthority({
+        repository: REPOSITORY_ROOT, cwd, command,
+      }),
+    };
   } catch (error) {
-    return error.message;
+    return { reason: error.message, retrieval_authority: null };
   }
 }
 
@@ -277,7 +282,7 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
-  const externalRuntimeReason = externalRuntimeContractReason(ownership, command, cwd);
+  const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
   let sourceIdentityError = null;
@@ -321,7 +326,7 @@ export function preflightRun({
     reasons.push('medium/large execution requires Linux user-systemd cgroup-v2 aggregate enforcement');
   }
   if (!ownership.proven) reasons.push(ownership.reason);
-  if (externalRuntimeReason) reasons.push(externalRuntimeReason);
+  if (runtimeContract.reason) reasons.push(runtimeContract.reason);
   if (SMALL_ONLY_SCRATCH_FIXTURES.has(ownership.audited_entrypoint) && tier !== 'small') {
     reasons.push('safe-runner scratch fixtures are deliberately tiny and require --tier small');
   }
@@ -366,6 +371,7 @@ export function preflightRun({
     portable_self_test_allowed: portableTinySelfTest,
     adapter: adapterInfo,
     ownership,
+    retrieval_authority: runtimeContract.retrieval_authority,
     execution_command: ownership.proven ? [ownership.executable, ...command.slice(1)] : null,
     source_identity: sourceIdentity,
     writable_worktree: writableWorktree,

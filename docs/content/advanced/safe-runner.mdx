@@ -197,13 +197,19 @@ for reusable API environment overrides.
 Retrieval evaluation and calibration have no environment or uv fallback. They
 require exactly one explicit repository-contained physical `--worker`,
 `--model`, `--tokenizer`, and lowercase `--model-digest`; the worker must be
-executable. Model bytes, size, and digest must match the canonical retrieval
+executable, and no unknown flags or positional tokens are accepted. Model
+bytes, size, and digest must match the canonical retrieval
 model manifest. Tokenizer bytes are not separately manifest-pinned, but all
 three inputs and the manifest are descriptor-copied into the frozen launch and
 execution-snapshot identities. This dedicated authority admits the canonical
 model above the generic 64-MiB argv-input ceiling without increasing that
-ceiling. Inherited `LAMINA_TEST_*` controls are removed for non-self-test
-payloads, and retrieval semantic environment names are stripped before launch.
+ceiling: the manifest is capped at 1 MiB before read, its declared model and the
+worker at 256 MiB, and the tokenizer at 64 MiB. Snapshot construction must
+match both its recomputed source identity and copied bytes to the original
+preflight authority. Inherited `LAMINA_TEST_*` controls are removed for
+non-self-test payloads, and retrieval semantic environment names are stripped
+before launch. Only exact descriptor-copied native/smoke values encoded in the
+snapshot authority survive the final bwrap unset layer.
 
 ## Reports and outcomes
 

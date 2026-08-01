@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const RETRIEVAL_BENCHMARK_ENTRYPOINT = 'benchmarks/retrieval-v1/benchmark.mjs';
+export const RETRIEVAL_MANIFEST_MAX_BYTES = 1024 * 1024;
+export const RETRIEVAL_MODEL_MAX_BYTES = 256 * 1024 * 1024;
+export const RETRIEVAL_WORKER_MAX_BYTES = 256 * 1024 * 1024;
+export const RETRIEVAL_TOKENIZER_MAX_BYTES = 64 * 1024 * 1024;
 const MODES = Object.freeze(['--evaluate', '--calibrate']);
 const PATH_FLAGS = Object.freeze([
   ['--worker', true],
@@ -12,12 +16,16 @@ const PATH_FLAGS = Object.freeze([
 const REQUIRED_FLAGS = Object.freeze([...PATH_FLAGS.map(([flag]) => flag), '--model-digest']);
 const MODEL_MANIFEST_RELATIVE = 'packages/cli/retrieval-model-manifest.json';
 
-function sha256PhysicalFile(file, named) {
+function sha256PhysicalFile(file, named, maximumBytes) {
+  if (named.size < 0n || named.size > BigInt(maximumBytes)) {
+    throw new Error(`retrieval qualification input exceeds its pre-hash size cap: ${file}`);
+  }
   const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (!opened.isFile() || opened.dev !== named.dev || opened.ino !== named.ino
-      || opened.size !== named.size) {
+      || opened.size !== named.size || opened.uid !== named.uid || opened.mode !== named.mode
+      || opened.nlink !== named.nlink) {
       throw new Error(`retrieval qualification input changed while opening: ${file}`);
     }
     const hash = crypto.createHash('sha256');
@@ -31,12 +39,14 @@ function sha256PhysicalFile(file, named) {
     }
     const final = fs.fstatSync(descriptor, { bigint: true });
     if (offset !== Number(opened.size) || final.dev !== opened.dev || final.ino !== opened.ino
-      || final.size !== opened.size) {
+      || final.size !== opened.size || final.uid !== opened.uid || final.mode !== opened.mode
+      || final.nlink !== opened.nlink) {
       throw new Error(`retrieval qualification input changed while reading: ${file}`);
     }
     return {
       digest: hash.digest('hex'), size: Number(opened.size),
-      dev: String(opened.dev), ino: String(opened.ino), mode: Number(opened.mode & 0o777n),
+      dev: String(opened.dev), ino: String(opened.ino), uid: Number(opened.uid),
+      nlink: Number(opened.nlink), mode: Number(opened.mode & 0o777n),
     };
   } finally {
     fs.closeSync(descriptor);
@@ -60,7 +70,7 @@ function exactFlagValue(command, flag) {
   return { value: String(value), index: exact[0] + 1 };
 }
 
-function physicalRepositoryInput(repository, cwd, flag, value, executable) {
+function physicalRepositoryInput(repository, cwd, flag, value, executable, maximumBytes) {
   const declared = path.resolve(cwd, value);
   const relative = path.relative(repository, declared).replaceAll('\\', '/');
   if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) {
@@ -79,6 +89,9 @@ function physicalRepositoryInput(repository, cwd, flag, value, executable) {
     || named.nlink !== 1n || (uid !== null && Number(named.uid) !== uid)) {
     throw new Error(`retrieval ${flag} must name a physical file inside the repository`);
   }
+  if (named.size > BigInt(maximumBytes)) {
+    throw new Error(`retrieval ${flag} exceeds its pre-hash size cap of ${maximumBytes} bytes`);
+  }
   let ancestor = path.dirname(declared);
   while (ancestor !== repository) {
     if (!ancestor.startsWith(`${repository}${path.sep}`)) {
@@ -94,15 +107,20 @@ function physicalRepositoryInput(repository, cwd, flag, value, executable) {
   if (executable && (named.mode & 0o111n) === 0n) {
     throw new Error('retrieval --worker must name an executable physical file inside the repository');
   }
-  return {
-    flag, path: declared, relative, executable,
-    ...sha256PhysicalFile(declared, named),
-  };
+  return { flag, path: declared, relative, executable, maximumBytes, named };
+}
+
+function hashRepositoryInput(record) {
+  const { maximumBytes, named, ...input } = record;
+  return { ...input, ...sha256PhysicalFile(record.path, named, maximumBytes) };
 }
 
 function modelManifestAuthority(repository, injectedManifest = null) {
   if (injectedManifest) {
     const bytes = Buffer.from(JSON.stringify(injectedManifest));
+    if (bytes.length > RETRIEVAL_MANIFEST_MAX_BYTES) {
+      throw new Error('retrieval model manifest exceeds its 1 MiB pre-read size cap');
+    }
     return {
       manifest: injectedManifest,
       authority: {
@@ -119,11 +137,14 @@ function modelManifestAuthority(repository, injectedManifest = null) {
     || (uid !== null && Number(named.uid) !== uid)) {
     throw new Error('retrieval model manifest must be a same-user canonical physical file');
   }
-  const identity = sha256PhysicalFile(file, named);
+  if (named.size > BigInt(RETRIEVAL_MANIFEST_MAX_BYTES)) {
+    throw new Error('retrieval model manifest exceeds its 1 MiB pre-read size cap');
+  }
+  const identity = sha256PhysicalFile(file, named, RETRIEVAL_MANIFEST_MAX_BYTES);
   const bytes = fs.readFileSync(file);
   const final = fs.lstatSync(file, { bigint: true });
   if (final.dev !== named.dev || final.ino !== named.ino || final.uid !== named.uid
-    || final.size !== named.size
+    || final.size !== named.size || final.mode !== named.mode || final.nlink !== named.nlink
     || crypto.createHash('sha256').update(bytes).digest('hex') !== identity.digest) {
     throw new Error('retrieval model manifest changed while reading');
   }
@@ -136,7 +157,8 @@ function modelManifestAuthority(repository, injectedManifest = null) {
 export function assertRetrievalModelManifest({ model, modelDigest, manifest }) {
   if (manifest?.schema !== 'lamina.retrieval-model/v1'
     || !/^[a-f0-9]{64}$/.test(manifest?.sha256 || '')
-    || !Number.isSafeInteger(manifest?.bytes) || manifest.bytes <= 0) {
+    || !Number.isSafeInteger(manifest?.bytes) || manifest.bytes <= 0
+    || manifest.bytes > RETRIEVAL_MODEL_MAX_BYTES) {
     throw new Error('retrieval model manifest is malformed');
   }
   if (modelDigest !== manifest.sha256) {
@@ -156,17 +178,16 @@ export function retrievalQualificationAuthority({
 }) {
   const physicalRepository = fs.realpathSync.native(repository);
   const normalized = command.map((value) => String(value));
-  const entrypoint = normalized.slice(1).find((argument) => {
-    try {
-      return path.relative(physicalRepository, path.resolve(cwd, argument)).replaceAll('\\', '/')
-        === RETRIEVAL_BENCHMARK_ENTRYPOINT;
-    } catch { return false; }
-  });
+  const executable = path.basename(normalized[0] || '').toLowerCase();
+  let entrypoint = null;
+  try {
+    if (/^node(?:\.exe)?$/.test(executable)
+      && path.relative(physicalRepository, path.resolve(cwd, normalized[1] || ''))
+        .replaceAll('\\', '/') === RETRIEVAL_BENCHMARK_ENTRYPOINT) entrypoint = normalized[1];
+  } catch {}
   if (!entrypoint) return null;
+  if (normalized.length === 2) return null;
   const requestedModes = MODES.filter((mode) => normalized.includes(mode));
-  const hasQualificationFlags = REQUIRED_FLAGS.some((flag) =>
-    normalized.some((value) => value === flag || value.startsWith(`${flag}=`)));
-  if (requestedModes.length === 0 && !hasQualificationFlags) return null;
   if (requestedModes.length !== 1
     || MODES.some((mode) => normalized.filter((value) => value === mode).length > 1)) {
     throw new Error('retrieval qualification requires exactly one of --evaluate or --calibrate');
@@ -174,17 +195,37 @@ export function retrievalQualificationAuthority({
   const parsed = Object.fromEntries(REQUIRED_FLAGS.map((flag) => [
     flag, exactFlagValue(normalized, flag),
   ]));
-  const inputs = Object.fromEntries(PATH_FLAGS.map(([flag, executable]) => [
-    flag.slice(2), physicalRepositoryInput(
-      physicalRepository, cwd, flag, parsed[flag].value, executable,
-    ),
-  ]));
+  const consumed = new Set([0, 1, normalized.indexOf(requestedModes[0])]);
+  for (const flag of REQUIRED_FLAGS) {
+    consumed.add(parsed[flag].index - 1);
+    consumed.add(parsed[flag].index);
+  }
+  if (normalized.length !== 11 || consumed.size !== normalized.length) {
+    throw new Error('retrieval qualification command contains an unknown flag or positional token');
+  }
   const modelDigest = parsed['--model-digest'].value;
   if (!/^[a-f0-9]{64}$/.test(modelDigest)) {
     throw new Error('retrieval --model-digest must be a normalized lowercase 64-hex SHA-256');
   }
   const manifestRecord = modelManifestAuthority(physicalRepository, injectedManifest);
   const manifest = manifestRecord.manifest;
+  assertRetrievalModelManifest({
+    model: { size: manifest?.bytes, digest: modelDigest }, modelDigest, manifest,
+  });
+  const physicalInputs = {
+    worker: physicalRepositoryInput(physicalRepository, cwd, '--worker',
+      parsed['--worker'].value, true, RETRIEVAL_WORKER_MAX_BYTES),
+    model: physicalRepositoryInput(physicalRepository, cwd, '--model',
+      parsed['--model'].value, false, RETRIEVAL_MODEL_MAX_BYTES),
+    tokenizer: physicalRepositoryInput(physicalRepository, cwd, '--tokenizer',
+      parsed['--tokenizer'].value, false, RETRIEVAL_TOKENIZER_MAX_BYTES),
+  };
+  if (physicalInputs.model.named.size !== BigInt(manifest.bytes)) {
+    throw new Error('retrieval --model size does not match the canonical model manifest');
+  }
+  const inputs = Object.fromEntries(Object.entries(physicalInputs).map(([name, input]) => [
+    name, hashRepositoryInput(input),
+  ]));
   assertRetrievalModelManifest({ model: inputs.model, modelDigest, manifest });
   return Object.freeze({
     mode: requestedModes[0].slice(2),
@@ -195,4 +236,28 @@ export function retrievalQualificationAuthority({
     model: Object.freeze(inputs.model),
     tokenizer: Object.freeze(inputs.tokenizer),
   });
+}
+
+function retrievalAuthorityProjection(authority) {
+  if (!authority) return null;
+  const input = (value) => value && Object.fromEntries([
+    'flag', 'path', 'relative', 'executable', 'digest', 'size', 'dev', 'ino', 'uid', 'nlink', 'mode',
+  ].map((field) => [field, value[field]]));
+  return {
+    mode: authority.mode,
+    model_digest: authority.model_digest,
+    argument_value_indexes: [...(authority.argument_value_indexes || [])],
+    manifest: input(authority.manifest),
+    worker: input(authority.worker),
+    model: input(authority.model),
+    tokenizer: input(authority.tokenizer),
+  };
+}
+
+export function assertRetrievalAuthorityContinuity(expected, actual) {
+  if (JSON.stringify(retrievalAuthorityProjection(expected))
+    !== JSON.stringify(retrievalAuthorityProjection(actual))) {
+    throw new Error('retrieval qualification authority changed after preflight');
+  }
+  return actual;
 }

@@ -172,7 +172,9 @@ Retrieval `--evaluate` and `--calibrate` are semantic-authority contracts, not
 generic argv. Each requires exactly one explicit `--worker`, `--model`,
 `--tokenizer`, and lowercase 64-hex `--model-digest`; both modes together,
 duplicates, assignment forms, environment-only inputs, uv fallback, and
-external or symlinked paths refuse. All three paths must have canonical
+external or symlinked paths refuse. Unknown flags and positional tokens also
+refuse: qualification uses a closed `[node, benchmark, mode, flag/value pairs]`
+grammar. All three paths must have canonical
 physical same-user, single-link repository ancestry, and the worker must be
 executable. The model's digest and byte size must match both its physical bytes
 and `packages/cli/retrieval-model-manifest.json`. The tokenizer has no separate
@@ -180,9 +182,13 @@ manifest pin in this decision; its descriptor-copied bytes are bound into the
 frozen and execution-snapshot digests. A dedicated retrieval identity excludes
 these recognized path-value positions from the generic 64-MiB argv-input cap,
 then records the bounded worker/model/tokenizer identities and manifest
-authority directly. This admits the canonical 161,895,621-byte model without
-raising the global cap. Small evaluation is the exact promotion precursor for
-the same normalized medium command.
+authority directly. Before any semantic bytes are read, the manifest is capped
+at 1 MiB, its declared model size and the worker at 256 MiB, and the tokenizer
+at 64 MiB. This admits the canonical 161,895,621-byte model without raising the
+global cap or permitting an unbounded pre-watchdog hash. The original preflight
+authority is passed into snapshot construction; recomputed source identity and
+copied bytes must both match it. Small evaluation is the exact promotion
+precursor for the same normalized medium command.
 
 Atomic publication is also refused in issue #59. Correct rename-based
 publication requires its stage and saved-old objects to share the target's
@@ -214,8 +220,11 @@ actionable bounded-runtime requirement. Retrieval qualification has no uv or
 environment fallback. Test-only `LAMINA_TEST_*` controls are stripped from
 non-self-test payloads; retrieval semantic environment families are stripped
 before the benchmark and only descriptor-copied native/smoke inputs are
-reintroduced for those separate entrypoints. The two graphd fixture forms also
-require kernel-observed executable inode/owner identity and exact argv. A
+reintroduced for those separate entrypoints. Those exact names and values are
+encoded in snapshot authority and
+revalidated against physical snapshot inputs before bwrap omits the matching
+`--unsetenv`; arbitrary re-additions remain unset. The two graphd fixture forms
+also require kernel-observed executable inode/owner identity and exact argv. A
 process-title or `--graphd` argv spoof cannot qualify.
 
 Immediately before release the runner revalidates both its frozen preflight

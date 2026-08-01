@@ -12,6 +12,19 @@ export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // `systemctl show` cannot consume the complete proof window.
 export const SYSTEMCTL_READBACK_TIMEOUT_MS = 500;
 
+export function encodeExecutionAuthority(executionAuthority) {
+  return Buffer.from(JSON.stringify({
+    repository: executionAuthority.repository,
+    snapshot_repository: executionAuthority.snapshot_repository,
+    writable_bindings: executionAuthority?.writable_bindings || [],
+    git_readonly_bindings: executionAuthority?.git_readonly_bindings || [],
+    git_common: executionAuthority?.git_common || null,
+    git_directory: executionAuthority?.git_directory || null,
+    audited_entrypoint: executionAuthority?.audited_entrypoint || null,
+    environment_overrides: executionAuthority?.environment_overrides || {},
+  })).toString('base64url');
+}
+
 function systemctl(args, timeout = SYSTEMCTL_CONTROL_TIMEOUT_MS, binary = infrastructureBinaries().systemctl) {
   return spawnSync(binary, ['--user', ...args], {
     encoding: 'utf8',
@@ -163,14 +176,7 @@ export class LinuxSystemdAdapter {
       });
     }
     const bwrapIdentity = Buffer.from(JSON.stringify(staged.identities.bwrap)).toString('base64url');
-    const encodedExecutionAuthority = Buffer.from(JSON.stringify({
-      repository: executionAuthority.repository,
-      snapshot_repository: executionAuthority.snapshot_repository,
-      writable_bindings: executionAuthority?.writable_bindings || [],
-      git_readonly_bindings: executionAuthority?.git_readonly_bindings || [],
-      git_common: executionAuthority?.git_common || null,
-      git_directory: executionAuthority?.git_directory || null,
-    })).toString('base64url');
+    const encodedExecutionAuthority = encodeExecutionAuthority(executionAuthority);
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
       ...systemdScopeProperties(this.limits),

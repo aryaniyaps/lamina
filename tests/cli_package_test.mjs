@@ -92,6 +92,9 @@ assert.match(builder, /copy\(path\.join\(cli, 'lib'\), path\.join\(payload, 'app
 assert.match(binarySmoke, /process\.platform === 'win32'/);
 assert.match(binarySmoke, /LOCALAPPDATA: cache/);
 assert.match(binarySmoke, /XDG_CACHE_HOME: cache/);
+assert.match(binarySmoke,
+  /assert\.notEqual\(process\.env\.LAMINA_SAFE_RUNNER, '1',[\s\S]*snapshot-sealed LAMINA_BINARY/,
+  'safe-runner native qualification must fail instead of taking the build-only early exit');
 assert.match(cocoWorker, /multiprocessing\.freeze_support\(\)/);
 assert.match(workflow, /darwin-arm64/);
 assert.match(workflow, /darwin-x64/);

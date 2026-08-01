@@ -494,6 +494,7 @@ export async function runSafely({
         cwd: path.resolve(cwd), command: executionCommand, temporaryDirectory,
         infrastructure: activeAdapter.infrastructure,
         environment: { ...process.env, ...env },
+        expectedRetrievalAuthority: preflight.retrieval_authority,
         onProgress() {
           if (snapshotProgressObserved) return;
           snapshotProgressObserved = true;

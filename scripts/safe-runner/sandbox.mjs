@@ -33,6 +33,18 @@ export const CONTROL_ENVIRONMENT_NAMES = Object.freeze([
   ...EXECUTION_HOOK_ENVIRONMENT,
 ]);
 
+const SEALED_ENVIRONMENT_NAMES_BY_ENTRYPOINT = new Map([
+  ['tests/cli_binary_smoke_test.mjs', new Set([
+    'LAMINA_BINARY', 'LAMINA_WORKER', 'LAMINA_MODEL',
+    'LAMINA_RETRIEVAL_TOKENIZER_PATH', 'LAMINA_RETRIEVAL_FTS_EXTENSION_PATH',
+    'LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH',
+  ])],
+  ['tests/retrieval_native_index_test.mjs', new Set([
+    'LAMINA_RETRIEVAL_TOKENIZER_PATH', 'LAMINA_RETRIEVAL_FTS_EXTENSION_PATH',
+    'LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH',
+  ])],
+]);
+
 const STANDARD_CONTROL_SOCKETS = Object.freeze([
   '/run/dbus/system_bus_socket',
   '/run/systemd/private',
@@ -96,6 +108,8 @@ export function bubblewrapSandboxArguments({
   temporaryDirectory,
   command,
   executionAuthority = null,
+  preservedEnvironmentNames = [],
+  environment = process.env,
   allowNetwork = false,
   masks = controlSocketMasks(),
 } = {}) {
@@ -123,7 +137,14 @@ export function bubblewrapSandboxArguments({
     const parent = path.resolve(process.env.LAMINA_SAFE_REPORT_PARENT);
     args.push('--ro-bind', parent, parent);
   }
-  for (const name of CONTROL_ENVIRONMENT_NAMES) args.push('--unsetenv', name);
+  const preserved = new Set(preservedEnvironmentNames);
+  const controlEnvironment = new Set([
+    ...CONTROL_ENVIRONMENT_NAMES,
+    ...Object.keys(environment).filter((name) => name.startsWith('LAMINA_RETRIEVAL_')),
+  ]);
+  for (const name of controlEnvironment) {
+    if (!preserved.has(name)) args.push('--unsetenv', name);
+  }
   args.push(
     '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
     '--tmpfs', temporaryDirectory,
@@ -135,17 +156,36 @@ export function bubblewrapSandboxArguments({
   return args;
 }
 
-async function main() {
-  const [bwrapExecutable, encodedBwrapIdentity, encodedExecutionAuthority, cwd, readyFile, releaseFile,
-    temporaryDirectory, ...command] = process.argv.slice(2);
-  let expectedBwrap = null;
-  let executionAuthority = null;
-  try { expectedBwrap = JSON.parse(Buffer.from(encodedBwrapIdentity || '', 'base64url').toString('utf8')); }
-  catch {}
-  try {
-    executionAuthority = JSON.parse(Buffer.from(encodedExecutionAuthority || '', 'base64url').toString('utf8'));
-  } catch {}
-  const authorityRoot = path.join(path.dirname(temporaryDirectory || ''), 'execution-authority');
+export function validatedSealedEnvironmentNames({
+  executionAuthority, environment = process.env,
+} = {}) {
+  const overrides = executionAuthority?.environment_overrides;
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return [];
+  const allowed = SEALED_ENVIRONMENT_NAMES_BY_ENTRYPOINT.get(
+    executionAuthority.audited_entrypoint,
+  ) || new Set();
+  const names = Object.keys(overrides);
+  for (const name of names) {
+    const source = overrides[name];
+    const relative = typeof source === 'string'
+      ? path.relative(executionAuthority.repository, source) : '..';
+    const snapshot = path.join(executionAuthority.snapshot_repository, relative);
+    if (!allowed.has(name) || environment[name] !== source
+      || !path.isAbsolute(source) || !relative || relative.startsWith('..')
+      || path.isAbsolute(relative)) {
+      throw new Error('safe-runner sandbox received an unsealed environment override');
+    }
+    const stat = fs.lstatSync(snapshot);
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync.native(snapshot) !== snapshot) {
+      throw new Error('safe-runner sandbox environment override has no physical snapshot input');
+    }
+  }
+  return names;
+}
+
+export function validateSandboxExecutionAuthority({
+  executionAuthority, authorityRoot, cwd, environment = process.env,
+} = {}) {
   const invalidBinding = (binding) => {
     try {
       if (!path.isAbsolute(binding?.source || '') || !path.isAbsolute(binding?.target || '')
@@ -155,9 +195,9 @@ async function main() {
         || fs.lstatSync(binding.source).isSymbolicLink()
         || fs.realpathSync.native(binding.source) !== binding.source
         || !fs.lstatSync(binding.alias).isDirectory()) return true;
-      if (binding.kind === 'git-common-runtime') {
+      if (binding.kind === 'git-common-work-scratch') {
         const stat = fs.lstatSync(binding.source, { bigint: true });
-        return binding.source !== path.join(executionAuthority.git_common, 'lamina')
+        return binding.source !== path.join(executionAuthority.git_common, 'lamina', 'work')
           || String(stat.dev) !== binding.source_identity?.dev
           || String(stat.ino) !== binding.source_identity?.ino
           || Number(stat.uid) !== binding.source_identity?.uid;
@@ -185,9 +225,7 @@ async function main() {
         || fs.realpathSync.native(binding.target) !== binding.target;
     } catch { return true; }
   };
-  if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
-    || expectedBwrap?.path !== bwrapExecutable
-    || !path.isAbsolute(executionAuthority?.repository || '')
+  if (!path.isAbsolute(executionAuthority?.repository || '')
     || !path.isAbsolute(executionAuthority?.snapshot_repository || '')
     || !path.isAbsolute(executionAuthority?.git_common || '')
     || !path.isAbsolute(executionAuthority?.git_directory || '')
@@ -197,7 +235,36 @@ async function main() {
     || !Array.isArray(executionAuthority?.writable_bindings)
     || executionAuthority.writable_bindings.some(invalidBinding)
     || !Array.isArray(executionAuthority?.git_readonly_bindings)
-    || executionAuthority.git_readonly_bindings.some(invalidGitBinding)
+    || executionAuthority.git_readonly_bindings.some(invalidGitBinding)) {
+    throw new Error('safe-runner sandbox received an invalid execution authority');
+  }
+  return {
+    preservedEnvironmentNames: validatedSealedEnvironmentNames({
+      executionAuthority, environment,
+    }),
+  };
+}
+
+async function main() {
+  const [bwrapExecutable, encodedBwrapIdentity, encodedExecutionAuthority, cwd, readyFile, releaseFile,
+    temporaryDirectory, ...command] = process.argv.slice(2);
+  let expectedBwrap = null;
+  let executionAuthority = null;
+  try { expectedBwrap = JSON.parse(Buffer.from(encodedBwrapIdentity || '', 'base64url').toString('utf8')); }
+  catch {}
+  try {
+    executionAuthority = JSON.parse(Buffer.from(encodedExecutionAuthority || '', 'base64url').toString('utf8'));
+  } catch {}
+  const authorityRoot = path.join(path.dirname(temporaryDirectory || ''), 'execution-authority');
+  let sandboxContract = null;
+  try {
+    sandboxContract = validateSandboxExecutionAuthority({
+      executionAuthority, authorityRoot, cwd, environment: process.env,
+    });
+  } catch {}
+  if (!bwrapExecutable || !path.isAbsolute(bwrapExecutable)
+    || expectedBwrap?.path !== bwrapExecutable
+    || !sandboxContract
     || !cwd || !readyFile || !releaseFile || !temporaryDirectory || command.length === 0
     || !process.env.LAMINA_SAFE_QUOTA_GATE || !process.env.LAMINA_SAFE_TEMP_MAX_BYTES) {
     process.stderr.write('safe-runner sandbox launcher received an incomplete contract\n');
@@ -211,6 +278,8 @@ async function main() {
   const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
     executionAuthority,
+    preservedEnvironmentNames: sandboxContract.preservedEnvironmentNames,
+    environment: process.env,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
   }), { stdio: 'inherit', env: sanitizedEnvironment(process.env) });
   for (const signal of ['SIGTERM', 'SIGINT']) {

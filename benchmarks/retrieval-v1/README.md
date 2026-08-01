@@ -59,7 +59,9 @@ bytes and `packages/cli/retrieval-model-manifest.json`, including its declared
 byte size. The tokenizer is not independently pinned in that manifest; its
 descriptor-copied bytes are instead bound into the frozen and snapshot
 identities. Environment variables and uv fallback cannot supply or replace
-these four explicit arguments.
+these four explicit arguments, and no additional flags or positional tokens
+are accepted. Before hashing, the manifest is limited to 1 MiB, the model and
+worker to 256 MiB, and the tokenizer to 64 MiB.
 
 The evaluator reports the former term-count baseline, BM25, dense, and hybrid
 results, then enforces the held-out quality, determinism, and latency gates
