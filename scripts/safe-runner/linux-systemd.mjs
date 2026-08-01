@@ -278,17 +278,26 @@ export class LinuxSystemdAdapter {
     const before = this.sample().pids;
     const stopped = systemctl(['stop', this.unit]);
     const reset = systemctl(['reset-failed', this.unit]);
-    const pids = this.sample().pids;
-    const shown = systemctl(['show', this.unit, '--property=LoadState', '--value']);
-    const state = String(shown.stdout || '').trim();
-    const absent = shown.status !== 0 || state === 'not-found' || !state;
+    const shown = systemctl([
+      'show', this.unit, '--property=LoadState', '--property=ControlGroup',
+    ]);
+    const cachedCgroupExists = Boolean(this.cgroupPath && fs.existsSync(this.cgroupPath));
+    const absent = systemdAbsenceProof(shown, cachedCgroupExists);
+    const pids = cachedCgroupExists ? cgroupPids(this.cgroupPath) : [];
     const errors = [];
-    if (!absent && stopped.status !== 0) errors.push(`systemctl stop failed with status ${stopped.status}`);
-    if (!absent && reset.status !== 0) errors.push(`systemctl reset-failed failed with status ${reset.status}`);
+    if (!absent && (stopped.status !== 0 || stopped.error)) {
+      errors.push(`systemctl stop failed with ${stopped.error?.code || `status ${stopped.status}`}`);
+    }
+    if (!absent && (reset.status !== 0 || reset.error)) {
+      errors.push(`systemctl reset-failed failed with ${reset.error?.code || `status ${reset.status}`}`);
+    }
+    if (!absent) {
+      errors.push(`authoritative unit absence was not proven (${shown.error?.code || `status ${shown.status}`})`);
+    }
     return {
       pids,
       knownPids: before,
-      removed: absent && !stopped.error && !reset.error && errors.length === 0,
+      removed: absent && errors.length === 0,
       errors,
       commands: {
         stop_status: stopped.status,

@@ -14,6 +14,7 @@ import {
   parseHostPageSize,
   validateLimitOverrides,
 } from '../scripts/safe-runner/envelope.mjs';
+import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-runner/filesystem.mjs';
 import {
   assertSystemctlSuccess,
   cgroupResolutionState,
@@ -31,7 +32,7 @@ import {
 } from '../scripts/safe-runner/managed-descendants.mjs';
 import { commandOwnership, preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { existingLaminaProcesses, isLaminaProcessCommand } from '../scripts/safe-runner/processes.mjs';
-import { redactCommand, redactText } from '../scripts/safe-runner/redaction.mjs';
+import { redactCommand, redactEvidence, redactText } from '../scripts/safe-runner/redaction.mjs';
 import { stopIncompatibleServer } from '../packages/cli/lib/graph-runtime/client.mjs';
 import {
   baseReport,
@@ -50,6 +51,7 @@ import {
   recordPromotion,
   recordSafetyLimit,
   productionLockDirectory,
+  promotionCommandDigest,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
 
@@ -58,6 +60,20 @@ const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(root, 'state');
 
 try {
+  const ownedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-owned-'));
+  const ownedIdentity = ownedDirectoryIdentity(ownedTemporary);
+  assert.equal(removeOwnedDirectory(ownedTemporary, 'lamina-safe-runner-', ownedIdentity), true);
+  const replacedTemporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-replaced-'));
+  const replacedIdentity = ownedDirectoryIdentity(replacedTemporary);
+  fs.renameSync(replacedTemporary, `${replacedTemporary}-original`);
+  fs.mkdirSync(replacedTemporary);
+  assert.throws(
+    () => removeOwnedDirectory(replacedTemporary, 'lamina-safe-runner-', replacedIdentity),
+    /ownership identity changed/,
+  );
+  assert.equal(fs.existsSync(replacedTemporary), true);
+  fs.rmSync(replacedTemporary, { recursive: true });
+  fs.rmSync(`${replacedTemporary}-original`, { recursive: true });
   const eightGib = deriveLimits({}, { totalMemoryBytes: 8 * GIB });
   assert.equal(eightGib.memory_max_bytes, 2 * GIB);
   assert.equal(eightGib.memory_high_bytes, Math.floor(1.6 * GIB));
@@ -170,6 +186,16 @@ try {
     'tool', '--token', '[REDACTED]', '--api-key=[REDACTED]',
   ]);
   assert.equal(redactText('Authorization: Bearer abc.def'), 'Authorization: Bearer [REDACTED]');
+  const recursivelyRedacted = redactEvidence({
+    post_lock_existing_lamina_processes: [{
+      command: 'tool --token process-secret',
+      nested: { api_key: 'nested-secret' },
+    }],
+    detached_descendant_observation: {
+      unmanaged: [{ command: 'Authorization: Bearer descendant-secret' }],
+    },
+  });
+  assert.doesNotMatch(JSON.stringify(recursivelyRedacted), /process-secret|nested-secret|descendant-secret/);
   const externalSmall = preflightRun({
     tier: 'small', command: ['docker', 'run', 'tiny'], cwd: root,
   });
@@ -482,8 +508,10 @@ try {
     fs.mkdirSync(claims, { recursive: true });
     fs.writeFileSync(path.join(claims, 'stale.json'), JSON.stringify({
       pid: process.pid, start_ticks: 'stale', nonce: 'never-reused',
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-stale.scope', cgroup: null },
     }));
-    const lock = acquireConcurrencyLock({ directory: claims });
+    const lock = acquireConcurrencyLock({ directory: claims, proveScopeAbsent: () => true,
+      scope: { adapter: 'linux-systemd-cgroup-v2', unit: 'lamina-safe-current.scope', cgroup: null } });
     assert.throws(() => acquireConcurrencyLock({ directory: claims }), /another medium\/large safe-runner/);
     assert.equal(lock.release(), true);
     assert.deepEqual(fs.readdirSync(claims), []);
@@ -495,7 +523,11 @@ try {
   assert.throws(() => recordPromotion(root, 'small', { outcome: 'success' }), /verified cleanup/);
   assert.throws(() => recordPromotion(root, 'small', report), /--workload/);
   recordPromotion(root, 'small', report, 'unit-workload');
-  assert.equal(checkPromotion(root, 'medium', 'unit-workload').ok, true);
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', report.command).ok, true);
+  const unrelatedCommand = ['node', path.join(root, 'unrelated.mjs')];
+  fs.writeFileSync(unrelatedCommand[1], 'export {};\n');
+  assert.equal(checkPromotion(root, 'medium', 'unit-workload', unrelatedCommand).ok, false);
+  assert.notEqual(promotionCommandDigest(root, report.command), promotionCommandDigest(root, unrelatedCommand));
   assert.equal(checkPromotion(root, 'medium', 'unrelated-workload').ok, false);
   const limitedReport = structuredClone(report);
   limitedReport.termination.limit = 'timeout';
@@ -504,7 +536,12 @@ try {
   assert.equal(checkSafetyRetry(root, [...report.command, '--changed'], report.limits).ok, true);
   assert.equal(checkSafetyRetry(root, report.command, {
     ...report.limits, timeout_ms: report.limits.timeout_ms - 1,
-  }).ok, true);
+  }).ok, false, 'limit-only changes must not bypass the retry fence');
+  const otherLimitedReport = structuredClone(limitedReport);
+  otherLimitedReport.command = [...report.command, '--other'];
+  recordSafetyLimit(root, otherLimitedReport.command, report.limits, otherLimitedReport);
+  assert.equal(checkSafetyRetry(root, report.command, report.limits).ok, false,
+    'recording a different failure must retain the original fence');
 
   const productionProbe = { ...portableProbe, id: 'unit-production', production_enforcement: true };
   writeAttestation(productionProbe, Array.from({ length: 11 }, (_, index) => ({

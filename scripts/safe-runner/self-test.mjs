@@ -171,6 +171,11 @@ export async function runAdversarialSelfTests({ cwd = process.cwd(), probe = ada
     pid: process.pid,
     start_ticks: 'stale-identity-that-cannot-match',
     nonce: 'stale',
+    scope: {
+      adapter: 'linux-systemd-cgroup-v2',
+      unit: 'lamina-safe-stale-self-test.scope',
+      cgroup: null,
+    },
   }), { mode: 0o600 });
   process.env.LAMINA_SAFE_RUNNER_STATE_DIR = staleDirectory;
   let stalePassed = false;

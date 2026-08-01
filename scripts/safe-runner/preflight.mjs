@@ -91,7 +91,7 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
-  const retry = mode === 'self-test'
+  const retry = tinySelfTest
     ? { ok: true, signature: null, previous: null }
     : checkSafetyRetry(cwd, command, envelope.limits);
   if (!TIER_ORDER.includes(tier)) reasons.push(`tier must be one of ${TIER_ORDER.join(', ')}`);
@@ -127,7 +127,7 @@ export function preflightRun({
   }
   const existing = injectedExistingProcesses ?? existingLaminaProcesses();
   const attestation = readAttestation(adapterInfo);
-  const promotion = checkPromotion(cwd, tier, workloadId);
+  const promotion = checkPromotion(cwd, tier, workloadId, command);
   if (production && !attestation.valid) {
     reasons.push('medium/large execution requires a current passing adversarial self-test attestation');
   }

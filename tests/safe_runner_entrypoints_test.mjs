@@ -11,6 +11,8 @@ const entrypoints = [
   ['evals/scripts/loop-next-batch.mjs'],
   ['evals/scripts/vendor-nextjs-fixture.mjs'],
   ['evals/scripts/vendor-payload-fixture.mjs'],
+  ['evals/scripts/vendor-plane-fixture.mjs'],
+  ['evals/scripts/vendor-outline-fixture.mjs'],
   ['benchmarks/lb6/pilot/scripts/build-runtime.mjs'],
   ['benchmarks/lb6/pilot/scripts/run-three-arm.mjs'],
 ];

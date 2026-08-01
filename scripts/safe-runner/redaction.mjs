@@ -29,3 +29,21 @@ export function redactCommand(command = []) {
     return redactText(value);
   });
 }
+
+export function redactEvidence(value, key = '') {
+  if (typeof value === 'string') {
+    if (SENSITIVE_FLAG.test(key)) return '[REDACTED]';
+    return redactText(value);
+  }
+  if (Array.isArray(value)) {
+    if (key === 'command') return redactCommand(value);
+    return value.map((item) => redactEvidence(item, key));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([childKey, child]) => [
+      childKey,
+      redactEvidence(child, childKey),
+    ]));
+  }
+  return value;
+}

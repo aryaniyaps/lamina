@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { REPORT_SCHEMA, REPORT_SCHEMA_VERSION } from './constants.mjs';
-import { redactCommand } from './redaction.mjs';
+import { redactCommand, redactEvidence } from './redaction.mjs';
 
 const SCHEMA_FILE = fileURLToPath(new URL('./schema/report.schema.json', import.meta.url));
 const BUNDLED_SCHEMA = JSON.parse(fs.readFileSync(SCHEMA_FILE, 'utf8'));
@@ -191,7 +191,8 @@ export function validateReport(report) {
 }
 
 export function writeReport(file, report) {
-  const validation = validateReport(report);
+  const sanitized = redactEvidence(report);
+  const validation = validateReport(sanitized);
   if (!validation.valid) {
     const error = new Error(`Refusing invalid safe-runner report: ${validation.errors.join('; ')}`);
     error.code = 'LAMINA_SAFE_REPORT_INVALID';
@@ -200,7 +201,7 @@ export function writeReport(file, report) {
   const resolved = path.resolve(file);
   fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
   const temporary = `${resolved}.tmp-${process.pid}`;
-  fs.writeFileSync(temporary, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(temporary, `${JSON.stringify(sanitized, null, 2)}\n`, { mode: 0o600 });
   fs.renameSync(temporary, resolved);
   return resolved;
 }

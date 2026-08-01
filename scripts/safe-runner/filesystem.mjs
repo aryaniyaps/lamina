@@ -62,11 +62,41 @@ export function quotaFilesystemUsage(records, temporaryDirectory, maximumBytes, 
   return null;
 }
 
-export function removeOwnedDirectory(directory, expectedPrefix) {
+export function ownedDirectoryIdentity(directory) {
+  const resolved = path.resolve(directory);
+  const stat = fs.lstatSync(resolved, { bigint: true });
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    const error = new Error(`runner-owned path is not a physical directory: ${resolved}`);
+    error.code = 'LAMINA_SAFE_DIRECTORY_IDENTITY';
+    throw error;
+  }
+  return {
+    path: resolved,
+    dev: String(stat.dev),
+    ino: String(stat.ino),
+    uid: Number(stat.uid),
+  };
+}
+
+export function removeOwnedDirectory(directory, expectedPrefix, expectedIdentity) {
   const resolved = path.resolve(directory);
   const parent = path.dirname(resolved);
-  if (!path.basename(resolved).startsWith(expectedPrefix) || !fs.existsSync(parent)) {
+  if (!path.basename(resolved).startsWith(expectedPrefix) || !fs.existsSync(parent)
+    || !expectedIdentity || expectedIdentity.path !== resolved) {
     throw new Error(`refusing to remove non-runner directory: ${resolved}`);
+  }
+  let actual;
+  try { actual = ownedDirectoryIdentity(resolved); } catch (error) {
+    if (error?.code === 'ENOENT') return true;
+    throw error;
+  }
+  if (actual.dev !== String(expectedIdentity.dev)
+    || actual.ino !== String(expectedIdentity.ino)
+    || actual.uid !== Number(expectedIdentity.uid)
+    || (typeof process.getuid === 'function' && actual.uid !== process.getuid())) {
+    const error = new Error(`refusing to remove runner directory whose ownership identity changed: ${resolved}`);
+    error.code = 'LAMINA_SAFE_DIRECTORY_IDENTITY';
+    throw error;
   }
   fs.rmSync(resolved, { recursive: true, force: true });
   return !fs.existsSync(resolved);

@@ -7,6 +7,7 @@ import { createProofBroker } from './broker.mjs';
 import { DEFAULTS, PRODUCTION_TIERS } from './constants.mjs';
 import {
   boundedDirectorySize,
+  ownedDirectoryIdentity,
   quotaFilesystemUsage,
   removeOwnedDirectory,
 } from './filesystem.mjs';
@@ -133,6 +134,7 @@ export async function runSafely({
   const report = baseReport({ tier, command: normalizedCommand, cwd: path.resolve(cwd) });
   let lock = null;
   let temporaryDirectory = null;
+  let temporaryDirectoryIdentity = null;
   let payloadTemporaryDirectory = null;
   let monitor = null;
   let forceTimer = null;
@@ -317,8 +319,15 @@ export async function runSafely({
       return finishAndWrite();
     }
 
+    activeAdapter = assertAdapterShape(adapterFor(probe, report.run_id, report.limits));
     if (PRODUCTION_TIERS.has(tier)) {
-      lock = acquireConcurrencyLock();
+      lock = acquireConcurrencyLock({
+        scope: {
+          adapter: activeAdapter.id,
+          unit: activeAdapter.unit || null,
+          cgroup: null,
+        },
+      });
       const rescanned = existingLaminaProcesses();
       report.preflight.post_lock_existing_lamina_processes = rescanned;
       if (rescanned.length) {
@@ -334,9 +343,9 @@ export async function runSafely({
 
     temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-runner-'));
     fs.chmodSync(temporaryDirectory, 0o700);
+    temporaryDirectoryIdentity = ownedDirectoryIdentity(temporaryDirectory);
     payloadTemporaryDirectory = path.join(temporaryDirectory, 'payload-tmp');
     fs.mkdirSync(payloadTemporaryDirectory, { mode: 0o700 });
-    activeAdapter = assertAdapterShape(adapterFor(probe, report.run_id, report.limits));
     const authority = {
       runId: report.run_id,
       tier,
@@ -492,6 +501,11 @@ export async function runSafely({
             };
             authority.cgroup = activeAdapter.cgroupPath;
             authority.enforcement = enforcement.actual;
+            lock?.updateScope({
+              adapter: activeAdapter.id,
+              unit: activeAdapter.unit,
+              cgroup: activeAdapter.cgroupPath,
+            });
             rememberDescendants(report, proof.records, Date.now() - startedMs);
             break;
           }
@@ -712,7 +726,7 @@ export async function runSafely({
     if (temporaryDirectory) {
       try {
         report.cleanup.temporary_directory_removed = removeOwnedDirectory(
-          temporaryDirectory, 'lamina-safe-runner-',
+          temporaryDirectory, 'lamina-safe-runner-', temporaryDirectoryIdentity,
         );
       } catch (error) {
         report.cleanup.errors.push(`temporary cleanup: ${error.message}`);
@@ -770,7 +784,7 @@ export async function runSafely({
     Object.defineProperty(report, 'writtenReport', { value: written, enumerable: false });
     if (report.outcome === 'success' && promote && written.fallback === false
       && written.path === path.resolve(reportFile)) {
-      try { recordPromotion(cwd, tier, report, workloadId); } catch (error) {
+      try { recordPromotion(cwd, tier, report, workloadId, normalizedCommand); } catch (error) {
         report.outcome = 'internal_error';
         report.termination.reason = 'promotion_failed';
         report.error = errorDetails(error, 'LAMINA_SAFE_PROMOTION');
