@@ -171,29 +171,34 @@ try {
   assert.equal(retried.count, 10);
   assert.deepEqual(retried.source_revisions, [runtimePaths(root).source_revision]);
 
-  daemonPid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
-  process.kill(daemonPid, 'SIGKILL');
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    try {
-      process.kill(daemonPid, 0);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    } catch {
-      break;
+  // Only Linux has a non-reusable process identity that permits automatic
+  // crash-stale graphd replacement. Portable runtimes deliberately fail
+  // closed after an ungraceful daemon exit.
+  if (process.platform === 'linux') {
+    daemonPid = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'))?.pid;
+    process.kill(daemonPid, 'SIGKILL');
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        process.kill(daemonPid, 0);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } catch {
+        break;
+      }
     }
   }
-  fs.writeFileSync(path.join(root, 'graphd-restart.txt'), 'restart graphd\n');
+  fs.writeFileSync(path.join(root, 'graphd-recovery-probe.txt'), 'probe graphd recovery\n');
   result = spawnSync(process.execPath, [cli, 'graph', 'observe'], {
     cwd: root,
     encoding: 'utf8',
     timeout: 180_000,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  const afterGraphdRestart = await graphRequest('observation.status', {
+  const afterGraphdRecoveryProbe = await graphRequest('observation.status', {
     product: paths.product,
     generation: firstGenerationAfterManagedRebuild,
   }, root);
-  assert.equal(afterGraphdRestart.count, 11);
-  assert.deepEqual(afterGraphdRestart.source_revisions, [runtimePaths(root).source_revision]);
+  assert.equal(afterGraphdRecoveryProbe.count, 11);
+  assert.deepEqual(afterGraphdRecoveryProbe.source_revisions, [runtimePaths(root).source_revision]);
 
   result = spawnSync(process.execPath, [cli, 'graph', 'rebuild-observations'], {
     cwd: root,
