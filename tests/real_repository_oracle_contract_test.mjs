@@ -327,7 +327,14 @@ const controllerDirectory = path.join(attestationRoot, 'controller-reports');
 const entrypoint = path.join(payloadCwd, 'benchmarks/real-repository-oracle-v1/workload.mjs');
 fs.mkdirSync(path.dirname(entrypoint), { recursive: true }); fs.mkdirSync(controllerDirectory);
 fs.writeFileSync(entrypoint, '#!/usr/bin/env node\n', { mode: 0o600 });
-const executable = fs.realpathSync.native(process.execPath);
+const entrypointPeer = path.join(payloadCwd, 'hardlinked-entrypoint-peer.mjs');
+fs.linkSync(entrypoint, entrypointPeer);
+const executableOrigin = path.join(payloadCwd, 'hardlinked-node-origin');
+const executable = path.join(payloadCwd, 'hardlinked-node-command');
+fs.writeFileSync(executableOrigin, '#!/bin/sh\n', { mode: 0o700 });
+fs.linkSync(executableOrigin, executable);
+assert.ok(fs.lstatSync(executable, { bigint: true }).nlink > 1n);
+assert.ok(fs.lstatSync(entrypoint, { bigint: true }).nlink > 1n);
 const command = [executable, entrypoint, 'validate'];
 function testFileIdentity(file) {
   const stat = fs.lstatSync(file, { bigint: true });
@@ -376,6 +383,15 @@ const unbranded = verifyReturnedControllerReport(safeReport, {
   expectedCollectionDigest: selectedCollection.collection_digest,
   expectedFixtureDigest: fixtureDigest(fixture),
 });
+const reportHardlink = path.join(controllerDirectory, 'report-hardlink.json');
+fs.linkSync(safeReportFile, reportHardlink);
+assert.throws(() => verifyReturnedControllerReport(safeReport, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
+}), /canonical same-user physical file/,
+'controller-written report authority must remain single-link even when audited inputs may be hardlinked');
+fs.unlinkSync(reportHardlink);
 assert.equal(gradeControllerVerification(fixture, unbranded).classification, 'candidate_invalid', 'a valid-shaped report outside the parent controller cannot mint a gradeable object');
 const changedFixture = structuredClone(fixture);
 changedFixture.cases[0].rationale = 'A different but still valid reviewed rationale.';

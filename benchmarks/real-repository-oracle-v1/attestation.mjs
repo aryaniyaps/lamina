@@ -24,10 +24,10 @@ const deepFreeze = (item) => {
   return item;
 };
 
-function physicalFileIdentity(file, { executable = false, hash = true } = {}) {
+function physicalFileIdentity(file, { executable = false, hash = true, singleLink = false } = {}) {
   const declared = path.resolve(file);
   const named = fs.lstatSync(declared, { bigint: true });
-  if (!named.isFile() || named.isSymbolicLink() || named.nlink !== 1n
+  if (!named.isFile() || named.isSymbolicLink() || (singleLink && named.nlink !== 1n)
     || fs.realpathSync.native(declared) !== declared
     || (typeof process.getuid === 'function' && Number(named.uid) !== process.getuid())
     || (process.platform !== 'win32' && (named.mode & 0o022n) !== 0n)
@@ -54,7 +54,7 @@ function physicalFileIdentity(file, { executable = false, hash = true } = {}) {
 
 function readControllerReport(reportFile) {
   if (!path.isAbsolute(reportFile)) throw new Error('controller report path must be absolute');
-  const reportIdentity = physicalFileIdentity(reportFile);
+  const reportIdentity = physicalFileIdentity(reportFile, { singleLink: true });
   const parent = path.dirname(reportIdentity.path);
   const parentStat = fs.lstatSync(parent);
   if (!parentStat.isDirectory() || parentStat.isSymbolicLink()
