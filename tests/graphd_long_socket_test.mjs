@@ -29,6 +29,11 @@ try {
   const paths = runtimePaths(root);
   const endpoint = graphSocketPath(paths);
   const childEndpoint = graphSocketChildPath(paths);
+  if (process.platform !== 'win32') {
+    const fallbackEndpoint = graphSocketPath(paths, 'darwin');
+    assert.equal(graphSocketChildPath(paths, 'darwin'), fallbackEndpoint,
+      'repeated fallback alias resolution must retain one canonical live target');
+  }
   if (process.platform === 'win32') {
     assert.match(endpoint, /^\\\\\.\\pipe\\laminadev-[a-f0-9]{24}$/);
   } else {

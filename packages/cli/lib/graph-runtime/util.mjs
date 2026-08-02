@@ -123,6 +123,11 @@ function normalizedRepositoryPath(value, platform = process.platform) {
 function graphSocketAlias(paths) {
   const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
   const aliases = path.join(os.tmpdir(), `lamina-graphd-${uid}`);
+  // existsSync follows symlinks, so an alias to a not-yet-created runtime
+  // directory looks absent and a second caller would attempt to recreate the
+  // still-present symlink. Materialize the canonical target before probing the
+  // fallback alias. The /proc descriptor path does this in its own helper.
+  fs.mkdirSync(paths.runtime_dir, { recursive: true });
   fs.mkdirSync(aliases, { recursive: true, mode: 0o700 });
   const stat = fs.lstatSync(aliases);
   if (!stat.isDirectory() || stat.isSymbolicLink() ||
@@ -163,7 +168,7 @@ export function graphSocketPath(paths, platform = process.platform) {
   // the canonical clone-local path and, unlike /tmp aliases, remains reachable
   // when a caller has an isolated filesystem view (for example Codex's
   // workspace sandbox).
-  if (fs.existsSync('/proc/self/fd')) {
+  if (platform === 'linux' && fs.existsSync('/proc/self/fd')) {
     const fd = socketDirectoryDescriptor(paths);
     return `/proc/self/fd/${fd}/graphd.sock`;
   }
@@ -178,7 +183,7 @@ export function graphSocketChildPath(paths, platform = process.platform) {
   if (platform === 'win32' || Buffer.byteLength(paths.socket) < 100) {
     return graphSocketPath(paths, platform);
   }
-  if (fs.existsSync('/proc/self/fd')) {
+  if (platform === 'linux' && fs.existsSync('/proc/self/fd')) {
     const fd = socketDirectoryDescriptor(paths);
     return `/proc/${process.pid}/fd/${fd}/graphd.sock`;
   }
