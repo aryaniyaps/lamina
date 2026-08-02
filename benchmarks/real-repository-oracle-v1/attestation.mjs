@@ -155,6 +155,9 @@ export function createCompactGradeEnvelope({ fixtureDigest, result, grade }) {
     || typeof grade.passed !== 'boolean' || !grade.metrics || !Array.isArray(grade.diagnostics)) {
     throw new Error('compact grade envelope requires a complete parent-defined grade result');
   }
+  if (fixtureDigest !== result.fixture_digest) {
+    throw new Error('compact grade envelope cannot relabel a result with a different fixture digest');
+  }
   const fullDiagnostics = grade.diagnostics.map((item) => String(item));
   const compactGrade = {
     ...grade,
@@ -165,13 +168,13 @@ export function createCompactGradeEnvelope({ fixtureDigest, result, grade }) {
   };
   return canonical({
     schema: 'lamina.real-repository-oracle-grade-envelope/v1',
-    fixture_digest: fixtureDigest, collection_id: result.collection_id,
+    fixture_digest: result.fixture_digest, collection_id: result.collection_id,
     collection_digest: result.collection_digest, evidence_mode: result.evidence_mode,
     claims: result.claims, adapter: result.adapter,
     result_sha256: attestableResultDigest(result), replay_digest: result.replay_digest,
     case_count: result.cases.length,
     materializations: result.materializations.map((item) => ({
-      case_id: item.case_id, scenario_digest: item.scenario_digest,
+      case_id: item.case_id, tree_oid: item.tree_oid, scenario_digest: item.scenario_digest,
       provenance_digest: item.provenance_digest, base_digest: item.base_digest,
     })),
     grade: compactGrade,
@@ -179,18 +182,34 @@ export function createCompactGradeEnvelope({ fixtureDigest, result, grade }) {
 }
 
 export function encodeUnattestedPayload({ tier, collectionDigest, envelope }) {
-  const payload = {
+  const payload = canonical({
     schema: 'lamina.real-repository-oracle-payload/v1', tier,
-    collection_digest: collectionDigest, envelope,
-  };
-  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify(canonical(payload))), {
-    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+    collection_digest: collectionDigest, envelope: structuredClone(envelope),
   });
-  const line = `${PAYLOAD_PREFIX}${compressed.toString('base64url')}`;
-  if (Buffer.byteLength(line) > MAX_PAYLOAD_LINE_BYTES) {
-    throw new Error(`compact oracle payload exceeds ${MAX_PAYLOAD_LINE_BYTES} retained diagnostic bytes`);
+  while (true) {
+    const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify(payload)), {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+    });
+    const line = `${PAYLOAD_PREFIX}${compressed.toString('base64url')}`;
+    if (Buffer.byteLength(line) <= MAX_PAYLOAD_LINE_BYTES) return line;
+    const diagnostics = payload.envelope?.grade?.diagnostics;
+    if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+      throw new Error(`compact oracle payload exceeds ${MAX_PAYLOAD_LINE_BYTES} retained diagnostic bytes`);
+    }
+    const longest = Math.max(...diagnostics.map((item) => item.length));
+    if (longest > 32) {
+      const nextLength = Math.max(32, Math.floor(longest * 0.75));
+      payload.envelope.grade.diagnostics = diagnostics.map((item) => item.slice(0, nextLength));
+    } else {
+      diagnostics.pop();
+    }
   }
-  return line;
+}
+
+export function runnerFailureClassification(outcome) {
+  if (['preflight_refused', 'safety_limit_exceeded', 'interrupted'].includes(outcome)) return 'safety_blocked';
+  if (outcome === 'internal_error') return 'harness_failure';
+  return 'candidate_invalid';
 }
 
 function verifyCommon(returnedReport, { reportFile, expectedTier, expectedCollectionDigest }) {
@@ -234,8 +253,9 @@ function verifiedEnvelopeMaterializationDigests(envelope) {
   }
   const caseIds = new Set();
   for (const item of envelope.materializations) {
-    if (!item || Object.keys(item).sort().join(',') !== 'base_digest,case_id,provenance_digest,scenario_digest'
+    if (!item || Object.keys(item).sort().join(',') !== 'base_digest,case_id,provenance_digest,scenario_digest,tree_oid'
       || typeof item.case_id !== 'string' || !item.case_id || caseIds.has(item.case_id)
+      || !/^[a-f0-9]{40}$/.test(item.tree_oid || '')
       || !SHA256.test(item.scenario_digest || '') || !SHA256.test(item.provenance_digest || '')
       || !SHA256.test(item.base_digest || '')) {
       throw new Error('oracle compact grade envelope has an invalid or duplicate case materialization');
@@ -343,6 +363,7 @@ export function verifyReturnedBlockedControllerReport(returnedReport, {
       collection_digest: expectedCollectionDigest, materialization_digests: [],
       runner_outcome: report.outcome, cleanup_verified: true,
     },
+    failure_class: runnerFailureClassification(report.outcome),
     blocked_reason: reason, report_file: common.reportIdentity.path,
     report_sha256: common.reportIdentity.digest,
   });

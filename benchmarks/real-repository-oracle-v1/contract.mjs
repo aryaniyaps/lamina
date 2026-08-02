@@ -92,9 +92,16 @@ export function reviewedManifestDigest(bytes) {
 if (reviewedManifestDigest(manifestBytes) !== BASELINE_MANIFEST_SHA256) {
   throw new Error('runtime baseline manifest bytes no longer match the reviewed #60 identity');
 }
+// Git tree object IDs resolved for the exact #60 manifest commits through the
+// repository authority, rather than treating a commit ID as a tree identity.
+const COLLECTION_TREE_OIDS = Object.freeze({
+  small: 'b03782f905ffcd394bdaf597c06322afbc8ed991',
+  medium: '1ada87cb0c8c8066fd8f8df2401c187c05632e9d',
+  large: '382c6539083af65e86cdddbffd4e09884773e64e',
+});
 export const COLLECTION_PINS = Object.freeze(Object.fromEntries(manifest.fixtures.map((fixture) => [fixture.id, Object.freeze({
   fixture_id: fixture.id, fixture_class: fixture.class,
-  repository_url: fixture.url, commit: fixture.commit,
+  repository_url: fixture.url, commit: fixture.commit, tree_oid: COLLECTION_TREE_OIDS[fixture.id],
 })])));
 export const CANDIDATE_POLICY_SHA256 = digest({
   source_extensions: manifest.source_extensions,
@@ -108,6 +115,26 @@ export function collectionDigest(collection) {
   return digest(identity);
 }
 export function fixtureDigest(fixture) { return digest(fixture); }
+function materializationIdentity(collection, scenarioDigest) {
+  return {
+    repository_url: collection.repository_url,
+    resolved_commit: collection.commit,
+    tree_oid: collection.tree_oid,
+    scenario_digest: scenarioDigest,
+    candidate_policy_sha256: collection.candidate_policy_sha256,
+  };
+}
+export function materializationProvenanceDigest(collection, scenarioDigest) {
+  return digest(materializationIdentity(collection, scenarioDigest));
+}
+export function materializationBaseDigest(collection, scenarioDigest) {
+  const identity = materializationIdentity(collection, scenarioDigest);
+  return digest({
+    schema: 'lamina.real-repository-oracle-logical-base/v1',
+    ...identity,
+    provenance_digest: digest(identity),
+  });
+}
 function exactKeys(value, keys) {
   return object(value) && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
@@ -129,6 +156,7 @@ function validateCollection(collection, at, errors) {
   const pin = COLLECTION_PINS[collection?.fixture_id];
   if (!pin || collection.fixture_class !== pin.fixture_class
     || collection.repository_url !== pin.repository_url || collection.commit !== pin.commit
+    || collection.tree_oid !== pin.tree_oid
     || collection.baseline_manifest_sha256 !== BASELINE_MANIFEST_SHA256
     || collection.candidate_policy_sha256 !== CANDIDATE_POLICY_SHA256) {
     errors.push(`${at} does not match the frozen #60 repository manifest and candidate-subset policy`);
@@ -145,6 +173,9 @@ function validateOperation(operation, at, errors) {
   if (operation.op === 'rename'
     && (!isSafeRelativePath(operation.path) || !isSafeRelativePath(operation.to))) {
     errors.push(`${at} rename paths must be normalized repository-relative paths`);
+  }
+  if (operation.op === 'rename' && operation.path === operation.to) {
+    errors.push(`${at} rename must change the repository-relative path`);
   }
   if (['checkout_branch', 'add_worktree'].includes(operation.op) && !isSafeBranchName(operation.branch)) {
     errors.push(`${at}.branch is not a safe Git branch name`);
@@ -173,9 +204,10 @@ export function derivedCoverage(item) {
   return [...coverage];
 }
 
-function validateCase(item, index, collectionIds, errors) {
+function validateCase(item, index, collectionsById, errors) {
   const at = `fixture.cases[${index}]`;
-  if (!collectionIds.has(item.collection_id)) errors.push(`${at}.collection_id is unknown`);
+  const collection = collectionsById.get(item.collection_id);
+  if (!collection) errors.push(`${at}.collection_id is unknown`);
   for (const [operationIndex, operation] of item.repository_scenario.operations.entries()) {
     validateOperation(operation, `${at}.repository_scenario.operations[${operationIndex}]`, errors);
   }
@@ -196,6 +228,29 @@ function validateCase(item, index, collectionIds, errors) {
   if (item.expected.repository_state.worktree_role !== expectedWorktreeRole) {
     errors.push(`${at}.expected.repository_state.worktree_role contradicts the stable scenario role`);
   }
+  const expectedBranch = ['branch', 'worktree'].includes(item.repository_scenario.kind)
+    ? item.repository_scenario.operations[0]?.branch : '(detached)';
+  if (item.expected.repository_state.branch !== expectedBranch) {
+    errors.push(`${at}.expected.repository_state.branch contradicts the scenario branch policy`);
+  }
+  if (collection && item.expected.repository_state.head !== collection.commit) {
+    errors.push(`${at}.expected.repository_state.head contradicts the pinned collection commit`);
+  }
+  if (item.expected.repository_state.upstream !== null
+    || item.expected.repository_state.ahead !== 0 || item.expected.repository_state.behind !== 0) {
+    errors.push(`${at}.expected.repository_state must begin without upstream divergence`);
+  }
+  const expectedChanges = item.repository_scenario.operations.flatMap((operation) => {
+    if (operation.op === 'modify') return [{ kind: 'ordinary', path: operation.path, original_path: null, xy: '.M', submodule: 'N...' }];
+    if (operation.op === 'rename') return [{ kind: 'renamed', path: operation.to, original_path: operation.path, xy: '.R', submodule: 'N...' }];
+    if (operation.op === 'delete') return [{ kind: 'deleted', path: operation.path, original_path: null, xy: '.D', submodule: 'N...' }];
+    return [];
+  });
+  const reviewedChanges = item.expected.repository_state.changes;
+  const changeOrder = (left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right));
+  if (JSON.stringify([...reviewedChanges].sort(changeOrder)) !== JSON.stringify(expectedChanges.sort(changeOrder))) {
+    errors.push(`${at}.expected.repository_state.changes must exactly realize the reviewed scenario operations`);
+  }
   if (item.expected.workflow_outcome === 'new_workflow_required'
     && item.expected.selected_workflow_ids.length !== 0) {
     errors.push(`${at} genuinely new Workflow must select nothing`);
@@ -215,6 +270,10 @@ function validateCase(item, index, collectionIds, errors) {
   }
   item.expected.forbidden_paths.forEach((candidate, targetIndex) => {
     if (!isSafeRelativePath(candidate)) errors.push(`${at}.expected.forbidden_paths[${targetIndex}] is unsafe`);
+    if (item.expected.source_ranking.some((target) => target.path === candidate)
+      || item.expected.observations.some((target) => target.path === candidate)) {
+      errors.push(`${at}.expected.forbidden_paths[${targetIndex}] contradicts a positive expected target`);
+    }
   });
   item.expected.repository_state.changes.forEach((change, changeIndex) => {
     if (!isSafeRelativePath(change.path)
@@ -228,11 +287,11 @@ export function validateFixture(fixture) {
   const errors = [];
   if (!validateFixtureSchema(fixture)) return { valid: false, errors: schemaErrors(validateFixtureSchema) };
   fixture.collections.forEach((collection, index) => validateCollection(collection, `fixture.collections[${index}]`, errors));
-  const collectionIds = new Set(fixture.collections.map((item) => item.id));
-  if (collectionIds.size !== 3 || new Set(fixture.collections.map((item) => item.fixture_id)).size !== 3) {
+  const collectionsById = new Map(fixture.collections.map((item) => [item.id, item]));
+  if (collectionsById.size !== 3 || new Set(fixture.collections.map((item) => item.fixture_id)).size !== 3) {
     errors.push('fixture collections must uniquely cover all #60 fixture tiers');
   }
-  fixture.cases.forEach((item, index) => validateCase(item, index, collectionIds, errors));
+  fixture.cases.forEach((item, index) => validateCase(item, index, collectionsById, errors));
   if (!unique(fixture.cases.map((item) => item.id))) errors.push('fixture case ids must be unique');
   const covered = new Set(fixture.cases.flatMap(derivedCoverage));
   for (const category of REQUIRED_COVERAGE) if (!covered.has(category)) errors.push(`fixture lacks derived coverage ${category}`);
@@ -265,8 +324,14 @@ export function validateFixture(fixture) {
       source_ranking: reviewedCase.expected.source_ranking.length > 0,
       multi_workflow: reviewedCase.expected.workflow_outcome === 'multi_workflow',
       replay: true, repository_state: true,
-      rename: reviewedCase.repository_scenario.operations.some((item) => item.op === 'rename'),
-      delete: reviewedCase.repository_scenario.operations.some((item) => item.op === 'delete'),
+      rename: reviewedCase.repository_scenario.operations.some((operation) => operation.op === 'rename'
+        && reviewedCase.expected.forbidden_paths.includes(operation.path)
+        && reviewedCase.expected.repository_state.changes.some((change) => change.kind === 'renamed'
+          && change.path === operation.to && change.original_path === operation.path)),
+      delete: reviewedCase.repository_scenario.operations.some((operation) => operation.op === 'delete'
+        && reviewedCase.expected.forbidden_paths.includes(operation.path)
+        && reviewedCase.expected.repository_state.changes.some((change) => change.kind === 'deleted'
+          && change.path === operation.path && change.original_path === null)),
     }[mutation.applicability];
     if (!applicable) errors.push(`mutation ${mutation.id} is inert for its target case`);
   }
@@ -347,6 +412,17 @@ export function validateResult(result, { allowUnattested = false, allowVerifiedS
   if (!unique(materializationIds)) errors.push('result materialization case ids must be unique');
   if (result.cases.length && !sameSet(materializationIds, result.cases.map((item) => item.id))) errors.push('every result case must have exact materialization provenance');
   for (const item of result.materializations) {
+    const pin = Object.values(COLLECTION_PINS).find((candidate) => candidate.commit === item.resolved_commit);
+    const materializationCollection = {
+      repository_url: item.repository_url, commit: item.resolved_commit,
+      tree_oid: item.tree_oid, candidate_policy_sha256: item.candidate_policy_sha256,
+    };
+    if (!pin || item.repository_url !== pin.repository_url || item.tree_oid !== pin.tree_oid
+      || item.candidate_policy_sha256 !== CANDIDATE_POLICY_SHA256
+      || item.provenance_digest !== materializationProvenanceDigest(materializationCollection, item.scenario_digest)
+      || item.base_digest !== materializationBaseDigest(materializationCollection, item.scenario_digest)) {
+      errors.push(`materialization ${item.case_id} does not derive from the frozen repository tree, scenario, and candidate policy`);
+    }
     if (![item.first_start_digest, item.first_end_digest, item.replay_start_digest,
       item.replay_end_digest].every((value) => value === item.base_digest)) {
       errors.push(`materialization ${item.case_id} does not preserve an identical immutable base across first/replay`);

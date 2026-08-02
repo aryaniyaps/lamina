@@ -1,5 +1,6 @@
 import {
-  FROZEN_GATES, collectionDigest, digest, fixtureDigest, resultCasesDigest,
+  FROZEN_GATES, collectionDigest, digest, fixtureDigest, materializationBaseDigest,
+  materializationProvenanceDigest, resultCasesDigest,
   validateFixture, validateResult,
 } from './contract.mjs';
 import { isControllerOracleVerification } from './controller.mjs';
@@ -112,8 +113,16 @@ export function gradeResult(fixture, result, { allowUnattestedEvaluation = false
   const diagnostics = [];
   const materializationByCase = new Map(result.materializations.map((item) => [item.case_id, item]));
   for (const expectedCase of expectedCases) {
-    if (materializationByCase.get(expectedCase.id)?.scenario_digest !== digest(expectedCase.repository_scenario)) {
-      diagnostics.push(`case ${expectedCase.id}: materialization does not bind the reviewed repository scenario`);
+    const materialization = materializationByCase.get(expectedCase.id);
+    const scenarioDigest = digest(expectedCase.repository_scenario);
+    if (materialization?.scenario_digest !== scenarioDigest
+      || materialization?.repository_url !== collection.repository_url
+      || materialization?.resolved_commit !== collection.commit
+      || materialization?.tree_oid !== collection.tree_oid
+      || materialization?.candidate_policy_sha256 !== collection.candidate_policy_sha256
+      || materialization?.provenance_digest !== materializationProvenanceDigest(collection, scenarioDigest)
+      || materialization?.base_digest !== materializationBaseDigest(collection, scenarioDigest)) {
+      diagnostics.push(`case ${expectedCase.id}: materialization does not bind the reviewed repository tree, scenario, and policy`);
     }
   }
   const counters = { exact: { matched: 0, total: 0 }, multi: { matched: 0, total: 0 }, novel: { incorrect: 0, total: 0 }, workflow: { matched: 0, total: 0 }, source: { matched: 0, total: 0 } };
@@ -143,14 +152,19 @@ export function gradeControllerVerification(fixture, verification) {
     return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['only the parent runSafely controller can issue a gradeable verification'] };
   }
   if (verification.envelope === null) {
-    return { passed: false, classification: 'safety_blocked', metrics: null, coverage: null, diagnostics: [verification.blocked_reason] };
+    if (!['safety_blocked', 'candidate_invalid', 'harness_failure'].includes(verification.failure_class)) {
+      return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['controller failure evidence lacks an explicit valid classification'] };
+    }
+    return { passed: false, classification: verification.failure_class, metrics: null, coverage: null, diagnostics: [verification.blocked_reason] };
   }
   const envelope = verification.envelope;
   const collection = fixture.collections.find((item) => item.id === envelope.collection_id);
   if (envelope.fixture_digest !== fixtureDigest(fixture) || !collection
     || envelope.collection_digest !== collection.collection_digest
     || verification.attestation.fixture_digest !== envelope.fixture_digest
-    || verification.attestation.collection_digest !== envelope.collection_digest) {
+    || verification.attestation.collection_digest !== envelope.collection_digest
+    || verification.attestation.tier !== collection.fixture_class
+    || collection.fixture_class !== collection.fixture_id) {
     return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: ['controller envelope does not bind the exact reviewed fixture and collection'] };
   }
   const envelopeMaterializationDigests = [...new Set(
@@ -161,6 +175,22 @@ export function gradeControllerVerification(fixture, verification) {
     || verification.attestation.cleanup_verified !== true
     || !sameSet(verification.attestation.materialization_digests, envelopeMaterializationDigests)) {
     return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['controller attestation contradicts the retained result, materialization, outcome, or cleanup evidence'] };
+  }
+  const expectedCases = new Map(fixture.cases
+    .filter((item) => item.collection_id === collection.id)
+    .map((item) => [item.id, item]));
+  if (!sameSet(envelope.materializations.map((item) => item.case_id), [...expectedCases.keys()])) {
+    return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['controller materializations do not exactly cover the reviewed collection cases'] };
+  }
+  for (const materialization of envelope.materializations) {
+    const reviewedCase = expectedCases.get(materialization.case_id);
+    const scenarioDigest = reviewedCase ? digest(reviewedCase.repository_scenario) : null;
+    if (!reviewedCase || materialization.tree_oid !== collection.tree_oid
+      || materialization.scenario_digest !== scenarioDigest
+      || materialization.provenance_digest !== materializationProvenanceDigest(collection, scenarioDigest)
+      || materialization.base_digest !== materializationBaseDigest(collection, scenarioDigest)) {
+      return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['controller materialization evidence does not derive from the reviewed repository tree, scenario, and policy'] };
+    }
   }
   return structuredClone(envelope.grade);
 }

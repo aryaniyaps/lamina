@@ -19,12 +19,12 @@
     "stringArray": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonempty" } },
     "collection": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema", "id", "fixture_id", "fixture_class", "repository_url", "commit", "baseline_manifest_sha256", "candidate_policy_sha256", "observation_paths_sha256", "observation_candidate_files", "observation_candidate_bytes", "retrieval_paths_sha256", "retrieval_candidate_files", "retrieval_candidate_bytes", "collection_digest"],
+      "required": ["schema", "id", "fixture_id", "fixture_class", "repository_url", "commit", "tree_oid", "baseline_manifest_sha256", "candidate_policy_sha256", "observation_paths_sha256", "observation_candidate_files", "observation_candidate_bytes", "retrieval_paths_sha256", "retrieval_candidate_files", "retrieval_candidate_bytes", "collection_digest"],
       "properties": {
         "schema": { "const": "lamina.real-repository-collection/v1" }, "id": { "$ref": "#/$defs/nonempty" },
         "fixture_id": { "enum": ["small", "medium", "large"] }, "fixture_class": { "enum": ["small", "medium", "large"] },
         "repository_url": { "type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\\.git$" },
-        "commit": { "$ref": "#/$defs/commit" }, "baseline_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "commit": { "$ref": "#/$defs/commit" }, "tree_oid": { "$ref": "#/$defs/commit" }, "baseline_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "candidate_policy_sha256": { "$ref": "#/$defs/sha256" }, "observation_paths_sha256": { "$ref": "#/$defs/sha256" },
         "observation_candidate_files": { "type": "integer", "minimum": 1 }, "observation_candidate_bytes": { "type": "integer", "minimum": 1 },
         "retrieval_paths_sha256": { "$ref": "#/$defs/sha256" }, "retrieval_candidate_files": { "type": "integer", "minimum": 1 },

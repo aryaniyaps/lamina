@@ -3,22 +3,26 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import {
   ADAPTER_SCHEMA, BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256,
   COLLECTION_PINS, COLLECTION_SCHEMA, FIXTURE_SCHEMA, FROZEN_GATES,
   OBSERVATION_CATEGORIES, OBLIGATION_CATEGORIES, QUALIFIED_CURRENT_BASELINE,
-  QUERY_KINDS, RESULT_SCHEMA, collectionDigest, digest,
+  QUERY_KINDS, RESULT_SCHEMA, canonical, collectionDigest, digest,
   executeRegisteredMutation, isSafeBranchName, isSafeRelativePath,
-  fixtureDigest, resultCasesDigest, reviewedManifestDigest, validateFixture, validateResult,
+  fixtureDigest, materializationBaseDigest, materializationProvenanceDigest,
+  resultCasesDigest, reviewedManifestDigest, validateFixture, validateResult,
 } from '../benchmarks/real-repository-oracle-v1/contract.mjs';
 import { evaluateAdapter, evaluateSideBySide } from '../benchmarks/real-repository-oracle-v1/evaluate.mjs';
 import { gradeControllerVerification, gradeResult } from '../benchmarks/real-repository-oracle-v1/grade.mjs';
 import {
-  CANONICAL_WORKLOAD_ARGV, MAX_PAYLOAD_LINE_BYTES,
+  CANONICAL_WORKLOAD_ARGV, MAX_PAYLOAD_LINE_BYTES, PAYLOAD_PREFIX,
   MAX_RETAINED_DIAGNOSTICS,
   createCompactGradeEnvelope, encodeUnattestedPayload,
+  runnerFailureClassification,
   verifyReturnedBlockedControllerReport, verifyReturnedControllerReport,
 } from '../benchmarks/real-repository-oracle-v1/attestation.mjs';
+import { runOracleThroughSafeRunner } from '../benchmarks/real-repository-oracle-v1/controller.mjs';
 import { resolvePhysicalContained } from '../benchmarks/real-repository-oracle-v1/materialization-registry.mjs';
 import { heldOutIdentity } from '../benchmarks/real-repository-oracle-v1/held-out-compatibility.mjs';
 import { parsePorcelainV2Z } from '../benchmarks/real-repository-oracle-v1/repository-state.mjs';
@@ -54,6 +58,7 @@ function scenarioFor(index) {
 }
 
 function reviewedCase(collectionValue, query, index) {
+  const scenario = scenarioFor(index);
   const intent = index === 6 ? 'multi_workflow' : index === 7 ? 'new_workflow'
     : index === 8 ? 'adversarial' : index % 2 ? 'source_localization' : 'workflow_selection';
   const outcome = intent === 'multi_workflow' ? 'multi_workflow'
@@ -65,7 +70,7 @@ function reviewedCase(collectionValue, query, index) {
     collection_id: collectionValue.id,
     request: `Reviewed ${query} request for ${collectionValue.id}`,
     kind: { query, intent, scope: index % 3 === 0 ? 'one_file' : index % 3 === 1 ? 'multi_file' : 'repository' },
-    repository_scenario: scenarioFor(index),
+    repository_scenario: scenario,
     expected: {
       workflow_outcome: outcome, selected_workflow_ids: selected,
       forbidden_workflow_ids: ['workflow.forbidden'],
@@ -76,8 +81,14 @@ function reviewedCase(collectionValue, query, index) {
       forbidden_paths: [2, 3].includes(index) ? ['src/a.ts'] : [],
       repository_state: {
         head: collectionValue.commit,
-        branch: index === 4 ? 'review/oracle' : '(detached)', upstream: null,
-        ahead: 0, behind: 0, worktree_role: index === 5 ? 'linked-1' : 'primary', changes: [],
+        branch: ['branch', 'worktree'].includes(scenario.kind) ? scenario.operations[0].branch : '(detached)', upstream: null,
+        ahead: 0, behind: 0, worktree_role: index === 5 ? 'linked-1' : 'primary',
+        changes: scenario.operations.flatMap((operation) => {
+          if (operation.op === 'modify') return [{ kind: 'ordinary', path: operation.path, original_path: null, xy: '.M', submodule: 'N...' }];
+          if (operation.op === 'rename') return [{ kind: 'renamed', path: operation.to, original_path: operation.path, xy: '.R', submodule: 'N...' }];
+          if (operation.op === 'delete') return [{ kind: 'deleted', path: operation.path, original_path: null, xy: '.D', submodule: 'N...' }];
+          return [];
+        }),
       },
     },
     rationale: 'Compact reviewed expectation bound to one exact repository collection.',
@@ -113,6 +124,29 @@ const fixture = {
 };
 assert.deepEqual(validateFixture(fixture), { valid: true, errors: [] });
 assert.equal(validateFixtureSchema(fixture), true, JSON.stringify(validateFixtureSchema.errors));
+await assert.rejects(runOracleThroughSafeRunner({
+  fixture, collection: collections[2], tier: 'small',
+  cwd: '/controller-must-not-reach-filesystem', reportFile: '/controller-must-not-run/report.json',
+}), /tier must exactly match/, 'collection tier mismatch is rejected before runSafely or filesystem access');
+const relabelledCollection = structuredClone(collections[0]);
+relabelledCollection.observation_candidate_files += 1;
+relabelledCollection.collection_digest = collectionDigest(relabelledCollection);
+await assert.rejects(runOracleThroughSafeRunner({
+  fixture, collection: relabelledCollection, tier: 'small',
+  cwd: '/controller-must-not-reach-filesystem', reportFile: '/controller-must-not-run/report.json',
+}), /exact digest-bound fixture collection member/,
+'a self-consistent but unreviewed collection cannot reach runSafely');
+await assert.rejects(runOracleThroughSafeRunner({ env: { ORACLE_FIXTURE: '/candidate/path' } }),
+  /rejects caller environment overrides/);
+const previousOracleFixture = process.env.ORACLE_FIXTURE;
+process.env.ORACLE_FIXTURE = '/ambient/candidate/path';
+try {
+  await assert.rejects(runOracleThroughSafeRunner({ fixture, collection: collections[0], tier: 'small' }),
+    /unsealed ambient semantic environment/);
+} finally {
+  if (previousOracleFixture === undefined) delete process.env.ORACLE_FIXTURE;
+  else process.env.ORACLE_FIXTURE = previousOracleFixture;
+}
 const manifestLf = fs.readFileSync(new URL('../benchmarks/runtime-baseline-v1/manifest.json', import.meta.url));
 const manifestCrlf = Buffer.from(manifestLf.toString('utf8').replaceAll('\n', '\r\n'));
 assert.equal(reviewedManifestDigest(manifestCrlf), BASELINE_MANIFEST_SHA256, 'CRLF checkout bytes preserve only the reviewed LF manifest identity');
@@ -134,10 +168,10 @@ const active = new Map();
 const prepareCalls = [];
 const materializer = {
   prepare(scenario, collectionValue) {
-    const treeOid = collectionValue.commit;
+    const treeOid = collectionValue.tree_oid;
     const scenarioDigest = digest(scenario);
-    const provenance = digest({ repository_url: collectionValue.repository_url, resolved_commit: collectionValue.commit, tree_oid: treeOid, scenario_digest: scenarioDigest, candidate_policy_sha256: collectionValue.candidate_policy_sha256 });
-    const base = { schema: 'lamina.materialized-repository-base/v1', resolved_commit: collectionValue.commit, tree_oid: treeOid, scenario_digest: scenarioDigest, provenance_digest: provenance, content_digest: digest({ provenance, state: 'start' }) };
+    const provenance = materializationProvenanceDigest(collectionValue, scenarioDigest);
+    const base = { schema: 'lamina.materialized-repository-base/v1', resolved_commit: collectionValue.commit, tree_oid: treeOid, scenario_digest: scenarioDigest, provenance_digest: provenance, content_digest: materializationBaseDigest(collectionValue, scenarioDigest) };
     prepareCalls.push({ scenario, collectionValue, base });
     return base;
   },
@@ -197,7 +231,17 @@ unequalMaterialization.materializations[0].replay_end_digest = 'f'.repeat(64);
 assert.equal(validateResult(unequalMaterialization).valid, false, 'all first/replay materialization digests must equal the immutable base');
 const wrongScenarioIdentity = structuredClone(result);
 wrongScenarioIdentity.materializations[0].scenario_digest = 'f'.repeat(64);
-assert.ok(gradeResult(fixture, wrongScenarioIdentity).diagnostics.some((item) => item.includes('reviewed repository scenario')));
+assert.equal(validateResult(wrongScenarioIdentity).valid, false);
+assert.equal(gradeResult(fixture, wrongScenarioIdentity).classification, 'candidate_invalid');
+const arbitraryProvenance = structuredClone(result);
+arbitraryProvenance.materializations[0].provenance_digest = 'e'.repeat(64);
+assert.equal(validateResult(arbitraryProvenance).valid, false, 'arbitrary provenance cannot satisfy the deterministic pinned identity');
+const arbitraryAllEqualBase = structuredClone(result);
+for (const field of ['base_digest', 'first_start_digest', 'first_end_digest', 'replay_start_digest', 'replay_end_digest']) {
+  arbitraryAllEqualBase.materializations[0][field] = 'd'.repeat(64);
+}
+assert.equal(validateResult(arbitraryAllEqualBase).valid, false, 'arbitrary all-equal lease digests are not a grounded logical base');
+assert.notEqual(gradeResult(fixture, arbitraryAllEqualBase).classification, 'pass');
 
 // The #60 authority is not replaceable by recomputing a downstream digest.
 const swapped = structuredClone(fixture);
@@ -251,6 +295,18 @@ assert.equal(validateFixture(incoherentIntent).valid, false, 'typed intent must 
 const wrongScenarioOperation = structuredClone(fixture);
 wrongScenarioOperation.cases[4].repository_scenario.operations = [{ op: 'delete', path: 'src/a.ts' }];
 assert.equal(validateFixture(wrongScenarioOperation).valid, false, 'branch scenarios cannot carry an unrelated mutation recipe');
+const wrongScenarioBranch = structuredClone(fixture);
+wrongScenarioBranch.cases[4].expected.repository_state.branch = 'review/different';
+assert.equal(validateFixture(wrongScenarioBranch).valid, false, 'branch state must equal the executable checkout branch');
+const missingScenarioChange = structuredClone(fixture);
+missingScenarioChange.cases[2].expected.repository_state.changes = [];
+assert.equal(validateFixture(missingScenarioChange).valid, false, 'rename operations cannot claim a zero-change repository state');
+const wrongPorcelainSemantics = structuredClone(fixture);
+wrongPorcelainSemantics.cases[2].expected.repository_state.changes[0].xy = 'R.';
+assert.equal(validateFixture(wrongPorcelainSemantics).valid, false, 'scenario state must preserve exact porcelain XY semantics');
+const zeroChangeRename = structuredClone(fixture);
+zeroChangeRename.cases[2].repository_scenario.operations[0].to = 'src/a.ts';
+assert.equal(validateFixture(zeroChangeRename).valid, false, 'rename operations must change the path');
 
 for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree_role']) {
   const mismatch = structuredClone(result);
@@ -269,12 +325,16 @@ assert.ok(gradeResult(fixture, extraChange).diagnostics.some((item) => item.incl
 for (const mutation of fixture.mutations) {
   const mutated = executeRegisteredMutation(fixture, result, mutation);
   const graded = gradeResult(fixture, mutated);
+  assert.equal(graded.passed, false, `${mutation.kind} must fail the end-to-end grade`);
   assert.equal(graded.classification, 'product_regression', mutation.kind);
   for (const needle of mutation.diagnostic_includes) assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
 }
 const inertMutation = structuredClone(fixture);
 inertMutation.mutations.find((item) => item.kind === 'stale_rename_path').case_id = cases[0].id;
 assert.equal(validateFixture(inertMutation).valid, false, 'every registered mutation must be applicable to its reviewed target');
+const stalePathWithoutContract = structuredClone(fixture);
+stalePathWithoutContract.cases[2].expected.forbidden_paths = [];
+assert.equal(validateFixture(stalePathWithoutContract).valid, false, 'stale rename mutations require the reviewed old path to be forbidden');
 const missingMutationKind = structuredClone(fixture);
 missingMutationKind.mutations = missingMutationKind.mutations.filter((item) => item.kind !== 'stale_delete_path');
 assert.equal(validateFixture(missingMutationKind).valid, false, 'all executable mutation kinds are mandatory');
@@ -305,6 +365,12 @@ const measuredGrade = gradeResult(fixture, measured, { allowUnattestedEvaluation
 const compactEnvelope = createCompactGradeEnvelope({
   fixtureDigest: fixtureDigest(fixture), result: measured, grade: measuredGrade,
 });
+const relabelledFixture = structuredClone(fixture);
+relabelledFixture.cases[0].rationale = 'A new valid rationale changes the reviewed fixture identity.';
+assert.equal(validateFixture(relabelledFixture).valid, true);
+assert.throws(() => createCompactGradeEnvelope({
+  fixtureDigest: fixtureDigest(relabelledFixture), result: measured, grade: measuredGrade,
+}), /cannot relabel/, 'an old result cannot be relabelled as evidence for a new valid fixture');
 assert.equal('cases' in compactEnvelope, false, 'the retained payload is a compact grade envelope, not 20+ case bodies');
 const payloadLine = encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, envelope: compactEnvelope });
 assert.ok(Buffer.byteLength(payloadLine) <= MAX_PAYLOAD_LINE_BYTES);
@@ -321,7 +387,36 @@ assert.equal(oversizedEnvelope.grade.diagnostics_total, 500);
 assert.match(oversizedEnvelope.grade.diagnostics_sha256, /^[a-f0-9]{64}$/);
 assert.ok(Buffer.byteLength(encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, envelope: oversizedEnvelope })) <= MAX_PAYLOAD_LINE_BYTES,
   'oversized failing diagnostics remain a bounded product-regression envelope');
-const attestationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-attestation-'));
+function highEntropyDiagnostic(seed) {
+  let state = (seed + 1) * 0x9e3779b1;
+  let value = '';
+  for (let index = 0; index < 2_000; index += 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    value += String.fromCharCode(0x4e00 + (state % 20_000));
+  }
+  return value;
+}
+const entropyEnvelope = createCompactGradeEnvelope({
+  fixtureDigest: fixtureDigest(fixture), result: measured,
+  grade: { ...oversizedGrade, diagnostics: Array.from({ length: 500 }, (_, index) => highEntropyDiagnostic(index)) },
+});
+const naivePayload = canonical({
+  schema: 'lamina.real-repository-oracle-payload/v1', tier: 'small',
+  collection_digest: selectedCollection.collection_digest, envelope: entropyEnvelope,
+});
+const naiveCompressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify(naivePayload)), {
+  params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+});
+assert.ok(Buffer.byteLength(`${PAYLOAD_PREFIX}${naiveCompressed.toString('base64url')}`) > MAX_PAYLOAD_LINE_BYTES,
+  'worst-case retained Unicode diagnostics exceed the physical tail before adaptive compaction');
+const entropyLine = encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, envelope: entropyEnvelope });
+assert.ok(Buffer.byteLength(entropyLine) <= MAX_PAYLOAD_LINE_BYTES);
+const entropyPayload = JSON.parse(zlib.brotliDecompressSync(Buffer.from(entropyLine.slice(PAYLOAD_PREFIX.length), 'base64url')));
+assert.equal(entropyPayload.envelope.grade.diagnostics_total, 500);
+assert.equal(entropyPayload.envelope.grade.diagnostics_sha256, entropyEnvelope.grade.diagnostics_sha256);
+assert.ok(entropyPayload.envelope.grade.diagnostics.length < entropyEnvelope.grade.diagnostics.length
+  || entropyPayload.envelope.grade.diagnostics.some((item, index) => item.length < entropyEnvelope.grade.diagnostics[index].length));
+const attestationRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-attestation-')));
 const payloadCwd = path.join(attestationRoot, 'payload-repository');
 const controllerDirectory = path.join(attestationRoot, 'controller-reports');
 const entrypoint = path.join(payloadCwd, 'benchmarks/real-repository-oracle-v1/workload.mjs');
@@ -444,9 +539,17 @@ const blocked = verifyReturnedBlockedControllerReport(refusedReport, {
   expectedCollectionDigest: selectedCollection.collection_digest,
   expectedFixtureDigest: fixtureDigest(fixture),
 });
+assert.equal(blocked.failure_class, 'candidate_invalid', 'command failure is not a safety block');
+assert.equal(runnerFailureClassification('preflight_refused'), 'safety_blocked');
+assert.equal(runnerFailureClassification('safety_limit_exceeded'), 'safety_blocked');
+assert.equal(runnerFailureClassification('interrupted'), 'safety_blocked');
+assert.equal(runnerFailureClassification('command_failed'), 'candidate_invalid');
+assert.equal(runnerFailureClassification('internal_error'), 'harness_failure');
 assert.equal(gradeControllerVerification(fixture, blocked).classification, 'candidate_invalid', 'only the live parent controller can brand even a valid blocked report');
 const controllerSource = fs.readFileSync(new URL('../benchmarks/real-repository-oracle-v1/controller.mjs', import.meta.url), 'utf8');
 assert.match(controllerSource, /await runSafely\(/); assert.match(controllerSource, /issued\.add\(verification\)/);
+assert.match(controllerSource, /realpathSync\.native\(path\.dirname\(requestedReport\)\)/,
+  'controller canonicalizes macOS temp aliases before the report authority is created');
 fs.rmSync(attestationRoot, { recursive: true, force: true });
 
 const hash = '1'.repeat(40);

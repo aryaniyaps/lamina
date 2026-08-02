@@ -31,6 +31,7 @@ export function adapterInput(reviewedCase, collection, lease) {
       fixture_id: collection.fixture_id,
       repository_url: collection.repository_url,
       commit: collection.commit,
+      tree_oid: collection.tree_oid,
       collection_digest: collection.collection_digest,
     },
     request: reviewedCase.request,
@@ -90,6 +91,10 @@ async function evaluateWithPrepared({ fixture, collection, adapter, registry, ba
     }
     return {
       case_id: reviewedCase.id,
+      repository_url: collection.repository_url,
+      resolved_commit: collection.commit,
+      tree_oid: collection.tree_oid,
+      candidate_policy_sha256: collection.candidate_policy_sha256,
       scenario_digest: left.base.scenario_digest,
       provenance_digest: left.base.provenance_digest,
       base_digest: left.base.content_digest,

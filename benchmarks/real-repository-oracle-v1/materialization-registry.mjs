@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { digest } from './contract.mjs';
+import {
+  digest, materializationBaseDigest, materializationProvenanceDigest,
+} from './contract.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const frozenClone = (value) => {
@@ -40,20 +42,16 @@ export function resolvePhysicalContained(root, relative, { allowMissingLeaf = fa
 
 function assertBase(value, scenario, collection) {
   const expectedScenario = digest(scenario);
-  const expectedProvenance = digest({
-    repository_url: collection.repository_url,
-    resolved_commit: value?.resolved_commit,
-    tree_oid: value?.tree_oid,
-    scenario_digest: value?.scenario_digest,
-    candidate_policy_sha256: collection.candidate_policy_sha256,
-  });
+  const expectedProvenance = materializationProvenanceDigest(collection, expectedScenario);
+  const expectedBase = materializationBaseDigest(collection, expectedScenario);
   if (!exactKeys(value, [
     'schema', 'resolved_commit', 'tree_oid', 'scenario_digest',
     'provenance_digest', 'content_digest',
   ])
     || value.schema !== 'lamina.materialized-repository-base/v1'
-    || value.resolved_commit !== collection.commit || !/^[a-f0-9]{40,64}$/.test(value.tree_oid)
+    || value.resolved_commit !== collection.commit || value.tree_oid !== collection.tree_oid
     || value.scenario_digest !== expectedScenario || value.provenance_digest !== expectedProvenance
+    || value.content_digest !== expectedBase
     || !SHA256.test(value.provenance_digest) || !SHA256.test(value.content_digest)) {
     throw new Error('trusted materializer did not bind the actual pinned tree and reviewed scenario');
   }
