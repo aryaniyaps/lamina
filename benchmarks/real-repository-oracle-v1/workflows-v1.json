@@ -1,0 +1,235 @@
+{
+  "schema": "lamina.real-repository-oracle-workflows/v1",
+  "purpose": "candidate_visible_human_reviewed_synthetic_persona_walks_with_lexical_surface_grounding_only",
+  "authority": {
+    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
+    "evidence_selection_raw_sha256": "338540672264c5bd2bd98164fa120e6cceea6ac5408fcb7c77986d786d70f7d2",
+    "semantic_reviews": [
+      { "id": "workflow-semantic-review-a", "decision": "accepted", "scope": "synthetic_product_contracts_and_persona_walks" },
+      { "id": "workflow-semantic-review-b", "decision": "accepted", "scope": "lexical_surface_grounding_and_non_derivation_boundary" }
+    ],
+    "implementation_ready_meaning": "all_reviewed_target_and_proof_references_resolve_only",
+    "evidence_expansion_reports": {
+      "small": { "report_sha256": "30c9b02d50a2d0c7af7d3f15df8c2a9122f044118a078cbcfbb8651d454bf51a", "records_sha256": "94b5b5c49c095970e68d5a5592ca8f2584decd8a0977745341132890cd48fe58" },
+      "medium": { "report_sha256": "e133903549b9e759592f31be95c84b2655d600ae8d34ac206459cc4a9ded77ba", "records_sha256": "657b93b3c9a07f51d1e1c235b800196be38027d377a0bc6a8d83b7dab2a0265d" },
+      "large": { "report_sha256": "27c71d733850d64a82d484197f7cde28110ec47a96f8e892241eed7c8a4d118e", "records_sha256": "6069a1a809bfb6af9ef1a9f08244742bc686b78a36409d8e7f89bd7b39b93241" }
+    }
+  },
+  "collections": [
+    {
+      "collection_id": "collection.small",
+      "fixture_id": "small",
+      "pin": { "repository_url": "https://github.com/alan2207/bulletproof-react.git", "commit": "9506629ed003a561c6627735480cce4994244bb4", "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991" },
+      "workflows": [
+        {
+          "id": "small.dashboard-navigation", "name": "Dashboard navigation", "aliases": ["side navigation", "dashboard menu"],
+          "objective": "Let an authenticated dashboard user understand and choose a named navigation item.",
+          "non_goals": ["Define authentication policy", "Change route infrastructure"],
+          "actors": [{ "id": "small.dashboard-user", "persona": "Dashboard user", "authority": "May choose visible navigation items but may not redefine them." }],
+          "operations": [{ "order": 1, "id": "small.dashboard-navigation.choose", "actor_id": "small.dashboard-user", "action": "Choose a named side-navigation item", "surface_id": "small.surface.side-navigation-item" }],
+          "states": [{ "id": "small.dashboard-navigation.idle", "meaning": "No item is being chosen" }, { "id": "small.dashboard-navigation.chosen", "meaning": "One item has been chosen" }],
+          "transitions": [{ "id": "small.dashboard-navigation.choose-transition", "from": "small.dashboard-navigation.idle", "to": "small.dashboard-navigation.chosen", "trigger": "A visible item is chosen" }],
+          "failure_contracts": [{ "id": "small.dashboard-navigation.unknown-item", "condition": "The item is not in the reviewed navigation model", "response": "Keep the prior state and expose no invented destination" }],
+          "invariants": [{ "id": "small.dashboard-navigation.named-item", "statement": "Every selectable item has a name before selection." }],
+          "scenarios": [{ "id": "small.dashboard-navigation.primary", "persona_id": "small.dashboard-user", "given": "A reviewed navigation item is visible", "when": "The user chooses it", "then": "The chosen state refers to that item" }],
+          "surfaces": [{ "id": "small.surface.side-navigation-item", "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx", "blob_oid": "a84797b64b77a2f8c9b9aa19b8a55ee8e2d7fbb2", "symbol": "SideNavigationItem", "line": 22, "line_sha256": "91ccd5505c8d4fe58c23fadb0c3c987a36a0e7eee60733317e7ea20fe0d727f3", "evidence_ref": "small.evidence.1" }],
+          "proofs": [{ "id": "small.proof.side-navigation-type", "claim": "The pinned blob declares SideNavigationItem at line 22.", "evidence_ref": "small.evidence.1" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["small.surface.side-navigation-item"], "proof_ids": ["small.proof.side-navigation-type"], "unresolved": [] }
+        },
+        {
+          "id": "small.profile-entry", "name": "Profile entry presentation", "aliases": ["profile field", "profile entry"],
+          "objective": "Present a profile entry with its reviewed field contract.", "non_goals": ["Persist profile changes", "Authorize account access"],
+          "actors": [{ "id": "small.profile-viewer", "persona": "Profile viewer", "authority": "May read presented profile entries." }],
+          "operations": [{ "order": 1, "id": "small.profile-entry.present", "actor_id": "small.profile-viewer", "action": "Present one profile entry", "surface_id": "small.surface.entry-props" }],
+          "states": [{ "id": "small.profile-entry.hidden", "meaning": "The entry is not presented" }, { "id": "small.profile-entry.visible", "meaning": "The entry is presented" }],
+          "transitions": [{ "id": "small.profile-entry.show", "from": "small.profile-entry.hidden", "to": "small.profile-entry.visible", "trigger": "Profile presentation begins" }],
+          "failure_contracts": [{ "id": "small.profile-entry.missing-contract", "condition": "The reviewed entry contract cannot be localized", "response": "Do not invent profile fields" }],
+          "invariants": [{ "id": "small.profile-entry.typed", "statement": "Presentation remains bound to the reviewed entry type." }],
+          "scenarios": [{ "id": "small.profile-entry.primary", "persona_id": "small.profile-viewer", "given": "A profile entry exists", "when": "The profile is presented", "then": "The entry uses the reviewed field contract" }],
+          "surfaces": [{ "id": "small.surface.entry-props", "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx", "blob_oid": "e9b25ecc97e78d10238645e264feeb9ac227406d", "symbol": "EntryProps", "line": 6, "line_sha256": "63a4b8abd79198e46d9aabc9ff8f768895f8b30742b47d64c95c0209b9a9b869", "evidence_ref": "small.evidence.2" }],
+          "proofs": [{ "id": "small.proof.entry-props", "claim": "The pinned blob declares EntryProps at line 6.", "evidence_ref": "small.evidence.2" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["small.surface.entry-props"], "proof_ids": ["small.proof.entry-props"], "unresolved": [] }
+        },
+        {
+          "id": "small.route-completion", "name": "Route completion handling", "aliases": ["route complete", "navigation completion"],
+          "objective": "Handle a completed dashboard route change without attaching the behavior to the auth layout.", "non_goals": ["Define router internals", "Handle unrelated browser events"],
+          "actors": [{ "id": "small.navigator", "persona": "Dashboard navigator", "authority": "May navigate dashboard routes." }],
+          "operations": [{ "order": 1, "id": "small.route-completion.navigate", "actor_id": "small.navigator", "action": "Complete a dashboard route change", "surface_id": "small.surface.route-change-complete" }],
+          "states": [{ "id": "small.route-completion.pending", "meaning": "A route change is pending" }, { "id": "small.route-completion.complete", "meaning": "The route change completed" }],
+          "transitions": [{ "id": "small.route-completion.finish", "from": "small.route-completion.pending", "to": "small.route-completion.complete", "trigger": "routeChangeComplete" }],
+          "failure_contracts": [{ "id": "small.route-completion.wrong-layout", "condition": "Localization points to the auth layout", "response": "Reject the localization as a negative control" }],
+          "invariants": [{ "id": "small.route-completion.dashboard-bound", "statement": "The completion listener remains localized to the reviewed dashboard layout surface." }],
+          "scenarios": [{ "id": "small.route-completion.primary", "persona_id": "small.navigator", "given": "Dashboard navigation is pending", "when": "routeChangeComplete is emitted", "then": "The route enters the complete state" }],
+          "surfaces": [{ "id": "small.surface.route-change-complete", "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx", "blob_oid": "a9f472b15efd759fac789adbfbbdc2276a1c8267", "symbol": "routeChangeComplete", "line": 72, "line_sha256": "f802dc4445ded02b7142abec6172f79b1d6cc1a4b2fb96b538140cb861fea67d", "evidence_ref": "small.evidence.3" }],
+          "proofs": [{ "id": "small.proof.route-complete", "claim": "The pinned dashboard-layout blob contains routeChangeComplete at line 72.", "evidence_ref": "small.evidence.3" }, { "id": "small.proof.auth-layout-negative", "claim": "The pinned auth-layout blob contains no exact routeChangeComplete identifier.", "evidence_ref": "small.evidence.6" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["small.surface.route-change-complete"], "proof_ids": ["small.proof.route-complete", "small.proof.auth-layout-negative"], "unresolved": [] }
+        },
+        {
+          "id": "small.disclosure-state", "name": "Disclosure state", "aliases": ["toggle disclosure", "open state"],
+          "objective": "Move a disclosure between closed and open states through the reviewed hook.", "non_goals": ["Render a particular dialog", "Persist disclosure state"],
+          "actors": [{ "id": "small.interface-user", "persona": "Interface user", "authority": "May open or close a disclosure exposed by the interface." }],
+          "operations": [{ "order": 1, "id": "small.disclosure-state.toggle", "actor_id": "small.interface-user", "action": "Toggle disclosure state", "surface_id": "small.surface.use-disclosure" }],
+          "states": [{ "id": "small.disclosure-state.closed", "meaning": "The disclosure is closed" }, { "id": "small.disclosure-state.open", "meaning": "The disclosure is open" }],
+          "transitions": [{ "id": "small.disclosure-state.toggle-transition", "from": "small.disclosure-state.closed", "to": "small.disclosure-state.open", "trigger": "The interface requests disclosure" }],
+          "failure_contracts": [{ "id": "small.disclosure-state.unavailable", "condition": "The reviewed hook is unavailable", "response": "Keep the disclosure closed" }],
+          "invariants": [{ "id": "small.disclosure-state.boolean", "statement": "Disclosure state remains either open or closed." }],
+          "scenarios": [{ "id": "small.disclosure-state.primary", "persona_id": "small.interface-user", "given": "The disclosure is closed", "when": "The user requests it", "then": "The disclosure becomes open" }],
+          "surfaces": [{ "id": "small.surface.use-disclosure", "path": "apps/nextjs-app/src/hooks/use-disclosure.ts", "blob_oid": "e386356cbb7a0b33494e0dc7777aff9793453629", "symbol": "useDisclosure", "line": 3, "line_sha256": "ef449ff2005d89f1f5582a8700bc82498bcb3471db0098e064c331eb01851960", "evidence_ref": "small.evidence.4" }],
+          "proofs": [{ "id": "small.proof.use-disclosure", "claim": "The pinned blob exports useDisclosure at line 3.", "evidence_ref": "small.evidence.4" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["small.surface.use-disclosure"], "proof_ids": ["small.proof.use-disclosure"], "unresolved": [] }
+        },
+        {
+          "id": "small.discussion-authorization", "name": "Discussion authorization verification", "aliases": ["discussion permission test", "authorization check"],
+          "objective": "Verify discussion authorization behavior at the reviewed test surface.", "non_goals": ["Invent authorization rules", "Change user identity storage"],
+          "actors": [{ "id": "small.test-maintainer", "persona": "Authorization test maintainer", "authority": "May verify but not redefine product authorization policy." }],
+          "operations": [{ "order": 1, "id": "small.discussion-authorization.verify", "actor_id": "small.test-maintainer", "action": "Run the discussion authorization verification", "surface_id": "small.surface.authorization-test" }],
+          "states": [{ "id": "small.discussion-authorization.unverified", "meaning": "Authorization behavior is unverified" }, { "id": "small.discussion-authorization.verified", "meaning": "The reviewed verification has completed" }],
+          "transitions": [{ "id": "small.discussion-authorization.verify-transition", "from": "small.discussion-authorization.unverified", "to": "small.discussion-authorization.verified", "trigger": "The verification runs" }],
+          "failure_contracts": [{ "id": "small.discussion-authorization.failure", "condition": "The authorization verification fails", "response": "Keep the workflow unverified and report the failure" }],
+          "invariants": [{ "id": "small.discussion-authorization.no-policy-invention", "statement": "A test result cannot create a new authorization rule." }],
+          "scenarios": [{ "id": "small.discussion-authorization.primary", "persona_id": "small.test-maintainer", "given": "Discussion authorization behavior is available", "when": "The reviewed test runs", "then": "The behavior is verified or the failure remains explicit" }],
+          "surfaces": [{ "id": "small.surface.authorization-test", "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx", "blob_oid": "973526d27fbc060e77cba13c74dfbe09cbeafdff", "symbol": "Authorization", "line": 11, "line_sha256": "0907fbc816fd76a265f1feb69b7d9783599f75d3d2ebae0b8972cba9f68234f1", "evidence_ref": "small.evidence.5" }],
+          "proofs": [{ "id": "small.proof.authorization-test", "claim": "The pinned test blob contains Authorization at line 11.", "evidence_ref": "small.evidence.5" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["small.surface.authorization-test"], "proof_ids": ["small.proof.authorization-test"], "unresolved": [] }
+        }
+      ]
+    },
+    {
+      "collection_id": "collection.medium",
+      "fixture_id": "medium",
+      "pin": { "repository_url": "https://github.com/outline/outline.git", "commit": "30730179b852d42da5078a9294f7d05a44f516b7", "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d" },
+      "workflows": [
+        {
+          "id": "medium.api-key-actions", "name": "API key actions", "aliases": ["api key action", "developer key"], "objective": "Present API-key actions through the reviewed action definition.", "non_goals": ["Issue credentials", "Define server authorization"],
+          "actors": [{ "id": "medium.api-key-manager", "persona": "API key manager", "authority": "May invoke exposed API-key actions." }],
+          "operations": [{ "order": 1, "id": "medium.api-key-actions.present", "actor_id": "medium.api-key-manager", "action": "Present an API-key action", "surface_id": "medium.surface.api-key" }],
+          "states": [{ "id": "medium.api-key-actions.hidden", "meaning": "API-key actions are hidden" }, { "id": "medium.api-key-actions.visible", "meaning": "API-key actions are visible" }],
+          "transitions": [{ "id": "medium.api-key-actions.show", "from": "medium.api-key-actions.hidden", "to": "medium.api-key-actions.visible", "trigger": "The developer action surface opens" }],
+          "failure_contracts": [{ "id": "medium.api-key-actions.missing", "condition": "The API key model binding is unavailable", "response": "Do not present an invented action" }],
+          "invariants": [{ "id": "medium.api-key-actions.bound", "statement": "API-key actions remain bound to the reviewed ApiKey model reference." }],
+          "scenarios": [{ "id": "medium.api-key-actions.primary", "persona_id": "medium.api-key-manager", "given": "The developer action surface is available", "when": "The manager opens it", "then": "API-key actions are presented from the reviewed definition" }],
+          "surfaces": [{ "id": "medium.surface.api-key", "path": "app/actions/definitions/apiKeys.tsx", "blob_oid": "4f0f29afaa38bef914292e5362a6a78be6226597", "symbol": "ApiKey", "line": 6, "line_sha256": "8073baeec877f4245cecbd4048bf49e2c5d01f796de3cc0efef39e8ad1a61dfc", "evidence_ref": "medium.evidence.1" }],
+          "proofs": [{ "id": "medium.proof.api-key", "claim": "The pinned action-definition blob references ApiKey at line 6.", "evidence_ref": "medium.evidence.1" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["medium.surface.api-key"], "proof_ids": ["medium.proof.api-key"], "unresolved": [] }
+        },
+        {
+          "id": "medium.oidc-discovery-test", "name": "OIDC discovery verification", "aliases": ["oidc discovery", "discovery response test"], "objective": "Verify the OIDC discovery response contract at the reviewed test surface.", "non_goals": ["Configure an identity provider", "Change HTTP libraries"],
+          "actors": [{ "id": "medium.oidc-maintainer", "persona": "OIDC integration maintainer", "authority": "May verify discovery behavior." }],
+          "operations": [{ "order": 1, "id": "medium.oidc-discovery-test.verify", "actor_id": "medium.oidc-maintainer", "action": "Run the discovery response verification", "surface_id": "medium.surface.oidc-body-type" }],
+          "states": [{ "id": "medium.oidc-discovery-test.unverified", "meaning": "Discovery behavior is unverified" }, { "id": "medium.oidc-discovery-test.verified", "meaning": "Discovery behavior is verified" }],
+          "transitions": [{ "id": "medium.oidc-discovery-test.complete", "from": "medium.oidc-discovery-test.unverified", "to": "medium.oidc-discovery-test.verified", "trigger": "The discovery test completes" }],
+          "failure_contracts": [{ "id": "medium.oidc-discovery-test.failure", "condition": "The discovery response violates the reviewed test contract", "response": "Keep verification failed" }],
+          "invariants": [{ "id": "medium.oidc-discovery-test.typed", "statement": "The response remains checked through the reviewed body type reference." }],
+          "scenarios": [{ "id": "medium.oidc-discovery-test.primary", "persona_id": "medium.oidc-maintainer", "given": "OIDC discovery behavior is available", "when": "The maintainer runs the test", "then": "The result is verified or fails explicitly" }],
+          "surfaces": [{ "id": "medium.surface.oidc-body-type", "path": "plugins/oidc/server/oidcDiscovery.test.ts", "blob_oid": "654eaf44873adbfd2bce67dac684a7fe01facc7b", "symbol": "DefaultBodyType", "line": 4, "line_sha256": "975728ab62c6df363aac79b887169bce842f66fed0cd331eddb68e839402fd77", "evidence_ref": "medium.evidence.2" }],
+          "proofs": [{ "id": "medium.proof.oidc-body-type", "claim": "The pinned OIDC discovery test references DefaultBodyType at line 4.", "evidence_ref": "medium.evidence.2" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["medium.surface.oidc-body-type"], "proof_ids": ["medium.proof.oidc-body-type"], "unresolved": [] }
+        },
+        {
+          "id": "medium.developer-escape", "name": "Developer escape handling", "aliases": ["escape key action", "developer keydown"], "objective": "Handle the Escape key on the reviewed developer action surface.", "non_goals": ["Handle every keyboard shortcut", "Define browser event dispatch"],
+          "actors": [{ "id": "medium.developer-user", "persona": "Developer-settings user", "authority": "May dismiss the active developer interaction." }],
+          "operations": [{ "order": 1, "id": "medium.developer-escape.listen", "actor_id": "medium.developer-user", "action": "Listen for a keydown event", "surface_id": "medium.surface.developer-keydown" }, { "order": 2, "id": "medium.developer-escape.dismiss", "actor_id": "medium.developer-user", "action": "Dismiss on Escape", "surface_id": "medium.surface.developer-keydown" }],
+          "states": [{ "id": "medium.developer-escape.active", "meaning": "The interaction is active" }, { "id": "medium.developer-escape.dismissed", "meaning": "The interaction is dismissed" }],
+          "transitions": [{ "id": "medium.developer-escape.escape", "from": "medium.developer-escape.active", "to": "medium.developer-escape.dismissed", "trigger": "A keydown event carries Escape" }],
+          "failure_contracts": [{ "id": "medium.developer-escape.other-key", "condition": "The event is not Escape", "response": "Keep the interaction active" }],
+          "invariants": [{ "id": "medium.developer-escape.escape-only", "statement": "Only the reviewed Escape condition dismisses this interaction." }],
+          "scenarios": [{ "id": "medium.developer-escape.primary", "persona_id": "medium.developer-user", "given": "The interaction is active", "when": "Escape is pressed", "then": "The interaction becomes dismissed" }],
+          "surfaces": [{ "id": "medium.surface.developer-keydown", "path": "app/actions/definitions/developer.tsx", "blob_oid": "7ac3629987be55bf75b633a7c665d4f281b5f0b8", "symbol": "keydown", "line": 119, "line_sha256": "e99723190cc91809bf48687615ecc99d5ab2ac94097d3673646bad4a1e4bd920", "evidence_ref": "medium.evidence.3" }],
+          "proofs": [{ "id": "medium.proof.developer-keydown", "claim": "The pinned developer action blob registers keydown at line 119.", "evidence_ref": "medium.evidence.3" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["medium.surface.developer-keydown"], "proof_ids": ["medium.proof.developer-keydown"], "unresolved": [] }
+        },
+        {
+          "id": "medium.pwa-install-analytics", "name": "PWA install analytics", "aliases": ["app installed event", "install analytics"], "objective": "Record the reviewed application-installed event through the analytics surface.", "non_goals": ["Install the application", "Define analytics transport"],
+          "actors": [{ "id": "medium.pwa-user", "persona": "PWA user", "authority": "May complete a browser-mediated application installation." }],
+          "operations": [{ "order": 1, "id": "medium.pwa-install-analytics.observe", "actor_id": "medium.pwa-user", "action": "Observe the application-installed event", "surface_id": "medium.surface.appinstalled" }],
+          "states": [{ "id": "medium.pwa-install-analytics.pending", "meaning": "No install event has been observed" }, { "id": "medium.pwa-install-analytics.recorded", "meaning": "The install event has been observed" }],
+          "transitions": [{ "id": "medium.pwa-install-analytics.record", "from": "medium.pwa-install-analytics.pending", "to": "medium.pwa-install-analytics.recorded", "trigger": "appinstalled" }],
+          "failure_contracts": [{ "id": "medium.pwa-install-analytics.absent", "condition": "No appinstalled event occurs", "response": "Do not fabricate an install observation" }],
+          "invariants": [{ "id": "medium.pwa-install-analytics.event-bound", "statement": "An install observation requires the reviewed appinstalled event." }],
+          "scenarios": [{ "id": "medium.pwa-install-analytics.primary", "persona_id": "medium.pwa-user", "given": "Install observation is pending", "when": "appinstalled occurs", "then": "The observation becomes recorded" }],
+          "surfaces": [{ "id": "medium.surface.appinstalled", "path": "app/components/Analytics.tsx", "blob_oid": "333c1761589cfa2536d09e61ca24a69e61108f6f", "symbol": "appinstalled", "line": 37, "line_sha256": "b02b80ecda4065c4770561be565136ebb40876761546f8475c532edda6cd8401", "evidence_ref": "medium.evidence.4" }],
+          "proofs": [{ "id": "medium.proof.appinstalled", "claim": "The pinned analytics blob registers appinstalled at line 37.", "evidence_ref": "medium.evidence.4" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["medium.surface.appinstalled"], "proof_ids": ["medium.proof.appinstalled"], "unresolved": [] }
+        },
+        {
+          "id": "medium.menu-close-prevention", "name": "Menu close prevention", "aliases": ["prevent menu close", "conditional menu focus"], "objective": "Keep a menu open when its reviewed prevent-close condition holds.", "non_goals": ["Define collection permissions", "Handle desktop bridge events"],
+          "actors": [{ "id": "medium.menu-user", "persona": "Menu user", "authority": "May invoke visible menu actions subject to their close condition." }],
+          "operations": [{ "order": 1, "id": "medium.menu-close-prevention.prevent", "actor_id": "medium.menu-user", "action": "Prevent menu closure when its condition holds", "surface_id": "medium.surface.prevent-close-handler" }],
+          "states": [{ "id": "medium.menu-close-prevention.open", "meaning": "The menu is open" }, { "id": "medium.menu-close-prevention.closed", "meaning": "The menu is closed" }],
+          "transitions": [{ "id": "medium.menu-close-prevention.close", "from": "medium.menu-close-prevention.open", "to": "medium.menu-close-prevention.closed", "trigger": "No reviewed prevent-close condition holds" }],
+          "failure_contracts": [{ "id": "medium.menu-close-prevention.prevented", "condition": "The reviewed prevent-close condition holds", "response": "Keep the menu open" }],
+          "invariants": [{ "id": "medium.menu-close-prevention.condition-bound", "statement": "Menu closure remains subject to the reviewed prevention condition." }],
+          "scenarios": [{ "id": "medium.menu-close-prevention.primary", "persona_id": "medium.menu-user", "given": "The menu is open", "when": "A close interaction occurs while prevention holds", "then": "The menu remains open" }],
+          "surfaces": [{ "id": "medium.surface.prevent-close-handler", "path": "app/components/Menu/transformer.tsx", "blob_oid": "0ede28d900496c03852db0b24f9ad580ebbbccde", "symbol": "preventCloseHandler", "line": 91, "line_sha256": "c62154d7318b6f06dc115da9901923a7b439acaa6d354d4bbbeb2a89b592c772", "evidence_ref": "medium.evidence.6" }],
+          "proofs": [{ "id": "medium.proof.prevent-close", "claim": "The pinned menu transformer declares preventCloseHandler at line 91.", "evidence_ref": "medium.evidence.6" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["medium.surface.prevent-close-handler"], "proof_ids": ["medium.proof.prevent-close"], "unresolved": [] }
+        }
+      ]
+    },
+    {
+      "collection_id": "collection.large",
+      "fixture_id": "large",
+      "pin": { "repository_url": "https://github.com/makeplane/plane.git", "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f", "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e" },
+      "workflows": [
+        {
+          "id": "large.ai-configuration-form", "name": "AI configuration form", "aliases": ["instance ai form", "ai configuration values"], "objective": "Present instance AI configuration through the reviewed form value contract.", "non_goals": ["Choose an AI provider", "Persist secrets"],
+          "actors": [{ "id": "large.instance-admin", "persona": "Instance administrator", "authority": "May configure exposed instance AI fields." }],
+          "operations": [{ "order": 1, "id": "large.ai-configuration-form.present", "actor_id": "large.instance-admin", "action": "Present the instance AI configuration form", "surface_id": "large.surface.ai-form-values" }],
+          "states": [{ "id": "large.ai-configuration-form.hidden", "meaning": "The form is hidden" }, { "id": "large.ai-configuration-form.visible", "meaning": "The form is visible" }],
+          "transitions": [{ "id": "large.ai-configuration-form.show", "from": "large.ai-configuration-form.hidden", "to": "large.ai-configuration-form.visible", "trigger": "The administrator opens configuration" }],
+          "failure_contracts": [{ "id": "large.ai-configuration-form.invalid-shape", "condition": "Values do not conform to the reviewed form contract", "response": "Keep configuration unsubmitted" }],
+          "invariants": [{ "id": "large.ai-configuration-form.typed-values", "statement": "Configuration values remain bound to the reviewed AIFormValues type." }],
+          "scenarios": [{ "id": "large.ai-configuration-form.primary", "persona_id": "large.instance-admin", "given": "Instance configuration is available", "when": "The administrator opens AI configuration", "then": "The reviewed form contract is presented" }],
+          "surfaces": [{ "id": "large.surface.ai-form-values", "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx", "blob_oid": "affbda4808b24bf13fd502e65ffbe9f89554be33", "symbol": "AIFormValues", "line": 22, "line_sha256": "22d9012fd9c070edab11f74dc4eebf07b0b9f00546560c86fcf6799eb5a278c4", "evidence_ref": "large.evidence.1" }, { "id": "large.surface.instance-ai-form", "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx", "blob_oid": "affbda4808b24bf13fd502e65ffbe9f89554be33", "symbol": "IInstanceAIForm", "line": 18, "line_sha256": "079f309bc198f84cbb1b5d883d1a095870d9712e59cb3b558591009dda6a8b43", "evidence_ref": "large.evidence.11" }],
+          "proofs": [{ "id": "large.proof.ai-form-values", "claim": "The pinned form blob declares AIFormValues at line 22.", "evidence_ref": "large.evidence.1" }, { "id": "large.proof.instance-ai-form", "claim": "The same pinned blob declares IInstanceAIForm at line 18.", "evidence_ref": "large.evidence.11" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["large.surface.ai-form-values", "large.surface.instance-ai-form"], "proof_ids": ["large.proof.ai-form-values", "large.proof.instance-ai-form"], "unresolved": [] }
+        },
+        {
+          "id": "large.pdf-rendering-verification", "name": "PDF rendering verification", "aliases": ["pdf header test", "rendered pdf check"], "objective": "Verify rendered PDF output through the reviewed header assertion surface.", "non_goals": ["Implement PDF rendering", "Approve document content"],
+          "actors": [{ "id": "large.live-test-maintainer", "persona": "Live document test maintainer", "authority": "May verify rendered output." }],
+          "operations": [{ "order": 1, "id": "large.pdf-rendering-verification.verify", "actor_id": "large.live-test-maintainer", "action": "Verify the rendered PDF header", "surface_id": "large.surface.pdf-header" }],
+          "states": [{ "id": "large.pdf-rendering-verification.unverified", "meaning": "PDF output is unverified" }, { "id": "large.pdf-rendering-verification.verified", "meaning": "PDF output is verified" }],
+          "transitions": [{ "id": "large.pdf-rendering-verification.complete", "from": "large.pdf-rendering-verification.unverified", "to": "large.pdf-rendering-verification.verified", "trigger": "The PDF verification completes" }],
+          "failure_contracts": [{ "id": "large.pdf-rendering-verification.wrong-header", "condition": "Output lacks the reviewed PDF header", "response": "Keep verification failed" }],
+          "invariants": [{ "id": "large.pdf-rendering-verification.header", "statement": "Successful verification requires the reviewed PDF header contract." }],
+          "scenarios": [{ "id": "large.pdf-rendering-verification.primary", "persona_id": "large.live-test-maintainer", "given": "A rendered document is available", "when": "The verification runs", "then": "The PDF header is verified or failure remains explicit" }],
+          "surfaces": [{ "id": "large.surface.pdf-header", "path": "apps/live/tests/lib/pdf/pdf-rendering.test.ts", "blob_oid": "507c6f900a2539e53aa536c90dcac5859bf47b82", "symbol": "PDF_HEADER", "line": 12, "line_sha256": "b1a2d2d996cf373938b0ab3f098184511d4c6d5f92f5eba3a5754973c95d0828", "evidence_ref": "large.evidence.2" }],
+          "proofs": [{ "id": "large.proof.pdf-header", "claim": "The pinned PDF rendering test declares PDF_HEADER at line 12.", "evidence_ref": "large.evidence.2" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["large.surface.pdf-header"], "proof_ids": ["large.proof.pdf-header"], "unresolved": [] }
+        },
+        {
+          "id": "large.decorated-controller-guidance", "name": "Decorated controller guidance", "aliases": ["controller example", "websocket controller guide"], "objective": "Guide maintainers through reviewed HTTP and WebSocket controller examples.", "non_goals": ["Claim runtime route registration", "Implement controller decorators"],
+          "actors": [{ "id": "large.controller-maintainer", "persona": "Controller maintainer", "authority": "May follow reviewed documentation examples." }],
+          "operations": [{ "order": 1, "id": "large.decorated-controller-guidance.read-http", "actor_id": "large.controller-maintainer", "action": "Read the HTTP controller example", "surface_id": "large.surface.user-controller" }, { "order": 2, "id": "large.decorated-controller-guidance.read-websocket", "actor_id": "large.controller-maintainer", "action": "Read the WebSocket controller example", "surface_id": "large.surface.chat-controller" }],
+          "states": [{ "id": "large.decorated-controller-guidance.unread", "meaning": "The examples are unread" }, { "id": "large.decorated-controller-guidance.reviewed", "meaning": "The examples are reviewed" }],
+          "transitions": [{ "id": "large.decorated-controller-guidance.review", "from": "large.decorated-controller-guidance.unread", "to": "large.decorated-controller-guidance.reviewed", "trigger": "The maintainer reads both examples" }],
+          "failure_contracts": [{ "id": "large.decorated-controller-guidance.runtime-overclaim", "condition": "Documentation is treated as runtime route proof", "response": "Reject the runtime claim" }],
+          "invariants": [{ "id": "large.decorated-controller-guidance.docs-only", "statement": "Documentation examples remain guidance rather than runtime registration evidence." }],
+          "scenarios": [{ "id": "large.decorated-controller-guidance.primary", "persona_id": "large.controller-maintainer", "given": "Controller guidance is needed", "when": "The maintainer reads both reviewed examples", "then": "The guidance state is reviewed without a runtime claim" }],
+          "surfaces": [{ "id": "large.surface.user-controller", "path": "packages/decorators/README.md", "blob_oid": "f607ca2b9c7ed229d47e4aa81f9950ca52bb907e", "symbol": "UserController", "line": 34, "line_sha256": "800b7964502c81ca0003cd07fb68154e499ab348137a15fb5a514f2c5ef85b02", "evidence_ref": "large.evidence.3" }, { "id": "large.surface.chat-controller", "path": "packages/decorators/README.md", "blob_oid": "f607ca2b9c7ed229d47e4aa81f9950ca52bb907e", "symbol": "ChatController", "line": 60, "line_sha256": "8c64f908598e33d28502ff11835180243ad152fd123403126eb47c3ffa75d4b6", "evidence_ref": "large.evidence.6" }],
+          "proofs": [{ "id": "large.proof.user-controller", "claim": "The pinned decorators README contains UserController at line 34.", "evidence_ref": "large.evidence.3" }, { "id": "large.proof.chat-controller", "claim": "The same pinned README contains ChatController at line 60.", "evidence_ref": "large.evidence.6" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["large.surface.user-controller", "large.surface.chat-controller"], "proof_ids": ["large.proof.user-controller", "large.proof.chat-controller"], "unresolved": [] }
+        },
+        {
+          "id": "large.feature-preview-deployment", "name": "Feature preview deployment", "aliases": ["feature helm preview", "preview deployment"], "objective": "Deploy a feature preview using the reviewed Helm chart variable surface.", "non_goals": ["Choose cluster credentials", "Qualify deployment runtime"],
+          "actors": [{ "id": "large.release-maintainer", "persona": "Release maintainer", "authority": "May invoke the reviewed feature-preview workflow with approved infrastructure." }],
+          "operations": [{ "order": 1, "id": "large.feature-preview-deployment.resolve-chart", "actor_id": "large.release-maintainer", "action": "Resolve the feature-preview chart name", "surface_id": "large.surface.feature-preview-chart" }, { "order": 2, "id": "large.feature-preview-deployment.deploy", "actor_id": "large.release-maintainer", "action": "Invoke the reviewed deployment step", "surface_id": "large.surface.feature-preview-chart" }],
+          "states": [{ "id": "large.feature-preview-deployment.pending", "meaning": "Deployment is pending" }, { "id": "large.feature-preview-deployment.invoked", "meaning": "The reviewed deployment step was invoked" }],
+          "transitions": [{ "id": "large.feature-preview-deployment.invoke", "from": "large.feature-preview-deployment.pending", "to": "large.feature-preview-deployment.invoked", "trigger": "An approved maintainer invokes the workflow" }],
+          "failure_contracts": [{ "id": "large.feature-preview-deployment.missing-chart", "condition": "The reviewed chart variable is unavailable", "response": "Do not invoke deployment" }],
+          "invariants": [{ "id": "large.feature-preview-deployment.chart-bound", "statement": "The deployment step remains bound to the reviewed feature-preview chart variable." }],
+          "scenarios": [{ "id": "large.feature-preview-deployment.primary", "persona_id": "large.release-maintainer", "given": "Approved deployment infrastructure and chart configuration exist", "when": "The maintainer invokes feature preview", "then": "The reviewed deployment step is invoked" }],
+          "surfaces": [{ "id": "large.surface.feature-preview-chart", "path": ".github/workflows/feature-deployment.yml", "blob_oid": "f7ade5e169d74bdfcd72ca1dc36225aa032f2d11", "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME", "line": 167, "line_sha256": "e9c5d3956968b0796b0af6820ed963c8d02efdf748dca46906e6b36cfe1689f8", "evidence_ref": "large.evidence.4" }],
+          "proofs": [{ "id": "large.proof.feature-preview-chart", "claim": "The pinned workflow references FEATURE_PREVIEW_HELM_CHART_NAME at line 167.", "evidence_ref": "large.evidence.4" }], "dependencies": [], "implementation_ready_input": { "target_ids": ["large.surface.feature-preview-chart"], "proof_ids": ["large.proof.feature-preview-chart"], "unresolved": [] }
+        },
+        {
+          "id": "large.authentication-error-family", "name": "Authentication error handling", "aliases": ["auth error family", "authentication exception boundary"], "objective": "Handle reviewed administrator and API authentication errors through their respective error surfaces.", "non_goals": ["Define authentication policy", "Serialize workspace invitations"],
+          "actors": [{ "id": "large.authentication-admin", "persona": "Authentication administrator", "authority": "May initiate administration flows but may not suppress authentication failures." }],
+          "operations": [{ "order": 1, "id": "large.authentication-error-family.handle-admin", "actor_id": "large.authentication-admin", "action": "Handle an administrator authentication error", "surface_id": "large.surface.auth-error-handler" }, { "order": 2, "id": "large.authentication-error-family.handle-api", "actor_id": "large.authentication-admin", "action": "Handle an API authentication exception", "surface_id": "large.surface.auth-exception-handler" }],
+          "states": [{ "id": "large.authentication-error-family.pending", "meaning": "An authentication failure is pending handling" }, { "id": "large.authentication-error-family.handled", "meaning": "The authentication failure was handled" }],
+          "transitions": [{ "id": "large.authentication-error-family.resolve", "from": "large.authentication-error-family.pending", "to": "large.authentication-error-family.handled", "trigger": "The corresponding reviewed handler processes the failure" }],
+          "failure_contracts": [{ "id": "large.authentication-error-family.unhandled", "condition": "Authentication raises an error outside its reviewed handler", "response": "Keep the failure explicit and unresolved" }],
+          "invariants": [{ "id": "large.authentication-error-family.surface-bound", "statement": "Administrator and API authentication failures remain bound to their respective reviewed handler surfaces." }],
+          "scenarios": [{ "id": "large.authentication-error-family.primary", "persona_id": "large.authentication-admin", "given": "An authentication operation fails", "when": "The corresponding reviewed handler processes it", "then": "The failure enters the handled state" }],
+          "surfaces": [{ "id": "large.surface.auth-error-handler", "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx", "blob_oid": "ea18dc995992c4c3ebd4338fef79329f1154a2d8", "symbol": "authErrorHandler", "line": 78, "line_sha256": "bbd072537644036f533936c5bb6d71fe0741bb153df88b15ce18eb2414f5d36b", "evidence_ref": "large.evidence.5" }, { "id": "large.surface.auth-exception-handler", "path": "apps/api/plane/authentication/adapter/exception.py", "blob_oid": "c8d28762a90f7043d852f29aaf45bc38a5a09a99", "symbol": "auth_exception_handler", "line": 17, "line_sha256": "29d8e442265516c4c89359c6f9ac6776b0684ac1d750ab9d202d020816efa386", "evidence_ref": "large.evidence.7" }],
+          "proofs": [{ "id": "large.proof.auth-error-handler", "claim": "The pinned admin helper exports authErrorHandler at line 78.", "evidence_ref": "large.evidence.5" }, { "id": "large.proof.auth-exception-handler", "claim": "The pinned API adapter declares auth_exception_handler at line 17.", "evidence_ref": "large.evidence.7" }, { "id": "large.proof.auth-banner-negative", "claim": "The pinned auth-banner blob contains no exact authErrorHandler identifier.", "evidence_ref": "large.evidence.10" }],
+          "dependencies": [], "implementation_ready_input": { "target_ids": ["large.surface.auth-error-handler", "large.surface.auth-exception-handler"], "proof_ids": ["large.proof.auth-error-handler", "large.proof.auth-exception-handler", "large.proof.auth-banner-negative"], "unresolved": [] }
+        }
+      ]
+    }
+  ]
+}
