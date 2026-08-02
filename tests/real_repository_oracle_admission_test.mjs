@@ -135,11 +135,40 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
 try {
+  const snapshotRepository = path.join(temporaryRoot, 'snapshot-repository');
+  const snapshotInit = spawnTrustedGit(temporaryRoot, ['init', '--quiet', snapshotRepository], {
+    encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(snapshotInit.status, 0, snapshotInit.stderr);
+  for (const relative of REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE) {
+    const source = path.join(ROOT, relative);
+    const destination = path.join(snapshotRepository, relative);
+    const stat = fs.lstatSync(source);
+    assert.equal(stat.isFile() && !stat.isSymbolicLink(), true, `${relative} must be a physical source file`);
+    fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
+    fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(destination, stat.mode & 0o777);
+  }
+  function snapshotGit(args) {
+    const result = spawnTrustedGit(snapshotRepository, args, {
+      encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+    return String(result.stdout || '').trim();
+  }
+  snapshotGit(['add', '--', ...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE]);
+  snapshotGit(['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+    'commit', '--quiet', '-m', 'sealed oracle source fixture']);
+  const snapshotCommit = snapshotGit(['rev-parse', 'HEAD']);
+  snapshotGit(['checkout', '--quiet', '--detach', snapshotCommit]);
+  const snapshotEntrypoint = path.join(snapshotRepository, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
   const snapshotTemporary = path.join(temporaryRoot, 'snapshot');
   fs.mkdirSync(snapshotTemporary, { mode: 0o700 });
   const snapshot = prepareExecutionSnapshot({
-    cwd: ROOT,
-    command: [process.execPath, ENTRYPOINT, 'admit-inventory'],
+    cwd: snapshotRepository,
+    command: [process.execPath, snapshotEntrypoint, 'admit-inventory'],
     temporaryDirectory: snapshotTemporary,
   });
   assert.equal(snapshot.audited_entrypoint, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
