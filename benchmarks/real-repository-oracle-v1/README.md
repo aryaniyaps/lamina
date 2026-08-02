@@ -124,6 +124,30 @@ the discovery-side rename candidate.
 `scenario_after` is deliberately refused here: it requires a later sealed
 post-mutation evidence workload and cannot inherit pre-scenario facts.
 
+## Pending scenario selection
+
+`reviews/scenario-selection-v1.json` is the selection-only handoff from the
+audited discovery reports and reviewer-selected lexical evidence. It binds the
+baseline manifest, candidate policy, exact repository pins, reviewed inventory
+digests, discovery report/semantic/index identities, and current evidence
+selection identities. Each tier contains exactly six ordered scenario choices:
+clean, modify, rename, delete, branch, and logical worktree. Modify, rename, and
+delete use distinct source blobs. Branch and logical worktree deliberately share
+one source/pair identity but reserve different future branch names so later
+materialization can remain isolated. Every non-clean row preserves its exact
+discovery operation kind/index and separately names its authored kind; branch
+and logical-worktree rows remain explicitly `executed: false`.
+
+The committed status is `reviewer_selection_pending`. This file is not an
+execution recipe and grants no fixture, expectation, golden-answer, grading, or
+quality authority. Its kind-specific records contain no generic operation array,
+physical path, environment, Git argument vector, lease, or candidate request.
+The parser binds raw and canonical file identities, order-dependent scenario
+identities, portable path rules, complete rename-destination absence proofs,
+and strict Git ref derivation. Review acceptance must update the status and both
+file identities in a later, explicit checkpoint before any scenario is
+materialized.
+
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed

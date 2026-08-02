@@ -1,0 +1,320 @@
+{
+  "schema": "lamina.real-repository-oracle-scenario-selection/v1",
+  "purpose": "reviewer_selection_pending_selection_only_no_execution_fixture_expectation_grade_or_quality_authority",
+  "authority": {
+    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
+    "evidence_selection_raw_sha256": "338540672264c5bd2bd98164fa120e6cceea6ac5408fcb7c77986d786d70f7d2",
+    "evidence_selection_canonical_sha256": "fe7693eb1d9585ee1159f05de5a53edf1a50aea0886ae6c1ac70c010b446f0c2"
+  },
+  "bounds": {
+    "tiers": 3,
+    "scenarios_per_tier": 6,
+    "scenario_kinds": ["clean", "modify", "rename", "delete", "branch", "logical_worktree"],
+    "maximum_selection_bytes": 131072,
+    "maximum_path_bytes": 4096,
+    "maximum_append_bytes": 64
+  },
+  "tiers": {
+    "small": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/alan2207/bulletproof-react.git",
+        "commit": "9506629ed003a561c6627735480cce4994244bb4",
+        "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991"
+      },
+      "reviewed_inventory_sha256": "3916b8e34bf828a93e70950fe06d15121c4916017b393f948984557de6a7fa4f",
+      "discovery": {
+        "report_sha256": "995eaae757b8922d5a9d24d2e7a674956b5ab1a84740b0904578a055d38b2b7e",
+        "semantic_sha256": "7e2977cd7a2dcb8b027c04a82d5e5ac91ffd0812fd7457ca4c0eab42da981683",
+        "index_sha256": "89fe791a8389485feace8cb89958e12d967b6dc8d82b922c62b4abce403d0876"
+      },
+      "scenarios": [
+        {
+          "order": 0,
+          "identity_sha256": "167e3b9ffa64b964c8906a20d802b66d013d5bfcaf92a03d6d46104f39ba358d",
+          "kind": "clean",
+          "source_commit": "9506629ed003a561c6627735480cce4994244bb4"
+        },
+        {
+          "order": 1,
+          "identity_sha256": "d27c94cd65494773534831e8f66f3329e6123f6022f367ac6fb98ba9e2949e1a",
+          "kind": "modify",
+          "path": "apps/nextjs-app/.storybook/preview.tsx",
+          "blob_oid": "9d181d43cce5b51b538d452653ec42fb4d8c7bd3",
+          "original_content_sha256": "f6f9198d3499c7d653bb6d632699bb351a571a84ee0a2a095bea29d3c72d4f5b",
+          "append_utf8": "\n// lamina-oracle-modify-v1\n",
+          "append_bytes": 28,
+          "result_bytes": 218,
+          "result_content_sha256": "87e1f3026c0df28243b0b7ddf5f01b54cb468eb9addc8fe97649097a1ee7f85c",
+          "discovery_operation_kind": "delete",
+          "discovery_index": 0,
+          "authored_operation_kind": "modify"
+        },
+        {
+          "order": 2,
+          "identity_sha256": "2661369a72f5eafa547bdb2666cee0c8f27328dd6a9cecb3f0ef966e7b7e5322",
+          "kind": "rename",
+          "path": ".github/workflows/nextjs-app-ci.yml",
+          "blob_oid": "3d641fca6655dfd7c84c89393cd4bb0ed342f0f6",
+          "original_content_sha256": "05218463b923e0f81d2bf6db7a7b43aeb27452d9eb1e6d73969855a55575603c",
+          "destination": "lamina-oracle-rename-7604c69c4e3d.yml",
+          "destination_absence": {
+            "basis": "complete_stage0_git_paths_and_implied_directories",
+            "tracked_path_count": 535,
+            "tracked_paths_sha256": "c0edfef62afbea67d63aac73893c42865d5b6d3a102f49ce715b7a8542bf574b",
+            "occupied_destination_count": 751,
+            "occupied_destinations_sha256": "8df3472e1118f0499d994d3ecc013ad7473a81657e090e8d192e9890a90ec0f8",
+            "portable_root_included": true,
+            "absent": true
+          },
+          "discovery_operation_kind": "rename",
+          "discovery_index": 0,
+          "authored_operation_kind": "rename"
+        },
+        {
+          "order": 3,
+          "identity_sha256": "c45d2a710ec5fb441a701b013359c98afea47bf6137439d280a187f4cf4c2665",
+          "kind": "delete",
+          "path": "apps/nextjs-app/.vscode/extensions.json",
+          "blob_oid": "1cd1faf73b1cdd9f35f3d9c3d0178971cd6ebb9e",
+          "original_content_sha256": "992dfc429df71b924c24883a021478d147d6949b4a161005b1041bb46747388a",
+          "discovery_operation_kind": "delete",
+          "discovery_index": 1,
+          "authored_operation_kind": "delete"
+        },
+        {
+          "order": 4,
+          "identity_sha256": "5220e7dadbe6fe801831b170b8ae5d9aa36ba5db548fd101b9a86b7236e5acda",
+          "kind": "branch",
+          "path": "apps/nextjs-app/README.md",
+          "blob_oid": "8000580d48dc839746f45c773264ebc2c608f81d",
+          "original_content_sha256": "713ea0e094284eaccdcade50ccebcf76d8a29ea690d85ac79fdc3187b8248900",
+          "source_commit": "9506629ed003a561c6627735480cce4994244bb4",
+          "pair_id": "8ff0401ab8ba",
+          "branch": "lamina-oracle/8ff0401ab8ba",
+          "executed": false,
+          "discovery_operation_kind": "branch",
+          "discovery_index": 0,
+          "authored_operation_kind": "branch"
+        },
+        {
+          "order": 5,
+          "identity_sha256": "83260407b24065be0296a758d7723e8e222d40806ceb0ae72cff149562165946",
+          "kind": "logical_worktree",
+          "path": "apps/nextjs-app/README.md",
+          "blob_oid": "8000580d48dc839746f45c773264ebc2c608f81d",
+          "original_content_sha256": "713ea0e094284eaccdcade50ccebcf76d8a29ea690d85ac79fdc3187b8248900",
+          "source_commit": "9506629ed003a561c6627735480cce4994244bb4",
+          "pair_id": "8ff0401ab8ba",
+          "logical_worktree_id": "oracle-worktree-8ff0401ab8ba",
+          "derived_branch": "lamina-oracle/worktree-8ff0401ab8ba",
+          "executed": false,
+          "discovery_operation_kind": "logical_worktree",
+          "discovery_index": 0,
+          "authored_operation_kind": "logical_worktree"
+        }
+      ]
+    },
+    "medium": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/outline/outline.git",
+        "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+        "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d"
+      },
+      "reviewed_inventory_sha256": "330b190ca06c70148998c05f585bf7f1bbeedc5cac36c6050b91974ceb3120d7",
+      "discovery": {
+        "report_sha256": "10c0be4eef9eab4e7313ea186245200f7c71477e7b23c807f5df7def6222a70d",
+        "semantic_sha256": "21353264c7874121d57a88a72d95ad2761c49a4453f8feaff70ccf04bad449b5",
+        "index_sha256": "725bf790d9b0b9d3ff7592c79e4d739636910cb5a52ceacd67a0f88c3095bce2"
+      },
+      "scenarios": [
+        {
+          "order": 0,
+          "identity_sha256": "1abb0927c40069c5fcdb708aaf16dc7d85f47cd6d9a805ebd71920c47aa88b97",
+          "kind": "clean",
+          "source_commit": "30730179b852d42da5078a9294f7d05a44f516b7"
+        },
+        {
+          "order": 1,
+          "identity_sha256": "0cf98773db54d773d00c7bf4eed5e942822fff36e077b8b9c881cfd4dcaccc4e",
+          "kind": "modify",
+          "path": ".github/actions/install/action.yml",
+          "blob_oid": "3cd311d5015c6fde715deed942b74400f9dbaa24",
+          "original_content_sha256": "c1ba77696ff35c5269bbf74ba8398b5d4bafa76ccc40084239ee2744eb0626ce",
+          "append_utf8": "\n# lamina-oracle-modify-v1\n",
+          "append_bytes": 27,
+          "result_bytes": 439,
+          "result_content_sha256": "802be5a90ac17567a6edbbe804beb63c2bc4609898f5807bb776fc4d061c1eac",
+          "discovery_operation_kind": "delete",
+          "discovery_index": 0,
+          "authored_operation_kind": "modify"
+        },
+        {
+          "order": 2,
+          "identity_sha256": "5b8f6cb5eca0b9b71ddd6babaa4f397584e065c19fd779362a5d981ceb0ebdd5",
+          "kind": "rename",
+          "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+          "blob_oid": "eedb16f6463ca5d2b7089a5c653b5bc507c68429",
+          "original_content_sha256": "3aae52facc1e59d85c1d65f3d6293a39f73619e81d385a9ec010274235522121",
+          "destination": "lamina-oracle-rename-635386adcc25.yml",
+          "destination_absence": {
+            "basis": "complete_stage0_git_paths_and_implied_directories",
+            "tracked_path_count": 2539,
+            "tracked_paths_sha256": "3679648363ca1f88b950f576c6dac3bd919241bd3fcc31b0351b622a7dc9e2d1",
+            "occupied_destination_count": 2888,
+            "occupied_destinations_sha256": "f1bd1bd50fa35c67865fde70ba5638dbca5fd6bd8d25195a6ca7c9eed3e80742",
+            "portable_root_included": true,
+            "absent": true
+          },
+          "discovery_operation_kind": "rename",
+          "discovery_index": 1,
+          "authored_operation_kind": "rename"
+        },
+        {
+          "order": 3,
+          "identity_sha256": "4ab320c6735336902395bd61c4a6a028e211e065d2f5b810e8b09ff3f62d5ed2",
+          "kind": "delete",
+          "path": ".github/auto_assign.yml",
+          "blob_oid": "d1bba1ba5db80c3d9cf0df6cf5ddfa503233eecf",
+          "original_content_sha256": "54bfa3942115c63c99b6089f7b17d802e929dc8ead6a58ce267f5d7e896bfa57",
+          "discovery_operation_kind": "delete",
+          "discovery_index": 1,
+          "authored_operation_kind": "delete"
+        },
+        {
+          "order": 4,
+          "identity_sha256": "6d5be641206090ca2c02da253fde8c0b847c10dad3823a9ea15abac31863f80d",
+          "kind": "branch",
+          "path": ".github/dependabot.yml",
+          "blob_oid": "8f02575b7bc3ef455a3b5bfe0add12fb86213e17",
+          "original_content_sha256": "ce800e16adff4c8196f5febc77c949c9de1dba16831aa593e95cbbec0cd5fb58",
+          "source_commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "pair_id": "2d9c3c1ed208",
+          "branch": "lamina-oracle/2d9c3c1ed208",
+          "executed": false,
+          "discovery_operation_kind": "branch",
+          "discovery_index": 0,
+          "authored_operation_kind": "branch"
+        },
+        {
+          "order": 5,
+          "identity_sha256": "ec5029c606ae2cb465e6ad9c1898dc79aa46e528b08abf8a7a3d713299d1ff7e",
+          "kind": "logical_worktree",
+          "path": ".github/dependabot.yml",
+          "blob_oid": "8f02575b7bc3ef455a3b5bfe0add12fb86213e17",
+          "original_content_sha256": "ce800e16adff4c8196f5febc77c949c9de1dba16831aa593e95cbbec0cd5fb58",
+          "source_commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "pair_id": "2d9c3c1ed208",
+          "logical_worktree_id": "oracle-worktree-2d9c3c1ed208",
+          "derived_branch": "lamina-oracle/worktree-2d9c3c1ed208",
+          "executed": false,
+          "discovery_operation_kind": "logical_worktree",
+          "discovery_index": 0,
+          "authored_operation_kind": "logical_worktree"
+        }
+      ]
+    },
+    "large": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/makeplane/plane.git",
+        "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+        "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e"
+      },
+      "reviewed_inventory_sha256": "b2aa9b3ad5be10632201248c2c9d988511cb36483aeef9493e18e14c549cb845",
+      "discovery": {
+        "report_sha256": "31f5aafc6e58fff76bbf6590c4a88fa7d9b7e88702e4c79694422b45484795de",
+        "semantic_sha256": "d2805fee3f92fa756a60dcda81a502fbba788d46d3f4bdca2ef1b35e9e122520",
+        "index_sha256": "b8024a8eb044b9778c467e30ae6265f87cbf13c3b4455d365cd37c21bd50c97e"
+      },
+      "scenarios": [
+        {
+          "order": 0,
+          "identity_sha256": "3c1a8340b5db89edb7308f3697d084af74a8bf5fd7e35c66d6f0144b294e3bbc",
+          "kind": "clean",
+          "source_commit": "dc9d80b2d2a499b967f0b541e083b283f463719f"
+        },
+        {
+          "order": 1,
+          "identity_sha256": "fc9f3bb78b8843a5e6f2a0d82023d085b64291e13e2b956127d61b75b418b24a",
+          "kind": "modify",
+          "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+          "blob_oid": "affbda4808b24bf13fd502e65ffbe9f89554be33",
+          "original_content_sha256": "ac00716a2c53c246b39414896bfb68328475c8b67fab9e24d18ce992d00f2dfa",
+          "append_utf8": "\n// lamina-oracle-modify-v1\n",
+          "append_bytes": 28,
+          "result_bytes": 4340,
+          "result_content_sha256": "4249b6af4d8f2924aafc733aef1793c93ec577a39d95f4489df89c3f4c04d5d6",
+          "discovery_operation_kind": "modify",
+          "discovery_index": 0,
+          "authored_operation_kind": "modify"
+        },
+        {
+          "order": 2,
+          "identity_sha256": "97eccdaeff4c5c927ca0881efdb4c6f4c7ac95002d81236c386ddaee4c28282d",
+          "kind": "rename",
+          "path": ".github/ISSUE_TEMPLATE/--bug-report.yaml",
+          "blob_oid": "277a3bdfa8999d263e1577fb6a625261773e0a80",
+          "original_content_sha256": "7637f7827c5aef213d155326561ad0f6a6adeba424a5212a4c04a00c5c6bc665",
+          "destination": "lamina-oracle-rename-e45179571675.yaml",
+          "destination_absence": {
+            "basis": "complete_stage0_git_paths_and_implied_directories",
+            "tracked_path_count": 5405,
+            "tracked_paths_sha256": "f8b3322915ac6dee69ad8bdb0b527c6ba1d0f4dec9a25fba11ca2c37a364e01e",
+            "occupied_destination_count": 6569,
+            "occupied_destinations_sha256": "903debb30ce0f6c3da921d7d669dadd3910a6bf4e5bcb5f2257ce51d72328deb",
+            "portable_root_included": true,
+            "absent": true
+          },
+          "discovery_operation_kind": "rename",
+          "discovery_index": 0,
+          "authored_operation_kind": "rename"
+        },
+        {
+          "order": 3,
+          "identity_sha256": "a203fa593cb1731dba00cacd1f10c91e4f915af705d5d921fcf8270a1b352a1c",
+          "kind": "delete",
+          "path": ".github/workflows/build-branch.yml",
+          "blob_oid": "8ad71e7d68ab8a369fdabc2f4ca1638dfb83054b",
+          "original_content_sha256": "2630482254675b6949add884351d019b9a460b4d1c8d5e65fd9ffaa602146d1e",
+          "discovery_operation_kind": "delete",
+          "discovery_index": 0,
+          "authored_operation_kind": "delete"
+        },
+        {
+          "order": 4,
+          "identity_sha256": "63e304abdd9b50eeeed2ec62113b44bca286ceb8bd31f8fbe75d93cfdadcd8c0",
+          "kind": "branch",
+          "path": ".github/workflows/copyright-check.yml",
+          "blob_oid": "b406833a8277e8f0c716bd014ee8cdc3797829e4",
+          "original_content_sha256": "0ab5a8388273280fc10eb12680d947c53900e4a13c99f30a25b5314bf797cc81",
+          "source_commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "pair_id": "4c959686de6e",
+          "branch": "lamina-oracle/4c959686de6e",
+          "executed": false,
+          "discovery_operation_kind": "branch",
+          "discovery_index": 0,
+          "authored_operation_kind": "branch"
+        },
+        {
+          "order": 5,
+          "identity_sha256": "6d6de4be7a99dc55b2e1d5f46b9537d7154ee9dc0e5caf5fe184f29754e15632",
+          "kind": "logical_worktree",
+          "path": ".github/workflows/copyright-check.yml",
+          "blob_oid": "b406833a8277e8f0c716bd014ee8cdc3797829e4",
+          "original_content_sha256": "0ab5a8388273280fc10eb12680d947c53900e4a13c99f30a25b5314bf797cc81",
+          "source_commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "pair_id": "4c959686de6e",
+          "logical_worktree_id": "oracle-worktree-4c959686de6e",
+          "derived_branch": "lamina-oracle/worktree-4c959686de6e",
+          "executed": false,
+          "discovery_operation_kind": "logical_worktree",
+          "discovery_index": 0,
+          "authored_operation_kind": "logical_worktree"
+        }
+      ]
+    }
+  }
+}
