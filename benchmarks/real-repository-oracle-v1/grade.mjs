@@ -1,9 +1,10 @@
 import {
-  FROZEN_GATES, collectionDigest, digest, fixtureDigest, materializationBaseDigest,
+  FROZEN_GATES, OBSERVATION_CATEGORIES, collectionDigest, digest, fixtureDigest, materializationBaseDigest,
   materializationProvenanceDigest, resultCasesDigest,
   validateFixture, validateResult,
 } from './contract.mjs';
 import { isControllerOracleVerification } from './controller.mjs';
+import { OBSERVATION_CATEGORY_SUPPORT } from './observation-category-authority.mjs';
 
 const stableTarget = (target) => JSON.stringify({
   category: target.category, id: target.id || null, path: target.path || null,
@@ -72,12 +73,17 @@ function compareCase(expectedCase, actual, diagnostics, counters, coverage) {
   }
   const actualObservations = new Set(actual.observations.map(stableTarget));
   for (const target of expected.observations) {
-    const category = coverage.observations[target.category] ||= { expected: 0, matched: 0 };
-    category.expected += 1;
-    if (actualObservations.has(stableTarget(target))) category.matched += 1;
+    const category = coverage.observations[target.category];
+    category.positive_expected += 1;
+    if (actualObservations.has(stableTarget(target))) category.positive_matched += 1;
     else diagnostics.push(`${prefix}: missing observation ${stableTarget(target)}`);
   }
-  for (const target of expected.forbidden_observations) if (actualObservations.has(stableTarget(target))) diagnostics.push(`${prefix}: forbidden observation remained ${stableTarget(target)}`);
+  for (const target of expected.forbidden_observations) {
+    const category = coverage.observations[target.category];
+    category.forbidden_expected += 1;
+    if (!actualObservations.has(stableTarget(target))) category.forbidden_absent += 1;
+    else diagnostics.push(`${prefix}: forbidden observation remained ${stableTarget(target)}`);
+  }
   const actualObligations = new Set(actual.obligations.map(stableTarget));
   for (const target of expected.obligations) {
     const category = coverage.obligations[target.category] ||= { expected: 0, matched: 0 };
@@ -126,9 +132,32 @@ export function gradeResult(fixture, result, { allowUnattestedEvaluation = false
     }
   }
   const counters = { exact: { matched: 0, total: 0 }, multi: { matched: 0, total: 0 }, novel: { incorrect: 0, total: 0 }, workflow: { matched: 0, total: 0 }, source: { matched: 0, total: 0 } };
-  const coverage = { observations: {}, obligations: {} };
+  const coverage = {
+    observations: Object.fromEntries(OBSERVATION_CATEGORIES.map((category) => [category, {
+      positive_expected: 0, positive_matched: 0, forbidden_expected: 0,
+      forbidden_absent: 0, status: null,
+    }])),
+    obligations: {},
+  };
   const byId = new Map(result.cases.map((item) => [item.id, item]));
   for (const expectedCase of expectedCases) compareCase(expectedCase, byId.get(expectedCase.id), diagnostics, counters, coverage);
+  const support = OBSERVATION_CATEGORY_SUPPORT[collection.fixture_id];
+  for (const [category, absence] of Object.entries(support.reviewed_absent)) {
+    if (absence.mode !== 'complete_candidate_set_absence') continue;
+    const actual = result.cases.flatMap((item) => item.observations)
+      .filter((target) => target.category === category);
+    coverage.observations[category].forbidden_absent = actual.length
+      ? 0 : coverage.observations[category].forbidden_expected;
+    if (actual.length) diagnostics.push(`reviewed-absent observation category ${category} appeared outside its complete candidate-set authority`);
+  }
+  for (const [category, item] of Object.entries(coverage.observations)) {
+    if (item.positive_expected + item.forbidden_expected === 0) {
+      diagnostics.push(`observation category ${category} has no positive or forbidden denominator`);
+      item.status = 'mixed';
+    } else if (item.positive_expected > 0 && item.forbidden_expected > 0) item.status = 'mixed';
+    else if (item.positive_expected > 0) item.status = 'positive';
+    else item.status = 'reviewed_absent';
+  }
   const metrics = {
     exact_id_alias_accuracy: ratio(counters.exact.matched, counters.exact.total),
     complete_multi_workflow_selection: ratio(counters.multi.matched, counters.multi.total),

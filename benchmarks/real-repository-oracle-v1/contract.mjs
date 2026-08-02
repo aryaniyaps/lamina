@@ -4,6 +4,7 @@ import {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
   reviewedManifestDigest,
 } from './collection-authority.mjs';
+import { OBSERVATION_CATEGORY_SUPPORT } from './observation-category-authority.mjs';
 
 export {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
@@ -34,9 +35,9 @@ export const REQUIRED_COVERAGE = Object.freeze([
   'one_file', 'multi_file', 'rename', 'delete', 'dirty_file', 'branch', 'worktree',
 ]);
 export const OBSERVATION_CATEGORIES = Object.freeze([
-  'entry_point', 'command', 'schema_entity', 'transition', 'event', 'test',
-  'docs_persona', 'flag', 'dependency', 'permission', 'invariant',
-  'failure_state', 'source_file',
+  'entry_points', 'commands', 'routes', 'handlers', 'schemas', 'entities',
+  'state_transitions', 'permissions', 'events', 'tests', 'documentation',
+  'personas', 'feature_flags', 'dependencies',
 ]);
 export const OBLIGATION_CATEGORIES = Object.freeze([
   'implementation', 'state', 'permission', 'failure', 'persona',
@@ -57,12 +58,13 @@ export const DIRTY_OPERATION_PORCELAIN = Object.freeze({
   delete: Object.freeze({ kind: 'deleted', xy: '.D', submodule: 'N...', staging: 'unstaged' }),
 });
 export const MUTATION_KINDS = Object.freeze([
-  'wrong_workflow', 'missing_observation', 'lost_obligation',
+  'wrong_workflow', 'missing_observation', 'unexpected_observation', 'lost_obligation',
   'source_ranking_regression', 'extra_workflow', 'nondeterministic_replay',
   'repository_state_mismatch', 'stale_rename_path', 'stale_delete_path',
 ]);
 export const MUTATION_APPLICABILITY = Object.freeze({
   wrong_workflow: 'selected_workflow', missing_observation: 'observation',
+  unexpected_observation: 'forbidden_observation',
   lost_obligation: 'obligation', source_ranking_regression: 'source_ranking',
   extra_workflow: 'multi_workflow', nondeterministic_replay: 'replay',
   repository_state_mismatch: 'repository_state', stale_rename_path: 'rename',
@@ -256,9 +258,9 @@ function validateCase(item, index, collectionsById, errors) {
   if (JSON.stringify([...reviewedChanges].sort(changeOrder)) !== JSON.stringify(expectedChanges.sort(changeOrder))) {
     errors.push(`${at}.expected.repository_state.changes must exactly realize the reviewed scenario operations`);
   }
-  if (item.expected.workflow_outcome === 'new_workflow_required'
+  if (['new_workflow_required', 'ambiguous'].includes(item.expected.workflow_outcome)
     && item.expected.selected_workflow_ids.length !== 0) {
-    errors.push(`${at} genuinely new Workflow must select nothing`);
+    errors.push(`${at} non-selected Workflow outcomes must select nothing`);
   }
   if (['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
     && item.expected.selected_workflow_ids.length === 0) {
@@ -269,12 +271,24 @@ function validateCase(item, index, collectionsById, errors) {
   }
   const expectedOutcome = item.kind.intent === 'multi_workflow' ? 'multi_workflow'
     : item.kind.intent === 'new_workflow' ? 'new_workflow_required' : null;
-  if ((expectedOutcome && item.expected.workflow_outcome !== expectedOutcome)
-    || (!expectedOutcome && ['multi_workflow', 'new_workflow_required'].includes(item.expected.workflow_outcome))) {
+  const incompatibleOutcome = expectedOutcome ? item.expected.workflow_outcome !== expectedOutcome
+    : item.kind.intent === 'adversarial' ? item.expected.workflow_outcome === 'multi_workflow'
+      : ['multi_workflow', 'new_workflow_required'].includes(item.expected.workflow_outcome);
+  if (incompatibleOutcome) {
     errors.push(`${at}.kind.intent contradicts workflow_outcome`);
   }
   for (const field of ['source_ranking', 'observations', 'forbidden_observations', 'obligations']) {
     item.expected[field].forEach((target, targetIndex) => validateTargetPaths(target, `${at}.expected.${field}[${targetIndex}]`, errors));
+  }
+  for (const target of [...item.expected.observations, ...item.expected.forbidden_observations]) {
+    if (!OBSERVATION_CATEGORIES.includes(target.category)) {
+      errors.push(`${at} contains an observation outside the normalized production vocabulary`);
+    }
+  }
+  for (const target of item.expected.obligations) {
+    if (!OBLIGATION_CATEGORIES.includes(target.category)) {
+      errors.push(`${at} contains an obligation outside the normalized oracle vocabulary`);
+    }
   }
   item.expected.forbidden_paths.forEach((candidate, targetIndex) => {
     if (!isSafeRelativePath(candidate)) errors.push(`${at}.expected.forbidden_paths[${targetIndex}] is unsafe`);
@@ -313,9 +327,21 @@ export function validateFixture(fixture) {
       source_recall_at_10: cases.filter((item) => item.expected.source_ranking.length).length,
     };
     for (const [metric, denominator] of Object.entries(denominators)) if (!denominator) errors.push(`${collection.id} has a zero query denominator for ${metric}`);
+    const support = OBSERVATION_CATEGORY_SUPPORT[collection.fixture_id];
     const observationCoverage = new Set(cases.flatMap((item) => item.expected.observations.map((target) => target.category)));
+    const forbiddenTargets = cases.flatMap((item) => item.expected.forbidden_observations);
     const obligationCoverage = new Set(cases.flatMap((item) => item.expected.obligations.map((target) => target.category)));
-    for (const category of OBSERVATION_CATEGORIES) if (!observationCoverage.has(category)) errors.push(`${collection.id} lacks observation expectation ${category}`);
+    for (const category of support.positive) {
+      if (!observationCoverage.has(category)) errors.push(`${collection.id} lacks supported observation expectation ${category}`);
+    }
+    for (const [category] of Object.entries(support.reviewed_absent)) {
+      if (observationCoverage.has(category)) errors.push(`${collection.id} invents reviewed-absent observation expectation ${category}`);
+    }
+    for (const control of support.forbidden_controls) {
+      if (!forbiddenTargets.some((target) => target.category === control.category && target.path === control.path)) {
+        errors.push(`${collection.id} lacks exact reviewed-absence control ${control.category}:${control.path}`);
+      }
+    }
     for (const category of OBLIGATION_CATEGORIES) if (!obligationCoverage.has(category)) errors.push(`${collection.id} lacks obligation expectation ${category}`);
   }
   if (!unique(fixture.mutations.map((item) => item.id))) errors.push('fixture mutation ids must be unique');
@@ -328,6 +354,7 @@ export function validateFixture(fixture) {
     const applicable = {
       selected_workflow: reviewedCase.expected.selected_workflow_ids.length > 0,
       observation: reviewedCase.expected.observations.length > 0,
+      forbidden_observation: reviewedCase.expected.forbidden_observations.length > 0,
       obligation: reviewedCase.expected.obligations.length > 0,
       source_ranking: reviewedCase.expected.source_ranking.length > 0,
       multi_workflow: reviewedCase.expected.workflow_outcome === 'multi_workflow'
@@ -361,6 +388,16 @@ function validateResultPaths(item, index, errors) {
   const at = `result.cases[${index}]`;
   for (const field of ['source_ranking', 'observations', 'obligations']) {
     item[field].forEach((target, targetIndex) => validateTargetPaths(target, `${at}.${field}[${targetIndex}]`, errors));
+  }
+  for (const target of item.observations) {
+    if (!OBSERVATION_CATEGORIES.includes(target.category)) {
+      errors.push(`${at} contains an observation outside the normalized production vocabulary`);
+    }
+  }
+  for (const target of item.obligations) {
+    if (!OBLIGATION_CATEGORIES.includes(target.category)) {
+      errors.push(`${at} contains an obligation outside the normalized oracle vocabulary`);
+    }
   }
   item.repository_state.changes.forEach((change, changeIndex) => {
     if (!isSafeRelativePath(change.path)
@@ -459,6 +496,9 @@ const mutationExecutors = Object.freeze({
     const expected = targetKey(reviewedCase.expected.observations[0]);
     result.cases[index].observations = result.cases[index].observations.filter((item) => targetKey(item) !== expected);
   },
+  unexpected_observation(result, index, reviewedCase) {
+    result.cases[index].observations.push(structuredClone(reviewedCase.expected.forbidden_observations[0]));
+  },
   lost_obligation(result, index, reviewedCase) {
     const expected = targetKey(reviewedCase.expected.obligations[0]);
     result.cases[index].obligations = result.cases[index].obligations.filter((item) => targetKey(item) !== expected);
@@ -484,7 +524,7 @@ const mutationExecutors = Object.freeze({
   },
   stale_delete_path(result, index, reviewedCase) {
     const operation = reviewedCase.repository_scenario.operations.find((item) => item.op === 'delete');
-    result.cases[index].observations.push({ category: 'source_file', path: operation.path });
+    result.cases[index].source_ranking.push({ path: operation.path, symbol: null });
   },
 });
 export function executeRegisteredMutation(fixture, result, mutation) {

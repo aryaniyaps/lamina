@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,9 +28,26 @@ import { runOracleThroughSafeRunner } from '../benchmarks/real-repository-oracle
 import { resolvePhysicalContained } from '../benchmarks/real-repository-oracle-v1/materialization-registry.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { heldOutIdentity } from '../benchmarks/real-repository-oracle-v1/held-out-compatibility.mjs';
+import { OBSERVATION_CATEGORY_SUPPORT } from '../benchmarks/real-repository-oracle-v1/observation-category-authority.mjs';
 import { parsePorcelainV2Z } from '../benchmarks/real-repository-oracle-v1/repository-state.mjs';
 import { retrievalFixture } from '../benchmarks/retrieval-v1/fixtures.mjs';
 import { validateFixtureSchema, validateResultSchema } from '../benchmarks/real-repository-oracle-v1/schema-validation.mjs';
+import { brownfieldSignals } from '../packages/cli/lib/observation-runtime/node.mjs';
+
+const observationSource = fs.readFileSync(new URL('../packages/cli/lib/observation-runtime/node.mjs', import.meta.url));
+assert.equal(crypto.createHash('sha256').update(observationSource).digest('hex'),
+  '0ce0a2b58974f36eca05c748728516526f8d06b8fbe7d61bba2fdf1a62c7f928',
+  'the benchmark vocabulary is bound to the unchanged production extractor seam');
+const parityProbes = [
+  brownfieldSignals('package.json', Buffer.from(JSON.stringify({ scripts: { build: 'x' }, bin: 'cli.js', dependencies: { react: '*' } }))),
+  brownfieldSignals('src/routes/account-persona.test.ts', Buffer.from(`#!/usr/bin/env node
+import value from 'dependency'; function accountHandler() {}; interface Account {}; app.get('/account');
+state = 'open'; authorize role; emit('saved'); const featureFlag = true; test('account', () => expect(value));`)),
+  brownfieldSignals('docs/guide.md', Buffer.from('# Guide')),
+];
+for (const probe of parityProbes) assert.ok(probe.categories.every((category) => OBSERVATION_CATEGORIES.includes(category)));
+assert.deepEqual([...new Set(parityProbes.flatMap((probe) => probe.categories))].sort(), [...OBSERVATION_CATEGORIES].sort(),
+  'behavioral probes exercise the exact frozen 14-category production vocabulary');
 
 function collection(fixtureId, index) {
   const pin = COLLECTION_PINS[fixtureId];
@@ -47,7 +65,6 @@ function collection(fixtureId, index) {
   return value;
 }
 const collections = ['small', 'medium', 'large'].map(collection);
-const observations = OBSERVATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
 const obligations = OBLIGATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
 
 function scenarioFor(index) {
@@ -64,9 +81,10 @@ function reviewedCase(collectionValue, query, index) {
   const intent = index === 6 ? 'multi_workflow' : index === 7 ? 'new_workflow'
     : index === 8 ? 'adversarial' : index % 2 ? 'source_localization' : 'workflow_selection';
   const outcome = intent === 'multi_workflow' ? 'multi_workflow'
-    : intent === 'new_workflow' ? 'new_workflow_required' : 'selected';
+    : ['new_workflow', 'adversarial'].includes(intent) ? 'new_workflow_required' : 'selected';
   const selected = outcome === 'multi_workflow' ? ['workflow.primary', 'workflow.secondary']
     : outcome === 'new_workflow_required' ? [] : ['workflow.primary'];
+  const categorySupport = OBSERVATION_CATEGORY_SUPPORT[collectionValue.fixture_id];
   return {
     id: `${collectionValue.id}.${query}`,
     collection_id: collectionValue.id,
@@ -78,7 +96,10 @@ function reviewedCase(collectionValue, query, index) {
       forbidden_workflow_ids: ['workflow.forbidden'],
       workflow_ranking: index === 0 ? [{ id: 'workflow.primary', max_rank: 1 }, { id: 'workflow.secondary', max_rank: 5 }] : [],
       source_ranking: index === 0 ? [{ path: 'src/entry_point.ts', symbol: 'entryPoint', max_rank: 1 }, { path: 'src/handler.ts', symbol: null, max_rank: 10 }] : [],
-      observations: index === 0 ? observations : [], forbidden_observations: [],
+      observations: index === 0 ? categorySupport.positive
+        .map((category) => ({ category, path: `src/${category}.ts` })) : [],
+      forbidden_observations: index === 0 ? categorySupport.forbidden_controls
+        .map((target) => ({ ...target })) : [],
       obligations: index === 0 ? obligations : [],
       forbidden_paths: [2, 3].includes(index) ? ['src/a.ts'] : [],
       repository_state: {
@@ -102,6 +123,7 @@ const heldOut = heldOutIdentity(retrievalFixture());
 const mutationKinds = [
   ['wrong_workflow', 'selected_workflow', 'selected Workflow ids'],
   ['missing_observation', 'observation', 'missing observation'],
+  ['unexpected_observation', 'forbidden_observation', 'forbidden observation remained'],
   ['lost_obligation', 'obligation', 'missing obligation'],
   ['source_ranking_regression', 'source_ranking', 'source src/entry_point.ts'],
   ['extra_workflow', 'multi_workflow', 'selected Workflow ids'],
@@ -116,6 +138,7 @@ const fixture = {
   mutations: mutationKinds.map(([kind, applicability, diagnostic]) => ({
     id: `mutation.${kind}`,
     case_id: kind === 'extra_workflow' ? cases[6].id
+      : kind === 'unexpected_observation' ? cases[0].id
       : kind === 'stale_rename_path' ? cases[2].id
       : kind === 'stale_delete_path' ? cases[3].id : cases[0].id,
     kind, applicability, diagnostic_includes: [diagnostic],
@@ -208,7 +231,16 @@ const result = await evaluateAdapter({ fixture, collection: selectedCollection, 
 assert.deepEqual(result.safety, { mode: 'not_applicable', outcome: 'not_applicable', reason: null, attestation: null });
 assert.deepEqual(validateResult(result), { valid: true, errors: [] });
 assert.equal(validateResultSchema(result), true, JSON.stringify(validateResultSchema.errors));
-assert.equal(gradeResult(fixture, result).classification, 'pass');
+const passingGrade = gradeResult(fixture, result);
+assert.equal(passingGrade.classification, 'pass');
+assert.deepEqual(Object.keys(passingGrade.coverage.observations), OBSERVATION_CATEGORIES);
+assert.equal(passingGrade.coverage.observations.handlers.status, 'reviewed_absent');
+assert.equal(passingGrade.coverage.observations.personas.status, 'reviewed_absent');
+assert.equal(passingGrade.coverage.observations.entry_points.status, 'positive');
+for (const item of Object.values(passingGrade.coverage.observations)) {
+  assert.ok(item.positive_expected + item.forbidden_expected > 0,
+    'every observation category must have a positive or reviewed-absence denominator');
+}
 assert.equal(new Set(seenInputs.map((item) => item.materialized_repository.opaque_handle)).size, selectedCases.length * 2, 'every first/replay call gets a fresh lease');
 assert.equal(prepareCalls.length, selectedCases.length, 'each scenario has one immutable base');
 
@@ -404,8 +436,8 @@ for (const mutation of fixture.mutations) {
   for (const needle of mutation.diagnostic_includes) assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
 }
 const prependedUnrelated = structuredClone(result);
-prependedUnrelated.cases[0].observations.unshift({ category: 'unrelated', path: 'src/unrelated-observation.ts' });
-prependedUnrelated.cases[0].obligations.unshift({ category: 'unrelated', path: 'src/unrelated-obligation.ts' });
+prependedUnrelated.cases[0].observations.unshift({ category: 'dependencies', path: 'src/unrelated-observation.ts' });
+prependedUnrelated.cases[0].obligations.unshift({ category: 'implementation', path: 'src/unrelated-obligation.ts' });
 prependedUnrelated.replay_digest = resultCasesDigest(prependedUnrelated.cases);
 assert.equal(gradeResult(fixture, prependedUnrelated).classification, 'pass');
 for (const mutation of fixture.mutations) {
@@ -417,6 +449,22 @@ for (const mutation of fixture.mutations) {
   for (const needle of mutation.diagnostic_includes) {
     assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
   }
+}
+const unexpectedPersonaPath = structuredClone(result);
+unexpectedPersonaPath.cases[0].observations.push({ category: 'personas', path: 'src/a-different-persona.ts' });
+unexpectedPersonaPath.replay_digest = resultCasesDigest(unexpectedPersonaPath.cases);
+assert.ok(gradeResult(fixture, unexpectedPersonaPath).diagnostics.some((item) => item.includes('complete candidate-set authority')),
+  'complete candidate-set absence rejects a persona observation at any path');
+const unrelatedHandlerPath = structuredClone(result);
+unrelatedHandlerPath.cases[0].observations.push({ category: 'handlers', path: 'src/a-different-handler.ts' });
+unrelatedHandlerPath.replay_digest = resultCasesDigest(unrelatedHandlerPath.cases);
+assert.equal(gradeResult(fixture, unrelatedHandlerPath).classification, 'pass',
+  'bounded negative controls reject only the exact reviewed handler tuple');
+for (const [field, category] of [['observations', 'future_observation'], ['obligations', 'future_obligation']]) {
+  const invalidVocabulary = structuredClone(result);
+  invalidVocabulary.cases[0][field].push({ category, path: 'src/future.ts' });
+  invalidVocabulary.replay_digest = resultCasesDigest(invalidVocabulary.cases);
+  assert.equal(gradeResult(fixture, invalidVocabulary).classification, 'candidate_invalid');
 }
 const wildcardSourceFixture = structuredClone(fixture);
 wildcardSourceFixture.cases[0].expected.source_ranking = [
