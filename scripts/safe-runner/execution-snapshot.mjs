@@ -5,6 +5,9 @@ import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit, trustedGitIdentity } from './git.mjs';
+import {
+  assertTrustedBinaryIdentity, trustedRootBinaryIdentity,
+} from './infrastructure.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -30,6 +33,14 @@ const RUNTIME_BASELINE_SCENARIOS = new Set([
   'full-derived-state-rebuild', 'post-command-idle-rss',
   'cancellation-shutdown-cleanup',
 ]);
+
+export function requiresSystemBwrapPath(infrastructure) {
+  const identity = infrastructure?.identities?.bwrap;
+  return infrastructure?.pinned_bwrap === false
+    && identity?.uid === 0
+    && identity?.root_owned_path === true
+    && identity?.path === infrastructure?.bwrap;
+}
 
 export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, currentBytes = 0) {
   if (!Number.isSafeInteger(objectCount) || objectCount < 0 || objectCount > MAX_GIT_OBJECTS
@@ -1178,10 +1189,7 @@ export function prepareExecutionSnapshot({
   }
   const stagedInfrastructure = { identities: {} };
   if (infrastructure) {
-    const binarySources = {
-      node: infrastructure.node,
-      bwrap: infrastructure.bwrap,
-    };
+    const binarySources = { node: infrastructure.node };
     for (const [role, source] of Object.entries(binarySources)) {
       const destination = path.join(root, 'infrastructure', role);
       const copied = copyPhysicalFile(fs.realpathSync.native(source), destination, true);
@@ -1191,7 +1199,42 @@ export function prepareExecutionSnapshot({
       stagedInfrastructure[role] = destination;
       stagedInfrastructure.identities[role] = {
         path: destination, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
-        mode: Number(stat.mode & 0o777n), size: String(stat.size), digest: copied.digest,
+        mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
+      };
+    }
+    if (requiresSystemBwrapPath(infrastructure)) {
+      // AppArmor and other path-based LSMs attach their bwrap exception to the
+      // distribution executable (for example /usr/bin/bwrap on Ubuntu). A copy
+      // has identical bytes but a different security identity and can lose the
+      // capabilities needed to finish constructing the network namespace.
+      // Keep only an immutable root-owned system path; user-owned and explicitly
+      // pinned helpers continue through the descriptor-copy authority below.
+      assertTrustedBinaryIdentity(infrastructure.identities.bwrap);
+      const identity = trustedRootBinaryIdentity(infrastructure.bwrap, {
+        expectedDigest: infrastructure.identities.bwrap.digest,
+      });
+      const size = Number(identity.size);
+      totalBytes += size;
+      entries.push({
+        label: 'infrastructure:bwrap-system-path', path: identity.path, type: 'host-file',
+        size, digest: identity.digest,
+        source_dev: identity.dev, source_ino: identity.ino, source_uid: identity.uid,
+        source_mode: identity.mode, source_nlink: identity.nlink,
+        source_file_capabilities: identity.file_capabilities,
+      });
+      stagedInfrastructure.bwrap = identity.path;
+      stagedInfrastructure.identities.bwrap = identity;
+    } else {
+      const source = infrastructure.bwrap;
+      const destination = path.join(root, 'infrastructure', 'bwrap');
+      const copied = copyPhysicalFile(fs.realpathSync.native(source), destination, true);
+      const stat = fs.lstatSync(destination, { bigint: true });
+      totalBytes += copied.size;
+      entries.push({ label: 'infrastructure:bwrap', path: destination, type: 'file', ...copied });
+      stagedInfrastructure.bwrap = destination;
+      stagedInfrastructure.identities.bwrap = {
+        path: destination, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+        mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
       };
     }
     for (const name of ['gate.sh', 'quota-gate.sh', 'sandbox.mjs', 'infrastructure.mjs']) {
@@ -1363,6 +1406,22 @@ export function assertExecutionSnapshot(snapshot) {
   for (const entry of snapshot?.entries || []) {
     if (entry.type === 'symlink') {
       if (fs.readlinkSync(entry.path) !== entry.target) throw new Error('execution snapshot symlink changed');
+      continue;
+    }
+    if (entry.type === 'host-file') {
+      const expected = snapshot?.infrastructure?.identities?.bwrap;
+      const actual = trustedRootBinaryIdentity(entry.path, { expectedDigest: entry.digest });
+      if (entry.label !== 'infrastructure:bwrap-system-path'
+        || expected?.path !== entry.path || expected?.root_owned_path !== true
+        || entry.source_dev !== actual.dev || entry.source_ino !== actual.ino
+        || entry.source_uid !== actual.uid || entry.source_mode !== actual.mode
+        || entry.source_nlink !== actual.nlink || entry.size !== Number(actual.size)
+        || entry.source_file_capabilities !== actual.file_capabilities
+        || entry.digest !== actual.digest
+        || ['path', 'dev', 'ino', 'uid', 'mode', 'nlink', 'size', 'digest', 'file_capabilities']
+          .some((field) => expected?.[field] !== actual[field])) {
+        throw new Error('execution snapshot host infrastructure identity changed');
+      }
       continue;
     }
     const stat = fs.lstatSync(entry.path);

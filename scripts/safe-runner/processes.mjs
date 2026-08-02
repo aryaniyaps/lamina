@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { isExecutionHookEnvironment } from './infrastructure.mjs';
 
 export const MAX_PROCESS_ENVIRONMENT_BYTES = 64 * 1024;
@@ -78,6 +79,7 @@ export function processRecord(pid) {
     const stat = parseProcStat(fs.readFileSync(`/proc/${pid}/stat`, 'utf8'));
     const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
     const rss = Number(status.match(/^VmRSS:\s+(\d+)\s+kB$/m)?.[1] || 0) * 1024;
+    const threads = Number(status.match(/^Threads:\s+(\d+)$/m)?.[1] || 0);
     const namespacePids = String(status.match(/^NSpid:\s+(.+)$/m)?.[1] || '')
       .trim().split(/\s+/).filter(Boolean).map(Number);
     const cmdlineBytes = fs.readFileSync(`/proc/${pid}/cmdline`);
@@ -86,7 +88,15 @@ export function processRecord(pid) {
     const cmdline = (argv || []).join(' ');
     const environmentAttestation = readProcessEnvironment(pid);
     let cwd = null;
-    try { cwd = fs.realpathSync.native(`/proc/${pid}/cwd`); } catch {}
+    try {
+      // /proc/<pid>/cwd already reports the resolved path in that process's
+      // mount namespace. realpath would incorrectly re-resolve the target in
+      // the supervisor namespace, where a private tmpfs path is absent.
+      const namespaceCwd = fs.readlinkSync(`/proc/${pid}/cwd`);
+      if (path.isAbsolute(namespaceCwd) && !namespaceCwd.endsWith(' (deleted)')) {
+        cwd = path.resolve(namespaceCwd);
+      }
+    } catch {}
     let executableIdentity = null;
     try {
       const executable = fs.statSync(`/proc/${pid}/exe`, { bigint: true });
@@ -100,6 +110,7 @@ export function processRecord(pid) {
       start_ticks: stat?.start_ticks ?? null,
       state: stat?.state ?? null,
       rss_bytes: rss,
+      threads,
       namespace_pids: namespacePids,
       command: cmdline.slice(0, 1_000),
       argv,

@@ -9,6 +9,7 @@ export function boundedDirectorySize(
   let bytes = 0;
   let entries = 0;
   let symlinks = 0;
+  const symlinkPaths = [];
   const stack = [root];
   while (stack.length) {
     const current = stack.pop();
@@ -18,18 +19,27 @@ export function boundedDirectorySize(
       entries += 1;
       const absolute = path.join(current, child.name);
       if (child.isDirectory()) stack.push(absolute);
-      else if (child.isSymbolicLink()) symlinks += 1;
+      else if (child.isSymbolicLink()) {
+        symlinks += 1;
+        const relative = path.relative(root, absolute).replaceAll('\\', '/');
+        if (symlinkPaths.length < 16 && relative.length <= 256
+          && !/[\u0000-\u001f\u007f]/.test(relative)) symlinkPaths.push(relative);
+      }
       else {
         try { bytes += fs.lstatSync(absolute).size; } catch {}
       }
       if (bytes > stopAfterBytes || entries > stopAfterEntries) {
         return {
-          bytes, entries, symlinks, exceeded: true, reason: bytes > stopAfterBytes ? 'bytes' : 'inodes',
+          bytes, entries, symlinks, symlink_paths: symlinkPaths,
+          exceeded: true, reason: bytes > stopAfterBytes ? 'bytes' : 'inodes',
         };
       }
     }
   }
-  return { bytes, entries, symlinks, exceeded: symlinks > 0, reason: symlinks > 0 ? 'symlink' : null };
+  return {
+    bytes, entries, symlinks, symlink_paths: symlinkPaths,
+    exceeded: symlinks > 0, reason: symlinks > 0 ? 'symlink' : null,
+  };
 }
 
 export function quotaFilesystemUsage(records, temporaryDirectory, maximumBytes, maximumInodes) {
@@ -51,6 +61,7 @@ export function quotaFilesystemUsage(records, temporaryDirectory, maximumBytes, 
         bytes,
         entries,
         symlinks: walked.symlinks,
+        symlink_paths: walked.symlink_paths,
         exceeded: Number(stats.bfree) === 0 || bytes >= maximumBytes
           || entries > maximumInodes || walked.symlinks > 0,
         reason,

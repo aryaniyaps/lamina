@@ -252,6 +252,7 @@ function rememberDescendants(report, records, elapsedMs) {
       first_seen_ms: existing?.first_seen_ms ?? elapsedMs,
       last_seen_ms: elapsedMs,
       peak_rss_bytes: Math.max(existing?.peak_rss_bytes || 0, record.rss_bytes || 0),
+      peak_threads: Math.max(existing?.peak_threads || 0, record.threads || 0),
     });
   }
   report.descendants = [...known.values()]
@@ -476,6 +477,13 @@ export async function runSafely({
       const temporaryLimit = temporary.reason === 'inodes'
         ? 'temporary_inodes'
         : temporary.reason === 'symlink' ? 'temporary_symlink' : 'temporary_disk';
+      if (temporaryLimit === 'temporary_symlink') {
+        report.preflight.temporary_limit_diagnostic = {
+          reason: temporaryLimit,
+          symlink_count: temporary.symlinks,
+          symlink_paths: temporary.symlink_paths || [],
+        };
+      }
       requestStop('safety_limit_exceeded', temporaryLimit);
     }
     const highEvents = measured.events?.memory?.high || 0;

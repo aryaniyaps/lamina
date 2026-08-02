@@ -18,7 +18,9 @@ import {
   parseHostPageSize,
   validateLimitOverrides,
 } from '../scripts/safe-runner/envelope.mjs';
-import { ownedDirectoryIdentity, removeOwnedDirectory } from '../scripts/safe-runner/filesystem.mjs';
+import {
+  boundedDirectorySize, ownedDirectoryIdentity, removeOwnedDirectory,
+} from '../scripts/safe-runner/filesystem.mjs';
 import {
   assertSystemctlSuccess,
   cgroupResolutionState,
@@ -42,7 +44,7 @@ import {
 import {
   assertTrustedBinaryIdentity, infrastructureBinaries, isExecutionHookEnvironment,
   SAFE_INFRASTRUCTURE_PATH, sanitizedEnvironment, sanitizedPayloadEnvironment,
-  trustedBinaryIdentity, trustedHostBinary,
+  trustedBinaryIdentity, trustedHostBinary, trustedRootBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
@@ -54,7 +56,7 @@ import {
   assertGitObjectClosureBudget, auditedNpxPackage, dependencyPackageTarget,
   measureAuditedNpxPackageClosure, measureInstalledPackageClosure,
   measurePhysicalPackageTree, packageName, prepareExecutionSnapshot,
-  readBoundedPackageManifest,
+  readBoundedPackageManifest, requiresSystemBwrapPath,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { auditedNpxCommand } from '../scripts/safe-runner/npx-authority.mjs';
 import { repositoryOutputRefusal } from '../scripts/safe-runner/output-policy.mjs';
@@ -513,6 +515,62 @@ try {
   assert.equal(assertTrustedBinaryIdentity(binaryIdentity).path, binaryCopy);
   fs.appendFileSync(binaryCopy, 'changed');
   assert.throws(() => assertTrustedBinaryIdentity(binaryIdentity), /digest mismatch|identity changed/);
+  assert.equal(requiresSystemBwrapPath({
+    bwrap: '/usr/bin/bwrap', pinned_bwrap: false,
+    identities: { bwrap: { path: '/usr/bin/bwrap', uid: 0, root_owned_path: true } },
+  }), true, 'an unpinned root-owned distribution bwrap must keep its LSM-visible path');
+  assert.equal(requiresSystemBwrapPath({
+    bwrap: '/tmp/bwrap', pinned_bwrap: true,
+    identities: { bwrap: { path: '/tmp/bwrap', uid: 0, root_owned_path: true } },
+  }), false, 'an explicitly pinned bwrap must retain descriptor-copy authority');
+  assert.equal(requiresSystemBwrapPath({
+    bwrap: '/tmp/bwrap', pinned_bwrap: false,
+    identities: { bwrap: { path: '/tmp/bwrap', uid: process.getuid?.(), root_owned_path: false } },
+  }), false, 'a current-user bwrap must never bypass descriptor-copy authority');
+  if (infrastructureBinaries().pinned_bwrap === false) {
+    const rootBwrap = trustedRootBinaryIdentity(infrastructureBinaries().bwrap);
+    assert.equal(rootBwrap.root_owned_path, true);
+    assert.equal(rootBwrap.path, infrastructureBinaries().bwrap);
+    assert.deepEqual(assertTrustedBinaryIdentity(rootBwrap), rootBwrap,
+      'root-owned path authority must revalidate root ownership and link identity');
+    assert.equal(requiresSystemBwrapPath(infrastructureBinaries()), true);
+  }
+  const setidCopy = path.join(root, 'setid-bwrap-copy');
+  fs.copyFileSync(infrastructureBinaries().bwrap, setidCopy);
+  fs.chmodSync(setidCopy, 0o4755);
+  assert.throws(() => trustedBinaryIdentity(setidCopy), /non-setid/,
+    'setuid and setgid helpers must fail closed before either path or copied execution');
+  if (typeof process.execve === 'function') {
+    const samePid = spawnSync(process.execPath, ['-e', `
+      const original = process.pid;
+      const next = 'process.stdout.write(String(process.pid === ' + original + '))';
+      process.execve(process.execPath, [process.execPath, '-e', next], {});
+    `], { encoding: 'utf8' });
+    assert.equal(samePid.status, 0);
+    assert.equal(samePid.stdout, 'true', 'execve must retain the validated sandbox process identity');
+
+    const nonzero = spawnSync(process.execPath, ['-e', `
+      process.execve(process.execPath, [process.execPath, '-e', 'process.exit(37)'], {});
+    `]);
+    assert.equal(nonzero.status, 37, 'an execve replacement must preserve a nonzero payload exit');
+
+    const signaled = spawn(process.execPath, ['-e', `
+      const next = 'process.stdout.write("ready:" + process.pid + "\\\\n"); setInterval(() => {}, 1000)';
+      process.execve(process.execPath, [process.execPath, '-e', next], {});
+    `], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const [ready] = await once(signaled.stdout, 'data');
+    assert.equal(ready.toString().trim(), `ready:${signaled.pid}`,
+      'the execve replacement must retain the controller-visible PID');
+    signaled.kill('SIGTERM');
+    const [exitCode, signal] = await once(signaled, 'close');
+    assert.equal(exitCode, null);
+    assert.equal(signal, 'SIGTERM', 'signals must terminate the execve replacement directly');
+  }
+  const symlinkDiagnosticRoot = path.join(root, 'temporary-symlink-diagnostic');
+  fs.mkdirSync(symlinkDiagnosticRoot);
+  fs.symlinkSync('target', path.join(symlinkDiagnosticRoot, 'runtime-link'));
+  assert.deepEqual(boundedDirectorySize(symlinkDiagnosticRoot).symlink_paths,
+    ['runtime-link'], 'temporary symlink refusal must retain only bounded relative diagnostics');
   assert.equal(adapterProbe('darwin').production_enforcement, false);
   assert.equal(adapterProbe('win32').id, 'portable-process-group-small-only');
   assert.equal(

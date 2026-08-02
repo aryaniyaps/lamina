@@ -60,7 +60,10 @@ The runner:
 - resolves `systemd-run`, `systemctl`, bwrap, Node, and the shell from persisted,
   launch-rechecked host identities (including absolute SHA-pinned CI bwrap) and
   strips PATH plus loader/Node/exported-function/runtime-hook families before any
-  infrastructure process starts;
+  infrastructure process starts. A distribution bwrap whose sandbox authority is
+  attached to its pathname by a host LSM retains that canonical path only when the
+  executable and every ancestor are immutable, physical, root-owned objects; its
+  digest, inode, mode, link count, and ownership are rechecked before launch;
 - terminates the complete scope on memory, PID, timeout, output, temporary
   disk, controller signal, or detached-descendant failure;
 - identifies processes by PID plus Linux start ticks so stale records cannot
@@ -100,6 +103,12 @@ records exact device/inode/owner/type identities and validates the lock PID.
 Normal and watchdog cleanup share the same `lstat`-based immediate pre-unlink
 identity recheck. Dangling symlinks, unsealed foreign objects, and same-user
 replacements remain in place and keep cleanup incomplete.
+Paths observed through `/proc/<pid>/root` and `/proc/<pid>/cwd` are interpreted
+in the payload mount namespace. Namespace-private managed paths are verified one
+component at a time before use; the supervisor does not `realpath` them back into
+its own namespace. Likewise, cwd attestation reads the kernel-provided proc link,
+requires an absolute non-deleted target, and does not require the private path to
+exist in the supervisor namespace.
 On Windows, graphd emits one canonical `Path` entry: the native-extension
 directory is prepended to the inherited path found case-insensitively, retaining
 Git discovery while all execution-hook environment families remain stripped.
@@ -222,10 +231,25 @@ only the two small scratch fixtures receive that entrypoint-specific binding.
 Object alternates and config includes are never admitted. Inherited `GIT_*`
 controls are removed, while
 system and global Git config reads are deterministically disabled.
-The same authority descriptor-copies Node, bwrap, the gate scripts, and the
-sandbox launcher/import before systemd launch. The shell and systemd launcher
-remain host-trusted infrastructure; bwrap and later stages execute their staged
-objects, so a post-validation pathname swap cannot choose the sandbox binary.
+The same authority descriptor-copies Node, explicitly pinned or user-owned
+bwrap, the gate scripts, and the sandbox launcher/import before systemd launch.
+The shell and systemd launcher remain host-trusted infrastructure. A root-owned
+distribution bwrap is the narrow exception: Ubuntu AppArmor and comparable
+path-based LSM policy may authorize `/usr/bin/bwrap` but reject a byte-identical
+copy at a temporary path. For that case, preserving the canonical executable is
+part of preserving the host security identity rather than an escape from the
+snapshot. The runner requires a physical root-owned file, root-owned physical
+ancestors, no group/world write bit, no setuid/setgid bit, and matching digest,
+device, inode, mode, size, and link count at discovery, snapshot construction,
+snapshot revalidation, and launch. A separately identity-checked root-owned
+`getcap` must also prove that the executable has no file capabilities at each
+check; capability-bearing system helpers refuse. A compromised root account or
+package database remains outside this threat model.
+Pinned and current-user helpers never receive this exception and continue to be
+executed from their descriptor-copied objects. On Node versions that provide
+`process.execve`, the validated sandbox launcher replaces itself with bwrap so
+its idle V8 thread pool does not consume the payload's task budget; older Node
+versions retain the validated spawn-and-signal-forwarding fallback.
 Large ignored runtimes are not silently exposed again after the repository
 mount. In particular, eval-suite `.venv-eval` execution is refused with an
 actionable bounded-runtime requirement. Retrieval qualification has no uv or

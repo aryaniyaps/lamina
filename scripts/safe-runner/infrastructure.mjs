@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const FIXED_DIRECTORIES = Object.freeze(['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']);
 const MAX_BINARY_BYTES = 256 * 1024 * 1024;
@@ -56,7 +57,7 @@ function binaryDigest(file, size) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-function assertTrustedAncestors(file) {
+function assertTrustedAncestors(file, { requireRootOwnership = false } = {}) {
   let current = path.dirname(file);
   const uid = typeof process.getuid === 'function' ? process.getuid() : null;
   while (true) {
@@ -65,6 +66,7 @@ function assertTrustedAncestors(file) {
     const writableByWorld = (stat.mode & 0o002) !== 0;
     const protectedStickyRoot = writableByWorld && stat.uid === 0 && (stat.mode & 0o1000) !== 0;
     if (!stat.isDirectory() || stat.isSymbolicLink()
+      || (requireRootOwnership && stat.uid !== 0)
       || (uid !== null && stat.uid !== 0 && stat.uid !== uid)
       || (!protectedStickyRoot && (writableByWorld || writableByForeignGroup))) {
       const error = new Error(`trusted executable has an unsafe ancestor: ${current}`);
@@ -77,7 +79,9 @@ function assertTrustedAncestors(file) {
   }
 }
 
-export function trustedBinaryIdentity(candidate, { expectedDigest = null } = {}) {
+export function trustedBinaryIdentity(candidate, {
+  expectedDigest = null, requireRootOwnership = false,
+} = {}) {
   const absolute = path.resolve(candidate);
   const physical = fs.realpathSync.native(absolute);
   if (physical !== absolute) {
@@ -88,13 +92,14 @@ export function trustedBinaryIdentity(candidate, { expectedDigest = null } = {})
   const stat = fs.lstatSync(physical, { bigint: true });
   const uid = typeof process.getuid === 'function' ? process.getuid() : null;
   if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o111n) === 0n
-    || (stat.mode & 0o022n) !== 0n
+    || (stat.mode & 0o6022n) !== 0n
+    || (requireRootOwnership && Number(stat.uid) !== 0)
     || (uid !== null && Number(stat.uid) !== 0 && Number(stat.uid) !== uid)) {
-    const error = new Error(`trusted executable must be a non-writable root/current-user physical file: ${absolute}`);
+    const error = new Error(`trusted executable must be a non-setid, non-writable root/current-user physical file: ${absolute}`);
     error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
     throw error;
   }
-  assertTrustedAncestors(physical);
+  assertTrustedAncestors(physical, { requireRootOwnership });
   const digest = binaryDigest(physical, Number(stat.size));
   if (expectedDigest && digest !== expectedDigest) {
     const error = new Error(`trusted executable digest mismatch: ${absolute}`);
@@ -106,15 +111,50 @@ export function trustedBinaryIdentity(candidate, { expectedDigest = null } = {})
     dev: String(stat.dev),
     ino: String(stat.ino),
     uid: Number(stat.uid),
-    mode: Number(stat.mode & 0o777n),
+    mode: Number(stat.mode & 0o7777n),
     size: String(stat.size),
     digest,
+    ...(requireRootOwnership ? { nlink: Number(stat.nlink), root_owned_path: true } : {}),
   };
 }
 
+export function trustedRootBinaryIdentity(candidate, { expectedDigest = null } = {}) {
+  const identity = trustedBinaryIdentity(candidate, { expectedDigest, requireRootOwnership: true });
+  let getcap = null;
+  for (const directory of FIXED_DIRECTORIES) {
+    try {
+      getcap = trustedBinaryIdentity(fs.realpathSync.native(path.join(directory, 'getcap')), {
+        requireRootOwnership: true,
+      });
+      break;
+    } catch {}
+  }
+  if (!getcap) {
+    const error = new Error('trusted root-owned getcap is required to attest system executable capabilities');
+    error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
+    throw error;
+  }
+  const capabilityProbe = spawnSync(getcap.path, ['-n', identity.path], {
+    encoding: 'utf8', env: sanitizedEnvironment(), timeout: 2_000,
+    maxBuffer: 4_096, windowsHide: true,
+  });
+  if (capabilityProbe.error || capabilityProbe.status !== 0 || capabilityProbe.signal
+    || capabilityProbe.stdout.trim() || capabilityProbe.stderr.trim()) {
+    const error = new Error(`trusted root-owned executable must have no file capabilities: ${identity.path}`);
+    error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
+    throw error;
+  }
+  return { ...identity, file_capabilities: 'empty' };
+}
+
 export function assertTrustedBinaryIdentity(expected) {
-  const actual = trustedBinaryIdentity(expected?.path, { expectedDigest: expected?.digest });
-  for (const field of ['path', 'dev', 'ino', 'uid', 'mode', 'size', 'digest']) {
+  const requireRootOwnership = expected?.root_owned_path === true;
+  const actual = requireRootOwnership
+    ? trustedRootBinaryIdentity(expected?.path, { expectedDigest: expected?.digest })
+    : trustedBinaryIdentity(expected?.path, { expectedDigest: expected?.digest });
+  const fields = ['path', 'dev', 'ino', 'uid', 'mode', 'size', 'digest'];
+  if (requireRootOwnership) fields.push('nlink', 'root_owned_path', 'file_capabilities');
+  for (const field of fields) {
     if (actual[field] !== expected?.[field]) {
       const error = new Error(`trusted executable identity changed before launch: ${expected?.path || 'unknown'}`);
       error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY_CHANGED';
@@ -134,6 +174,16 @@ export function trustedHostBinary(name, candidates = FIXED_DIRECTORIES) {
   throw error;
 }
 
+export function trustedRootHostBinary(name, candidates = FIXED_DIRECTORIES) {
+  for (const directory of candidates) {
+    const candidate = path.join(directory, name);
+    try { return trustedRootBinaryIdentity(fs.realpathSync.native(candidate)); } catch {}
+  }
+  const error = new Error(`trusted root-owned infrastructure binary is unavailable: ${name}`);
+  error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
+  throw error;
+}
+
 let cachedInfrastructure = null;
 export function infrastructureBinaries() {
   if (cachedInfrastructure) return cachedInfrastructure;
@@ -148,7 +198,7 @@ export function infrastructureBinaries() {
     }
     bwrap = trustedBinaryIdentity(pinnedPath, { expectedDigest: pinnedDigest });
   } else {
-    bwrap = trustedHostBinary('bwrap');
+    bwrap = trustedRootHostBinary('bwrap');
   }
   const identities = {
     systemctl: trustedHostBinary('systemctl'),

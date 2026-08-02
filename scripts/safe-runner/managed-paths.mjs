@@ -27,13 +27,17 @@ function physicalProcNamespaceDirectory(candidate) {
 function parentIdentity(candidate) {
   const parentPath = path.dirname(candidate);
   const stat = fs.lstatSync(parentPath, { bigint: true });
+  const namespacePrivate = physicalProcNamespaceDirectory(parentPath);
   if (!stat.isDirectory() || stat.isSymbolicLink()
-    || (fs.realpathSync.native(parentPath) !== parentPath
-      && !physicalProcNamespaceDirectory(parentPath))
+    // Resolving /proc/<pid>/root would translate the verified private path
+    // back into the supervisor mount namespace, where it is intentionally
+    // absent. Verify every namespace-private component first and only require
+    // ordinary paths to retain canonical realpath identity.
+    || (!namespacePrivate && fs.realpathSync.native(parentPath) !== parentPath)
     || (typeof process.getuid === 'function' && Number(stat.uid) !== process.getuid())) return null;
   return {
     path: parentPath, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
-    namespace_private: parentPath.startsWith('/proc/'),
+    namespace_private: namespacePrivate,
   };
 }
 

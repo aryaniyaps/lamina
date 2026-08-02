@@ -139,6 +139,16 @@ function graphSocketAlias(paths) {
   return path.join(alias, 'graphd.sock');
 }
 
+function socketDirectoryDescriptor(paths) {
+  fs.mkdirSync(paths.runtime_dir, { recursive: true });
+  let fd = socketDirectoryFds.get(paths.runtime_dir);
+  if (fd === undefined) {
+    fd = fs.openSync(paths.runtime_dir, fs.constants.O_RDONLY);
+    socketDirectoryFds.set(paths.runtime_dir, fd);
+  }
+  return fd;
+}
+
 export function graphSocketPath(paths, platform = process.platform) {
   if (platform === 'win32') {
     const hash = crypto.createHash('sha256')
@@ -148,30 +158,29 @@ export function graphSocketPath(paths, platform = process.platform) {
     return `\\\\.\\pipe\\laminadev-${hash}`;
   }
   if (Buffer.byteLength(paths.socket) < 100) return paths.socket;
-  fs.mkdirSync(paths.runtime_dir, { recursive: true });
   // Linux resolves a Unix socket path through an open directory descriptor
   // before applying the sockaddr length limit. This keeps the socket itself at
   // the canonical clone-local path and, unlike /tmp aliases, remains reachable
   // when a caller has an isolated filesystem view (for example Codex's
   // workspace sandbox).
   if (fs.existsSync('/proc/self/fd')) {
-    let fd = socketDirectoryFds.get(paths.runtime_dir);
-    if (fd === undefined) {
-      fd = fs.openSync(paths.runtime_dir, fs.constants.O_RDONLY);
-      socketDirectoryFds.set(paths.runtime_dir, fd);
-    }
+    const fd = socketDirectoryDescriptor(paths);
     return `/proc/self/fd/${fd}/graphd.sock`;
   }
   return graphSocketAlias(paths);
 }
 
-// `/proc/self/fd` is process-local. It is ideal for graphd and its Node client,
-// but a Python/native observation worker cannot resolve the parent's directory
-// descriptor after exec. Use a short, ownership-checked filesystem alias for
-// endpoints that cross a process boundary.
+// `/proc/self/fd` is process-local, but a child that shares this PID namespace
+// can resolve the still-live parent's directory descriptor explicitly. This
+// crosses exec without creating a temporary symlink or moving the canonical
+// socket away from the repository runtime directory.
 export function graphSocketChildPath(paths, platform = process.platform) {
   if (platform === 'win32' || Buffer.byteLength(paths.socket) < 100) {
     return graphSocketPath(paths, platform);
+  }
+  if (fs.existsSync('/proc/self/fd')) {
+    const fd = socketDirectoryDescriptor(paths);
+    return `/proc/${process.pid}/fd/${fd}/graphd.sock`;
   }
   return graphSocketAlias(paths);
 }

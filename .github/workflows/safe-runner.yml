@@ -65,7 +65,10 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          # Node 24 exercises the execve sandbox-launch path. The unchanged
+          # Node 20 spawn fallback remains covered by CLI compatibility and the
+          # pre-change full #59 qualification history.
+          node-version: '24'
           package-manager-cache: false
 
       - name: Stage trusted private Node runtime

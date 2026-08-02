@@ -322,14 +322,26 @@ async function main() {
     process.stderr.write(`safe-runner bwrap identity changed: ${error.code || error.message}\n`);
     process.exit(125);
   }
-  const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
+  const bwrapArguments = bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
     executionAuthority,
     sealedGitIdentity: sandboxContract.sealedGitIdentity,
     preservedEnvironmentNames: sandboxContract.preservedEnvironmentNames,
     environment: process.env,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
-  }), { stdio: 'inherit', env: sanitizedEnvironment(process.env) });
+  });
+  const bwrapEnvironment = sanitizedEnvironment(process.env);
+  if (typeof process.execve === 'function') {
+    try {
+      process.execve(bwrapExecutable, [bwrapExecutable, ...bwrapArguments], bwrapEnvironment);
+    } catch (error) {
+      process.stderr.write(`safe-runner sandbox exec failed: ${error.code || error.message}\n`);
+      process.exit(125);
+    }
+  }
+  const child = spawn(bwrapExecutable, bwrapArguments, {
+    stdio: 'inherit', env: bwrapEnvironment,
+  });
   for (const signal of ['SIGTERM', 'SIGINT']) {
     process.on(signal, () => {
       try { child.kill(signal); } catch {}
