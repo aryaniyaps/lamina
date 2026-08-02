@@ -30,10 +30,12 @@ export const DISCOVERY_PATH_RULES = Object.freeze({
     'yarn.lock',
   ]),
   excluded_agent_basenames: Object.freeze([
-    '.cursorrules', 'agents.md', 'claude.md', 'codex.md', 'copilot-instructions.md', 'cursor.md',
-    'gemini.md',
+    '.cursorrules', 'agents.md', 'agents.override.md', 'claude.md', 'codex.md',
+    'copilot-instructions.md', 'cursor.md', 'gemini.md',
   ]),
-  excluded_agent_segments: Object.freeze(['.agents', '.claude', '.codex', '.cursor', '.gemini']),
+  excluded_agent_segments: Object.freeze([
+    '.agents', '.claude', '.codex', '.cursor', '.gemini', '.opencode',
+  ]),
   excluded_github_agent_directories: Object.freeze(['agents', 'instructions']),
   excluded_suffixes: Object.freeze(['.generated.js', '.generated.ts', '.map', '.min.js']),
   strata: Object.freeze(['source', 'test', 'docs', 'config']),

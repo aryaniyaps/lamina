@@ -104,9 +104,11 @@ for (const excludedPath of pinnedCleanRoomExclusions) {
     `pinned-tree clean-room exclusion: ${excludedPath}`);
 }
 for (const excludedPath of [
+  'AGENTS.override.md', 'nested/AGENTS.OVERRIDE.MD',
   'nested/CLAUDE.MD', 'nested/Gemini.md', 'nested/codex.md', 'nested/CURSOR.md',
   'nested/.cursorrules', '.agents/state.json', 'nested/.claude/settings.json',
   'nested/.codex/config.toml', 'nested/.cursor/state.json', 'nested/.gemini/state.json',
+  'nested/.OPENCODE/state.json', '.opencode/skills/x.md',
   '.github/copilot-instructions.md', '.github/instructions/security.instructions.md',
   '.github/agents/reviewer.md', 'mockServiceWorker.js', 'nested/public/MOCKSERVICEWORKER.JS',
 ]) {
@@ -127,9 +129,13 @@ const cleanRoomExcludedPaths = [
   ...pinnedCleanRoomExclusions,
   'mockServiceWorker.js',
   'nested/public/MOCKSERVICEWORKER.JS',
+  'AGENTS.override.md',
+  'nested/AGENTS.OVERRIDE.MD',
   'nested/CLAUDE.MD',
   '.github/copilot-instructions.md',
   'nested/.cursor/state.json',
+  'nested/.OPENCODE/state.json',
+  '.opencode/skills/x.md',
   '.github/instructions/security.instructions.md',
   '.github/agents/reviewer.md',
 ];
@@ -261,9 +267,9 @@ assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYT
 const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
-assert.equal(Buffer.byteLength(legacyLine), 4_520,
+assert.equal(Buffer.byteLength(legacyLine), 4_517,
   'c009-format same-logical-result JSON+Brotli baseline is frozen');
-assert.equal(Buffer.byteLength(encoded.line), 2_525,
+assert.equal(Buffer.byteLength(encoded.line), 2_527,
   'same-fixture schema-specific wire measurement is frozen');
 assert.ok(Buffer.byteLength(encoded.line) <= 3_840
   && Buffer.byteLength(encoded.line) < Buffer.byteLength(legacyLine),
