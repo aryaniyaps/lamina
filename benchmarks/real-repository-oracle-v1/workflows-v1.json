@@ -10,7 +10,7 @@
       { "id": "workflow-semantic-review-a", "scope": "synthetic_product_contracts_and_persona_walks" },
       { "id": "workflow-semantic-review-b", "scope": "lexical_surface_grounding_and_non_derivation_boundary" }
     ],
-    "implementation_ready_meaning": "all_reviewed_target_and_proof_references_resolve_only",
+    "implementation_ready_meaning": "all_declared_target_and_proof_ids_resolve_within_seed_only_pending_private_review_receipt",
     "evidence_expansion_reports": {
       "small": { "report_sha256": "30c9b02d50a2d0c7af7d3f15df8c2a9122f044118a078cbcfbb8651d454bf51a", "records_sha256": "94b5b5c49c095970e68d5a5592ca8f2584decd8a0977745341132890cd48fe58" },
       "medium": { "report_sha256": "e133903549b9e759592f31be95c84b2655d600ae8d34ac206459cc4a9ded77ba", "records_sha256": "657b93b3c9a07f51d1e1c235b800196be38027d377a0bc6a8d83b7dab2a0265d" },

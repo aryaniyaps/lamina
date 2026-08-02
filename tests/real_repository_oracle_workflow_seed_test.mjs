@@ -51,7 +51,7 @@ const leak = JSON.parse(bytes);
 leak.collections[0].workflows[0].request = 'Which Workflow wins?';
 assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(leak)), { requireReviewedBytes: false }),
   /request-to-answer|unexpected/);
-for (const key of ['request_text', 'expected_workflow_ids', 'grading_threshold']) {
+for (const key of ['request_text', 'expected_workflow_ids', 'grading_threshold', 'maximum_rank']) {
   const disguisedLeak = JSON.parse(bytes);
   disguisedLeak.collections[0].workflows[0][key] = 'private controller material';
   assert.throws(
@@ -75,6 +75,12 @@ const unsafePath = JSON.parse(bytes);
 unsafePath.collections[0].workflows[0].surfaces[0].path = '../outside.ts';
 assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(unsafePath)), { requireReviewedBytes: false }),
   /bounded tier-local evidence target/);
+for (const [field, value] of [['symbol', 'bad symbol'], ['line', 1_000_001]]) {
+  const invalidSurface = JSON.parse(bytes);
+  invalidSurface.collections[0].workflows[0].surfaces[0][field] = value;
+  assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(invalidSurface)), { requireReviewedBytes: false }),
+    /bounded tier-local evidence target/);
+}
 const danglingOperation = JSON.parse(bytes);
 danglingOperation.collections[0].workflows[0].operations[0].surface_id = 'small.surface.missing';
 assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(danglingOperation)), { requireReviewedBytes: false }),

@@ -18,7 +18,7 @@ const FORBIDDEN_KEYS = new Set([
 ]);
 const FORBIDDEN_KEY_PREFIXES = Object.freeze([
   'answer', 'applicability', 'case', 'classification', 'diagnostic', 'expected',
-  'gold', 'grade', 'grading', 'heldout', 'maxrank', 'metric', 'mutation', 'pass',
+  'gold', 'grade', 'grading', 'heldout', 'maxrank', 'maximumrank', 'metric', 'mutation', 'pass',
   'rank', 'rationale', 'request', 'threshold',
 ]);
 const PUBLIC_AUTHORITY = Object.freeze({
@@ -32,8 +32,8 @@ const PUBLIC_PINS = Object.freeze({
   large: Object.freeze({ repository_url: 'https://github.com/makeplane/plane.git', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f', tree_oid: '382c6539083af65e86cdddbffd4e09884773e64e' }),
 });
 
-export const WORKFLOW_SEED_RAW_SHA256 = '3c93c4b607ff3bc12269f36d5e113c9530e90a635959785dec6aebd925c54e8b';
-export const WORKFLOW_SEED_CANONICAL_SHA256 = 'e8451ea2e63e42a754aaa3709f9fc1834cf176bf27342260b0d5542aef5d745b';
+export const WORKFLOW_SEED_RAW_SHA256 = '60742b0625506632a7a7010ec66f2624424fadc37100a8e8a0deafd0564f934b';
+export const WORKFLOW_SEED_CANONICAL_SHA256 = 'fee8f4a6c4ef3ea6e12b741e52f8fcd4092682f5dcfb9afbbca20ab8a8a927e9';
 export const WORKFLOW_SEED_SCHEMA = 'lamina.real-repository-oracle-workflows/v1';
 
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
@@ -172,8 +172,10 @@ function validateWorkflow(workflow, tier, workflowIds, nodeIds, identities, erro
       || !validEvidenceRef(surface.evidence_ref, tier)
       || surfaceEvidenceRefs.has(surface.evidence_ref) || !SHA1.test(surface.blob_oid || '')
       || !SHA256.test(surface.line_sha256 || '') || !safeRelativePath(surface.path)
-      || !(surface.symbol === null || nonempty(surface.symbol))
-      || !(surface.line === null || (Number.isSafeInteger(surface.line) && surface.line > 0))) {
+      || !(surface.symbol === null || (/^[A-Za-z_$][A-Za-z0-9_$.-]{0,127}$/.test(surface.symbol || '')
+        && !/\s/.test(surface.symbol)))
+      || !(surface.line === null || (Number.isSafeInteger(surface.line) && surface.line > 0
+        && surface.line <= 1_000_000))) {
       errors.push(`${at}.surfaces[${index}] is not a bounded tier-local evidence target`);
     }
     surfaceIds.add(surface.id);
@@ -192,13 +194,13 @@ function validateWorkflow(workflow, tier, workflowIds, nodeIds, identities, erro
       proofIds.add(item.id);
       addUniqueId(item.id, `${at}.proof id`, nodeIds, errors);
       return invalid;
-    })) errors.push(`${at}.proofs are malformed or unreviewed`);
+    })) errors.push(`${at}.proofs are malformed or unresolved`);
   if (!boundedArray(workflow.dependencies, 0, 3) || workflow.dependencies.some((item) =>
     !exactKeys(item, ['id', 'relation', 'target_id', 'evidence_ref'])
       || !ID.test(item.id || '') || !ID.test(item.target_id || '') || !nonempty(item.relation)
       || !surfaceIds.has(item.target_id)
       || !validEvidenceRef(item.evidence_ref, tier))) {
-    errors.push(`${at}.dependencies are malformed or unreviewed`);
+    errors.push(`${at}.dependencies are malformed or unresolved`);
   }
   for (const dependency of workflow.dependencies || []) addUniqueId(dependency.id, `${at}.dependency id`, nodeIds, errors);
   const ready = workflow.implementation_ready_input;
@@ -232,7 +234,7 @@ export function validateWorkflowSeed(seed) {
     || seed.authority.baseline_manifest_sha256 !== PUBLIC_AUTHORITY.baseline_manifest_sha256
     || seed.authority.candidate_policy_sha256 !== PUBLIC_AUTHORITY.candidate_policy_sha256
     || seed.authority.evidence_selection_raw_sha256 !== PUBLIC_AUTHORITY.evidence_selection_raw_sha256
-    || seed.authority.implementation_ready_meaning !== 'all_reviewed_target_and_proof_references_resolve_only'
+    || seed.authority.implementation_ready_meaning !== 'all_declared_target_and_proof_ids_resolve_within_seed_only_pending_private_review_receipt'
     || seed.authority.review_status !== 'pending_private_review_receipt'
     || JSON.stringify(seed.authority.review_scopes) !== JSON.stringify([
       { id: 'workflow-semantic-review-a', scope: 'synthetic_product_contracts_and_persona_walks' },
