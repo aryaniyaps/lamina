@@ -1,0 +1,40 @@
+{
+  "schema": "lamina.real-repository-oracle-evidence-selection/v1",
+  "purpose": "pending_authoring_selection_only_not_grade_or_expectation_authority",
+  "authority": {
+    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064"
+  },
+  "tiers": {
+    "small": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/alan2207/bulletproof-react.git",
+        "commit": "9506629ed003a561c6627735480cce4994244bb4",
+        "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991"
+      },
+      "reviewed_inventory_sha256": "3916b8e34bf828a93e70950fe06d15121c4916017b393f948984557de6a7fa4f",
+      "anchors": []
+    },
+    "medium": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/outline/outline.git",
+        "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+        "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d"
+      },
+      "reviewed_inventory_sha256": "330b190ca06c70148998c05f585bf7f1bbeedc5cac36c6050b91974ceb3120d7",
+      "anchors": []
+    },
+    "large": {
+      "status": "reviewer_selection_pending",
+      "pin": {
+        "repository_url": "https://github.com/makeplane/plane.git",
+        "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+        "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e"
+      },
+      "reviewed_inventory_sha256": "b2aa9b3ad5be10632201248c2c9d988511cb36483aeef9493e18e14c549cb845",
+      "anchors": []
+    }
+  }
+}

@@ -455,6 +455,79 @@ export function visitReviewedDiscoveryCandidates(repository, collection, visitor
   return Object.freeze({ candidate_files: candidateFiles, candidate_bytes: candidateBytes });
 }
 
+export const EVIDENCE_EXPANSION_LIMITS = Object.freeze({
+  max_anchors: 12,
+  max_file_bytes: 1 * 1024 * 1024,
+  max_aggregate_bytes: 8 * 1024 * 1024,
+});
+
+export function readReviewedEvidenceAnchors(repository, collection, anchors) {
+  if (!Array.isArray(anchors) || anchors.length < 1
+    || anchors.length > EVIDENCE_EXPANSION_LIMITS.max_anchors) {
+    throw new Error('evidence expansion anchor count is outside the fixed bound');
+  }
+  const identities = new Set();
+  let retainedIdentityBytes = 0;
+  for (const anchor of anchors) {
+    if (!anchor || typeof anchor !== 'object' || Array.isArray(anchor)
+      || JSON.stringify(Object.keys(anchor).sort()) !== JSON.stringify([
+        'blob_oid', 'independent_method', 'line', 'path', 'role', 'symbol',
+      ])
+      || !safeRelativePath(anchor.path) || Buffer.byteLength(anchor.path) > 4_096
+      || !/^[a-f0-9]{40}$/.test(anchor.blob_oid || '')
+      || !(anchor.symbol === null || (typeof anchor.symbol === 'string'
+        && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol)))
+      || !(anchor.line === null || (Number.isSafeInteger(anchor.line)
+        && anchor.line >= 1 && anchor.line <= 1_000_000))
+      || !['positive', 'negative', 'scenario_before', 'scenario_after'].includes(anchor.role)
+      || !['sealed_git_blob_exact_identifier', 'sealed_git_blob_line_context',
+        'sealed_git_blob_absence'].includes(anchor.independent_method)) {
+      throw new Error('evidence expansion anchor is outside the exact bounded schema');
+    }
+    const identity = JSON.stringify(anchor);
+    retainedIdentityBytes += Buffer.byteLength(identity);
+    if (retainedIdentityBytes > 64 * 1024) {
+      throw new Error('evidence expansion anchor identities exceed the fixed byte bound');
+    }
+    if (identities.has(identity)) throw new Error('evidence expansion contains a duplicate anchor');
+    identities.add(identity);
+  }
+  const physicalRepository = fs.realpathSync.native(repository);
+  if (physicalRepository !== path.resolve(repository)) {
+    throw new Error('evidence expansion requires a canonical physical repository');
+  }
+  const entries = trackedEntries(physicalRepository, collection.reviewed_inventory.tracked_files);
+  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  const objectFormat = checkedGit(
+    physicalRepository, ['rev-parse', '--show-object-format'], 60_000,
+  ).trim();
+  let aggregateBytes = 0;
+  return anchors.map((anchor) => {
+    const entry = byPath.get(anchor.path);
+    if (!entry || !['100644', '100755'].includes(entry.mode)) {
+      throw new Error(`selected evidence path is missing or not a regular Git object: ${anchor.path}`);
+    }
+    if (entry.oid !== anchor.blob_oid) {
+      throw new Error(`selected evidence blob identity drifted: ${anchor.path}`);
+    }
+    const physical = readPhysicalTrackedFile(
+      physicalRepository, entry.path, EVIDENCE_EXPANSION_LIMITS.max_file_bytes,
+      EVIDENCE_EXPANSION_LIMITS.max_aggregate_bytes - aggregateBytes,
+    );
+    if (entry.oid !== gitBlobOid(objectFormat, physical.bytes)) {
+      throw new Error(`selected evidence bytes contradict the sealed Git blob: ${anchor.path}`);
+    }
+    aggregateBytes += physical.bytes.length;
+    return Object.freeze({
+      anchor: Object.freeze({
+        path: anchor.path, blob_oid: anchor.blob_oid, symbol: anchor.symbol, line: anchor.line,
+        role: anchor.role, independent_method: anchor.independent_method,
+      }),
+      bytes: physical.bytes,
+    });
+  });
+}
+
 export function candidateInventoryFromTracked(repository, entries, manifest, fixture, {
   objectFormat = null,
   maximumTrackedBytes = Number.MAX_SAFE_INTEGER,

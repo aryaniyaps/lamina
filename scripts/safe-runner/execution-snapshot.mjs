@@ -54,10 +54,16 @@ export const REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE = Object.freeze([
   'packages/cli/lib/observation-runtime/node.mjs',
   'packages/cli/lib/graph-runtime/util.mjs',
 ]);
+export const REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
+]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
   ...new Set([
     ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
+    ...REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   ]),
 ]);
@@ -721,6 +727,8 @@ export function prepareExecutionSnapshot({
     ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
     : command[2] === 'discover-cases'
       ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
+      : command[2] === 'expand-evidence'
+        ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
       : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);

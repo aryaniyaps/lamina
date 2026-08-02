@@ -31,6 +31,20 @@ import { assertExecutionSnapshot, prepareExecutionSnapshot } from './execution-s
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+export function retainCgroupEventMaxima(previous = {}, observed = {}) {
+  const merged = structuredClone(previous && typeof previous === 'object' ? previous : {});
+  for (const [controller, counters] of Object.entries(observed || {})) {
+    if (!counters || typeof counters !== 'object' || Array.isArray(counters)) continue;
+    const retained = merged[controller] && typeof merged[controller] === 'object'
+      ? merged[controller] : {};
+    for (const [name, value] of Object.entries(counters)) {
+      if (Number.isFinite(value) && value >= 0) retained[name] = Math.max(retained[name] || 0, value);
+    }
+    merged[controller] = retained;
+  }
+  return merged;
+}
+
 function errorDetails(error, fallback = 'LAMINA_SAFE_INTERNAL') {
   return {
     code: error?.code || fallback,
@@ -444,7 +458,9 @@ export async function runSafely({
     report.peaks.temporary_bytes = Math.max(report.peaks.temporary_bytes, temporary.bytes);
     report.peaks.temporary_inodes = Math.max(report.peaks.temporary_inodes, temporary.entries);
     rememberDescendants(report, measured.records, elapsed);
-    report.termination.cgroup_events = measured.events || {};
+    report.termination.cgroup_events = retainCgroupEventMaxima(
+      report.termination.cgroup_events, measured.events,
+    );
     report.samples.push({
       elapsed_ms: elapsed,
       aggregate_rss_bytes: aggregateRss,

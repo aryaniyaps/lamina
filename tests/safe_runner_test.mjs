@@ -81,9 +81,25 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
-  recordChildTermination, resolvePrivateManagedGraphdPaths, temporaryQuotaHandshakeFailure,
+  recordChildTermination, resolvePrivateManagedGraphdPaths, retainCgroupEventMaxima,
+  temporaryQuotaHandshakeFailure,
   waitForChildResult,
 } from '../scripts/safe-runner/runner.mjs';
+
+assert.deepEqual(
+  retainCgroupEventMaxima(
+    { memory: { max: 2, oom_kill: 0 }, pids: { max: 0 } },
+    {},
+  ),
+  { memory: { max: 2, oom_kill: 0 }, pids: { max: 0 } },
+  'a disappeared cgroup sample retains the last observable counters',
+);
+assert.deepEqual(
+  retainCgroupEventMaxima({ memory: { max: 2 }, pids: { max: 0 } },
+    { memory: { max: 1, oom_kill: 3 }, pids: { max: 4 } }),
+  { memory: { max: 2, oom_kill: 3 }, pids: { max: 4 } },
+  'cgroup event counters retain monotonic per-counter maxima',
+);
 import {
   bubblewrapSandboxArguments,
   CONTROL_ENVIRONMENT_NAMES,

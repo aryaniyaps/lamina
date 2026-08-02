@@ -13,7 +13,7 @@ claim.
 
 ## Bounded case discovery
 
-`discover-cases` is the only case-authoring entrypoint. It must run through the
+`discover-cases` is the bounded discovery entrypoint. It must run through the
 safe runner with the exact workload identity:
 
 ```bash
@@ -27,20 +27,49 @@ node scripts/safe-runner/cli.mjs run \
 Use the corresponding tier for `medium` or `large`. The workload first
 materializes the immutable pin and verifies it against the reviewed inventory.
 It then calls the unchanged production `brownfieldSignals` seam over a bounded
-candidate set. Generic definition names and short contexts are discovery-only
-authoring aids. The complete retained result is Brotli-compressed into one bounded
-report-tail line; stdout truncation is never accepted as evidence.
+candidate set. Discovery v2 emits a deterministic compact index with at most
+three distinct anchors per observed category, stratified across source, test,
+docs, and config when those strata are available. Lexical near-neighbors and
+same-stratum negative decoys are controls, while modify, rename, and delete
+rows are unexecuted `scenario_before` candidates. Generated and build outputs,
+including hashed Workbox bundles, are excluded explicitly. The complete index
+is Brotli-compressed into one bounded report-tail line; an oversized index is
+refused rather than lossily compacted.
 
 Discovery output has zero quality claims, cannot load the grader or expectation
 contract, and cannot be used directly by `validate`. Its handoff requires an
-independent human review receipt binding Git blobs and symbols, full per-pin
-coverage, expectation-private evaluation, and production-seam provenance.
+independent human review before any later fixture or expectation is authored.
+
+## Reviewer-selected evidence expansion
+
+`reviews/evidence-selection-v1.json` is a committed, digest-bound, tier-keyed
+selection authority. It is currently marked pending authoring and is explicitly
+not grade or expectation authority. After independent reviewers populate its
+bounded anchors, expansion uses an exact zero-argument workload command:
+
+```bash
+node scripts/safe-runner/cli.mjs run \
+  --tier small \
+  --workload real-repository-oracle-v1:evidence-expansion \
+  --report /absolute/non-repository/report.json \
+  -- node benchmarks/real-repository-oracle-v1/workload.mjs expand-evidence
+```
+
+The sealed source closure contains the selection file and expansion code but
+not the case-discovery code, oracle fixture, evaluator, grader, Workflow
+documents, or golden answers. Expansion re-verifies the reviewed inventory and
+selected Git blobs, then returns bounded path/blob/content/symbol/line/context
+facts with reviewer-assigned role and independent-method provenance. Missing,
+tampered, duplicate, traversing, drifted, or over-budget anchors are refused.
+These are lexical Git facts only; they cannot serve as a gold answer or grade.
 
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed
   inventory.
 - Case discovery proposes bounded authoring facts; it defines no golden answer.
+- Evidence expansion proves only reviewed lexical Git facts and carries zero
+  quality claims.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.
