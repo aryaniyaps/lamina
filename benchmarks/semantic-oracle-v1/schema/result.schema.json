@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/semantic-result-v1.json",
+  "title": "Lamina normalized semantic result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "fixture_id", "adapter", "semantic", "semantic_digest"],
+  "properties": {
+    "schema": { "const": "lamina.semantic-result/v1" },
+    "fixture_id": { "$ref": "#/$defs/id" },
+    "adapter": { "$ref": "#/$defs/adapter" },
+    "semantic": { "$ref": "#/$defs/semantic" },
+    "semantic_digest": { "type": "string", "pattern": "^semantic_[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "ids": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" },
+      "uniqueItems": true
+    },
+    "epistemic_class": {
+      "enum": [
+        "intended", "observed", "inferred", "simulated",
+        "human_evidence", "runtime_evidence"
+      ]
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "id", "version", "input_format"],
+      "properties": {
+        "schema": { "const": "lamina.semantic-adapter/v1" },
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/id" },
+        "input_format": { "$ref": "#/$defs/id" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "epistemic_class", "aliases", "attributes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/id" },
+        "epistemic_class": { "$ref": "#/$defs/epistemic_class" },
+        "aliases": { "$ref": "#/$defs/ids" },
+        "attributes": { "type": "object" }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "subject_id", "predicate", "value_kind", "object_id", "literal",
+        "scope_id", "epistemic_class", "evidence_ids", "generated_by_ids", "attributes"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "subject_id": { "$ref": "#/$defs/id" },
+        "predicate": { "$ref": "#/$defs/id" },
+        "value_kind": { "enum": ["resource", "literal"] },
+        "object_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "literal": true,
+        "scope_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "epistemic_class": { "$ref": "#/$defs/epistemic_class" },
+        "evidence_ids": { "$ref": "#/$defs/ids" },
+        "generated_by_ids": { "$ref": "#/$defs/ids" },
+        "attributes": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value_kind": { "const": "resource" } } },
+          "then": {
+            "properties": {
+              "object_id": { "$ref": "#/$defs/id" },
+              "literal": { "type": "null" }
+            }
+          },
+          "else": { "properties": { "object_id": { "type": "null" } } }
+        }
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mechanically_valid", "implementation_ready", "verified", "approved",
+        "contradiction_ids", "readiness_gap_codes"
+      ],
+      "properties": {
+        "mechanically_valid": { "type": "boolean" },
+        "implementation_ready": { "type": "boolean" },
+        "verified": { "type": "boolean" },
+        "approved": { "type": "boolean" },
+        "contradiction_ids": { "$ref": "#/$defs/ids" },
+        "readiness_gap_codes": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "graph_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "source_revision", "parent_ids", "added_resource_ids", "added_relation_ids",
+        "retired_resource_ids", "retired_relation_ids", "active_resource_ids",
+        "active_relation_ids", "validation"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "source_revision": { "$ref": "#/$defs/id" },
+        "parent_ids": { "$ref": "#/$defs/ids" },
+        "added_resource_ids": { "$ref": "#/$defs/ids" },
+        "added_relation_ids": { "$ref": "#/$defs/ids" },
+        "retired_resource_ids": { "$ref": "#/$defs/ids" },
+        "retired_relation_ids": { "$ref": "#/$defs/ids" },
+        "active_resource_ids": { "$ref": "#/$defs/ids" },
+        "active_relation_ids": { "$ref": "#/$defs/ids" },
+        "validation": { "$ref": "#/$defs/validation" }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "head_version_id", "source_revision",
+        "active_resource_ids", "active_relation_ids"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/id" },
+        "head_version_id": { "$ref": "#/$defs/id" },
+        "source_revision": { "$ref": "#/$defs/id" },
+        "active_resource_ids": { "$ref": "#/$defs/ids" },
+        "active_relation_ids": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "contradiction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "member_ids"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "$ref": "#/$defs/id" },
+        "member_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true,
+          "minItems": 2
+        }
+      }
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "category", "scope_id", "subject_id", "required_relation_ids",
+        "evidence_ids", "details", "resolution_status", "current_evidence", "files",
+        "complete"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "category": { "$ref": "#/$defs/id" },
+        "scope_id": { "$ref": "#/$defs/id" },
+        "subject_id": { "$ref": "#/$defs/id" },
+        "required_relation_ids": { "$ref": "#/$defs/ids" },
+        "evidence_ids": { "$ref": "#/$defs/ids" },
+        "details": { "type": "object" },
+        "resolution_status": { "enum": ["already_satisfied", "change_required"] },
+        "current_evidence": { "$ref": "#/$defs/ids" },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "action", "role"],
+            "properties": {
+              "path": { "$ref": "#/$defs/id" },
+              "action": { "enum": ["modify", "create"] },
+              "role": { "enum": ["implementation", "test"] }
+            }
+          }
+        },
+        "complete": { "type": "boolean" }
+      }
+    },
+    "cli_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "operation", "branch", "ok", "result", "error_code", "reason", "details"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "branch": { "$ref": "#/$defs/id" },
+        "ok": { "type": "boolean" },
+        "result": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "error_code": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "reason": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "details": { "type": "object" }
+      }
+    },
+    "publication_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "branch_id", "base_version_id", "outcome", "result_version_id",
+        "error_code", "head_version_id_after", "visible_resource_ids", "visible_relation_ids"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "branch_id": { "$ref": "#/$defs/id" },
+        "base_version_id": { "$ref": "#/$defs/id" },
+        "outcome": {
+          "enum": ["published", "validation_failed", "interrupted", "compare_and_swap_failed"]
+        },
+        "result_version_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "error_code": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "head_version_id_after": { "$ref": "#/$defs/id" },
+        "visible_resource_ids": { "$ref": "#/$defs/ids" },
+        "visible_relation_ids": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "derived_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "kind", "source_version_id", "source_revision", "rebuildable", "authoritative",
+        "rebuild_digest_before", "rebuild_digest_after", "canonical_head_before",
+        "canonical_head_after"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/id" },
+        "source_version_id": { "$ref": "#/$defs/id" },
+        "source_revision": { "$ref": "#/$defs/id" },
+        "rebuildable": { "type": "boolean" },
+        "authoritative": { "type": "boolean" },
+        "rebuild_digest_before": { "type": "string", "pattern": "^semantic_[a-f0-9]{64}$" },
+        "rebuild_digest_after": { "type": "string", "pattern": "^semantic_[a-f0-9]{64}$" },
+        "canonical_head_before": { "$ref": "#/$defs/id" },
+        "canonical_head_after": { "$ref": "#/$defs/id" }
+      }
+    },
+    "semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resources", "relations", "graph_versions", "branches", "contradictions",
+        "obligations", "publication_attempts", "cli_outcomes", "derived_state"
+      ],
+      "properties": {
+        "resources": { "type": "array", "items": { "$ref": "#/$defs/resource" } },
+        "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+        "graph_versions": { "type": "array", "items": { "$ref": "#/$defs/graph_version" } },
+        "branches": { "type": "array", "items": { "$ref": "#/$defs/branch" } },
+        "contradictions": { "type": "array", "items": { "$ref": "#/$defs/contradiction" } },
+        "obligations": { "type": "array", "items": { "$ref": "#/$defs/obligation" } },
+        "publication_attempts": { "type": "array", "items": { "$ref": "#/$defs/publication_attempt" } },
+        "cli_outcomes": { "type": "array", "items": { "$ref": "#/$defs/cli_outcome" } },
+        "derived_state": { "type": "array", "items": { "$ref": "#/$defs/derived_state" } }
+      }
+    }
+  }
+}

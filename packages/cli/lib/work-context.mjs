@@ -48,7 +48,7 @@ function obligation(type, scope, resource, statement = null, details = {}) {
   return { obligation_id: digest('obligation', identity), ...identity };
 }
 
-function compileObligations(workflowContext) {
+export function compileImplementationObligations(workflowContext) {
   const { workflow, closure, resources, statements } = workflowContext;
   const byId = new Map(resources.map((item) => [item.id, item]));
   const output = [
@@ -134,7 +134,7 @@ export async function prepareWork({ requestFile, workflows = [], output }, cwd =
       graph_version: graph.graph_version?.id,
     });
   }
-  const obligations = graph.workflows.flatMap(compileObligations);
+  const obligations = graph.workflows.flatMap(compileImplementationObligations);
   const experienceCases = graph.workflows.flatMap((item) => item.experience_cases || []);
   const hasPersonaWalks = graph.workflows.some((item) =>
     (item.closure?.personas || []).length ||
