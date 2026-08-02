@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
@@ -22,7 +23,7 @@ import {
   INVENTORY_ADMISSION_SCHEMA, INVENTORY_RECONSTRUCTION_SCHEMA,
   INVENTORY_REVIEW_SCHEMA, RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID,
   REVIEW_EXACT_COMMAND, REVIEW_WORKLOAD_ID, WORKLOAD_ID,
-  inventoryAdmissionResult, inventoryReconstructionResult, inventoryReviewResult,
+  inventoryAdmissionResult, inventoryReconstructionResult, inventoryReviewResult, writeStdoutLine,
 } from '../benchmarks/real-repository-oracle-v1/workload.mjs';
 import { isExcludedPath, loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
@@ -34,6 +35,8 @@ import {
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
+import { DEFAULTS as SAFE_RUNNER_DEFAULTS, MIB,
+  retainedOutputTailBytes } from '../scripts/safe-runner/constants.mjs';
 import {
   REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID,
@@ -115,6 +118,18 @@ assert.equal(REVIEW_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID);
 assert.deepEqual(REVIEW_EXACT_COMMAND, ['review-inventory']);
 assert.equal(DISCOVERY_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID);
 assert.deepEqual(DISCOVERY_EXACT_COMMAND, ['discover-cases']);
+const backpressuredStdout = new EventEmitter();
+let deliveredOutput = null;
+let drainObserved = false;
+backpressuredStdout.write = (value) => {
+  deliveredOutput = value;
+  queueMicrotask(() => { drainObserved = true; backpressuredStdout.emit('drain'); });
+  return false;
+};
+await writeStdoutLine('canonical-envelope', backpressuredStdout);
+assert.equal(deliveredOutput, 'canonical-envelope\n');
+assert.equal(drainObserved, true,
+  'case discovery waits for stdout drain when the larger structured write applies backpressure');
 assert.equal(EVIDENCE_EXPANSION_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID);
 assert.deepEqual(EVIDENCE_EXPANSION_EXACT_COMMAND, ['expand-evidence']);
 assert.deepEqual(RECONSTRUCTION_LIMITS, {
@@ -276,6 +291,23 @@ const exactDiscoveryIdentity = preflightRun({
 });
 assert.ok(!exactDiscoveryIdentity.reasons
   .some((reason) => reason.includes('case discovery requires --workload')));
+assert.equal(SAFE_RUNNER_DEFAULTS.diagnosticTailBytes, 8 * 1024);
+assert.equal(retainedOutputTailBytes(null, 'stdout'), 8 * 1024);
+assert.equal(retainedOutputTailBytes(REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID, 'stdout'),
+  8 * 1024, 'evidence expansion does not inherit discovery retention');
+assert.equal(exactDiscoveryIdentity.envelope.limits.stdout_tail_max_bytes, MIB,
+  'the exact case-discovery identity binds its structured-output retention in the report limits');
+assert.equal(exactDiscoveryIdentity.envelope.limits.stderr_tail_max_bytes, 8 * 1024);
+assert.equal(missingDiscoveryIdentity.envelope.limits.stdout_tail_max_bytes, 8 * 1024,
+  'a command spelling without the exact workload identity cannot enlarge retention');
+const unrelatedReservedIdentity = preflightRun({
+  tier: 'small',
+  command: [process.execPath, path.join(ROOT, 'tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+  cwd: ROOT, adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID,
+});
+assert.equal(unrelatedReservedIdentity.envelope.limits.stdout_tail_max_bytes, 8 * 1024,
+  'the reserved workload ID cannot enlarge retention for a different audited command');
 const exactEvidenceIdentity = preflightRun({
   tier: 'small', command: [process.execPath, ENTRYPOINT, 'expand-evidence'], cwd: ROOT,
   adapterInfo, injectedExistingProcesses: [], workloadId: REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID,

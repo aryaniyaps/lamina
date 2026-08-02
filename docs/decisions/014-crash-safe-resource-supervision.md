@@ -45,6 +45,10 @@ The runner:
   aggregate cgroup and individual `/proc` records;
 - keeps bounded samples, diagnostic tails, stdout/stderr files, and
   runner-owned temporary state;
+- retains 8 KiB diagnostic tails by default, with a workload-identity-bound
+  1 MiB stdout-only profile for the single-line case-discovery index; records
+  both effective tail bounds in the report while preserving the 32 MiB hard
+  output cap;
 - separates summed process RSS from authoritative cgroup memory accounting;
 - runs the payload under unprivileged bwrap with a read-only host root and a
   hard-cap private tmpfs, isolated PID namespace, masked systemd/D-Bus/container

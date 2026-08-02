@@ -564,7 +564,8 @@ const safeReport = {
   schema: 'lamina.safe-runner-report/v1', schema_version: 1, run_id: 'safe-test', report_file: safeReportFile,
   outcome: 'success', tier: 'small', command, cwd: payloadCwd,
   started_at: '2026-08-02T00:00:00.000Z', finished_at: '2026-08-02T00:00:01.000Z', duration_ms: 1000,
-  adapter: { id: 'linux-systemd-cgroup-v2', production_enforcement: true }, limits: {},
+  adapter: { id: 'linux-systemd-cgroup-v2', production_enforcement: true },
+  limits: { stdout_tail_max_bytes: 8 * 1024, stderr_tail_max_bytes: 8 * 1024 },
   preflight: {
     ok: true, workload_id: 'real-repository-oracle-v1:validate',
     ownership: { proven: true, audited_entrypoint: 'benchmarks/real-repository-oracle-v1/workload.mjs', executable },

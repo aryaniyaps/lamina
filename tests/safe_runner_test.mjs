@@ -1030,7 +1030,11 @@ try {
   report.report_file = path.join(root, 'report.json');
   report.outcome = 'success';
   report.adapter = portableProbe;
-  report.limits = eightGib;
+  report.limits = {
+    ...eightGib,
+    stdout_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+    stderr_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+  };
   report.preflight = { ok: true };
   report.samples.push({
     elapsed_ms: 0,
@@ -2583,6 +2587,12 @@ try {
     temporaryDirectory: path.join(root, 'snapshot-escape'),
   }), /escapes the repository/);
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
+  assert.equal(validateReport({
+    ...report, limits: { ...report.limits, stdout_tail_max_bytes: undefined },
+  }).valid, false, 'completed reports require the effective stdout tail bound');
+  assert.equal(validateReport({
+    ...report, limits: { ...report.limits, stderr_tail_max_bytes: undefined },
+  }).valid, false, 'completed reports require the effective stderr tail bound');
   assert.equal(validateReport({
     ...report,
     cleanup: { ...report.cleanup, scope_removed: 'yes' },

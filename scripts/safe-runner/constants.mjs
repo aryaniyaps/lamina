@@ -45,6 +45,7 @@ export const SELF_TEST_LIMIT_MAXIMA = Object.freeze({
 
 export const GIB = 1024 ** 3;
 export const MIB = 1024 ** 2;
+export const CASE_DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
 
 export const DEFAULTS = Object.freeze({
   memoryHardMaxBytes: 3 * GIB,
@@ -66,6 +67,14 @@ export const DEFAULTS = Object.freeze({
   maxDescendants: 256,
   scopeHandshakeMs: 3_000,
 });
+
+export function retainedOutputTailBytes(workloadId, stream) {
+  if (!['stdout', 'stderr'].includes(stream)) {
+    throw new TypeError('safe-runner retained output stream must be stdout or stderr');
+  }
+  return stream === 'stdout' && workloadId === CASE_DISCOVERY_WORKLOAD_ID
+    ? MIB : DEFAULTS.diagnosticTailBytes;
+}
 
 export function bytesForMib(value, name) {
   const number = Number(value);

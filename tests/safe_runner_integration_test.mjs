@@ -84,6 +84,10 @@ try {
   });
   assert.equal(normal.outcome, 'success');
   assert.equal(validateReport(normal).valid, true);
+  assert.equal(normal.limits.stdout_tail_max_bytes, DEFAULTS.diagnosticTailBytes,
+    'an actual unrelated runner workload retains the default stdout tail');
+  assert.equal(normal.limits.stderr_tail_max_bytes, DEFAULTS.diagnosticTailBytes,
+    'an actual unrelated runner workload retains the default stderr tail');
   assert.match(normal.output.stdout_tail, /tiny success/);
   assert.ok(normal.peaks.pids >= 1);
   assert.ok(normal.peaks.aggregate_rss_bytes > 0 || !probe.production_enforcement);

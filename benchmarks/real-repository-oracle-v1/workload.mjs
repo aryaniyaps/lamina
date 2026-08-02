@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { once } from 'node:events';
 import { pathToFileURL } from 'node:url';
 
 export const WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
@@ -23,6 +24,10 @@ const NO_QUALITY_CLAIMS = Object.freeze({
   retrieval_ranking: false,
   end_to_end_runtime: false,
 });
+
+export async function writeStdoutLine(value, stdout = process.stdout) {
+  if (!stdout.write(`${value}\n`)) await once(stdout, 'drain');
+}
 
 function collectionIdentity(collection) {
   return Object.freeze({
@@ -111,7 +116,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
   if (JSON.stringify(argv) === JSON.stringify(DISCOVERY_EXACT_COMMAND)) {
     const { discoverSignedTier, encodeDiscoveryPayload } = await import('./case-discovery.mjs');
-    process.stdout.write(`${encodeDiscoveryPayload(discoverSignedTier()).line}\n`);
+    await writeStdoutLine(encodeDiscoveryPayload(discoverSignedTier()).line);
     return;
   }
   if (JSON.stringify(argv) === JSON.stringify(EVIDENCE_EXPANSION_EXACT_COMMAND)) {

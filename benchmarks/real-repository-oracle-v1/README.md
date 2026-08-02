@@ -45,14 +45,30 @@ configuration/state directories, and `.github/{agents,instructions}` while
 leaving ordinary `.github` content eligible. The legacy
 `excluded_generated_artifacts` scan counter is the aggregate count of all these
 excluded non-product artifacts; retaining that name avoids a wire/schema churn.
-The complete index is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
-prefix. The V3 transport interns canonical file and signal facts, uses reference
+The complete index is encoded as one ASCII line behind the wire-only
+`LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V4` prefix. The V4 transport interns canonical file
+and signal facts, uses reference
 tuples for categories, controls, and operations, hoists shared rename authority,
-and stores digests as canonical base64url raw bytes before Brotli compression.
+and stores digests as canonical base64url raw bytes. It reports expanded-semantic,
+packed-transport, Brotli, and final encoded sizes in its codec envelope, then uses
+Brotli only when the compressed bytes are strictly smaller than the packed bytes;
+otherwise it carries the packed bytes directly. Both forms use canonical unpadded
+base64url. The packed or compressed codec input is capped at 512 KiB and the complete
+line, including its prefix but excluding the final newline, is capped at 768 KiB.
+The exact case-discovery workload alone receives a 1 MiB retained stdout tail; the
+generic safe-runner tail remains 8 KiB and the hard combined-output cap remains
+32 MiB. A report is usable only when it is successful and non-truncated, has no
+stderr, retains byte-exact whole stdout, and contains exactly the V4 line plus one LF.
+Changing this runner or codec changes the runner-build identity and invalidates
+earlier promotion. Unit coverage proves the bounds and profile selection first;
+fresh adversarial self-test, small promotion, and medium execution must happen
+from the reviewed commit before a real greater-than-8-KiB report is accepted as
+integration evidence.
 Signal values are bounded reviewer previews; `value_sha256` binds the complete
 untruncated raw signal and therefore need not equal the preview's digest.
 Both encoding and decoding enforce a 512 KiB expanded-semantic ceiling; decoding
-projects the exact reference fan-out before materializing the expanded index.
+caps Brotli output at 512 KiB and projects the exact reference fan-out before
+materializing the expanded index.
 The decoder reconstructs the exact logical discovery object for reviewer use;
 that object remains schema V2. A bound transport-contract digest and canonical
 semantic digest prevent the wire representation from silently changing or

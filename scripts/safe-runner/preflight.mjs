@@ -2,9 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  CASE_DISCOVERY_WORKLOAD_ID,
   DEFAULTS,
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
+  retainedOutputTailBytes,
   SELF_TEST_CASE_IDS,
   SELF_TEST_FIXTURE_MODES,
   SELF_TEST_LIMIT_MAXIMA,
@@ -40,7 +42,7 @@ export const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-ora
 export const REAL_REPOSITORY_ORACLE_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
 export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-reconstruction';
 export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
-export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
+export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = CASE_DISCOVERY_WORKLOAD_ID;
 export const REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
@@ -346,6 +348,14 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
+  const structuredOutputWorkloadId = ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && command.length === 3 && command[2] === 'discover-cases'
+    && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID ? workloadId : null;
+  envelope.limits = {
+    ...envelope.limits,
+    stdout_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stdout'),
+    stderr_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stderr'),
+  };
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };

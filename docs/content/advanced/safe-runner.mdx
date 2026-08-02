@@ -129,6 +129,13 @@ All limit flags are downward-only:
 --output-mib --temporary-mib --sample-ms --high-samples --grace-ms
 ```
 
+Diagnostic stdout/stderr tails are 8 KiB by default. The exact
+`real-repository-oracle-v1:case-discovery` workload has a narrow structured-output
+profile that retains up to 1 MiB of stdout while stderr remains at 8 KiB. The
+effective per-stream tail bounds are recorded in `report.limits`; this profile
+does not change the 32 MiB hard combined-output limit and does not apply to the
+later evidence-expansion workload.
+
 There is no unrestricted fallback or arbitrary child-command surface. Only the
 repository's explicit audited entrypoint allowlist can launch; Node loader/eval
 indirection, package-runner indirection, symlink substitution, and unknown

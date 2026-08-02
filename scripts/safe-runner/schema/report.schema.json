@@ -28,7 +28,19 @@
     "finished_at": { "type": "string", "format": "date-time" },
     "duration_ms": { "type": "integer", "minimum": 0 },
     "adapter": { "type": ["object", "null"] },
-    "limits": { "type": ["object", "null"] },
+    "limits": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["stdout_tail_max_bytes", "stderr_tail_max_bytes"],
+          "properties": {
+            "stdout_tail_max_bytes": { "type": "integer", "enum": [8192, 1048576] },
+            "stderr_tail_max_bytes": { "const": 8192 }
+          }
+        }
+      ]
+    },
     "preflight": { "type": ["object", "null"] },
     "samples": {
       "type": "array",

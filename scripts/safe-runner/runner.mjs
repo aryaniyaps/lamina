@@ -859,7 +859,7 @@ export async function runSafely({
           launcherStderrTail = appendRawTail(
             launcherStderrTail,
             value,
-            DEFAULTS.diagnosticTailBytes,
+            report.limits.stderr_tail_max_bytes,
           );
         }
         report.output[`${key}_bytes`] += value.length;
@@ -869,7 +869,7 @@ export async function runSafely({
         if (retained.length > 0 && !stopping) {
           retainedOutputBytes += retained.length;
           report.output[`${key}_tail`] = appendTail(
-            report.output[`${key}_tail`], retained, DEFAULTS.diagnosticTailBytes,
+            report.output[`${key}_tail`], retained, report.limits[`${key}_tail_max_bytes`],
           );
           if (!sink.write(retained)) {
             stream.pause();

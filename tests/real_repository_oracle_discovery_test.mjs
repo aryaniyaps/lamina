@@ -5,12 +5,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { DEFAULTS as SAFE_RUNNER_DEFAULTS, MIB } from '../scripts/safe-runner/constants.mjs';
+import { redactText } from '../scripts/safe-runner/redaction.mjs';
 import { reviewedCollectionForTier } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 import {
-  CASE_DISCOVERY_LIMITS, CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES,
+  CASE_DISCOVERY_LIMITS, CASE_DISCOVERY_MAX_CODEC_BYTES,
+  CASE_DISCOVERY_MAX_BASE64URL_BYTES, CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES,
   CASE_DISCOVERY_PAYLOAD_PREFIX, CASE_DISCOVERY_SCHEMA, CASE_DISCOVERY_TRANSPORT_SCHEMA,
-  decodeDiscoveryPayload,
-  discoverCandidateFacts, discoveryPathDisposition, encodeDiscoveryPayload, gitByteCompare,
+  CASE_DISCOVERY_REPORT_STDERR_TAIL_BYTES, CASE_DISCOVERY_REPORT_STDOUT_TAIL_BYTES,
+  decodeDiscoveryPayload, decodeDiscoveryReport,
+  discoverCandidateFacts, discoveryPathDisposition, encodeDiscoveryPayload,
+  encodeDiscoveryTransportLine, gitByteCompare,
   validAuthoringBranchName, validLogicalWorktreeId,
 } from '../benchmarks/real-repository-oracle-v1/case-discovery.mjs';
 
@@ -84,7 +89,11 @@ assert.deepEqual(replay, first);
 assert.equal(first.schema, CASE_DISCOVERY_SCHEMA);
 assert.equal(CASE_DISCOVERY_TRANSPORT_SCHEMA,
   'lamina.real-repository-oracle-discovery-schema-wire/v1');
-assert.equal(CASE_DISCOVERY_PAYLOAD_PREFIX, 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3=');
+assert.equal(CASE_DISCOVERY_PAYLOAD_PREFIX, 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V4=');
+assert.equal(SAFE_RUNNER_DEFAULTS.diagnosticTailBytes, 8 * 1024,
+  'the generic safe-runner diagnostic tail remains narrow');
+assert.equal(SAFE_RUNNER_DEFAULTS.outputMaxBytes, 32 * MIB,
+  'structured-output retention does not weaken the hard output limit');
 assert.equal(first.expectations_loaded, false);
 assert.equal(first.grade_controller_evidence, false);
 assert.ok(Object.values(first.quality_claims).every((claim) => claim === false));
@@ -264,17 +273,77 @@ assert.deepEqual(['z', 'ä', 'a', 'Z'].sort(gitByteCompare), ['Z', 'a', 'z', 'ä
 const encoded = encodeDiscoveryPayload(first);
 assert.ok(encoded.line.startsWith(CASE_DISCOVERY_PAYLOAD_PREFIX));
 assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);
+assert.match(encoded.line,
+  /^LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V4=(?:br|raw)\.\d+\.\d+\.\d+\.\d+\.[A-Za-z0-9_-]+$/);
+assert.deepEqual(Object.keys(encoded.sizes), [
+  'semantic_bytes', 'transport_bytes', 'compressed_bytes', 'encoded_line_bytes',
+]);
+assert.equal(encoded.sizes.encoded_line_bytes, Buffer.byteLength(encoded.line));
+const reportedSizes = encoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.').slice(1, 5)
+  .map(Number);
+assert.deepEqual(reportedSizes, [
+  encoded.sizes.transport_bytes, encoded.sizes.compressed_bytes,
+  encoded.sizes.semantic_bytes, encoded.sizes.encoded_line_bytes,
+], 'the V4 line reports packed, compressed, semantic, and final encoded sizes');
 const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
 assert.equal(Buffer.byteLength(legacyLine), 4_517,
   'c009-format same-logical-result JSON+Brotli baseline is frozen');
-assert.equal(Buffer.byteLength(encoded.line), 2_527,
+assert.equal(Buffer.byteLength(encoded.line), 2_551,
   'same-fixture schema-specific wire measurement is frozen');
 assert.ok(Buffer.byteLength(encoded.line) <= 3_840
   && Buffer.byteLength(encoded.line) < Buffer.byteLength(legacyLine),
 'schema-specific wire must materially beat the same logical JSON+Brotli fixture');
 assert.deepEqual(decodeDiscoveryPayload(encoded.line), first);
+const completeStdout = `${encoded.line}\n`;
+assert.equal(redactText(completeStdout), completeStdout,
+  'safe-runner redaction preserves the canonical ASCII envelope byte-for-byte');
+const completeReport = {
+  outcome: 'success',
+  limits: {
+    stdout_tail_max_bytes: CASE_DISCOVERY_REPORT_STDOUT_TAIL_BYTES,
+    stderr_tail_max_bytes: CASE_DISCOVERY_REPORT_STDERR_TAIL_BYTES,
+  },
+  output: {
+    stdout_bytes: Buffer.byteLength(completeStdout), stderr_bytes: 0,
+    total_bytes: Buffer.byteLength(completeStdout), stdout_tail: completeStdout,
+    stderr_tail: '', truncated: false,
+  },
+};
+assert.deepEqual(decodeDiscoveryReport(completeReport), first,
+  'a complete exact single-line report reconstructs every candidate fact');
+for (const mutate of [
+  (report) => { report.outcome = 'command_failed'; },
+  (report) => { report.output.truncated = true; },
+  (report) => { report.output.stdout_bytes += 1; },
+  (report) => { report.output.stderr_bytes = 1; report.output.total_bytes += 1; },
+  (report) => { report.output.stderr_tail = 'diagnostic'; },
+  (report) => { report.output.total_bytes += 1; },
+  (report) => {
+    report.output.stdout_tail = `prefix${report.output.stdout_tail}`;
+    report.output.stdout_bytes = Buffer.byteLength(report.output.stdout_tail);
+    report.output.total_bytes = report.output.stdout_bytes;
+  },
+  (report) => {
+    report.output.stdout_tail = `${report.output.stdout_tail.slice(0, -1)}suffix\n`;
+    report.output.stdout_bytes = Buffer.byteLength(report.output.stdout_tail);
+    report.output.total_bytes = report.output.stdout_bytes;
+  },
+  (report) => {
+    report.output.stdout_tail += '\n';
+    report.output.stdout_bytes = Buffer.byteLength(report.output.stdout_tail);
+    report.output.total_bytes = report.output.stdout_bytes;
+  },
+  (report) => { report.limits.stdout_tail_max_bytes = CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES; },
+  (report) => { report.limits.stderr_tail_max_bytes += 1; },
+]) {
+  const invalidReport = structuredClone(completeReport);
+  mutate(invalidReport);
+  assert.throws(() => decodeDiscoveryReport(invalidReport),
+    /report|payload line|exactly one payload line/,
+    'failed, incomplete, inconsistent, noisy, or multi-line reports fail closed');
+}
 const reverseKeys = (value) => Array.isArray(value) ? value.map(reverseKeys)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)]))
@@ -289,12 +358,66 @@ const tamperIndex = CASE_DISCOVERY_PAYLOAD_PREFIX.length + 2;
 tamperedCharacters[tamperIndex] = tamperedCharacters[tamperIndex] === 'A' ? 'B' : 'A';
 assert.throws(() => decodeDiscoveryPayload(tamperedCharacters.join('')),
   /payload line is malformed/, 'transport tampering cannot decode as reviewer facts');
-const wireLine = (wire) => `${CASE_DISCOVERY_PAYLOAD_PREFIX}${zlib.brotliCompressSync(
-  Buffer.from(JSON.stringify(wire)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
-).toString('base64url')}`;
-const decodedWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
-  encoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
-)).toString('utf8'));
+const semanticSizeFrom = (line) => Number(
+  line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.')[3],
+);
+const framedCodecLine = (codec, bytes, compressed, semanticBytes) => {
+  const payload = (codec === 'br' ? compressed : bytes).toString('base64url');
+  let encodedLineBytes = 0;
+  let line;
+  do {
+    line = `${CASE_DISCOVERY_PAYLOAD_PREFIX}${codec}.${bytes.length}.${compressed.length}.${semanticBytes}.${encodedLineBytes}.${payload}`;
+    const nextSize = Buffer.byteLength(line);
+    if (nextSize === encodedLineBytes) return line;
+    encodedLineBytes = nextSize;
+  } while (true);
+};
+const codecLine = (bytes, semanticBytes = semanticSizeFrom(encoded.line)) => {
+  const compressed = zlib.brotliCompressSync(bytes, {
+    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+  });
+  const raw = framedCodecLine('raw', bytes, compressed, semanticBytes);
+  const br = framedCodecLine('br', bytes, compressed, semanticBytes);
+  return compressed.length < bytes.length ? br : raw;
+};
+const wireLine = (wire) => codecLine(Buffer.from(JSON.stringify(wire)));
+const wireBytes = (line) => {
+  const [codec, , , , , payload] = line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.');
+  const bytes = Buffer.from(payload, 'base64url');
+  return codec === 'br' ? zlib.brotliDecompressSync(bytes) : bytes;
+};
+const decodedWire = JSON.parse(wireBytes(encoded.line).toString('utf8'));
+const highEntropyBytes = Buffer.concat(Array.from({
+  length: CASE_DISCOVERY_MAX_CODEC_BYTES / 32,
+}, (_, index) =>
+  crypto.createHash('sha256').update(`case-discovery-raw-${index}`).digest()));
+const rawFallback = encodeDiscoveryTransportLine(highEntropyBytes, 1);
+assert.match(rawFallback.line, /^LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V4=raw\./,
+  'deterministic high-entropy bytes use the bounded raw fallback');
+assert.ok(rawFallback.sizes.encoded_line_bytes <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);
+assert.ok(rawFallback.sizes.encoded_line_bytes > 7_680,
+  'the synthetic bound fixture honestly exercises the former single-line failure class');
+assert.ok(CASE_DISCOVERY_MAX_BASE64URL_BYTES
+  + Buffer.byteLength(CASE_DISCOVERY_PAYLOAD_PREFIX) + 64
+  < CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES,
+  'the raw 512 KiB worst case plus codec and size framing fits the 768 KiB line bound');
+const rawFields = rawFallback.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.');
+const nonCanonicalCompressed = zlib.brotliCompressSync(highEntropyBytes, {
+  params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+});
+const forcedBrotli = framedCodecLine('br', highEntropyBytes, nonCanonicalCompressed,
+  Number(rawFields[3]));
+assert.throws(() => decodeDiscoveryPayload(forcedBrotli), /payload line is malformed/,
+  'the decoder rejects Brotli when raw is the canonical smaller choice');
+const encodedWireBytes = wireBytes(encoded.line);
+const encodedFields = encoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.');
+assert.equal(encodedFields[0], 'br', 'the compressible reviewed fixture canonically selects Brotli');
+const forcedRaw = framedCodecLine('raw', encodedWireBytes,
+  zlib.brotliCompressSync(encodedWireBytes, {
+    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+  }), Number(encodedFields[3]));
+assert.throws(() => decodeDiscoveryPayload(forcedRaw), /payload line is malformed/,
+  'the decoder rejects raw when Brotli is the canonical smaller choice');
 const badContract = structuredClone(decodedWire);
 badContract[0] = 'A'.repeat(43);
 assert.throws(() => decodeDiscoveryPayload(wireLine(badContract)), /payload line is malformed/);
@@ -309,7 +432,8 @@ const bomb = zlib.brotliCompressSync(Buffer.alloc(512 * 1024 + 1, 0x20), {
   params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
 });
 assert.throws(() => decodeDiscoveryPayload(
-  `${CASE_DISCOVERY_PAYLOAD_PREFIX}${bomb.toString('base64url')}`), /payload line is malformed/,
+  framedCodecLine('br', Buffer.alloc(512 * 1024 + 1, 0x20), bomb, 1)),
+/payload line is malformed/,
 'compressed amplification beyond the decoded-byte bound is refused');
 
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
@@ -328,16 +452,6 @@ const deterministicText = (seed, length) => {
     text += crypto.createHash('sha256').update(`${seed}-${index}`).digest('hex');
   }
   return text.slice(0, length);
-};
-const deterministicUnicodeText = (seed, length) => {
-  let text = '';
-  for (let index = 0; text.length < length; index += 1) {
-    const digest = crypto.createHash('sha256').update(`${seed}-${index}`).digest();
-    for (let offset = 0; offset < digest.length && text.length < length; offset += 2) {
-      text += String.fromCharCode(0x4e00 + digest.readUInt16BE(offset) % 0x4fff);
-    }
-  }
-  return text;
 };
 const longRenameSegments = [
   ...Array.from({ length: 20 }, () => 'x'.repeat(200)),
@@ -504,18 +618,14 @@ refreshIndexDigest(excessiveSignalLine);
 assert.throws(() => encodeDiscoveryPayload(excessiveSignalLine),
   /category signal is outside the exact schema/,
   'signal line authority cannot exceed the maximum possible line for a bounded file');
-const excessiveLineWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
-  lateDefinitionEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
-)).toString('utf8'));
+const excessiveLineWire = JSON.parse(wireBytes(lateDefinitionEncoded.line).toString('utf8'));
 const lateFileRow = excessiveLineWire[6]
   .find((row) => row[0] === 'src/routes/late-definition.ts');
 lateFileRow[4] = CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
 assert.throws(() => decodeDiscoveryPayload(wireLine(excessiveLineWire)),
   /payload line is malformed/,
   'wire decoding applies the same file-derived line-number bound before expansion');
-const excessiveSignalWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
-  acceptedLateSignalEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
-)).toString('utf8'));
+const excessiveSignalWire = JSON.parse(wireBytes(acceptedLateSignalEncoded.line).toString('utf8'));
 const lateSignalRow = excessiveSignalWire[7].find((row) => row[3] === 1_000_001);
 lateSignalRow[3] = CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
 assert.throws(() => decodeDiscoveryPayload(wireLine(excessiveSignalWire)),
@@ -551,9 +661,7 @@ refreshIndexDigest(longSignalValue);
 const longSignalEncoded = encodeDiscoveryPayload(longSignalValue);
 assert.deepEqual(decodeDiscoveryPayload(longSignalEncoded.line), longSignalValue,
   'a 240-byte preview roundtrips exactly with its complete raw-value digest');
-const longSignalWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
-  longSignalEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
-)).toString('utf8'));
+const longSignalWire = JSON.parse(wireBytes(longSignalEncoded.line).toString('utf8'));
 const retainedPreviewSignalRows = longSignalWire[7]
   .filter((row) => row[0] === retainedRoutePreview);
 assert.equal(retainedPreviewSignalRows.length, 2,
@@ -650,44 +758,14 @@ maxRefWire[12] = [
     [0, 'oracle-worktree-cccccccccccc']],
 ];
 const maxRefWireLine = wireLine(maxRefWire);
-assert.equal(Buffer.byteLength(maxRefWireLine), 2_296,
+assert.equal(Buffer.byteLength(maxRefWireLine), 2_321,
   'the compact amplifying mutation measurement is frozen inside the retained-line bound');
 assert.throws(() => decodeDiscoveryPayload(maxRefWireLine), /payload line is malformed/,
   'decoder refuses projected semantic amplification before allocating expanded ref objects');
-const nearBound = (signalLength) => {
-  const value = structuredClone(first);
-  let signalIndex = 0;
-  for (const anchors of Object.values(value.candidate_index.categories)) {
-    for (const anchor of anchors) {
-      const currentSignal = signalIndex++;
-      anchor.category_signal.value = deterministicUnicodeText(`signal-${currentSignal}`, signalLength);
-      anchor.category_signal.value_sha256 = crypto.createHash('sha256')
-        .update(anchor.category_signal.value).digest('hex');
-      anchor.category_signal.occurrence = 'exact_literal';
-      anchor.category_signal.line = 1;
-      anchor.category_signal.line_sha256 = crypto.createHash('sha256')
-        .update(`line-${currentSignal}-${signalLength}`).digest('hex');
-    }
-  }
-  refreshIndexDigest(value);
-  return value;
-};
-let lower = 0;
-let upper = 4_096;
-while (lower + 1 < upper) {
-  const middle = Math.floor((lower + upper) / 2);
-  try { encodeDiscoveryPayload(nearBound(middle)); lower = middle; }
-  catch { upper = middle; }
-}
-const nearBoundValue = nearBound(lower);
-const nearBoundEncoded = encodeDiscoveryPayload(nearBoundValue);
-assert.ok(Buffer.byteLength(nearBoundEncoded.line) > CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES - 256,
-  `the deterministic synthetic payload exercises the retained-line boundary closely: ${Buffer.byteLength(nearBoundEncoded.line)}`);
-assert.deepEqual(decodeDiscoveryPayload(nearBoundEncoded.line), nearBoundValue,
-  'near-bound transport reconstructs every logical fact exactly');
-assert.throws(() => encodeDiscoveryPayload(nearBound(upper)), (error) =>
-  error.message === 'complete case-discovery candidate index exceeds the retained report-tail bound',
-'overflow refusal is size-only and discloses no candidate content');
+assert.throws(() => decodeDiscoveryPayload(
+  `${CASE_DISCOVERY_PAYLOAD_PREFIX}${'A'.repeat(CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES)}`),
+/outside the retained-output contract/,
+'the enlarged lossless envelope remains explicitly bounded');
 const zeroScan = structuredClone(first);
 zeroScan.scan = { ...zeroScan.scan, candidate_files: 0, candidate_bytes: 0,
   admitted_index_files: 0, excluded_generated_artifacts: 0 };
