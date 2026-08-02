@@ -176,11 +176,23 @@ function buildCandidateIndex(records, trackedPaths, collection) {
   const take = (offset) => operationPool.slice(offset, offset + CASE_DISCOVERY_LIMITS.operation_candidates_per_kind);
   const modify = take(0).map((record) => compactAnchor(record, null, 'scenario_before'));
   const orderedTrackedPaths = [...new Set(trackedPaths)].sort(gitByteCompare);
-  const existingPaths = new Set(orderedTrackedPaths);
-  const trackedPathAuthority = Object.freeze({
-    basis: 'complete_stage0_git_tracked_paths',
+  const occupiedDestinations = new Set(['']);
+  for (const trackedPath of orderedTrackedPaths) {
+    occupiedDestinations.add(trackedPath);
+    let parent = path.posix.dirname(trackedPath);
+    while (parent !== '.') {
+      occupiedDestinations.add(parent);
+      parent = path.posix.dirname(parent);
+    }
+  }
+  const orderedOccupiedDestinations = [...occupiedDestinations].sort(gitByteCompare);
+  const destinationAuthority = Object.freeze({
+    basis: 'complete_stage0_git_paths_and_implied_directories',
     tracked_path_count: orderedTrackedPaths.length,
     tracked_paths_sha256: digestObject(orderedTrackedPaths),
+    occupied_destination_count: orderedOccupiedDestinations.length,
+    occupied_destinations_sha256: digestObject(orderedOccupiedDestinations),
+    portable_root_included: true,
   });
   const rename = take(3).map((record) => {
     const parent = path.posix.dirname(record.path) === '.' ? '' : `${path.posix.dirname(record.path)}/`;
@@ -189,11 +201,11 @@ function buildCandidateIndex(records, trackedPaths, collection) {
     for (let attempt = 0; attempt < CASE_DISCOVERY_LIMITS.max_rename_destination_attempts; attempt += 1) {
       const suffix = attempt === 0 ? '' : `-${attempt}`;
       const candidate = `${parent}lamina-oracle-rename-${record.blob_oid.slice(0, 8)}${suffix}${extension}`;
-      if (!existingPaths.has(candidate)) { proposedPath = candidate; break; }
+      if (!occupiedDestinations.has(candidate)) { proposedPath = candidate; break; }
     }
     if (!proposedPath) throw new Error('no absent rename destination exists within the fixed attempt bound');
     return { ...compactAnchor(record, null, 'scenario_before'), proposed_path: proposedPath,
-      destination_absence: Object.freeze({ ...trackedPathAuthority, absent: true }) };
+      destination_absence: Object.freeze({ ...destinationAuthority, absent: true }) };
   });
   const remove = take(6).map((record) => compactAnchor(record, null, 'scenario_before'));
   const branch = take(9).map((record) => {

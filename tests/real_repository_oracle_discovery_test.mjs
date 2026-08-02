@@ -41,6 +41,19 @@ const inputs = [
   blob_oid: crypto.createHash('sha1').update(text).digest('hex'),
 }));
 const trackedCollisions = new Set();
+const destinationAuthority = (trackedPaths) => {
+  const orderedTracked = [...new Set(trackedPaths)].sort(gitByteCompare);
+  const occupied = new Set(['']);
+  for (const trackedPath of orderedTracked) {
+    occupied.add(trackedPath);
+    let parent = path.posix.dirname(trackedPath);
+    while (parent !== '.') { occupied.add(parent); parent = path.posix.dirname(parent); }
+  }
+  const orderedOccupied = [...occupied].sort(gitByteCompare);
+  const digest = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  return { tracked: orderedTracked, occupied: orderedOccupied,
+    tracked_sha256: digest(orderedTracked), occupied_sha256: digest(orderedOccupied) };
+};
 const injectedVisitor = (_repository, _collection, visit) => {
   for (const candidate of inputs) visit(candidate);
   return { candidate_files: inputs.length,
@@ -83,11 +96,18 @@ for (const [operation, candidates] of Object.entries(first.candidate_index.opera
   assert.ok(candidates.length <= CASE_DISCOVERY_LIMITS.operation_candidates_per_kind);
   assert.ok(candidates.every((item) => item.role === 'scenario_before' && !item.path.includes('..')));
 }
+const initialAuthority = destinationAuthority(inputs.map((item) => item.path));
 for (const candidate of first.candidate_index.operation_candidates.rename) {
   assert.equal(candidate.destination_absence.absent, true);
-  assert.equal(candidate.destination_absence.basis, 'complete_stage0_git_tracked_paths');
+  assert.equal(candidate.destination_absence.basis,
+    'complete_stage0_git_paths_and_implied_directories');
   assert.equal(candidate.destination_absence.tracked_path_count, inputs.length);
-  assert.equal(inputs.some((item) => item.path === candidate.proposed_path), false);
+  assert.equal(candidate.destination_absence.tracked_paths_sha256, initialAuthority.tracked_sha256);
+  assert.equal(candidate.destination_absence.occupied_destination_count,
+    initialAuthority.occupied.length);
+  assert.equal(candidate.destination_absence.occupied_destinations_sha256,
+    initialAuthority.occupied_sha256);
+  assert.equal(initialAuthority.occupied.includes(candidate.proposed_path), false);
 }
 assert.ok(first.candidate_index.operation_candidates.branch.every((candidate) =>
   validAuthoringBranchName(candidate.proposed_branch) && candidate.executed === false));
@@ -103,12 +123,20 @@ assert.equal(new Set(first.candidate_index.operation_candidates.logical_worktree
   .map((candidate) => candidate.logical_worktree_id)).size,
 first.candidate_index.operation_candidates.logical_worktree.length);
 const initialRename = first.candidate_index.operation_candidates.rename[0];
-trackedCollisions.add(initialRename.proposed_path);
+trackedCollisions.add(`${initialRename.proposed_path}/child.ts`);
 const collisionAware = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
 assert.notEqual(collisionAware.candidate_index.operation_candidates.rename[0].proposed_path,
-  initialRename.proposed_path, 'rename destination checks the complete tracked tree, not discovery records');
-assert.equal(collisionAware.candidate_index.operation_candidates.rename[0]
-  .destination_absence.tracked_path_count, inputs.length + 1);
+  initialRename.proposed_path,
+  'a tracked descendant makes its implied parent directory an occupied rename destination');
+const collisionAuthority = destinationAuthority([
+  ...inputs.map((item) => item.path), ...trackedCollisions,
+]);
+const collisionProof = collisionAware.candidate_index.operation_candidates.rename[0]
+  .destination_absence;
+assert.equal(collisionProof.tracked_path_count, collisionAuthority.tracked.length);
+assert.equal(collisionProof.tracked_paths_sha256, collisionAuthority.tracked_sha256);
+assert.equal(collisionProof.occupied_destination_count, collisionAuthority.occupied.length);
+assert.equal(collisionProof.occupied_destinations_sha256, collisionAuthority.occupied_sha256);
 trackedCollisions.clear();
 assert.deepEqual(['z', 'ä', 'a', 'Z'].sort(gitByteCompare), ['Z', 'a', 'z', 'ä'],
   'candidate ordering is exact UTF-8 byte order and does not depend on process locale');

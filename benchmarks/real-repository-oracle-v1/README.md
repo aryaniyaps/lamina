@@ -33,7 +33,9 @@ docs, and config when those strata are available. Lexical near-neighbors and
 same-stratum negative decoys are controls, while modify, rename, delete,
 branch, and logical-worktree rows are unexecuted `scenario_before` candidates.
 Rename destinations carry an absence proof over the complete stage-0 tracked
-path authority, not merely the filtered discovery set. Generated and build outputs,
+path authority plus every implied parent directory in the portable path model,
+not merely the filtered discovery set. The proof binds separate counts and
+digests for tracked paths and occupied destinations. Generated and build outputs,
 including hashed Workbox bundles, are excluded explicitly. The complete index
 is Brotli-compressed into one bounded report-tail line; an oversized index is
 refused rather than lossily compacted.
