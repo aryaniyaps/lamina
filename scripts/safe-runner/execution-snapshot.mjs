@@ -45,6 +45,8 @@ export const REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE = Object.freeze([
   ...REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE,
   'benchmarks/real-repository-oracle-v1/materialize.mjs',
   'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/inventory-review-receipt.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json',
 ]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
   ...new Set([

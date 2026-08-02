@@ -28,6 +28,7 @@ assert.deepEqual(INVENTORY_REVIEW_IMPORT_BOUNDARY, [
 ]);
 for (const forbidden of [
   './materialize.mjs', './collection-authority.mjs', 'REVIEWED_INVENTORIES',
+  './inventory-review-receipt.mjs', 'reviews/inventory-v1.json',
   'candidateInventoryFromTracked', 'candidate_inventory_sha256',
 ]) {
   assert.equal(REVIEW_SOURCE.includes(forbidden), false,

@@ -8,7 +8,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
-  REVIEWED_INVENTORIES, pinnedCollectionForTier, reviewedCollectionForTier,
+  INVENTORY_REVIEW_RECEIPT, REVIEWED_INVENTORIES, pinnedCollectionForTier,
+  reviewedCollectionForTier,
 } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 import {
   RECONSTRUCTION_LIMITS, candidateInventoryDigest, candidateInventoryFromTracked,
@@ -129,22 +130,42 @@ assert.deepEqual(REVIEWED_INVENTORIES.small, {
   retrieval_candidate_files: 467, retrieval_candidate_bytes: 693_785,
   retrieval_paths_digest: '8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b',
 });
-const small = reviewedCollectionForTier('small');
-assert.equal(small.baseline_manifest_sha256, BASELINE_MANIFEST_SHA256);
-assert.equal(small.candidate_policy_sha256, CANDIDATE_POLICY_SHA256);
-assert.equal(Object.isFrozen(small), true);
-assert.equal(Object.isFrozen(small.manifest), true);
-assert.equal(Object.isFrozen(small.manifest.fixtures[0]), true);
-assert.equal(Object.isFrozen(small.fixture), true);
-assert.throws(() => { small.fixture.commit = '0'.repeat(40); }, TypeError);
-for (const tier of ['medium', 'large']) {
+assert.deepEqual(REVIEWED_INVENTORIES.medium, {
+  tracked_files: 2_539, tracked_bytes: 15_972_213,
+  tracked_source_files: 2_324, tracked_source_bytes: 8_584_027, tracked_source_loc: 268_625,
+  observation_indexed_files: 2_539, observation_indexed_bytes: 15_972_213,
+  observation_paths_digest: 'a54821d081c82acea3bce42c769f6c39f3d388c330e432436bda7e80977e3b5c',
+  retrieval_candidate_files: 2_420, retrieval_candidate_bytes: 12_914_792,
+  retrieval_paths_digest: '3ba81ce78f10ff50ec4d652ebed8ef18a9e2624b3434f7a125e3a3f133ec1d7e',
+});
+assert.deepEqual(REVIEWED_INVENTORIES.large, {
+  tracked_files: 5_405, tracked_bytes: 55_779_821,
+  tracked_source_files: 4_184, tracked_source_bytes: 14_824_422, tracked_source_loc: 373_748,
+  observation_indexed_files: 5_399, observation_indexed_bytes: 55_696_352,
+  observation_paths_digest: '90fef3b430dee05642af40a636590a97fc0bbf405f37040def570ba7832a1652',
+  retrieval_candidate_files: 4_805, retrieval_candidate_bytes: 21_278_398,
+  retrieval_paths_digest: 'de46b1ebd6495065f95d8afd365be2195f4518ed5f2e57f4d38881c9f29f3ebc',
+});
+assert.equal(INVENTORY_REVIEW_RECEIPT.decision, 'reviewer_approved_manual_freeze');
+for (const tier of ['small', 'medium', 'large']) {
+  const reviewed = reviewedCollectionForTier(tier);
+  assert.equal(reviewed.baseline_manifest_sha256, BASELINE_MANIFEST_SHA256);
+  assert.equal(reviewed.candidate_policy_sha256, CANDIDATE_POLICY_SHA256);
+  assert.equal(reviewed.fixture_id, tier);
+  assert.equal(reviewed.fixture_class, tier);
+  assert.equal(reviewed.reviewed_inventory, REVIEWED_INVENTORIES[tier]);
+  assert.equal(Object.isFrozen(reviewed), true);
+  assert.equal(Object.isFrozen(reviewed.manifest), true);
+  assert.equal(Object.isFrozen(reviewed.manifest.fixtures[0]), true);
+  assert.equal(Object.isFrozen(reviewed.fixture), true);
+  assert.equal(Object.isFrozen(reviewed.reviewed_inventory), true);
+  assert.throws(() => { reviewed.fixture.commit = '0'.repeat(40); }, TypeError);
+
   const reconstructionCollection = pinnedCollectionForTier(tier);
   assert.equal(reconstructionCollection.fixture_id, tier);
   assert.equal(reconstructionCollection.fixture_class, tier);
   assert.equal('reviewed_inventory' in reconstructionCollection, false,
     'reconstruction authority must not consult or relabel reviewed inventory');
-  assert.throws(() => reviewedCollectionForTier(tier),
-    new RegExp(`${tier} inventory is temporarily unreviewed`));
 }
 
 const exactAudit = auditedCommand([process.execPath, ENTRYPOINT, 'admit-inventory'], ROOT);
@@ -288,12 +309,18 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/infrastructure.mjs',
   'benchmarks/real-repository-oracle-v1/materialize.mjs',
   'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/inventory-review-receipt.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
 ]);
 assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
   'benchmarks/real-repository-oracle-v1/materialize.mjs'), false);
 assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
   'benchmarks/real-repository-oracle-v1/collection-authority.mjs'), false);
+assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
+  'benchmarks/real-repository-oracle-v1/inventory-review-receipt.mjs'), false);
+assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
+  'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json'), false);
 
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);

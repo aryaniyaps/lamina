@@ -41,7 +41,7 @@ export function inventoryAdmissionResult(collection, inventory) {
     inventory,
     evidence_mode: 'reviewed_collection_inventory_admission_only',
     quality_claims: NO_QUALITY_CLAIMS,
-    limitation: 'This admission proves only exact pinned materialization and equality with an independently reviewed inventory. It is not routed through the oracle grade controller and makes no retrieval or product-quality claim. Medium and large remain temporarily refused until #61 reconstructs and independently reviews their inventories.',
+    limitation: 'This admission proves only exact pinned materialization and equality with an independently reviewed inventory. It is not routed through the oracle grade controller and makes no retrieval or product-quality claim.',
   });
 }
 

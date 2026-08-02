@@ -78,5 +78,5 @@ npm run test:semantic-oracle
 ```
 
 The suite runs only compact temporary Git fixtures. It does not execute the
-real-repository observation/retrieval matrix reserved for issue #61 and does
-not alter production retrieval, scoring, storage, or runtime architecture.
+separate real-repository observation/retrieval matrix and does not alter
+production retrieval, scoring, storage, or runtime architecture.
