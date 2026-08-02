@@ -39,6 +39,7 @@ export const SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT = Object.freeze([
 ]);
 const SEALED_RETRIEVAL_ENV_ENTRYPOINTS = new Set([
   'benchmarks/retrieval-v1/benchmark.mjs',
+  'benchmarks/real-repository-oracle-v1/workload.mjs',
   'tests/retrieval_native_index_test.mjs',
   'tests/cli_binary_smoke_test.mjs',
 ]);
@@ -240,10 +241,12 @@ export function sanitizedPayloadEnvironment({
 } = {}) {
   const result = sanitizedEnvironment(...sources);
   const stripsRetrievalSemantics = SEALED_RETRIEVAL_ENV_ENTRYPOINTS.has(auditedEntrypoint);
+  const stripsOracleSemantics = auditedEntrypoint === 'benchmarks/real-repository-oracle-v1/workload.mjs';
   for (const name of Object.keys(result)) {
     if (mode !== 'self-test' && name.startsWith('LAMINA_TEST_')) delete result[name];
     if (stripsRetrievalSemantics && (name.startsWith('LAMINA_RETRIEVAL_')
       || SAFE_RUNNER_RETRIEVAL_SEMANTIC_ENVIRONMENT.includes(name))) delete result[name];
+    if (stripsOracleSemantics && name.startsWith('ORACLE_')) delete result[name];
   }
   Object.assign(result, sealedOverrides);
   return result;

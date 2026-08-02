@@ -26,6 +26,19 @@ const MAX_CLOSURE_INODES = 2_000_000;
 const MAX_CLOSURE_BYTES = 16 * 1024 ** 3;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
+const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
+export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
+  REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+  'benchmarks/real-repository-oracle-v1/materialize.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/runtime-baseline-v1/contract.mjs',
+  'benchmarks/runtime-baseline-v1/manifest.json',
+  'packages/cli/lib/safe-runner-context.mjs',
+  'packages/cli/lib/safe-runner-broker-client.mjs',
+  'scripts/safe-runner/git.mjs',
+  'scripts/safe-runner/infrastructure.mjs',
+]);
+const REAL_REPOSITORY_ORACLE_SOURCE_SET = new Set(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE);
 const RUNTIME_BASELINE_SCENARIOS = new Set([
   'footprint', 'doctor-status-startup', 'initial-observation',
   'initial-retrieval-readiness', 'first-useful-preparation', 'warm-preparation',
@@ -277,6 +290,7 @@ function entrypointRelative(repository, command, cwd = repository) {
       || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative)
       || EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS.has(relative)
       || relative === RUNTIME_BASELINE_ENTRYPOINT
+      || relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       || relative === RETRIEVAL_BENCHMARK_ENTRYPOINT)) return relative;
   }
   return null;
@@ -694,11 +708,17 @@ export function prepareExecutionSnapshot({
   const environmentOverrides = {};
   let totalBytes = 0;
   let dependencyCreatedDirectories = 0;
-  const sourceFiles = repositoryFiles(repository).filter((relative) =>
-    auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT
-      || relative === RUNTIME_BASELINE_ENTRYPOINT
-      || relative.startsWith('benchmarks/runtime-baseline-v1/')
-      || relative.startsWith('packages/cli/'));
+  const sourceFiles = repositoryFiles(repository).filter((relative) => {
+    if (auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT) {
+      return relative === RUNTIME_BASELINE_ENTRYPOINT
+        || relative.startsWith('benchmarks/runtime-baseline-v1/')
+        || relative.startsWith('packages/cli/');
+    }
+    if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+      return REAL_REPOSITORY_ORACLE_SOURCE_SET.has(relative);
+    }
+    return true;
+  });
   for (const relative of sourceFiles) {
     const source = path.join(repository, relative);
     const destination = path.join(snapshotRepository, relative);
@@ -972,11 +992,15 @@ export function prepareExecutionSnapshot({
   }
   const objectIds = new Set();
   if (head) {
-    // The runtime baseline uses the Lamina checkout only as immutable executable
+    // The runtime baseline and real-repository inventory admission use the
+    // Lamina checkout only as immutable executable
     // source and reads its HEAD identifier; all repository lifecycle work occurs
     // in separately cloned pinned fixtures. Seal that identifier without copying
     // unrelated Lamina history beside the large pinned runtime inputs.
-    const reachable = auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
+    const headOnlyGitClosure = [
+      RUNTIME_BASELINE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+    ].includes(auditedEntrypoint);
+    const reachable = headOnlyGitClosure
       ? head
       : gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
     for (const item of reachable.split('\n').filter(Boolean)) {
@@ -985,7 +1009,7 @@ export function prepareExecutionSnapshot({
       objectIds.add(oid);
     }
   }
-  if (auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT) {
+  if (![RUNTIME_BASELINE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_ENTRYPOINT].includes(auditedEntrypoint)) {
     const staged = gitOutput(repository, ['ls-files', '--stage', '-z']);
     for (const item of staged.split('\0').filter(Boolean)) {
       const oid = item.match(/^[0-7]{6}\s+([a-f0-9]{40,64})\s+[0-3]\t/)?.[1];
@@ -1285,6 +1309,7 @@ export function prepareExecutionSnapshot({
   const graphdLaunchAuthority = [];
   const gitExecutableIdentity = auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs'
     || auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
+    || auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     ? trustedGitIdentity() : null;
   if (stagedInfrastructure.node
     && auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {

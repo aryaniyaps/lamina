@@ -1,6 +1,14 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import { validateFixtureSchema, validateResultSchema, schemaErrors } from './schema-validation.mjs';
+import {
+  BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
+  reviewedManifestDigest,
+} from './collection-authority.mjs';
+
+export {
+  BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
+  reviewedManifestDigest,
+} from './collection-authority.mjs';
 
 export const FIXTURE_SCHEMA = 'lamina.real-repository-oracle-fixture/v1';
 export const RESULT_SCHEMA = 'lamina.real-repository-oracle-result/v1';
@@ -90,33 +98,6 @@ export function digest(value) {
     typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(canonical(value)),
   ).digest('hex');
 }
-
-const manifestBytes = fs.readFileSync(new URL('../runtime-baseline-v1/manifest.json', import.meta.url));
-const manifest = JSON.parse(manifestBytes);
-export const BASELINE_MANIFEST_SHA256 = '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba';
-export function reviewedManifestDigest(bytes) {
-  return digest(Buffer.from(Buffer.from(bytes).toString('utf8').replaceAll('\r\n', '\n')));
-}
-if (reviewedManifestDigest(manifestBytes) !== BASELINE_MANIFEST_SHA256) {
-  throw new Error('runtime baseline manifest bytes no longer match the reviewed #60 identity');
-}
-// Git tree object IDs resolved for the exact #60 manifest commits through the
-// repository authority, rather than treating a commit ID as a tree identity.
-const COLLECTION_TREE_OIDS = Object.freeze({
-  small: 'b03782f905ffcd394bdaf597c06322afbc8ed991',
-  medium: '1ada87cb0c8c8066fd8f8df2401c187c05632e9d',
-  large: '382c6539083af65e86cdddbffd4e09884773e64e',
-});
-export const COLLECTION_PINS = Object.freeze(Object.fromEntries(manifest.fixtures.map((fixture) => [fixture.id, Object.freeze({
-  fixture_id: fixture.id, fixture_class: fixture.class,
-  repository_url: fixture.url, commit: fixture.commit, tree_oid: COLLECTION_TREE_OIDS[fixture.id],
-})])));
-export const CANDIDATE_POLICY_SHA256 = digest({
-  source_extensions: manifest.source_extensions,
-  retrieval_extensions: manifest.retrieval_extensions,
-  retrieval_max_file_bytes: manifest.retrieval_max_file_bytes,
-  exclusions: manifest.exclusions,
-});
 
 export function collectionDigest(collection) {
   const { collection_digest: _claimed, ...identity } = collection;

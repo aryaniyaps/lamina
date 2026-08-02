@@ -36,9 +36,12 @@ const EXTERNAL_DAEMON_ENTRYPOINTS = [
 const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
+export const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
+export const REAL_REPOSITORY_ORACLE_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
+  [REAL_REPOSITORY_ORACLE_ENTRYPOINT, true],
   [RUNTIME_BASELINE_ENTRYPOINT, true],
   ['benchmarks/runtime-v1/fixture/tiny-runtime.mjs', false],
   ['evals/scripts/run-suite.mjs', true],
@@ -192,6 +195,10 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
       ? auditedRepositoryFile(path.resolve(cwd, entrypoint), AUDITED_NODE_ENTRYPOINTS) : null;
     if (relative === RUNTIME_BASELINE_ENTRYPOINT
       && !auditedRuntimeBaselineCommand(command, cwd)) {
+      return { audited: false, allow_network: false, entrypoint: relative };
+    }
+    if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+      && (command.length !== 3 || command[2] !== 'admit-inventory')) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
     return relative !== null
@@ -380,6 +387,10 @@ export function preflightRun({
   if (runtimeContract.reason) reasons.push(runtimeContract.reason);
   if (SMALL_ONLY_SCRATCH_FIXTURES.has(ownership.audited_entrypoint) && tier !== 'small') {
     reasons.push('safe-runner scratch fixtures are deliberately tiny and require --tier small');
+  }
+  if (ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && workloadId !== REAL_REPOSITORY_ORACLE_WORKLOAD_ID) {
+    reasons.push(`real-repository inventory admission requires --workload ${REAL_REPOSITORY_ORACLE_WORKLOAD_ID}`);
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);

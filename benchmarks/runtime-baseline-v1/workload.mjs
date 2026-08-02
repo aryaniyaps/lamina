@@ -17,6 +17,7 @@ import {
   assertScenario,
   COLD_RUNS,
   fixtureById,
+  isExcludedPath,
   loadManifest,
   MAX_WORKLOAD_OUTPUT_BYTES,
   SCENARIOS,
@@ -194,18 +195,6 @@ function ensureSource(fixture) {
   return source;
 }
 
-function ignored(relative, exclusions) {
-  const pieces = relative.split('/');
-  if (pieces.includes('.git') || pieces.includes('node_modules') || pieces.includes('__pycache__')
-    || pieces.includes('.next') || pieces.includes('dist') || pieces.includes('build')
-    || pieces.includes('coverage') || pieces.some((piece) => /^\.venv/.test(piece))) return true;
-  return exclusions.some((rule) => {
-    const normalized = rule.replace(/\*$/, '');
-    return relative === normalized || relative.startsWith(`${normalized}/`)
-      || (rule.endsWith('*') && relative.startsWith(normalized));
-  });
-}
-
 function repositoryMetadata(repository, manifest, fixture) {
   const tracked = git(repository, ['ls-files', '-z']).stdout.split('\0').filter(Boolean);
   const sourceExtensions = new Set(manifest.source_extensions);
@@ -226,7 +215,7 @@ function repositoryMetadata(repository, manifest, fixture) {
     try { stat = fs.statSync(file); } catch { continue; }
     if (!stat.isFile()) continue;
     trackedBytes += stat.size;
-    if (!ignored(relative, manifest.exclusions)) {
+    if (!isExcludedPath(relative, manifest.exclusions)) {
       indexedFiles += 1;
       indexedBytes += stat.size;
       indexed.push(relative);
