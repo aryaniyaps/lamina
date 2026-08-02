@@ -62,6 +62,16 @@ const destinationAuthority = (trackedPaths) => {
   return { tracked: orderedTracked, occupied: orderedOccupied,
     tracked_sha256: digest(orderedTracked), occupied_sha256: digest(orderedOccupied) };
 };
+const renameProposalFor = (anchor, attempt = 0) => {
+  const candidateId = crypto.createHash('sha256').update(JSON.stringify({
+    blob_oid: anchor.blob_oid, path: anchor.path,
+  })).digest('hex').slice(0, 12);
+  const sourceExtension = path.posix.extname(anchor.path);
+  const extension = Buffer.byteLength(sourceExtension) <= 16
+      && /^\.[A-Za-z0-9]{1,15}$/.test(sourceExtension)
+    ? sourceExtension : '';
+  return `lamina-oracle-rename-${candidateId}${attempt === 0 ? '' : `-${attempt}`}${extension}`;
+};
 const injectedVisitor = (_repository, _collection, visit) => {
   for (const candidate of inputs) visit(candidate);
   return { candidate_files: inputs.length,
@@ -118,7 +128,13 @@ for (const candidate of first.candidate_index.operation_candidates.rename) {
   assert.equal(candidate.destination_absence.occupied_destinations_sha256,
     initialAuthority.occupied_sha256);
   assert.equal(initialAuthority.occupied.includes(candidate.proposed_path), false);
+  assert.equal(candidate.proposed_path, renameProposalFor(candidate));
+  assert.equal(candidate.proposed_path.includes('/'), false);
 }
+assert.equal(new Set(first.candidate_index.operation_candidates.rename
+  .map((candidate) => candidate.proposed_path)).size,
+first.candidate_index.operation_candidates.rename.length,
+'accepted rename proposals remain pairwise distinct');
 assert.ok(first.candidate_index.operation_candidates.branch.every((candidate) =>
   validAuthoringBranchName(candidate.proposed_branch) && candidate.executed === false));
 assert.equal(validAuthoringBranchName('bad..branch'), false);
@@ -138,6 +154,9 @@ const collisionAware = discoverCandidateFacts('/unused-by-injected-visitor', col
 assert.notEqual(collisionAware.candidate_index.operation_candidates.rename[0].proposed_path,
   initialRename.proposed_path,
   'a tracked descendant makes its implied parent directory an occupied rename destination');
+assert.equal(collisionAware.candidate_index.operation_candidates.rename[0].proposed_path,
+  renameProposalFor(initialRename, 1),
+  'the bounded root-level collision search advances to the next deterministic attempt');
 const collisionAuthority = destinationAuthority([
   ...baselineTrackedPaths, ...trackedCollisions,
 ]);
@@ -156,8 +175,9 @@ assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYT
 const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
-assert.equal(Buffer.byteLength(legacyLine), 4_509, 'actual c009 JSON+Brotli baseline is frozen');
-assert.equal(Buffer.byteLength(encoded.line), 2_503,
+assert.equal(Buffer.byteLength(legacyLine), 4_517,
+  'c009-format same-logical-result JSON+Brotli baseline is frozen');
+assert.equal(Buffer.byteLength(encoded.line), 2_524,
   'same-fixture schema-specific wire measurement is frozen');
 assert.ok(Buffer.byteLength(encoded.line) <= 3_840
   && Buffer.byteLength(encoded.line) < Buffer.byteLength(legacyLine),
@@ -227,6 +247,95 @@ const deterministicUnicodeText = (seed, length) => {
   }
   return text;
 };
+const longRenameSegments = [
+  ...Array.from({ length: 20 }, () => 'x'.repeat(200)),
+  `${'z'.repeat(69)}.ts`,
+];
+const longRenameSourcePath = `src/${longRenameSegments.join('/')}`;
+assert.equal(Buffer.byteLength(longRenameSourcePath), 4_096);
+assert.ok(longRenameSourcePath.split('/').every((segment) => Buffer.byteLength(segment) <= 200));
+const gitBlobOid = (bytes) => crypto.createHash('sha1').update(Buffer.concat([
+  Buffer.from(`blob ${bytes.length}\0`), bytes,
+])).digest('hex');
+const longRenameInputs = [
+  ['src/a.ts', 'const featureFlag = true; // a'],
+  ['src/b.ts', 'const featureFlag = true; // b'],
+  ['src/c.ts', 'const featureFlag = true; // c'],
+  [longRenameSourcePath, 'const featureFlag = true; // long'],
+].map(([candidatePath, text]) => {
+  const bytes = Buffer.from(text);
+  return { path: candidatePath, bytes, blob_oid: gitBlobOid(bytes) };
+});
+assert.ok(longRenameInputs.every((candidate) => candidate.bytes.length > 0
+  && candidate.blob_oid === gitBlobOid(candidate.bytes)));
+assert.equal(collection.reviewed_inventory.tracked_files, 535);
+const longRenameTrackedPaths = (collisions = []) => [
+  ...longRenameInputs.map((candidate) => candidate.path),
+  ...collisions,
+  ...Array.from({ length: collection.reviewed_inventory.tracked_files
+      - longRenameInputs.length - collisions.length },
+  (_, index) => `long-rename-authority/file-${String(index).padStart(4, '0')}.ts`),
+];
+const discoverLongRename = (collisions = []) => discoverCandidateFacts(
+  '/unused-long-rename-visitor', collection, (_repository, _collection, visit) => {
+    for (const candidate of longRenameInputs) visit(candidate);
+    const trackedPaths = longRenameTrackedPaths(collisions);
+    assert.equal(new Set(trackedPaths).size, 535);
+    return { candidate_files: longRenameInputs.length,
+      candidate_bytes: longRenameInputs.reduce((total, candidate) => total + candidate.bytes.length, 0),
+      tracked_paths: trackedPaths };
+  },
+);
+const longRenameDiscovery = discoverLongRename();
+const longRenameCandidate = longRenameDiscovery.candidate_index.operation_candidates.rename[0];
+assert.equal(longRenameCandidate.path, longRenameSourcePath,
+  'the maximum-length source is the first record in the rename producer slice');
+assert.equal(longRenameCandidate.proposed_path, renameProposalFor(longRenameCandidate));
+assert.equal(longRenameCandidate.proposed_path.includes('/'), false);
+assert.ok(Buffer.byteLength(longRenameCandidate.proposed_path) <= 64);
+assert.ok(longRenameCandidate.proposed_path.endsWith('.ts'),
+  'a safe short source extension is preserved exactly');
+assert.equal(longRenameCandidate.destination_absence.tracked_path_count, 535);
+const longRenameEncoded = encodeDiscoveryPayload(longRenameDiscovery);
+assert.deepEqual(decodeDiscoveryPayload(longRenameEncoded.line), longRenameDiscovery,
+  'a legal maximum-length rename source roundtrips with a bounded root-level proposal');
+const firstCollisionPath = `${renameProposalFor(longRenameCandidate)}/child.ts`;
+const secondCollisionPath = `${renameProposalFor(longRenameCandidate, 1)}/child.ts`;
+const progressedRenameDiscovery = discoverLongRename([firstCollisionPath, secondCollisionPath]);
+const progressedRename = progressedRenameDiscovery.candidate_index.operation_candidates.rename[0];
+assert.equal(progressedRename.proposed_path, renameProposalFor(longRenameCandidate, 2),
+  'complete tracked and implied-directory authority advances collision attempts in order');
+const progressedAuthority = destinationAuthority(longRenameTrackedPaths([
+  firstCollisionPath, secondCollisionPath,
+]));
+assert.equal(progressedRename.destination_absence.tracked_paths_sha256,
+  progressedAuthority.tracked_sha256);
+assert.equal(progressedRename.destination_absence.occupied_destinations_sha256,
+  progressedAuthority.occupied_sha256);
+assert.deepEqual(decodeDiscoveryPayload(encodeDiscoveryPayload(progressedRenameDiscovery).line),
+  progressedRenameDiscovery);
+const oldSameParentRename = structuredClone(longRenameDiscovery);
+const oldSameParentCandidate = oldSameParentRename.candidate_index.operation_candidates.rename[0];
+oldSameParentCandidate.proposed_path = `${path.posix.dirname(oldSameParentCandidate.path)}`
+  + `/lamina-oracle-rename-${oldSameParentCandidate.blob_oid.slice(0, 8)}.ts`;
+refreshIndexDigest(oldSameParentRename);
+assert.throws(() => encodeDiscoveryPayload(oldSameParentRename),
+  /rename absence authority is invalid/,
+  'the former source-depth-dependent same-parent proposal is refused');
+const wrongRenameExtension = structuredClone(longRenameDiscovery);
+wrongRenameExtension.candidate_index.operation_candidates.rename[0].proposed_path =
+  renameProposalFor(longRenameCandidate).replace(/\.ts$/, '.js');
+refreshIndexDigest(wrongRenameExtension);
+assert.throws(() => encodeDiscoveryPayload(wrongRenameExtension),
+  /rename absence authority is invalid/,
+  'a proposal cannot substitute a different extension');
+const wrongRenameDigest = structuredClone(longRenameDiscovery);
+wrongRenameDigest.candidate_index.operation_candidates.rename[0].proposed_path =
+  `lamina-oracle-rename-${'0'.repeat(12)}.ts`;
+refreshIndexDigest(wrongRenameDigest);
+assert.throws(() => encodeDiscoveryPayload(wrongRenameDigest),
+  /rename absence authority is invalid/,
+  'a proposal cannot substitute an unrelated digest-derived identity');
 const discoverSingleSyntheticFile = (candidatePath, bytes) => {
   const candidate = {
     path: candidatePath, bytes,
@@ -404,7 +513,7 @@ const renameAuthority = first.candidate_index.operation_candidates.rename[0].des
 maxRefValue.candidate_index.operation_candidates = {
   modify: scenarioAnchors.slice(0, 3).map((anchor) => structuredClone(anchor)),
   rename: scenarioAnchors.slice(3, 6).map((anchor) => ({ ...structuredClone(anchor),
-    proposed_path: `src/lamina-oracle-rename-${anchor.blob_oid.slice(0, 8)}`,
+    proposed_path: renameProposalFor(anchor),
     destination_absence: structuredClone(renameAuthority) })),
   delete: scenarioAnchors.slice(6, 9).map((anchor) => structuredClone(anchor)),
   branch: scenarioAnchors.slice(9, 12).map((anchor) => {
@@ -582,12 +691,9 @@ const overlappingOperationSlices = structuredClone(first);
 const overlappingSource = structuredClone(
   overlappingOperationSlices.candidate_index.operation_candidates.modify[0],
 );
-const overlappingParent = path.posix.dirname(overlappingSource.path) === '.'
-  ? '' : `${path.posix.dirname(overlappingSource.path)}/`;
-const overlappingExtension = path.posix.extname(overlappingSource.path);
 overlappingOperationSlices.candidate_index.operation_candidates.rename[0] = {
   ...overlappingSource,
-  proposed_path: `${overlappingParent}lamina-oracle-rename-${overlappingSource.blob_oid.slice(0, 8)}${overlappingExtension}`,
+  proposed_path: renameProposalFor(overlappingSource),
   destination_absence: structuredClone(
     overlappingOperationSlices.candidate_index.operation_candidates.rename[1].destination_absence,
   ),

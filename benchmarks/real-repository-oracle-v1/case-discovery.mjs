@@ -58,6 +58,8 @@ const DISCOVERY_RECONSTRUCTED_MAX_BYTES = 512 * 1024;
 const MAX_SIGNAL_PREVIEW_CODE_UNITS = 240;
 const MAX_SIGNAL_PREVIEW_BYTES = MAX_SIGNAL_PREVIEW_CODE_UNITS * 3;
 const MAX_DISCOVERY_LINE_NUMBER = CASE_DISCOVERY_LIMITS.max_file_bytes + 1;
+const RENAME_DESTINATION_ID_HEX_LENGTH = 12;
+const RENAME_DESTINATION_PREFIX = 'lamina-oracle-rename-';
 const FILE_KEYS = Object.freeze(['path', 'blob_oid', 'stratum', 'category', 'category_signal',
   'symbol', 'line', 'content_sha256', 'role', 'independent_method']);
 const SIGNAL_KEYS = Object.freeze(['value', 'value_sha256', 'occurrence', 'line', 'line_sha256']);
@@ -123,6 +125,17 @@ const boundedInteger = (value, maximum = Number.MAX_SAFE_INTEGER) =>
   Number.isSafeInteger(value) && value >= 0 && value <= maximum;
 const tupleIdentity = (value) => JSON.stringify(value);
 const compareTuples = (left, right) => gitByteCompare(tupleIdentity(left), tupleIdentity(right));
+const safeRenameExtension = (sourcePath) => {
+  const extension = path.posix.extname(sourcePath);
+  return Buffer.byteLength(extension) <= 16 && /^\.[A-Za-z0-9]{1,15}$/.test(extension)
+    ? extension : '';
+};
+const renameDestinationAt = ({ path: sourcePath, blob_oid: blobOid }, attempt) => {
+  const candidateId = digestObject({ path: sourcePath, blob_oid: blobOid })
+    .slice(0, RENAME_DESTINATION_ID_HEX_LENGTH);
+  const suffix = attempt === 0 ? '' : `-${attempt}`;
+  return `${RENAME_DESTINATION_PREFIX}${candidateId}${suffix}${safeRenameExtension(sourcePath)}`;
+};
 
 function exactFileFact(anchor) {
   return [anchor.path, anchor.blob_oid, anchor.stratum, anchor.symbol, anchor.line,
@@ -283,11 +296,9 @@ export function validateDiscoveryResult(result) {
   for (const anchor of operations.rename) {
     validateAnchor(anchor, { category: null, role: 'scenario_before',
       extras: ['proposed_path', 'destination_absence'] });
-    const parent = path.posix.dirname(anchor.path) === '.' ? '' : `${path.posix.dirname(anchor.path)}/`;
-    const extension = path.posix.extname(anchor.path);
     const generatedDestinations = Array.from(
       { length: CASE_DISCOVERY_LIMITS.max_rename_destination_attempts }, (_, attempt) =>
-        `${parent}lamina-oracle-rename-${anchor.blob_oid.slice(0, 8)}${attempt === 0 ? '' : `-${attempt}`}${extension}`,
+        renameDestinationAt(anchor, attempt),
     );
     if (!safeDiscoveryPath(anchor.proposed_path)
       || !generatedDestinations.includes(anchor.proposed_path)
@@ -305,6 +316,10 @@ export function validateDiscoveryResult(result) {
       || anchor.destination_absence.absent !== true) {
       throw new Error('case-discovery rename absence authority is invalid');
     }
+  }
+  if (new Set(operations.rename.map((anchor) => anchor.proposed_path)).size
+      !== operations.rename.length) {
+    throw new Error('case-discovery rename proposals are not distinct');
   }
   for (const anchor of operations.branch) {
     validateAnchor(anchor, { category: null, role: 'scenario_before',
@@ -905,13 +920,14 @@ function buildCandidateIndex(records, trackedPaths, collection) {
     portable_root_included: true,
   });
   const rename = take(3).map((record) => {
-    const parent = path.posix.dirname(record.path) === '.' ? '' : `${path.posix.dirname(record.path)}/`;
-    const extension = path.posix.extname(record.path);
     let proposedPath = null;
     for (let attempt = 0; attempt < CASE_DISCOVERY_LIMITS.max_rename_destination_attempts; attempt += 1) {
-      const suffix = attempt === 0 ? '' : `-${attempt}`;
-      const candidate = `${parent}lamina-oracle-rename-${record.blob_oid.slice(0, 8)}${suffix}${extension}`;
-      if (!occupiedDestinations.has(candidate)) { proposedPath = candidate; break; }
+      const candidate = renameDestinationAt(record, attempt);
+      if (!occupiedDestinations.has(candidate)) {
+        proposedPath = candidate;
+        occupiedDestinations.add(candidate);
+        break;
+      }
     }
     if (!proposedPath) throw new Error('no absent rename destination exists within the fixed attempt bound');
     return { ...compactAnchor(record, null, 'scenario_before'), proposed_path: proposedPath,

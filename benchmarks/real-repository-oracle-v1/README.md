@@ -35,8 +35,11 @@ branch, and logical-worktree rows are unexecuted `scenario_before` candidates.
 Rename destinations carry an absence proof over the complete stage-0 tracked
 path authority plus every implied parent directory in the portable path model,
 not merely the filtered discovery set. The proof binds separate counts and
-digests for tracked paths and occupied destinations. Generated and build outputs,
-including hashed Workbox bundles, are excluded explicitly. The complete index
+digests for tracked paths and occupied destinations. Proposed names are bounded
+root-level canonical-digest identities; only a safe short source extension is
+preserved, so a legal source path cannot make its own destination invalid.
+Generated and build outputs, including hashed Workbox bundles, are excluded
+explicitly. The complete index
 is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
 prefix. The V3 transport interns canonical file and signal facts, uses reference
 tuples for categories, controls, and operations, hoists shared rename authority,
