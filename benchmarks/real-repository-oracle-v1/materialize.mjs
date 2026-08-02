@@ -402,6 +402,59 @@ function trackedEntries(repository, maximumEntries = Number.MAX_SAFE_INTEGER) {
   return entries;
 }
 
+export const CASE_DISCOVERY_SCAN_LIMITS = Object.freeze({
+  max_candidate_files: 6_000,
+  max_candidate_bytes: 64 * 1024 * 1024,
+  max_file_bytes: 1 * 1024 * 1024,
+});
+
+export function visitReviewedDiscoveryCandidates(repository, collection, visitor) {
+  if (typeof visitor !== 'function' || !collection?.reviewed_inventory) {
+    throw new Error('case discovery requires reviewed collection authority and a bounded visitor');
+  }
+  const physicalRepository = fs.realpathSync.native(repository);
+  if (physicalRepository !== path.resolve(repository)) {
+    throw new Error('case discovery requires a canonical physical repository');
+  }
+  const entries = trackedEntries(
+    physicalRepository,
+    Math.min(collection.reviewed_inventory.tracked_files, CASE_DISCOVERY_SCAN_LIMITS.max_candidate_files),
+  );
+  const objectFormat = checkedGit(
+    physicalRepository, ['rev-parse', '--show-object-format'], 60_000,
+  ).trim();
+  const retrievalExtensions = new Set(collection.manifest.retrieval_extensions);
+  let candidateFiles = 0;
+  let candidateBytes = 0;
+  for (const entry of entries) {
+    if (!['100644', '100755'].includes(entry.mode)
+      || isExcludedPath(entry.path, collection.manifest.exclusions)
+      || !retrievalExtensions.has(path.posix.extname(entry.path).toLowerCase())) continue;
+    const named = fs.lstatSync(path.join(physicalRepository, entry.path), { bigint: true });
+    if (named.size > BigInt(collection.manifest.retrieval_max_file_bytes)
+      || named.size > BigInt(CASE_DISCOVERY_SCAN_LIMITS.max_file_bytes)) continue;
+    const physical = readPhysicalTrackedFile(
+      physicalRepository, entry.path, CASE_DISCOVERY_SCAN_LIMITS.max_file_bytes,
+      CASE_DISCOVERY_SCAN_LIMITS.max_candidate_bytes - candidateBytes,
+    );
+    if (entry.oid !== gitBlobOid(objectFormat, physical.bytes)) {
+      throw new Error(`case-discovery bytes do not match the reviewed Git object: ${entry.path}`);
+    }
+    try { new TextDecoder('utf-8', { fatal: true }).decode(physical.bytes); }
+    catch { continue; }
+    candidateFiles += 1;
+    candidateBytes += physical.bytes.length;
+    if (candidateFiles > CASE_DISCOVERY_SCAN_LIMITS.max_candidate_files
+      || candidateBytes > CASE_DISCOVERY_SCAN_LIMITS.max_candidate_bytes) {
+      throw new Error('case discovery exceeds its fixed candidate scan bound');
+    }
+    visitor(Object.freeze({
+      path: entry.path, blob_oid: entry.oid, bytes: physical.bytes,
+    }));
+  }
+  return Object.freeze({ candidate_files: candidateFiles, candidate_bytes: candidateBytes });
+}
+
 export function candidateInventoryFromTracked(repository, entries, manifest, fixture, {
   objectFormat = null,
   maximumTrackedBytes = Number.MAX_SAFE_INTEGER,
@@ -892,7 +945,15 @@ function materializePinnedRepository(scratch, collection) {
 }
 
 export function inspectSignedTier() {
-  const context = assertSafeRunnerContext('real-repository inventory admission');
+  return withSignedReviewedRepository(
+    'real-repository inventory admission',
+    ({ collection, inventory }) => Object.freeze({ collection, inventory }),
+  );
+}
+
+export function withSignedReviewedRepository(purpose, action) {
+  if (typeof action !== 'function') throw new Error('reviewed repository action is required');
+  const context = assertSafeRunnerContext(purpose);
   const collection = reviewedCollectionForTier(context.tier);
   if (context.tier !== collection.fixture_id || context.tier !== collection.fixture_class) {
     throw new Error('signed safe-runner tier does not match the frozen collection class');
@@ -902,7 +963,12 @@ export function inspectSignedTier() {
   return withOwnedScratch(process.env.LAMINA_SAFE_RUNNER_TEMP_DIR, (scratch) => {
     const repository = materializePinnedRepository(scratch, collection);
     const inventory = verifyPinnedRepository(repository, collection);
-    return Object.freeze({ collection, inventory });
+    const result = action(Object.freeze({ collection, inventory, repository }));
+    if (result && typeof result.then === 'function') {
+      throw new Error('reviewed repository action must complete synchronously inside owned scratch');
+    }
+    verifyPinnedRepository(repository, collection);
+    return result;
   });
 }
 

@@ -40,6 +40,7 @@ export const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-ora
 export const REAL_REPOSITORY_ORACLE_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
 export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-reconstruction';
 export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
+export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
@@ -201,7 +202,8 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     }
     if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       && (command.length !== 3
-        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory'].includes(command[2]))) {
+        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases']
+          .includes(command[2]))) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
     return relative !== null
@@ -395,11 +397,13 @@ export function preflightRun({
     const expectedWorkloadId = command[2] === 'reconstruct-inventory'
       ? REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID
       : command[2] === 'review-inventory' ? REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID
+      : command[2] === 'discover-cases' ? REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID
       : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
     if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
       const operation = command[2] === 'reconstruct-inventory'
         ? 'inventory reconstruction' : command[2] === 'review-inventory'
-          ? 'independent inventory review' : 'inventory admission';
+          ? 'independent inventory review' : command[2] === 'discover-cases'
+            ? 'case discovery' : 'inventory admission';
       reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
     }
   }

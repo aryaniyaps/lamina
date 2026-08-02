@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   INVENTORY_REVIEW_RECEIPT, REVIEWED_INVENTORIES,
@@ -44,6 +46,35 @@ assert.equal(Object.isFrozen(INVENTORY_REVIEW_RECEIPT.runs.review_a.reports), tr
 assert.equal(Object.isFrozen(INVENTORY_REVIEW_RECEIPT.tiers.medium.inventory), true);
 assert.equal(Object.isFrozen(INVENTORY_REVIEW_RECEIPT.tiers.medium.link_evidence.normalized_records), true);
 assert.doesNotMatch(bytes.toString('utf8'), /\/tmp\/|\/home\/|lamina-safe-runner-/);
+
+const checkoutProbe = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-receipt-lf-checkout-'));
+try {
+  fs.mkdirSync(path.join(
+    checkoutProbe, 'benchmarks/real-repository-oracle-v1/reviews',
+  ), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, '.gitattributes'), path.join(checkoutProbe, '.gitattributes'));
+  const relativeReceipt = 'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json';
+  fs.copyFileSync(RECEIPT_PATH, path.join(checkoutProbe, relativeReceipt));
+  const runGit = (args) => {
+    const result = spawnSync('git', args, {
+      cwd: checkoutProbe, encoding: 'utf8', timeout: 5_000, maxBuffer: 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+    return result.stdout;
+  };
+  runGit(['init', '--quiet']);
+  runGit(['config', 'core.autocrlf', 'true']);
+  runGit(['add', '--', '.gitattributes', relativeReceipt]);
+  fs.unlinkSync(path.join(checkoutProbe, relativeReceipt));
+  runGit(['checkout-index', '--force', '--', relativeReceipt]);
+  const windowsCheckoutBytes = fs.readFileSync(path.join(checkoutProbe, relativeReceipt));
+  assert.equal(sha256(windowsCheckoutBytes), INVENTORY_REVIEW_RECEIPT_SHA256,
+    'the LF attribute preserves the raw receipt seal under Windows autocrlf checkout');
+  assert.equal(windowsCheckoutBytes.includes(Buffer.from('\r\n')), false);
+} finally {
+  fs.rmSync(checkoutProbe, { recursive: true, force: true });
+}
 
 assert.deepEqual(Object.keys(INVENTORY_REVIEW_RECEIPT.tiers), ['small', 'medium', 'large']);
 for (const tier of ['small', 'medium', 'large']) {

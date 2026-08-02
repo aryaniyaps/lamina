@@ -10,6 +10,8 @@ export const INVENTORY_RECONSTRUCTION_SCHEMA = 'lamina.real-repository-oracle-in
 export const REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
 export const REVIEW_EXACT_COMMAND = Object.freeze(['review-inventory']);
 export const INVENTORY_REVIEW_SCHEMA = 'lamina.real-repository-oracle-inventory-review/v1';
+export const DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
+export const DISCOVERY_EXACT_COMMAND = Object.freeze(['discover-cases']);
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -105,7 +107,12 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${JSON.stringify(inventoryReviewResult(reviewSignedTier()))}\n`);
     return;
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory>');
+  if (JSON.stringify(argv) === JSON.stringify(DISCOVERY_EXACT_COMMAND)) {
+    const { discoverSignedTier, encodeDiscoveryPayload } = await import('./case-discovery.mjs');
+    process.stdout.write(`${encodeDiscoveryPayload(discoverSignedTier()).line}\n`);
+    return;
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

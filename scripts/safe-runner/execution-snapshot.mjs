@@ -48,9 +48,16 @@ export const REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE = Object.freeze([
   'benchmarks/real-repository-oracle-v1/inventory-review-receipt.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json',
 ]);
+export const REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
+  'packages/cli/lib/observation-runtime/node.mjs',
+  'packages/cli/lib/graph-runtime/util.mjs',
+]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
   ...new Set([
     ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+    ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   ]),
 ]);
@@ -712,7 +719,9 @@ export function prepareExecutionSnapshot({
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
   const realRepositorySourceSet = new Set(command[2] === 'review-inventory'
     ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
-    : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
+    : command[2] === 'discover-cases'
+      ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
+      : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
