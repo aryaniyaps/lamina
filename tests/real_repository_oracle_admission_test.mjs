@@ -390,6 +390,12 @@ for (const forbidden of [
   'benchmarks/real-repository-oracle-v1/contract.mjs',
   'benchmarks/real-repository-oracle-v1/evaluate.mjs',
   'benchmarks/real-repository-oracle-v1/grade.mjs',
+  'benchmarks/real-repository-oracle-v1/controller.mjs',
+  'benchmarks/real-repository-oracle-v1/schema/fixture.schema.json',
+  'benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/case-expectations-v1.json',
+  'benchmarks/real-repository-oracle-v1/workflows-v1.json',
+  'benchmarks/real-repository-oracle-v1/goldens-v1.json',
 ]) {
   assert.equal(REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE.includes(forbidden), false,
     `evidence expansion closure cannot load ${forbidden}`);

@@ -30,8 +30,10 @@ It then calls the unchanged production `brownfieldSignals` seam over a bounded
 candidate set. Discovery v2 emits a deterministic compact index with at most
 three distinct anchors per observed category, stratified across source, test,
 docs, and config when those strata are available. Lexical near-neighbors and
-same-stratum negative decoys are controls, while modify, rename, and delete
-rows are unexecuted `scenario_before` candidates. Generated and build outputs,
+same-stratum negative decoys are controls, while modify, rename, delete,
+branch, and logical-worktree rows are unexecuted `scenario_before` candidates.
+Rename destinations carry an absence proof over the complete stage-0 tracked
+path authority, not merely the filtered discovery set. Generated and build outputs,
 including hashed Workbox bundles, are excluded explicitly. The complete index
 is Brotli-compressed into one bounded report-tail line; an oversized index is
 refused rather than lossily compacted.
@@ -59,9 +61,17 @@ The sealed source closure contains the selection file and expansion code but
 not the case-discovery code, oracle fixture, evaluator, grader, Workflow
 documents, or golden answers. Expansion re-verifies the reviewed inventory and
 selected Git blobs, then returns bounded path/blob/content/symbol/line/context
-facts with reviewer-assigned role and independent-method provenance. Missing,
+facts with reviewer-requested role and method metadata plus a separate
+controller-derived verified method. Exact-identifier evidence must occur at
+the declared line, absence evidence must have zero exact matches, and line
+context must name an existing line. Missing,
 tampered, duplicate, traversing, drifted, or over-budget anchors are refused.
 These are lexical Git facts only; they cannot serve as a gold answer or grade.
+An absent rename destination cannot be relabeled as blob evidence: selecting
+that nonexistent path is refused, while its stage-0 absence proof remains on
+the discovery-side rename candidate.
+`scenario_after` is deliberately refused here: it requires a later sealed
+post-mutation evidence workload and cannot inherit pre-scenario facts.
 
 ## Evidence boundary
 

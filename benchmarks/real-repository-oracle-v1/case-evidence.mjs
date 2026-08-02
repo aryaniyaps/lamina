@@ -7,8 +7,8 @@ import {
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import { REVIEWED_INVENTORIES } from './collection-authority.mjs';
 import {
-  EVIDENCE_EXPANSION_LIMITS, candidateInventoryDigest, readReviewedEvidenceAnchors,
-  withSignedReviewedRepository,
+  EVIDENCE_EXPANSION_LIMITS, candidateInventoryDigest, evidenceAnchorIdentity,
+  readReviewedEvidenceAnchors, safeEvidencePath, withSignedReviewedRepository,
 } from './materialize.mjs';
 export { EVIDENCE_EXPANSION_LIMITS } from './materialize.mjs';
 
@@ -18,7 +18,7 @@ const BLOB = /^[a-f0-9]{40}$/;
 const TIERS = Object.freeze(['small', 'medium', 'large']);
 const MAX_SELECTION_BYTES = 64 * 1024;
 const MAX_SELECTION_PATH_BYTES = 32 * 1024;
-const EVIDENCE_ROLES = new Set(['positive', 'negative', 'scenario_before', 'scenario_after']);
+const EVIDENCE_ROLES = new Set(['positive', 'negative', 'scenario_before']);
 const EVIDENCE_METHODS = new Set([
   'sealed_git_blob_exact_identifier', 'sealed_git_blob_line_context', 'sealed_git_blob_absence',
 ]);
@@ -34,10 +34,6 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
     : value;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const canonicalDigest = (value) => sha256(JSON.stringify(canonical(value)));
-const safePath = (value) => typeof value === 'string' && value.length > 0
-  && value.length <= 4096 && !value.includes('\0') && !value.includes('\\')
-  && !value.startsWith('/') && !/^[A-Za-z]:/.test(value)
-  && value.split('/').every((piece) => piece && piece !== '.' && piece !== '..');
 
 export const EVIDENCE_SELECTION_RAW_SHA256 = '89f1596a12097e6f4894fd044e7c10f669568c4675aede9772b42bb36b01dfd3';
 export const EVIDENCE_SELECTION_CANONICAL_SHA256 = 'dab932c37cd588b1bdfe840fdf2aae49c39e3c7d81a24c395cd09efc48ee3853';
@@ -88,7 +84,7 @@ export function validateEvidenceSelection(selection) {
     for (const [index, anchor] of item.anchors.entries()) {
       totalPathBytes += Buffer.byteLength(String(anchor?.path || ''));
       if (!exactKeys(anchor, ['path', 'blob_oid', 'symbol', 'line', 'role', 'independent_method'])
-        || !safePath(anchor.path) || !BLOB.test(anchor.blob_oid || '')
+        || !safeEvidencePath(anchor.path) || !BLOB.test(anchor.blob_oid || '')
         || !EVIDENCE_ROLES.has(anchor.role) || !EVIDENCE_METHODS.has(anchor.independent_method)
         || !(anchor.symbol === null || (typeof anchor.symbol === 'string'
           && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol)))
@@ -97,7 +93,14 @@ export function validateEvidenceSelection(selection) {
         errors.push(`${tier} anchor ${index} is malformed or unsafe`);
         continue;
       }
-      const identity = JSON.stringify(anchor);
+      if ((anchor.independent_method === 'sealed_git_blob_exact_identifier'
+          && (anchor.symbol === null || anchor.line === null))
+        || (anchor.independent_method === 'sealed_git_blob_absence'
+          && (anchor.symbol === null || anchor.line !== null))
+        || (anchor.independent_method === 'sealed_git_blob_line_context' && anchor.line === null)) {
+        errors.push(`${tier} anchor ${index} contradicts its requested evidence method`);
+      }
+      const identity = evidenceAnchorIdentity(anchor);
       if (identities.has(identity)) errors.push(`${tier} anchor ${index} is duplicated`);
       identities.add(identity);
     }
@@ -130,12 +133,31 @@ export function loadEvidenceSelection() {
   return parseEvidenceSelectionBytes(fs.readFileSync(SELECTION_FILE));
 }
 
-function exactSymbolMatches(text, symbol) {
-  if (symbol === null) return [];
-  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`(?:^|[^A-Za-z0-9_$])(${escaped})(?=$|[^A-Za-z0-9_$])`, 'gm');
-  return [...text.matchAll(pattern)].map((match) =>
-    text.slice(0, match.index + match[0].indexOf(match[1])).split('\n').length);
+function exactSymbolEvidence(text, symbol, targetLine) {
+  if (symbol === null) return { count: 0, lines: [], target_line_present: null };
+  let count = 0;
+  const lines = [];
+  let targetLinePresent = false;
+  let cursor = 0;
+  let lineCursor = 0;
+  let line = 1;
+  while (cursor <= text.length - symbol.length) {
+    const found = text.indexOf(symbol, cursor);
+    if (found < 0) break;
+    while (lineCursor < found) {
+      if (text.charCodeAt(lineCursor) === 10) line += 1;
+      lineCursor += 1;
+    }
+    const before = found === 0 ? '' : text[found - 1];
+    const after = found + symbol.length === text.length ? '' : text[found + symbol.length];
+    if (!/[A-Za-z0-9_$]/.test(before) && !/[A-Za-z0-9_$]/.test(after)) {
+      count += 1;
+      if (lines.length < 32 && lines.at(-1) !== line) lines.push(line);
+      if (line === targetLine) targetLinePresent = true;
+    }
+    cursor = found + symbol.length;
+  }
+  return { count, lines, target_line_present: targetLinePresent };
 }
 
 function expandRecord(value) {
@@ -143,13 +165,37 @@ function expandRecord(value) {
   try { text = new TextDecoder('utf-8', { fatal: true }).decode(value.bytes); }
   catch { throw new Error(`selected evidence blob is not UTF-8: ${value.anchor.path}`); }
   const lines = text.split(/\r?\n/);
-  const matches = exactSymbolMatches(text, value.anchor.symbol);
-  const selectedLine = value.anchor.line || matches[0] || 1;
+  if (value.anchor.role === 'scenario_after') {
+    throw new Error('scenario_after requires later post-mutation evidence expansion');
+  }
+  if (!['positive', 'negative', 'scenario_before'].includes(value.anchor.role)) {
+    throw new Error('evidence role is outside the pre-scenario expansion contract');
+  }
+  const method = value.anchor.independent_method;
+  if (!EVIDENCE_METHODS.has(method)) throw new Error('requested evidence method is not supported');
+  const matches = exactSymbolEvidence(text, value.anchor.symbol, value.anchor.line || 1);
+  if (method === 'sealed_git_blob_exact_identifier'
+    && (value.anchor.symbol === null || value.anchor.line === null
+      || matches.target_line_present !== true)) {
+    throw new Error('exact_identifier evidence is absent from the declared line');
+  }
+  if (method === 'sealed_git_blob_absence'
+    && (value.anchor.symbol === null || value.anchor.line !== null || matches.count !== 0)) {
+    throw new Error('absence evidence contradicts exact identifier matches');
+  }
+  if (method === 'sealed_git_blob_line_context' && value.anchor.line === null) {
+    throw new Error('line_context evidence requires a declared line');
+  }
+  const selectedLine = value.anchor.line || matches.lines[0] || 1;
   if (selectedLine > lines.length) throw new Error(`selected evidence line is absent: ${value.anchor.path}:${selectedLine}`);
   const lineText = lines[selectedLine - 1];
   const contextText = lines.slice(Math.max(0, selectedLine - 2), Math.min(lines.length, selectedLine + 1)).join('\n');
   const lineSymbolPresent = value.anchor.symbol === null
-    ? null : exactSymbolMatches(lineText, value.anchor.symbol).length > 0;
+    ? null : matches.target_line_present;
+  const verifiedMethod = method === 'sealed_git_blob_exact_identifier'
+    ? 'exact_identifier_present_at_declared_line'
+    : method === 'sealed_git_blob_absence' ? 'exact_identifier_absent_from_blob'
+      : 'declared_line_context_present';
   return Object.freeze({
     path: value.anchor.path,
     blob_oid: value.anchor.blob_oid,
@@ -162,12 +208,13 @@ function expandRecord(value) {
     line_sha256: sha256(lineText),
     context_text: contextText.slice(0, 480),
     context_sha256: sha256(contextText),
-    symbol_match_count: matches.length,
-    symbol_match_lines: matches.slice(0, 32),
+    symbol_match_count: matches.count,
+    symbol_match_lines: matches.lines,
     line_symbol_present: lineSymbolPresent,
-    role: value.anchor.role,
-    independent_method: value.anchor.independent_method,
-    absence_sha256: value.anchor.symbol !== null && matches.length === 0
+    requested_role: value.anchor.role,
+    requested_method: method,
+    verified_method: verifiedMethod,
+    absence_sha256: method === 'sealed_git_blob_absence' && matches.count === 0
       ? canonicalDigest({ path: value.anchor.path, blob_oid: value.anchor.blob_oid,
         symbol: value.anchor.symbol, content_sha256: sha256(value.bytes) }) : null,
   });

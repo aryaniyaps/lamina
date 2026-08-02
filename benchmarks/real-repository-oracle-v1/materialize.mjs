@@ -66,9 +66,21 @@ function optionalGit(cwd, args, timeout = 60_000) {
 }
 
 function safeRelativePath(relative) {
-  return typeof relative === 'string' && relative.length > 0 && !relative.includes('\0')
+  return typeof relative === 'string' && relative.length > 0 && Buffer.byteLength(relative) <= 4_096
+    && !/[\u0000-\u001f\u007f]/.test(relative)
     && !relative.includes('\\') && !relative.startsWith('/') && !/^[A-Za-z]:/.test(relative)
     && relative.split('/').every((piece) => piece && piece !== '.' && piece !== '..');
+}
+
+export function safeEvidencePath(relative) {
+  return safeRelativePath(relative);
+}
+
+export function evidenceAnchorIdentity(anchor) {
+  return JSON.stringify([
+    anchor.path, anchor.blob_oid, anchor.symbol, anchor.line, anchor.role,
+    anchor.independent_method,
+  ]);
 }
 
 function readPhysicalTrackedFile(
@@ -452,7 +464,11 @@ export function visitReviewedDiscoveryCandidates(repository, collection, visitor
       path: entry.path, blob_oid: entry.oid, bytes: physical.bytes,
     }));
   }
-  return Object.freeze({ candidate_files: candidateFiles, candidate_bytes: candidateBytes });
+  return Object.freeze({
+    candidate_files: candidateFiles,
+    candidate_bytes: candidateBytes,
+    tracked_paths: Object.freeze(entries.map((entry) => entry.path)),
+  });
 }
 
 export const EVIDENCE_EXPANSION_LIMITS = Object.freeze({
@@ -479,12 +495,17 @@ export function readReviewedEvidenceAnchors(repository, collection, anchors) {
         && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol)))
       || !(anchor.line === null || (Number.isSafeInteger(anchor.line)
         && anchor.line >= 1 && anchor.line <= 1_000_000))
-      || !['positive', 'negative', 'scenario_before', 'scenario_after'].includes(anchor.role)
+      || !['positive', 'negative', 'scenario_before'].includes(anchor.role)
       || !['sealed_git_blob_exact_identifier', 'sealed_git_blob_line_context',
-        'sealed_git_blob_absence'].includes(anchor.independent_method)) {
+        'sealed_git_blob_absence'].includes(anchor.independent_method)
+      || (anchor.independent_method === 'sealed_git_blob_exact_identifier'
+        && (anchor.symbol === null || anchor.line === null))
+      || (anchor.independent_method === 'sealed_git_blob_absence'
+        && (anchor.symbol === null || anchor.line !== null))
+      || (anchor.independent_method === 'sealed_git_blob_line_context' && anchor.line === null)) {
       throw new Error('evidence expansion anchor is outside the exact bounded schema');
     }
-    const identity = JSON.stringify(anchor);
+    const identity = evidenceAnchorIdentity(anchor);
     retainedIdentityBytes += Buffer.byteLength(identity);
     if (retainedIdentityBytes > 64 * 1024) {
       throw new Error('evidence expansion anchor identities exceed the fixed byte bound');

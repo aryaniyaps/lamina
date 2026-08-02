@@ -8,14 +8,15 @@ import { reviewedCollectionForTier } from '../benchmarks/real-repository-oracle-
 import {
   CASE_DISCOVERY_LIMITS, CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES,
   CASE_DISCOVERY_PAYLOAD_PREFIX, CASE_DISCOVERY_SCHEMA, decodeDiscoveryPayload,
-  discoverCandidateFacts, discoveryPathDisposition, encodeDiscoveryPayload,
+  discoverCandidateFacts, discoveryPathDisposition, encodeDiscoveryPayload, gitByteCompare,
+  validAuthoringBranchName, validLogicalWorktreeId,
 } from '../benchmarks/real-repository-oracle-v1/case-discovery.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = fs.readFileSync(path.join(ROOT,
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs'), 'utf8');
 for (const forbidden of ['./contract.mjs', './evaluate.mjs', './grade.mjs',
-  'reviews/inventory-v1.json', 'reviewedCase.expected', 'expectedByRequest']) {
+  'reviews/inventory-v1.json', 'reviewedCase.expected', 'expectedByRequest', 'localeCompare']) {
   assert.equal(source.includes(forbidden), false, `discovery cannot load ${forbidden}`);
 }
 
@@ -39,9 +40,12 @@ const inputs = [
   bytes: Buffer.from(text),
   blob_oid: crypto.createHash('sha1').update(text).digest('hex'),
 }));
+const trackedCollisions = new Set();
 const injectedVisitor = (_repository, _collection, visit) => {
   for (const candidate of inputs) visit(candidate);
-  return { candidate_files: inputs.length, candidate_bytes: inputs.reduce((n, item) => n + item.bytes.length, 0) };
+  return { candidate_files: inputs.length,
+    candidate_bytes: inputs.reduce((n, item) => n + item.bytes.length, 0),
+    tracked_paths: [...inputs.map((item) => item.path), ...trackedCollisions] };
 };
 const collection = reviewedCollectionForTier('small');
 const first = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
@@ -75,10 +79,39 @@ assert.ok(first.candidate_index.negative_decoys.length <= CASE_DISCOVERY_LIMITS.
 assert.ok(first.candidate_index.negative_decoys.every((item) =>
   item.basis === 'same_stratum_without_discovered_category' && item.candidate.role === 'negative'));
 for (const [operation, candidates] of Object.entries(first.candidate_index.operation_candidates)) {
-  assert.ok(['modify', 'rename', 'delete'].includes(operation));
+  assert.ok(['modify', 'rename', 'delete', 'branch', 'logical_worktree'].includes(operation));
   assert.ok(candidates.length <= CASE_DISCOVERY_LIMITS.operation_candidates_per_kind);
   assert.ok(candidates.every((item) => item.role === 'scenario_before' && !item.path.includes('..')));
 }
+for (const candidate of first.candidate_index.operation_candidates.rename) {
+  assert.equal(candidate.destination_absence.absent, true);
+  assert.equal(candidate.destination_absence.basis, 'complete_stage0_git_tracked_paths');
+  assert.equal(candidate.destination_absence.tracked_path_count, inputs.length);
+  assert.equal(inputs.some((item) => item.path === candidate.proposed_path), false);
+}
+assert.ok(first.candidate_index.operation_candidates.branch.every((candidate) =>
+  validAuthoringBranchName(candidate.proposed_branch) && candidate.executed === false));
+assert.equal(validAuthoringBranchName('bad..branch'), false);
+assert.equal(validAuthoringBranchName('bad branch'), false);
+assert.equal(new Set(first.candidate_index.operation_candidates.branch
+  .map((candidate) => candidate.proposed_branch)).size,
+first.candidate_index.operation_candidates.branch.length);
+assert.ok(first.candidate_index.operation_candidates.logical_worktree.every((candidate) =>
+  validLogicalWorktreeId(candidate.logical_worktree_id) && candidate.executed === false));
+assert.equal(validLogicalWorktreeId('oracle-worktree-NOT-A-DIGEST'), false);
+assert.equal(new Set(first.candidate_index.operation_candidates.logical_worktree
+  .map((candidate) => candidate.logical_worktree_id)).size,
+first.candidate_index.operation_candidates.logical_worktree.length);
+const initialRename = first.candidate_index.operation_candidates.rename[0];
+trackedCollisions.add(initialRename.proposed_path);
+const collisionAware = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
+assert.notEqual(collisionAware.candidate_index.operation_candidates.rename[0].proposed_path,
+  initialRename.proposed_path, 'rename destination checks the complete tracked tree, not discovery records');
+assert.equal(collisionAware.candidate_index.operation_candidates.rename[0]
+  .destination_absence.tracked_path_count, inputs.length + 1);
+trackedCollisions.clear();
+assert.deepEqual(['z', 'ä', 'a', 'Z'].sort(gitByteCompare), ['Z', 'a', 'z', 'ä'],
+  'candidate ordering is exact UTF-8 byte order and does not depend on process locale');
 const encoded = encodeDiscoveryPayload(first);
 assert.ok(encoded.line.startsWith(CASE_DISCOVERY_PAYLOAD_PREFIX));
 assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);

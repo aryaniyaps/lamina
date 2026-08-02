@@ -16,6 +16,7 @@ export const CASE_DISCOVERY_LIMITS = Object.freeze({
   max_neighbor_records: 16,
   max_negative_decoys: 16,
   operation_candidates_per_kind: 3,
+  max_rename_destination_attempts: 16,
   max_definition_anchors_per_file: 3,
 });
 export const DISCOVERY_PATH_RULES = Object.freeze({
@@ -42,6 +43,14 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
     : value;
 const digestObject = (value) => sha256(JSON.stringify(canonical(value)));
+export const gitByteCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+export const validAuthoringBranchName = (value) => typeof value === 'string'
+  && value.length > 0 && Buffer.byteLength(value) <= 240
+  && !/[\u0000-\u0020\u007f~^:?*[\\]/.test(value) && !value.includes('..')
+  && !value.includes('//') && !value.startsWith('/') && !value.endsWith('/')
+  && !value.endsWith('.') && !value.endsWith('.lock');
+export const validLogicalWorktreeId = (value) =>
+  typeof value === 'string' && /^oracle-worktree-[a-f0-9]{12}$/.test(value);
 
 export function discoveryPathDisposition(relative) {
   const pieces = relative.split('/');
@@ -134,7 +143,7 @@ function pathSimilarity(left, right) {
   return leftPieces.filter((piece) => rightSet.has(piece)).length;
 }
 
-function buildCandidateIndex(records) {
+function buildCandidateIndex(records, trackedPaths, collection) {
   const categories = [...new Set(records.flatMap((record) => record.categories))].sort();
   const byCategory = Object.fromEntries(categories.map((category) => {
     const candidates = records.filter((record) => record.categories.includes(category));
@@ -149,7 +158,7 @@ function buildCandidateIndex(records) {
     const candidates = records.filter((record) => record.path !== anchor.path
       && record.stratum === anchor.stratum).sort((left, right) =>
       pathSimilarity(anchor.path, right.path) - pathSimilarity(anchor.path, left.path)
-      || left.path.localeCompare(right.path));
+      || gitByteCompare(left.path, right.path));
     const neighbor = candidates[0];
     if (neighbor && neighbors.length < CASE_DISCOVERY_LIMITS.max_neighbor_records) {
       neighbors.push({ category, anchor_path: anchor.path,
@@ -166,21 +175,48 @@ function buildCandidateIndex(records) {
   const operationPool = stratified(records.filter((record) => record.byte_length > 0), 12);
   const take = (offset) => operationPool.slice(offset, offset + CASE_DISCOVERY_LIMITS.operation_candidates_per_kind);
   const modify = take(0).map((record) => compactAnchor(record, null, 'scenario_before'));
-  const existingPaths = new Set(records.map((record) => record.path));
+  const orderedTrackedPaths = [...new Set(trackedPaths)].sort(gitByteCompare);
+  const existingPaths = new Set(orderedTrackedPaths);
+  const trackedPathAuthority = Object.freeze({
+    basis: 'complete_stage0_git_tracked_paths',
+    tracked_path_count: orderedTrackedPaths.length,
+    tracked_paths_sha256: digestObject(orderedTrackedPaths),
+  });
   const rename = take(3).map((record) => {
-    const proposedPath = `${path.posix.dirname(record.path) === '.' ? '' : `${path.posix.dirname(record.path)}/`}lamina-oracle-rename-${record.blob_oid.slice(0, 8)}${path.posix.extname(record.path)}`;
-    return existingPaths.has(proposedPath) ? null : {
-      ...compactAnchor(record, null, 'scenario_before'), proposed_path: proposedPath,
-    };
-  }).filter(Boolean);
+    const parent = path.posix.dirname(record.path) === '.' ? '' : `${path.posix.dirname(record.path)}/`;
+    const extension = path.posix.extname(record.path);
+    let proposedPath = null;
+    for (let attempt = 0; attempt < CASE_DISCOVERY_LIMITS.max_rename_destination_attempts; attempt += 1) {
+      const suffix = attempt === 0 ? '' : `-${attempt}`;
+      const candidate = `${parent}lamina-oracle-rename-${record.blob_oid.slice(0, 8)}${suffix}${extension}`;
+      if (!existingPaths.has(candidate)) { proposedPath = candidate; break; }
+    }
+    if (!proposedPath) throw new Error('no absent rename destination exists within the fixed attempt bound');
+    return { ...compactAnchor(record, null, 'scenario_before'), proposed_path: proposedPath,
+      destination_absence: Object.freeze({ ...trackedPathAuthority, absent: true }) };
+  });
   const remove = take(6).map((record) => compactAnchor(record, null, 'scenario_before'));
+  const branch = take(9).map((record) => {
+    const candidateId = digestObject({ path: record.path, blob_oid: record.blob_oid }).slice(0, 12);
+    const proposedBranch = `lamina-oracle/${candidateId}`;
+    if (!validAuthoringBranchName(proposedBranch)) throw new Error('generated branch candidate is invalid');
+    return { ...compactAnchor(record, null, 'scenario_before'), proposed_branch: proposedBranch,
+      source_commit: collection.commit, executed: false };
+  });
+  const logicalWorktree = take(9).map((record) => {
+    const candidateId = digestObject({ path: record.path, blob_oid: record.blob_oid }).slice(0, 12);
+    const logicalWorktreeId = `oracle-worktree-${candidateId}`;
+    if (!validLogicalWorktreeId(logicalWorktreeId)) throw new Error('generated worktree candidate is invalid');
+    return { ...compactAnchor(record, null, 'scenario_before'),
+      logical_worktree_id: logicalWorktreeId, source_commit: collection.commit, executed: false };
+  });
   const index = {
     schema: 'lamina.real-repository-oracle-discovery-index/v1',
     rules_sha256: digestObject(DISCOVERY_PATH_RULES),
     categories: byCategory,
     near_neighbors: neighbors,
     negative_decoys: decoys,
-    operation_candidates: { modify, rename, delete: remove },
+    operation_candidates: { modify, rename, delete: remove, branch, logical_worktree: logicalWorktree },
   };
   return Object.freeze({ ...index, index_sha256: digestObject(index) });
 }
@@ -191,7 +227,7 @@ export function discoverCandidateFacts(
   const records = [];
   let excludedGeneratedArtifacts = 0;
   if (typeof candidateVisitor !== 'function') throw new Error('case discovery requires a candidate visitor');
-  const scan = candidateVisitor(repository, collection, (candidate) => {
+  const visited = candidateVisitor(repository, collection, (candidate) => {
     const disposition = discoveryPathDisposition(candidate.path);
     if (!disposition.admitted) { excludedGeneratedArtifacts += 1; return; }
     const observed = brownfieldSignals(candidate.path, candidate.bytes);
@@ -205,8 +241,17 @@ export function discoverCandidateFacts(
       categories: observed.categories, definitions, signal_facts: signalFacts,
     });
   });
-  records.sort((left, right) => left.path.localeCompare(right.path));
-  const candidateIndex = buildCandidateIndex(records);
+  const visitedPathSet = new Set(visited?.tracked_paths || []);
+  if (!visited || !Array.isArray(visited.tracked_paths)
+    || visited.tracked_paths.some((trackedPath) => typeof trackedPath !== 'string'
+      || trackedPath.length === 0 || Buffer.byteLength(trackedPath) > 4_096
+      || /[\u0000-\u001f\u007f]/.test(trackedPath))
+    || visitedPathSet.size !== visited.tracked_paths.length
+    || records.some((record) => !visitedPathSet.has(record.path))) {
+    throw new Error('case discovery requires complete stage-0 tracked path authority');
+  }
+  records.sort((left, right) => gitByteCompare(left.path, right.path));
+  const candidateIndex = buildCandidateIndex(records, visited.tracked_paths, collection);
   return Object.freeze({
     schema: CASE_DISCOVERY_SCHEMA,
     workload_id: 'real-repository-oracle-v1:case-discovery',
@@ -221,7 +266,9 @@ export function discoverCandidateFacts(
     }),
     inventory: collection.reviewed_inventory,
     bounds: CASE_DISCOVERY_LIMITS,
-    scan: Object.freeze({ ...scan, admitted_index_files: records.length, excluded_generated_artifacts: excludedGeneratedArtifacts }),
+    scan: Object.freeze({ candidate_files: visited.candidate_files,
+      candidate_bytes: visited.candidate_bytes, tracked_path_count: visited.tracked_paths.length,
+      admitted_index_files: records.length, excluded_generated_artifacts: excludedGeneratedArtifacts }),
     candidate_index: candidateIndex,
     authoring_handoff: Object.freeze({
       next_action: 'reviewer_selects_bounded_evidence_anchors', freeze_allowed: false,
