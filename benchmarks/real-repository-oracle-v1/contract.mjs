@@ -40,6 +40,14 @@ export const CHANGE_KINDS = Object.freeze([
 export const OPERATION_KINDS = Object.freeze([
   'modify', 'rename', 'delete', 'checkout_branch', 'add_worktree',
 ]);
+// Materialization is deterministic: modify/delete remain unstaged, while a
+// rename is staged after the filesystem move so Git emits one type-2 R. record
+// instead of an unstaged delete plus untracked destination.
+export const DIRTY_OPERATION_PORCELAIN = Object.freeze({
+  modify: Object.freeze({ kind: 'ordinary', xy: '.M', submodule: 'N...', staging: 'unstaged' }),
+  rename: Object.freeze({ kind: 'renamed', xy: 'R.', submodule: 'N...', staging: 'staged' }),
+  delete: Object.freeze({ kind: 'deleted', xy: '.D', submodule: 'N...', staging: 'unstaged' }),
+});
 export const MUTATION_KINDS = Object.freeze([
   'wrong_workflow', 'missing_observation', 'lost_obligation',
   'source_ranking_regression', 'extra_workflow', 'nondeterministic_replay',
@@ -223,6 +231,21 @@ function validateCase(item, index, collectionsById, errors) {
       && (operations.length !== 1 || operations[0] !== 'add_worktree'))) {
     errors.push(`${at}.repository_scenario kind does not match its executable operations`);
   }
+  if (item.repository_scenario.kind === 'dirty') {
+    const claimedPaths = new Map();
+    for (const [operationIndex, operation] of item.repository_scenario.operations.entries()) {
+      const paths = operation.op === 'rename' ? [operation.path, operation.to] : [operation.path];
+      for (const candidate of paths) {
+        const conflict = [...claimedPaths.keys()].find((claimed) => candidate === claimed
+          || candidate.startsWith(`${claimed}/`) || claimed.startsWith(`${candidate}/`));
+        if (conflict) {
+          errors.push(`${at}.repository_scenario.operations[${operationIndex}] conflicts with another dirty operation at ${candidate}`);
+        } else {
+          claimedPaths.set(candidate, operationIndex);
+        }
+      }
+    }
+  }
   const expectedWorktreeRole = item.repository_scenario.kind === 'worktree'
     ? item.repository_scenario.operations[0]?.worktree_id : 'primary';
   if (item.expected.repository_state.worktree_role !== expectedWorktreeRole) {
@@ -241,9 +264,10 @@ function validateCase(item, index, collectionsById, errors) {
     errors.push(`${at}.expected.repository_state must begin without upstream divergence`);
   }
   const expectedChanges = item.repository_scenario.operations.flatMap((operation) => {
-    if (operation.op === 'modify') return [{ kind: 'ordinary', path: operation.path, original_path: null, xy: '.M', submodule: 'N...' }];
-    if (operation.op === 'rename') return [{ kind: 'renamed', path: operation.to, original_path: operation.path, xy: '.R', submodule: 'N...' }];
-    if (operation.op === 'delete') return [{ kind: 'deleted', path: operation.path, original_path: null, xy: '.D', submodule: 'N...' }];
+    const semantics = DIRTY_OPERATION_PORCELAIN[operation.op];
+    if (operation.op === 'modify') return [{ kind: semantics.kind, path: operation.path, original_path: null, xy: semantics.xy, submodule: semantics.submodule }];
+    if (operation.op === 'rename') return [{ kind: semantics.kind, path: operation.to, original_path: operation.path, xy: semantics.xy, submodule: semantics.submodule }];
+    if (operation.op === 'delete') return [{ kind: semantics.kind, path: operation.path, original_path: null, xy: semantics.xy, submodule: semantics.submodule }];
     return [];
   });
   const reviewedChanges = item.expected.repository_state.changes;
@@ -258,6 +282,9 @@ function validateCase(item, index, collectionsById, errors) {
   if (['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
     && item.expected.selected_workflow_ids.length === 0) {
     errors.push(`${at} selected Workflow outcome requires at least one selected id`);
+  }
+  if (item.expected.selected_workflow_ids.some((id) => item.expected.forbidden_workflow_ids.includes(id))) {
+    errors.push(`${at}.expected selected and forbidden Workflow ids must be disjoint`);
   }
   const expectedOutcome = item.kind.intent === 'multi_workflow' ? 'multi_workflow'
     : item.kind.intent === 'new_workflow' ? 'new_workflow_required' : null;
@@ -322,7 +349,8 @@ export function validateFixture(fixture) {
       observation: reviewedCase.expected.observations.length > 0,
       obligation: reviewedCase.expected.obligations.length > 0,
       source_ranking: reviewedCase.expected.source_ranking.length > 0,
-      multi_workflow: reviewedCase.expected.workflow_outcome === 'multi_workflow',
+      multi_workflow: reviewedCase.expected.workflow_outcome === 'multi_workflow'
+        && reviewedCase.expected.forbidden_workflow_ids.some((id) => !reviewedCase.expected.selected_workflow_ids.includes(id)),
       replay: true, repository_state: true,
       rename: reviewedCase.repository_scenario.operations.some((operation) => operation.op === 'rename'
         && reviewedCase.expected.forbidden_paths.includes(operation.path)
@@ -440,14 +468,34 @@ export function attestableResultDigest(result) {
   return digest(bound);
 }
 
+const targetKey = (value) => JSON.stringify(canonical(value));
 const mutationExecutors = Object.freeze({
-  wrong_workflow(result, index) { result.cases[index].selected_workflow_ids = ['workflow.mutated-wrong']; },
-  missing_observation(result, index) { result.cases[index].observations.shift(); },
-  lost_obligation(result, index) { result.cases[index].obligations.shift(); },
-  source_ranking_regression(result, index) { result.cases[index].source_ranking = []; },
-  extra_workflow(result, index) { result.cases[index].selected_workflow_ids.push('workflow.mutated-extra'); },
-  nondeterministic_replay(result) { result.replay_digest = '0'.repeat(64); },
-  repository_state_mismatch(result, index) { result.cases[index].repository_state.ahead += 1; },
+  wrong_workflow(result, index, reviewedCase) {
+    const expected = reviewedCase.expected.selected_workflow_ids[0];
+    result.cases[index].selected_workflow_ids = result.cases[index].selected_workflow_ids.filter((id) => id !== expected);
+  },
+  missing_observation(result, index, reviewedCase) {
+    const expected = targetKey(reviewedCase.expected.observations[0]);
+    result.cases[index].observations = result.cases[index].observations.filter((item) => targetKey(item) !== expected);
+  },
+  lost_obligation(result, index, reviewedCase) {
+    const expected = targetKey(reviewedCase.expected.obligations[0]);
+    result.cases[index].obligations = result.cases[index].obligations.filter((item) => targetKey(item) !== expected);
+  },
+  source_ranking_regression(result, index, reviewedCase) {
+    const expected = reviewedCase.expected.source_ranking[0];
+    result.cases[index].source_ranking = result.cases[index].source_ranking
+      .filter((item) => item.path !== expected.path || item.symbol !== expected.symbol);
+  },
+  extra_workflow(result, index, reviewedCase) {
+    result.cases[index].selected_workflow_ids.push(reviewedCase.expected.forbidden_workflow_ids[0]);
+  },
+  nondeterministic_replay(result) {
+    result.replay_digest = `${result.replay_digest[0] === '0' ? '1' : '0'}${result.replay_digest.slice(1)}`;
+  },
+  repository_state_mismatch(result, index, reviewedCase) {
+    result.cases[index].repository_state.ahead = reviewedCase.expected.repository_state.ahead + 1;
+  },
   stale_rename_path(result, index, reviewedCase) {
     const operation = reviewedCase.repository_scenario.operations.find((item) => item.op === 'rename');
     result.cases[index].source_ranking.push({ path: operation.path, symbol: null });

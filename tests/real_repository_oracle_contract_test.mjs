@@ -6,7 +6,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import {
   ADAPTER_SCHEMA, BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256,
-  COLLECTION_PINS, COLLECTION_SCHEMA, FIXTURE_SCHEMA, FROZEN_GATES,
+  COLLECTION_PINS, COLLECTION_SCHEMA, DIRTY_OPERATION_PORCELAIN,
+  FIXTURE_SCHEMA, FROZEN_GATES,
   OBSERVATION_CATEGORIES, OBLIGATION_CATEGORIES, QUALIFIED_CURRENT_BASELINE,
   QUERY_KINDS, RESULT_SCHEMA, canonical, collectionDigest, digest,
   executeRegisteredMutation, isSafeBranchName, isSafeRelativePath,
@@ -24,6 +25,7 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/attestation.mjs';
 import { runOracleThroughSafeRunner } from '../benchmarks/real-repository-oracle-v1/controller.mjs';
 import { resolvePhysicalContained } from '../benchmarks/real-repository-oracle-v1/materialization-registry.mjs';
+import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { heldOutIdentity } from '../benchmarks/real-repository-oracle-v1/held-out-compatibility.mjs';
 import { parsePorcelainV2Z } from '../benchmarks/real-repository-oracle-v1/repository-state.mjs';
 import { retrievalFixture } from '../benchmarks/retrieval-v1/fixtures.mjs';
@@ -84,9 +86,10 @@ function reviewedCase(collectionValue, query, index) {
         branch: ['branch', 'worktree'].includes(scenario.kind) ? scenario.operations[0].branch : '(detached)', upstream: null,
         ahead: 0, behind: 0, worktree_role: index === 5 ? 'linked-1' : 'primary',
         changes: scenario.operations.flatMap((operation) => {
-          if (operation.op === 'modify') return [{ kind: 'ordinary', path: operation.path, original_path: null, xy: '.M', submodule: 'N...' }];
-          if (operation.op === 'rename') return [{ kind: 'renamed', path: operation.to, original_path: operation.path, xy: '.R', submodule: 'N...' }];
-          if (operation.op === 'delete') return [{ kind: 'deleted', path: operation.path, original_path: null, xy: '.D', submodule: 'N...' }];
+          const semantics = DIRTY_OPERATION_PORCELAIN[operation.op];
+          if (operation.op === 'modify') return [{ kind: semantics.kind, path: operation.path, original_path: null, xy: semantics.xy, submodule: semantics.submodule }];
+          if (operation.op === 'rename') return [{ kind: semantics.kind, path: operation.to, original_path: operation.path, xy: semantics.xy, submodule: semantics.submodule }];
+          if (operation.op === 'delete') return [{ kind: semantics.kind, path: operation.path, original_path: null, xy: semantics.xy, submodule: semantics.submodule }];
           return [];
         }),
       },
@@ -263,6 +266,49 @@ try {
   assert.throws(() => resolvePhysicalContained(path.join(temp, 'repo'), 'escape/outside'), /symlink/);
 } finally { fs.rmSync(temp, { recursive: true, force: true }); }
 
+// Probe the real Git state machine used by materialization: modify/delete are
+// deliberately unstaged, while rename is staged to obtain one type-2 R. row.
+const porcelainProbe = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-porcelain-')));
+function probeGit(args, encoding = 'utf8') {
+  const completed = spawnTrustedGit(porcelainProbe, args, { encoding });
+  assert.equal(completed.status, 0, `git ${args.join(' ')} failed: ${String(completed.stderr)}`);
+  return completed.stdout;
+}
+function probedChanges() {
+  return parsePorcelainV2Z(probeGit([
+    'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--find-renames=50%',
+  ], null), { worktreeRole: 'primary' }).changes;
+}
+try {
+  probeGit(['init', '-q']);
+  fs.mkdirSync(path.join(porcelainProbe, 'src'));
+  fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'original\n');
+  probeGit(['add', 'src/a.ts']);
+  probeGit(['-c', 'user.name=Lamina Oracle', '-c', 'user.email=oracle@lamina.invalid', 'commit', '-qm', 'base']);
+
+  fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'modified\n');
+  assert.deepEqual(probedChanges(), [
+    { kind: 'ordinary', path: 'src/a.ts', original_path: null, xy: '.M', submodule: 'N...' },
+  ]);
+  probeGit(['reset', '--hard', '-q', 'HEAD']);
+
+  fs.renameSync(path.join(porcelainProbe, 'src/a.ts'), path.join(porcelainProbe, 'src/b.ts'));
+  assert.deepEqual(probedChanges(), [
+    { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
+    { kind: 'untracked', path: 'src/b.ts', original_path: null, xy: null, submodule: null },
+  ], 'a single unstaged filesystem rename cannot truthfully claim one rename row');
+  probeGit(['add', '-A']);
+  assert.deepEqual(probedChanges(), [
+    { kind: 'renamed', path: 'src/b.ts', original_path: 'src/a.ts', xy: 'R.', submodule: 'N...' },
+  ]);
+  probeGit(['reset', '--hard', '-q', 'HEAD']);
+
+  fs.unlinkSync(path.join(porcelainProbe, 'src/a.ts'));
+  assert.deepEqual(probedChanges(), [
+    { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
+  ]);
+} finally { fs.rmSync(porcelainProbe, { recursive: true, force: true }); }
+
 // Schema-first validation keeps manual/schema shape checks in parity.
 for (const mutate of [
   (value) => { value.id = ''; },
@@ -302,11 +348,25 @@ const missingScenarioChange = structuredClone(fixture);
 missingScenarioChange.cases[2].expected.repository_state.changes = [];
 assert.equal(validateFixture(missingScenarioChange).valid, false, 'rename operations cannot claim a zero-change repository state');
 const wrongPorcelainSemantics = structuredClone(fixture);
-wrongPorcelainSemantics.cases[2].expected.repository_state.changes[0].xy = 'R.';
+wrongPorcelainSemantics.cases[2].expected.repository_state.changes[0].xy = '.R';
 assert.equal(validateFixture(wrongPorcelainSemantics).valid, false, 'scenario state must preserve exact porcelain XY semantics');
 const zeroChangeRename = structuredClone(fixture);
 zeroChangeRename.cases[2].repository_scenario.operations[0].to = 'src/a.ts';
 assert.equal(validateFixture(zeroChangeRename).valid, false, 'rename operations must change the path');
+const overlappingDirtyPaths = structuredClone(fixture);
+overlappingDirtyPaths.cases[1].repository_scenario.operations.push({ op: 'delete', path: 'src/a.ts' });
+assert.equal(validateFixture(overlappingDirtyPaths).valid, false, 'one porcelain path cannot be claimed by two dirty operations');
+const conflictingRenameDestination = structuredClone(fixture);
+conflictingRenameDestination.cases[2].repository_scenario.operations.push({ op: 'modify', path: 'src/b.ts', content: 'conflict' });
+assert.equal(validateFixture(conflictingRenameDestination).valid, false, 'rename destinations cannot overlap another dirty operation');
+const ancestorDirtyConflict = structuredClone(fixture);
+ancestorDirtyConflict.cases[1].repository_scenario.operations.push({ op: 'rename', path: 'src', to: 'lib' });
+const ancestorConflictValidation = validateFixture(ancestorDirtyConflict);
+assert.ok(ancestorConflictValidation.errors.some((item) => item.includes('conflicts with another dirty operation')),
+  'ancestor and descendant dirty paths cannot claim independent porcelain states');
+const selectedForbiddenConflict = structuredClone(fixture);
+selectedForbiddenConflict.cases[0].expected.forbidden_workflow_ids[0] = selectedForbiddenConflict.cases[0].expected.selected_workflow_ids[0];
+assert.equal(validateFixture(selectedForbiddenConflict).valid, false, 'selected and forbidden Workflow contracts must be disjoint');
 
 for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree_role']) {
   const mismatch = structuredClone(result);
@@ -325,9 +385,25 @@ assert.ok(gradeResult(fixture, extraChange).diagnostics.some((item) => item.incl
 for (const mutation of fixture.mutations) {
   const mutated = executeRegisteredMutation(fixture, result, mutation);
   const graded = gradeResult(fixture, mutated);
+  assert.equal(validateResult(mutated).valid, true, `${mutation.kind} remains schema-valid`);
   assert.equal(graded.passed, false, `${mutation.kind} must fail the end-to-end grade`);
   assert.equal(graded.classification, 'product_regression', mutation.kind);
   for (const needle of mutation.diagnostic_includes) assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
+}
+const prependedUnrelated = structuredClone(result);
+prependedUnrelated.cases[0].observations.unshift({ category: 'unrelated', path: 'src/unrelated-observation.ts' });
+prependedUnrelated.cases[0].obligations.unshift({ category: 'unrelated', path: 'src/unrelated-obligation.ts' });
+prependedUnrelated.replay_digest = resultCasesDigest(prependedUnrelated.cases);
+assert.equal(gradeResult(fixture, prependedUnrelated).classification, 'pass');
+for (const mutation of fixture.mutations) {
+  const mutated = executeRegisteredMutation(fixture, prependedUnrelated, mutation);
+  assert.equal(validateResult(mutated).valid, true);
+  const graded = gradeResult(fixture, mutated);
+  assert.equal(graded.classification, 'product_regression',
+    `${mutation.kind} targets reviewed evidence even with unrelated prepended entries`);
+  for (const needle of mutation.diagnostic_includes) {
+    assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
+  }
 }
 const inertMutation = structuredClone(fixture);
 inertMutation.mutations.find((item) => item.kind === 'stale_rename_path').case_id = cases[0].id;
