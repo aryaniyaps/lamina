@@ -2059,6 +2059,51 @@ try {
   assert.deepEqual(JSON.parse(Buffer.from(
     graphdSandboxContract.sealedGitIdentity, 'base64url',
   ).toString('utf8')), validGraphdSnapshot.git_executable_identity);
+  if (process.platform === 'linux' && typeof process.getuid === 'function'
+    && process.getuid() !== 0) {
+    const namespaceProbe = path.resolve('tests/fixtures/spawn-trusted-git-namespace-probe.mjs');
+    const runNamespaceProbe = (expected, sealedIdentity = null) => {
+      const completed = spawnSync(infrastructureBinaries().bwrap, [
+        '--die-with-parent', '--unshare-user', '--unshare-pid', '--unshare-net',
+        '--uid', '0', '--gid', '0', '--ro-bind', '/', '/', '--dev-bind', '/dev', '/dev',
+        '--proc', '/proc',
+        ...(sealedIdentity
+          ? ['--setenv', 'LAMINA_SAFE_GIT_IDENTITY', sealedIdentity] : []),
+        '--', fs.realpathSync.native(process.execPath), namespaceProbe, expected,
+      ], {
+        encoding: 'utf8', timeout: 15_000, maxBuffer: 256 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'], env: sanitizedEnvironment(process.env),
+      });
+      assert.equal(completed.status, 0,
+        `real user-namespace Git ${expected} probe failed: ${completed.stderr}`);
+      return JSON.parse(completed.stdout);
+    };
+    const namespaceValid = runNamespaceProbe(
+      'valid', graphdSandboxContract.sealedGitIdentity,
+    );
+    assert.equal(namespaceValid.first.ok, true);
+    assert.equal(namespaceValid.retry.ok, true,
+      'every sealed Git spawn must revalidate namespace continuity');
+    assert.equal(namespaceValid.seal_consumed, true);
+    assert.equal(namespaceValid.uid, 0);
+    assert.equal(namespaceValid.controller_git_uid,
+      validGraphdSnapshot.git_executable_identity.uid);
+    assert.equal(namespaceValid.namespace_git_uid,
+      Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()),
+    'host-root Git ownership must translate to the kernel overflow UID in this user namespace');
+    const forgedOverflowUid = Buffer.from(JSON.stringify({
+      ...validGraphdSnapshot.git_executable_identity,
+      uid: Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()),
+    })).toString('base64url');
+    const namespaceForgedUid = runNamespaceProbe('invalid', forgedOverflowUid);
+    assert.equal(namespaceForgedUid.first.ok, false,
+      'an arbitrary sealed host UID cannot authenticate by equaling namespace overflow UID');
+    assert.match(namespaceForgedUid.first.error, /unproved unmapped host UID/);
+    const namespaceMissing = runNamespaceProbe('missing');
+    assert.equal(namespaceMissing.first.ok, false);
+    assert.equal(namespaceMissing.retry.ok, false,
+      'an audited user-namespace payload cannot rediscover Git without its outside seal');
+  }
   assert.throws(() => validateSandboxExecutionAuthority({
     executionAuthority: {
       ...encodedGraphdAuthority,

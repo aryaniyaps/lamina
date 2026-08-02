@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnTrustedGit, trustedGitIdentity } from '../../scripts/safe-runner/git.mjs';
+import { trustedBinaryIdentity } from '../../scripts/safe-runner/infrastructure.mjs';
 
 const mode = process.argv[2];
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-git-seal-')));
@@ -23,6 +24,21 @@ try {
       ...identity,
       digest: `${identity.digest[0] === 'f' ? 'e' : 'f'}${identity.digest.slice(1)}`,
     })).toString('base64url');
+  } else if (mode === 'inode-mismatch') {
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
+      ...identity, ino: String(BigInt(identity.ino) + 1n),
+    })).toString('base64url');
+  } else if (mode === 'mode-mismatch') {
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
+      ...identity, mode: identity.mode === 0o555 ? 0o755 : 0o555,
+    })).toString('base64url');
+  } else if (mode === 'arbitrary-path') {
+    const arbitraryGit = path.join(temporaryRoot, 'arbitrary-git');
+    fs.copyFileSync(identity.path, arbitraryGit, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(arbitraryGit, 0o500);
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify(
+      trustedBinaryIdentity(arbitraryGit),
+    )).toString('base64url');
   } else if (mode === 'valid') {
     process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify(identity)).toString('base64url');
   } else {

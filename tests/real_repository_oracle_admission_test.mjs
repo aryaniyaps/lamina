@@ -207,7 +207,10 @@ try {
       'Windows intentionally makes no production Git/materialization claim');
   } else {
     const sealProbe = path.join(ROOT, 'tests/fixtures/spawn-trusted-git-seal-probe.mjs');
-    for (const mode of ['malformed', 'oversized', 'extra-field', 'mismatched', 'valid']) {
+    for (const mode of [
+      'malformed', 'oversized', 'extra-field', 'mismatched', 'inode-mismatch',
+      'mode-mismatch', 'arbitrary-path', 'valid',
+    ]) {
       const probe = spawnSync(process.execPath, [sealProbe, mode], {
         cwd: temporaryRoot,
         env: { ...process.env, LAMINA_SAFE_GIT_IDENTITY: '' },

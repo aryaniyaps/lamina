@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -29,13 +30,16 @@ const INERT_CONFIG = Object.freeze([
   'fetch.recurseSubmodules=false',
 ]);
 
-const FIXED_GIT_DIRECTORIES = process.platform === 'win32'
+const FIXED_GIT_DIRECTORIES = Object.freeze(process.platform === 'win32'
   ? [
       path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'cmd'),
       path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin'),
       path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Git', 'cmd'),
     ]
-  : undefined;
+  : ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']);
+const GIT_BINARY_NAME = process.platform === 'win32' ? 'git.exe' : 'git';
+const MAX_GIT_BINARY_BYTES = 256 * 1024 * 1024;
+const MAX_UID_MAP_BYTES = 4_096;
 
 let gitIdentity = null;
 const SEALED_GIT_IDENTITY_FIELDS = Object.freeze([
@@ -43,6 +47,7 @@ const SEALED_GIT_IDENTITY_FIELDS = Object.freeze([
 ]);
 const MAX_SEALED_GIT_IDENTITY_BYTES = 4_096;
 let sealedGitIdentityState = 'unseen';
+let verifiedSealedGitIdentity = null;
 
 const EXECUTABLE_SECTIONS = new Set([
   'alias', 'credential', 'diff', 'filter', 'gpg', 'include', 'includeif',
@@ -162,10 +167,135 @@ export function assertRepositoryGitConfigInert(cwd) {
 
 export function trustedGitIdentity() {
   if (!gitIdentity) {
-    gitIdentity = trustedHostBinary(process.platform === 'win32' ? 'git.exe' : 'git',
-      FIXED_GIT_DIRECTORIES);
+    gitIdentity = trustedHostBinary(GIT_BINARY_NAME, FIXED_GIT_DIRECTORIES);
   }
   return assertTrustedBinaryIdentity(gitIdentity);
+}
+
+function sealedGitError(message) {
+  const error = new Error(message);
+  error.code = 'LAMINA_SAFE_GIT_IDENTITY';
+  return error;
+}
+
+function fixedGitCandidate(expectedPath) {
+  if (process.platform === 'win32') return false;
+  for (const directory of FIXED_GIT_DIRECTORIES) {
+    try {
+      const candidate = fs.realpathSync.native(path.join(directory, GIT_BINARY_NAME));
+      if (candidate === expectedPath && fs.realpathSync.native(expectedPath) === expectedPath) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+function boundedProcText(file, label) {
+  const bytes = fs.readFileSync(file);
+  if (bytes.length === 0 || bytes.length > MAX_UID_MAP_BYTES) {
+    throw sealedGitError(`${label} is unavailable or outside its fixed bound`);
+  }
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) {
+    throw sealedGitError(`${label} is not canonical UTF-8`);
+  }
+  return text.trim();
+}
+
+function namespaceUidForHostUid(hostUid) {
+  if (process.platform !== 'linux') return hostUid;
+  const rows = boundedProcText('/proc/self/uid_map', 'user-namespace UID map')
+    .split(/\r?\n/).map((line) => {
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s*$/);
+      if (!match) throw sealedGitError('user-namespace UID map is malformed');
+      const values = match.slice(1).map(Number);
+      if (values.some((value) => !Number.isSafeInteger(value) || value < 0)
+        || values[2] === 0) throw sealedGitError('user-namespace UID map is malformed');
+      return values;
+    });
+  for (const [namespaceStart, hostStart, length] of rows) {
+    if (hostUid >= hostStart && hostUid - hostStart < length) {
+      return namespaceStart + (hostUid - hostStart);
+    }
+  }
+  // The outside launcher admits only root- or launcher-owned fixed candidates.
+  // In bwrap's one-entry UID map, only host root can therefore be a valid
+  // unmapped owner. Never let an arbitrary sealed UID authenticate merely by
+  // matching the kernel overflow UID observed inside the namespace.
+  if (hostUid !== 0) {
+    throw sealedGitError('sealed workload Git has an unproved unmapped host UID');
+  }
+  const overflowUid = boundedProcText('/proc/sys/kernel/overflowuid', 'overflow UID');
+  if (!/^(?:0|[1-9]\d*)$/.test(overflowUid)) {
+    throw sealedGitError('overflow UID is malformed');
+  }
+  const value = Number(overflowUid);
+  if (!Number.isSafeInteger(value) || value < 0) throw sealedGitError('overflow UID is malformed');
+  return value;
+}
+
+function stableBinaryFields(stat) {
+  return [stat.dev, stat.ino, stat.uid, stat.mode, stat.size, stat.mtimeNs, stat.ctimeNs, stat.nlink];
+}
+
+function validateSealedGitContinuity(expected) {
+  if (!fixedGitCandidate(expected.path)) {
+    throw sealedGitError('sealed workload Git path is not an exact fixed physical Git candidate');
+  }
+  const pathBefore = fs.lstatSync(expected.path, { bigint: true });
+  if (!pathBefore.isFile() || pathBefore.isSymbolicLink()) {
+    throw sealedGitError('sealed workload Git path is not a physical file');
+  }
+  const descriptor = fs.openSync(expected.path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const before = fs.fstatSync(descriptor, { bigint: true });
+    if (!before.isFile() || (before.mode & 0o111n) === 0n || (before.mode & 0o6022n) !== 0n
+      || before.size < 0n || before.size > BigInt(MAX_GIT_BINARY_BYTES)
+      || pathBefore.dev !== before.dev || pathBefore.ino !== before.ino
+      || pathBefore.mode !== before.mode || pathBefore.size !== before.size) {
+      throw sealedGitError('sealed workload Git is not a bounded non-setid non-writable executable');
+    }
+    const digest = crypto.createHash('sha256');
+    const chunk = Buffer.allocUnsafe(1024 * 1024);
+    let offset = 0;
+    while (offset < Number(before.size)) {
+      const count = fs.readSync(descriptor, chunk, 0,
+        Math.min(chunk.length, Number(before.size) - offset), offset);
+      if (count === 0) throw sealedGitError('sealed workload Git ended while hashing');
+      digest.update(chunk.subarray(0, count));
+      offset += count;
+    }
+    if (fs.readSync(descriptor, chunk, 0, 1, offset) !== 0) {
+      throw sealedGitError('sealed workload Git exceeded its bounded identity size');
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    const pathAfter = fs.lstatSync(expected.path, { bigint: true });
+    if (JSON.stringify(stableBinaryFields(before).map(String))
+      !== JSON.stringify(stableBinaryFields(after).map(String))
+      || pathAfter.dev !== after.dev || pathAfter.ino !== after.ino
+      || pathAfter.mode !== after.mode || pathAfter.size !== after.size) {
+      throw sealedGitError('sealed workload Git identity changed while hashing');
+    }
+    const actual = {
+      path: expected.path,
+      dev: String(after.dev),
+      ino: String(after.ino),
+      uid: Number(after.uid),
+      mode: Number(after.mode & 0o7777n),
+      size: String(after.size),
+      digest: digest.digest('hex'),
+    };
+    for (const field of ['path', 'dev', 'ino', 'mode', 'size', 'digest']) {
+      if (actual[field] !== expected[field]) {
+        throw sealedGitError(`sealed workload Git ${field} changed inside the namespace`);
+      }
+    }
+    if (actual.uid !== namespaceUidForHostUid(expected.uid)) {
+      throw sealedGitError('sealed workload Git UID does not match the proved namespace translation');
+    }
+    return Object.freeze({ ...actual, controller_uid: expected.uid, namespace_uid: actual.uid });
+  } finally { fs.closeSync(descriptor); }
 }
 
 function consumeSealedGitIdentity() {
@@ -215,27 +345,30 @@ function trustedGitIdentityForSpawn() {
     throw error;
   }
   const hasSeal = process.env.LAMINA_SAFE_GIT_IDENTITY !== undefined;
+  if (sealedGitIdentityState === 'verified') {
+    if (hasSeal) {
+      try { consumeSealedGitIdentity(); } catch {}
+      sealedGitIdentityState = 'poisoned';
+      throw sealedGitError('sealed workload Git identity was unexpectedly supplied more than once');
+    }
+    try { return validateSealedGitContinuity(verifiedSealedGitIdentity); }
+    catch (error) {
+      sealedGitIdentityState = 'poisoned';
+      throw error;
+    }
+  }
   let sealed;
-  let actual;
   try {
     sealed = consumeSealedGitIdentity();
-    actual = trustedGitIdentity();
+    if (!sealed) return trustedGitIdentity();
+    const actual = validateSealedGitContinuity(sealed);
+    verifiedSealedGitIdentity = Object.freeze({ ...sealed });
+    sealedGitIdentityState = 'verified';
+    return actual;
   } catch (error) {
     if (hasSeal) sealedGitIdentityState = 'poisoned';
     throw error;
   }
-  if (sealed) {
-    for (const field of SEALED_GIT_IDENTITY_FIELDS) {
-      if (sealed[field] !== actual[field]) {
-        sealedGitIdentityState = 'poisoned';
-        const error = new Error('sealed workload Git identity does not match trusted Git');
-        error.code = 'LAMINA_SAFE_GIT_IDENTITY';
-        throw error;
-      }
-    }
-    sealedGitIdentityState = 'verified';
-  }
-  return actual;
 }
 
 export function inertGitEnvironment({ objectDirectory = null } = {}) {
