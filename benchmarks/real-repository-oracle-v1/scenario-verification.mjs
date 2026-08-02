@@ -78,7 +78,7 @@ function checkedGit(cwd, args, { input, allowed = [0] } = {}) {
   if (!Array.isArray(args) || args.some((value) => typeof value !== 'string')) {
     throw new Error('scenario Git arguments must be a fixed string array');
   }
-  const result = spawnTrustedGit(cwd, args, {
+  const result = spawnTrustedGit(cwd, ['-c', 'core.symlinks=false', ...args], {
     input, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     timeout: SCENARIO_VERIFICATION_BOUNDS.git_timeout_ms,
     maxBuffer: SCENARIO_VERIFICATION_BOUNDS.git_output_bytes,
@@ -555,6 +555,7 @@ function executeSelectedScenario(repository, scratch, collection, scenario, hook
       checkedGit(repository, [
         'worktree', 'add', '--quiet', '--no-track', '-b', branch, linked, collection.commit,
       ]);
+      hooks.after_logical_worktree_add?.(Object.freeze({ linked }));
       const marker = path.join(linked, '.git');
       const markerStat = fs.lstatSync(marker);
       if (!markerStat.isFile() || markerStat.isSymbolicLink()) throw new Error('linked worktree marker is not physical');

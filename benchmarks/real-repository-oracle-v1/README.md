@@ -166,7 +166,12 @@ The executor materializes a fresh reviewed checkout for each of the six ordered
 scenarios; no checkout or scratch lease is reused. It verifies the selected
 source blob and content before any mutation, parses exact NUL-terminated Git
 porcelain-v2 state, and proves the complete stage-0 index and physical checkout
-delta. Modify uses an append-only no-follow descriptor with identity rechecks;
+delta. Every scenario Git operation carries command-scoped
+`core.symlinks=false`, matching materialization without persisting repository
+config: reviewed mode-120000 links remain stage entries while their portable
+link bodies remain physical regular files. Raw type-change porcelain is still
+refused rather than relabeled as clean. Modify uses an append-only no-follow
+descriptor with identity rechecks;
 both mutation paths revalidate the named file and parent after opening and
 immediately before mutation, so pathname substitution fails before any write or
 unlink. Modify additionally reopens and verifies the exact appended bytes;

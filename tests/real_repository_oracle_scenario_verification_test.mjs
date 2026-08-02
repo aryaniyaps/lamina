@@ -45,6 +45,9 @@ assert.deepEqual(parseScenarioPorcelainV2Z(cleanStatus), {
 });
 const modifiedStatus = `${cleanStatus}1 .M N... 100644 100644 100644 ${oid} ${oid} src/a.txt\0`;
 assert.equal(parseScenarioPorcelainV2Z(modifiedStatus).changes[0].xy, '.M');
+const typeChangedStatus = `${cleanStatus}1 .T N... 120000 120000 100644 ${oid} ${oid} src/alias.txt\0`;
+assert.throws(() => parseScenarioPorcelainV2Z(typeChangedStatus),
+  /unsupported porcelain record/);
 const renameStatus = `${cleanStatus}2 R. N... 100644 100644 100644 ${oid} ${oid} R100 dst.txt\0src.txt\0`;
 assert.deepEqual(parseScenarioPorcelainV2Z(renameStatus).changes[0], {
   record_type: '2', xy: 'R.', sub: 'N...', mode_head: '100644', mode_index: '100644',
@@ -105,6 +108,114 @@ try {
       assert.equal(absent.status, 1);
     }
   }
+
+  const portableRepository = (name) => {
+    const repository = path.join(temporaryRoot, `portable-repository-${name}`);
+    const linked = path.join(temporaryRoot, `portable-linked-${name}`);
+    fs.mkdirSync(linked, { mode: 0o700 });
+    git(temporaryRoot, ['init', '--quiet', repository]);
+    fs.mkdirSync(path.join(repository, 'src'));
+    const target = Buffer.from('portable target\n');
+    const linkBody = Buffer.from('target.txt');
+    fs.writeFileSync(path.join(repository, 'src/target.txt'), target, { mode: 0o644 });
+    fs.writeFileSync(path.join(repository, 'src/alias.txt'), linkBody, { mode: 0o644 });
+    git(repository, ['add', '--', 'src/target.txt']);
+    const linkBlob = git(repository, ['hash-object', '-w', '--', 'src/alias.txt']);
+    git(repository, ['update-index', '--add', '--cacheinfo', '120000', linkBlob,
+      'src/alias.txt']);
+    git(repository, ['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+      'commit', '--quiet', '-m', 'portable link fixture']);
+    const commit = git(repository, ['rev-parse', 'HEAD']);
+    const targetBlob = git(repository, ['rev-parse', 'HEAD:src/target.txt']);
+    fs.unlinkSync(path.join(repository, 'src/alias.txt'));
+    git(repository, ['-c', 'core.symlinks=false', 'checkout-index', '--force', '--',
+      'src/alias.txt']);
+    git(repository, ['-c', 'core.symlinks=false', 'checkout', '--quiet', '--detach', commit]);
+    const alias = fs.lstatSync(path.join(repository, 'src/alias.txt'), { bigint: true });
+    assert.equal(alias.isFile() && !alias.isSymbolicLink() && alias.nlink === 1n, true,
+      'portable alias must be a physical single-link regular file');
+    assert.deepEqual(fs.readFileSync(path.join(repository, 'src/alias.txt')), linkBody,
+      'portable alias must contain only its exact Git link body');
+    return { repository, scratch: { linked }, commit, target, targetBlob, linkBody, linkBlob };
+  };
+
+  const counterexample = portableRepository('counterexample');
+  const rawTypeChange = spawnTrustedGit(counterexample.repository, [
+    '-c', 'core.symlinks=true', 'status', '--porcelain=v2', '-z', '--branch',
+    '--untracked-files=all',
+  ], { encoding: 'utf8', timeout: 10_000, maxBuffer: 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(rawTypeChange.status, 0, 'explicit-true portable status probe must succeed');
+  const typeChangeRecord = String(rawTypeChange.stdout || '').split('\0')
+    .find((record) => record.startsWith('1 '));
+  assert.equal(typeChangeRecord,
+    `1 .T N... 120000 120000 100644 ${counterexample.linkBlob} ${counterexample.linkBlob} src/alias.txt`,
+    'explicit-true status must expose the portable alias as a type-change counterexample');
+  assert.throws(() => parseScenarioPorcelainV2Z(String(rawTypeChange.stdout || '')),
+    /unsupported porcelain record/);
+
+  const cleanPortable = portableRepository('clean');
+  const cleanAliasStage = `120000 ${cleanPortable.linkBlob} 0\tsrc/alias.txt`;
+  assert.equal(git(cleanPortable.repository,
+    ['ls-files', '--stage', '--', 'src/alias.txt']), cleanAliasStage);
+  const cleanPortableRecord = executeScenario(cleanPortable.repository, cleanPortable.scratch,
+    { commit: cleanPortable.commit }, {
+      order: 0, kind: 'clean', identity_sha256: sha256('portable-clean'),
+    });
+  assert.deepEqual(cleanPortableRecord.pre.changes, []);
+  assert.deepEqual(cleanPortableRecord.post.changes, []);
+  assert.equal(git(cleanPortable.repository,
+    ['ls-files', '--stage', '--', 'src/alias.txt']), cleanAliasStage);
+  const cleanAlias = fs.lstatSync(path.join(cleanPortable.repository, 'src/alias.txt'),
+    { bigint: true });
+  assert.equal(cleanAlias.isFile() && !cleanAlias.isSymbolicLink()
+    && cleanAlias.nlink === 1n && (cleanAlias.mode & 0o111n) === 0n, true,
+    'clean scenario must retain the portable alias as a non-executable single-link regular file');
+  assert.deepEqual(fs.readFileSync(path.join(cleanPortable.repository, 'src/alias.txt')),
+    cleanPortable.linkBody);
+
+  const modifyPortable = portableRepository('modify');
+  const append = 'portable tail\n';
+  const modifyPortableRecord = executeScenario(modifyPortable.repository,
+    modifyPortable.scratch, { commit: modifyPortable.commit }, {
+      order: 1, kind: 'modify', identity_sha256: sha256('portable-modify'),
+      path: 'src/target.txt', blob_oid: modifyPortable.targetBlob,
+      original_content_sha256: sha256(modifyPortable.target), append_utf8: append,
+      result_bytes: modifyPortable.target.length + Buffer.byteLength(append),
+      result_content_sha256: sha256(Buffer.concat([modifyPortable.target, Buffer.from(append)])),
+    });
+  assert.deepEqual(modifyPortableRecord.pre.changes, []);
+  assert.equal(modifyPortableRecord.post.changes.length, 1);
+  assert.equal(modifyPortableRecord.post.changes[0].xy, '.M');
+  assert.equal(modifyPortableRecord.post.changes[0].path, 'src/target.txt');
+
+  const logicalPortable = portableRepository('logical');
+  let linkedAliasProved = false;
+  const logicalPortableRecord = executeScenarioForTest(logicalPortable.repository,
+    logicalPortable.scratch, { commit: logicalPortable.commit }, {
+      order: 5, kind: 'logical_worktree', identity_sha256: sha256('portable-logical'),
+      path: 'src/target.txt', blob_oid: logicalPortable.targetBlob,
+      original_content_sha256: sha256(logicalPortable.target),
+      derived_branch: 'lamina-oracle/portable-worktree',
+      logical_worktree_id: 'oracle-worktree-portable',
+    }, {
+      after_logical_worktree_add: ({ linked }) => {
+        const aliasPath = path.join(linked, 'src/alias.txt');
+        const alias = fs.lstatSync(aliasPath, { bigint: true });
+        assert.equal(alias.isFile() && !alias.isSymbolicLink() && alias.nlink === 1n, true,
+          'linked portable alias must remain a physical single-link regular file');
+        assert.deepEqual(fs.readFileSync(aliasPath), logicalPortable.linkBody,
+          'linked portable alias must retain its exact Git link body');
+        linkedAliasProved = true;
+      },
+    });
+  assert.equal(linkedAliasProved, true);
+  assert.deepEqual(logicalPortableRecord.pre.changes, []);
+  assert.deepEqual(logicalPortableRecord.post.changes, []);
+  assert.deepEqual(logicalPortableRecord.auxiliary.changes, []);
+  assert.equal(logicalPortableRecord.stage.before_count, 2);
+  assert.equal(logicalPortableRecord.stage.after_count, 2);
+  assert.equal(fs.readdirSync(logicalPortable.scratch.linked).length, 0);
 } finally {
   fs.rmSync(temporaryRoot, { recursive: true, force: false });
 }
