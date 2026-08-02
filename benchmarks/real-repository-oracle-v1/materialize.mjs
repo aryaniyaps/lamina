@@ -897,8 +897,8 @@ export function inspectSignedTier() {
   if (context.tier !== collection.fixture_id || context.tier !== collection.fixture_class) {
     throw new Error('signed safe-runner tier does not match the frozen collection class');
   }
-  // The temporary refusal above is intentionally before temporary allocation or
-  // network access for tiers whose inventories have not been independently reviewed.
+  // Reviewed authority is resolved before temporary allocation or network access,
+  // so only a tier with a manually frozen inventory can reach materialization.
   return withOwnedScratch(process.env.LAMINA_SAFE_RUNNER_TEMP_DIR, (scratch) => {
     const repository = materializePinnedRepository(scratch, collection);
     const inventory = verifyPinnedRepository(repository, collection);
