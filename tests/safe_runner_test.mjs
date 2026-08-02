@@ -316,6 +316,15 @@ try {
   assert.ok(sandboxArgs.includes('/custom/docker.sock'));
   assert.ok(sandboxArgs.includes('--unshare-pid'));
   assert.ok(sandboxArgs.includes('--unshare-net'));
+  const payloadTmp = path.join(root, 'payload-tmp');
+  const payloadTmpMount = sandboxArgs.findIndex((value, index) =>
+    value === payloadTmp && sandboxArgs[index - 1] === '--tmpfs');
+  assert.deepEqual(sandboxArgs.slice(payloadTmpMount - 5, payloadTmpMount + 1), [
+    '--perms', '0700', '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
+    '--tmpfs', payloadTmp,
+  ], 'private payload tmpfs mode and size modifiers must bind only to its exact mount');
+  assert.equal(sandboxArgs.filter((value) => value === '--perms').length, 1,
+    'payload tmpfs permissions must not alter earlier control-socket masking tmpfs mounts');
   for (const name of CONTROL_ENVIRONMENT_NAMES) {
     const index = sandboxArgs.indexOf(name);
     assert.equal(sandboxArgs[index - 1], '--unsetenv');

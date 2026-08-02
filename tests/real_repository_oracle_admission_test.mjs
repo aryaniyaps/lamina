@@ -276,18 +276,54 @@ try {
     }
   }
 
+  assert.throws(() => createScratch(`${temporaryRoot}${path.sep}.`),
+    /canonical private safe-runner temporary authority/,
+    'a lexically noncanonical quota-root path must not gain cleanup authority');
+  if (process.platform !== 'win32') {
+    const quotaRootLink = path.join(temporaryRoot, 'quota-root-link');
+    fs.symlinkSync(temporaryRoot, quotaRootLink);
+    assert.throws(() => createScratch(quotaRootLink),
+      /canonical private safe-runner temporary authority/,
+      'a symlinked quota root must not gain cleanup authority');
+    fs.unlinkSync(quotaRootLink);
+
+    const permissiveQuotaRoot = path.join(temporaryRoot, 'permissive-quota-root');
+    fs.mkdirSync(permissiveQuotaRoot, { mode: 0o755 });
+    fs.chmodSync(permissiveQuotaRoot, 0o755);
+    assert.throws(() => createScratch(permissiveQuotaRoot),
+      /canonical private safe-runner temporary authority/,
+      'the workload keeps the private-root contract that bwrap now creates with --perms 0700');
+    fs.rmdirSync(permissiveQuotaRoot);
+  }
+
+  const quotaForeignSibling = path.join(temporaryRoot, 'foreign-sibling');
+  fs.writeFileSync(quotaForeignSibling, 'never workload-owned');
   const successScratch = createScratch(temporaryRoot);
+  if (process.platform !== 'win32') {
+    assert.equal(fs.lstatSync(successScratch.root).mode & 0o077, 0,
+      'the workload-owned scratch child must remain private');
+    assert.equal(fs.lstatSync(successScratch.marker).mode & 0o077, 0,
+      'the workload-owned marker must remain private');
+  }
   fs.mkdirSync(successScratch.source);
   fs.writeFileSync(path.join(successScratch.source, 'owned'), 'owned');
   removeScratch(successScratch);
   assert.equal(fs.existsSync(successScratch.root), false);
+  assert.equal(fs.readFileSync(quotaForeignSibling, 'utf8'), 'never workload-owned',
+    'success cleanup must preserve foreign siblings at the quota root');
+  assert.equal(fs.existsSync(temporaryRoot), true, 'cleanup must never delete the quota root');
 
   let failedScratchRoot;
   assert.throws(() => withOwnedScratch(temporaryRoot, (scratch) => {
     failedScratchRoot = scratch.root;
+    fs.mkdirSync(scratch.source);
+    fs.writeFileSync(path.join(scratch.source, 'owned-before-failure'), 'owned');
     throw new Error('simulated inventory error');
   }), /simulated inventory error/);
   assert.equal(fs.existsSync(failedScratchRoot), false, 'owned scratch is removed after workload error');
+  assert.equal(fs.readFileSync(quotaForeignSibling, 'utf8'), 'never workload-owned',
+    'failure cleanup must preserve foreign siblings at the quota root');
+  assert.equal(fs.existsSync(temporaryRoot), true, 'failure cleanup must preserve the quota root');
 
   const foreignScratch = createScratch(temporaryRoot);
   const foreign = path.join(foreignScratch.root, 'foreign');
@@ -295,6 +331,7 @@ try {
   assert.throws(() => removeScratch(foreignScratch), /contains foreign entries/);
   assert.equal(fs.readFileSync(foreign, 'utf8'), 'do not delete');
   fs.rmSync(foreignScratch.root, { recursive: true, force: false });
+  fs.unlinkSync(quotaForeignSibling);
 
   if (productionGitMaterializationClaim) {
   const repository = path.join(temporaryRoot, 'tiny-repository');

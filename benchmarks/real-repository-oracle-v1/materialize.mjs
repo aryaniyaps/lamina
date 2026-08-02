@@ -11,6 +11,8 @@ const SCRATCH_SCHEMA = 'lamina.real-repository-oracle-scratch/v1';
 const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_TRACKED_FILE_BYTES = 64 * 1024 * 1024;
+const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
+  && typeof process.getuid === 'function';
 export const RECONSTRUCTION_LIMITS = Object.freeze({
   max_tracked_entries: 6_000,
   max_counted_tracked_bytes: 256 * 1024 * 1024,
@@ -361,12 +363,14 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
 }
 
 function assertPrivateTemporaryRoot(runnerTemporaryRoot) {
-  const declared = path.resolve(String(runnerTemporaryRoot || ''));
+  const supplied = String(runnerTemporaryRoot || '');
+  const declared = path.resolve(supplied);
   const physical = fs.realpathSync.native(declared);
   const stat = fs.lstatSync(declared);
-  if (!path.isAbsolute(String(runnerTemporaryRoot || '')) || physical !== declared
-    || !stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0
-    || (typeof process.getuid === 'function' && stat.uid !== process.getuid())) {
+  if (!path.isAbsolute(supplied) || supplied !== declared || physical !== declared
+    || !stat.isDirectory() || stat.isSymbolicLink()
+    || (HAS_POSIX_OWNERSHIP
+      && ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid()))) {
     throw new Error('real-repository oracle requires the canonical private safe-runner temporary authority');
   }
   return physical;
@@ -410,12 +414,16 @@ function validatedScratch(scratch) {
   const stat = fs.lstatSync(root, { bigint: true });
   const markerStat = fs.lstatSync(scratch.marker, { bigint: true });
   const marker = JSON.parse(fs.readFileSync(scratch.marker, 'utf8'));
+  const invalidPosixOwnership = HAS_POSIX_OWNERSHIP
+    && ((stat.mode & 0o077n) !== 0n || stat.uid !== BigInt(process.getuid())
+      || markerStat.uid !== stat.uid || (markerStat.mode & 0o077n) !== 0n
+      || marker.uid !== Number(stat.uid));
   if (root !== scratch.root || !stat.isDirectory() || stat.isSymbolicLink()
     || !markerStat.isFile() || markerStat.isSymbolicLink() || markerStat.nlink !== 1n
-    || markerStat.uid !== stat.uid || (markerStat.mode & 0o077n) !== 0n
+    || invalidPosixOwnership
     || marker.schema !== SCRATCH_SCHEMA || marker.root !== root
     || marker.dev !== String(stat.dev) || marker.ino !== String(stat.ino)
-    || marker.uid !== Number(stat.uid) || !/^[0-9a-f-]{36}$/i.test(marker.nonce)
+    || !/^[0-9a-f-]{36}$/i.test(marker.nonce)
     || JSON.stringify(marker.owned) !== JSON.stringify(['source'])) {
     throw new Error('real-repository scratch ownership marker is invalid');
   }

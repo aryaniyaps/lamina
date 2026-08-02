@@ -43,7 +43,8 @@ function temporaryQuotaAvailable(binaries) {
   assertTrustedBinaryIdentity(binaries.identities.bwrap);
   const result = spawnSync(binaries.bwrap, [
     '--unshare-user', '--uid', '0', '--gid', '0', '--ro-bind', '/', '/',
-    '--dev-bind', '/dev', '/dev', '--proc', '/proc', '--size', '1048576', '--tmpfs', '/tmp',
+    '--dev-bind', '/dev', '/dev', '--proc', '/proc',
+    '--perms', '0700', '--size', '1048576', '--tmpfs', '/tmp',
     '/bin/sh', '-c',
     'dd if=/dev/zero of=/tmp/first bs=262144 count=2 status=none && ! dd if=/dev/zero of=/tmp/second bs=262144 count=4 status=none 2>/dev/null',
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3_000, maxBuffer: 64 * 1024,

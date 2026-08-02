@@ -149,6 +149,7 @@ export function bubblewrapSandboxArguments({
     args.push('--setenv', 'LAMINA_SAFE_GIT_IDENTITY', sealedGitIdentity);
   }
   args.push(
+    '--perms', '0700',
     '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
     '--tmpfs', temporaryDirectory,
     '--chdir', cwd,
