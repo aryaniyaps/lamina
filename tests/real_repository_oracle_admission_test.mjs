@@ -17,18 +17,21 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/materialize.mjs';
 import {
   EXACT_COMMAND, INVENTORY_ADMISSION_SCHEMA, INVENTORY_RECONSTRUCTION_SCHEMA,
-  RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID, WORKLOAD_ID,
-  inventoryAdmissionResult, inventoryReconstructionResult,
+  INVENTORY_REVIEW_SCHEMA, RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID,
+  REVIEW_EXACT_COMMAND, REVIEW_WORKLOAD_ID, WORKLOAD_ID,
+  inventoryAdmissionResult, inventoryReconstructionResult, inventoryReviewResult,
 } from '../benchmarks/real-repository-oracle-v1/workload.mjs';
 import { isExcludedPath, loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
+  REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
 import {
   REAL_REPOSITORY_ORACLE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID,
-  REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
   auditedCommand, preflightRun,
 } from '../scripts/safe-runner/preflight.mjs';
 import { validatedSealedGitIdentity } from '../scripts/safe-runner/sandbox.mjs';
@@ -101,6 +104,8 @@ assert.equal(WORKLOAD_ID, REAL_REPOSITORY_ORACLE_WORKLOAD_ID);
 assert.deepEqual(EXACT_COMMAND, ['admit-inventory']);
 assert.equal(RECONSTRUCTION_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID);
 assert.deepEqual(RECONSTRUCTION_EXACT_COMMAND, ['reconstruct-inventory']);
+assert.equal(REVIEW_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID);
+assert.deepEqual(REVIEW_EXACT_COMMAND, ['review-inventory']);
 assert.deepEqual(RECONSTRUCTION_LIMITS, {
   max_tracked_entries: 6_000,
   max_counted_tracked_bytes: 256 * 1024 * 1024,
@@ -156,11 +161,18 @@ assert.deepEqual({
   allow_network: reconstructionAudit.allow_network,
   entrypoint: reconstructionAudit.entrypoint,
 }, { audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
+const reviewAudit = auditedCommand([process.execPath, ENTRYPOINT, 'review-inventory'], ROOT);
+assert.deepEqual({
+  audited: reviewAudit.audited,
+  allow_network: reviewAudit.allow_network,
+  entrypoint: reviewAudit.entrypoint,
+}, { audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
 for (const argv of [
   [process.execPath, ENTRYPOINT],
   [process.execPath, ENTRYPOINT, 'validate'],
   [process.execPath, ENTRYPOINT, 'admit-inventory', '--output', '/tmp/result'],
   [process.execPath, ENTRYPOINT, 'reconstruct-inventory', '--output', '/tmp/result'],
+  [process.execPath, ENTRYPOINT, 'review-inventory', '--output', '/tmp/result'],
 ]) {
   const audit = auditedCommand(argv, ROOT);
   assert.equal(audit.audited, false);
@@ -196,6 +208,18 @@ const crossedReconstructionIdentity = preflightRun({
 });
 assert.ok(crossedReconstructionIdentity.reasons
   .some((reason) => reason.includes(`inventory reconstruction requires --workload ${REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID}`)));
+const missingReviewIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'review-inventory'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: null,
+});
+assert.ok(missingReviewIdentity.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID)));
+const exactReviewIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'review-inventory'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID,
+});
+assert.ok(!exactReviewIdentity.reasons
+  .some((reason) => reason.includes('independent inventory review requires --workload')));
 for (const tier of ['medium', 'large']) {
   const reconstructionPreflight = preflightRun({
     tier, command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
@@ -213,7 +237,7 @@ const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
 });
 assert.notEqual(directUnknown.status, 0);
 assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
-  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory>/);
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -228,6 +252,14 @@ const directReconstruction = spawnSync(process.execPath, [ENTRYPOINT, 'reconstru
 });
 assert.notEqual(directReconstruction.status, 0);
 assert.match(`${directReconstruction.stdout}\n${directReconstruction.stderr}`,
+  /must run through the canonical crash-safe command/);
+const directReview = spawnSync(process.execPath, [ENTRYPOINT, 'review-inventory'], {
+  cwd: ROOT,
+  env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
+  encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+});
+assert.notEqual(directReview.status, 0);
+assert.match(`${directReview.stdout}\n${directReview.stderr}`,
   /must run through the canonical crash-safe command/);
 
 const semanticPoison = {
@@ -247,15 +279,21 @@ for (const name of Object.keys(semanticPoison).filter((name) => name !== 'SAFE_V
 
 assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/workload.mjs',
-  'benchmarks/real-repository-oracle-v1/materialize.mjs',
-  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-pins.mjs',
   'benchmarks/runtime-baseline-v1/contract.mjs',
   'benchmarks/runtime-baseline-v1/manifest.json',
   'packages/cli/lib/safe-runner-context.mjs',
   'packages/cli/lib/safe-runner-broker-client.mjs',
   'scripts/safe-runner/git.mjs',
   'scripts/safe-runner/infrastructure.mjs',
+  'benchmarks/real-repository-oracle-v1/materialize.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
 ]);
+assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
+  'benchmarks/real-repository-oracle-v1/materialize.mjs'), false);
+assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs'), false);
 
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
@@ -316,7 +354,7 @@ try {
     const snapshotCommit = snapshotGit(['rev-parse', 'HEAD']);
     snapshotGit(['checkout', '--quiet', '--detach', snapshotCommit]);
     const snapshotEntrypoint = path.join(snapshotRepository, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
-    for (const commandName of ['admit-inventory', 'reconstruct-inventory']) {
+    for (const commandName of ['admit-inventory', 'reconstruct-inventory', 'review-inventory']) {
       const snapshotTemporary = path.join(temporaryRoot, `snapshot-${commandName}`);
       fs.mkdirSync(snapshotTemporary, { mode: 0o700 });
       const snapshot = prepareExecutionSnapshot({
@@ -328,7 +366,9 @@ try {
       assert.deepEqual(snapshot.entries
         .filter((entry) => entry.label.startsWith('repository:'))
         .map((entry) => entry.label.slice('repository:'.length)).sort(),
-      [...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE].sort());
+      [...(commandName === 'review-inventory'
+        ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
+        : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE)].sort());
       assert.deepEqual(snapshot.environment_overrides, {},
         'oracle snapshot reintroduces no model or worker assets');
       assert.deepEqual(snapshot.writable_bindings, [],
@@ -1309,6 +1349,29 @@ try {
     candidateInventoryDigest(resultInventory));
   assert.equal(reconstructionResult.portable_link_resolution.alias_count, 0);
   assert.match(reconstructionResult.limitation, /unreviewed inventory reconstruction candidate only/);
+  const reviewResult = inventoryReviewResult({
+    collection: pinnedCollectionForTier('medium'), inventory: resultInventory,
+    review_inventory_sha256: candidateInventoryDigest(resultInventory),
+    object_link_resolution: {
+      schema: 'lamina.real-repository-oracle-object-link-review/v1',
+      max_symlink_traversals: 40, full_validation: {}, alias_count: 0, records: [],
+      sha256: '1'.repeat(64),
+    },
+    git_object_identity: {
+      object_format: 'sha1', commit: COLLECTION_PINS.medium.commit,
+      tree_oid: COLLECTION_PINS.medium.tree_oid,
+    },
+    bounds: {},
+  });
+  assert.equal(reviewResult.schema, INVENTORY_REVIEW_SCHEMA);
+  assert.equal(reviewResult.workload_id, REVIEW_WORKLOAD_ID);
+  assert.equal(reviewResult.status, 'independent_unreviewed_inventory_review');
+  assert.equal(reviewResult.admission, 'not_performed');
+  assert.equal(reviewResult.grade_controller_evidence, false);
+  assert.equal(reviewResult.evidence_mode, 'independent_git_object_inventory_review_only');
+  assert.equal('reviewed_inventory' in reviewResult.collection, false);
+  assert.ok(Object.values(reviewResult.quality_claims).every((claim) => claim === false));
+  assert.match(reviewResult.limitation, /does not freeze reviewed inventory/);
 } finally {
   fs.rmSync(temporaryRoot, { recursive: true, force: false });
 }

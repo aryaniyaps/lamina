@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
-import { inspectSignedTier, reconstructSignedTier } from './materialize.mjs';
 
 export const WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
 export const EXACT_COMMAND = Object.freeze(['admit-inventory']);
@@ -8,6 +7,9 @@ export const INVENTORY_ADMISSION_SCHEMA = 'lamina.real-repository-oracle-invento
 export const RECONSTRUCTION_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-reconstruction';
 export const RECONSTRUCTION_EXACT_COMMAND = Object.freeze(['reconstruct-inventory']);
 export const INVENTORY_RECONSTRUCTION_SCHEMA = 'lamina.real-repository-oracle-inventory-reconstruction/v1';
+export const REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
+export const REVIEW_EXACT_COMMAND = Object.freeze(['review-inventory']);
+export const INVENTORY_REVIEW_SCHEMA = 'lamina.real-repository-oracle-inventory-review/v1';
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -64,17 +66,46 @@ export function inventoryReconstructionResult({
   });
 }
 
+export function inventoryReviewResult({
+  collection, inventory, review_inventory_sha256: reviewInventorySha256,
+  object_link_resolution: objectLinkResolution, git_object_identity: gitObjectIdentity, bounds,
+}) {
+  return Object.freeze({
+    schema: INVENTORY_REVIEW_SCHEMA,
+    workload_id: REVIEW_WORKLOAD_ID,
+    status: 'independent_unreviewed_inventory_review',
+    admission: 'not_performed',
+    collection: collectionIdentity(collection),
+    bounds,
+    inventory,
+    review_inventory_sha256: reviewInventorySha256,
+    git_object_identity: gitObjectIdentity,
+    object_link_resolution: objectLinkResolution,
+    evidence_mode: 'independent_git_object_inventory_review_only',
+    quality_claims: NO_QUALITY_CLAIMS,
+    grade_controller_evidence: false,
+    limitation: 'This independent bounded Git-object review does not freeze reviewed inventory, admit a collection, or make retrieval or product-quality claims. Reviewer sign-off and a later authority change are separate actions.',
+  });
+}
+
 export async function main(argv = process.argv.slice(2)) {
   if (JSON.stringify(argv) === JSON.stringify(EXACT_COMMAND)) {
+    const { inspectSignedTier } = await import('./materialize.mjs');
     const { collection, inventory } = inspectSignedTier();
     process.stdout.write(`${JSON.stringify(inventoryAdmissionResult(collection, inventory))}\n`);
     return;
   }
   if (JSON.stringify(argv) === JSON.stringify(RECONSTRUCTION_EXACT_COMMAND)) {
+    const { reconstructSignedTier } = await import('./materialize.mjs');
     process.stdout.write(`${JSON.stringify(inventoryReconstructionResult(reconstructSignedTier()))}\n`);
     return;
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory>');
+  if (JSON.stringify(argv) === JSON.stringify(REVIEW_EXACT_COMMAND)) {
+    const { reviewSignedTier } = await import('./inventory-review.mjs');
+    process.stdout.write(`${JSON.stringify(inventoryReviewResult(reviewSignedTier()))}\n`);
+    return;
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

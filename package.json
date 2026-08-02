@@ -15,7 +15,7 @@
     "test:runtime-benchmark": "node tests/runtime_benchmark_unit_controller.mjs",
     "test:runtime-baseline": "node tests/runtime_baseline_test.mjs",
     "test:semantic-oracle": "node tests/semantic_oracle_contract_test.mjs && node tests/semantic_oracle_mutation_test.mjs",
-    "test:real-repository-oracle": "node tests/real_repository_oracle_contract_test.mjs && node tests/real_repository_oracle_admission_test.mjs",
+    "test:real-repository-oracle": "node tests/real_repository_oracle_contract_test.mjs && node tests/real_repository_oracle_admission_test.mjs && node tests/real_repository_oracle_review_test.mjs",
     "test:runtime-benchmark:integration": "node tests/runtime_benchmark_integration_test.mjs",
     "graphd": "node packages/cli/lib/graph-runtime/server.mjs",
     "graph:observe": "node packages/cli/bin/lamina.mjs graph observe",

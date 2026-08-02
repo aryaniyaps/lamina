@@ -27,10 +27,9 @@ const MAX_CLOSURE_BYTES = 16 * 1024 ** 3;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
 const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
-export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
+const REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE = Object.freeze([
   REAL_REPOSITORY_ORACLE_ENTRYPOINT,
-  'benchmarks/real-repository-oracle-v1/materialize.mjs',
-  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-pins.mjs',
   'benchmarks/runtime-baseline-v1/contract.mjs',
   'benchmarks/runtime-baseline-v1/manifest.json',
   'packages/cli/lib/safe-runner-context.mjs',
@@ -38,7 +37,21 @@ export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
   'scripts/safe-runner/git.mjs',
   'scripts/safe-runner/infrastructure.mjs',
 ]);
-const REAL_REPOSITORY_ORACLE_SOURCE_SET = new Set(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE);
+export const REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
+]);
+export const REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/materialize.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+]);
+export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
+  ...new Set([
+    ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+    ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  ]),
+]);
 const RUNTIME_BASELINE_SCENARIOS = new Set([
   'footprint', 'doctor-status-startup', 'initial-observation',
   'initial-retrieval-readiness', 'first-useful-preparation', 'warm-preparation',
@@ -695,6 +708,9 @@ export function prepareExecutionSnapshot({
     throw new Error(npxAuthority.launch_refusal);
   }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
+  const realRepositorySourceSet = new Set(command[2] === 'review-inventory'
+    ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
+    : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
@@ -715,7 +731,7 @@ export function prepareExecutionSnapshot({
         || relative.startsWith('packages/cli/');
     }
     if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
-      return REAL_REPOSITORY_ORACLE_SOURCE_SET.has(relative);
+      return realRepositorySourceSet.has(relative);
     }
     return true;
   });
