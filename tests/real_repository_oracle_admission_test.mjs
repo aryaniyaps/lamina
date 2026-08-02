@@ -20,7 +20,7 @@ import { loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
-import { spawnTrustedGit, trustedGitIdentity } from '../scripts/safe-runner/git.mjs';
+import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
 import {
   REAL_REPOSITORY_ORACLE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
@@ -135,41 +135,20 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
 try {
-  const previousSealedGitIdentity = process.env.LAMINA_SAFE_GIT_IDENTITY;
-  try {
-    const spawnGitVersion = () => spawnTrustedGit(temporaryRoot, ['--version'], {
-      encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+  const sealProbe = path.join(ROOT, 'tests/fixtures/spawn-trusted-git-seal-probe.mjs');
+  for (const mode of ['malformed', 'oversized', 'extra-field', 'mismatched', 'valid']) {
+    const probe = spawnSync(process.execPath, [sealProbe, mode], {
+      cwd: temporaryRoot,
+      env: { ...process.env, LAMINA_SAFE_GIT_IDENTITY: '' },
+      encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    process.env.LAMINA_SAFE_GIT_IDENTITY = 'not-base64!';
-    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
-    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
-    process.env.LAMINA_SAFE_GIT_IDENTITY = 'A'.repeat(4_097);
-    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
-    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
-    const actualGitIdentity = trustedGitIdentity();
-    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
-      ...actualGitIdentity, forged: true,
-    })).toString('base64url');
-    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
-    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
-    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
-      ...actualGitIdentity,
-      digest: `${actualGitIdentity.digest[0] === 'f' ? 'e' : 'f'}${actualGitIdentity.digest.slice(1)}`,
-    })).toString('base64url');
-    assert.throws(spawnGitVersion, /does not match trusted Git/);
-    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
-    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(
-      JSON.stringify(actualGitIdentity),
-    ).toString('base64url');
-    assert.equal(spawnGitVersion().status, 0, 'valid controller-style Git seal must admit one spawn');
-    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined,
-      'valid Git seal must be removed after its first workload use');
-    assert.equal(spawnGitVersion().status, 0,
-      'later calls must continue through cached per-call Git identity revalidation');
-  } finally {
-    if (previousSealedGitIdentity === undefined) delete process.env.LAMINA_SAFE_GIT_IDENTITY;
-    else process.env.LAMINA_SAFE_GIT_IDENTITY = previousSealedGitIdentity;
+    assert.equal(probe.status, 0, `${mode}: ${probe.stderr}`);
+    const evidence = JSON.parse(probe.stdout);
+    assert.equal(evidence.removed_after_first, true);
+    assert.equal(evidence.first.ok, mode === 'valid');
+    assert.equal(evidence.retry.ok, mode === 'valid',
+      `${mode} retry must ${mode === 'valid' ? 'retain verified continuity' : 'remain poisoned'}`);
   }
 
   const snapshotRepository = path.join(temporaryRoot, 'snapshot-repository');

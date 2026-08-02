@@ -42,6 +42,7 @@ const SEALED_GIT_IDENTITY_FIELDS = Object.freeze([
   'path', 'dev', 'ino', 'uid', 'mode', 'size', 'digest',
 ]);
 const MAX_SEALED_GIT_IDENTITY_BYTES = 4_096;
+let sealedGitIdentityState = 'unseen';
 
 const EXECUTABLE_SECTIONS = new Set([
   'alias', 'credential', 'diff', 'filter', 'gpg', 'include', 'includeif',
@@ -208,16 +209,31 @@ function consumeSealedGitIdentity() {
 }
 
 function trustedGitIdentityForSpawn() {
-  const sealed = consumeSealedGitIdentity();
-  const actual = trustedGitIdentity();
+  if (sealedGitIdentityState === 'poisoned') {
+    const error = new Error('sealed workload Git identity previously failed validation');
+    error.code = 'LAMINA_SAFE_GIT_IDENTITY';
+    throw error;
+  }
+  const hasSeal = process.env.LAMINA_SAFE_GIT_IDENTITY !== undefined;
+  let sealed;
+  let actual;
+  try {
+    sealed = consumeSealedGitIdentity();
+    actual = trustedGitIdentity();
+  } catch (error) {
+    if (hasSeal) sealedGitIdentityState = 'poisoned';
+    throw error;
+  }
   if (sealed) {
     for (const field of SEALED_GIT_IDENTITY_FIELDS) {
       if (sealed[field] !== actual[field]) {
+        sealedGitIdentityState = 'poisoned';
         const error = new Error('sealed workload Git identity does not match trusted Git');
         error.code = 'LAMINA_SAFE_GIT_IDENTITY';
         throw error;
       }
     }
+    sealedGitIdentityState = 'verified';
   }
   return actual;
 }
