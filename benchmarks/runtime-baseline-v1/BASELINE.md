@@ -15,8 +15,11 @@ compatible intersection:
   bubblewrap executable is denied by the host's user-namespace policy. The
   hosted image does not provide `/usr/bin/bwrap` for the distribution policy to
   authorize.
-- The local Linux host provides production cgroup-v2 enforcement, but its
-  kernel also refuses unprivileged user namespace creation.
+- The local Linux host now provides glibc 2.43, production cgroup-v2
+  enforcement, and working rootless user/private-tmp namespaces. Full #59
+  qualification still refuses before payload release because its isolated
+  network namespace cannot configure loopback (`RTM_NEWADDR` is denied by the
+  host policy).
 
 Medium and large were not dispatched. That is intentional: #59 requires a
 successful small run and verified descendant cleanup before promotion.
@@ -46,6 +49,7 @@ allowlists, LOC ranges, file-size ceiling, and asset URLs.
 | GitHub Ubuntu 22.04, 16 GiB, head `541d1726` | Full production qualification passed | Small `footprint` failed while extracting the pinned worker: its bundled Python required `GLIBC_2.38` from `libm.so.6` | Zero remaining descendants and managed paths; scope and temporary directory removed; orphan scan empty | [Actions run 30725039365](https://github.com/aryaniyaps/lamina/actions/runs/30725039365) |
 | GitHub Ubuntu 24.04, 16 GiB, head `2d39cc1b` | Refused before qualification: downloaded bubblewrap could not create its UID map | Not released | Cleanup verification passed; orphan scan empty | [Actions run 30725180790](https://github.com/aryaniyaps/lamina/actions/runs/30725180790) |
 | GitHub Ubuntu 24.04, head `0a56cc94` | System bubblewrap authority was unavailable because `/usr/bin/bwrap` is absent | Not released | Orphan scan empty | [Actions run 30725277619](https://github.com/aryaniyaps/lamina/actions/runs/30725277619) |
+| Local Linux x64, glibc 2.43, head `01db8b18` | Production adapter detected; user namespace and quota probe passed; full #59 qualification refused because bubblewrap could not configure loopback in the isolated network namespace: `Failed RTM_NEWADDR: Operation not permitted` | Not released | All ten bounded qualification reports recorded sandbox-launch failure; zero descendants and managed paths remained; temporary directory, watchdog directory, lock, and systemd scope were absent | `LAMINA_SAFE_RUNNER_STATE_DIR=/tmp/lamina-issue60-recheck-safe-state npm run safe:self-test -- --require-production` |
 
 The Ubuntu 22.04 artifact contains a schema-valid invalid result for small
 `footprint`, its raw safe-runner report, the passing self-test reports, and an
@@ -69,6 +73,7 @@ against the oldest supported glibc (at most glibc 2.35), then update only the
 manifest's published asset identity and repeat the full small run. The alternative
 is a trusted host that simultaneously provides glibc 2.38 or newer, user-systemd
 cgroup-v2 aggregate enforcement, quota-backed private temporary storage, and a
-policy-authorized rootless bubblewrap. In either case, rerun the complete #59
+policy-authorized rootless bubblewrap whose isolated network namespace passes the
+full #59 adversarial qualification. In either case, rerun the complete #59
 self-test before releasing the fixture and preserve small-to-medium-to-large
 promotion order.
