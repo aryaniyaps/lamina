@@ -22,9 +22,34 @@ assert.deepEqual(OBSERVATION_CATEGORY_SUPPORT.large.positive.length, 13);
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.small.reviewed_absent.handlers.mode, 'bounded_negative_controls');
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.small.reviewed_absent.personas.mode, 'complete_candidate_set_absence');
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.medium.reviewed_absent.personas.scope.matching_path_count, 0);
-const controlContents = JSON.parse(fs.readFileSync(new URL(
+const controlContentBytes = fs.readFileSync(new URL(
   './fixtures/real-repository-oracle-observation-negative-controls-v1.json', import.meta.url,
-)));
+));
+function parseControlContentBytes(raw) {
+  assert.ok(Buffer.isBuffer(raw) && raw.length > 0 && raw.length <= 16 * 1024,
+    'negative-control test content remains byte bounded');
+  const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw));
+  assert.deepEqual(Object.keys(value), ['schema', 'controls']);
+  assert.equal(value.schema, 'lamina.real-repository-oracle-observation-negative-control-content/v1');
+  assert.equal(value.controls.length, 3);
+  assert.deepEqual(value.controls.map((item) => item.tier), ['small', 'medium', 'large']);
+  assert.equal(new Set(value.controls.map((item) => item.tier)).size, 3);
+  assert.equal(new Set(value.controls.map((item) => item.path)).size, 3);
+  let decodedBytes = 0;
+  for (const item of value.controls) {
+    assert.deepEqual(Object.keys(item), ['tier', 'path', 'content_base64']);
+    assert.ok(typeof item.path === 'string' && item.path.length <= 512 && !item.path.includes('\\')
+      && !item.path.startsWith('/') && item.path.split('/').every((part) => part && part !== '.' && part !== '..'));
+    assert.match(item.content_base64, /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
+    const decoded = Buffer.from(item.content_base64, 'base64');
+    assert.equal(decoded.toString('base64'), item.content_base64);
+    assert.ok(decoded.length > 0 && decoded.length <= 4096);
+    decodedBytes += decoded.length;
+  }
+  assert.ok(decodedBytes <= 12 * 1024);
+  return value;
+}
+const controlContents = parseControlContentBytes(controlContentBytes);
 for (const item of controlContents.controls) {
   const bytesAtPin = Buffer.from(item.content_base64, 'base64');
   assert.equal(bytesAtPin.toString('base64'), item.content_base64, `${item.tier} control bytes are canonical`);
@@ -37,6 +62,20 @@ for (const item of controlContents.controls) {
   assert.deepEqual(brownfieldSignals(item.path, bytesAtPin).categories, control.observed_categories,
     `${item.tier} control categories come from the production extractor in production order`);
 }
+function rejectsControlContent(mutator) {
+  const value = structuredClone(controlContents);
+  mutator(value);
+  assert.throws(() => parseControlContentBytes(Buffer.from(JSON.stringify(value))));
+}
+rejectsControlContent((value) => { value.controls = []; });
+rejectsControlContent((value) => { value.controls.pop(); });
+rejectsControlContent((value) => { value.controls.push(structuredClone(value.controls[0])); });
+rejectsControlContent((value) => { value.controls.reverse(); });
+rejectsControlContent((value) => { value.extra = true; });
+rejectsControlContent((value) => { value.controls[0].extra = true; });
+rejectsControlContent((value) => { value.controls[0].path = '../unsafe.ts'; });
+rejectsControlContent((value) => { value.controls[0].content_base64 = 'not canonical'; });
+assert.throws(() => parseControlContentBytes(Buffer.alloc(16 * 1024 + 1)));
 
 function rejects(mutator, message) {
   const value = JSON.parse(bytes);
