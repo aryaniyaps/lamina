@@ -363,6 +363,13 @@ assert.equal(exactScenarioIdentity.temporary_inode_reservation, null);
 assert.deepEqual(validateScenarioVerificationLargeInodeReservation(
   SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
 ), { valid: true, required_inodes: 14_162 });
+for (const requestedMaxInodes of [14_161, 8_192]) {
+  assert.equal(validateScenarioVerificationLargeInodeReservation({
+    ...SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+    requested_max_inodes: requestedMaxInodes,
+  }).valid, false,
+    'required geometry must fit inside the requested temporary inode reservation');
+}
 assert.equal(validateScenarioVerificationLargeInodeReservation({
   ...SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
   occupied_destination_count: 8_000,
@@ -400,6 +407,9 @@ const downwardLargeScenarioIdentity = preflightRun({
 assert.equal(downwardLargeScenarioIdentity.envelope.limits.temporary_max_inodes, 4_096,
   'the exact reservation cannot enlarge a caller-lowered temporary byte envelope');
 assert.equal(temporaryMaxInodesForBytes(16 * MIB, 16_384), 4_096);
+assert.ok(downwardLargeScenarioIdentity.reasons
+  .some((reason) => reason.includes('exceeds its effective reservation')),
+  'a downward byte limit that cannot fit reviewed geometry must refuse before execution');
 const crossedScenarioRetention = preflightRun({
   tier: 'small', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
   adapterInfo, injectedExistingProcesses: [],

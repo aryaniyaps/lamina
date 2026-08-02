@@ -1075,6 +1075,8 @@ export function decodeScenarioVerificationReport(report) {
     && report.limits.temporary_max_bytes > 0
     && report.limits.temporary_max_bytes <= DEFAULTS.tempMaxBytes
     && report.limits?.temporary_max_inodes === expectedTemporaryMaxInodes
+    && (!expectedInodeReservation
+      || expectedTemporaryMaxInodes >= inodeReservationValidation.required_inodes)
     && Number.isSafeInteger(report.peaks?.temporary_inodes)
     && report.peaks.temporary_inodes <= expectedTemporaryMaxInodes
     && preflight.retry?.ok === true && preflight.retry.signature === source?.digest

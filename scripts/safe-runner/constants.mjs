@@ -112,7 +112,9 @@ export function validateScenarioVerificationLargeInodeReservation(reservation) {
     && reservation.tracked_count <= reservation.occupied_destination_count
     && reservation.requested_max_inodes <= reservation.hard_ceiling
     && reservation.hard_ceiling === DEFAULTS.executionAuthorityMaxFiles
-    && Number.isSafeInteger(requiredInodes) && requiredInodes <= reservation.hard_ceiling;
+    && Number.isSafeInteger(requiredInodes)
+    && requiredInodes <= reservation.requested_max_inodes
+    && requiredInodes <= reservation.hard_ceiling;
   return Object.freeze({ valid: Boolean(valid), required_inodes: requiredInodes });
 }
 

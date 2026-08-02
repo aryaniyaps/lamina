@@ -400,6 +400,10 @@ export function preflightRun({
   if (!Array.isArray(command) || command.length === 0) reasons.push('command must be a non-empty string array');
   if (temporaryInodeReservationValidation?.valid === false) {
     reasons.push('large scenario verification temporary inode geometry exceeds its hard ceiling');
+  } else if (temporaryInodeReservationValidation
+    && envelope.limits.temporary_max_inodes
+      < temporaryInodeReservationValidation.required_inodes) {
+    reasons.push('large scenario verification temporary inode geometry exceeds its effective reservation');
   }
   const memoryReserve = portableTinySelfTest ? 128 * 1024 ** 2 : envelope.limits.os_reserve_bytes;
   const minimumDisk = portableTinySelfTest

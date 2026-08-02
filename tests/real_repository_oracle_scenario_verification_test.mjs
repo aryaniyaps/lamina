@@ -575,8 +575,9 @@ const downwardLargeSafe = safeReportForTier('large', 16 * 1024 ** 2);
 downwardLargeSafe.report.samples[0].temporary_inodes = 1;
 downwardLargeSafe.report.peaks.temporary_inodes = 1;
 assert.equal(downwardLargeSafe.report.limits.temporary_max_inodes, 4_096);
-assert.deepEqual(decodeScenarioVerificationReport(downwardLargeSafe.report),
-  canonical(downwardLargeSafe.result));
+assert.throws(() => decodeScenarioVerificationReport(downwardLargeSafe.report),
+  /exact safe-runner authority/,
+  'a successful large report is impossible when downward byte semantics cannot fit the geometry');
 for (const wrongLimit of [8_192, 16_385]) {
   const tampered = structuredClone(largeSafe.report);
   tampered.limits.temporary_max_inodes = wrongLimit;
