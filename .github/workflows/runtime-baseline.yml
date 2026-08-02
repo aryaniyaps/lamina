@@ -40,7 +40,8 @@ jobs:
 
   baseline:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-22.04
+    # cli-v0.3.5's published Linux worker requires glibc 2.38 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
       LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-runtime-baseline-safe-state
