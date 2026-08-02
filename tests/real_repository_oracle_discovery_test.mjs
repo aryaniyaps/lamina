@@ -227,6 +227,99 @@ const deterministicUnicodeText = (seed, length) => {
   }
   return text;
 };
+const discoverSingleSyntheticFile = (candidatePath, bytes) => {
+  const candidate = {
+    path: candidatePath, bytes,
+    blob_oid: crypto.createHash('sha1').update(bytes).digest('hex'),
+  };
+  const trackedPaths = [candidatePath, ...baselineTrackedPaths
+    .filter((trackedPath) => trackedPath !== candidatePath)]
+    .slice(0, collection.reviewed_inventory.tracked_files);
+  return discoverCandidateFacts('/unused-single-file-visitor', collection,
+    (_repository, _collection, visit) => {
+      visit(candidate);
+      return { candidate_files: 1, candidate_bytes: bytes.length, tracked_paths: trackedPaths };
+    });
+};
+for (const [candidatePath, expectedCategory] of [
+  ['src/routes/index.ts', 'routes'],
+  ['docs/empty.md', 'documentation'],
+  ['tests/empty.test.ts', 'tests'],
+]) {
+  const emptyDiscovery = discoverSingleSyntheticFile(candidatePath, Buffer.alloc(0));
+  assert.deepEqual(emptyDiscovery.scan, {
+    candidate_files: 1, candidate_bytes: 0,
+    tracked_path_count: collection.reviewed_inventory.tracked_files,
+    admitted_index_files: 1, excluded_generated_artifacts: 0,
+  });
+  assert.ok(emptyDiscovery.candidate_index.categories[expectedCategory]
+    .some((anchor) => anchor.path === candidatePath
+      && anchor.category_signal.occurrence === 'derived_unresolved'
+      && anchor.category_signal.line === null));
+  assert.ok(Object.values(emptyDiscovery.candidate_index.operation_candidates)
+    .every((rows) => rows.length === 0));
+  const emptyEncoded = encodeDiscoveryPayload(emptyDiscovery);
+  assert.deepEqual(decodeDiscoveryPayload(emptyEncoded.line), emptyDiscovery,
+    `zero-byte path-derived ${expectedCategory} discovery roundtrips exactly`);
+}
+
+const lateDefinitionBytes = Buffer.from(
+  `${'\n'.repeat(1_000_000)}function lateDefinition() { app.get('/late', emit); }`,
+);
+assert.ok(lateDefinitionBytes.length > 1_000_000);
+assert.ok(lateDefinitionBytes.length <= CASE_DISCOVERY_LIMITS.max_file_bytes);
+const lateDefinitionDiscovery = discoverSingleSyntheticFile('src/routes/late-definition.ts',
+  lateDefinitionBytes);
+const lateDefinitionAnchors = Object.values(lateDefinitionDiscovery.candidate_index.categories)
+  .flat().filter((anchor) => anchor.path === 'src/routes/late-definition.ts');
+assert.ok(lateDefinitionAnchors.length > 0);
+assert.ok(lateDefinitionAnchors.every((anchor) =>
+  anchor.symbol === 'lateDefinition' && anchor.line === 1_000_001));
+const lateDefinitionEncoded = encodeDiscoveryPayload(lateDefinitionDiscovery);
+assert.deepEqual(decodeDiscoveryPayload(lateDefinitionEncoded.line), lateDefinitionDiscovery,
+  'a definition beyond the former arbitrary million-line cap roundtrips exactly');
+const acceptedLateSignalLine = structuredClone(lateDefinitionDiscovery);
+const acceptedLateSignal = Object.values(acceptedLateSignalLine.candidate_index.categories)[0][0]
+  .category_signal;
+acceptedLateSignal.occurrence = 'exact_literal';
+acceptedLateSignal.line = 1_000_001;
+acceptedLateSignal.line_sha256 = crypto.createHash('sha256').update('late signal line').digest('hex');
+refreshIndexDigest(acceptedLateSignalLine);
+const acceptedLateSignalEncoded = encodeDiscoveryPayload(acceptedLateSignalLine);
+assert.deepEqual(decodeDiscoveryPayload(acceptedLateSignalEncoded.line), acceptedLateSignalLine,
+  'signal lines beyond the former arbitrary million-line cap roundtrip exactly');
+const excessiveDefinitionLine = structuredClone(lateDefinitionDiscovery);
+Object.values(excessiveDefinitionLine.candidate_index.categories)[0][0].line =
+  CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
+refreshIndexDigest(excessiveDefinitionLine);
+assert.throws(() => encodeDiscoveryPayload(excessiveDefinitionLine),
+  /anchor is outside the exact schema/,
+  'definition line authority cannot exceed the maximum possible line for a bounded file');
+const excessiveSignalLine = structuredClone(acceptedLateSignalLine);
+const excessiveSignal = Object.values(excessiveSignalLine.candidate_index.categories)
+  .flat().find((anchor) => anchor.category_signal.line !== null).category_signal;
+excessiveSignal.line = CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
+refreshIndexDigest(excessiveSignalLine);
+assert.throws(() => encodeDiscoveryPayload(excessiveSignalLine),
+  /category signal is outside the exact schema/,
+  'signal line authority cannot exceed the maximum possible line for a bounded file');
+const excessiveLineWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
+  lateDefinitionEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
+)).toString('utf8'));
+const lateFileRow = excessiveLineWire[6]
+  .find((row) => row[0] === 'src/routes/late-definition.ts');
+lateFileRow[4] = CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
+assert.throws(() => decodeDiscoveryPayload(wireLine(excessiveLineWire)),
+  /payload line is malformed/,
+  'wire decoding applies the same file-derived line-number bound before expansion');
+const excessiveSignalWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
+  acceptedLateSignalEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
+)).toString('utf8'));
+const lateSignalRow = excessiveSignalWire[7].find((row) => row[3] === 1_000_001);
+lateSignalRow[3] = CASE_DISCOVERY_LIMITS.max_file_bytes + 2;
+assert.throws(() => decodeDiscoveryPayload(wireLine(excessiveSignalWire)),
+  /payload line is malformed/,
+  'wire decoding applies the same file-derived signal-line bound before expansion');
 const longSignalValue = structuredClone(first);
 const longRouteAnchors = longSignalValue.candidate_index.categories.routes;
 assert.ok(longRouteAnchors.length >= 2, 'synthetic long-signal fixture needs two route anchors');
@@ -269,7 +362,10 @@ assert.notEqual(retainedPreviewSignalRows[0][1], retainedPreviewSignalRows[1][1]
 const allDiscoveryCategories = ['commands', 'dependencies', 'documentation', 'entities',
   'entry_points', 'events', 'feature_flags', 'handlers', 'permissions', 'personas', 'routes',
   'schemas', 'state_transitions', 'tests'];
-const escapedMaxPaths = [0, 1, 2].map((index) => `src/${'"'.repeat(4_091)}${index}`);
+const escapedMaxPaths = Array.from({ length: 12 }, (_, index) => {
+  const suffix = String(index);
+  return `src/${'"'.repeat(4_092 - suffix.length)}${suffix}`;
+});
 assert.ok(escapedMaxPaths.every((candidatePath) => Buffer.byteLength(candidatePath) === 4_096));
 const maxRefSignal = {
   value: deterministicText('max-ref-signal', 240),
@@ -287,37 +383,38 @@ const maxRefAnchor = (candidatePath, category, role) => ({
   role, independent_method: 'sealed_git_blob_static_scan',
 });
 const maxRefValue = structuredClone(first);
-maxRefValue.scan = { ...maxRefValue.scan, candidate_files: 3, candidate_bytes: 1,
-  admitted_index_files: 3, excluded_generated_artifacts: 0 };
+maxRefValue.scan = { ...maxRefValue.scan, candidate_files: 12, candidate_bytes: 1,
+  admitted_index_files: 12, excluded_generated_artifacts: 0 };
 maxRefValue.candidate_index.categories = Object.fromEntries(allDiscoveryCategories.map((category) => [
-  category, escapedMaxPaths.map((candidatePath) => maxRefAnchor(candidatePath, category, 'positive')),
+  category, escapedMaxPaths.slice(0, 3)
+    .map((candidatePath) => maxRefAnchor(candidatePath, category, 'positive')),
 ]));
 maxRefValue.candidate_index.near_neighbors = allDiscoveryCategories.map((category) => ({
   category, anchor_path: escapedMaxPaths[0],
-  candidate: maxRefAnchor(escapedMaxPaths[1], null, 'near_neighbor'),
+  candidate: maxRefAnchor(escapedMaxPaths[3], null, 'near_neighbor'),
 }));
 maxRefValue.candidate_index.negative_decoys = allDiscoveryCategories.map((category) => ({
   category, anchor_path: escapedMaxPaths[0],
-  candidate: maxRefAnchor(escapedMaxPaths[1], null, 'negative'),
+  candidate: maxRefAnchor(escapedMaxPaths[3], null, 'negative'),
   basis: 'same_stratum_without_discovered_category',
 }));
 const scenarioAnchors = escapedMaxPaths.map((candidatePath) =>
   maxRefAnchor(candidatePath, null, 'scenario_before'));
 const renameAuthority = first.candidate_index.operation_candidates.rename[0].destination_absence;
 maxRefValue.candidate_index.operation_candidates = {
-  modify: scenarioAnchors.map((anchor) => structuredClone(anchor)),
-  rename: scenarioAnchors.map((anchor) => ({ ...structuredClone(anchor),
+  modify: scenarioAnchors.slice(0, 3).map((anchor) => structuredClone(anchor)),
+  rename: scenarioAnchors.slice(3, 6).map((anchor) => ({ ...structuredClone(anchor),
     proposed_path: `src/lamina-oracle-rename-${anchor.blob_oid.slice(0, 8)}`,
     destination_absence: structuredClone(renameAuthority) })),
-  delete: scenarioAnchors.map((anchor) => structuredClone(anchor)),
-  branch: scenarioAnchors.map((anchor) => {
+  delete: scenarioAnchors.slice(6, 9).map((anchor) => structuredClone(anchor)),
+  branch: scenarioAnchors.slice(9, 12).map((anchor) => {
     const id = crypto.createHash('sha256').update(JSON.stringify(canonical({
       path: anchor.path, blob_oid: anchor.blob_oid,
     }))).digest('hex').slice(0, 12);
     return { ...structuredClone(anchor), proposed_branch: `lamina-oracle/${id}`,
       source_commit: maxRefValue.collection.commit, executed: false };
   }),
-  logical_worktree: scenarioAnchors.map((anchor) => {
+  logical_worktree: scenarioAnchors.slice(9, 12).map((anchor) => {
     const id = crypto.createHash('sha256').update(JSON.stringify(canonical({
       path: anchor.path, blob_oid: anchor.blob_oid,
     }))).digest('hex').slice(0, 12);
@@ -327,7 +424,7 @@ maxRefValue.candidate_index.operation_candidates = {
 };
 refreshIndexDigest(maxRefValue);
 const maxRefSemanticBytes = Buffer.byteLength(JSON.stringify(canonical(maxRefValue)));
-assert.equal(maxRefSemanticBytes, 977_350,
+assert.equal(maxRefSemanticBytes, 977_348,
   'max-ref expanded semantic measurement is frozen above the 512 KiB cap');
 assert.throws(() => encodeDiscoveryPayload(maxRefValue),
   /semantic payload exceeds its reconstructed-byte bound/,
@@ -446,11 +543,65 @@ invalidNeighbor.candidate = { ...structuredClone(referencedControlAnchor), categ
 refreshIndexDigest(invalidControl);
 assert.throws(() => encodeDiscoveryPayload(invalidControl), /near-neighbor authority is invalid/,
   'a control candidate cannot repeat its referenced positive anchor');
+const positiveAsNegative = structuredClone(first);
+const promotedNegative = positiveAsNegative.candidate_index.negative_decoys
+  .find((row) => positiveAsNegative.candidate_index.categories[row.category].length >= 2);
+assert.ok(promotedNegative);
+const promotedCategoryAnchors = positiveAsNegative.candidate_index
+  .categories[promotedNegative.category];
+promotedCategoryAnchors[1] = {
+  ...structuredClone(promotedNegative.candidate),
+  category: promotedNegative.category,
+  category_signal: structuredClone(promotedCategoryAnchors[0].category_signal),
+  role: 'positive',
+};
+refreshIndexDigest(positiveAsNegative);
+assert.throws(() => encodeDiscoveryPayload(positiveAsNegative),
+  /negative-decoy authority is invalid/,
+  'a negative decoy must be absent from every positive path for its category');
+const reversedNeighbors = structuredClone(first);
+assert.ok(reversedNeighbors.candidate_index.near_neighbors.length > 1);
+reversedNeighbors.candidate_index.near_neighbors.reverse();
+refreshIndexDigest(reversedNeighbors);
+assert.throws(() => encodeDiscoveryPayload(reversedNeighbors),
+  /controls contain duplicate category tuples/,
+  'near-neighbor rows retain producer git-byte category order');
+const reversedDecoys = structuredClone(first);
+assert.ok(reversedDecoys.candidate_index.negative_decoys.length > 1);
+reversedDecoys.candidate_index.negative_decoys.reverse();
+refreshIndexDigest(reversedDecoys);
+assert.throws(() => encodeDiscoveryPayload(reversedDecoys),
+  /controls contain duplicate category tuples/,
+  'negative-decoy rows retain producer git-byte category order');
 const invalidRename = structuredClone(first);
 invalidRename.candidate_index.operation_candidates.rename[0].proposed_path = 'src/invented.ts';
 refreshIndexDigest(invalidRename);
 assert.throws(() => encodeDiscoveryPayload(invalidRename), /rename absence authority is invalid/,
   'rename proposals must follow the bounded producer derivation');
+const overlappingOperationSlices = structuredClone(first);
+const overlappingSource = structuredClone(
+  overlappingOperationSlices.candidate_index.operation_candidates.modify[0],
+);
+const overlappingParent = path.posix.dirname(overlappingSource.path) === '.'
+  ? '' : `${path.posix.dirname(overlappingSource.path)}/`;
+const overlappingExtension = path.posix.extname(overlappingSource.path);
+overlappingOperationSlices.candidate_index.operation_candidates.rename[0] = {
+  ...overlappingSource,
+  proposed_path: `${overlappingParent}lamina-oracle-rename-${overlappingSource.blob_oid.slice(0, 8)}${overlappingExtension}`,
+  destination_absence: structuredClone(
+    overlappingOperationSlices.candidate_index.operation_candidates.rename[1].destination_absence,
+  ),
+};
+refreshIndexDigest(overlappingOperationSlices);
+assert.throws(() => encodeDiscoveryPayload(overlappingOperationSlices),
+  /operation slices overlap/,
+  'modify, rename, delete, and branch slices cannot reuse producer-selected paths');
+const operationSliceGap = structuredClone(first);
+operationSliceGap.candidate_index.operation_candidates.rename.pop();
+refreshIndexDigest(operationSliceGap);
+assert.throws(() => encodeDiscoveryPayload(operationSliceGap),
+  /operation counts are not contiguous producer slices/,
+  'a partial producer slice cannot be followed by a non-empty later slice');
 const invalidBranch = structuredClone(first);
 invalidBranch.candidate_index.operation_candidates.branch[0].proposed_branch =
   'lamina-oracle/aaaaaaaaaaaa';

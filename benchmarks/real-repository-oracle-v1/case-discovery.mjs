@@ -57,6 +57,7 @@ const DISCOVERY_TRANSPORT_MAX_BYTES = 512 * 1024;
 const DISCOVERY_RECONSTRUCTED_MAX_BYTES = 512 * 1024;
 const MAX_SIGNAL_PREVIEW_CODE_UNITS = 240;
 const MAX_SIGNAL_PREVIEW_BYTES = MAX_SIGNAL_PREVIEW_CODE_UNITS * 3;
+const MAX_DISCOVERY_LINE_NUMBER = CASE_DISCOVERY_LIMITS.max_file_bytes + 1;
 const FILE_KEYS = Object.freeze(['path', 'blob_oid', 'stratum', 'category', 'category_signal',
   'symbol', 'line', 'content_sha256', 'role', 'independent_method']);
 const SIGNAL_KEYS = Object.freeze(['value', 'value_sha256', 'occurrence', 'line', 'line_sha256']);
@@ -141,7 +142,7 @@ function validateAnchor(anchor, { category, role, extras = [] }) {
     || anchor.category !== category || anchor.role !== role
     || anchor.independent_method !== 'sealed_git_blob_static_scan'
     || !(anchor.symbol === null || /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol))
-    || !(anchor.line === null || boundedInteger(anchor.line - 1, 999_999))
+    || !(anchor.line === null || boundedInteger(anchor.line - 1, MAX_DISCOVERY_LINE_NUMBER - 1))
     || ((anchor.symbol === null) !== (anchor.line === null))
     || !/^[a-f0-9]{64}$/.test(anchor.content_sha256 || '')) {
     throw new Error('case-discovery anchor is outside the exact schema');
@@ -156,7 +157,7 @@ function validateAnchor(anchor, { category, role, extras = [] }) {
       || Buffer.byteLength(signal.value) > MAX_SIGNAL_PREVIEW_BYTES
       || !/^[a-f0-9]{64}$/.test(signal.value_sha256 || '')
       || !OCCURRENCES.includes(signal.occurrence)
-      || !(signal.line === null || boundedInteger(signal.line - 1, 999_999))
+      || !(signal.line === null || boundedInteger(signal.line - 1, MAX_DISCOVERY_LINE_NUMBER - 1))
       || !(signal.line_sha256 === null || /^[a-f0-9]{64}$/.test(signal.line_sha256))) {
       throw new Error('case-discovery category signal is outside the exact schema');
     }
@@ -245,19 +246,26 @@ export function validateDiscoveryResult(result) {
   }
   for (const row of index.negative_decoys) {
     const referencedAnchor = index.categories[row?.category]?.[0];
+    const positivePaths = new Set(
+      (index.categories[row?.category] || []).map((anchor) => anchor.path),
+    );
     if (!exactKeys(row, ['category', 'anchor_path', 'candidate', 'basis'])
       || !referencedAnchor || row.anchor_path !== referencedAnchor.path
-      || row.candidate?.path === row.anchor_path
+      || positivePaths.has(row.candidate?.path)
       || row.candidate?.stratum !== referencedAnchor.stratum
       || row.basis !== 'same_stratum_without_discovered_category') {
       throw new Error('case-discovery negative-decoy authority is invalid');
     }
     validateAnchor(row.candidate, { category: null, role: 'negative' });
   }
+  const strictlyOrderedControlCategories = (rows) => rows.every((row, indexValue) =>
+    indexValue === 0 || gitByteCompare(rows[indexValue - 1].category, row.category) < 0);
   if (new Set(index.near_neighbors.map((row) => row.category)).size
       !== index.near_neighbors.length
     || new Set(index.negative_decoys.map((row) => row.category)).size
-      !== index.negative_decoys.length) {
+      !== index.negative_decoys.length
+    || !strictlyOrderedControlCategories(index.near_neighbors)
+    || !strictlyOrderedControlCategories(index.negative_decoys)) {
     throw new Error('case-discovery controls contain duplicate category tuples');
   }
   const operations = index.operation_candidates;
@@ -323,6 +331,22 @@ export function validateDiscoveryResult(result) {
       !== tupleIdentity(exactFileFact(operations.logical_worktree[indexValue])))) {
     throw new Error('case-discovery branch and worktree selections are inconsistent');
   }
+  const producerSliceCounts = [operations.modify.length, operations.rename.length,
+    operations.delete.length, operations.branch.length];
+  const firstPartialSlice = producerSliceCounts.findIndex((count) => count < 3);
+  if ((firstPartialSlice >= 0
+      && producerSliceCounts.slice(firstPartialSlice + 1).some((count) => count !== 0))) {
+    throw new Error('case-discovery operation counts are not contiguous producer slices');
+  }
+  const selectedOperationPaths = new Set();
+  for (const kind of ['modify', 'rename', 'delete', 'branch']) {
+    for (const anchor of operations[kind]) {
+      if (selectedOperationPaths.has(anchor.path)) {
+        throw new Error('case-discovery operation slices overlap');
+      }
+      selectedOperationPaths.add(anchor.path);
+    }
+  }
   if (operations.rename.length > 1 && operations.rename.some((anchor) =>
     semanticDigest(anchor.destination_absence)
       !== semanticDigest(operations.rename[0].destination_absence))) {
@@ -344,7 +368,6 @@ export function validateDiscoveryResult(result) {
     canonicalFileByPath.set(anchor.path, identity);
   }
   if (canonicalFileByPath.size > result.scan.admitted_index_files
-    || (indexedAnchors.length > 0 && result.scan.candidate_bytes === 0)
     || (result.scan.candidate_files === 0 && result.scan.candidate_bytes !== 0)) {
     throw new Error('case-discovery indexed facts contradict scan accounting');
   }
@@ -471,7 +494,8 @@ function unpackDiscoveryResult(wire, rawBytes) {
       digestAt(sha256s, usedSha256s, row[5])];
     if (!safeDiscoveryPath(decoded[0]) || !STRATA.includes(decoded[2])
       || !(decoded[3] === null || /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(decoded[3]))
-      || !(decoded[4] === null || boundedInteger(decoded[4] - 1, 999_999))) {
+      || !(decoded[4] === null
+        || boundedInteger(decoded[4] - 1, MAX_DISCOVERY_LINE_NUMBER - 1))) {
       throw new Error('case-discovery wire file fact is invalid');
     }
     return decoded;
@@ -492,7 +516,8 @@ function unpackDiscoveryResult(wire, rawBytes) {
       || decoded[0].length > MAX_SIGNAL_PREVIEW_CODE_UNITS
       || Buffer.byteLength(decoded[0]) > MAX_SIGNAL_PREVIEW_BYTES
       || !OCCURRENCES.includes(decoded[2])
-      || !(decoded[3] === null || boundedInteger(decoded[3] - 1, 999_999))
+      || !(decoded[3] === null
+        || boundedInteger(decoded[3] - 1, MAX_DISCOVERY_LINE_NUMBER - 1))
       || ((decoded[3] === null) !== (decoded[4] === null))
       || (decoded[2] === 'derived_unresolved') !== (decoded[3] === null)) {
       throw new Error('case-discovery wire signal fact is invalid');
