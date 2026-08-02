@@ -47,7 +47,7 @@ import {
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
   existingLaminaProcesses, isLaminaProcessCommand, MAX_PROCESS_ENVIRONMENT_BYTES,
-  processEnvironmentAttestation,
+  processEnvironmentAttestation, processIdentity,
 } from '../scripts/safe-runner/processes.mjs';
 import {
   assertExecutionDependencyInodeBudget, assertExecutionSnapshot,
@@ -78,7 +78,8 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
-  recordChildTermination, temporaryQuotaHandshakeFailure, waitForChildResult,
+  recordChildTermination, resolvePrivateManagedGraphdPaths, temporaryQuotaHandshakeFailure,
+  waitForChildResult,
 } from '../scripts/safe-runner/runner.mjs';
 import {
   bubblewrapSandboxArguments,
@@ -104,6 +105,7 @@ import {
   productionLockDirectory,
   promotionCommandDigest,
   repositorySourceDigest,
+  sealedManifestFileIdentity,
   writeAttestation,
 } from '../scripts/safe-runner/state.mjs';
 
@@ -121,6 +123,18 @@ function mountOperationIndex(args, option, source, target) {
 }
 
 try {
+  const sealedRuntimeInput = path.join(root, 'sealed-runtime-input');
+  fs.writeFileSync(sealedRuntimeInput, 'worker');
+  const sealedRuntimeDigest = crypto.createHash('sha256').update('worker').digest('hex');
+  assert.equal(sealedManifestFileIdentity(sealedRuntimeInput, {
+    bytes: 6, sha256: sealedRuntimeDigest,
+  }, 'worker').digest, sealedRuntimeDigest);
+  fs.writeFileSync(sealedRuntimeInput, 'mutate');
+  assert.throws(() => sealedManifestFileIdentity(sealedRuntimeInput, {
+    bytes: 6, sha256: sealedRuntimeDigest,
+  }, 'worker'), /failed sealed manifest identity/,
+  'same-size runtime input mutation must refuse before promotion identity can be reused');
+
   assert.equal(payloadRuntimeTimedOut(null, 60_000, 1_000), false,
     'controller preparation time must not consume the workload timeout');
   assert.equal(payloadRuntimeTimedOut(50_000, 50_999, 1_000), false);
@@ -621,6 +635,16 @@ try {
   assert.equal(commandOwnership([
     process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success',
   ], root).network_access, 'isolated');
+  const runtimeBaselineEntrypoint = path.resolve('benchmarks/runtime-baseline-v1/workload.mjs');
+  for (const command of [
+    [process.execPath, runtimeBaselineEntrypoint],
+    [process.execPath, runtimeBaselineEntrypoint, 'run', '../small', 'footprint', 'a', 'b'],
+    [process.execPath, runtimeBaselineEntrypoint, 'run', 'small', '--scenario', 'a', 'b'],
+    [process.execPath, runtimeBaselineEntrypoint, 'run', 'small', 'footprint', 'a', 'b', 'extra'],
+  ]) {
+    assert.equal(commandOwnership(command, process.cwd()).proven, false,
+      'runtime baseline must refuse every non-exact fixture/scenario/input argv');
+  }
   const unsealedRetrievalRuntime = preflightRun({
     tier: 'small', cwd: process.cwd(), adapterInfo: portableProbe,
     command: [process.execPath, path.resolve('benchmarks/retrieval-v1/benchmark.mjs'), '--evaluate'],
@@ -1988,6 +2012,34 @@ try {
     environment: {},
   }), /invalid execution authority/,
   'graphd authority must reject a missing controller-sealed Git identity');
+  const baselineWorkerOverlay = path.join(
+    validGraphdSnapshot.snapshot_repository,
+    'packages/cli/observation-runtime/cocoindex-worker',
+  );
+  fs.mkdirSync(path.dirname(baselineWorkerOverlay), { recursive: true });
+  fs.writeFileSync(baselineWorkerOverlay, '#!/bin/sh\nexit 0\n', { mode: 0o500 });
+  const baselineSandboxAuthority = {
+    ...encodedGraphdAuthority,
+    audited_entrypoint: 'benchmarks/runtime-baseline-v1/workload.mjs',
+    writable_bindings: [],
+  };
+  assert.match(validateSandboxExecutionAuthority({
+    executionAuthority: baselineSandboxAuthority,
+    authorityRoot: validGraphdSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }).sealedGitIdentity, /^[A-Za-z0-9_-]+$/,
+  'runtime baseline must admit its sealed Git identity without a host writable binding');
+  assert.throws(() => validateSandboxExecutionAuthority({
+    executionAuthority: {
+      ...baselineSandboxAuthority,
+      writable_bindings: encodedGraphdAuthority.writable_bindings,
+    },
+    authorityRoot: validGraphdSnapshot.root,
+    cwd: snapshotRepository,
+    environment: {},
+  }), /invalid execution authority/,
+  'runtime baseline must never inherit the host Git-common scratch binding');
   const graphdSandboxArgs = bubblewrapSandboxArguments({
     cwd: snapshotRepository,
     readyFile: path.join(root, 'graphd.ready'),
@@ -2052,6 +2104,7 @@ try {
   const fixtureGraphdAuthority = validGraphdSnapshot.graphd_launch_authority[0];
   const fixtureGraphdChild = {
     argv: fixtureGraphdAuthority.argv,
+    cwd: fixtureGraphdAuthority.argv[2],
     executable_identity: fixtureGraphdAuthority.executable_identity,
     environment_attestation: processEnvironmentAttestation(
       Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0'),
@@ -2061,6 +2114,13 @@ try {
     socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
     lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
   }, validGraphdSnapshot.graphd_launch_authority), true);
+  assert.equal(exactGraphdLaunchAuthorized(fixtureGraphdChild, {
+    socket: '/proc/123/root/private/graphd.sock',
+    lock: '/proc/123/root/private/graphd.lock',
+    canonical_socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
+    canonical_lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
+  }, validGraphdSnapshot.graphd_launch_authority), true,
+  'namespace-private supervisor aliases must remain bound to canonical graphd authority');
   const gitHookGraphdChild = {
     ...fixtureGraphdChild,
     environment_attestation: processEnvironmentAttestation(Buffer.from(
@@ -2080,6 +2140,33 @@ try {
     lock: path.join(snapshotRepository, '.git', 'lamina', 'graphd.lock'),
   }, validGraphdSnapshot.graphd_launch_authority), false,
   'graphd-client fixture authority must remain bound to its nested scratch repository');
+  const privateManagedRoot = path.join(root, 'private-runtime-baseline');
+  const privateManagedRuntime = path.join(
+    privateManagedRoot, 'runs', 'small', 'footprint', 'sample-0', '.git', 'lamina',
+  );
+  fs.mkdirSync(privateManagedRuntime, { recursive: true });
+  const privateRequester = processIdentity(process.pid);
+  const privateLaunchAuthority = [{
+    kind: 'exact', private_tmp_root: privateManagedRoot,
+    runtime_directory: privateManagedRuntime,
+  }];
+  const privateResolved = resolvePrivateManagedGraphdPaths({
+    requester: privateRequester,
+    socket: path.join(privateManagedRuntime, 'graphd.sock'),
+    lock: path.join(privateManagedRuntime, 'graphd.lock'),
+    launchAuthority: privateLaunchAuthority,
+  });
+  assert.equal(privateResolved.socket,
+    `/proc/${process.pid}/root${path.join(privateManagedRuntime, 'graphd.sock')}`,
+  'private graphd socket authority must remain reachable only through requester namespace root');
+  assert.ok(reserveManagedObjects(privateResolved.socket, privateResolved.lock,
+    '1'.repeat(64)), 'namespace-private managed paths must retain exact parent identity');
+  assert.equal(resolvePrivateManagedGraphdPaths({
+    requester: privateRequester,
+    socket: path.join(privateManagedRoot, 'sibling', 'graphd.sock'),
+    lock: path.join(privateManagedRoot, 'sibling', 'graphd.lock'),
+    launchAuthority: privateLaunchAuthority,
+  }), null, 'private graphd authority must reject sibling runtime paths');
   const fixtureAlias = path.join(fixtureWork, 'alias');
   fs.symlinkSync(path.join(snapshotRepository, 'dist'), fixtureAlias);
   assert.throws(() => prepareExecutionSnapshot({

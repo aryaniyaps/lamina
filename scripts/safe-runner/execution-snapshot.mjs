@@ -22,6 +22,14 @@ const MAX_CLOSURE_PACKAGES = 4_096;
 const MAX_CLOSURE_INODES = 2_000_000;
 const MAX_CLOSURE_BYTES = 16 * 1024 ** 3;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
+const RUNTIME_BASELINE_SCENARIOS = new Set([
+  'footprint', 'doctor-status-startup', 'initial-observation',
+  'initial-retrieval-readiness', 'first-useful-preparation', 'warm-preparation',
+  'noop-synchronization', 'one-file-change', 'multi-file-change',
+  'full-derived-state-rebuild', 'post-command-idle-rss',
+  'cancellation-shutdown-cleanup',
+]);
 
 export function assertGitObjectClosureBudget(objectCount, uncompressedBytes, currentBytes = 0) {
   if (!Number.isSafeInteger(objectCount) || objectCount < 0 || objectCount > MAX_GIT_OBJECTS
@@ -46,6 +54,12 @@ const EXPLICIT_ENTRYPOINT_DEPENDENCIES = new Map([
     { name: 'postject', resolver: 'package.json', destination: 'node_modules' },
   ]],
   ['scripts/prepare-retrieval-assets.mjs', [
+    {
+      name: '@ladybugdb/core', resolver: 'packages/cli/package.json',
+      destination: 'packages/cli/node_modules',
+    },
+  ]],
+  [RUNTIME_BASELINE_ENTRYPOINT, [
     {
       name: '@ladybugdb/core', resolver: 'packages/cli/package.json',
       destination: 'packages/cli/node_modules',
@@ -248,6 +262,7 @@ function entrypointRelative(repository, command, cwd = repository) {
     if (!relative.startsWith('../') && (repositoryOutputRefusal(relative)
       || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative)
       || EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS.has(relative)
+      || relative === RUNTIME_BASELINE_ENTRYPOINT
       || relative === RETRIEVAL_BENCHMARK_ENTRYPOINT)) return relative;
   }
   return null;
@@ -719,6 +734,81 @@ export function prepareExecutionSnapshot({
       throw new Error('execution argv snapshot exceeds its bounded budget');
     }
   }
+  let runtimeBaseline = null;
+  if (auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT) {
+    if (command.length !== 7 || command[2] !== 'run'
+      || !['small', 'medium', 'large'].includes(command[3])
+      || !RUNTIME_BASELINE_SCENARIOS.has(command[4])) {
+      throw new Error('runtime baseline execution command changed after preflight');
+    }
+    const manifestFile = path.join(repository, 'benchmarks/runtime-baseline-v1/manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    const fixture = manifest?.fixtures?.find((item) => item?.id === command[3]);
+    const expectedInputs = [
+      { index: 5, label: 'model', expected: manifest?.runtime_assets?.model, executable: false },
+      {
+        index: 6, label: 'worker', expected: manifest?.runtime_assets?.worker_linux_x64,
+        executable: true,
+      },
+    ];
+    if (manifest?.schema !== 'lamina.runtime-baseline-manifest/v1'
+      || manifest?.version !== 1 || !fixture) {
+      throw new Error('runtime baseline manifest changed after preflight');
+    }
+    const sealedInputs = {};
+    for (const input of expectedInputs) {
+      const source = path.resolve(cwd, command[input.index]);
+      const relative = path.relative(repository, source).replaceAll('\\', '/');
+      if (!relative || relative.startsWith('../') || path.isAbsolute(relative)
+        || !Number.isSafeInteger(input.expected?.bytes)
+        || !/^[a-f0-9]{64}$/.test(input.expected?.sha256 || '')) {
+        throw new Error(`runtime baseline ${input.label} authority is invalid`);
+      }
+      const copied = entries.find((entry) => entry.path === path.join(snapshotRepository, relative));
+      const sourceStat = fs.lstatSync(source, { bigint: true });
+      if (!copied || copied.type !== 'file' || copied.size !== input.expected.bytes
+        || copied.digest !== input.expected.sha256
+        || copied.source_dev !== String(sourceStat.dev)
+        || copied.source_ino !== String(sourceStat.ino)
+        || copied.source_uid !== Number(sourceStat.uid)
+        || copied.source_nlink !== Number(sourceStat.nlink)
+        || copied.source_mode !== Number(sourceStat.mode & 0o777n)
+        || (input.executable && (sourceStat.mode & 0o111n) === 0n)) {
+        throw new Error(`runtime baseline ${input.label} does not match its sealed manifest authority`);
+      }
+      sealedInputs[input.label] = {
+        source, relative, snapshot: copied.path, digest: copied.digest, size: copied.size,
+      };
+    }
+    const workerOverlay = path.join(
+      snapshotRepository, 'packages/cli/observation-runtime/cocoindex-worker',
+    );
+    if (workerOverlay !== sealedInputs.worker.snapshot) {
+      const existing = entries.find((entry) => entry.path === workerOverlay);
+      if (existing) {
+        if (existing.type !== 'file' || existing.digest !== sealedInputs.worker.digest
+          || existing.size !== sealedInputs.worker.size) {
+          throw new Error('runtime baseline worker overlay collides with different sealed bytes');
+        }
+        fs.chmodSync(workerOverlay, 0o500);
+      } else {
+        const copied = copyPhysicalFile(sealedInputs.worker.snapshot, workerOverlay, true);
+        totalBytes += copied.size;
+        entries.push({
+          label: 'runtime-baseline:worker-overlay', path: workerOverlay, type: 'file', ...copied,
+        });
+        copiedDestinations.add(workerOverlay);
+      }
+    }
+    runtimeBaseline = {
+      fixture: command[3], scenario: command[4], inputs: sealedInputs,
+      worker_overlay: path.join(repository, 'packages/cli/observation-runtime/cocoindex-worker'),
+      private_root: path.join(temporaryDirectory, 'payload-tmp', 'runtime-baseline-v1'),
+    };
+    if (entries.length > MAX_FILES || totalBytes > MAX_BYTES) {
+      throw new Error('runtime baseline sealed inputs exceed the execution snapshot budget');
+    }
+  }
   _testBeforeRetrievalCopyValidation?.(retrievalAuthority);
   for (const input of expectedRetrievalAuthority
     ? [retrievalAuthority.worker, retrievalAuthority.model, retrievalAuthority.tokenizer] : []) {
@@ -1134,6 +1224,7 @@ export function prepareExecutionSnapshot({
     : [executable, ...command.slice(1)];
   const graphdLaunchAuthority = [];
   const gitExecutableIdentity = auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs'
+    || auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
     ? trustedGitIdentity() : null;
   if (stagedInfrastructure.node
     && auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
@@ -1148,6 +1239,25 @@ export function prepareExecutionSnapshot({
       runtime_directory: path.join(fs.realpathSync.native(fixtureCommon), 'lamina'),
       executable_identity: stagedInfrastructure.identities.node,
     });
+  }
+  if (stagedInfrastructure.node && runtimeBaseline) {
+    for (let index = 0; index < 3; index += 1) {
+      const nestedRepository = path.join(
+        runtimeBaseline.private_root, 'runs', runtimeBaseline.fixture,
+        runtimeBaseline.scenario, `sample-${index}`,
+      );
+      graphdLaunchAuthority.push({
+        kind: 'exact',
+        argv: [
+          stagedInfrastructure.node,
+          path.join(repository, 'packages/cli/lib/graph-runtime/server.mjs'),
+          nestedRepository,
+        ],
+        runtime_directory: path.join(nestedRepository, '.git', 'lamina'),
+        private_tmp_root: runtimeBaseline.private_root,
+        executable_identity: stagedInfrastructure.identities.node,
+      });
+    }
   }
   if (auditedEntrypoint === 'tests/cli_binary_smoke_test.mjs'
     && environmentOverrides.LAMINA_BINARY) {
@@ -1223,6 +1333,7 @@ export function prepareExecutionSnapshot({
     git_executable_identity: gitExecutableIdentity,
     environment_overrides: environmentOverrides,
     graphd_launch_authority: graphdLaunchAuthority,
+    runtime_baseline: runtimeBaseline,
     infrastructure: stagedInfrastructure,
     file_count: entries.length, total_bytes: totalBytes,
     digest: crypto.createHash('sha256').update(JSON.stringify(entries.map(({ path: _path, ...entry }) => entry))).digest('hex'),

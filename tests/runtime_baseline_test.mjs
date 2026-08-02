@@ -55,10 +55,16 @@ const record = {
     tracked_source_files: 80,
     tracked_source_bytes: 800,
     tracked_source_loc: 20000,
-    indexed_candidate_files: 90,
-    indexed_candidate_bytes: 900,
+    observation_indexed_files: 90,
+    observation_indexed_bytes: 900,
+    retrieval_candidate_files: 70,
+    retrieval_candidate_bytes: 700,
+    retrieval_indexed_files: 70,
+    retrieval_indexed_bytes: 700,
+    retrieval_source_chunks: 140,
     exclusion_rules: manifest.exclusions,
-    indexed_paths_digest: 'b'.repeat(64),
+    observation_paths_digest: 'b'.repeat(64),
+    retrieval_paths_digest: 'c'.repeat(64),
   },
   diagnostics: [{}, {}, {}],
   cleanup: { repository_removed: true, socket_removed: true, lock_removed: true },
@@ -76,6 +82,11 @@ assert.equal(validateWorkloadRecord(stalePin).valid, false);
 const incompleteCleanup = structuredClone(record);
 incompleteCleanup.cleanup.socket_removed = false;
 assert.equal(validateWorkloadRecord(incompleteCleanup).valid, false);
+const coldSample = structuredClone(record);
+coldSample.classification = 'cold-sample';
+coldSample.samples = [coldSample.samples[0]];
+coldSample.statistics = null;
+assert.equal(validateWorkloadRecord(coldSample).valid, true);
 
 assert.doesNotThrow(() => fs.accessSync(path.resolve('benchmarks/runtime-baseline-v1/workload.mjs')));
 console.log('runtime_baseline_test: ok');

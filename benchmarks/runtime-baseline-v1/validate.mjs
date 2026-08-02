@@ -38,9 +38,16 @@ export function validateWorkloadRecord(record, { fixtureId = null, scenario = nu
   if (!repository || repository.commit !== record?.fixture?.commit
     || !integer(repository.tracked_files) || !integer(repository.tracked_bytes)
     || !integer(repository.tracked_source_files) || !integer(repository.tracked_source_bytes)
-    || !integer(repository.tracked_source_loc) || !integer(repository.indexed_candidate_files)
-    || !integer(repository.indexed_candidate_bytes) || !Array.isArray(repository.exclusion_rules)
-    || typeof repository.indexed_paths_digest !== 'string') {
+    || !integer(repository.tracked_source_loc) || !integer(repository.observation_indexed_files)
+    || !integer(repository.observation_indexed_bytes) || !integer(repository.retrieval_candidate_files)
+    || !integer(repository.retrieval_candidate_bytes)
+    || !((repository.retrieval_indexed_files === null
+      && repository.retrieval_indexed_bytes === null && repository.retrieval_source_chunks === null)
+      || (integer(repository.retrieval_indexed_files) && integer(repository.retrieval_indexed_bytes)
+        && integer(repository.retrieval_source_chunks)))
+    || !Array.isArray(repository.exclusion_rules)
+    || typeof repository.observation_paths_digest !== 'string'
+    || typeof repository.retrieval_paths_digest !== 'string') {
     errors.push('record repository cardinality evidence is incomplete');
   }
   if (!record?.cleanup || record.cleanup.repository_removed !== true
@@ -51,6 +58,10 @@ export function validateWorkloadRecord(record, { fixtureId = null, scenario = nu
     if (!Array.isArray(record.samples) || record.samples.length !== COLD_RUNS
       || record.statistics?.count !== COLD_RUNS || record.statistics?.p90 !== null
       || record.statistics?.p95 !== null) errors.push('cold statistics are mislabeled or incomplete');
+  } else if (record?.classification === 'cold-sample') {
+    if (!Array.isArray(record.samples) || record.samples.length !== 1 || record.statistics !== null) {
+      errors.push('cold sample must contain exactly one unaggregated measurement');
+    }
   } else if (record?.classification === 'warm') {
     if (!Array.isArray(record.samples) || record.samples.length !== WARM_SAMPLES
       || record.statistics?.count !== WARM_SAMPLES || !integer(record.statistics?.p90)
@@ -62,6 +73,13 @@ export function validateWorkloadRecord(record, { fixtureId = null, scenario = nu
       || record.statistics?.p90 !== null || record.statistics?.p95 !== null
       || typeof record.p95_omitted_reason !== 'string') {
       errors.push('expensive repeated statistics must omit percentiles with a reason');
+    }
+  } else if (record?.classification === 'steady-state') {
+    if (!Array.isArray(record.samples) || record.samples.length !== 10
+      || record.samples.some((sample, index) => sample?.index !== index || !integer(sample?.rss_bytes))
+      || record.statistics?.count !== 10 || record.statistics?.p90 !== null
+      || record.statistics?.p95 !== null || record.measurement_unit !== 'bytes') {
+      errors.push('steady-state RSS evidence is incomplete or mislabeled');
     }
   } else if (!['static', 'expected-cancellation'].includes(record?.classification)) {
     errors.push('record classification is invalid');
@@ -80,9 +98,13 @@ export function validateScenarioResult(result, artifactRoot) {
   if (!['valid', 'refused', 'invalid'].includes(result?.status)) errors.push('scenario result status is invalid');
   const tiers = result?.fixture?.id === 'large' ? ['small', 'medium', 'large']
     : result?.fixture?.id === 'medium' ? ['small', 'medium'] : ['small'];
-  if (!Array.isArray(result?.runs) || result.runs.length < 1 || result.runs.length > tiers.length
-    || result.runs.some((run, index) => run.tier !== tiers[index])
-    || (result.status === 'valid' && result.runs.length !== tiers.length)) {
+  const maximumTierSequence = [...tiers, tiers.at(-1), tiers.at(-1)];
+  const expectedValidTiers = result?.workload?.classification === 'cold'
+    ? maximumTierSequence : tiers;
+  if (!Array.isArray(result?.runs) || result.runs.length < 1
+    || result.runs.length > maximumTierSequence.length
+    || result.runs.some((run, index) => run.tier !== maximumTierSequence[index])
+    || (result.status === 'valid' && result.runs.length !== expectedValidTiers.length)) {
     errors.push('scenario result lacks its exact sequential promotion chain');
   }
   for (const run of result?.runs || []) {
@@ -105,6 +127,15 @@ export function validateScenarioResult(result, artifactRoot) {
     }
     const validation = validateSafeRunnerReport(report);
     if (!validation.valid) errors.push(`${run.raw_report}: ${validation.errors.join('; ')}`);
+    if (report.outcome === 'success') {
+      const rawWorkload = workloadRecordFromReport(report);
+      const rawValidation = validateWorkloadRecord(rawWorkload, {
+        fixtureId: result.fixture.id, scenario: result.scenario,
+      });
+      if (!rawValidation.valid) {
+        errors.push(`${run.raw_report}: raw workload: ${rawValidation.errors.join('; ')}`);
+      }
+    }
     if (report.outcome !== run.outcome || report.peaks.cgroup_memory_bytes !== run.peak_memory_bytes
       || report.cleanup.descendants_remaining.length !== run.remaining_descendants
       || report.cleanup.managed_paths_remaining.length !== run.remaining_managed_paths) {

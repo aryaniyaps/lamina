@@ -36,6 +36,12 @@
     ".java", ".js", ".jsx", ".kt", ".kts", ".mjs", ".php", ".py", ".rb",
     ".rs", ".scss", ".swift", ".ts", ".tsx", ".vue"
   ],
+  "retrieval_extensions": [
+    ".c", ".cc", ".cpp", ".css", ".go", ".h", ".hpp", ".html", ".java",
+    ".js", ".jsx", ".json", ".kt", ".md", ".mdx", ".mjs", ".php", ".py",
+    ".rb", ".rs", ".scss", ".sql", ".swift", ".ts", ".tsx", ".vue", ".yaml", ".yml"
+  ],
+  "retrieval_max_file_bytes": 2097152,
   "exclusions": [
     ".git", ".agents/skills", ".claude/skills", ".codex/skills", ".opencode/skills",
     ".lamina/runs", ".lamina/runtime", ".lamina/runtime-cli", "node_modules",

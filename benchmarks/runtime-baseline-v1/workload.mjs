@@ -7,9 +7,11 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import {
   graphRequest,
+  graphdIdentity,
   stopIncompatibleServer,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
+import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
   assertScenario,
@@ -199,7 +201,8 @@ function ignored(relative, exclusions) {
     || pieces.includes('coverage') || pieces.some((piece) => /^\.venv/.test(piece))) return true;
   return exclusions.some((rule) => {
     const normalized = rule.replace(/\*$/, '');
-    return relative === normalized || relative.startsWith(`${normalized}/`);
+    return relative === normalized || relative.startsWith(`${normalized}/`)
+      || (rule.endsWith('*') && relative.startsWith(normalized));
   });
 }
 
@@ -213,6 +216,10 @@ function repositoryMetadata(repository, manifest, fixture) {
   let indexedBytes = 0;
   let indexedFiles = 0;
   const indexed = [];
+  let retrievalBytes = 0;
+  let retrievalFiles = 0;
+  const retrievalPaths = [];
+  const retrievalExtensions = new Set(manifest.retrieval_extensions);
   for (const relative of tracked) {
     const file = path.join(repository, relative);
     let stat;
@@ -225,6 +232,14 @@ function repositoryMetadata(repository, manifest, fixture) {
       indexed.push(relative);
     }
     const extension = path.extname(relative).toLowerCase();
+    if (retrievalExtensions.has(extension) && stat.size <= manifest.retrieval_max_file_bytes) {
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(fs.readFileSync(file));
+        retrievalFiles += 1;
+        retrievalBytes += stat.size;
+        retrievalPaths.push(relative);
+      } catch {}
+    }
     if (sourceExtensions.has(extension) || SOURCE_NAMES.has(path.basename(relative))) {
       sourceFiles += 1;
       sourceBytes += stat.size;
@@ -237,17 +252,72 @@ function repositoryMetadata(repository, manifest, fixture) {
   if (sourceLoc < fixture.source_loc.minimum || sourceLoc > fixture.source_loc.maximum) {
     fail('fixture source LOC is outside its pinned class', { sourceLoc, range: fixture.source_loc });
   }
-  return {
+  const result = {
     commit: fixture.commit,
     tracked_files: tracked.length,
     tracked_bytes: trackedBytes,
     tracked_source_files: sourceFiles,
     tracked_source_bytes: sourceBytes,
     tracked_source_loc: sourceLoc,
-    indexed_candidate_files: indexedFiles,
-    indexed_candidate_bytes: indexedBytes,
+    observation_indexed_files: indexedFiles,
+    observation_indexed_bytes: indexedBytes,
+    retrieval_candidate_files: retrievalFiles,
+    retrieval_candidate_bytes: retrievalBytes,
+    retrieval_indexed_files: null,
+    retrieval_indexed_bytes: null,
+    retrieval_source_chunks: null,
     exclusion_rules: manifest.exclusions,
-    indexed_paths_digest: sha256(indexed.join('\n')),
+    observation_paths_digest: sha256(indexed.join('\n')),
+    retrieval_paths_digest: sha256(retrievalPaths.join('\n')),
+  };
+  Object.defineProperty(result, '_retrieval_paths', { value: retrievalPaths });
+  return result;
+}
+
+async function recordRetrievalInventory(repository, metadata) {
+  const prepared = await ensureRetrieval(repository);
+  const snapshot = prepared.snapshot;
+  const status = await graphRequest('retrieval.status', {
+    identity: snapshot.identity,
+    graph_version: snapshot.graph_version,
+    source_revision: snapshot.source_revision,
+    repository_revision: snapshot.repository_revision,
+    branch: snapshot.branch,
+    worktree: snapshot.worktree,
+    model_digest: snapshot.model_digest,
+    schema_version: snapshot.schema_version,
+    include_documents: true,
+  }, repository);
+  if (!status.fresh || status.counts?.committed !== status.counts?.expected) {
+    fail('retrieval inventory is not a complete current generation', { status: compactDiagnostics(status) });
+  }
+  const sourceKeys = Object.keys(status.documents || {}).filter((key) => key.startsWith('source:'));
+  if (sourceKeys.length !== status.counts.source_chunks) {
+    fail('retrieval source chunk count contradicts the active generation', {
+      document_source_keys: sourceKeys.length,
+      status_source_chunks: status.counts.source_chunks,
+    });
+  }
+  const actualPaths = new Set();
+  for (const key of sourceKeys) {
+    const match = /^source:(.*):(?:<module>|[A-Za-z_$][A-Za-z0-9_$]*):\d+:\d+$/.exec(key);
+    if (!match) fail('active retrieval source key has an unknown shape', { key });
+    actualPaths.add(match[1]);
+  }
+  const candidatePaths = new Set(metadata._retrieval_paths);
+  const unexpected = [...actualPaths].filter((item) => !candidatePaths.has(item));
+  if (unexpected.length) fail('active retrieval generation contains non-candidate paths', { unexpected: unexpected.slice(0, 10) });
+  metadata.retrieval_indexed_files = actualPaths.size;
+  metadata.retrieval_indexed_bytes = [...actualPaths].reduce(
+    (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
+    0,
+  );
+  metadata.retrieval_source_chunks = sourceKeys.length;
+  return {
+    fresh: status.fresh,
+    counts: status.counts,
+    indexed_files: metadata.retrieval_indexed_files,
+    indexed_bytes: metadata.retrieval_indexed_bytes,
   };
 }
 
@@ -350,17 +420,23 @@ function timeSync(callback) {
 
 async function disposeRepository(repository) {
   const paths = runtimePaths(repository);
-  await stopIncompatibleServer(paths).catch(() => {});
+  await stopIncompatibleServer(paths);
+  const socketRemoved = !fs.existsSync(paths.socket);
+  const lockRemoved = !fs.existsSync(paths.lock);
+  if (!socketRemoved || !lockRemoved) {
+    fail('graphd shutdown left runtime objects', { socket_removed: socketRemoved, lock_removed: lockRemoved });
+  }
   fs.rmSync(repository, { recursive: true, force: false });
   return {
     repository_removed: !fs.existsSync(repository),
-    socket_removed: !fs.existsSync(paths.socket),
-    lock_removed: !fs.existsSync(paths.lock),
+    socket_removed: socketRemoved,
+    lock_removed: lockRemoved,
   };
 }
 
 function compactDiagnostics(value) {
   return {
+    schema: value?.schema || null,
     backend: value?.backend || null,
     mode: value?.mode || null,
     generation: value?.generation || value?.status?.generation || null,
@@ -370,10 +446,35 @@ function compactDiagnostics(value) {
     counts: value?.counts || value?.status?.counts || null,
     freshness: value?.freshness || value?.status?.freshness || null,
     index_digest: value?.index_digest || value?.status?.index_digest || null,
+    retrieval_generation: value?.retrieval?.generation || null,
+    retrieval_outcome: value?.retrieval?.outcome || null,
+    explicit_workflow_bypass: value?.retrieval?.explicit_workflow_bypass ?? null,
+    degradation: value?.retrieval?.degradation ?? null,
+    selected_workflow_ids: value?.retrieval?.selected_workflow_ids || null,
+    source_chunk_count: Array.isArray(value?.retrieval?.source_chunks) ? value.retrieval.source_chunks.length : null,
+    source_chunk_paths: Array.isArray(value?.retrieval?.source_chunks)
+      ? [...new Set(value.retrieval.source_chunks.map((item) => item.path).filter(Boolean))].slice(0, 5) : null,
     packet_id: value?.packet_id || null,
     obligation_count: Array.isArray(value?.obligations) ? value.obligations.length : null,
     experience_case_count: Array.isArray(value?.experience_cases) ? value.experience_cases.length : null,
   };
+}
+
+function assertUsefulPacket(packet, expectedWorkflow) {
+  const retrieval = packet?.retrieval;
+  if (packet?.schema !== 'lamina.implementation-packet/v5'
+    || !Array.isArray(packet.obligations) || packet.obligations.length === 0
+    || retrieval?.outcome !== 'selected'
+    || retrieval?.explicit_workflow_bypass !== false
+    || retrieval?.degradation !== null
+    || JSON.stringify(retrieval?.selected_workflow_ids) !== JSON.stringify([expectedWorkflow])
+    || !Array.isArray(retrieval?.source_chunks) || retrieval.source_chunks.length === 0
+    || !retrieval.source_chunks.some((item) => typeof item?.path === 'string' && item.path.length > 0)) {
+    fail('work prepare did not produce a correct useful packet from the real retrieval path', {
+      diagnostics: compactDiagnostics(packet),
+    });
+  }
+  return packet;
 }
 
 function changeFiles(repository, count) {
@@ -383,7 +484,10 @@ function changeFiles(repository, count) {
     .sort((left, right) => fs.statSync(path.join(repository, left)).size - fs.statSync(path.join(repository, right)).size)
     .slice(0, count);
   if (candidates.length !== count) fail('fixture lacks enough mutable source files');
-  for (const relative of candidates) fs.appendFileSync(path.join(repository, relative), '\n// lamina runtime baseline bounded change\n');
+  for (const relative of candidates) {
+    const marker = path.extname(relative).toLowerCase() === '.py' ? '#' : '//';
+    fs.appendFileSync(path.join(repository, relative), `\n${marker} lamina runtime baseline bounded change\n`);
+  }
   git(repository, ['add', '--', ...candidates]);
   git(repository, ['-c', 'user.name=Lamina Baseline', '-c', 'user.email=baseline@lamina.invalid', 'commit', '-m', `baseline ${count}-file change`]);
   return candidates;
@@ -398,28 +502,54 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   try {
     if (!['doctor-status-startup'].includes(scenario)) seeded = await seedGraph(repository);
     if (scenario === 'doctor-status-startup') {
-      measurement = timeSync(() => ({
-        doctor: cli(repository, ['doctor', '--json']),
-        status: cli(repository, ['graph', 'status']),
-      }));
-      diagnostics = { graph_version: measurement.value.status.graph_version || null };
+      const started = process.hrtime.bigint();
+      const doctor = timeSync(() => cli(repository, ['doctor', '--json']));
+      const status = timeSync(() => cli(repository, ['graph', 'status']));
+      measurement = {
+        wall_time_ns: Number(process.hrtime.bigint() - started),
+        value: { doctor: doctor.value, status: status.value },
+      };
+      diagnostics = {
+        doctor_wall_time_ns: doctor.wall_time_ns,
+        status_and_graphd_startup_wall_time_ns: status.wall_time_ns,
+        graph_version: status.value.graph_version || null,
+      };
     } else if (scenario === 'initial-observation') {
       measurement = timeSync(() => cli(repository, ['graph', 'observe']));
       diagnostics = compactDiagnostics(measurement.value);
-      if (diagnostics.source_key_count !== metadata.indexed_candidate_files) {
+      if (diagnostics.source_key_count !== metadata.observation_indexed_files) {
         fail('observation indexed count contradicts the pinned candidate set', { diagnostics, metadata });
       }
     } else if (scenario === 'initial-retrieval-readiness') {
+      cli(repository, ['graph', 'observe']);
       measurement = timeSync(() => cli(repository, ['context', 'rebuild']));
-      diagnostics = compactDiagnostics(measurement.value);
+      diagnostics = {
+        ...compactDiagnostics(measurement.value),
+        inventory: await recordRetrievalInventory(repository, metadata),
+      };
     } else if (scenario === 'first-useful-preparation') {
+      cli(repository, ['graph', 'observe']);
       const output = path.join(repository, '.git', 'lamina', 'work', 'packet.json');
-      measurement = timeSync(() => cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--workflow', seeded.workflow, '--output', output]));
-      diagnostics = compactDiagnostics(measurement.value);
+      measurement = timeSync(() => assertUsefulPacket(
+        cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
+        seeded.workflow,
+      ));
+      diagnostics = {
+        ...compactDiagnostics(measurement.value),
+        inventory: await recordRetrievalInventory(repository, metadata),
+      };
     } else if (scenario === 'one-file-change' || scenario === 'multi-file-change') {
       const changed = changeFiles(repository, scenario === 'one-file-change' ? 1 : 5);
-      measurement = timeSync(() => cli(repository, ['graph', 'observe']));
-      diagnostics = { ...compactDiagnostics(measurement.value), changed_files: changed };
+      measurement = timeSync(() => ({
+        observation: cli(repository, ['graph', 'observe']),
+        retrieval: cli(repository, ['context', 'rebuild']),
+      }));
+      diagnostics = {
+        observation: compactDiagnostics(measurement.value.observation),
+        retrieval: compactDiagnostics(measurement.value.retrieval),
+        changed_files: changed,
+        inventory: await recordRetrievalInventory(repository, metadata),
+      };
     } else if (scenario === 'full-derived-state-rebuild') {
       cli(repository, ['graph', 'observe']);
       cli(repository, ['context', 'rebuild']);
@@ -430,20 +560,27 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
       diagnostics = {
         observation: compactDiagnostics(measurement.value.observation),
         retrieval: compactDiagnostics(measurement.value.retrieval),
+        inventory: await recordRetrievalInventory(repository, metadata),
       };
     } else if (scenario === 'post-command-idle-rss') {
-      const status = cli(repository, ['graph', 'status']);
-      const pid = status.pid || runtimePaths(repository).daemon?.pid;
+      cli(repository, ['graph', 'status']);
+      const pid = (await graphdIdentity(repository)).pid;
       const readRss = () => {
         try {
           const line = fs.readFileSync(`/proc/${pid}/status`, 'utf8').split('\n').find((item) => item.startsWith('VmRSS:'));
           return Number(line?.match(/\d+/)?.[0] || 0) * 1024;
         } catch { return 0; }
       };
-      const before = readRss();
-      measurement = timeSync(() => run('/bin/sh', ['-c', 'read _ || exit 0'], { input: '', timeout: 5_000 }));
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-      diagnostics = { graphd_pid: pid || null, idle_rss_before_bytes: before, idle_rss_after_bytes: readRss(), idle_window_ms: 2000 };
+      const started = process.hrtime.bigint();
+      const rssSamples = [];
+      for (let sample = 0; sample < 10; sample += 1) {
+        if (sample) await new Promise((resolve) => setTimeout(resolve, 1_000));
+        const rssBytes = readRss();
+        if (!rssBytes) fail('graphd exited during the idle RSS window', { pid, sample });
+        rssSamples.push({ index: sample, elapsed_ms: sample * 1000, rss_bytes: rssBytes });
+      }
+      measurement = { wall_time_ns: Number(process.hrtime.bigint() - started), value: null };
+      diagnostics = { graphd_pid: pid || null, idle_rss_samples: rssSamples, idle_window_ms: 9000 };
     } else {
       fail('scenario is not a cold sample', { scenario });
     }
@@ -464,30 +601,43 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
   const repository = freshRepository(source, fixture, scenario, 0);
   const metadata = repositoryMetadata(repository, manifest, fixture);
   const seeded = await seedGraph(repository);
+  cli(repository, ['graph', 'observe']);
   const samples = [];
   const diagnostics = [];
-  const total = scenario === 'warm-preparation' ? WARMUP_SAMPLES + WARM_SAMPLES : COLD_RUNS;
+  const total = WARMUP_SAMPLES + WARM_SAMPLES;
+  let noOpIdentity = null;
   try {
     for (let index = 0; index < total; index += 1) {
       let measured;
-      if (scenario === 'warm-preparation') {
-        const output = path.join(repository, '.git', 'lamina', 'work', `packet-${index}.json`);
-        measured = timeSync(() => cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--workflow', seeded.workflow, '--output', output]));
-      } else {
-        measured = timeSync(() => cli(repository, ['graph', 'observe']));
+      const output = path.join(repository, '.git', 'lamina', 'work', `packet-${index}.json`);
+      measured = timeSync(() => assertUsefulPacket(
+        cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
+        seeded.workflow,
+      ));
+      if (scenario === 'noop-synchronization') {
+        const current = {
+          generation: measured.value.retrieval.generation,
+          index_digest: measured.value.retrieval.index_digest,
+          source_revision: measured.value.source.source_revision,
+        };
+        noOpIdentity ||= current;
+        if (JSON.stringify(current) !== JSON.stringify(noOpIdentity)) {
+          fail('no-op synchronization changed retrieval identity', { expected: noOpIdentity, actual: current });
+        }
       }
-      if (scenario !== 'warm-preparation' || index >= WARMUP_SAMPLES) samples.push(measured.wall_time_ns);
+      if (index >= WARMUP_SAMPLES) samples.push(measured.wall_time_ns);
       diagnostics.push(compactDiagnostics(measured.value));
     }
+    const inventory = await recordRetrievalInventory(repository, metadata);
     return {
       samples,
-      statistics: summarizeNanoseconds(samples, scenario === 'warm-preparation'),
-      classification: scenario === 'warm-preparation' ? 'warm' : 'repeated-expensive',
-      warmups_excluded: scenario === 'warm-preparation' ? WARMUP_SAMPLES : 0,
-      p95_omitted_reason: scenario === 'noop-synchronization'
-        ? 'A no-op observation still scans the real repository; 30 repetitions are materially expensive at medium and large scale.' : null,
+      statistics: summarizeNanoseconds(samples, true),
+      classification: 'warm',
+      warmups_excluded: WARMUP_SAMPLES,
+      p95_omitted_reason: null,
+      no_op_identity: noOpIdentity,
       repository: metadata,
-      diagnostics: diagnostics.slice(-3),
+      diagnostics: [...diagnostics.slice(-3), { inventory }],
       cleanup: await disposeRepository(repository),
     };
   } catch (error) {
@@ -508,7 +658,20 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
   child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-4000); });
   child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-4000); });
   await new Promise((resolve) => setTimeout(resolve, 2_000));
-  try { process.kill(-child.pid, 'SIGTERM'); } catch { try { child.kill('SIGTERM'); } catch {} }
+  if (child.exitCode !== null || child.signalCode !== null) {
+    await disposeRepository(repository).catch(() => {});
+    fail('live observation exited before cancellation could be exercised', {
+      exit_code: child.exitCode, exit_signal: child.signalCode,
+    });
+  }
+  const daemon = await graphdIdentity(repository);
+  if (!daemon?.pid) {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+    await once(child, 'exit').catch(() => {});
+    await disposeRepository(repository).catch(() => {});
+    fail('cancellation scenario did not prove graphd startup');
+  }
+  try { process.kill(-child.pid, 'SIGINT'); } catch { try { child.kill('SIGINT'); } catch {} }
   const [code, signal] = await Promise.race([
     once(child, 'exit'),
     new Promise((resolve) => setTimeout(() => resolve([null, 'TIMEOUT']), 10_000)),
@@ -516,6 +679,10 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
   if (signal === 'TIMEOUT') {
     try { process.kill(-child.pid, 'SIGKILL'); } catch {}
     await once(child, 'exit').catch(() => {});
+    await disposeRepository(repository).catch(() => {});
+    fail('live observation did not stop within the cancellation deadline', {
+      graphd_pid: daemon.pid, stdout_tail: stdout.slice(-512), stderr_tail: stderr.slice(-512),
+    });
   }
   const cleanup = await disposeRepository(repository);
   return {
@@ -523,7 +690,10 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
     statistics: null,
     classification: 'expected-cancellation',
     repository: metadata,
-    diagnostics: { exit_code: code, exit_signal: signal, stdout_tail: stdout, stderr_tail: stderr },
+    diagnostics: {
+      graphd_pid: daemon.pid, exit_code: code, exit_signal: signal,
+      stdout_tail: stdout.slice(-512), stderr_tail: stderr.slice(-512),
+    },
     cleanup,
   };
 }
@@ -550,23 +720,28 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     payload = await warmScenario({ fixture, manifest, source, scenario });
   } else if (scenario === 'cancellation-shutdown-cleanup') {
     payload = await cancellationScenario({ fixture, manifest, source, scenario });
-  } else {
-    const samples = [];
-    for (let index = 0; index < COLD_RUNS; index += 1) {
-      samples.push(await runSample({ fixture, manifest, source, scenario, index }));
-    }
-    const latencies = samples.map((sample) => sample.wall_time_ns);
+  } else if (scenario === 'post-command-idle-rss') {
+    const sample = await runSample({ fixture, manifest, source, scenario, index: 0 });
+    const rssSamples = sample.diagnostics.idle_rss_samples;
     payload = {
-      samples: samples.map(({ repository: _repository, ...sample }) => sample),
-      statistics: summarizeNanoseconds(latencies, false),
-      classification: 'cold',
-      repository: samples[0].repository,
-      diagnostics: samples.map((sample) => sample.diagnostics),
-      cleanup: {
-        repository_removed: samples.every((sample) => sample.cleanup.repository_removed),
-        socket_removed: samples.every((sample) => sample.cleanup.socket_removed),
-        lock_removed: samples.every((sample) => sample.cleanup.lock_removed),
-      },
+      samples: rssSamples,
+      statistics: summarizeNanoseconds(rssSamples.map((item) => item.rss_bytes), false),
+      classification: 'steady-state',
+      measurement_unit: 'bytes',
+      repository: sample.repository,
+      diagnostics: [sample.diagnostics],
+      cleanup: sample.cleanup,
+    };
+  } else {
+    const sample = await runSample({ fixture, manifest, source, scenario, index: 0 });
+    const { repository, ...boundedSample } = sample;
+    payload = {
+      samples: [boundedSample],
+      statistics: null,
+      classification: 'cold-sample',
+      repository,
+      diagnostics: [sample.diagnostics],
+      cleanup: sample.cleanup,
     };
   }
   const record = {

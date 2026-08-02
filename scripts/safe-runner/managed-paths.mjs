@@ -9,13 +9,32 @@ export function lstatPresence(candidate) {
   }
 }
 
+function physicalProcNamespaceDirectory(candidate) {
+  const match = path.resolve(candidate).match(/^(\/proc\/[1-9]\d*\/root)(\/.*)$/);
+  if (!match) return false;
+  try {
+    if (!fs.lstatSync(match[1]).isSymbolicLink()) return false;
+    let current = match[1];
+    for (const component of match[2].split('/').filter(Boolean)) {
+      current = path.join(current, component);
+      const stat = fs.lstatSync(current);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
 function parentIdentity(candidate) {
   const parentPath = path.dirname(candidate);
   const stat = fs.lstatSync(parentPath, { bigint: true });
   if (!stat.isDirectory() || stat.isSymbolicLink()
-    || fs.realpathSync.native(parentPath) !== parentPath
+    || (fs.realpathSync.native(parentPath) !== parentPath
+      && !physicalProcNamespaceDirectory(parentPath))
     || (typeof process.getuid === 'function' && Number(stat.uid) !== process.getuid())) return null;
-  return { path: parentPath, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+  return {
+    path: parentPath, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+    namespace_private: parentPath.startsWith('/proc/'),
+  };
 }
 
 function sameParent(candidate, expected) {

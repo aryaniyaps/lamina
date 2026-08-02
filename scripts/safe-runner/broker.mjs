@@ -23,10 +23,13 @@ export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority 
       child.executable_identity?.[field] === expected.executable_identity?.[field]);
     if (!executableMatches) return false;
     if (expected.kind === 'exact') {
+      const canonicalSocket = reservation.canonical_socket || reservation.socket;
+      const canonicalLock = reservation.canonical_lock || reservation.lock;
       return child.argv.length === expected.argv.length
         && child.argv.every((value, index) => value === expected.argv[index])
-        && reservation.socket === path.join(expected.runtime_directory, 'graphd.sock')
-        && reservation.lock === path.join(expected.runtime_directory, 'graphd.lock');
+        && child.cwd === expected.argv[2]
+        && canonicalSocket === path.join(expected.runtime_directory, 'graphd.sock')
+        && canonicalLock === path.join(expected.runtime_directory, 'graphd.lock');
     }
     if (expected.kind === 'standalone-cwd') {
       const runtimeDirectory = path.join(child.cwd || '', '.git', 'lamina');
@@ -77,10 +80,28 @@ export function authorizeBrokerRequest(request, authority) {
       || path.basename(request.lock) !== 'graphd.lock') {
       return { ok: false, error: 'managed graphd reservation requires canonical absolute socket/lock siblings' };
     }
+    const canonicalSocket = path.resolve(request.socket);
+    const canonicalLock = path.resolve(request.lock);
+    const resolved = authority.resolveManagedGraphdPaths
+      ? authority.resolveManagedGraphdPaths({
+        requester, socket: canonicalSocket, lock: canonicalLock,
+      })
+      : { socket: canonicalSocket, lock: canonicalLock };
+    if (!resolved) {
+      return { ok: false, error: 'managed graphd paths are outside sealed execution authority' };
+    }
+    if (typeof resolved.socket !== 'string' || !path.isAbsolute(resolved.socket)
+      || typeof resolved.lock !== 'string' || !path.isAbsolute(resolved.lock)
+      || path.dirname(resolved.socket) !== path.dirname(resolved.lock)
+      || path.basename(resolved.socket) !== 'graphd.sock'
+      || path.basename(resolved.lock) !== 'graphd.lock') {
+      return { ok: false, error: 'managed graphd paths are outside sealed execution authority' };
+    }
     const reservation = authority.reserve({
       token: crypto.randomBytes(32).toString('hex'),
       requester: { pid: requester.pid, start_ticks: requester.start_ticks },
-      socket: path.resolve(request.socket), lock: path.resolve(request.lock),
+      socket: path.resolve(resolved.socket), lock: path.resolve(resolved.lock),
+      canonical_socket: canonicalSocket, canonical_lock: canonicalLock,
     });
     return reservation ? { ok: true, reservation: reservation.token }
       : { ok: false, error: 'managed graphd paths were not proven absent and durably reserved' };
@@ -113,8 +134,8 @@ export function authorizeBrokerRequest(request, authority) {
         namespace_pid: Number(request.child.pid),
         start_ticks: child.start_ticks,
         role: 'graphd',
-        socket: reservation.socket,
-        lock: reservation.lock,
+        socket: reservation.canonical_socket || reservation.socket,
+        lock: reservation.canonical_lock || reservation.lock,
       },
     };
   }

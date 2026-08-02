@@ -18,6 +18,11 @@ import { optionalAuditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import {
+  assertScenario as assertRuntimeBaselineScenario,
+  fixtureById as runtimeBaselineFixtureById,
+  loadManifest as loadRuntimeBaselineManifest,
+} from '../../benchmarks/runtime-baseline-v1/contract.mjs';
+import {
   checkPromotion, checkSafetyRetry, frozenWorkloadIdentity, productionLockDirectory,
   readAttestation, stateDirectory,
 } from './state.mjs';
@@ -30,9 +35,11 @@ const EXTERNAL_DAEMON_ENTRYPOINTS = [
 
 const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
+  [RUNTIME_BASELINE_ENTRYPOINT, true],
   ['benchmarks/runtime-v1/fixture/tiny-runtime.mjs', false],
   ['evals/scripts/run-suite.mjs', true],
   ['evals/scripts/run-reference-matrix.mjs', true],
@@ -142,6 +149,37 @@ function trustedExecutable(command, cwd, expected) {
   });
 }
 
+function ignoredRuntimeBaselineInput(argument, expected, { executable = false } = {}) {
+  const declared = path.resolve(REPOSITORY_ROOT, String(argument || ''));
+  const relative = path.relative(REPOSITORY_ROOT, declared).replaceAll('\\', '/');
+  if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) return false;
+  try {
+    const physical = fs.realpathSync.native(declared);
+    const stat = fs.lstatSync(declared);
+    if (physical !== declared || !stat.isFile() || stat.isSymbolicLink()
+      || stat.size !== expected.bytes
+      || (typeof process.getuid === 'function' && stat.uid !== process.getuid())
+      || (executable && (stat.mode & 0o111) === 0)) return false;
+    const ignored = spawnTrustedGit(REPOSITORY_ROOT, ['check-ignore', '--quiet', '--', relative], {
+      encoding: 'utf8', stdio: ['ignore', 'ignore', 'ignore'], timeout: 2_000,
+      maxBuffer: 8 * 1024,
+    });
+    return ignored.status === 0;
+  } catch { return false; }
+}
+
+export function auditedRuntimeBaselineCommand(command = [], cwd = process.cwd()) {
+  if (command.length !== 7 || command[2] !== 'run') return false;
+  try {
+    runtimeBaselineFixtureById(command[3]);
+    assertRuntimeBaselineScenario(command[4]);
+    const { manifest } = loadRuntimeBaselineManifest();
+    return ignoredRuntimeBaselineInput(path.resolve(cwd, command[5]), manifest.runtime_assets.model)
+      && ignoredRuntimeBaselineInput(path.resolve(cwd, command[6]),
+        manifest.runtime_assets.worker_linux_x64, { executable: true });
+  } catch { return false; }
+}
+
 export function auditedCommand(command = [], cwd = process.cwd()) {
   const executable = path.basename(String(command[0] || '')).toLowerCase();
   if (/^node(?:\.exe)?$/.test(executable)) {
@@ -152,6 +190,10 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     const entrypoint = command[1];
     const relative = entrypoint && !String(entrypoint).startsWith('-')
       ? auditedRepositoryFile(path.resolve(cwd, entrypoint), AUDITED_NODE_ENTRYPOINTS) : null;
+    if (relative === RUNTIME_BASELINE_ENTRYPOINT
+      && !auditedRuntimeBaselineCommand(command, cwd)) {
+      return { audited: false, allow_network: false, entrypoint: relative };
+    }
     return relative !== null
       ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative,
         executable: resolved }
