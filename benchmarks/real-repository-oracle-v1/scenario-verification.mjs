@@ -532,7 +532,6 @@ function executeSelectedScenario(repository, scratch, collection, scenario, hook
       afterPhysical = physicalSurface(repository);
       checkedGit(repository, ['checkout', '--quiet', '--detach', collection.commit]);
       checkedGit(repository, ['update-ref', '-d', `refs/heads/${scenario.branch}`, collection.commit]);
-      assertBranchResidueAbsent(repository, scenario.branch);
       hooks.before_branch_final_proof?.(Object.freeze({ repository }));
       const finalState = gitState(repository);
       assertState(finalState, { head: collection.commit });
@@ -542,6 +541,7 @@ function executeSelectedScenario(repository, scratch, collection, scenario, hook
         || JSON.stringify(finalPhysical.rows) !== JSON.stringify(beforePhysical.rows)) {
         throw new Error('selected branch cleanup changed the reviewed checkout');
       }
+      assertBranchResidueAbsent(repository, scenario.branch);
       checks.ref_lifecycle = true;
     } else if (scenario.kind === 'logical_worktree') {
       const branch = scenario.derived_branch;

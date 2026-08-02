@@ -336,6 +336,32 @@ try {
       encoding: 'utf8', timeout: 10_000, maxBuffer: 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     }).status, 1, 'non-pin final proof cannot leave its temporary ref');
+  for (const residue of ['ref', 'config', 'reflog']) {
+    const residueBranch = raceRepository(`branch-${residue}-residue`);
+    const residueScenario = { ...branchScenario,
+      identity_sha256: sha256(`branch-${residue}-residue`),
+      blob_oid: residueBranch.blob,
+      original_content_sha256: sha256(residueBranch.bytes),
+      branch: `lamina-oracle/final-${residue}-residue` };
+    const recreateResidue = ({ repository }) => {
+      if (residue === 'ref') {
+        git(repository, ['update-ref', `refs/heads/${residueScenario.branch}`,
+          residueBranch.commit]);
+      } else if (residue === 'config') {
+        git(repository, ['config', '--local', `branch.${residueScenario.branch}.remote`,
+          'origin']);
+      } else {
+        const reflog = path.join(repository, '.git', 'logs', 'refs', 'heads',
+          ...residueScenario.branch.split('/'));
+        fs.mkdirSync(path.dirname(reflog), { recursive: true });
+        fs.writeFileSync(reflog, 'recreated final-window residue\n');
+      }
+    };
+    assert.throws(() => executeScenarioForTest(residueBranch.repository,
+      residueBranch.scratch, { commit: residueBranch.commit }, residueScenario, {
+        before_branch_final_proof: recreateResidue,
+      }), new RegExp(`selected branch ${residue} remains`));
+  }
 } finally {
   fs.rmSync(raceRoot, { recursive: true, force: false });
 }
