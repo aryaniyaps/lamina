@@ -40,6 +40,8 @@ const FIXED_GIT_DIRECTORIES = Object.freeze(process.platform === 'win32'
 const GIT_BINARY_NAME = process.platform === 'win32' ? 'git.exe' : 'git';
 const MAX_GIT_BINARY_BYTES = 256 * 1024 * 1024;
 const MAX_UID_MAP_BYTES = 4_096;
+const UINT32_SPACE = 2 ** 32;
+const INITIAL_UID_MAP_LENGTH = UINT32_SPACE - 1;
 
 let gitIdentity = null;
 const SEALED_GIT_IDENTITY_FIELDS = Object.freeze([
@@ -203,36 +205,97 @@ function boundedProcText(file, label) {
   return text.trim();
 }
 
-function namespaceUidForHostUid(hostUid) {
-  if (process.platform !== 'linux') return hostUid;
-  const rows = boundedProcText('/proc/self/uid_map', 'user-namespace UID map')
-    .split(/\r?\n/).map((line) => {
-      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s*$/);
-      if (!match) throw sealedGitError('user-namespace UID map is malformed');
-      const values = match.slice(1).map(Number);
-      if (values.some((value) => !Number.isSafeInteger(value) || value < 0)
-        || values[2] === 0) throw sealedGitError('user-namespace UID map is malformed');
-      return values;
-    });
-  for (const [namespaceStart, hostStart, length] of rows) {
-    if (hostUid >= hostStart && hostUid - hostStart < length) {
-      return namespaceStart + (hostUid - hostStart);
+function parseUidMap(uidMapText) {
+  const rows = String(uidMapText).trim().split(/\r?\n/).map((line) => {
+    const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s*$/);
+    if (!match) throw sealedGitError('user-namespace UID map is malformed');
+    const values = match.slice(1).map(Number);
+    const [namespaceStart, hostStart, length] = values;
+    if (values.some((value) => !Number.isSafeInteger(value) || value < 0)
+      || length === 0 || namespaceStart >= UINT32_SPACE || hostStart >= UINT32_SPACE
+      || length > UINT32_SPACE || namespaceStart + length > UINT32_SPACE
+      || hostStart + length > UINT32_SPACE) {
+      throw sealedGitError('user-namespace UID map is malformed or exceeds uint32 ranges');
+    }
+    return values;
+  });
+  if (rows.length === 0) throw sealedGitError('user-namespace UID map is malformed');
+  const overlaps = (leftStart, leftLength, rightStart, rightLength) =>
+    leftStart < rightStart + rightLength && rightStart < leftStart + leftLength;
+  for (let left = 0; left < rows.length; left += 1) {
+    for (let right = left + 1; right < rows.length; right += 1) {
+      if (overlaps(rows[left][0], rows[left][2], rows[right][0], rows[right][2])
+        || overlaps(rows[left][1], rows[left][2], rows[right][1], rows[right][2])) {
+        throw sealedGitError('user-namespace UID map contains overlapping ranges');
+      }
     }
   }
-  // The outside launcher admits only root- or launcher-owned fixed candidates.
-  // In bwrap's one-entry UID map, only host root can therefore be a valid
-  // unmapped owner. Never let an arbitrary sealed UID authenticate merely by
-  // matching the kernel overflow UID observed inside the namespace.
-  if (hostUid !== 0) {
-    throw sealedGitError('sealed workload Git has an unproved unmapped host UID');
+  return rows;
+}
+
+export function linuxGitNamespaceAuthority(uidMapText, namespaceProcessUid, {
+  sealedHostUid = null, overflowUid = null,
+} = {}) {
+  if (!Number.isSafeInteger(namespaceProcessUid) || namespaceProcessUid < 0
+    || namespaceProcessUid >= UINT32_SPACE) {
+    throw sealedGitError('namespace process UID is invalid');
   }
-  const overflowUid = boundedProcText('/proc/sys/kernel/overflowuid', 'overflow UID');
-  if (!/^(?:0|[1-9]\d*)$/.test(overflowUid)) {
-    throw sealedGitError('overflow UID is malformed');
+  const rows = parseUidMap(uidMapText);
+  const initial = rows.length === 1 && rows[0][0] === 0 && rows[0][1] === 0
+    && rows[0][2] === INITIAL_UID_MAP_LENGTH;
+  if (!initial && (rows.length !== 1 || rows[0][0] !== 0 || rows[0][2] !== 1
+    || namespaceProcessUid !== 0)) {
+    throw sealedGitError('audited Git requires bwrap\'s exact one-entry UID map');
   }
-  const value = Number(overflowUid);
-  if (!Number.isSafeInteger(value) || value < 0) throw sealedGitError('overflow UID is malformed');
-  return value;
+  const processRows = rows.filter(([namespaceStart, , length]) =>
+    namespaceProcessUid >= namespaceStart && namespaceProcessUid - namespaceStart < length);
+  if (processRows.length !== 1) {
+    throw sealedGitError('outside launcher UID has no unique namespace translation');
+  }
+  const [processNamespaceStart, processHostStart] = processRows[0];
+  const outsideLauncherUid = processHostStart + (namespaceProcessUid - processNamespaceStart);
+  const result = {
+    initial, seal_required: !initial, outside_launcher_uid: outsideLauncherUid,
+  };
+  if (sealedHostUid === null) return Object.freeze(result);
+  if (!Number.isSafeInteger(sealedHostUid) || sealedHostUid < 0
+    || sealedHostUid >= UINT32_SPACE
+    || (sealedHostUid !== 0 && sealedHostUid !== outsideLauncherUid)) {
+    throw sealedGitError('sealed workload Git owner is neither host root nor outside launcher');
+  }
+  const hostRows = rows.filter(([, hostStart, length]) =>
+    sealedHostUid >= hostStart && sealedHostUid - hostStart < length);
+  let expectedNamespaceUid;
+  if (hostRows.length === 1) {
+    expectedNamespaceUid = hostRows[0][0] + (sealedHostUid - hostRows[0][1]);
+  } else if (hostRows.length === 0 && sealedHostUid === 0) {
+    const overflow = String(overflowUid ?? '');
+    if (!/^(?:0|[1-9]\d*)$/.test(overflow)) throw sealedGitError('overflow UID is malformed');
+    expectedNamespaceUid = Number(overflow);
+    if (!Number.isSafeInteger(expectedNamespaceUid) || expectedNamespaceUid < 0
+      || expectedNamespaceUid >= UINT32_SPACE) throw sealedGitError('overflow UID is malformed');
+  } else {
+    throw sealedGitError('sealed workload Git owner has no unique namespace translation');
+  }
+  return Object.freeze({ ...result, expected_namespace_file_uid: expectedNamespaceUid });
+}
+
+function currentLinuxGitNamespaceAuthority(sealedHostUid = null) {
+  if (process.platform !== 'linux' || typeof process.getuid !== 'function') return null;
+  return linuxGitNamespaceAuthority(
+    boundedProcText('/proc/self/uid_map', 'user-namespace UID map'),
+    process.getuid(),
+    {
+      sealedHostUid,
+      overflowUid: sealedHostUid === null ? null
+        : boundedProcText('/proc/sys/kernel/overflowuid', 'overflow UID'),
+    },
+  );
+}
+
+function namespaceUidForHostUid(hostUid) {
+  const authority = currentLinuxGitNamespaceAuthority(hostUid);
+  return authority ? authority.expected_namespace_file_uid : hostUid;
 }
 
 function stableBinaryFields(stat) {
@@ -360,7 +423,13 @@ function trustedGitIdentityForSpawn() {
   let sealed;
   try {
     sealed = consumeSealedGitIdentity();
-    if (!sealed) return trustedGitIdentity();
+    if (!sealed) {
+      if (currentLinuxGitNamespaceAuthority()?.seal_required) {
+        sealedGitIdentityState = 'poisoned';
+        throw sealedGitError('sealed workload Git identity is required in a non-initial user namespace');
+      }
+      return trustedGitIdentity();
+    }
     const actual = validateSealedGitContinuity(sealed);
     verifiedSealedGitIdentity = Object.freeze({ ...sealed });
     sealedGitIdentityState = 'verified';

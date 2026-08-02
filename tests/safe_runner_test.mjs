@@ -46,6 +46,7 @@ import {
   SAFE_INFRASTRUCTURE_PATH, sanitizedEnvironment, sanitizedPayloadEnvironment,
   trustedBinaryIdentity, trustedHostBinary, trustedRootBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
+import { linuxGitNamespaceAuthority } from '../scripts/safe-runner/git.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
   existingLaminaProcesses, isLaminaProcessCommand, MAX_PROCESS_ENVIRONMENT_BYTES,
@@ -325,6 +326,41 @@ try {
   ], 'private payload tmpfs mode and size modifiers must bind only to its exact mount');
   assert.equal(sandboxArgs.filter((value) => value === '--perms').length, 1,
     'payload tmpfs permissions must not alter earlier control-socket masking tmpfs mounts');
+  const initialGitNamespace = linuxGitNamespaceAuthority(
+    '0 0 4294967295', 1000, { sealedHostUid: 0, overflowUid: '65534' },
+  );
+  assert.deepEqual(initialGitNamespace, {
+    initial: true, seal_required: false, outside_launcher_uid: 1000,
+    expected_namespace_file_uid: 0,
+  }, 'the initial Linux UID map preserves ordinary unsealed host Git behavior');
+  const launcherOwnedGitNamespace = linuxGitNamespaceAuthority('0 1000 1', 0);
+  assert.deepEqual(launcherOwnedGitNamespace, {
+    initial: false, seal_required: true, outside_launcher_uid: 1000,
+  }, 'a launcher-owned fixed Git still requires its outside seal in bwrap');
+  assert.equal(linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 1000, overflowUid: '65534' },
+  ).expected_namespace_file_uid, 0);
+  assert.equal(linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 0, overflowUid: '65534' },
+  ).expected_namespace_file_uid, 65534);
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 2000, overflowUid: '65534' },
+  ), /neither host root nor outside launcher/,
+  'an unrelated owner cannot be introduced through sealed UID data');
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1\n1 2000 1', 0,
+  ), /exact one-entry UID map/,
+  'unrelated third-party mappings are outside the bwrap contract');
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 2\n1 2000 1', 0,
+  ), /overlapping ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1\n1 1000 1', 0,
+  ), /overlapping ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority('4294967295 0 2', 0),
+    /exceeds uint32 ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority('0 4294967295 2', 0),
+    /exceeds uint32 ranges/);
   for (const name of CONTROL_ENVIRONMENT_NAMES) {
     const index = sandboxArgs.indexOf(name);
     assert.equal(sandboxArgs[index - 1], '--unsetenv');
@@ -2088,17 +2124,22 @@ try {
     assert.equal(namespaceValid.uid, 0);
     assert.equal(namespaceValid.controller_git_uid,
       validGraphdSnapshot.git_executable_identity.uid);
-    assert.equal(namespaceValid.namespace_git_uid,
-      Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()),
-    'host-root Git ownership must translate to the kernel overflow UID in this user namespace');
-    const forgedOverflowUid = Buffer.from(JSON.stringify({
-      ...validGraphdSnapshot.git_executable_identity,
-      uid: Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()),
-    })).toString('base64url');
-    const namespaceForgedUid = runNamespaceProbe('invalid', forgedOverflowUid);
-    assert.equal(namespaceForgedUid.first.ok, false,
-      'an arbitrary sealed host UID cannot authenticate by equaling namespace overflow UID');
-    assert.match(namespaceForgedUid.first.error, /unproved unmapped host UID/);
+    assert.ok([0, process.getuid()].includes(namespaceValid.controller_git_uid),
+      'outside trust permits only host-root or launcher-owned fixed Git');
+    const expectedNamespaceGitUid = namespaceValid.controller_git_uid === 0
+      ? Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()) : 0;
+    assert.equal(namespaceValid.namespace_git_uid, expectedNamespaceGitUid,
+      'fixed Git ownership must match its exact root-overflow or launcher mapping');
+    const overflowUid = Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim());
+    if (overflowUid !== process.getuid()) {
+      const forgedOverflowUid = Buffer.from(JSON.stringify({
+        ...validGraphdSnapshot.git_executable_identity, uid: overflowUid,
+      })).toString('base64url');
+      const namespaceForgedUid = runNamespaceProbe('invalid', forgedOverflowUid);
+      assert.equal(namespaceForgedUid.first.ok, false,
+        'an arbitrary sealed host UID cannot authenticate by equaling namespace overflow UID');
+      assert.match(namespaceForgedUid.first.error, /neither host root nor outside launcher/);
+    }
     const namespaceMissing = runNamespaceProbe('missing');
     assert.equal(namespaceMissing.first.ok, false);
     assert.equal(namespaceMissing.retry.ok, false,

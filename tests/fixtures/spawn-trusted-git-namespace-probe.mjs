@@ -34,7 +34,10 @@ if (expected === 'valid') {
 } else if (expected === 'missing') {
   assert.equal(first.ok, false);
   assert.equal(retry.ok, false);
-  assert.match(first.error, /trusted infrastructure binary is unavailable: git/);
+  assert.equal(first.code, 'LAMINA_SAFE_GIT_IDENTITY');
+  assert.equal(retry.code, 'LAMINA_SAFE_GIT_IDENTITY');
+  assert.match(first.error, /required in a non-initial user namespace/);
+  assert.match(retry.error, /previously failed validation/);
 } else if (expected === 'invalid') {
   assert.equal(first.ok, false);
   assert.equal(retry.ok, false);
