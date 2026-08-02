@@ -37,11 +37,19 @@ path authority plus every implied parent directory in the portable path model,
 not merely the filtered discovery set. The proof binds separate counts and
 digests for tracked paths and occupied destinations. Generated and build outputs,
 including hashed Workbox bundles, are excluded explicitly. The complete index
-is encoded with the versioned `LDO1` transport: a deterministic UTF-8 string
-table and typed tuples are Brotli-compressed into one bounded report-tail line.
+is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
+prefix. The V3 transport interns canonical file and signal facts, uses reference
+tuples for categories, controls, and operations, hoists shared rename authority,
+and stores digests as canonical base64url raw bytes before Brotli compression.
 The decoder reconstructs the exact logical discovery object for reviewer use;
-the transport drops no candidate fields. Non-canonical, malformed, tampered,
-or oversized transports are refused rather than lossily compacted.
+that object remains schema V2. A bound transport-contract digest and canonical
+semantic digest prevent the wire representation from silently changing or
+dropping candidate fields. Non-canonical, malformed, tampered, amplified, or
+oversized transports are refused rather than lossily compacted.
+The wire does not copy the complete tracked/occupied path sets into stdout;
+their reviewed counts and digests remain carried authority, and the semantic
+digest binds them exactly. Recomputing those set digests still requires the
+sealed materialization that produced discovery.
 
 Discovery output has zero quality claims, cannot load the grader or expectation
 contract, and cannot be used directly by `validate`. Its handoff requires an

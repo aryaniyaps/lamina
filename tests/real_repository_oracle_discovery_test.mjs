@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { reviewedCollectionForTier } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 import {
@@ -41,6 +42,12 @@ const inputs = [
   bytes: Buffer.from(text),
   blob_oid: crypto.createHash('sha1').update(text).digest('hex'),
 }));
+const collection = reviewedCollectionForTier('small');
+const baselineTrackedPaths = [
+  ...inputs.map((item) => item.path),
+  ...Array.from({ length: collection.reviewed_inventory.tracked_files - inputs.length },
+    (_, index) => `authority-2/file-${String(index).padStart(4, '0')}.ts`),
+];
 const trackedCollisions = new Set();
 const destinationAuthority = (trackedPaths) => {
   const orderedTracked = [...new Set(trackedPaths)].sort(gitByteCompare);
@@ -59,15 +66,15 @@ const injectedVisitor = (_repository, _collection, visit) => {
   for (const candidate of inputs) visit(candidate);
   return { candidate_files: inputs.length,
     candidate_bytes: inputs.reduce((n, item) => n + item.bytes.length, 0),
-    tracked_paths: [...inputs.map((item) => item.path), ...trackedCollisions] };
+    tracked_paths: [...baselineTrackedPaths, ...trackedCollisions] };
 };
-const collection = reviewedCollectionForTier('small');
 const first = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
 const replay = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
 assert.deepEqual(replay, first);
 assert.equal(first.schema, CASE_DISCOVERY_SCHEMA);
 assert.equal(CASE_DISCOVERY_TRANSPORT_SCHEMA,
-  'lamina.real-repository-oracle-discovery-transport/v1');
+  'lamina.real-repository-oracle-discovery-schema-wire/v1');
+assert.equal(CASE_DISCOVERY_PAYLOAD_PREFIX, 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3=');
 assert.equal(first.expectations_loaded, false);
 assert.equal(first.grade_controller_evidence, false);
 assert.ok(Object.values(first.quality_claims).every((claim) => claim === false));
@@ -99,12 +106,12 @@ for (const [operation, candidates] of Object.entries(first.candidate_index.opera
   assert.ok(candidates.length <= CASE_DISCOVERY_LIMITS.operation_candidates_per_kind);
   assert.ok(candidates.every((item) => item.role === 'scenario_before' && !item.path.includes('..')));
 }
-const initialAuthority = destinationAuthority(inputs.map((item) => item.path));
+const initialAuthority = destinationAuthority(baselineTrackedPaths);
 for (const candidate of first.candidate_index.operation_candidates.rename) {
   assert.equal(candidate.destination_absence.absent, true);
   assert.equal(candidate.destination_absence.basis,
     'complete_stage0_git_paths_and_implied_directories');
-  assert.equal(candidate.destination_absence.tracked_path_count, inputs.length);
+  assert.equal(candidate.destination_absence.tracked_path_count, baselineTrackedPaths.length);
   assert.equal(candidate.destination_absence.tracked_paths_sha256, initialAuthority.tracked_sha256);
   assert.equal(candidate.destination_absence.occupied_destination_count,
     initialAuthority.occupied.length);
@@ -132,7 +139,7 @@ assert.notEqual(collisionAware.candidate_index.operation_candidates.rename[0].pr
   initialRename.proposed_path,
   'a tracked descendant makes its implied parent directory an occupied rename destination');
 const collisionAuthority = destinationAuthority([
-  ...inputs.map((item) => item.path), ...trackedCollisions,
+  ...baselineTrackedPaths, ...trackedCollisions,
 ]);
 const collisionProof = collisionAware.candidate_index.operation_candidates.rename[0]
   .destination_absence;
@@ -146,7 +153,22 @@ assert.deepEqual(['z', 'ä', 'a', 'Z'].sort(gitByteCompare), ['Z', 'a', 'z', 'ä
 const encoded = encodeDiscoveryPayload(first);
 assert.ok(encoded.line.startsWith(CASE_DISCOVERY_PAYLOAD_PREFIX));
 assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);
+const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2_SCHEMA_WIRE_V1=${zlib.brotliCompressSync(
+  Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
+).toString('base64url')}`;
+assert.equal(Buffer.byteLength(legacyLine), 4_524, 'same-fixture JSON+Brotli baseline is frozen');
+assert.equal(Buffer.byteLength(encoded.line), 2_503,
+  'same-fixture schema-specific wire measurement is frozen');
+assert.ok(Buffer.byteLength(encoded.line) <= 3_840
+  && Buffer.byteLength(encoded.line) < Buffer.byteLength(legacyLine),
+'schema-specific wire must materially beat the same logical JSON+Brotli fixture');
 assert.deepEqual(decodeDiscoveryPayload(encoded.line), first);
+const reverseKeys = (value) => Array.isArray(value) ? value.map(reverseKeys)
+  : value && typeof value === 'object'
+    ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)]))
+    : value;
+assert.equal(encodeDiscoveryPayload(reverseKeys(first)).line, encoded.line,
+  'wire encoding is independent of expanded object insertion order');
 assert.throws(() => decodeDiscoveryPayload('bad'), /outside the retained-output contract/);
 assert.throws(() => decodeDiscoveryPayload(`${CASE_DISCOVERY_PAYLOAD_PREFIX}AAAA`),
   /payload line is malformed/);
@@ -155,20 +177,61 @@ const tamperIndex = CASE_DISCOVERY_PAYLOAD_PREFIX.length + 2;
 tamperedCharacters[tamperIndex] = tamperedCharacters[tamperIndex] === 'A' ? 'B' : 'A';
 assert.throws(() => decodeDiscoveryPayload(tamperedCharacters.join('')),
   /payload line is malformed/, 'transport tampering cannot decode as reviewer facts');
+const wireLine = (wire) => `${CASE_DISCOVERY_PAYLOAD_PREFIX}${zlib.brotliCompressSync(
+  Buffer.from(JSON.stringify(wire)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
+).toString('base64url')}`;
+const decodedWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
+  encoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
+)).toString('utf8'));
+const badContract = structuredClone(decodedWire);
+badContract[0] = 'A'.repeat(43);
+assert.throws(() => decodeDiscoveryPayload(wireLine(badContract)), /payload line is malformed/);
+const badSemantic = structuredClone(decodedWire);
+badSemantic[1] = 'A'.repeat(43);
+assert.throws(() => decodeDiscoveryPayload(wireLine(badSemantic)), /payload line is malformed/);
+const badReference = structuredClone(decodedWire);
+badReference[9][0][0][0] = 999_999;
+assert.throws(() => decodeDiscoveryPayload(wireLine(badReference)), /payload line is malformed/);
+assert.throws(() => decodeDiscoveryPayload(wireLine([])), /payload line is malformed/);
+const bomb = zlib.brotliCompressSync(Buffer.alloc(512 * 1024 + 1, 0x20), {
+  params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+});
+assert.throws(() => decodeDiscoveryPayload(
+  `${CASE_DISCOVERY_PAYLOAD_PREFIX}${bomb.toString('base64url')}`), /payload line is malformed/,
+'compressed amplification beyond the decoded-byte bound is refused');
 
-const nearBound = (count) => {
+const canonical = (value) => Array.isArray(value) ? value.map(canonical)
+  : value && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
+    : value;
+const refreshIndexDigest = (value) => {
+  const withoutDigest = Object.fromEntries(Object.entries(value.candidate_index)
+    .filter(([key]) => key !== 'index_sha256'));
+  value.candidate_index.index_sha256 = crypto.createHash('sha256')
+    .update(JSON.stringify(canonical(withoutDigest))).digest('hex');
+};
+const deterministicText = (seed, length) => {
+  let text = '';
+  for (let index = 0; text.length < length; index += 1) {
+    text += crypto.createHash('sha256').update(`${seed}-${index}`).digest('hex');
+  }
+  return text.slice(0, length);
+};
+const nearBound = (signalLength) => {
   const value = structuredClone(first);
-  value.candidate_index.transport_near_bound_probe = Array.from({ length: count }, (_, index) =>
-    crypto.createHash('sha256').update(`near-bound-${index}`).digest('hex'));
+  let signalIndex = 0;
+  for (const anchors of Object.values(value.candidate_index.categories)) {
+    for (const anchor of anchors) {
+      anchor.category_signal.value = deterministicText(`signal-${signalIndex++}`, signalLength);
+      anchor.category_signal.value_sha256 = crypto.createHash('sha256')
+        .update(anchor.category_signal.value).digest('hex');
+    }
+  }
+  refreshIndexDigest(value);
   return value;
 };
 let lower = 0;
-let upper = 32;
-while (upper <= 4_096) {
-  try { encodeDiscoveryPayload(nearBound(upper)); lower = upper; upper *= 2; }
-  catch { break; }
-}
-assert.ok(upper <= 4_096, 'synthetic transport probe must reach the retained-line refusal');
+let upper = 4_096;
 while (lower + 1 < upper) {
   const middle = Math.floor((lower + upper) / 2);
   try { encodeDiscoveryPayload(nearBound(middle)); lower = middle; }
@@ -180,11 +243,17 @@ assert.ok(Buffer.byteLength(nearBoundEncoded.line) > CASE_DISCOVERY_MAX_PAYLOAD_
   'the deterministic synthetic payload exercises the retained-line boundary closely');
 assert.deepEqual(decodeDiscoveryPayload(nearBoundEncoded.line), nearBoundValue,
   'near-bound transport reconstructs every logical fact exactly');
-assert.throws(() => encodeDiscoveryPayload(nearBound(upper)),
-  /exceeds the retained report-tail bound/);
-const oversized = structuredClone(first);
-oversized.candidate_index.extra_noise = Array.from({ length: 256 }, () => crypto.randomBytes(96).toString('hex'));
-assert.throws(() => encodeDiscoveryPayload(oversized), /exceeds the retained report-tail bound/,
-  'oversized complete indexes refuse instead of lossy compaction');
+assert.throws(() => encodeDiscoveryPayload(nearBound(upper)), (error) =>
+  error.message === 'complete case-discovery candidate index exceeds the retained report-tail bound',
+'overflow refusal is size-only and discloses no candidate content');
+const positiveClaim = structuredClone(first);
+positiveClaim.quality_claims.observation = true;
+assert.throws(() => encodeDiscoveryPayload(positiveClaim), /zero-claim schema/);
+const arbitraryField = structuredClone(first);
+arbitraryField.arbitrary = true;
+assert.throws(() => encodeDiscoveryPayload(arbitraryField), /exact zero-claim schema/);
+const indexMutation = structuredClone(first);
+indexMutation.candidate_index.index_sha256 = '0'.repeat(64);
+assert.throws(() => encodeDiscoveryPayload(indexMutation), /index digest drifted/);
 
 console.log('real repository oracle case-discovery tests passed');

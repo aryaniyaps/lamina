@@ -2,15 +2,16 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { brownfieldSignals } from '../../packages/cli/lib/observation-runtime/node.mjs';
+import { reviewedCollectionForTier } from './collection-authority.mjs';
 import {
   CASE_DISCOVERY_SCAN_LIMITS, visitReviewedDiscoveryCandidates,
   withSignedReviewedRepository,
 } from './materialize.mjs';
 
 export const CASE_DISCOVERY_SCHEMA = 'lamina.real-repository-oracle-case-discovery/v2';
-export const CASE_DISCOVERY_PAYLOAD_PREFIX = 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=';
+export const CASE_DISCOVERY_PAYLOAD_PREFIX = 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3=';
 export const CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES = 7_680;
-export const CASE_DISCOVERY_TRANSPORT_SCHEMA = 'lamina.real-repository-oracle-discovery-transport/v1';
+export const CASE_DISCOVERY_TRANSPORT_SCHEMA = 'lamina.real-repository-oracle-discovery-schema-wire/v1';
 export const CASE_DISCOVERY_LIMITS = Object.freeze({
   ...CASE_DISCOVERY_SCAN_LIMITS,
   anchors_per_category: 3,
@@ -52,200 +53,523 @@ export const validAuthoringBranchName = (value) => typeof value === 'string'
   && !value.endsWith('.') && !value.endsWith('.lock');
 export const validLogicalWorktreeId = (value) =>
   typeof value === 'string' && /^oracle-worktree-[a-f0-9]{12}$/.test(value);
-const DISCOVERY_TRANSPORT_MAGIC = Buffer.from('LDO1');
 const DISCOVERY_TRANSPORT_MAX_BYTES = 512 * 1024;
-const DISCOVERY_TRANSPORT_MAX_STRINGS = 65_536;
-const DISCOVERY_TRANSPORT_MAX_NODES = 100_000;
-const TRANSPORT_TOKEN = Object.freeze({
-  null: 0, false: 1, true: 2, uint: 3, sint: 4, float: 5, string: 6, array: 7, object: 8,
+const DISCOVERY_RECONSTRUCTED_MAX_BYTES = 512 * 1024;
+const FILE_KEYS = Object.freeze(['path', 'blob_oid', 'stratum', 'category', 'category_signal',
+  'symbol', 'line', 'content_sha256', 'role', 'independent_method']);
+const SIGNAL_KEYS = Object.freeze(['value', 'value_sha256', 'occurrence', 'line', 'line_sha256']);
+const STRATA = Object.freeze(['source', 'test', 'docs', 'config']);
+const OCCURRENCES = Object.freeze(['exact_literal', 'derived_component_literal', 'derived_unresolved']);
+const DISCOVERY_CATEGORIES = Object.freeze(['commands', 'dependencies', 'documentation', 'entities',
+  'entry_points', 'events', 'feature_flags', 'handlers', 'permissions', 'personas', 'routes',
+  'schemas', 'state_transitions', 'tests']);
+const OPERATION_KEYS = Object.freeze(['modify', 'rename', 'delete', 'branch', 'logical_worktree']);
+const MAX_WIRE_FILE_FACTS = DISCOVERY_CATEGORIES.length * CASE_DISCOVERY_LIMITS.anchors_per_category
+  + CASE_DISCOVERY_LIMITS.max_neighbor_records + CASE_DISCOVERY_LIMITS.max_negative_decoys
+  + OPERATION_KEYS.length * CASE_DISCOVERY_LIMITS.operation_candidates_per_kind;
+const MAX_WIRE_SIGNAL_FACTS = DISCOVERY_CATEGORIES.length
+  * CASE_DISCOVERY_LIMITS.anchors_per_category;
+const STATIC_LIMITATION = 'This deterministic index contains non-semantic reviewer candidates only. Categories are static-scan signals, neighbors and decoys are lexical path controls, and operation paths are unexecuted authoring candidates. It defines no Workflow, domain meaning, golden expectation, quality grade, retrieval result, or runtime claim.';
+const TRANSPORT_CONTRACT = Object.freeze({
+  schema: CASE_DISCOVERY_TRANSPORT_SCHEMA,
+  root_arity: 14,
+  file_tuple: FILE_KEYS.slice(0, 3).concat(['symbol', 'line', 'content_sha256']),
+  signal_tuple: SIGNAL_KEYS,
+  category_row: ['category_ref', 'file_signal_refs'],
+  control_row: ['category_ref', 'file_ref'],
+  operation_order: OPERATION_KEYS,
+  digest_encoding: 'unique-canonical-base64url-raw-byte-tables',
 });
 
-function exactUtf8Bytes(value) {
-  const bytes = Buffer.from(value, 'utf8');
-  if (new TextDecoder('utf-8', { fatal: true }).decode(bytes) !== value) {
-    throw new Error('case-discovery transport requires exact UTF-8 strings');
+const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+  && JSON.stringify(Object.keys(value).sort(gitByteCompare))
+    === JSON.stringify([...keys].sort(gitByteCompare));
+const canonicalSemantic = (value) => Array.isArray(value) ? value.map(canonicalSemantic)
+  : value && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort(gitByteCompare)
+      .map((key) => [key, canonicalSemantic(value[key])])) : value;
+const canonicalSemanticBytes = (value) => Buffer.from(JSON.stringify(canonicalSemantic(value)));
+const semanticDigest = (value) => sha256(canonicalSemanticBytes(value));
+const TRANSPORT_CONTRACT_SHA256 = semanticDigest(TRANSPORT_CONTRACT);
+const digestToWire = (value, length) => {
+  if (typeof value !== 'string' || value.length !== length * 2
+    || !/^[a-f0-9]+$/.test(value)) throw new Error('case-discovery digest is malformed');
+  return Buffer.from(value, 'hex').toString('base64url');
+};
+const digestFromWire = (value, length) => {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new Error('case-discovery wire digest is malformed');
   }
-  return bytes;
+  const bytes = Buffer.from(value, 'base64url');
+  if (bytes.length !== length || bytes.toString('base64url') !== value) {
+    throw new Error('case-discovery wire digest is non-canonical');
+  }
+  return bytes.toString('hex');
+};
+const safeDiscoveryPath = (value) => typeof value === 'string' && value.length > 0
+  && Buffer.byteLength(value) <= 4_096 && !/[\u0000-\u001f\u007f]/.test(value)
+  && !value.includes('\\') && !value.startsWith('/') && !/^[A-Za-z]:/.test(value)
+  && value.split('/').every((piece) => piece && piece !== '.' && piece !== '..');
+const boundedInteger = (value, maximum = Number.MAX_SAFE_INTEGER) =>
+  Number.isSafeInteger(value) && value >= 0 && value <= maximum;
+const tupleIdentity = (value) => JSON.stringify(value);
+const compareTuples = (left, right) => gitByteCompare(tupleIdentity(left), tupleIdentity(right));
+
+function exactFileFact(anchor) {
+  return [anchor.path, anchor.blob_oid, anchor.stratum, anchor.symbol, anchor.line,
+    anchor.content_sha256];
 }
 
-function varint(value) {
-  let remaining = BigInt(value);
-  if (remaining < 0n) throw new Error('case-discovery transport varint cannot be negative');
-  const bytes = [];
-  do {
-    let next = Number(remaining & 0x7fn);
-    remaining >>= 7n;
-    if (remaining) next |= 0x80;
-    bytes.push(next);
-  } while (remaining);
-  return Buffer.from(bytes);
+function exactSignalFact(signal) {
+  return [signal.value, signal.value_sha256, signal.occurrence, signal.line, signal.line_sha256];
 }
 
-function discoveryTransportBytes(root) {
-  const strings = new Set();
-  const seen = new Set();
-  let nodes = 0;
-  const collect = (value, depth = 0) => {
-    if (depth > 128 || ++nodes > DISCOVERY_TRANSPORT_MAX_NODES) {
-      throw new Error('case-discovery transport exceeds its structural bound');
-    }
-    if (typeof value === 'string') { exactUtf8Bytes(value); strings.add(value); return; }
-    if (value === null || ['boolean', 'number'].includes(typeof value)) return;
-    if (!value || typeof value !== 'object' || seen.has(value)) {
-      throw new Error('case-discovery transport accepts only acyclic JSON values');
-    }
-    seen.add(value);
-    if (Array.isArray(value)) {
-      for (let index = 0; index < value.length; index += 1) {
-        if (!Object.hasOwn(value, index)) throw new Error('case-discovery transport rejects sparse arrays');
-        collect(value[index], depth + 1);
-      }
-    }
-    else {
-      const prototype = Object.getPrototypeOf(value);
-      if (prototype !== Object.prototype && prototype !== null) {
-        throw new Error('case-discovery transport accepts only plain objects');
-      }
-      for (const key of Object.keys(value)) {
-        exactUtf8Bytes(key); strings.add(key); collect(value[key], depth + 1);
-      }
-    }
-    seen.delete(value);
-  };
-  collect(root);
-  const table = [...strings].sort(gitByteCompare);
-  if (table.length > DISCOVERY_TRANSPORT_MAX_STRINGS) {
-    throw new Error('case-discovery transport exceeds its string-table bound');
+function validateAnchor(anchor, { category, role, extras = [] }) {
+  if (!exactKeys(anchor, [...FILE_KEYS, ...extras]) || !safeDiscoveryPath(anchor.path)
+    || !/^[a-f0-9]{40}$/.test(anchor.blob_oid || '') || !STRATA.includes(anchor.stratum)
+    || anchor.category !== category || anchor.role !== role
+    || anchor.independent_method !== 'sealed_git_blob_static_scan'
+    || !(anchor.symbol === null || /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol))
+    || !(anchor.line === null || boundedInteger(anchor.line - 1, 999_999))
+    || !/^[a-f0-9]{64}$/.test(anchor.content_sha256 || '')) {
+    throw new Error('case-discovery anchor is outside the exact schema');
   }
-  const indexes = new Map(table.map((value, index) => [value, index]));
-  const chunks = [DISCOVERY_TRANSPORT_MAGIC, varint(table.length)];
-  for (const value of table) {
-    const bytes = exactUtf8Bytes(value);
-    chunks.push(varint(bytes.length), bytes);
+  if (category === null && anchor.category_signal !== null) {
+    throw new Error('non-category discovery anchor carries a category signal');
   }
-  const encode = (value, depth = 0) => {
-    if (depth > 128) throw new Error('case-discovery transport exceeds its depth bound');
-    if (value === null) { chunks.push(Buffer.from([TRANSPORT_TOKEN.null])); return; }
-    if (value === false) { chunks.push(Buffer.from([TRANSPORT_TOKEN.false])); return; }
-    if (value === true) { chunks.push(Buffer.from([TRANSPORT_TOKEN.true])); return; }
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value)) throw new Error('case-discovery transport rejects non-finite numbers');
-      if (Number.isSafeInteger(value) && !Object.is(value, -0)) {
-        if (value >= 0) chunks.push(Buffer.from([TRANSPORT_TOKEN.uint]), varint(value));
-        else chunks.push(Buffer.from([TRANSPORT_TOKEN.sint]), varint(BigInt(-value) * 2n - 1n));
-      } else {
-        const bytes = Buffer.allocUnsafe(9); bytes[0] = TRANSPORT_TOKEN.float;
-        bytes.writeDoubleBE(value, 1); chunks.push(bytes);
-      }
-      return;
+  if (category !== null) {
+    const signal = anchor.category_signal;
+    if (!exactKeys(signal, SIGNAL_KEYS) || typeof signal.value !== 'string' || signal.value.length === 0
+      || Buffer.byteLength(signal.value) > 4_096
+      || sha256(signal.value) !== signal.value_sha256 || !OCCURRENCES.includes(signal.occurrence)
+      || !(signal.line === null || boundedInteger(signal.line - 1, 999_999))
+      || !(signal.line_sha256 === null || /^[a-f0-9]{64}$/.test(signal.line_sha256))) {
+      throw new Error('case-discovery category signal is outside the exact schema');
     }
-    if (typeof value === 'string') {
-      chunks.push(Buffer.from([TRANSPORT_TOKEN.string]), varint(indexes.get(value))); return;
+    if ((signal.line === null) !== (signal.line_sha256 === null)) {
+      throw new Error('case-discovery category signal line identity is contradictory');
     }
-    if (Array.isArray(value)) {
-      chunks.push(Buffer.from([TRANSPORT_TOKEN.array]), varint(value.length));
-      for (const item of value) encode(item, depth + 1);
-      return;
-    }
-    const keys = Object.keys(value);
-    chunks.push(Buffer.from([TRANSPORT_TOKEN.object]), varint(keys.length));
-    for (const key of keys) { chunks.push(varint(indexes.get(key))); encode(value[key], depth + 1); }
-  };
-  encode(root);
-  const bytes = Buffer.concat(chunks);
-  if (bytes.length > DISCOVERY_TRANSPORT_MAX_BYTES) {
-    throw new Error('complete case-discovery transport exceeds its decoded-byte bound');
   }
-  return bytes;
 }
 
-function decodeDiscoveryTransport(bytes) {
-  if (!Buffer.isBuffer(bytes) || bytes.length > DISCOVERY_TRANSPORT_MAX_BYTES
-    || bytes.subarray(0, 4).compare(DISCOVERY_TRANSPORT_MAGIC) !== 0) {
-    throw new Error('case-discovery transport identity is malformed');
+export function validateDiscoveryResult(result) {
+  const rootKeys = ['schema', 'workload_id', 'status', 'admission', 'collection', 'inventory',
+    'bounds', 'scan', 'candidate_index', 'authoring_handoff', 'expectations_loaded',
+    'grade_controller_evidence', 'quality_claims', 'limitation'];
+  if (!exactKeys(result, rootKeys) || result.schema !== CASE_DISCOVERY_SCHEMA
+    || result.workload_id !== 'real-repository-oracle-v1:case-discovery'
+    || result.status !== 'unreviewed_case_discovery_candidate'
+    || result.admission !== 'reviewed_inventory_verified'
+    || result.expectations_loaded !== false || result.grade_controller_evidence !== false
+    || result.limitation !== STATIC_LIMITATION
+    || !exactKeys(result.quality_claims, Object.keys(NO_QUALITY_CLAIMS))
+    || Object.values(result.quality_claims).some((value) => value !== false)) {
+    throw new Error('case-discovery result root is outside the exact zero-claim schema');
   }
-  let offset = 4;
-  let nodes = 0;
-  const readVarint = () => {
-    let value = 0n;
-    let shift = 0n;
-    for (let count = 0; count < 10; count += 1) {
-      if (offset >= bytes.length) throw new Error('truncated case-discovery varint');
-      const byte = bytes[offset++];
-      value |= BigInt(byte & 0x7f) << shift;
-      if ((byte & 0x80) === 0) {
-        if (count > 0 && byte === 0) throw new Error('case-discovery varint is non-canonical');
-        if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('case-discovery varint is too large');
-        return Number(value);
-      }
-      shift += 7n;
-    }
-    throw new Error('case-discovery varint exceeds its byte bound');
+  const reviewed = reviewedCollectionForTier(result.collection?.fixture_id);
+  const expectedCollection = {
+    fixture_id: reviewed.fixture_id, fixture_class: reviewed.fixture_class,
+    repository_url: reviewed.repository_url, commit: reviewed.commit, tree_oid: reviewed.tree_oid,
+    baseline_manifest_sha256: reviewed.baseline_manifest_sha256,
+    candidate_policy_sha256: reviewed.candidate_policy_sha256,
   };
-  const stringCount = readVarint();
-  if (stringCount > DISCOVERY_TRANSPORT_MAX_STRINGS) throw new Error('case-discovery string table is too large');
-  const table = [];
-  const decoder = new TextDecoder('utf-8', { fatal: true });
-  for (let index = 0; index < stringCount; index += 1) {
-    const length = readVarint();
-    if (offset + length > bytes.length) throw new Error('truncated case-discovery string table');
-    const value = decoder.decode(bytes.subarray(offset, offset + length)); offset += length;
-    if (exactUtf8Bytes(value).length !== length
-      || (index > 0 && gitByteCompare(table[index - 1], value) >= 0)) {
-      throw new Error('case-discovery string table is non-canonical');
-    }
-    table.push(value);
+  if (semanticDigest(result.collection) !== semanticDigest(expectedCollection)
+    || semanticDigest(result.inventory) !== semanticDigest(reviewed.reviewed_inventory)
+    || semanticDigest(result.bounds) !== semanticDigest(CASE_DISCOVERY_LIMITS)
+    || !exactKeys(result.scan, ['candidate_files', 'candidate_bytes', 'tracked_path_count',
+      'admitted_index_files', 'excluded_generated_artifacts'])
+    || !Object.values(result.scan).every((value) => boundedInteger(value))
+    || result.scan.tracked_path_count !== result.inventory.tracked_files
+    || result.scan.candidate_files > CASE_DISCOVERY_LIMITS.max_candidate_files
+    || result.scan.candidate_bytes > CASE_DISCOVERY_LIMITS.max_candidate_bytes
+    || result.scan.admitted_index_files + result.scan.excluded_generated_artifacts
+      > result.scan.candidate_files
+    || semanticDigest(result.authoring_handoff) !== semanticDigest({
+      next_action: 'reviewer_selects_bounded_evidence_anchors', freeze_allowed: false,
+      selection_schema: 'lamina.real-repository-oracle-evidence-selection/v1',
+    })) throw new Error('case-discovery authority, inventory, scan, or bounds drifted');
+
+  const index = result.candidate_index;
+  if (!exactKeys(index, ['schema', 'rules_sha256', 'categories', 'near_neighbors',
+    'negative_decoys', 'operation_candidates', 'index_sha256'])
+    || index.schema !== 'lamina.real-repository-oracle-discovery-index/v1'
+    || index.rules_sha256 !== digestObject(DISCOVERY_PATH_RULES)
+    || !exactKeys(index.operation_candidates, OPERATION_KEYS)
+    || !exactKeys(index.categories, Object.keys(index.categories))) {
+    throw new Error('case-discovery candidate index is outside the exact schema');
   }
-  const decode = (depth = 0) => {
-    if (depth > 128 || ++nodes > DISCOVERY_TRANSPORT_MAX_NODES || offset >= bytes.length) {
-      throw new Error('case-discovery transport exceeds its structural bound');
+  const categories = Object.keys(index.categories);
+  if (categories.length === 0 || categories.length > DISCOVERY_CATEGORIES.length
+    || categories.some((category) => !DISCOVERY_CATEGORIES.includes(category))) {
+    throw new Error('case-discovery categories are outside the production enum and bounds');
+  }
+  for (const category of categories) {
+    const anchors = index.categories[category];
+    if (!Array.isArray(anchors) || anchors.length < 1
+      || anchors.length > CASE_DISCOVERY_LIMITS.anchors_per_category) {
+      throw new Error('case-discovery category anchor count is outside bounds');
     }
-    const token = bytes[offset++];
-    if (token === TRANSPORT_TOKEN.null) return null;
-    if (token === TRANSPORT_TOKEN.false) return false;
-    if (token === TRANSPORT_TOKEN.true) return true;
-    if (token === TRANSPORT_TOKEN.uint) return readVarint();
-    if (token === TRANSPORT_TOKEN.sint) {
-      const encoded = readVarint();
-      if ((encoded & 1) === 0) throw new Error('case-discovery signed integer is non-canonical');
-      return -((encoded + 1) / 2);
+    anchors.forEach((anchor) => validateAnchor(anchor, { category, role: 'positive' }));
+  }
+  if (!Array.isArray(index.near_neighbors)
+    || index.near_neighbors.length > CASE_DISCOVERY_LIMITS.max_neighbor_records
+    || !Array.isArray(index.negative_decoys)
+    || index.negative_decoys.length > CASE_DISCOVERY_LIMITS.max_negative_decoys) {
+    throw new Error('case-discovery control rows exceed bounds');
+  }
+  for (const row of index.near_neighbors) {
+    if (!exactKeys(row, ['category', 'anchor_path', 'candidate'])
+      || !index.categories[row.category]
+      || row.anchor_path !== index.categories[row.category][0].path) {
+      throw new Error('case-discovery near-neighbor authority is invalid');
     }
-    if (token === TRANSPORT_TOKEN.float) {
-      if (offset + 8 > bytes.length) throw new Error('truncated case-discovery float');
-      const value = bytes.readDoubleBE(offset); offset += 8;
-      if (!Number.isFinite(value)) throw new Error('case-discovery float is non-finite');
-      if (Number.isSafeInteger(value) && !Object.is(value, -0)) {
-        throw new Error('case-discovery float is non-canonical');
-      }
-      return value;
+    validateAnchor(row.candidate, { category: null, role: 'near_neighbor' });
+  }
+  for (const row of index.negative_decoys) {
+    if (!exactKeys(row, ['category', 'anchor_path', 'candidate', 'basis'])
+      || !index.categories[row.category]
+      || row.anchor_path !== index.categories[row.category][0].path
+      || row.basis !== 'same_stratum_without_discovered_category') {
+      throw new Error('case-discovery negative-decoy authority is invalid');
     }
-    if (token === TRANSPORT_TOKEN.string) {
-      const index = readVarint();
-      if (index >= table.length) throw new Error('case-discovery string reference is invalid');
-      return table[index];
+    validateAnchor(row.candidate, { category: null, role: 'negative' });
+  }
+  const operations = index.operation_candidates;
+  for (const kind of OPERATION_KEYS) {
+    if (!Array.isArray(operations[kind])
+      || operations[kind].length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind) {
+      throw new Error('case-discovery operation candidates exceed bounds');
     }
-    if (![TRANSPORT_TOKEN.array, TRANSPORT_TOKEN.object].includes(token)) {
-      throw new Error('case-discovery transport token is invalid');
+  }
+  operations.modify.forEach((anchor) => validateAnchor(anchor,
+    { category: null, role: 'scenario_before' }));
+  operations.delete.forEach((anchor) => validateAnchor(anchor,
+    { category: null, role: 'scenario_before' }));
+  for (const anchor of operations.rename) {
+    validateAnchor(anchor, { category: null, role: 'scenario_before',
+      extras: ['proposed_path', 'destination_absence'] });
+    if (!safeDiscoveryPath(anchor.proposed_path)
+      || !exactKeys(anchor.destination_absence, ['basis', 'tracked_path_count',
+        'tracked_paths_sha256', 'occupied_destination_count', 'occupied_destinations_sha256',
+        'portable_root_included', 'absent'])
+      || anchor.destination_absence.basis !== 'complete_stage0_git_paths_and_implied_directories'
+      || anchor.destination_absence.tracked_path_count !== result.inventory.tracked_files
+      || !/^[a-f0-9]{64}$/.test(anchor.destination_absence.tracked_paths_sha256 || '')
+      || !boundedInteger(anchor.destination_absence.occupied_destination_count)
+      || anchor.destination_absence.occupied_destination_count
+        < anchor.destination_absence.tracked_path_count + 1
+      || !/^[a-f0-9]{64}$/.test(anchor.destination_absence.occupied_destinations_sha256 || '')
+      || anchor.destination_absence.portable_root_included !== true
+      || anchor.destination_absence.absent !== true) {
+      throw new Error('case-discovery rename absence authority is invalid');
     }
-    const length = readVarint();
-    if (length > DISCOVERY_TRANSPORT_MAX_NODES) throw new Error('case-discovery collection is too large');
-    if (token === TRANSPORT_TOKEN.array) {
-      return Array.from({ length }, () => decode(depth + 1));
+  }
+  for (const anchor of operations.branch) {
+    validateAnchor(anchor, { category: null, role: 'scenario_before',
+      extras: ['proposed_branch', 'source_commit', 'executed'] });
+    if (!validAuthoringBranchName(anchor.proposed_branch)
+      || anchor.source_commit !== result.collection.commit || anchor.executed !== false) {
+      throw new Error('case-discovery branch candidate is invalid');
     }
-    const output = {};
-    const keys = new Set();
-    for (let index = 0; index < length; index += 1) {
-      const keyIndex = readVarint();
-      if (keyIndex >= table.length || keys.has(keyIndex)) throw new Error('case-discovery object key is invalid');
-      keys.add(keyIndex);
-      Object.defineProperty(output, table[keyIndex], {
-        value: decode(depth + 1), enumerable: true, configurable: true, writable: true,
-      });
+  }
+  for (const anchor of operations.logical_worktree) {
+    validateAnchor(anchor, { category: null, role: 'scenario_before',
+      extras: ['logical_worktree_id', 'source_commit', 'executed'] });
+    if (!validLogicalWorktreeId(anchor.logical_worktree_id)
+      || anchor.source_commit !== result.collection.commit || anchor.executed !== false) {
+      throw new Error('case-discovery worktree candidate is invalid');
     }
-    return output;
+  }
+  if (operations.rename.length > 1 && operations.rename.some((anchor) =>
+    semanticDigest(anchor.destination_absence)
+      !== semanticDigest(operations.rename[0].destination_absence))) {
+    throw new Error('case-discovery rename authority was not hoisted consistently');
+  }
+  const withoutDigest = Object.fromEntries(Object.entries(index)
+    .filter(([key]) => key !== 'index_sha256'));
+  if (index.index_sha256 !== digestObject(withoutDigest)) {
+    throw new Error('case-discovery candidate index digest drifted');
+  }
+  return true;
+}
+
+function packDiscoveryResult(result) {
+  validateDiscoveryResult(result);
+  const index = result.candidate_index;
+  const categories = Object.keys(index.categories).sort(gitByteCompare);
+  const allAnchors = [
+    ...categories.flatMap((category) => index.categories[category]),
+    ...index.near_neighbors.map((row) => row.candidate),
+    ...index.negative_decoys.map((row) => row.candidate),
+    ...OPERATION_KEYS.flatMap((kind) => index.operation_candidates[kind]),
+  ];
+  const files = [...new Map(allAnchors.map((anchor) => {
+    const tuple = exactFileFact(anchor); return [tupleIdentity(tuple), tuple];
+  })).values()].sort(compareTuples);
+  const fileRefs = new Map(files.map((tuple, indexValue) => [tupleIdentity(tuple), indexValue]));
+  const signals = [...new Map(categories.flatMap((category) =>
+    index.categories[category].map((anchor) => {
+      const tuple = exactSignalFact(anchor.category_signal); return [tupleIdentity(tuple), tuple];
+    }))).values()].sort(compareTuples);
+  const signalRefs = new Map(signals.map((tuple, indexValue) => [tupleIdentity(tuple), indexValue]));
+  const fileRef = (anchor) => fileRefs.get(tupleIdentity(exactFileFact(anchor)));
+  const signalRef = (anchor) => signalRefs.get(tupleIdentity(exactSignalFact(anchor.category_signal)));
+  const categoryRefs = new Map(categories.map((category, indexValue) => [category, indexValue]));
+  const destination = index.operation_candidates.rename[0]?.destination_absence || null;
+  const sha1s = [...new Set(files.map((tuple) => tuple[1]))].sort(gitByteCompare);
+  const sha256s = [...new Set([
+    ...files.map((tuple) => tuple[5]),
+    ...signals.flatMap((tuple) => [tuple[1], tuple[4]].filter(Boolean)),
+    ...(destination === null ? []
+      : [destination.tracked_paths_sha256, destination.occupied_destinations_sha256]),
+  ])].sort(gitByteCompare);
+  const sha1Refs = new Map(sha1s.map((value, indexValue) => [value, indexValue]));
+  const sha256Refs = new Map(sha256s.map((value, indexValue) => [value, indexValue]));
+  return [
+    digestToWire(TRANSPORT_CONTRACT_SHA256, 32),
+    digestToWire(semanticDigest(result), 32),
+    result.collection.fixture_id,
+    [result.scan.candidate_files, result.scan.candidate_bytes, result.scan.tracked_path_count,
+      result.scan.admitted_index_files, result.scan.excluded_generated_artifacts],
+    sha1s.map((value) => digestToWire(value, 20)),
+    sha256s.map((value) => digestToWire(value, 32)),
+    files.map(([pathValue, blob, stratum, symbol, line, content]) =>
+      [pathValue, sha1Refs.get(blob), STRATA.indexOf(stratum), symbol, line,
+        sha256Refs.get(content)]),
+    signals.map(([value, valueHash, occurrence, line, lineHash]) =>
+      [value, sha256Refs.get(valueHash), OCCURRENCES.indexOf(occurrence), line,
+        lineHash === null ? null : sha256Refs.get(lineHash)]),
+    categories,
+    categories.map((category) => index.categories[category]
+      .map((anchor) => [fileRef(anchor), signalRef(anchor)])),
+    index.near_neighbors.map((row) => [categoryRefs.get(row.category), fileRef(row.candidate)]),
+    index.negative_decoys.map((row) => [categoryRefs.get(row.category), fileRef(row.candidate)]),
+    [
+      index.operation_candidates.modify.map(fileRef),
+      index.operation_candidates.rename.map((anchor) => [fileRef(anchor), anchor.proposed_path]),
+      index.operation_candidates.delete.map(fileRef),
+      index.operation_candidates.branch.map((anchor) => [fileRef(anchor), anchor.proposed_branch]),
+      index.operation_candidates.logical_worktree
+        .map((anchor) => [fileRef(anchor), anchor.logical_worktree_id]),
+    ],
+    destination === null ? null : [destination.tracked_path_count,
+      sha256Refs.get(destination.tracked_paths_sha256),
+      destination.occupied_destination_count,
+      sha256Refs.get(destination.occupied_destinations_sha256)],
+  ];
+}
+
+function unpackDiscoveryResult(wire, rawBytes) {
+  const arity = (value, length, label) => {
+    if (!Array.isArray(value) || value.length !== length) {
+      throw new Error(`case-discovery wire ${label} arity is invalid`);
+    }
+    return value;
   };
-  const result = decode();
-  if (offset !== bytes.length) throw new Error('case-discovery transport has trailing bytes');
+  arity(wire, TRANSPORT_CONTRACT.root_arity, 'root');
+  if (wire[0] !== digestToWire(TRANSPORT_CONTRACT_SHA256, 32)
+    || rawBytes.length > DISCOVERY_TRANSPORT_MAX_BYTES
+    || !Buffer.from(JSON.stringify(wire)).equals(rawBytes)) {
+    throw new Error('case-discovery wire contract or canonical encoding is invalid');
+  }
+  const reviewed = reviewedCollectionForTier(wire[2]);
+  const scanTuple = arity(wire[3], 5, 'scan');
+  if (!scanTuple.every((value) => boundedInteger(value))) {
+    throw new Error('case-discovery wire scan is invalid');
+  }
+  const digestTable = (values, length, maximum, label) => {
+    if (!Array.isArray(values) || values.length > maximum) {
+      throw new Error(`case-discovery wire ${label} table is invalid`);
+    }
+    const decoded = values.map((value) => digestFromWire(value, length));
+    if (decoded.some((value, indexValue) => indexValue > 0
+      && gitByteCompare(decoded[indexValue - 1], value) >= 0)) {
+      throw new Error(`case-discovery wire ${label} table is not ordered and unique`);
+    }
+    return decoded;
+  };
+  const sha1s = digestTable(wire[4], 20, MAX_WIRE_FILE_FACTS, 'sha1');
+  const sha256s = digestTable(wire[5], 32,
+    MAX_WIRE_FILE_FACTS + MAX_WIRE_SIGNAL_FACTS * 2 + 2, 'sha256');
+  const usedSha1s = new Set();
+  const usedSha256s = new Set();
+  const digestAt = (table, used, reference) => {
+    if (!boundedInteger(reference, table.length - 1)) throw new Error('invalid digest reference');
+    used.add(reference); return table[reference];
+  };
+  const usedFiles = new Set();
+  const files = wire[6];
+  if (!Array.isArray(files) || files.length > MAX_WIRE_FILE_FACTS) {
+    throw new Error('case-discovery wire file table is invalid');
+  }
+  const decodedFiles = files.map((row) => {
+    arity(row, 6, 'file');
+    const decoded = [row[0], digestAt(sha1s, usedSha1s, row[1]), STRATA[row[2]], row[3], row[4],
+      digestAt(sha256s, usedSha256s, row[5])];
+    if (!safeDiscoveryPath(decoded[0]) || !STRATA.includes(decoded[2])
+      || !(decoded[3] === null || /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(decoded[3]))
+      || !(decoded[4] === null || boundedInteger(decoded[4] - 1, 999_999))) {
+      throw new Error('case-discovery wire file fact is invalid');
+    }
+    return decoded;
+  });
+  if (decodedFiles.some((tuple, indexValue) => indexValue > 0
+    && compareTuples(decodedFiles[indexValue - 1], tuple) >= 0)) {
+    throw new Error('case-discovery wire file table is not ordered and unique');
+  }
+  const signals = wire[7];
+  if (!Array.isArray(signals) || signals.length > MAX_WIRE_SIGNAL_FACTS) {
+    throw new Error('case-discovery wire signal table is invalid');
+  }
+  const decodedSignals = signals.map((row) => {
+    arity(row, 5, 'signal');
+    const decoded = [row[0], digestAt(sha256s, usedSha256s, row[1]), OCCURRENCES[row[2]], row[3],
+      row[4] === null ? null : digestAt(sha256s, usedSha256s, row[4])];
+    if (typeof decoded[0] !== 'string' || Buffer.byteLength(decoded[0]) > 4_096
+      || sha256(decoded[0]) !== decoded[1] || !OCCURRENCES.includes(decoded[2])
+      || !(decoded[3] === null || boundedInteger(decoded[3] - 1, 999_999))
+      || ((decoded[3] === null) !== (decoded[4] === null))) {
+      throw new Error('case-discovery wire signal fact is invalid');
+    }
+    return decoded;
+  });
+  if (decodedSignals.some((tuple, indexValue) => indexValue > 0
+    && compareTuples(decodedSignals[indexValue - 1], tuple) >= 0)) {
+    throw new Error('case-discovery wire signal table is not ordered and unique');
+  }
+  const categories = wire[8];
+  if (!Array.isArray(categories) || categories.length === 0
+    || categories.length > DISCOVERY_CATEGORIES.length
+    || categories.some((value) => typeof value !== 'string')
+    || categories.some((value) => !DISCOVERY_CATEGORIES.includes(value))
+    || JSON.stringify(categories) !== JSON.stringify([...new Set(categories)].sort(gitByteCompare))) {
+    throw new Error('case-discovery wire category table is not ordered and unique');
+  }
+  const fileAt = (reference) => {
+    if (!boundedInteger(reference, decodedFiles.length - 1)) throw new Error('invalid file reference');
+    usedFiles.add(reference); return decodedFiles[reference];
+  };
+  const usedSignals = new Set();
+  const signalAt = (reference) => {
+    if (!boundedInteger(reference, decodedSignals.length - 1)) throw new Error('invalid signal reference');
+    usedSignals.add(reference); return decodedSignals[reference];
+  };
+  const categoryAt = (reference) => {
+    if (!boundedInteger(reference, categories.length - 1)) throw new Error('invalid category reference');
+    return categories[reference];
+  };
+  const signalObject = (tuple) => ({ value: tuple[0], value_sha256: tuple[1],
+    occurrence: tuple[2], line: tuple[3], line_sha256: tuple[4] });
+  const anchor = (fileTuple, category, categorySignal, role) => ({
+    path: fileTuple[0], blob_oid: fileTuple[1], stratum: fileTuple[2], category,
+    category_signal: categorySignal, symbol: fileTuple[3], line: fileTuple[4],
+    content_sha256: fileTuple[5], role, independent_method: 'sealed_git_blob_static_scan',
+  });
+  const categoryRows = wire[9];
+  if (!Array.isArray(categoryRows) || categoryRows.length !== categories.length) {
+    throw new Error('case-discovery wire category rows are invalid');
+  }
+  const categoryObject = {};
+  for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
+    const rows = categoryRows[categoryIndex];
+    if (!Array.isArray(rows) || rows.length < 1
+      || rows.length > CASE_DISCOVERY_LIMITS.anchors_per_category) {
+      throw new Error('case-discovery wire category anchor count is invalid');
+    }
+    categoryObject[categories[categoryIndex]] = rows.map((row) => {
+      arity(row, 2, 'category anchor');
+      return anchor(fileAt(row[0]), categories[categoryIndex], signalObject(signalAt(row[1])),
+        'positive');
+    });
+  }
+  const controls = (rows, role, maximum) => {
+    if (!Array.isArray(rows) || rows.length > maximum) throw new Error('invalid control row count');
+    return rows.map((row) => {
+      arity(row, 2, 'control');
+      const category = categoryAt(row[0]);
+      return { category, anchor_path: categoryObject[category][0].path,
+        candidate: anchor(fileAt(row[1]), null, null, role) };
+    });
+  };
+  const neighbors = controls(wire[10], 'near_neighbor', CASE_DISCOVERY_LIMITS.max_neighbor_records);
+  const decoys = controls(wire[11], 'negative', CASE_DISCOVERY_LIMITS.max_negative_decoys)
+    .map((row) => ({ ...row, basis: 'same_stratum_without_discovered_category' }));
+  const operationRows = arity(wire[12], OPERATION_KEYS.length, 'operations');
+  if (operationRows.some((rows) => !Array.isArray(rows)
+    || rows.length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind)) {
+    throw new Error('case-discovery wire operation row count is invalid');
+  }
+  const destinationTuple = wire[13];
+  if ((operationRows[1].length === 0) !== (destinationTuple === null)) {
+    throw new Error('case-discovery wire destination authority presence is invalid');
+  }
+  const destination = destinationTuple === null ? null : (() => {
+    arity(destinationTuple, 4, 'destination authority');
+    return { basis: 'complete_stage0_git_paths_and_implied_directories',
+      tracked_path_count: destinationTuple[0],
+      tracked_paths_sha256: digestAt(sha256s, usedSha256s, destinationTuple[1]),
+      occupied_destination_count: destinationTuple[2],
+      occupied_destinations_sha256: digestAt(sha256s, usedSha256s, destinationTuple[3]),
+      portable_root_included: true, absent: true };
+  })();
+  const simpleOperations = (rows) => rows.map((reference) =>
+    anchor(fileAt(reference), null, null, 'scenario_before'));
+  const modify = simpleOperations(operationRows[0]);
+  const rename = operationRows[1].map((row) => {
+    arity(row, 2, 'rename');
+    return { ...anchor(fileAt(row[0]), null, null, 'scenario_before'),
+      proposed_path: row[1], destination_absence: { ...destination } };
+  });
+  const remove = simpleOperations(operationRows[2]);
+  const branch = operationRows[3].map((row) => {
+    arity(row, 2, 'branch');
+    return { ...anchor(fileAt(row[0]), null, null, 'scenario_before'),
+      proposed_branch: row[1], source_commit: reviewed.commit, executed: false };
+  });
+  const logicalWorktree = operationRows[4].map((row) => {
+    arity(row, 2, 'worktree');
+    return { ...anchor(fileAt(row[0]), null, null, 'scenario_before'),
+      logical_worktree_id: row[1], source_commit: reviewed.commit, executed: false };
+  });
+  if (usedFiles.size !== decodedFiles.length || usedSignals.size !== decodedSignals.length
+    || usedSha1s.size !== sha1s.length || usedSha256s.size !== sha256s.length) {
+    throw new Error('case-discovery wire tables contain unused facts');
+  }
+  const candidateIndexWithoutDigest = {
+    schema: 'lamina.real-repository-oracle-discovery-index/v1',
+    rules_sha256: digestObject(DISCOVERY_PATH_RULES), categories: categoryObject,
+    near_neighbors: neighbors, negative_decoys: decoys,
+    operation_candidates: { modify, rename, delete: remove, branch,
+      logical_worktree: logicalWorktree },
+  };
+  const candidateIndex = { ...candidateIndexWithoutDigest,
+    index_sha256: digestObject(candidateIndexWithoutDigest) };
+  const result = {
+    schema: CASE_DISCOVERY_SCHEMA,
+    workload_id: 'real-repository-oracle-v1:case-discovery',
+    status: 'unreviewed_case_discovery_candidate', admission: 'reviewed_inventory_verified',
+    collection: { fixture_id: reviewed.fixture_id, fixture_class: reviewed.fixture_class,
+      repository_url: reviewed.repository_url, commit: reviewed.commit, tree_oid: reviewed.tree_oid,
+      baseline_manifest_sha256: reviewed.baseline_manifest_sha256,
+      candidate_policy_sha256: reviewed.candidate_policy_sha256 },
+    inventory: reviewed.reviewed_inventory,
+    bounds: CASE_DISCOVERY_LIMITS,
+    scan: { candidate_files: scanTuple[0], candidate_bytes: scanTuple[1],
+      tracked_path_count: scanTuple[2], admitted_index_files: scanTuple[3],
+      excluded_generated_artifacts: scanTuple[4] },
+    candidate_index: candidateIndex,
+    authoring_handoff: { next_action: 'reviewer_selects_bounded_evidence_anchors',
+      freeze_allowed: false, selection_schema: 'lamina.real-repository-oracle-evidence-selection/v1' },
+    expectations_loaded: false, grade_controller_evidence: false,
+    quality_claims: { ...NO_QUALITY_CLAIMS }, limitation: STATIC_LIMITATION,
+  };
+  if (canonicalSemanticBytes(result).length > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
+    throw new Error('case-discovery reconstructed semantic payload exceeds its byte bound');
+  }
+  validateDiscoveryResult(result);
+  if (digestFromWire(wire[1], 32) !== semanticDigest(result)) {
+    throw new Error('case-discovery semantic digest mismatch');
+  }
   return result;
 }
 
@@ -491,7 +815,11 @@ export function discoverCandidateFacts(
 }
 
 export function encodeDiscoveryPayload(result) {
-  const transport = discoveryTransportBytes(result);
+  validateDiscoveryResult(result);
+  const transport = Buffer.from(JSON.stringify(packDiscoveryResult(result)));
+  if (transport.length > DISCOVERY_TRANSPORT_MAX_BYTES) {
+    throw new Error('complete case-discovery transport exceeds its decoded-byte bound');
+  }
   const compressed = zlib.brotliCompressSync(transport, {
     params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
   });
@@ -515,7 +843,8 @@ export function decodeDiscoveryPayload(line) {
     const bytes = zlib.brotliDecompressSync(compressed, {
       maxOutputLength: DISCOVERY_TRANSPORT_MAX_BYTES,
     });
-    return decodeDiscoveryTransport(bytes);
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return unpackDiscoveryResult(JSON.parse(text), bytes);
   } catch { throw new Error('case-discovery payload line is malformed'); }
 }
 
