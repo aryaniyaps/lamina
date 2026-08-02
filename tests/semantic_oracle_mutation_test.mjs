@@ -100,6 +100,8 @@ for (const corrupt of [
 
 for (const corrupt of [
   (value) => { value.cases = null; },
+  (value) => { value.cases = [null]; },
+  (value) => { value.forbidden = [null]; },
   (value) => { value.mutations = null; },
   (value) => { value.expected.resources = [null]; },
 ]) {

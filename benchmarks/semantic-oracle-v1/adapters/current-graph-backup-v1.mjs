@@ -15,7 +15,7 @@ export const CURRENT_GRAPH_ADAPTER = Object.freeze({
   schema: ADAPTER_SCHEMA,
   id: 'lamina-current-graph',
   version: '1',
-  input_format: 'lamina-current-semantic-observation/v1',
+  input_format: 'lamina.current-semantic-observation/v1',
 });
 export const CURRENT_OBSERVATION_SCHEMA = 'lamina.current-semantic-observation/v1';
 
@@ -153,7 +153,7 @@ function normalizeCliReceipt(receipt) {
   };
 }
 
-export function adaptCurrentGraphBackup(observation) {
+function validateObservationBoundary(observation) {
   if (!validateCurrentObservationSchema(observation)) {
     throw new Error(`current graph adapter rejected malformed observation: ${schemaErrors(validateCurrentObservationSchema).join('; ')}`);
   }
@@ -187,6 +187,18 @@ export function adaptCurrentGraphBackup(observation) {
   if (typeof integrity !== 'string' || integrity !== digest('backup', backupBody)) {
     throw new Error('current graph adapter rejected graph backup with invalid integrity');
   }
+}
+
+function adaptCurrentGraphBackupUnsafe(observation) {
+  const {
+    fixture_id: fixtureId,
+    graph_backup: backup,
+    publication_receipts: publicationAttempts,
+    implementation_obligations: implementationObligations,
+    work_started_receipt: workStarted,
+    cli_receipts: cliReceipts,
+    derived_observations: derivedObservations,
+  } = observation;
   if (workStarted?.schema !== 'lamina.work-started/v4' || !workStarted.work_map) {
     throw new Error('current graph adapter requires an accepted lamina.work-started/v4 receipt');
   }
@@ -326,4 +338,19 @@ export function adaptCurrentGraphBackup(observation) {
     semantic,
     semantic_digest: semanticDigest(semantic),
   };
+}
+
+export function adaptCurrentGraphBackup(observation) {
+  validateObservationBoundary(observation);
+  try {
+    return adaptCurrentGraphBackupUnsafe(observation);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `current graph adapter rejected malformed observation: ${error.message}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }

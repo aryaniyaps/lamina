@@ -18,10 +18,21 @@ derived-state authority. All arrays use the ordering rules in `contract.mjs`.
 Equivalent storage or packet schemas pass when their adapters produce the same
 normalized semantic object and digest.
 
-`current-graph-backup-v1.mjs` is the explicit adapter for a bounded current
-observation envelope: `lamina-graph-backup-v1`, publication receipts, the real
-implementation-context obligation compiler and WorkMap statuses, plus the
-current context-catalog authority record. It includes only records reachable
-from a published GraphVersion, so abandoned or failed session-local proposals
-cannot masquerade as canonical state. It never synthesizes obligations from
-relations.
+The reviewed fixture currently contains exactly 61 executable cases and 31
+seeded mutations. Its obligations intentionally mix `already_satisfied` and
+`change_required` resolutions so completeness is graded in both directions.
+
+`current-graph-backup-v1.mjs` is the explicit adapter for the bounded
+`lamina.current-semantic-observation/v1` envelope. Its schema validates the
+exact graph-backup records consumed by normalization, accepted WorkMap
+obligation/evidence/file arrays, and operation-discriminated CLI stdout/stderr
+for graph restore/status/query/backup, WorkMap derivation/check, invalid
+publication, unresolved check, and tampered restore. It also carries the real
+implementation-context obligations and current context-catalog authority
+record. The adapter includes only records reachable from a published
+GraphVersion, so abandoned or failed session-local proposals cannot masquerade
+as canonical state. It never synthesizes obligations from relations.
+
+The fixture directly seeds one canonical `GENERATED_BY` edge through the graph
+engine to test preservation and a seeded loss regression. That is a fixture-
+only setup path; no public generator-edge producer exists in the current CLI.

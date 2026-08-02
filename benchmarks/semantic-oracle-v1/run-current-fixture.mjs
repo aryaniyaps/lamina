@@ -397,7 +397,7 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
     const packetPath = path.join(temporary, 'implementation-packet.json');
     fs.writeFileSync(packetPath, `${JSON.stringify({
       schema: 'lamina.implementation-packet/v5',
-      packet_id: 'packet:semantic-oracle',
+      packet_id: 'packet_semantic_oracle',
       source: { source_revision: sourceRevision },
       obligations: implementationObligations,
       experience_cases: [],
@@ -477,7 +477,12 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
       id: 'cli:work-check-accepted', operation: 'work.check', branch: 'main', cwd: cliRoot,
       args: ['work', 'check', '--packet', packetPath, '--map', acceptedMapPath],
     });
-    if (checkedWork.exit_code !== 0) throw new Error('fixture resolved WorkMap was rejected');
+    if (checkedWork.exit_code !== 0) {
+      throw new Error(`fixture resolved WorkMap was rejected: ${JSON.stringify({
+        stdout: checkedWork.stdout,
+        stderr: checkedWork.stderr,
+      })}`);
+    }
     cliReceipts.push(checkedWork);
 
     for (const [id, branch, cwd] of [

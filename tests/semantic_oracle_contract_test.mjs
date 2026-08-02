@@ -12,6 +12,7 @@ import { semanticDigest } from '../benchmarks/semantic-oracle-v1/contract.mjs';
 import { validateResult } from '../benchmarks/semantic-oracle-v1/validate.mjs';
 import {
   adaptCurrentGraphBackup,
+  CURRENT_GRAPH_ADAPTER,
 } from '../benchmarks/semantic-oracle-v1/adapters/current-graph-backup-v1.mjs';
 import { adaptAlternateRecords } from '../benchmarks/semantic-oracle-v1/adapters/alternate-records-v1.mjs';
 
@@ -22,6 +23,7 @@ const observation = await runCurrentObservation({
 assert.equal(fs.existsSync(primaryTemporary), false,
   'a successful fixture must stop graphd and remove its temporary tree before returning');
 const first = adaptCurrentGraphBackup(observation);
+assert.equal(CURRENT_GRAPH_ADAPTER.input_format, 'lamina.current-semantic-observation/v1');
 const runner = fileURLToPath(new URL('../benchmarks/semantic-oracle-v1/run-current-fixture.mjs', import.meta.url));
 const firstChild = execFileSync(process.execPath, [runner], { encoding: 'utf8' });
 const secondChild = execFileSync(process.execPath, [runner], { encoding: 'utf8' });
@@ -56,6 +58,36 @@ const malformedObservation = structuredClone(observation);
 delete malformedObservation.publication_receipts[0].before;
 assert.throws(() => adaptCurrentGraphBackup(malformedObservation), /malformed observation/,
   'the versioned native observation schema must reject malformed nested receipts');
+
+function assertMalformedObservation(change, message) {
+  const malformed = structuredClone(observation);
+  change(malformed);
+  assert.throws(
+    () => adaptCurrentGraphBackup(malformed),
+    (error) => error instanceof Error
+      && error.message.startsWith('current graph adapter rejected malformed observation:'),
+    message,
+  );
+}
+
+assertMalformedObservation((value) => {
+  value.cli_receipts.find((item) => item.operation === 'work.map').stdout.obligations = null;
+}, 'work.map obligation output must be an array at the adapter boundary');
+assertMalformedObservation((value) => {
+  value.cli_receipts.find((item) => item.operation.startsWith('graph.query.'))
+    .stdout.resources = {};
+}, 'graph.query resource output must be an array at the adapter boundary');
+assertMalformedObservation((value) => {
+  value.graph_backup.statements[0].generated_by = {};
+  const { integrity: _integrity, ...backupBody } = value.graph_backup;
+  value.graph_backup.integrity = digest('backup', backupBody);
+}, 'native generator provenance must be an array even with valid backup integrity');
+assertMalformedObservation((value) => {
+  value.work_started_receipt.work_map.obligations[0].current_evidence = null;
+}, 'WorkMap current evidence must be an array at the adapter boundary');
+assertMalformedObservation((value) => {
+  value.work_started_receipt.work_map.obligations[0].files = null;
+}, 'WorkMap file targets must be an array at the adapter boundary');
 
 const unknownOutcome = structuredClone(observation);
 const failedRawReceipt = unknownOutcome.publication_receipts.find((item) => item.error);

@@ -325,7 +325,8 @@ export function validateFixture(fixture) {
     errors.push('fixture forbidden outcomes are invalid');
   }
   if (Array.isArray(fixture.forbidden)
-    && !unique(fixture.forbidden.map((item) => `${item.collection}:${item.id}`))) {
+    && !unique(fixture.forbidden.filter(object)
+      .map((item) => `${item.collection}:${item.id}`))) {
     errors.push('fixture forbidden outcomes must be unique');
   }
   if (!Array.isArray(fixture.mutations) || fixture.mutations.some((item) =>
@@ -358,13 +359,15 @@ export function validateFixture(fixture) {
     )))) {
     errors.push('fixture case matrix is invalid');
   }
-  if (Array.isArray(fixture.cases) && !unique(fixture.cases.map((item) => item.id))) {
+  if (Array.isArray(fixture.cases)
+    && !unique(fixture.cases.filter(object).map((item) => item.id))) {
     errors.push('fixture case ids must be unique');
   }
   if (Array.isArray(fixture.cases)) {
     for (const category of REQUIRED_CASE_CATEGORIES) {
       for (const polarity of ['positive', 'negative']) {
-        if (!fixture.cases.some((item) => item.category === category && item.polarity === polarity)) {
+        if (!fixture.cases.some((item) => item?.category === category
+          && item.polarity === polarity)) {
           errors.push(`fixture case matrix lacks ${polarity} coverage for ${category}`);
         }
       }

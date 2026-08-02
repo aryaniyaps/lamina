@@ -251,9 +251,9 @@
         "operation": "work.check",
         "reason": null,
         "result": {
-          "packet_id": "packet:semantic-oracle",
+          "packet_id": "packet_semantic_oracle",
           "schema": "lamina.work-started/v4",
-          "work_map_digest": "work_map_ce4f87bfc6cdd302eca54f13af4e5a9a"
+          "work_map_digest": "work_map_9ee5f1deb47e02b8862187c02dd7b2e4"
         }
       },
       {

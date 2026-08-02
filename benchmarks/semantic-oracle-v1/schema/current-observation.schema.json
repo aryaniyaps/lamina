@@ -12,38 +12,14 @@
   "properties": {
     "schema": { "const": "lamina.current-semantic-observation/v1" },
     "fixture_id": { "$ref": "#/$defs/id" },
-    "graph_backup": {
-      "type": "object",
-      "required": ["format", "integrity", "resources", "aliases", "statements", "versions", "views"],
-      "properties": {
-        "format": { "const": "lamina-graph-backup-v1" },
-        "integrity": { "type": "string", "pattern": "^backup_[a-f0-9]{32}$" },
-        "resources": { "$ref": "#/$defs/objects" },
-        "aliases": { "$ref": "#/$defs/objects" },
-        "statements": { "$ref": "#/$defs/objects" },
-        "versions": { "$ref": "#/$defs/objects" },
-        "views": { "$ref": "#/$defs/objects" }
-      }
-    },
+    "graph_backup": { "$ref": "#/$defs/graph_backup" },
     "publication_receipts": {
       "type": "array",
       "items": { "$ref": "#/$defs/publication_receipt" }
     },
     "implementation_obligations": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["obligation_id", "type", "scope", "resource", "statement", "details"],
-        "properties": {
-          "obligation_id": { "$ref": "#/$defs/id" },
-          "type": { "$ref": "#/$defs/id" },
-          "scope": { "$ref": "#/$defs/id" },
-          "resource": { "$ref": "#/$defs/id" },
-          "statement": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
-          "details": { "type": "object" }
-        }
-      }
+      "items": { "$ref": "#/$defs/implementation_obligation" }
     },
     "work_started_receipt": { "$ref": "#/$defs/work_started" },
     "cli_receipts": {
@@ -52,31 +28,153 @@
     },
     "derived_observations": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id", "kind", "source_version_id", "catalog_before", "catalog_after",
-          "digest_before", "digest_after", "canonical_head_before", "canonical_head_after"
-        ],
-        "properties": {
-          "id": { "$ref": "#/$defs/id" },
-          "kind": { "$ref": "#/$defs/id" },
-          "source_version_id": { "$ref": "#/$defs/id" },
-          "catalog_before": { "type": "object" },
-          "catalog_after": { "type": "object" },
-          "digest_before": { "$ref": "#/$defs/id" },
-          "digest_after": { "$ref": "#/$defs/id" },
-          "canonical_head_before": { "$ref": "#/$defs/id" },
-          "canonical_head_after": { "$ref": "#/$defs/id" }
-        }
-      }
+      "items": { "$ref": "#/$defs/derived_observation" }
     }
   },
   "$defs": {
     "id": { "type": "string", "minLength": 1 },
     "ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
-    "objects": { "type": "array", "items": { "type": "object" } },
+    "nullable_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+    "resource_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "data"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/id" },
+        "data": {
+          "type": "object",
+          "properties": {
+            "epistemic_class": { "$ref": "#/$defs/id" },
+            "members": { "$ref": "#/$defs/ids" }
+          }
+        }
+      }
+    },
+    "alias_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "resource"],
+      "properties": {
+        "key": { "$ref": "#/$defs/id" },
+        "resource": { "$ref": "#/$defs/id" }
+      }
+    },
+    "statement_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "subject", "predicate", "object", "literal", "scope",
+        "qualifiers", "evidence", "generated_by"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/id" },
+        "predicate": { "$ref": "#/$defs/id" },
+        "object": { "$ref": "#/$defs/nullable_id" },
+        "literal": true,
+        "scope": { "$ref": "#/$defs/nullable_id" },
+        "qualifiers": {
+          "type": "object",
+          "properties": { "epistemic_class": { "$ref": "#/$defs/id" } }
+        },
+        "evidence": { "$ref": "#/$defs/ids" },
+        "generated_by": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "validation_receipt": {
+      "type": "object",
+      "properties": {
+        "structural_valid": { "type": "boolean" },
+        "ok": { "type": "boolean" },
+        "implementation_ready": { "type": "boolean" },
+        "verified": { "type": "boolean" },
+        "approved": { "type": "boolean" },
+        "contradictions": { "$ref": "#/$defs/ids" },
+        "readiness_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code"],
+            "properties": { "code": { "$ref": "#/$defs/id" } }
+          }
+        }
+      }
+    },
+    "version_receipt": {
+      "type": "object",
+      "required": ["active_resources", "active_statements", "validation"],
+      "properties": {
+        "active_resources": { "$ref": "#/$defs/ids" },
+        "active_statements": { "$ref": "#/$defs/ids" },
+        "contradictions": { "$ref": "#/$defs/ids" },
+        "validation": { "$ref": "#/$defs/validation_receipt" }
+      }
+    },
+    "version_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "source_revision", "receipt", "parents", "add_resources",
+        "add_statements", "retire_resources", "retire_statements"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "source_revision": { "$ref": "#/$defs/id" },
+        "receipt": { "$ref": "#/$defs/version_receipt" },
+        "parents": { "$ref": "#/$defs/ids" },
+        "add_resources": { "$ref": "#/$defs/ids" },
+        "add_statements": { "$ref": "#/$defs/ids" },
+        "retire_resources": { "$ref": "#/$defs/ids" },
+        "retire_statements": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "pending_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "statement", "evidence"],
+      "properties": {
+        "key": { "$ref": "#/$defs/id" },
+        "statement": { "$ref": "#/$defs/id" },
+        "evidence": { "$ref": "#/$defs/id" }
+      }
+    },
+    "view_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "kind", "name", "status", "head", "base", "resources",
+        "statements", "pending_evidence"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/nullable_id" },
+        "status": { "$ref": "#/$defs/nullable_id" },
+        "head": { "$ref": "#/$defs/nullable_id" },
+        "base": { "$ref": "#/$defs/nullable_id" },
+        "resources": { "$ref": "#/$defs/ids" },
+        "statements": { "$ref": "#/$defs/ids" },
+        "pending_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pending_evidence" }
+        }
+      }
+    },
+    "graph_backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "integrity", "resources", "aliases", "statements", "versions", "views"],
+      "properties": {
+        "format": { "const": "lamina-graph-backup-v1" },
+        "integrity": { "type": "string", "pattern": "^backup_[a-f0-9]{32}$" },
+        "resources": { "type": "array", "items": { "$ref": "#/$defs/resource_record" } },
+        "aliases": { "type": "array", "items": { "$ref": "#/$defs/alias_record" } },
+        "statements": { "type": "array", "items": { "$ref": "#/$defs/statement_record" } },
+        "versions": { "type": "array", "items": { "$ref": "#/$defs/version_record" } },
+        "views": { "type": "array", "items": { "$ref": "#/$defs/view_record" } }
+      }
+    },
     "publication_state": {
       "type": "object",
       "additionalProperties": false,
@@ -124,6 +222,62 @@
         { "type": "object", "properties": { "result": { "type": "null" }, "error": { "$ref": "#/$defs/error" } } }
       ]
     },
+    "implementation_obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "type", "scope", "resource", "statement", "details"],
+      "properties": {
+        "obligation_id": { "$ref": "#/$defs/id" },
+        "type": { "$ref": "#/$defs/id" },
+        "scope": { "$ref": "#/$defs/id" },
+        "resource": { "$ref": "#/$defs/id" },
+        "statement": { "$ref": "#/$defs/nullable_id" },
+        "details": { "type": "object" }
+      }
+    },
+    "work_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "action", "role"],
+      "properties": {
+        "path": { "$ref": "#/$defs/id" },
+        "action": { "enum": ["create", "modify"] },
+        "role": { "$ref": "#/$defs/id" }
+      }
+    },
+    "work_obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "status", "current_evidence", "files"],
+      "properties": {
+        "obligation_id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["already_satisfied", "change_required"] },
+        "current_evidence": { "$ref": "#/$defs/ids" },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/work_file" } }
+      }
+    },
+    "work_experience_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "status", "current_evidence", "files"],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["already_satisfied", "change_required"] },
+        "current_evidence": { "$ref": "#/$defs/ids" },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/work_file" } }
+      }
+    },
+    "work_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "packet_id", "obligations", "experience_cases"],
+      "properties": {
+        "schema": { "const": "lamina.work-map/v4" },
+        "packet_id": { "$ref": "#/$defs/id" },
+        "obligations": { "type": "array", "items": { "$ref": "#/$defs/work_obligation" } },
+        "experience_cases": { "type": "array", "items": { "$ref": "#/$defs/work_experience_case" } }
+      }
+    },
     "work_started": {
       "type": "object",
       "required": ["schema", "packet_id", "work_map_digest", "work_map"],
@@ -131,16 +285,53 @@
         "schema": { "const": "lamina.work-started/v4" },
         "packet_id": { "$ref": "#/$defs/id" },
         "work_map_digest": { "$ref": "#/$defs/id" },
-        "work_map": {
-          "type": "object",
-          "required": ["schema", "packet_id", "obligations", "experience_cases"],
-          "properties": {
-            "schema": { "const": "lamina.work-map/v4" },
-            "packet_id": { "$ref": "#/$defs/id" },
-            "obligations": { "$ref": "#/$defs/objects" },
-            "experience_cases": { "$ref": "#/$defs/objects" }
+        "work_map": { "$ref": "#/$defs/work_map" }
+      }
+    },
+    "cli_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": { "const": false },
+        "error": { "$ref": "#/$defs/error" }
+      }
+    },
+    "invalid_publication_details": {
+      "type": "object",
+      "required": ["errors", "contradictions", "readiness_gaps"],
+      "properties": {
+        "errors": { "$ref": "#/$defs/ids" },
+        "contradictions": { "$ref": "#/$defs/ids" },
+        "readiness_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "$ref": "#/$defs/id" },
+              "resource": { "$ref": "#/$defs/id" }
+            }
           }
         }
+      }
+    },
+    "unresolved_work_details": {
+      "type": "object",
+      "required": ["duplicates", "invalid", "missing", "unknown"],
+      "properties": {
+        "duplicates": { "type": "boolean" },
+        "invalid": { "$ref": "#/$defs/ids" },
+        "missing": { "$ref": "#/$defs/ids" },
+        "unknown": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "tampered_restore_details": {
+      "type": "object",
+      "required": ["expected", "actual"],
+      "properties": {
+        "expected": { "$ref": "#/$defs/id" },
+        "actual": { "$ref": "#/$defs/id" }
       }
     },
     "cli_receipt": {
@@ -149,16 +340,243 @@
       "required": ["id", "operation", "branch", "exit_code", "stdout", "stderr"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "operation": { "$ref": "#/$defs/id" },
+        "operation": {
+          "anyOf": [
+            {
+              "enum": [
+                "graph.status", "graph.backup", "graph.restore", "work.map", "work.check",
+                "session.publish.invalid", "work.check.unresolved", "graph.restore.tampered"
+              ]
+            },
+            { "type": "string", "pattern": "^graph\\.query\\.[A-Za-z0-9._-]+$" }
+          ]
+        },
         "branch": { "$ref": "#/$defs/id" },
         "exit_code": { "type": "integer", "minimum": 0 },
         "stdout": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
-        "stderr": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+        "stderr": { "anyOf": [{ "$ref": "#/$defs/cli_error" }, { "type": "null" }] }
       },
       "oneOf": [
-        { "type": "object", "properties": { "exit_code": { "const": 0 }, "stdout": { "type": "object" }, "stderr": { "type": "null" } } },
-        { "type": "object", "properties": { "exit_code": { "type": "integer", "minimum": 1 }, "stdout": { "type": "null" }, "stderr": { "type": "object" } } }
+        {
+          "type": "object",
+          "properties": {
+            "exit_code": { "const": 0 },
+            "stdout": { "type": "object" },
+            "stderr": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "exit_code": { "type": "integer", "minimum": 1 },
+            "stdout": { "type": "null" },
+            "stderr": { "$ref": "#/$defs/cli_error" }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "const": "graph.status" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": {
+                "type": "object",
+                "required": ["branch", "graph_version", "source_revision", "stale"],
+                "properties": {
+                  "branch": { "$ref": "#/$defs/id" },
+                  "graph_version": { "$ref": "#/$defs/id" },
+                  "source_revision": { "$ref": "#/$defs/id" },
+                  "stale": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "operation": { "type": "string", "pattern": "^graph\\.query\\." } },
+            "required": ["operation"]
+          },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": {
+                "type": "object",
+                "required": ["graph_version", "resources"],
+                "properties": {
+                  "graph_version": {
+                    "anyOf": [
+                      { "$ref": "#/$defs/id" },
+                      {
+                        "type": "object",
+                        "required": ["id"],
+                        "properties": { "id": { "$ref": "#/$defs/id" } }
+                      }
+                    ]
+                  },
+                  "resources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["id"],
+                      "properties": { "id": { "$ref": "#/$defs/id" } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "graph.backup" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": {
+                "type": "object",
+                "required": ["digest"],
+                "properties": { "digest": { "$ref": "#/$defs/id" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "graph.restore" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": {
+                "type": "object",
+                "required": ["restored", "resources", "statements", "versions", "views"],
+                "properties": {
+                  "restored": { "type": "boolean" },
+                  "resources": { "type": "integer", "minimum": 0 },
+                  "statements": { "type": "integer", "minimum": 0 },
+                  "versions": { "type": "integer", "minimum": 0 },
+                  "views": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "work.map" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": {
+                "type": "object",
+                "required": ["schema", "obligations"],
+                "properties": {
+                  "schema": { "const": "lamina.work-map/v4" },
+                  "obligations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["status"],
+                      "properties": { "status": { "$ref": "#/$defs/id" } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "work.check" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "const": 0 },
+              "stdout": { "$ref": "#/$defs/work_started" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "session.publish.invalid" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "type": "integer", "minimum": 1 },
+              "stdout": { "type": "null" },
+              "stderr": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": { "details": { "$ref": "#/$defs/invalid_publication_details" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "work.check.unresolved" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "type": "integer", "minimum": 1 },
+              "stdout": { "type": "null" },
+              "stderr": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": { "details": { "$ref": "#/$defs/unresolved_work_details" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "graph.restore.tampered" } }, "required": ["operation"] },
+          "then": {
+            "properties": {
+              "exit_code": { "type": "integer", "minimum": 1 },
+              "stdout": { "type": "null" },
+              "stderr": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": { "details": { "$ref": "#/$defs/tampered_restore_details" } }
+                  }
+                }
+              }
+            }
+          }
+        }
       ]
+    },
+    "derived_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "kind", "source_version_id", "catalog_before", "catalog_after",
+        "digest_before", "digest_after", "canonical_head_before", "canonical_head_after"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/id" },
+        "source_version_id": { "$ref": "#/$defs/id" },
+        "catalog_before": { "type": "object" },
+        "catalog_after": {
+          "type": "object",
+          "required": ["source_revision", "authority"],
+          "properties": {
+            "source_revision": { "$ref": "#/$defs/id" },
+            "authority": {
+              "type": "object",
+              "required": ["source_localization"],
+              "properties": { "source_localization": { "$ref": "#/$defs/id" } }
+            }
+          }
+        },
+        "digest_before": { "$ref": "#/$defs/id" },
+        "digest_after": { "$ref": "#/$defs/id" },
+        "canonical_head_before": { "$ref": "#/$defs/id" },
+        "canonical_head_after": { "$ref": "#/$defs/id" }
+      }
     }
   }
 }
