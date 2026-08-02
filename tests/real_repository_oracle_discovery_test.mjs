@@ -153,10 +153,10 @@ assert.deepEqual(['z', 'ä', 'a', 'Z'].sort(gitByteCompare), ['Z', 'a', 'z', 'ä
 const encoded = encodeDiscoveryPayload(first);
 assert.ok(encoded.line.startsWith(CASE_DISCOVERY_PAYLOAD_PREFIX));
 assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);
-const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2_SCHEMA_WIRE_V1=${zlib.brotliCompressSync(
+const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
-assert.equal(Buffer.byteLength(legacyLine), 4_524, 'same-fixture JSON+Brotli baseline is frozen');
+assert.equal(Buffer.byteLength(legacyLine), 4_509, 'actual c009 JSON+Brotli baseline is frozen');
 assert.equal(Buffer.byteLength(encoded.line), 2_503,
   'same-fixture schema-specific wire measurement is frozen');
 assert.ok(Buffer.byteLength(encoded.line) <= 3_840
@@ -217,14 +217,158 @@ const deterministicText = (seed, length) => {
   }
   return text.slice(0, length);
 };
+const deterministicUnicodeText = (seed, length) => {
+  let text = '';
+  for (let index = 0; text.length < length; index += 1) {
+    const digest = crypto.createHash('sha256').update(`${seed}-${index}`).digest();
+    for (let offset = 0; offset < digest.length && text.length < length; offset += 2) {
+      text += String.fromCharCode(0x4e00 + digest.readUInt16BE(offset) % 0x4fff);
+    }
+  }
+  return text;
+};
+const longSignalValue = structuredClone(first);
+const longRouteAnchors = longSignalValue.candidate_index.categories.routes;
+assert.ok(longRouteAnchors.length >= 2, 'synthetic long-signal fixture needs two route anchors');
+const retainedRoutePreview = `/${deterministicText('long-route-preview', 239)}`;
+const completeRouteValues = [
+  `${retainedRoutePreview}/${deterministicText('long-route-one', 96)}`,
+  `${retainedRoutePreview}/${deterministicText('long-route-two', 96)}`,
+];
+const commonLineHash = crypto.createHash('sha256').update('shared route line').digest('hex');
+for (const [index, anchor] of longRouteAnchors.slice(0, 2).entries()) {
+  anchor.category_signal = {
+    value: retainedRoutePreview,
+    value_sha256: crypto.createHash('sha256').update(completeRouteValues[index]).digest('hex'),
+    occurrence: 'exact_literal',
+    line: 1,
+    line_sha256: commonLineHash,
+  };
+}
+assert.equal(retainedRoutePreview.length, 240);
+assert.ok(completeRouteValues.every((value) => value.length > retainedRoutePreview.length));
+const retainedPreviewHash = crypto.createHash('sha256').update(retainedRoutePreview).digest('hex');
+assert.ok(longRouteAnchors.slice(0, 2).every((anchor) =>
+  anchor.category_signal.value_sha256 !== retainedPreviewHash),
+'the authoritative full-value digest is intentionally not the retained preview digest');
+assert.notEqual(longRouteAnchors[0].category_signal.value_sha256,
+  longRouteAnchors[1].category_signal.value_sha256);
+refreshIndexDigest(longSignalValue);
+const longSignalEncoded = encodeDiscoveryPayload(longSignalValue);
+assert.deepEqual(decodeDiscoveryPayload(longSignalEncoded.line), longSignalValue,
+  'a 240-byte preview roundtrips exactly with its complete raw-value digest');
+const longSignalWire = JSON.parse(zlib.brotliDecompressSync(Buffer.from(
+  longSignalEncoded.line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url',
+)).toString('utf8'));
+const retainedPreviewSignalRows = longSignalWire[7]
+  .filter((row) => row[0] === retainedRoutePreview);
+assert.equal(retainedPreviewSignalRows.length, 2,
+  'same-preview signals with different complete-value hashes must not collapse');
+assert.notEqual(retainedPreviewSignalRows[0][1], retainedPreviewSignalRows[1][1],
+  'the signal table identity includes value_sha256');
+const allDiscoveryCategories = ['commands', 'dependencies', 'documentation', 'entities',
+  'entry_points', 'events', 'feature_flags', 'handlers', 'permissions', 'personas', 'routes',
+  'schemas', 'state_transitions', 'tests'];
+const escapedMaxPaths = [0, 1, 2].map((index) => `src/${'"'.repeat(4_091)}${index}`);
+assert.ok(escapedMaxPaths.every((candidatePath) => Buffer.byteLength(candidatePath) === 4_096));
+const maxRefSignal = {
+  value: deterministicText('max-ref-signal', 240),
+  value_sha256: crypto.createHash('sha256').update('complete max-ref signal').digest('hex'),
+  occurrence: 'exact_literal', line: 1,
+  line_sha256: crypto.createHash('sha256').update('max-ref line').digest('hex'),
+};
+const maxRefAnchor = (candidatePath, category, role) => ({
+  path: candidatePath,
+  blob_oid: crypto.createHash('sha1').update(candidatePath).digest('hex'),
+  stratum: 'source', category,
+  category_signal: category === null ? null : { ...maxRefSignal },
+  symbol: null, line: null,
+  content_sha256: crypto.createHash('sha256').update(candidatePath).digest('hex'),
+  role, independent_method: 'sealed_git_blob_static_scan',
+});
+const maxRefValue = structuredClone(first);
+maxRefValue.scan = { ...maxRefValue.scan, candidate_files: 3, candidate_bytes: 1,
+  admitted_index_files: 3, excluded_generated_artifacts: 0 };
+maxRefValue.candidate_index.categories = Object.fromEntries(allDiscoveryCategories.map((category) => [
+  category, escapedMaxPaths.map((candidatePath) => maxRefAnchor(candidatePath, category, 'positive')),
+]));
+maxRefValue.candidate_index.near_neighbors = allDiscoveryCategories.map((category) => ({
+  category, anchor_path: escapedMaxPaths[0],
+  candidate: maxRefAnchor(escapedMaxPaths[1], null, 'near_neighbor'),
+}));
+maxRefValue.candidate_index.negative_decoys = allDiscoveryCategories.map((category) => ({
+  category, anchor_path: escapedMaxPaths[0],
+  candidate: maxRefAnchor(escapedMaxPaths[1], null, 'negative'),
+  basis: 'same_stratum_without_discovered_category',
+}));
+const scenarioAnchors = escapedMaxPaths.map((candidatePath) =>
+  maxRefAnchor(candidatePath, null, 'scenario_before'));
+const renameAuthority = first.candidate_index.operation_candidates.rename[0].destination_absence;
+maxRefValue.candidate_index.operation_candidates = {
+  modify: scenarioAnchors.map((anchor) => structuredClone(anchor)),
+  rename: scenarioAnchors.map((anchor) => ({ ...structuredClone(anchor),
+    proposed_path: `src/lamina-oracle-rename-${anchor.blob_oid.slice(0, 8)}`,
+    destination_absence: structuredClone(renameAuthority) })),
+  delete: scenarioAnchors.map((anchor) => structuredClone(anchor)),
+  branch: scenarioAnchors.map((anchor) => {
+    const id = crypto.createHash('sha256').update(JSON.stringify(canonical({
+      path: anchor.path, blob_oid: anchor.blob_oid,
+    }))).digest('hex').slice(0, 12);
+    return { ...structuredClone(anchor), proposed_branch: `lamina-oracle/${id}`,
+      source_commit: maxRefValue.collection.commit, executed: false };
+  }),
+  logical_worktree: scenarioAnchors.map((anchor) => {
+    const id = crypto.createHash('sha256').update(JSON.stringify(canonical({
+      path: anchor.path, blob_oid: anchor.blob_oid,
+    }))).digest('hex').slice(0, 12);
+    return { ...structuredClone(anchor), logical_worktree_id: `oracle-worktree-${id}`,
+      source_commit: maxRefValue.collection.commit, executed: false };
+  }),
+};
+refreshIndexDigest(maxRefValue);
+const maxRefSemanticBytes = Buffer.byteLength(JSON.stringify(canonical(maxRefValue)));
+assert.equal(maxRefSemanticBytes, 977_350,
+  'max-ref expanded semantic measurement is frozen above the 512 KiB cap');
+assert.throws(() => encodeDiscoveryPayload(maxRefValue),
+  /semantic payload exceeds its reconstructed-byte bound/,
+  'encoder refuses semantic fan-out before producing an undecodable transport');
+
+const maxRefWire = structuredClone(decodedWire);
+maxRefWire[3] = [3, 1, first.scan.tracked_path_count, 3, 0];
+maxRefWire[6] = [[escapedMaxPaths[0], decodedWire[6][0][1], 0, null, null,
+  decodedWire[6][0][5]]];
+maxRefWire[7] = [[maxRefSignal.value, decodedWire[7][0][1], 0, 1,
+  decodedWire[7][0][4] ?? 0]];
+maxRefWire[8] = [...allDiscoveryCategories].sort(gitByteCompare);
+maxRefWire[9] = maxRefWire[8].map(() => [[0, 0], [0, 0], [0, 0]]);
+maxRefWire[10] = maxRefWire[8].map((_, index) => [index, 0]);
+maxRefWire[11] = maxRefWire[8].map((_, index) => [index, 0]);
+maxRefWire[12] = [
+  [0, 0, 0],
+  [[0, 'src/rename-a'], [0, 'src/rename-b'], [0, 'src/rename-c']],
+  [0, 0, 0],
+  [[0, 'lamina-oracle/a'], [0, 'lamina-oracle/b'], [0, 'lamina-oracle/c']],
+  [[0, 'oracle-worktree-aaaaaaaaaaaa'], [0, 'oracle-worktree-bbbbbbbbbbbb'],
+    [0, 'oracle-worktree-cccccccccccc']],
+];
+const maxRefWireLine = wireLine(maxRefWire);
+assert.equal(Buffer.byteLength(maxRefWireLine), 2_296,
+  'the compact amplifying mutation measurement is frozen inside the retained-line bound');
+assert.throws(() => decodeDiscoveryPayload(maxRefWireLine), /payload line is malformed/,
+  'decoder refuses projected semantic amplification before allocating expanded ref objects');
 const nearBound = (signalLength) => {
   const value = structuredClone(first);
   let signalIndex = 0;
   for (const anchors of Object.values(value.candidate_index.categories)) {
     for (const anchor of anchors) {
-      anchor.category_signal.value = deterministicText(`signal-${signalIndex++}`, signalLength);
+      const currentSignal = signalIndex++;
+      anchor.category_signal.value = deterministicUnicodeText(`signal-${currentSignal}`, signalLength);
       anchor.category_signal.value_sha256 = crypto.createHash('sha256')
         .update(anchor.category_signal.value).digest('hex');
+      anchor.category_signal.occurrence = 'exact_literal';
+      anchor.category_signal.line = 1;
+      anchor.category_signal.line_sha256 = crypto.createHash('sha256')
+        .update(`line-${currentSignal}-${signalLength}`).digest('hex');
     }
   }
   refreshIndexDigest(value);
@@ -240,12 +384,85 @@ while (lower + 1 < upper) {
 const nearBoundValue = nearBound(lower);
 const nearBoundEncoded = encodeDiscoveryPayload(nearBoundValue);
 assert.ok(Buffer.byteLength(nearBoundEncoded.line) > CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES - 256,
-  'the deterministic synthetic payload exercises the retained-line boundary closely');
+  `the deterministic synthetic payload exercises the retained-line boundary closely: ${Buffer.byteLength(nearBoundEncoded.line)}`);
 assert.deepEqual(decodeDiscoveryPayload(nearBoundEncoded.line), nearBoundValue,
   'near-bound transport reconstructs every logical fact exactly');
 assert.throws(() => encodeDiscoveryPayload(nearBound(upper)), (error) =>
   error.message === 'complete case-discovery candidate index exceeds the retained report-tail bound',
 'overflow refusal is size-only and discloses no candidate content');
+const zeroScan = structuredClone(first);
+zeroScan.scan = { ...zeroScan.scan, candidate_files: 0, candidate_bytes: 0,
+  admitted_index_files: 0, excluded_generated_artifacts: 0 };
+refreshIndexDigest(zeroScan);
+assert.throws(() => encodeDiscoveryPayload(zeroScan), /indexed facts contradict scan accounting/,
+  'a populated index cannot claim an empty scan');
+const excludedAnchor = structuredClone(first);
+const excludedRoute = structuredClone(excludedAnchor.candidate_index.categories.routes[0]);
+excludedRoute.path = 'dist/invented.md';
+excludedRoute.stratum = 'docs';
+excludedRoute.symbol = null;
+excludedRoute.line = null;
+excludedAnchor.candidate_index.categories.routes[0] = excludedRoute;
+for (const rows of [excludedAnchor.candidate_index.near_neighbors,
+  excludedAnchor.candidate_index.negative_decoys]) {
+  for (const row of rows) {
+    if (row.category === 'routes') row.anchor_path = excludedRoute.path;
+  }
+}
+refreshIndexDigest(excludedAnchor);
+assert.throws(() => encodeDiscoveryPayload(excludedAnchor), /anchor is outside the exact schema/,
+  'digest-valid anchors still obey generated-artifact exclusion and derived stratum authority');
+const duplicateAnchor = structuredClone(first);
+duplicateAnchor.candidate_index.categories.routes[1] = structuredClone(
+  duplicateAnchor.candidate_index.categories.routes[0],
+);
+refreshIndexDigest(duplicateAnchor);
+assert.throws(() => encodeDiscoveryPayload(duplicateAnchor), /anchor count is outside bounds/,
+  'a category cannot repeat the same anchor path');
+const oversizedPreview = structuredClone(first);
+oversizedPreview.candidate_index.categories.routes[0].category_signal.value = 'r'.repeat(241);
+oversizedPreview.candidate_index.categories.routes[0].category_signal.value_sha256 =
+  crypto.createHash('sha256').update('r'.repeat(241)).digest('hex');
+refreshIndexDigest(oversizedPreview);
+assert.throws(() => encodeDiscoveryPayload(oversizedPreview), /category signal is outside/,
+  'reviewer signal previews cannot exceed the producer 240-code-unit slice');
+const contradictorySignalLine = structuredClone(first);
+const contradictorySignal = contradictorySignalLine.candidate_index.categories.routes[0]
+  .category_signal;
+contradictorySignal.occurrence = 'derived_unresolved';
+contradictorySignal.line = 1;
+contradictorySignal.line_sha256 = crypto.createHash('sha256')
+  .update('contradictory line').digest('hex');
+refreshIndexDigest(contradictorySignalLine);
+assert.throws(() => encodeDiscoveryPayload(contradictorySignalLine),
+  /signal line identity is contradictory/,
+  'unresolved signals cannot carry a resolved source-line identity');
+const invalidControl = structuredClone(first);
+const invalidNeighbor = invalidControl.candidate_index.near_neighbors[0];
+const referencedControlAnchor = invalidControl.candidate_index
+  .categories[invalidNeighbor.category][0];
+invalidNeighbor.candidate = { ...structuredClone(referencedControlAnchor), category: null,
+  category_signal: null, role: 'near_neighbor' };
+refreshIndexDigest(invalidControl);
+assert.throws(() => encodeDiscoveryPayload(invalidControl), /near-neighbor authority is invalid/,
+  'a control candidate cannot repeat its referenced positive anchor');
+const invalidRename = structuredClone(first);
+invalidRename.candidate_index.operation_candidates.rename[0].proposed_path = 'src/invented.ts';
+refreshIndexDigest(invalidRename);
+assert.throws(() => encodeDiscoveryPayload(invalidRename), /rename absence authority is invalid/,
+  'rename proposals must follow the bounded producer derivation');
+const invalidBranch = structuredClone(first);
+invalidBranch.candidate_index.operation_candidates.branch[0].proposed_branch =
+  'lamina-oracle/aaaaaaaaaaaa';
+refreshIndexDigest(invalidBranch);
+assert.throws(() => encodeDiscoveryPayload(invalidBranch), /branch candidate is invalid/,
+  'branch names remain exact derivations of their source file identities');
+const mismatchedWorktreeSelection = structuredClone(first);
+mismatchedWorktreeSelection.candidate_index.operation_candidates.logical_worktree.reverse();
+refreshIndexDigest(mismatchedWorktreeSelection);
+assert.throws(() => encodeDiscoveryPayload(mismatchedWorktreeSelection),
+  /branch and worktree selections are inconsistent/,
+  'branch and logical-worktree candidates must retain the producer-selected file pairing');
 const positiveClaim = structuredClone(first);
 positiveClaim.quality_claims.observation = true;
 assert.throws(() => encodeDiscoveryPayload(positiveClaim), /zero-claim schema/);

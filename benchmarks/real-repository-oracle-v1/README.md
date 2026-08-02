@@ -41,6 +41,10 @@ is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
 prefix. The V3 transport interns canonical file and signal facts, uses reference
 tuples for categories, controls, and operations, hoists shared rename authority,
 and stores digests as canonical base64url raw bytes before Brotli compression.
+Signal values are bounded reviewer previews; `value_sha256` binds the complete
+untruncated raw signal and therefore need not equal the preview's digest.
+Both encoding and decoding enforce a 512 KiB expanded-semantic ceiling; decoding
+projects the exact reference fan-out before materializing the expanded index.
 The decoder reconstructs the exact logical discovery object for reviewer use;
 that object remains schema V2. A bound transport-contract digest and canonical
 semantic digest prevent the wire representation from silently changing or

@@ -55,6 +55,8 @@ export const validLogicalWorktreeId = (value) =>
   typeof value === 'string' && /^oracle-worktree-[a-f0-9]{12}$/.test(value);
 const DISCOVERY_TRANSPORT_MAX_BYTES = 512 * 1024;
 const DISCOVERY_RECONSTRUCTED_MAX_BYTES = 512 * 1024;
+const MAX_SIGNAL_PREVIEW_CODE_UNITS = 240;
+const MAX_SIGNAL_PREVIEW_BYTES = MAX_SIGNAL_PREVIEW_CODE_UNITS * 3;
 const FILE_KEYS = Object.freeze(['path', 'blob_oid', 'stratum', 'category', 'category_signal',
   'symbol', 'line', 'content_sha256', 'role', 'independent_method']);
 const SIGNAL_KEYS = Object.freeze(['value', 'value_sha256', 'occurrence', 'line', 'line_sha256']);
@@ -90,6 +92,12 @@ const canonicalSemantic = (value) => Array.isArray(value) ? value.map(canonicalS
       .map((key) => [key, canonicalSemantic(value[key])])) : value;
 const canonicalSemanticBytes = (value) => Buffer.from(JSON.stringify(canonicalSemantic(value)));
 const semanticDigest = (value) => sha256(canonicalSemanticBytes(value));
+const jsonArrayByteLength = (valueLengths) => 2 + Math.max(0, valueLengths.length - 1)
+  + valueLengths.reduce((total, length) => total + length, 0);
+const jsonObjectByteLength = (entries) => 2 + Math.max(0, entries.length - 1)
+  + entries.reduce((total, [key, valueLength]) => total
+    + Buffer.byteLength(JSON.stringify(key)) + 1 + valueLength, 0);
+const scalarJsonByteLength = (value) => Buffer.byteLength(JSON.stringify(value));
 const TRANSPORT_CONTRACT_SHA256 = semanticDigest(TRANSPORT_CONTRACT);
 const digestToWire = (value, length) => {
   if (typeof value !== 'string' || value.length !== length * 2
@@ -125,12 +133,16 @@ function exactSignalFact(signal) {
 }
 
 function validateAnchor(anchor, { category, role, extras = [] }) {
+  const disposition = typeof anchor?.path === 'string'
+    ? discoveryPathDisposition(anchor.path) : { admitted: false, stratum: null };
   if (!exactKeys(anchor, [...FILE_KEYS, ...extras]) || !safeDiscoveryPath(anchor.path)
     || !/^[a-f0-9]{40}$/.test(anchor.blob_oid || '') || !STRATA.includes(anchor.stratum)
+    || !disposition.admitted || disposition.stratum !== anchor.stratum
     || anchor.category !== category || anchor.role !== role
     || anchor.independent_method !== 'sealed_git_blob_static_scan'
     || !(anchor.symbol === null || /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(anchor.symbol))
     || !(anchor.line === null || boundedInteger(anchor.line - 1, 999_999))
+    || ((anchor.symbol === null) !== (anchor.line === null))
     || !/^[a-f0-9]{64}$/.test(anchor.content_sha256 || '')) {
     throw new Error('case-discovery anchor is outside the exact schema');
   }
@@ -140,13 +152,16 @@ function validateAnchor(anchor, { category, role, extras = [] }) {
   if (category !== null) {
     const signal = anchor.category_signal;
     if (!exactKeys(signal, SIGNAL_KEYS) || typeof signal.value !== 'string' || signal.value.length === 0
-      || Buffer.byteLength(signal.value) > 4_096
-      || sha256(signal.value) !== signal.value_sha256 || !OCCURRENCES.includes(signal.occurrence)
+      || signal.value.length > MAX_SIGNAL_PREVIEW_CODE_UNITS
+      || Buffer.byteLength(signal.value) > MAX_SIGNAL_PREVIEW_BYTES
+      || !/^[a-f0-9]{64}$/.test(signal.value_sha256 || '')
+      || !OCCURRENCES.includes(signal.occurrence)
       || !(signal.line === null || boundedInteger(signal.line - 1, 999_999))
       || !(signal.line_sha256 === null || /^[a-f0-9]{64}$/.test(signal.line_sha256))) {
       throw new Error('case-discovery category signal is outside the exact schema');
     }
-    if ((signal.line === null) !== (signal.line_sha256 === null)) {
+    if ((signal.line === null) !== (signal.line_sha256 === null)
+      || (signal.occurrence === 'derived_unresolved') !== (signal.line === null)) {
       throw new Error('case-discovery category signal line identity is contradictory');
     }
   }
@@ -183,7 +198,7 @@ export function validateDiscoveryResult(result) {
     || result.scan.candidate_files > CASE_DISCOVERY_LIMITS.max_candidate_files
     || result.scan.candidate_bytes > CASE_DISCOVERY_LIMITS.max_candidate_bytes
     || result.scan.admitted_index_files + result.scan.excluded_generated_artifacts
-      > result.scan.candidate_files
+      !== result.scan.candidate_files
     || semanticDigest(result.authoring_handoff) !== semanticDigest({
       next_action: 'reviewer_selects_bounded_evidence_anchors', freeze_allowed: false,
       selection_schema: 'lamina.real-repository-oracle-evidence-selection/v1',
@@ -206,7 +221,8 @@ export function validateDiscoveryResult(result) {
   for (const category of categories) {
     const anchors = index.categories[category];
     if (!Array.isArray(anchors) || anchors.length < 1
-      || anchors.length > CASE_DISCOVERY_LIMITS.anchors_per_category) {
+      || anchors.length > CASE_DISCOVERY_LIMITS.anchors_per_category
+      || new Set(anchors.map((anchor) => anchor.path)).size !== anchors.length) {
       throw new Error('case-discovery category anchor count is outside bounds');
     }
     anchors.forEach((anchor) => validateAnchor(anchor, { category, role: 'positive' }));
@@ -218,26 +234,37 @@ export function validateDiscoveryResult(result) {
     throw new Error('case-discovery control rows exceed bounds');
   }
   for (const row of index.near_neighbors) {
+    const referencedAnchor = index.categories[row?.category]?.[0];
     if (!exactKeys(row, ['category', 'anchor_path', 'candidate'])
-      || !index.categories[row.category]
-      || row.anchor_path !== index.categories[row.category][0].path) {
+      || !referencedAnchor || row.anchor_path !== referencedAnchor.path
+      || row.candidate?.path === row.anchor_path
+      || row.candidate?.stratum !== referencedAnchor.stratum) {
       throw new Error('case-discovery near-neighbor authority is invalid');
     }
     validateAnchor(row.candidate, { category: null, role: 'near_neighbor' });
   }
   for (const row of index.negative_decoys) {
+    const referencedAnchor = index.categories[row?.category]?.[0];
     if (!exactKeys(row, ['category', 'anchor_path', 'candidate', 'basis'])
-      || !index.categories[row.category]
-      || row.anchor_path !== index.categories[row.category][0].path
+      || !referencedAnchor || row.anchor_path !== referencedAnchor.path
+      || row.candidate?.path === row.anchor_path
+      || row.candidate?.stratum !== referencedAnchor.stratum
       || row.basis !== 'same_stratum_without_discovered_category') {
       throw new Error('case-discovery negative-decoy authority is invalid');
     }
     validateAnchor(row.candidate, { category: null, role: 'negative' });
   }
+  if (new Set(index.near_neighbors.map((row) => row.category)).size
+      !== index.near_neighbors.length
+    || new Set(index.negative_decoys.map((row) => row.category)).size
+      !== index.negative_decoys.length) {
+    throw new Error('case-discovery controls contain duplicate category tuples');
+  }
   const operations = index.operation_candidates;
   for (const kind of OPERATION_KEYS) {
     if (!Array.isArray(operations[kind])
-      || operations[kind].length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind) {
+      || operations[kind].length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind
+      || new Set(operations[kind].map((anchor) => anchor.path)).size !== operations[kind].length) {
       throw new Error('case-discovery operation candidates exceed bounds');
     }
   }
@@ -248,7 +275,14 @@ export function validateDiscoveryResult(result) {
   for (const anchor of operations.rename) {
     validateAnchor(anchor, { category: null, role: 'scenario_before',
       extras: ['proposed_path', 'destination_absence'] });
+    const parent = path.posix.dirname(anchor.path) === '.' ? '' : `${path.posix.dirname(anchor.path)}/`;
+    const extension = path.posix.extname(anchor.path);
+    const generatedDestinations = Array.from(
+      { length: CASE_DISCOVERY_LIMITS.max_rename_destination_attempts }, (_, attempt) =>
+        `${parent}lamina-oracle-rename-${anchor.blob_oid.slice(0, 8)}${attempt === 0 ? '' : `-${attempt}`}${extension}`,
+    );
     if (!safeDiscoveryPath(anchor.proposed_path)
+      || !generatedDestinations.includes(anchor.proposed_path)
       || !exactKeys(anchor.destination_absence, ['basis', 'tracked_path_count',
         'tracked_paths_sha256', 'occupied_destination_count', 'occupied_destinations_sha256',
         'portable_root_included', 'absent'])
@@ -267,7 +301,9 @@ export function validateDiscoveryResult(result) {
   for (const anchor of operations.branch) {
     validateAnchor(anchor, { category: null, role: 'scenario_before',
       extras: ['proposed_branch', 'source_commit', 'executed'] });
+    const candidateId = digestObject({ path: anchor.path, blob_oid: anchor.blob_oid }).slice(0, 12);
     if (!validAuthoringBranchName(anchor.proposed_branch)
+      || anchor.proposed_branch !== `lamina-oracle/${candidateId}`
       || anchor.source_commit !== result.collection.commit || anchor.executed !== false) {
       throw new Error('case-discovery branch candidate is invalid');
     }
@@ -275,15 +311,42 @@ export function validateDiscoveryResult(result) {
   for (const anchor of operations.logical_worktree) {
     validateAnchor(anchor, { category: null, role: 'scenario_before',
       extras: ['logical_worktree_id', 'source_commit', 'executed'] });
+    const candidateId = digestObject({ path: anchor.path, blob_oid: anchor.blob_oid }).slice(0, 12);
     if (!validLogicalWorktreeId(anchor.logical_worktree_id)
+      || anchor.logical_worktree_id !== `oracle-worktree-${candidateId}`
       || anchor.source_commit !== result.collection.commit || anchor.executed !== false) {
       throw new Error('case-discovery worktree candidate is invalid');
     }
+  }
+  if (operations.branch.length !== operations.logical_worktree.length
+    || operations.branch.some((anchor, indexValue) => tupleIdentity(exactFileFact(anchor))
+      !== tupleIdentity(exactFileFact(operations.logical_worktree[indexValue])))) {
+    throw new Error('case-discovery branch and worktree selections are inconsistent');
   }
   if (operations.rename.length > 1 && operations.rename.some((anchor) =>
     semanticDigest(anchor.destination_absence)
       !== semanticDigest(operations.rename[0].destination_absence))) {
     throw new Error('case-discovery rename authority was not hoisted consistently');
+  }
+  const indexedAnchors = [
+    ...categories.flatMap((category) => index.categories[category]),
+    ...index.near_neighbors.map((row) => row.candidate),
+    ...index.negative_decoys.map((row) => row.candidate),
+    ...OPERATION_KEYS.flatMap((kind) => operations[kind]),
+  ];
+  const canonicalFileByPath = new Map();
+  for (const anchor of indexedAnchors) {
+    const identity = tupleIdentity(exactFileFact(anchor));
+    if (canonicalFileByPath.has(anchor.path)
+      && canonicalFileByPath.get(anchor.path) !== identity) {
+      throw new Error('case-discovery path has conflicting canonical file facts');
+    }
+    canonicalFileByPath.set(anchor.path, identity);
+  }
+  if (canonicalFileByPath.size > result.scan.admitted_index_files
+    || (indexedAnchors.length > 0 && result.scan.candidate_bytes === 0)
+    || (result.scan.candidate_files === 0 && result.scan.candidate_bytes !== 0)) {
+    throw new Error('case-discovery indexed facts contradict scan accounting');
   }
   const withoutDigest = Object.fromEntries(Object.entries(index)
     .filter(([key]) => key !== 'index_sha256'));
@@ -425,10 +488,13 @@ function unpackDiscoveryResult(wire, rawBytes) {
     arity(row, 5, 'signal');
     const decoded = [row[0], digestAt(sha256s, usedSha256s, row[1]), OCCURRENCES[row[2]], row[3],
       row[4] === null ? null : digestAt(sha256s, usedSha256s, row[4])];
-    if (typeof decoded[0] !== 'string' || Buffer.byteLength(decoded[0]) > 4_096
-      || sha256(decoded[0]) !== decoded[1] || !OCCURRENCES.includes(decoded[2])
+    if (typeof decoded[0] !== 'string' || decoded[0].length === 0
+      || decoded[0].length > MAX_SIGNAL_PREVIEW_CODE_UNITS
+      || Buffer.byteLength(decoded[0]) > MAX_SIGNAL_PREVIEW_BYTES
+      || !OCCURRENCES.includes(decoded[2])
       || !(decoded[3] === null || boundedInteger(decoded[3] - 1, 999_999))
-      || ((decoded[3] === null) !== (decoded[4] === null))) {
+      || ((decoded[3] === null) !== (decoded[4] === null))
+      || (decoded[2] === 'derived_unresolved') !== (decoded[3] === null)) {
       throw new Error('case-discovery wire signal fact is invalid');
     }
     return decoded;
@@ -469,6 +535,118 @@ function unpackDiscoveryResult(wire, rawBytes) {
   if (!Array.isArray(categoryRows) || categoryRows.length !== categories.length) {
     throw new Error('case-discovery wire category rows are invalid');
   }
+  for (const rows of categoryRows) {
+    if (!Array.isArray(rows) || rows.length < 1
+      || rows.length > CASE_DISCOVERY_LIMITS.anchors_per_category) {
+      throw new Error('case-discovery wire category anchor count is invalid');
+    }
+    for (const row of rows) {
+      arity(row, 2, 'category anchor'); fileAt(row[0]); signalAt(row[1]);
+    }
+  }
+  const controlRows = [
+    [wire[10], CASE_DISCOVERY_LIMITS.max_neighbor_records],
+    [wire[11], CASE_DISCOVERY_LIMITS.max_negative_decoys],
+  ];
+  for (const [rows, maximum] of controlRows) {
+    if (!Array.isArray(rows) || rows.length > maximum) throw new Error('invalid control row count');
+    for (const row of rows) {
+      arity(row, 2, 'control'); categoryAt(row[0]); fileAt(row[1]);
+    }
+  }
+  const operationRows = arity(wire[12], OPERATION_KEYS.length, 'operations');
+  if (operationRows.some((rows) => !Array.isArray(rows)
+    || rows.length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind)) {
+    throw new Error('case-discovery wire operation row count is invalid');
+  }
+  operationRows[0].forEach(fileAt);
+  operationRows[2].forEach(fileAt);
+  for (const operationIndex of [1, 3, 4]) {
+    for (const row of operationRows[operationIndex]) {
+      arity(row, 2, 'operation'); fileAt(row[0]);
+      if (typeof row[1] !== 'string') throw new Error('case-discovery wire operation value is invalid');
+    }
+  }
+  const destinationTuple = wire[13];
+  if ((operationRows[1].length === 0) !== (destinationTuple === null)) {
+    throw new Error('case-discovery wire destination authority presence is invalid');
+  }
+  const destination = destinationTuple === null ? null : (() => {
+    arity(destinationTuple, 4, 'destination authority');
+    return { basis: 'complete_stage0_git_paths_and_implied_directories',
+      tracked_path_count: destinationTuple[0],
+      tracked_paths_sha256: digestAt(sha256s, usedSha256s, destinationTuple[1]),
+      occupied_destination_count: destinationTuple[2],
+      occupied_destinations_sha256: digestAt(sha256s, usedSha256s, destinationTuple[3]),
+      portable_root_included: true, absent: true };
+  })();
+
+  // Count the exact expanded semantic JSON before materializing reference fan-out. Each
+  // temporary object is one bounded fact; repeated references add only byte cardinality.
+  const valueBytes = (value) => canonicalSemanticBytes(value).length;
+  const projectedAnchorBytes = (fileReference, category, signalReference, role, extras = {}) =>
+    valueBytes({ ...anchor(fileAt(fileReference), category,
+      signalReference === null ? null : signalObject(signalAt(signalReference)), role), ...extras });
+  const categoryEntries = categories.map((category, categoryIndex) => [category,
+    jsonArrayByteLength(categoryRows[categoryIndex].map((row) =>
+      projectedAnchorBytes(row[0], category, row[1], 'positive')))]);
+  const projectedControls = (rows, role, basis = null) => jsonArrayByteLength(rows.map((row) => {
+    const category = categoryAt(row[0]);
+    const firstCategoryFile = fileAt(categoryRows[row[0]][0][0]);
+    const projected = { category, anchor_path: firstCategoryFile[0],
+      candidate: anchor(fileAt(row[1]), null, null, role) };
+    return valueBytes(basis === null ? projected : { ...projected, basis });
+  }));
+  const projectedSimpleOperations = (rows) => jsonArrayByteLength(rows.map((reference) =>
+    projectedAnchorBytes(reference, null, null, 'scenario_before')));
+  const projectedOperationEntries = [
+    ['modify', projectedSimpleOperations(operationRows[0])],
+    ['rename', jsonArrayByteLength(operationRows[1].map((row) =>
+      projectedAnchorBytes(row[0], null, null, 'scenario_before',
+        { proposed_path: row[1], destination_absence: destination })))],
+    ['delete', projectedSimpleOperations(operationRows[2])],
+    ['branch', jsonArrayByteLength(operationRows[3].map((row) =>
+      projectedAnchorBytes(row[0], null, null, 'scenario_before',
+        { proposed_branch: row[1], source_commit: reviewed.commit, executed: false })))],
+    ['logical_worktree', jsonArrayByteLength(operationRows[4].map((row) =>
+      projectedAnchorBytes(row[0], null, null, 'scenario_before',
+        { logical_worktree_id: row[1], source_commit: reviewed.commit, executed: false })))],
+  ];
+  const projectedCandidateIndexBytes = jsonObjectByteLength([
+    ['schema', scalarJsonByteLength('lamina.real-repository-oracle-discovery-index/v1')],
+    ['rules_sha256', scalarJsonByteLength(digestObject(DISCOVERY_PATH_RULES))],
+    ['categories', jsonObjectByteLength(categoryEntries)],
+    ['near_neighbors', projectedControls(wire[10], 'near_neighbor')],
+    ['negative_decoys', projectedControls(wire[11], 'negative',
+      'same_stratum_without_discovered_category')],
+    ['operation_candidates', jsonObjectByteLength(projectedOperationEntries)],
+    ['index_sha256', scalarJsonByteLength('0'.repeat(64))],
+  ]);
+  const projectedResultBytes = jsonObjectByteLength([
+    ['schema', scalarJsonByteLength(CASE_DISCOVERY_SCHEMA)],
+    ['workload_id', scalarJsonByteLength('real-repository-oracle-v1:case-discovery')],
+    ['status', scalarJsonByteLength('unreviewed_case_discovery_candidate')],
+    ['admission', scalarJsonByteLength('reviewed_inventory_verified')],
+    ['collection', valueBytes({ fixture_id: reviewed.fixture_id, fixture_class: reviewed.fixture_class,
+      repository_url: reviewed.repository_url, commit: reviewed.commit, tree_oid: reviewed.tree_oid,
+      baseline_manifest_sha256: reviewed.baseline_manifest_sha256,
+      candidate_policy_sha256: reviewed.candidate_policy_sha256 })],
+    ['inventory', valueBytes(reviewed.reviewed_inventory)],
+    ['bounds', valueBytes(CASE_DISCOVERY_LIMITS)],
+    ['scan', valueBytes({ candidate_files: scanTuple[0], candidate_bytes: scanTuple[1],
+      tracked_path_count: scanTuple[2], admitted_index_files: scanTuple[3],
+      excluded_generated_artifacts: scanTuple[4] })],
+    ['candidate_index', projectedCandidateIndexBytes],
+    ['authoring_handoff', valueBytes({ next_action: 'reviewer_selects_bounded_evidence_anchors',
+      freeze_allowed: false, selection_schema: 'lamina.real-repository-oracle-evidence-selection/v1' })],
+    ['expectations_loaded', scalarJsonByteLength(false)],
+    ['grade_controller_evidence', scalarJsonByteLength(false)],
+    ['quality_claims', valueBytes(NO_QUALITY_CLAIMS)],
+    ['limitation', scalarJsonByteLength(STATIC_LIMITATION)],
+  ]);
+  if (projectedResultBytes > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
+    throw new Error('case-discovery projected semantic payload exceeds its byte bound');
+  }
   const categoryObject = {};
   for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
     const rows = categoryRows[categoryIndex];
@@ -494,24 +672,6 @@ function unpackDiscoveryResult(wire, rawBytes) {
   const neighbors = controls(wire[10], 'near_neighbor', CASE_DISCOVERY_LIMITS.max_neighbor_records);
   const decoys = controls(wire[11], 'negative', CASE_DISCOVERY_LIMITS.max_negative_decoys)
     .map((row) => ({ ...row, basis: 'same_stratum_without_discovered_category' }));
-  const operationRows = arity(wire[12], OPERATION_KEYS.length, 'operations');
-  if (operationRows.some((rows) => !Array.isArray(rows)
-    || rows.length > CASE_DISCOVERY_LIMITS.operation_candidates_per_kind)) {
-    throw new Error('case-discovery wire operation row count is invalid');
-  }
-  const destinationTuple = wire[13];
-  if ((operationRows[1].length === 0) !== (destinationTuple === null)) {
-    throw new Error('case-discovery wire destination authority presence is invalid');
-  }
-  const destination = destinationTuple === null ? null : (() => {
-    arity(destinationTuple, 4, 'destination authority');
-    return { basis: 'complete_stage0_git_paths_and_implied_directories',
-      tracked_path_count: destinationTuple[0],
-      tracked_paths_sha256: digestAt(sha256s, usedSha256s, destinationTuple[1]),
-      occupied_destination_count: destinationTuple[2],
-      occupied_destinations_sha256: digestAt(sha256s, usedSha256s, destinationTuple[3]),
-      portable_root_included: true, absent: true };
-  })();
   const simpleOperations = (rows) => rows.map((reference) =>
     anchor(fileAt(reference), null, null, 'scenario_before'));
   const modify = simpleOperations(operationRows[0]);
@@ -563,7 +723,11 @@ function unpackDiscoveryResult(wire, rawBytes) {
     expectations_loaded: false, grade_controller_evidence: false,
     quality_claims: { ...NO_QUALITY_CLAIMS }, limitation: STATIC_LIMITATION,
   };
-  if (canonicalSemanticBytes(result).length > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
+  const reconstructedBytes = canonicalSemanticBytes(result).length;
+  if (reconstructedBytes !== projectedResultBytes) {
+    throw new Error('case-discovery projected semantic byte cardinality drifted');
+  }
+  if (reconstructedBytes > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
     throw new Error('case-discovery reconstructed semantic payload exceeds its byte bound');
   }
   validateDiscoveryResult(result);
@@ -816,6 +980,9 @@ export function discoverCandidateFacts(
 
 export function encodeDiscoveryPayload(result) {
   validateDiscoveryResult(result);
+  if (canonicalSemanticBytes(result).length > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
+    throw new Error('complete case-discovery semantic payload exceeds its reconstructed-byte bound');
+  }
   const transport = Buffer.from(JSON.stringify(packDiscoveryResult(result)));
   if (transport.length > DISCOVERY_TRANSPORT_MAX_BYTES) {
     throw new Error('complete case-discovery transport exceeds its decoded-byte bound');
