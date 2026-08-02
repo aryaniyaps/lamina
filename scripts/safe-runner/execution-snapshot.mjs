@@ -63,6 +63,9 @@ const EXPLICIT_ENTRYPOINT_DEPENDENCIES = new Map([
     {
       name: '@ladybugdb/core', resolver: 'packages/cli/package.json',
       destination: 'packages/cli/node_modules',
+      // @ladybugdb/core@0.19.0 loads only its relative JS modules and native
+      // addon at runtime. Its declared dependencies are build/install tooling.
+      omit_dependency_edges: true,
     },
   ]],
 ]);
@@ -680,7 +683,11 @@ export function prepareExecutionSnapshot({
   const environmentOverrides = {};
   let totalBytes = 0;
   let dependencyCreatedDirectories = 0;
-  const sourceFiles = repositoryFiles(repository);
+  const sourceFiles = repositoryFiles(repository).filter((relative) =>
+    auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT
+      || relative === RUNTIME_BASELINE_ENTRYPOINT
+      || relative.startsWith('benchmarks/runtime-baseline-v1/')
+      || relative.startsWith('packages/cli/'));
   for (const relative of sourceFiles) {
     const source = path.join(repository, relative);
     const destination = path.join(snapshotRepository, relative);
@@ -956,10 +963,10 @@ export function prepareExecutionSnapshot({
   if (head) {
     // The runtime baseline uses the Lamina checkout only as immutable executable
     // source and reads its HEAD identifier; all repository lifecycle work occurs
-    // in separately cloned pinned fixtures. Seal the current commit/tree without
-    // copying unrelated Lamina history beside the large pinned runtime inputs.
+    // in separately cloned pinned fixtures. Seal that identifier without copying
+    // unrelated Lamina history beside the large pinned runtime inputs.
     const reachable = auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
-      ? `${head}\n${gitOutput(repository, ['rev-list', '--objects', 'HEAD^{tree}'])}`
+      ? head
       : gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
     for (const item of reachable.split('\n').filter(Boolean)) {
       const oid = item.match(/^([a-f0-9]{40,64})(?:\s|$)/)?.[1];
@@ -967,11 +974,13 @@ export function prepareExecutionSnapshot({
       objectIds.add(oid);
     }
   }
-  const staged = gitOutput(repository, ['ls-files', '--stage', '-z']);
-  for (const item of staged.split('\0').filter(Boolean)) {
-    const oid = item.match(/^[0-7]{6}\s+([a-f0-9]{40,64})\s+[0-3]\t/)?.[1];
-    if (!oid) throw new Error('cannot parse Git index object closure');
-    objectIds.add(oid);
+  if (auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT) {
+    const staged = gitOutput(repository, ['ls-files', '--stage', '-z']);
+    for (const item of staged.split('\0').filter(Boolean)) {
+      const oid = item.match(/^[0-7]{6}\s+([a-f0-9]{40,64})\s+[0-3]\t/)?.[1];
+      if (!oid) throw new Error('cannot parse Git index object closure');
+      objectIds.add(oid);
+    }
   }
   if (objectIds.size > 0) {
     const objectInput = `${[...objectIds].join('\n')}\n`;
@@ -1123,7 +1132,8 @@ export function prepareExecutionSnapshot({
     const stagePackage = (dependency, policy = {}) => {
       const physicalRoot = fs.realpathSync.native(dependency.root);
       const existing = sealedPackages.get(physicalRoot);
-      const policyKey = policy.omit_direct_optional_dependencies === true ? 'omit-optional' : 'full';
+      const policyKey = policy.omit_dependency_edges === true ? 'leaf'
+        : policy.omit_direct_optional_dependencies === true ? 'omit-optional' : 'full';
       if (existing) {
         if (sealedPackagePolicies.get(physicalRoot) !== policyKey) {
           throw new Error('execution dependency root was selected with incompatible policies');
@@ -1142,9 +1152,10 @@ export function prepareExecutionSnapshot({
       visit(physicalRoot, sealedRoot, `node_modules/.lamina-sealed/${id}`, physicalRoot,
         sealedRoot);
 
-      for (const edge of packageEdges(dependency.manifest, {
+      const edges = policy.omit_dependency_edges === true ? [] : packageEdges(dependency.manifest, {
         omitOptionalDependencies: policy.omit_direct_optional_dependencies === true,
-      }).values()) {
+      }).values();
+      for (const edge of edges) {
         const child = resolveInstalledPackage(
           repository, dependency.manifest_path, edge.logical_name, edge.optional,
           edge.manifest_name,
