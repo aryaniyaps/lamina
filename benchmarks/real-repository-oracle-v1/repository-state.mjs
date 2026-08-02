@@ -1,4 +1,10 @@
-import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import { digest } from './contract.mjs';
+import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
+
+const MAX_STATUS_BYTES = 4 * 1024 * 1024;
+const MAX_RECORDS = 100_000;
+const MAX_PATH_BYTES = 4096;
 
 function parseBranch(record, state) {
   const match = /^# ([^ ]+) (.*)$/.exec(record);
@@ -10,44 +16,42 @@ function parseBranch(record, state) {
   else if (key === 'branch.ab') {
     const divergence = /^\+(\d+) -(\d+)$/.exec(value);
     if (!divergence) throw new Error(`malformed porcelain v2 branch divergence: ${record}`);
-    state.ahead = Number(divergence[1]);
-    state.behind = Number(divergence[2]);
+    state.ahead = Number(divergence[1]); state.behind = Number(divergence[2]);
   }
 }
-
-function change(kind, path, originalPath = null, xy = null, submodule = null) {
-  return { kind, path, original_path: originalPath, xy, submodule };
+const change = (kind, candidate, originalPath = null, xy = null, submodule = null) => ({
+  kind, path: candidate, original_path: originalPath, xy, submodule,
+});
+function boundedPath(candidate) {
+  if (!candidate || Buffer.byteLength(candidate) > MAX_PATH_BYTES) throw new Error('porcelain v2 path exceeds the admitted bound');
+  return candidate;
 }
 
-export function parsePorcelainV2Z(input, { worktree = 'main' } = {}) {
-  const records = Buffer.isBuffer(input) ? input.toString('utf8').split('\0') : String(input).split('\0');
+export function parsePorcelainV2Z(input, { worktree } = {}) {
+  const bytes = Buffer.isBuffer(input) ? input : Buffer.from(String(input));
+  if (bytes.length > MAX_STATUS_BYTES) throw new Error('porcelain v2 output exceeds the admitted bound');
+  const text = bytes.toString('utf8');
+  if (text.includes('\uFFFD')) throw new Error('porcelain v2 output is not valid UTF-8');
+  const records = text.split('\0');
   if (records.at(-1) === '') records.pop();
-  const state = {
-    head: null, branch: null, upstream: null, ahead: 0, behind: 0,
-    worktree, changes: [],
-  };
+  if (records.length > MAX_RECORDS) throw new Error('porcelain v2 record count exceeds the admitted bound');
+  if (!/^[a-f0-9]{64}$/.test(worktree || '')) throw new Error('physical worktree identity is required');
+  const state = { head: null, branch: null, upstream: null, ahead: 0, behind: 0, worktree, changes: [] };
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
     if (!record) throw new Error('porcelain v2 contains an empty record');
-    if (record.startsWith('# ')) {
-      parseBranch(record, state);
-      continue;
-    }
+    if (record.startsWith('# ')) { parseBranch(record, state); continue; }
     let match;
-    if ((match = /^1 ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (.+)$/.exec(record))) {
-      const deleted = match[1].includes('D');
-      state.changes.push(change(deleted ? 'deleted' : 'ordinary', match[3], null, match[1], match[2]));
-    } else if ((match = /^2 ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (.+)$/.exec(record))) {
-      const originalPath = records[++index];
-      if (!originalPath) throw new Error(`porcelain v2 rename lacks original path: ${record}`);
-      state.changes.push(change('renamed', match[3], originalPath, match[1], match[2]));
-    } else if ((match = /^u ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (.+)$/.exec(record))) {
-      state.changes.push(change('unmerged', match[3], null, match[1], match[2]));
-    } else if ((match = /^\? (.+)$/.exec(record))) {
-      state.changes.push(change('untracked', match[1]));
-    } else if (record.startsWith('! ')) {
-      // Ignored entries are outside the observation contract.
-    } else {
+    if ((match = /^1 ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (.*)$/.exec(record))) {
+      state.changes.push(change(match[1].includes('D') ? 'deleted' : 'ordinary', boundedPath(match[3]), null, match[1], match[2]));
+    } else if ((match = /^2 ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ ([RC][0-9]+) (.*)$/.exec(record))) {
+      const originalPath = boundedPath(records[++index]);
+      state.changes.push(change(match[3].startsWith('C') ? 'copied' : 'renamed', boundedPath(match[4]), originalPath, match[1], match[2]));
+    } else if ((match = /^u ([^ ]{2}) ([^ ]+) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (.*)$/.exec(record))) {
+      state.changes.push(change('unmerged', boundedPath(match[3]), null, match[1], match[2]));
+    } else if ((match = /^\? (.*)$/.exec(record))) {
+      state.changes.push(change('untracked', boundedPath(match[1])));
+    } else if (!record.startsWith('! ')) {
       throw new Error(`unknown porcelain v2 record: ${record}`);
     }
   }
@@ -60,12 +64,25 @@ export function parsePorcelainV2Z(input, { worktree = 'main' } = {}) {
   return state;
 }
 
-export function readRepositoryState(cwd, { worktree = 'main' } = {}) {
-  const result = spawnSync('git', [
-    '-c', 'core.hooksPath=/dev/null', 'status', '--porcelain=v2', '-z',
-    '--branch', '--untracked-files=all',
-  ], { cwd, encoding: null, stdio: ['ignore', 'pipe', 'pipe'] });
+function runGit(cwd, args, encoding = 'utf8') {
+  const result = spawnTrustedGit(cwd, args, { encoding, timeout: 5_000, maxBuffer: MAX_STATUS_BYTES });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`git status failed: ${String(result.stderr).trim()}`);
-  return parsePorcelainV2Z(result.stdout, { worktree });
+  if (result.status !== 0) throw new Error(`trusted Git ${args[0]} failed: ${String(result.stderr).trim()}`);
+  return result.stdout;
+}
+function physicalIdentity(candidate) {
+  const resolved = fs.realpathSync.native(candidate);
+  const stat = fs.lstatSync(resolved, { bigint: true });
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Git repository identity must be a physical directory');
+  return { path: resolved, dev: String(stat.dev), ino: String(stat.ino) };
+}
+
+export function readRepositoryState(cwd) {
+  const lines = String(runGit(cwd, ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-dir', '--git-common-dir'])).trimEnd().split('\n');
+  if (lines.length !== 3 || lines.some((line) => !line)) throw new Error('trusted Git returned an incomplete repository identity');
+  const [root, gitDirectory, commonDirectory] = lines.map(physicalIdentity);
+  const status = runGit(cwd, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--find-renames=50%'], null);
+  const provisional = parsePorcelainV2Z(status, { worktree: '0'.repeat(64) });
+  const worktree = digest({ root, git_directory: gitDirectory, common_directory: commonDirectory, head: provisional.head });
+  return { ...provisional, worktree };
 }

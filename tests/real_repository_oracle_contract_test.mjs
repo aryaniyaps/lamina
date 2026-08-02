@@ -1,371 +1,322 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
-  COLLECTION_SCHEMA, FIXTURE_SCHEMA, FROZEN_GATES, OBSERVATION_CATEGORIES,
-  OBLIGATION_CATEGORIES, QUALIFIED_CURRENT_BASELINE, REQUIRED_COVERAGE,
-  collectionDigest, digest, resultCasesDigest, validateFixture, validateResult,
+  ADAPTER_SCHEMA, BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256,
+  COLLECTION_PINS, COLLECTION_SCHEMA, FIXTURE_SCHEMA, FROZEN_GATES,
+  OBSERVATION_CATEGORIES, OBLIGATION_CATEGORIES, QUALIFIED_CURRENT_BASELINE,
+  QUERY_KINDS, RESULT_SCHEMA, collectionDigest, digest,
+  executeRegisteredMutation, isSafeBranchName, isSafeRelativePath,
+  resultCasesDigest, validateFixture, validateResult,
 } from '../benchmarks/real-repository-oracle-v1/contract.mjs';
-import {
-  adapterInput, evaluateAdapter, evaluateSideBySide, safetyBlockedResult,
-} from '../benchmarks/real-repository-oracle-v1/evaluate.mjs';
+import { evaluateAdapter, evaluateSideBySide } from '../benchmarks/real-repository-oracle-v1/evaluate.mjs';
 import { gradeResult } from '../benchmarks/real-repository-oracle-v1/grade.mjs';
+import {
+  EXACT_WORKLOAD_COMMAND, attestBlockedSafeRunnerReport, attestSafeRunnerReport,
+  encodeUnattestedPayload,
+} from '../benchmarks/real-repository-oracle-v1/attestation.mjs';
+import { resolvePhysicalContained } from '../benchmarks/real-repository-oracle-v1/materialization-registry.mjs';
 import { heldOutIdentity } from '../benchmarks/real-repository-oracle-v1/held-out-compatibility.mjs';
 import { parsePorcelainV2Z } from '../benchmarks/real-repository-oracle-v1/repository-state.mjs';
 import { retrievalFixture } from '../benchmarks/retrieval-v1/fixtures.mjs';
-import {
-  validateFixtureSchema, validateResultSchema,
-} from '../benchmarks/real-repository-oracle-v1/schema-validation.mjs';
+import { validateFixtureSchema, validateResultSchema } from '../benchmarks/real-repository-oracle-v1/schema-validation.mjs';
 
-const baselineManifestDigest = '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba';
-const pins = [
-  ['small', 'https://github.com/alan2207/bulletproof-react.git', '9506629ed003a561c6627735480cce4994244bb4'],
-  ['medium', 'https://github.com/outline/outline.git', '30730179b852d42da5078a9294f7d05a44f516b7'],
-  ['large', 'https://github.com/makeplane/plane.git', 'dc9d80b2d2a499b967f0b541e083b283f463719f'],
-];
-
-function collection([fixtureId, repositoryUrl, commit], index) {
+function collection(fixtureId, index) {
+  const pin = COLLECTION_PINS[fixtureId];
   const value = {
-    schema: COLLECTION_SCHEMA,
-    id: `collection.${fixtureId}`,
-    fixture_id: fixtureId,
-    fixture_class: fixtureId,
-    repository_url: repositoryUrl,
-    commit,
-    baseline_manifest_sha256: baselineManifestDigest,
+    schema: COLLECTION_SCHEMA, id: `collection.${fixtureId}`,
+    ...pin, baseline_manifest_sha256: BASELINE_MANIFEST_SHA256,
+    candidate_policy_sha256: CANDIDATE_POLICY_SHA256,
     observation_paths_sha256: String(index + 1).repeat(64),
-    observation_candidate_files: 100 + index,
-    observation_candidate_bytes: 1000 + index,
+    observation_candidate_files: 100 + index, observation_candidate_bytes: 1000 + index,
     retrieval_paths_sha256: String(index + 4).repeat(64),
-    retrieval_candidate_files: 80 + index,
-    retrieval_candidate_bytes: 800 + index,
+    retrieval_candidate_files: 80 + index, retrieval_candidate_bytes: 800 + index,
     collection_digest: '',
   };
   value.collection_digest = collectionDigest(value);
   return value;
 }
+const collections = ['small', 'medium', 'large'].map(collection);
+const observations = OBSERVATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
+const obligations = OBLIGATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
+const worktreeIdentity = digest('reviewed-physical-worktree');
 
-const collections = pins.map(collection);
-const observations = OBSERVATION_CATEGORIES.map((category) => ({
-  category, path: `src/${category}.ts`,
-}));
-const obligations = OBLIGATION_CATEGORIES.map((category) => ({
-  category, path: `src/${category}.ts`,
-}));
+function scenarioFor(index) {
+  if (index === 1) return { kind: 'dirty', name: 'modify', operations: [{ op: 'modify', path: 'src/a.ts', content: 'reviewed mutation' }] };
+  if (index === 2) return { kind: 'dirty', name: 'rename', operations: [{ op: 'rename', path: 'src/a.ts', to: 'src/b.ts' }] };
+  if (index === 3) return { kind: 'dirty', name: 'delete', operations: [{ op: 'delete', path: 'src/a.ts' }] };
+  if (index === 4) return { kind: 'branch', name: 'branch', operations: [{ op: 'checkout_branch', branch: 'review/oracle' }] };
+  if (index === 5) return { kind: 'worktree', name: 'worktree', operations: [{ op: 'add_worktree', branch: 'review/linked', worktree_id: 'linked-1' }] };
+  return { kind: 'clean', name: `clean-${index}`, operations: [] };
+}
 
-function reviewedCase(collectionId, suffix, {
-  coverage, outcome, selected, workflowRanking = [], sourceRanking = [],
-} = {}) {
+function reviewedCase(collectionValue, query, index) {
+  const intent = index === 6 ? 'multi_workflow' : index === 7 ? 'new_workflow'
+    : index === 8 ? 'adversarial' : index % 2 ? 'source_localization' : 'workflow_selection';
+  const outcome = intent === 'multi_workflow' ? 'multi_workflow'
+    : intent === 'new_workflow' ? 'new_workflow_required' : 'selected';
+  const selected = outcome === 'multi_workflow' ? ['workflow.primary', 'workflow.secondary']
+    : outcome === 'new_workflow_required' ? [] : ['workflow.primary'];
   return {
-    id: `${collectionId}.${suffix}`,
-    collection_id: collectionId,
-    request: `Reviewed ${suffix} request for ${collectionId}`,
-    coverage,
-    repository_scenario: { kind: 'clean', name: 'pinned-clean', operations: [] },
+    id: `${collectionValue.id}.${query}`,
+    collection_id: collectionValue.id,
+    request: `Reviewed ${query} request for ${collectionValue.id}`,
+    kind: { query, intent, scope: index % 3 === 0 ? 'one_file' : index % 3 === 1 ? 'multi_file' : 'repository' },
+    repository_scenario: scenarioFor(index),
     expected: {
-      workflow_outcome: outcome,
-      selected_workflow_ids: selected,
+      workflow_outcome: outcome, selected_workflow_ids: selected,
       forbidden_workflow_ids: ['workflow.forbidden'],
-      workflow_ranking: workflowRanking,
-      source_ranking: sourceRanking,
-      observations: suffix === 'exact' ? observations : [],
-      forbidden_observations: [],
-      obligations: suffix === 'exact' ? obligations : [],
-      forbidden_paths: [],
-      repository_state: { branch: '(detached)', worktree: 'primary', changes: [] },
+      workflow_ranking: index === 0 ? [{ id: 'workflow.primary', max_rank: 1 }, { id: 'workflow.secondary', max_rank: 5 }] : [],
+      source_ranking: index === 0 ? [{ path: 'src/entry_point.ts', symbol: 'entryPoint', max_rank: 1 }, { path: 'src/handler.ts', symbol: null, max_rank: 10 }] : [],
+      observations: index === 0 ? observations : [], forbidden_observations: [],
+      obligations: index === 0 ? obligations : [], forbidden_paths: [],
+      repository_state: {
+        head: collectionValue.commit,
+        branch: index === 4 ? 'review/oracle' : '(detached)', upstream: null,
+        ahead: 0, behind: 0, worktree: worktreeIdentity, changes: [],
+      },
     },
     rationale: 'Compact reviewed expectation bound to one exact repository collection.',
   };
 }
-
-const cases = collections.flatMap((item) => [
-  reviewedCase(item.id, 'exact', {
-    coverage: REQUIRED_COVERAGE.filter((category) =>
-      !['multi_workflow', 'new_workflow'].includes(category)),
-    outcome: 'selected', selected: ['workflow.primary'],
-    workflowRanking: [{ id: 'workflow.primary', max_rank: 1 }],
-    sourceRanking: [{ path: 'src/entry_point.ts', symbol: 'entryPoint', max_rank: 1 }],
-  }),
-  reviewedCase(item.id, 'multi', {
-    coverage: ['multi_workflow'], outcome: 'multi_workflow',
-    selected: ['workflow.primary', 'workflow.secondary'],
-  }),
-  reviewedCase(item.id, 'novel', {
-    coverage: ['new_workflow'], outcome: 'new_workflow_required', selected: [],
-  }),
-]);
-
+const cases = collections.flatMap((item) => QUERY_KINDS.map((query, index) => reviewedCase(item, query, index)));
 const heldOut = heldOutIdentity(retrievalFixture());
-assert.deepEqual(heldOut, {
-  workflow_rows: 160,
-  workflow_rows_bytes: 16928,
-  workflow_rows_sha256: '536c7459bb3457ca01b1a5444964bb5cc1d3cea8d7fc3ff5c1c84190f26c9027',
-  source_rows: 80,
-  source_rows_bytes: 11806,
-  source_rows_sha256: '080df00ccec46bf06a7b9336c1defd270a312005e872b1e64f29437e08709f99',
-});
-
+const mutationKinds = [
+  ['wrong_workflow', 'selected Workflow ids'], ['missing_observation', 'missing observation'],
+  ['lost_obligation', 'missing obligation'], ['source_ranking_regression', 'source src/entry_point.ts'],
+  ['extra_workflow', 'selected Workflow ids'], ['nondeterministic_replay', 'deterministic ordering'],
+  ['repository_state_mismatch', 'repository ahead'],
+];
 const fixture = {
-  schema: FIXTURE_SCHEMA,
-  id: 'synthetic-contract-fixture',
-  version: 1,
-  collections,
-  cases,
-  mutations: [{
-    id: 'wrong-workflow', case_id: cases[0].id, kind: 'wrong_workflow',
-    diagnostic_includes: ['selected Workflow ids'],
-  }],
+  schema: FIXTURE_SCHEMA, id: 'synthetic-contract-fixture', version: 1,
+  collections, cases,
+  mutations: mutationKinds.map(([kind, diagnostic], index) => ({
+    id: `mutation.${kind}`,
+    case_id: kind === 'extra_workflow' ? cases[6].id : cases[0].id,
+    kind, diagnostic_includes: [diagnostic],
+  })),
   held_out_compatibility: {
-    benchmark: 'benchmarks/retrieval-v1/benchmark.mjs', split: 'held_out',
-    ...heldOut,
-    qualified_current: { ...QUALIFIED_CURRENT_BASELINE },
-    thresholds: { ...FROZEN_GATES },
+    benchmark: 'benchmarks/retrieval-v1/benchmark.mjs', split: 'held_out', ...heldOut,
+    qualified_current: { ...QUALIFIED_CURRENT_BASELINE }, thresholds: { ...FROZEN_GATES },
   },
 };
-
 assert.deepEqual(validateFixture(fixture), { valid: true, errors: [] });
 assert.equal(validateFixtureSchema(fixture), true, JSON.stringify(validateFixtureSchema.errors));
 
-const fullState = {
-  head: 'a'.repeat(40), branch: '(detached)', upstream: null, ahead: 0, behind: 0,
-  worktree: 'primary', changes: [],
-};
-const expectedById = new Map(fixture.cases.map((item) => [item.id, {
-  id: item.id,
+const selectedCollection = collections[0];
+const selectedCases = cases.filter((item) => item.collection_id === selectedCollection.id);
+const expectedByRequest = new Map(selectedCases.map((item) => [item.request, {
   workflow_outcome: item.expected.workflow_outcome,
   selected_workflow_ids: item.expected.selected_workflow_ids,
   workflow_ranking: item.expected.workflow_ranking.map(({ id }) => ({ id })),
   source_ranking: item.expected.source_ranking.map(({ path, symbol }) => ({ path, symbol })),
-  observations: item.expected.observations,
-  obligations: item.expected.obligations,
-  repository_state: fullState,
+  observations: item.expected.observations, obligations: item.expected.obligations,
+  repository_state: item.expected.repository_state,
 }]));
 
-const seenInputs = [];
-const alternateInputs = [];
-const seenRecipes = [];
-let materializationSequence = 0;
+let sequence = 0;
+const active = new Map();
+const prepareCalls = [];
 const materializer = {
-  materialize(scenario, collectionValue) {
-    seenRecipes.push(scenario);
-    materializationSequence += 1;
-    const identity = `${collectionValue.id}:${scenario.name}:${materializationSequence}`;
-    return {
-      schema: 'lamina.materialized-repository/v1',
-      materialization_digest: digest(identity),
-      opaque_handle: `/safe-runner/${collectionValue.fixture_id}/${identity}`,
-    };
+  prepare(scenario, collectionValue) {
+    const treeOid = collectionValue.commit;
+    const scenarioDigest = digest(scenario);
+    const provenance = digest({ repository_url: collectionValue.repository_url, resolved_commit: collectionValue.commit, tree_oid: treeOid, scenario_digest: scenarioDigest, candidate_policy_sha256: collectionValue.candidate_policy_sha256 });
+    const base = { schema: 'lamina.materialized-repository-base/v1', resolved_commit: collectionValue.commit, tree_oid: treeOid, scenario_digest: scenarioDigest, provenance_digest: provenance, content_digest: digest({ provenance, state: 'start' }) };
+    prepareCalls.push({ scenario, collectionValue, base });
+    return base;
   },
+  lease(base) {
+    sequence += 1;
+    const lease = { schema: 'lamina.materialized-repository-lease/v1', opaque_handle: `lease-${String(sequence).padStart(16, '0')}`, provenance_digest: base.provenance_digest, start_digest: base.content_digest };
+    active.set(lease.opaque_handle, lease);
+    return lease;
+  },
+  resolve(lease) { assert.equal(active.has(lease.opaque_handle), true); return `/runner-private/${lease.opaque_handle}`; },
+  verifyAndRelease(lease) { active.delete(lease.opaque_handle); return { end_digest: lease.start_digest, cleanup_verified: true }; },
 };
-const current = {
-  id: 'current-normalized', version: 1,
-  inputFormat: 'lamina.real-repository-oracle-input/v1',
-  outputFormat: 'lamina.real-repository-oracle-result-case/v1',
-  evaluate(input) {
+const seenInputs = [];
+const adapter = {
+  id: 'current', version: 1, inputFormat: 'lamina.real-repository-oracle-input/v1', outputFormat: 'lamina.real-repository-oracle-result-case/v1',
+  evaluate(input, authority) {
     seenInputs.push(input);
     assert.equal(Object.isFrozen(input), true);
+    assert.equal('case_id' in input, false);
     assert.equal('expected' in input, false);
-    assert.equal('coverage' in input, false);
     assert.equal('repository_scenario' in input, false);
-    assert.equal('operations' in input.materialized_repository, false);
-    return structuredClone(expectedById.get(input.case_id));
+    assert.match(authority.resolveRepository(input.materialized_repository.opaque_handle), /^\/runner-private\/lease-/);
+    return structuredClone(expectedByRequest.get(input.request));
   },
 };
-const alternate = {
-  id: 'alternate-keyed', version: 1,
-  inputFormat: 'lamina.real-repository-oracle-input/v1',
-  outputFormat: 'example.alternate-real-repository/v1',
-  evaluate(input) {
-    alternateInputs.push(input);
-    const value = expectedById.get(input.case_id);
-    return { key: value.id, answer: structuredClone(value) };
-  },
-  normalize(raw) { return { ...raw.answer, id: raw.key }; },
-};
-
-const selectedCollection = collections[0];
-const result = await evaluateAdapter({
-  fixture, collection: selectedCollection, adapter: current, materializer,
-});
-assert.deepEqual(result.safety, {
-  outcome: 'not_applicable', reason: null, cleanup_verified: false,
-});
+const result = await evaluateAdapter({ fixture, collection: selectedCollection, adapter, materializer });
+assert.deepEqual(result.safety, { mode: 'not_applicable', outcome: 'not_applicable', reason: null, attestation: null });
 assert.deepEqual(validateResult(result), { valid: true, errors: [] });
 assert.equal(validateResultSchema(result), true, JSON.stringify(validateResultSchema.errors));
-assert.deepEqual(gradeResult(fixture, result), {
-  passed: true,
-  classification: 'pass',
-  metrics: {
-    exact_id_alias_accuracy: 1,
-    complete_multi_workflow_selection: 1,
-    incorrect_new_workflow_attachment: 0,
-    workflow_recall_at_5: 1,
-    source_recall_at_10: 1,
-    deterministic_ordering: true,
-  },
-  coverage: {
-    observations: Object.fromEntries(OBSERVATION_CATEGORIES.map((category) =>
-      [category, { expected: 1, matched: 1 }])),
-    obligations: Object.fromEntries(OBLIGATION_CATEGORIES.map((category) =>
-      [category, { expected: 1, matched: 1 }])),
-  },
-  diagnostics: [],
-});
+assert.equal(gradeResult(fixture, result).classification, 'pass');
+assert.equal(new Set(seenInputs.map((item) => item.materialized_repository.opaque_handle)).size, selectedCases.length * 2, 'every first/replay call gets a fresh lease');
+assert.equal(prepareCalls.length, selectedCases.length, 'each scenario has one immutable base');
 
-const pair = await evaluateSideBySide({
-  fixture, collection: selectedCollection, current, candidate: alternate, materializer,
-});
-assert.deepEqual(pair.candidate.cases, pair.current.cases,
-  'a differently keyed candidate must normalize to identical semantics');
-assert.deepEqual(
-  alternateInputs.map((input) => input.materialized_repository.materialization_digest),
-  seenInputs.slice(-alternateInputs.length)
-    .map((input) => input.materialized_repository.materialization_digest),
-  'current, candidate, and replay runs must share identical content-addressed materializations',
-);
-assert.ok(seenInputs.length >= 6);
-assert.equal(seenRecipes.length, 6,
-  'each standalone/side-by-side case is materialized once and shared across replays/adapters');
-assert.deepEqual(
-  adapterInput(fixture.cases[0], selectedCollection, {
-    schema: 'lamina.materialized-repository/v1',
-    materialization_digest: '1'.repeat(64), opaque_handle: 'same',
-  }),
-  adapterInput(fixture.cases[0], selectedCollection, {
-    schema: 'lamina.materialized-repository/v1',
-    materialization_digest: '1'.repeat(64), opaque_handle: 'same',
-  }),
-  'identical adapters receive byte-stable, expectation-free inputs',
-);
+const alternate = { ...adapter, id: 'candidate', evaluate(input) { return { answer: structuredClone(expectedByRequest.get(input.request)) }; }, normalize(raw) { return raw.answer; } };
+const pair = await evaluateSideBySide({ fixture, collection: selectedCollection, current: adapter, candidate: alternate, materializer });
+assert.deepEqual(pair.current.cases, pair.candidate.cases);
 
-const collectionMismatch = structuredClone(result);
-collectionMismatch.collection_digest = 'f'.repeat(64);
-assert.equal(gradeResult(fixture, collectionMismatch).classification, 'fixture_defect');
-
-const invalid = structuredClone(result);
-invalid.cases[0].repository_state.changes = [{ kind: 'invented' }];
-assert.equal(gradeResult(fixture, invalid).classification, 'candidate_invalid');
-
-await assert.rejects(
-  evaluateAdapter({
-    fixture, collection: selectedCollection, adapter: current, materializer,
-    evidenceMode: 'semantic_core',
-  }),
-  /requires trusted safety evidence/,
-  'an arbitrary adapter cannot award itself safe-runner cleanup evidence',
-);
-
-const lyingClaims = structuredClone(result);
-lyingClaims.claims.observation = 'brownfield_signals';
-assert.equal(gradeResult(fixture, lyingClaims).classification, 'candidate_invalid');
-
-const truthfulPublic = structuredClone(result);
-truthfulPublic.evidence_mode = 'public_cli';
-truthfulPublic.safety = { outcome: 'success', reason: null, cleanup_verified: true };
-truthfulPublic.claims = {
-  end_to_end_runtime: true,
-  observation: 'public_cli',
-  obligations: 'public_cli',
-  source_localization: 'real_retrieval',
+const mutableLeaseMaterializer = {
+  ...materializer,
+  verifyAndRelease(lease) { active.delete(lease.opaque_handle); return { end_digest: digest(`${lease.start_digest}:mutated`), cleanup_verified: true }; },
 };
-assert.equal(validateResult(truthfulPublic).valid, true,
-  'future #52 public CLI candidates must be able to provide truthful success evidence');
+await assert.rejects(evaluateAdapter({ fixture, collection: selectedCollection, adapter, materializer: mutableLeaseMaterializer }), /changed or cleanup/);
+let reused;
+const reusedLeaseMaterializer = {
+  ...materializer,
+  lease(base) {
+    reused ||= { schema: 'lamina.materialized-repository-lease/v1', opaque_handle: 'lease-reused-0000000000', provenance_digest: base.provenance_digest, start_digest: base.content_digest };
+    active.set(reused.opaque_handle, reused); return reused;
+  },
+};
+await assert.rejects(evaluateAdapter({ fixture: { ...fixture, cases: [cases[0]] }, collection: selectedCollection, adapter, materializer: reusedLeaseMaterializer }), /reused a writable lease/);
 
-const blocked = safetyBlockedResult({
-  collection: selectedCollection, adapterId: 'current-public-cli',
-  reason: 'LAMINA_SAFE_PREFLIGHT: pinned worker is unavailable',
-  cleanupVerified: true,
-});
-assert.throws(() => safetyBlockedResult({
-  collection: selectedCollection, adapterId: 'untrusted', reason: 'blocked',
-}), /caller-supplied cleanup evidence/);
-assert.equal(validateResult(blocked).valid, true);
-assert.deepEqual(gradeResult(fixture, blocked), {
-  passed: false, classification: 'safety_blocked', metrics: null, coverage: null,
-  diagnostics: ['LAMINA_SAFE_PREFLIGHT: pinned worker is unavailable'],
-});
+// The #60 authority is not replaceable by recomputing a downstream digest.
+const swapped = structuredClone(fixture);
+swapped.collections[0].repository_url = 'https://github.com/example/replacement.git';
+swapped.collections[0].commit = 'f'.repeat(40);
+swapped.collections[0].collection_digest = collectionDigest(swapped.collections[0]);
+assert.equal(validateFixture(swapped).valid, false);
 
-function mutation(change) {
-  const value = structuredClone(result);
-  change(value);
-  value.replay_digest = resultCasesDigest(value.cases);
-  return gradeResult(fixture, value);
+for (const unsafe of ['/etc/passwd', '../escape', 'src/../escape', 'C:/escape', 'src\\escape', `src/a\0b`]) assert.equal(isSafeRelativePath(unsafe), false);
+for (const unsafe of ['../branch', 'bad branch', 'bad..branch', 'bad@{upstream}', '/root']) assert.equal(isSafeBranchName(unsafe), false);
+for (const unsafe of ['/etc/passwd', '../escape', `src/a\0b`]) {
+  const defect = structuredClone(fixture);
+  defect.cases[0].repository_scenario = { kind: 'dirty', name: 'unsafe', operations: [{ op: 'modify', path: unsafe, content: 'x' }] };
+  assert.equal(validateFixture(defect).valid, false);
+}
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-security-'));
+try {
+  fs.mkdirSync(path.join(temp, 'repo')); fs.symlinkSync(temp, path.join(temp, 'repo', 'escape'));
+  assert.throws(() => resolvePhysicalContained(path.join(temp, 'repo'), 'escape/outside'), /symlink/);
+} finally { fs.rmSync(temp, { recursive: true, force: true }); }
+
+// Schema-first validation keeps manual/schema shape checks in parity.
+for (const mutate of [
+  (value) => { value.id = ''; },
+  (value) => { value.cases[0].id = ''; },
+  (value) => { value.cases[0].expected.selected_workflow_ids = ['']; },
+  (value) => { value.cases[0].kind.query = 'free_form'; },
+  (value) => { value.cases[0].coverage = ['exact_workflow_id']; },
+]) {
+  const value = structuredClone(fixture); mutate(value);
+  assert.equal(validateFixtureSchema(value), false);
+  assert.equal(validateFixture(value).valid, false);
 }
 
-const wrongWorkflow = mutation((value) => {
-  value.cases[0].selected_workflow_ids = ['workflow.wrong'];
+// A query requiring two hits is one denominator and fails as a whole, not half credit.
+const partialQuery = structuredClone(result);
+partialQuery.cases[0].workflow_ranking.pop();
+partialQuery.replay_digest = resultCasesDigest(partialQuery.cases);
+assert.equal(gradeResult(fixture, partialQuery).metrics.workflow_recall_at_5, 0);
+const partialSourceQuery = structuredClone(result);
+partialSourceQuery.cases[0].source_ranking.pop();
+partialSourceQuery.replay_digest = resultCasesDigest(partialSourceQuery.cases);
+assert.equal(gradeResult(fixture, partialSourceQuery).metrics.source_recall_at_10, 0);
+
+const incoherentScenario = structuredClone(fixture);
+incoherentScenario.cases[0].repository_scenario.operations = [{ op: 'delete', path: 'src/a.ts' }];
+assert.equal(validateFixture(incoherentScenario).valid, false, 'derived coverage cannot disagree with the typed scenario');
+
+for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree']) {
+  const mismatch = structuredClone(result);
+  if (field === 'head') mismatch.cases[0].repository_state.head = 'f'.repeat(40);
+  else if (field === 'upstream') mismatch.cases[0].repository_state.upstream = 'origin/main';
+  else if (field === 'worktree') mismatch.cases[0].repository_state.worktree = 'f'.repeat(64);
+  else mismatch.cases[0].repository_state[field] += 1;
+  mismatch.replay_digest = resultCasesDigest(mismatch.cases);
+  assert.ok(gradeResult(fixture, mismatch).diagnostics.some((item) => item.includes(`repository ${field}`)));
+}
+const extraChange = structuredClone(result);
+extraChange.cases[0].repository_state.changes.push({ kind: 'untracked', path: 'unexpected.txt', original_path: null, xy: null, submodule: null });
+extraChange.replay_digest = resultCasesDigest(extraChange.cases);
+assert.ok(gradeResult(fixture, extraChange).diagnostics.some((item) => item.includes('repository changes expected exactly')));
+
+for (const mutation of fixture.mutations) {
+  const mutated = executeRegisteredMutation(result, mutation);
+  const graded = gradeResult(fixture, mutated);
+  assert.equal(graded.classification, 'product_regression', mutation.kind);
+  for (const needle of mutation.diagnostic_includes) assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
+}
+
+const measured = await evaluateAdapter({
+  fixture, collection: selectedCollection, adapter, materializer,
+  evidenceMode: 'semantic_core', claims: { end_to_end_runtime: false, observation: 'brownfield_signals', obligations: 'compiled', source_localization: 'not_measured' },
 });
-assert.equal(wrongWorkflow.classification, 'product_regression');
-assert.ok(wrongWorkflow.diagnostics.some((item) => item.includes('selected Workflow ids')));
+assert.equal(validateResult(measured).valid, false, 'unattested workload output is never gradeable');
+const forgedAttestation = {
+  schema: 'lamina.real-repository-oracle-attestation/v1', report_schema: 'lamina.safe-runner-report/v1',
+  report_sha256: '1'.repeat(64), result_sha256: '2'.repeat(64), workload_id: 'real-repository-oracle-v1:validate', tier: 'small',
+  command_sha256: digest(EXACT_WORKLOAD_COMMAND), collection_digest: selectedCollection.collection_digest,
+  materialization_digests: [...new Set(measured.materializations.map((item) => item.base_digest))],
+  runner_outcome: 'success', cleanup_verified: true,
+};
+const forgedPublic = {
+  ...structuredClone(measured), evidence_mode: 'public_cli',
+  claims: { end_to_end_runtime: true, observation: 'public_cli', obligations: 'public_cli', source_localization: 'real_retrieval' },
+  safety: { mode: 'attested', outcome: 'success', reason: null, attestation: forgedAttestation },
+};
+assert.equal(validateResult(forgedPublic, { safetyAttestation: forgedPublic.safety.attestation }).valid, false, 'caller-shaped proof cannot forge a public CLI pass');
 
-const missingObservation = mutation((value) => { value.cases[0].observations.shift(); });
-assert.ok(missingObservation.diagnostics.some((item) => item.includes('missing observation')));
-
-const lostObligation = mutation((value) => { value.cases[0].obligations.shift(); });
-assert.ok(lostObligation.diagnostics.some((item) => item.includes('missing obligation')));
-
-const rankingRegression = mutation((value) => { value.cases[0].source_ranking = []; });
-assert.ok(rankingRegression.diagnostics.some((item) => item.includes('source src/entry_point.ts#entryPoint')));
-
-const extraMulti = mutation((value) => {
-  value.cases[1].selected_workflow_ids.push('workflow.unexpected');
+const payloadLine = encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, result: measured });
+const safeReport = {
+  schema: 'lamina.safe-runner-report/v1', schema_version: 1, run_id: 'safe-test', report_file: null,
+  outcome: 'success', tier: 'small', command: [...EXACT_WORKLOAD_COMMAND], cwd: '/runner',
+  started_at: '2026-08-02T00:00:00.000Z', finished_at: '2026-08-02T00:00:01.000Z', duration_ms: 1000,
+  adapter: { id: 'linux-cgroup-v2' }, limits: {}, preflight: { ok: true },
+  samples: [{ elapsed_ms: 1, aggregate_rss_bytes: 1, cgroup_memory_bytes: 1, pids: 1, temporary_bytes: 1, temporary_inodes: 1 }],
+  peaks: { aggregate_rss_bytes: 1, cgroup_memory_bytes: 1, pids: 1, temporary_bytes: 1, temporary_inodes: 1 },
+  descendants: [],
+  output: { stdout_bytes: Buffer.byteLength(payloadLine), stderr_bytes: 0, total_bytes: Buffer.byteLength(payloadLine), stdout_tail: payloadLine, stderr_tail: '', truncated: false },
+  termination: { reason: 'completed', limit: null, requested_signals: [], child_exit_code: 0, child_signal: null, cgroup_events: {} },
+  cleanup: { attempted: true, descendants_remaining: [], managed_paths_remaining: [], scope_removed: true, temporary_directory_removed: true, lock_released: true, errors: [] },
+  error: null,
+};
+const attested = attestSafeRunnerReport(Buffer.from(JSON.stringify(safeReport)), { expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest });
+assert.equal(validateResult(attested.result, { safetyAttestation: attested.attestation }).valid, true);
+assert.equal(gradeResult(fixture, attested.result, { safetyAttestation: attested.attestation }).classification, 'pass');
+const reusedProof = { ...attested.result, cases: structuredClone(attested.result.cases) };
+reusedProof.cases[0].selected_workflow_ids = ['workflow.tampered'];
+assert.equal(validateResult(reusedProof, { safetyAttestation: attested.attestation }).valid, false, 'a real report attestation cannot be replayed over modified result bytes');
+const reportWithoutCleanup = structuredClone(safeReport); reportWithoutCleanup.cleanup.temporary_directory_removed = false;
+assert.throws(() => attestSafeRunnerReport(JSON.stringify(reportWithoutCleanup), { expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest }), /invalid|cleanup/);
+const refusedReport = structuredClone(safeReport);
+refusedReport.outcome = 'preflight_refused'; refusedReport.adapter = null; refusedReport.limits = null;
+refusedReport.preflight = { ok: false }; refusedReport.samples = [];
+refusedReport.peaks = { aggregate_rss_bytes: 0, cgroup_memory_bytes: 0, pids: 0, temporary_bytes: 0, temporary_inodes: 0 };
+refusedReport.output = { stdout_bytes: 0, stderr_bytes: 0, total_bytes: 0, stdout_tail: '', stderr_tail: '', truncated: false };
+refusedReport.termination = { reason: 'preflight_refused', limit: null, requested_signals: [], child_exit_code: null, child_signal: null, cgroup_events: {} };
+refusedReport.cleanup = { attempted: false, descendants_remaining: [], managed_paths_remaining: [], scope_removed: null, temporary_directory_removed: null, lock_released: true, errors: [] };
+refusedReport.error = { code: 'LAMINA_SAFE_PREFLIGHT', message: 'pinned worker is unavailable' };
+const blocked = attestBlockedSafeRunnerReport(JSON.stringify(refusedReport), {
+  expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest,
+  adapterId: 'public-cli',
 });
-assert.ok(extraMulti.diagnostics.some((item) => item.includes('selected Workflow ids')));
-
-const nondeterministic = structuredClone(result);
-nondeterministic.replay_digest = '0'.repeat(64);
-assert.ok(gradeResult(fixture, nondeterministic).diagnostics.some((item) =>
-  item.includes('deterministic ordering')));
-
-const staleFixture = structuredClone(fixture);
-staleFixture.cases[0].expected.forbidden_paths = ['src/deleted.ts'];
-const staleResult = structuredClone(result);
-staleResult.cases[0].observations.push({ category: 'source_file', path: 'src/deleted.ts' });
-staleResult.replay_digest = resultCasesDigest(staleResult.cases);
-assert.ok(gradeResult(staleFixture, staleResult).diagnostics.some((item) =>
-  item.includes('stale deleted or renamed path src/deleted.ts')));
-
-const malformedFixture = structuredClone(fixture);
-malformedFixture.collections[0].retrieval_candidate_files = 0;
-assert.equal(gradeResult(malformedFixture, result).classification, 'fixture_defect');
+assert.equal(gradeResult(fixture, blocked.result, { safetyAttestation: blocked.attestation }).classification, 'safety_blocked');
 
 const hash = '1'.repeat(40);
 const porcelain = [
-  `# branch.oid ${hash}`,
-  '# branch.head feature/oracle',
-  '# branch.upstream origin/feature/oracle',
-  '# branch.ab +2 -1',
+  `# branch.oid ${hash}`, '# branch.head feature/oracle', '# branch.upstream origin/feature/oracle', '# branch.ab +2 -1',
   `1 .M N... 100644 100644 100644 ${hash} ${hash} src/ordinary.ts`,
-  `1 D. N... 100644 000000 000000 ${hash} ${'0'.repeat(40)} src/deleted.ts`,
-  `2 R. N... 100644 100644 100644 ${hash} ${hash} R100 src/new name.ts`,
-  'src/old name.ts',
-  `u UU N... 100644 100644 100644 100644 ${hash} ${hash} ${hash} src/conflict.ts`,
-  '? src/untracked.ts',
-  '! ignored.txt',
-  '',
+  `2 R. N... 100644 100644 100644 ${hash} ${hash} R100 src/new.ts`, 'src/old.ts',
+  `2 C. N... 100644 100644 100644 ${hash} ${hash} C100 src/copy.ts`, 'src/original.ts',
+  '? src/untracked.ts', '',
 ].join('\0');
-const state = parsePorcelainV2Z(porcelain, { worktree: 'linked-1' });
-assert.deepEqual({
-  head: state.head, branch: state.branch, upstream: state.upstream,
-  ahead: state.ahead, behind: state.behind, worktree: state.worktree,
-}, {
-  head: hash, branch: 'feature/oracle', upstream: 'origin/feature/oracle',
-  ahead: 2, behind: 1, worktree: 'linked-1',
-});
-assert.deepEqual(state.changes.map((item) => [item.kind, item.path, item.original_path]), [
-  ['unmerged', 'src/conflict.ts', null],
-  ['deleted', 'src/deleted.ts', null],
-  ['renamed', 'src/new name.ts', 'src/old name.ts'],
-  ['ordinary', 'src/ordinary.ts', null],
-  ['untracked', 'src/untracked.ts', null],
+const parsed = parsePorcelainV2Z(porcelain, { worktree: worktreeIdentity });
+assert.deepEqual(parsed.changes.map((item) => [item.kind, item.path, item.original_path]), [
+  ['copied', 'src/copy.ts', 'src/original.ts'], ['renamed', 'src/new.ts', 'src/old.ts'],
+  ['ordinary', 'src/ordinary.ts', null], ['untracked', 'src/untracked.ts', null],
 ]);
-assert.throws(() => parsePorcelainV2Z(`# branch.head main\0x nonsense\0`),
-  /unknown porcelain v2 record/);
+assert.throws(() => parsePorcelainV2Z(`# branch.head main\0x nonsense\0`, { worktree: worktreeIdentity }), /unknown porcelain/);
 
-const scenarioDefect = structuredClone(fixture);
-scenarioDefect.cases[0].repository_scenario = {
-  kind: 'dirty', name: 'bad-rename',
-  operations: [{ op: 'rename', path: 'a.ts', destination: null, value: null }],
-};
-assert.equal(validateFixture(scenarioDefect).valid, false);
-
+const emptyResult = structuredClone(result); emptyResult.cases[0].selected_workflow_ids = [''];
+assert.equal(validateResultSchema(emptyResult), false);
+assert.equal(validateResult(emptyResult).valid, false);
+assert.equal(result.schema, RESULT_SCHEMA); assert.equal(result.adapter.schema, ADAPTER_SCHEMA);
 console.log('real repository oracle contract tests passed');

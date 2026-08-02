@@ -1,33 +1,50 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import { validateFixtureSchema, validateResultSchema, schemaErrors } from './schema-validation.mjs';
+import { isVerifierAttestation } from './attestation-authority.mjs';
 
 export const FIXTURE_SCHEMA = 'lamina.real-repository-oracle-fixture/v1';
 export const RESULT_SCHEMA = 'lamina.real-repository-oracle-result/v1';
 export const ADAPTER_SCHEMA = 'lamina.real-repository-oracle-adapter/v1';
 export const COLLECTION_SCHEMA = 'lamina.real-repository-collection/v1';
+export const ATTESTATION_SCHEMA = 'lamina.real-repository-oracle-attestation/v1';
 
-export const REQUIRED_COVERAGE = Object.freeze([
+export const QUERY_KINDS = Object.freeze([
   'exact_workflow_id', 'exact_workflow_alias', 'exact_source_identifier',
-  'route', 'handler', 'entity', 'symbol', 'low_overlap_paraphrase',
-  'persona', 'permission', 'role_boundary', 'invariant', 'failure_state',
-  'multi_workflow', 'new_workflow', 'adversarial', 'one_file', 'multi_file',
-  'rename', 'delete', 'dirty_file', 'branch', 'worktree', 'entry_point',
+  'route', 'handler', 'entity', 'symbol', 'low_overlap_paraphrase', 'persona',
+  'permission', 'role_boundary', 'invariant', 'failure_state', 'entry_point',
   'command', 'schema_entity', 'transition', 'event', 'test', 'docs_persona',
   'flag', 'dependency',
 ]);
+export const INTENT_KINDS = Object.freeze([
+  'workflow_selection', 'multi_workflow', 'new_workflow', 'source_localization',
+  'observation', 'obligations', 'adversarial',
+]);
+export const SCOPE_KINDS = Object.freeze(['one_file', 'multi_file', 'repository']);
 
+export const REQUIRED_COVERAGE = Object.freeze([
+  ...QUERY_KINDS, 'multi_workflow', 'new_workflow', 'adversarial',
+  'one_file', 'multi_file', 'rename', 'delete', 'dirty_file', 'branch', 'worktree',
+]);
 export const OBSERVATION_CATEGORIES = Object.freeze([
   'entry_point', 'command', 'schema_entity', 'transition', 'event', 'test',
   'docs_persona', 'flag', 'dependency', 'permission', 'invariant',
   'failure_state', 'source_file',
 ]);
-
 export const OBLIGATION_CATEGORIES = Object.freeze([
   'implementation', 'state', 'permission', 'failure', 'persona',
   'completeness', 'verification',
 ]);
-
 export const CHANGE_KINDS = Object.freeze([
-  'ordinary', 'renamed', 'deleted', 'unmerged', 'untracked',
+  'ordinary', 'renamed', 'copied', 'deleted', 'unmerged', 'untracked',
+]);
+export const OPERATION_KINDS = Object.freeze([
+  'modify', 'rename', 'delete', 'checkout_branch', 'add_worktree',
+]);
+export const MUTATION_KINDS = Object.freeze([
+  'wrong_workflow', 'missing_observation', 'lost_obligation',
+  'source_ranking_regression', 'extra_workflow', 'nondeterministic_replay',
+  'repository_state_mismatch',
 ]);
 
 export const FROZEN_GATES = Object.freeze({
@@ -37,7 +54,6 @@ export const FROZEN_GATES = Object.freeze({
   workflow_recall_at_5: 0.99,
   source_recall_at_10: 0.9275,
 });
-
 export const QUALIFIED_CURRENT_BASELINE = Object.freeze({
   workflow_recall_at_5: 1,
   source_recall_at_10: 0.9375,
@@ -52,353 +68,266 @@ const nonempty = (value) => typeof value === 'string' && value.length > 0;
 
 export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
-  if (object(value)) {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
-  }
+  if (object(value)) return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
   return value;
 }
-
 export function digest(value) {
   return crypto.createHash('sha256').update(
-    typeof value === 'string' || Buffer.isBuffer(value)
-      ? value : JSON.stringify(canonical(value)),
+    typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(canonical(value)),
   ).digest('hex');
 }
+
+const manifestBytes = fs.readFileSync(new URL('../runtime-baseline-v1/manifest.json', import.meta.url));
+const manifest = JSON.parse(manifestBytes);
+export const BASELINE_MANIFEST_SHA256 = '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba';
+if (digest(manifestBytes) !== BASELINE_MANIFEST_SHA256) {
+  throw new Error('runtime baseline manifest bytes no longer match the reviewed #60 identity');
+}
+export const COLLECTION_PINS = Object.freeze(Object.fromEntries(manifest.fixtures.map((fixture) => [fixture.id, Object.freeze({
+  fixture_id: fixture.id, fixture_class: fixture.class,
+  repository_url: fixture.url, commit: fixture.commit,
+})])));
+export const CANDIDATE_POLICY_SHA256 = digest({
+  source_extensions: manifest.source_extensions,
+  retrieval_extensions: manifest.retrieval_extensions,
+  retrieval_max_file_bytes: manifest.retrieval_max_file_bytes,
+  exclusions: manifest.exclusions,
+});
 
 export function collectionDigest(collection) {
   const { collection_digest: _claimed, ...identity } = collection;
   return digest(identity);
 }
-
 function exactKeys(value, keys) {
-  return object(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+  return object(value) && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
-function validateCollection(collection, path, errors) {
-  if (!exactKeys(collection, [
-    'schema', 'id', 'fixture_id', 'fixture_class', 'repository_url', 'commit',
-    'baseline_manifest_sha256', 'observation_paths_sha256',
-    'observation_candidate_files', 'observation_candidate_bytes',
-    'retrieval_paths_sha256', 'retrieval_candidate_files',
-    'retrieval_candidate_bytes', 'collection_digest',
-  ])) {
-    errors.push(`${path} has an invalid shape`);
-    return;
+export function isSafeRelativePath(value) {
+  if (!nonempty(value) || value.includes('\0') || value.includes('\\')
+    || value.startsWith('/') || /^[A-Za-z]:/.test(value) || value.startsWith('//')) return false;
+  const pieces = value.split('/');
+  return pieces.every((piece) => piece && piece !== '.' && piece !== '..');
+}
+export function isSafeBranchName(value) {
+  if (!nonempty(value) || value.length > 255 || /[\x00-\x20~^:?*\[\\]/.test(value)
+    || value.includes('..') || value.includes('@{') || value.includes('//')
+    || value.startsWith('/') || value.endsWith('/') || value.endsWith('.') || value.endsWith('.lock')) return false;
+  return value.split('/').every((piece) => piece && !piece.startsWith('.'));
+}
+
+function validateCollection(collection, at, errors) {
+  const pin = COLLECTION_PINS[collection?.fixture_id];
+  if (!pin || collection.fixture_class !== pin.fixture_class
+    || collection.repository_url !== pin.repository_url || collection.commit !== pin.commit
+    || collection.baseline_manifest_sha256 !== BASELINE_MANIFEST_SHA256
+    || collection.candidate_policy_sha256 !== CANDIDATE_POLICY_SHA256) {
+    errors.push(`${at} does not match the frozen #60 repository manifest and candidate-subset policy`);
   }
-  if (collection.schema !== COLLECTION_SCHEMA || !nonempty(collection.id)
-    || !['small', 'medium', 'large'].includes(collection.fixture_id)
-    || collection.fixture_class !== collection.fixture_id
-    || !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.git$/.test(collection.repository_url)
-    || !COMMIT.test(collection.commit)
-    || !SHA256.test(collection.baseline_manifest_sha256)
-    || !SHA256.test(collection.observation_paths_sha256)
-    || !Number.isSafeInteger(collection.observation_candidate_files)
-    || collection.observation_candidate_files < 1
-    || !Number.isSafeInteger(collection.observation_candidate_bytes)
-    || collection.observation_candidate_bytes < 1
-    || !SHA256.test(collection.retrieval_paths_sha256)
-    || !Number.isSafeInteger(collection.retrieval_candidate_files)
-    || collection.retrieval_candidate_files < 1
-    || !Number.isSafeInteger(collection.retrieval_candidate_bytes)
-    || collection.retrieval_candidate_bytes < 1
-    || !SHA256.test(collection.collection_digest)) {
-    errors.push(`${path} identity is invalid`);
-  } else if (collection.collection_digest !== collectionDigest(collection)) {
-    errors.push(`${path}.collection_digest does not bind the exact collection identity`);
+  if (collection?.collection_digest !== collectionDigest(collection)) {
+    errors.push(`${at}.collection_digest does not bind the exact frozen collection identity`);
   }
 }
 
-function validateTarget(target, path, errors, categories = null) {
-  if (!object(target) || !nonempty(target.category)
-    || (categories && !categories.includes(target.category))
-    || !['id', 'path', 'symbol', 'relation'].some((field) => nonempty(target[field]))
-    || Object.keys(target).some((field) => !['category', 'id', 'path', 'symbol', 'relation'].includes(field))) {
-    errors.push(`${path} is not a compact stable target`);
+function validateOperation(operation, at, errors) {
+  if (['modify', 'delete'].includes(operation.op) && !isSafeRelativePath(operation.path)) {
+    errors.push(`${at}.path must be a normalized repository-relative path`);
   }
+  if (operation.op === 'rename'
+    && (!isSafeRelativePath(operation.path) || !isSafeRelativePath(operation.to))) {
+    errors.push(`${at} rename paths must be normalized repository-relative paths`);
+  }
+  if (['checkout_branch', 'add_worktree'].includes(operation.op) && !isSafeBranchName(operation.branch)) {
+    errors.push(`${at}.branch is not a safe Git branch name`);
+  }
+  if (operation.op === 'add_worktree' && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(operation.worktree_id)) {
+    errors.push(`${at}.worktree_id must be a logical identifier, not a destination path`);
+  }
+}
+
+function validateTargetPaths(target, at, errors) {
+  if (target.path !== undefined && !isSafeRelativePath(target.path)) errors.push(`${at}.path is unsafe`);
+}
+
+export function derivedCoverage(item) {
+  const coverage = new Set([item.kind.query]);
+  if (['multi_workflow', 'new_workflow', 'adversarial'].includes(item.kind.intent)) coverage.add(item.kind.intent);
+  if (item.kind.scope !== 'repository') coverage.add(item.kind.scope);
+  const operations = item.repository_scenario.operations;
+  if (operations.length) coverage.add('dirty_file');
+  for (const operation of operations) {
+    if (operation.op === 'rename') coverage.add('rename');
+    if (operation.op === 'delete') coverage.add('delete');
+    if (operation.op === 'checkout_branch') coverage.add('branch');
+    if (operation.op === 'add_worktree') coverage.add('worktree');
+  }
+  return [...coverage];
 }
 
 function validateCase(item, index, collectionIds, errors) {
   const at = `fixture.cases[${index}]`;
-  if (!exactKeys(item, [
-    'id', 'collection_id', 'request', 'coverage', 'repository_scenario',
-    'expected', 'rationale',
-  ])) {
-    errors.push(`${at} has an invalid shape`);
-    return;
+  if (!collectionIds.has(item.collection_id)) errors.push(`${at}.collection_id is unknown`);
+  for (const [operationIndex, operation] of item.repository_scenario.operations.entries()) {
+    validateOperation(operation, `${at}.repository_scenario.operations[${operationIndex}]`, errors);
   }
-  if (!nonempty(item.id) || !collectionIds.has(item.collection_id)
-    || !nonempty(item.request) || item.request.length > 600
-    || !strings(item.coverage) || !item.coverage.length || !unique(item.coverage)
-    || item.coverage.some((category) => !REQUIRED_COVERAGE.includes(category))
-    || !nonempty(item.rationale) || item.rationale.length > 300) {
-    errors.push(`${at} identity or reviewed rationale is invalid`);
+  if ((item.repository_scenario.kind === 'clean') !== (item.repository_scenario.operations.length === 0)) {
+    errors.push(`${at}.repository_scenario clean state and operations disagree`);
   }
-  const scenario = item.repository_scenario;
-  if (!object(scenario) || !['clean', 'dirty', 'branch', 'worktree'].includes(scenario.kind)
-    || !nonempty(scenario.name) || !Array.isArray(scenario.operations)
-    || Object.keys(scenario).some((field) => !['kind', 'name', 'operations'].includes(field))) {
-    errors.push(`${at}.repository_scenario is invalid`);
-  } else {
-    for (const operation of scenario.operations) {
-      if (!exactKeys(operation, ['op', 'path', 'destination', 'value'])
-        || !['modify', 'rename', 'delete', 'checkout_branch', 'add_worktree'].includes(operation.op)
-        || !(operation.path === null || nonempty(operation.path))
-        || !(operation.destination === null || nonempty(operation.destination))
-        || !(operation.value === null || nonempty(operation.value))
-        || (operation.op === 'modify' && (!operation.path || !operation.value))
-        || (operation.op === 'rename' && (!operation.path || !operation.destination))
-        || (operation.op === 'delete' && !operation.path)
-        || (operation.op === 'checkout_branch' && !operation.value)
-        || (operation.op === 'add_worktree' && (!operation.destination || !operation.value))) {
-        errors.push(`${at}.repository_scenario has an invalid materializer operation`);
-      }
+  if (item.expected.workflow_outcome === 'new_workflow_required'
+    && item.expected.selected_workflow_ids.length !== 0) {
+    errors.push(`${at} genuinely new Workflow must select nothing`);
+  }
+  if (['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
+    && item.expected.selected_workflow_ids.length === 0) {
+    errors.push(`${at} selected Workflow outcome requires at least one selected id`);
+  }
+  for (const field of ['source_ranking', 'observations', 'forbidden_observations', 'obligations']) {
+    item.expected[field].forEach((target, targetIndex) => validateTargetPaths(target, `${at}.expected.${field}[${targetIndex}]`, errors));
+  }
+  item.expected.forbidden_paths.forEach((candidate, targetIndex) => {
+    if (!isSafeRelativePath(candidate)) errors.push(`${at}.expected.forbidden_paths[${targetIndex}] is unsafe`);
+  });
+  item.expected.repository_state.changes.forEach((change, changeIndex) => {
+    if (!isSafeRelativePath(change.path)
+      || (change.original_path !== null && !isSafeRelativePath(change.original_path))) {
+      errors.push(`${at}.expected.repository_state.changes[${changeIndex}] contains an unsafe path`);
     }
-    if ((scenario.kind === 'clean') !== (scenario.operations.length === 0)) {
-      errors.push(`${at}.repository_scenario clean state and operations disagree`);
-    }
-  }
-  const expected = item.expected;
-  if (!exactKeys(expected, [
-    'workflow_outcome', 'selected_workflow_ids', 'forbidden_workflow_ids',
-    'workflow_ranking', 'source_ranking', 'observations',
-    'forbidden_observations', 'obligations', 'forbidden_paths',
-    'repository_state',
-  ])) {
-    errors.push(`${at}.expected has an invalid shape`);
-    return;
-  }
-  if (!['selected', 'multi_workflow', 'new_workflow_required', 'irrelevant'].includes(expected.workflow_outcome)
-    || !strings(expected.selected_workflow_ids) || !unique(expected.selected_workflow_ids)
-    || !strings(expected.forbidden_workflow_ids) || !unique(expected.forbidden_workflow_ids)
-    || !strings(expected.forbidden_paths) || !unique(expected.forbidden_paths)) {
-    errors.push(`${at}.expected workflow/path sets are invalid`);
-  }
-  if (expected.workflow_outcome === 'new_workflow_required' && expected.selected_workflow_ids.length) {
-    errors.push(`${at}.expected genuinely new Workflow must select nothing`);
-  }
-  if (!Array.isArray(expected.workflow_ranking) || expected.workflow_ranking.length > 20
-    || expected.workflow_ranking.some((target) => !exactKeys(target, ['id', 'max_rank'])
-      || !nonempty(target.id) || !Number.isInteger(target.max_rank)
-      || target.max_rank < 1 || target.max_rank > 5)) {
-    errors.push(`${at}.expected.workflow_ranking is invalid`);
-  }
-  if (!Array.isArray(expected.source_ranking) || expected.source_ranking.length > 20
-    || expected.source_ranking.some((target) => !exactKeys(target, ['path', 'symbol', 'max_rank'])
-      || !nonempty(target.path) || !(target.symbol === null || nonempty(target.symbol))
-      || !Number.isInteger(target.max_rank) || target.max_rank < 1 || target.max_rank > 10)) {
-    errors.push(`${at}.expected.source_ranking is invalid`);
-  }
-  for (const [field, categories] of [
-    ['observations', OBSERVATION_CATEGORIES],
-    ['forbidden_observations', OBSERVATION_CATEGORIES],
-    ['obligations', OBLIGATION_CATEGORIES],
-  ]) {
-    if (!Array.isArray(expected[field]) || expected[field].length > 30) {
-      errors.push(`${at}.expected.${field} is invalid`);
-    } else {
-      expected[field].forEach((target, targetIndex) =>
-        validateTarget(target, `${at}.expected.${field}[${targetIndex}]`, errors, categories));
-    }
-  }
-  const state = expected.repository_state;
-  if (!object(state) || !nonempty(state.branch) || !nonempty(state.worktree)
-    || !Array.isArray(state.changes)
-    || state.changes.some((change) => !object(change)
-      || !CHANGE_KINDS.includes(change.kind) || !nonempty(change.path)
-      || !(change.original_path === null || nonempty(change.original_path))
-      || Object.keys(change).some((field) => !['kind', 'path', 'original_path'].includes(field)))) {
-    errors.push(`${at}.expected.repository_state is invalid`);
-  }
+  });
 }
 
 export function validateFixture(fixture) {
   const errors = [];
-  if (!exactKeys(fixture, [
-    'schema', 'id', 'version', 'collections', 'cases', 'mutations',
-    'held_out_compatibility',
-  ]) || fixture.schema !== FIXTURE_SCHEMA || fixture.version !== 1 || !nonempty(fixture.id)) {
-    return { valid: false, errors: ['fixture envelope is invalid'] };
-  }
-  if (!Array.isArray(fixture.collections) || fixture.collections.length !== 3) {
-    errors.push('fixture.collections must bind exactly small, medium, and large');
-  }
-  for (const [index, collection] of (fixture.collections || []).entries()) {
-    validateCollection(collection, `fixture.collections[${index}]`, errors);
-  }
-  const collectionIds = new Set((fixture.collections || []).map((item) => item?.id));
-  if (collectionIds.size !== 3
-    || JSON.stringify([...new Set((fixture.collections || []).map((item) => item?.fixture_id))].sort())
-      !== JSON.stringify(['large', 'medium', 'small'])) {
+  if (!validateFixtureSchema(fixture)) return { valid: false, errors: schemaErrors(validateFixtureSchema) };
+  fixture.collections.forEach((collection, index) => validateCollection(collection, `fixture.collections[${index}]`, errors));
+  const collectionIds = new Set(fixture.collections.map((item) => item.id));
+  if (collectionIds.size !== 3 || new Set(fixture.collections.map((item) => item.fixture_id)).size !== 3) {
     errors.push('fixture collections must uniquely cover all #60 fixture tiers');
   }
-  if (!Array.isArray(fixture.cases) || !fixture.cases.length) errors.push('fixture.cases must be non-empty');
-  for (const [index, item] of (fixture.cases || []).entries()) validateCase(item, index, collectionIds, errors);
-  const ids = (fixture.cases || []).map((item) => item?.id);
-  if (!unique(ids)) errors.push('fixture case ids must be unique');
-  const covered = new Set((fixture.cases || []).flatMap((item) => item?.coverage || []));
-  for (const category of REQUIRED_COVERAGE) {
-    if (!covered.has(category)) errors.push(`fixture lacks required coverage ${category}`);
-  }
-  for (const collection of fixture.collections || []) {
-    const cases = (fixture.cases || []).filter((item) => item.collection_id === collection.id);
+  fixture.cases.forEach((item, index) => validateCase(item, index, collectionIds, errors));
+  if (!unique(fixture.cases.map((item) => item.id))) errors.push('fixture case ids must be unique');
+  const covered = new Set(fixture.cases.flatMap(derivedCoverage));
+  for (const category of REQUIRED_COVERAGE) if (!covered.has(category)) errors.push(`fixture lacks derived coverage ${category}`);
+  for (const collection of fixture.collections) {
+    const cases = fixture.cases.filter((item) => item.collection_id === collection.id);
     const denominators = {
-      exact_id_alias_accuracy: cases.filter((item) => item.coverage.some((category) =>
-        ['exact_workflow_id', 'exact_workflow_alias'].includes(category))).length,
-      complete_multi_workflow_selection: cases.filter((item) => item.coverage.includes('multi_workflow')).length,
-      incorrect_new_workflow_attachment: cases.filter((item) => item.coverage.includes('new_workflow')).length,
-      workflow_recall_at_5: cases.reduce((sum, item) => sum + item.expected.workflow_ranking.length, 0),
-      source_recall_at_10: cases.reduce((sum, item) => sum + item.expected.source_ranking.length, 0),
+      exact_id_alias_accuracy: cases.filter((item) => ['exact_workflow_id', 'exact_workflow_alias'].includes(item.kind.query)).length,
+      complete_multi_workflow_selection: cases.filter((item) => item.kind.intent === 'multi_workflow').length,
+      incorrect_new_workflow_attachment: cases.filter((item) => item.kind.intent === 'new_workflow').length,
+      workflow_recall_at_5: cases.filter((item) => item.expected.workflow_ranking.length).length,
+      source_recall_at_10: cases.filter((item) => item.expected.source_ranking.length).length,
     };
-    for (const [metric, denominator] of Object.entries(denominators)) {
-      if (denominator === 0) errors.push(`${collection.id} has a zero denominator for ${metric}`);
-    }
-    const observationCoverage = new Set(cases.flatMap((item) =>
-      item.expected.observations.map((target) => target.category)));
-    const obligationCoverage = new Set(cases.flatMap((item) =>
-      item.expected.obligations.map((target) => target.category)));
-    for (const category of OBSERVATION_CATEGORIES) {
-      if (!observationCoverage.has(category)) errors.push(`${collection.id} lacks observation expectation ${category}`);
-    }
-    for (const category of OBLIGATION_CATEGORIES) {
-      if (!obligationCoverage.has(category)) errors.push(`${collection.id} lacks obligation expectation ${category}`);
-    }
+    for (const [metric, denominator] of Object.entries(denominators)) if (!denominator) errors.push(`${collection.id} has a zero query denominator for ${metric}`);
+    const observationCoverage = new Set(cases.flatMap((item) => item.expected.observations.map((target) => target.category)));
+    const obligationCoverage = new Set(cases.flatMap((item) => item.expected.obligations.map((target) => target.category)));
+    for (const category of OBSERVATION_CATEGORIES) if (!observationCoverage.has(category)) errors.push(`${collection.id} lacks observation expectation ${category}`);
+    for (const category of OBLIGATION_CATEGORIES) if (!obligationCoverage.has(category)) errors.push(`${collection.id} lacks obligation expectation ${category}`);
   }
-  if (!Array.isArray(fixture.mutations) || !fixture.mutations.length
-    || fixture.mutations.some((mutation) => !exactKeys(mutation, [
-      'id', 'case_id', 'kind', 'diagnostic_includes',
-    ]) || !nonempty(mutation.id) || !ids.includes(mutation.case_id)
-      || !nonempty(mutation.kind) || !strings(mutation.diagnostic_includes)
-      || !mutation.diagnostic_includes.length)
-    || !unique(fixture.mutations.map((item) => item.id))) {
-    errors.push('fixture mutations are invalid');
-  }
-  if (!exactKeys(fixture.held_out_compatibility, [
-    'benchmark', 'split', 'workflow_rows', 'workflow_rows_bytes', 'workflow_rows_sha256',
-    'source_rows', 'source_rows_bytes', 'source_rows_sha256', 'qualified_current', 'thresholds',
-  ]) || fixture.held_out_compatibility.benchmark !== 'benchmarks/retrieval-v1/benchmark.mjs'
-    || fixture.held_out_compatibility.split !== 'held_out'
-    || fixture.held_out_compatibility.workflow_rows !== 160
-    || fixture.held_out_compatibility.workflow_rows_bytes !== 16928
-    || fixture.held_out_compatibility.workflow_rows_sha256 !== '536c7459bb3457ca01b1a5444964bb5cc1d3cea8d7fc3ff5c1c84190f26c9027'
-    || fixture.held_out_compatibility.source_rows !== 80
-    || fixture.held_out_compatibility.source_rows_bytes !== 11806
-    || fixture.held_out_compatibility.source_rows_sha256 !== '080df00ccec46bf06a7b9336c1defd270a312005e872b1e64f29437e08709f99'
-    || !exactKeys(fixture.held_out_compatibility.qualified_current,
-      Object.keys(QUALIFIED_CURRENT_BASELINE))
-    || Object.entries(QUALIFIED_CURRENT_BASELINE).some(([key, value]) =>
-      fixture.held_out_compatibility.qualified_current[key] !== value)
-    || !exactKeys(fixture.held_out_compatibility.thresholds, Object.keys(FROZEN_GATES))
-    || Object.entries(FROZEN_GATES).some(([key, value]) =>
-      fixture.held_out_compatibility.thresholds[key] !== value)) {
+  if (!unique(fixture.mutations.map((item) => item.id))) errors.push('fixture mutation ids must be unique');
+  for (const mutation of fixture.mutations) if (!fixture.cases.some((item) => item.id === mutation.case_id)) errors.push(`mutation ${mutation.id} references an unknown case`);
+  const held = fixture.held_out_compatibility;
+  if (held.benchmark !== 'benchmarks/retrieval-v1/benchmark.mjs' || held.split !== 'held_out'
+    || held.workflow_rows !== 160 || held.workflow_rows_bytes !== 16928
+    || held.workflow_rows_sha256 !== '536c7459bb3457ca01b1a5444964bb5cc1d3cea8d7fc3ff5c1c84190f26c9027'
+    || held.source_rows !== 80 || held.source_rows_bytes !== 11806
+    || held.source_rows_sha256 !== '080df00ccec46bf06a7b9336c1defd270a312005e872b1e64f29437e08709f99'
+    || JSON.stringify(held.qualified_current) !== JSON.stringify(QUALIFIED_CURRENT_BASELINE)
+    || JSON.stringify(held.thresholds) !== JSON.stringify(FROZEN_GATES)) {
     errors.push('fixture must preserve the unchanged retrieval-v1 held-out contract');
   }
   return { valid: errors.length === 0, errors };
 }
 
-function validateResultCase(item, index, errors) {
+function validateResultPaths(item, index, errors) {
   const at = `result.cases[${index}]`;
-  if (!exactKeys(item, [
-    'id', 'workflow_outcome', 'selected_workflow_ids', 'workflow_ranking',
-    'source_ranking', 'observations', 'obligations', 'repository_state',
-  ]) || !nonempty(item.id)
-    || !['selected', 'multi_workflow', 'new_workflow_required', 'irrelevant'].includes(item.workflow_outcome)
-    || !strings(item.selected_workflow_ids) || !unique(item.selected_workflow_ids)
-    || !Array.isArray(item.workflow_ranking) || item.workflow_ranking.some((entry) =>
-      !exactKeys(entry, ['id']) || !nonempty(entry.id))
-    || !Array.isArray(item.source_ranking) || item.source_ranking.some((entry) =>
-      !exactKeys(entry, ['path', 'symbol']) || !nonempty(entry.path)
-      || !(entry.symbol === null || nonempty(entry.symbol)))
-    || !Array.isArray(item.observations) || !Array.isArray(item.obligations)) {
-    errors.push(`${at} is invalid`);
-    return;
+  for (const field of ['source_ranking', 'observations', 'obligations']) {
+    item[field].forEach((target, targetIndex) => validateTargetPaths(target, `${at}.${field}[${targetIndex}]`, errors));
   }
-  item.observations.forEach((target, targetIndex) =>
-    validateTarget(target, `${at}.observations[${targetIndex}]`, errors, OBSERVATION_CATEGORIES));
-  item.obligations.forEach((target, targetIndex) =>
-    validateTarget(target, `${at}.obligations[${targetIndex}]`, errors, OBLIGATION_CATEGORIES));
-  const state = item.repository_state;
-  if (!exactKeys(state, [
-    'head', 'branch', 'upstream', 'ahead', 'behind', 'worktree', 'changes',
-  ]) || !(state.head === null || COMMIT.test(state.head))
-    || !nonempty(state.branch) || !(state.upstream === null || nonempty(state.upstream))
-    || !Number.isSafeInteger(state.ahead) || state.ahead < 0
-    || !Number.isSafeInteger(state.behind) || state.behind < 0
-    || !nonempty(state.worktree) || !Array.isArray(state.changes)
-    || state.changes.some((change) => !exactKeys(change, [
-      'kind', 'path', 'original_path', 'xy', 'submodule',
-    ]) || !CHANGE_KINDS.includes(change.kind) || !nonempty(change.path)
-      || !(change.original_path === null || nonempty(change.original_path))
-      || !(change.xy === null || (typeof change.xy === 'string' && change.xy.length === 2))
-      || !(change.submodule === null || nonempty(change.submodule)))) {
-    errors.push(`${at}.repository_state is invalid`);
-  }
+  item.repository_state.changes.forEach((change, changeIndex) => {
+    if (!isSafeRelativePath(change.path)
+      || (change.original_path !== null && !isSafeRelativePath(change.original_path))) {
+      errors.push(`${at}.repository_state.changes[${changeIndex}] contains an unsafe path`);
+    }
+  });
 }
 
-export function validateResult(result) {
+export function validateResult(result, { safetyAttestation = null, allowUnattested = false } = {}) {
   const errors = [];
-  if (!exactKeys(result, [
-    'schema', 'adapter', 'collection_id', 'collection_digest', 'evidence_mode',
-    'claims', 'safety', 'cases', 'replay_digest',
-  ]) || result.schema !== RESULT_SCHEMA
-    || !exactKeys(result.adapter, ['schema', 'id', 'version', 'input_format', 'output_format'])
-    || result.adapter?.schema !== ADAPTER_SCHEMA || !nonempty(result.adapter?.id)
-    || !Number.isInteger(result.adapter?.version) || result.adapter.version < 1
-    || result.adapter?.input_format !== 'lamina.real-repository-oracle-input/v1'
-    || !nonempty(result.adapter?.output_format)
-    || !nonempty(result.collection_id) || !SHA256.test(result.collection_digest || '')
-    || !['oracle_validation', 'semantic_core', 'public_cli'].includes(result.evidence_mode)
-    || !exactKeys(result.claims, [
-      'end_to_end_runtime', 'observation', 'obligations', 'source_localization',
-    ]) || typeof result.claims?.end_to_end_runtime !== 'boolean'
-    || !['brownfield_signals', 'public_cli', 'not_measured'].includes(result.claims?.observation)
-    || !['compiled', 'public_cli', 'not_measured'].includes(result.claims?.obligations)
-    || !['real_retrieval', 'not_measured'].includes(result.claims?.source_localization)
-    || !exactKeys(result.safety, ['outcome', 'reason', 'cleanup_verified'])
-    || !['not_applicable', 'success', 'blocked'].includes(result.safety?.outcome)
-    || !(result.safety?.reason === null || nonempty(result.safety?.reason))
-    || typeof result.safety?.cleanup_verified !== 'boolean'
-    || !Array.isArray(result.cases)
-    || !(result.replay_digest === null || SHA256.test(result.replay_digest || ''))) {
-    return { valid: false, errors: ['result envelope is invalid'] };
-  }
-  if (result.safety.outcome === 'blocked' && result.cases.length) {
-    errors.push('safety-blocked results must not contain quality cases');
-  }
-  const noClaims = result.claims?.end_to_end_runtime === false
-    && result.claims?.observation === 'not_measured'
-    && result.claims?.obligations === 'not_measured'
-    && result.claims?.source_localization === 'not_measured';
-  if (result.safety?.outcome === 'blocked' && !noClaims) {
-    errors.push('safety-blocked results cannot retain measured claims');
-  }
-  if (result.evidence_mode === 'oracle_validation'
-    && (result.safety?.outcome !== 'not_applicable' || !noClaims)) {
-    errors.push('oracle validation cannot claim runtime safety or measured product evidence');
+  if (!validateResultSchema(result)) return { valid: false, errors: schemaErrors(validateResultSchema) };
+  const noClaims = result.claims.end_to_end_runtime === false
+    && result.claims.observation === 'not_measured' && result.claims.obligations === 'not_measured'
+    && result.claims.source_localization === 'not_measured';
+  if (result.evidence_mode === 'oracle_validation') {
+    if (result.safety.mode !== 'not_applicable' || !noClaims) errors.push('oracle validation cannot claim runtime safety or measured product evidence');
+  } else if (result.safety.mode === 'unattested') {
+    if (!allowUnattested) errors.push('measured results require verifier-produced safe-runner attestation');
+  } else if (!safetyAttestation || !isVerifierAttestation(safetyAttestation)
+    || result.safety.attestation !== safetyAttestation) {
+    errors.push('measured results require the exact verifier-produced attestation object');
   }
   if (result.evidence_mode === 'semantic_core'
-    && (result.safety?.outcome === 'not_applicable'
-      || result.claims?.end_to_end_runtime !== false
-      || !['brownfield_signals', 'not_measured'].includes(result.claims?.observation)
-      || !['compiled', 'not_measured'].includes(result.claims?.obligations))) {
+    && (result.claims.end_to_end_runtime !== false
+      || !['brownfield_signals', 'not_measured'].includes(result.claims.observation)
+      || !['compiled', 'not_measured'].includes(result.claims.obligations))) {
     errors.push('semantic-core evidence claims exceed the direct production seams');
   }
-  if (result.evidence_mode === 'public_cli') {
-    if (result.safety?.outcome === 'not_applicable') {
-      errors.push('public CLI evidence requires an explicit safety outcome');
-    } else if (result.safety?.outcome === 'success'
-      && (result.claims?.end_to_end_runtime !== true
-        || result.claims?.observation !== 'public_cli'
-        || result.claims?.obligations !== 'public_cli'
-        || result.claims?.source_localization !== 'real_retrieval')) {
-      errors.push('successful public CLI evidence lacks its required end-to-end claims');
-    }
+  if (result.evidence_mode === 'public_cli' && result.safety.outcome === 'success'
+    && (result.claims.end_to_end_runtime !== true || result.claims.observation !== 'public_cli'
+      || result.claims.obligations !== 'public_cli' || result.claims.source_localization !== 'real_retrieval')) {
+    errors.push('successful public CLI evidence lacks its required end-to-end claims');
   }
-  for (const [index, item] of result.cases.entries()) validateResultCase(item, index, errors);
-  if (!unique(result.cases.map((item) => item?.id))) errors.push('result case ids must be unique');
+  if (result.safety.outcome === 'success' && (!result.cases.length || result.replay_digest === null)) {
+    errors.push('successful evidence requires non-empty cases and a replay digest');
+  }
+  if (result.safety.mode === 'not_applicable'
+    && (result.safety.outcome !== 'not_applicable' || result.safety.attestation !== null)) {
+    errors.push('not-applicable safety cannot contain an outcome or attestation');
+  }
+  if (result.safety.mode === 'unattested'
+    && (result.safety.outcome !== 'pending' || result.safety.attestation !== null)) {
+    errors.push('unattested workload payload must remain pending without self-issued proof');
+  }
+  if (result.safety.mode === 'attested' && (result.safety.attestation === null
+    || result.safety.attestation.cleanup_verified !== true
+    || result.safety.attestation.result_sha256 !== attestableResultDigest(result)
+    || (result.safety.outcome === 'success' && result.safety.attestation.runner_outcome !== 'success')
+    || (result.safety.outcome === 'blocked' && result.safety.attestation.runner_outcome === 'success'))) {
+    errors.push('attested safety outcome is inconsistent with the verified runner report');
+  }
+  if (result.safety.outcome === 'blocked' && (result.cases.length || result.replay_digest !== null || !noClaims)) {
+    errors.push('safety-blocked evidence cannot retain cases, replay, or measured claims');
+  }
+  result.cases.forEach((item, index) => validateResultPaths(item, index, errors));
+  if (!unique(result.cases.map((item) => item.id))) errors.push('result case ids must be unique');
+  const materializationIds = result.materializations.map((item) => item.case_id);
+  if (!unique(materializationIds)) errors.push('result materialization case ids must be unique');
+  if (result.cases.length && !sameSet(materializationIds, result.cases.map((item) => item.id))) errors.push('every result case must have exact materialization provenance');
   return { valid: errors.length === 0, errors };
 }
 
-export function resultCasesDigest(cases) {
-  return digest(cases);
+function sameSet(left, right) {
+  return left.length === right.length && [...left].sort().every((value, index) => value === [...right].sort()[index]);
+}
+export function resultCasesDigest(cases) { return digest(cases); }
+export function attestableResultDigest(result) {
+  const { safety: _safety, ...bound } = result;
+  return digest(bound);
+}
+
+const mutationExecutors = Object.freeze({
+  wrong_workflow(result, index) { result.cases[index].selected_workflow_ids = ['workflow.mutated-wrong']; },
+  missing_observation(result, index) { result.cases[index].observations.shift(); },
+  lost_obligation(result, index) { result.cases[index].obligations.shift(); },
+  source_ranking_regression(result, index) { result.cases[index].source_ranking = []; },
+  extra_workflow(result, index) { result.cases[index].selected_workflow_ids.push('workflow.mutated-extra'); },
+  nondeterministic_replay(result) { result.replay_digest = '0'.repeat(64); },
+  repository_state_mismatch(result, index) { result.cases[index].repository_state.ahead += 1; },
+});
+export function executeRegisteredMutation(result, mutation) {
+  const executor = mutationExecutors[mutation.kind];
+  if (!executor) throw new Error(`unknown registered mutation kind: ${mutation.kind}`);
+  const output = structuredClone(result);
+  const index = output.cases.findIndex((item) => item.id === mutation.case_id);
+  if (index < 0) throw new Error(`mutation case is absent: ${mutation.case_id}`);
+  executor(output, index);
+  if (mutation.kind !== 'nondeterministic_replay') output.replay_digest = resultCasesDigest(output.cases);
+  return output;
 }
