@@ -51,6 +51,14 @@ const leak = JSON.parse(bytes);
 leak.collections[0].workflows[0].request = 'Which Workflow wins?';
 assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(leak)), { requireReviewedBytes: false }),
   /request-to-answer|unexpected/);
+for (const key of ['request_text', 'expected_workflow_ids', 'grading_threshold']) {
+  const disguisedLeak = JSON.parse(bytes);
+  disguisedLeak.collections[0].workflows[0][key] = 'private controller material';
+  assert.throws(
+    () => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(disguisedLeak)), { requireReviewedBytes: false }),
+    /request-to-answer|unexpected/,
+  );
+}
 for (const [field, value] of [
   ['name', `  ${loaded.seed.collections[0].workflows[0].id.toUpperCase()}  `],
   ['alias', `  ${loaded.seed.collections[0].workflows[0].name.toUpperCase()}  `],
@@ -63,6 +71,31 @@ for (const [field, value] of [
     /collides with another Workflow id, name, or alias/,
   );
 }
+const unsafePath = JSON.parse(bytes);
+unsafePath.collections[0].workflows[0].surfaces[0].path = '../outside.ts';
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(unsafePath)), { requireReviewedBytes: false }),
+  /bounded tier-local evidence target/);
+const danglingOperation = JSON.parse(bytes);
+danglingOperation.collections[0].workflows[0].operations[0].surface_id = 'small.surface.missing';
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(danglingOperation)), { requireReviewedBytes: false }),
+  /unknown surfaces/);
+const outOfRangeEvidence = JSON.parse(bytes);
+outOfRangeEvidence.collections[0].workflows[0].surfaces[0].evidence_ref = 'small.evidence.9';
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(outOfRangeEvidence)), { requireReviewedBytes: false }),
+  /bounded tier-local evidence target/);
+const duplicateNestedId = JSON.parse(bytes);
+duplicateNestedId.collections[0].workflows[0].actors[0].id = duplicateNestedId.collections[0].workflows[0].id;
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(duplicateNestedId)), { requireReviewedBytes: false }),
+  /malformed or duplicated/);
+const incompleteReady = JSON.parse(bytes);
+incompleteReady.collections[0].workflows[0].implementation_ready_input.target_ids = [];
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(incompleteReady)), { requireReviewedBytes: false }),
+  /implementation_ready_input is incomplete/);
+const excessiveArray = JSON.parse(bytes);
+excessiveArray.collections[0].workflows[0].aliases = Array.from({ length: 33 }, (_, index) => `alias ${index}`);
+assert.throws(() => parseWorkflowSeedBytes(Buffer.from(JSON.stringify(excessiveArray)), { requireReviewedBytes: false }),
+  /bounded arrays|identity/);
+assert.throws(() => parseWorkflowSeedBytes(Buffer.alloc(64 * 1024 + 1)), /bounded source contract/);
 const digestTamper = Buffer.from(bytes);
 digestTamper[digestTamper.length - 2] = digestTamper[digestTamper.length - 2] === 10 ? 32 : 10;
 assert.throws(() => parseWorkflowSeedBytes(digestTamper), /reviewed source identity/);
