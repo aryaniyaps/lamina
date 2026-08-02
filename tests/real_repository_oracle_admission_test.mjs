@@ -402,6 +402,10 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
   'packages/cli/lib/observation-runtime/node.mjs',
   'packages/cli/lib/graph-runtime/util.mjs',
+  'scripts/safe-runner/constants.mjs',
+  'scripts/safe-runner/redaction.mjs',
+  'scripts/safe-runner/report.mjs',
+  'scripts/safe-runner/schema/report.schema.json',
   'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
@@ -411,6 +415,10 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
   'packages/cli/lib/observation-runtime/node.mjs',
   'packages/cli/lib/graph-runtime/util.mjs',
+  'scripts/safe-runner/constants.mjs',
+  'scripts/safe-runner/redaction.mjs',
+  'scripts/safe-runner/report.mjs',
+  'scripts/safe-runner/schema/report.schema.json',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,

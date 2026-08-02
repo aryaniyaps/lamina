@@ -32,6 +32,10 @@ try {
     'preparation lasting longer than five seconds must still reach the requested boundary');
   assert.equal(delayed.passed, true, JSON.stringify(delayed, null, 2));
   assert.equal(delayed.report.samples.length, 1);
+  assert.equal(delayed.report.limits.stdout_tail_max_bytes, 8 * 1024,
+    'synthetic crash reports bind the default stdout retention limit');
+  assert.equal(delayed.report.limits.stderr_tail_max_bytes, 8 * 1024,
+    'synthetic crash reports bind the default stderr retention limit');
 
   const handledStarted = Date.now();
   const handled = await runHandledParentSignalSelfTest({

@@ -53,6 +53,10 @@ export const REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE = Object.freeze([
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
   'packages/cli/lib/observation-runtime/node.mjs',
   'packages/cli/lib/graph-runtime/util.mjs',
+  'scripts/safe-runner/constants.mjs',
+  'scripts/safe-runner/redaction.mjs',
+  'scripts/safe-runner/report.mjs',
+  'scripts/safe-runner/schema/report.schema.json',
 ]);
 export const REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE = Object.freeze([
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,

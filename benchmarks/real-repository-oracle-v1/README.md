@@ -50,16 +50,26 @@ The complete index is encoded as one ASCII line behind the wire-only
 and signal facts, uses reference
 tuples for categories, controls, and operations, hoists shared rename authority,
 and stores digests as canonical base64url raw bytes. It reports expanded-semantic,
-packed-transport, Brotli, and final encoded sizes in its codec envelope, then uses
-Brotli only when the compressed bytes are strictly smaller than the packed bytes;
-otherwise it carries the packed bytes directly. Both forms use canonical unpadded
-base64url. The packed or compressed codec input is capped at 512 KiB and the complete
-line, including its prefix but excluding the final newline, is capped at 768 KiB.
+packed-transport, and final encoded sizes in its envelope and carries the packed
+bytes as canonical unpadded base64url. The packed input is capped at 512 KiB, whose
+worst-case base64url representation is 699,051 characters; the complete line,
+including its prefix but excluding the final newline, is capped at 768 KiB.
+V4 deliberately does not compress: Brotli has no cross-runtime canonical bitstream,
+so decoder-side recompression would make otherwise identical reviewer facts depend
+on the Node/zlib version. Raw-only framing also removes decompression-bomb and codec
+choice ambiguity while staying comfortably inside the workload-specific tail.
 The exact case-discovery workload alone receives a 1 MiB retained stdout tail; the
 generic safe-runner tail remains 8 KiB and the hard combined-output cap remains
 32 MiB. A report is usable only when it is successful and non-truncated, has no
-stderr, retains byte-exact whole stdout, and contains exactly the V4 line plus one LF.
-Changing this runner or codec changes the runner-build identity and invalidates
+stderr, retains byte-exact whole stdout, contains exactly the V4 line plus one LF,
+and independently binds the schema-valid safe-runner report to the audited
+`discover-cases` command, reserved workload ID, production scope, source identity,
+sealed execution-snapshot identity, decoded collection tier, successful termination,
+and complete cleanup. Small reports must prove the no-lock path; medium and large
+reports must prove release of their production lock. This decoder does not prove the
+separate promotion ledger: callers must verify current promotion authority before a
+production-tier run.
+Changing this runner or wire changes the runner-build identity and invalidates
 earlier promotion. Unit coverage proves the bounds and profile selection first;
 fresh adversarial self-test, small promotion, and medium execution must happen
 from the reviewed commit before a real greater-than-8-KiB report is accepted as
@@ -67,8 +77,7 @@ integration evidence.
 Signal values are bounded reviewer previews; `value_sha256` binds the complete
 untruncated raw signal and therefore need not equal the preview's digest.
 Both encoding and decoding enforce a 512 KiB expanded-semantic ceiling; decoding
-caps Brotli output at 512 KiB and projects the exact reference fan-out before
-materializing the expanded index.
+projects the exact reference fan-out before materializing the expanded index.
 The decoder reconstructs the exact logical discovery object for reviewer use;
 that object remains schema V2. A bound transport-contract digest and canonical
 semantic digest prevent the wire representation from silently changing or

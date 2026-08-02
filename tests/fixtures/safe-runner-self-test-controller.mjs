@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULTS } from '../../scripts/safe-runner/constants.mjs';
 import { baseReport, finishReport, writeReport } from '../../scripts/safe-runner/report.mjs';
 import { processIdentity } from '../../scripts/safe-runner/processes.mjs';
 
@@ -25,7 +26,10 @@ function writeInterruptedReport({ supervisorCrash = false } = {}) {
   const report = baseReport({ tier: 'small', command: [process.execPath, 'self-test-controller'], cwd });
   report.report_file = reportFile;
   report.adapter = { id: 'linux-systemd-cgroup-v2' };
-  report.limits = {};
+  report.limits = {
+    stdout_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+    stderr_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+  };
   report.preflight = { ok: true };
   report.samples.push({
     elapsed_ms: 1,

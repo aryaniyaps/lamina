@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
-import zlib from 'node:zlib';
 import { brownfieldSignals } from '../../packages/cli/lib/observation-runtime/node.mjs';
+import { validateReport } from '../../scripts/safe-runner/report.mjs';
 import { reviewedCollectionForTier } from './collection-authority.mjs';
 import {
   CASE_DISCOVERY_SCAN_LIMITS, visitReviewedDiscoveryCandidates,
@@ -11,8 +11,9 @@ import {
 export const CASE_DISCOVERY_SCHEMA = 'lamina.real-repository-oracle-case-discovery/v2';
 export const CASE_DISCOVERY_PAYLOAD_PREFIX = 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V4=';
 export const CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES = 768 * 1024;
-export const CASE_DISCOVERY_MAX_CODEC_BYTES = 512 * 1024;
-export const CASE_DISCOVERY_MAX_BASE64URL_BYTES = Math.ceil(CASE_DISCOVERY_MAX_CODEC_BYTES / 3) * 4;
+export const CASE_DISCOVERY_MAX_TRANSPORT_BYTES = 512 * 1024;
+export const CASE_DISCOVERY_MAX_BASE64URL_BYTES =
+  Math.ceil(CASE_DISCOVERY_MAX_TRANSPORT_BYTES / 3) * 4;
 export const CASE_DISCOVERY_REPORT_STDOUT_TAIL_BYTES = 1024 * 1024;
 export const CASE_DISCOVERY_REPORT_STDERR_TAIL_BYTES = 8 * 1024;
 export const CASE_DISCOVERY_TRANSPORT_SCHEMA = 'lamina.real-repository-oracle-discovery-schema-wire/v1';
@@ -66,8 +67,8 @@ export const validAuthoringBranchName = (value) => typeof value === 'string'
   && !value.endsWith('.') && !value.endsWith('.lock');
 export const validLogicalWorktreeId = (value) =>
   typeof value === 'string' && /^oracle-worktree-[a-f0-9]{12}$/.test(value);
-const DISCOVERY_TRANSPORT_MAX_BYTES = CASE_DISCOVERY_MAX_CODEC_BYTES;
-const DISCOVERY_RECONSTRUCTED_MAX_BYTES = CASE_DISCOVERY_MAX_CODEC_BYTES;
+const DISCOVERY_TRANSPORT_MAX_BYTES = CASE_DISCOVERY_MAX_TRANSPORT_BYTES;
+const DISCOVERY_RECONSTRUCTED_MAX_BYTES = CASE_DISCOVERY_MAX_TRANSPORT_BYTES;
 const MAX_SIGNAL_PREVIEW_CODE_UNITS = 240;
 const MAX_SIGNAL_PREVIEW_BYTES = MAX_SIGNAL_PREVIEW_CODE_UNITS * 3;
 const MAX_DISCOVERY_LINE_NUMBER = CASE_DISCOVERY_LIMITS.max_file_bytes + 1;
@@ -88,6 +89,8 @@ const MAX_WIRE_FILE_FACTS = DISCOVERY_CATEGORIES.length * CASE_DISCOVERY_LIMITS.
 const MAX_WIRE_SIGNAL_FACTS = DISCOVERY_CATEGORIES.length
   * CASE_DISCOVERY_LIMITS.anchors_per_category;
 const STATIC_LIMITATION = 'This deterministic index contains non-semantic reviewer candidates only. Categories are static-scan signals, neighbors and decoys are lexical path controls, and operation paths are unexecuted authoring candidates. It defines no Workflow, domain meaning, golden expectation, quality grade, retrieval result, or runtime claim.';
+const DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
+const DISCOVERY_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
 const TRANSPORT_CONTRACT = Object.freeze({
   schema: CASE_DISCOVERY_TRANSPORT_SCHEMA,
   root_arity: 14,
@@ -1054,39 +1057,25 @@ export function encodeDiscoveryPayload(result) {
   return Object.freeze({ result, line: encoded.line, sizes: encoded.sizes });
 }
 
-function brotliTransport(bytes) {
-  return zlib.brotliCompressSync(bytes, {
-    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
-  });
-}
-
 export function encodeDiscoveryTransportLine(transport, semanticBytes) {
   if (!Buffer.isBuffer(transport) || transport.length > DISCOVERY_TRANSPORT_MAX_BYTES
     || !Number.isSafeInteger(semanticBytes) || semanticBytes < 0
     || semanticBytes > DISCOVERY_RECONSTRUCTED_MAX_BYTES) {
-    throw new Error('case-discovery transport bytes are outside the codec contract');
+    throw new Error('case-discovery transport bytes are outside the raw-envelope contract');
   }
-  const compressed = brotliTransport(transport);
   const sizes = Object.freeze({
     semantic_bytes: semanticBytes,
     transport_bytes: transport.length,
-    compressed_bytes: compressed.length,
   });
-  const framedLine = (codec, payload) => {
-    let encodedLineBytes = 0;
-    let line;
-    do {
-      line = `${CASE_DISCOVERY_PAYLOAD_PREFIX}${codec}.${sizes.transport_bytes}.${sizes.compressed_bytes}.${sizes.semantic_bytes}.${encodedLineBytes}.${payload}`;
-      const nextSize = Buffer.byteLength(line);
-      if (nextSize === encodedLineBytes) return line;
-      encodedLineBytes = nextSize;
-    } while (true);
-  };
-  const rawLine = framedLine('raw', transport.toString('base64url'));
-  const compressedLine = compressed.length <= CASE_DISCOVERY_MAX_CODEC_BYTES
-    ? framedLine('br', compressed.toString('base64url')) : null;
-  const line = compressedLine !== null && compressed.length < transport.length
-    ? compressedLine : rawLine;
+  const payload = transport.toString('base64url');
+  let encodedLineBytes = 0;
+  let line;
+  do {
+    line = `${CASE_DISCOVERY_PAYLOAD_PREFIX}raw.${sizes.transport_bytes}.${sizes.semantic_bytes}.${encodedLineBytes}.${payload}`;
+    const nextSize = Buffer.byteLength(line);
+    if (nextSize === encodedLineBytes) break;
+    encodedLineBytes = nextSize;
+  } while (true);
   if (Buffer.byteLength(line) > CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES) {
     throw new Error('complete case-discovery transport exceeds its retained line bound');
   }
@@ -1103,17 +1092,15 @@ export function decodeDiscoveryPayload(line) {
   }
   try {
     const fields = line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length).split('.');
-    if (fields.length !== 6 || !['br', 'raw'].includes(fields[0])
-      || !fields.slice(1, 5).every((value) => /^(?:0|[1-9][0-9]*)$/.test(value))) {
-      throw new Error('invalid codec envelope');
+    if (fields.length !== 5 || fields[0] !== 'raw'
+      || !fields.slice(1, 4).every((value) => /^(?:0|[1-9][0-9]*)$/.test(value))) {
+      throw new Error('invalid raw envelope');
     }
-    const [codec, transportSizeText, compressedSizeText, semanticSizeText,
-      encodedLineSizeText, encoded] = fields;
+    const [, transportSizeText, semanticSizeText, encodedLineSizeText, encoded] = fields;
     const transportSize = Number(transportSizeText);
-    const compressedSize = Number(compressedSizeText);
     const semanticSize = Number(semanticSizeText);
     const encodedLineSize = Number(encodedLineSizeText);
-    if (![transportSize, compressedSize, semanticSize, encodedLineSize].every(Number.isSafeInteger)
+    if (![transportSize, semanticSize, encodedLineSize].every(Number.isSafeInteger)
       || transportSize > DISCOVERY_TRANSPORT_MAX_BYTES
       || semanticSize > DISCOVERY_RECONSTRUCTED_MAX_BYTES
       || encodedLineSize !== Buffer.byteLength(line)) {
@@ -1121,18 +1108,14 @@ export function decodeDiscoveryPayload(line) {
     }
     if (!encoded || encoded.length > CASE_DISCOVERY_MAX_BASE64URL_BYTES
       || !/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('invalid base64url');
-    const encodedBytes = Buffer.from(encoded, 'base64url');
-    if (encodedBytes.length > DISCOVERY_TRANSPORT_MAX_BYTES
-      || encodedBytes.toString('base64url') !== encoded) {
+    const bytes = Buffer.from(encoded, 'base64url');
+    if (bytes.length > DISCOVERY_TRANSPORT_MAX_BYTES
+      || bytes.toString('base64url') !== encoded) {
       throw new Error('non-canonical or oversized encoded transport');
     }
-    const bytes = codec === 'br'
-      ? zlib.brotliDecompressSync(encodedBytes, { maxOutputLength: DISCOVERY_TRANSPORT_MAX_BYTES })
-      : encodedBytes;
     const canonicalLine = encodeDiscoveryTransportLine(bytes, semanticSize);
-    if (bytes.length !== transportSize || canonicalLine.sizes.compressed_bytes !== compressedSize
-      || canonicalLine.line !== line) {
-      throw new Error('non-canonical codec choice');
+    if (bytes.length !== transportSize || canonicalLine.line !== line) {
+      throw new Error('non-canonical raw envelope');
     }
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     const result = unpackDiscoveryResult(JSON.parse(text), bytes);
@@ -1144,6 +1127,75 @@ export function decodeDiscoveryPayload(line) {
 }
 
 export function decodeDiscoveryReport(report) {
+  const validation = validateReport(report || {});
+  const preflight = report?.preflight;
+  const source = preflight?.source_identity;
+  const snapshot = preflight?.execution_snapshot;
+  const execution = preflight?.execution_identity;
+  const command = report?.command;
+  const executionCommand = preflight?.execution_command;
+  const repository = path.resolve(String(report?.cwd || ''));
+  const expectedEntrypoint = path.join(repository, DISCOVERY_ENTRYPOINT);
+  const sourceValue = source && {
+    repository: source.repository,
+    command: source.command,
+    executable: source.executable,
+    workload_inputs: source.workload_inputs,
+    retrieval_authority: source.retrieval_authority,
+    runtime_baseline_inputs: source.runtime_baseline_inputs,
+    repository_source: source.repository_source,
+    runner_build: source.runner_build,
+  };
+  const sourceDigest = sourceValue ? sha256(JSON.stringify(sourceValue)) : null;
+  const executionDigest = execution ? sha256(JSON.stringify({
+    source_identity_digest: execution.source_identity_digest,
+    execution_snapshot_digest: execution.execution_snapshot_digest,
+  })) : null;
+  const entrypointInput = Array.isArray(source?.workload_inputs)
+    ? source.workload_inputs.find((item) => path.resolve(String(item?.path || '')) === expectedEntrypoint)
+    : null;
+  const cleanup = report?.cleanup;
+  const termination = report?.termination;
+  const authorityValid = validation.valid
+    && ['small', 'medium', 'large'].includes(report?.tier)
+    && Array.isArray(command) && command.length === 3 && command[2] === 'discover-cases'
+    && /^node(?:\.exe)?$/.test(path.basename(String(command[0] || '')).toLowerCase())
+    && path.resolve(repository, String(command[1] || '')) === expectedEntrypoint
+    && Array.isArray(executionCommand) && executionCommand.length === 3
+    && executionCommand[2] === 'discover-cases'
+    && path.resolve(repository, String(executionCommand[1] || '')) === expectedEntrypoint
+    && preflight?.ok === true && preflight.workload_id === DISCOVERY_WORKLOAD_ID
+    && preflight.ownership?.proven === true
+    && preflight.ownership?.audited_entrypoint === DISCOVERY_ENTRYPOINT
+    && executionCommand[0] === preflight.ownership.executable
+    && preflight.scope_proof?.production_enforcement === true
+    && report.adapter?.production_enforcement === true
+    && source?.repository === repository
+    && JSON.stringify(source.command) === JSON.stringify(executionCommand)
+    && source.executable?.path === executionCommand[0]
+    && /^[a-f0-9]{64}$/.test(source.executable?.digest || '')
+    && /^[a-f0-9]{64}$/.test(entrypointInput?.digest || '')
+    && /^[a-f0-9]{64}$/.test(source.repository_source || '')
+    && /^[a-f0-9]{64}$/.test(source.runner_build || '')
+    && source.digest === sourceDigest
+    && snapshot?.schema === 'lamina.safe-runner-execution-snapshot/v1'
+    && /^[a-f0-9]{64}$/.test(snapshot.digest || '')
+    && execution?.source_identity_digest === source.digest
+    && execution?.execution_snapshot_digest === snapshot.digest
+    && execution?.digest === executionDigest
+    && JSON.stringify(execution.command) === JSON.stringify(source.command)
+    && execution.repository === source.repository
+    && termination?.reason === 'completed' && termination.limit === null
+    && termination.child_exit_code === 0 && termination.child_signal === null
+    && cleanup?.attempted === true
+    && Array.isArray(cleanup.descendants_remaining) && cleanup.descendants_remaining.length === 0
+    && Array.isArray(cleanup.managed_paths_remaining) && cleanup.managed_paths_remaining.length === 0
+    && cleanup.scope_removed === true && cleanup.temporary_directory_removed === true
+    && Array.isArray(cleanup.errors) && cleanup.errors.length === 0
+    && (report.tier === 'small' ? cleanup.lock_released === null : cleanup.lock_released === true);
+  if (!authorityValid) {
+    throw new Error('case-discovery report does not bind the exact safe-runner authority');
+  }
   const output = report?.output;
   const stdoutTailBytes = typeof output?.stdout_tail === 'string'
     ? Buffer.byteLength(output.stdout_tail) : -1;
@@ -1164,7 +1216,11 @@ export function decodeDiscoveryReport(report) {
   if (line.includes('\n') || line.includes('\r')) {
     throw new Error('case-discovery report must contain exactly one payload line');
   }
-  return decodeDiscoveryPayload(line);
+  const result = decodeDiscoveryPayload(line);
+  if (result.collection.fixture_id !== report.tier || result.collection.fixture_class !== report.tier) {
+    throw new Error('case-discovery report tier does not bind the decoded collection');
+  }
+  return result;
 }
 
 export function discoverSignedTier() {
