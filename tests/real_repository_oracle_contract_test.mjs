@@ -282,7 +282,7 @@ if (process.platform === 'win32') {
   // deliberately unstaged, while rename is staged to obtain one type-2 R. row.
   const porcelainProbe = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-porcelain-')));
   function probeGit(args, encoding = 'utf8') {
-    const completed = spawnTrustedGit(porcelainProbe, args, { encoding });
+    const completed = spawnTrustedGit(porcelainProbe, args, { encoding, timeout: 15_000 });
     assert.equal(completed.status, 0, `git ${args.join(' ')} failed: ${String(completed.stderr)}`);
     return completed.stdout;
   }
