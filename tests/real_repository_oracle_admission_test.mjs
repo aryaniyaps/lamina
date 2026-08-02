@@ -23,6 +23,7 @@ import {
   INVENTORY_ADMISSION_SCHEMA, INVENTORY_RECONSTRUCTION_SCHEMA,
   INVENTORY_REVIEW_SCHEMA, RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID,
   REVIEW_EXACT_COMMAND, REVIEW_WORKLOAD_ID, WORKLOAD_ID,
+  SCENARIO_VERIFICATION_EXACT_COMMAND, SCENARIO_VERIFICATION_WORKLOAD_ID,
   inventoryAdmissionResult, inventoryReconstructionResult, inventoryReviewResult, writeStdoutLine,
 } from '../benchmarks/real-repository-oracle-v1/workload.mjs';
 import { isExcludedPath, loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
@@ -31,6 +32,7 @@ import {
   REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
@@ -42,6 +44,7 @@ import {
   REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID,
   REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID,
   REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
   auditedCommand, preflightRun,
 } from '../scripts/safe-runner/preflight.mjs';
 import { validatedSealedGitIdentity } from '../scripts/safe-runner/sandbox.mjs';
@@ -132,6 +135,9 @@ assert.equal(drainObserved, true,
   'case discovery waits for stdout drain when the larger structured write applies backpressure');
 assert.equal(EVIDENCE_EXPANSION_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID);
 assert.deepEqual(EVIDENCE_EXPANSION_EXACT_COMMAND, ['expand-evidence']);
+assert.equal(SCENARIO_VERIFICATION_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID);
+assert.deepEqual(SCENARIO_VERIFICATION_EXACT_COMMAND, ['verify-scenarios']);
 assert.deepEqual(RECONSTRUCTION_LIMITS, {
   max_tracked_entries: 6_000,
   max_counted_tracked_bytes: 256 * 1024 * 1024,
@@ -223,6 +229,10 @@ const evidenceAudit = auditedCommand([process.execPath, ENTRYPOINT, 'expand-evid
 assert.deepEqual({ audited: evidenceAudit.audited, allow_network: evidenceAudit.allow_network,
   entrypoint: evidenceAudit.entrypoint },
 { audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
+const scenarioAudit = auditedCommand([process.execPath, ENTRYPOINT, 'verify-scenarios'], ROOT);
+assert.deepEqual({ audited: scenarioAudit.audited, allow_network: scenarioAudit.allow_network,
+  entrypoint: scenarioAudit.entrypoint },
+{ audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
 for (const argv of [
   [process.execPath, ENTRYPOINT],
   [process.execPath, ENTRYPOINT, 'validate'],
@@ -231,6 +241,7 @@ for (const argv of [
   [process.execPath, ENTRYPOINT, 'review-inventory', '--output', '/tmp/result'],
   [process.execPath, ENTRYPOINT, 'discover-cases', '--output', '/tmp/result'],
   [process.execPath, ENTRYPOINT, 'expand-evidence', '--output', '/tmp/result'],
+  [process.execPath, ENTRYPOINT, 'verify-scenarios', '--output', '/tmp/result'],
 ]) {
   const audit = auditedCommand(argv, ROOT);
   assert.equal(audit.audited, false);
@@ -314,6 +325,21 @@ const exactEvidenceIdentity = preflightRun({
 });
 assert.ok(!exactEvidenceIdentity.reasons
   .some((reason) => reason.includes('evidence expansion requires --workload')));
+const missingScenarioIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: null,
+});
+assert.ok(missingScenarioIdentity.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID)));
+const exactScenarioIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.ok(!exactScenarioIdentity.reasons
+  .some((reason) => reason.includes('scenario verification requires --workload')));
+assert.equal(exactScenarioIdentity.envelope.limits.stdout_tail_max_bytes, 8 * 1024);
+assert.equal(exactScenarioIdentity.envelope.limits.stderr_tail_max_bytes, 8 * 1024);
 for (const tier of ['medium', 'large']) {
   const reconstructionPreflight = preflightRun({
     tier, command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
@@ -331,7 +357,7 @@ const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
 });
 assert.notEqual(directUnknown.status, 0);
 assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
-  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence>/);
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -369,6 +395,13 @@ const directEvidence = spawnSync(process.execPath, [ENTRYPOINT, 'expand-evidence
 });
 assert.notEqual(directEvidence.status, 0);
 assert.match(`${directEvidence.stdout}\n${directEvidence.stderr}`,
+  /must run through the canonical crash-safe command/);
+const directScenario = spawnSync(process.execPath, [ENTRYPOINT, 'verify-scenarios'], {
+  cwd: ROOT, env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
+  encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+});
+assert.notEqual(directScenario.status, 0);
+assert.match(`${directScenario.stdout}\n${directScenario.stderr}`,
   /must run through the canonical crash-safe command/);
 
 const semanticPoison = {
@@ -408,6 +441,10 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/schema/report.schema.json',
   'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+  'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
+  'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
@@ -424,6 +461,18 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+]);
+assert.deepEqual(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE, [
+  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
+  'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+  'scripts/safe-runner/constants.mjs',
+  'scripts/safe-runner/redaction.mjs',
+  'scripts/safe-runner/report.mjs',
+  'scripts/safe-runner/schema/report.schema.json',
 ]);
 for (const forbidden of [
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
@@ -439,6 +488,17 @@ for (const forbidden of [
 ]) {
   assert.equal(REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE.includes(forbidden), false,
     `evidence expansion closure cannot load ${forbidden}`);
+}
+for (const forbidden of [
+  'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
+  'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/grade.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/case-expectations-v1.json',
+]) {
+  assert.equal(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE.includes(forbidden), false,
+    `scenario verification closure cannot load ${forbidden}`);
 }
 assert.equal(REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE.includes(
   'benchmarks/real-repository-oracle-v1/materialize.mjs'), false);
@@ -516,6 +576,7 @@ try {
     const snapshotEntrypoint = path.join(snapshotRepository, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
     for (const commandName of [
       'admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence',
+      'verify-scenarios',
     ]) {
       const snapshotTemporary = path.join(temporaryRoot, `snapshot-${commandName}`);
       fs.mkdirSync(snapshotTemporary, { mode: 0o700 });
@@ -534,6 +595,8 @@ try {
           ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
           : commandName === 'expand-evidence'
             ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
+            : commandName === 'verify-scenarios'
+              ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE
           : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE)].sort());
       assert.deepEqual(snapshot.environment_overrides, {},
         'oracle snapshot reintroduces no model or worker assets');
@@ -571,7 +634,10 @@ try {
   const successScratch = createScratch(temporaryRoot);
   assert.deepEqual(fs.readdirSync(successScratch.template), [],
     'the Git template authority starts empty');
+  assert.deepEqual(fs.readdirSync(successScratch.linked), [],
+    'the linked-worktree container starts empty for an exact logical role');
   assert.equal(fs.realpathSync.native(successScratch.template), successScratch.template);
+  assert.equal(fs.realpathSync.native(successScratch.linked), successScratch.linked);
   if (process.platform !== 'win32') {
     assert.equal(fs.lstatSync(successScratch.root).mode & 0o077, 0,
       'the workload-owned scratch child must remain private');
@@ -579,6 +645,8 @@ try {
       'the workload-owned marker must remain private');
     assert.equal(fs.lstatSync(successScratch.template).mode & 0o077, 0,
       'the empty Git template authority must remain private');
+    assert.equal(fs.lstatSync(successScratch.linked).mode & 0o077, 0,
+      'the linked-worktree container must remain private');
   }
   fs.mkdirSync(successScratch.source);
   fs.writeFileSync(path.join(successScratch.source, 'owned'), 'owned');
@@ -587,6 +655,14 @@ try {
   assert.equal(fs.readFileSync(quotaForeignSibling, 'utf8'), 'never workload-owned',
     'success cleanup must preserve foreign siblings at the quota root');
   assert.equal(fs.existsSync(temporaryRoot), true, 'cleanup must never delete the quota root');
+
+  const partialLinkedScratch = createScratch(temporaryRoot);
+  fs.mkdirSync(path.join(partialLinkedScratch.linked, 'oracle-worktree-partial'));
+  fs.writeFileSync(path.join(partialLinkedScratch.linked, 'oracle-worktree-partial', '.git'),
+    'partial owned marker');
+  removeScratch(partialLinkedScratch);
+  assert.equal(fs.existsSync(partialLinkedScratch.root), false,
+    'fail-safe cleanup removes only the explicitly owned partial linked-worktree subtree');
 
   if (productionGitMaterializationClaim) {
     const templateScratch = createScratch(temporaryRoot);

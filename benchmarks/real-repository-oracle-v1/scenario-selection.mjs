@@ -7,7 +7,7 @@ import { REVIEWED_INVENTORIES } from './collection-authority.mjs';
 import { candidateInventoryDigest } from './materialize.mjs';
 import {
   EVIDENCE_SELECTION_CANONICAL_SHA256, EVIDENCE_SELECTION_RAW_SHA256,
-} from './case-evidence.mjs';
+} from './reviewed-selection-identities.mjs';
 
 const SELECTION_FILE = new URL('./reviews/scenario-selection-v1.json', import.meta.url);
 const SHA1 = /^[a-f0-9]{40}$/;

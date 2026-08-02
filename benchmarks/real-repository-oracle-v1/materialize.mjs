@@ -929,6 +929,8 @@ export function createScratch(runnerTemporaryRoot) {
     const rootStat = fs.lstatSync(root, { bigint: true });
     const template = path.join(root, 'template');
     fs.mkdirSync(template, { mode: 0o700 });
+    const linked = path.join(root, 'linked');
+    fs.mkdirSync(linked, { mode: 0o700 });
     const marker = path.join(root, '.owner.json');
     fs.writeFileSync(marker, `${JSON.stringify({
       schema: SCRATCH_SCHEMA,
@@ -937,15 +939,17 @@ export function createScratch(runnerTemporaryRoot) {
       ino: String(rootStat.ino),
       uid: Number(rootStat.uid),
       nonce: crypto.randomUUID(),
-      owned: ['source', 'template'],
+      owned: ['source', 'template', 'linked'],
     })}\n`, { flag: 'wx', mode: 0o600 });
-    return Object.freeze({ root, marker, source: path.join(root, 'source'), template });
+    return Object.freeze({ root, marker, source: path.join(root, 'source'), template, linked });
   } catch (error) {
     try {
       const marker = path.join(root, '.owner.json');
       if (fs.existsSync(marker)) fs.unlinkSync(marker);
       if (fs.existsSync(path.join(root, 'template'))
         && fs.readdirSync(path.join(root, 'template')).length === 0) fs.rmdirSync(path.join(root, 'template'));
+      if (fs.existsSync(path.join(root, 'linked'))
+        && fs.readdirSync(path.join(root, 'linked')).length === 0) fs.rmdirSync(path.join(root, 'linked'));
       if (fs.readdirSync(root).length === 0) fs.rmdirSync(root);
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'scratch creation and cleanup both failed');
@@ -954,40 +958,46 @@ export function createScratch(runnerTemporaryRoot) {
   }
 }
 
-function validatedScratch(scratch) {
+function validatedScratch(scratch, { allowLinkedEntries = false } = {}) {
   if (!scratch || path.dirname(scratch.marker || '') !== scratch.root
     || scratch.source !== path.join(scratch.root || '', 'source')
-    || scratch.template !== path.join(scratch.root || '', 'template')) {
+    || scratch.template !== path.join(scratch.root || '', 'template')
+    || scratch.linked !== path.join(scratch.root || '', 'linked')) {
     throw new Error('real-repository scratch paths are invalid');
   }
   const root = fs.realpathSync.native(scratch.root);
   const stat = fs.lstatSync(root, { bigint: true });
   const markerStat = fs.lstatSync(scratch.marker, { bigint: true });
   const templateStat = fs.lstatSync(scratch.template, { bigint: true });
+  const linkedStat = fs.lstatSync(scratch.linked, { bigint: true });
   const marker = JSON.parse(fs.readFileSync(scratch.marker, 'utf8'));
   const invalidPosixOwnership = HAS_POSIX_OWNERSHIP
     && ((stat.mode & 0o077n) !== 0n || stat.uid !== BigInt(process.getuid())
       || markerStat.uid !== stat.uid || (markerStat.mode & 0o077n) !== 0n
       || templateStat.uid !== stat.uid || (templateStat.mode & 0o077n) !== 0n
+      || linkedStat.uid !== stat.uid || (linkedStat.mode & 0o077n) !== 0n
       || marker.uid !== Number(stat.uid));
   if (root !== scratch.root || !stat.isDirectory() || stat.isSymbolicLink()
     || !markerStat.isFile() || markerStat.isSymbolicLink() || markerStat.nlink !== 1n
     || invalidPosixOwnership
     || !templateStat.isDirectory() || templateStat.isSymbolicLink()
+    || !linkedStat.isDirectory() || linkedStat.isSymbolicLink()
     || fs.realpathSync.native(scratch.template) !== scratch.template
+    || fs.realpathSync.native(scratch.linked) !== scratch.linked
     || fs.readdirSync(scratch.template).length !== 0
+    || (!allowLinkedEntries && fs.readdirSync(scratch.linked).length !== 0)
     || marker.schema !== SCRATCH_SCHEMA || marker.root !== root
     || marker.dev !== String(stat.dev) || marker.ino !== String(stat.ino)
     || !/^[0-9a-f-]{36}$/i.test(marker.nonce)
-    || JSON.stringify(marker.owned) !== JSON.stringify(['source', 'template'])) {
+    || JSON.stringify(marker.owned) !== JSON.stringify(['source', 'template', 'linked'])) {
     throw new Error('real-repository scratch ownership marker is invalid');
   }
   return marker;
 }
 
 export function removeScratch(scratch) {
-  validatedScratch(scratch);
-  const allowed = new Set(['.owner.json', 'source', 'template']);
+  validatedScratch(scratch, { allowLinkedEntries: true });
+  const allowed = new Set(['.owner.json', 'source', 'template', 'linked']);
   const foreign = fs.readdirSync(scratch.root).filter((name) => !allowed.has(name));
   if (foreign.length) {
     throw new Error(`real-repository scratch contains foreign entries: ${foreign.join(', ')}`);
@@ -1000,6 +1010,12 @@ export function removeScratch(scratch) {
     }
     fs.rmSync(scratch.source, { recursive: true, force: false });
   }
+  const linkedStat = fs.lstatSync(scratch.linked);
+  if (!linkedStat.isDirectory() || linkedStat.isSymbolicLink()
+    || fs.realpathSync.native(scratch.linked) !== scratch.linked) {
+    throw new Error('real-repository linked-worktree container changed before cleanup');
+  }
+  fs.rmSync(scratch.linked, { recursive: true, force: false });
   fs.rmdirSync(scratch.template);
   fs.unlinkSync(scratch.marker);
   fs.rmdirSync(scratch.root);
@@ -1062,6 +1078,25 @@ export function withSignedReviewedRepository(purpose, action) {
       throw new Error('reviewed repository action must complete synchronously inside owned scratch');
     }
     verifyPinnedRepository(repository, collection);
+    return result;
+  });
+}
+
+export function withFreshReviewedScenarioRepository(tier, purpose, action) {
+  if (typeof action !== 'function') throw new Error('scenario repository action is required');
+  const context = assertSafeRunnerContext(purpose);
+  const collection = reviewedCollectionForTier(context.tier);
+  if (context.tier !== tier || context.tier !== collection.fixture_id
+    || context.tier !== collection.fixture_class) {
+    throw new Error('signed safe-runner tier does not match the selected scenario collection');
+  }
+  return withOwnedScratch(process.env.LAMINA_SAFE_RUNNER_TEMP_DIR, (scratch) => {
+    const repository = materializePinnedRepository(scratch, collection);
+    const inventory = verifyPinnedRepository(repository, collection);
+    const result = action(Object.freeze({ collection, inventory, repository, scratch }));
+    if (result && typeof result.then === 'function') {
+      throw new Error('scenario repository action must complete synchronously inside owned scratch');
+    }
     return result;
   });
 }

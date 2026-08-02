@@ -15,6 +15,8 @@ export const DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
 export const DISCOVERY_EXACT_COMMAND = Object.freeze(['discover-cases']);
 export const EVIDENCE_EXPANSION_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
 export const EVIDENCE_EXPANSION_EXACT_COMMAND = Object.freeze(['expand-evidence']);
+export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
+export const SCENARIO_VERIFICATION_EXACT_COMMAND = Object.freeze(['verify-scenarios']);
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -124,7 +126,14 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${encodeEvidenceExpansionPayload(expandSignedTier())}\n`);
     return;
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence>');
+  if (JSON.stringify(argv) === JSON.stringify(SCENARIO_VERIFICATION_EXACT_COMMAND)) {
+    const {
+      encodeScenarioVerificationPayload, verifySelectedScenarios,
+    } = await import('./scenario-verification.mjs');
+    await writeStdoutLine(encodeScenarioVerificationPayload(verifySelectedScenarios()));
+    return;
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

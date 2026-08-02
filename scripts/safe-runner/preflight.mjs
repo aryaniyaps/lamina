@@ -44,6 +44,7 @@ export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repositor
 export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
 export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = CASE_DISCOVERY_WORKLOAD_ID;
 export const REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
+export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
@@ -205,7 +206,7 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     }
     if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       && (command.length !== 3
-        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence']
+        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios']
           .includes(command[2]))) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
@@ -410,13 +411,15 @@ export function preflightRun({
       : command[2] === 'review-inventory' ? REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID
       : command[2] === 'discover-cases' ? REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID
       : command[2] === 'expand-evidence' ? REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID
+      : command[2] === 'verify-scenarios' ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID
       : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
     if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
       const operation = command[2] === 'reconstruct-inventory'
         ? 'inventory reconstruction' : command[2] === 'review-inventory'
           ? 'independent inventory review' : command[2] === 'discover-cases'
             ? 'case discovery' : command[2] === 'expand-evidence'
-              ? 'evidence expansion' : 'inventory admission';
+              ? 'evidence expansion' : command[2] === 'verify-scenarios'
+                ? 'scenario verification' : 'inventory admission';
       reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
     }
   }

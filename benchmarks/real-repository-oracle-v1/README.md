@@ -149,6 +149,48 @@ and strict Git ref derivation. Later materialization must consume this exact
 reviewed identity and establish its own authority rather than enlarging this
 selection checkpoint.
 
+## Lexical scenario verification
+
+`verify-scenarios` is the private execution checkpoint for the accepted
+selection. It is admitted only as this exact zero-argument workload command:
+
+```bash
+node scripts/safe-runner/cli.mjs run \
+  --tier small \
+  --workload real-repository-oracle-v1:scenario-verification \
+  --report /absolute/non-repository/report.json \
+  -- node benchmarks/real-repository-oracle-v1/workload.mjs verify-scenarios
+```
+
+The executor materializes a fresh reviewed checkout for each of the six ordered
+scenarios; no checkout or scratch lease is reused. It verifies the selected
+source blob and content before any mutation, parses exact NUL-terminated Git
+porcelain-v2 state, and proves the complete stage-0 index and physical checkout
+delta. Modify uses an append-only no-follow descriptor with identity rechecks;
+delete holds and verifies the opened inode through unlink. Branch and linked
+worktree refs use fixed full pins, no tracking, compare-and-delete cleanup, and
+post-cleanup ref/config/reflog checks. The worktree case additionally binds the
+selected logical worktree ID to the exact Git admin ID and proves the detached
+primary and linked-branch topology without emitting physical scratch paths.
+
+The result is one canonical raw-only base64url line smaller than 7,680 bytes,
+including its prefix; it receives only the generic 8 KiB stdout/stderr tails.
+The decoder accepts a schema-valid successful safe-runner report only when the
+exact command, workload, source and execution identities, retry identity,
+tier-promotion ladder, one-LF output, termination, and complete cleanup all
+agree. The sealed source closure includes the reviewed scenario selection and
+its narrow evidence-selection identity constants, but excludes discovery,
+evidence expansion, fixtures, expectations, semantic adapters, graders, and
+goldens.
+
+This checkpoint is lexical Git-state evidence only. It carries the accepted
+discovery digests as `selection_provenance_not_replayed`; it does not replay
+discovery and makes no Workflow selection, observation, obligation,
+localization, retrieval-ranking, grade, quality, or end-to-end runtime claim.
+The command must not be executed from this source checkpoint. A real run remains
+refused until a fresh adversarial self-test and exact small-to-medium-to-large
+promotion ladder are completed from the reviewed commit.
+
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed
@@ -156,6 +198,8 @@ selection checkpoint.
 - Case discovery proposes bounded authoring facts; it defines no golden answer.
 - Evidence expansion proves only reviewed lexical Git facts and carries zero
   quality claims.
+- Scenario verification proves only exact selected Git mutations and cleanup;
+  it neither loads nor implies fixture, expectation, grader, or quality authority.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.

@@ -62,12 +62,25 @@ export const REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE = Object.freeze([
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+]);
+export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
+  'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+  'scripts/safe-runner/constants.mjs',
+  'scripts/safe-runner/redaction.mjs',
+  'scripts/safe-runner/report.mjs',
+  'scripts/safe-runner/schema/report.schema.json',
 ]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
   ...new Set([
     ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+    ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
     ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   ]),
 ]);
@@ -733,7 +746,9 @@ export function prepareExecutionSnapshot({
       ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
       : command[2] === 'expand-evidence'
         ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
-      : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
+        : command[2] === 'verify-scenarios'
+          ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE
+          : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
