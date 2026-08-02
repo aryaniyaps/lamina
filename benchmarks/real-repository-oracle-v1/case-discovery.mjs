@@ -26,8 +26,15 @@ export const DISCOVERY_PATH_RULES = Object.freeze({
     '.next', 'build', 'coverage', 'dist', 'generated', 'node_modules', 'out', 'target', 'vendor',
   ]),
   excluded_basenames: Object.freeze([
-    'bun.lock', 'cargo.lock', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock',
+    'bun.lock', 'cargo.lock', 'mockserviceworker.js', 'package-lock.json', 'pnpm-lock.yaml',
+    'yarn.lock',
   ]),
+  excluded_agent_basenames: Object.freeze([
+    '.cursorrules', 'agents.md', 'claude.md', 'codex.md', 'copilot-instructions.md', 'cursor.md',
+    'gemini.md',
+  ]),
+  excluded_agent_segments: Object.freeze(['.agents', '.claude', '.codex', '.cursor', '.gemini']),
+  excluded_github_agent_directories: Object.freeze(['agents', 'instructions']),
   excluded_suffixes: Object.freeze(['.generated.js', '.generated.ts', '.map', '.min.js']),
   strata: Object.freeze(['source', 'test', 'docs', 'config']),
 });
@@ -781,6 +788,14 @@ export function discoveryPathDisposition(relative) {
   const pieces = relative.split('/');
   const basename = pieces.at(-1).toLowerCase();
   const lowerPieces = pieces.map((piece) => piece.toLowerCase());
+  const agentInstructionOrState = DISCOVERY_PATH_RULES.excluded_agent_basenames.includes(basename)
+    || lowerPieces.some((piece) => DISCOVERY_PATH_RULES.excluded_agent_segments.includes(piece))
+    || (lowerPieces[0] === '.github'
+      && DISCOVERY_PATH_RULES.excluded_github_agent_directories.includes(lowerPieces[1]));
+  if (agentInstructionOrState) {
+    return Object.freeze({ admitted: false, stratum: null,
+      reason: 'agent_instruction_or_state' });
+  }
   const excluded = lowerPieces.some((piece) => DISCOVERY_PATH_RULES.excluded_segments.includes(piece))
     || DISCOVERY_PATH_RULES.excluded_basenames.includes(basename)
     || DISCOVERY_PATH_RULES.excluded_suffixes.some((suffix) => basename.endsWith(suffix))

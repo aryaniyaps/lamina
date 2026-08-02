@@ -93,6 +93,92 @@ const serialized = JSON.stringify(first.candidate_index);
 assert.doesNotMatch(serialized, /dist\/generated|workbox-a1b2c3d4/);
 assert.equal(discoveryPathDisposition('public/workbox-a1b2c3d4.js').admitted, false);
 assert.equal(discoveryPathDisposition('build/app.js').admitted, false);
+const pinnedCleanRoomExclusions = [
+  'AGENTS.md',
+  'apps/nextjs-app/public/mockServiceWorker.js',
+  'apps/nextjs-pages/public/mockServiceWorker.js',
+  'apps/react-vite/public/mockServiceWorker.js',
+];
+for (const excludedPath of pinnedCleanRoomExclusions) {
+  assert.equal(discoveryPathDisposition(excludedPath).admitted, false,
+    `pinned-tree clean-room exclusion: ${excludedPath}`);
+}
+for (const excludedPath of [
+  'nested/CLAUDE.MD', 'nested/Gemini.md', 'nested/codex.md', 'nested/CURSOR.md',
+  'nested/.cursorrules', '.agents/state.json', 'nested/.claude/settings.json',
+  'nested/.codex/config.toml', 'nested/.cursor/state.json', 'nested/.gemini/state.json',
+  '.github/copilot-instructions.md', '.github/instructions/security.instructions.md',
+  '.github/agents/reviewer.md', 'mockServiceWorker.js', 'nested/public/MOCKSERVICEWORKER.JS',
+]) {
+  assert.deepEqual(discoveryPathDisposition(excludedPath), {
+    admitted: false, stratum: null, reason: excludedPath.toLowerCase().endsWith('mockserviceworker.js')
+      ? 'generated_or_build_artifact' : 'agent_instruction_or_state',
+  });
+}
+assert.equal(discoveryPathDisposition('package-lock.json').admitted, false,
+  'dependency lock exclusions remain intact');
+assert.deepEqual(discoveryPathDisposition('README.md'),
+  { admitted: true, stratum: 'docs', reason: null });
+assert.deepEqual(discoveryPathDisposition('.github/workflows/test.yml'),
+  { admitted: true, stratum: 'config', reason: null },
+  'agent exclusions do not swallow ordinary GitHub workflows');
+
+const cleanRoomExcludedPaths = [
+  ...pinnedCleanRoomExclusions,
+  'mockServiceWorker.js',
+  'nested/public/MOCKSERVICEWORKER.JS',
+  'nested/CLAUDE.MD',
+  '.github/copilot-instructions.md',
+  'nested/.cursor/state.json',
+  '.github/instructions/security.instructions.md',
+  '.github/agents/reviewer.md',
+];
+const cleanRoomProductPaths = ['README.md', 'src/app.ts'];
+const cleanRoomCandidates = [
+  ...cleanRoomExcludedPaths.map((candidatePath) => [candidatePath,
+    candidatePath.toLowerCase().endsWith('mockserviceworker.js')
+      ? 'function mockServiceWorker() { app.get("/mock", emit); }'
+      : '# Agent permissions role instructions']),
+  ['README.md', '# Product documentation'],
+  ['src/app.ts', 'const featureFlag = true; app.get("/product", emit);'],
+].map(([candidatePath, text]) => ({
+  path: candidatePath, bytes: Buffer.from(text),
+  blob_oid: crypto.createHash('sha1').update(text).digest('hex'),
+}));
+const cleanRoomTrackedPaths = [
+  ...cleanRoomCandidates.map((candidate) => candidate.path),
+  ...Array.from({ length: collection.reviewed_inventory.tracked_files
+      - cleanRoomCandidates.length },
+  (_, index) => `clean-room-authority/file-${String(index).padStart(4, '0')}.ts`),
+];
+const cleanRoomDiscovery = discoverCandidateFacts('/unused-clean-room-visitor', collection,
+  (_repository, _collection, visit) => {
+    for (const candidate of cleanRoomCandidates) visit(candidate);
+    return { candidate_files: cleanRoomCandidates.length,
+      candidate_bytes: cleanRoomCandidates.reduce((total, candidate) =>
+        total + candidate.bytes.length, 0),
+      tracked_paths: cleanRoomTrackedPaths };
+  });
+assert.equal(cleanRoomDiscovery.scan.candidate_files, cleanRoomCandidates.length);
+assert.equal(cleanRoomDiscovery.scan.admitted_index_files, cleanRoomProductPaths.length);
+assert.equal(cleanRoomDiscovery.scan.excluded_generated_artifacts, cleanRoomExcludedPaths.length,
+  'legacy umbrella counter includes generated and agent-instruction non-product artifacts');
+const cleanRoomSerialized = JSON.stringify(cleanRoomDiscovery.candidate_index);
+for (const excludedPath of cleanRoomExcludedPaths) {
+  assert.equal(cleanRoomSerialized.includes(excludedPath), false,
+    `excluded path cannot contaminate any index surface: ${excludedPath}`);
+}
+const cleanRoomIndexedPaths = [
+  ...Object.values(cleanRoomDiscovery.candidate_index.categories).flat(),
+  ...cleanRoomDiscovery.candidate_index.near_neighbors.map((row) => row.candidate),
+  ...cleanRoomDiscovery.candidate_index.negative_decoys.map((row) => row.candidate),
+  ...Object.values(cleanRoomDiscovery.candidate_index.operation_candidates).flat(),
+].map((anchor) => anchor.path);
+assert.ok(cleanRoomIndexedPaths.length > 0
+  && cleanRoomIndexedPaths.every((candidatePath) => cleanRoomProductPaths.includes(candidatePath)));
+assert.deepEqual(decodeDiscoveryPayload(encodeDiscoveryPayload(cleanRoomDiscovery).line),
+  cleanRoomDiscovery,
+  'clean-room exclusions survive exact transport without entering categories, controls, or operations');
 for (const stratum of ['source', 'test', 'docs', 'config']) {
   assert.ok(serialized.includes(`\"stratum\":\"${stratum}\"`), `index exposes ${stratum} stratum`);
 }
@@ -175,9 +261,9 @@ assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYT
 const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
-assert.equal(Buffer.byteLength(legacyLine), 4_517,
+assert.equal(Buffer.byteLength(legacyLine), 4_520,
   'c009-format same-logical-result JSON+Brotli baseline is frozen');
-assert.equal(Buffer.byteLength(encoded.line), 2_524,
+assert.equal(Buffer.byteLength(encoded.line), 2_525,
   'same-fixture schema-specific wire measurement is frozen');
 assert.ok(Buffer.byteLength(encoded.line) <= 3_840
   && Buffer.byteLength(encoded.line) < Buffer.byteLength(legacyLine),

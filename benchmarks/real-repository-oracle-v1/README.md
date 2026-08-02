@@ -39,8 +39,13 @@ digests for tracked paths and occupied destinations. Proposed names are bounded
 root-level canonical-digest identities; only a safe short source extension is
 preserved, so a legal source path cannot make its own destination invalid.
 Generated and build outputs, including hashed Workbox bundles, are excluded
-explicitly. The complete index
-is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
+explicitly. The clean-room path seam also excludes Mock Service Worker runtime
+artifacts, dependency lockfiles, agent instruction basenames, dedicated agent
+configuration/state directories, and `.github/{agents,instructions}` while
+leaving ordinary `.github` content eligible. The legacy
+`excluded_generated_artifacts` scan counter is the aggregate count of all these
+excluded non-product artifacts; retaining that name avoids a wire/schema churn.
+The complete index is encoded behind the wire-only `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V3`
 prefix. The V3 transport interns canonical file and signal facts, uses reference
 tuples for categories, controls, and operations, hoists shared rename authority,
 and stores digests as canonical base64url raw bytes before Brotli compression.
