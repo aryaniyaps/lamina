@@ -35,8 +35,8 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const canonicalDigest = (value) => sha256(JSON.stringify(canonical(value)));
 
-export const EVIDENCE_SELECTION_RAW_SHA256 = '89f1596a12097e6f4894fd044e7c10f669568c4675aede9772b42bb36b01dfd3';
-export const EVIDENCE_SELECTION_CANONICAL_SHA256 = 'dab932c37cd588b1bdfe840fdf2aae49c39e3c7d81a24c395cd09efc48ee3853';
+export const EVIDENCE_SELECTION_RAW_SHA256 = '338540672264c5bd2bd98164fa120e6cceea6ac5408fcb7c77986d786d70f7d2';
+export const EVIDENCE_SELECTION_CANONICAL_SHA256 = 'fe7693eb1d9585ee1159f05de5a53edf1a50aea0886ae6c1ac70c010b446f0c2';
 export const EVIDENCE_EXPANSION_SCHEMA = 'lamina.real-repository-oracle-evidence-expansion/v1';
 export const EVIDENCE_EXPANSION_PAYLOAD_PREFIX = 'LAMINA_REAL_REPOSITORY_EVIDENCE_EXPANSION_V1=';
 export const EVIDENCE_EXPANSION_MAX_PAYLOAD_LINE_BYTES = 7_680;

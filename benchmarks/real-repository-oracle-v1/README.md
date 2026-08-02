@@ -95,9 +95,10 @@ independent human review before any later fixture or expectation is authored.
 ## Reviewer-selected evidence expansion
 
 `reviews/evidence-selection-v1.json` is a committed, digest-bound, tier-keyed
-selection authority. It is currently marked pending authoring and is explicitly
-not grade or expectation authority. After independent reviewers populate its
-bounded anchors, expansion uses an exact zero-argument workload command:
+selection authority. Independent reviewers selected 8 small, 10 medium, and 12
+large bounded anchors; this selection is still explicitly not grade or
+expectation authority. Evidence expansion has not yet established those facts.
+When that separate stage runs, it uses an exact zero-argument workload command:
 
 ```bash
 node scripts/safe-runner/cli.mjs run \
