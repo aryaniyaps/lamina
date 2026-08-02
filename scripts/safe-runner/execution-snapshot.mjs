@@ -954,7 +954,13 @@ export function prepareExecutionSnapshot({
   }
   const objectIds = new Set();
   if (head) {
-    const reachable = gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
+    // The runtime baseline uses the Lamina checkout only as immutable executable
+    // source and reads its HEAD identifier; all repository lifecycle work occurs
+    // in separately cloned pinned fixtures. Seal the current commit/tree without
+    // copying unrelated Lamina history beside the large pinned runtime inputs.
+    const reachable = auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
+      ? `${head}\n${gitOutput(repository, ['rev-list', '--objects', 'HEAD^{tree}'])}`
+      : gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
     for (const item of reachable.split('\n').filter(Boolean)) {
       const oid = item.match(/^([a-f0-9]{40,64})(?:\s|$)/)?.[1];
       if (!oid) throw new Error('cannot parse reachable Git object closure');
