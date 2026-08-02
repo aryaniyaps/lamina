@@ -1,6 +1,8 @@
 import {
-  FROZEN_GATES, collectionDigest, resultCasesDigest, validateFixture, validateResult,
+  FROZEN_GATES, collectionDigest, digest, fixtureDigest, resultCasesDigest,
+  validateFixture, validateResult,
 } from './contract.mjs';
+import { isControllerOracleVerification } from './controller.mjs';
 
 const stableTarget = (target) => JSON.stringify({
   category: target.category, id: target.id || null, path: target.path || null,
@@ -27,7 +29,7 @@ function completeRanking(expected, actual, matcher, diagnostic) {
 }
 
 function compareRepositoryState(expected, actual, prefix, diagnostics) {
-  for (const field of ['head', 'branch', 'upstream', 'ahead', 'behind', 'worktree']) {
+  for (const field of ['head', 'branch', 'upstream', 'ahead', 'behind', 'worktree_role']) {
     if (actual[field] !== expected[field]) diagnostics.push(`${prefix}: repository ${field} expected ${JSON.stringify(expected[field])}, got ${JSON.stringify(actual[field])}`);
   }
   const expectedChanges = expected.changes.map(changeKey).sort();
@@ -89,27 +91,31 @@ function compareCase(expectedCase, actual, diagnostics, counters, coverage) {
   compareRepositoryState(expected.repository_state, actual.repository_state, prefix, diagnostics);
 }
 
-export function gradeResult(fixture, result, { safetyAttestation = null } = {}) {
+export function gradeResult(fixture, result, { allowUnattestedEvaluation = false } = {}) {
   const fixtureValidation = validateFixture(fixture);
   if (!fixtureValidation.valid) return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: fixtureValidation.errors };
-  const resultValidation = validateResult(result, { safetyAttestation });
+  const measured = result?.evidence_mode !== 'oracle_validation';
+  if (measured && !allowUnattestedEvaluation) return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['measured evidence is gradeable only as a compact envelope issued by the parent safe-runner controller'] };
+  const resultValidation = validateResult(result, { allowUnattested: measured });
   if (!resultValidation.valid) return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: resultValidation.errors };
+  if (result.fixture_digest !== fixtureDigest(fixture)) {
+    return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: ['result fixture digest does not bind the exact reviewed requests, scenarios, expectations, and rationales'] };
+  }
   const collection = fixture.collections.find((item) => item.id === result.collection_id);
   if (!collection || result.collection_digest !== collection.collection_digest
     || collection.collection_digest !== collectionDigest(collection)) {
     return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: [`collection mismatch: ${result.collection_id} does not match its reviewed #60 collection digest`] };
   }
   if (result.safety.outcome === 'blocked') return { passed: false, classification: 'safety_blocked', metrics: null, coverage: null, diagnostics: [result.safety.reason] };
-  if (safetyAttestation) {
-    const materializationDigests = [...new Set(result.materializations.map((item) => item.base_digest))].sort();
-    if (safetyAttestation.collection_digest !== result.collection_digest
-      || JSON.stringify([...safetyAttestation.materialization_digests].sort()) !== JSON.stringify(materializationDigests)) {
-      return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['safe-runner attestation does not bind the exact collection materializations'] };
-    }
-  }
   const expectedCases = fixture.cases.filter((item) => item.collection_id === collection.id);
   if (!sameSet(result.cases.map((item) => item.id), expectedCases.map((item) => item.id))) return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['candidate case ids do not exactly match the reviewed collection case ids'] };
   const diagnostics = [];
+  const materializationByCase = new Map(result.materializations.map((item) => [item.case_id, item]));
+  for (const expectedCase of expectedCases) {
+    if (materializationByCase.get(expectedCase.id)?.scenario_digest !== digest(expectedCase.repository_scenario)) {
+      diagnostics.push(`case ${expectedCase.id}: materialization does not bind the reviewed repository scenario`);
+    }
+  }
   const counters = { exact: { matched: 0, total: 0 }, multi: { matched: 0, total: 0 }, novel: { incorrect: 0, total: 0 }, workflow: { matched: 0, total: 0 }, source: { matched: 0, total: 0 } };
   const coverage = { observations: {}, obligations: {} };
   const byId = new Map(result.cases.map((item) => [item.id, item]));
@@ -128,4 +134,33 @@ export function gradeResult(fixture, result, { safetyAttestation = null } = {}) 
   }
   if (!metrics.deterministic_ordering) diagnostics.push('deterministic ordering: replay digest differs from the graded case ordering');
   return { passed: diagnostics.length === 0, classification: diagnostics.length ? 'product_regression' : 'pass', metrics, coverage, diagnostics };
+}
+
+export function gradeControllerVerification(fixture, verification) {
+  const fixtureValidation = validateFixture(fixture);
+  if (!fixtureValidation.valid) return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: fixtureValidation.errors };
+  if (!isControllerOracleVerification(verification)) {
+    return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['only the parent runSafely controller can issue a gradeable verification'] };
+  }
+  if (verification.envelope === null) {
+    return { passed: false, classification: 'safety_blocked', metrics: null, coverage: null, diagnostics: [verification.blocked_reason] };
+  }
+  const envelope = verification.envelope;
+  const collection = fixture.collections.find((item) => item.id === envelope.collection_id);
+  if (envelope.fixture_digest !== fixtureDigest(fixture) || !collection
+    || envelope.collection_digest !== collection.collection_digest
+    || verification.attestation.fixture_digest !== envelope.fixture_digest
+    || verification.attestation.collection_digest !== envelope.collection_digest) {
+    return { passed: false, classification: 'fixture_defect', metrics: null, coverage: null, diagnostics: ['controller envelope does not bind the exact reviewed fixture and collection'] };
+  }
+  const envelopeMaterializationDigests = [...new Set(
+    envelope.materializations.map((item) => item.base_digest),
+  )].sort();
+  if (verification.attestation.result_sha256 !== envelope.result_sha256
+    || verification.attestation.runner_outcome !== 'success'
+    || verification.attestation.cleanup_verified !== true
+    || !sameSet(verification.attestation.materialization_digests, envelopeMaterializationDigests)) {
+    return { passed: false, classification: 'candidate_invalid', metrics: null, coverage: null, diagnostics: ['controller attestation contradicts the retained result, materialization, outcome, or cleanup evidence'] };
+  }
+  return structuredClone(envelope.grade);
 }

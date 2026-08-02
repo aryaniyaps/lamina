@@ -27,7 +27,7 @@ function boundedPath(candidate) {
   return candidate;
 }
 
-export function parsePorcelainV2Z(input, { worktree } = {}) {
+export function parsePorcelainV2Z(input, { worktreeRole = 'primary' } = {}) {
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(String(input));
   if (bytes.length > MAX_STATUS_BYTES) throw new Error('porcelain v2 output exceeds the admitted bound');
   const text = bytes.toString('utf8');
@@ -35,8 +35,8 @@ export function parsePorcelainV2Z(input, { worktree } = {}) {
   const records = text.split('\0');
   if (records.at(-1) === '') records.pop();
   if (records.length > MAX_RECORDS) throw new Error('porcelain v2 record count exceeds the admitted bound');
-  if (!/^[a-f0-9]{64}$/.test(worktree || '')) throw new Error('physical worktree identity is required');
-  const state = { head: null, branch: null, upstream: null, ahead: 0, behind: 0, worktree, changes: [] };
+  if (typeof worktreeRole !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(worktreeRole)) throw new Error('stable logical worktree role is required');
+  const state = { head: null, branch: null, upstream: null, ahead: 0, behind: 0, worktree_role: worktreeRole, changes: [] };
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
     if (!record) throw new Error('porcelain v2 contains an empty record');
@@ -77,12 +77,14 @@ function physicalIdentity(candidate) {
   return { path: resolved, dev: String(stat.dev), ino: String(stat.ino) };
 }
 
-export function readRepositoryState(cwd) {
+export function readRepositoryState(cwd, { worktreeRole = 'primary' } = {}) {
   const lines = String(runGit(cwd, ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-dir', '--git-common-dir'])).trimEnd().split('\n');
   if (lines.length !== 3 || lines.some((line) => !line)) throw new Error('trusted Git returned an incomplete repository identity');
   const [root, gitDirectory, commonDirectory] = lines.map(physicalIdentity);
   const status = runGit(cwd, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--find-renames=50%'], null);
-  const provisional = parsePorcelainV2Z(status, { worktree: '0'.repeat(64) });
-  const worktree = digest({ root, git_directory: gitDirectory, common_directory: commonDirectory, head: provisional.head });
-  return { ...provisional, worktree };
+  const state = parsePorcelainV2Z(status, { worktreeRole });
+  // Physical identity is verified here but intentionally excluded from stable
+  // grade semantics so fresh isolated leases compare identically.
+  digest({ root, git_directory: gitDirectory, common_directory: commonDirectory, head: state.head });
+  return state;
 }

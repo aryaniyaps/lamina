@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { validateFixtureSchema, validateResultSchema, schemaErrors } from './schema-validation.mjs';
-import { isVerifierAttestation } from './attestation-authority.mjs';
 
 export const FIXTURE_SCHEMA = 'lamina.real-repository-oracle-fixture/v1';
 export const RESULT_SCHEMA = 'lamina.real-repository-oracle-result/v1';
@@ -44,8 +43,15 @@ export const OPERATION_KINDS = Object.freeze([
 export const MUTATION_KINDS = Object.freeze([
   'wrong_workflow', 'missing_observation', 'lost_obligation',
   'source_ranking_regression', 'extra_workflow', 'nondeterministic_replay',
-  'repository_state_mismatch',
+  'repository_state_mismatch', 'stale_rename_path', 'stale_delete_path',
 ]);
+export const MUTATION_APPLICABILITY = Object.freeze({
+  wrong_workflow: 'selected_workflow', missing_observation: 'observation',
+  lost_obligation: 'obligation', source_ranking_regression: 'source_ranking',
+  extra_workflow: 'multi_workflow', nondeterministic_replay: 'replay',
+  repository_state_mismatch: 'repository_state', stale_rename_path: 'rename',
+  stale_delete_path: 'delete',
+});
 
 export const FROZEN_GATES = Object.freeze({
   exact_id_alias_accuracy: 1,
@@ -80,7 +86,10 @@ export function digest(value) {
 const manifestBytes = fs.readFileSync(new URL('../runtime-baseline-v1/manifest.json', import.meta.url));
 const manifest = JSON.parse(manifestBytes);
 export const BASELINE_MANIFEST_SHA256 = '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba';
-if (digest(manifestBytes) !== BASELINE_MANIFEST_SHA256) {
+export function reviewedManifestDigest(bytes) {
+  return digest(Buffer.from(Buffer.from(bytes).toString('utf8').replaceAll('\r\n', '\n')));
+}
+if (reviewedManifestDigest(manifestBytes) !== BASELINE_MANIFEST_SHA256) {
   throw new Error('runtime baseline manifest bytes no longer match the reviewed #60 identity');
 }
 export const COLLECTION_PINS = Object.freeze(Object.fromEntries(manifest.fixtures.map((fixture) => [fixture.id, Object.freeze({
@@ -98,6 +107,7 @@ export function collectionDigest(collection) {
   const { collection_digest: _claimed, ...identity } = collection;
   return digest(identity);
 }
+export function fixtureDigest(fixture) { return digest(fixture); }
 function exactKeys(value, keys) {
   return object(value) && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
@@ -172,6 +182,20 @@ function validateCase(item, index, collectionIds, errors) {
   if ((item.repository_scenario.kind === 'clean') !== (item.repository_scenario.operations.length === 0)) {
     errors.push(`${at}.repository_scenario clean state and operations disagree`);
   }
+  const operations = item.repository_scenario.operations.map((operation) => operation.op);
+  if ((item.repository_scenario.kind === 'dirty'
+      && (!operations.length || operations.some((op) => !['modify', 'rename', 'delete'].includes(op))))
+    || (item.repository_scenario.kind === 'branch'
+      && (operations.length !== 1 || operations[0] !== 'checkout_branch'))
+    || (item.repository_scenario.kind === 'worktree'
+      && (operations.length !== 1 || operations[0] !== 'add_worktree'))) {
+    errors.push(`${at}.repository_scenario kind does not match its executable operations`);
+  }
+  const expectedWorktreeRole = item.repository_scenario.kind === 'worktree'
+    ? item.repository_scenario.operations[0]?.worktree_id : 'primary';
+  if (item.expected.repository_state.worktree_role !== expectedWorktreeRole) {
+    errors.push(`${at}.expected.repository_state.worktree_role contradicts the stable scenario role`);
+  }
   if (item.expected.workflow_outcome === 'new_workflow_required'
     && item.expected.selected_workflow_ids.length !== 0) {
     errors.push(`${at} genuinely new Workflow must select nothing`);
@@ -179,6 +203,12 @@ function validateCase(item, index, collectionIds, errors) {
   if (['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
     && item.expected.selected_workflow_ids.length === 0) {
     errors.push(`${at} selected Workflow outcome requires at least one selected id`);
+  }
+  const expectedOutcome = item.kind.intent === 'multi_workflow' ? 'multi_workflow'
+    : item.kind.intent === 'new_workflow' ? 'new_workflow_required' : null;
+  if ((expectedOutcome && item.expected.workflow_outcome !== expectedOutcome)
+    || (!expectedOutcome && ['multi_workflow', 'new_workflow_required'].includes(item.expected.workflow_outcome))) {
+    errors.push(`${at}.kind.intent contradicts workflow_outcome`);
   }
   for (const field of ['source_ranking', 'observations', 'forbidden_observations', 'obligations']) {
     item.expected[field].forEach((target, targetIndex) => validateTargetPaths(target, `${at}.expected.${field}[${targetIndex}]`, errors));
@@ -222,7 +252,24 @@ export function validateFixture(fixture) {
     for (const category of OBLIGATION_CATEGORIES) if (!obligationCoverage.has(category)) errors.push(`${collection.id} lacks obligation expectation ${category}`);
   }
   if (!unique(fixture.mutations.map((item) => item.id))) errors.push('fixture mutation ids must be unique');
-  for (const mutation of fixture.mutations) if (!fixture.cases.some((item) => item.id === mutation.case_id)) errors.push(`mutation ${mutation.id} references an unknown case`);
+  const mutationCoverage = new Set(fixture.mutations.map((item) => item.kind));
+  for (const kind of MUTATION_KINDS) if (!mutationCoverage.has(kind)) errors.push(`fixture lacks executable mutation ${kind}`);
+  for (const mutation of fixture.mutations) {
+    const reviewedCase = fixture.cases.find((item) => item.id === mutation.case_id);
+    if (!reviewedCase) { errors.push(`mutation ${mutation.id} references an unknown case`); continue; }
+    if (mutation.applicability !== MUTATION_APPLICABILITY[mutation.kind]) errors.push(`mutation ${mutation.id} has incoherent applicability`);
+    const applicable = {
+      selected_workflow: reviewedCase.expected.selected_workflow_ids.length > 0,
+      observation: reviewedCase.expected.observations.length > 0,
+      obligation: reviewedCase.expected.obligations.length > 0,
+      source_ranking: reviewedCase.expected.source_ranking.length > 0,
+      multi_workflow: reviewedCase.expected.workflow_outcome === 'multi_workflow',
+      replay: true, repository_state: true,
+      rename: reviewedCase.repository_scenario.operations.some((item) => item.op === 'rename'),
+      delete: reviewedCase.repository_scenario.operations.some((item) => item.op === 'delete'),
+    }[mutation.applicability];
+    if (!applicable) errors.push(`mutation ${mutation.id} is inert for its target case`);
+  }
   const held = fixture.held_out_compatibility;
   if (held.benchmark !== 'benchmarks/retrieval-v1/benchmark.mjs' || held.split !== 'held_out'
     || held.workflow_rows !== 160 || held.workflow_rows_bytes !== 16928
@@ -249,7 +296,7 @@ function validateResultPaths(item, index, errors) {
   });
 }
 
-export function validateResult(result, { safetyAttestation = null, allowUnattested = false } = {}) {
+export function validateResult(result, { allowUnattested = false, allowVerifiedShape = false } = {}) {
   const errors = [];
   if (!validateResultSchema(result)) return { valid: false, errors: schemaErrors(validateResultSchema) };
   const noClaims = result.claims.end_to_end_runtime === false
@@ -259,9 +306,8 @@ export function validateResult(result, { safetyAttestation = null, allowUnattest
     if (result.safety.mode !== 'not_applicable' || !noClaims) errors.push('oracle validation cannot claim runtime safety or measured product evidence');
   } else if (result.safety.mode === 'unattested') {
     if (!allowUnattested) errors.push('measured results require verifier-produced safe-runner attestation');
-  } else if (!safetyAttestation || !isVerifierAttestation(safetyAttestation)
-    || result.safety.attestation !== safetyAttestation) {
-    errors.push('measured results require the exact verifier-produced attestation object');
+  } else if (!allowVerifiedShape) {
+    errors.push('measured results are gradeable only through a physical controller-report verification');
   }
   if (result.evidence_mode === 'semantic_core'
     && (result.claims.end_to_end_runtime !== false
@@ -300,6 +346,12 @@ export function validateResult(result, { safetyAttestation = null, allowUnattest
   const materializationIds = result.materializations.map((item) => item.case_id);
   if (!unique(materializationIds)) errors.push('result materialization case ids must be unique');
   if (result.cases.length && !sameSet(materializationIds, result.cases.map((item) => item.id))) errors.push('every result case must have exact materialization provenance');
+  for (const item of result.materializations) {
+    if (![item.first_start_digest, item.first_end_digest, item.replay_start_digest,
+      item.replay_end_digest].every((value) => value === item.base_digest)) {
+      errors.push(`materialization ${item.case_id} does not preserve an identical immutable base across first/replay`);
+    }
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -320,14 +372,26 @@ const mutationExecutors = Object.freeze({
   extra_workflow(result, index) { result.cases[index].selected_workflow_ids.push('workflow.mutated-extra'); },
   nondeterministic_replay(result) { result.replay_digest = '0'.repeat(64); },
   repository_state_mismatch(result, index) { result.cases[index].repository_state.ahead += 1; },
+  stale_rename_path(result, index, reviewedCase) {
+    const operation = reviewedCase.repository_scenario.operations.find((item) => item.op === 'rename');
+    result.cases[index].source_ranking.push({ path: operation.path, symbol: null });
+  },
+  stale_delete_path(result, index, reviewedCase) {
+    const operation = reviewedCase.repository_scenario.operations.find((item) => item.op === 'delete');
+    result.cases[index].observations.push({ category: 'source_file', path: operation.path });
+  },
 });
-export function executeRegisteredMutation(result, mutation) {
+export function executeRegisteredMutation(fixture, result, mutation) {
   const executor = mutationExecutors[mutation.kind];
   if (!executor) throw new Error(`unknown registered mutation kind: ${mutation.kind}`);
   const output = structuredClone(result);
   const index = output.cases.findIndex((item) => item.id === mutation.case_id);
   if (index < 0) throw new Error(`mutation case is absent: ${mutation.case_id}`);
-  executor(output, index);
+  const reviewedCase = fixture.cases.find((item) => item.id === mutation.case_id);
+  if (!reviewedCase || mutation.applicability !== MUTATION_APPLICABILITY[mutation.kind]) {
+    throw new Error(`mutation ${mutation.id} is not applicable to its reviewed target`);
+  }
+  executor(output, index, reviewedCase);
   if (mutation.kind !== 'nondeterministic_replay') output.replay_digest = resultCasesDigest(output.cases);
   return output;
 }

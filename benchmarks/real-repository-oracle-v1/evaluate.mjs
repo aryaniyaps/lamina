@@ -1,4 +1,4 @@
-import { ADAPTER_SCHEMA, RESULT_SCHEMA, resultCasesDigest } from './contract.mjs';
+import { ADAPTER_SCHEMA, RESULT_SCHEMA, fixtureDigest, resultCasesDigest } from './contract.mjs';
 import { createMaterializationRegistry } from './materialization-registry.mjs';
 
 function frozenClone(value) {
@@ -90,6 +90,7 @@ async function evaluateWithPrepared({ fixture, collection, adapter, registry, ba
     }
     return {
       case_id: reviewedCase.id,
+      scenario_digest: left.base.scenario_digest,
       provenance_digest: left.base.provenance_digest,
       base_digest: left.base.content_digest,
       first_start_digest: left.lease.start_digest,
@@ -101,6 +102,7 @@ async function evaluateWithPrepared({ fixture, collection, adapter, registry, ba
   return {
     schema: RESULT_SCHEMA,
     adapter: { schema: ADAPTER_SCHEMA, id: adapter.id, version: adapter.version, input_format: adapter.inputFormat, output_format: adapter.outputFormat },
+    fixture_digest: fixtureDigest(fixture),
     collection_id: collection.id,
     collection_digest: collection.collection_digest,
     evidence_mode: evidenceMode,

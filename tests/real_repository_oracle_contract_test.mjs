@@ -9,13 +9,15 @@ import {
   OBSERVATION_CATEGORIES, OBLIGATION_CATEGORIES, QUALIFIED_CURRENT_BASELINE,
   QUERY_KINDS, RESULT_SCHEMA, collectionDigest, digest,
   executeRegisteredMutation, isSafeBranchName, isSafeRelativePath,
-  resultCasesDigest, validateFixture, validateResult,
+  fixtureDigest, resultCasesDigest, reviewedManifestDigest, validateFixture, validateResult,
 } from '../benchmarks/real-repository-oracle-v1/contract.mjs';
 import { evaluateAdapter, evaluateSideBySide } from '../benchmarks/real-repository-oracle-v1/evaluate.mjs';
-import { gradeResult } from '../benchmarks/real-repository-oracle-v1/grade.mjs';
+import { gradeControllerVerification, gradeResult } from '../benchmarks/real-repository-oracle-v1/grade.mjs';
 import {
-  EXACT_WORKLOAD_COMMAND, attestBlockedSafeRunnerReport, attestSafeRunnerReport,
-  encodeUnattestedPayload,
+  CANONICAL_WORKLOAD_ARGV, MAX_PAYLOAD_LINE_BYTES,
+  MAX_RETAINED_DIAGNOSTICS,
+  createCompactGradeEnvelope, encodeUnattestedPayload,
+  verifyReturnedBlockedControllerReport, verifyReturnedControllerReport,
 } from '../benchmarks/real-repository-oracle-v1/attestation.mjs';
 import { resolvePhysicalContained } from '../benchmarks/real-repository-oracle-v1/materialization-registry.mjs';
 import { heldOutIdentity } from '../benchmarks/real-repository-oracle-v1/held-out-compatibility.mjs';
@@ -41,7 +43,6 @@ function collection(fixtureId, index) {
 const collections = ['small', 'medium', 'large'].map(collection);
 const observations = OBSERVATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
 const obligations = OBLIGATION_CATEGORIES.map((category) => ({ category, path: `src/${category}.ts` }));
-const worktreeIdentity = digest('reviewed-physical-worktree');
 
 function scenarioFor(index) {
   if (index === 1) return { kind: 'dirty', name: 'modify', operations: [{ op: 'modify', path: 'src/a.ts', content: 'reviewed mutation' }] };
@@ -71,11 +72,12 @@ function reviewedCase(collectionValue, query, index) {
       workflow_ranking: index === 0 ? [{ id: 'workflow.primary', max_rank: 1 }, { id: 'workflow.secondary', max_rank: 5 }] : [],
       source_ranking: index === 0 ? [{ path: 'src/entry_point.ts', symbol: 'entryPoint', max_rank: 1 }, { path: 'src/handler.ts', symbol: null, max_rank: 10 }] : [],
       observations: index === 0 ? observations : [], forbidden_observations: [],
-      obligations: index === 0 ? obligations : [], forbidden_paths: [],
+      obligations: index === 0 ? obligations : [],
+      forbidden_paths: [2, 3].includes(index) ? ['src/a.ts'] : [],
       repository_state: {
         head: collectionValue.commit,
         branch: index === 4 ? 'review/oracle' : '(detached)', upstream: null,
-        ahead: 0, behind: 0, worktree: worktreeIdentity, changes: [],
+        ahead: 0, behind: 0, worktree_role: index === 5 ? 'linked-1' : 'primary', changes: [],
       },
     },
     rationale: 'Compact reviewed expectation bound to one exact repository collection.',
@@ -84,18 +86,25 @@ function reviewedCase(collectionValue, query, index) {
 const cases = collections.flatMap((item) => QUERY_KINDS.map((query, index) => reviewedCase(item, query, index)));
 const heldOut = heldOutIdentity(retrievalFixture());
 const mutationKinds = [
-  ['wrong_workflow', 'selected Workflow ids'], ['missing_observation', 'missing observation'],
-  ['lost_obligation', 'missing obligation'], ['source_ranking_regression', 'source src/entry_point.ts'],
-  ['extra_workflow', 'selected Workflow ids'], ['nondeterministic_replay', 'deterministic ordering'],
-  ['repository_state_mismatch', 'repository ahead'],
+  ['wrong_workflow', 'selected_workflow', 'selected Workflow ids'],
+  ['missing_observation', 'observation', 'missing observation'],
+  ['lost_obligation', 'obligation', 'missing obligation'],
+  ['source_ranking_regression', 'source_ranking', 'source src/entry_point.ts'],
+  ['extra_workflow', 'multi_workflow', 'selected Workflow ids'],
+  ['nondeterministic_replay', 'replay', 'deterministic ordering'],
+  ['repository_state_mismatch', 'repository_state', 'repository ahead'],
+  ['stale_rename_path', 'rename', 'stale deleted or renamed path'],
+  ['stale_delete_path', 'delete', 'stale deleted or renamed path'],
 ];
 const fixture = {
   schema: FIXTURE_SCHEMA, id: 'synthetic-contract-fixture', version: 1,
   collections, cases,
-  mutations: mutationKinds.map(([kind, diagnostic], index) => ({
+  mutations: mutationKinds.map(([kind, applicability, diagnostic]) => ({
     id: `mutation.${kind}`,
-    case_id: kind === 'extra_workflow' ? cases[6].id : cases[0].id,
-    kind, diagnostic_includes: [diagnostic],
+    case_id: kind === 'extra_workflow' ? cases[6].id
+      : kind === 'stale_rename_path' ? cases[2].id
+      : kind === 'stale_delete_path' ? cases[3].id : cases[0].id,
+    kind, applicability, diagnostic_includes: [diagnostic],
   })),
   held_out_compatibility: {
     benchmark: 'benchmarks/retrieval-v1/benchmark.mjs', split: 'held_out', ...heldOut,
@@ -104,6 +113,10 @@ const fixture = {
 };
 assert.deepEqual(validateFixture(fixture), { valid: true, errors: [] });
 assert.equal(validateFixtureSchema(fixture), true, JSON.stringify(validateFixtureSchema.errors));
+const manifestLf = fs.readFileSync(new URL('../benchmarks/runtime-baseline-v1/manifest.json', import.meta.url));
+const manifestCrlf = Buffer.from(manifestLf.toString('utf8').replaceAll('\n', '\r\n'));
+assert.equal(reviewedManifestDigest(manifestCrlf), BASELINE_MANIFEST_SHA256, 'CRLF checkout bytes preserve only the reviewed LF manifest identity');
+assert.notEqual(reviewedManifestDigest(Buffer.from(manifestLf.toString('utf8').replace('Bulletproof React', 'Changed'))), BASELINE_MANIFEST_SHA256);
 
 const selectedCollection = collections[0];
 const selectedCases = cases.filter((item) => item.collection_id === selectedCollection.id);
@@ -161,6 +174,9 @@ assert.equal(prepareCalls.length, selectedCases.length, 'each scenario has one i
 const alternate = { ...adapter, id: 'candidate', evaluate(input) { return { answer: structuredClone(expectedByRequest.get(input.request)) }; }, normalize(raw) { return raw.answer; } };
 const pair = await evaluateSideBySide({ fixture, collection: selectedCollection, current: adapter, candidate: alternate, materializer });
 assert.deepEqual(pair.current.cases, pair.candidate.cases);
+assert.deepEqual(pair.current.cases.map((item) => item.repository_state.worktree_role),
+  pair.candidate.cases.map((item) => item.repository_state.worktree_role),
+  'fresh physical leases preserve stable logical worktree semantics');
 
 const mutableLeaseMaterializer = {
   ...materializer,
@@ -176,6 +192,12 @@ const reusedLeaseMaterializer = {
   },
 };
 await assert.rejects(evaluateAdapter({ fixture: { ...fixture, cases: [cases[0]] }, collection: selectedCollection, adapter, materializer: reusedLeaseMaterializer }), /reused a writable lease/);
+const unequalMaterialization = structuredClone(result);
+unequalMaterialization.materializations[0].replay_end_digest = 'f'.repeat(64);
+assert.equal(validateResult(unequalMaterialization).valid, false, 'all first/replay materialization digests must equal the immutable base');
+const wrongScenarioIdentity = structuredClone(result);
+wrongScenarioIdentity.materializations[0].scenario_digest = 'f'.repeat(64);
+assert.ok(gradeResult(fixture, wrongScenarioIdentity).diagnostics.some((item) => item.includes('reviewed repository scenario')));
 
 // The #60 authority is not replaceable by recomputing a downstream digest.
 const swapped = structuredClone(fixture);
@@ -223,12 +245,18 @@ assert.equal(gradeResult(fixture, partialSourceQuery).metrics.source_recall_at_1
 const incoherentScenario = structuredClone(fixture);
 incoherentScenario.cases[0].repository_scenario.operations = [{ op: 'delete', path: 'src/a.ts' }];
 assert.equal(validateFixture(incoherentScenario).valid, false, 'derived coverage cannot disagree with the typed scenario');
+const incoherentIntent = structuredClone(fixture);
+incoherentIntent.cases[0].kind.intent = 'new_workflow';
+assert.equal(validateFixture(incoherentIntent).valid, false, 'typed intent must agree with workflow outcome');
+const wrongScenarioOperation = structuredClone(fixture);
+wrongScenarioOperation.cases[4].repository_scenario.operations = [{ op: 'delete', path: 'src/a.ts' }];
+assert.equal(validateFixture(wrongScenarioOperation).valid, false, 'branch scenarios cannot carry an unrelated mutation recipe');
 
-for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree']) {
+for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree_role']) {
   const mismatch = structuredClone(result);
   if (field === 'head') mismatch.cases[0].repository_state.head = 'f'.repeat(40);
   else if (field === 'upstream') mismatch.cases[0].repository_state.upstream = 'origin/main';
-  else if (field === 'worktree') mismatch.cases[0].repository_state.worktree = 'f'.repeat(64);
+  else if (field === 'worktree_role') mismatch.cases[0].repository_state.worktree_role = 'unexpected';
   else mismatch.cases[0].repository_state[field] += 1;
   mismatch.replay_digest = resultCasesDigest(mismatch.cases);
   assert.ok(gradeResult(fixture, mismatch).diagnostics.some((item) => item.includes(`repository ${field}`)));
@@ -239,11 +267,17 @@ extraChange.replay_digest = resultCasesDigest(extraChange.cases);
 assert.ok(gradeResult(fixture, extraChange).diagnostics.some((item) => item.includes('repository changes expected exactly')));
 
 for (const mutation of fixture.mutations) {
-  const mutated = executeRegisteredMutation(result, mutation);
+  const mutated = executeRegisteredMutation(fixture, result, mutation);
   const graded = gradeResult(fixture, mutated);
   assert.equal(graded.classification, 'product_regression', mutation.kind);
   for (const needle of mutation.diagnostic_includes) assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
 }
+const inertMutation = structuredClone(fixture);
+inertMutation.mutations.find((item) => item.kind === 'stale_rename_path').case_id = cases[0].id;
+assert.equal(validateFixture(inertMutation).valid, false, 'every registered mutation must be applicable to its reviewed target');
+const missingMutationKind = structuredClone(fixture);
+missingMutationKind.mutations = missingMutationKind.mutations.filter((item) => item.kind !== 'stale_delete_path');
+assert.equal(validateFixture(missingMutationKind).valid, false, 'all executable mutation kinds are mandatory');
 
 const measured = await evaluateAdapter({
   fixture, collection: selectedCollection, adapter, materializer,
@@ -252,8 +286,10 @@ const measured = await evaluateAdapter({
 assert.equal(validateResult(measured).valid, false, 'unattested workload output is never gradeable');
 const forgedAttestation = {
   schema: 'lamina.real-repository-oracle-attestation/v1', report_schema: 'lamina.safe-runner-report/v1',
-  report_sha256: '1'.repeat(64), result_sha256: '2'.repeat(64), workload_id: 'real-repository-oracle-v1:validate', tier: 'small',
-  command_sha256: digest(EXACT_WORKLOAD_COMMAND), collection_digest: selectedCollection.collection_digest,
+  report_sha256: '1'.repeat(64), result_sha256: '2'.repeat(64), fixture_digest: fixtureDigest(fixture), tier: 'small',
+  command_sha256: digest(CANONICAL_WORKLOAD_ARGV), source_identity_sha256: '3'.repeat(64),
+  execution_identity_sha256: '4'.repeat(64), promotion_sha256: '5'.repeat(64),
+  collection_digest: selectedCollection.collection_digest,
   materialization_digests: [...new Set(measured.materializations.map((item) => item.base_digest))],
   runner_outcome: 'success', cleanup_verified: true,
 };
@@ -262,14 +298,69 @@ const forgedPublic = {
   claims: { end_to_end_runtime: true, observation: 'public_cli', obligations: 'public_cli', source_localization: 'real_retrieval' },
   safety: { mode: 'attested', outcome: 'success', reason: null, attestation: forgedAttestation },
 };
-assert.equal(validateResult(forgedPublic, { safetyAttestation: forgedPublic.safety.attestation }).valid, false, 'caller-shaped proof cannot forge a public CLI pass');
+assert.equal(validateResult(forgedPublic).valid, false, 'caller-shaped proof cannot forge a public CLI pass');
+assert.equal(gradeControllerVerification(fixture, { envelope: forgedPublic }).classification, 'candidate_invalid', 'an in-payload object cannot mint a parent-controller verification');
 
-const payloadLine = encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, result: measured });
+const measuredGrade = gradeResult(fixture, measured, { allowUnattestedEvaluation: true });
+const compactEnvelope = createCompactGradeEnvelope({
+  fixtureDigest: fixtureDigest(fixture), result: measured, grade: measuredGrade,
+});
+assert.equal('cases' in compactEnvelope, false, 'the retained payload is a compact grade envelope, not 20+ case bodies');
+const payloadLine = encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, envelope: compactEnvelope });
+assert.ok(Buffer.byteLength(payloadLine) <= MAX_PAYLOAD_LINE_BYTES);
+assert.ok(Buffer.byteLength(payloadLine) < 8 * 1024, 'compact payload must fit the real #59 diagnostic tail');
+const oversizedGrade = {
+  ...measuredGrade, passed: false, classification: 'product_regression',
+  diagnostics: Array.from({ length: 500 }, (_, index) => `diagnostic-${index}-${'x'.repeat(2_000)}`),
+};
+const oversizedEnvelope = createCompactGradeEnvelope({
+  fixtureDigest: fixtureDigest(fixture), result: measured, grade: oversizedGrade,
+});
+assert.equal(oversizedEnvelope.grade.diagnostics.length, MAX_RETAINED_DIAGNOSTICS);
+assert.equal(oversizedEnvelope.grade.diagnostics_total, 500);
+assert.match(oversizedEnvelope.grade.diagnostics_sha256, /^[a-f0-9]{64}$/);
+assert.ok(Buffer.byteLength(encodeUnattestedPayload({ tier: 'small', collectionDigest: selectedCollection.collection_digest, envelope: oversizedEnvelope })) <= MAX_PAYLOAD_LINE_BYTES,
+  'oversized failing diagnostics remain a bounded product-regression envelope');
+const attestationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-attestation-'));
+const payloadCwd = path.join(attestationRoot, 'payload-repository');
+const controllerDirectory = path.join(attestationRoot, 'controller-reports');
+const entrypoint = path.join(payloadCwd, 'benchmarks/real-repository-oracle-v1/workload.mjs');
+fs.mkdirSync(path.dirname(entrypoint), { recursive: true }); fs.mkdirSync(controllerDirectory);
+fs.writeFileSync(entrypoint, '#!/usr/bin/env node\n', { mode: 0o600 });
+const executable = fs.realpathSync.native(process.execPath);
+const command = [executable, entrypoint, 'validate'];
+function testFileIdentity(file) {
+  const stat = fs.lstatSync(file, { bigint: true });
+  return { path: file, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid), mode: Number(stat.mode & 0o777n), size: String(stat.size), digest: digest(fs.readFileSync(file)) };
+}
+const executableIdentity = testFileIdentity(executable);
+const entrypointIdentity = testFileIdentity(entrypoint);
+const sourceValue = {
+  repository: payloadCwd, command, executable: executableIdentity,
+  workload_inputs: [{ path: entrypoint, size: entrypointIdentity.size, digest: entrypointIdentity.digest }],
+  retrieval_authority: null, runtime_baseline_inputs: null,
+  repository_source: '6'.repeat(64), runner_build: '7'.repeat(64),
+};
+const sourceIdentity = { ...sourceValue, digest: digest(JSON.stringify(sourceValue)) };
+const snapshotDigest = '8'.repeat(64);
+const executionIdentityDigest = digest(JSON.stringify({ source_identity_digest: sourceIdentity.digest, execution_snapshot_digest: snapshotDigest }));
+const promotion = { ok: true, required: [], missing: [], completed: [], deferred_to_execution_snapshot: false };
+const safeReportFile = path.join(controllerDirectory, 'issue60-compatible-report.json');
+// Compatibility fixture mirrors the absolute command, source/execution identity,
+// promotion, production scope, output, and cleanup shape emitted by the real #60 run.
 const safeReport = {
-  schema: 'lamina.safe-runner-report/v1', schema_version: 1, run_id: 'safe-test', report_file: null,
-  outcome: 'success', tier: 'small', command: [...EXACT_WORKLOAD_COMMAND], cwd: '/runner',
+  schema: 'lamina.safe-runner-report/v1', schema_version: 1, run_id: 'safe-test', report_file: safeReportFile,
+  outcome: 'success', tier: 'small', command, cwd: payloadCwd,
   started_at: '2026-08-02T00:00:00.000Z', finished_at: '2026-08-02T00:00:01.000Z', duration_ms: 1000,
-  adapter: { id: 'linux-cgroup-v2' }, limits: {}, preflight: { ok: true },
+  adapter: { id: 'linux-systemd-cgroup-v2', production_enforcement: true }, limits: {},
+  preflight: {
+    ok: true, workload_id: 'real-repository-oracle-v1:validate',
+    ownership: { proven: true, audited_entrypoint: 'benchmarks/real-repository-oracle-v1/workload.mjs', executable },
+    execution_command: command, source_identity: sourceIdentity,
+    execution_snapshot: { schema: 'lamina.safe-runner-execution-snapshot/v1', digest: snapshotDigest, file_count: 1, total_bytes: Number(entrypointIdentity.size), snapshot_roots: [payloadCwd], writable_roots: [] },
+    execution_identity: { ...sourceIdentity, source_identity_digest: sourceIdentity.digest, execution_snapshot_digest: snapshotDigest, digest: executionIdentityDigest },
+    promotion, scope_proof: { production_enforcement: true },
+  },
   samples: [{ elapsed_ms: 1, aggregate_rss_bytes: 1, cgroup_memory_bytes: 1, pids: 1, temporary_bytes: 1, temporary_inodes: 1 }],
   peaks: { aggregate_rss_bytes: 1, cgroup_memory_bytes: 1, pids: 1, temporary_bytes: 1, temporary_inodes: 1 },
   descendants: [],
@@ -278,27 +369,69 @@ const safeReport = {
   cleanup: { attempted: true, descendants_remaining: [], managed_paths_remaining: [], scope_removed: true, temporary_directory_removed: true, lock_released: true, errors: [] },
   error: null,
 };
-const attested = attestSafeRunnerReport(Buffer.from(JSON.stringify(safeReport)), { expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest });
-assert.equal(validateResult(attested.result, { safetyAttestation: attested.attestation }).valid, true);
-assert.equal(gradeResult(fixture, attested.result, { safetyAttestation: attested.attestation }).classification, 'pass');
-const reusedProof = { ...attested.result, cases: structuredClone(attested.result.cases) };
-reusedProof.cases[0].selected_workflow_ids = ['workflow.tampered'];
-assert.equal(validateResult(reusedProof, { safetyAttestation: attested.attestation }).valid, false, 'a real report attestation cannot be replayed over modified result bytes');
-const reportWithoutCleanup = structuredClone(safeReport); reportWithoutCleanup.cleanup.temporary_directory_removed = false;
-assert.throws(() => attestSafeRunnerReport(JSON.stringify(reportWithoutCleanup), { expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest }), /invalid|cleanup/);
-const refusedReport = structuredClone(safeReport);
-refusedReport.outcome = 'preflight_refused'; refusedReport.adapter = null; refusedReport.limits = null;
-refusedReport.preflight = { ok: false }; refusedReport.samples = [];
-refusedReport.peaks = { aggregate_rss_bytes: 0, cgroup_memory_bytes: 0, pids: 0, temporary_bytes: 0, temporary_inodes: 0 };
-refusedReport.output = { stdout_bytes: 0, stderr_bytes: 0, total_bytes: 0, stdout_tail: '', stderr_tail: '', truncated: false };
-refusedReport.termination = { reason: 'preflight_refused', limit: null, requested_signals: [], child_exit_code: null, child_signal: null, cgroup_events: {} };
-refusedReport.cleanup = { attempted: false, descendants_remaining: [], managed_paths_remaining: [], scope_removed: null, temporary_directory_removed: null, lock_released: true, errors: [] };
-refusedReport.error = { code: 'LAMINA_SAFE_PREFLIGHT', message: 'pinned worker is unavailable' };
-const blocked = attestBlockedSafeRunnerReport(JSON.stringify(refusedReport), {
-  expectedTier: 'small', expectedCollectionDigest: selectedCollection.collection_digest,
-  adapterId: 'public-cli',
+fs.writeFileSync(safeReportFile, JSON.stringify(safeReport), { mode: 0o600 });
+Object.defineProperty(safeReport, 'writtenReport', { enumerable: false, value: { path: safeReportFile, fallback: false, write_error: null } });
+const unbranded = verifyReturnedControllerReport(safeReport, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
 });
-assert.equal(gradeResult(fixture, blocked.result, { safetyAttestation: blocked.attestation }).classification, 'safety_blocked');
+assert.equal(gradeControllerVerification(fixture, unbranded).classification, 'candidate_invalid', 'a valid-shaped report outside the parent controller cannot mint a gradeable object');
+const changedFixture = structuredClone(fixture);
+changedFixture.cases[0].rationale = 'A different but still valid reviewed rationale.';
+assert.throws(() => verifyReturnedControllerReport(safeReport, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(changedFixture),
+}), /does not bind|payload/,
+'old evidence fails after a valid fixture request, scenario, expectation, or rationale change');
+const duplicatePayloadReport = structuredClone(safeReport);
+duplicatePayloadReport.output.stdout_tail = `${payloadLine}\n${payloadLine}`;
+duplicatePayloadReport.output.stdout_bytes = Buffer.byteLength(duplicatePayloadReport.output.stdout_tail);
+duplicatePayloadReport.output.total_bytes = duplicatePayloadReport.output.stdout_bytes;
+fs.writeFileSync(safeReportFile, JSON.stringify(duplicatePayloadReport), { mode: 0o600 });
+Object.defineProperty(duplicatePayloadReport, 'writtenReport', { enumerable: false, value: { path: safeReportFile, fallback: false, write_error: null } });
+assert.throws(() => verifyReturnedControllerReport(duplicatePayloadReport, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
+}), /exactly one compact oracle payload/,
+'candidate or adapter stdout cannot masquerade as a second canonical workload envelope');
+fs.writeFileSync(safeReportFile, JSON.stringify(safeReport), { mode: 0o600 });
+const counterfeitFile = path.join(payloadCwd, 'payload-minted-report.json');
+const counterfeit = { ...safeReport, report_file: counterfeitFile };
+fs.writeFileSync(counterfeitFile, JSON.stringify(counterfeit), { mode: 0o600 });
+Object.defineProperty(counterfeit, 'writtenReport', { enumerable: false, value: { path: counterfeitFile, fallback: false, write_error: null } });
+assert.throws(() => verifyReturnedControllerReport(counterfeit, {
+  reportFile: counterfeitFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
+}), /overlaps the writable payload cwd/);
+const reportWithoutCleanup = structuredClone(safeReport);
+reportWithoutCleanup.cleanup.temporary_directory_removed = false;
+fs.writeFileSync(safeReportFile, JSON.stringify(reportWithoutCleanup), { mode: 0o600 });
+Object.defineProperty(reportWithoutCleanup, 'writtenReport', { enumerable: false, value: { path: safeReportFile, fallback: false, write_error: null } });
+assert.throws(() => verifyReturnedControllerReport(reportWithoutCleanup, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
+}), /invalid|cleanup/);
+const refusedReport = structuredClone(safeReport);
+refusedReport.outcome = 'command_failed';
+refusedReport.output = { stdout_bytes: 0, stderr_bytes: 0, total_bytes: 0, stdout_tail: '', stderr_tail: '', truncated: false };
+refusedReport.termination = { reason: 'command_failed', limit: null, requested_signals: [], child_exit_code: 2, child_signal: null, cgroup_events: {} };
+refusedReport.error = { code: 'LAMINA_WORKLOAD_BLOCKED', message: 'pinned worker is unavailable' };
+fs.writeFileSync(safeReportFile, JSON.stringify(refusedReport), { mode: 0o600 });
+Object.defineProperty(refusedReport, 'writtenReport', { enumerable: false, value: { path: safeReportFile, fallback: false, write_error: null } });
+const blocked = verifyReturnedBlockedControllerReport(refusedReport, {
+  reportFile: safeReportFile, expectedTier: 'small',
+  expectedCollectionDigest: selectedCollection.collection_digest,
+  expectedFixtureDigest: fixtureDigest(fixture),
+});
+assert.equal(gradeControllerVerification(fixture, blocked).classification, 'candidate_invalid', 'only the live parent controller can brand even a valid blocked report');
+const controllerSource = fs.readFileSync(new URL('../benchmarks/real-repository-oracle-v1/controller.mjs', import.meta.url), 'utf8');
+assert.match(controllerSource, /await runSafely\(/); assert.match(controllerSource, /issued\.add\(verification\)/);
+fs.rmSync(attestationRoot, { recursive: true, force: true });
 
 const hash = '1'.repeat(40);
 const porcelain = [
@@ -308,12 +441,12 @@ const porcelain = [
   `2 C. N... 100644 100644 100644 ${hash} ${hash} C100 src/copy.ts`, 'src/original.ts',
   '? src/untracked.ts', '',
 ].join('\0');
-const parsed = parsePorcelainV2Z(porcelain, { worktree: worktreeIdentity });
+const parsed = parsePorcelainV2Z(porcelain, { worktreeRole: 'linked-1' });
 assert.deepEqual(parsed.changes.map((item) => [item.kind, item.path, item.original_path]), [
   ['copied', 'src/copy.ts', 'src/original.ts'], ['renamed', 'src/new.ts', 'src/old.ts'],
   ['ordinary', 'src/ordinary.ts', null], ['untracked', 'src/untracked.ts', null],
 ]);
-assert.throws(() => parsePorcelainV2Z(`# branch.head main\0x nonsense\0`, { worktree: worktreeIdentity }), /unknown porcelain/);
+assert.throws(() => parsePorcelainV2Z(`# branch.head main\0x nonsense\0`, { worktreeRole: 'primary' }), /unknown porcelain/);
 
 const emptyResult = structuredClone(result); emptyResult.cases[0].selected_workflow_ids = [''];
 assert.equal(validateResultSchema(emptyResult), false);
