@@ -172,7 +172,7 @@ function validateWorkflow(workflow, tier, workflowIds, nodeIds, identities, erro
       || !validEvidenceRef(surface.evidence_ref, tier)
       || surfaceEvidenceRefs.has(surface.evidence_ref) || !SHA1.test(surface.blob_oid || '')
       || !SHA256.test(surface.line_sha256 || '') || !safeRelativePath(surface.path)
-      || !(surface.symbol === null || (/^[A-Za-z_$][A-Za-z0-9_$.-]{0,127}$/.test(surface.symbol || '')
+      || !(surface.symbol === null || (/^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(surface.symbol || '')
         && !/\s/.test(surface.symbol)))
       || !(surface.line === null || (Number.isSafeInteger(surface.line) && surface.line > 0
         && surface.line <= 1_000_000))) {
