@@ -14,11 +14,13 @@ function firstDifference(expected, actual, path = '$.semantic') {
       const difference = firstDifference(expected[index], actual[index], `${path}[${index}]`);
       if (difference) return difference;
     }
+    return null;
   } else if (expected && actual && typeof expected === 'object' && typeof actual === 'object') {
     for (const key of [...new Set([...Object.keys(expected), ...Object.keys(actual)])].sort()) {
       const difference = firstDifference(expected[key], actual[key], `${path}.${key}`);
       if (difference) return difference;
     }
+    return null;
   }
   return { path, expected, actual };
 }

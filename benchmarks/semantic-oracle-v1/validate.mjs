@@ -278,6 +278,10 @@ export function validateFixture(fixture) {
     || typeof item.id !== 'string' || typeof item.reason !== 'string')) {
     errors.push('fixture forbidden outcomes are invalid');
   }
+  if (Array.isArray(fixture.forbidden)
+    && !unique(fixture.forbidden.map((item) => `${item.collection}:${item.id}`))) {
+    errors.push('fixture forbidden outcomes must be unique');
+  }
   if (!Array.isArray(fixture.mutations) || fixture.mutations.some((item) =>
     !exactKeys(item, ['id', 'category', 'description']) || typeof item.id !== 'string'
     || !REQUIRED_CASE_CATEGORIES.includes(item.category) || typeof item.description !== 'string')
@@ -288,16 +292,41 @@ export function validateFixture(fixture) {
   if (!Array.isArray(fixture.cases) || fixture.cases.some((item) =>
     !exactKeys(item, ['id', 'category', 'polarity', 'target', 'rationale'])
     || typeof item.id !== 'string' || !REQUIRED_CASE_CATEGORIES.includes(item.category)
-    || !['positive', 'negative'].includes(item.polarity) || typeof item.target !== 'string'
+    || !['positive', 'negative'].includes(item.polarity) || !object(item.target)
     || typeof item.rationale !== 'string'
-    || (item.polarity === 'negative' && !mutationIds.has(item.target)))) {
+    || (item.polarity === 'positive' && (
+      !exactKeys(item.target, ['kind', 'collection', 'field', 'value'])
+      || item.target.kind !== 'expected' || !COLLECTIONS.includes(item.target.collection)
+      || typeof item.target.field !== 'string'
+    ))
+    || (item.polarity === 'negative' && (
+      !exactKeys(item.target, ['kind', 'id']) || item.target.kind !== 'mutation'
+      || !mutationIds.has(item.target.id)
+    )))) {
     errors.push('fixture case matrix is invalid');
+  }
+  if (Array.isArray(fixture.cases) && !unique(fixture.cases.map((item) => item.id))) {
+    errors.push('fixture case ids must be unique');
   }
   for (const category of REQUIRED_CASE_CATEGORIES) {
     for (const polarity of ['positive', 'negative']) {
       if (!fixture.cases.some((item) => item.category === category && item.polarity === polarity)) {
         errors.push(`fixture case matrix lacks ${polarity} coverage for ${category}`);
       }
+    }
+  }
+  for (const item of fixture.cases.filter((candidate) => candidate.polarity === 'positive')) {
+    const target = item.target;
+    const matched = fixture.expected[target.collection]?.some((candidate) => {
+      const actual = target.field.split('.').reduce((value, key) => value?.[key], candidate);
+      return Array.isArray(actual) ? actual.includes(target.value) : Object.is(actual, target.value);
+    });
+    if (!matched) errors.push(`fixture positive case ${item.id} target does not exist`);
+  }
+  for (const mutation of fixture.mutations) {
+    if (!fixture.cases.some((item) => item.polarity === 'negative'
+      && item.target.id === mutation.id && item.category === mutation.category)) {
+      errors.push(`fixture mutation ${mutation.id} lacks a matching negative case`);
     }
   }
   return { valid: errors.length === 0, errors };

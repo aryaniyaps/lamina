@@ -1,0 +1,2145 @@
+{
+  "schema": "lamina.semantic-fixture/v1",
+  "id": "compact-product-lifecycle",
+  "description": "Reviewed compact product lifecycle covering canonical truth, provenance, publication atomicity, branch isolation, concurrency, obligations, and rebuildable derived state.",
+  "expected": {
+    "branches": [
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.feature-only",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "head_version_id": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+        "id": "branch:feature/semantic-isolation",
+        "name": "feature/semantic-isolation",
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a"
+      },
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "head_version_id": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "id": "branch:main",
+        "name": "main",
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a"
+      }
+    ],
+    "contradictions": [
+      {
+        "id": "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+        "member_ids": [
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_81627a363caeda90c077925ef3dfd884"
+        ],
+        "type": "statement_conflict"
+      }
+    ],
+    "derived_state": [
+      {
+        "authoritative": false,
+        "canonical_head_after": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "canonical_head_before": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "id": "derived:main-retrieval-index",
+        "kind": "retrieval_index",
+        "rebuild_digest_after": "semantic_751d3b98b0cada89f2dcc4b62f309a13ce23ef11fa72ab7d9da16161383a1b70",
+        "rebuild_digest_before": "semantic_751d3b98b0cada89f2dcc4b62f309a13ce23ef11fa72ab7d9da16161383a1b70",
+        "rebuildable": true,
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "source_version_id": "version_c87c0fd50eeb0be5363e39a4e9901519"
+      }
+    ],
+    "graph_versions": [
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.feature-only",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "added_relation_ids": [],
+        "added_resource_ids": [
+          "surface.feature-only"
+        ],
+        "id": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+        "parent_ids": [
+          "version_c87c0fd50eeb0be5363e39a4e9901519"
+        ],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": false,
+          "contradiction_ids": [
+            "contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+          ],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [
+            "persona_walk_missing"
+          ],
+          "verified": false
+        }
+      },
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "added_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "added_resource_ids": [
+          "actor.reviewer",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "id": "version_11ffbe7a28d6500ba1f50fdf32a5049f",
+        "parent_ids": [
+          "version_ba6b552449d5ced81edc8523294692ce"
+        ],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": false,
+          "contradiction_ids": [],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [
+            "persona_walk_missing"
+          ],
+          "verified": false
+        }
+      },
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "added_relation_ids": [],
+        "added_resource_ids": [
+          "entity.concurrent-a"
+        ],
+        "id": "version_22293e4a7478fe95e2b8d4e4cdf48cf4",
+        "parent_ids": [
+          "version_836aa120e487d862e06295f82ed452d3"
+        ],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": false,
+          "contradiction_ids": [
+            "contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+          ],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [
+            "persona_walk_missing"
+          ],
+          "verified": false
+        }
+      },
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "added_relation_ids": [
+          "stmt_81627a363caeda90c077925ef3dfd884"
+        ],
+        "added_resource_ids": [
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+        ],
+        "id": "version_836aa120e487d862e06295f82ed452d3",
+        "parent_ids": [
+          "version_11ffbe7a28d6500ba1f50fdf32a5049f"
+        ],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": false,
+          "contradiction_ids": [
+            "contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+          ],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [
+            "persona_walk_missing"
+          ],
+          "verified": false
+        }
+      },
+      {
+        "active_relation_ids": [],
+        "active_resource_ids": [],
+        "added_relation_ids": [],
+        "added_resource_ids": [],
+        "id": "version_ba6b552449d5ced81edc8523294692ce",
+        "parent_ids": [],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": true,
+          "contradiction_ids": [],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [],
+          "verified": true
+        }
+      },
+      {
+        "active_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "active_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ],
+        "added_relation_ids": [],
+        "added_resource_ids": [
+          "entity.concurrent-b"
+        ],
+        "id": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "parent_ids": [
+          "version_22293e4a7478fe95e2b8d4e4cdf48cf4"
+        ],
+        "retired_relation_ids": [],
+        "retired_resource_ids": [],
+        "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+        "validation": {
+          "approved": false,
+          "contradiction_ids": [
+            "contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+          ],
+          "implementation_ready": false,
+          "mechanically_valid": true,
+          "readiness_gap_codes": [
+            "persona_walk_missing"
+          ],
+          "verified": false
+        }
+      }
+    ],
+    "obligations": [
+      {
+        "category": "surface_realization",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_326e8e28cc8cfd0fcc2aa18f54e86c44",
+        "required_relation_ids": [
+          "stmt_641a66f358183fdbb94a4d45b3726c83"
+        ],
+        "subject_id": "surface.review"
+      },
+      {
+        "category": "operation_contract",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_52d43e49ae4d572949dbdd198326afac",
+        "required_relation_ids": [],
+        "subject_id": "operation.archive"
+      },
+      {
+        "category": "authority",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_57d1037921087aecb5e5f9c666367e4e",
+        "required_relation_ids": [
+          "stmt_d089e25e4457d9bc933d185f8870ad97"
+        ],
+        "subject_id": "actor.reviewer"
+      },
+      {
+        "category": "proof_spec",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_6ca9c8af42a99e58ec32751c80f3de2c",
+        "required_relation_ids": [],
+        "subject_id": "proof.audit"
+      },
+      {
+        "category": "authority",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_983d17f73a6fda9334b62384bed99b47",
+        "required_relation_ids": [
+          "stmt_75d3699e8190a6f2831c445bdd64550f"
+        ],
+        "subject_id": "actor.reviewer"
+      },
+      {
+        "category": "invariant",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_ac861dae4d020bb5f25d100d09594e82",
+        "required_relation_ids": [],
+        "subject_id": "invariant.separation"
+      },
+      {
+        "category": "scenario",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_b3e1f78d02350d571fc0a72fe7833040",
+        "required_relation_ids": [],
+        "subject_id": "scenario.denied"
+      },
+      {
+        "category": "surface",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_d1c27c00b9fd5289c162accc13e169cd",
+        "required_relation_ids": [],
+        "subject_id": "surface.review"
+      },
+      {
+        "category": "workflow_objective",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_de480e759b0248d75cd0216489aabe21",
+        "required_relation_ids": [],
+        "subject_id": "workflow.approval"
+      },
+      {
+        "category": "operation_contract",
+        "complete": false,
+        "evidence_ids": [],
+        "id": "obligation_ee3607d353553842040425d905941e7a",
+        "required_relation_ids": [],
+        "subject_id": "operation.approve"
+      }
+    ],
+    "publication_attempts": [
+      {
+        "base_version_id": "version_836aa120e487d862e06295f82ed452d3",
+        "branch_id": "branch:main",
+        "error_code": null,
+        "head_version_id_after": "version_22293e4a7478fe95e2b8d4e4cdf48cf4",
+        "id": "attempt:concurrent-a-publication",
+        "outcome": "published",
+        "result_version_id": "version_22293e4a7478fe95e2b8d4e4cdf48cf4",
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_836aa120e487d862e06295f82ed452d3",
+        "branch_id": "branch:main",
+        "error_code": "LAMINA_COMPARE_AND_SWAP_FAILED",
+        "head_version_id_after": "version_22293e4a7478fe95e2b8d4e4cdf48cf4",
+        "id": "attempt:concurrent-b-conflict",
+        "outcome": "compare_and_swap_failed",
+        "result_version_id": null,
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_22293e4a7478fe95e2b8d4e4cdf48cf4",
+        "branch_id": "branch:main",
+        "error_code": null,
+        "head_version_id_after": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "id": "attempt:concurrent-b-rebased-publication",
+        "outcome": "published",
+        "result_version_id": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_11ffbe7a28d6500ba1f50fdf32a5049f",
+        "branch_id": "branch:main",
+        "error_code": null,
+        "head_version_id_after": "version_836aa120e487d862e06295f82ed452d3",
+        "id": "attempt:contradiction-publication",
+        "outcome": "published",
+        "result_version_id": "version_836aa120e487d862e06295f82ed452d3",
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_c87c0fd50eeb0be5363e39a4e9901519",
+        "branch_id": "branch:feature/semantic-isolation",
+        "error_code": null,
+        "head_version_id_after": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+        "id": "attempt:feature-worktree-publication",
+        "outcome": "published",
+        "result_version_id": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "entity.concurrent-a",
+          "entity.concurrent-b",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.feature-only",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_ba6b552449d5ced81edc8523294692ce",
+        "branch_id": "branch:main",
+        "error_code": null,
+        "head_version_id_after": "version_11ffbe7a28d6500ba1f50fdf32a5049f",
+        "id": "attempt:initial-atomic-publication",
+        "outcome": "published",
+        "result_version_id": "version_11ffbe7a28d6500ba1f50fdf32a5049f",
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_836aa120e487d862e06295f82ed452d3",
+        "branch_id": "branch:main",
+        "error_code": "LAMINA_INJECTED_INTERRUPTION",
+        "head_version_id_after": "version_836aa120e487d862e06295f82ed452d3",
+        "id": "attempt:interrupted-publication",
+        "outcome": "interrupted",
+        "result_version_id": null,
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      },
+      {
+        "base_version_id": "version_836aa120e487d862e06295f82ed452d3",
+        "branch_id": "branch:main",
+        "error_code": "LAMINA_VALIDATION_FAILED",
+        "head_version_id_after": "version_836aa120e487d862e06295f82ed452d3",
+        "id": "attempt:validation-failure",
+        "outcome": "validation_failed",
+        "result_version_id": null,
+        "visible_relation_ids": [
+          "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+          "stmt_13ecbe599327dbab0ad26eb90301502d",
+          "stmt_2eaac03e9124f9e9a97d940c618ea532",
+          "stmt_32703a775c151193c7de7acc2ea6d59c",
+          "stmt_641a66f358183fdbb94a4d45b3726c83",
+          "stmt_75d3699e8190a6f2831c445bdd64550f",
+          "stmt_7adadddbb4cd8167905faef89b4e2486",
+          "stmt_80bd5df09cf3b472148c629182773ced",
+          "stmt_81627a363caeda90c077925ef3dfd884",
+          "stmt_87725d4b309d7410e7db24ad63d083cd",
+          "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+          "stmt_9776197105522e3f8752e1cb83833bdc",
+          "stmt_cf817c52e1e5570c0b3166097aaff671",
+          "stmt_d089e25e4457d9bc933d185f8870ad97",
+          "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+          "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+          "stmt_fce80c2305a404df8bb2bd729b6a6a91"
+        ],
+        "visible_resource_ids": [
+          "actor.reviewer",
+          "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+          "decision.manual-review",
+          "evidence.human-review",
+          "harness.approval",
+          "invariant.separation",
+          "observation.route",
+          "operation.approve",
+          "operation.archive",
+          "persona.operator",
+          "product.checkout",
+          "proof.audit",
+          "scenario.denied",
+          "state.approved",
+          "state.pending",
+          "surface.review",
+          "workflow.approval"
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_75d3699e8190a6f2831c445bdd64550f",
+        "literal": null,
+        "object_id": "operation.approve",
+        "predicate": "lamina:authorizedFor",
+        "scope_id": null,
+        "subject_id": "actor.reviewer",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_d089e25e4457d9bc933d185f8870ad97",
+        "literal": null,
+        "object_id": "operation.archive",
+        "predicate": "lamina:authorizedFor",
+        "scope_id": null,
+        "subject_id": "actor.reviewer",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_13ecbe599327dbab0ad26eb90301502d",
+        "literal": false,
+        "object_id": null,
+        "predicate": "custom:enabled",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "literal"
+      },
+      {
+        "attributes": {
+          "cardinality": "one"
+        },
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_2eaac03e9124f9e9a97d940c618ea532",
+        "literal": 1,
+        "object_id": null,
+        "predicate": "custom:maxApprovers",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "literal"
+      },
+      {
+        "attributes": {
+          "cardinality": "one"
+        },
+        "epistemic_class": "inferred",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_81627a363caeda90c077925ef3dfd884",
+        "literal": 2,
+        "object_id": null,
+        "predicate": "custom:maxApprovers",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "literal"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_fce80c2305a404df8bb2bd729b6a6a91",
+        "literal": null,
+        "object_id": null,
+        "predicate": "custom:nullablePolicy",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "literal"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_80bd5df09cf3b472148c629182773ced",
+        "literal": null,
+        "object_id": "invariant.separation",
+        "predicate": "lamina:constrainedBy",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "inferred",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_0cac7b856a391d7cfeb7d079f9b3883d",
+        "literal": null,
+        "object_id": "decision.manual-review",
+        "predicate": "lamina:governedBy",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "simulated",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_87725d4b309d7410e7db24ad63d083cd",
+        "literal": null,
+        "object_id": "scenario.denied",
+        "predicate": "lamina:hasScenario",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "observed",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_959f4ab7ee88ef57d301f72aff3402e8",
+        "literal": null,
+        "object_id": "observation.route",
+        "predicate": "lamina:observedAt",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [
+          "harness.approval"
+        ],
+        "generated_by_ids": [],
+        "id": "stmt_d42149a64ba4c80c24a2be8cfc36e3e9",
+        "literal": null,
+        "object_id": "proof.audit",
+        "predicate": "lamina:requiresProof",
+        "scope_id": null,
+        "subject_id": "operation.approve",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_d144173bc0b14c9f7a09b27fe022ac63",
+        "literal": null,
+        "object_id": "actor.reviewer",
+        "predicate": "lamina:canAssume",
+        "scope_id": null,
+        "subject_id": "persona.operator",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "human_evidence",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_7adadddbb4cd8167905faef89b4e2486",
+        "literal": null,
+        "object_id": "evidence.human-review",
+        "predicate": "lamina:supportedBy",
+        "scope_id": null,
+        "subject_id": "proof.audit",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_cf817c52e1e5570c0b3166097aaff671",
+        "literal": null,
+        "object_id": "state.approved",
+        "predicate": "lamina:transitionsTo",
+        "scope_id": null,
+        "subject_id": "state.pending",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {},
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_641a66f358183fdbb94a4d45b3726c83",
+        "literal": null,
+        "object_id": "operation.approve",
+        "predicate": "lamina:realizes",
+        "scope_id": null,
+        "subject_id": "surface.review",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {
+          "position": 1
+        },
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_32703a775c151193c7de7acc2ea6d59c",
+        "literal": null,
+        "object_id": "operation.approve",
+        "predicate": "lamina:hasStep",
+        "scope_id": null,
+        "subject_id": "workflow.approval",
+        "value_kind": "resource"
+      },
+      {
+        "attributes": {
+          "position": 2
+        },
+        "epistemic_class": "intended",
+        "evidence_ids": [],
+        "generated_by_ids": [],
+        "id": "stmt_9776197105522e3f8752e1cb83833bdc",
+        "literal": null,
+        "object_id": "operation.archive",
+        "predicate": "lamina:hasStep",
+        "scope_id": null,
+        "subject_id": "workflow.approval",
+        "value_kind": "resource"
+      }
+    ],
+    "resources": [
+      {
+        "aliases": [
+          "actor.reviewer.alias"
+        ],
+        "attributes": {
+          "name": "Reviewer"
+        },
+        "epistemic_class": "intended",
+        "id": "actor.reviewer",
+        "kind": "actor"
+      },
+      {
+        "aliases": [],
+        "attributes": {
+          "members": [
+            "stmt_2eaac03e9124f9e9a97d940c618ea532",
+            "stmt_81627a363caeda90c077925ef3dfd884"
+          ],
+          "type": "statement_conflict"
+        },
+        "epistemic_class": "intended",
+        "id": "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+        "kind": "contradiction"
+      },
+      {
+        "aliases": [
+          "decision.manual-review.alias"
+        ],
+        "attributes": {
+          "outcome": "Keep manual review"
+        },
+        "epistemic_class": "inferred",
+        "id": "decision.manual-review",
+        "kind": "decision"
+      },
+      {
+        "aliases": [],
+        "attributes": {
+          "name": "Concurrent A"
+        },
+        "epistemic_class": "intended",
+        "id": "entity.concurrent-a",
+        "kind": "entity"
+      },
+      {
+        "aliases": [],
+        "attributes": {
+          "name": "Concurrent B"
+        },
+        "epistemic_class": "intended",
+        "id": "entity.concurrent-b",
+        "kind": "entity"
+      },
+      {
+        "aliases": [
+          "evidence.human-review.alias"
+        ],
+        "attributes": {
+          "summary": "Reviewed approval rule"
+        },
+        "epistemic_class": "human_evidence",
+        "id": "evidence.human-review",
+        "kind": "evidence"
+      },
+      {
+        "aliases": [
+          "harness.approval.alias"
+        ],
+        "attributes": {
+          "events": [
+            {
+              "type": "oracle_passed"
+            }
+          ]
+        },
+        "epistemic_class": "runtime_evidence",
+        "id": "harness.approval",
+        "kind": "harness_result"
+      },
+      {
+        "aliases": [
+          "invariant.separation.alias"
+        ],
+        "attributes": {
+          "rule": "Requester cannot self-approve"
+        },
+        "epistemic_class": "intended",
+        "id": "invariant.separation",
+        "kind": "invariant"
+      },
+      {
+        "aliases": [
+          "observation.route.alias"
+        ],
+        "attributes": {
+          "path": "src/review.ts"
+        },
+        "epistemic_class": "observed",
+        "id": "observation.route",
+        "kind": "observation"
+      },
+      {
+        "aliases": [
+          "operation.approve.alias"
+        ],
+        "attributes": {
+          "name": "Approve request"
+        },
+        "epistemic_class": "intended",
+        "id": "operation.approve",
+        "kind": "operation"
+      },
+      {
+        "aliases": [
+          "operation.archive.alias"
+        ],
+        "attributes": {
+          "name": "Archive decision"
+        },
+        "epistemic_class": "intended",
+        "id": "operation.archive",
+        "kind": "operation"
+      },
+      {
+        "aliases": [
+          "persona.operator.alias"
+        ],
+        "attributes": {
+          "name": "Operations specialist"
+        },
+        "epistemic_class": "intended",
+        "id": "persona.operator",
+        "kind": "persona"
+      },
+      {
+        "aliases": [
+          "product.checkout.alias"
+        ],
+        "attributes": {
+          "name": "Checkout approval"
+        },
+        "epistemic_class": "intended",
+        "id": "product.checkout",
+        "kind": "product"
+      },
+      {
+        "aliases": [
+          "proof.audit.alias"
+        ],
+        "attributes": {
+          "name": "Approval audit proof"
+        },
+        "epistemic_class": "intended",
+        "id": "proof.audit",
+        "kind": "proof"
+      },
+      {
+        "aliases": [
+          "scenario.denied.alias"
+        ],
+        "attributes": {
+          "recovery": "Request another reviewer",
+          "semantic_type": "failure"
+        },
+        "epistemic_class": "simulated",
+        "id": "scenario.denied",
+        "kind": "scenario"
+      },
+      {
+        "aliases": [
+          "state.approved.alias"
+        ],
+        "attributes": {
+          "name": "Approved",
+          "semantic_type": "state"
+        },
+        "epistemic_class": "intended",
+        "id": "state.approved",
+        "kind": "entity"
+      },
+      {
+        "aliases": [
+          "state.pending.alias"
+        ],
+        "attributes": {
+          "name": "Pending",
+          "semantic_type": "state"
+        },
+        "epistemic_class": "intended",
+        "id": "state.pending",
+        "kind": "entity"
+      },
+      {
+        "aliases": [],
+        "attributes": {
+          "name": "Feature-only surface"
+        },
+        "epistemic_class": "intended",
+        "id": "surface.feature-only",
+        "kind": "surface"
+      },
+      {
+        "aliases": [
+          "surface.review.alias"
+        ],
+        "attributes": {
+          "name": "Review queue"
+        },
+        "epistemic_class": "intended",
+        "id": "surface.review",
+        "kind": "surface"
+      },
+      {
+        "aliases": [
+          "workflow.approval.alias"
+        ],
+        "attributes": {
+          "name": "Approve checkout"
+        },
+        "epistemic_class": "intended",
+        "id": "workflow.approval",
+        "kind": "workflow"
+      }
+    ]
+  },
+  "forbidden": [
+    {
+      "collection": "resources",
+      "id": "operation.invalid-partial",
+      "reason": "validation failure must not expose staged state"
+    },
+    {
+      "collection": "resources",
+      "id": "entity.interrupted-partial",
+      "reason": "interrupted publication must roll back internal writes"
+    }
+  ],
+  "cases": [
+    {
+      "id": "positive:resources",
+      "category": "resources",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "id",
+        "value": "product.checkout"
+      },
+      "rationale": "Reviewed positive semantics for resources."
+    },
+    {
+      "id": "negative:resources",
+      "category": "resources",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-product-resource"
+      },
+      "rationale": "Seeded regression must fail for resources."
+    },
+    {
+      "id": "positive:relations",
+      "category": "relations",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "predicate",
+        "value": "lamina:governedBy"
+      },
+      "rationale": "Reviewed positive semantics for relations."
+    },
+    {
+      "id": "negative:relations",
+      "category": "relations",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-governed-relation"
+      },
+      "rationale": "Seeded regression must fail for relations."
+    },
+    {
+      "id": "positive:graph_versions",
+      "category": "graph_versions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "graph_versions",
+        "field": "id",
+        "value": "version_02e53df367a088c5f0d1a4efbe4f41fa"
+      },
+      "rationale": "Reviewed positive semantics for graph versions."
+    },
+    {
+      "id": "negative:graph_versions",
+      "category": "graph_versions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "corrupt-relation-id"
+      },
+      "rationale": "Seeded regression must fail for graph versions."
+    },
+    {
+      "id": "positive:lineage",
+      "category": "lineage",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "graph_versions",
+        "field": "parent_ids",
+        "value": "version_c87c0fd50eeb0be5363e39a4e9901519"
+      },
+      "rationale": "Reviewed positive semantics for lineage."
+    },
+    {
+      "id": "negative:lineage",
+      "category": "lineage",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "break-version-parent"
+      },
+      "rationale": "Seeded regression must fail for lineage."
+    },
+    {
+      "id": "positive:provenance",
+      "category": "provenance",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "epistemic_class",
+        "value": "human_evidence"
+      },
+      "rationale": "Reviewed positive semantics for provenance."
+    },
+    {
+      "id": "negative:provenance",
+      "category": "provenance",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "change-provenance"
+      },
+      "rationale": "Seeded regression must fail for provenance."
+    },
+    {
+      "id": "positive:contradictions",
+      "category": "contradictions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "contradictions",
+        "field": "type",
+        "value": "statement_conflict"
+      },
+      "rationale": "Reviewed positive semantics for contradictions."
+    },
+    {
+      "id": "negative:contradictions",
+      "category": "contradictions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-contradiction"
+      },
+      "rationale": "Seeded regression must fail for contradictions."
+    },
+    {
+      "id": "positive:atomic_publication",
+      "category": "atomic_publication",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "publication_attempts",
+        "field": "outcome",
+        "value": "interrupted"
+      },
+      "rationale": "Reviewed positive semantics for atomic publication."
+    },
+    {
+      "id": "negative:atomic_publication",
+      "category": "atomic_publication",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "expose-partial-publication"
+      },
+      "rationale": "Seeded regression must fail for atomic publication."
+    },
+    {
+      "id": "positive:epistemic_separation",
+      "category": "epistemic_separation",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "epistemic_class",
+        "value": "runtime_evidence"
+      },
+      "rationale": "Reviewed positive semantics for epistemic separation."
+    },
+    {
+      "id": "negative:epistemic_separation",
+      "category": "epistemic_separation",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "collapse-epistemic-class"
+      },
+      "rationale": "Seeded regression must fail for epistemic separation."
+    },
+    {
+      "id": "positive:actors_personas",
+      "category": "actors_personas",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "id",
+        "value": "persona.operator"
+      },
+      "rationale": "Reviewed positive semantics for actors personas."
+    },
+    {
+      "id": "negative:actors_personas",
+      "category": "actors_personas",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-persona"
+      },
+      "rationale": "Seeded regression must fail for actors personas."
+    },
+    {
+      "id": "positive:workflows",
+      "category": "workflows",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "id",
+        "value": "stmt_32703a775c151193c7de7acc2ea6d59c"
+      },
+      "rationale": "Reviewed positive semantics for workflows."
+    },
+    {
+      "id": "negative:workflows",
+      "category": "workflows",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-workflow-step"
+      },
+      "rationale": "Seeded regression must fail for workflows."
+    },
+    {
+      "id": "positive:states_transitions",
+      "category": "states_transitions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "predicate",
+        "value": "lamina:transitionsTo"
+      },
+      "rationale": "Reviewed positive semantics for states transitions."
+    },
+    {
+      "id": "negative:states_transitions",
+      "category": "states_transitions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-transition"
+      },
+      "rationale": "Seeded regression must fail for states transitions."
+    },
+    {
+      "id": "positive:permissions",
+      "category": "permissions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "predicate",
+        "value": "lamina:authorizedFor"
+      },
+      "rationale": "Reviewed positive semantics for permissions."
+    },
+    {
+      "id": "negative:permissions",
+      "category": "permissions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-permission"
+      },
+      "rationale": "Seeded regression must fail for permissions."
+    },
+    {
+      "id": "positive:invariants",
+      "category": "invariants",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "predicate",
+        "value": "lamina:constrainedBy"
+      },
+      "rationale": "Reviewed positive semantics for invariants."
+    },
+    {
+      "id": "negative:invariants",
+      "category": "invariants",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-invariant"
+      },
+      "rationale": "Seeded regression must fail for invariants."
+    },
+    {
+      "id": "positive:failures_decisions",
+      "category": "failures_decisions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "predicate",
+        "value": "lamina:hasScenario"
+      },
+      "rationale": "Reviewed positive semantics for failures decisions."
+    },
+    {
+      "id": "negative:failures_decisions",
+      "category": "failures_decisions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-failure"
+      },
+      "rationale": "Seeded regression must fail for failures decisions."
+    },
+    {
+      "id": "positive:verification_evidence",
+      "category": "verification_evidence",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "evidence_ids",
+        "value": "harness.approval"
+      },
+      "rationale": "Reviewed positive semantics for verification evidence."
+    },
+    {
+      "id": "negative:verification_evidence",
+      "category": "verification_evidence",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-verification-evidence"
+      },
+      "rationale": "Seeded regression must fail for verification evidence."
+    },
+    {
+      "id": "positive:branch_worktree_isolation",
+      "category": "branch_worktree_isolation",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "branches",
+        "field": "id",
+        "value": "branch:feature/semantic-isolation"
+      },
+      "rationale": "Reviewed positive semantics for branch worktree isolation."
+    },
+    {
+      "id": "negative:branch_worktree_isolation",
+      "category": "branch_worktree_isolation",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "leak-feature-branch"
+      },
+      "rationale": "Seeded regression must fail for branch worktree isolation."
+    },
+    {
+      "id": "positive:concurrent_updates",
+      "category": "concurrent_updates",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "id",
+        "value": "entity.concurrent-b"
+      },
+      "rationale": "Reviewed positive semantics for concurrent updates."
+    },
+    {
+      "id": "negative:concurrent_updates",
+      "category": "concurrent_updates",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "drop-concurrent-update"
+      },
+      "rationale": "Seeded regression must fail for concurrent updates."
+    },
+    {
+      "id": "positive:determinism",
+      "category": "determinism",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "id",
+        "value": "stmt_75d3699e8190a6f2831c445bdd64550f"
+      },
+      "rationale": "Reviewed positive semantics for determinism."
+    },
+    {
+      "id": "negative:determinism",
+      "category": "determinism",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "reverse-order"
+      },
+      "rationale": "Seeded regression must fail for determinism."
+    },
+    {
+      "id": "positive:graph_closure",
+      "category": "graph_closure",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "branches",
+        "field": "active_resource_ids",
+        "value": "operation.archive"
+      },
+      "rationale": "Reviewed positive semantics for graph closure."
+    },
+    {
+      "id": "negative:graph_closure",
+      "category": "graph_closure",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "break-graph-closure"
+      },
+      "rationale": "Seeded regression must fail for graph closure."
+    },
+    {
+      "id": "positive:derived_state",
+      "category": "derived_state",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "derived_state",
+        "field": "rebuildable",
+        "value": true
+      },
+      "rationale": "Reviewed positive semantics for derived state."
+    },
+    {
+      "id": "negative:derived_state",
+      "category": "derived_state",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "make-derived-authoritative"
+      },
+      "rationale": "Seeded regression must fail for derived state."
+    },
+    {
+      "id": "positive:implementation_obligations",
+      "category": "implementation_obligations",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "obligations",
+        "field": "category",
+        "value": "authority"
+      },
+      "rationale": "Reviewed positive semantics for implementation obligations."
+    },
+    {
+      "id": "negative:implementation_obligations",
+      "category": "implementation_obligations",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-obligation"
+      },
+      "rationale": "Seeded regression must fail for implementation obligations."
+    },
+    {
+      "id": "positive:completeness",
+      "category": "completeness",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "obligations",
+        "field": "complete",
+        "value": false
+      },
+      "rationale": "Reviewed positive semantics for completeness."
+    },
+    {
+      "id": "negative:completeness",
+      "category": "completeness",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "mark-unresolved-complete"
+      },
+      "rationale": "Seeded regression must fail for completeness."
+    },
+    {
+      "id": "positive:actors",
+      "category": "actors_personas",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "id",
+        "value": "actor.reviewer"
+      },
+      "rationale": "The reviewed fixture contains the authorized Actor separately from the Persona."
+    },
+    {
+      "id": "negative:actors",
+      "category": "actors_personas",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-actor"
+      },
+      "rationale": "Removing the Actor must fail independently of Persona coverage."
+    },
+    {
+      "id": "positive:workflow-order",
+      "category": "workflows",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "attributes.position",
+        "value": 2
+      },
+      "rationale": "The second Workflow step has reviewed position 2."
+    },
+    {
+      "id": "negative:workflow-order",
+      "category": "workflows",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "swap-workflow-step-order"
+      },
+      "rationale": "Swapping reviewed step positions must fail."
+    },
+    {
+      "id": "positive:states",
+      "category": "states_transitions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "attributes.semantic_type",
+        "value": "state"
+      },
+      "rationale": "A State Resource is reviewed separately from the transition."
+    },
+    {
+      "id": "negative:states",
+      "category": "states_transitions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-state"
+      },
+      "rationale": "Removing a State must fail independently of transition coverage."
+    },
+    {
+      "id": "positive:decisions",
+      "category": "failures_decisions",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "resources",
+        "field": "id",
+        "value": "decision.manual-review"
+      },
+      "rationale": "A Decision Resource is reviewed separately from failure behavior."
+    },
+    {
+      "id": "negative:decisions",
+      "category": "failures_decisions",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-decision"
+      },
+      "rationale": "Removing the Decision must fail independently of failure coverage."
+    }
+  ],
+  "mutations": [
+    {
+      "id": "remove-product-resource",
+      "category": "resources",
+      "description": "Remove the canonical Product from every reachable closure."
+    },
+    {
+      "id": "remove-governed-relation",
+      "category": "relations",
+      "description": "Remove the Decision relation while keeping its endpoints."
+    },
+    {
+      "id": "corrupt-relation-id",
+      "category": "graph_versions",
+      "description": "Change a relation identity while preserving internal references."
+    },
+    {
+      "id": "break-version-parent",
+      "category": "lineage",
+      "description": "Drop a GraphVersion parent and make its delta inconsistent."
+    },
+    {
+      "id": "change-provenance",
+      "category": "provenance",
+      "description": "Relabel an intended Resource as inferred."
+    },
+    {
+      "id": "remove-contradiction",
+      "category": "contradictions",
+      "description": "Remove the canonical conflict and its validation reference."
+    },
+    {
+      "id": "expose-partial-publication",
+      "category": "atomic_publication",
+      "description": "Advance a failed publication to a different visible head."
+    },
+    {
+      "id": "collapse-epistemic-class",
+      "category": "epistemic_separation",
+      "description": "Relabel observed source knowledge as intended truth."
+    },
+    {
+      "id": "remove-persona",
+      "category": "actors_personas",
+      "description": "Remove the active Persona and its relations."
+    },
+    {
+      "id": "remove-actor",
+      "category": "actors_personas",
+      "description": "Remove the authorized Actor and its relations."
+    },
+    {
+      "id": "remove-workflow-step",
+      "category": "workflows",
+      "description": "Remove an ordered Workflow step."
+    },
+    {
+      "id": "swap-workflow-step-order",
+      "category": "workflows",
+      "description": "Swap the two reviewed Workflow step positions."
+    },
+    {
+      "id": "remove-transition",
+      "category": "states_transitions",
+      "description": "Remove the pending-to-approved transition."
+    },
+    {
+      "id": "remove-state",
+      "category": "states_transitions",
+      "description": "Remove the pending State and its transition."
+    },
+    {
+      "id": "remove-permission",
+      "category": "permissions",
+      "description": "Remove Actor authorization for the Operation."
+    },
+    {
+      "id": "remove-invariant",
+      "category": "invariants",
+      "description": "Remove the Operation invariant relation."
+    },
+    {
+      "id": "remove-failure",
+      "category": "failures_decisions",
+      "description": "Remove the explicit failure Scenario relation."
+    },
+    {
+      "id": "remove-decision",
+      "category": "failures_decisions",
+      "description": "Remove the explicit product Decision and relation."
+    },
+    {
+      "id": "remove-verification-evidence",
+      "category": "verification_evidence",
+      "description": "Remove runtime Evidence from the proof requirement."
+    },
+    {
+      "id": "leak-feature-branch",
+      "category": "branch_worktree_isolation",
+      "description": "Expose a feature-only Surface on main."
+    },
+    {
+      "id": "drop-concurrent-update",
+      "category": "concurrent_updates",
+      "description": "Lose the second successfully rebased concurrent Resource."
+    },
+    {
+      "id": "reverse-order",
+      "category": "determinism",
+      "description": "Reverse canonical relation ordering."
+    },
+    {
+      "id": "break-graph-closure",
+      "category": "graph_closure",
+      "description": "Remove one active relation only from a branch closure."
+    },
+    {
+      "id": "make-derived-authoritative",
+      "category": "derived_state",
+      "description": "Promote rebuildable derived state to product authority."
+    },
+    {
+      "id": "remove-obligation",
+      "category": "implementation_obligations",
+      "description": "Remove one mechanically compiled obligation."
+    },
+    {
+      "id": "mark-unresolved-complete",
+      "category": "completeness",
+      "description": "Mark an unresolved WorkMap obligation complete."
+    }
+  ]
+}

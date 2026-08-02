@@ -39,6 +39,16 @@ function visible(engine, branchId) {
   };
 }
 
+function derivedProjection(engine, branchId) {
+  const active = engine.activeIds(branchId);
+  return {
+    schema: 'lamina.semantic-derived-projection/v1',
+    source_version_id: engine.head(branchId).id,
+    resource_ids: [...active.resources].sort(),
+    relation_ids: [...active.statements].sort(),
+  };
+}
+
 function attempt({ id, branchId, baseVersionId, outcome, resultVersionId = null,
   errorCode = null, headVersionIdAfter, visibility }) {
   return {
@@ -76,6 +86,7 @@ function stageInitialContract(engine, sessionId) {
     ['persona.operator', 'persona', { name: 'Operations specialist' }, 'intent'],
     ['workflow.approval', 'workflow', { name: 'Approve checkout' }, 'intent'],
     ['operation.approve', 'operation', { name: 'Approve request' }, 'intent'],
+    ['operation.archive', 'operation', { name: 'Archive decision' }, 'intent'],
     ['state.pending', 'entity', { semantic_type: 'state', name: 'Pending' }, 'intent'],
     ['state.approved', 'entity', { semantic_type: 'state', name: 'Approved' }, 'intent'],
     ['invariant.separation', 'invariant', { rule: 'Requester cannot self-approve' }, 'intent'],
@@ -93,7 +104,9 @@ function stageInitialContract(engine, sessionId) {
   const statements = [
     [{ subject: 'persona.operator', predicate: 'lamina:canAssume', object: 'actor.reviewer' }, 'intent'],
     [{ subject: 'actor.reviewer', predicate: 'lamina:authorizedFor', object: 'operation.approve' }, 'intent'],
+    [{ subject: 'actor.reviewer', predicate: 'lamina:authorizedFor', object: 'operation.archive' }, 'intent'],
     [{ subject: 'workflow.approval', predicate: 'lamina:hasStep', object: 'operation.approve', qualifiers: { position: 1 } }, 'intent'],
+    [{ subject: 'workflow.approval', predicate: 'lamina:hasStep', object: 'operation.archive', qualifiers: { position: 2 } }, 'intent'],
     [{ subject: 'surface.review', predicate: 'lamina:realizes', object: 'operation.approve' }, 'intent'],
     [{ subject: 'state.pending', predicate: 'lamina:transitionsTo', object: 'state.approved' }, 'intent'],
     [{ subject: 'operation.approve', predicate: 'lamina:constrainedBy', object: 'invariant.separation' }, 'intent'],
@@ -103,6 +116,8 @@ function stageInitialContract(engine, sessionId) {
     [{ subject: 'proof.audit', predicate: 'lamina:supportedBy', object: 'evidence.human-review' }, 'human'],
     [{ subject: 'operation.approve', predicate: 'lamina:observedAt', object: 'observation.route' }, 'observation'],
     [{ subject: 'operation.approve', predicate: 'custom:maxApprovers', literal: 1, qualifiers: { cardinality: 'one' } }, 'intent'],
+    [{ subject: 'operation.approve', predicate: 'custom:nullablePolicy', literal: null }, 'intent'],
+    [{ subject: 'operation.approve', predicate: 'custom:enabled', literal: false }, 'intent'],
   ];
   for (const [input, ingress] of statements) engine.stageStatement(sessionId, input, ingress);
 }
@@ -311,9 +326,18 @@ export function runCurrentFixture() {
 
     const canonicalHeadBefore = engine.head(main.id).id;
     const catalogBefore = contextCatalog(root);
-    const digestBefore = semanticDigest({ ...catalogBefore, storage: '<clone-local-derived-state>' });
+    const projectionPath = path.join(temporary, 'derived-projection.json');
+    const projectionBefore = derivedProjection(engine, main.id);
+    fs.writeFileSync(projectionPath, `${JSON.stringify(projectionBefore)}\n`);
+    const digestBefore = semanticDigest(JSON.parse(fs.readFileSync(projectionPath, 'utf8')));
+    fs.unlinkSync(projectionPath);
+    fs.writeFileSync(projectionPath, '{"corrupt":true}\n');
+    fs.unlinkSync(projectionPath);
+    const projectionAfter = derivedProjection(engine, main.id);
+    fs.writeFileSync(projectionPath, `${JSON.stringify(projectionAfter)}\n`);
+    const digestAfter = semanticDigest(JSON.parse(fs.readFileSync(projectionPath, 'utf8')));
+    fs.unlinkSync(projectionPath);
     const catalogAfter = contextCatalog(root);
-    const digestAfter = semanticDigest({ ...catalogAfter, storage: '<clone-local-derived-state>' });
     const canonicalHeadAfter = engine.head(main.id).id;
 
     const backupPath = path.join(temporary, 'current-graph.backup.json');

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/semantic-fixture-v1.json",
+  "title": "Lamina reviewed semantic fixture v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "description", "expected", "forbidden", "cases", "mutations"],
+  "properties": {
+    "schema": { "const": "lamina.semantic-fixture/v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "expected": { "$ref": "./result.schema.json#/$defs/semantic" },
+    "forbidden": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["collection", "id", "reason"],
+        "properties": {
+          "collection": {
+            "enum": [
+              "resources", "relations", "graph_versions", "branches", "contradictions",
+              "obligations", "publication_attempts", "derived_state"
+            ]
+          },
+          "id": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 44,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "polarity", "target", "rationale"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "category": { "$ref": "#/$defs/category" },
+          "polarity": { "enum": ["positive", "negative"] },
+          "target": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "collection", "field", "value"],
+                "properties": {
+                  "kind": { "const": "expected" },
+                  "collection": {
+                    "enum": [
+                      "resources", "relations", "graph_versions", "branches", "contradictions",
+                      "obligations", "publication_attempts", "derived_state"
+                    ]
+                  },
+                  "field": { "type": "string", "minLength": 1 },
+                  "value": { "type": ["string", "number", "boolean", "null"] }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": { "const": "mutation" },
+                  "id": { "type": "string", "minLength": 1 }
+                }
+              }
+            ]
+          },
+          "rationale": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "mutations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "category": { "$ref": "#/$defs/category" },
+          "description": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "category": {
+      "enum": [
+        "resources", "relations", "graph_versions", "lineage", "provenance",
+        "contradictions", "atomic_publication", "epistemic_separation", "actors_personas",
+        "workflows", "states_transitions", "permissions", "invariants", "failures_decisions",
+        "verification_evidence", "branch_worktree_isolation", "concurrent_updates",
+        "determinism", "graph_closure", "derived_state", "implementation_obligations",
+        "completeness"
+      ]
+    }
+  }
+}
