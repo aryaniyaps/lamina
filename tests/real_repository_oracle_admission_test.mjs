@@ -107,6 +107,8 @@ assert.deepEqual(RECONSTRUCTION_LIMITS, {
   max_followed_file_bytes: 64 * 1024 * 1024,
   max_retained_link_bytes: 4 * 1024 * 1024,
   max_symlink_traversals: 40,
+  max_full_validation_work_units_per_alias: 32_768,
+  max_full_validation_work_units_aggregate: 262_144,
 });
 assert.deepEqual(COLLECTION_PINS.small, {
   fixture_id: 'small', fixture_class: 'small',
@@ -623,6 +625,16 @@ try {
       candidateInventoryDigest(portableCandidate.inventory));
     assert.equal(portableCandidate.portable_link_resolution.alias_count, 5);
     assert.equal(portableCandidate.portable_link_resolution.max_symlink_traversals, 40);
+    assert.deepEqual({
+      work_unit: portableCandidate.portable_link_resolution.full_validation.work_unit,
+      per_alias: portableCandidate.portable_link_resolution.full_validation.max_work_units_per_alias,
+      aggregate: portableCandidate.portable_link_resolution.full_validation.max_work_units_aggregate,
+    }, {
+      work_unit: 'one_link_follow_or_one_popped_expansion_token',
+      per_alias: 32_768,
+      aggregate: 262_144,
+    });
+    assert.ok(portableCandidate.portable_link_resolution.full_validation.consumed_work_units > 0);
     const portableEntryByPath = new Map(portableEntries.map((entry) => [entry.path, entry]));
     for (const record of portableCandidate.portable_link_resolution.records) {
       assert.equal(record.link_oid, portableEntryByPath.get(record.path).oid);
@@ -653,6 +665,7 @@ try {
     assert.equal(portableCandidate.portable_link_resolution.sha256,
       testSha256(JSON.stringify({
         max_symlink_traversals: 40,
+        full_validation: portableCandidate.portable_link_resolution.full_validation,
         records: portableCandidate.portable_link_resolution.records,
       })),
     'archive evidence SHA covers target text, OIDs, sizes, traversal, and metric contributions');
@@ -1002,6 +1015,59 @@ try {
       }, { outcome: 'file', hops: 3, target_kind: 'file' });
     }
 
+    const portableDoublingGraph = (name, depth, rootCount = 0) => {
+      const cwd = path.join(temporaryRoot, name);
+      runRepositoryGit(temporaryRoot, ['init', '--quiet', cwd]);
+      fs.mkdirSync(path.join(cwd, 'd'));
+      fs.writeFileSync(path.join(cwd, 'd/target.ts'), targetText);
+      const links = [];
+      for (let index = depth; index >= 0; index -= 1) {
+        const link = `l${String(index).padStart(2, '0')}`;
+        const next = `l${String(index + 1).padStart(2, '0')}`;
+        const target = index === depth ? 'd' : `${next}/../${next}`;
+        fs.symlinkSync(target, path.join(cwd, link));
+        links.push(link);
+      }
+      for (let index = 0; index < rootCount; index += 1) {
+        const link = `root-${String(index).padStart(3, '0')}`;
+        fs.symlinkSync('l00', path.join(cwd, link));
+        links.push(link);
+      }
+      runRepositoryGit(cwd, ['add', '--', 'd/target.ts', ...links]);
+      const entries = parseStageEntries(cwd);
+      for (const link of links) fs.unlinkSync(path.join(cwd, link));
+      runRepositoryGit(cwd, [
+        '-c', 'core.symlinks=false', 'checkout-index', '--force', '--', ...links,
+      ]);
+      return {
+        cwd,
+        entries,
+        objectFormat: runRepositoryGit(cwd, ['rev-parse', '--show-object-format']).trim(),
+      };
+    };
+    const perAliasDoubling = portableDoublingGraph('per-alias-doubling-graph', 18);
+    const perAliasStarted = Date.now();
+    assert.throws(() => candidateInventoryFromTracked(
+      perAliasDoubling.cwd, perAliasDoubling.entries, manifest, portableFixture,
+      {
+        objectFormat: perAliasDoubling.objectFormat,
+        maximumTrackedBytes: 4096, maximumEntries: 100, portableCheckout: true,
+      },
+    ), /per-alias follow-or-pop work-unit bound/,
+    'an acyclic doubling graph is refused by a deterministic per-alias work budget');
+    assert.ok(Date.now() - perAliasStarted < 5_000,
+      'the exponential graph must fail closed without expanding exponentially');
+
+    const aggregateDoubling = portableDoublingGraph('aggregate-doubling-graph', 9, 70);
+    assert.throws(() => candidateInventoryFromTracked(
+      aggregateDoubling.cwd, aggregateDoubling.entries, manifest, portableFixture,
+      {
+        objectFormat: aggregateDoubling.objectFormat,
+        maximumTrackedBytes: 4096, maximumEntries: 100, portableCheckout: true,
+      },
+    ), /aggregate follow-or-pop work-unit bound/,
+    'many individually bounded starts cannot exceed the aggregate validation work budget');
+
     const longChainRepository = path.join(temporaryRoot, 'forty-eight-link-chain');
     runRepositoryGit(temporaryRoot, ['init', '--quiet', longChainRepository]);
     fs.writeFileSync(path.join(longChainRepository, 'target.txt'), targetText);
@@ -1214,7 +1280,15 @@ try {
     candidate_inventory_sha256: candidateInventoryDigest(resultInventory),
     portable_link_resolution: {
       schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
-      max_symlink_traversals: 40, alias_count: 0, records: [], sha256: '0'.repeat(64),
+      max_symlink_traversals: 40,
+      full_validation: {
+        work_unit: 'one_link_follow_or_one_popped_expansion_token',
+        max_work_units_per_alias: 32_768,
+        max_work_units_aggregate: 262_144,
+        consumed_work_units: 0,
+        maximum_alias_work_units: 0,
+      },
+      alias_count: 0, records: [], sha256: '0'.repeat(64),
     },
     bounds: RECONSTRUCTION_LIMITS,
   });

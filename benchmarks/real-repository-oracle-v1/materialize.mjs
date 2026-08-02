@@ -14,6 +14,8 @@ const MAX_TRACKED_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_PORTABLE_LINK_BYTES = 4 * 1024;
 const MAX_RETAINED_LINK_BYTES = 4 * 1024 * 1024;
 const MAX_SYMLINK_TRAVERSALS = 40;
+const MAX_FULL_VALIDATION_WORK_UNITS_PER_ALIAS = 32_768;
+const MAX_FULL_VALIDATION_WORK_UNITS_AGGREGATE = 262_144;
 const REQUIRED_PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
   ['core.repositoryformatversion', new Set(['0'])],
   ['core.filemode', new Set(['true', 'false'])],
@@ -34,6 +36,8 @@ export const RECONSTRUCTION_LIMITS = Object.freeze({
   max_followed_file_bytes: MAX_TRACKED_FILE_BYTES,
   max_retained_link_bytes: MAX_RETAINED_LINK_BYTES,
   max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
+  max_full_validation_work_units_per_alias: MAX_FULL_VALIDATION_WORK_UNITS_PER_ALIAS,
+  max_full_validation_work_units_aggregate: MAX_FULL_VALIDATION_WORK_UNITS_AGGREGATE,
 });
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -161,6 +165,8 @@ function portableLinkResolver(
   const linkBodies = new Map();
   const retainedBodies = new Set();
   let retainedLinkBytes = 0;
+  let aggregateValidationWorkUnits = 0;
+  let maximumAliasValidationWorkUnits = 0;
 
   function readLinkBody(entry) {
     const file = path.join(repository, entry.path);
@@ -235,8 +241,22 @@ function portableLinkResolver(
     let current = '';
     let traversalHops = 0;
     let topBody = null;
+    let aliasValidationWorkUnits = 0;
+
+    const consumeValidationWorkUnit = () => {
+      if (enforceTraversalLimit) return;
+      aliasValidationWorkUnits += 1;
+      aggregateValidationWorkUnits += 1;
+      if (aliasValidationWorkUnits > MAX_FULL_VALIDATION_WORK_UNITS_PER_ALIAS) {
+        throw new Error('portable link full validation exceeds the fixed per-alias follow-or-pop work-unit bound');
+      }
+      if (aggregateValidationWorkUnits > MAX_FULL_VALIDATION_WORK_UNITS_AGGREGATE) {
+        throw new Error('portable link full validation exceeds the fixed aggregate follow-or-pop work-unit bound');
+      }
+    };
 
     const follow = (linkEntry) => {
+      consumeValidationWorkUnit();
       traversalHops += 1;
       if (enforceTraversalLimit && traversalHops > MAX_SYMLINK_TRAVERSALS) return false;
       if (activeExpansions.has(linkEntry.path)) {
@@ -256,6 +276,11 @@ function portableLinkResolver(
     };
 
     const finish = (node, nativeSkipReason = null) => {
+      if (!enforceTraversalLimit) {
+        maximumAliasValidationWorkUnits = Math.max(
+          maximumAliasValidationWorkUnits, aliasValidationWorkUnits,
+        );
+      }
       return {
         physical: nativeSkipReason || node.kind !== 'file' ? null : node.physical,
         resolution: Object.freeze({
@@ -295,6 +320,7 @@ function portableLinkResolver(
 
     if (!follow(entry)) return traversalLimit();
     while (pending.length) {
+      consumeValidationWorkUnit();
       const token = pending.pop();
       if (typeof token !== 'string') {
         if (token.kind === 'exit') activeExpansions.delete(token.path);
@@ -343,7 +369,16 @@ function portableLinkResolver(
   for (const entry of entries) {
     if (entry.mode === '120000') resolve(entry, false);
   }
-  return (entry) => resolve(entry, true);
+  return Object.freeze({
+    resolve: (entry) => resolve(entry, true),
+    validation: Object.freeze({
+      work_unit: 'one_link_follow_or_one_popped_expansion_token',
+      max_work_units_per_alias: MAX_FULL_VALIDATION_WORK_UNITS_PER_ALIAS,
+      max_work_units_aggregate: MAX_FULL_VALIDATION_WORK_UNITS_AGGREGATE,
+      consumed_work_units: aggregateValidationWorkUnits,
+      maximum_alias_work_units: maximumAliasValidationWorkUnits,
+    }),
+  });
 }
 
 function trackedEntries(repository, maximumEntries = Number.MAX_SAFE_INTEGER) {
@@ -375,6 +410,7 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
   maximumRetainedLinkBytes = MAX_RETAINED_LINK_BYTES,
   portableCheckout = false,
   portableResolutionEvidence = null,
+  portableValidationEvidence = null,
 } = {}) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
@@ -396,7 +432,10 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
     || maximumFileBytes > MAX_TRACKED_FILE_BYTES
     || !Number.isSafeInteger(maximumRetainedLinkBytes) || maximumRetainedLinkBytes <= 0
     || maximumRetainedLinkBytes > MAX_RETAINED_LINK_BYTES
-    || (portableResolutionEvidence !== null && !Array.isArray(portableResolutionEvidence))) {
+    || (portableResolutionEvidence !== null && !Array.isArray(portableResolutionEvidence))
+    || (portableValidationEvidence !== null
+      && (typeof portableValidationEvidence !== 'object'
+        || Array.isArray(portableValidationEvidence)))) {
     throw new Error('candidate inventory bounds are invalid or exceeded');
   }
   const trackedPaths = entries.map((entry) => (typeof entry === 'string' ? entry : entry.path));
@@ -424,10 +463,12 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
       throw new Error('portable link inventory requires proved command-line core.symlinks=false checkout');
     }
     assertPortableCheckoutConfig(physicalRepository);
-    resolvePortableLink = portableLinkResolver(
+    const resolver = portableLinkResolver(
       physicalRepository, entries, objectFormat, regularFiles, trackedPaths,
       maximumRetainedLinkBytes,
     );
+    resolvePortableLink = resolver.resolve;
+    if (portableValidationEvidence) Object.assign(portableValidationEvidence, resolver.validation);
   }
   for (const entry of entries) {
     const relative = typeof entry === 'string' ? entry : entry.path;
@@ -672,6 +713,13 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
   assertPortableCheckoutConfig(physicalRepository);
   const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
   const portableResolutionEvidence = [];
+  const portableValidationEvidence = {
+    work_unit: 'one_link_follow_or_one_popped_expansion_token',
+    max_work_units_per_alias: MAX_FULL_VALIDATION_WORK_UNITS_PER_ALIAS,
+    max_work_units_aggregate: MAX_FULL_VALIDATION_WORK_UNITS_AGGREGATE,
+    consumed_work_units: 0,
+    maximum_alias_work_units: 0,
+  };
   const inventory = candidateInventoryFromTracked(
     physicalRepository,
     entries,
@@ -685,6 +733,7 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
       maximumRetainedLinkBytes: RECONSTRUCTION_LIMITS.max_retained_link_bytes,
       portableCheckout: true,
       portableResolutionEvidence,
+      portableValidationEvidence,
     },
   );
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
@@ -695,10 +744,12 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
   const portableLinkResolution = Object.freeze({
     schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
     max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
+    full_validation: Object.freeze(portableValidationEvidence),
     alias_count: portableResolutionEvidence.length,
     records: Object.freeze(portableResolutionEvidence),
     sha256: sha256(JSON.stringify({
       max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
+      full_validation: portableValidationEvidence,
       records: portableResolutionEvidence,
     })),
   });
