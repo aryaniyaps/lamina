@@ -37,8 +37,11 @@ path authority plus every implied parent directory in the portable path model,
 not merely the filtered discovery set. The proof binds separate counts and
 digests for tracked paths and occupied destinations. Generated and build outputs,
 including hashed Workbox bundles, are excluded explicitly. The complete index
-is Brotli-compressed into one bounded report-tail line; an oversized index is
-refused rather than lossily compacted.
+is encoded with the versioned `LDO1` transport: a deterministic UTF-8 string
+table and typed tuples are Brotli-compressed into one bounded report-tail line.
+The decoder reconstructs the exact logical discovery object for reviewer use;
+the transport drops no candidate fields. Non-canonical, malformed, tampered,
+or oversized transports are refused rather than lossily compacted.
 
 Discovery output has zero quality claims, cannot load the grader or expectation
 contract, and cannot be used directly by `validate`. Its handoff requires an

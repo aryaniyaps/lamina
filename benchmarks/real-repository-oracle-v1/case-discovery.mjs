@@ -10,6 +10,7 @@ import {
 export const CASE_DISCOVERY_SCHEMA = 'lamina.real-repository-oracle-case-discovery/v2';
 export const CASE_DISCOVERY_PAYLOAD_PREFIX = 'LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=';
 export const CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES = 7_680;
+export const CASE_DISCOVERY_TRANSPORT_SCHEMA = 'lamina.real-repository-oracle-discovery-transport/v1';
 export const CASE_DISCOVERY_LIMITS = Object.freeze({
   ...CASE_DISCOVERY_SCAN_LIMITS,
   anchors_per_category: 3,
@@ -51,6 +52,202 @@ export const validAuthoringBranchName = (value) => typeof value === 'string'
   && !value.endsWith('.') && !value.endsWith('.lock');
 export const validLogicalWorktreeId = (value) =>
   typeof value === 'string' && /^oracle-worktree-[a-f0-9]{12}$/.test(value);
+const DISCOVERY_TRANSPORT_MAGIC = Buffer.from('LDO1');
+const DISCOVERY_TRANSPORT_MAX_BYTES = 512 * 1024;
+const DISCOVERY_TRANSPORT_MAX_STRINGS = 65_536;
+const DISCOVERY_TRANSPORT_MAX_NODES = 100_000;
+const TRANSPORT_TOKEN = Object.freeze({
+  null: 0, false: 1, true: 2, uint: 3, sint: 4, float: 5, string: 6, array: 7, object: 8,
+});
+
+function exactUtf8Bytes(value) {
+  const bytes = Buffer.from(value, 'utf8');
+  if (new TextDecoder('utf-8', { fatal: true }).decode(bytes) !== value) {
+    throw new Error('case-discovery transport requires exact UTF-8 strings');
+  }
+  return bytes;
+}
+
+function varint(value) {
+  let remaining = BigInt(value);
+  if (remaining < 0n) throw new Error('case-discovery transport varint cannot be negative');
+  const bytes = [];
+  do {
+    let next = Number(remaining & 0x7fn);
+    remaining >>= 7n;
+    if (remaining) next |= 0x80;
+    bytes.push(next);
+  } while (remaining);
+  return Buffer.from(bytes);
+}
+
+function discoveryTransportBytes(root) {
+  const strings = new Set();
+  const seen = new Set();
+  let nodes = 0;
+  const collect = (value, depth = 0) => {
+    if (depth > 128 || ++nodes > DISCOVERY_TRANSPORT_MAX_NODES) {
+      throw new Error('case-discovery transport exceeds its structural bound');
+    }
+    if (typeof value === 'string') { exactUtf8Bytes(value); strings.add(value); return; }
+    if (value === null || ['boolean', 'number'].includes(typeof value)) return;
+    if (!value || typeof value !== 'object' || seen.has(value)) {
+      throw new Error('case-discovery transport accepts only acyclic JSON values');
+    }
+    seen.add(value);
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        if (!Object.hasOwn(value, index)) throw new Error('case-discovery transport rejects sparse arrays');
+        collect(value[index], depth + 1);
+      }
+    }
+    else {
+      const prototype = Object.getPrototypeOf(value);
+      if (prototype !== Object.prototype && prototype !== null) {
+        throw new Error('case-discovery transport accepts only plain objects');
+      }
+      for (const key of Object.keys(value)) {
+        exactUtf8Bytes(key); strings.add(key); collect(value[key], depth + 1);
+      }
+    }
+    seen.delete(value);
+  };
+  collect(root);
+  const table = [...strings].sort(gitByteCompare);
+  if (table.length > DISCOVERY_TRANSPORT_MAX_STRINGS) {
+    throw new Error('case-discovery transport exceeds its string-table bound');
+  }
+  const indexes = new Map(table.map((value, index) => [value, index]));
+  const chunks = [DISCOVERY_TRANSPORT_MAGIC, varint(table.length)];
+  for (const value of table) {
+    const bytes = exactUtf8Bytes(value);
+    chunks.push(varint(bytes.length), bytes);
+  }
+  const encode = (value, depth = 0) => {
+    if (depth > 128) throw new Error('case-discovery transport exceeds its depth bound');
+    if (value === null) { chunks.push(Buffer.from([TRANSPORT_TOKEN.null])); return; }
+    if (value === false) { chunks.push(Buffer.from([TRANSPORT_TOKEN.false])); return; }
+    if (value === true) { chunks.push(Buffer.from([TRANSPORT_TOKEN.true])); return; }
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new Error('case-discovery transport rejects non-finite numbers');
+      if (Number.isSafeInteger(value) && !Object.is(value, -0)) {
+        if (value >= 0) chunks.push(Buffer.from([TRANSPORT_TOKEN.uint]), varint(value));
+        else chunks.push(Buffer.from([TRANSPORT_TOKEN.sint]), varint(BigInt(-value) * 2n - 1n));
+      } else {
+        const bytes = Buffer.allocUnsafe(9); bytes[0] = TRANSPORT_TOKEN.float;
+        bytes.writeDoubleBE(value, 1); chunks.push(bytes);
+      }
+      return;
+    }
+    if (typeof value === 'string') {
+      chunks.push(Buffer.from([TRANSPORT_TOKEN.string]), varint(indexes.get(value))); return;
+    }
+    if (Array.isArray(value)) {
+      chunks.push(Buffer.from([TRANSPORT_TOKEN.array]), varint(value.length));
+      for (const item of value) encode(item, depth + 1);
+      return;
+    }
+    const keys = Object.keys(value);
+    chunks.push(Buffer.from([TRANSPORT_TOKEN.object]), varint(keys.length));
+    for (const key of keys) { chunks.push(varint(indexes.get(key))); encode(value[key], depth + 1); }
+  };
+  encode(root);
+  const bytes = Buffer.concat(chunks);
+  if (bytes.length > DISCOVERY_TRANSPORT_MAX_BYTES) {
+    throw new Error('complete case-discovery transport exceeds its decoded-byte bound');
+  }
+  return bytes;
+}
+
+function decodeDiscoveryTransport(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length > DISCOVERY_TRANSPORT_MAX_BYTES
+    || bytes.subarray(0, 4).compare(DISCOVERY_TRANSPORT_MAGIC) !== 0) {
+    throw new Error('case-discovery transport identity is malformed');
+  }
+  let offset = 4;
+  let nodes = 0;
+  const readVarint = () => {
+    let value = 0n;
+    let shift = 0n;
+    for (let count = 0; count < 10; count += 1) {
+      if (offset >= bytes.length) throw new Error('truncated case-discovery varint');
+      const byte = bytes[offset++];
+      value |= BigInt(byte & 0x7f) << shift;
+      if ((byte & 0x80) === 0) {
+        if (count > 0 && byte === 0) throw new Error('case-discovery varint is non-canonical');
+        if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('case-discovery varint is too large');
+        return Number(value);
+      }
+      shift += 7n;
+    }
+    throw new Error('case-discovery varint exceeds its byte bound');
+  };
+  const stringCount = readVarint();
+  if (stringCount > DISCOVERY_TRANSPORT_MAX_STRINGS) throw new Error('case-discovery string table is too large');
+  const table = [];
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  for (let index = 0; index < stringCount; index += 1) {
+    const length = readVarint();
+    if (offset + length > bytes.length) throw new Error('truncated case-discovery string table');
+    const value = decoder.decode(bytes.subarray(offset, offset + length)); offset += length;
+    if (exactUtf8Bytes(value).length !== length
+      || (index > 0 && gitByteCompare(table[index - 1], value) >= 0)) {
+      throw new Error('case-discovery string table is non-canonical');
+    }
+    table.push(value);
+  }
+  const decode = (depth = 0) => {
+    if (depth > 128 || ++nodes > DISCOVERY_TRANSPORT_MAX_NODES || offset >= bytes.length) {
+      throw new Error('case-discovery transport exceeds its structural bound');
+    }
+    const token = bytes[offset++];
+    if (token === TRANSPORT_TOKEN.null) return null;
+    if (token === TRANSPORT_TOKEN.false) return false;
+    if (token === TRANSPORT_TOKEN.true) return true;
+    if (token === TRANSPORT_TOKEN.uint) return readVarint();
+    if (token === TRANSPORT_TOKEN.sint) {
+      const encoded = readVarint();
+      if ((encoded & 1) === 0) throw new Error('case-discovery signed integer is non-canonical');
+      return -((encoded + 1) / 2);
+    }
+    if (token === TRANSPORT_TOKEN.float) {
+      if (offset + 8 > bytes.length) throw new Error('truncated case-discovery float');
+      const value = bytes.readDoubleBE(offset); offset += 8;
+      if (!Number.isFinite(value)) throw new Error('case-discovery float is non-finite');
+      if (Number.isSafeInteger(value) && !Object.is(value, -0)) {
+        throw new Error('case-discovery float is non-canonical');
+      }
+      return value;
+    }
+    if (token === TRANSPORT_TOKEN.string) {
+      const index = readVarint();
+      if (index >= table.length) throw new Error('case-discovery string reference is invalid');
+      return table[index];
+    }
+    if (![TRANSPORT_TOKEN.array, TRANSPORT_TOKEN.object].includes(token)) {
+      throw new Error('case-discovery transport token is invalid');
+    }
+    const length = readVarint();
+    if (length > DISCOVERY_TRANSPORT_MAX_NODES) throw new Error('case-discovery collection is too large');
+    if (token === TRANSPORT_TOKEN.array) {
+      return Array.from({ length }, () => decode(depth + 1));
+    }
+    const output = {};
+    const keys = new Set();
+    for (let index = 0; index < length; index += 1) {
+      const keyIndex = readVarint();
+      if (keyIndex >= table.length || keys.has(keyIndex)) throw new Error('case-discovery object key is invalid');
+      keys.add(keyIndex);
+      Object.defineProperty(output, table[keyIndex], {
+        value: decode(depth + 1), enumerable: true, configurable: true, writable: true,
+      });
+    }
+    return output;
+  };
+  const result = decode();
+  if (offset !== bytes.length) throw new Error('case-discovery transport has trailing bytes');
+  return result;
+}
 
 export function discoveryPathDisposition(relative) {
   const pieces = relative.split('/');
@@ -294,7 +491,8 @@ export function discoverCandidateFacts(
 }
 
 export function encodeDiscoveryPayload(result) {
-  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify(result)), {
+  const transport = discoveryTransportBytes(result);
+  const compressed = zlib.brotliCompressSync(transport, {
     params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
   });
   const line = `${CASE_DISCOVERY_PAYLOAD_PREFIX}${compressed.toString('base64url')}`;
@@ -310,8 +508,14 @@ export function decodeDiscoveryPayload(line) {
     throw new Error('case-discovery payload line is outside the retained-output contract');
   }
   try {
-    const bytes = Buffer.from(line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length), 'base64url');
-    return JSON.parse(zlib.brotliDecompressSync(bytes, { maxOutputLength: 512 * 1024 }).toString('utf8'));
+    const encoded = line.slice(CASE_DISCOVERY_PAYLOAD_PREFIX.length);
+    if (!encoded || !/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('invalid base64url');
+    const compressed = Buffer.from(encoded, 'base64url');
+    if (compressed.toString('base64url') !== encoded) throw new Error('non-canonical base64url');
+    const bytes = zlib.brotliDecompressSync(compressed, {
+      maxOutputLength: DISCOVERY_TRANSPORT_MAX_BYTES,
+    });
+    return decodeDiscoveryTransport(bytes);
   } catch { throw new Error('case-discovery payload line is malformed'); }
 }
 

@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { reviewedCollectionForTier } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 import {
   CASE_DISCOVERY_LIMITS, CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES,
-  CASE_DISCOVERY_PAYLOAD_PREFIX, CASE_DISCOVERY_SCHEMA, decodeDiscoveryPayload,
+  CASE_DISCOVERY_PAYLOAD_PREFIX, CASE_DISCOVERY_SCHEMA, CASE_DISCOVERY_TRANSPORT_SCHEMA,
+  decodeDiscoveryPayload,
   discoverCandidateFacts, discoveryPathDisposition, encodeDiscoveryPayload, gitByteCompare,
   validAuthoringBranchName, validLogicalWorktreeId,
 } from '../benchmarks/real-repository-oracle-v1/case-discovery.mjs';
@@ -65,6 +66,8 @@ const first = discoverCandidateFacts('/unused-by-injected-visitor', collection, 
 const replay = discoverCandidateFacts('/unused-by-injected-visitor', collection, injectedVisitor);
 assert.deepEqual(replay, first);
 assert.equal(first.schema, CASE_DISCOVERY_SCHEMA);
+assert.equal(CASE_DISCOVERY_TRANSPORT_SCHEMA,
+  'lamina.real-repository-oracle-discovery-transport/v1');
 assert.equal(first.expectations_loaded, false);
 assert.equal(first.grade_controller_evidence, false);
 assert.ok(Object.values(first.quality_claims).every((claim) => claim === false));
@@ -145,6 +148,40 @@ assert.ok(encoded.line.startsWith(CASE_DISCOVERY_PAYLOAD_PREFIX));
 assert.ok(Buffer.byteLength(encoded.line) <= CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES);
 assert.deepEqual(decodeDiscoveryPayload(encoded.line), first);
 assert.throws(() => decodeDiscoveryPayload('bad'), /outside the retained-output contract/);
+assert.throws(() => decodeDiscoveryPayload(`${CASE_DISCOVERY_PAYLOAD_PREFIX}AAAA`),
+  /payload line is malformed/);
+const tamperedCharacters = encoded.line.split('');
+const tamperIndex = CASE_DISCOVERY_PAYLOAD_PREFIX.length + 2;
+tamperedCharacters[tamperIndex] = tamperedCharacters[tamperIndex] === 'A' ? 'B' : 'A';
+assert.throws(() => decodeDiscoveryPayload(tamperedCharacters.join('')),
+  /payload line is malformed/, 'transport tampering cannot decode as reviewer facts');
+
+const nearBound = (count) => {
+  const value = structuredClone(first);
+  value.candidate_index.transport_near_bound_probe = Array.from({ length: count }, (_, index) =>
+    crypto.createHash('sha256').update(`near-bound-${index}`).digest('hex'));
+  return value;
+};
+let lower = 0;
+let upper = 32;
+while (upper <= 4_096) {
+  try { encodeDiscoveryPayload(nearBound(upper)); lower = upper; upper *= 2; }
+  catch { break; }
+}
+assert.ok(upper <= 4_096, 'synthetic transport probe must reach the retained-line refusal');
+while (lower + 1 < upper) {
+  const middle = Math.floor((lower + upper) / 2);
+  try { encodeDiscoveryPayload(nearBound(middle)); lower = middle; }
+  catch { upper = middle; }
+}
+const nearBoundValue = nearBound(lower);
+const nearBoundEncoded = encodeDiscoveryPayload(nearBoundValue);
+assert.ok(Buffer.byteLength(nearBoundEncoded.line) > CASE_DISCOVERY_MAX_PAYLOAD_LINE_BYTES - 256,
+  'the deterministic synthetic payload exercises the retained-line boundary closely');
+assert.deepEqual(decodeDiscoveryPayload(nearBoundEncoded.line), nearBoundValue,
+  'near-bound transport reconstructs every logical fact exactly');
+assert.throws(() => encodeDiscoveryPayload(nearBound(upper)),
+  /exceeds the retained report-tail bound/);
 const oversized = structuredClone(first);
 oversized.candidate_index.extra_noise = Array.from({ length: 256 }, () => crypto.randomBytes(96).toString('hex'));
 assert.throws(() => encodeDiscoveryPayload(oversized), /exceeds the retained report-tail bound/,
