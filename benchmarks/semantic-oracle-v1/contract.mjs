@@ -27,6 +27,7 @@ export const REQUIRED_CASE_CATEGORIES = Object.freeze([
   'derived_state',
   'implementation_obligations',
   'completeness',
+  'cli_outcomes',
 ]);
 
 export const COLLECTIONS = Object.freeze([
@@ -37,6 +38,7 @@ export const COLLECTIONS = Object.freeze([
   'contradictions',
   'obligations',
   'publication_attempts',
+  'cli_outcomes',
   'derived_state',
 ]);
 
@@ -107,6 +109,11 @@ export function sortSemantic(semantic) {
   for (const item of sorted.obligations || []) {
     item.required_relation_ids.sort();
     item.evidence_ids.sort();
+    item.current_evidence.sort();
+    item.files.sort((left, right) => compareStrings(
+      `${left.path}\u0000${left.action}\u0000${left.role}`,
+      `${right.path}\u0000${right.action}\u0000${right.role}`,
+    ));
   }
   for (const item of sorted.publication_attempts || []) {
     item.visible_resource_ids.sort();

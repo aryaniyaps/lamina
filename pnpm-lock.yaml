@@ -11,6 +11,9 @@ importers:
       agent-skills-eval:
         specifier: ^0.1.1
         version: 0.1.1
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       postject:
         specifier: ^1.0.0-alpha.6
         version: 1.0.0-alpha.6

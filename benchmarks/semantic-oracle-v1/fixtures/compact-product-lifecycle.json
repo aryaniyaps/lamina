@@ -98,6 +98,207 @@
         "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a"
       }
     ],
+    "cli_outcomes": [
+      {
+        "branch": "feature/semantic-isolation",
+        "details": {},
+        "error_code": null,
+        "id": "cli:feature-status",
+        "ok": true,
+        "operation": "graph.status",
+        "reason": null,
+        "result": {
+          "branch": "feature/semantic-isolation",
+          "graph_version": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+          "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+          "stale": false
+        }
+      },
+      {
+        "branch": "feature/semantic-isolation",
+        "details": {},
+        "error_code": null,
+        "id": "cli:feature-surface-query",
+        "ok": true,
+        "operation": "graph.query.surfaces",
+        "reason": null,
+        "result": {
+          "graph_version": "version_02e53df367a088c5f0d1a4efbe4f41fa",
+          "resource_ids": [
+            "surface.feature-only",
+            "surface.review"
+          ]
+        }
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:graph-backup",
+        "ok": true,
+        "operation": "graph.backup",
+        "reason": null,
+        "result": {
+          "digest": "backup_3bb46df8fd63a7bc2dd255c2890e0923"
+        }
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:graph-restore",
+        "ok": true,
+        "operation": "graph.restore",
+        "reason": null,
+        "result": {
+          "resources": 20,
+          "restored": true,
+          "statements": 17,
+          "versions": 6,
+          "views": 9
+        }
+      },
+      {
+        "branch": "main",
+        "details": {
+          "contradiction_ids": [
+            "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
+            "contradiction_f3d251dc78514d9ea1d94e22c8626c70"
+          ],
+          "error_messages": [
+            "Workflow workflow.approval has duplicate step position 1."
+          ],
+          "readiness_gap_codes": [
+            "actor_authority_missing",
+            "persona_walk_missing"
+          ],
+          "readiness_gap_resource_ids": [
+            "operation.cli-invalid-partial",
+            "persona.operator"
+          ]
+        },
+        "error_code": "LAMINA_VALIDATION_FAILED",
+        "id": "cli:invalid-session-publish",
+        "ok": false,
+        "operation": "session.publish.invalid",
+        "reason": "Session publication failed validation.",
+        "result": null
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:main-status",
+        "ok": true,
+        "operation": "graph.status",
+        "reason": null,
+        "result": {
+          "branch": "main",
+          "graph_version": "version_c87c0fd50eeb0be5363e39a4e9901519",
+          "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+          "stale": false
+        }
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:main-surface-query",
+        "ok": true,
+        "operation": "graph.query.surfaces",
+        "reason": null,
+        "result": {
+          "graph_version": "version_c87c0fd50eeb0be5363e39a4e9901519",
+          "resource_ids": [
+            "surface.review"
+          ]
+        }
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:status-after-tampered-restore",
+        "ok": true,
+        "operation": "graph.status",
+        "reason": null,
+        "result": {
+          "branch": "main",
+          "graph_version": "version_c87c0fd50eeb0be5363e39a4e9901519",
+          "source_revision": "d7a2ff9df80af73aab18621823d28a0ea583a81a",
+          "stale": false
+        }
+      },
+      {
+        "branch": "main",
+        "details": {
+          "actual_digest": "backup_f566382dc32ec63fbb7f2e0e1b0afca4",
+          "expected_digest": "backup_3bb46df8fd63a7bc2dd255c2890e0923"
+        },
+        "error_code": "LAMINA_VALIDATION_FAILED",
+        "id": "cli:tampered-backup-rejected",
+        "ok": false,
+        "operation": "graph.restore.tampered",
+        "reason": "Graph backup integrity check failed.",
+        "result": null
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:work-check-accepted",
+        "ok": true,
+        "operation": "work.check",
+        "reason": null,
+        "result": {
+          "packet_id": "packet:semantic-oracle",
+          "schema": "lamina.work-started/v4",
+          "work_map_digest": "work_map_ce4f87bfc6cdd302eca54f13af4e5a9a"
+        }
+      },
+      {
+        "branch": "main",
+        "details": {
+          "duplicates": false,
+          "invalid_obligation_ids": [
+            "obligation_326e8e28cc8cfd0fcc2aa18f54e86c44",
+            "obligation_52d43e49ae4d572949dbdd198326afac",
+            "obligation_57d1037921087aecb5e5f9c666367e4e",
+            "obligation_6ca9c8af42a99e58ec32751c80f3de2c",
+            "obligation_983d17f73a6fda9334b62384bed99b47",
+            "obligation_ac861dae4d020bb5f25d100d09594e82",
+            "obligation_b3e1f78d02350d571fc0a72fe7833040",
+            "obligation_d1c27c00b9fd5289c162accc13e169cd",
+            "obligation_de480e759b0248d75cd0216489aabe21",
+            "obligation_ee3607d353553842040425d905941e7a"
+          ],
+          "missing_obligation_ids": [],
+          "unknown_obligation_ids": []
+        },
+        "error_code": "LAMINA_VALIDATION_FAILED",
+        "id": "cli:work-check-unresolved",
+        "ok": false,
+        "operation": "work.check.unresolved",
+        "reason": "WorkMap must map every packet obligation exactly once.",
+        "result": null
+      },
+      {
+        "branch": "main",
+        "details": {},
+        "error_code": null,
+        "id": "cli:work-map",
+        "ok": true,
+        "operation": "work.map",
+        "reason": null,
+        "result": {
+          "obligation_count": 10,
+          "resolution_statuses": [
+            "unresolved"
+          ],
+          "schema": "lamina.work-map/v4"
+        }
+      }
+    ],
     "contradictions": [
       {
         "id": "contradiction_2539d3cd0984773f1eae03c3f6cb73e0",
@@ -113,8 +314,8 @@
         "authoritative": false,
         "canonical_head_after": "version_c87c0fd50eeb0be5363e39a4e9901519",
         "canonical_head_before": "version_c87c0fd50eeb0be5363e39a4e9901519",
-        "id": "derived:main-retrieval-index",
-        "kind": "retrieval_index",
+        "id": "derived:main-semantic-projection",
+        "kind": "semantic_projection",
         "rebuild_digest_after": "semantic_751d3b98b0cada89f2dcc4b62f309a13ce23ef11fa72ab7d9da16161383a1b70",
         "rebuild_digest_before": "semantic_751d3b98b0cada89f2dcc4b62f309a13ce23ef11fa72ab7d9da16161383a1b70",
         "rebuildable": true,
@@ -498,6 +699,7 @@
       {
         "category": "surface_realization",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "operation": "operation.approve",
           "qualifiers": {
@@ -505,29 +707,47 @@
           }
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_326e8e28cc8cfd0fcc2aa18f54e86c44",
         "required_relation_ids": [
           "stmt_641a66f358183fdbb94a4d45b3726c83"
         ],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "surface.review"
       },
       {
         "category": "operation_contract",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "intended",
           "name": "Archive decision"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_52d43e49ae4d572949dbdd198326afac",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "operation.archive"
       },
       {
         "category": "authority",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "operation": "operation.archive",
           "qualifiers": {
@@ -535,29 +755,47 @@
           }
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_57d1037921087aecb5e5f9c666367e4e",
         "required_relation_ids": [
           "stmt_d089e25e4457d9bc933d185f8870ad97"
         ],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "actor.reviewer"
       },
       {
         "category": "proof_spec",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "intended",
           "name": "Approval audit proof"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_6ca9c8af42a99e58ec32751c80f3de2c",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "proof.audit"
       },
       {
         "category": "authority",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "operation": "operation.approve",
           "qualifiers": {
@@ -565,76 +803,125 @@
           }
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_983d17f73a6fda9334b62384bed99b47",
         "required_relation_ids": [
           "stmt_75d3699e8190a6f2831c445bdd64550f"
         ],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "actor.reviewer"
       },
       {
         "category": "invariant",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "intended",
           "rule": "Requester cannot self-approve"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_ac861dae4d020bb5f25d100d09594e82",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "invariant.separation"
       },
       {
         "category": "scenario",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "simulated",
           "recovery": "Request another reviewer",
           "semantic_type": "failure"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_b3e1f78d02350d571fc0a72fe7833040",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "scenario.denied"
       },
       {
         "category": "surface",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "intended",
           "name": "Review queue"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_d1c27c00b9fd5289c162accc13e169cd",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "surface.review"
       },
       {
         "category": "workflow_objective",
-        "complete": false,
+        "complete": true,
+        "current_evidence": [
+          "README.md records the reviewed compact workflow objective."
+        ],
         "details": {
           "epistemic_class": "intended",
           "name": "Approve checkout"
         },
         "evidence_ids": [],
+        "files": [],
         "id": "obligation_de480e759b0248d75cd0216489aabe21",
         "required_relation_ids": [],
+        "resolution_status": "already_satisfied",
         "scope_id": "workflow.approval",
         "subject_id": "workflow.approval"
       },
       {
         "category": "operation_contract",
         "complete": false,
+        "current_evidence": [],
         "details": {
           "epistemic_class": "intended",
           "name": "Approve request"
         },
         "evidence_ids": [],
+        "files": [
+          {
+            "action": "modify",
+            "path": "README.md",
+            "role": "implementation"
+          }
+        ],
         "id": "obligation_ee3607d353553842040425d905941e7a",
         "required_relation_ids": [],
+        "resolution_status": "change_required",
         "scope_id": "workflow.approval",
         "subject_id": "operation.approve"
       }
@@ -1148,7 +1435,9 @@
         "attributes": {},
         "epistemic_class": "observed",
         "evidence_ids": [],
-        "generated_by_ids": [],
+        "generated_by_ids": [
+          "decision.manual-review"
+        ],
         "id": "stmt_959f4ab7ee88ef57d301f72aff3402e8",
         "literal": null,
         "object_id": "observation.route",
@@ -2109,148 +2398,341 @@
         "id": "corrupt-obligation-details"
       },
       "rationale": "Corrupted obligation details must fail independently of identity."
+    },
+    {
+      "id": "positive:generator-provenance",
+      "category": "provenance",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "relations",
+        "field": "generated_by_ids",
+        "value": "decision.manual-review"
+      },
+      "rationale": "The fixture-only canonical generator edge must survive normalization."
+    },
+    {
+      "id": "negative:generator-provenance",
+      "category": "provenance",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "remove-generator-provenance"
+      },
+      "rationale": "Removing generator provenance must fail independently of epistemic class."
+    },
+    {
+      "id": "positive:cli-outcomes",
+      "category": "cli_outcomes",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "cli_outcomes",
+        "field": "reason",
+        "value": "Session publication failed validation."
+      },
+      "rationale": "The actual CLI failure reason is reviewed alongside its stable detail codes and ids."
+    },
+    {
+      "id": "negative:cli-outcomes",
+      "category": "cli_outcomes",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "corrupt-cli-failure-reason"
+      },
+      "rationale": "A generic error code with the wrong CLI reason must fail."
+    },
+    {
+      "id": "negative:completeness-satisfied",
+      "category": "completeness",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "mark-satisfied-incomplete"
+      },
+      "rationale": "A reviewed already-satisfied obligation cannot lose its truthful completion state."
     }
   ],
   "mutations": [
     {
       "id": "remove-product-resource",
       "category": "resources",
-      "description": "Remove the canonical Product from every reachable closure."
+      "description": "Remove the canonical Product from every reachable closure.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource product.checkout"
+      ]
     },
     {
       "id": "remove-governed-relation",
       "category": "relations",
-      "description": "Remove the Decision relation while keeping its endpoints."
+      "description": "Remove the Decision relation while keeping its endpoints.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_0cac7b856a391d7cfeb7d079f9b3883d"
+      ]
     },
     {
       "id": "corrupt-relation-id",
       "category": "graph_versions",
-      "description": "Change a relation identity while preserving internal references."
+      "description": "Change a relation identity while preserving internal references.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "unexpected relation stmt_75d3699e8190a6f2831c445bdd64550f.corrupt"
+      ]
     },
     {
       "id": "break-version-parent",
       "category": "lineage",
-      "description": "Drop a GraphVersion parent and make its delta inconsistent."
+      "description": "Drop a GraphVersion parent and make its delta inconsistent.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "active closure contradicts its parent deltas"
+      ]
     },
     {
       "id": "change-provenance",
       "category": "provenance",
-      "description": "Relabel an intended Resource as inferred."
+      "description": "Relabel an intended Resource as inferred.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "resources[id=\"product.checkout\"].epistemic_class"
+      ]
     },
     {
       "id": "remove-contradiction",
       "category": "contradictions",
-      "description": "Remove the canonical conflict and its validation reference."
+      "description": "Remove the canonical conflict and its validation reference.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource contradiction_2539d3cd0984773f1eae03c3f6cb73e0"
+      ]
     },
     {
       "id": "expose-partial-publication",
       "category": "atomic_publication",
-      "description": "Advance a failed publication to a different visible head."
+      "description": "Advance a failed publication to a different visible head.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "forbidden resources.operation.invalid-partial"
+      ]
     },
     {
       "id": "collapse-epistemic-class",
       "category": "epistemic_separation",
-      "description": "Relabel observed source knowledge as intended truth."
+      "description": "Relabel observed source knowledge as intended truth.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "resources[id=\"observation.route\"].epistemic_class"
+      ]
     },
     {
       "id": "remove-persona",
       "category": "actors_personas",
-      "description": "Remove the active Persona and its relations."
+      "description": "Remove the active Persona and its relations.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource persona.operator"
+      ]
     },
     {
       "id": "remove-actor",
       "category": "actors_personas",
-      "description": "Remove the authorized Actor and its relations."
+      "description": "Remove the authorized Actor and its relations.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource actor.reviewer"
+      ]
     },
     {
       "id": "remove-workflow-step",
       "category": "workflows",
-      "description": "Remove an ordered Workflow step."
+      "description": "Remove an ordered Workflow step.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_32703a775c151193c7de7acc2ea6d59c"
+      ]
     },
     {
       "id": "swap-workflow-step-order",
       "category": "workflows",
-      "description": "Swap the two reviewed Workflow step positions."
+      "description": "Swap the two reviewed Workflow step positions.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "attributes.position: expected 1, got 2"
+      ]
     },
     {
       "id": "remove-transition",
       "category": "states_transitions",
-      "description": "Remove the pending-to-approved transition."
+      "description": "Remove the pending-to-approved transition.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_cf817c52e1e5570c0b3166097aaff671"
+      ]
     },
     {
       "id": "remove-state",
       "category": "states_transitions",
-      "description": "Remove the pending State and its transition."
+      "description": "Remove the pending State and its transition.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource state.pending"
+      ]
     },
     {
       "id": "remove-permission",
       "category": "permissions",
-      "description": "Remove Actor authorization for the Operation."
+      "description": "Remove Actor authorization for the Operation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_75d3699e8190a6f2831c445bdd64550f"
+      ]
     },
     {
       "id": "remove-invariant",
       "category": "invariants",
-      "description": "Remove the Operation invariant relation."
+      "description": "Remove the Operation invariant relation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_80bd5df09cf3b472148c629182773ced"
+      ]
     },
     {
       "id": "remove-failure",
       "category": "failures_decisions",
-      "description": "Remove the explicit failure Scenario relation."
+      "description": "Remove the explicit failure Scenario relation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing relation stmt_87725d4b309d7410e7db24ad63d083cd"
+      ]
     },
     {
       "id": "remove-decision",
       "category": "failures_decisions",
-      "description": "Remove the explicit product Decision and relation."
+      "description": "Remove the explicit product Decision and relation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource decision.manual-review"
+      ]
     },
     {
       "id": "remove-verification-evidence",
       "category": "verification_evidence",
-      "description": "Remove runtime Evidence from the proof requirement."
+      "description": "Remove runtime Evidence from the proof requirement.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "evidence_ids[0]: expected \"harness.approval\", got <missing>"
+      ]
     },
     {
       "id": "leak-feature-branch",
       "category": "branch_worktree_isolation",
-      "description": "Expose a feature-only Surface on main."
+      "description": "Expose a feature-only Surface on main.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "branches[id=\"branch:main\"].active_resource_ids"
+      ]
     },
     {
       "id": "drop-concurrent-update",
       "category": "concurrent_updates",
-      "description": "Lose the second successfully rebased concurrent Resource."
+      "description": "Lose the second successfully rebased concurrent Resource.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing resource entity.concurrent-b"
+      ]
     },
     {
       "id": "reverse-order",
       "category": "determinism",
-      "description": "Reverse canonical relation ordering."
+      "description": "Reverse canonical relation ordering.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "$.semantic.relations must use deterministic ordering"
+      ]
     },
     {
       "id": "break-graph-closure",
       "category": "graph_closure",
-      "description": "Remove one active relation only from a branch closure."
+      "description": "Remove one active relation only from a branch closure.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "branch branch:main closure does not match its head GraphVersion"
+      ]
     },
     {
       "id": "make-derived-authoritative",
       "category": "derived_state",
-      "description": "Promote rebuildable derived state to product authority."
+      "description": "Promote rebuildable derived state to product authority.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "cannot be canonical product authority"
+      ]
     },
     {
       "id": "remove-obligation",
       "category": "implementation_obligations",
-      "description": "Remove one mechanically compiled obligation."
+      "description": "Remove one mechanically compiled obligation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "missing obligation obligation_326e8e28cc8cfd0fcc2aa18f54e86c44"
+      ]
     },
     {
       "id": "corrupt-obligation-scope",
       "category": "implementation_obligations",
-      "description": "Move an obligation to the wrong Workflow scope."
+      "description": "Move an obligation to the wrong Workflow scope.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "obligations[id=\"obligation_326e8e28cc8cfd0fcc2aa18f54e86c44\"].scope_id"
+      ]
     },
     {
       "id": "corrupt-obligation-details",
       "category": "implementation_obligations",
-      "description": "Corrupt an Operation contract obligation detail."
+      "description": "Corrupt an Operation contract obligation detail.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "details.name: expected \"Archive decision\", got \"Wrong operation contract\""
+      ]
     },
     {
       "id": "mark-unresolved-complete",
       "category": "completeness",
-      "description": "Mark an unresolved WorkMap obligation complete."
+      "description": "Mark an unresolved WorkMap obligation complete.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "contradicts its checked WorkMap resolution"
+      ]
+    },
+    {
+      "id": "remove-generator-provenance",
+      "category": "provenance",
+      "description": "Remove the fixture generator edge while preserving the observed relation.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "generated_by_ids[0]: expected \"decision.manual-review\", got <missing>"
+      ]
+    },
+    {
+      "id": "corrupt-cli-failure-reason",
+      "category": "cli_outcomes",
+      "description": "Keep the generic CLI error code but replace the focused failure reason.",
+      "expected_classification": "product_regression",
+      "diagnostic_includes": [
+        "cli_outcomes[id=\"cli:invalid-session-publish\"].reason"
+      ]
+    },
+    {
+      "id": "mark-satisfied-incomplete",
+      "category": "completeness",
+      "description": "Mark a checked already-satisfied obligation incomplete.",
+      "expected_classification": "candidate_invalid",
+      "diagnostic_includes": [
+        "contradicts its checked WorkMap resolution"
+      ]
     }
   ]
 }

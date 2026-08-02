@@ -9,6 +9,11 @@ import {
   relationSortKey,
   semanticDigest,
 } from './contract.mjs';
+import {
+  schemaErrors,
+  validateFixtureSchema,
+  validateResultSchema,
+} from './schema-validation.mjs';
 
 export class SemanticOracleError extends Error {
   constructor(code, message, details = {}) {
@@ -51,6 +56,9 @@ export function validateSemantic(semantic) {
     return errors;
   }
   for (const name of COLLECTIONS) validateIdCollection(semantic[name], name, errors);
+  if (COLLECTIONS.some((name) => !Array.isArray(semantic[name]))) return errors;
+  if (COLLECTIONS.some((name) => semantic[name].some((item) =>
+    !object(item) || typeof item.id !== 'string' || !item.id))) return errors;
 
   const resourceIds = new Set(semantic.resources.map((item) => item.id));
   const relationIds = new Set(semantic.relations.map((item) => item.id));
@@ -66,17 +74,21 @@ export function validateSemantic(semantic) {
     }
   }
   for (const relation of semantic.relations) {
-    if (!exactKeys(relation, [
+    const validShape = exactKeys(relation, [
       'id', 'subject_id', 'predicate', 'value_kind', 'object_id', 'literal', 'scope_id',
       'epistemic_class', 'evidence_ids', 'generated_by_ids', 'attributes',
-    ]) || !resourceIds.has(relation.subject_id) || !['resource', 'literal'].includes(relation.value_kind)
-      || (relation.value_kind === 'resource' && (!resourceIds.has(relation.object_id) || relation.literal !== null))
-      || (relation.value_kind === 'literal' && relation.object_id !== null)
-      || (relation.scope_id !== null && !resourceIds.has(relation.scope_id))
-      || !EPISTEMIC_CLASSES.includes(relation.epistemic_class)
-      || !strings(relation.evidence_ids) || !unique(relation.evidence_ids)
-      || relation.evidence_ids.some((id) => !resourceIds.has(id)) || !object(relation.attributes)) {
+    ]) && resourceIds.has(relation.subject_id) && ['resource', 'literal'].includes(relation.value_kind)
+      && !(relation.value_kind === 'resource'
+        && (!resourceIds.has(relation.object_id) || relation.literal !== null))
+      && !(relation.value_kind === 'literal' && relation.object_id !== null)
+      && !(relation.scope_id !== null && !resourceIds.has(relation.scope_id))
+      && EPISTEMIC_CLASSES.includes(relation.epistemic_class)
+      && strings(relation.evidence_ids) && unique(relation.evidence_ids)
+      && !relation.evidence_ids.some((id) => !resourceIds.has(id))
+      && object(relation.attributes);
+    if (!validShape) {
       errors.push(`relation ${relation.id} has an invalid normalized shape or dangling reference`);
+      continue;
     }
     if (!strings(relation.generated_by_ids) || !unique(relation.generated_by_ids)
       || relation.generated_by_ids.some((id) => !resourceIds.has(id))) {
@@ -141,6 +153,7 @@ export function validateSemantic(semantic) {
       || branch.active_resource_ids.some((id) => !resourceIds.has(id))
       || branch.active_relation_ids.some((id) => !relationIds.has(id))) {
       errors.push(`branch ${branch.id} has an invalid head or active closure`);
+      continue;
     }
   }
   const branchById = new Map(semantic.branches.map((item) => [item.id, item]));
@@ -162,14 +175,28 @@ export function validateSemantic(semantic) {
   for (const obligation of semantic.obligations) {
     if (!exactKeys(obligation, [
       'id', 'category', 'scope_id', 'subject_id', 'required_relation_ids',
-      'evidence_ids', 'details', 'complete',
+      'evidence_ids', 'details', 'resolution_status', 'current_evidence', 'files', 'complete',
     ]) || typeof obligation.category !== 'string' || !resourceIds.has(obligation.scope_id)
       || !resourceIds.has(obligation.subject_id)
       || !strings(obligation.required_relation_ids) || !strings(obligation.evidence_ids)
       || obligation.required_relation_ids.some((id) => !relationIds.has(id))
       || obligation.evidence_ids.some((id) => !resourceIds.has(id))
-      || !object(obligation.details) || typeof obligation.complete !== 'boolean') {
+      || !object(obligation.details)
+      || !['already_satisfied', 'change_required'].includes(obligation.resolution_status)
+      || !strings(obligation.current_evidence) || !unique(obligation.current_evidence)
+      || !Array.isArray(obligation.files) || obligation.files.some((file) =>
+        !exactKeys(file, ['path', 'action', 'role']) || typeof file.path !== 'string'
+        || !['modify', 'create'].includes(file.action)
+        || !['implementation', 'test'].includes(file.role))
+      || typeof obligation.complete !== 'boolean') {
       errors.push(`obligation ${obligation.id} has invalid completeness semantics`);
+      continue;
+    }
+    if (obligation.complete !== (obligation.resolution_status === 'already_satisfied')
+      || (obligation.resolution_status === 'already_satisfied' && !obligation.current_evidence.length)
+      || (obligation.resolution_status === 'change_required'
+        && !obligation.files.some((file) => file.role === 'implementation'))) {
+      errors.push(`obligation ${obligation.id} contradicts its checked WorkMap resolution`);
     }
   }
   const attemptOutcomes = new Set([
@@ -188,6 +215,7 @@ export function validateSemantic(semantic) {
       || attempt.visible_resource_ids.some((id) => !resourceIds.has(id))
       || attempt.visible_relation_ids.some((id) => !relationIds.has(id))) {
       errors.push(`publication attempt ${attempt.id} has invalid atomicity semantics`);
+      continue;
     }
     const observedHead = versionById.get(attempt.head_version_id_after);
     if (observedHead && (JSON.stringify(attempt.visible_resource_ids) !== JSON.stringify(observedHead.active_resource_ids)
@@ -203,6 +231,19 @@ export function validateSemantic(semantic) {
     if (['validation_failed', 'interrupted'].includes(attempt.outcome)
       && attempt.head_version_id_after !== attempt.base_version_id) {
       errors.push(`publication attempt ${attempt.id} exposed a partial head`);
+    }
+  }
+  for (const outcome of semantic.cli_outcomes) {
+    if (!exactKeys(outcome, [
+      'id', 'operation', 'branch', 'ok', 'result', 'error_code', 'reason', 'details',
+    ]) || typeof outcome.operation !== 'string' || typeof outcome.branch !== 'string'
+      || typeof outcome.ok !== 'boolean' || !object(outcome.details)
+      || (outcome.ok
+        ? (!object(outcome.result) || outcome.error_code !== null || outcome.reason !== null
+          || Object.keys(outcome.details).length !== 0)
+        : (outcome.result !== null || typeof outcome.error_code !== 'string'
+          || typeof outcome.reason !== 'string'))) {
+      errors.push(`CLI outcome ${outcome.id} has contradictory success or failure semantics`);
     }
   }
   const visiting = new Set();
@@ -237,6 +278,7 @@ export function validateSemantic(semantic) {
       || typeof state.rebuild_digest_before !== 'string' || typeof state.rebuild_digest_after !== 'string'
       || !versionIds.has(state.canonical_head_before) || !versionIds.has(state.canonical_head_after)) {
       errors.push(`derived state ${state.id} has an invalid authority boundary`);
+      continue;
     }
     if (state.rebuildable && (state.rebuild_digest_before !== state.rebuild_digest_after
       || state.canonical_head_before !== state.canonical_head_after
@@ -250,6 +292,7 @@ export function validateSemantic(semantic) {
 
 export function validateResult(result) {
   const errors = [];
+  if (!validateResultSchema(result)) errors.push(...schemaErrors(validateResultSchema));
   if (!exactKeys(result, ['schema', 'fixture_id', 'adapter', 'semantic', 'semantic_digest'])
     || result.schema !== RESULT_SCHEMA || typeof result.fixture_id !== 'string'
     || !exactKeys(result.adapter, ['schema', 'id', 'version', 'input_format'])
@@ -267,6 +310,7 @@ export function validateResult(result) {
 
 export function validateFixture(fixture) {
   const errors = [];
+  if (!validateFixtureSchema(fixture)) errors.push(...schemaErrors(validateFixtureSchema));
   if (!exactKeys(fixture, [
     'schema', 'id', 'description', 'expected', 'forbidden', 'cases', 'mutations',
   ]) || fixture.schema !== FIXTURE_SCHEMA || typeof fixture.id !== 'string'
@@ -285,12 +329,19 @@ export function validateFixture(fixture) {
     errors.push('fixture forbidden outcomes must be unique');
   }
   if (!Array.isArray(fixture.mutations) || fixture.mutations.some((item) =>
-    !exactKeys(item, ['id', 'category', 'description']) || typeof item.id !== 'string'
-    || !REQUIRED_CASE_CATEGORIES.includes(item.category) || typeof item.description !== 'string')
+    !exactKeys(item, [
+      'id', 'category', 'description', 'expected_classification', 'diagnostic_includes',
+    ]) || typeof item.id !== 'string'
+    || !REQUIRED_CASE_CATEGORIES.includes(item.category) || typeof item.description !== 'string'
+    || !['candidate_invalid', 'product_regression'].includes(item.expected_classification)
+    || !strings(item.diagnostic_includes) || !item.diagnostic_includes.length
+    || !unique(item.diagnostic_includes))
     || !unique(fixture.mutations.map((item) => item.id))) {
     errors.push('fixture mutation registry is invalid');
   }
-  const mutationIds = new Set(fixture.mutations.map((item) => item.id));
+  const mutationIds = new Set(Array.isArray(fixture.mutations)
+    ? fixture.mutations.filter(object).map((item) => item.id)
+    : []);
   if (!Array.isArray(fixture.cases) || fixture.cases.some((item) =>
     !exactKeys(item, ['id', 'category', 'polarity', 'target', 'rationale'])
     || typeof item.id !== 'string' || !REQUIRED_CASE_CATEGORIES.includes(item.category)
@@ -310,24 +361,30 @@ export function validateFixture(fixture) {
   if (Array.isArray(fixture.cases) && !unique(fixture.cases.map((item) => item.id))) {
     errors.push('fixture case ids must be unique');
   }
-  for (const category of REQUIRED_CASE_CATEGORIES) {
-    for (const polarity of ['positive', 'negative']) {
-      if (!fixture.cases.some((item) => item.category === category && item.polarity === polarity)) {
-        errors.push(`fixture case matrix lacks ${polarity} coverage for ${category}`);
+  if (Array.isArray(fixture.cases)) {
+    for (const category of REQUIRED_CASE_CATEGORIES) {
+      for (const polarity of ['positive', 'negative']) {
+        if (!fixture.cases.some((item) => item.category === category && item.polarity === polarity)) {
+          errors.push(`fixture case matrix lacks ${polarity} coverage for ${category}`);
+        }
       }
     }
+    for (const item of fixture.cases.filter((candidate) => candidate?.polarity === 'positive'
+      && object(candidate.target) && typeof candidate.target.collection === 'string'
+      && typeof candidate.target.field === 'string')) {
+      const target = item.target;
+      const matched = fixture.expected?.[target.collection]?.some((candidate) => {
+        const actual = target.field.split('.').reduce((value, key) => value?.[key], candidate);
+        return Array.isArray(actual) ? actual.includes(target.value) : Object.is(actual, target.value);
+      });
+      if (!matched) errors.push(`fixture positive case ${item.id} target does not exist`);
+    }
   }
-  for (const item of fixture.cases.filter((candidate) => candidate.polarity === 'positive')) {
-    const target = item.target;
-    const matched = fixture.expected[target.collection]?.some((candidate) => {
-      const actual = target.field.split('.').reduce((value, key) => value?.[key], candidate);
-      return Array.isArray(actual) ? actual.includes(target.value) : Object.is(actual, target.value);
-    });
-    if (!matched) errors.push(`fixture positive case ${item.id} target does not exist`);
-  }
-  for (const mutation of fixture.mutations) {
-    if (!fixture.cases.some((item) => item.polarity === 'negative'
-      && item.target.id === mutation.id && item.category === mutation.category)) {
+  for (const mutation of Array.isArray(fixture.mutations)
+    ? fixture.mutations.filter(object)
+    : []) {
+    if (!Array.isArray(fixture.cases) || !fixture.cases.some((item) => item?.polarity === 'negative'
+      && item.target?.id === mutation.id && item.category === mutation.category)) {
       errors.push(`fixture mutation ${mutation.id} lacks a matching negative case`);
     }
   }

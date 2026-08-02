@@ -77,16 +77,59 @@ const MUTATION_FUNCTIONS = Object.freeze({
   'change-provenance': (result) => {
     result.semantic.resources.find((item) => item.id === 'product.checkout').epistemic_class = 'inferred';
   },
+  'remove-generator-provenance': (result) => {
+    result.semantic.relations.find((item) => item.predicate === 'lamina:observedAt')
+      .generated_by_ids = [];
+  },
   'remove-contradiction': (result) => removeResource(
     result,
     result.semantic.contradictions[0].id,
   ),
   'expose-partial-publication': (result) => {
-    const failed = result.semantic.publication_attempts.find((item) => item.outcome === 'validation_failed');
+    result.semantic.resources.push(
+      {
+        id: 'operation.invalid-partial',
+        kind: 'operation',
+        epistemic_class: 'intended',
+        aliases: [],
+        attributes: { name: 'Forbidden failed-publication residue' },
+      },
+      {
+        id: 'entity.interrupted-partial',
+        kind: 'entity',
+        epistemic_class: 'intended',
+        aliases: [],
+        attributes: { name: 'Forbidden interrupted-publication residue' },
+      },
+    );
+    result.semantic.resources.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
     const main = result.semantic.branches.find((item) => item.id === 'branch:main');
-    failed.head_version_id_after = main.head_version_id;
-    failed.visible_resource_ids = [...main.active_resource_ids];
-    failed.visible_relation_ids = [...main.active_relation_ids];
+    const previousHead = result.semantic.graph_versions.find((item) => item.id === main.head_version_id);
+    const partialVersion = {
+      ...structuredClone(previousHead),
+      id: 'version:forbidden-partial-publication',
+      parent_ids: [previousHead.id],
+      added_resource_ids: ['entity.interrupted-partial', 'operation.invalid-partial'],
+      added_relation_ids: [],
+      retired_resource_ids: [],
+      retired_relation_ids: [],
+      active_resource_ids: [
+        ...previousHead.active_resource_ids,
+        'entity.interrupted-partial',
+        'operation.invalid-partial',
+      ].sort(),
+    };
+    result.semantic.graph_versions.push(partialVersion);
+    result.semantic.graph_versions.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    main.head_version_id = partialVersion.id;
+    main.active_resource_ids = [...partialVersion.active_resource_ids];
+    const failed = result.semantic.publication_attempts.find((item) => item.outcome === 'validation_failed');
+    failed.outcome = 'published';
+    failed.result_version_id = partialVersion.id;
+    failed.error_code = null;
+    failed.head_version_id_after = partialVersion.id;
+    failed.visible_resource_ids = [...partialVersion.active_resource_ids];
+    failed.visible_relation_ids = [...partialVersion.active_relation_ids];
   },
   'collapse-epistemic-class': (result) => {
     result.semantic.resources.find((item) => item.id === 'observation.route').epistemic_class = 'intended';
@@ -150,6 +193,14 @@ const MUTATION_FUNCTIONS = Object.freeze({
   },
   'mark-unresolved-complete': (result) => {
     result.semantic.obligations[0].complete = true;
+  },
+  'mark-satisfied-incomplete': (result) => {
+    result.semantic.obligations.find((item) => item.resolution_status === 'already_satisfied')
+      .complete = false;
+  },
+  'corrupt-cli-failure-reason': (result) => {
+    result.semantic.cli_outcomes.find((item) => item.id === 'cli:invalid-session-publish')
+      .reason = 'Wrong failure reason';
   },
   'corrupt-relation-id': (result) => {
     const relation = result.semantic.relations[0];

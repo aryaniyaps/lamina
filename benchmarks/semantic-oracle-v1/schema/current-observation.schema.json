@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/current-semantic-observation-v1.json",
+  "title": "Lamina current native semantic observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "fixture_id", "graph_backup", "publication_receipts",
+    "implementation_obligations", "work_started_receipt", "cli_receipts",
+    "derived_observations"
+  ],
+  "properties": {
+    "schema": { "const": "lamina.current-semantic-observation/v1" },
+    "fixture_id": { "$ref": "#/$defs/id" },
+    "graph_backup": {
+      "type": "object",
+      "required": ["format", "integrity", "resources", "aliases", "statements", "versions", "views"],
+      "properties": {
+        "format": { "const": "lamina-graph-backup-v1" },
+        "integrity": { "type": "string", "pattern": "^backup_[a-f0-9]{32}$" },
+        "resources": { "$ref": "#/$defs/objects" },
+        "aliases": { "$ref": "#/$defs/objects" },
+        "statements": { "$ref": "#/$defs/objects" },
+        "versions": { "$ref": "#/$defs/objects" },
+        "views": { "$ref": "#/$defs/objects" }
+      }
+    },
+    "publication_receipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/publication_receipt" }
+    },
+    "implementation_obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["obligation_id", "type", "scope", "resource", "statement", "details"],
+        "properties": {
+          "obligation_id": { "$ref": "#/$defs/id" },
+          "type": { "$ref": "#/$defs/id" },
+          "scope": { "$ref": "#/$defs/id" },
+          "resource": { "$ref": "#/$defs/id" },
+          "statement": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "work_started_receipt": { "$ref": "#/$defs/work_started" },
+    "cli_receipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cli_receipt" }
+    },
+    "derived_observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id", "kind", "source_version_id", "catalog_before", "catalog_after",
+          "digest_before", "digest_after", "canonical_head_before", "canonical_head_after"
+        ],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "kind": { "$ref": "#/$defs/id" },
+          "source_version_id": { "$ref": "#/$defs/id" },
+          "catalog_before": { "type": "object" },
+          "catalog_after": { "type": "object" },
+          "digest_before": { "$ref": "#/$defs/id" },
+          "digest_after": { "$ref": "#/$defs/id" },
+          "canonical_head_before": { "$ref": "#/$defs/id" },
+          "canonical_head_after": { "$ref": "#/$defs/id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+    "objects": { "type": "array", "items": { "type": "object" } },
+    "publication_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head_version_id", "visible_resource_ids", "visible_relation_ids"],
+      "properties": {
+        "session_base_version_id": { "$ref": "#/$defs/id" },
+        "head_version_id": { "$ref": "#/$defs/id" },
+        "visible_resource_ids": { "$ref": "#/$defs/ids" },
+        "visible_relation_ids": { "$ref": "#/$defs/ids" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "details"],
+      "properties": {
+        "code": { "$ref": "#/$defs/id" },
+        "message": { "$ref": "#/$defs/id" },
+        "details": { "type": "object" }
+      }
+    },
+    "publication_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "branch_id", "before", "result", "error", "after"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "branch_id": { "$ref": "#/$defs/id" },
+        "before": {
+          "allOf": [
+            { "$ref": "#/$defs/publication_state" },
+            {
+              "type": "object",
+              "required": ["session_base_version_id"],
+              "properties": { "session_base_version_id": { "$ref": "#/$defs/id" } }
+            }
+          ]
+        },
+        "result": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "error": { "anyOf": [{ "$ref": "#/$defs/error" }, { "type": "null" }] },
+        "after": { "$ref": "#/$defs/publication_state" }
+      },
+      "oneOf": [
+        { "type": "object", "properties": { "result": { "type": "object" }, "error": { "type": "null" } } },
+        { "type": "object", "properties": { "result": { "type": "null" }, "error": { "$ref": "#/$defs/error" } } }
+      ]
+    },
+    "work_started": {
+      "type": "object",
+      "required": ["schema", "packet_id", "work_map_digest", "work_map"],
+      "properties": {
+        "schema": { "const": "lamina.work-started/v4" },
+        "packet_id": { "$ref": "#/$defs/id" },
+        "work_map_digest": { "$ref": "#/$defs/id" },
+        "work_map": {
+          "type": "object",
+          "required": ["schema", "packet_id", "obligations", "experience_cases"],
+          "properties": {
+            "schema": { "const": "lamina.work-map/v4" },
+            "packet_id": { "$ref": "#/$defs/id" },
+            "obligations": { "$ref": "#/$defs/objects" },
+            "experience_cases": { "$ref": "#/$defs/objects" }
+          }
+        }
+      }
+    },
+    "cli_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "operation", "branch", "exit_code", "stdout", "stderr"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "operation": { "$ref": "#/$defs/id" },
+        "branch": { "$ref": "#/$defs/id" },
+        "exit_code": { "type": "integer", "minimum": 0 },
+        "stdout": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "stderr": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+      },
+      "oneOf": [
+        { "type": "object", "properties": { "exit_code": { "const": 0 }, "stdout": { "type": "object" }, "stderr": { "type": "null" } } },
+        { "type": "object", "properties": { "exit_code": { "type": "integer", "minimum": 1 }, "stdout": { "type": "null" }, "stderr": { "type": "object" } } }
+      ]
+    }
+  }
+}

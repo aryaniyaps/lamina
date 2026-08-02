@@ -9,7 +9,7 @@
     "schema": { "const": "lamina.semantic-fixture/v1" },
     "id": { "type": "string", "minLength": 1 },
     "description": { "type": "string", "minLength": 1 },
-    "expected": { "$ref": "./result.schema.json#/$defs/semantic" },
+    "expected": { "$ref": "https://lamina.dev/schemas/semantic-result-v1.json#/$defs/semantic" },
     "forbidden": {
       "type": "array",
       "items": {
@@ -20,7 +20,7 @@
           "collection": {
             "enum": [
               "resources", "relations", "graph_versions", "branches", "contradictions",
-              "obligations", "publication_attempts", "derived_state"
+              "obligations", "publication_attempts", "cli_outcomes", "derived_state"
             ]
           },
           "id": { "type": "string", "minLength": 1 },
@@ -50,11 +50,16 @@
                   "collection": {
                     "enum": [
                       "resources", "relations", "graph_versions", "branches", "contradictions",
-                      "obligations", "publication_attempts", "derived_state"
+                      "obligations", "publication_attempts", "cli_outcomes", "derived_state"
                     ]
                   },
                   "field": { "type": "string", "minLength": 1 },
-                  "value": { "type": ["string", "number", "boolean", "null"] }
+                  "value": {
+                    "anyOf": [
+                      { "type": "string" }, { "type": "number" },
+                      { "type": "boolean" }, { "type": "null" }
+                    ]
+                  }
                 }
               },
               {
@@ -78,11 +83,22 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "category", "description"],
+        "required": [
+          "id", "category", "description", "expected_classification", "diagnostic_includes"
+        ],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "category": { "$ref": "#/$defs/category" },
-          "description": { "type": "string", "minLength": 1 }
+          "description": { "type": "string", "minLength": 1 },
+          "expected_classification": {
+            "enum": ["candidate_invalid", "product_regression"]
+          },
+          "diagnostic_includes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
         }
       }
     }
@@ -95,7 +111,7 @@
         "workflows", "states_transitions", "permissions", "invariants", "failures_decisions",
         "verification_evidence", "branch_worktree_isolation", "concurrent_updates",
         "determinism", "graph_closure", "derived_state", "implementation_obligations",
-        "completeness"
+        "completeness", "cli_outcomes"
       ]
     }
   }
