@@ -79,11 +79,13 @@ function scenarioFor(index) {
 function reviewedCase(collectionValue, query, index) {
   const scenario = scenarioFor(index);
   const intent = index === 6 ? 'multi_workflow' : index === 7 ? 'new_workflow'
-    : index === 8 ? 'adversarial' : index % 2 ? 'source_localization' : 'workflow_selection';
+    : index === 8 ? 'adversarial' : index === 9 ? 'ambiguous_workflow'
+      : index % 2 ? 'source_localization' : 'workflow_selection';
   const outcome = intent === 'multi_workflow' ? 'multi_workflow'
-    : ['new_workflow', 'adversarial'].includes(intent) ? 'new_workflow_required' : 'selected';
+    : intent === 'ambiguous_workflow' ? 'ambiguous'
+      : ['new_workflow', 'adversarial'].includes(intent) ? 'new_workflow_required' : 'selected';
   const selected = outcome === 'multi_workflow' ? ['workflow.primary', 'workflow.secondary']
-    : outcome === 'new_workflow_required' ? [] : ['workflow.primary'];
+    : ['new_workflow_required', 'ambiguous'].includes(outcome) ? [] : ['workflow.primary'];
   const categorySupport = OBSERVATION_CATEGORY_SUPPORT[collectionValue.fixture_id];
   return {
     id: `${collectionValue.id}.${query}`,
@@ -96,8 +98,7 @@ function reviewedCase(collectionValue, query, index) {
       forbidden_workflow_ids: ['workflow.forbidden'],
       workflow_ranking: index === 0 ? [{ id: 'workflow.primary', max_rank: 1 }, { id: 'workflow.secondary', max_rank: 5 }] : [],
       source_ranking: index === 0 ? [{ path: 'src/entry_point.ts', symbol: 'entryPoint', max_rank: 1 }, { path: 'src/handler.ts', symbol: null, max_rank: 10 }] : [],
-      observations: index === 0 ? categorySupport.positive
-        .map((category) => ({ category, path: `src/${category}.ts` })) : [],
+      observations: index === 0 ? categorySupport.positive_targets.map((target) => ({ ...target })) : [],
       forbidden_observations: index === 0 ? categorySupport.forbidden_controls
         .map((target) => ({ ...target })) : [],
       obligations: index === 0 ? obligations : [],
@@ -234,8 +235,10 @@ assert.equal(validateResultSchema(result), true, JSON.stringify(validateResultSc
 const passingGrade = gradeResult(fixture, result);
 assert.equal(passingGrade.classification, 'pass');
 assert.deepEqual(Object.keys(passingGrade.coverage.observations), OBSERVATION_CATEGORIES);
-assert.equal(passingGrade.coverage.observations.handlers.status, 'reviewed_absent');
+assert.equal(passingGrade.coverage.observations.handlers.status, 'bounded_negative_control');
+assert.equal(passingGrade.coverage.observations.handlers.authority_mode, 'bounded_negative_controls');
 assert.equal(passingGrade.coverage.observations.personas.status, 'reviewed_absent');
+assert.equal(passingGrade.coverage.observations.personas.authority_mode, 'complete_candidate_set_absence');
 assert.equal(passingGrade.coverage.observations.entry_points.status, 'positive');
 for (const item of Object.values(passingGrade.coverage.observations)) {
   assert.ok(item.positive_expected + item.forbidden_expected > 0,
@@ -412,6 +415,48 @@ assert.ok(ancestorConflictValidation.errors.some((item) => item.includes('confli
 const selectedForbiddenConflict = structuredClone(fixture);
 selectedForbiddenConflict.cases[0].expected.forbidden_workflow_ids[0] = selectedForbiddenConflict.cases[0].expected.selected_workflow_ids[0];
 assert.equal(validateFixture(selectedForbiddenConflict).valid, false, 'selected and forbidden Workflow contracts must be disjoint');
+for (const [outcome, selectedIds] of [
+  ['selected', ['workflow.primary', 'workflow.secondary']],
+  ['multi_workflow', ['workflow.primary']],
+  ['ambiguous', ['workflow.primary']],
+  ['new_workflow_required', ['workflow.primary']],
+]) {
+  const cardinalityDefect = structuredClone(fixture);
+  const target = cardinalityDefect.cases.find((item) => item.expected.workflow_outcome === outcome);
+  target.expected.selected_workflow_ids = selectedIds;
+  assert.equal(validateFixture(cardinalityDefect).valid, false, `${outcome} fixture cardinality is exact`);
+}
+const adversarialAttachment = structuredClone(fixture);
+const adversarialCase = adversarialAttachment.cases.find((item) => item.kind.intent === 'adversarial');
+adversarialCase.expected.workflow_outcome = 'selected';
+adversarialCase.expected.selected_workflow_ids = ['workflow.primary'];
+assert.equal(validateFixture(adversarialAttachment).valid, false, 'adversarial intent must abstain as new Workflow required');
+const ambiguousRelabel = structuredClone(fixture);
+const ambiguousCase = ambiguousRelabel.cases.find((item) => item.kind.intent === 'ambiguous_workflow');
+ambiguousCase.expected.workflow_outcome = 'selected';
+ambiguousCase.expected.selected_workflow_ids = ['workflow.primary'];
+assert.equal(validateFixture(ambiguousRelabel).valid, false, 'ambiguous intent must remain selected-id free');
+const noncanonicalAbsence = structuredClone(fixture);
+noncanonicalAbsence.cases[0].expected.forbidden_observations[0].relation = 'extra-prose';
+assert.equal(validateFixture(noncanonicalAbsence).valid, false,
+  'reviewed-absence controls are exact candidate-observable {category,path} tuples');
+const fakePositiveWitness = structuredClone(fixture);
+fakePositiveWitness.cases[0].expected.observations[0].path = 'src/fake-positive.ts';
+assert.equal(validateFixture(fakePositiveWitness).valid, false,
+  'positive observation coverage requires the exact reviewed witness tuple, not category-name coverage');
+
+for (const [outcome, selectedIds] of [
+  ['selected', ['workflow.primary', 'workflow.secondary']],
+  ['multi_workflow', ['workflow.primary']],
+  ['ambiguous', ['workflow.primary']],
+  ['new_workflow_required', ['workflow.primary']],
+]) {
+  const invalidResultCardinality = structuredClone(result);
+  const target = invalidResultCardinality.cases.find((item) => item.workflow_outcome === outcome);
+  target.selected_workflow_ids = selectedIds;
+  invalidResultCardinality.replay_digest = resultCasesDigest(invalidResultCardinality.cases);
+  assert.equal(validateResult(invalidResultCardinality).valid, false, `${outcome} result cardinality is exact`);
+}
 
 for (const field of ['head', 'upstream', 'ahead', 'behind', 'worktree_role']) {
   const mismatch = structuredClone(result);

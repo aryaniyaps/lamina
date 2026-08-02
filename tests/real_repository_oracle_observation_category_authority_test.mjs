@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import {
   OBSERVATION_CATEGORY_SUPPORT,
@@ -8,6 +9,7 @@ import {
   loadObservationCategorySupport,
   parseObservationCategorySupportBytes,
 } from '../benchmarks/real-repository-oracle-v1/observation-category-authority.mjs';
+import { brownfieldSignals } from '../packages/cli/lib/observation-runtime/node.mjs';
 
 const file = new URL('../benchmarks/real-repository-oracle-v1/reviews/observation-category-support-v1.json', import.meta.url);
 const bytes = fs.readFileSync(file);
@@ -20,6 +22,21 @@ assert.deepEqual(OBSERVATION_CATEGORY_SUPPORT.large.positive.length, 13);
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.small.reviewed_absent.handlers.mode, 'bounded_negative_controls');
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.small.reviewed_absent.personas.mode, 'complete_candidate_set_absence');
 assert.equal(OBSERVATION_CATEGORY_SUPPORT.medium.reviewed_absent.personas.scope.matching_path_count, 0);
+const controlContents = JSON.parse(fs.readFileSync(new URL(
+  './fixtures/real-repository-oracle-observation-negative-controls-v1.json', import.meta.url,
+)));
+for (const item of controlContents.controls) {
+  const bytesAtPin = Buffer.from(item.content_base64, 'base64');
+  assert.equal(bytesAtPin.toString('base64'), item.content_base64, `${item.tier} control bytes are canonical`);
+  const control = Object.values(OBSERVATION_CATEGORY_SUPPORT[item.tier].reviewed_absent)[0].controls[0];
+  assert.equal(item.path, control.path);
+  assert.equal(crypto.createHash('sha1').update(`blob ${bytesAtPin.length}\0`).update(bytesAtPin).digest('hex'),
+    control.blob_oid, `${item.tier} control Git blob identity is reconstructed from bytes`);
+  assert.equal(crypto.createHash('sha256').update(bytesAtPin).digest('hex'), control.content_sha256,
+    `${item.tier} control content identity is reconstructed from bytes`);
+  assert.deepEqual(brownfieldSignals(item.path, bytesAtPin).categories, control.observed_categories,
+    `${item.tier} control categories come from the production extractor in production order`);
+}
 
 function rejects(mutator, message) {
   const value = JSON.parse(bytes);

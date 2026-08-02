@@ -35,7 +35,7 @@
       "type": "object", "additionalProperties": false, "required": ["query", "intent", "scope"],
       "properties": {
         "query": { "enum": ["exact_workflow_id", "exact_workflow_alias", "exact_source_identifier", "route", "handler", "entity", "symbol", "low_overlap_paraphrase", "persona", "permission", "role_boundary", "invariant", "failure_state", "entry_point", "command", "schema_entity", "transition", "event", "test", "docs_persona", "flag", "dependency"] },
-        "intent": { "enum": ["workflow_selection", "multi_workflow", "new_workflow", "source_localization", "observation", "obligations", "adversarial"] },
+        "intent": { "enum": ["workflow_selection", "multi_workflow", "ambiguous_workflow", "new_workflow", "source_localization", "observation", "obligations", "adversarial"] },
         "scope": { "enum": ["one_file", "multi_file", "repository"] }
       }
     },

@@ -25,13 +25,13 @@ export const QUERY_KINDS = Object.freeze([
   'flag', 'dependency',
 ]);
 export const INTENT_KINDS = Object.freeze([
-  'workflow_selection', 'multi_workflow', 'new_workflow', 'source_localization',
+  'workflow_selection', 'multi_workflow', 'ambiguous_workflow', 'new_workflow', 'source_localization',
   'observation', 'obligations', 'adversarial',
 ]);
 export const SCOPE_KINDS = Object.freeze(['one_file', 'multi_file', 'repository']);
 
 export const REQUIRED_COVERAGE = Object.freeze([
-  ...QUERY_KINDS, 'multi_workflow', 'new_workflow', 'adversarial',
+  ...QUERY_KINDS, 'multi_workflow', 'ambiguous_workflow', 'new_workflow', 'adversarial',
   'one_file', 'multi_file', 'rename', 'delete', 'dirty_file', 'branch', 'worktree',
 ]);
 export const OBSERVATION_CATEGORIES = Object.freeze([
@@ -182,7 +182,7 @@ function validateTargetPaths(target, at, errors) {
 
 export function derivedCoverage(item) {
   const coverage = new Set([item.kind.query]);
-  if (['multi_workflow', 'new_workflow', 'adversarial'].includes(item.kind.intent)) coverage.add(item.kind.intent);
+  if (['multi_workflow', 'ambiguous_workflow', 'new_workflow', 'adversarial'].includes(item.kind.intent)) coverage.add(item.kind.intent);
   if (item.kind.scope !== 'repository') coverage.add(item.kind.scope);
   const operations = item.repository_scenario.operations;
   if (operations.length) coverage.add('dirty_file');
@@ -258,22 +258,20 @@ function validateCase(item, index, collectionsById, errors) {
   if (JSON.stringify([...reviewedChanges].sort(changeOrder)) !== JSON.stringify(expectedChanges.sort(changeOrder))) {
     errors.push(`${at}.expected.repository_state.changes must exactly realize the reviewed scenario operations`);
   }
-  if (['new_workflow_required', 'ambiguous'].includes(item.expected.workflow_outcome)
-    && item.expected.selected_workflow_ids.length !== 0) {
-    errors.push(`${at} non-selected Workflow outcomes must select nothing`);
-  }
-  if (['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
-    && item.expected.selected_workflow_ids.length === 0) {
-    errors.push(`${at} selected Workflow outcome requires at least one selected id`);
+  const selectedCount = item.expected.selected_workflow_ids.length;
+  if ((item.expected.workflow_outcome === 'selected' && selectedCount !== 1)
+    || (item.expected.workflow_outcome === 'multi_workflow' && selectedCount < 2)
+    || (['new_workflow_required', 'ambiguous'].includes(item.expected.workflow_outcome) && selectedCount !== 0)) {
+    errors.push(`${at} workflow outcome has invalid selected Workflow cardinality`);
   }
   if (item.expected.selected_workflow_ids.some((id) => item.expected.forbidden_workflow_ids.includes(id))) {
     errors.push(`${at}.expected selected and forbidden Workflow ids must be disjoint`);
   }
   const expectedOutcome = item.kind.intent === 'multi_workflow' ? 'multi_workflow'
-    : item.kind.intent === 'new_workflow' ? 'new_workflow_required' : null;
+    : item.kind.intent === 'ambiguous_workflow' ? 'ambiguous'
+      : ['new_workflow', 'adversarial'].includes(item.kind.intent) ? 'new_workflow_required' : 'selected';
   const incompatibleOutcome = expectedOutcome ? item.expected.workflow_outcome !== expectedOutcome
-    : item.kind.intent === 'adversarial' ? item.expected.workflow_outcome === 'multi_workflow'
-      : ['multi_workflow', 'new_workflow_required'].includes(item.expected.workflow_outcome);
+    : true;
   if (incompatibleOutcome) {
     errors.push(`${at}.kind.intent contradicts workflow_outcome`);
   }
@@ -329,13 +327,34 @@ export function validateFixture(fixture) {
     for (const [metric, denominator] of Object.entries(denominators)) if (!denominator) errors.push(`${collection.id} has a zero query denominator for ${metric}`);
     const support = OBSERVATION_CATEGORY_SUPPORT[collection.fixture_id];
     const observationCoverage = new Set(cases.flatMap((item) => item.expected.observations.map((target) => target.category)));
+    const positiveTargets = cases.flatMap((item) => item.expected.observations);
     const forbiddenTargets = cases.flatMap((item) => item.expected.forbidden_observations);
     const obligationCoverage = new Set(cases.flatMap((item) => item.expected.obligations.map((target) => target.category)));
     for (const category of support.positive) {
       if (!observationCoverage.has(category)) errors.push(`${collection.id} lacks supported observation expectation ${category}`);
     }
+    for (const target of positiveTargets) {
+      if (support.positive.includes(target.category)
+        && !support.positive_targets.some((reviewed) => exactKeys(target, Object.keys(reviewed))
+          && JSON.stringify(target) === JSON.stringify(reviewed))) {
+        errors.push(`${collection.id} positive observation targets must be exact reviewed witness tuples`);
+      }
+    }
+    for (const reviewed of support.positive_targets) {
+      if (!positiveTargets.some((target) => JSON.stringify(target) === JSON.stringify(reviewed))) {
+        errors.push(`${collection.id} lacks exact positive witness ${reviewed.category}:${reviewed.path}`);
+      }
+    }
     for (const [category] of Object.entries(support.reviewed_absent)) {
       if (observationCoverage.has(category)) errors.push(`${collection.id} invents reviewed-absent observation expectation ${category}`);
+    }
+    for (const target of forbiddenTargets) {
+      if (support.reviewed_absent[target.category]
+        && (!exactKeys(target, ['category', 'path'])
+          || !support.forbidden_controls.some((control) => control.category === target.category
+            && control.path === target.path))) {
+        errors.push(`${collection.id} reviewed-absence targets must be canonical exact {category,path} controls`);
+      }
     }
     for (const control of support.forbidden_controls) {
       if (!forbiddenTargets.some((target) => target.category === control.category && target.path === control.path)) {
@@ -398,6 +417,12 @@ function validateResultPaths(item, index, errors) {
     if (!OBLIGATION_CATEGORIES.includes(target.category)) {
       errors.push(`${at} contains an obligation outside the normalized oracle vocabulary`);
     }
+  }
+  const selectedCount = item.selected_workflow_ids.length;
+  if ((item.workflow_outcome === 'selected' && selectedCount !== 1)
+    || (item.workflow_outcome === 'multi_workflow' && selectedCount < 2)
+    || (['ambiguous', 'new_workflow_required'].includes(item.workflow_outcome) && selectedCount !== 0)) {
+    errors.push(`${at} workflow outcome has invalid selected Workflow cardinality`);
   }
   item.repository_state.changes.forEach((change, changeIndex) => {
     if (!isSafeRelativePath(change.path)
@@ -490,7 +515,9 @@ const targetKey = (value) => JSON.stringify(canonical(value));
 const mutationExecutors = Object.freeze({
   wrong_workflow(result, index, reviewedCase) {
     const expected = reviewedCase.expected.selected_workflow_ids[0];
-    result.cases[index].selected_workflow_ids = result.cases[index].selected_workflow_ids.filter((id) => id !== expected);
+    const replacement = reviewedCase.expected.forbidden_workflow_ids[0];
+    result.cases[index].selected_workflow_ids = result.cases[index].selected_workflow_ids
+      .map((id) => id === expected ? replacement : id);
   },
   missing_observation(result, index, reviewedCase) {
     const expected = targetKey(reviewedCase.expected.observations[0]);

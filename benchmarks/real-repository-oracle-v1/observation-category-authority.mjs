@@ -26,15 +26,15 @@ const EXPECTED_WITNESS_SHA256 = Object.freeze({
   large: '7105703618dcb335d25fbb80b2258b64b3d9a742ff784c7c28d237c5ace39d08',
 });
 const EXPECTED_ABSENCE_SHA256 = Object.freeze({
-  small: '05d9a43c801720bd1efc75c662adae46f39a126cb32ce1174c69b9293dfc49b9',
-  medium: '4cf8c3f43bb4f9f9f7c84cb731221d84bb37d40c769aaa07a3ba6e063b79a626',
-  large: 'f58a57012abe7de40449aca5d601d0efc487132237f811e395a4c7a5555a9fc2',
+  small: '623aeda75866435df84da1887320e0c0765dfa824de2e9cc4b8a58dd9c9b55ff',
+  medium: '93203919443ece1052461d875571f6b314b00d5998b548351403625c4530d9e2',
+  large: 'bd317dd482aab48f0712d1d8020bbb8b4cf721f6c824fb418f380fb6fdd4abe1',
 });
 const SHA1 = /^[a-f0-9]{40}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 
-export const OBSERVATION_CATEGORY_SUPPORT_RAW_SHA256 = '787d34398e805366217cedd4bef1ae8d47bea558d05501dfda78f6ddd8d4843c';
-export const OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256 = 'd2984ed026e18f7e236d28e881832832dbd1339f51646fc41ebef94c5b4a32d6';
+export const OBSERVATION_CATEGORY_SUPPORT_RAW_SHA256 = 'ee4ecc3c63ea2acb6e013a9a75a3cba745856a7beabd2aeaffb56784b958ec97';
+export const OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256 = 'd7c93134918c4b77db341846f7bb27faeb34fb0e0a893d343eac659babfa01c4';
 
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const exactKeys = (value, keys) => object(value)
@@ -142,9 +142,24 @@ export function loadObservationCategorySupport() {
   return parseObservationCategorySupportBytes(fs.readFileSync(REVIEW_FILE));
 }
 
+const SYMBOL_SIGNAL_CATEGORIES = new Set([
+  'handlers', 'schemas', 'entities', 'events', 'permissions', 'feature_flags',
+]);
+function positiveTarget(witness) {
+  const target = { category: witness.category, path: witness.path };
+  if (SYMBOL_SIGNAL_CATEGORIES.has(witness.category)
+    && witness.signal.occurrence === 'exact_literal'
+    && /^[A-Za-z_$][A-Za-z0-9_$]{0,127}$/.test(witness.signal.value)) {
+    target.symbol = witness.signal.value;
+  }
+  return Object.freeze(target);
+}
+
 export const OBSERVATION_CATEGORY_SUPPORT = Object.freeze(Object.fromEntries(
   Object.entries(loadObservationCategorySupport().value.tiers).map(([tier, item]) => [tier, Object.freeze({
     positive: Object.freeze(item.positive_witnesses.map((witness) => witness.category)),
+    positive_witnesses: Object.freeze(item.positive_witnesses.map((witness) => Object.freeze(structuredClone(witness)))),
+    positive_targets: Object.freeze(item.positive_witnesses.map(positiveTarget)),
     reviewed_absent: Object.freeze(Object.fromEntries(item.reviewed_absent.map((entry) => [entry.category, Object.freeze(structuredClone(entry))]))),
     forbidden_controls: Object.freeze(item.reviewed_absent.flatMap((entry) => entry.controls.map((control) => Object.freeze({ category: entry.category, path: control.path })))),
   })]),

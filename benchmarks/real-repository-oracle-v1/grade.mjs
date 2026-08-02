@@ -135,7 +135,7 @@ export function gradeResult(fixture, result, { allowUnattestedEvaluation = false
   const coverage = {
     observations: Object.fromEntries(OBSERVATION_CATEGORIES.map((category) => [category, {
       positive_expected: 0, positive_matched: 0, forbidden_expected: 0,
-      forbidden_absent: 0, status: null,
+      forbidden_absent: 0, status: null, authority_mode: null,
     }])),
     obligations: {},
   };
@@ -151,12 +151,15 @@ export function gradeResult(fixture, result, { allowUnattestedEvaluation = false
     if (actual.length) diagnostics.push(`reviewed-absent observation category ${category} appeared outside its complete candidate-set authority`);
   }
   for (const [category, item] of Object.entries(coverage.observations)) {
+    const absenceMode = support.reviewed_absent[category]?.mode || null;
     if (item.positive_expected + item.forbidden_expected === 0) {
       diagnostics.push(`observation category ${category} has no positive or forbidden denominator`);
       item.status = 'mixed';
     } else if (item.positive_expected > 0 && item.forbidden_expected > 0) item.status = 'mixed';
     else if (item.positive_expected > 0) item.status = 'positive';
-    else item.status = 'reviewed_absent';
+    else item.status = absenceMode === 'bounded_negative_controls'
+      ? 'bounded_negative_control' : 'reviewed_absent';
+    item.authority_mode = absenceMode || (item.forbidden_expected ? 'mixed_controls' : 'positive_witnesses');
   }
   const metrics = {
     exact_id_alias_accuracy: ratio(counters.exact.matched, counters.exact.total),
