@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   CASE_DISCOVERY_WORKLOAD_ID,
   DEFAULTS,
+  GENERIC_TEMPORARY_MAX_INODES,
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
   retainedOutputTailBytes,
@@ -11,7 +12,10 @@ import {
   SELF_TEST_FIXTURE_MODES,
   SELF_TEST_LIMIT_MAXIMA,
   SCENARIO_VERIFICATION_WORKLOAD_ID,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+  temporaryMaxInodesForBytes,
   TIER_ORDER,
+  validateScenarioVerificationLargeInodeReservation,
 } from './constants.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
@@ -350,15 +354,29 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
-  const exactRealRepositoryStructuredOutput = ownership.audited_entrypoint
-    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command.length === 3
+  const exactRealRepositoryEntrypoint = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command.length === 3;
+  const exactScenarioVerification = exactRealRepositoryEntrypoint
+    && command[2] === 'verify-scenarios'
+    && workloadId === REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID;
+  const exactRealRepositoryStructuredOutput = exactRealRepositoryEntrypoint
     && ((command[2] === 'discover-cases'
       && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
-      || (command[2] === 'verify-scenarios'
-        && workloadId === REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID));
+      || exactScenarioVerification);
   const structuredOutputWorkloadId = exactRealRepositoryStructuredOutput ? workloadId : null;
+  const temporaryInodeReservation = exactScenarioVerification && tier === 'large'
+    ? SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION : null;
+  const temporaryInodeReservationValidation = temporaryInodeReservation
+    ? validateScenarioVerificationLargeInodeReservation(temporaryInodeReservation) : null;
+  const temporaryInodeCeiling = temporaryInodeReservation
+    ? Math.min(temporaryInodeReservation.requested_max_inodes,
+      temporaryInodeReservation.hard_ceiling)
+    : GENERIC_TEMPORARY_MAX_INODES;
   envelope.limits = {
     ...envelope.limits,
+    temporary_max_inodes: temporaryMaxInodesForBytes(
+      envelope.limits.temporary_max_bytes, temporaryInodeCeiling,
+    ),
     stdout_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stdout'),
     stderr_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stderr'),
   };
@@ -380,6 +398,9 @@ export function preflightRun({
   }
   if (!TIER_ORDER.includes(tier)) reasons.push(`tier must be one of ${TIER_ORDER.join(', ')}`);
   if (!Array.isArray(command) || command.length === 0) reasons.push('command must be a non-empty string array');
+  if (temporaryInodeReservationValidation?.valid === false) {
+    reasons.push('large scenario verification temporary inode geometry exceeds its hard ceiling');
+  }
   const memoryReserve = portableTinySelfTest ? 128 * 1024 ** 2 : envelope.limits.os_reserve_bytes;
   const minimumDisk = portableTinySelfTest
     ? Math.max(64 * 1024 ** 2, envelope.limits.temporary_max_bytes * 2)
@@ -492,6 +513,7 @@ export function preflightRun({
     },
     promotion,
     workload_id: workloadId,
+    temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };
 }

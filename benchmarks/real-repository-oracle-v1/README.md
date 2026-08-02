@@ -202,7 +202,13 @@ goldens.
 Every record binds its stage and physical before-count to the tier's reviewed
 tracked-file count. All six fresh materializations must also agree on the exact
 before stage and physical digests, preventing one scenario from silently using
-a different base checkout.
+a different base checkout. The generic temporary inode ceiling remains 8,192.
+Only the exact large-tier scenario command and workload identity receive the
+reviewed 16,384 ceiling, derived downward from the caller's temporary byte cap.
+Its preflight receipt binds 5,405 tracked paths, 6,569 occupied destinations,
+two simultaneous logical-worktree surfaces, a 1,024-inode control reserve, and
+the execution-authority 16,384-file hard ceiling; crossed identities and other
+tiers retain the generic cap.
 
 This checkpoint is lexical Git-state evidence only. It carries the accepted
 discovery digests as `selection_provenance_not_replayed`; it does not replay

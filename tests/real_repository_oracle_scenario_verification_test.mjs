@@ -11,6 +11,11 @@ import {
 } from '../scripts/safe-runner/real-repository-source-closure.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from '../scripts/safe-runner/source-identity.mjs';
 import {
+  GENERIC_TEMPORARY_MAX_INODES,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+  temporaryMaxInodesForBytes,
+} from '../scripts/safe-runner/constants.mjs';
+import {
   decodeScenarioVerificationPayload, decodeScenarioVerificationReport,
   encodeScenarioVerificationPayload, executeScenario, executeScenarioForTest,
   parseScenarioPorcelainV2Z, SCENARIO_VERIFICATION_BOUNDS,
@@ -506,8 +511,11 @@ const safeReport = {
   tier: 'small', command, cwd: ROOT, started_at: '2026-08-03T00:00:00.000Z',
   finished_at: '2026-08-03T00:00:01.000Z', duration_ms: 1000,
   adapter: { id: 'linux-systemd-cgroup-v2', production_enforcement: true },
-  limits: { stdout_tail_max_bytes: 8 * 1024, stderr_tail_max_bytes: 8 * 1024 },
+  limits: { stdout_tail_max_bytes: 8 * 1024, stderr_tail_max_bytes: 8 * 1024,
+    temporary_max_bytes: 2 * 1024 ** 3,
+    temporary_max_inodes: GENERIC_TEMPORARY_MAX_INODES },
   preflight: { ok: true, workload_id: SCENARIO_VERIFICATION_WORKLOAD_ID,
+    temporary_inode_reservation: null,
     ownership: { proven: true,
       audited_entrypoint: 'benchmarks/real-repository-oracle-v1/workload.mjs',
       executable: process.execPath }, execution_command: command, source_identity: sourceIdentity,
@@ -532,6 +540,66 @@ const safeReport = {
   error: null,
 };
 assert.deepEqual(decodeScenarioVerificationReport(safeReport), canonical(result));
+const safeReportForTier = (tier, temporaryMaxBytes = 2 * 1024 ** 3) => {
+  const tierResult = validResult(tier);
+  const tierTail = `${encodeScenarioVerificationPayload(tierResult)}\n`;
+  const report = structuredClone(safeReport);
+  const promotionRequired = tier === 'small' ? [] : tier === 'medium' ? ['small']
+    : ['small', 'medium'];
+  const inodeCeiling = tier === 'large'
+    ? SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION.requested_max_inodes
+    : GENERIC_TEMPORARY_MAX_INODES;
+  report.tier = tier;
+  report.limits.temporary_max_bytes = temporaryMaxBytes;
+  report.limits.temporary_max_inodes = temporaryMaxInodesForBytes(
+    temporaryMaxBytes, inodeCeiling,
+  );
+  report.preflight.temporary_inode_reservation = tier === 'large'
+    ? SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION : null;
+  report.preflight.promotion.required = promotionRequired;
+  report.preflight.promotion.completed = promotionRequired;
+  report.cleanup.lock_released = tier === 'small' ? null : true;
+  report.samples[0].temporary_inodes = tier === 'large' ? 11_880 : 1;
+  report.peaks.temporary_inodes = report.samples[0].temporary_inodes;
+  report.output.stdout_bytes = Buffer.byteLength(tierTail);
+  report.output.total_bytes = Buffer.byteLength(tierTail);
+  report.output.stdout_tail = tierTail;
+  return { report, result: tierResult };
+};
+const mediumSafe = safeReportForTier('medium');
+assert.deepEqual(decodeScenarioVerificationReport(mediumSafe.report), canonical(mediumSafe.result));
+const largeSafe = safeReportForTier('large');
+assert.equal(largeSafe.report.limits.temporary_max_inodes, 16_384);
+assert.deepEqual(decodeScenarioVerificationReport(largeSafe.report), canonical(largeSafe.result));
+const downwardLargeSafe = safeReportForTier('large', 16 * 1024 ** 2);
+downwardLargeSafe.report.samples[0].temporary_inodes = 1;
+downwardLargeSafe.report.peaks.temporary_inodes = 1;
+assert.equal(downwardLargeSafe.report.limits.temporary_max_inodes, 4_096);
+assert.deepEqual(decodeScenarioVerificationReport(downwardLargeSafe.report),
+  canonical(downwardLargeSafe.result));
+for (const wrongLimit of [8_192, 16_385]) {
+  const tampered = structuredClone(largeSafe.report);
+  tampered.limits.temporary_max_inodes = wrongLimit;
+  assert.throws(() => decodeScenarioVerificationReport(tampered), /exact safe-runner authority/);
+}
+for (const tier of ['small', 'medium']) {
+  const tampered = safeReportForTier(tier).report;
+  tampered.limits.temporary_max_inodes = 16_384;
+  assert.throws(() => decodeScenarioVerificationReport(tampered), /exact safe-runner authority/);
+}
+const wrongReservationTier = structuredClone(largeSafe.report);
+wrongReservationTier.preflight.temporary_inode_reservation.tier = 'medium';
+assert.throws(() => decodeScenarioVerificationReport(wrongReservationTier),
+  /exact safe-runner authority/);
+const geometryOverCeiling = structuredClone(largeSafe.report);
+geometryOverCeiling.preflight.temporary_inode_reservation.occupied_destination_count = 8_000;
+assert.throws(() => decodeScenarioVerificationReport(geometryOverCeiling),
+  /exact safe-runner authority/);
+const peakOverCeiling = structuredClone(largeSafe.report);
+peakOverCeiling.samples[0].temporary_inodes = 16_385;
+peakOverCeiling.peaks.temporary_inodes = 16_385;
+assert.throws(() => decodeScenarioVerificationReport(peakOverCeiling),
+  /exact safe-runner authority/);
 const missingPromotion = structuredClone(safeReport);
 missingPromotion.preflight.promotion.ok = false;
 missingPromotion.preflight.promotion.missing = ['small'];

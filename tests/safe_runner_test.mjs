@@ -11,7 +11,10 @@ import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../script
 import {
   authorizeBrokerRequest, createProofBroker, exactGraphdLaunchAuthorized,
 } from '../scripts/safe-runner/broker.mjs';
-import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import {
+  DEFAULTS, GENERIC_TEMPORARY_MAX_INODES, GIB, MIB, SELF_TEST_CASE_IDS,
+  temporaryMaxInodesForBytes,
+} from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import {
   deriveLimits,
@@ -247,11 +250,18 @@ try {
   assert.equal(eightGib.memory_page_bytes, null);
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
+  assert.equal(eightGib.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+    'generic workloads retain the 8192 temporary inode ceiling');
+  assert.equal(temporaryMaxInodesForBytes(16 * MIB), 4_096,
+    'generic inode derivation retains downward temporary-byte semantics');
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
   for (const invalid of [NaN, Infinity, 0, -1, 1.5]) {
     assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
   }
   assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
+  assert.throws(() => validateLimitOverrides({ temporaryMaxInodes: 16_384 }),
+    /unknown safe-runner limit override/,
+    'callers cannot request an upward temporary inode override');
   const aligned192Mib = deriveLimits({
     memoryMaxBytes: 192 * MIB,
     memoryHighBytes: 160 * MIB,

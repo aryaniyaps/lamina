@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { DEFAULTS, ENVELOPE_SCHEMA } from './constants.mjs';
+import {
+  DEFAULTS, ENVELOPE_SCHEMA, temporaryMaxInodesForBytes,
+} from './constants.mjs';
 
 const OVERRIDE_RULES = Object.freeze({
   memoryMaxBytes: { integer: true },
@@ -133,7 +135,7 @@ export function deriveLimits(overrides = {}, {
     timeout_ms: Math.min(overrides.timeoutMs ?? DEFAULTS.timeoutMs, DEFAULTS.timeoutMs),
     output_max_bytes: Math.min(overrides.outputMaxBytes ?? DEFAULTS.outputMaxBytes, DEFAULTS.outputMaxBytes),
     temporary_max_bytes: tempMaxBytes,
-    temporary_max_inodes: Math.max(256, Math.min(8_192, Math.floor(tempMaxBytes / 4096))),
+    temporary_max_inodes: temporaryMaxInodesForBytes(tempMaxBytes),
     minimum_free_disk_bytes: Math.max(DEFAULTS.minFreeDiskBytes, tempMaxBytes * 2),
     sample_interval_ms: Math.min(
       DEFAULTS.sampleIntervalMs,

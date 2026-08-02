@@ -38,10 +38,12 @@ import {
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
-import { DEFAULTS as SAFE_RUNNER_DEFAULTS, MIB,
+import { DEFAULTS as SAFE_RUNNER_DEFAULTS, GENERIC_TEMPORARY_MAX_INODES, MIB,
   retainedOutputTailBytes,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
   SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES,
   SCENARIO_VERIFICATION_WORKLOAD_ID as CONSTANTS_SCENARIO_VERIFICATION_WORKLOAD_ID,
+  temporaryMaxInodesForBytes, validateScenarioVerificationLargeInodeReservation,
 } from '../scripts/safe-runner/constants.mjs';
 import {
   REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_ENTRYPOINT,
@@ -355,6 +357,49 @@ assert.ok(!exactScenarioIdentity.reasons
   .some((reason) => reason.includes('scenario verification requires --workload')));
 assert.equal(exactScenarioIdentity.envelope.limits.stdout_tail_max_bytes, 8 * 1024);
 assert.equal(exactScenarioIdentity.envelope.limits.stderr_tail_max_bytes, 8 * 1024);
+assert.equal(exactScenarioIdentity.envelope.limits.temporary_max_inodes,
+  GENERIC_TEMPORARY_MAX_INODES);
+assert.equal(exactScenarioIdentity.temporary_inode_reservation, null);
+assert.deepEqual(validateScenarioVerificationLargeInodeReservation(
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+), { valid: true, required_inodes: 14_162 });
+assert.equal(validateScenarioVerificationLargeInodeReservation({
+  ...SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+  occupied_destination_count: 8_000,
+}).valid, false, 'future accepted geometry above the hard ceiling must fail closed');
+const exactMediumScenarioIdentity = preflightRun({
+  tier: 'medium', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.equal(exactMediumScenarioIdentity.envelope.limits.temporary_max_inodes,
+  GENERIC_TEMPORARY_MAX_INODES);
+assert.equal(exactMediumScenarioIdentity.temporary_inode_reservation, null);
+const exactLargeScenarioIdentity = preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.equal(exactLargeScenarioIdentity.envelope.limits.temporary_max_inodes, 16_384);
+assert.deepEqual(exactLargeScenarioIdentity.temporary_inode_reservation,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION);
+const missingLargeScenarioIdentity = preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: null,
+});
+assert.equal(missingLargeScenarioIdentity.envelope.limits.temporary_max_inodes,
+  GENERIC_TEMPORARY_MAX_INODES);
+assert.equal(missingLargeScenarioIdentity.temporary_inode_reservation, null);
+assert.ok(missingLargeScenarioIdentity.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID)));
+const downwardLargeScenarioIdentity = preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  overrides: { tempMaxBytes: 16 * MIB }, adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.equal(downwardLargeScenarioIdentity.envelope.limits.temporary_max_inodes, 4_096,
+  'the exact reservation cannot enlarge a caller-lowered temporary byte envelope');
+assert.equal(temporaryMaxInodesForBytes(16 * MIB, 16_384), 4_096);
 const crossedScenarioRetention = preflightRun({
   tier: 'small', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
   adapterInfo, injectedExistingProcesses: [],
@@ -365,6 +410,18 @@ assert.ok(crossedScenarioRetention.reasons
 assert.equal(crossedScenarioRetention.envelope.limits.stdout_tail_max_bytes,
   SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
   'a crossed discovery ID cannot broaden scenario retention');
+assert.equal(preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID,
+}).envelope.limits.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+  'a crossed discovery ID cannot broaden the large scenario inode cap');
+assert.equal(preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'verify-scenarios', 'extra'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+}).envelope.limits.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+  'extra argv must revoke the large scenario inode reservation');
 const crossedDiscoveryRetention = preflightRun({
   tier: 'small', command: [process.execPath, ENTRYPOINT, 'discover-cases'], cwd: ROOT,
   adapterInfo, injectedExistingProcesses: [],
@@ -385,6 +442,31 @@ const unrelatedScenarioRetention = preflightRun({
 assert.equal(unrelatedScenarioRetention.envelope.limits.stdout_tail_max_bytes,
   SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
   'the scenario workload ID cannot reserve output for another audited command');
+assert.equal(preflightRun({
+  tier: 'large',
+  command: [process.execPath,
+    path.join(ROOT, 'tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+  cwd: ROOT, adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+}).envelope.limits.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+  'the scenario workload ID cannot reserve inodes for an adversary entrypoint');
+assert.equal(preflightRun({
+  tier: 'large', command: [process.execPath, ENTRYPOINT, 'discover-cases'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID,
+}).envelope.limits.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+  'case discovery remains inside the generic inode cap at every tier');
+const selfTestScenarioReservation = preflightRun({
+  tier: 'large', mode: 'self-test', selfTestCaseId: 'normal_cleanup',
+  command: [process.execPath,
+    path.join(ROOT, 'tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+  cwd: ROOT, adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.ok(selfTestScenarioReservation.envelope.limits.temporary_max_inodes
+  <= GENERIC_TEMPORARY_MAX_INODES);
+assert.equal(selfTestScenarioReservation.temporary_inode_reservation, null,
+  'self-test identity cannot inherit the large scenario reservation');
 for (const tier of ['medium', 'large']) {
   const reconstructionPreflight = preflightRun({
     tier, command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,

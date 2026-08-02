@@ -3,6 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { validateReport } from '../../scripts/safe-runner/report.mjs';
 import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
+import {
+  DEFAULTS, GENERIC_TEMPORARY_MAX_INODES,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+  temporaryMaxInodesForBytes,
+  validateScenarioVerificationLargeInodeReservation,
+} from '../../scripts/safe-runner/constants.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
   realRepositoryOracleSourceClosureIdentity,
@@ -1038,6 +1044,17 @@ export function decodeScenarioVerificationReport(report) {
   } catch {}
   const cleanup = report?.cleanup;
   const termination = report?.termination;
+  const expectedInodeReservation = report?.tier === 'large'
+    ? SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION : null;
+  const inodeReservationValidation = expectedInodeReservation
+    ? validateScenarioVerificationLargeInodeReservation(expectedInodeReservation) : null;
+  let expectedTemporaryMaxInodes = null;
+  try {
+    expectedTemporaryMaxInodes = temporaryMaxInodesForBytes(
+      report?.limits?.temporary_max_bytes,
+      expectedInodeReservation?.requested_max_inodes ?? GENERIC_TEMPORARY_MAX_INODES,
+    );
+  } catch {}
   const promotionRequired = report?.tier === 'small' ? []
     : report?.tier === 'medium' ? ['small'] : ['small', 'medium'];
   const promotion = preflight?.promotion;
@@ -1049,6 +1066,17 @@ export function decodeScenarioVerificationReport(report) {
     && executionCommand[2] === 'verify-scenarios'
     && path.resolve(repository, String(executionCommand[1] || '')) === expectedEntrypoint
     && preflight?.ok === true && preflight.workload_id === SCENARIO_VERIFICATION_WORKLOAD_ID
+    && (expectedInodeReservation
+      ? inodeReservationValidation?.valid === true
+        && JSON.stringify(preflight.temporary_inode_reservation)
+          === JSON.stringify(expectedInodeReservation)
+      : preflight.temporary_inode_reservation === null)
+    && Number.isSafeInteger(report.limits?.temporary_max_bytes)
+    && report.limits.temporary_max_bytes > 0
+    && report.limits.temporary_max_bytes <= DEFAULTS.tempMaxBytes
+    && report.limits?.temporary_max_inodes === expectedTemporaryMaxInodes
+    && Number.isSafeInteger(report.peaks?.temporary_inodes)
+    && report.peaks.temporary_inodes <= expectedTemporaryMaxInodes
     && preflight.retry?.ok === true && preflight.retry.signature === source?.digest
     && exactKeys(promotion,
       ['ok', 'required', 'missing', 'completed', 'deferred_to_execution_snapshot'])
