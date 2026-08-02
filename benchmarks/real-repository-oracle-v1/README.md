@@ -4,12 +4,12 @@ This benchmark separates repository admission, case discovery, expectation
 review, semantic-core grading, and public-CLI qualification. Evidence from an
 earlier stage cannot be relabeled as evidence from a later one.
 
-The three repository pins and their inventories are manually reviewed. The
-current quality fixture is not: real path, blob, symbol, Workflow, and expected
-outcome facts still require independent review. Consequently `validate` stays
-outside the safe-runner exact-command allowlist and the public-CLI mode remains
-explicitly safety-blocked. There is no end-to-end or user-runtime qualification
-claim.
+The three repository pins and their inventories are manually reviewed. A
+candidate-visible Workflow seed and private expectation candidate are now
+digest-bound, but the private receipt remains pending independent review
+adjudication. Consequently `validate` stays outside the safe-runner
+exact-command allowlist and the public-CLI mode remains explicitly
+safety-blocked. There is no end-to-end or user-runtime qualification claim.
 
 ## Bounded case discovery
 
@@ -218,6 +218,32 @@ The command must not be executed from this source checkpoint. A real run remains
 refused until a fresh adversarial self-test and exact small-to-medium-to-large
 promotion ladder are completed from the reviewed commit.
 
+## Workflow seed and private expectation candidate
+
+`workflows-v1.json` is the only candidate-visible semantic seed. It contains
+five bounded Workflows per tier and no request-to-answer, grading, mutation, or
+held-out expectation material. The observation-category support receipt binds
+exact production-extractor witnesses and distinguishes bounded negative
+controls from complete-candidate-set absence; it does not turn absence into a
+positive capability claim.
+
+`reviews/case-expectations-v1.json` is private controller material. Its 72 cases
+allocate exactly 24 rows per tier: 10 identity rows, 8 semantic/source rows,
+and 6 accepted-state rows. The 31 registered mutations cover every mutation
+kind in each tier plus the small bounded handler control. The authoring
+projection reproduces the frozen JSON byte-for-byte, while the pending receipt
+separately seals collections, request/scenario pairs, expectations/rationales,
+mutations, gates, and the unchanged retrieval-v1 held-out identities (160
+Workflow rows and 80 source rows). These are fixture-consistency and grader-
+mechanics checks, not candidate measurements.
+
+The fixture loader clones private material at the controller boundary and does
+not trust candidate-supplied fixtures or grades. Candidate closure is not
+implemented or reachable. In particular, positive Persona capability remains
+excepted until a later candidate-facing sealed probe exists; quality pass is
+structurally unreachable until that probe, candidate isolation, and host-side
+grading are implemented and reviewed.
+
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed
@@ -227,6 +253,8 @@ promotion ladder are completed from the reviewed commit.
   quality claims.
 - Scenario verification proves only exact selected Git mutations and cleanup;
   it neither loads nor implies fixture, expectation, grader, or quality authority.
+- The pending private expectation receipt proves fixture consistency and
+  mutation sensitivity only; it cannot issue or imply a candidate quality pass.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.

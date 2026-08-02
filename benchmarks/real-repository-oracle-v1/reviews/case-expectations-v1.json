@@ -1,0 +1,4562 @@
+{
+  "schema": "lamina.real-repository-oracle-fixture/v1",
+  "id": "real-repository-oracle-case-expectations-v1",
+  "version": 1,
+  "collections": [
+    {
+      "schema": "lamina.real-repository-collection/v1",
+      "id": "collection.small",
+      "fixture_id": "small",
+      "fixture_class": "small",
+      "repository_url": "https://github.com/alan2207/bulletproof-react.git",
+      "commit": "9506629ed003a561c6627735480cce4994244bb4",
+      "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991",
+      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
+      "observation_paths_sha256": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+      "observation_candidate_files": 535,
+      "observation_candidate_bytes": 2640087,
+      "retrieval_paths_sha256": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
+      "retrieval_candidate_files": 467,
+      "retrieval_candidate_bytes": 693785,
+      "collection_digest": "c8d664b1800ec71a57a2f2b6b05bd9a418978bc5f465e55dd5fc7b136434bdab"
+    },
+    {
+      "schema": "lamina.real-repository-collection/v1",
+      "id": "collection.medium",
+      "fixture_id": "medium",
+      "fixture_class": "medium",
+      "repository_url": "https://github.com/outline/outline.git",
+      "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+      "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d",
+      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
+      "observation_paths_sha256": "a54821d081c82acea3bce42c769f6c39f3d388c330e432436bda7e80977e3b5c",
+      "observation_candidate_files": 2539,
+      "observation_candidate_bytes": 15972213,
+      "retrieval_paths_sha256": "3ba81ce78f10ff50ec4d652ebed8ef18a9e2624b3434f7a125e3a3f133ec1d7e",
+      "retrieval_candidate_files": 2420,
+      "retrieval_candidate_bytes": 12914792,
+      "collection_digest": "13b10545bf04be1f08749fa5b48a317284fc2a1a369bca70a5a36c43e91569b6"
+    },
+    {
+      "schema": "lamina.real-repository-collection/v1",
+      "id": "collection.large",
+      "fixture_id": "large",
+      "fixture_class": "large",
+      "repository_url": "https://github.com/makeplane/plane.git",
+      "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+      "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e",
+      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
+      "observation_paths_sha256": "90fef3b430dee05642af40a636590a97fc0bbf405f37040def570ba7832a1652",
+      "observation_candidate_files": 5399,
+      "observation_candidate_bytes": 55696352,
+      "retrieval_paths_sha256": "de46b1ebd6495065f95d8afd365be2195f4518ed5f2e57f4d38881c9f29f3ebc",
+      "retrieval_candidate_files": 4805,
+      "retrieval_candidate_bytes": 21278398,
+      "collection_digest": "813e615ec1bb4300c4526727d92941e45377eb3dd4b2c7594a6e475b5ec94f68"
+    }
+  ],
+  "cases": [
+    {
+      "id": "small.identity.id-1",
+      "collection_id": "collection.small",
+      "request": "Select the exact Workflow id small.dashboard-navigation.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation"
+        ],
+        "forbidden_workflow_ids": [
+          "small.profile-entry",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [
+          {
+            "category": "handlers",
+            "path": "apps/nextjs-pages/src/components/layouts/auth-layout.tsx"
+          }
+        ],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.alias-1",
+      "collection_id": "collection.small",
+      "request": "Select the Workflow whose exact alias is \"side navigation\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation"
+        ],
+        "forbidden_workflow_ids": [
+          "small.profile-entry",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.id-2",
+      "collection_id": "collection.small",
+      "request": "Select the exact Workflow id small.profile-entry.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.profile-entry"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.profile-entry",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx",
+            "symbol": "EntryProps",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.alias-2",
+      "collection_id": "collection.small",
+      "request": "Select the Workflow whose exact alias is \"profile field\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.profile-entry"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.profile-entry",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx",
+            "symbol": "EntryProps",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.id-3",
+      "collection_id": "collection.small",
+      "request": "Select the exact Workflow id small.route-completion.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.route-completion"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.route-completion",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+            "symbol": "routeChangeComplete",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.alias-3",
+      "collection_id": "collection.small",
+      "request": "Select the Workflow whose exact alias is \"route complete\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.route-completion"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.route-completion",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+            "symbol": "routeChangeComplete",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.id-4",
+      "collection_id": "collection.small",
+      "request": "Select the exact Workflow id small.disclosure-state.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.disclosure-state"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.disclosure-state",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.alias-4",
+      "collection_id": "collection.small",
+      "request": "Select the Workflow whose exact alias is \"toggle disclosure\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.disclosure-state"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.disclosure-state",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.id-5",
+      "collection_id": "collection.small",
+      "request": "Select the exact Workflow id small.discussion-authorization.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.discussion-authorization"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.discussion-authorization",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.identity.alias-5",
+      "collection_id": "collection.small",
+      "request": "Select the Workflow whose exact alias is \"discussion permission test\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.discussion-authorization"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.discussion-authorization",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "small.semantic.01-exact_source_identifier",
+      "collection_id": "collection.small",
+      "request": "The reviewed rename from .github/workflows/nextjs-app-ci.yml to lamina-oracle-rename-7604c69c4e3d.yml is unrelated to Route completion handling; keep the expected source identifier routeChangeComplete at apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx localized at its unchanged path.",
+      "kind": {
+        "query": "exact_source_identifier",
+        "intent": "source_localization",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-rename",
+        "operations": [
+          {
+            "op": "rename",
+            "path": ".github/workflows/nextjs-app-ci.yml",
+            "to": "lamina-oracle-rename-7604c69c4e3d.yml"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.route-completion"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.route-completion",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+            "symbol": "routeChangeComplete",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [
+          ".github/workflows/nextjs-app-ci.yml"
+        ],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "renamed",
+              "path": "lamina-oracle-rename-7604c69c4e3d.yml",
+              "original_path": ".github/workflows/nextjs-app-ci.yml",
+              "xy": "R.",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "small.semantic.02-route",
+      "collection_id": "collection.small",
+      "request": "Localize the route surface for Route completion handling: Handle a completed dashboard route change without attaching the behavior to the auth layout.",
+      "kind": {
+        "query": "route",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.route-completion"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.route-completion",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/react-vite/src/app/routes/app/dashboard.tsx",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the route query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.03-symbol",
+      "collection_id": "collection.small",
+      "request": "Find the exact source symbol for Dashboard navigation: Let an authenticated dashboard user understand and choose a named navigation item.",
+      "kind": {
+        "query": "symbol",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation"
+        ],
+        "forbidden_workflow_ids": [
+          "small.profile-entry",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the symbol query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.04-low_overlap_paraphrase",
+      "collection_id": "collection.small",
+      "request": "Create a payroll-tax remittance Workflow for an external accounting system absent from the pinned small repository.",
+      "kind": {
+        "query": "low_overlap_paraphrase",
+        "intent": "new_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "small.semantic.05-persona",
+      "collection_id": "collection.small",
+      "request": "Ignore lexical Persona decoys and do not attach any Workflow or Persona observation to this unrelated modified-file request in the pinned small repository.",
+      "kind": {
+        "query": "persona",
+        "intent": "adversarial",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-modify",
+        "operations": [
+          {
+            "op": "modify",
+            "path": "apps/nextjs-app/.storybook/preview.tsx",
+            "content": "\n// lamina-oracle-modify-v1\n"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "ordinary",
+              "path": "apps/nextjs-app/.storybook/preview.tsx",
+              "original_path": null,
+              "xy": ".M",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "small.semantic.06-permission",
+      "collection_id": "collection.small",
+      "request": "Preserve the permission boundary for Discussion authorization verification: Verify discussion authorization behavior at the reviewed test surface.",
+      "kind": {
+        "query": "permission",
+        "intent": "obligations",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.discussion-authorization"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.discussion-authorization",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-info.tsx",
+            "symbol": "role",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [
+          {
+            "category": "implementation",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "state",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "permission",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "failure",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "persona",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "completeness",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          },
+          {
+            "category": "verification",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+          }
+        ],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the permission query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.07-role_boundary",
+      "collection_id": "collection.small",
+      "request": "The pinned small request says only \"manage access\" and could refer to Discussion authorization verification or Dashboard navigation; localize the reviewed permission evidence but select neither Workflow.",
+      "kind": {
+        "query": "role_boundary",
+        "intent": "ambiguous_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "ambiguous",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "small.discussion-authorization",
+          "small.dashboard-navigation"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-info.tsx",
+            "symbol": "role",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the role_boundary query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.08-invariant",
+      "collection_id": "collection.small",
+      "request": "On the reviewed branch, use the assigned invariant evidence useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts to select Disclosure state and preserve its invariant: Disclosure state remains either open or closed.",
+      "kind": {
+        "query": "invariant",
+        "intent": "workflow_selection",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "branch",
+        "name": "reviewed-branch",
+        "operations": [
+          {
+            "op": "checkout_branch",
+            "branch": "lamina-oracle/8ff0401ab8ba"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.disclosure-state"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.disclosure-state",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "lamina-oracle/8ff0401ab8ba",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "small.semantic.09-failure_state",
+      "collection_id": "collection.small",
+      "request": "Handle the explicit failure state for Disclosure state: Move a disclosure between closed and open states through the reviewed hook.",
+      "kind": {
+        "query": "failure_state",
+        "intent": "obligations",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.disclosure-state"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.disclosure-state",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the failure_state query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.10-entry_point",
+      "collection_id": "collection.small",
+      "request": "After the reviewed deletion of apps/nextjs-app/.vscode/extensions.json, use the assigned entry-point evidence apps/nextjs-app/.storybook/main.ts for Dashboard navigation without returning the stale deleted path.",
+      "kind": {
+        "query": "entry_point",
+        "intent": "observation",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-delete",
+        "operations": [
+          {
+            "op": "delete",
+            "path": "apps/nextjs-app/.vscode/extensions.json"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation"
+        ],
+        "forbidden_workflow_ids": [
+          "small.profile-entry",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/.storybook/main.ts",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [
+          {
+            "category": "entry_points",
+            "path": "apps/nextjs-app/.storybook/main.ts"
+          },
+          {
+            "category": "commands",
+            "path": "apps/nextjs-app/package.json"
+          },
+          {
+            "category": "routes",
+            "path": "apps/react-vite/src/app/routes/app/dashboard.tsx"
+          },
+          {
+            "category": "schemas",
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem"
+          },
+          {
+            "category": "entities",
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem"
+          },
+          {
+            "category": "state_transitions",
+            "path": "apps/nextjs-app/src/components/ui/dialog/dialog.tsx"
+          },
+          {
+            "category": "permissions",
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-info.tsx",
+            "symbol": "role"
+          },
+          {
+            "category": "events",
+            "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+            "symbol": "routeChangeComplete"
+          },
+          {
+            "category": "tests",
+            "path": "apps/nextjs-app/src/testing/test-utils.tsx"
+          },
+          {
+            "category": "documentation",
+            "path": "README.md"
+          },
+          {
+            "category": "feature_flags",
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "toggle"
+          },
+          {
+            "category": "dependencies",
+            "path": "apps/nextjs-app/.storybook/preview.tsx"
+          }
+        ],
+        "forbidden_observations": [
+          {
+            "category": "personas",
+            "path": "apps/nextjs-pages/src/components/layouts/auth-layout.tsx"
+          }
+        ],
+        "obligations": [],
+        "forbidden_paths": [
+          "apps/nextjs-app/.vscode/extensions.json"
+        ],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "deleted",
+              "path": "apps/nextjs-app/.vscode/extensions.json",
+              "original_path": null,
+              "xy": ".D",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "small.semantic.11-command",
+      "collection_id": "collection.small",
+      "request": "Find the repository command relevant to Dashboard navigation: Let an authenticated dashboard user understand and choose a named navigation item.",
+      "kind": {
+        "query": "command",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation"
+        ],
+        "forbidden_workflow_ids": [
+          "small.profile-entry",
+          "small.route-completion"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/package.json",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the command query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.12-transition",
+      "collection_id": "collection.small",
+      "request": "Apply the state transition for Disclosure state: Move a disclosure between closed and open states through the reviewed hook.",
+      "kind": {
+        "query": "transition",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.disclosure-state"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.disclosure-state",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/components/ui/dialog/dialog.tsx",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the transition query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.13-test",
+      "collection_id": "collection.small",
+      "request": "Find the verification surface for Discussion authorization verification: Verify discussion authorization behavior at the reviewed test surface.",
+      "kind": {
+        "query": "test",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "small.discussion-authorization"
+        ],
+        "forbidden_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.discussion-authorization",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/src/testing/test-utils.tsx",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the test query family without changing the pinned repository state."
+    },
+    {
+      "id": "small.semantic.14-dependency",
+      "collection_id": "collection.small",
+      "request": "In the linked worktree, use the assigned dependency evidence apps/nextjs-app/.storybook/preview.tsx to coordinate Dashboard navigation and Profile entry presentation across apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx and apps/nextjs-app/src/app/app/profile/_components/profile.tsx.",
+      "kind": {
+        "query": "dependency",
+        "intent": "multi_workflow",
+        "scope": "multi_file"
+      },
+      "repository_scenario": {
+        "kind": "worktree",
+        "name": "reviewed-logical-worktree",
+        "operations": [
+          {
+            "op": "add_worktree",
+            "branch": "lamina-oracle/worktree-8ff0401ab8ba",
+            "worktree_id": "oracle-worktree-8ff0401ab8ba"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "multi_workflow",
+        "selected_workflow_ids": [
+          "small.dashboard-navigation",
+          "small.profile-entry"
+        ],
+        "forbidden_workflow_ids": [
+          "small.route-completion",
+          "small.disclosure-state"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "small.dashboard-navigation",
+            "max_rank": 1
+          },
+          {
+            "id": "small.profile-entry",
+            "max_rank": 2
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/nextjs-app/.storybook/preview.tsx",
+            "symbol": null,
+            "max_rank": 1
+          },
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
+            "max_rank": 2
+          },
+          {
+            "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx",
+            "symbol": "EntryProps",
+            "max_rank": 3
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "9506629ed003a561c6627735480cce4994244bb4",
+          "branch": "lamina-oracle/worktree-8ff0401ab8ba",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "oracle-worktree-8ff0401ab8ba",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.identity.id-1",
+      "collection_id": "collection.medium",
+      "request": "Select the exact Workflow id medium.api-key-actions.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.api-key-actions"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.oidc-discovery-test",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.api-key-actions",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.alias-1",
+      "collection_id": "collection.medium",
+      "request": "Select the Workflow whose exact alias is \"api key action\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.api-key-actions"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.oidc-discovery-test",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.api-key-actions",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.id-2",
+      "collection_id": "collection.medium",
+      "request": "Select the exact Workflow id medium.oidc-discovery-test.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.oidc-discovery-test"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.oidc-discovery-test",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+            "symbol": "DefaultBodyType",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.alias-2",
+      "collection_id": "collection.medium",
+      "request": "Select the Workflow whose exact alias is \"oidc discovery\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.oidc-discovery-test"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.oidc-discovery-test",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+            "symbol": "DefaultBodyType",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.id-3",
+      "collection_id": "collection.medium",
+      "request": "Select the exact Workflow id medium.developer-escape.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.developer-escape"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.developer-escape",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.alias-3",
+      "collection_id": "collection.medium",
+      "request": "Select the Workflow whose exact alias is \"escape key action\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.developer-escape"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.developer-escape",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.id-4",
+      "collection_id": "collection.medium",
+      "request": "Select the exact Workflow id medium.pwa-install-analytics.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.pwa-install-analytics"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.pwa-install-analytics",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Analytics.tsx",
+            "symbol": "appinstalled",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.alias-4",
+      "collection_id": "collection.medium",
+      "request": "Select the Workflow whose exact alias is \"app installed event\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.pwa-install-analytics"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.pwa-install-analytics",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Analytics.tsx",
+            "symbol": "appinstalled",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.id-5",
+      "collection_id": "collection.medium",
+      "request": "Select the exact Workflow id medium.menu-close-prevention.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.menu-close-prevention"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.menu-close-prevention",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Menu/transformer.tsx",
+            "symbol": "preventCloseHandler",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.identity.alias-5",
+      "collection_id": "collection.medium",
+      "request": "Select the Workflow whose exact alias is \"prevent menu close\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.menu-close-prevention"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.menu-close-prevention",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Menu/transformer.tsx",
+            "symbol": "preventCloseHandler",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "medium.semantic.01-exact_source_identifier",
+      "collection_id": "collection.medium",
+      "request": "The reviewed rename from .github/ISSUE_TEMPLATE/bug_report.yml to lamina-oracle-rename-635386adcc25.yml is unrelated to API key actions; keep the expected source identifier ApiKey at app/actions/definitions/apiKeys.tsx localized at its unchanged path.",
+      "kind": {
+        "query": "exact_source_identifier",
+        "intent": "source_localization",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-rename",
+        "operations": [
+          {
+            "op": "rename",
+            "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+            "to": "lamina-oracle-rename-635386adcc25.yml"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.api-key-actions"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.oidc-discovery-test",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.api-key-actions",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [
+          ".github/ISSUE_TEMPLATE/bug_report.yml"
+        ],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "renamed",
+              "path": "lamina-oracle-rename-635386adcc25.yml",
+              "original_path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+              "xy": "R.",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.02-handler",
+      "collection_id": "collection.medium",
+      "request": "Localize the handler surface for Menu close prevention: Keep a menu open when its reviewed prevent-close condition holds.",
+      "kind": {
+        "query": "handler",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.menu-close-prevention"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.menu-close-prevention",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Menu/transformer.tsx",
+            "symbol": "preventCloseHandler",
+            "max_rank": 1
+          },
+          {
+            "path": "app/components/DesktopEventHandler.tsx",
+            "symbol": "DesktopEventHandler",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the handler query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.03-entity",
+      "collection_id": "collection.medium",
+      "request": "Find the entity contract for API key actions: Present API-key actions through the reviewed action definition.",
+      "kind": {
+        "query": "entity",
+        "intent": "obligations",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.api-key-actions"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.oidc-discovery-test",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.api-key-actions",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [
+          {
+            "category": "implementation",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "state",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "permission",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "failure",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "persona",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "completeness",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          },
+          {
+            "category": "verification",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          }
+        ],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the entity query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.04-low_overlap_paraphrase",
+      "collection_id": "collection.medium",
+      "request": "Create a payroll-tax remittance Workflow for an external accounting system absent from the pinned medium repository.",
+      "kind": {
+        "query": "low_overlap_paraphrase",
+        "intent": "new_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.05-persona",
+      "collection_id": "collection.medium",
+      "request": "Ignore lexical Persona decoys and do not attach any Workflow or Persona observation to this unrelated modified-file request in the pinned medium repository.",
+      "kind": {
+        "query": "persona",
+        "intent": "adversarial",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-modify",
+        "operations": [
+          {
+            "op": "modify",
+            "path": ".github/actions/install/action.yml",
+            "content": "\n# lamina-oracle-modify-v1\n"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "ordinary",
+              "path": ".github/actions/install/action.yml",
+              "original_path": null,
+              "xy": ".M",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.06-permission",
+      "collection_id": "collection.medium",
+      "request": "The pinned medium request says only \"manage access\" and could refer to API key actions or OIDC discovery verification; localize the reviewed permission evidence but select neither Workflow.",
+      "kind": {
+        "query": "permission",
+        "intent": "ambiguous_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "ambiguous",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/collections.tsx",
+            "symbol": "Permissions",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the permission query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.07-docs_persona",
+      "collection_id": "collection.medium",
+      "request": "On the reviewed branch, use server/test/fixtures/empty.md only as documentation-path evidence for OIDC discovery verification; it is not positive Persona evidence, and the complete candidate set remains reviewed absent for Persona observations. Preserve the Workflow invariant: The response remains checked through the reviewed body type reference.",
+      "kind": {
+        "query": "docs_persona",
+        "intent": "workflow_selection",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "branch",
+        "name": "reviewed-branch",
+        "operations": [
+          {
+            "op": "checkout_branch",
+            "branch": "lamina-oracle/2d9c3c1ed208"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.oidc-discovery-test"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.oidc-discovery-test",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "server/test/fixtures/empty.md",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "lamina-oracle/2d9c3c1ed208",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.08-flag",
+      "collection_id": "collection.medium",
+      "request": "Localize the feature flag surface for Menu close prevention: Keep a menu open when its reviewed prevent-close condition holds.",
+      "kind": {
+        "query": "flag",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.menu-close-prevention"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.menu-close-prevention",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Sharing/components/ShareSettingsPopover.tsx",
+            "symbol": "toggle",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the flag query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.09-schema_entity",
+      "collection_id": "collection.medium",
+      "request": "Localize the schema/entity surface for API key actions: Present API-key actions through the reviewed action definition.",
+      "kind": {
+        "query": "schema_entity",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.api-key-actions"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.oidc-discovery-test",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.api-key-actions",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the schema_entity query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.10-event",
+      "collection_id": "collection.medium",
+      "request": "After the reviewed deletion of .github/auto_assign.yml, use the assigned event evidence appinstalled at app/components/Analytics.tsx for PWA install analytics without returning the stale deleted path.",
+      "kind": {
+        "query": "event",
+        "intent": "observation",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-delete",
+        "operations": [
+          {
+            "op": "delete",
+            "path": ".github/auto_assign.yml"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.pwa-install-analytics"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.pwa-install-analytics",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/Analytics.tsx",
+            "symbol": "appinstalled",
+            "max_rank": 1
+          },
+          {
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown",
+            "max_rank": 2
+          }
+        ],
+        "observations": [
+          {
+            "category": "entry_points",
+            "path": "app/actions/index.ts"
+          },
+          {
+            "category": "commands",
+            "path": "package.json"
+          },
+          {
+            "category": "routes",
+            "path": "app/routes/authenticated.tsx"
+          },
+          {
+            "category": "handlers",
+            "path": "app/components/DesktopEventHandler.tsx",
+            "symbol": "DesktopEventHandler"
+          },
+          {
+            "category": "schemas",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey"
+          },
+          {
+            "category": "entities",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey"
+          },
+          {
+            "category": "state_transitions",
+            "path": "app/components/Avatar/AvatarWithPresence.tsx"
+          },
+          {
+            "category": "permissions",
+            "path": "app/actions/definitions/collections.tsx",
+            "symbol": "Permissions"
+          },
+          {
+            "category": "events",
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown"
+          },
+          {
+            "category": "tests",
+            "path": "app/components/EmojiDialog/EmojiCreateDialog.tsx"
+          },
+          {
+            "category": "documentation",
+            "path": "server/test/fixtures/empty.md"
+          },
+          {
+            "category": "feature_flags",
+            "path": "app/components/Sharing/components/ShareSettingsPopover.tsx",
+            "symbol": "toggle"
+          },
+          {
+            "category": "dependencies",
+            "path": "app/actions/definitions/apiKeys.tsx"
+          }
+        ],
+        "forbidden_observations": [
+          {
+            "category": "personas",
+            "path": "app/components/ActionButton.tsx"
+          }
+        ],
+        "obligations": [],
+        "forbidden_paths": [
+          ".github/auto_assign.yml"
+        ],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "deleted",
+              "path": ".github/auto_assign.yml",
+              "original_path": null,
+              "xy": ".D",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.11-test",
+      "collection_id": "collection.medium",
+      "request": "Find the verification surface for OIDC discovery verification: Verify the OIDC discovery response contract at the reviewed test surface.",
+      "kind": {
+        "query": "test",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.oidc-discovery-test"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.developer-escape"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.oidc-discovery-test",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/components/EmojiDialog/EmojiCreateDialog.tsx",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the test query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.12-dependency",
+      "collection_id": "collection.medium",
+      "request": "In the linked worktree, use the assigned dependency evidence app/actions/definitions/apiKeys.tsx to coordinate Developer escape handling and PWA install analytics across app/actions/definitions/developer.tsx and app/components/Analytics.tsx.",
+      "kind": {
+        "query": "dependency",
+        "intent": "multi_workflow",
+        "scope": "multi_file"
+      },
+      "repository_scenario": {
+        "kind": "worktree",
+        "name": "reviewed-logical-worktree",
+        "operations": [
+          {
+            "op": "add_worktree",
+            "branch": "lamina-oracle/worktree-2d9c3c1ed208",
+            "worktree_id": "oracle-worktree-2d9c3c1ed208"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "multi_workflow",
+        "selected_workflow_ids": [
+          "medium.developer-escape",
+          "medium.pwa-install-analytics"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.developer-escape",
+            "max_rank": 1
+          },
+          {
+            "id": "medium.pwa-install-analytics",
+            "max_rank": 2
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": null,
+            "max_rank": 1
+          },
+          {
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown",
+            "max_rank": 2
+          },
+          {
+            "path": "app/components/Analytics.tsx",
+            "symbol": "appinstalled",
+            "max_rank": 3
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "lamina-oracle/worktree-2d9c3c1ed208",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "oracle-worktree-2d9c3c1ed208",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "medium.semantic.13-route",
+      "collection_id": "collection.medium",
+      "request": "Localize the route surface for PWA install analytics: Record the reviewed application-installed event through the analytics surface.",
+      "kind": {
+        "query": "route",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.pwa-install-analytics"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.pwa-install-analytics",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/routes/authenticated.tsx",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the route query family without changing the pinned repository state."
+    },
+    {
+      "id": "medium.semantic.14-symbol",
+      "collection_id": "collection.medium",
+      "request": "Find the exact source symbol for Developer escape handling: Handle the Escape key on the reviewed developer action surface.",
+      "kind": {
+        "query": "symbol",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "medium.developer-escape"
+        ],
+        "forbidden_workflow_ids": [
+          "medium.api-key-actions",
+          "medium.oidc-discovery-test"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "medium.developer-escape",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "app/actions/definitions/developer.tsx",
+            "symbol": "keydown",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "30730179b852d42da5078a9294f7d05a44f516b7",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the symbol query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.identity.id-1",
+      "collection_id": "collection.large",
+      "request": "Select the exact Workflow id large.ai-configuration-form.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "IInstanceAIForm",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.alias-1",
+      "collection_id": "collection.large",
+      "request": "Select the Workflow whose exact alias is \"instance ai form\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "IInstanceAIForm",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.id-2",
+      "collection_id": "collection.large",
+      "request": "Select the exact Workflow id large.pdf-rendering-verification.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.pdf-rendering-verification"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.pdf-rendering-verification",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/live/tests/lib/pdf/pdf-rendering.test.ts",
+            "symbol": "PDF_HEADER",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.alias-2",
+      "collection_id": "collection.large",
+      "request": "Select the Workflow whose exact alias is \"pdf header test\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.pdf-rendering-verification"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.pdf-rendering-verification",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/live/tests/lib/pdf/pdf-rendering.test.ts",
+            "symbol": "PDF_HEADER",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.id-3",
+      "collection_id": "collection.large",
+      "request": "Select the exact Workflow id large.decorated-controller-guidance.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.decorated-controller-guidance"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.decorated-controller-guidance",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "max_rank": 1
+          },
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "ChatController",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.alias-3",
+      "collection_id": "collection.large",
+      "request": "Select the Workflow whose exact alias is \"controller example\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.decorated-controller-guidance"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.decorated-controller-guidance",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "max_rank": 1
+          },
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "ChatController",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.id-4",
+      "collection_id": "collection.large",
+      "request": "Select the exact Workflow id large.feature-preview-deployment.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.feature-preview-deployment"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.feature-preview-deployment",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.alias-4",
+      "collection_id": "collection.large",
+      "request": "Select the Workflow whose exact alias is \"feature helm preview\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.feature-preview-deployment"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.feature-preview-deployment",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.id-5",
+      "collection_id": "collection.large",
+      "request": "Select the exact Workflow id large.authentication-error-family.",
+      "kind": {
+        "query": "exact_workflow_id",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.authentication-error-family"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.authentication-error-family",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/api/plane/authentication/adapter/exception.py",
+            "symbol": "auth_exception_handler",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.identity.alias-5",
+      "collection_id": "collection.large",
+      "request": "Select the Workflow whose exact alias is \"auth error family\".",
+      "kind": {
+        "query": "exact_workflow_alias",
+        "intent": "workflow_selection",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.authentication-error-family"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.authentication-error-family",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/api/plane/authentication/adapter/exception.py",
+            "symbol": "auth_exception_handler",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exact Workflow identity is private expectation authority; the candidate sees only the seed identity."
+    },
+    {
+      "id": "large.semantic.01-handler",
+      "collection_id": "collection.large",
+      "request": "The reviewed rename from .github/ISSUE_TEMPLATE/--bug-report.yaml to lamina-oracle-rename-e45179571675.yaml is unrelated to Authentication error handling; keep the expected handler authErrorHandler at apps/admin/app/(all)/(home)/auth-helpers.tsx localized at its unchanged path.",
+      "kind": {
+        "query": "handler",
+        "intent": "source_localization",
+        "scope": "one_file"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-rename",
+        "operations": [
+          {
+            "op": "rename",
+            "path": ".github/ISSUE_TEMPLATE/--bug-report.yaml",
+            "to": "lamina-oracle-rename-e45179571675.yaml"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.authentication-error-family"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.authentication-error-family",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/api/plane/authentication/adapter/exception.py",
+            "symbol": "auth_exception_handler",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [
+          ".github/ISSUE_TEMPLATE/--bug-report.yaml"
+        ],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "renamed",
+              "path": "lamina-oracle-rename-e45179571675.yaml",
+              "original_path": ".github/ISSUE_TEMPLATE/--bug-report.yaml",
+              "xy": "R.",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "large.semantic.02-entity",
+      "collection_id": "collection.large",
+      "request": "Find the entity contract for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "kind": {
+        "query": "entity",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the entity query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.03-role_boundary",
+      "collection_id": "collection.large",
+      "request": "The pinned large request says only \"manage access\" and could refer to Authentication error handling or AI configuration form; localize the reviewed permission evidence but select neither Workflow.",
+      "kind": {
+        "query": "role_boundary",
+        "intent": "ambiguous_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "ambiguous",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "large.authentication-error-family",
+          "large.ai-configuration-form"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [
+          {
+            "path": "apps/api/plane/api/serializers/invite.py",
+            "symbol": "ROLE",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the role_boundary query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.04-invariant",
+      "collection_id": "collection.large",
+      "request": "On the reviewed branch, use the assigned invariant evidence UserController at packages/decorators/README.md to select Decorated controller guidance and preserve its invariant: Documentation examples remain guidance rather than runtime registration evidence.",
+      "kind": {
+        "query": "invariant",
+        "intent": "workflow_selection",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "branch",
+        "name": "reviewed-branch",
+        "operations": [
+          {
+            "op": "checkout_branch",
+            "branch": "lamina-oracle/4c959686de6e"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.decorated-controller-guidance"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.decorated-controller-guidance",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "max_rank": 1
+          },
+          {
+            "path": "packages/decorators/README.md",
+            "symbol": "ChatController",
+            "max_rank": 2
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "lamina-oracle/4c959686de6e",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "large.semantic.05-failure_state",
+      "collection_id": "collection.large",
+      "request": "Create a payroll-tax remittance Workflow for an external accounting system that must surface and recover from a rejected remittance; that Workflow and failure state are absent from the pinned large repository.",
+      "kind": {
+        "query": "failure_state",
+        "intent": "new_workflow",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "large.semantic.06-entry_point",
+      "collection_id": "collection.large",
+      "request": "After the reviewed deletion of .github/workflows/build-branch.yml, use the assigned entry-point evidence apps/admin/hooks/oauth/index.ts for Authentication error handling without returning the stale deleted path.",
+      "kind": {
+        "query": "entry_point",
+        "intent": "observation",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-delete",
+        "operations": [
+          {
+            "op": "delete",
+            "path": ".github/workflows/build-branch.yml"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.authentication-error-family"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.authentication-error-family",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/hooks/oauth/index.ts",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [
+          {
+            "category": "entry_points",
+            "path": "apps/admin/hooks/oauth/index.ts"
+          },
+          {
+            "category": "commands",
+            "path": "apps/admin/package.json"
+          },
+          {
+            "category": "routes",
+            "path": "apps/live/src/server.ts"
+          },
+          {
+            "category": "handlers",
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler"
+          },
+          {
+            "category": "schemas",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues"
+          },
+          {
+            "category": "entities",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues"
+          },
+          {
+            "category": "state_transitions",
+            "path": "apps/admin/store/instance.store.ts"
+          },
+          {
+            "category": "permissions",
+            "path": "apps/api/plane/api/serializers/invite.py",
+            "symbol": "ROLE"
+          },
+          {
+            "category": "events",
+            "path": "apps/admin/app/(all)/(dashboard)/sidebar.tsx",
+            "symbol": "resize"
+          },
+          {
+            "category": "tests",
+            "path": "apps/admin/app/(all)/(dashboard)/email/test-email-modal.tsx"
+          },
+          {
+            "category": "documentation",
+            "path": "apps/api/plane/tests/README.md"
+          },
+          {
+            "category": "feature_flags",
+            "path": "apps/admin/store/instance.store.ts",
+            "symbol": "toggle"
+          },
+          {
+            "category": "dependencies",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx"
+          }
+        ],
+        "forbidden_observations": [
+          {
+            "category": "personas",
+            "path": "apps/admin/app/(all)/(home)/auth-banner.tsx"
+          }
+        ],
+        "obligations": [],
+        "forbidden_paths": [
+          ".github/workflows/build-branch.yml"
+        ],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "deleted",
+              "path": ".github/workflows/build-branch.yml",
+              "original_path": null,
+              "xy": ".D",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "large.semantic.07-command",
+      "collection_id": "collection.large",
+      "request": "Find the repository command relevant to Feature preview deployment: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "kind": {
+        "query": "command",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.feature-preview-deployment"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.feature-preview-deployment",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/package.json",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the command query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.08-transition",
+      "collection_id": "collection.large",
+      "request": "Apply the state transition for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "kind": {
+        "query": "transition",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/store/instance.store.ts",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the transition query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.09-docs_persona",
+      "collection_id": "collection.large",
+      "request": "Use documentation to understand the actor for Decorated controller guidance: Guide maintainers through reviewed HTTP and WebSocket controller examples.",
+      "kind": {
+        "query": "docs_persona",
+        "intent": "obligations",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.decorated-controller-guidance"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.decorated-controller-guidance",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/api/plane/tests/README.md",
+            "symbol": null,
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [
+          {
+            "category": "implementation",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "state",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "permission",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "failure",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "persona",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "completeness",
+            "path": "packages/decorators/README.md"
+          },
+          {
+            "category": "verification",
+            "path": "packages/decorators/README.md"
+          }
+        ],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the docs_persona query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.10-flag",
+      "collection_id": "collection.large",
+      "request": "Localize the feature flag surface for Feature preview deployment: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "kind": {
+        "query": "flag",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.feature-preview-deployment"
+        ],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.feature-preview-deployment",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/store/instance.store.ts",
+            "symbol": "toggle",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the flag query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.11-schema_entity",
+      "collection_id": "collection.large",
+      "request": "Localize the schema/entity surface for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "kind": {
+        "query": "schema_entity",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the schema_entity query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.12-event",
+      "collection_id": "collection.large",
+      "request": "Localize the event surface for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "kind": {
+        "query": "event",
+        "intent": "source_localization",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "clean",
+        "name": "clean-pinned-tree",
+        "operations": []
+      },
+      "expected": {
+        "workflow_outcome": "selected",
+        "selected_workflow_ids": [
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 1
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/sidebar.tsx",
+            "symbol": "resize",
+            "max_rank": 1
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": []
+        }
+      },
+      "rationale": "Exercises the event query family without changing the pinned repository state."
+    },
+    {
+      "id": "large.semantic.13-persona",
+      "collection_id": "collection.large",
+      "request": "Ignore lexical Persona decoys and do not attach any Workflow or Persona observation to this unrelated modified-file request in the pinned large repository.",
+      "kind": {
+        "query": "persona",
+        "intent": "adversarial",
+        "scope": "repository"
+      },
+      "repository_scenario": {
+        "kind": "dirty",
+        "name": "reviewed-modify",
+        "operations": [
+          {
+            "op": "modify",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "content": "\n// lamina-oracle-modify-v1\n"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "new_workflow_required",
+        "selected_workflow_ids": [],
+        "forbidden_workflow_ids": [
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
+        ],
+        "workflow_ranking": [],
+        "source_ranking": [],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "(detached)",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "primary",
+          "changes": [
+            {
+              "kind": "ordinary",
+              "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+              "original_path": null,
+              "xy": ".M",
+              "submodule": "N..."
+            }
+          ]
+        }
+      },
+      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+    },
+    {
+      "id": "large.semantic.14-permission",
+      "collection_id": "collection.large",
+      "request": "In the linked worktree, use the assigned permission evidence ROLE at apps/api/plane/api/serializers/invite.py to coordinate Authentication error handling and AI configuration form across apps/admin/app/(all)/(home)/auth-helpers.tsx and apps/admin/app/(all)/(dashboard)/ai/form.tsx.",
+      "kind": {
+        "query": "permission",
+        "intent": "multi_workflow",
+        "scope": "multi_file"
+      },
+      "repository_scenario": {
+        "kind": "worktree",
+        "name": "reviewed-logical-worktree",
+        "operations": [
+          {
+            "op": "add_worktree",
+            "branch": "lamina-oracle/worktree-4c959686de6e",
+            "worktree_id": "oracle-worktree-4c959686de6e"
+          }
+        ]
+      },
+      "expected": {
+        "workflow_outcome": "multi_workflow",
+        "selected_workflow_ids": [
+          "large.authentication-error-family",
+          "large.ai-configuration-form"
+        ],
+        "forbidden_workflow_ids": [
+          "large.pdf-rendering-verification",
+          "large.decorated-controller-guidance"
+        ],
+        "workflow_ranking": [
+          {
+            "id": "large.authentication-error-family",
+            "max_rank": 1
+          },
+          {
+            "id": "large.ai-configuration-form",
+            "max_rank": 2
+          }
+        ],
+        "source_ranking": [
+          {
+            "path": "apps/api/plane/api/serializers/invite.py",
+            "symbol": "ROLE",
+            "max_rank": 1
+          },
+          {
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler",
+            "max_rank": 2
+          },
+          {
+            "path": "apps/api/plane/authentication/adapter/exception.py",
+            "symbol": "auth_exception_handler",
+            "max_rank": 3
+          },
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
+            "max_rank": 4
+          },
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "IInstanceAIForm",
+            "max_rank": 5
+          }
+        ],
+        "observations": [],
+        "forbidden_observations": [],
+        "obligations": [],
+        "forbidden_paths": [],
+        "repository_state": {
+          "head": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+          "branch": "lamina-oracle/worktree-4c959686de6e",
+          "upstream": null,
+          "ahead": 0,
+          "behind": 0,
+          "worktree_role": "oracle-worktree-4c959686de6e",
+          "changes": []
+        }
+      },
+      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+    }
+  ],
+  "mutations": [
+    {
+      "id": "small.mutation.wrong_workflow",
+      "case_id": "small.identity.id-1",
+      "kind": "wrong_workflow",
+      "applicability": "selected_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "small.mutation.missing_observation",
+      "case_id": "small.semantic.10-entry_point",
+      "kind": "missing_observation",
+      "applicability": "observation",
+      "diagnostic_includes": [
+        "missing observation"
+      ]
+    },
+    {
+      "id": "small.mutation.unexpected_observation",
+      "case_id": "small.semantic.10-entry_point",
+      "kind": "unexpected_observation",
+      "applicability": "forbidden_observation",
+      "diagnostic_includes": [
+        "forbidden observation remained"
+      ]
+    },
+    {
+      "id": "small.mutation.lost_obligation",
+      "case_id": "small.semantic.06-permission",
+      "kind": "lost_obligation",
+      "applicability": "obligation",
+      "diagnostic_includes": [
+        "missing obligation"
+      ]
+    },
+    {
+      "id": "small.mutation.source_ranking_regression",
+      "case_id": "small.semantic.01-exact_source_identifier",
+      "kind": "source_ranking_regression",
+      "applicability": "source_ranking",
+      "diagnostic_includes": [
+        "source "
+      ]
+    },
+    {
+      "id": "small.mutation.extra_workflow",
+      "case_id": "small.semantic.14-dependency",
+      "kind": "extra_workflow",
+      "applicability": "multi_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "small.mutation.nondeterministic_replay",
+      "case_id": "small.identity.id-1",
+      "kind": "nondeterministic_replay",
+      "applicability": "replay",
+      "diagnostic_includes": [
+        "deterministic ordering"
+      ]
+    },
+    {
+      "id": "small.mutation.repository_state_mismatch",
+      "case_id": "small.identity.id-1",
+      "kind": "repository_state_mismatch",
+      "applicability": "repository_state",
+      "diagnostic_includes": [
+        "repository ahead"
+      ]
+    },
+    {
+      "id": "small.mutation.stale_rename_path",
+      "case_id": "small.semantic.01-exact_source_identifier",
+      "kind": "stale_rename_path",
+      "applicability": "rename",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "small.mutation.stale_delete_path",
+      "case_id": "small.semantic.10-entry_point",
+      "kind": "stale_delete_path",
+      "applicability": "delete",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "medium.mutation.wrong_workflow",
+      "case_id": "medium.identity.id-1",
+      "kind": "wrong_workflow",
+      "applicability": "selected_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "medium.mutation.missing_observation",
+      "case_id": "medium.semantic.10-event",
+      "kind": "missing_observation",
+      "applicability": "observation",
+      "diagnostic_includes": [
+        "missing observation"
+      ]
+    },
+    {
+      "id": "medium.mutation.unexpected_observation",
+      "case_id": "medium.semantic.10-event",
+      "kind": "unexpected_observation",
+      "applicability": "forbidden_observation",
+      "diagnostic_includes": [
+        "forbidden observation remained"
+      ]
+    },
+    {
+      "id": "medium.mutation.lost_obligation",
+      "case_id": "medium.semantic.03-entity",
+      "kind": "lost_obligation",
+      "applicability": "obligation",
+      "diagnostic_includes": [
+        "missing obligation"
+      ]
+    },
+    {
+      "id": "medium.mutation.source_ranking_regression",
+      "case_id": "medium.semantic.01-exact_source_identifier",
+      "kind": "source_ranking_regression",
+      "applicability": "source_ranking",
+      "diagnostic_includes": [
+        "source "
+      ]
+    },
+    {
+      "id": "medium.mutation.extra_workflow",
+      "case_id": "medium.semantic.12-dependency",
+      "kind": "extra_workflow",
+      "applicability": "multi_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "medium.mutation.nondeterministic_replay",
+      "case_id": "medium.identity.id-1",
+      "kind": "nondeterministic_replay",
+      "applicability": "replay",
+      "diagnostic_includes": [
+        "deterministic ordering"
+      ]
+    },
+    {
+      "id": "medium.mutation.repository_state_mismatch",
+      "case_id": "medium.identity.id-1",
+      "kind": "repository_state_mismatch",
+      "applicability": "repository_state",
+      "diagnostic_includes": [
+        "repository ahead"
+      ]
+    },
+    {
+      "id": "medium.mutation.stale_rename_path",
+      "case_id": "medium.semantic.01-exact_source_identifier",
+      "kind": "stale_rename_path",
+      "applicability": "rename",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "medium.mutation.stale_delete_path",
+      "case_id": "medium.semantic.10-event",
+      "kind": "stale_delete_path",
+      "applicability": "delete",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "large.mutation.wrong_workflow",
+      "case_id": "large.identity.id-1",
+      "kind": "wrong_workflow",
+      "applicability": "selected_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "large.mutation.missing_observation",
+      "case_id": "large.semantic.06-entry_point",
+      "kind": "missing_observation",
+      "applicability": "observation",
+      "diagnostic_includes": [
+        "missing observation"
+      ]
+    },
+    {
+      "id": "large.mutation.unexpected_observation",
+      "case_id": "large.semantic.06-entry_point",
+      "kind": "unexpected_observation",
+      "applicability": "forbidden_observation",
+      "diagnostic_includes": [
+        "forbidden observation remained"
+      ]
+    },
+    {
+      "id": "large.mutation.lost_obligation",
+      "case_id": "large.semantic.09-docs_persona",
+      "kind": "lost_obligation",
+      "applicability": "obligation",
+      "diagnostic_includes": [
+        "missing obligation"
+      ]
+    },
+    {
+      "id": "large.mutation.source_ranking_regression",
+      "case_id": "large.semantic.01-handler",
+      "kind": "source_ranking_regression",
+      "applicability": "source_ranking",
+      "diagnostic_includes": [
+        "source "
+      ]
+    },
+    {
+      "id": "large.mutation.extra_workflow",
+      "case_id": "large.semantic.14-permission",
+      "kind": "extra_workflow",
+      "applicability": "multi_workflow",
+      "diagnostic_includes": [
+        "selected Workflow ids"
+      ]
+    },
+    {
+      "id": "large.mutation.nondeterministic_replay",
+      "case_id": "large.identity.id-1",
+      "kind": "nondeterministic_replay",
+      "applicability": "replay",
+      "diagnostic_includes": [
+        "deterministic ordering"
+      ]
+    },
+    {
+      "id": "large.mutation.repository_state_mismatch",
+      "case_id": "large.identity.id-1",
+      "kind": "repository_state_mismatch",
+      "applicability": "repository_state",
+      "diagnostic_includes": [
+        "repository ahead"
+      ]
+    },
+    {
+      "id": "large.mutation.stale_rename_path",
+      "case_id": "large.semantic.01-handler",
+      "kind": "stale_rename_path",
+      "applicability": "rename",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "large.mutation.stale_delete_path",
+      "case_id": "large.semantic.06-entry_point",
+      "kind": "stale_delete_path",
+      "applicability": "delete",
+      "diagnostic_includes": [
+        "stale deleted or renamed path"
+      ]
+    },
+    {
+      "id": "small.mutation.unexpected_observation.handler-control",
+      "case_id": "small.identity.id-1",
+      "kind": "unexpected_observation",
+      "applicability": "forbidden_observation",
+      "diagnostic_includes": [
+        "forbidden observation remained"
+      ]
+    }
+  ],
+  "held_out_compatibility": {
+    "benchmark": "benchmarks/retrieval-v1/benchmark.mjs",
+    "split": "held_out",
+    "workflow_rows": 160,
+    "workflow_rows_bytes": 16928,
+    "workflow_rows_sha256": "536c7459bb3457ca01b1a5444964bb5cc1d3cea8d7fc3ff5c1c84190f26c9027",
+    "source_rows": 80,
+    "source_rows_bytes": 11806,
+    "source_rows_sha256": "080df00ccec46bf06a7b9336c1defd270a312005e872b1e64f29437e08709f99",
+    "qualified_current": {
+      "workflow_recall_at_5": 1,
+      "source_recall_at_10": 0.9375
+    },
+    "thresholds": {
+      "exact_id_alias_accuracy": 1,
+      "complete_multi_workflow_selection": 0.95,
+      "incorrect_new_workflow_attachment": 0.02,
+      "workflow_recall_at_5": 0.99,
+      "source_recall_at_10": 0.9275
+    }
+  }
+}
