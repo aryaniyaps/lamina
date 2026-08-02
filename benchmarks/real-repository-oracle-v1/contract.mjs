@@ -485,7 +485,8 @@ const mutationExecutors = Object.freeze({
   source_ranking_regression(result, index, reviewedCase) {
     const expected = reviewedCase.expected.source_ranking[0];
     result.cases[index].source_ranking = result.cases[index].source_ranking
-      .filter((item) => item.path !== expected.path || item.symbol !== expected.symbol);
+      .filter((item) => !(item.path === expected.path
+        && (expected.symbol === null || item.symbol === expected.symbol)));
   },
   extra_workflow(result, index, reviewedCase) {
     result.cases[index].selected_workflow_ids.push(reviewedCase.expected.forbidden_workflow_ids[0]);

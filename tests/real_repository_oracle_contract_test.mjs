@@ -405,6 +405,27 @@ for (const mutation of fixture.mutations) {
     assert.ok(graded.diagnostics.some((item) => item.includes(needle)), `${mutation.kind}: ${needle}`);
   }
 }
+const wildcardSourceFixture = structuredClone(fixture);
+wildcardSourceFixture.cases[0].expected.source_ranking = [
+  { path: 'src/handler.ts', symbol: null, max_rank: 10 },
+];
+assert.equal(validateFixture(wildcardSourceFixture).valid, true);
+const wildcardSourceResult = structuredClone(result);
+wildcardSourceResult.fixture_digest = fixtureDigest(wildcardSourceFixture);
+wildcardSourceResult.cases[0].source_ranking = [
+  { path: 'src/handler.ts', symbol: 'actualHandlerSymbol' },
+];
+wildcardSourceResult.replay_digest = resultCasesDigest(wildcardSourceResult.cases);
+assert.equal(gradeResult(wildcardSourceFixture, wildcardSourceResult).classification, 'pass',
+  'a reviewed null symbol matches any actual symbol at the reviewed path');
+const wildcardSourceMutation = wildcardSourceFixture.mutations
+  .find((item) => item.kind === 'source_ranking_regression');
+const wildcardSourceRegression = executeRegisteredMutation(
+  wildcardSourceFixture, wildcardSourceResult, wildcardSourceMutation,
+);
+assert.equal(validateResult(wildcardSourceRegression).valid, true);
+assert.equal(gradeResult(wildcardSourceFixture, wildcardSourceRegression).classification, 'product_regression',
+  'source mutation removes the entire reviewed wildcard path, not only a literal null symbol');
 const inertMutation = structuredClone(fixture);
 inertMutation.mutations.find((item) => item.kind === 'stale_rename_path').case_id = cases[0].id;
 assert.equal(validateFixture(inertMutation).valid, false, 'every registered mutation must be applicable to its reviewed target');
