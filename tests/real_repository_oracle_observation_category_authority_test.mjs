@@ -38,8 +38,10 @@ function parseControlContentBytes(raw) {
   let decodedBytes = 0;
   for (const item of value.controls) {
     assert.deepEqual(Object.keys(item), ['tier', 'path', 'content_base64']);
-    assert.ok(typeof item.path === 'string' && item.path.length <= 512 && !item.path.includes('\\')
-      && !item.path.startsWith('/') && item.path.split('/').every((part) => part && part !== '.' && part !== '..'));
+    assert.ok(typeof item.path === 'string' && Buffer.byteLength(item.path) <= 512
+      && !item.path.includes('\0') && !item.path.includes('\\') && !item.path.startsWith('/')
+      && !/^[A-Za-z]:/.test(item.path)
+      && item.path.split('/').every((part) => part && part !== '.' && part !== '..'));
     assert.match(item.content_base64, /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
     const decoded = Buffer.from(item.content_base64, 'base64');
     assert.equal(decoded.toString('base64'), item.content_base64);
@@ -74,7 +76,10 @@ rejectsControlContent((value) => { value.controls.reverse(); });
 rejectsControlContent((value) => { value.extra = true; });
 rejectsControlContent((value) => { value.controls[0].extra = true; });
 rejectsControlContent((value) => { value.controls[0].path = '../unsafe.ts'; });
+rejectsControlContent((value) => { value.controls[0].path = 'C:outside.ts'; });
+rejectsControlContent((value) => { value.controls[0].path = 'bad\0path.ts'; });
 rejectsControlContent((value) => { value.controls[0].content_base64 = 'not canonical'; });
+rejectsControlContent((value) => { value.controls[0].content_base64 = Buffer.alloc(4097).toString('base64'); });
 assert.throws(() => parseControlContentBytes(Buffer.alloc(16 * 1024 + 1)));
 
 function rejects(mutator, message) {
