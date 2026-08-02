@@ -20,10 +20,12 @@ const REQUIRED_PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
   ['core.bare', new Set(['false'])],
   ['core.logallrefupdates', new Set(['true'])],
 ]));
-const OPTIONAL_PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
-  ['core.ignorecase', new Set(['true', 'false'])],
-  ['core.precomposeunicode', new Set(['true', 'false'])],
-]));
+const OPTIONAL_PORTABLE_CHECKOUT_CONFIG = Object.freeze(process.platform === 'darwin'
+  ? new Map([
+      ['core.ignorecase', new Set(['true', 'false'])],
+      ['core.precomposeunicode', new Set(['true', 'false'])],
+    ])
+  : new Map());
 const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
   && typeof process.getuid === 'function';
 export const RECONSTRUCTION_LIMITS = Object.freeze({
@@ -229,22 +231,22 @@ function portableLinkResolver(
 
   function resolve(entry, enforceTraversalLimit = true) {
     const pending = [];
-    const traversed = new Set();
+    const activeExpansions = new Set();
     let current = '';
     let traversalHops = 0;
-    let requireDirectory = false;
     let topBody = null;
 
     const follow = (linkEntry) => {
       traversalHops += 1;
       if (enforceTraversalLimit && traversalHops > MAX_SYMLINK_TRAVERSALS) return false;
-      if (traversed.has(linkEntry.path)) {
+      if (activeExpansions.has(linkEntry.path)) {
         throw new Error(`portable link target is cyclic: ${entry.path}`);
       }
-      traversed.add(linkEntry.path);
+      activeExpansions.add(linkEntry.path);
       const body = readLinkBody(linkEntry);
       if (topBody === null) topBody = body;
-      if (body.trailingSlash && pending.length === 0) requireDirectory = true;
+      pending.push(Object.freeze({ kind: 'exit', path: linkEntry.path }));
+      if (body.trailingSlash) pending.push(Object.freeze({ kind: 'require_directory' }));
       for (let index = body.components.length - 1; index >= 0; index -= 1) {
         pending.push(body.components[index]);
       }
@@ -293,7 +295,12 @@ function portableLinkResolver(
 
     if (!follow(entry)) return traversalLimit();
     while (pending.length) {
-      const component = pending.pop();
+      const token = pending.pop();
+      if (typeof token !== 'string') {
+        if (token.kind === 'exit') activeExpansions.delete(token.path);
+        continue;
+      }
+      const component = token;
       if (component === '.') continue;
       if (component === '..') {
         if (!current) throw new Error(`portable link target escapes repository content: ${entry.path}`);
@@ -314,7 +321,8 @@ function portableLinkResolver(
         const target = regularFiles.get(candidate);
         if (!target) throw new Error(`portable link targets an unverified tracked file: ${entry.path}`);
         const node = { kind: 'file', physical: target, path: candidate, oid: targetEntry.oid };
-        if (pending.length || requireDirectory) {
+        if (pending.some((remaining) => typeof remaining === 'string'
+          || remaining.kind === 'require_directory')) {
           return finish(node, 'not_directory');
         }
         return finish(node);
@@ -571,6 +579,54 @@ function assertNoPhysicalSymlinks(repository, maximumEntries = 100_000) {
   }
 }
 
+function assertExactPhysicalWorktree(repository, entries, maximumEntries = 100_000) {
+  const stagePaths = new Set(entries.map((entry) => entry.path));
+  const impliedDirectories = new Set(['']);
+  for (const stagePath of stagePaths) {
+    let parent = path.posix.dirname(stagePath);
+    while (parent !== '.') {
+      impliedDirectories.add(parent);
+      parent = path.posix.dirname(parent);
+    }
+  }
+  const physicalFiles = new Set();
+  const pending = [{ absolute: repository, relative: '' }];
+  let visited = 0;
+  while (pending.length) {
+    const directory = pending.pop();
+    for (const name of fs.readdirSync(directory.absolute).sort()) {
+      if (!directory.relative && name === '.git') continue;
+      visited += 1;
+      if (visited > maximumEntries) {
+        throw new Error('portable worktree exceeds the bounded physical-entry scan');
+      }
+      const relative = directory.relative ? `${directory.relative}/${name}` : name;
+      const absolute = path.join(directory.absolute, name);
+      const stat = fs.lstatSync(absolute);
+      if (stat.isSymbolicLink()) {
+        throw new Error(`portable worktree path is a physical symlink: ${relative}`);
+      }
+      if (stat.isDirectory()) {
+        if (!impliedDirectories.has(relative)) {
+          throw new Error(`portable worktree directory is not implied by stage-0: ${relative}`);
+        }
+        pending.push({ absolute, relative });
+      } else if (stat.isFile()) {
+        if (!stagePaths.has(relative)) {
+          throw new Error(`portable worktree file is not an exact stage-0 path: ${relative}`);
+        }
+        physicalFiles.add(relative);
+      } else {
+        throw new Error(`portable worktree contains a special path: ${relative}`);
+      }
+    }
+  }
+  if (physicalFiles.size !== stagePaths.size
+    || [...stagePaths].some((stagePath) => !physicalFiles.has(stagePath))) {
+    throw new Error('portable worktree does not exactly materialize every stage-0 path');
+  }
+}
+
 export function verifyPinnedRepository(repository, collection) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
@@ -578,12 +634,14 @@ export function verifyPinnedRepository(repository, collection) {
   }
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'materialized repository is not the exact detached, clean, remote-free pinned collection');
-  assertPortableCheckoutConfig(physicalRepository);
   assertNoPhysicalSymlinks(physicalRepository);
-  const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
   const maximumEntries = collection.reviewed_inventory.tracked_files;
+  const entries = trackedEntries(physicalRepository, maximumEntries);
+  assertExactPhysicalWorktree(physicalRepository, entries);
+  assertPortableCheckoutConfig(physicalRepository);
+  const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
   const inventory = candidateInventoryFromTracked(
-    physicalRepository, trackedEntries(physicalRepository, maximumEntries),
+    physicalRepository, entries,
     collection.manifest, collection.fixture,
     {
       objectFormat,
@@ -597,6 +655,7 @@ export function verifyPinnedRepository(repository, collection) {
     'pinned collection changed during inventory admission');
   assertPortableCheckoutConfig(physicalRepository);
   assertNoPhysicalSymlinks(physicalRepository);
+  assertExactPhysicalWorktree(physicalRepository, entries);
   return inventory;
 }
 
@@ -607,13 +666,15 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
   }
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'reconstruction repository is not the exact detached, clean, remote-free pinned collection');
-  assertPortableCheckoutConfig(physicalRepository);
   assertNoPhysicalSymlinks(physicalRepository);
+  const entries = trackedEntries(physicalRepository, RECONSTRUCTION_LIMITS.max_tracked_entries);
+  assertExactPhysicalWorktree(physicalRepository, entries);
+  assertPortableCheckoutConfig(physicalRepository);
   const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
   const portableResolutionEvidence = [];
   const inventory = candidateInventoryFromTracked(
     physicalRepository,
-    trackedEntries(physicalRepository, RECONSTRUCTION_LIMITS.max_tracked_entries),
+    entries,
     collection.manifest,
     collection.fixture,
     {
@@ -630,6 +691,7 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
     'pinned collection changed during inventory reconstruction');
   assertPortableCheckoutConfig(physicalRepository);
   assertNoPhysicalSymlinks(physicalRepository);
+  assertExactPhysicalWorktree(physicalRepository, entries);
   const portableLinkResolution = Object.freeze({
     schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
     max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,

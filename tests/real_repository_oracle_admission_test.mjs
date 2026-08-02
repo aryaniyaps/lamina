@@ -516,6 +516,24 @@ try {
   assert.throws(() => verifyPinnedRepository(repository, {
     ...collection, tree_oid: '0'.repeat(40),
   }), /exact detached, clean, remote-free pinned collection/);
+  const emptyUntrackedDirectory = path.join(repository, 'untracked-empty-directory');
+  fs.mkdirSync(emptyUntrackedDirectory);
+  assert.equal(repositoryGit(['status', '--porcelain=v2', '--untracked-files=all']), '');
+  assert.throws(() => verifyPinnedRepository(repository, collection),
+    /directory is not implied by stage-0/,
+  'physical exactness rejects empty directories that Git status cannot report');
+  fs.rmdirSync(emptyUntrackedDirectory);
+  if (process.platform === 'linux') {
+    repositoryGit(['config', '--local', '--bool', 'core.ignorecase', 'true']);
+    fs.copyFileSync(path.join(repository, 'a.ts'), path.join(repository, 'A.ts'));
+    assert.equal(repositoryGit(['status', '--porcelain=v2', '--untracked-files=all']), '',
+      'the regression reproduces Git status hiding a case-colliding worktree path');
+    assert.throws(() => verifyPinnedRepository(repository, collection),
+      /file is not an exact stage-0 path: A\.ts/,
+    'stage-authoritative physical exactness rejects the hidden case collision');
+    fs.unlinkSync(path.join(repository, 'A.ts'));
+    repositoryGit(['config', '--local', '--unset', 'core.ignorecase']);
+  }
   fs.writeFileSync(path.join(repository, 'untracked.txt'), 'dirty');
   assert.throws(() => verifyPinnedRepository(repository, collection), /exact detached, clean, remote-free pinned collection/);
 
@@ -833,16 +851,27 @@ try {
     runRepositoryGit(portableRepository, [
       'config', '--local', '--bool', 'core.precomposeunicode', 'false',
     ]);
-    assert.deepEqual(candidateInventoryFromTracked(
+    const optionalProbeInventory = () => candidateInventoryFromTracked(
       portableRepository, portableEntries, manifest, portableFixture,
       {
         objectFormat: portableObjectFormat, maximumTrackedBytes: 4096,
         maximumEntries: 10, portableCheckout: true,
       },
-    ), portableCandidate.inventory,
-    'narrow boolean filesystem probes written by Git init remain admitted');
+    );
+    if (process.platform === 'darwin') {
+      assert.deepEqual(optionalProbeInventory(), portableCandidate.inventory,
+        'Darwin admits only Git init filesystem probe keys with boolean values');
+    } else {
+      assert.throws(optionalProbeInventory, /outside the exact allowlist/,
+        'Linux admits no mutable case-folding or Unicode-composition probe');
+    }
     runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.ignorecase']);
     runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.precomposeunicode']);
+    if (process.platform === 'darwin') {
+      runRepositoryGit(portableRepository, ['config', '--local', 'core.ignorecase', 'auto']);
+      assert.throws(optionalProbeInventory, /outside the exact allowlist/);
+      runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.ignorecase']);
+    }
     runRepositoryGit(portableRepository, ['config', '--local', 'core.autocrlf', 'false']);
     assert.throws(() => candidateInventoryFromTracked(
       portableRepository, portableEntries, manifest, portableFixture,
@@ -922,6 +951,56 @@ try {
     );
     assert.deepEqual(componentInventory, nativeComponentInventory,
       'all eleven fields preserve native chained, intermediate-directory, root, and implied-parent alias semantics');
+
+    const repeatedLinkRepository = path.join(temporaryRoot, 'finite-repeated-links');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', repeatedLinkRepository]);
+    fs.mkdirSync(path.join(repeatedLinkRepository, 'dir'));
+    fs.writeFileSync(path.join(repeatedLinkRepository, 'target.ts'), targetText);
+    fs.writeFileSync(path.join(repeatedLinkRepository, 'dir/target.ts'), targetText);
+    const repeatedLinks = [
+      ['a', '.'],
+      ['alias.ts', 'a/a/target.ts'],
+      ['dir/a', '.'],
+      ['separated.ts', 'dir/a/../dir/a/target.ts'],
+    ];
+    for (const [link, target] of repeatedLinks) {
+      fs.symlinkSync(target, path.join(repeatedLinkRepository, link));
+    }
+    runRepositoryGit(repeatedLinkRepository, [
+      'add', '--', 'target.ts', 'dir/target.ts', ...repeatedLinks.map(([link]) => link),
+    ]);
+    const repeatedLinkEntries = parseStageEntries(repeatedLinkRepository);
+    const nativeRepeatedLinkInventory = literalNativeSymlinkInventory(
+      repeatedLinkRepository, repeatedLinkEntries, manifest, portableFixture,
+    );
+    for (const [link] of repeatedLinks) fs.unlinkSync(path.join(repeatedLinkRepository, link));
+    runRepositoryGit(repeatedLinkRepository, [
+      '-c', 'core.symlinks=false', 'checkout-index', '--force', '--',
+      ...repeatedLinks.map(([link]) => link),
+    ]);
+    const repeatedLinkEvidence = [];
+    const portableRepeatedLinkInventory = candidateInventoryFromTracked(
+      repeatedLinkRepository, repeatedLinkEntries, manifest, portableFixture,
+      {
+        objectFormat: runRepositoryGit(
+          repeatedLinkRepository, ['rev-parse', '--show-object-format'],
+        ).trim(),
+        maximumTrackedBytes: 4096, maximumEntries: 20, portableCheckout: true,
+        portableResolutionEvidence: repeatedLinkEvidence,
+      },
+    );
+    assert.deepEqual(portableRepeatedLinkInventory, nativeRepeatedLinkInventory,
+      'finite repeated directory links preserve all eleven native inventory fields');
+    const repeatedEvidenceByPath = new Map(
+      repeatedLinkEvidence.map((record) => [record.path, record]),
+    );
+    for (const alias of ['alias.ts', 'separated.ts']) {
+      assert.deepEqual({
+        outcome: repeatedEvidenceByPath.get(alias).outcome,
+        hops: repeatedEvidenceByPath.get(alias).traversal_hops,
+        target_kind: repeatedEvidenceByPath.get(alias).target_kind,
+      }, { outcome: 'file', hops: 3, target_kind: 'file' });
+    }
 
     const longChainRepository = path.join(temporaryRoot, 'forty-eight-link-chain');
     runRepositoryGit(temporaryRoot, ['init', '--quiet', longChainRepository]);
