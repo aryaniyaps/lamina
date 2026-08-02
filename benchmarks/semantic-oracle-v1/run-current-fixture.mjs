@@ -115,6 +115,7 @@ function runCli({ id, operation, branch, args, cwd }) {
 class FaultInjectedGraphEngine extends GraphEngine {
   injectInterruptedPublication = false;
   injectCloseFailure = false;
+  nativeCloseCompleted = false;
 
   query(statement, params = {}) {
     const result = super.query(statement, params);
@@ -129,6 +130,7 @@ class FaultInjectedGraphEngine extends GraphEngine {
 
   close() {
     super.close();
+    this.nativeCloseCompleted = true;
     if (this.injectCloseFailure) {
       this.injectCloseFailure = false;
       throw new Error('Injected semantic fixture engine close failure.');
@@ -591,7 +593,7 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
   }
 
   const cleanupErrors = [];
-  if (engine) {
+  if (engine && !engine.nativeCloseCompleted) {
     try { engine.close(); } catch (error) { cleanupErrors.push(error); }
   }
   if (fs.existsSync(cliRoot)) {
