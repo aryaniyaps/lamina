@@ -11,18 +11,27 @@ const SCRATCH_SCHEMA = 'lamina.real-repository-oracle-scratch/v1';
 const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_TRACKED_FILE_BYTES = 64 * 1024 * 1024;
+const MAX_PORTABLE_LINK_BYTES = 4 * 1024;
+const MAX_RETAINED_LINK_BYTES = 4 * 1024 * 1024;
+const PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
+  ['core.repositoryformatversion', new Set(['0'])],
+  ['core.filemode', new Set(['true', 'false'])],
+  ['core.bare', new Set(['false'])],
+  ['core.logallrefupdates', new Set(['true'])],
+]));
 const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
   && typeof process.getuid === 'function';
 export const RECONSTRUCTION_LIMITS = Object.freeze({
   max_tracked_entries: 6_000,
   max_counted_tracked_bytes: 256 * 1024 * 1024,
   max_followed_file_bytes: MAX_TRACKED_FILE_BYTES,
+  max_retained_link_bytes: MAX_RETAINED_LINK_BYTES,
 });
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
 function checkedGit(cwd, args, timeout = 20 * 60_000) {
-  const result = spawnTrustedGit(cwd, args, {
+  const result = spawnTrustedGit(cwd, ['-c', 'core.symlinks=false', ...args], {
     encoding: 'utf8', timeout, maxBuffer: MAX_GIT_OUTPUT,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -34,7 +43,7 @@ function checkedGit(cwd, args, timeout = 20 * 60_000) {
 }
 
 function optionalGit(cwd, args, timeout = 60_000) {
-  const result = spawnTrustedGit(cwd, args, {
+  const result = spawnTrustedGit(cwd, ['-c', 'core.symlinks=false', ...args], {
     encoding: 'utf8', timeout, maxBuffer: MAX_GIT_OUTPUT,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -63,7 +72,7 @@ function readPhysicalTrackedFile(
     throw new Error(`tracked path is not a physical repository file: ${relative}`);
   }
   const before = fs.lstatSync(file, { bigint: true });
-  if (!before.isFile() || before.isSymbolicLink()) {
+  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n) {
     throw new Error(`tracked path is not a regular file: ${relative}`);
   }
   if (before.size > BigInt(maximumFileBytes)) {
@@ -76,13 +85,19 @@ function readPhysicalTrackedFile(
   const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (opened.dev !== before.dev || opened.ino !== before.ino || opened.size !== before.size) {
+    if (opened.dev !== before.dev || opened.ino !== before.ino || opened.size !== before.size
+      || opened.mode !== before.mode || opened.nlink !== 1n) {
       throw new Error(`tracked path changed while opening: ${relative}`);
     }
     const bytes = fs.readFileSync(descriptor);
     const after = fs.fstatSync(descriptor, { bigint: true });
-    if (after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size
-      || after.mtimeNs !== opened.mtimeNs || BigInt(bytes.length) !== opened.size) {
+    const pathAfter = fs.lstatSync(file, { bigint: true });
+    if (after.dev !== opened.dev || after.ino !== opened.ino || after.mode !== opened.mode
+      || after.size !== opened.size || after.mtimeNs !== opened.mtimeNs
+      || after.ctimeNs !== opened.ctimeNs || after.nlink !== 1n
+      || JSON.stringify(stableStatIdentity(pathAfter).map(String))
+        !== JSON.stringify(stableStatIdentity(after).map(String))
+      || BigInt(bytes.length) !== opened.size) {
       throw new Error(`tracked path changed while reading: ${relative}`);
     }
     return { bytes, mode: Number(opened.mode & 0o777n) };
@@ -102,57 +117,172 @@ function stableStatIdentity(stat) {
   return [stat.dev, stat.ino, stat.mode, stat.size, stat.mtimeNs, stat.ctimeNs];
 }
 
-function readTrackedSymlink(repository, entry, objectFormat, regularFiles, trackedPaths) {
-  const file = path.join(repository, entry.path);
-  const before = fs.lstatSync(file, { bigint: true });
-  if (!before.isSymbolicLink()) {
-    throw new Error(`stage-0 symlink is not a physical symlink: ${entry.path}`);
-  }
-  let linkBytes;
-  try { linkBytes = fs.readlinkSync(file, { encoding: 'buffer' }); }
-  catch { throw new Error(`stage-0 symlink cannot be read: ${entry.path}`); }
-  const after = fs.lstatSync(file, { bigint: true });
-  if (JSON.stringify(stableStatIdentity(before).map(String))
-    !== JSON.stringify(stableStatIdentity(after).map(String))) {
-    throw new Error(`stage-0 symlink changed while reading: ${entry.path}`);
-  }
-  if (entry.oid !== gitBlobOid(objectFormat, linkBytes)) {
-    throw new Error(`tracked symlink bytes do not match the stage-0 Git object: ${entry.path}`);
-  }
-  let targetText;
-  try { targetText = new TextDecoder('utf-8', { fatal: true }).decode(linkBytes); }
-  catch { throw new Error(`tracked symlink target is not UTF-8: ${entry.path}`); }
-  if (!targetText || targetText.includes('\0') || targetText.includes('\\')
-    || path.isAbsolute(targetText) || /^[A-Za-z]:/.test(targetText)) {
-    throw new Error(`tracked symlink target must be relative: ${entry.path}`);
-  }
-  const declaredTarget = path.resolve(path.dirname(file), targetText);
-  let canonicalTarget;
-  try { canonicalTarget = fs.realpathSync.native(declaredTarget); }
-  catch { throw new Error(`tracked symlink target is broken or cyclic: ${entry.path}`); }
-  const gitDirectory = path.join(repository, '.git');
-  if ((canonicalTarget !== repository && !canonicalTarget.startsWith(`${repository}${path.sep}`))
-    || canonicalTarget === gitDirectory || canonicalTarget.startsWith(`${gitDirectory}${path.sep}`)) {
-    throw new Error(`tracked symlink target escapes repository content: ${entry.path}`);
-  }
-  const targetStat = fs.statSync(canonicalTarget);
-  if (targetStat.isFile()) {
-    const targetRelative = path.relative(repository, canonicalTarget).replaceAll('\\', '/');
-    const target = regularFiles.get(targetRelative);
-    if (!target || canonicalTarget !== path.join(repository, targetRelative)) {
-      throw new Error(`tracked symlink targets an unverified or untracked file: ${entry.path}`);
+function assertPortableCheckoutConfig(repository) {
+  const records = checkedGit(repository, ['config', '--local', '--null', '--list'], 60_000)
+    .split('\0').filter(Boolean);
+  const seen = new Map();
+  for (const record of records) {
+    const separator = record.indexOf('\n');
+    if (separator <= 0) throw new Error('portable checkout Git config is malformed');
+    const key = record.slice(0, separator).toLowerCase();
+    const value = record.slice(separator + 1);
+    if (seen.has(key) || !PORTABLE_CHECKOUT_CONFIG.get(key)?.has(value)) {
+      throw new Error(`portable checkout Git config is outside the exact allowlist: ${key}`);
     }
-    return target;
+    seen.set(key, value);
   }
-  if (targetStat.isDirectory()) {
-    const targetRelative = path.relative(repository, canonicalTarget).replaceAll('\\', '/');
-    const prefix = targetRelative ? `${targetRelative}/` : '';
-    if (!trackedPaths.some((candidate) => candidate !== entry.path && candidate.startsWith(prefix))) {
-      throw new Error(`tracked symlink targets an untracked directory: ${entry.path}`);
+  if (seen.size !== PORTABLE_CHECKOUT_CONFIG.size
+    || [...PORTABLE_CHECKOUT_CONFIG.keys()].some((key) => !seen.has(key))) {
+    throw new Error('portable checkout requires the exact inert local Git config');
+  }
+}
+
+function portableLinkResolver(
+  repository, entries, objectFormat, regularFiles, trackedPaths, maximumRetainedLinkBytes,
+  resolutionEvidence,
+) {
+  const entryByPath = new Map(entries.map((entry) => [entry.path, entry]));
+  const impliedDirectories = new Set(['']);
+  for (const trackedPath of trackedPaths) {
+    let parent = path.posix.dirname(trackedPath);
+    while (parent !== '.') {
+      impliedDirectories.add(parent);
+      parent = path.posix.dirname(parent);
     }
-    return null;
   }
-  throw new Error(`tracked symlink targets a special file: ${entry.path}`);
+  const cache = new Map();
+  const resolving = new Set();
+  const retainedBodies = new Set();
+  let retainedLinkBytes = 0;
+
+  function readLinkBody(entry) {
+    const file = path.join(repository, entry.path);
+    const before = fs.lstatSync(file, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n) {
+      throw new Error(`stage-0 portable link is not a physical single-link regular file: ${entry.path}`);
+    }
+    const physical = readPhysicalTrackedFile(repository, entry.path, MAX_PORTABLE_LINK_BYTES);
+    if (entry.oid !== gitBlobOid(objectFormat, physical.bytes)) {
+      throw new Error(`portable link bytes do not match the stage-0 Git object: ${entry.path}`);
+    }
+    if (!retainedBodies.has(entry.path)) {
+      retainedLinkBytes += physical.bytes.length;
+      if (retainedLinkBytes > maximumRetainedLinkBytes) {
+        throw new Error('portable links exceed the fixed aggregate retained-link-byte bound');
+      }
+      retainedBodies.add(entry.path);
+    }
+    return physical.bytes;
+  }
+
+  function physicalNode(relative, origin) {
+    const physicalPath = relative ? path.join(repository, relative) : repository;
+    let stat;
+    try { stat = fs.lstatSync(physicalPath); }
+    catch { throw new Error(`portable link target is broken: ${origin.path}`); }
+    if (stat.isSymbolicLink()) {
+      throw new Error(`portable link target traverses a physical symlink: ${origin.path}`);
+    }
+    if (stat.isDirectory()) {
+      if (!impliedDirectories.has(relative) || fs.realpathSync.native(physicalPath) !== physicalPath) {
+        throw new Error(`portable link targets an untracked directory: ${origin.path}`);
+      }
+      return { kind: 'directory', path: relative };
+    }
+    if (!stat.isFile()) throw new Error(`portable link targets a special file: ${origin.path}`);
+    throw new Error(`portable link targets an untracked file: ${origin.path}`);
+  }
+
+  function resolveComponents(base, components, requireDirectory, origin) {
+    let current = base;
+    for (let index = 0; index < components.length; index += 1) {
+      const component = components[index];
+      if (!component || component === '.') continue;
+      if (component === '..') {
+        if (!current) throw new Error(`portable link target escapes repository content: ${origin.path}`);
+        current = path.posix.dirname(current);
+        if (current === '.') current = '';
+        continue;
+      }
+      const candidate = current ? `${current}/${component}` : component;
+      if (candidate === '.git' || candidate.startsWith('.git/')) {
+        throw new Error(`portable link target escapes repository content: ${origin.path}`);
+      }
+      const targetEntry = entryByPath.get(candidate);
+      if (targetEntry?.mode === '120000') {
+        const target = resolve(targetEntry);
+        const remaining = components.slice(index + 1);
+        if (target.kind === 'file') {
+          if (remaining.some((piece) => piece && piece !== '.') || requireDirectory) {
+            throw new Error(`portable link traverses a file as a directory: ${origin.path}`);
+          }
+          return target;
+        }
+        current = target.path;
+        components = remaining;
+        index = -1;
+        continue;
+      }
+      if (targetEntry && ['100644', '100755'].includes(targetEntry.mode)) {
+        const target = regularFiles.get(candidate);
+        if (!target) throw new Error(`portable link targets an unverified tracked file: ${origin.path}`);
+        if (index !== components.length - 1 || requireDirectory) {
+          throw new Error(`portable link traverses a file as a directory: ${origin.path}`);
+        }
+        return { kind: 'file', physical: target, path: candidate, oid: targetEntry.oid };
+      }
+      if (impliedDirectories.has(candidate)) {
+        const directory = physicalNode(candidate, origin);
+        current = directory.path;
+        continue;
+      }
+      return physicalNode(candidate, origin);
+    }
+    const directory = physicalNode(current, origin);
+    if (directory.kind !== 'directory' && requireDirectory) {
+      throw new Error(`portable link target requires a directory: ${origin.path}`);
+    }
+    return directory;
+  }
+
+  function resolve(entry) {
+    if (cache.has(entry.path)) return cache.get(entry.path);
+    if (resolving.has(entry.path)) {
+      throw new Error(`portable link target is cyclic: ${entry.path}`);
+    }
+    resolving.add(entry.path);
+    try {
+      const linkBytes = readLinkBody(entry);
+      let targetText;
+      try { targetText = new TextDecoder('utf-8', { fatal: true }).decode(linkBytes); }
+      catch { throw new Error(`portable link target is not UTF-8: ${entry.path}`); }
+      if (!targetText || targetText.includes('\0') || targetText.includes('\\')
+        || path.posix.isAbsolute(targetText) || /^[A-Za-z]:/.test(targetText)) {
+        throw new Error(`portable link target must be relative UTF-8: ${entry.path}`);
+      }
+      const node = resolveComponents(
+        path.posix.dirname(entry.path) === '.' ? '' : path.posix.dirname(entry.path),
+        targetText.split('/'), targetText.endsWith('/'), entry,
+      );
+      cache.set(entry.path, node);
+      return node;
+    } finally {
+      resolving.delete(entry.path);
+    }
+  }
+  return (entry) => {
+    const node = resolve(entry);
+    if (resolutionEvidence) {
+      resolutionEvidence.push(Object.freeze({
+        path: entry.path,
+        link_oid: entry.oid,
+        target_kind: node.kind,
+        target_path: node.path,
+        target_oid: node.kind === 'file' ? node.oid : null,
+      }));
+    }
+    return node.kind === 'file' ? node.physical : null;
+  };
 }
 
 function trackedEntries(repository, maximumEntries = Number.MAX_SAFE_INTEGER) {
@@ -181,6 +311,9 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
   maximumTrackedBytes = Number.MAX_SAFE_INTEGER,
   maximumEntries = Number.MAX_SAFE_INTEGER,
   maximumFileBytes = MAX_TRACKED_FILE_BYTES,
+  maximumRetainedLinkBytes = MAX_RETAINED_LINK_BYTES,
+  portableCheckout = false,
+  portableResolutionEvidence = null,
 } = {}) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
@@ -199,7 +332,10 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
   if (!Number.isSafeInteger(maximumEntries) || maximumEntries < 0 || entries.length > maximumEntries
     || !Number.isSafeInteger(maximumTrackedBytes) || maximumTrackedBytes < 0
     || !Number.isSafeInteger(maximumFileBytes) || maximumFileBytes <= 0
-    || maximumFileBytes > MAX_TRACKED_FILE_BYTES) {
+    || maximumFileBytes > MAX_TRACKED_FILE_BYTES
+    || !Number.isSafeInteger(maximumRetainedLinkBytes) || maximumRetainedLinkBytes <= 0
+    || maximumRetainedLinkBytes > MAX_RETAINED_LINK_BYTES
+    || (portableResolutionEvidence !== null && !Array.isArray(portableResolutionEvidence))) {
     throw new Error('candidate inventory bounds are invalid or exceeded');
   }
   const trackedPaths = entries.map((entry) => (typeof entry === 'string' ? entry : entry.path));
@@ -220,6 +356,18 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
     retainedRegularBytes += physical.bytes.length;
     regularFiles.set(entry.path, physical);
   }
+  const portableEntries = entries.filter((entry) => typeof entry !== 'string' && entry.mode === '120000');
+  let resolvePortableLink = null;
+  if (portableEntries.length) {
+    if (portableCheckout !== true) {
+      throw new Error('portable link inventory requires proved command-line core.symlinks=false checkout');
+    }
+    assertPortableCheckoutConfig(physicalRepository);
+    resolvePortableLink = portableLinkResolver(
+      physicalRepository, entries, objectFormat, regularFiles, trackedPaths,
+      maximumRetainedLinkBytes, portableResolutionEvidence,
+    );
+  }
   for (const entry of entries) {
     const relative = typeof entry === 'string' ? entry : entry.path;
     if (typeof entry !== 'string' && !['100644', '100755', '120000'].includes(entry.mode)) {
@@ -228,7 +376,7 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
     const physical = typeof entry === 'string'
       ? readPhysicalTrackedFile(physicalRepository, relative, maximumFileBytes)
       : entry.mode === '120000'
-        ? readTrackedSymlink(physicalRepository, entry, objectFormat, regularFiles, trackedPaths)
+        ? resolvePortableLink(entry)
         : regularFiles.get(relative);
     // #60 counted the tracked path but skipped bytes and candidates when
     // fs.stat resolved a tracked symlink to an internal directory.
@@ -313,6 +461,26 @@ function assertPinnedRepositoryState(state, collection, message) {
     || state.branch !== null || state.remotes || state.changes.length) throw new Error(message);
 }
 
+function assertNoPhysicalSymlinks(repository, maximumEntries = 100_000) {
+  const pending = [repository];
+  let visited = 0;
+  while (pending.length) {
+    const directory = pending.pop();
+    for (const name of fs.readdirSync(directory).sort()) {
+      visited += 1;
+      if (visited > maximumEntries) {
+        throw new Error('portable checkout exceeds the bounded physical-entry scan');
+      }
+      const candidate = path.join(directory, name);
+      const stat = fs.lstatSync(candidate);
+      if (stat.isSymbolicLink()) {
+        throw new Error(`portable checkout contains a physical symlink: ${path.relative(repository, candidate)}`);
+      }
+      if (stat.isDirectory()) pending.push(candidate);
+    }
+  }
+}
+
 export function verifyPinnedRepository(repository, collection) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
@@ -320,6 +488,8 @@ export function verifyPinnedRepository(repository, collection) {
   }
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'materialized repository is not the exact detached, clean, remote-free pinned collection');
+  assertPortableCheckoutConfig(physicalRepository);
+  assertNoPhysicalSymlinks(physicalRepository);
   const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
   const maximumEntries = collection.reviewed_inventory.tracked_files;
   const inventory = candidateInventoryFromTracked(
@@ -329,11 +499,14 @@ export function verifyPinnedRepository(repository, collection) {
       objectFormat,
       maximumTrackedBytes: collection.reviewed_inventory.tracked_bytes,
       maximumEntries,
+      portableCheckout: true,
     },
   );
   assertReviewedInventory(inventory, collection.reviewed_inventory);
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'pinned collection changed during inventory admission');
+  assertPortableCheckoutConfig(physicalRepository);
+  assertNoPhysicalSymlinks(physicalRepository);
   return inventory;
 }
 
@@ -344,7 +517,10 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
   }
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'reconstruction repository is not the exact detached, clean, remote-free pinned collection');
+  assertPortableCheckoutConfig(physicalRepository);
+  assertNoPhysicalSymlinks(physicalRepository);
   const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
+  const portableResolutionEvidence = [];
   const inventory = candidateInventoryFromTracked(
     physicalRepository,
     trackedEntries(physicalRepository, RECONSTRUCTION_LIMITS.max_tracked_entries),
@@ -355,11 +531,26 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
       maximumTrackedBytes: RECONSTRUCTION_LIMITS.max_counted_tracked_bytes,
       maximumEntries: RECONSTRUCTION_LIMITS.max_tracked_entries,
       maximumFileBytes: RECONSTRUCTION_LIMITS.max_followed_file_bytes,
+      maximumRetainedLinkBytes: RECONSTRUCTION_LIMITS.max_retained_link_bytes,
+      portableCheckout: true,
+      portableResolutionEvidence,
     },
   );
   assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
     'pinned collection changed during inventory reconstruction');
-  return Object.freeze({ inventory, candidate_inventory_sha256: candidateInventoryDigest(inventory) });
+  assertPortableCheckoutConfig(physicalRepository);
+  assertNoPhysicalSymlinks(physicalRepository);
+  const portableLinkResolution = Object.freeze({
+    schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
+    alias_count: portableResolutionEvidence.length,
+    records: Object.freeze(portableResolutionEvidence),
+    sha256: sha256(JSON.stringify(portableResolutionEvidence)),
+  });
+  return Object.freeze({
+    inventory,
+    candidate_inventory_sha256: candidateInventoryDigest(inventory),
+    portable_link_resolution: portableLinkResolution,
+  });
 }
 
 function assertPrivateTemporaryRoot(runnerTemporaryRoot) {
@@ -382,6 +573,8 @@ export function createScratch(runnerTemporaryRoot) {
   try {
     fs.chmodSync(root, 0o700);
     const rootStat = fs.lstatSync(root, { bigint: true });
+    const template = path.join(root, 'template');
+    fs.mkdirSync(template, { mode: 0o700 });
     const marker = path.join(root, '.owner.json');
     fs.writeFileSync(marker, `${JSON.stringify({
       schema: SCRATCH_SCHEMA,
@@ -390,13 +583,15 @@ export function createScratch(runnerTemporaryRoot) {
       ino: String(rootStat.ino),
       uid: Number(rootStat.uid),
       nonce: crypto.randomUUID(),
-      owned: ['source'],
+      owned: ['source', 'template'],
     })}\n`, { flag: 'wx', mode: 0o600 });
-    return Object.freeze({ root, marker, source: path.join(root, 'source') });
+    return Object.freeze({ root, marker, source: path.join(root, 'source'), template });
   } catch (error) {
     try {
-      const entries = fs.readdirSync(root);
-      if (entries.length === 1 && entries[0] === '.owner.json') fs.unlinkSync(path.join(root, entries[0]));
+      const marker = path.join(root, '.owner.json');
+      if (fs.existsSync(marker)) fs.unlinkSync(marker);
+      if (fs.existsSync(path.join(root, 'template'))
+        && fs.readdirSync(path.join(root, 'template')).length === 0) fs.rmdirSync(path.join(root, 'template'));
       if (fs.readdirSync(root).length === 0) fs.rmdirSync(root);
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'scratch creation and cleanup both failed');
@@ -407,24 +602,30 @@ export function createScratch(runnerTemporaryRoot) {
 
 function validatedScratch(scratch) {
   if (!scratch || path.dirname(scratch.marker || '') !== scratch.root
-    || scratch.source !== path.join(scratch.root || '', 'source')) {
+    || scratch.source !== path.join(scratch.root || '', 'source')
+    || scratch.template !== path.join(scratch.root || '', 'template')) {
     throw new Error('real-repository scratch paths are invalid');
   }
   const root = fs.realpathSync.native(scratch.root);
   const stat = fs.lstatSync(root, { bigint: true });
   const markerStat = fs.lstatSync(scratch.marker, { bigint: true });
+  const templateStat = fs.lstatSync(scratch.template, { bigint: true });
   const marker = JSON.parse(fs.readFileSync(scratch.marker, 'utf8'));
   const invalidPosixOwnership = HAS_POSIX_OWNERSHIP
     && ((stat.mode & 0o077n) !== 0n || stat.uid !== BigInt(process.getuid())
       || markerStat.uid !== stat.uid || (markerStat.mode & 0o077n) !== 0n
+      || templateStat.uid !== stat.uid || (templateStat.mode & 0o077n) !== 0n
       || marker.uid !== Number(stat.uid));
   if (root !== scratch.root || !stat.isDirectory() || stat.isSymbolicLink()
     || !markerStat.isFile() || markerStat.isSymbolicLink() || markerStat.nlink !== 1n
     || invalidPosixOwnership
+    || !templateStat.isDirectory() || templateStat.isSymbolicLink()
+    || fs.realpathSync.native(scratch.template) !== scratch.template
+    || fs.readdirSync(scratch.template).length !== 0
     || marker.schema !== SCRATCH_SCHEMA || marker.root !== root
     || marker.dev !== String(stat.dev) || marker.ino !== String(stat.ino)
     || !/^[0-9a-f-]{36}$/i.test(marker.nonce)
-    || JSON.stringify(marker.owned) !== JSON.stringify(['source'])) {
+    || JSON.stringify(marker.owned) !== JSON.stringify(['source', 'template'])) {
     throw new Error('real-repository scratch ownership marker is invalid');
   }
   return marker;
@@ -432,7 +633,7 @@ function validatedScratch(scratch) {
 
 export function removeScratch(scratch) {
   validatedScratch(scratch);
-  const allowed = new Set(['.owner.json', 'source']);
+  const allowed = new Set(['.owner.json', 'source', 'template']);
   const foreign = fs.readdirSync(scratch.root).filter((name) => !allowed.has(name));
   if (foreign.length) {
     throw new Error(`real-repository scratch contains foreign entries: ${foreign.join(', ')}`);
@@ -445,6 +646,7 @@ export function removeScratch(scratch) {
     }
     fs.rmSync(scratch.source, { recursive: true, force: false });
   }
+  fs.rmdirSync(scratch.template);
   fs.unlinkSync(scratch.marker);
   fs.rmdirSync(scratch.root);
 }
@@ -471,12 +673,14 @@ export function withOwnedScratch(runnerTemporaryRoot, action) {
 
 function materializePinnedRepository(scratch, collection) {
   validatedScratch(scratch);
-  checkedGit(scratch.root, ['init', '--quiet', scratch.source], 60_000);
+  checkedGit(scratch.root, ['init', `--template=${scratch.template}`, '--quiet', scratch.source], 60_000);
+  assertPortableCheckoutConfig(scratch.source);
   checkedGit(scratch.source, [
     'fetch', '--quiet', '--no-tags', '--depth', '1', collection.repository_url,
     `+${collection.commit}:refs/lamina/oracle-pin`,
   ]);
   checkedGit(scratch.source, ['checkout', '--quiet', '--detach', collection.commit], 60_000);
+  assertNoPhysicalSymlinks(scratch.source);
   return scratch.source;
 }
 

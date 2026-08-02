@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +20,7 @@ import {
   RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID, WORKLOAD_ID,
   inventoryAdmissionResult, inventoryReconstructionResult,
 } from '../benchmarks/real-repository-oracle-v1/workload.mjs';
-import { loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
+import { isExcludedPath, loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
@@ -39,6 +40,60 @@ const adapterInfo = {
   production_enforcement: false, aggregate_memory: false, aggregate_pids: false,
   complete_descendant_ownership: false, controllers: [], reasons: ['test-only'],
 };
+const TEST_SOURCE_NAMES = new Set(['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml']);
+const testSha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+
+function literalNativeSymlinkInventory(repository, entries, manifest, fixture) {
+  const observationPaths = [];
+  const retrievalPaths = [];
+  let trackedBytes = 0;
+  let observationBytes = 0;
+  let retrievalBytes = 0;
+  let sourceFiles = 0;
+  let sourceBytes = 0;
+  let sourceLoc = 0;
+  const sourceExtensions = new Set(manifest.source_extensions);
+  const retrievalExtensions = new Set(manifest.retrieval_extensions);
+  for (const entry of entries) {
+    const physical = path.join(repository, entry.path);
+    if (fs.statSync(physical).isDirectory()) continue;
+    const bytes = fs.readFileSync(physical);
+    trackedBytes += bytes.length;
+    if (!isExcludedPath(entry.path, manifest.exclusions)) {
+      observationPaths.push(entry.path);
+      observationBytes += bytes.length;
+    }
+    const extension = path.extname(entry.path).toLowerCase();
+    if (retrievalExtensions.has(extension) && bytes.length <= manifest.retrieval_max_file_bytes) {
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        retrievalPaths.push(entry.path);
+        retrievalBytes += bytes.length;
+      } catch {}
+    }
+    if (sourceExtensions.has(extension) || TEST_SOURCE_NAMES.has(path.basename(entry.path))) {
+      sourceFiles += 1;
+      sourceBytes += bytes.length;
+      if (bytes.length <= 4 * 1024 * 1024) {
+        sourceLoc += bytes.toString('utf8').split(/\r?\n/).filter((line) => line.trim()).length;
+      }
+    }
+  }
+  assert.ok(sourceLoc >= fixture.source_loc.minimum && sourceLoc <= fixture.source_loc.maximum);
+  return {
+    tracked_files: entries.length,
+    tracked_bytes: trackedBytes,
+    tracked_source_files: sourceFiles,
+    tracked_source_bytes: sourceBytes,
+    tracked_source_loc: sourceLoc,
+    observation_indexed_files: observationPaths.length,
+    observation_indexed_bytes: observationBytes,
+    observation_paths_digest: testSha256(observationPaths.join('\n')),
+    retrieval_candidate_files: retrievalPaths.length,
+    retrieval_candidate_bytes: retrievalBytes,
+    retrieval_paths_digest: testSha256(retrievalPaths.join('\n')),
+  };
+}
 
 assert.equal(WORKLOAD_ID, REAL_REPOSITORY_ORACLE_WORKLOAD_ID);
 assert.deepEqual(EXACT_COMMAND, ['admit-inventory']);
@@ -48,6 +103,7 @@ assert.deepEqual(RECONSTRUCTION_LIMITS, {
   max_tracked_entries: 6_000,
   max_counted_tracked_bytes: 256 * 1024 * 1024,
   max_followed_file_bytes: 64 * 1024 * 1024,
+  max_retained_link_bytes: 4 * 1024 * 1024,
 });
 assert.deepEqual(COLLECTION_PINS.small, {
   fixture_id: 'small', fixture_class: 'small',
@@ -302,11 +358,16 @@ try {
   const quotaForeignSibling = path.join(temporaryRoot, 'foreign-sibling');
   fs.writeFileSync(quotaForeignSibling, 'never workload-owned');
   const successScratch = createScratch(temporaryRoot);
+  assert.deepEqual(fs.readdirSync(successScratch.template), [],
+    'the Git template authority starts empty');
+  assert.equal(fs.realpathSync.native(successScratch.template), successScratch.template);
   if (process.platform !== 'win32') {
     assert.equal(fs.lstatSync(successScratch.root).mode & 0o077, 0,
       'the workload-owned scratch child must remain private');
     assert.equal(fs.lstatSync(successScratch.marker).mode & 0o077, 0,
       'the workload-owned marker must remain private');
+    assert.equal(fs.lstatSync(successScratch.template).mode & 0o077, 0,
+      'the empty Git template authority must remain private');
   }
   fs.mkdirSync(successScratch.source);
   fs.writeFileSync(path.join(successScratch.source, 'owned'), 'owned');
@@ -315,6 +376,27 @@ try {
   assert.equal(fs.readFileSync(quotaForeignSibling, 'utf8'), 'never workload-owned',
     'success cleanup must preserve foreign siblings at the quota root');
   assert.equal(fs.existsSync(temporaryRoot), true, 'cleanup must never delete the quota root');
+
+  const templateScratch = createScratch(temporaryRoot);
+  const templateInit = spawnTrustedGit(templateScratch.root, [
+    '-c', 'core.symlinks=false', 'init', `--template=${templateScratch.template}`,
+    '--quiet', templateScratch.source,
+  ], {
+    encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(templateInit.status, 0, templateInit.stderr);
+  assert.deepEqual(fs.readdirSync(templateScratch.template), [],
+    'Git init cannot import ambient hooks through the owned empty template');
+  const persistedSymlinks = spawnTrustedGit(templateScratch.source, [
+    'config', '--local', '--get-all', 'core.symlinks',
+  ], {
+    encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(persistedSymlinks.status, 1,
+    'command-line symlink policy must not persist mutable repository config');
+  removeScratch(templateScratch);
 
   let failedScratchRoot;
   assert.throws(() => withOwnedScratch(temporaryRoot, (scratch) => {
@@ -394,9 +476,9 @@ try {
     commit, tree_oid: treeOid, manifest, fixture, reviewed_inventory: inventory,
   };
   assert.deepEqual(verifyPinnedRepository(repository, collection), inventory);
-  function inventoryWithLateMutation(action) {
+  function inventoryWithLateMutation(action, targetInventory = inventory) {
     let mutated = false;
-    return new Proxy(inventory, {
+    return new Proxy(targetInventory, {
       get(target, property, receiver) {
         if (!mutated && property === 'tracked_bytes') {
           mutated = true;
@@ -448,53 +530,122 @@ try {
         assert.equal(match[3], '0');
         return { mode: match[1], oid: match[2], path: match[4] };
       });
-    const symlinkRepository = path.join(temporaryRoot, 'symlink-repository');
-    runRepositoryGit(temporaryRoot, ['init', '--quiet', symlinkRepository]);
-    fs.mkdirSync(path.join(symlinkRepository, 'docs'));
+    const portableRepository = path.join(temporaryRoot, 'portable-link-repository');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', portableRepository]);
+    fs.mkdirSync(path.join(portableRepository, 'docs'));
     const targetText = 'export const linked = true;\n';
+    const excludedTargetText = 'export const excludedTarget = true;\n';
     const readmeText = '# Tracked docs\n';
-    fs.writeFileSync(path.join(symlinkRepository, 'target.ts'), targetText);
-    fs.writeFileSync(path.join(symlinkRepository, 'docs/readme.md'), readmeText);
-    fs.symlinkSync('target.ts', path.join(symlinkRepository, 'alias.ts'));
-    fs.symlinkSync('docs', path.join(symlinkRepository, 'docs-link'));
-    runRepositoryGit(symlinkRepository, ['add', '--', 'target.ts', 'docs/readme.md', 'alias.ts', 'docs-link']);
-    runRepositoryGit(symlinkRepository, [
+    fs.mkdirSync(path.join(portableRepository, 'dist'));
+    fs.writeFileSync(path.join(portableRepository, 'target.txt'), targetText);
+    fs.writeFileSync(path.join(portableRepository, 'dist/target.txt'), excludedTargetText);
+    fs.writeFileSync(path.join(portableRepository, 'docs/readme.md'), readmeText);
+    fs.symlinkSync('target.txt', path.join(portableRepository, 'alias.ts'));
+    fs.symlinkSync('target.txt', path.join(portableRepository, 'alias-copy.ts'));
+    fs.symlinkSync('dist/target.txt', path.join(portableRepository, 'included-alias.ts'));
+    fs.symlinkSync('../target.txt', path.join(portableRepository, 'dist/excluded-alias.ts'));
+    fs.symlinkSync('docs', path.join(portableRepository, 'docs-link'));
+    const portablePaths = [
+      'target.txt', 'dist/target.txt', 'docs/readme.md', 'alias.ts', 'alias-copy.ts',
+      'included-alias.ts', 'dist/excluded-alias.ts', 'docs-link',
+    ];
+    runRepositoryGit(portableRepository, ['add', '--', ...portablePaths]);
+    runRepositoryGit(portableRepository, [
       '-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
       'commit', '--quiet', '-m', 'tracked symlink fixture',
     ]);
-    const symlinkCommit = runRepositoryGit(symlinkRepository, ['rev-parse', 'HEAD']).trim();
-    const symlinkTree = runRepositoryGit(symlinkRepository, ['rev-parse', 'HEAD^{tree}']).trim();
-    runRepositoryGit(symlinkRepository, ['checkout', '--quiet', '--detach', symlinkCommit]);
-    const symlinkFixture = { id: 'symlink', class: 'symlink', source_loc: { minimum: 0, maximum: 100 } };
-    const symlinkCandidate = reconstructPinnedRepositoryInventory(symlinkRepository, {
-      commit: symlinkCommit, tree_oid: symlinkTree, manifest, fixture: symlinkFixture,
+    const portableCommit = runRepositoryGit(portableRepository, ['rev-parse', 'HEAD']).trim();
+    const portableTree = runRepositoryGit(portableRepository, ['rev-parse', 'HEAD^{tree}']).trim();
+    runRepositoryGit(portableRepository, ['checkout', '--quiet', '--detach', portableCommit]);
+    const portableEntries = parseStageEntries(portableRepository);
+    const portableObjectFormat = runRepositoryGit(
+      portableRepository, ['rev-parse', '--show-object-format'],
+    ).trim();
+    assert.equal(fs.statSync(path.join(portableRepository, 'alias.ts')).isFile(), true);
+    assert.equal(fs.statSync(path.join(portableRepository, 'docs-link')).isDirectory(), true);
+    const portableFixture = {
+      id: 'portable-link', class: 'portable-link', source_loc: { minimum: 0, maximum: 100 },
+    };
+    const nativeInventory = literalNativeSymlinkInventory(
+      portableRepository, portableEntries, manifest, portableFixture,
+    );
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /not a physical single-link regular file/,
+    'an actual filesystem symlink remains refused even with core.symlinks=false');
+    fs.unlinkSync(path.join(portableRepository, 'alias.ts'));
+    fs.unlinkSync(path.join(portableRepository, 'alias-copy.ts'));
+    fs.unlinkSync(path.join(portableRepository, 'included-alias.ts'));
+    fs.unlinkSync(path.join(portableRepository, 'dist/excluded-alias.ts'));
+    fs.unlinkSync(path.join(portableRepository, 'docs-link'));
+    runRepositoryGit(portableRepository, [
+      '-c', 'core.symlinks=false', 'checkout-index', '--force', '--',
+      'alias.ts', 'alias-copy.ts', 'included-alias.ts', 'dist/excluded-alias.ts', 'docs-link',
+    ]);
+    assert.equal(fs.lstatSync(path.join(portableRepository, 'alias.ts')).isSymbolicLink(), false);
+    assert.equal(fs.readFileSync(path.join(portableRepository, 'alias.ts'), 'utf8'), 'target.txt');
+    const portableCandidate = reconstructPinnedRepositoryInventory(portableRepository, {
+      commit: portableCommit, tree_oid: portableTree, manifest, fixture: portableFixture,
     });
-    assert.deepEqual({
-      tracked_files: symlinkCandidate.inventory.tracked_files,
-      tracked_bytes: symlinkCandidate.inventory.tracked_bytes,
-      tracked_source_files: symlinkCandidate.inventory.tracked_source_files,
-      tracked_source_bytes: symlinkCandidate.inventory.tracked_source_bytes,
-      tracked_source_loc: symlinkCandidate.inventory.tracked_source_loc,
-      observation_indexed_files: symlinkCandidate.inventory.observation_indexed_files,
-      retrieval_candidate_files: symlinkCandidate.inventory.retrieval_candidate_files,
-    }, {
-      tracked_files: 4,
-      tracked_bytes: Buffer.byteLength(targetText) * 2 + Buffer.byteLength(readmeText),
-      tracked_source_files: 2,
-      tracked_source_bytes: Buffer.byteLength(targetText) * 2,
-      tracked_source_loc: 2,
-      observation_indexed_files: 3,
-      retrieval_candidate_files: 3,
-    }, 'tracked file links follow verified target bytes while directory links count only as tracked paths');
-    assert.equal(symlinkCandidate.candidate_inventory_sha256,
-      candidateInventoryDigest(symlinkCandidate.inventory));
+    assert.deepEqual(portableCandidate.inventory, nativeInventory,
+      'portable checkout must preserve all eleven #60 native-symlink inventory fields');
+    assert.equal(portableCandidate.inventory.tracked_bytes,
+      nativeInventory.tracked_bytes,
+    'portable reconstruction preserves the native symlink checkout byte semantics');
+    assert.equal(portableCandidate.candidate_inventory_sha256,
+      candidateInventoryDigest(portableCandidate.inventory));
+    assert.equal(portableCandidate.portable_link_resolution.alias_count, 5);
+    assert.deepEqual(portableCandidate.portable_link_resolution.records.map((record) => ({
+      path: record.path, target_kind: record.target_kind, target_path: record.target_path,
+    })), [
+      { path: 'alias-copy.ts', target_kind: 'file', target_path: 'target.txt' },
+      { path: 'alias.ts', target_kind: 'file', target_path: 'target.txt' },
+      { path: 'dist/excluded-alias.ts', target_kind: 'file', target_path: 'target.txt' },
+      { path: 'docs-link', target_kind: 'directory', target_path: 'docs' },
+      { path: 'included-alias.ts', target_kind: 'file', target_path: 'dist/target.txt' },
+    ]);
+    assert.match(portableCandidate.portable_link_resolution.sha256, /^[a-f0-9]{64}$/,
+      'portable alias decisions are emitted as digestible reconstruction evidence');
+    const portableCollection = {
+      commit: portableCommit, tree_oid: portableTree, manifest,
+      fixture: portableFixture, reviewed_inventory: portableCandidate.inventory,
+    };
+    assert.deepEqual(verifyPinnedRepository(portableRepository, portableCollection),
+      portableCandidate.inventory);
+    assert.throws(() => verifyPinnedRepository(portableRepository, {
+      ...portableCollection,
+      reviewed_inventory: inventoryWithLateMutation(() => {
+        runRepositoryGit(portableRepository, [
+          'config', '--local', '--bool', 'core.symlinks', 'true',
+        ]);
+      }, portableCandidate.inventory),
+    }), /outside the exact allowlist/,
+    'final verification rejects a checkout-policy mutation during inventory comparison');
+    runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.symlinks']);
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, maximumRetainedLinkBytes: 1, portableCheckout: true,
+      },
+    ), /aggregate retained-link-byte bound/,
+    'portable link bodies have a separate aggregate retention cap');
 
-    const symlinkCounterexample = (name, links, afterAdd = () => {}) => {
+    const portableCounterexample = (name, links, afterAdd = () => {}) => {
       const cwd = path.join(temporaryRoot, name);
       runRepositoryGit(temporaryRoot, ['init', '--quiet', cwd]);
       for (const [link, target] of links) fs.symlinkSync(target, path.join(cwd, link));
       runRepositoryGit(cwd, ['add', '--', ...links.map(([link]) => link)]);
       afterAdd(cwd);
+      for (const [link] of links) fs.unlinkSync(path.join(cwd, link));
+      runRepositoryGit(cwd, [
+        '-c', 'core.symlinks=false', 'checkout-index', '--force', '--',
+        ...links.map(([link]) => link),
+      ]);
       return {
         cwd,
         entries: parseStageEntries(cwd),
@@ -502,38 +653,267 @@ try {
       };
     };
     fs.writeFileSync(path.join(temporaryRoot, 'outside-target.ts'), 'outside\n');
-    const outside = symlinkCounterexample('outside-link', [['outside.ts', '../outside-target.ts']]);
+    const outside = portableCounterexample('outside-link', [['outside.ts', '../outside-target.ts']]);
     assert.throws(() => candidateInventoryFromTracked(
-      outside.cwd, outside.entries, manifest, symlinkFixture,
+      outside.cwd, outside.entries, manifest, portableFixture,
       {
         objectFormat: outside.objectFormat,
         maximumTrackedBytes: RECONSTRUCTION_LIMITS.max_counted_tracked_bytes,
         maximumEntries: RECONSTRUCTION_LIMITS.max_tracked_entries,
         maximumFileBytes: RECONSTRUCTION_LIMITS.max_followed_file_bytes,
+        portableCheckout: true,
       },
     ), /target escapes repository content/);
-    const broken = symlinkCounterexample('broken-link', [['broken.ts', 'missing.ts']]);
+    const broken = portableCounterexample('broken-link', [['broken.ts', 'missing.ts']]);
     assert.throws(() => candidateInventoryFromTracked(
-      broken.cwd, broken.entries, manifest, symlinkFixture,
-      { objectFormat: broken.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
-    ), /target is broken or cyclic/);
-    const cyclic = symlinkCounterexample('cyclic-link', [['a.ts', 'b.ts'], ['b.ts', 'a.ts']]);
+      broken.cwd, broken.entries, manifest, portableFixture,
+      {
+        objectFormat: broken.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /target is broken/);
+    const cyclic = portableCounterexample('cyclic-link', [['a.ts', 'b.ts'], ['b.ts', 'a.ts']]);
     assert.throws(() => candidateInventoryFromTracked(
-      cyclic.cwd, cyclic.entries, manifest, symlinkFixture,
-      { objectFormat: cyclic.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
-    ), /target is broken or cyclic/);
-    const untracked = symlinkCounterexample(
+      cyclic.cwd, cyclic.entries, manifest, portableFixture,
+      {
+        objectFormat: cyclic.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /target is cyclic/);
+    const untracked = portableCounterexample(
       'untracked-link', [['alias.ts', 'untracked.ts']],
       (cwd) => fs.writeFileSync(path.join(cwd, 'untracked.ts'), 'untracked\n'),
     );
     assert.throws(() => candidateInventoryFromTracked(
-      untracked.cwd, untracked.entries, manifest, symlinkFixture,
-      { objectFormat: untracked.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
-    ), /targets an unverified or untracked file/);
+      untracked.cwd, untracked.entries, manifest, portableFixture,
+      {
+        objectFormat: untracked.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /targets an untracked file/);
+    const invalidUtf8 = portableCounterexample(
+      'invalid-utf8-link', [['invalid.ts', Buffer.from([0xff])]],
+    );
     assert.throws(() => candidateInventoryFromTracked(
-      symlinkRepository,
+      invalidUtf8.cwd, invalidUtf8.entries, manifest, portableFixture,
+      {
+        objectFormat: invalidUtf8.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /target is not UTF-8/);
+
+    fs.writeFileSync(path.join(portableRepository, 'alias.ts'), 'docs');
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /bytes do not match the stage-0 Git object/,
+    'a regular file with the wrong link body cannot choose another target');
+    fs.writeFileSync(path.join(portableRepository, 'alias.ts'), 'target.txt');
+
+    runRepositoryGit(portableRepository, ['config', '--local', '--bool', 'core.symlinks', 'true']);
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /exact allowlist/);
+    runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.symlinks']);
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      { objectFormat: portableObjectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
+    ), /requires proved command-line core\.symlinks=false checkout/);
+    runRepositoryGit(portableRepository, ['config', '--local', '--bool', 'core.ignorecase', 'true']);
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /outside the exact allowlist/);
+    runRepositoryGit(portableRepository, ['config', '--local', '--unset', 'core.ignorecase']);
+
+    const hardLinkPath = path.join(portableRepository, 'alias.ts');
+    fs.unlinkSync(hardLinkPath);
+    fs.linkSync(path.join(portableRepository, 'docs-link'), hardLinkPath);
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository, portableEntries, manifest, portableFixture,
+      {
+        objectFormat: portableObjectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /not a physical single-link regular file/);
+    fs.unlinkSync(hardLinkPath);
+    runRepositoryGit(portableRepository, [
+      '-c', 'core.symlinks=false', 'checkout-index', '--force', '--', 'alias.ts',
+    ]);
+
+    const copiedRepository = path.join(temporaryRoot, 'copied-link-body');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', copiedRepository]);
+    fs.writeFileSync(path.join(copiedRepository, 'target.ts'), targetText);
+    fs.writeFileSync(path.join(copiedRepository, 'copied.ts'), 'target.ts');
+    runRepositoryGit(copiedRepository, ['add', '--', 'target.ts', 'copied.ts']);
+    const copiedInventory = candidateInventoryFromTracked(
+      copiedRepository, parseStageEntries(copiedRepository), manifest, portableFixture,
+      {
+        objectFormat: runRepositoryGit(copiedRepository, ['rev-parse', '--show-object-format']).trim(),
+        maximumTrackedBytes: 1024, maximumEntries: 10,
+      },
+    );
+    assert.equal(copiedInventory.tracked_bytes,
+      Buffer.byteLength(targetText) + Buffer.byteLength('target.ts'),
+    'a copied link body staged as 100644 remains ordinary bytes, never an alias');
+
+    const componentRepository = path.join(temporaryRoot, 'component-link-resolution');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', componentRepository]);
+    fs.mkdirSync(path.join(componentRepository, 'real'));
+    fs.mkdirSync(path.join(componentRepository, 'nested'));
+    fs.writeFileSync(path.join(componentRepository, 'real/file.ts'), targetText);
+    const componentLinks = [
+      ['dir-link', 'real'],
+      ['through.ts', 'dir-link/file.ts'],
+      ['chain.ts', 'through.ts'],
+      ['root-dir', '.'],
+      ['slash-dir', 'real/'],
+      ['nested/only-link', '.'],
+    ];
+    for (const [link, target] of componentLinks) {
+      fs.symlinkSync(target, path.join(componentRepository, link));
+    }
+    runRepositoryGit(componentRepository, [
+      'add', '--', 'real/file.ts', ...componentLinks.map(([link]) => link),
+    ]);
+    for (const [link] of componentLinks) fs.unlinkSync(path.join(componentRepository, link));
+    runRepositoryGit(componentRepository, [
+      '-c', 'core.symlinks=false', 'checkout-index', '--force', '--all',
+    ]);
+    const componentInventory = candidateInventoryFromTracked(
+      componentRepository, parseStageEntries(componentRepository), manifest, portableFixture,
+      {
+        objectFormat: runRepositoryGit(
+          componentRepository, ['rev-parse', '--show-object-format'],
+        ).trim(),
+        maximumTrackedBytes: 4096, maximumEntries: 20, portableCheckout: true,
+      },
+    );
+    assert.deepEqual({
+      tracked_files: componentInventory.tracked_files,
+      tracked_bytes: componentInventory.tracked_bytes,
+      tracked_source_files: componentInventory.tracked_source_files,
+      retrieval_candidate_files: componentInventory.retrieval_candidate_files,
+    }, {
+      tracked_files: 7,
+      tracked_bytes: Buffer.byteLength(targetText) * 3,
+      tracked_source_files: 3,
+      retrieval_candidate_files: 3,
+    }, 'virtual resolution follows chained and intermediate directory aliases while root and implied-parent directories skip bytes');
+
+    const boundaryRepository = path.join(temporaryRoot, 'native-portable-boundary-parity');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', boundaryRepository]);
+    const boundaryFiles = [
+      ['two-mib.bin', Buffer.alloc(2 * 1024 * 1024, 0x61)],
+      ['two-mib-plus-one.bin', Buffer.alloc(2 * 1024 * 1024 + 1, 0x62)],
+      ['four-mib.bin', Buffer.alloc(4 * 1024 * 1024, 0x63)],
+      ['four-mib-plus-one.bin', Buffer.alloc(4 * 1024 * 1024 + 1, 0x64)],
+    ];
+    for (const [name, bytes] of boundaryFiles) {
+      fs.writeFileSync(path.join(boundaryRepository, name), bytes);
+    }
+    const boundaryLinks = [
+      ['retrieval-at.ts', 'two-mib.bin'],
+      ['retrieval-over.ts', 'two-mib-plus-one.bin'],
+      ['source-at.ts', 'four-mib.bin'],
+      ['source-over.ts', 'four-mib-plus-one.bin'],
+    ];
+    for (const [link, target] of boundaryLinks) {
+      fs.symlinkSync(target, path.join(boundaryRepository, link));
+    }
+    runRepositoryGit(boundaryRepository, [
+      'add', '--', ...boundaryFiles.map(([name]) => name),
+      ...boundaryLinks.map(([name]) => name),
+    ]);
+    const boundaryEntries = parseStageEntries(boundaryRepository);
+    const boundaryFixture = {
+      id: 'boundary-parity', class: 'boundary-parity', source_loc: { minimum: 3, maximum: 3 },
+    };
+    const nativeBoundaryInventory = literalNativeSymlinkInventory(
+      boundaryRepository, boundaryEntries, manifest, boundaryFixture,
+    );
+    for (const [link] of boundaryLinks) fs.unlinkSync(path.join(boundaryRepository, link));
+    runRepositoryGit(boundaryRepository, [
+      '-c', 'core.symlinks=false', 'checkout-index', '--force', '--',
+      ...boundaryLinks.map(([name]) => name),
+    ]);
+    const portableBoundaryInventory = candidateInventoryFromTracked(
+      boundaryRepository, boundaryEntries, manifest, boundaryFixture,
+      {
+        objectFormat: runRepositoryGit(
+          boundaryRepository, ['rev-parse', '--show-object-format'],
+        ).trim(),
+        maximumTrackedBytes: 64 * 1024 * 1024,
+        maximumEntries: 20,
+        portableCheckout: true,
+      },
+    );
+    assert.deepEqual(portableBoundaryInventory, nativeBoundaryInventory,
+      'portable aliases preserve complete native inventory semantics at 2 MiB retrieval and 4 MiB LOC boundaries');
+    assert.equal(portableBoundaryInventory.retrieval_candidate_files, 1);
+    assert.equal(portableBoundaryInventory.tracked_source_loc, 3);
+
+    const fileSlash = portableCounterexample(
+      'file-trailing-slash', [['alias.ts', 'real.ts/']],
+      (cwd) => {
+        fs.writeFileSync(path.join(cwd, 'real.ts'), targetText);
+        runRepositoryGit(cwd, ['add', '--', 'real.ts']);
+      },
+    );
+    assert.throws(() => candidateInventoryFromTracked(
+      fileSlash.cwd, fileSlash.entries, manifest, portableFixture,
+      {
+        objectFormat: fileSlash.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /traverses a file as a directory/,
+    'a trailing slash preserves the directory requirement');
+
+    const missingBeforeParent = portableCounterexample(
+      'missing-before-parent', [['alias.ts', 'missing/../real.ts']],
+      (cwd) => {
+        fs.writeFileSync(path.join(cwd, 'real.ts'), targetText);
+        runRepositoryGit(cwd, ['add', '--', 'real.ts']);
+      },
+    );
+    assert.throws(() => candidateInventoryFromTracked(
+      missingBeforeParent.cwd, missingBeforeParent.entries, manifest, portableFixture,
+      {
+        objectFormat: missingBeforeParent.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /target is broken/,
+    'virtual resolution checks a component exists before applying a later parent traversal');
+
+    const special = portableCounterexample(
+      'special-link', [['special.ts', 'pipe']],
+      (cwd) => {
+        const made = spawnSync('/usr/bin/mkfifo', [path.join(cwd, 'pipe')], { encoding: 'utf8' });
+        assert.equal(made.status, 0, made.stderr);
+      },
+    );
+    assert.throws(() => candidateInventoryFromTracked(
+      special.cwd, special.entries, manifest, portableFixture,
+      {
+        objectFormat: special.objectFormat, maximumTrackedBytes: 1024,
+        maximumEntries: 10, portableCheckout: true,
+      },
+    ), /targets a special file/);
+
+    assert.throws(() => candidateInventoryFromTracked(
+      portableRepository,
       [{ mode: '160000', oid: '0'.repeat(40), path: 'gitlink' }],
-      manifest, symlinkFixture,
+      manifest, portableFixture,
       { objectFormat: 'sha1', maximumTrackedBytes: 1024, maximumEntries: 10 },
     ), /special, gitlink, or unmerged tracked entry/);
   }
@@ -550,12 +930,16 @@ try {
     collection: pinnedCollectionForTier('medium'),
     inventory: resultInventory,
     candidate_inventory_sha256: candidateInventoryDigest(resultInventory),
+    portable_link_resolution: {
+      schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
+      alias_count: 0, records: [], sha256: '0'.repeat(64),
+    },
     bounds: RECONSTRUCTION_LIMITS,
   });
   assert.deepEqual(Object.keys(reconstructionResult).sort(), [
     'admission', 'bounds', 'candidate_inventory_sha256', 'collection', 'evidence_mode',
-    'grade_controller_evidence', 'inventory', 'limitation', 'quality_claims', 'schema',
-    'status', 'workload_id',
+    'grade_controller_evidence', 'inventory', 'limitation', 'portable_link_resolution',
+    'quality_claims', 'schema', 'status', 'workload_id',
   ]);
   assert.equal(reconstructionResult.schema, INVENTORY_RECONSTRUCTION_SCHEMA);
   assert.equal(reconstructionResult.workload_id, RECONSTRUCTION_WORKLOAD_ID);
@@ -567,6 +951,7 @@ try {
   assert.ok(Object.values(reconstructionResult.quality_claims).every((claim) => claim === false));
   assert.equal(reconstructionResult.candidate_inventory_sha256,
     candidateInventoryDigest(resultInventory));
+  assert.equal(reconstructionResult.portable_link_resolution.alias_count, 0);
   assert.match(reconstructionResult.limitation, /unreviewed inventory reconstruction candidate only/);
 } finally {
   fs.rmSync(temporaryRoot, { recursive: true, force: false });

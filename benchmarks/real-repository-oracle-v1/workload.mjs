@@ -44,7 +44,8 @@ export function inventoryAdmissionResult(collection, inventory) {
 }
 
 export function inventoryReconstructionResult({
-  collection, inventory, candidate_inventory_sha256: candidateInventorySha256, bounds,
+  collection, inventory, candidate_inventory_sha256: candidateInventorySha256,
+  portable_link_resolution: portableLinkResolution, bounds,
 }) {
   return Object.freeze({
     schema: INVENTORY_RECONSTRUCTION_SCHEMA,
@@ -55,6 +56,7 @@ export function inventoryReconstructionResult({
     bounds,
     inventory,
     candidate_inventory_sha256: candidateInventorySha256,
+    portable_link_resolution: portableLinkResolution,
     evidence_mode: 'unreviewed_inventory_reconstruction_only',
     quality_claims: NO_QUALITY_CLAIMS,
     grade_controller_evidence: false,
