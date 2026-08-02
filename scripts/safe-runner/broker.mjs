@@ -27,7 +27,7 @@ export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority 
       const canonicalLock = reservation.canonical_lock || reservation.lock;
       return child.argv.length === expected.argv.length
         && child.argv.every((value, index) => value === expected.argv[index])
-        && child.cwd === expected.argv[2]
+        && typeof expected.cwd === 'string' && child.cwd === expected.cwd
         && canonicalSocket === path.join(expected.runtime_directory, 'graphd.sock')
         && canonicalLock === path.join(expected.runtime_directory, 'graphd.lock');
     }

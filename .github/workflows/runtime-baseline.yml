@@ -40,8 +40,7 @@ jobs:
 
   baseline:
     if: github.event_name == 'workflow_dispatch'
-    # cli-v0.3.5's published Linux worker requires glibc 2.38 or newer.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 360
     env:
       LAMINA_SAFE_RUNNER_STATE_DIR: /tmp/lamina-runtime-baseline-safe-state
@@ -73,15 +72,23 @@ jobs:
             "$(sha256sum "$node_dir/node" | cut -d' ' -f1)"
           printf '%s\n' "$node_dir" >> "$GITHUB_PATH"
 
-      - name: Verify system bubblewrap authority
+      - name: Provision pinned rootless bubblewrap
         shell: bash
         run: |
-          test "$(realpath /usr/bin/bwrap)" = /usr/bin/bwrap
-          test "$(stat -c '%u' /usr/bin/bwrap)" = 0
-          mode="$(stat -c '%a' /usr/bin/bwrap)"
-          test $((8#$mode & 022)) -eq 0
-          /usr/bin/bwrap --version
-          sha256sum /usr/bin/bwrap
+          package_dir="$RUNNER_TEMP/bubblewrap-package"
+          extract_dir="$RUNNER_TEMP/bubblewrap-root"
+          bin_dir="$RUNNER_TEMP/bubblewrap-bin"
+          mkdir -p "$package_dir" "$extract_dir" "$bin_dir"
+          package="$package_dir/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_url="https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.8.0-2+deb12u1_amd64.deb"
+          package_sha256="3cc9134a3286ad01a323dcd924ba123eb634cefaeec82d774257e06308aeaadb"
+          curl --proto '=https' --tlsv1.2 -fsSL "$package_url" -o "$package"
+          printf '%s  %s\n' "$package_sha256" "$package" | sha256sum --check
+          dpkg-deb --extract "$package" "$extract_dir"
+          cp "$extract_dir/usr/bin/bwrap" "$bin_dir/bwrap"
+          chmod 0755 "$bin_dir/bwrap"
+          printf 'LAMINA_SAFE_BWRAP_PATH=%s\nLAMINA_SAFE_BWRAP_SHA256=%s\n' \
+            "$bin_dir/bwrap" "$(sha256sum "$bin_dir/bwrap" | cut -d' ' -f1)" >> "$GITHUB_ENV"
 
       - name: Download checksum-pinned runtime inputs
         shell: bash

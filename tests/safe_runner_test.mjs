@@ -2104,7 +2104,7 @@ try {
   const fixtureGraphdAuthority = validGraphdSnapshot.graphd_launch_authority[0];
   const fixtureGraphdChild = {
     argv: fixtureGraphdAuthority.argv,
-    cwd: fixtureGraphdAuthority.argv[2],
+    cwd: fixtureGraphdAuthority.cwd,
     executable_identity: fixtureGraphdAuthority.executable_identity,
     environment_attestation: processEnvironmentAttestation(
       Buffer.from('PATH=/usr/bin\0LAMINA_SAFE_GRAPHD_RESERVATION=sealed\0'),
@@ -2114,6 +2114,13 @@ try {
     socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
     lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
   }, validGraphdSnapshot.graphd_launch_authority), true);
+  assert.equal(exactGraphdLaunchAuthorized({
+    ...fixtureGraphdChild, cwd: fixtureGraphdAuthority.argv[2],
+  }, {
+    socket: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.sock'),
+    lock: path.join(fixtureGraphdAuthority.runtime_directory, 'graphd.lock'),
+  }, validGraphdSnapshot.graphd_launch_authority), false,
+  'exact graphd authority must reject a child launched from a different cwd');
   assert.equal(exactGraphdLaunchAuthorized(fixtureGraphdChild, {
     socket: '/proc/123/root/private/graphd.sock',
     lock: '/proc/123/root/private/graphd.lock',

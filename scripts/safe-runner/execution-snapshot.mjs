@@ -1253,6 +1253,7 @@ export function prepareExecutionSnapshot({
       argv: [stagedInfrastructure.node,
         path.join(repository, 'tests/fixtures/graph-runtime/server.mjs'),
         fixtureRepository, command[3] || 'clean'],
+      cwd: repository,
       runtime_directory: path.join(fs.realpathSync.native(fixtureCommon), 'lamina'),
       executable_identity: stagedInfrastructure.identities.node,
     });
@@ -1270,6 +1271,7 @@ export function prepareExecutionSnapshot({
           path.join(repository, 'packages/cli/lib/graph-runtime/server.mjs'),
           nestedRepository,
         ],
+        cwd: nestedRepository,
         runtime_directory: path.join(nestedRepository, '.git', 'lamina'),
         private_tmp_root: runtimeBaseline.private_root,
         executable_identity: stagedInfrastructure.identities.node,
