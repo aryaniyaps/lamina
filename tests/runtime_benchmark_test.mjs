@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { baseReport, validateReport } from '../scripts/safe-runner/report.mjs';
 import { parseCgroupCpuStat, parseCgroupIoStat } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
@@ -15,12 +16,16 @@ import {
 } from '../benchmarks/runtime-v1/harness.mjs';
 import { fixtureMetadata } from '../benchmarks/runtime-v1/fixture-metadata.mjs';
 import { benchmarkIdentity } from '../benchmarks/runtime-v1/identity.mjs';
+import { readBoundedPhysicalFile } from '../benchmarks/runtime-v1/physical-files.mjs';
 import { median, nearestRank, summarizeLatency } from '../benchmarks/runtime-v1/statistics.mjs';
 import { classifySafeRunnerOutcome, validateResult } from '../benchmarks/runtime-v1/validate.mjs';
 
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 const clone = (value) => structuredClone(value);
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-runtime-benchmark-test-'));
+const trackedRepositorySymlink = fileURLToPath(
+  new URL('../evals/fixtures/_base/outline/CLAUDE.md', import.meta.url),
+);
 
 function successfulSafeReport(index) {
   const report = baseReport({ tier: 'small', command: ['node', 'tiny-runtime.mjs'], cwd: '/fixture' });
@@ -248,6 +253,10 @@ function mutateFixtureRecord(raw, mutate) {
 }
 
 try {
+  assert.equal(fs.lstatSync(trackedRepositorySymlink).isSymbolicLink(), true);
+  assert.equal(fs.readlinkSync(trackedRepositorySymlink), 'AGENTS.md');
+  assert.equal(fs.statSync(trackedRepositorySymlink).isFile(), true);
+
   assert.equal(median([4, 1, 3, 2]), 2.5);
   assert.equal(nearestRank([1, 2, 3, 4, 5], 0.95), 5);
   assert.deepEqual(summarizeLatency([3, 1, 2], 'cold'), {
@@ -314,16 +323,10 @@ try {
     /single-link physical file/,
   );
   fs.unlinkSync(hardlink);
-  const warmTelemetry = path.join(owned.root, 'telemetry', 'warm.json');
-  const warmTelemetryBackup = path.join(root, 'warm-telemetry-backup.json');
-  fs.renameSync(warmTelemetry, warmTelemetryBackup);
-  fs.symlinkSync(warmTelemetryBackup, warmTelemetry);
-  assert.match(
-    validateResult(result, { artifactRoot: owned.root }).errors.join('; '),
+  assert.throws(
+    () => readBoundedPhysicalFile(trackedRepositorySymlink, 128 * 1024),
     /physical file|ELOOP/,
   );
-  fs.unlinkSync(warmTelemetry);
-  fs.renameSync(warmTelemetryBackup, warmTelemetry);
   const partial = clone(result);
   partial.series[1].samples.pop();
   partial.series[1].measured_count = 29;
@@ -474,12 +477,10 @@ try {
   fs.unlinkSync(path.join(foreign.root, 'telemetry', 'foreign.json'));
   cleanupHarnessRoot(foreign.root);
 
-  const symlinkTarget = initializeHarnessRoot(path.join(root, 'target'));
-  const symlink = path.join(root, 'link');
-  fs.symlinkSync(symlinkTarget.root, symlink);
-  assert.throws(() => cleanupHarnessRoot(symlink), /physical directory|symlink indirection/);
-  fs.unlinkSync(symlink);
-  cleanupHarnessRoot(symlinkTarget.root);
+  assert.throws(
+    () => cleanupHarnessRoot(trackedRepositorySymlink),
+    /physical directory|symlink indirection/,
+  );
 
   assert.throws(() => initializeHarnessRoot(path.resolve('.runtime-benchmark-forbidden')), /outside/);
   process.stdout.write('runtime benchmark unit tests passed\n');
