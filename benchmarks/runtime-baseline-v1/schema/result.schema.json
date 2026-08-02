@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/runtime-baseline-result-v1.json",
+  "title": "Lamina real-repository runtime baseline scenario result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "generated_at", "status", "fixture", "scenario", "measured_tier",
+    "workload", "runs", "limitations"
+  ],
+  "properties": {
+    "schema": { "const": "lamina.runtime-baseline-result/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["valid", "refused", "invalid"] },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "commit", "url"],
+      "properties": {
+        "id": { "enum": ["small", "medium", "large"] },
+        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "url": { "type": "string", "pattern": "^https://github\\.com/" }
+      }
+    },
+    "scenario": { "type": "string" },
+    "measured_tier": { "enum": ["small", "medium", "large"] },
+    "workload": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "object", "required": ["schema", "fixture", "scenario", "repository", "classification", "cleanup"] }
+      ]
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier", "purpose", "sample_index", "outcome", "limit", "duration_ms", "peak_memory_bytes", "peak_pids",
+          "peak_temporary_bytes", "remaining_descendants", "remaining_managed_paths",
+          "raw_report", "raw_report_sha256"
+        ],
+        "properties": {
+          "tier": { "enum": ["small", "medium", "large"] },
+          "purpose": { "enum": ["promotion-and-measurement", "measurement"] },
+          "sample_index": { "type": ["integer", "null"], "minimum": 0 },
+          "outcome": { "type": "string" },
+          "limit": { "type": ["string", "null"] },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "peak_memory_bytes": { "type": "integer", "minimum": 0 },
+          "peak_pids": { "type": "integer", "minimum": 0 },
+          "peak_temporary_bytes": { "type": "integer", "minimum": 0 },
+          "remaining_descendants": { "type": "integer", "minimum": 0 },
+          "remaining_managed_paths": { "type": "integer", "minimum": 0 },
+          "raw_report": { "type": "string" },
+          "raw_report_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  }
+}

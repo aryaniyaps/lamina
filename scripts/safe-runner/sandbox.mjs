@@ -44,6 +44,7 @@ const SEALED_ENVIRONMENT_NAMES_BY_ENTRYPOINT = new Map([
     'LAMINA_RETRIEVAL_VECTOR_EXTENSION_PATH',
   ])],
 ]);
+const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
 
 const STANDARD_CONTROL_SOCKETS = Object.freeze([
   '/run/dbus/system_bus_socket',
@@ -185,8 +186,9 @@ export function validatedSealedEnvironmentNames({
 }
 
 export function validatedSealedGitIdentity(executionAuthority) {
-  const graphdFixture = executionAuthority?.audited_entrypoint
-    === 'tests/fixtures/safe-runner-graphd-client.mjs';
+  const graphdFixture = [
+    'tests/fixtures/safe-runner-graphd-client.mjs', RUNTIME_BASELINE_ENTRYPOINT,
+  ].includes(executionAuthority?.audited_entrypoint);
   const expected = executionAuthority?.git_executable_identity;
   if (!graphdFixture) {
     if (expected !== null && expected !== undefined) {
@@ -253,6 +255,18 @@ export function validateSandboxExecutionAuthority({
         || fs.realpathSync.native(binding.target) !== binding.target;
     } catch { return true; }
   };
+  const runtimeBaselineInvalid = (() => {
+    if (executionAuthority?.audited_entrypoint !== RUNTIME_BASELINE_ENTRYPOINT) return false;
+    const workerOverlay = path.join(
+      executionAuthority.snapshot_repository,
+      'packages/cli/observation-runtime/cocoindex-worker',
+    );
+    try {
+      const worker = fs.lstatSync(workerOverlay);
+      return executionAuthority.writable_bindings.length !== 0
+        || !worker.isFile() || worker.isSymbolicLink() || (worker.mode & 0o111) === 0;
+    } catch { return true; }
+  })();
   if (!path.isAbsolute(executionAuthority?.repository || '')
     || !path.isAbsolute(executionAuthority?.snapshot_repository || '')
     || !path.isAbsolute(executionAuthority?.git_common || '')
@@ -263,7 +277,8 @@ export function validateSandboxExecutionAuthority({
     || !Array.isArray(executionAuthority?.writable_bindings)
     || executionAuthority.writable_bindings.some(invalidBinding)
     || !Array.isArray(executionAuthority?.git_readonly_bindings)
-    || executionAuthority.git_readonly_bindings.some(invalidGitBinding)) {
+    || executionAuthority.git_readonly_bindings.some(invalidGitBinding)
+    || runtimeBaselineInvalid) {
     throw new Error('safe-runner sandbox received an invalid execution authority');
   }
   let sealedGitIdentity;
@@ -307,14 +322,26 @@ async function main() {
     process.stderr.write(`safe-runner bwrap identity changed: ${error.code || error.message}\n`);
     process.exit(125);
   }
-  const child = spawn(bwrapExecutable, bubblewrapSandboxArguments({
+  const bwrapArguments = bubblewrapSandboxArguments({
     cwd, readyFile, releaseFile, temporaryDirectory, command,
     executionAuthority,
     sealedGitIdentity: sandboxContract.sealedGitIdentity,
     preservedEnvironmentNames: sandboxContract.preservedEnvironmentNames,
     environment: process.env,
     allowNetwork: process.env.LAMINA_SAFE_RUNNER_ALLOW_NETWORK === '1',
-  }), { stdio: 'inherit', env: sanitizedEnvironment(process.env) });
+  });
+  const bwrapEnvironment = sanitizedEnvironment(process.env);
+  if (typeof process.execve === 'function') {
+    try {
+      process.execve(bwrapExecutable, [bwrapExecutable, ...bwrapArguments], bwrapEnvironment);
+    } catch (error) {
+      process.stderr.write(`safe-runner sandbox exec failed: ${error.code || error.message}\n`);
+      process.exit(125);
+    }
+  }
+  const child = spawn(bwrapExecutable, bwrapArguments, {
+    stdio: 'inherit', env: bwrapEnvironment,
+  });
   for (const signal of ['SIGTERM', 'SIGINT']) {
     process.on(signal, () => {
       try { child.kill(signal); } catch {}

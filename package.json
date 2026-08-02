@@ -13,6 +13,7 @@
     "bench:retrieval": "npm run safe:run -- --tier small --workload retrieval-v1 --promote --report .lamina-safe-runner/retrieval-evaluate-small.json -- node benchmarks/retrieval-v1/benchmark.mjs --evaluate",
     "bench:runtime": "node benchmarks/runtime-v1/harness.mjs",
     "test:runtime-benchmark": "node tests/runtime_benchmark_unit_controller.mjs",
+    "test:runtime-baseline": "node tests/runtime_baseline_test.mjs",
     "test:runtime-benchmark:integration": "node tests/runtime_benchmark_integration_test.mjs",
     "graphd": "node packages/cli/lib/graph-runtime/server.mjs",
     "graph:observe": "node packages/cli/bin/lamina.mjs graph observe",

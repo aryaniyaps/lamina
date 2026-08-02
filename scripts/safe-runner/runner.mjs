@@ -90,6 +90,46 @@ export function temporaryQuotaHandshakeFailure(childEnded, launcherStderr = '') 
   };
 }
 
+export function resolvePrivateManagedGraphdPaths({
+  requester, socket, lock, launchAuthority = [], procRoot = '/proc',
+} = {}) {
+  const canonicalSocket = path.resolve(String(socket || ''));
+  const canonicalLock = path.resolve(String(lock || ''));
+  if (!Number.isSafeInteger(requester?.pid) || requester.pid <= 1
+    || typeof requester?.start_ticks !== 'string' || !requester.start_ticks
+    || !path.isAbsolute(socket || '') || !path.isAbsolute(lock || '')
+    || path.dirname(canonicalSocket) !== path.dirname(canonicalLock)
+    || path.basename(canonicalSocket) !== 'graphd.sock'
+    || path.basename(canonicalLock) !== 'graphd.lock') return null;
+  const privateAuthorities = launchAuthority.filter((item) =>
+    item?.kind === 'exact' && typeof item.private_tmp_root === 'string');
+  if (privateAuthorities.length === 0) {
+    return { socket: canonicalSocket, lock: canonicalLock };
+  }
+  const matched = privateAuthorities.find((item) => {
+    const privateRoot = path.resolve(item.private_tmp_root);
+    const runtime = path.resolve(item.runtime_directory);
+    const relative = path.relative(privateRoot, runtime);
+    return relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+      && canonicalSocket === path.join(runtime, 'graphd.sock')
+      && canonicalLock === path.join(runtime, 'graphd.lock');
+  });
+  if (!matched) return null;
+  const namespaceRoot = path.join(path.resolve(procRoot), String(requester.pid), 'root');
+  try {
+    if (!fs.lstatSync(namespaceRoot).isSymbolicLink()) return null;
+  } catch { return null; }
+  const translatedParent = path.join(namespaceRoot,
+    path.dirname(canonicalSocket).replace(/^\/+/, ''));
+  let parentStat;
+  try { parentStat = fs.lstatSync(translatedParent); } catch { return null; }
+  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) return null;
+  return {
+    socket: path.join(translatedParent, 'graphd.sock'),
+    lock: path.join(translatedParent, 'graphd.lock'),
+  };
+}
+
 export function recordChildTermination(termination, childEnded) {
   termination.child_exit_code = Number.isInteger(childEnded?.code) ? childEnded.code : null;
   termination.child_signal = typeof childEnded?.signal === 'string' && childEnded.signal
@@ -212,6 +252,7 @@ function rememberDescendants(report, records, elapsedMs) {
       first_seen_ms: existing?.first_seen_ms ?? elapsedMs,
       last_seen_ms: elapsedMs,
       peak_rss_bytes: Math.max(existing?.peak_rss_bytes || 0, record.rss_bytes || 0),
+      peak_threads: Math.max(existing?.peak_threads || 0, record.threads || 0),
     });
   }
   report.descendants = [...known.values()]
@@ -436,6 +477,13 @@ export async function runSafely({
       const temporaryLimit = temporary.reason === 'inodes'
         ? 'temporary_inodes'
         : temporary.reason === 'symlink' ? 'temporary_symlink' : 'temporary_disk';
+      if (temporaryLimit === 'temporary_symlink') {
+        report.preflight.temporary_limit_diagnostic = {
+          reason: temporaryLimit,
+          symlink_count: temporary.symlinks,
+          symlink_paths: temporary.symlink_paths || [],
+        };
+      }
       requestStop('safety_limit_exceeded', temporaryLimit);
     }
     const highEvents = measured.events?.memory?.high || 0;
@@ -636,6 +684,12 @@ export async function runSafely({
       graphdLaunchAuthorized(child, reservation) {
         return exactGraphdLaunchAuthorized(child, reservation,
           executionSnapshot?.graphd_launch_authority || []);
+      },
+      resolveManagedGraphdPaths({ requester, socket, lock }) {
+        return resolvePrivateManagedGraphdPaths({
+          requester, socket, lock,
+          launchAuthority: executionSnapshot?.graphd_launch_authority || [],
+        });
       },
       beforeBind() {
         // The graphd process exists but is still held behind its broker start

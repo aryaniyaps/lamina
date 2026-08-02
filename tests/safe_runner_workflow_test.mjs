@@ -12,6 +12,8 @@ const packageManifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const adapter = fs.readFileSync('scripts/safe-runner/adapter.mjs', 'utf8');
 const systemd = fs.readFileSync('scripts/safe-runner/linux-systemd.mjs', 'utf8');
 const sandbox = fs.readFileSync('scripts/safe-runner/sandbox.mjs', 'utf8');
+const managedPaths = fs.readFileSync('scripts/safe-runner/managed-paths.mjs', 'utf8');
+const processes = fs.readFileSync('scripts/safe-runner/processes.mjs', 'utf8');
 const runner = fs.readFileSync('scripts/safe-runner/runner.mjs', 'utf8');
 const executionSnapshot = fs.readFileSync('scripts/safe-runner/execution-snapshot.mjs', 'utf8');
 const sealedGitProbe = fs.readFileSync(
@@ -104,6 +106,8 @@ assert.doesNotMatch(packageManifest.scripts['bench:retrieval'], /--worker|--mode
 
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_PATH=%s/);
 assert.match(safeWorkflow, /LAMINA_SAFE_BWRAP_SHA256=%s/);
+assert.match(safeWorkflow, /node-version:\s*'24'/,
+  'production adversarial CI must exercise the execve-capable sandbox launch path');
 assert.doesNotMatch(safeWorkflow, /echo "\$bin_dir" >> "\$GITHUB_PATH"/);
 assert.match(safeWorkflow,
   /Stage trusted private Node runtime[\s\S]*install -d -m 0700 "\$trust_root"[\s\S]*cp -a --no-preserve=ownership "\$source_root\/\." "\$trust_root\/"[\s\S]*chmod -R go-w "\$trust_root"/,
@@ -120,6 +124,20 @@ assert.equal(packageManifest.scripts['test:safe-runner:portable'],
 assert.match(adapter, /assertTrustedBinaryIdentity\(binaries\.identities\.bwrap\)[\s\S]*spawnSync\(binaries\.bwrap/);
 assert.match(systemd, /assertInfrastructureBinaries\(this\.infrastructure,[\s\S]*staged\.bwrap, bwrapIdentity/);
 assert.match(sandbox, /assertTrustedBinaryIdentity\(expectedBwrap\)[\s\S]*spawn\(bwrapExecutable/);
+assert.match(sandbox, /typeof process\.execve === 'function'[\s\S]*process\.execve\(bwrapExecutable/,
+  'execve-capable Node must replace the validated sandbox launcher with bwrap');
+assert.match(executionSnapshot,
+  /requiresSystemBwrapPath[\s\S]*trustedRootBinaryIdentity\(infrastructure\.bwrap[\s\S]*infrastructure:bwrap-system-path/,
+  'root-owned distribution bwrap must retain its path-based LSM identity and exact launch identity');
+assert.match(executionSnapshot,
+  /entry\.type === 'host-file'[\s\S]*source_nlink[\s\S]*execution snapshot host infrastructure identity changed/,
+  'external host infrastructure must revalidate its complete identity as snapshot authority');
+assert.match(managedPaths,
+  /namespacePrivate = physicalProcNamespaceDirectory\(parentPath\)[\s\S]*!namespacePrivate && fs\.realpathSync\.native\(parentPath\)/,
+  'namespace-private managed paths must be component-verified before any realpath dereference');
+assert.match(processes,
+  /readlinkSync\(`\/proc\/\$\{pid\}\/cwd`\)[\s\S]*path\.isAbsolute\(namespaceCwd\)[\s\S]*!namespaceCwd\.endsWith\('\s\(deleted\)'\)/,
+  'process cwd attestation must preserve the child mount-namespace path and reject deleted paths');
 assert.doesNotMatch(executionSnapshot, /EXPLICIT_ENTRYPOINT_WRITABLE_ROOTS/);
 assert.doesNotMatch(executionSnapshot,
   /prepare-retrieval-assets\.mjs[^\n]*index:\s*2/);

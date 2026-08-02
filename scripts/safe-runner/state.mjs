@@ -238,6 +238,92 @@ export function workloadIdentity(cwd, command = []) {
   return files;
 }
 
+export function sealedManifestFileIdentity(file, expected, role = 'input') {
+  let descriptor = null;
+  try {
+    if (!Number.isSafeInteger(expected?.bytes)
+      || !/^[a-f0-9]{64}$/.test(expected?.sha256 || '')) {
+      throw new Error('invalid manifest input');
+    }
+    const named = fs.lstatSync(file, { bigint: true });
+    if (!named.isFile() || named.isSymbolicLink()
+      || named.size !== BigInt(expected.bytes)
+      || fs.realpathSync.native(file) !== file) throw new Error('input is not physical');
+    descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (opened.dev !== named.dev || opened.ino !== named.ino || opened.size !== named.size
+      || opened.uid !== named.uid || opened.mode !== named.mode || opened.nlink !== named.nlink) {
+      throw new Error('input changed while opening');
+    }
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.alloc(1024 * 1024);
+    let offset = 0;
+    while (offset < Number(opened.size)) {
+      const bytes = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+      if (bytes === 0) break;
+      hash.update(buffer.subarray(0, bytes));
+      offset += bytes;
+    }
+    const final = fs.fstatSync(descriptor, { bigint: true });
+    const digest = hash.digest('hex');
+    if (offset !== expected.bytes || digest !== expected.sha256
+      || final.dev !== opened.dev || final.ino !== opened.ino || final.size !== opened.size
+      || final.uid !== opened.uid || final.mode !== opened.mode || final.nlink !== opened.nlink) {
+      throw new Error('input bytes changed or contradict the manifest');
+    }
+    return {
+      role, digest, size: String(opened.size), dev: String(opened.dev),
+      ino: String(opened.ino), uid: Number(opened.uid),
+      mode: Number(opened.mode & 0o777n), nlink: Number(opened.nlink),
+    };
+  } catch {
+    const error = new Error(`runtime baseline ${role} input failed sealed manifest identity`);
+    error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+    throw error;
+  } finally { if (descriptor !== null) fs.closeSync(descriptor); }
+}
+
+function runtimeBaselineInputIdentity(cwd, command) {
+  const entrypoint = path.resolve(cwd, String(command[1] || ''));
+  if (!entrypoint.replaceAll('\\', '/').endsWith('/benchmarks/runtime-baseline-v1/workload.mjs')) {
+    return null;
+  }
+  if (command.length !== 7 || command[2] !== 'run') {
+    const error = new Error('runtime baseline identity requires its exact audited command');
+    error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+    throw error;
+  }
+  const repository = path.resolve(path.dirname(entrypoint), '../..');
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(
+      path.join(repository, 'benchmarks/runtime-baseline-v1/manifest.json'), 'utf8',
+    ));
+  } catch {
+    const error = new Error('runtime baseline manifest identity is unavailable');
+    error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+    throw error;
+  }
+  const definitions = [
+    { index: 5, role: 'model', expected: manifest?.runtime_assets?.model },
+    { index: 6, role: 'worker', expected: manifest?.runtime_assets?.worker_linux_x64 },
+  ];
+  const inputs = [];
+  for (const definition of definitions) {
+    const file = path.resolve(cwd, String(command[definition.index] || ''));
+    const relative = path.relative(repository, file).replaceAll('\\', '/');
+    if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) {
+      const error = new Error(`runtime baseline ${definition.role} input failed sealed manifest identity`);
+      error.code = 'LAMINA_SAFE_SOURCE_IDENTITY';
+      throw error;
+    }
+    inputs.push({
+      ...sealedManifestFileIdentity(file, definition.expected, definition.role), relative,
+    });
+  }
+  return inputs;
+}
+
 function executableIdentity(candidate, maximumBytes = 256 * 1024 * 1024) {
   let descriptor = null;
   try {
@@ -363,8 +449,11 @@ export function frozenWorkloadIdentity(cwd, command) {
     repository: normalizedCwd, cwd: normalizedCwd, command: normalizedCommand,
   });
   const retrievalValueIndexes = new Set(retrievalAuthority?.argument_value_indexes || []);
+  const runtimeBaselineInputs = runtimeBaselineInputIdentity(normalizedCwd, normalizedCommand);
+  const runtimeBaselineValueIndexes = new Set(runtimeBaselineInputs ? [5, 6] : []);
   const genericWorkloadArguments = normalizedCommand.slice(1).filter(
-    (_argument, index) => !retrievalValueIndexes.has(index + 1),
+    (_argument, index) => !retrievalValueIndexes.has(index + 1)
+      && !runtimeBaselineValueIndexes.has(index + 1),
   );
   const value = {
     repository: normalizedCwd,
@@ -379,6 +468,7 @@ export function frozenWorkloadIdentity(cwd, command) {
       model: retrievalAuthority.model,
       tokenizer: retrievalAuthority.tokenizer,
     } : null,
+    runtime_baseline_inputs: runtimeBaselineInputs,
     repository_source: commandSourceDigest(normalizedCwd, normalizedCommand),
     runner_build: runnerBuildDigest(),
   };
