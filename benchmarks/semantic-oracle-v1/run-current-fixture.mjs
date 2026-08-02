@@ -85,6 +85,35 @@ function publicationState(engine, branchId) {
 }
 
 const CLI_ENTRY = fileURLToPath(new URL('../../packages/cli/bin/lamina.mjs', import.meta.url));
+const WINDOWS_REMOVE_TRANSIENT_CODES = new Set(['EBUSY', 'EPERM', 'ENOTEMPTY']);
+const WINDOWS_REMOVE_RETRY_DELAY_MS = 100;
+const WINDOWS_REMOVE_DEADLINE_MS = 30_000;
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export async function removeTemporaryTree(target, {
+  platform = process.platform,
+  remove = (value, options) => fs.promises.rm(value, options),
+  now = () => Date.now(),
+  wait = delay,
+  retryDelayMs = WINDOWS_REMOVE_RETRY_DELAY_MS,
+  deadlineMs = WINDOWS_REMOVE_DEADLINE_MS,
+} = {}) {
+  const deadline = now() + deadlineMs;
+  while (true) {
+    try {
+      await remove(target, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (platform !== 'win32' || !WINDOWS_REMOVE_TRANSIENT_CODES.has(error?.code)) throw error;
+      const remaining = deadline - now();
+      if (remaining <= 0) throw error;
+      await wait(Math.min(retryDelayMs, remaining));
+    }
+  }
+}
 
 function runCli({ id, operation, branch, args, cwd }) {
   const child = spawnSync(process.execPath, [CLI_ENTRY, ...args], {
@@ -610,12 +639,7 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
     }
   }
   try {
-    fs.rmSync(temporary, {
-      recursive: true,
-      force: true,
-      maxRetries: process.platform === 'win32' ? 20 : 0,
-      retryDelay: 100,
-    });
+    await removeTemporaryTree(temporary);
   } catch (error) {
     cleanupErrors.push(error);
   }

@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { digest } from '../packages/cli/lib/graph-runtime/util.mjs';
 import {
+  removeTemporaryTree,
   runCurrentFixture,
   runCurrentObservation,
 } from '../benchmarks/semantic-oracle-v1/run-current-fixture.mjs';
@@ -15,6 +16,75 @@ import {
   CURRENT_GRAPH_ADAPTER,
 } from '../benchmarks/semantic-oracle-v1/adapters/current-graph-backup-v1.mjs';
 import { adaptAlternateRecords } from '../benchmarks/semantic-oracle-v1/adapters/alternate-records-v1.mjs';
+
+{
+  let attempts = 0;
+  let elapsed = 0;
+  const waits = [];
+  await removeTemporaryTree('injected-transient-tree', {
+    platform: 'win32',
+    remove: async () => {
+      attempts += 1;
+      if (attempts < 3) throw Object.assign(new Error('injected busy directory'), { code: 'EBUSY' });
+    },
+    now: () => elapsed,
+    wait: async (milliseconds) => {
+      waits.push(milliseconds);
+      elapsed += milliseconds;
+    },
+    retryDelayMs: 25,
+    deadlineMs: 100,
+  });
+  assert.equal(attempts, 3, 'Windows cleanup must retry expected transient removal failures');
+  assert.deepEqual(waits, [25, 25], 'Windows cleanup retries must use fixed bounded intervals');
+
+  const unexpected = Object.assign(new Error('injected invalid removal'), { code: 'EINVAL' });
+  let unexpectedAttempts = 0;
+  await assert.rejects(
+    removeTemporaryTree('injected-invalid-tree', {
+      platform: 'win32',
+      remove: async () => {
+        unexpectedAttempts += 1;
+        throw unexpected;
+      },
+    }),
+    (error) => error === unexpected,
+  );
+  assert.equal(unexpectedAttempts, 1, 'unexpected removal errors must fail immediately');
+
+  const nonWindowsBusy = Object.assign(new Error('injected non-Windows busy directory'), { code: 'EBUSY' });
+  let nonWindowsAttempts = 0;
+  await assert.rejects(
+    removeTemporaryTree('injected-non-windows-tree', {
+      platform: 'linux',
+      remove: async () => {
+        nonWindowsAttempts += 1;
+        throw nonWindowsBusy;
+      },
+    }),
+    (error) => error === nonWindowsBusy,
+  );
+  assert.equal(nonWindowsAttempts, 1, 'non-Windows removal failures must not be retried');
+
+  const persistent = Object.assign(new Error('injected persistent busy directory'), { code: 'EPERM' });
+  elapsed = 0;
+  let persistentAttempts = 0;
+  await assert.rejects(
+    removeTemporaryTree('injected-persistent-tree', {
+      platform: 'win32',
+      remove: async () => {
+        persistentAttempts += 1;
+        throw persistent;
+      },
+      now: () => elapsed,
+      wait: async (milliseconds) => { elapsed += milliseconds; },
+      retryDelayMs: 25,
+      deadlineMs: 50,
+    }),
+    (error) => error === persistent,
+  );
+  assert.equal(persistentAttempts, 3, 'persistent transient errors must fail at the deadline');
+}
 
 let primaryTemporary;
 const observation = await runCurrentObservation({
