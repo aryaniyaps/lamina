@@ -141,6 +141,13 @@ const MUTATION_FUNCTIONS = Object.freeze({
     result.semantic.derived_state[0].authoritative = true;
   },
   'remove-obligation': (result) => result.semantic.obligations.shift(),
+  'corrupt-obligation-scope': (result) => {
+    result.semantic.obligations[0].scope_id = 'product.checkout';
+  },
+  'corrupt-obligation-details': (result) => {
+    result.semantic.obligations.find((item) => item.category === 'operation_contract')
+      .details.name = 'Wrong operation contract';
+  },
   'mark-unresolved-complete': (result) => {
     result.semantic.obligations[0].complete = true;
   },

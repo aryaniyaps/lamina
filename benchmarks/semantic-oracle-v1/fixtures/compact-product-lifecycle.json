@@ -498,87 +498,144 @@
       {
         "category": "surface_realization",
         "complete": false,
+        "details": {
+          "operation": "operation.approve",
+          "qualifiers": {
+            "epistemic_class": "intended"
+          }
+        },
         "evidence_ids": [],
         "id": "obligation_326e8e28cc8cfd0fcc2aa18f54e86c44",
         "required_relation_ids": [
           "stmt_641a66f358183fdbb94a4d45b3726c83"
         ],
+        "scope_id": "workflow.approval",
         "subject_id": "surface.review"
       },
       {
         "category": "operation_contract",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "name": "Archive decision"
+        },
         "evidence_ids": [],
         "id": "obligation_52d43e49ae4d572949dbdd198326afac",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "operation.archive"
       },
       {
         "category": "authority",
         "complete": false,
+        "details": {
+          "operation": "operation.archive",
+          "qualifiers": {
+            "epistemic_class": "intended"
+          }
+        },
         "evidence_ids": [],
         "id": "obligation_57d1037921087aecb5e5f9c666367e4e",
         "required_relation_ids": [
           "stmt_d089e25e4457d9bc933d185f8870ad97"
         ],
+        "scope_id": "workflow.approval",
         "subject_id": "actor.reviewer"
       },
       {
         "category": "proof_spec",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "name": "Approval audit proof"
+        },
         "evidence_ids": [],
         "id": "obligation_6ca9c8af42a99e58ec32751c80f3de2c",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "proof.audit"
       },
       {
         "category": "authority",
         "complete": false,
+        "details": {
+          "operation": "operation.approve",
+          "qualifiers": {
+            "epistemic_class": "intended"
+          }
+        },
         "evidence_ids": [],
         "id": "obligation_983d17f73a6fda9334b62384bed99b47",
         "required_relation_ids": [
           "stmt_75d3699e8190a6f2831c445bdd64550f"
         ],
+        "scope_id": "workflow.approval",
         "subject_id": "actor.reviewer"
       },
       {
         "category": "invariant",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "rule": "Requester cannot self-approve"
+        },
         "evidence_ids": [],
         "id": "obligation_ac861dae4d020bb5f25d100d09594e82",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "invariant.separation"
       },
       {
         "category": "scenario",
         "complete": false,
+        "details": {
+          "epistemic_class": "simulated",
+          "recovery": "Request another reviewer",
+          "semantic_type": "failure"
+        },
         "evidence_ids": [],
         "id": "obligation_b3e1f78d02350d571fc0a72fe7833040",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "scenario.denied"
       },
       {
         "category": "surface",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "name": "Review queue"
+        },
         "evidence_ids": [],
         "id": "obligation_d1c27c00b9fd5289c162accc13e169cd",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "surface.review"
       },
       {
         "category": "workflow_objective",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "name": "Approve checkout"
+        },
         "evidence_ids": [],
         "id": "obligation_de480e759b0248d75cd0216489aabe21",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "workflow.approval"
       },
       {
         "category": "operation_contract",
         "complete": false,
+        "details": {
+          "epistemic_class": "intended",
+          "name": "Approve request"
+        },
         "evidence_ids": [],
         "id": "obligation_ee3607d353553842040425d905941e7a",
         "required_relation_ids": [],
+        "scope_id": "workflow.approval",
         "subject_id": "operation.approve"
       }
     ],
@@ -2008,6 +2065,50 @@
         "id": "remove-decision"
       },
       "rationale": "Removing the Decision must fail independently of failure coverage."
+    },
+    {
+      "id": "positive:obligation-scope",
+      "category": "implementation_obligations",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "obligations",
+        "field": "scope_id",
+        "value": "workflow.approval"
+      },
+      "rationale": "Every compiled obligation retains its Workflow scope."
+    },
+    {
+      "id": "negative:obligation-scope",
+      "category": "implementation_obligations",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "corrupt-obligation-scope"
+      },
+      "rationale": "Wrong Workflow scope must fail even when obligation identity remains."
+    },
+    {
+      "id": "positive:obligation-details",
+      "category": "implementation_obligations",
+      "polarity": "positive",
+      "target": {
+        "kind": "expected",
+        "collection": "obligations",
+        "field": "details.name",
+        "value": "Approve request"
+      },
+      "rationale": "Operation contract details remain part of normalized completeness semantics."
+    },
+    {
+      "id": "negative:obligation-details",
+      "category": "implementation_obligations",
+      "polarity": "negative",
+      "target": {
+        "kind": "mutation",
+        "id": "corrupt-obligation-details"
+      },
+      "rationale": "Corrupted obligation details must fail independently of identity."
     }
   ],
   "mutations": [
@@ -2135,6 +2236,16 @@
       "id": "remove-obligation",
       "category": "implementation_obligations",
       "description": "Remove one mechanically compiled obligation."
+    },
+    {
+      "id": "corrupt-obligation-scope",
+      "category": "implementation_obligations",
+      "description": "Move an obligation to the wrong Workflow scope."
+    },
+    {
+      "id": "corrupt-obligation-details",
+      "category": "implementation_obligations",
+      "description": "Corrupt an Operation contract obligation detail."
     },
     {
       "id": "mark-unresolved-complete",

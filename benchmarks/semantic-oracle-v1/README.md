@@ -8,8 +8,8 @@ to `lamina.semantic-result/v1` and matching the reviewed fixture.
 ## Reviewed fixture
 
 `fixtures/compact-product-lifecycle.json` contains the expected semantic
-result, two explicit forbidden partial-publication Resources, 52 executable
-positive/negative cases, and 26 seeded mutations. The fixture is committed
+result, two explicit forbidden partial-publication Resources, 56 executable
+positive/negative cases, and 28 seeded mutations. The fixture is committed
 review data. Tests never regenerate or update it from the implementation under
 test.
 
@@ -24,7 +24,8 @@ The compact lifecycle covers:
   interruption after the transactional branch-head write, CAS rejection,
   rebase without a lost update, and linked-worktree branch isolation;
 - real implementation obligations compiled by the current WorkMap path,
-  including their unresolved completeness state; and
+  including Workflow scope, contract details, source Statement identity, and
+  their unresolved completeness state; and
 - a compact derived projection materialized, hashed, corrupted/deleted, and
   rebuilt from the same GraphVersion while the canonical head remains fixed.
 

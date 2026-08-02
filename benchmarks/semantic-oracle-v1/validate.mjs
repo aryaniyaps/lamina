@@ -161,12 +161,14 @@ export function validateSemantic(semantic) {
   }
   for (const obligation of semantic.obligations) {
     if (!exactKeys(obligation, [
-      'id', 'category', 'subject_id', 'required_relation_ids', 'evidence_ids', 'complete',
-    ]) || typeof obligation.category !== 'string' || !resourceIds.has(obligation.subject_id)
+      'id', 'category', 'scope_id', 'subject_id', 'required_relation_ids',
+      'evidence_ids', 'details', 'complete',
+    ]) || typeof obligation.category !== 'string' || !resourceIds.has(obligation.scope_id)
+      || !resourceIds.has(obligation.subject_id)
       || !strings(obligation.required_relation_ids) || !strings(obligation.evidence_ids)
       || obligation.required_relation_ids.some((id) => !relationIds.has(id))
       || obligation.evidence_ids.some((id) => !resourceIds.has(id))
-      || typeof obligation.complete !== 'boolean') {
+      || !object(obligation.details) || typeof obligation.complete !== 'boolean') {
       errors.push(`obligation ${obligation.id} has invalid completeness semantics`);
     }
   }

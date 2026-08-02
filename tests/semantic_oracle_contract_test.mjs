@@ -63,6 +63,9 @@ assert.deepEqual(
   'falsy literal values must survive normalization',
 );
 assert.ok(first.semantic.obligations.some((item) => item.category === 'authority'));
+assert.ok(first.semantic.obligations.every((item) => item.scope_id === 'workflow.approval'));
+assert.ok(first.semantic.obligations.some((item) =>
+  item.category === 'operation_contract' && item.details.name === 'Approve request'));
 assert.ok(first.semantic.obligations.every((item) => item.complete === false),
   'the current WorkMap must preserve unresolved completeness instead of inventing passes');
 assert.ok(first.semantic.derived_state.every((item) =>

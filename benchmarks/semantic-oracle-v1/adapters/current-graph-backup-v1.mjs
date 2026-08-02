@@ -125,9 +125,11 @@ export function adaptCurrentGraphBackup({
     return {
       id: item.obligation_id,
       category: item.type,
+      scope_id: item.scope,
       subject_id: item.resource,
       required_relation_ids: item.statement ? [item.statement] : [],
       evidence_ids: [...(relation?.evidence_ids || [])],
+      details: canonical(item.details || {}),
       complete: workMapById.get(item.obligation_id)?.status === 'complete',
     };
   });

@@ -148,14 +148,17 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "category", "subject_id", "required_relation_ids", "evidence_ids", "complete"
+        "id", "category", "scope_id", "subject_id", "required_relation_ids",
+        "evidence_ids", "details", "complete"
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "category": { "$ref": "#/$defs/id" },
+        "scope_id": { "$ref": "#/$defs/id" },
         "subject_id": { "$ref": "#/$defs/id" },
         "required_relation_ids": { "$ref": "#/$defs/ids" },
         "evidence_ids": { "$ref": "#/$defs/ids" },
+        "details": { "type": "object" },
         "complete": { "type": "boolean" }
       }
     },
