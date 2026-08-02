@@ -13,6 +13,9 @@ const bytes = fs.readFileSync(FILE);
 const loaded = loadScenarioSelection();
 const selection = loaded.selection;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const PREVIOUS_PENDING_RAW_SHA256 = 'a21e003265985c2e8eee30fcb850aadd9f0cb68ffe4c40ccdbcc51f48e5ae654';
+const PREVIOUS_PENDING_CANONICAL_SHA256 = 'e4b711bddcdf39244ded887148abbf614c7648631cf9b07e936be837e8890168';
+const PREVIOUS_PENDING_PURPOSE = 'reviewer_selection_pending_selection_only_no_execution_fixture_expectation_grade_or_quality_authority';
 const rebind = (tier, scenario) => {
   scenario.identity_sha256 = scenarioSelectionIdentity(tier, scenario);
 };
@@ -26,9 +29,25 @@ assert.deepEqual(loaded, {
 });
 assert.deepEqual(Object.keys(selection), ['schema', 'purpose', 'authority', 'bounds', 'tiers']);
 assert.deepEqual(Object.keys(selection.tiers), ['small', 'medium', 'large']);
-assert.match(selection.purpose, /selection_pending/);
+assert.match(selection.purpose, /reviewer_selected/);
 assert.match(selection.purpose, /no_execution_fixture_expectation_grade_or_quality_authority/);
 assert.equal(validateScenarioSelection(selection).valid, true);
+
+const pendingBytes = Buffer.from(bytes.toString('utf8')
+  .replace(selection.purpose, PREVIOUS_PENDING_PURPOSE)
+  .replaceAll('"status": "reviewer_selected"', '"status": "reviewer_selection_pending"'));
+const pendingSelection = JSON.parse(pendingBytes);
+assert.equal(sha256(pendingBytes), PREVIOUS_PENDING_RAW_SHA256,
+  'the selected raw artifact may differ from the reviewed pending artifact only in purpose/status');
+assert.equal(scenarioSelectionCanonicalDigest(pendingSelection), PREVIOUS_PENDING_CANONICAL_SHA256,
+  'the selected semantic artifact may differ from the reviewed pending artifact only in purpose/status');
+for (const tier of ['small', 'medium', 'large']) {
+  assert.deepEqual(selection.tiers[tier].pin, pendingSelection.tiers[tier].pin);
+  assert.deepEqual(selection.tiers[tier].discovery, pendingSelection.tiers[tier].discovery);
+  assert.equal(selection.tiers[tier].reviewed_inventory_sha256,
+    pendingSelection.tiers[tier].reviewed_inventory_sha256);
+  assert.deepEqual(selection.tiers[tier].scenarios, pendingSelection.tiers[tier].scenarios);
+}
 
 const expectedTuples = {
   small: [
@@ -105,7 +124,7 @@ for (const tier of ['small', 'medium', 'large']) {
 }
 
 assert.throws(() => parseScenarioSelectionBytes(Buffer.from(bytes.toString().replace(
-  'reviewer_selection_pending', 'reviewer_selected'))), /reviewed source identity/);
+  'reviewer_selected', 'reviewer_selection_pending'))), /reviewed source identity/);
 assert.throws(() => parseScenarioSelectionBytes(Buffer.alloc(131_073), { requireReviewedBytes: false }),
   /reviewed source identity/);
 assert.throws(() => parseScenarioSelectionBytes(Buffer.from([0xff]), { requireReviewedBytes: false }),

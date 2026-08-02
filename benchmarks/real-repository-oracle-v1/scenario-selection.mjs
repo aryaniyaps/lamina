@@ -18,8 +18,8 @@ const KINDS = Object.freeze(['clean', 'modify', 'rename', 'delete', 'branch', 'l
 const MAX_SELECTION_BYTES = 128 * 1024;
 const MAX_PATH_BYTES = 4 * 1024;
 const MAX_APPEND_BYTES = 64;
-const PURPOSE = 'reviewer_selection_pending_selection_only_no_execution_fixture_expectation_grade_or_quality_authority';
-const STATUS = 'reviewer_selection_pending';
+const PURPOSE = 'reviewer_selected_selection_only_no_execution_fixture_expectation_grade_or_quality_authority';
+const STATUS = 'reviewer_selected';
 const EXPECTED_PROVENANCE = Object.freeze({
   small: Object.freeze({ modify: ['delete', 0], rename: ['rename', 0], delete: ['delete', 1],
     branch: ['branch', 0], logical_worktree: ['logical_worktree', 0] }),
@@ -42,8 +42,8 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
     : value;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
-export const SCENARIO_SELECTION_RAW_SHA256 = 'a21e003265985c2e8eee30fcb850aadd9f0cb68ffe4c40ccdbcc51f48e5ae654';
-export const SCENARIO_SELECTION_CANONICAL_SHA256 = 'e4b711bddcdf39244ded887148abbf614c7648631cf9b07e936be837e8890168';
+export const SCENARIO_SELECTION_RAW_SHA256 = 'f04cce5a644807dc6804ff6bc020a6daca1972ec5a2631434105e260066bcf03';
+export const SCENARIO_SELECTION_CANONICAL_SHA256 = '57ee96a80f0b12e33f8614577cada1c21a84b02d41216ea7741acfd2017f15b1';
 export const SCENARIO_SELECTION_STATUS = STATUS;
 export const SCENARIO_SELECTION_KINDS = KINDS;
 export const AUDITED_DISCOVERY_IDENTITIES = Object.freeze({

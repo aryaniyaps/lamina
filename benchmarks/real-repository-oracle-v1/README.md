@@ -124,7 +124,7 @@ the discovery-side rename candidate.
 `scenario_after` is deliberately refused here: it requires a later sealed
 post-mutation evidence workload and cannot inherit pre-scenario facts.
 
-## Pending scenario selection
+## Reviewer-selected scenarios
 
 `reviews/scenario-selection-v1.json` is the selection-only handoff from the
 audited discovery reports and reviewer-selected lexical evidence. It binds the
@@ -138,15 +138,16 @@ materialization can remain isolated. Every non-clean row preserves its exact
 discovery operation kind/index and separately names its authored kind; branch
 and logical-worktree rows remain explicitly `executed: false`.
 
-The committed status is `reviewer_selection_pending`. This file is not an
+The committed status is `reviewer_selected`. Independent fixture and safety
+reviewers accepted the bounded selection. This file is still not an
 execution recipe and grants no fixture, expectation, golden-answer, grading, or
 quality authority. Its kind-specific records contain no generic operation array,
 physical path, environment, Git argument vector, lease, or candidate request.
 The parser binds raw and canonical file identities, order-dependent scenario
 identities, portable path rules, complete rename-destination absence proofs,
-and strict Git ref derivation. Review acceptance must update the status and both
-file identities in a later, explicit checkpoint before any scenario is
-materialized.
+and strict Git ref derivation. Later materialization must consume this exact
+reviewed identity and establish its own authority rather than enlarging this
+selection checkpoint.
 
 ## Evidence boundary
 
