@@ -46,6 +46,8 @@ export const SELF_TEST_LIMIT_MAXIMA = Object.freeze({
 export const GIB = 1024 ** 3;
 export const MIB = 1024 ** 2;
 export const CASE_DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
+export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
+export const SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES = 8 * 1024;
 
 export const DEFAULTS = Object.freeze({
   memoryHardMaxBytes: 3 * GIB,
@@ -72,8 +74,11 @@ export function retainedOutputTailBytes(workloadId, stream) {
   if (!['stdout', 'stderr'].includes(stream)) {
     throw new TypeError('safe-runner retained output stream must be stdout or stderr');
   }
-  return stream === 'stdout' && workloadId === CASE_DISCOVERY_WORKLOAD_ID
-    ? MIB : DEFAULTS.diagnosticTailBytes;
+  if (stream === 'stdout' && workloadId === CASE_DISCOVERY_WORKLOAD_ID) return MIB;
+  if (workloadId === SCENARIO_VERIFICATION_WORKLOAD_ID) {
+    return SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES;
+  }
+  return DEFAULTS.diagnosticTailBytes;
 }
 
 export function bytesForMib(value, name) {

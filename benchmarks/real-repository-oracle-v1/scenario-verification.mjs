@@ -4,7 +4,12 @@ import path from 'node:path';
 import { validateReport } from '../../scripts/safe-runner/report.mjs';
 import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
+import {
+  realRepositoryOracleSourceClosureIdentity,
+} from '../../scripts/safe-runner/real-repository-source-closure.mjs';
+import { repositorySourceDigest, runnerBuildDigest } from '../../scripts/safe-runner/source-identity.mjs';
 import { withFreshReviewedScenarioRepository } from './materialize.mjs';
+import { REVIEWED_INVENTORIES } from './collection-authority.mjs';
 import {
   SCENARIO_SELECTION_CANONICAL_SHA256, SCENARIO_SELECTION_RAW_SHA256,
   loadScenarioSelection,
@@ -42,6 +47,7 @@ const NO_QUALITY_CLAIMS = Object.freeze({
   source_localization: false, retrieval_ranking: false, end_to_end_runtime: false,
 });
 const LIMITATION = 'Lexical Git state verification only. Accepted discovery provenance is carried from the digest-locked reviewer selection and is not independently replayed. No Workflow, expectation, retrieval, grade, quality, or end-to-end runtime claim.';
+const NO_TEST_HOOKS = Object.freeze({});
 
 export const SCENARIO_VERIFICATION_SCHEMA = 'lamina.real-repository-oracle-scenario-verification/v1';
 export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
@@ -252,6 +258,13 @@ function parseWorktreeList(output) {
   });
 }
 
+function logicalTopologyDigest(commit, scenario) {
+  return digest([
+    { role: 'primary', head: commit, branch: null },
+    { role: scenario.logical_worktree_id, head: commit, branch: scenario.derived_branch },
+  ]);
+}
+
 function assertWorktreeTopology(repository, linked, collection, scenario, linkedPresent) {
   const items = parseWorktreeList(checkedGit(repository,
     ['worktree', 'list', '--porcelain', '-z']).stdout);
@@ -263,10 +276,8 @@ function assertWorktreeTopology(repository, linked, collection, scenario, linked
     || (linkedPresent && (!secondary || secondary.HEAD !== collection.commit
       || secondary.branch !== `refs/heads/${scenario.derived_branch}`))
     || (!linkedPresent && secondary)) throw new Error('worktree topology differs from selected roles');
-  return digest(linkedPresent ? [
-    { role: 'primary', head: collection.commit, branch: null },
-    { role: scenario.logical_worktree_id, head: collection.commit, branch: scenario.derived_branch },
-  ] : [{ role: 'primary', head: collection.commit, branch: null }]);
+  return linkedPresent ? logicalTopologyDigest(collection.commit, scenario)
+    : digest([{ role: 'primary', head: collection.commit, branch: null }]);
 }
 
 function assertState(state, { head, branch = null, change = null }) {
@@ -301,16 +312,35 @@ function physicalFile(repository, relative) {
   } finally { fs.closeSync(descriptor); }
 }
 
-function appendExact(source, appendUtf8) {
+function sameNode(expected, actual, { size = true } = {}) {
+  return actual.dev === expected.dev && actual.ino === expected.ino
+    && actual.mode === expected.mode && actual.uid === expected.uid
+    && actual.nlink === expected.nlink && (!size || actual.size === expected.size);
+}
+
+function assertPreMutationContinuity(source, label) {
+  const named = fs.lstatSync(source.target, { bigint: true });
+  const parent = fs.lstatSync(source.parent, { bigint: true });
+  if (!named.isFile() || named.isSymbolicLink() || !parent.isDirectory()
+    || parent.isSymbolicLink() || !sameNode(source.stat, named)
+    || !sameNode(source.parent_stat, parent)) {
+    throw new Error(`scenario ${label} pathname or parent changed before mutation`);
+  }
+}
+
+function appendExact(source, appendUtf8, hooks) {
   const descriptor = fs.openSync(source.target,
     fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
+  const bytes = Buffer.from(appendUtf8);
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (!opened.isFile() || opened.dev !== source.stat.dev || opened.ino !== source.stat.ino
-      || opened.mode !== source.stat.mode || opened.nlink !== 1n) {
+      || opened.mode !== source.stat.mode || opened.uid !== source.stat.uid
+      || opened.nlink !== source.stat.nlink || opened.size !== source.stat.size) {
       throw new Error('scenario modify target changed between lstat and writable open');
     }
-    const bytes = Buffer.from(appendUtf8);
+    hooks.after_append_open_before_write?.(Object.freeze({ target: source.target }));
+    assertPreMutationContinuity(source, 'modify');
     let offset = 0;
     while (offset < bytes.length) {
       const written = fs.writeSync(descriptor, bytes, offset, bytes.length - offset);
@@ -318,25 +348,42 @@ function appendExact(source, appendUtf8) {
       offset += written;
     }
     fs.fsyncSync(descriptor);
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (!after.isFile() || after.dev !== opened.dev || after.ino !== opened.ino
+      || after.mode !== opened.mode || after.uid !== opened.uid || after.nlink !== opened.nlink
+      || after.size !== opened.size + BigInt(bytes.length)) {
+      throw new Error('scenario modify descriptor changed after append');
+    }
   } finally { fs.closeSync(descriptor); }
   const reopened = fs.openSync(source.target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
     const after = fs.fstatSync(reopened, { bigint: true });
     if (!after.isFile() || after.dev !== source.stat.dev || after.ino !== source.stat.ino
-      || after.mode !== source.stat.mode || after.nlink !== 1n) {
+      || after.mode !== source.stat.mode || after.uid !== source.stat.uid
+      || after.nlink !== source.stat.nlink
+      || after.size !== source.stat.size + BigInt(bytes.length)
+      || sha256(fs.readFileSync(reopened)) !== sha256(Buffer.concat([source.bytes, bytes]))) {
       throw new Error('scenario modify target changed after fsync and reopen');
+    }
+    const named = fs.lstatSync(source.target, { bigint: true });
+    const parent = fs.lstatSync(source.parent, { bigint: true });
+    if (!sameNode(after, named) || !sameNode(source.parent_stat, parent)) {
+      throw new Error('scenario modify pathname or parent changed after append');
     }
   } finally { fs.closeSync(reopened); }
 }
 
-function unlinkExact(source) {
+function unlinkExact(source, hooks) {
   const descriptor = fs.openSync(source.target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (!opened.isFile() || opened.dev !== source.stat.dev || opened.ino !== source.stat.ino
-      || opened.mode !== source.stat.mode || opened.nlink !== 1n) {
+      || opened.mode !== source.stat.mode || opened.uid !== source.stat.uid
+      || opened.nlink !== source.stat.nlink || opened.size !== source.stat.size) {
       throw new Error('scenario delete target changed between lstat and held open');
     }
+    hooks.after_delete_open_before_unlink?.(Object.freeze({ target: source.target }));
+    assertPreMutationContinuity(source, 'delete');
     fs.unlinkSync(source.target);
     if (fs.fstatSync(descriptor, { bigint: true }).nlink !== 0n) {
       throw new Error('scenario delete held descriptor remains linked');
@@ -347,7 +394,10 @@ function unlinkExact(source) {
     if (!parentAfter.isDirectory() || parentAfter.isSymbolicLink()
       || fs.realpathSync.native(source.parent) !== source.parent
       || parentAfter.dev !== source.parent_stat.dev || parentAfter.ino !== source.parent_stat.ino
-      || parentAfter.mode !== source.parent_stat.mode) throw new Error('scenario delete parent changed');
+      || parentAfter.mode !== source.parent_stat.mode || parentAfter.uid !== source.parent_stat.uid
+      || parentAfter.nlink !== source.parent_stat.nlink) {
+      throw new Error('scenario delete parent changed');
+    }
   } finally { fs.closeSync(descriptor); }
 }
 
@@ -429,7 +479,7 @@ function assertBranchResidueAbsent(repository, branch) {
   }
 }
 
-function executeSelectedScenario(repository, scratch, collection, scenario) {
+function executeSelectedScenario(repository, scratch, collection, scenario, hooks = NO_TEST_HOOKS) {
   const pre = gitState(repository);
   assertState(pre, { head: collection.commit });
   const beforeIndex = stageIndex(repository);
@@ -443,7 +493,7 @@ function executeSelectedScenario(repository, scratch, collection, scenario) {
     checks.source_blob = true;
     checks.source_content = true;
     if (scenario.kind === 'modify') {
-      appendExact(source, scenario.append_utf8);
+      appendExact(source, scenario.append_utf8, hooks);
       const result = physicalFile(repository, scenario.path).bytes;
       if (result.length !== scenario.result_bytes || sha256(result) !== scenario.result_content_sha256) {
         throw new Error('modified scenario result identity drifted');
@@ -467,7 +517,7 @@ function executeSelectedScenario(repository, scratch, collection, scenario) {
       assertState(post, { head: collection.commit, change: renameChange(scenario) });
       afterPhysical = physicalSurface(repository);
     } else if (scenario.kind === 'delete') {
-      unlinkExact(source);
+      unlinkExact(source, hooks);
       post = gitState(repository);
       assertState(post, { head: collection.commit,
         change: type1Change('.D', scenario.blob_oid, '000000', scenario.path) });
@@ -483,6 +533,15 @@ function executeSelectedScenario(repository, scratch, collection, scenario) {
       checkedGit(repository, ['checkout', '--quiet', '--detach', collection.commit]);
       checkedGit(repository, ['update-ref', '-d', `refs/heads/${scenario.branch}`, collection.commit]);
       assertBranchResidueAbsent(repository, scenario.branch);
+      hooks.before_branch_final_proof?.(Object.freeze({ repository }));
+      const finalState = gitState(repository);
+      assertState(finalState, { head: collection.commit });
+      const finalIndex = stageIndex(repository);
+      const finalPhysical = physicalSurface(repository);
+      if (JSON.stringify(finalIndex.rows) !== JSON.stringify(beforeIndex.rows)
+        || JSON.stringify(finalPhysical.rows) !== JSON.stringify(beforePhysical.rows)) {
+        throw new Error('selected branch cleanup changed the reviewed checkout');
+      }
       checks.ref_lifecycle = true;
     } else if (scenario.kind === 'logical_worktree') {
       const branch = scenario.derived_branch;
@@ -557,6 +616,15 @@ export function executeScenario(repository, scratch, collection, scenario) {
   if (!KINDS.includes(scenario?.kind) || !SHA256.test(scenario?.identity_sha256 || '')
     || !Number.isSafeInteger(scenario?.order)) throw new Error('selected scenario is invalid');
   return executeSelectedScenario(repository, scratch, collection, scenario);
+}
+
+export function executeScenarioForTest(repository, scratch, collection, scenario, hooks) {
+  if (!hooks || typeof hooks !== 'object' || Array.isArray(hooks)) {
+    throw new Error('scenario test hooks must be a private hook object');
+  }
+  if (!KINDS.includes(scenario?.kind) || !SHA256.test(scenario?.identity_sha256 || '')
+    || !Number.isSafeInteger(scenario?.order)) throw new Error('selected scenario is invalid');
+  return executeSelectedScenario(repository, scratch, collection, scenario, hooks);
 }
 
 function defaultLease({ tier, scenario, run }) {
@@ -658,6 +726,7 @@ export function validateScenarioVerification(result) {
     errors.push('scenario verification authority or bounds are invalid');
   }
   const selected = loadScenarioSelection().selection.tiers[result.collection.fixture_id];
+  const reviewedBase = REVIEWED_INVENTORIES[result.collection.fixture_id];
   if (!selected || JSON.stringify(result.collection) !== JSON.stringify({
     fixture_id: result.collection.fixture_id, repository_url: selected.pin.repository_url,
     commit: selected.pin.commit, tree_oid: selected.pin.tree_oid,
@@ -671,6 +740,7 @@ export function validateScenarioVerification(result) {
     errors.push('scenario verification does not bind accepted selection provenance');
   }
   const leases = new Set();
+  let sharedBase = null;
   for (const [index, record] of (result.records || []).entries()) {
     const scenario = selected?.scenarios?.[index];
     const expectedChange = scenario?.kind === 'modify'
@@ -710,12 +780,14 @@ export function validateScenarioVerification(result) {
           ? scenario.result_content_sha256 : scenario?.original_content_sha256 }];
     const stage = record?.stage;
     const stageShape = exactKeys(stage, STAGE_KEYS)
-      && Number.isSafeInteger(stage.before_count) && stage.before_count > 0
+      && Number.isSafeInteger(stage.before_count)
+      && stage.before_count === reviewedBase?.tracked_files
       && Number.isSafeInteger(stage.after_count) && stage.after_count > 0
       && SHA256.test(stage.before_sha256 || '') && SHA256.test(stage.after_sha256 || '')
       && JSON.stringify(stage.selected_before) === JSON.stringify(selectedBefore)
       && JSON.stringify(stage.selected_after) === JSON.stringify(selectedAfter)
-      && Number.isSafeInteger(stage.physical_before_count) && stage.physical_before_count > 0
+      && Number.isSafeInteger(stage.physical_before_count)
+      && stage.physical_before_count === reviewedBase?.tracked_files
       && Number.isSafeInteger(stage.physical_after_count) && stage.physical_after_count >= 0
       && SHA256.test(stage.physical_before_sha256 || '') && SHA256.test(stage.physical_after_sha256 || '')
       && JSON.stringify(stage.physical_selected_before) === JSON.stringify(physicalBefore)
@@ -729,6 +801,12 @@ export function validateScenarioVerification(result) {
       && (['clean', 'branch', 'logical_worktree'].includes(scenario?.kind)
         ? stage.physical_before_sha256 === stage.physical_after_sha256
         : stage.physical_before_sha256 !== stage.physical_after_sha256);
+    const base = stage && {
+      stage_count: stage.before_count, stage_sha256: stage.before_sha256,
+      physical_count: stage.physical_before_count,
+      physical_sha256: stage.physical_before_sha256,
+    };
+    sharedBase ||= base;
     if (!exactKeys(record, RECORD_KEYS) || record.order !== index || record.kind !== KINDS[index]
       || !SHA256.test(record.scenario_identity_sha256 || '')
       || !SHA256.test(record.scratch_lease_sha256 || '') || leases.has(record.scratch_lease_sha256)
@@ -742,7 +820,8 @@ export function validateScenarioVerification(result) {
       || JSON.stringify({ ...record.checks, linked_topology_sha256: null })
         !== JSON.stringify({ ...expectedChecks, linked_topology_sha256: null })
       || (scenario?.kind === 'logical_worktree'
-        ? !SHA256.test(record.checks.linked_topology_sha256 || '')
+        ? record.checks.linked_topology_sha256
+          !== logicalTopologyDigest(result.collection.commit, scenario)
         : record.checks.linked_topology_sha256 !== null)
       || !exactKeys(record.selection_provenance,
         ['discovery_operation_kind', 'discovery_index', 'authored_operation_kind'])
@@ -752,7 +831,8 @@ export function validateScenarioVerification(result) {
         !== (selected.scenarios[index].discovery_operation_kind ?? null)
       || record.selection_provenance.discovery_index !== (selected.scenarios[index].discovery_index ?? null)
       || record.selection_provenance.authored_operation_kind
-        !== (selected.scenarios[index].authored_operation_kind ?? null)) {
+        !== (selected.scenarios[index].authored_operation_kind ?? null)
+      || JSON.stringify(base) !== JSON.stringify(sharedBase)) {
       errors.push(`scenario verification record ${index} is invalid`);
     }
     if (SHA256.test(record?.scratch_lease_sha256 || '')) leases.add(record.scratch_lease_sha256);
@@ -943,6 +1023,18 @@ export function decodeScenarioVerificationReport(report) {
   const entrypointInput = Array.isArray(source?.workload_inputs)
     ? source.workload_inputs.find((item) => path.resolve(String(item?.path || '')) === expectedEntrypoint)
     : null;
+  let currentRepositorySource = null;
+  let currentRunnerBuild = null;
+  let currentSourceClosure = null;
+  let physicalRepository = null;
+  try {
+    physicalRepository = fs.realpathSync.native(repository);
+    currentRepositorySource = repositorySourceDigest(repository);
+    currentRunnerBuild = runnerBuildDigest();
+    currentSourceClosure = realRepositoryOracleSourceClosureIdentity(
+      repository, 'verify-scenarios',
+    );
+  } catch {}
   const cleanup = report?.cleanup;
   const termination = report?.termination;
   const promotionRequired = report?.tier === 'small' ? []
@@ -967,11 +1059,25 @@ export function decodeScenarioVerificationReport(report) {
     && executionCommand[0] === preflight.ownership.executable
     && preflight.scope_proof?.production_enforcement === true
     && report.adapter?.production_enforcement === true
+    && physicalRepository === repository
     && source?.repository === repository && JSON.stringify(source.command) === JSON.stringify(executionCommand)
     && source.executable?.path === executionCommand[0]
-    && SHA256.test(source.executable?.digest || '') && SHA256.test(entrypointInput?.digest || '')
-    && SHA256.test(source.repository_source || '') && SHA256.test(source.runner_build || '')
+    && SHA256.test(source.executable?.digest || '')
+    && Array.isArray(source.workload_inputs) && source.workload_inputs.length === 1
+    && exactKeys(entrypointInput, ['path', 'size', 'digest'])
+    && entrypointInput?.digest === currentSourceClosure?.entrypoint_sha256
+    && entrypointInput?.size === String(currentSourceClosure?.entrypoint_bytes)
+    && source.repository_source === currentRepositorySource
+    && source.runner_build === currentRunnerBuild
     && source.digest === sourceDigest && snapshot?.schema === 'lamina.safe-runner-execution-snapshot/v1'
+    && exactKeys(snapshot.source_closure,
+      ['schema', 'command', 'file_count', 'total_bytes', 'paths_sha256', 'files_sha256',
+        'entrypoint_bytes', 'entrypoint_sha256'])
+    && JSON.stringify(snapshot.source_closure) === JSON.stringify(currentSourceClosure)
+    && Number.isSafeInteger(snapshot.file_count)
+    && snapshot.file_count >= currentSourceClosure.file_count
+    && Number.isSafeInteger(snapshot.total_bytes)
+    && snapshot.total_bytes >= currentSourceClosure.total_bytes
     && SHA256.test(snapshot.digest || '') && execution?.source_identity_digest === source.digest
     && execution?.execution_snapshot_digest === snapshot.digest && execution?.digest === executionDigest
     && JSON.stringify(execution.command) === JSON.stringify(source.command)

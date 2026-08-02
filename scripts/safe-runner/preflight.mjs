@@ -10,6 +10,7 @@ import {
   SELF_TEST_CASE_IDS,
   SELF_TEST_FIXTURE_MODES,
   SELF_TEST_LIMIT_MAXIMA,
+  SCENARIO_VERIFICATION_WORKLOAD_ID,
   TIER_ORDER,
 } from './constants.mjs';
 import { adapterProbe } from './adapter.mjs';
@@ -44,7 +45,7 @@ export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repositor
 export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
 export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = CASE_DISCOVERY_WORKLOAD_ID;
 export const REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
-export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
+export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID = SCENARIO_VERIFICATION_WORKLOAD_ID;
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
@@ -349,9 +350,13 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
-  const structuredOutputWorkloadId = ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
-    && command.length === 3 && command[2] === 'discover-cases'
-    && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID ? workloadId : null;
+  const exactRealRepositoryStructuredOutput = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command.length === 3
+    && ((command[2] === 'discover-cases'
+      && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
+      || (command[2] === 'verify-scenarios'
+        && workloadId === REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID));
+  const structuredOutputWorkloadId = exactRealRepositoryStructuredOutput ? workloadId : null;
   envelope.limits = {
     ...envelope.limits,
     stdout_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stdout'),

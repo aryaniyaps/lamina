@@ -15,6 +15,28 @@ import {
   RETRIEVAL_BENCHMARK_ENTRYPOINT,
   retrievalQualificationAuthority,
 } from './retrieval-authority.mjs';
+import {
+  REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+  REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
+  realRepositoryOracleSourceClosure,
+  realRepositoryOracleSourceClosureIdentity,
+} from './real-repository-source-closure.mjs';
+export {
+  REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA,
+  realRepositoryOracleSourceClosure,
+  realRepositoryOracleSourceClosureIdentity,
+} from './real-repository-source-closure.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
@@ -26,64 +48,6 @@ const MAX_CLOSURE_INODES = 2_000_000;
 const MAX_CLOSURE_BYTES = 16 * 1024 ** 3;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
-const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
-const REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE = Object.freeze([
-  REAL_REPOSITORY_ORACLE_ENTRYPOINT,
-  'benchmarks/real-repository-oracle-v1/collection-pins.mjs',
-  'benchmarks/runtime-baseline-v1/contract.mjs',
-  'benchmarks/runtime-baseline-v1/manifest.json',
-  'packages/cli/lib/safe-runner-context.mjs',
-  'packages/cli/lib/safe-runner-broker-client.mjs',
-  'scripts/safe-runner/git.mjs',
-  'scripts/safe-runner/infrastructure.mjs',
-]);
-export const REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE = Object.freeze([
-  ...REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE,
-  'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
-]);
-export const REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE = Object.freeze([
-  ...REAL_REPOSITORY_ORACLE_COMMON_SOURCE_CLOSURE,
-  'benchmarks/real-repository-oracle-v1/materialize.mjs',
-  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
-  'benchmarks/real-repository-oracle-v1/inventory-review-receipt.mjs',
-  'benchmarks/real-repository-oracle-v1/reviews/inventory-v1.json',
-]);
-export const REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE = Object.freeze([
-  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
-  'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
-  'packages/cli/lib/observation-runtime/node.mjs',
-  'packages/cli/lib/graph-runtime/util.mjs',
-  'scripts/safe-runner/constants.mjs',
-  'scripts/safe-runner/redaction.mjs',
-  'scripts/safe-runner/report.mjs',
-  'scripts/safe-runner/schema/report.schema.json',
-]);
-export const REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE = Object.freeze([
-  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
-  'benchmarks/real-repository-oracle-v1/case-evidence.mjs',
-  'benchmarks/real-repository-oracle-v1/reviews/evidence-selection-v1.json',
-  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
-]);
-export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Object.freeze([
-  ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
-  'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
-  'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
-  'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
-  'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
-  'scripts/safe-runner/constants.mjs',
-  'scripts/safe-runner/redaction.mjs',
-  'scripts/safe-runner/report.mjs',
-  'scripts/safe-runner/schema/report.schema.json',
-]);
-export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([
-  ...new Set([
-    ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
-    ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
-    ...REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
-    ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
-    ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
-  ]),
-]);
 const RUNTIME_BASELINE_SCENARIOS = new Set([
   'footprint', 'doctor-status-startup', 'initial-observation',
   'initial-retrieval-readiness', 'first-useful-preparation', 'warm-preparation',
@@ -740,15 +704,9 @@ export function prepareExecutionSnapshot({
     throw new Error(npxAuthority.launch_refusal);
   }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
-  const realRepositorySourceSet = new Set(command[2] === 'review-inventory'
-    ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
-    : command[2] === 'discover-cases'
-      ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
-      : command[2] === 'expand-evidence'
-        ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
-        : command[2] === 'verify-scenarios'
-          ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE
-          : REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE);
+  const realRepositoryClosure = realRepositoryOracleSourceClosure(command[2])
+    || REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE;
+  const realRepositorySourceSet = new Set(realRepositoryClosure);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
@@ -796,6 +754,26 @@ export function prepareExecutionSnapshot({
     if (totalBytes > MAX_BYTES) throw new Error(`execution snapshot exceeds ${MAX_BYTES} bytes`);
     entries.push({ label: `repository:${relative}`, path: destination, type: 'file', ...copied });
     onProgress?.({ files: entries.length, bytes: totalBytes });
+  }
+  const realRepositorySourceClosureIdentity = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    ? realRepositoryOracleSourceClosureIdentity(repository, command[2]) : null;
+  if (realRepositorySourceClosureIdentity) {
+    const copiedRows = realRepositoryClosure.map((relative) => {
+      const copied = entries.find((entry) => entry.label === `repository:${relative}`);
+      if (!copied || copied.type !== 'file') {
+        throw new Error(`real-repository source closure was not copied exactly: ${relative}`);
+      }
+      return { relative, bytes: copied.size, sha256: copied.digest };
+    });
+    if (copiedRows.length !== realRepositorySourceClosureIdentity.file_count
+      || copiedRows.reduce((total, row) => total + row.bytes, 0)
+        !== realRepositorySourceClosureIdentity.total_bytes
+      || crypto.createHash('sha256').update(JSON.stringify(realRepositoryClosure)).digest('hex')
+        !== realRepositorySourceClosureIdentity.paths_sha256
+      || crypto.createHash('sha256').update(JSON.stringify(copiedRows)).digest('hex')
+        !== realRepositorySourceClosureIdentity.files_sha256) {
+      throw new Error('real-repository copied source closure identity drifted');
+    }
   }
   if (npxAuthority) {
     for (const [relative, authority] of [
@@ -1476,6 +1454,7 @@ export function prepareExecutionSnapshot({
     graphd_launch_authority: graphdLaunchAuthority,
     runtime_baseline: runtimeBaseline,
     infrastructure: stagedInfrastructure,
+    source_closure_identity: realRepositorySourceClosureIdentity,
     file_count: entries.length, total_bytes: totalBytes,
     digest: crypto.createHash('sha256').update(JSON.stringify(entries.map(({ path: _path, ...entry }) => entry))).digest('hex'),
   };

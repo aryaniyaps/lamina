@@ -663,6 +663,7 @@ export async function runSafely({
         digest: executionSnapshot.digest,
         file_count: executionSnapshot.file_count,
         total_bytes: executionSnapshot.total_bytes,
+        source_closure: executionSnapshot.source_closure_identity,
         snapshot_roots: [executionSnapshot.snapshot_repository,
           ...(executionSnapshot.git_readonly_bindings || []).map((binding) => binding.source)],
         writable_roots: executionSnapshot.writable_bindings.map((binding) => binding.source),

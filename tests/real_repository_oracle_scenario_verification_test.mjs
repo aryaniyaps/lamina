@@ -7,8 +7,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import {
+  realRepositoryOracleSourceClosureIdentity,
+} from '../scripts/safe-runner/real-repository-source-closure.mjs';
+import { repositorySourceDigest, runnerBuildDigest } from '../scripts/safe-runner/source-identity.mjs';
+import {
   decodeScenarioVerificationPayload, decodeScenarioVerificationReport,
-  encodeScenarioVerificationPayload, executeScenario,
+  encodeScenarioVerificationPayload, executeScenario, executeScenarioForTest,
   parseScenarioPorcelainV2Z, SCENARIO_VERIFICATION_BOUNDS,
   SCENARIO_VERIFICATION_PAYLOAD_PREFIX, SCENARIO_VERIFICATION_SCHEMA,
   SCENARIO_VERIFICATION_REPORT_STDERR_TAIL_BYTES,
@@ -18,6 +22,7 @@ import {
 import {
   loadScenarioSelection, SCENARIO_SELECTION_CANONICAL_SHA256, SCENARIO_SELECTION_RAW_SHA256,
 } from '../benchmarks/real-repository-oracle-v1/scenario-selection.mjs';
+import { REVIEWED_INVENTORIES } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MODULE = path.join(ROOT, 'benchmarks/real-repository-oracle-v1/scenario-verification.mjs');
@@ -105,13 +110,16 @@ try {
 }
 
 const loaded = loadScenarioSelection();
-const selected = loaded.selection.tiers.small;
 const noClaims = { workflow_selection: false, observation: false, obligations: false,
   source_localization: false, retrieval_ranking: false, end_to_end_runtime: false };
 const checks = () => ({ source_blob: null, source_content: null, result_content: null,
   destination_absence: null, ref_lifecycle: null, linked_marker: null, linked_admin: null,
   primary_clean: null, linked_topology_sha256: null });
-const records = selected.scenarios.map((scenario, order) => {
+const sourceSha = sha256(fs.readFileSync(MODULE));
+function validResult(tier) {
+  const selected = loaded.selection.tiers[tier];
+  const trackedFiles = REVIEWED_INVENTORIES[tier].tracked_files;
+  const records = selected.scenarios.map((scenario, order) => {
   const before = 'a'.repeat(64);
   const afterStage = scenario.kind === 'rename' ? 'b'.repeat(64) : before;
   const afterPhysical = ['clean', 'branch', 'logical_worktree'].includes(scenario.kind)
@@ -134,7 +142,11 @@ const records = selected.scenarios.map((scenario, order) => {
   if (['branch', 'logical_worktree'].includes(scenario.kind)) valueChecks.ref_lifecycle = true;
   if (scenario.kind === 'logical_worktree') {
     valueChecks.linked_marker = valueChecks.linked_admin = valueChecks.primary_clean = true;
-    valueChecks.linked_topology_sha256 = 'd'.repeat(64);
+    valueChecks.linked_topology_sha256 = digest([
+      { role: 'primary', head: selected.pin.commit, branch: null },
+      { role: scenario.logical_worktree_id, head: selected.pin.commit,
+        branch: scenario.derived_branch },
+    ]);
   }
   const pre = { head: selected.pin.commit, branch: null, upstream: null, changes: [] };
   const selectedBefore = scenario.kind === 'clean' ? []
@@ -149,7 +161,7 @@ const records = selected.scenarios.map((scenario, order) => {
         ? scenario.result_content_sha256 : scenario.original_content_sha256 }];
   return {
     order, scenario_identity_sha256: scenario.identity_sha256,
-    scratch_lease_sha256: sha256(`lease-${order}`), kind: scenario.kind,
+    scratch_lease_sha256: sha256(`${tier}-lease-${order}`), kind: scenario.kind,
     selection_provenance: {
       discovery_operation_kind: scenario.discovery_operation_kind ?? null,
       discovery_index: scenario.discovery_index ?? null,
@@ -161,33 +173,34 @@ const records = selected.scenarios.map((scenario, order) => {
         : scenario.kind === 'logical_worktree' ? scenario.derived_branch : null,
       upstream: null, changes: change ? [change] : [] },
     auxiliary: scenario.kind === 'logical_worktree' ? pre : null,
-    stage: { before_count: 535, before_sha256: before, after_count: 535,
+    stage: { before_count: trackedFiles, before_sha256: before, after_count: trackedFiles,
       after_sha256: afterStage, selected_before: selectedBefore, selected_after: selectedAfter,
-      physical_before_count: 535, physical_before_sha256: before,
-      physical_after_count: 535 + (scenario.kind === 'delete' ? -1 : 0),
+      physical_before_count: trackedFiles, physical_before_sha256: before,
+      physical_after_count: trackedFiles + (scenario.kind === 'delete' ? -1 : 0),
       physical_after_sha256: afterPhysical, physical_selected_before: physicalBefore,
       physical_selected_after: physicalSelectedAfter },
     checks: valueChecks, internal_cleanup_verified: true,
   };
-});
-const sourceSha = sha256(fs.readFileSync(MODULE));
-const recordsSha = digest(records);
-const result = {
-  schema: SCENARIO_VERIFICATION_SCHEMA, workload_id: SCENARIO_VERIFICATION_WORKLOAD_ID,
-  status: 'reviewer_selected_scenarios_verified_lexically',
-  collection: { fixture_id: 'small', ...selected.pin },
-  selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
-  selection_canonical_sha256: SCENARIO_SELECTION_CANONICAL_SHA256,
-  bounds: SCENARIO_VERIFICATION_BOUNDS, records, records_sha256: recordsSha,
-  source_sha256: sourceSha,
-  workload_sha256: digest({ workload_id: SCENARIO_VERIFICATION_WORKLOAD_ID,
-    source_sha256: sourceSha, selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
+  });
+  const recordsSha = digest(records);
+  return {
+    schema: SCENARIO_VERIFICATION_SCHEMA, workload_id: SCENARIO_VERIFICATION_WORKLOAD_ID,
+    status: 'reviewer_selected_scenarios_verified_lexically',
+    collection: { fixture_id: tier, ...selected.pin },
+    selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
     selection_canonical_sha256: SCENARIO_SELECTION_CANONICAL_SHA256,
-    records_sha256: recordsSha }),
-  expectations_loaded: false, grade_controller_evidence: false, quality_claims: noClaims,
-  selection_provenance: { status: 'selection_provenance_not_replayed', ...selected.discovery },
-  limitation: 'Lexical Git state verification only. Accepted discovery provenance is carried from the digest-locked reviewer selection and is not independently replayed. No Workflow, expectation, retrieval, grade, quality, or end-to-end runtime claim.',
-};
+    bounds: SCENARIO_VERIFICATION_BOUNDS, records, records_sha256: recordsSha,
+    source_sha256: sourceSha,
+    workload_sha256: digest({ workload_id: SCENARIO_VERIFICATION_WORKLOAD_ID,
+      source_sha256: sourceSha, selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
+      selection_canonical_sha256: SCENARIO_SELECTION_CANONICAL_SHA256,
+      records_sha256: recordsSha }),
+    expectations_loaded: false, grade_controller_evidence: false, quality_claims: noClaims,
+    selection_provenance: { status: 'selection_provenance_not_replayed', ...selected.discovery },
+    limitation: 'Lexical Git state verification only. Accepted discovery provenance is carried from the digest-locked reviewer selection and is not independently replayed. No Workflow, expectation, retrieval, grade, quality, or end-to-end runtime claim.',
+  };
+}
+const result = validResult('small');
 assert.deepEqual(validateScenarioVerification(result), { valid: true, errors: [] });
 const line = encodeScenarioVerificationPayload(result);
 assert.ok(line.startsWith(SCENARIO_VERIFICATION_PAYLOAD_PREFIX));
@@ -211,6 +224,121 @@ assert.equal(validateScenarioVerification(wrongPin).valid, false);
 const absoluteLeak = structuredClone(result);
 absoluteLeak.records[1].post.changes[0].path = '/tmp/leak';
 assert.equal(validateScenarioVerification(absoluteLeak).valid, false);
+const rebindResult = (value) => {
+  value.records_sha256 = digest(value.records);
+  value.workload_sha256 = digest({ workload_id: value.workload_id,
+    source_sha256: value.source_sha256, selection_raw_sha256: value.selection_raw_sha256,
+    selection_canonical_sha256: value.selection_canonical_sha256,
+    records_sha256: value.records_sha256 });
+  return value;
+};
+for (const tier of ['small', 'medium', 'large']) {
+  const exact = validResult(tier);
+  assert.deepEqual(validateScenarioVerification(exact), { valid: true, errors: [] });
+  assert.ok(Buffer.byteLength(encodeScenarioVerificationPayload(exact)) < 7_680);
+  const countTamper = structuredClone(exact);
+  for (const key of ['before_count', 'after_count', 'physical_before_count',
+    'physical_after_count']) countTamper.records[0].stage[key] += 1;
+  assert.equal(validateScenarioVerification(rebindResult(countTamper)).valid, false,
+    `${tier} must reject a coordinated reviewed-base count tamper`);
+  const digestTamper = structuredClone(exact);
+  for (const key of ['before_sha256', 'after_sha256', 'physical_before_sha256',
+    'physical_after_sha256']) digestTamper.records[0].stage[key] = '9'.repeat(64);
+  assert.equal(validateScenarioVerification(rebindResult(digestTamper)).valid, false,
+    `${tier} must reject a coordinated cross-record base digest tamper`);
+}
+const topologyTamper = structuredClone(result);
+topologyTamper.records[5].checks.linked_topology_sha256 = '8'.repeat(64);
+assert.equal(validateScenarioVerification(rebindResult(topologyTamper)).valid, false,
+  'logical topology must be recomputed rather than accepted as an arbitrary digest');
+
+const raceRoot = fs.realpathSync.native(fs.mkdtempSync(
+  path.join(os.tmpdir(), 'lamina-scenario-race-test-'),
+));
+function raceRepository(name, secondCommit = false) {
+  const repository = path.join(raceRoot, name);
+  const linked = path.join(raceRoot, `${name}-linked`);
+  fs.mkdirSync(linked, { mode: 0o700 });
+  git(raceRoot, ['init', '--quiet', repository]);
+  fs.mkdirSync(path.join(repository, 'src'));
+  const bytes = Buffer.from('race-original\n');
+  fs.writeFileSync(path.join(repository, 'src/a.txt'), bytes, { mode: 0o644 });
+  git(repository, ['add', '--', 'src/a.txt']);
+  git(repository, ['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+    'commit', '--quiet', '-m', 'race fixture']);
+  const first = git(repository, ['rev-parse', 'HEAD']);
+  if (secondCommit) git(repository, ['-c', 'user.name=Lamina Test',
+    '-c', 'user.email=lamina@example.invalid', 'commit', '--quiet', '--allow-empty',
+    '-m', 'second pin']);
+  const commit = git(repository, ['rev-parse', 'HEAD']);
+  const blob = git(repository, ['rev-parse', 'HEAD:src/a.txt']);
+  git(repository, ['checkout', '--quiet', '--detach', commit]);
+  return { repository, scratch: { linked }, bytes, first, commit, blob };
+}
+try {
+  for (const kind of ['modify', 'delete']) {
+    const fixture = raceRepository(`race-${kind}`);
+    const target = path.join(fixture.repository, 'src/a.txt');
+    const backup = path.join(fixture.repository, 'src/original-held.txt');
+    const scenario = { order: kind === 'modify' ? 1 : 3, kind,
+      identity_sha256: sha256(`race-${kind}`), path: 'src/a.txt', blob_oid: fixture.blob,
+      original_content_sha256: sha256(fixture.bytes), discovery_operation_kind: kind,
+      discovery_index: 0, authored_operation_kind: kind };
+    if (kind === 'modify') {
+      scenario.append_utf8 = 'forbidden-append\n';
+      scenario.result_bytes = fixture.bytes.length + Buffer.byteLength(scenario.append_utf8);
+      scenario.result_content_sha256 = sha256(Buffer.concat(
+        [fixture.bytes, Buffer.from(scenario.append_utf8)],
+      ));
+    }
+    const hook = () => {
+      fs.renameSync(target, backup);
+      fs.writeFileSync(target, fixture.bytes, { mode: 0o644 });
+    };
+    const hooks = kind === 'modify' ? { after_append_open_before_write: hook }
+      : { after_delete_open_before_unlink: hook };
+    assert.throws(() => executeScenarioForTest(
+      fixture.repository, fixture.scratch, { commit: fixture.commit }, scenario, hooks,
+    ), /changed before mutation/);
+    assert.deepEqual(fs.readFileSync(target), fixture.bytes,
+      `${kind} substitution target must not be mutated`);
+    assert.deepEqual(fs.readFileSync(backup), fixture.bytes,
+      `${kind} originally opened inode must not be mutated`);
+  }
+  const dirtyBranch = raceRepository('branch-dirty');
+  const branchScenario = { order: 4, kind: 'branch', identity_sha256: sha256('branch-dirty'),
+    path: 'src/a.txt', blob_oid: dirtyBranch.blob,
+    original_content_sha256: sha256(dirtyBranch.bytes), branch: 'lamina-oracle/final-dirty',
+    discovery_operation_kind: 'branch', discovery_index: 0, authored_operation_kind: 'branch' };
+  assert.throws(() => executeScenarioForTest(dirtyBranch.repository, dirtyBranch.scratch,
+    { commit: dirtyBranch.commit }, branchScenario, {
+      before_branch_final_proof: ({ repository }) => fs.writeFileSync(
+        path.join(repository, 'unexpected.txt'), 'dirty\n',
+      ),
+    }), /unsupported porcelain|lexical contract/);
+  assert.equal(spawnTrustedGit(dirtyBranch.repository,
+    ['show-ref', '--verify', '--quiet', `refs/heads/${branchScenario.branch}`], {
+      encoding: 'utf8', timeout: 10_000, maxBuffer: 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).status, 1, 'failed final branch proof cannot leave its temporary ref');
+  const nonPinBranch = raceRepository('branch-non-pin', true);
+  const nonPinScenario = { ...branchScenario, identity_sha256: sha256('branch-non-pin'),
+    blob_oid: nonPinBranch.blob, original_content_sha256: sha256(nonPinBranch.bytes),
+    branch: 'lamina-oracle/final-non-pin' };
+  assert.throws(() => executeScenarioForTest(nonPinBranch.repository, nonPinBranch.scratch,
+    { commit: nonPinBranch.commit }, nonPinScenario, {
+      before_branch_final_proof: ({ repository }) => git(
+        repository, ['checkout', '--quiet', '--detach', nonPinBranch.first],
+      ),
+    }), /lexical contract/);
+  assert.equal(spawnTrustedGit(nonPinBranch.repository,
+    ['show-ref', '--verify', '--quiet', `refs/heads/${nonPinScenario.branch}`], {
+      encoding: 'utf8', timeout: 10_000, maxBuffer: 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).status, 1, 'non-pin final proof cannot leave its temporary ref');
+} finally {
+  fs.rmSync(raceRoot, { recursive: true, force: false });
+}
 
 const command = [process.execPath,
   path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs'), 'verify-scenarios'];
@@ -223,9 +351,11 @@ const entrypoint = command[1];
 const entrypointStat = fs.lstatSync(entrypoint, { bigint: true });
 const entrypointIdentity = { path: entrypoint, size: String(entrypointStat.size),
   digest: sha256(fs.readFileSync(entrypoint)) };
+const sourceClosure = realRepositoryOracleSourceClosureIdentity(ROOT, 'verify-scenarios');
 const sourceValue = { repository: ROOT, command, executable,
   workload_inputs: [entrypointIdentity], retrieval_authority: null,
-  runtime_baseline_inputs: null, repository_source: 'e'.repeat(64), runner_build: 'f'.repeat(64) };
+  runtime_baseline_inputs: null, repository_source: repositorySourceDigest(ROOT),
+  runner_build: runnerBuildDigest() };
 const sourceIdentity = { ...sourceValue, digest: sha256(JSON.stringify(sourceValue)) };
 const snapshotDigest = '1'.repeat(64);
 const executionIdentity = { ...sourceIdentity, source_identity_digest: sourceIdentity.digest,
@@ -245,8 +375,9 @@ const safeReport = {
       audited_entrypoint: 'benchmarks/real-repository-oracle-v1/workload.mjs',
       executable: process.execPath }, execution_command: command, source_identity: sourceIdentity,
     execution_snapshot: { schema: 'lamina.safe-runner-execution-snapshot/v1', digest: snapshotDigest,
-      file_count: 1, total_bytes: Number(entrypointStat.size), snapshot_roots: [ROOT],
-      writable_roots: [] }, execution_identity: executionIdentity,
+      file_count: sourceClosure.file_count, total_bytes: sourceClosure.total_bytes,
+      source_closure: sourceClosure, snapshot_roots: [ROOT], writable_roots: [] },
+    execution_identity: executionIdentity,
     retry: { ok: true, signature: sourceIdentity.digest, previous: null },
     promotion: { ok: true, required: [], missing: [], completed: [],
       deferred_to_execution_snapshot: false }, scope_proof: { production_enforcement: true } },
@@ -271,5 +402,43 @@ assert.throws(() => decodeScenarioVerificationReport(missingPromotion), /exact s
 const crossedRetry = structuredClone(safeReport);
 crossedRetry.preflight.retry.signature = '0'.repeat(64);
 assert.throws(() => decodeScenarioVerificationReport(crossedRetry), /exact safe-runner authority/);
+const rebindReportSource = (report) => {
+  const source = report.preflight.source_identity;
+  const sourceValue = { repository: source.repository, command: source.command,
+    executable: source.executable, workload_inputs: source.workload_inputs,
+    retrieval_authority: source.retrieval_authority,
+    runtime_baseline_inputs: source.runtime_baseline_inputs,
+    repository_source: source.repository_source, runner_build: source.runner_build };
+  source.digest = sha256(JSON.stringify(sourceValue));
+  report.preflight.retry.signature = source.digest;
+  report.preflight.execution_identity.source_identity_digest = source.digest;
+  report.preflight.execution_identity.digest = sha256(JSON.stringify({
+    source_identity_digest: source.digest,
+    execution_snapshot_digest: report.preflight.execution_snapshot.digest,
+  }));
+  return report;
+};
+const repositorySourceTamper = structuredClone(safeReport);
+repositorySourceTamper.preflight.source_identity.repository_source = '7'.repeat(64);
+assert.throws(() => decodeScenarioVerificationReport(
+  rebindReportSource(repositorySourceTamper),
+), /exact safe-runner authority/,
+'a self-consistent source/execution digest cannot replace the live checkout identity');
+const entrypointTamper = structuredClone(safeReport);
+entrypointTamper.preflight.source_identity.workload_inputs[0].digest = '6'.repeat(64);
+assert.throws(() => decodeScenarioVerificationReport(rebindReportSource(entrypointTamper)),
+  /exact safe-runner authority/,
+  'a rebound source identity cannot replace the current entrypoint bytes');
+const closureTamper = structuredClone(safeReport);
+closureTamper.preflight.execution_snapshot.source_closure.files_sha256 = '5'.repeat(64);
+closureTamper.preflight.execution_snapshot.digest = '4'.repeat(64);
+closureTamper.preflight.execution_identity.execution_snapshot_digest = '4'.repeat(64);
+closureTamper.preflight.execution_identity.digest = sha256(JSON.stringify({
+  source_identity_digest: closureTamper.preflight.source_identity.digest,
+  execution_snapshot_digest: '4'.repeat(64),
+}));
+assert.throws(() => decodeScenarioVerificationReport(closureTamper),
+  /exact safe-runner authority/,
+  'a rebound execution digest cannot replace exact source-closure membership and bytes');
 
 console.log('real repository oracle scenario verification tests passed');

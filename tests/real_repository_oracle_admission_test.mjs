@@ -34,11 +34,15 @@ import {
   REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
+  realRepositoryOracleSourceClosureIdentity,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
 import { DEFAULTS as SAFE_RUNNER_DEFAULTS, MIB,
-  retainedOutputTailBytes } from '../scripts/safe-runner/constants.mjs';
+  retainedOutputTailBytes,
+  SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES,
+  SCENARIO_VERIFICATION_WORKLOAD_ID as CONSTANTS_SCENARIO_VERIFICATION_WORKLOAD_ID,
+} from '../scripts/safe-runner/constants.mjs';
 import {
   REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID,
@@ -306,6 +310,17 @@ assert.equal(SAFE_RUNNER_DEFAULTS.diagnosticTailBytes, 8 * 1024);
 assert.equal(retainedOutputTailBytes(null, 'stdout'), 8 * 1024);
 assert.equal(retainedOutputTailBytes(REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID, 'stdout'),
   8 * 1024, 'evidence expansion does not inherit discovery retention');
+assert.equal(CONSTANTS_SCENARIO_VERIFICATION_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID);
+assert.equal(SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES, 8 * 1024);
+assert.equal(retainedOutputTailBytes(
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID, 'stdout',
+), SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES,
+'scenario verification has an explicit bounded stdout reservation');
+assert.equal(retainedOutputTailBytes(
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID, 'stderr',
+), SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES,
+'scenario verification has an explicit bounded stderr reservation');
 assert.equal(exactDiscoveryIdentity.envelope.limits.stdout_tail_max_bytes, MIB,
   'the exact case-discovery identity binds its structured-output retention in the report limits');
 assert.equal(exactDiscoveryIdentity.envelope.limits.stderr_tail_max_bytes, 8 * 1024);
@@ -340,6 +355,36 @@ assert.ok(!exactScenarioIdentity.reasons
   .some((reason) => reason.includes('scenario verification requires --workload')));
 assert.equal(exactScenarioIdentity.envelope.limits.stdout_tail_max_bytes, 8 * 1024);
 assert.equal(exactScenarioIdentity.envelope.limits.stderr_tail_max_bytes, 8 * 1024);
+const crossedScenarioRetention = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'verify-scenarios'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID,
+});
+assert.ok(crossedScenarioRetention.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID)));
+assert.equal(crossedScenarioRetention.envelope.limits.stdout_tail_max_bytes,
+  SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
+  'a crossed discovery ID cannot broaden scenario retention');
+const crossedDiscoveryRetention = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'discover-cases'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.ok(crossedDiscoveryRetention.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)));
+assert.equal(crossedDiscoveryRetention.envelope.limits.stdout_tail_max_bytes,
+  SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
+  'a crossed scenario ID cannot broaden discovery retention');
+const unrelatedScenarioRetention = preflightRun({
+  tier: 'small',
+  command: [process.execPath,
+    path.join(ROOT, 'tests/fixtures/safe-runner-adversary.mjs'), 'success'],
+  cwd: ROOT, adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID,
+});
+assert.equal(unrelatedScenarioRetention.envelope.limits.stdout_tail_max_bytes,
+  SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
+  'the scenario workload ID cannot reserve output for another audited command');
 for (const tier of ['medium', 'large']) {
   const reconstructionPreflight = preflightRun({
     tier, command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
@@ -445,6 +490,8 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
   'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
+  'scripts/safe-runner/real-repository-source-closure.mjs',
+  'scripts/safe-runner/source-identity.mjs',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
@@ -473,6 +520,8 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE, [
   'scripts/safe-runner/redaction.mjs',
   'scripts/safe-runner/report.mjs',
   'scripts/safe-runner/schema/report.schema.json',
+  'scripts/safe-runner/real-repository-source-closure.mjs',
+  'scripts/safe-runner/source-identity.mjs',
 ]);
 for (const forbidden of [
   'benchmarks/real-repository-oracle-v1/case-discovery.mjs',
@@ -604,6 +653,9 @@ try {
         'oracle argv supplies no writable repository or output binding');
       assert.equal(snapshot.launch_command.length, 3);
       assert.equal(snapshot.launch_command[2], commandName);
+      assert.deepEqual(snapshot.source_closure_identity,
+        realRepositoryOracleSourceClosureIdentity(snapshotRepository, commandName),
+        'the snapshot carries the exact copied source-closure receipt');
       assert.match(snapshot.git_executable_identity?.digest || '', /^[a-f0-9]{64}$/);
       assert.match(validatedSealedGitIdentity(snapshot), /^[A-Za-z0-9_-]+$/);
     }

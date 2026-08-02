@@ -167,21 +167,37 @@ scenarios; no checkout or scratch lease is reused. It verifies the selected
 source blob and content before any mutation, parses exact NUL-terminated Git
 porcelain-v2 state, and proves the complete stage-0 index and physical checkout
 delta. Modify uses an append-only no-follow descriptor with identity rechecks;
+both mutation paths revalidate the named file and parent after opening and
+immediately before mutation, so pathname substitution fails before any write or
+unlink. Modify additionally reopens and verifies the exact appended bytes;
 delete holds and verifies the opened inode through unlink. Branch and linked
 worktree refs use fixed full pins, no tracking, compare-and-delete cleanup, and
-post-cleanup ref/config/reflog checks. The worktree case additionally binds the
+post-cleanup ref/config/reflog checks. Branch cleanup is not accepted until a
+final read proves detached HEAD at the full pin, clean porcelain, and unchanged
+stage-0 and physical checkout identities. The worktree case additionally binds the
 selected logical worktree ID to the exact Git admin ID and proves the detached
-primary and linked-branch topology without emitting physical scratch paths.
+primary and linked-branch topology without emitting physical scratch paths; its
+reported topology digest is recomputed from that exact pin, logical ID, and
+derived branch during decoding.
 
 The result is one canonical raw-only base64url line smaller than 7,680 bytes,
 including its prefix; it receives only the generic 8 KiB stdout/stderr tails.
 The decoder accepts a schema-valid successful safe-runner report only when the
 exact command, workload, source and execution identities, retry identity,
 tier-promotion ladder, one-LF output, termination, and complete cleanup all
-agree. The sealed source closure includes the reviewed scenario selection and
+agree. Its explicit 8 KiB reservation is granted only to the exact audited
+three-argument command paired with the exact scenario workload ID. The decoder
+also recomputes the current checkout, runner build, entrypoint, and deterministic
+source-closure receipt; self-consistent replacement hashes are insufficient.
+The sealed source closure includes the reviewed scenario selection and
 its narrow evidence-selection identity constants, but excludes discovery,
 evidence expansion, fixtures, expectations, semantic adapters, graders, and
 goldens.
+
+Every record binds its stage and physical before-count to the tier's reviewed
+tracked-file count. All six fresh materializations must also agree on the exact
+before stage and physical digests, preventing one scenario from silently using
+a different base checkout.
 
 This checkpoint is lexical Git-state evidence only. It carries the accepted
 discovery digests as `selection_provenance_not_replayed`; it does not replay
