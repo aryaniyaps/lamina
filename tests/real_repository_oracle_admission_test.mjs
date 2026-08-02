@@ -7,14 +7,17 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
-  REVIEWED_INVENTORIES, reviewedCollectionForTier,
+  REVIEWED_INVENTORIES, pinnedCollectionForTier, reviewedCollectionForTier,
 } from '../benchmarks/real-repository-oracle-v1/collection-authority.mjs';
 import {
-  candidateInventoryFromTracked, createScratch, removeScratch,
+  RECONSTRUCTION_LIMITS, candidateInventoryDigest, candidateInventoryFromTracked,
+  createScratch, reconstructPinnedRepositoryInventory, removeScratch,
   verifyPinnedRepository, withOwnedScratch,
 } from '../benchmarks/real-repository-oracle-v1/materialize.mjs';
 import {
-  EXACT_COMMAND, INVENTORY_ADMISSION_SCHEMA, WORKLOAD_ID, inventoryAdmissionResult,
+  EXACT_COMMAND, INVENTORY_ADMISSION_SCHEMA, INVENTORY_RECONSTRUCTION_SCHEMA,
+  RECONSTRUCTION_EXACT_COMMAND, RECONSTRUCTION_WORKLOAD_ID, WORKLOAD_ID,
+  inventoryAdmissionResult, inventoryReconstructionResult,
 } from '../benchmarks/real-repository-oracle-v1/workload.mjs';
 import { loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
@@ -23,7 +26,8 @@ import {
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
 import {
-  REAL_REPOSITORY_ORACLE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID,
+  REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
   auditedCommand, preflightRun,
 } from '../scripts/safe-runner/preflight.mjs';
 import { validatedSealedGitIdentity } from '../scripts/safe-runner/sandbox.mjs';
@@ -38,6 +42,13 @@ const adapterInfo = {
 
 assert.equal(WORKLOAD_ID, REAL_REPOSITORY_ORACLE_WORKLOAD_ID);
 assert.deepEqual(EXACT_COMMAND, ['admit-inventory']);
+assert.equal(RECONSTRUCTION_WORKLOAD_ID, REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID);
+assert.deepEqual(RECONSTRUCTION_EXACT_COMMAND, ['reconstruct-inventory']);
+assert.deepEqual(RECONSTRUCTION_LIMITS, {
+  max_tracked_entries: 6_000,
+  max_counted_tracked_bytes: 256 * 1024 * 1024,
+  max_followed_file_bytes: 64 * 1024 * 1024,
+});
 assert.deepEqual(COLLECTION_PINS.small, {
   fixture_id: 'small', fixture_class: 'small',
   repository_url: 'https://github.com/alan2207/bulletproof-react.git',
@@ -61,6 +72,11 @@ assert.equal(Object.isFrozen(small.manifest.fixtures[0]), true);
 assert.equal(Object.isFrozen(small.fixture), true);
 assert.throws(() => { small.fixture.commit = '0'.repeat(40); }, TypeError);
 for (const tier of ['medium', 'large']) {
+  const reconstructionCollection = pinnedCollectionForTier(tier);
+  assert.equal(reconstructionCollection.fixture_id, tier);
+  assert.equal(reconstructionCollection.fixture_class, tier);
+  assert.equal('reviewed_inventory' in reconstructionCollection, false,
+    'reconstruction authority must not consult or relabel reviewed inventory');
   assert.throws(() => reviewedCollectionForTier(tier),
     new RegExp(`${tier} inventory is temporarily unreviewed`));
 }
@@ -71,10 +87,19 @@ assert.deepEqual({
   allow_network: exactAudit.allow_network,
   entrypoint: exactAudit.entrypoint,
 }, { audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
+const reconstructionAudit = auditedCommand(
+  [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], ROOT,
+);
+assert.deepEqual({
+  audited: reconstructionAudit.audited,
+  allow_network: reconstructionAudit.allow_network,
+  entrypoint: reconstructionAudit.entrypoint,
+}, { audited: true, allow_network: true, entrypoint: REAL_REPOSITORY_ORACLE_ENTRYPOINT });
 for (const argv of [
   [process.execPath, ENTRYPOINT],
   [process.execPath, ENTRYPOINT, 'validate'],
   [process.execPath, ENTRYPOINT, 'admit-inventory', '--output', '/tmp/result'],
+  [process.execPath, ENTRYPOINT, 'reconstruct-inventory', '--output', '/tmp/result'],
 ]) {
   const audit = auditedCommand(argv, ROOT);
   assert.equal(audit.audited, false);
@@ -91,12 +116,43 @@ const exactIdentity = preflightRun({
   adapterInfo, injectedExistingProcesses: [], workloadId: REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
 });
 assert.ok(!exactIdentity.reasons.some((reason) => reason.includes('inventory admission requires --workload')));
+const missingReconstructionIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: null,
+});
+assert.ok(missingReconstructionIdentity.reasons
+  .some((reason) => reason.includes(REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID)));
+const crossedAdmissionIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'admit-inventory'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [],
+  workloadId: REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID,
+});
+assert.ok(crossedAdmissionIdentity.reasons
+  .some((reason) => reason.includes(`inventory admission requires --workload ${REAL_REPOSITORY_ORACLE_WORKLOAD_ID}`)));
+const crossedReconstructionIdentity = preflightRun({
+  tier: 'small', command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
+  adapterInfo, injectedExistingProcesses: [], workloadId: REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
+});
+assert.ok(crossedReconstructionIdentity.reasons
+  .some((reason) => reason.includes(`inventory reconstruction requires --workload ${REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID}`)));
+for (const tier of ['medium', 'large']) {
+  const reconstructionPreflight = preflightRun({
+    tier, command: [process.execPath, ENTRYPOINT, 'reconstruct-inventory'], cwd: ROOT,
+    adapterInfo, injectedExistingProcesses: [],
+    workloadId: REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID,
+  });
+  assert.equal(reconstructionPreflight.ownership.proven, true);
+  assert.equal(reconstructionPreflight.ownership.network_access, 'audited-required');
+  assert.ok(!reconstructionPreflight.reasons
+    .some((reason) => reason.includes('inventory reconstruction requires --workload')));
+}
 
 const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
   cwd: ROOT, env: process.env, encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
 });
 assert.notEqual(directUnknown.status, 0);
-assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`, /usage: workload\.mjs admit-inventory/);
+assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -104,6 +160,14 @@ const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'],
 });
 assert.notEqual(directExact.status, 0);
 assert.match(`${directExact.stdout}\n${directExact.stderr}`, /must run through the canonical crash-safe command/);
+const directReconstruction = spawnSync(process.execPath, [ENTRYPOINT, 'reconstruct-inventory'], {
+  cwd: ROOT,
+  env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
+  encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+});
+assert.notEqual(directReconstruction.status, 0);
+assert.match(`${directReconstruction.stdout}\n${directReconstruction.stderr}`,
+  /must run through the canonical crash-safe command/);
 
 const semanticPoison = {
   SAFE_VALUE: 'kept', ORACLE_FIXTURE: '/caller/fixture', ORACLE_OUTPUT: '/caller/output',
@@ -135,69 +199,82 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
 try {
-  const sealProbe = path.join(ROOT, 'tests/fixtures/spawn-trusted-git-seal-probe.mjs');
-  for (const mode of ['malformed', 'oversized', 'extra-field', 'mismatched', 'valid']) {
-    const probe = spawnSync(process.execPath, [sealProbe, mode], {
-      cwd: temporaryRoot,
-      env: { ...process.env, LAMINA_SAFE_GIT_IDENTITY: '' },
-      encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    assert.equal(probe.status, 0, `${mode}: ${probe.stderr}`);
-    const evidence = JSON.parse(probe.stdout);
-    assert.equal(evidence.removed_after_first, true);
-    assert.equal(evidence.first.ok, mode === 'valid');
-    assert.equal(evidence.retry.ok, mode === 'valid',
-      `${mode} retry must ${mode === 'valid' ? 'retain verified continuity' : 'remain poisoned'}`);
-  }
+  // Windows has no production trusted-Git/materialization adapter: keep all
+  // pure contracts portable, but do not manufacture authority from PATH Git.
+  const productionGitMaterializationClaim = process.platform !== 'win32';
+  if (process.platform === 'win32') {
+    assert.equal(productionGitMaterializationClaim, false,
+      'Windows intentionally makes no production Git/materialization claim');
+  } else {
+    const sealProbe = path.join(ROOT, 'tests/fixtures/spawn-trusted-git-seal-probe.mjs');
+    for (const mode of ['malformed', 'oversized', 'extra-field', 'mismatched', 'valid']) {
+      const probe = spawnSync(process.execPath, [sealProbe, mode], {
+        cwd: temporaryRoot,
+        env: { ...process.env, LAMINA_SAFE_GIT_IDENTITY: '' },
+        encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      assert.equal(probe.status, 0, `${mode}: ${probe.stderr}`);
+      const evidence = JSON.parse(probe.stdout);
+      assert.equal(evidence.removed_after_first, true);
+      assert.equal(evidence.first.ok, mode === 'valid');
+      assert.equal(evidence.retry.ok, mode === 'valid',
+        `${mode} retry must ${mode === 'valid' ? 'retain verified continuity' : 'remain poisoned'}`);
+    }
 
-  const snapshotRepository = path.join(temporaryRoot, 'snapshot-repository');
-  const snapshotInit = spawnTrustedGit(temporaryRoot, ['init', '--quiet', snapshotRepository], {
-    encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  assert.equal(snapshotInit.status, 0, snapshotInit.stderr);
-  for (const relative of REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE) {
-    const source = path.join(ROOT, relative);
-    const destination = path.join(snapshotRepository, relative);
-    const stat = fs.lstatSync(source);
-    assert.equal(stat.isFile() && !stat.isSymbolicLink(), true, `${relative} must be a physical source file`);
-    fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
-    fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
-    fs.chmodSync(destination, stat.mode & 0o777);
-  }
-  function snapshotGit(args) {
-    const result = spawnTrustedGit(snapshotRepository, args, {
+    const snapshotRepository = path.join(temporaryRoot, 'snapshot-repository');
+    const snapshotInit = spawnTrustedGit(temporaryRoot, ['init', '--quiet', snapshotRepository], {
       encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
-    return String(result.stdout || '').trim();
+    assert.equal(snapshotInit.status, 0, snapshotInit.stderr);
+    for (const relative of REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE) {
+      const source = path.join(ROOT, relative);
+      const destination = path.join(snapshotRepository, relative);
+      const stat = fs.lstatSync(source);
+      assert.equal(stat.isFile() && !stat.isSymbolicLink(), true,
+        `${relative} must be a physical source file`);
+      fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
+      fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(destination, stat.mode & 0o777);
+    }
+    function snapshotGit(args) {
+      const result = spawnTrustedGit(snapshotRepository, args, {
+        encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+      return String(result.stdout || '').trim();
+    }
+    snapshotGit(['add', '--', ...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE]);
+    snapshotGit(['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+      'commit', '--quiet', '-m', 'sealed oracle source fixture']);
+    const snapshotCommit = snapshotGit(['rev-parse', 'HEAD']);
+    snapshotGit(['checkout', '--quiet', '--detach', snapshotCommit]);
+    const snapshotEntrypoint = path.join(snapshotRepository, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
+    for (const commandName of ['admit-inventory', 'reconstruct-inventory']) {
+      const snapshotTemporary = path.join(temporaryRoot, `snapshot-${commandName}`);
+      fs.mkdirSync(snapshotTemporary, { mode: 0o700 });
+      const snapshot = prepareExecutionSnapshot({
+        cwd: snapshotRepository,
+        command: [process.execPath, snapshotEntrypoint, commandName],
+        temporaryDirectory: snapshotTemporary,
+      });
+      assert.equal(snapshot.audited_entrypoint, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
+      assert.deepEqual(snapshot.entries
+        .filter((entry) => entry.label.startsWith('repository:'))
+        .map((entry) => entry.label.slice('repository:'.length)).sort(),
+      [...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE].sort());
+      assert.deepEqual(snapshot.environment_overrides, {},
+        'oracle snapshot reintroduces no model or worker assets');
+      assert.deepEqual(snapshot.writable_bindings, [],
+        'oracle argv supplies no writable repository or output binding');
+      assert.equal(snapshot.launch_command.length, 3);
+      assert.equal(snapshot.launch_command[2], commandName);
+      assert.match(snapshot.git_executable_identity?.digest || '', /^[a-f0-9]{64}$/);
+      assert.match(validatedSealedGitIdentity(snapshot), /^[A-Za-z0-9_-]+$/);
+    }
   }
-  snapshotGit(['add', '--', ...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE]);
-  snapshotGit(['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
-    'commit', '--quiet', '-m', 'sealed oracle source fixture']);
-  const snapshotCommit = snapshotGit(['rev-parse', 'HEAD']);
-  snapshotGit(['checkout', '--quiet', '--detach', snapshotCommit]);
-  const snapshotEntrypoint = path.join(snapshotRepository, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
-  const snapshotTemporary = path.join(temporaryRoot, 'snapshot');
-  fs.mkdirSync(snapshotTemporary, { mode: 0o700 });
-  const snapshot = prepareExecutionSnapshot({
-    cwd: snapshotRepository,
-    command: [process.execPath, snapshotEntrypoint, 'admit-inventory'],
-    temporaryDirectory: snapshotTemporary,
-  });
-  assert.equal(snapshot.audited_entrypoint, REAL_REPOSITORY_ORACLE_ENTRYPOINT);
-  assert.deepEqual(snapshot.entries
-    .filter((entry) => entry.label.startsWith('repository:'))
-    .map((entry) => entry.label.slice('repository:'.length)).sort(),
-  [...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE].sort());
-  assert.deepEqual(snapshot.environment_overrides, {}, 'oracle snapshot reintroduces no model or worker assets');
-  assert.deepEqual(snapshot.writable_bindings, [], 'oracle argv supplies no writable repository or output binding');
-  assert.equal(snapshot.launch_command.length, 3);
-  assert.equal(snapshot.launch_command[2], 'admit-inventory');
-  assert.match(snapshot.git_executable_identity?.digest || '', /^[a-f0-9]{64}$/);
-  assert.match(validatedSealedGitIdentity(snapshot), /^[A-Za-z0-9_-]+$/);
 
   const successScratch = createScratch(temporaryRoot);
   fs.mkdirSync(successScratch.source);
@@ -219,6 +296,7 @@ try {
   assert.equal(fs.readFileSync(foreign, 'utf8'), 'do not delete');
   fs.rmSync(foreignScratch.root, { recursive: true, force: false });
 
+  if (productionGitMaterializationClaim) {
   const repository = path.join(temporaryRoot, 'tiny-repository');
   function git(args) {
     const result = spawnTrustedGit(temporaryRoot, args, {
@@ -252,6 +330,18 @@ try {
   const stageRecord = repositoryGit(['ls-files', '--stage', '--', 'a.ts']);
   const stageMatch = stageRecord.match(/^([0-7]{6}) ([a-f0-9]{40,64}) 0\t(.+)$/);
   assert.ok(stageMatch);
+  const stageEntries = repositoryGit(['ls-files', '--stage', '-z']).split('\0').filter(Boolean)
+    .map((record) => {
+      const match = record.match(/^([0-7]{6}) ([a-f0-9]{40,64}) ([0-3])\t([\s\S]+)$/);
+      assert.ok(match);
+      return { mode: match[1], oid: match[2], path: match[4] };
+    });
+  assert.throws(() => candidateInventoryFromTracked(repository, stageEntries, manifest, fixture, {
+    objectFormat: repositoryGit(['rev-parse', '--show-object-format']),
+    maximumTrackedBytes: 1,
+    maximumEntries: 10,
+  }), /aggregate retained-byte bound/,
+  'the first pass refuses before retaining regular-file buffers beyond the aggregate bound');
   fs.writeFileSync(path.join(repository, 'a.ts'), 'export const answer = 41;\n');
   assert.throws(() => candidateInventoryFromTracked(repository, [{
     mode: stageMatch[1], oid: stageMatch[2], path: stageMatch[3],
@@ -302,15 +392,142 @@ try {
   fs.writeFileSync(path.join(repository, 'untracked.txt'), 'dirty');
   assert.throws(() => verifyPinnedRepository(repository, collection), /exact detached, clean, remote-free pinned collection/);
 
-  const result = inventoryAdmissionResult({
-    fixture_id: 'tiny', fixture_class: 'tiny', repository_url: 'https://example.invalid/tiny.git',
-    commit, tree_oid: treeOid, baseline_manifest_sha256: BASELINE_MANIFEST_SHA256,
-    candidate_policy_sha256: CANDIDATE_POLICY_SHA256,
-  }, inventory);
+  {
+    const runRepositoryGit = (cwd, args) => {
+      const completed = spawnTrustedGit(cwd, args, {
+        encoding: 'utf8', timeout: 5_000, maxBuffer: 256 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      assert.equal(completed.status, 0, `${args.join(' ')}: ${completed.stderr}`);
+      return String(completed.stdout || '');
+    };
+    const parseStageEntries = (cwd) => runRepositoryGit(cwd, ['ls-files', '--stage', '-z'])
+      .split('\0').filter(Boolean).map((record) => {
+        const match = record.match(/^([0-7]{6}) ([a-f0-9]{40,64}) ([0-3])\t([\s\S]+)$/);
+        assert.ok(match);
+        assert.equal(match[3], '0');
+        return { mode: match[1], oid: match[2], path: match[4] };
+      });
+    const symlinkRepository = path.join(temporaryRoot, 'symlink-repository');
+    runRepositoryGit(temporaryRoot, ['init', '--quiet', symlinkRepository]);
+    fs.mkdirSync(path.join(symlinkRepository, 'docs'));
+    const targetText = 'export const linked = true;\n';
+    const readmeText = '# Tracked docs\n';
+    fs.writeFileSync(path.join(symlinkRepository, 'target.ts'), targetText);
+    fs.writeFileSync(path.join(symlinkRepository, 'docs/readme.md'), readmeText);
+    fs.symlinkSync('target.ts', path.join(symlinkRepository, 'alias.ts'));
+    fs.symlinkSync('docs', path.join(symlinkRepository, 'docs-link'));
+    runRepositoryGit(symlinkRepository, ['add', '--', 'target.ts', 'docs/readme.md', 'alias.ts', 'docs-link']);
+    runRepositoryGit(symlinkRepository, [
+      '-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
+      'commit', '--quiet', '-m', 'tracked symlink fixture',
+    ]);
+    const symlinkCommit = runRepositoryGit(symlinkRepository, ['rev-parse', 'HEAD']).trim();
+    const symlinkTree = runRepositoryGit(symlinkRepository, ['rev-parse', 'HEAD^{tree}']).trim();
+    runRepositoryGit(symlinkRepository, ['checkout', '--quiet', '--detach', symlinkCommit]);
+    const symlinkFixture = { id: 'symlink', class: 'symlink', source_loc: { minimum: 0, maximum: 100 } };
+    const symlinkCandidate = reconstructPinnedRepositoryInventory(symlinkRepository, {
+      commit: symlinkCommit, tree_oid: symlinkTree, manifest, fixture: symlinkFixture,
+    });
+    assert.deepEqual({
+      tracked_files: symlinkCandidate.inventory.tracked_files,
+      tracked_bytes: symlinkCandidate.inventory.tracked_bytes,
+      tracked_source_files: symlinkCandidate.inventory.tracked_source_files,
+      tracked_source_bytes: symlinkCandidate.inventory.tracked_source_bytes,
+      tracked_source_loc: symlinkCandidate.inventory.tracked_source_loc,
+      observation_indexed_files: symlinkCandidate.inventory.observation_indexed_files,
+      retrieval_candidate_files: symlinkCandidate.inventory.retrieval_candidate_files,
+    }, {
+      tracked_files: 4,
+      tracked_bytes: Buffer.byteLength(targetText) * 2 + Buffer.byteLength(readmeText),
+      tracked_source_files: 2,
+      tracked_source_bytes: Buffer.byteLength(targetText) * 2,
+      tracked_source_loc: 2,
+      observation_indexed_files: 3,
+      retrieval_candidate_files: 3,
+    }, 'tracked file links follow verified target bytes while directory links count only as tracked paths');
+    assert.equal(symlinkCandidate.candidate_inventory_sha256,
+      candidateInventoryDigest(symlinkCandidate.inventory));
+
+    const symlinkCounterexample = (name, links, afterAdd = () => {}) => {
+      const cwd = path.join(temporaryRoot, name);
+      runRepositoryGit(temporaryRoot, ['init', '--quiet', cwd]);
+      for (const [link, target] of links) fs.symlinkSync(target, path.join(cwd, link));
+      runRepositoryGit(cwd, ['add', '--', ...links.map(([link]) => link)]);
+      afterAdd(cwd);
+      return {
+        cwd,
+        entries: parseStageEntries(cwd),
+        objectFormat: runRepositoryGit(cwd, ['rev-parse', '--show-object-format']).trim(),
+      };
+    };
+    fs.writeFileSync(path.join(temporaryRoot, 'outside-target.ts'), 'outside\n');
+    const outside = symlinkCounterexample('outside-link', [['outside.ts', '../outside-target.ts']]);
+    assert.throws(() => candidateInventoryFromTracked(
+      outside.cwd, outside.entries, manifest, symlinkFixture,
+      {
+        objectFormat: outside.objectFormat,
+        maximumTrackedBytes: RECONSTRUCTION_LIMITS.max_counted_tracked_bytes,
+        maximumEntries: RECONSTRUCTION_LIMITS.max_tracked_entries,
+        maximumFileBytes: RECONSTRUCTION_LIMITS.max_followed_file_bytes,
+      },
+    ), /target escapes repository content/);
+    const broken = symlinkCounterexample('broken-link', [['broken.ts', 'missing.ts']]);
+    assert.throws(() => candidateInventoryFromTracked(
+      broken.cwd, broken.entries, manifest, symlinkFixture,
+      { objectFormat: broken.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
+    ), /target is broken or cyclic/);
+    const cyclic = symlinkCounterexample('cyclic-link', [['a.ts', 'b.ts'], ['b.ts', 'a.ts']]);
+    assert.throws(() => candidateInventoryFromTracked(
+      cyclic.cwd, cyclic.entries, manifest, symlinkFixture,
+      { objectFormat: cyclic.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
+    ), /target is broken or cyclic/);
+    const untracked = symlinkCounterexample(
+      'untracked-link', [['alias.ts', 'untracked.ts']],
+      (cwd) => fs.writeFileSync(path.join(cwd, 'untracked.ts'), 'untracked\n'),
+    );
+    assert.throws(() => candidateInventoryFromTracked(
+      untracked.cwd, untracked.entries, manifest, symlinkFixture,
+      { objectFormat: untracked.objectFormat, maximumTrackedBytes: 1024, maximumEntries: 10 },
+    ), /targets an unverified or untracked file/);
+    assert.throws(() => candidateInventoryFromTracked(
+      symlinkRepository,
+      [{ mode: '160000', oid: '0'.repeat(40), path: 'gitlink' }],
+      manifest, symlinkFixture,
+      { objectFormat: 'sha1', maximumTrackedBytes: 1024, maximumEntries: 10 },
+    ), /special, gitlink, or unmerged tracked entry/);
+  }
+
+  }
+
+  const resultInventory = REVIEWED_INVENTORIES.small;
+  const result = inventoryAdmissionResult(pinnedCollectionForTier('small'), resultInventory);
   assert.equal(result.schema, INVENTORY_ADMISSION_SCHEMA);
   assert.equal(result.evidence_mode, 'reviewed_collection_inventory_admission_only');
   assert.ok(Object.values(result.quality_claims).every((claim) => claim === false));
   assert.match(result.limitation, /not routed through the oracle grade controller/);
+  const reconstructionResult = inventoryReconstructionResult({
+    collection: pinnedCollectionForTier('medium'),
+    inventory: resultInventory,
+    candidate_inventory_sha256: candidateInventoryDigest(resultInventory),
+    bounds: RECONSTRUCTION_LIMITS,
+  });
+  assert.deepEqual(Object.keys(reconstructionResult).sort(), [
+    'admission', 'bounds', 'candidate_inventory_sha256', 'collection', 'evidence_mode',
+    'grade_controller_evidence', 'inventory', 'limitation', 'quality_claims', 'schema',
+    'status', 'workload_id',
+  ]);
+  assert.equal(reconstructionResult.schema, INVENTORY_RECONSTRUCTION_SCHEMA);
+  assert.equal(reconstructionResult.workload_id, RECONSTRUCTION_WORKLOAD_ID);
+  assert.equal(reconstructionResult.status, 'unreviewed_reconstruction_candidate');
+  assert.equal(reconstructionResult.admission, 'not_performed');
+  assert.equal(reconstructionResult.grade_controller_evidence, false);
+  assert.equal(reconstructionResult.collection.fixture_id, 'medium');
+  assert.equal('reviewed_inventory' in reconstructionResult.collection, false);
+  assert.ok(Object.values(reconstructionResult.quality_claims).every((claim) => claim === false));
+  assert.equal(reconstructionResult.candidate_inventory_sha256,
+    candidateInventoryDigest(resultInventory));
+  assert.match(reconstructionResult.limitation, /unreviewed inventory reconstruction candidate only/);
 } finally {
   fs.rmSync(temporaryRoot, { recursive: true, force: false });
 }

@@ -81,16 +81,10 @@ export const REVIEWED_INVENTORIES = Object.freeze({
   large: null,
 });
 
-export function reviewedCollectionForTier(tier) {
+export function pinnedCollectionForTier(tier) {
   const pin = COLLECTION_PINS[tier];
   if (!pin || pin.fixture_id !== tier || pin.fixture_class !== tier) {
-    throw new Error('real-repository inventory admission requires an exact signed collection tier');
-  }
-  const reviewedInventory = REVIEWED_INVENTORIES[tier];
-  if (!reviewedInventory) {
-    throw new Error(
-      `real-repository ${tier} inventory is temporarily unreviewed; #61 must reconstruct and independently review it before network materialization`,
-    );
+    throw new Error('real-repository inventory work requires an exact signed collection tier');
   }
   const fixture = manifest.fixtures.find((candidate) => candidate.id === tier);
   if (!fixture || fixture.class !== pin.fixture_class || fixture.url !== pin.repository_url
@@ -103,6 +97,16 @@ export function reviewedCollectionForTier(tier) {
     candidate_policy_sha256: CANDIDATE_POLICY_SHA256,
     manifest,
     fixture,
-    reviewed_inventory: reviewedInventory,
   });
+}
+
+export function reviewedCollectionForTier(tier) {
+  const collection = pinnedCollectionForTier(tier);
+  const reviewedInventory = REVIEWED_INVENTORIES[tier];
+  if (!reviewedInventory) {
+    throw new Error(
+      `real-repository ${tier} inventory is temporarily unreviewed; #61 must reconstruct and independently review it before network materialization`,
+    );
+  }
+  return Object.freeze({ ...collection, reviewed_inventory: reviewedInventory });
 }

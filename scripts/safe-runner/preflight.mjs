@@ -38,6 +38,7 @@ const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
 export const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
 export const REAL_REPOSITORY_ORACLE_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
+export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-reconstruction';
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
@@ -198,7 +199,8 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
     if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
-      && (command.length !== 3 || command[2] !== 'admit-inventory')) {
+      && (command.length !== 3
+        || !['admit-inventory', 'reconstruct-inventory'].includes(command[2]))) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
     return relative !== null
@@ -388,9 +390,15 @@ export function preflightRun({
   if (SMALL_ONLY_SCRATCH_FIXTURES.has(ownership.audited_entrypoint) && tier !== 'small') {
     reasons.push('safe-runner scratch fixtures are deliberately tiny and require --tier small');
   }
-  if (ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
-    && workloadId !== REAL_REPOSITORY_ORACLE_WORKLOAD_ID) {
-    reasons.push(`real-repository inventory admission requires --workload ${REAL_REPOSITORY_ORACLE_WORKLOAD_ID}`);
+  if (ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+    const expectedWorkloadId = command[2] === 'reconstruct-inventory'
+      ? REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID
+      : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
+    if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
+      const operation = command[2] === 'reconstruct-inventory'
+        ? 'inventory reconstruction' : 'inventory admission';
+      reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
+    }
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);

@@ -270,48 +270,57 @@ try {
   assert.throws(() => resolvePhysicalContained(path.join(temp, 'repo'), 'escape/outside'), /symlink/);
 } finally { fs.rmSync(temp, { recursive: true, force: true }); }
 
-// Probe the real Git state machine used by materialization: modify/delete are
-// deliberately unstaged, while rename is staged to obtain one type-2 R. row.
-const porcelainProbe = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-porcelain-')));
-function probeGit(args, encoding = 'utf8') {
-  const completed = spawnTrustedGit(porcelainProbe, args, { encoding });
-  assert.equal(completed.status, 0, `git ${args.join(' ')} failed: ${String(completed.stderr)}`);
-  return completed.stdout;
+// Windows has no production trusted-Git/materialization adapter. Parser,
+// mutation, and CRLF contracts stay portable above, but Linux supplies the
+// real trusted-executable materialization proof instead of falling back to PATH.
+const productionGitMaterializationClaim = process.platform !== 'win32';
+if (process.platform === 'win32') {
+  assert.equal(productionGitMaterializationClaim, false,
+    'Windows intentionally makes no production Git/materialization claim');
+} else {
+  // Probe the real Git state machine used by materialization: modify/delete are
+  // deliberately unstaged, while rename is staged to obtain one type-2 R. row.
+  const porcelainProbe = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-porcelain-')));
+  function probeGit(args, encoding = 'utf8') {
+    const completed = spawnTrustedGit(porcelainProbe, args, { encoding });
+    assert.equal(completed.status, 0, `git ${args.join(' ')} failed: ${String(completed.stderr)}`);
+    return completed.stdout;
+  }
+  function probedChanges() {
+    return parsePorcelainV2Z(probeGit([
+      'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--find-renames=50%',
+    ], null), { worktreeRole: 'primary' }).changes;
+  }
+  try {
+    probeGit(['init', '-q']);
+    fs.mkdirSync(path.join(porcelainProbe, 'src'));
+    fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'original\n');
+    probeGit(['add', 'src/a.ts']);
+    probeGit(['-c', 'user.name=Lamina Oracle', '-c', 'user.email=oracle@lamina.invalid', 'commit', '-qm', 'base']);
+
+    fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'modified\n');
+    assert.deepEqual(probedChanges(), [
+      { kind: 'ordinary', path: 'src/a.ts', original_path: null, xy: '.M', submodule: 'N...' },
+    ]);
+    probeGit(['reset', '--hard', '-q', 'HEAD']);
+
+    fs.renameSync(path.join(porcelainProbe, 'src/a.ts'), path.join(porcelainProbe, 'src/b.ts'));
+    assert.deepEqual(probedChanges(), [
+      { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
+      { kind: 'untracked', path: 'src/b.ts', original_path: null, xy: null, submodule: null },
+    ], 'a single unstaged filesystem rename cannot truthfully claim one rename row');
+    probeGit(['add', '-A']);
+    assert.deepEqual(probedChanges(), [
+      { kind: 'renamed', path: 'src/b.ts', original_path: 'src/a.ts', xy: 'R.', submodule: 'N...' },
+    ]);
+    probeGit(['reset', '--hard', '-q', 'HEAD']);
+
+    fs.unlinkSync(path.join(porcelainProbe, 'src/a.ts'));
+    assert.deepEqual(probedChanges(), [
+      { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
+    ]);
+  } finally { fs.rmSync(porcelainProbe, { recursive: true, force: true }); }
 }
-function probedChanges() {
-  return parsePorcelainV2Z(probeGit([
-    'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--find-renames=50%',
-  ], null), { worktreeRole: 'primary' }).changes;
-}
-try {
-  probeGit(['init', '-q']);
-  fs.mkdirSync(path.join(porcelainProbe, 'src'));
-  fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'original\n');
-  probeGit(['add', 'src/a.ts']);
-  probeGit(['-c', 'user.name=Lamina Oracle', '-c', 'user.email=oracle@lamina.invalid', 'commit', '-qm', 'base']);
-
-  fs.writeFileSync(path.join(porcelainProbe, 'src/a.ts'), 'modified\n');
-  assert.deepEqual(probedChanges(), [
-    { kind: 'ordinary', path: 'src/a.ts', original_path: null, xy: '.M', submodule: 'N...' },
-  ]);
-  probeGit(['reset', '--hard', '-q', 'HEAD']);
-
-  fs.renameSync(path.join(porcelainProbe, 'src/a.ts'), path.join(porcelainProbe, 'src/b.ts'));
-  assert.deepEqual(probedChanges(), [
-    { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
-    { kind: 'untracked', path: 'src/b.ts', original_path: null, xy: null, submodule: null },
-  ], 'a single unstaged filesystem rename cannot truthfully claim one rename row');
-  probeGit(['add', '-A']);
-  assert.deepEqual(probedChanges(), [
-    { kind: 'renamed', path: 'src/b.ts', original_path: 'src/a.ts', xy: 'R.', submodule: 'N...' },
-  ]);
-  probeGit(['reset', '--hard', '-q', 'HEAD']);
-
-  fs.unlinkSync(path.join(porcelainProbe, 'src/a.ts'));
-  assert.deepEqual(probedChanges(), [
-    { kind: 'deleted', path: 'src/a.ts', original_path: null, xy: '.D', submodule: 'N...' },
-  ]);
-} finally { fs.rmSync(porcelainProbe, { recursive: true, force: true }); }
 
 // Schema-first validation keeps manual/schema shape checks in parity.
 for (const mutate of [

@@ -4,13 +4,18 @@ import path from 'node:path';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
 import { isExcludedPath } from '../runtime-baseline-v1/contract.mjs';
-import { reviewedCollectionForTier } from './collection-authority.mjs';
+import { pinnedCollectionForTier, reviewedCollectionForTier } from './collection-authority.mjs';
 
 const SOURCE_NAMES = new Set(['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml']);
 const SCRATCH_SCHEMA = 'lamina.real-repository-oracle-scratch/v1';
 const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_TRACKED_FILE_BYTES = 64 * 1024 * 1024;
+export const RECONSTRUCTION_LIMITS = Object.freeze({
+  max_tracked_entries: 6_000,
+  max_counted_tracked_bytes: 256 * 1024 * 1024,
+  max_followed_file_bytes: MAX_TRACKED_FILE_BYTES,
+});
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
@@ -43,7 +48,12 @@ function safeRelativePath(relative) {
     && relative.split('/').every((piece) => piece && piece !== '.' && piece !== '..');
 }
 
-function readPhysicalTrackedFile(repository, relative) {
+function readPhysicalTrackedFile(
+  repository,
+  relative,
+  maximumFileBytes = MAX_TRACKED_FILE_BYTES,
+  maximumAggregateRemaining = Number.MAX_SAFE_INTEGER,
+) {
   if (!safeRelativePath(relative)) throw new Error(`unsafe tracked path: ${JSON.stringify(relative)}`);
   const file = path.join(repository, relative);
   const canonical = fs.realpathSync.native(file);
@@ -54,8 +64,12 @@ function readPhysicalTrackedFile(repository, relative) {
   if (!before.isFile() || before.isSymbolicLink()) {
     throw new Error(`tracked path is not a regular file: ${relative}`);
   }
-  if (before.size > BigInt(MAX_TRACKED_FILE_BYTES)) {
+  if (before.size > BigInt(maximumFileBytes)) {
     throw new Error(`tracked path exceeds the bounded physical-file budget: ${relative}`);
+  }
+  if (!Number.isSafeInteger(maximumAggregateRemaining) || maximumAggregateRemaining < 0
+    || before.size > BigInt(maximumAggregateRemaining)) {
+    throw new Error('tracked regular files exceed the fixed aggregate retained-byte bound');
   }
   const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
@@ -75,16 +89,83 @@ function readPhysicalTrackedFile(repository, relative) {
   }
 }
 
-function trackedEntries(repository) {
+function gitBlobOid(objectFormat, bytes) {
+  if (!['sha1', 'sha256'].includes(objectFormat)) {
+    throw new Error('tracked blob verification requires the repository object format');
+  }
+  return crypto.createHash(objectFormat).update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
+function stableStatIdentity(stat) {
+  return [stat.dev, stat.ino, stat.mode, stat.size, stat.mtimeNs, stat.ctimeNs];
+}
+
+function readTrackedSymlink(repository, entry, objectFormat, regularFiles, trackedPaths) {
+  const file = path.join(repository, entry.path);
+  const before = fs.lstatSync(file, { bigint: true });
+  if (!before.isSymbolicLink()) {
+    throw new Error(`stage-0 symlink is not a physical symlink: ${entry.path}`);
+  }
+  let linkBytes;
+  try { linkBytes = fs.readlinkSync(file, { encoding: 'buffer' }); }
+  catch { throw new Error(`stage-0 symlink cannot be read: ${entry.path}`); }
+  const after = fs.lstatSync(file, { bigint: true });
+  if (JSON.stringify(stableStatIdentity(before).map(String))
+    !== JSON.stringify(stableStatIdentity(after).map(String))) {
+    throw new Error(`stage-0 symlink changed while reading: ${entry.path}`);
+  }
+  if (entry.oid !== gitBlobOid(objectFormat, linkBytes)) {
+    throw new Error(`tracked symlink bytes do not match the stage-0 Git object: ${entry.path}`);
+  }
+  let targetText;
+  try { targetText = new TextDecoder('utf-8', { fatal: true }).decode(linkBytes); }
+  catch { throw new Error(`tracked symlink target is not UTF-8: ${entry.path}`); }
+  if (!targetText || targetText.includes('\0') || targetText.includes('\\')
+    || path.isAbsolute(targetText) || /^[A-Za-z]:/.test(targetText)) {
+    throw new Error(`tracked symlink target must be relative: ${entry.path}`);
+  }
+  const declaredTarget = path.resolve(path.dirname(file), targetText);
+  let canonicalTarget;
+  try { canonicalTarget = fs.realpathSync.native(declaredTarget); }
+  catch { throw new Error(`tracked symlink target is broken or cyclic: ${entry.path}`); }
+  const gitDirectory = path.join(repository, '.git');
+  if ((canonicalTarget !== repository && !canonicalTarget.startsWith(`${repository}${path.sep}`))
+    || canonicalTarget === gitDirectory || canonicalTarget.startsWith(`${gitDirectory}${path.sep}`)) {
+    throw new Error(`tracked symlink target escapes repository content: ${entry.path}`);
+  }
+  const targetStat = fs.statSync(canonicalTarget);
+  if (targetStat.isFile()) {
+    const targetRelative = path.relative(repository, canonicalTarget).replaceAll('\\', '/');
+    const target = regularFiles.get(targetRelative);
+    if (!target || canonicalTarget !== path.join(repository, targetRelative)) {
+      throw new Error(`tracked symlink targets an unverified or untracked file: ${entry.path}`);
+    }
+    return target;
+  }
+  if (targetStat.isDirectory()) {
+    const targetRelative = path.relative(repository, canonicalTarget).replaceAll('\\', '/');
+    const prefix = targetRelative ? `${targetRelative}/` : '';
+    if (!trackedPaths.some((candidate) => candidate !== entry.path && candidate.startsWith(prefix))) {
+      throw new Error(`tracked symlink targets an untracked directory: ${entry.path}`);
+    }
+    return null;
+  }
+  throw new Error(`tracked symlink targets a special file: ${entry.path}`);
+}
+
+function trackedEntries(repository, maximumEntries = Number.MAX_SAFE_INTEGER) {
   const output = checkedGit(repository, ['ls-files', '--stage', '-z'], 60_000);
   const entries = output.split('\0').filter(Boolean).map((record) => {
     const match = record.match(/^([0-7]{6}) ([a-f0-9]{40,64}) ([0-3])\t([\s\S]+)$/);
-    if (!match || !['100644', '100755'].includes(match[1]) || match[3] !== '0'
+    if (!match || !['100644', '100755', '120000'].includes(match[1]) || match[3] !== '0'
       || !safeRelativePath(match[4])) {
-      throw new Error('pinned collection contains an unsafe, non-regular, or unmerged tracked entry');
+      throw new Error('pinned collection contains an unsafe, special, gitlink, or unmerged tracked entry');
     }
     return { mode: match[1], oid: match[2], path: match[4] };
   });
+  if (entries.length > maximumEntries) {
+    throw new Error(`pinned collection exceeds the ${maximumEntries}-entry reconstruction cap`);
+  }
   const paths = entries.map((entry) => entry.path);
   if (new Set(paths).size !== paths.length
     || JSON.stringify(paths) !== JSON.stringify([...paths].sort((a, b) => Buffer.from(a).compare(Buffer.from(b))))) {
@@ -94,7 +175,10 @@ function trackedEntries(repository) {
 }
 
 export function candidateInventoryFromTracked(repository, entries, manifest, fixture, {
-  objectFormat = null, maximumTrackedBytes = Number.MAX_SAFE_INTEGER,
+  objectFormat = null,
+  maximumTrackedBytes = Number.MAX_SAFE_INTEGER,
+  maximumEntries = Number.MAX_SAFE_INTEGER,
+  maximumFileBytes = MAX_TRACKED_FILE_BYTES,
 } = {}) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
@@ -110,24 +194,47 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
   let sourceFiles = 0;
   let sourceBytes = 0;
   let sourceLoc = 0;
+  if (!Number.isSafeInteger(maximumEntries) || maximumEntries < 0 || entries.length > maximumEntries
+    || !Number.isSafeInteger(maximumTrackedBytes) || maximumTrackedBytes < 0
+    || !Number.isSafeInteger(maximumFileBytes) || maximumFileBytes <= 0
+    || maximumFileBytes > MAX_TRACKED_FILE_BYTES) {
+    throw new Error('candidate inventory bounds are invalid or exceeded');
+  }
+  const trackedPaths = entries.map((entry) => (typeof entry === 'string' ? entry : entry.path));
+  const regularFiles = new Map();
+  let retainedRegularBytes = 0;
+  for (const entry of entries) {
+    if (typeof entry === 'string' || !['100644', '100755'].includes(entry.mode)) continue;
+    const physical = readPhysicalTrackedFile(
+      physicalRepository,
+      entry.path,
+      maximumFileBytes,
+      maximumTrackedBytes - retainedRegularBytes,
+    );
+    const physicalMode = (physical.mode & 0o111) === 0 ? '100644' : '100755';
+    if (entry.mode !== physicalMode || entry.oid !== gitBlobOid(objectFormat, physical.bytes)) {
+      throw new Error(`tracked physical bytes or mode do not match the stage-0 Git object: ${entry.path}`);
+    }
+    retainedRegularBytes += physical.bytes.length;
+    regularFiles.set(entry.path, physical);
+  }
   for (const entry of entries) {
     const relative = typeof entry === 'string' ? entry : entry.path;
-    const physical = readPhysicalTrackedFile(physicalRepository, relative);
-    const { bytes } = physical;
-    if (typeof entry !== 'string') {
-      if (!['sha1', 'sha256'].includes(objectFormat)) {
-        throw new Error('tracked blob verification requires the repository object format');
-      }
-      const physicalMode = (physical.mode & 0o111) === 0 ? '100644' : '100755';
-      const blobOid = crypto.createHash(objectFormat)
-        .update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
-      if (entry.mode !== physicalMode || entry.oid !== blobOid) {
-        throw new Error(`tracked physical bytes or mode do not match the stage-0 Git object: ${relative}`);
-      }
+    if (typeof entry !== 'string' && !['100644', '100755', '120000'].includes(entry.mode)) {
+      throw new Error('candidate inventory received a special, gitlink, or unmerged tracked entry');
     }
+    const physical = typeof entry === 'string'
+      ? readPhysicalTrackedFile(physicalRepository, relative, maximumFileBytes)
+      : entry.mode === '120000'
+        ? readTrackedSymlink(physicalRepository, entry, objectFormat, regularFiles, trackedPaths)
+        : regularFiles.get(relative);
+    // #60 counted the tracked path but skipped bytes and candidates when
+    // fs.stat resolved a tracked symlink to an internal directory.
+    if (physical === null) continue;
+    const { bytes } = physical;
     trackedBytes += bytes.length;
     if (trackedBytes > maximumTrackedBytes) {
-      throw new Error('tracked collection exceeds the reviewed aggregate byte bound');
+      throw new Error('tracked collection exceeds the fixed aggregate counted-byte bound');
     }
     if (!isExcludedPath(relative, manifest.exclusions)) {
       observationPaths.push(relative);
@@ -167,6 +274,14 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
   });
 }
 
+export function candidateInventoryDigest(inventory) {
+  if (!inventory || typeof inventory !== 'object' || Array.isArray(inventory)) {
+    throw new Error('candidate inventory digest requires an object');
+  }
+  const canonical = Object.fromEntries(Object.keys(inventory).sort().map((key) => [key, inventory[key]]));
+  return sha256(JSON.stringify(canonical));
+}
+
 function assertReviewedInventory(actual, expected) {
   const actualKeys = Object.keys(actual).sort();
   const expectedKeys = Object.keys(expected).sort();
@@ -180,41 +295,69 @@ function assertReviewedInventory(actual, expected) {
   }
 }
 
+function readPinnedRepositoryState(repository) {
+  const head = checkedGit(repository, ['rev-parse', '--verify', 'HEAD^{commit}'], 60_000).trim();
+  const treeOid = checkedGit(repository, ['rev-parse', '--verify', 'HEAD^{tree}'], 60_000).trim();
+  const branch = optionalGit(repository, ['symbolic-ref', '--quiet', 'HEAD'], 60_000);
+  const remotes = checkedGit(repository, ['remote'], 60_000).trim();
+  const changes = checkedGit(repository, [
+    'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all',
+  ], 60_000).split('\0').filter((record) => record && !record.startsWith('# '));
+  return { head, tree_oid: treeOid, branch, remotes, changes };
+}
+
+function assertPinnedRepositoryState(state, collection, message) {
+  if (state.head !== collection.commit || state.tree_oid !== collection.tree_oid
+    || state.branch !== null || state.remotes || state.changes.length) throw new Error(message);
+}
+
 export function verifyPinnedRepository(repository, collection) {
   const physicalRepository = fs.realpathSync.native(repository);
   if (physicalRepository !== path.resolve(repository)) {
     throw new Error('pinned collection must use its canonical physical path');
   }
-  const head = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{commit}'], 60_000).trim();
-  const treeOid = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{tree}'], 60_000).trim();
+  assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
+    'materialized repository is not the exact detached, clean, remote-free pinned collection');
   const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
-  const branch = optionalGit(physicalRepository, ['symbolic-ref', '--quiet', 'HEAD'], 60_000);
-  const remotes = checkedGit(physicalRepository, ['remote'], 60_000).trim();
-  const status = checkedGit(physicalRepository, [
-    'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all',
-  ], 60_000);
-  const changes = status.split('\0').filter((record) => record && !record.startsWith('# '));
-  if (head !== collection.commit || treeOid !== collection.tree_oid || branch !== null
-    || remotes || changes.length) {
-    throw new Error('materialized repository is not the exact detached, clean, remote-free pinned collection');
-  }
+  const maximumEntries = collection.reviewed_inventory.tracked_files;
   const inventory = candidateInventoryFromTracked(
-    physicalRepository, trackedEntries(physicalRepository), collection.manifest, collection.fixture,
-    { objectFormat, maximumTrackedBytes: collection.reviewed_inventory.tracked_bytes },
+    physicalRepository, trackedEntries(physicalRepository, maximumEntries),
+    collection.manifest, collection.fixture,
+    {
+      objectFormat,
+      maximumTrackedBytes: collection.reviewed_inventory.tracked_bytes,
+      maximumEntries,
+    },
   );
   assertReviewedInventory(inventory, collection.reviewed_inventory);
-  const finalHead = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{commit}'], 60_000).trim();
-  const finalTree = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{tree}'], 60_000).trim();
-  const finalBranch = optionalGit(physicalRepository, ['symbolic-ref', '--quiet', 'HEAD'], 60_000);
-  const finalRemotes = checkedGit(physicalRepository, ['remote'], 60_000).trim();
-  const finalStatus = checkedGit(physicalRepository, [
-    'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all',
-  ], 60_000).split('\0').filter((record) => record && !record.startsWith('# '));
-  if (finalHead !== head || finalTree !== treeOid || finalBranch !== null
-    || finalRemotes || finalStatus.length) {
-    throw new Error('pinned collection changed during inventory admission');
-  }
+  assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
+    'pinned collection changed during inventory admission');
   return inventory;
+}
+
+export function reconstructPinnedRepositoryInventory(repository, collection) {
+  const physicalRepository = fs.realpathSync.native(repository);
+  if (physicalRepository !== path.resolve(repository)) {
+    throw new Error('pinned reconstruction collection must use its canonical physical path');
+  }
+  assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
+    'reconstruction repository is not the exact detached, clean, remote-free pinned collection');
+  const objectFormat = checkedGit(physicalRepository, ['rev-parse', '--show-object-format'], 60_000).trim();
+  const inventory = candidateInventoryFromTracked(
+    physicalRepository,
+    trackedEntries(physicalRepository, RECONSTRUCTION_LIMITS.max_tracked_entries),
+    collection.manifest,
+    collection.fixture,
+    {
+      objectFormat,
+      maximumTrackedBytes: RECONSTRUCTION_LIMITS.max_counted_tracked_bytes,
+      maximumEntries: RECONSTRUCTION_LIMITS.max_tracked_entries,
+      maximumFileBytes: RECONSTRUCTION_LIMITS.max_followed_file_bytes,
+    },
+  );
+  assertPinnedRepositoryState(readPinnedRepositoryState(physicalRepository), collection,
+    'pinned collection changed during inventory reconstruction');
+  return Object.freeze({ inventory, candidate_inventory_sha256: candidateInventoryDigest(inventory) });
 }
 
 function assertPrivateTemporaryRoot(runnerTemporaryRoot) {
@@ -341,5 +484,18 @@ export function inspectSignedTier() {
     const repository = materializePinnedRepository(scratch, collection);
     const inventory = verifyPinnedRepository(repository, collection);
     return Object.freeze({ collection, inventory });
+  });
+}
+
+export function reconstructSignedTier() {
+  const context = assertSafeRunnerContext('real-repository inventory reconstruction');
+  const collection = pinnedCollectionForTier(context.tier);
+  if (context.tier !== collection.fixture_id || context.tier !== collection.fixture_class) {
+    throw new Error('signed safe-runner tier does not match the frozen reconstruction collection class');
+  }
+  return withOwnedScratch(process.env.LAMINA_SAFE_RUNNER_TEMP_DIR, (scratch) => {
+    const repository = materializePinnedRepository(scratch, collection);
+    const candidate = reconstructPinnedRepositoryInventory(repository, collection);
+    return Object.freeze({ collection, ...candidate, bounds: RECONSTRUCTION_LIMITS });
   });
 }
