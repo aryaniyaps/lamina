@@ -205,10 +205,13 @@ export function verifyPinnedRepository(repository, collection) {
   assertReviewedInventory(inventory, collection.reviewed_inventory);
   const finalHead = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{commit}'], 60_000).trim();
   const finalTree = checkedGit(physicalRepository, ['rev-parse', '--verify', 'HEAD^{tree}'], 60_000).trim();
+  const finalBranch = optionalGit(physicalRepository, ['symbolic-ref', '--quiet', 'HEAD'], 60_000);
+  const finalRemotes = checkedGit(physicalRepository, ['remote'], 60_000).trim();
   const finalStatus = checkedGit(physicalRepository, [
     'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all',
   ], 60_000).split('\0').filter((record) => record && !record.startsWith('# '));
-  if (finalHead !== head || finalTree !== treeOid || finalStatus.length) {
+  if (finalHead !== head || finalTree !== treeOid || finalBranch !== null
+    || finalRemotes || finalStatus.length) {
     throw new Error('pinned collection changed during inventory admission');
   }
   return inventory;

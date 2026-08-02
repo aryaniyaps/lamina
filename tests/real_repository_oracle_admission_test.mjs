@@ -20,7 +20,7 @@ import { loadManifest } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import {
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
-import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
+import { spawnTrustedGit, trustedGitIdentity } from '../scripts/safe-runner/git.mjs';
 import { sanitizedPayloadEnvironment } from '../scripts/safe-runner/infrastructure.mjs';
 import {
   REAL_REPOSITORY_ORACLE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_WORKLOAD_ID,
@@ -135,6 +135,43 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
 try {
+  const previousSealedGitIdentity = process.env.LAMINA_SAFE_GIT_IDENTITY;
+  try {
+    const spawnGitVersion = () => spawnTrustedGit(temporaryRoot, ['--version'], {
+      encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    process.env.LAMINA_SAFE_GIT_IDENTITY = 'not-base64!';
+    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
+    process.env.LAMINA_SAFE_GIT_IDENTITY = 'A'.repeat(4_097);
+    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
+    const actualGitIdentity = trustedGitIdentity();
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
+      ...actualGitIdentity, forged: true,
+    })).toString('base64url');
+    assert.throws(spawnGitVersion, /sealed workload Git identity is malformed/);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(JSON.stringify({
+      ...actualGitIdentity,
+      digest: `${actualGitIdentity.digest[0] === 'f' ? 'e' : 'f'}${actualGitIdentity.digest.slice(1)}`,
+    })).toString('base64url');
+    assert.throws(spawnGitVersion, /does not match trusted Git/);
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined);
+    process.env.LAMINA_SAFE_GIT_IDENTITY = Buffer.from(
+      JSON.stringify(actualGitIdentity),
+    ).toString('base64url');
+    assert.equal(spawnGitVersion().status, 0, 'valid controller-style Git seal must admit one spawn');
+    assert.equal(process.env.LAMINA_SAFE_GIT_IDENTITY, undefined,
+      'valid Git seal must be removed after its first workload use');
+    assert.equal(spawnGitVersion().status, 0,
+      'later calls must continue through cached per-call Git identity revalidation');
+  } finally {
+    if (previousSealedGitIdentity === undefined) delete process.env.LAMINA_SAFE_GIT_IDENTITY;
+    else process.env.LAMINA_SAFE_GIT_IDENTITY = previousSealedGitIdentity;
+  }
+
   const snapshotRepository = path.join(temporaryRoot, 'snapshot-repository');
   const snapshotInit = spawnTrustedGit(temporaryRoot, ['init', '--quiet', snapshotRepository], {
     encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024,
@@ -248,6 +285,35 @@ try {
     commit, tree_oid: treeOid, manifest, fixture, reviewed_inventory: inventory,
   };
   assert.deepEqual(verifyPinnedRepository(repository, collection), inventory);
+  function inventoryWithLateMutation(action) {
+    let mutated = false;
+    return new Proxy(inventory, {
+      get(target, property, receiver) {
+        if (!mutated && property === 'tracked_bytes') {
+          mutated = true;
+          action();
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+  }
+  assert.throws(() => verifyPinnedRepository(repository, {
+    ...collection,
+    reviewed_inventory: inventoryWithLateMutation(() => {
+      repositoryGit(['checkout', '--quiet', '-b', 'late-branch']);
+    }),
+  }), /changed during inventory admission/,
+  'final verification must reread and reject a branch attached during inventory');
+  repositoryGit(['checkout', '--quiet', '--detach', commit]);
+  repositoryGit(['branch', '-D', 'late-branch']);
+  assert.throws(() => verifyPinnedRepository(repository, {
+    ...collection,
+    reviewed_inventory: inventoryWithLateMutation(() => {
+      repositoryGit(['remote', 'add', 'late', 'https://example.invalid/tiny.git']);
+    }),
+  }), /changed during inventory admission/,
+  'final verification must reread and reject a remote added during inventory');
+  repositoryGit(['remote', 'remove', 'late']);
   assert.throws(() => verifyPinnedRepository(repository, {
     ...collection, reviewed_inventory: { ...inventory, tracked_bytes: inventory.tracked_bytes + 1 },
   }), /reviewed inventory mismatch for tracked_bytes/);

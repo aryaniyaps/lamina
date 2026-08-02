@@ -150,8 +150,12 @@ try {
   if (previousOracleFixture === undefined) delete process.env.ORACLE_FIXTURE;
   else process.env.ORACLE_FIXTURE = previousOracleFixture;
 }
-const manifestLf = fs.readFileSync(new URL('../benchmarks/runtime-baseline-v1/manifest.json', import.meta.url));
+const manifestLf = Buffer.from(fs.readFileSync(
+  new URL('../benchmarks/runtime-baseline-v1/manifest.json', import.meta.url), 'utf8',
+).replaceAll('\r\n', '\n'));
 const manifestCrlf = Buffer.from(manifestLf.toString('utf8').replaceAll('\n', '\r\n'));
+assert.equal(manifestCrlf.includes(Buffer.from('\r\r\n')), false,
+  'CRLF fixture construction must not double an existing checkout carriage return');
 assert.equal(reviewedManifestDigest(manifestCrlf), BASELINE_MANIFEST_SHA256, 'CRLF checkout bytes preserve only the reviewed LF manifest identity');
 assert.notEqual(reviewedManifestDigest(Buffer.from(manifestLf.toString('utf8').replace('Bulletproof React', 'Changed'))), BASELINE_MANIFEST_SHA256);
 

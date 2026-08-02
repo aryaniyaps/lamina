@@ -38,6 +38,10 @@ const FIXED_GIT_DIRECTORIES = process.platform === 'win32'
   : undefined;
 
 let gitIdentity = null;
+const SEALED_GIT_IDENTITY_FIELDS = Object.freeze([
+  'path', 'dev', 'ino', 'uid', 'mode', 'size', 'digest',
+]);
+const MAX_SEALED_GIT_IDENTITY_BYTES = 4_096;
 
 const EXECUTABLE_SECTIONS = new Set([
   'alias', 'credential', 'diff', 'filter', 'gpg', 'include', 'includeif',
@@ -163,6 +167,61 @@ export function trustedGitIdentity() {
   return assertTrustedBinaryIdentity(gitIdentity);
 }
 
+function consumeSealedGitIdentity() {
+  const encoded = process.env.LAMINA_SAFE_GIT_IDENTITY;
+  if (encoded === undefined) return null;
+  delete process.env.LAMINA_SAFE_GIT_IDENTITY;
+  const malformed = () => {
+    const error = new Error('sealed workload Git identity is malformed');
+    error.code = 'LAMINA_SAFE_GIT_IDENTITY';
+    return error;
+  };
+  if (typeof encoded !== 'string' || encoded.length === 0
+    || encoded.length > MAX_SEALED_GIT_IDENTITY_BYTES
+    || !/^[A-Za-z0-9_-]+$/.test(encoded)) throw malformed();
+  let bytes;
+  let identity;
+  try {
+    bytes = Buffer.from(encoded, 'base64url');
+    if (bytes.length === 0 || bytes.length > MAX_SEALED_GIT_IDENTITY_BYTES
+      || bytes.toString('base64url') !== encoded) throw malformed();
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) throw malformed();
+    identity = JSON.parse(text);
+  } catch (error) {
+    if (error?.code === 'LAMINA_SAFE_GIT_IDENTITY') throw error;
+    throw malformed();
+  }
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)
+    || JSON.stringify(Object.keys(identity).sort())
+      !== JSON.stringify([...SEALED_GIT_IDENTITY_FIELDS].sort())
+    || typeof identity.path !== 'string' || !path.isAbsolute(identity.path)
+    || typeof identity.dev !== 'string' || !/^(?:0|[1-9]\d*)$/.test(identity.dev)
+    || typeof identity.ino !== 'string' || !/^(?:0|[1-9]\d*)$/.test(identity.ino)
+    || !Number.isSafeInteger(identity.uid) || identity.uid < 0
+    || !Number.isSafeInteger(identity.mode) || identity.mode < 0 || identity.mode > 0o7777
+    || typeof identity.size !== 'string' || !/^(?:0|[1-9]\d*)$/.test(identity.size)
+    || typeof identity.digest !== 'string' || !/^[a-f0-9]{64}$/.test(identity.digest)) {
+    throw malformed();
+  }
+  return identity;
+}
+
+function trustedGitIdentityForSpawn() {
+  const sealed = consumeSealedGitIdentity();
+  const actual = trustedGitIdentity();
+  if (sealed) {
+    for (const field of SEALED_GIT_IDENTITY_FIELDS) {
+      if (sealed[field] !== actual[field]) {
+        const error = new Error('sealed workload Git identity does not match trusted Git');
+        error.code = 'LAMINA_SAFE_GIT_IDENTITY';
+        throw error;
+      }
+    }
+  }
+  return actual;
+}
+
 export function inertGitEnvironment({ objectDirectory = null } = {}) {
   const environment = {
     PATH: process.platform === 'win32' ? path.dirname(trustedGitIdentity().path) : '/usr/bin:/bin',
@@ -206,8 +265,8 @@ export function spawnTrustedGit(cwd, args, {
   maxBuffer = 64 * 1024,
   objectDirectory = null,
 } = {}) {
+  const identity = trustedGitIdentityForSpawn();
   assertRepositoryGitConfigInert(cwd);
-  const identity = trustedGitIdentity();
   return spawnSync(identity.path, trustedGitArguments(args), {
     cwd,
     input,
