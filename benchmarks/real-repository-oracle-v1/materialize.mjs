@@ -13,11 +13,16 @@ const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_TRACKED_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_PORTABLE_LINK_BYTES = 4 * 1024;
 const MAX_RETAINED_LINK_BYTES = 4 * 1024 * 1024;
-const PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
+const MAX_SYMLINK_TRAVERSALS = 40;
+const REQUIRED_PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
   ['core.repositoryformatversion', new Set(['0'])],
   ['core.filemode', new Set(['true', 'false'])],
   ['core.bare', new Set(['false'])],
   ['core.logallrefupdates', new Set(['true'])],
+]));
+const OPTIONAL_PORTABLE_CHECKOUT_CONFIG = Object.freeze(new Map([
+  ['core.ignorecase', new Set(['true', 'false'])],
+  ['core.precomposeunicode', new Set(['true', 'false'])],
 ]));
 const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
   && typeof process.getuid === 'function';
@@ -26,6 +31,7 @@ export const RECONSTRUCTION_LIMITS = Object.freeze({
   max_counted_tracked_bytes: 256 * 1024 * 1024,
   max_followed_file_bytes: MAX_TRACKED_FILE_BYTES,
   max_retained_link_bytes: MAX_RETAINED_LINK_BYTES,
+  max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
 });
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -126,20 +132,20 @@ function assertPortableCheckoutConfig(repository) {
     if (separator <= 0) throw new Error('portable checkout Git config is malformed');
     const key = record.slice(0, separator).toLowerCase();
     const value = record.slice(separator + 1);
-    if (seen.has(key) || !PORTABLE_CHECKOUT_CONFIG.get(key)?.has(value)) {
+    const admittedValues = REQUIRED_PORTABLE_CHECKOUT_CONFIG.get(key)
+      || OPTIONAL_PORTABLE_CHECKOUT_CONFIG.get(key);
+    if (seen.has(key) || !admittedValues?.has(value)) {
       throw new Error(`portable checkout Git config is outside the exact allowlist: ${key}`);
     }
     seen.set(key, value);
   }
-  if (seen.size !== PORTABLE_CHECKOUT_CONFIG.size
-    || [...PORTABLE_CHECKOUT_CONFIG.keys()].some((key) => !seen.has(key))) {
+  if ([...REQUIRED_PORTABLE_CHECKOUT_CONFIG.keys()].some((key) => !seen.has(key))) {
     throw new Error('portable checkout requires the exact inert local Git config');
   }
 }
 
 function portableLinkResolver(
   repository, entries, objectFormat, regularFiles, trackedPaths, maximumRetainedLinkBytes,
-  resolutionEvidence,
 ) {
   const entryByPath = new Map(entries.map((entry) => [entry.path, entry]));
   const impliedDirectories = new Set(['']);
@@ -150,8 +156,7 @@ function portableLinkResolver(
       parent = path.posix.dirname(parent);
     }
   }
-  const cache = new Map();
-  const resolving = new Set();
+  const linkBodies = new Map();
   const retainedBodies = new Set();
   let retainedLinkBytes = 0;
 
@@ -160,6 +165,13 @@ function portableLinkResolver(
     const before = fs.lstatSync(file, { bigint: true });
     if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n) {
       throw new Error(`stage-0 portable link is not a physical single-link regular file: ${entry.path}`);
+    }
+    if (linkBodies.has(entry.path)) {
+      const retained = linkBodies.get(entry.path);
+      if (JSON.stringify(stableStatIdentity(before).map(String)) !== retained.stat_identity) {
+        throw new Error(`stage-0 portable link changed after validation: ${entry.path}`);
+      }
+      return retained;
     }
     const physical = readPhysicalTrackedFile(repository, entry.path, MAX_PORTABLE_LINK_BYTES);
     if (entry.oid !== gitBlobOid(objectFormat, physical.bytes)) {
@@ -172,7 +184,29 @@ function portableLinkResolver(
       }
       retainedBodies.add(entry.path);
     }
-    return physical.bytes;
+    let targetText;
+    try {
+      targetText = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
+        .decode(physical.bytes);
+    } catch { throw new Error(`portable link target is not UTF-8: ${entry.path}`); }
+    if (!targetText || targetText.includes('\0') || targetText.includes('\\')
+      || path.posix.isAbsolute(targetText) || /^[A-Za-z]:/.test(targetText)) {
+      throw new Error(`portable link target must be relative UTF-8: ${entry.path}`);
+    }
+    const after = fs.lstatSync(file, { bigint: true });
+    const identity = JSON.stringify(stableStatIdentity(before).map(String));
+    if (JSON.stringify(stableStatIdentity(after).map(String)) !== identity) {
+      throw new Error(`stage-0 portable link changed after reading: ${entry.path}`);
+    }
+    const result = Object.freeze({
+      bytes: physical.bytes,
+      text: targetText,
+      components: targetText.split('/').filter((component) => component !== ''),
+      trailingSlash: targetText.endsWith('/'),
+      stat_identity: identity,
+    });
+    linkBodies.set(entry.path, result);
+    return result;
   }
 
   function physicalNode(relative, origin) {
@@ -193,96 +227,115 @@ function portableLinkResolver(
     throw new Error(`portable link targets an untracked file: ${origin.path}`);
   }
 
-  function resolveComponents(base, components, requireDirectory, origin) {
-    let current = base;
-    for (let index = 0; index < components.length; index += 1) {
-      const component = components[index];
-      if (!component || component === '.') continue;
+  function resolve(entry, enforceTraversalLimit = true) {
+    const pending = [];
+    const traversed = new Set();
+    let current = '';
+    let traversalHops = 0;
+    let requireDirectory = false;
+    let topBody = null;
+
+    const follow = (linkEntry) => {
+      traversalHops += 1;
+      if (enforceTraversalLimit && traversalHops > MAX_SYMLINK_TRAVERSALS) return false;
+      if (traversed.has(linkEntry.path)) {
+        throw new Error(`portable link target is cyclic: ${entry.path}`);
+      }
+      traversed.add(linkEntry.path);
+      const body = readLinkBody(linkEntry);
+      if (topBody === null) topBody = body;
+      if (body.trailingSlash && pending.length === 0) requireDirectory = true;
+      for (let index = body.components.length - 1; index >= 0; index -= 1) {
+        pending.push(body.components[index]);
+      }
+      const parent = path.posix.dirname(linkEntry.path);
+      current = parent === '.' ? '' : parent;
+      return true;
+    };
+
+    const finish = (node, nativeSkipReason = null) => {
+      return {
+        physical: nativeSkipReason || node.kind !== 'file' ? null : node.physical,
+        resolution: Object.freeze({
+          path: entry.path,
+          link_oid: entry.oid,
+          link_target_text: topBody.text,
+          link_byte_length: topBody.bytes.length,
+          traversal_hops: traversalHops,
+          traversal_limit: MAX_SYMLINK_TRAVERSALS,
+          outcome: nativeSkipReason ? 'skipped' : node.kind,
+          skip_reason: nativeSkipReason,
+          target_kind: node.kind,
+          target_path: node.path,
+          target_oid: node.kind === 'file' ? node.oid : null,
+          target_size: node.kind === 'file' ? node.physical.bytes.length : null,
+        }),
+      };
+    };
+
+    const traversalLimit = () => ({
+      physical: null,
+      resolution: Object.freeze({
+        path: entry.path,
+        link_oid: entry.oid,
+        link_target_text: topBody.text,
+        link_byte_length: topBody.bytes.length,
+        traversal_hops: traversalHops,
+        traversal_limit: MAX_SYMLINK_TRAVERSALS,
+        outcome: 'skipped',
+        skip_reason: 'symlink_traversal_limit',
+        target_kind: null,
+        target_path: null,
+        target_oid: null,
+        target_size: null,
+      }),
+    });
+
+    if (!follow(entry)) return traversalLimit();
+    while (pending.length) {
+      const component = pending.pop();
+      if (component === '.') continue;
       if (component === '..') {
-        if (!current) throw new Error(`portable link target escapes repository content: ${origin.path}`);
+        if (!current) throw new Error(`portable link target escapes repository content: ${entry.path}`);
         current = path.posix.dirname(current);
         if (current === '.') current = '';
         continue;
       }
       const candidate = current ? `${current}/${component}` : component;
       if (candidate === '.git' || candidate.startsWith('.git/')) {
-        throw new Error(`portable link target escapes repository content: ${origin.path}`);
+        throw new Error(`portable link target escapes repository content: ${entry.path}`);
       }
       const targetEntry = entryByPath.get(candidate);
       if (targetEntry?.mode === '120000') {
-        const target = resolve(targetEntry);
-        const remaining = components.slice(index + 1);
-        if (target.kind === 'file') {
-          if (remaining.some((piece) => piece && piece !== '.') || requireDirectory) {
-            throw new Error(`portable link traverses a file as a directory: ${origin.path}`);
-          }
-          return target;
-        }
-        current = target.path;
-        components = remaining;
-        index = -1;
+        if (!follow(targetEntry)) return traversalLimit();
         continue;
       }
       if (targetEntry && ['100644', '100755'].includes(targetEntry.mode)) {
         const target = regularFiles.get(candidate);
-        if (!target) throw new Error(`portable link targets an unverified tracked file: ${origin.path}`);
-        if (index !== components.length - 1 || requireDirectory) {
-          throw new Error(`portable link traverses a file as a directory: ${origin.path}`);
+        if (!target) throw new Error(`portable link targets an unverified tracked file: ${entry.path}`);
+        const node = { kind: 'file', physical: target, path: candidate, oid: targetEntry.oid };
+        if (pending.length || requireDirectory) {
+          return finish(node, 'not_directory');
         }
-        return { kind: 'file', physical: target, path: candidate, oid: targetEntry.oid };
+        return finish(node);
       }
       if (impliedDirectories.has(candidate)) {
-        const directory = physicalNode(candidate, origin);
+        const directory = physicalNode(candidate, entry);
         current = directory.path;
         continue;
       }
-      return physicalNode(candidate, origin);
+      physicalNode(candidate, entry);
     }
-    const directory = physicalNode(current, origin);
-    if (directory.kind !== 'directory' && requireDirectory) {
-      throw new Error(`portable link target requires a directory: ${origin.path}`);
-    }
-    return directory;
+    return finish(physicalNode(current, entry));
   }
-
-  function resolve(entry) {
-    if (cache.has(entry.path)) return cache.get(entry.path);
-    if (resolving.has(entry.path)) {
-      throw new Error(`portable link target is cyclic: ${entry.path}`);
-    }
-    resolving.add(entry.path);
-    try {
-      const linkBytes = readLinkBody(entry);
-      let targetText;
-      try { targetText = new TextDecoder('utf-8', { fatal: true }).decode(linkBytes); }
-      catch { throw new Error(`portable link target is not UTF-8: ${entry.path}`); }
-      if (!targetText || targetText.includes('\0') || targetText.includes('\\')
-        || path.posix.isAbsolute(targetText) || /^[A-Za-z]:/.test(targetText)) {
-        throw new Error(`portable link target must be relative UTF-8: ${entry.path}`);
-      }
-      const node = resolveComponents(
-        path.posix.dirname(entry.path) === '.' ? '' : path.posix.dirname(entry.path),
-        targetText.split('/'), targetText.endsWith('/'), entry,
-      );
-      cache.set(entry.path, node);
-      return node;
-    } finally {
-      resolving.delete(entry.path);
-    }
+  // Validate the complete bounded Git-declared link graph independently of
+  // Linux's pathname limit. Metric resolution below still stops at hop 41,
+  // while malformed suffixes cannot hide behind that native ELOOP result.
+  // This walk is iterative: even the 6,000-entry cap cannot consume JS stack.
+  for (const entry of entries) {
+    if (entry.mode === '120000') resolve(entry, false);
   }
-  return (entry) => {
-    const node = resolve(entry);
-    if (resolutionEvidence) {
-      resolutionEvidence.push(Object.freeze({
-        path: entry.path,
-        link_oid: entry.oid,
-        target_kind: node.kind,
-        target_path: node.path,
-        target_oid: node.kind === 'file' ? node.oid : null,
-      }));
-    }
-    return node.kind === 'file' ? node.physical : null;
-  };
+  return (entry) => resolve(entry, true);
 }
 
 function trackedEntries(repository, maximumEntries = Number.MAX_SAFE_INTEGER) {
@@ -365,7 +418,7 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
     assertPortableCheckoutConfig(physicalRepository);
     resolvePortableLink = portableLinkResolver(
       physicalRepository, entries, objectFormat, regularFiles, trackedPaths,
-      maximumRetainedLinkBytes, portableResolutionEvidence,
+      maximumRetainedLinkBytes,
     );
   }
   for (const entry of entries) {
@@ -373,22 +426,47 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
     if (typeof entry !== 'string' && !['100644', '100755', '120000'].includes(entry.mode)) {
       throw new Error('candidate inventory received a special, gitlink, or unmerged tracked entry');
     }
+    const portableResolution = typeof entry !== 'string' && entry.mode === '120000'
+      ? resolvePortableLink(entry)
+      : null;
     const physical = typeof entry === 'string'
       ? readPhysicalTrackedFile(physicalRepository, relative, maximumFileBytes)
-      : entry.mode === '120000'
-        ? resolvePortableLink(entry)
+      : portableResolution
+        ? portableResolution.physical
         : regularFiles.get(relative);
+    const contribution = {
+      tracked_bytes: 0,
+      observation_included: false,
+      observation_bytes: 0,
+      retrieval_included: false,
+      retrieval_bytes: 0,
+      source_included: false,
+      source_bytes: 0,
+      source_loc: 0,
+    };
     // #60 counted the tracked path but skipped bytes and candidates when
-    // fs.stat resolved a tracked symlink to an internal directory.
-    if (physical === null) continue;
+    // fs.stat failed (including ELOOP/ENOTDIR) or resolved a tracked symlink
+    // to an internal directory.
+    if (physical === null) {
+      if (portableResolutionEvidence && portableResolution) {
+        portableResolutionEvidence.push(Object.freeze({
+          ...portableResolution.resolution,
+          contribution: Object.freeze(contribution),
+        }));
+      }
+      continue;
+    }
     const { bytes } = physical;
     trackedBytes += bytes.length;
+    contribution.tracked_bytes = bytes.length;
     if (trackedBytes > maximumTrackedBytes) {
       throw new Error('tracked collection exceeds the fixed aggregate counted-byte bound');
     }
     if (!isExcludedPath(relative, manifest.exclusions)) {
       observationPaths.push(relative);
       observationBytes += bytes.length;
+      contribution.observation_included = true;
+      contribution.observation_bytes = bytes.length;
     }
     const extension = path.extname(relative).toLowerCase();
     if (retrievalExtensions.has(extension) && bytes.length <= manifest.retrieval_max_file_bytes) {
@@ -396,14 +474,26 @@ export function candidateInventoryFromTracked(repository, entries, manifest, fix
         new TextDecoder('utf-8', { fatal: true }).decode(bytes);
         retrievalPaths.push(relative);
         retrievalBytes += bytes.length;
+        contribution.retrieval_included = true;
+        contribution.retrieval_bytes = bytes.length;
       } catch {}
     }
     if (sourceExtensions.has(extension) || SOURCE_NAMES.has(path.basename(relative))) {
       sourceFiles += 1;
       sourceBytes += bytes.length;
+      contribution.source_included = true;
+      contribution.source_bytes = bytes.length;
       if (bytes.length <= MAX_SOURCE_BYTES) {
-        sourceLoc += bytes.toString('utf8').split(/\r?\n/).filter((line) => line.trim()).length;
+        const lines = bytes.toString('utf8').split(/\r?\n/).filter((line) => line.trim()).length;
+        sourceLoc += lines;
+        contribution.source_loc = lines;
       }
+    }
+    if (portableResolutionEvidence && portableResolution) {
+      portableResolutionEvidence.push(Object.freeze({
+        ...portableResolution.resolution,
+        contribution: Object.freeze(contribution),
+      }));
     }
   }
   if (sourceLoc < fixture.source_loc.minimum || sourceLoc > fixture.source_loc.maximum) {
@@ -542,9 +632,13 @@ export function reconstructPinnedRepositoryInventory(repository, collection) {
   assertNoPhysicalSymlinks(physicalRepository);
   const portableLinkResolution = Object.freeze({
     schema: 'lamina.real-repository-oracle-portable-link-resolution/v1',
+    max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
     alias_count: portableResolutionEvidence.length,
     records: Object.freeze(portableResolutionEvidence),
-    sha256: sha256(JSON.stringify(portableResolutionEvidence)),
+    sha256: sha256(JSON.stringify({
+      max_symlink_traversals: MAX_SYMLINK_TRAVERSALS,
+      records: portableResolutionEvidence,
+    })),
   });
   return Object.freeze({
     inventory,
