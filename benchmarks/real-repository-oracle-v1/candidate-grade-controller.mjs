@@ -35,7 +35,7 @@ const HANDLE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,255}$/;
 const ISSUED_PLANS = new WeakSet();
 const ISSUED_LEASES = new WeakSet();
 const ISSUED_LEASE_AUTHORITY = new WeakMap();
-const ISSUED_HANDLES_BY_PLAN = new WeakMap();
+const ISSUED_HANDLE_AUTHORITY = new Map();
 
 const exactKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
@@ -145,7 +145,6 @@ export function createCandidateTierPlan(tier) {
     slots,
   });
   ISSUED_PLANS.add(plan);
-  ISSUED_HANDLES_BY_PLAN.set(plan, new Set());
   return plan;
 }
 
@@ -165,23 +164,25 @@ export function issueHostLeaseEvidence(plan, evidence) {
     || !PHASES.includes(evidence.phase) || !HANDLE.test(evidence.opaque_handle || '')) {
     fail('host lease evidence has invalid identity, slot, phase, or fields');
   }
-  const issuedHandles = ISSUED_HANDLES_BY_PLAN.get(plan);
-  if (issuedHandles.has(evidence.opaque_handle)) {
-    fail(`lease handle ${evidence.opaque_handle} was already issued for this plan`);
+  if (ISSUED_HANDLE_AUTHORITY.has(evidence.opaque_handle)) {
+    fail(`lease handle ${evidence.opaque_handle} was already issued by this host controller`);
   }
   const issued = deepFreeze(structuredClone(evidence));
-  issuedHandles.add(issued.opaque_handle);
-  ISSUED_LEASES.add(issued);
-  ISSUED_LEASE_AUTHORITY.set(issued, {
+  const authority = {
     plan, slot_id: issued.slot_id, phase: issued.phase,
-  });
+  };
+  ISSUED_LEASES.add(issued);
+  ISSUED_LEASE_AUTHORITY.set(issued, authority);
+  ISSUED_HANDLE_AUTHORITY.set(issued.opaque_handle, authority);
   return issued;
 }
 
 function validateLease(plan, slot, phase, lease, collection, handles) {
   if (!lease || !ISSUED_LEASES.has(lease)) fail(`${slot.slot_id}/${phase} lease evidence was not issued by the host`);
   const authority = ISSUED_LEASE_AUTHORITY.get(lease);
-  if (authority?.plan !== plan || authority.slot_id !== slot.slot_id || authority.phase !== phase) {
+  const handleAuthority = ISSUED_HANDLE_AUTHORITY.get(lease.opaque_handle);
+  if (handleAuthority !== authority || authority?.plan !== plan
+    || authority.slot_id !== slot.slot_id || authority.phase !== phase) {
     fail(`${slot.slot_id}/${phase} lease evidence was issued for different host authority`);
   }
   if (lease.slot_id !== slot.slot_id || lease.phase !== phase) fail(`${slot.slot_id}/${phase} lease correlation differs`);

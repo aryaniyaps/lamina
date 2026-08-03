@@ -185,8 +185,18 @@ assert.throws(() => gradeCandidateTierRuns({
 }), /plan was not issued/);
 assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
   plan, plan.slots[0], 'first', perfectRecords[0].lease.opaque_handle,
-)), /already issued for this plan/,
+)), /already issued by this host controller/,
 'a candidate-side launch cannot reuse a handle already issued to the current side');
+const duplicateHandlePlanA = createCandidateTierPlan('small');
+const duplicateHandlePlanB = createCandidateTierPlan('small');
+const globallyDuplicatedHandle = 'lease-global-duplicate-0001';
+issueHostLeaseEvidence(duplicateHandlePlanA, leaseFields(
+  duplicateHandlePlanA, duplicateHandlePlanA.slots[0], 'first', globallyDuplicatedHandle,
+));
+assert.throws(() => issueHostLeaseEvidence(duplicateHandlePlanB, leaseFields(
+  duplicateHandlePlanB, duplicateHandlePlanB.slots[0], 'first', globallyDuplicatedHandle,
+)), /already issued by this host controller/,
+'an opaque handle cannot be reissued under an independently issued same-tier plan');
 assert.throws(() => gradeCandidateSideBySide({
   plan,
   current: { adapter: currentAdapter, records: perfectRecords },
