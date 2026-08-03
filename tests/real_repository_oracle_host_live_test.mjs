@@ -31,6 +31,8 @@ const reportRoot = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-oracle-host-live-report-'),
 ));
 fs.chmodSync(reportRoot, 0o700);
+const previousStateDirectory = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(reportRoot, 'state');
 const limits = {
   memoryMaxBytes: 256 * 1024 ** 2,
   memoryHighBytes: 192 * 1024 ** 2,
@@ -86,6 +88,8 @@ try {
   assert.deepEqual(crashReport.cleanup.descendants_remaining, []);
   assert.deepEqual(crashReport.cleanup.errors, []);
 } finally {
+  if (previousStateDirectory === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+  else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousStateDirectory;
   fs.rmSync(reportRoot, { recursive: true, force: true });
 }
 
