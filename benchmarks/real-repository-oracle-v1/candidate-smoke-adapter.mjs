@@ -13,6 +13,18 @@ if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(EXPECTED_ARGUMENTS)
   throw new Error('candidate smoke argv contains non-FD authority');
 }
 
+const fdSealCanaryClosed = (() => {
+  const prologue = fs.readFileSync(scratchFile, 'utf8');
+  const match = prologue.match(/^lamina-fd-seal-canary\/v1:(\d+)\n$/);
+  const canaryFd = Number(match?.[1]);
+  const direct = fs.fstatSync(9, { bigint: true });
+  const alias = fs.statSync(scratchFile, { bigint: true });
+  if (!Number.isSafeInteger(canaryFd) || canaryFd < 1025
+    || direct.dev !== alias.dev || direct.ino !== alias.ino) return false;
+  try { fs.fstatSync(canaryFd); return false; }
+  catch (error) { return error?.code === 'EBADF'; }
+})();
+
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
@@ -79,6 +91,7 @@ const checks = {
   private_controller_read_denied: denied(() => fs.readFileSync('/etc/passwd')),
   proc_metadata_read_denied: denied(() => fs.readFileSync('/proc/self/status')),
   command_line_controller_paths_absent: controllerPathAbsent,
+  high_inherited_fd_closed: fdSealCanaryClosed,
   repository_mutation_denied: denied(() => fs.writeFileSync(
     `${repository}/candidate-mutation`, 'mutated\n',
   )),

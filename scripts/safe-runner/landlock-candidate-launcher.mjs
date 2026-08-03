@@ -11,11 +11,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SOURCE = path.join(
   ROOT, 'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
 );
-const REVIEWED_SOURCE_SHA256 = '387a2a74f9bb876fde0d6086dcd82ad48fa85c269e007e91ec477d4c3b1330ed';
+const REVIEWED_SOURCE_SHA256 = 'f64baf725f1df7f6461866044fef542bde09d76706826533f8413cf4f54a64c9';
 const O_PATH = 0x200000;
 const O_TMPFILE = 0x410000;
 const MAX_IDENTITY_BYTES = 128 * 1024 * 1024;
 const MAX_RUNTIME_FILES = 32;
+export const LANDLOCK_CANDIDATE_CANARY_MIN_FD = 1025;
 export const LANDLOCK_CANDIDATE_REPOSITORY_FD = 7;
 export const LANDLOCK_CANDIDATE_REPOSITORY_ALIAS =
   `/proc/self/fd/${LANDLOCK_CANDIDATE_REPOSITORY_FD}`;

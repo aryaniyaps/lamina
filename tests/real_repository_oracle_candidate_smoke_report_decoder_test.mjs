@@ -7,8 +7,11 @@ import {
   candidateSmokeAuthority, candidateSmokeRecord,
 } from '../benchmarks/real-repository-oracle-v1/candidate-smoke.mjs';
 import {
-  decodeCandidateSmokeReport,
+  validateCandidateSmokeReport,
 } from '../benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs';
+import {
+  isCandidateSmokeControllerVerification,
+} from '../benchmarks/real-repository-oracle-v1/candidate-smoke-controller.mjs';
 import {
   CANDIDATE_SMOKE_LAUNCH_PROFILE,
   CANDIDATE_SMOKE_LIMITS,
@@ -134,15 +137,13 @@ const report = {
   error: null,
 };
 
-const decoded = decodeCandidateSmokeReport(report);
-assert.deepEqual(decoded, {
-  record,
-  outer_cleanup_authenticated: true,
-  cleanup_proof_issued: false,
-  grading_reachable: false,
-});
-assert.equal(Object.isFrozen(decoded), true);
-assert.equal(Object.isFrozen(decoded.record), true);
+const validated = validateCandidateSmokeReport(report);
+assert.deepEqual(validated, record);
+assert.equal(Object.isFrozen(validated), true);
+assert.equal(Object.hasOwn(validated, 'outer_cleanup_authenticated'), false);
+assert.equal(Object.hasOwn(validated, 'outer_cleanup_verified'), false);
+assert.equal(isCandidateSmokeControllerVerification(validated), false);
+assert.equal(isCandidateSmokeControllerVerification(structuredClone(validated)), false);
 for (const mutate of [
   (value) => { value.command.push('extra'); },
   (value) => { value.preflight.workload_id = 'spoofed'; },
@@ -175,7 +176,7 @@ for (const mutate of [
 ]) {
   const changed = structuredClone(report);
   mutate(changed);
-  assert.throws(() => decodeCandidateSmokeReport(changed));
+  assert.throws(() => validateCandidateSmokeReport(changed));
 }
 
-console.log('real repository oracle candidate smoke report decoder passed');
+console.log('real repository oracle candidate smoke structural report validator passed');

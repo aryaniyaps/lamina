@@ -33,6 +33,7 @@ export const CANDIDATE_SMOKE_SANDBOX_CHECKS = Object.freeze([
   'private-controller-read-denied',
   'proc-metadata-read-denied',
   'command-line-controller-paths-absent',
+  'high-inherited-fd-closed',
   'repository-mutation-denied',
   'child-process-denied',
   'tcp-network-denied',

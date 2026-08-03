@@ -8,6 +8,7 @@
 #include <linux/landlock.h>
 #include <linux/sched.h>
 #include <linux/seccomp.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -40,6 +42,11 @@
 #define SCRATCH_FD 9
 #define CONFIGURATION_FD 10
 #define FIRST_RUNTIME_FD 11
+#define CANARY_MIN_FD 1025
+
+#ifndef __NR_close_range
+#define __NR_close_range 436
+#endif
 
 /* Linux v6.13+ x86_64 syscall numbers, pinned with the reviewed v7.0 UAPI. */
 #ifndef __NR_setxattrat
@@ -382,10 +389,13 @@ static void run_candidate(int argc, char **argv)
 	const uint64_t bounded_write = read_file | LANDLOCK_ACCESS_FS_WRITE_FILE |
 		LANDLOCK_ACCESS_FS_TRUNCATE;
 	struct landlock_ruleset_attr ruleset = {0};
+	struct rlimit original_nofile, raised_nofile;
+	char canary_prologue[96];
 	char *candidate_argv[7];
 	int runtime_fds[MAX_RUNTIME_FILES];
 	int expected_abi, abi, node_fd, adapter_fd, input_fd, repository_fd;
 	int output_fd, scratch_fd, configuration_fd, runtime_count, separator, ruleset_fd;
+	int canary_fd, canary_length, canary_flags;
 	uint32_t restrict_flags = 0;
 
 	if (argc < 15) {
@@ -439,6 +449,34 @@ static void run_candidate(int argc, char **argv)
 	for (int index = 0; index < runtime_count; index++)
 		require_descriptor_type(runtime_fds[index], S_IFREG);
 
+	if (getrlimit(RLIMIT_NOFILE, &original_nofile) != 0)
+		die("getrlimit RLIMIT_NOFILE");
+	raised_nofile = original_nofile;
+	if (raised_nofile.rlim_cur <= CANARY_MIN_FD) {
+		if (raised_nofile.rlim_max <= CANARY_MIN_FD) {
+			errno = EMFILE;
+			die("RLIMIT_NOFILE cannot host descriptor canary");
+		}
+		raised_nofile.rlim_cur = CANARY_MIN_FD + 1;
+		if (setrlimit(RLIMIT_NOFILE, &raised_nofile) != 0)
+			die("raise RLIMIT_NOFILE for descriptor canary");
+	}
+	canary_fd = fcntl(scratch_fd, F_DUPFD, CANARY_MIN_FD);
+	if (canary_fd < CANARY_MIN_FD)
+		die("duplicate high descriptor canary");
+	canary_flags = fcntl(canary_fd, F_GETFD);
+	if (canary_flags < 0 || (canary_flags & FD_CLOEXEC) != 0) {
+		errno = EPROTO;
+		die("high descriptor canary was not inherited");
+	}
+	canary_length = snprintf(canary_prologue, sizeof(canary_prologue),
+				 "lamina-fd-seal-canary/v1:%d\n", canary_fd);
+	if (canary_length <= 0 || (size_t)canary_length >= sizeof(canary_prologue)
+	    || ftruncate(scratch_fd, 0) != 0
+	    || pwrite(scratch_fd, canary_prologue, (size_t)canary_length, 0)
+	       != canary_length)
+		die("write high descriptor canary prologue");
+
 	ruleset.handled_access_fs = handled_filesystem_rights(abi);
 	if (abi >= 4)
 		ruleset.handled_access_net = LANDLOCK_ACCESS_NET_BIND_TCP |
@@ -470,10 +508,17 @@ static void run_candidate(int argc, char **argv)
 	if (close(ruleset_fd) != 0)
 		die("close ruleset");
 	self_test_seccomp(scratch_fd);
-	for (int fd = 3; fd <= 1024; fd++) {
-		if (fd < NODE_FD || fd > SCRATCH_FD)
-			close(fd);
+	if (syscall(__NR_close_range, CONFIGURATION_FD, UINT_MAX, 0) != 0)
+		die("close_range inherited descriptors");
+	errno = 0;
+	if (fcntl(canary_fd, F_GETFD) != -1 || errno != EBADF) {
+		errno = EPROTO;
+		die("high descriptor canary survived close_range");
 	}
+	if (setrlimit(RLIMIT_NOFILE, &original_nofile) != 0)
+		die("restore RLIMIT_NOFILE after descriptor seal");
+	if (close(3) != 0)
+		die("close launcher descriptor");
 	if (fcntl(node_fd, F_SETFD, FD_CLOEXEC) != 0)
 		die("seal candidate runtime descriptor");
 	for (int fd = ADAPTER_FD; fd <= SCRATCH_FD; fd++) {

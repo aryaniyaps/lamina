@@ -64,6 +64,7 @@ export const REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE = Object.free
   ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   'benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-adapter.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-controller.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-contract.mjs',

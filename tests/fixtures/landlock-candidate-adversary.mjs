@@ -11,6 +11,17 @@ if (![inputFile, repository, outputFile, scratchFile]
 }
 
 const input = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+const highInheritedFdClosed = (() => {
+  const prologue = fs.readFileSync(scratchFile, 'utf8');
+  const match = prologue.match(/^lamina-fd-seal-canary\/v1:(\d+)\n$/);
+  const canaryFd = Number(match?.[1]);
+  const direct = fs.fstatSync(9, { bigint: true });
+  const alias = fs.statSync(scratchFile, { bigint: true });
+  if (!Number.isSafeInteger(canaryFd) || canaryFd < 1025
+    || direct.dev !== alias.dev || direct.ino !== alias.ino) return false;
+  try { fs.fstatSync(canaryFd); return false; }
+  catch (error) { return error?.code === 'EBADF'; }
+})();
 process.stdout.write('READY\n');
 await new Promise((resolve, reject) => {
   process.stdin.once('data', (chunk) => chunk.toString('utf8') === 'G' ? resolve() : reject(
@@ -107,6 +118,7 @@ const result = {
   )),
   proc_read_refused: refused(() => fs.readFileSync('/proc/self/status')),
   command_line_controller_paths_absent: commandLineControllerPathsAbsent,
+  high_inherited_fd_closed: highInheritedFdClosed,
   control_socket_refused: socketRefused,
   tcp_socket_refused: tcpSocketRefused,
   udp_socket_refused: udpSocketRefused,

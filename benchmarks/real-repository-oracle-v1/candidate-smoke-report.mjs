@@ -34,7 +34,7 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-export function decodeCandidateSmokeReport(report) {
+export function validateCandidateSmokeReport(report) {
   const validation = validateReport(report || {});
   const repository = path.resolve(String(report?.cwd || ''));
   const command = report?.command;
@@ -81,7 +81,7 @@ export function decodeCandidateSmokeReport(report) {
     CANDIDATE_SMOKE_LIMITS.temporary_max_bytes,
   );
   const promotion = preflight?.promotion;
-  const authorityValid = validation.valid
+  const structureValid = validation.valid
     && repository === ROOT && physicalRepository === ROOT
     && report.outcome === 'success' && report.tier === 'small' && report.error === null
     && exactCandidateSmokeCommand(command)
@@ -165,8 +165,8 @@ export function decodeCandidateSmokeReport(report) {
     && cleanup.lock_released === null && JSON.stringify(cleanup.errors) === '[]'
     && Number.isSafeInteger(output?.total_bytes)
     && output.total_bytes <= CANDIDATE_SMOKE_LIMITS.output_max_bytes;
-  if (!authorityValid) {
-    throw new Error('candidate smoke report does not bind exact safe-runner authority');
+  if (!structureValid) {
+    throw new Error('candidate smoke report does not match the exact structural contract');
   }
   if (output?.truncated !== false || output.stderr_bytes !== 0 || output.stderr_tail !== ''
     || typeof output.stdout_tail !== 'string'
@@ -178,10 +178,5 @@ export function decodeCandidateSmokeReport(report) {
     throw new Error('candidate smoke report did not retain one complete canonical line');
   }
   const record = parseCandidateSmokeRecordLine(output.stdout_tail);
-  return Object.freeze({
-    record,
-    outer_cleanup_authenticated: true,
-    cleanup_proof_issued: false,
-    grading_reachable: false,
-  });
+  return record;
 }

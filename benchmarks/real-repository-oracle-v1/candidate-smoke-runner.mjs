@@ -16,6 +16,7 @@ import {
   candidateSmokeRecord,
 } from './candidate-smoke.mjs';
 import {
+  CANDIDATE_RAW_MAX_CANONICAL_BYTES,
   parseCandidateRawArtifactBytes,
   serializeCandidatePublicBatch,
 } from './candidate-contract.mjs';
@@ -47,10 +48,44 @@ function canonicalLine(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
+export function readBoundedCandidateOutput(file) {
+  const named = fs.lstatSync(file, { bigint: true });
+  if (!named.isFile() || named.isSymbolicLink() || fs.realpathSync.native(file) !== file) {
+    throw new Error('candidate output is not an exact physical file');
+  }
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (opened.dev !== named.dev || opened.ino !== named.ino || opened.uid !== named.uid
+      || opened.mode !== named.mode || opened.nlink !== named.nlink || opened.size !== named.size) {
+      throw new Error('candidate output identity changed while opening');
+    }
+    if (opened.size < 1n || opened.size > BigInt(CANDIDATE_RAW_MAX_CANONICAL_BYTES)) {
+      throw new Error('candidate output exceeds the bounded parser ceiling');
+    }
+    const bytes = Buffer.alloc(Number(opened.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (count === 0) break;
+      offset += count;
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (offset !== bytes.length || after.dev !== opened.dev || after.ino !== opened.ino
+      || after.uid !== opened.uid || after.mode !== opened.mode || after.nlink !== opened.nlink
+      || after.size !== opened.size) {
+      throw new Error('candidate output changed during bounded read');
+    }
+    return bytes;
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 export async function runCandidateSmoke() {
   const temporary = exactRunnerTemporaryAuthority();
   const authority = candidateSmokeAuthority();
-  const retainedConstructionAuthorities = [];
+  const intraPayloadConstructionPublications = [];
   const owner = processIdentity(process.pid);
   if (!owner) throw new Error('candidate smoke cannot bind its materializer recovery owner');
   const materializer = createPersistentScenarioMaterializer({
@@ -61,16 +96,17 @@ export async function runCandidateSmoke() {
       if (!recoveryAuthority.root.startsWith(`${temporary}${path.sep}`)) {
         throw new Error('candidate smoke materializer recovery authority escapes outer temporary root');
       }
-      retainedConstructionAuthorities.push(structuredClone(recoveryAuthority));
+      intraPayloadConstructionPublications.push(structuredClone(recoveryAuthority));
       return persistentMaterializerRecoveryAck(recoveryAuthority);
     },
     maximumPackBytes: 256 * 1024 * 1024,
     maximumSnapshotFiles: 8_192,
     maximumSnapshotBytes: 256 * 1024 * 1024,
   });
-  if (retainedConstructionAuthorities.length !== 2
-    || retainedConstructionAuthorities[0].root !== retainedConstructionAuthorities[1].root) {
-    throw new Error('candidate smoke materializer construction authority was not retained privately');
+  if (intraPayloadConstructionPublications.length !== 2
+    || intraPayloadConstructionPublications[0].root
+      !== intraPayloadConstructionPublications[1].root) {
+    throw new Error('candidate smoke intra-payload materializer publication was not exact');
   }
   const base = await materializer.prepare(authority.scenario, authority.collection);
   const expectedRepositoryState = authority.expected_artifact.rows[0].result.repository_state;
@@ -115,7 +151,7 @@ export async function runCandidateSmoke() {
       throw new Error(`candidate smoke nested execution failed: ${JSON.stringify(execution)}`);
     }
     parsed = parseCandidateRawArtifactBytes(
-      fs.readFileSync(outputFile), authority.public_batch, CANDIDATE_SMOKE_ADAPTER,
+      readBoundedCandidateOutput(outputFile), authority.public_batch, CANDIDATE_SMOKE_ADAPTER,
     );
     if (parsed.canonical_sha256 !== authority.expected_result_sha256
       || parsed.canonical_json !== JSON.stringify(authority.expected_artifact)) {

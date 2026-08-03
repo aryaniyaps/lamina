@@ -592,6 +592,7 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/oracle-host-profile.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-adapter.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-controller.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-contract.mjs',

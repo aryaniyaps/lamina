@@ -183,6 +183,7 @@ try {
     elsewhere_write_refused: true,
     proc_read_refused: true,
     command_line_controller_paths_absent: true,
+    high_inherited_fd_closed: true,
     control_socket_refused: true,
     tcp_socket_refused: true,
     udp_socket_refused: true,

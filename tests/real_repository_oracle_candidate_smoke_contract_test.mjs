@@ -15,6 +15,12 @@ import {
   parseCandidateSmokeRecordLine,
 } from '../benchmarks/real-repository-oracle-v1/candidate-smoke.mjs';
 import {
+  CANDIDATE_RAW_MAX_CANONICAL_BYTES,
+} from '../benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
+import {
+  readBoundedCandidateOutput,
+} from '../benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs';
+import {
   CANDIDATE_SMOKE_LAUNCH_PROFILE,
   CANDIDATE_SMOKE_LIMITS,
   CANDIDATE_SMOKE_OVERRIDES,
@@ -150,6 +156,7 @@ assert.deepEqual(CANDIDATE_SMOKE_SANDBOX_CHECKS, [
   'private-controller-read-denied',
   'proc-metadata-read-denied',
   'command-line-controller-paths-absent',
+  'high-inherited-fd-closed',
   'repository-mutation-denied',
   'child-process-denied',
   'tcp-network-denied',
@@ -211,6 +218,18 @@ for (const mutate of [
   const changed = structuredClone(record);
   mutate(changed);
   assert.throws(() => parseCandidateSmokeRecordLine(`${JSON.stringify(changed)}\n`));
+}
+
+const oversizedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-candidate-output-bound-'));
+try {
+  const oversized = path.join(oversizedRoot, 'oversized-candidate-output.json');
+  const descriptor = fs.openSync(oversized, 'wx', 0o600);
+  try { fs.ftruncateSync(descriptor, CANDIDATE_RAW_MAX_CANONICAL_BYTES + 1); }
+  finally { fs.closeSync(descriptor); }
+  assert.throws(() => readBoundedCandidateOutput(oversized),
+    /exceeds the bounded parser ceiling/);
+} finally {
+  fs.rmSync(oversizedRoot, { recursive: true, force: true });
 }
 
 console.log('real repository oracle candidate smoke pure contracts passed');

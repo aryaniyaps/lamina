@@ -345,32 +345,48 @@ memory high, 32 tasks, 180 seconds, 512 MiB temporary storage, and 256 KiB
 combined output. The reviewed collection is fetched at its exact commit and
 tree identity; one clean base is leased once and never replayed or promoted.
 
-The controller keeps its plan, row mappings, expectations, and materializer
-construction authority private. The candidate receives only a canonical public
-batch and the candidate-visible checkout. Public request nonces are derived
-from the domain, tier, slot, row, and request digest rather than a private case
-identifier. The sealed deterministic adapter is benchmark plumbing, not the
-future production candidate: it receives exact fixed file-descriptor aliases
-for the adapter, input, repository, output, and scratch. The launcher also pins
+The controller keeps its plan, row mappings, and expectations private. During
+materializer construction the payload invokes the required publication callback
+twice and immediately returns exact acknowledgements inside that same payload.
+Those are private intra-payload construction publications only: they are not a
+supervisor-owned or durable recovery publication, do not satisfy an external
+publication contract, and grant no cleanup authority. The candidate receives
+only a canonical public batch and the candidate-visible checkout. Public request
+nonces are derived from the domain, tier, slot, row, and request digest rather
+than a private case identifier. The sealed deterministic adapter is benchmark
+plumbing, not the future production candidate: it receives exact fixed
+file-descriptor aliases for the adapter, input, repository, output, and scratch.
+The launcher also pins
 the exact Node executable, runtime-library closure, and configuration file while
 constructing Landlock rules, but those descriptors do not survive into the
 candidate process; Node's own descriptor closes on exec as well. Candidate argv
-contains no controller paths, all other descriptors are closed, and Landlock
-plus seccomp prevent ungranted host or `/proc` reads, repository mutation, extra
-processes, TCP/UDP, and control-socket creation. The threat model excludes a
-hostile concurrent process already running under the same UID outside the
-runner's private namespaces.
+contains no controller paths. A dynamically allocated inherited descriptor at
+or above 1025 is recorded in the exact FD 9 scratch file, and `close_range`
+closes every descriptor from 10 through the kernel maximum before exec; the
+adapter proves the recorded descriptor is `EBADF` while FD 9 still names the
+exact scratch inode. Landlock plus seccomp prevent ungranted host or `/proc`
+reads, repository mutation, extra processes, TCP/UDP, and control-socket
+creation. The candidate inherits its working directory and may therefore see a
+sealed-snapshot path string through `process.cwd()`. The claim is limited to no
+controller paths in argv and no readable ungranted controller state, not absence
+of every controller-derived path string. The threat model excludes a hostile
+concurrent process already running under the same UID outside the runner's
+private namespaces.
 
 The adapter emits one bounded canonical raw artifact, which the existing
 candidate contract parses and the controller compares with an independent
 deterministic reconstruction. `verifyAndRelease` remains honest: cleanup is
 false and the lease is quarantined under the runner-owned temporary authority.
-The outer safe-runner report may authenticate removal of its own descendants,
-managed paths, scope, and temporary directory, but the strict external decoder
-returns that fact separately from `cleanup_proof_issued: false` and
-`grading_reachable: false`. It also revalidates the exact profile, source and
+The structural report validator revalidates the exact profile, source and
 execution snapshot, termination, resource peaks, single complete output line,
-and cleanup state; mutations are refused.
+and cleanup state; mutations are refused. It returns only the non-gradeable
+record and cannot authenticate report provenance or cleanup. The dedicated host
+controller constructs the command, workload, tier, and all six bounds itself,
+calls the safe runner directly, validates that exact returned report, and then
+issues a process-local, module-private `outer_cleanup_verified: true` object.
+Caller environment, command, workload, override, and promotion authority are
+rejected. A cloned or shape-identical object is not issued. The verification
+still carries `cleanup_proof_issued: false` and `grading_reachable: false`.
 
 Run the exact path manually only on a qualified Linux host:
 
@@ -385,10 +401,15 @@ npm run safe:run -- --tier small \
   -- node benchmarks/real-repository-oracle-v1/workload.mjs smoke-candidate-small
 ```
 
+The direct CLI command writes a raw safe-runner report; it neither invokes the
+structural validator nor mints the controller's process-local verification. The
+focused live test invokes the controller directly and verifies private-set
+issuance.
+
 This is first-phase execution evidence only. It does not expose private grader
-authority, publish materializer recovery authority, create cleanup proof, run a
-second slot, replay a request, invoke an oracle host, grade quality, or consume
-promotion authority.
+authority, create supervisor-owned or durable materializer recovery publication,
+create cleanup proof, run a second slot, replay a request, invoke an oracle host,
+grade quality, or consume promotion authority.
 
 ## Evidence boundary
 
@@ -402,8 +423,9 @@ promotion authority.
 - The accepted independent-review receipt proves fixture consistency and
   mutation sensitivity only; it cannot issue or imply a candidate quality pass
   or runtime-readiness claim.
-- Candidate smoke proves one bounded public-only execution and exact outer
-  cleanup; it does not prove candidate quality, lease cleanup, or gradeability.
+- A controller-issued candidate-smoke verification proves one bounded
+  public-only execution and exact outer cleanup; it does not prove candidate
+  quality, lease cleanup, or gradeability.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.

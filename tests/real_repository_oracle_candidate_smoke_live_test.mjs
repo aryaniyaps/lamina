@@ -3,19 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { decodeCandidateSmokeReport } from '../benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs';
-import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import {
-  CANDIDATE_SMOKE_LAUNCH_PROFILE,
-  CANDIDATE_SMOKE_OVERRIDES,
-  CANDIDATE_SMOKE_WORKLOAD_ID,
-} from '../scripts/safe-runner/candidate-smoke-profile.mjs';
+  isCandidateSmokeControllerVerification,
+  runCandidateSmokeThroughSafeRunner,
+} from '../benchmarks/real-repository-oracle-v1/candidate-smoke-controller.mjs';
+import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import { infrastructureBinaries } from '../scripts/safe-runner/infrastructure.mjs';
-import { runSafely } from '../scripts/safe-runner/runner.mjs';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ENTRYPOINT = path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs');
 
 if (process.platform !== 'linux') {
   console.log('real repository oracle candidate smoke skipped outside Linux');
@@ -39,34 +32,26 @@ fs.chmodSync(reportRoot, 0o700);
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
 process.env.LAMINA_SAFE_RUNNER_STATE_DIR = path.join(reportRoot, 'state');
 try {
-  const report = await runSafely({
-    command: [process.execPath, ENTRYPOINT, 'smoke-candidate-small'],
-    tier: 'small', cwd: ROOT, reportFile: path.join(reportRoot, 'report.json'),
-    workloadId: CANDIDATE_SMOKE_WORKLOAD_ID,
-    overrides: CANDIDATE_SMOKE_OVERRIDES,
-  });
-  const primitiveUnavailable = report.outcome === 'error'
-    && /Landlock ABI is outside reviewed|landlock_create_ruleset\(VERSION\)|seccomp\(SECCOMP_SET_MODE_FILTER\)/
-      .test(report.error?.message || '');
-  if (primitiveUnavailable) {
-    console.log(`real repository oracle candidate smoke skipped: ${report.error.message}`);
-    process.exit(0);
+  let verification;
+  try {
+    verification = await runCandidateSmokeThroughSafeRunner({
+      reportFile: path.join(reportRoot, 'report.json'),
+    });
+  } catch (error) {
+    if (/Landlock ABI is outside reviewed|landlock_create_ruleset\(VERSION\)|seccomp\(SECCOMP_SET_MODE_FILTER\)/
+      .test(error?.message || '')) {
+      console.log(`real repository oracle candidate smoke skipped: ${error.message}`);
+      process.exit(0);
+    }
+    throw error;
   }
-  assert.equal(report.outcome, 'success', JSON.stringify({
-    error: report.error, output: report.output,
-  }));
-  assert.equal(report.preflight.launch_profile, CANDIDATE_SMOKE_LAUNCH_PROFILE);
-  assert.equal(report.preflight.execution_snapshot.launch_profile,
-    CANDIDATE_SMOKE_LAUNCH_PROFILE);
-  assert.equal(report.output.truncated, false);
-  assert.equal(report.output.stderr_bytes, 0);
-  assert.equal(report.output.stdout_bytes,
-    Buffer.byteLength(report.output.stdout_tail, 'utf8'));
-  const decoded = decodeCandidateSmokeReport(report);
-  const { record } = decoded;
-  assert.equal(decoded.outer_cleanup_authenticated, true);
-  assert.equal(decoded.cleanup_proof_issued, false);
-  assert.equal(decoded.grading_reachable, false);
+  assert.equal(isCandidateSmokeControllerVerification(verification), true);
+  assert.equal(isCandidateSmokeControllerVerification(structuredClone(verification)), false);
+  assert.equal(isCandidateSmokeControllerVerification(Object.freeze({ ...verification })), false);
+  assert.equal(verification.outer_cleanup_verified, true);
+  assert.equal(verification.cleanup_proof_issued, false);
+  assert.equal(verification.grading_reachable, false);
+  const { record } = verification;
   assert.equal(record.non_gradeable, true);
   assert.equal(record.grading_reachable, false);
   assert.equal(record.cleanup_proof_issued, false);
@@ -75,11 +60,6 @@ try {
     cleanup_verified: false,
     terminal_disposition: 'awaiting_supervisor_cleanup',
   });
-  assert.deepEqual(report.cleanup.descendants_remaining, []);
-  assert.deepEqual(report.cleanup.managed_paths_remaining, []);
-  assert.equal(report.cleanup.scope_removed, true);
-  assert.equal(report.cleanup.temporary_directory_removed, true);
-  assert.deepEqual(report.cleanup.errors, []);
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
