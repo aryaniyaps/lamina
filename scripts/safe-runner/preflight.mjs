@@ -17,6 +17,12 @@ import {
   TIER_ORDER,
   validateScenarioVerificationLargeInodeReservation,
 } from './constants.mjs';
+import {
+  ORACLE_HOST_LAUNCH_PROFILE,
+  ORACLE_HOST_PROBE_COMMAND,
+  ORACLE_HOST_PROBE_WORKLOAD_ID,
+  oracleHostProbeLimits,
+} from './oracle-host-profile.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
@@ -50,6 +56,7 @@ export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle
 export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = CASE_DISCOVERY_WORKLOAD_ID;
 export const REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
 export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID = SCENARIO_VERIFICATION_WORKLOAD_ID;
+export const REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID = ORACLE_HOST_PROBE_WORKLOAD_ID;
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
@@ -211,7 +218,7 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     }
     if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       && (command.length !== 3
-        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios']
+        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios', ORACLE_HOST_PROBE_COMMAND]
           .includes(command[2]))) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
@@ -359,6 +366,9 @@ export function preflightRun({
   const exactScenarioVerification = exactRealRepositoryEntrypoint
     && command[2] === 'verify-scenarios'
     && workloadId === REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID;
+  const exactOracleHostProbe = exactRealRepositoryEntrypoint
+    && command[2] === ORACLE_HOST_PROBE_COMMAND
+    && workloadId === REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID;
   const exactRealRepositoryStructuredOutput = exactRealRepositoryEntrypoint
     && ((command[2] === 'discover-cases'
       && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
@@ -380,6 +390,8 @@ export function preflightRun({
     stdout_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stdout'),
     stderr_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stderr'),
   };
+  const exactOracleHostProfile = exactOracleHostProbe && tier === 'small'
+    && oracleHostProbeLimits(envelope.limits);
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
@@ -442,6 +454,7 @@ export function preflightRun({
       : command[2] === 'discover-cases' ? REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID
       : command[2] === 'expand-evidence' ? REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID
       : command[2] === 'verify-scenarios' ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID
+      : command[2] === ORACLE_HOST_PROBE_COMMAND ? REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID
       : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
     if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
       const operation = command[2] === 'reconstruct-inventory'
@@ -449,9 +462,14 @@ export function preflightRun({
           ? 'independent inventory review' : command[2] === 'discover-cases'
             ? 'case discovery' : command[2] === 'expand-evidence'
               ? 'evidence expansion' : command[2] === 'verify-scenarios'
-                ? 'scenario verification' : 'inventory admission';
+                ? 'scenario verification' : command[2] === ORACLE_HOST_PROBE_COMMAND
+                  ? 'oracle-host probe' : 'inventory admission';
       reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
     }
+  }
+  if (command[2] === ORACLE_HOST_PROBE_COMMAND
+    && !exactOracleHostProfile) {
+    reasons.push('oracle-host probe requires its exact workload id, small tier, and tiny bounded limits');
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
@@ -517,6 +535,7 @@ export function preflightRun({
     },
     promotion,
     workload_id: workloadId,
+    launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE : null,
     temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };

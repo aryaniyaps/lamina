@@ -54,18 +54,27 @@ export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Objec
   'scripts/safe-runner/real-repository-source-closure.mjs',
   'scripts/safe-runner/source-identity.mjs',
 ]);
+export const REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE = Object.freeze([
+  REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+  'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'scripts/safe-runner/oracle-host-launcher.mjs',
+  'scripts/safe-runner/oracle-host-profile.mjs',
+]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([...new Set([
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  ...REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
 ])]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA =
   'lamina.safe-runner-real-repository-source-closure/v1';
 
 export function realRepositoryOracleSourceClosure(commandName) {
-  const closure = commandName === 'review-inventory'
+  const closure = commandName === 'probe-oracle-host'
+    ? REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE
+    : commandName === 'review-inventory'
     ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
     : commandName === 'discover-cases'
       ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE

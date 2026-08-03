@@ -48,6 +48,7 @@ export const MIB = 1024 ** 2;
 export const GENERIC_TEMPORARY_MAX_INODES = 8_192;
 export const CASE_DISCOVERY_WORKLOAD_ID = 'real-repository-oracle-v1:case-discovery';
 export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
+export const ORACLE_HOST_PROBE_WORKLOAD_ID = 'real-repository-oracle-v1:oracle-host-probe';
 export const SCENARIO_VERIFICATION_RETAINED_TAIL_BYTES = 8 * 1024;
 
 export const DEFAULTS = Object.freeze({

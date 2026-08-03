@@ -15,7 +15,9 @@ sandbox_launcher=${11}
 bwrap_executable=${12}
 bwrap_identity=${13}
 execution_authority=${14}
-shift 14
+oracle_launcher=${15}
+oracle_authority=${16}
+shift 16
 
 if [ "$#" -eq 0 ]; then
   echo 'safe-runner gate requires READY RELEASE PAYLOAD_EXIT COMMAND [ARGS]' >&2
@@ -34,9 +36,17 @@ trap 'exit 130' INT
 IFS= read -r _release <&3
 exec 3>&-
 
-LAMINA_SAFE_QUOTA_GATE=$quota_gate LAMINA_SAFE_TEMP_MAX_BYTES=$temporary_max_bytes \
-  "$node_executable" "$sandbox_launcher" "$bwrap_executable" "$bwrap_identity" "$execution_authority" "$payload_cwd" "$quota_ready_file" \
-  "$quota_release_file" "$temporary_directory" "$@" &
+if [ -n "$oracle_launcher" ] || [ -n "$oracle_authority" ]; then
+  if [ -z "$oracle_launcher" ] || [ -z "$oracle_authority" ]; then
+    echo 'safe-runner oracle-host gate received an incomplete sealed profile' >&2
+    exit 125
+  fi
+  "$node_executable" "$oracle_launcher" "$oracle_authority" &
+else
+  LAMINA_SAFE_QUOTA_GATE=$quota_gate LAMINA_SAFE_TEMP_MAX_BYTES=$temporary_max_bytes \
+    "$node_executable" "$sandbox_launcher" "$bwrap_executable" "$bwrap_identity" "$execution_authority" "$payload_cwd" "$quota_ready_file" \
+    "$quota_release_file" "$temporary_directory" "$@" &
+fi
 payload_pid=$!
 forward_term() { kill -TERM "$payload_pid" 2>/dev/null || true; }
 forward_int() { kill -INT "$payload_pid" 2>/dev/null || true; }

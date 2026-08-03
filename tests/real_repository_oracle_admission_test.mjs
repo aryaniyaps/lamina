@@ -494,7 +494,7 @@ const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
 });
 assert.notEqual(directUnknown.status, 0);
 assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
-  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios>/);
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios\|probe-oracle-host>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -586,6 +586,9 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/real-repository-source-closure.mjs',
   'scripts/safe-runner/source-identity.mjs',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
+  'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'scripts/safe-runner/oracle-host-launcher.mjs',
+  'scripts/safe-runner/oracle-host-profile.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,

@@ -2,12 +2,18 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit, trustedGitIdentity } from './git.mjs';
 import {
-  assertTrustedBinaryIdentity, trustedRootBinaryIdentity,
+  assertTrustedBinaryIdentity, sanitizedEnvironment, trustedRootBinaryIdentity,
 } from './infrastructure.mjs';
+import {
+  attestOracleKeeperBwrapHelp,
+  ORACLE_HOST_LAUNCH_PROFILE,
+  ORACLE_HOST_PROBE_COMMAND,
+} from './oracle-host-profile.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -20,6 +26,7 @@ import {
   REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
@@ -30,6 +37,7 @@ export {
   REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
@@ -704,7 +712,14 @@ export function prepareExecutionSnapshot({
     throw new Error(npxAuthority.launch_refusal);
   }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
-  const realRepositoryClosure = realRepositoryOracleSourceClosure(command[2])
+  const oracleHostProbe = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && command.length === 3 && command[2] === ORACLE_HOST_PROBE_COMMAND;
+  const resolvedRealRepositoryClosure = realRepositoryOracleSourceClosure(command[2]);
+  if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && !resolvedRealRepositoryClosure) {
+    throw new Error('real-repository execution snapshot command has no exact source closure');
+  }
+  const realRepositoryClosure = resolvedRealRepositoryClosure
     || REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE;
   const realRepositorySourceSet = new Set(realRepositoryClosure);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
@@ -1293,7 +1308,11 @@ export function prepareExecutionSnapshot({
         mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
       };
     }
-    for (const name of ['gate.sh', 'quota-gate.sh', 'sandbox.mjs', 'infrastructure.mjs']) {
+    const infrastructureSources = [
+      'gate.sh', 'quota-gate.sh', 'sandbox.mjs', 'infrastructure.mjs',
+    ];
+    if (oracleHostProbe) infrastructureSources.push('oracle-host-launcher.mjs');
+    for (const name of infrastructureSources) {
       const source = path.join(HERE, name);
       const destination = path.join(root, 'infrastructure', name);
       const copied = copyPhysicalFile(source, destination, name.endsWith('.sh'));
@@ -1338,6 +1357,69 @@ export function prepareExecutionSnapshot({
   const launchCommand = npxPackage
     ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(2)]
     : [executable, ...command.slice(1)];
+  let oracleHostLaunchCommand = null;
+  let oracleHostLaunchCwd = null;
+  let oracleHostProfile = null;
+  let oracleHostLaunchBinding = null;
+  if (oracleHostProbe) {
+    const oracleHost = path.join(
+      snapshotRepository, 'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+    );
+    const oracleLauncher = stagedInfrastructure.oracle_host_launcher_mjs;
+    const copiedHost = entries.find((entry) => entry.path === oracleHost);
+    const copiedLauncher = entries.find((entry) => entry.path === oracleLauncher);
+    if (!copiedHost || copiedHost.type !== 'file' || !stagedInfrastructure.node
+      || !stagedInfrastructure.identities.node || !stagedInfrastructure.bwrap
+      || !stagedInfrastructure.identities.bwrap || !copiedLauncher) {
+      throw new Error('oracle-host launch profile lacks exact sealed infrastructure');
+    }
+    const hostStat = fs.lstatSync(oracleHost, { bigint: true });
+    const launcherStat = fs.lstatSync(oracleLauncher, { bigint: true });
+    assertTrustedBinaryIdentity(stagedInfrastructure.identities.bwrap);
+    const help = spawnSync(stagedInfrastructure.bwrap, ['--help'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,
+      maxBuffer: 256 * 1024, env: sanitizedEnvironment({ LANG: 'C', LC_ALL: 'C' }),
+    });
+    assertTrustedBinaryIdentity(stagedInfrastructure.identities.bwrap);
+    if (help.error || help.status !== 0 || help.signal || help.stderr.trim()) {
+      throw new Error('oracle quota keeper bwrap capability probe failed');
+    }
+    const capabilities = attestOracleKeeperBwrapHelp(help.stdout);
+    oracleHostLaunchCommand = Object.freeze([stagedInfrastructure.node, oracleHost]);
+    oracleHostLaunchCwd = snapshotRepository;
+    oracleHostProfile = Object.freeze({
+      schema: 'lamina.safe-runner-oracle-host-launch-profile/v1',
+      id: ORACLE_HOST_LAUNCH_PROFILE,
+      bwrap: stagedInfrastructure.bwrap,
+      bwrap_identity: Object.freeze({ ...stagedInfrastructure.identities.bwrap }),
+      bwrap_capabilities: capabilities,
+      launcher: oracleLauncher,
+      launcher_identity: Object.freeze({
+        path: oracleLauncher, dev: String(launcherStat.dev), ino: String(launcherStat.ino),
+        uid: Number(launcherStat.uid), mode: Number(launcherStat.mode & 0o7777n),
+        size: String(launcherStat.size), digest: copiedLauncher.digest,
+      }),
+      host: oracleHost,
+      host_identity: Object.freeze({
+        path: oracleHost, dev: String(hostStat.dev), ino: String(hostStat.ino),
+        uid: Number(hostStat.uid), mode: Number(hostStat.mode & 0o7777n),
+        size: String(hostStat.size), digest: copiedHost.digest,
+      }),
+      non_gradeable: true,
+    });
+    oracleHostLaunchBinding = Object.freeze({
+      profile: ORACLE_HOST_LAUNCH_PROFILE,
+      command: ['infrastructure:node',
+        'repository:benchmarks/real-repository-oracle-v1/oracle-host.mjs'],
+      cwd: 'repository',
+      node_sha256: stagedInfrastructure.identities.node.digest,
+      launcher_sha256: copiedLauncher.digest,
+      host_sha256: copiedHost.digest,
+      bwrap_sha256: stagedInfrastructure.identities.bwrap.digest,
+      bwrap_help_sha256: capabilities.help_sha256,
+      non_gradeable: true,
+    });
+  }
   const graphdLaunchAuthority = [];
   const gitExecutableIdentity = auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs'
     || auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
@@ -1442,10 +1524,20 @@ export function prepareExecutionSnapshot({
       },
     });
   }
+  const snapshotEntries = entries.map(({ path: _path, ...entry }) => entry);
+  const snapshotDigestInput = oracleHostProbe ? {
+    entries: snapshotEntries,
+    oracle_host_launch: oracleHostLaunchBinding,
+  } : snapshotEntries;
   return {
     root, repository, snapshot_repository: snapshotRepository,
     audited_entrypoint: auditedEntrypoint,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
+    launch_profile: oracleHostProbe ? ORACLE_HOST_LAUNCH_PROFILE : null,
+    oracle_host_launch_command: oracleHostLaunchCommand,
+    oracle_host_launch_cwd: oracleHostLaunchCwd,
+    oracle_host_profile: oracleHostProfile,
+    oracle_host_launch_binding: oracleHostLaunchBinding,
     git_readonly_bindings: gitReadonlyBindings,
     git_common: sourceGit.common,
     git_directory: sourceGit.gitDirectory,
@@ -1456,7 +1548,7 @@ export function prepareExecutionSnapshot({
     infrastructure: stagedInfrastructure,
     source_closure_identity: realRepositorySourceClosureIdentity,
     file_count: entries.length, total_bytes: totalBytes,
-    digest: crypto.createHash('sha256').update(JSON.stringify(entries.map(({ path: _path, ...entry }) => entry))).digest('hex'),
+    digest: crypto.createHash('sha256').update(JSON.stringify(snapshotDigestInput)).digest('hex'),
   };
 }
 
@@ -1498,6 +1590,49 @@ export function assertExecutionSnapshot(snapshot) {
       || Number(stat.uid) !== binding.snapshot_target_identity?.uid) {
       throw new Error('execution snapshot writable mount point identity changed');
     }
+  }
+  if (snapshot?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE) {
+    const host = path.join(snapshot.snapshot_repository,
+      'benchmarks/real-repository-oracle-v1/oracle-host.mjs');
+    const profile = snapshot.oracle_host_profile;
+    const command = snapshot.oracle_host_launch_command;
+    const hostEntry = snapshot.entries.find((entry) => entry.path === host);
+    if (profile?.schema !== 'lamina.safe-runner-oracle-host-launch-profile/v1'
+      || profile.id !== ORACLE_HOST_LAUNCH_PROFILE || profile.non_gradeable !== true
+      || snapshot.oracle_host_launch_cwd !== snapshot.snapshot_repository
+      || !Array.isArray(command) || command.length !== 2
+      || command[0] !== snapshot.infrastructure.node || command[1] !== host
+      || !hostEntry || hostEntry.type !== 'file'
+      || snapshot.oracle_host_launch_binding?.host_sha256 !== hostEntry.digest
+      || snapshot.oracle_host_launch_binding?.launcher_sha256
+        !== profile.launcher_identity?.digest
+      || snapshot.oracle_host_launch_binding?.node_sha256
+        !== snapshot.infrastructure.identities.node.digest
+      || snapshot.oracle_host_launch_binding?.bwrap_sha256 !== profile.bwrap_identity?.digest
+      || profile.bwrap !== snapshot.infrastructure.bwrap
+      || profile.launcher !== snapshot.infrastructure.oracle_host_launcher_mjs
+      || profile.host !== host
+      || profile.host_identity?.digest !== hostEntry.digest
+      || JSON.stringify(profile.bwrap_identity)
+        !== JSON.stringify(snapshot.infrastructure.identities.bwrap)) {
+      throw new Error('oracle-host sealed launch translation changed');
+    }
+    assertTrustedBinaryIdentity(profile.bwrap_identity);
+    const help = spawnSync(profile.bwrap, ['--help'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,
+      maxBuffer: 256 * 1024, env: sanitizedEnvironment({ LANG: 'C', LC_ALL: 'C' }),
+    });
+    assertTrustedBinaryIdentity(profile.bwrap_identity);
+    if (help.error || help.status !== 0 || help.signal || help.stderr.trim()
+      || attestOracleKeeperBwrapHelp(help.stdout).help_sha256
+        !== profile.bwrap_capabilities?.help_sha256) {
+      throw new Error('oracle-host bwrap capability authority changed');
+    }
+  } else if (snapshot?.oracle_host_launch_command !== null
+    || snapshot?.oracle_host_launch_cwd !== null || snapshot?.oracle_host_profile !== null
+    || snapshot?.oracle_host_launch_binding !== null
+    || snapshot?.infrastructure?.oracle_host_launcher_mjs !== undefined) {
+    throw new Error('non-oracle execution snapshot contains oracle-host launch authority');
   }
   return true;
 }

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -5,12 +6,56 @@ import { processRecord, readPidList } from './processes.mjs';
 import {
   assertInfrastructureBinaries, infrastructureBinaries, sanitizedEnvironment,
 } from './infrastructure.mjs';
+import {
+  ORACLE_HOST_LAUNCH_PROFILE, oracleKeeperBwrapArguments,
+} from './oracle-host-profile.mjs';
 
 export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
 // readback shorter than the overall handshake so one transiently stalled
 // `systemctl show` cannot consume the complete proof window.
 export const SYSTEMCTL_READBACK_TIMEOUT_MS = 500;
+
+export function exactOracleHostLaunchAuthorized(record, expected, gatePid = null) {
+  const environment = record?.environment_attestation;
+  return expected?.profile === ORACLE_HOST_LAUNCH_PROFILE
+    && Number.isSafeInteger(gatePid) && record?.ppid === gatePid
+    && Array.isArray(record?.argv) && Array.isArray(expected.argv)
+    && record.argv.length === expected.argv.length
+    && record.argv.every((value, index) => value === expected.argv[index])
+    && record.cwd === expected.cwd
+    && environment?.readable === true && environment?.bounded === true
+    && environment?.malformed === false
+    && Array.isArray(environment.execution_hooks) && environment.execution_hooks.length === 0
+    && ['dev', 'ino', 'uid'].every((field) =>
+      record.executable_identity?.[field] === expected.executable_identity?.[field]);
+}
+
+export function encodeOracleHostLaunchAuthority({
+  node, nodeIdentity, launcher, launcherIdentity, host, hostIdentity,
+  cwd, argv, profileArgument,
+}) {
+  if (![node, launcher, host, cwd].every((value) => path.isAbsolute(value))
+    || !Array.isArray(argv) || argv.length !== 5 || argv[0] !== node || argv[1] !== host
+    || typeof profileArgument !== 'string' || argv[4] !== profileArgument
+    || [nodeIdentity, launcherIdentity, hostIdentity]
+      .some((identity) => !identity || identity.path === undefined)) {
+    throw Object.assign(new Error('oracle-host launch authority inputs are not exact'), {
+      code: 'LAMINA_SAFE_ORACLE_HOST_AUTHORITY',
+    });
+  }
+  return Buffer.from(JSON.stringify({
+    schema: 'lamina.safe-runner-oracle-host-launch-authority/v1',
+    profile: ORACLE_HOST_LAUNCH_PROFILE,
+    node: { path: node, identity: nodeIdentity },
+    launcher: { path: launcher, identity: launcherIdentity },
+    host: { path: host, identity: hostIdentity },
+    cwd,
+    argv,
+    profile_argument_sha256: crypto.createHash('sha256').update(profileArgument).digest('hex'),
+    non_gradeable: true,
+  })).toString('base64url');
+}
 
 export function encodeExecutionAuthority(executionAuthority) {
   return Buffer.from(JSON.stringify({
@@ -237,6 +282,7 @@ export class LinuxSystemdAdapter {
     this.child = null;
     this.cgroupPath = null;
     this.lastCgroupResolution = null;
+    this.oracleHostLaunchAuthority = null;
   }
 
   launch({
@@ -254,6 +300,52 @@ export class LinuxSystemdAdapter {
     }
     const bwrapIdentity = Buffer.from(JSON.stringify(staged.identities.bwrap)).toString('base64url');
     const encodedExecutionAuthority = encodeExecutionAuthority(executionAuthority);
+    const oracleProfile = executionAuthority?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE;
+    if (oracleProfile && (executionAuthority.oracle_host_profile?.id !== ORACLE_HOST_LAUNCH_PROFILE
+      || !Array.isArray(executionAuthority.oracle_host_launch_command)
+      || executionAuthority.oracle_host_launch_command.length !== 2
+      || executionAuthority.oracle_host_launch_command[0] !== staged.node
+      || executionAuthority.oracle_host_profile.launcher
+        !== staged.oracle_host_launcher_mjs
+      || executionAuthority.oracle_host_launch_cwd !== executionAuthority.snapshot_repository)) {
+      throw Object.assign(new Error('oracle-host launch profile is not exact sealed authority'), {
+        code: 'LAMINA_SAFE_ORACLE_HOST_AUTHORITY',
+      });
+    }
+    const encodedOracleProfile = oracleProfile ? Buffer.from(JSON.stringify({
+      ...executionAuthority.oracle_host_profile,
+      quota_bytes: this.limits.temporary_max_bytes,
+      keeper_arguments: oracleKeeperBwrapArguments(this.limits.temporary_max_bytes),
+    })).toString('base64url') : '';
+    const oracleHost = oracleProfile ? executionAuthority.oracle_host_launch_command[1] : '';
+    const oracleCwd = oracleProfile ? executionAuthority.oracle_host_launch_cwd : '';
+    const oracleArgv = oracleProfile ? [
+      staged.node, oracleHost, quotaReadyFile, quotaReleaseFile, encodedOracleProfile,
+    ] : null;
+    const oracleLauncher = oracleProfile
+      ? executionAuthority.oracle_host_profile.launcher : '';
+    const encodedOracleAuthority = oracleProfile ? encodeOracleHostLaunchAuthority({
+      node: staged.node,
+      nodeIdentity: staged.identities.node,
+      launcher: oracleLauncher,
+      launcherIdentity: executionAuthority.oracle_host_profile.launcher_identity,
+      host: oracleHost,
+      hostIdentity: executionAuthority.oracle_host_profile.host_identity,
+      cwd: oracleCwd,
+      argv: oracleArgv,
+      profileArgument: encodedOracleProfile,
+    }) : '';
+    this.oracleHostLaunchAuthority = oracleProfile ? Object.freeze({
+      profile: ORACLE_HOST_LAUNCH_PROFILE,
+      argv: Object.freeze([staged.node, oracleLauncher, encodedOracleAuthority]),
+      cwd: oracleCwd,
+      executable_identity: Object.freeze({ ...staged.identities.node }),
+      host_main_arguments: Object.freeze(oracleArgv.slice(2)),
+      launcher_identity: Object.freeze({
+        ...executionAuthority.oracle_host_profile.launcher_identity,
+      }),
+      host_identity: Object.freeze({ ...executionAuthority.oracle_host_profile.host_identity }),
+    }) : null;
     const args = [
       '--user', '--scope', '--quiet', '--unit', this.unit,
       ...systemdScopeProperties(this.limits),
@@ -261,7 +353,7 @@ export class LinuxSystemdAdapter {
       quotaReadyFile, quotaReleaseFile, temporaryDirectory,
       String(this.limits.temporary_max_bytes), cwd, staged.quota_gate_sh,
       staged.node, staged.sandbox_mjs, staged.bwrap, bwrapIdentity,
-      encodedExecutionAuthority,
+      encodedExecutionAuthority, oracleLauncher, encodedOracleAuthority,
       ...command,
     ];
     this.child = spawn(this.infrastructure.systemdRun, args, {

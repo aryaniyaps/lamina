@@ -654,6 +654,11 @@ export async function runSafely({
           crashBoundary('snapshot_building');
         },
       });
+      if (preflight.launch_profile !== executionSnapshot.launch_profile) {
+        throw Object.assign(new Error(
+          'preflight and sealed execution snapshot launch profiles do not match',
+        ), { code: 'LAMINA_SAFE_LAUNCH_PROFILE' });
+      }
       launchCommand = executionSnapshot.launch_command;
       if (preflight.source_identity) {
         assertFrozenWorkloadIdentity(preflight.source_identity, cwd, executionCommand);
@@ -667,6 +672,8 @@ export async function runSafely({
         snapshot_roots: [executionSnapshot.snapshot_repository,
           ...(executionSnapshot.git_readonly_bindings || []).map((binding) => binding.source)],
         writable_roots: executionSnapshot.writable_bindings.map((binding) => binding.source),
+        launch_profile: executionSnapshot.launch_profile,
+        translated_launch_binding: executionSnapshot.oracle_host_launch_binding,
       };
       if (preflight.source_identity) {
         report.preflight.execution_identity = bindExecutionSnapshotIdentity(
@@ -1057,6 +1064,8 @@ export async function runSafely({
       });
     }
     recordChildTermination(report.termination, ended);
+    if (executionSnapshot) assertExecutionSnapshot(executionSnapshot);
+    tracePhase('run:post-exit-identity-checked');
     if (ended.error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'spawn_failed';

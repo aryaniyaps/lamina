@@ -17,6 +17,8 @@ export const EVIDENCE_EXPANSION_WORKLOAD_ID = 'real-repository-oracle-v1:evidenc
 export const EVIDENCE_EXPANSION_EXACT_COMMAND = Object.freeze(['expand-evidence']);
 export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
 export const SCENARIO_VERIFICATION_EXACT_COMMAND = Object.freeze(['verify-scenarios']);
+export const ORACLE_HOST_PROBE_WORKLOAD_ID = 'real-repository-oracle-v1:oracle-host-probe';
+export const ORACLE_HOST_PROBE_EXACT_COMMAND = Object.freeze(['probe-oracle-host']);
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -133,7 +135,10 @@ export async function main(argv = process.argv.slice(2)) {
     await writeStdoutLine(encodeScenarioVerificationPayload(verifySelectedScenarios()));
     return;
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios>');
+  if (JSON.stringify(argv) === JSON.stringify(ORACLE_HOST_PROBE_EXACT_COMMAND)) {
+    throw new Error('oracle-host probe is a safe-runner launch profile and cannot execute directly');
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios|probe-oracle-host>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
