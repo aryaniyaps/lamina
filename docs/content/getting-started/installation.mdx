@@ -80,6 +80,16 @@ macOS/Linux or `%LOCALAPPDATA%\\Lamina\\bin` on Windows. Add that directory to
 your user PATH if it is not already present. Unsupported platforms fail before
 installing anything.
 
+The Linux standalone release ships checksum-verified `lamina` and CocoIndex
+worker binaries plus the shared INT8 retrieval model. After install, normal
+graph, observation, and retrieval commands operate offline with no host Python,
+npm, or first-run downloads. Mandatory installed runtime assets stay within
+750 MiB on Linux x64 and arm64.
+
+Incompatible legacy `.git/lamina` layouts are detected before mutation. Lamina
+refuses with export guidance and never silently deletes canonical `graph.lbdb`.
+Compatible CLI upgrades invalidate only disposable derived stores.
+
 ## After install
 
 1. Open the intended **project root** in your coding agent

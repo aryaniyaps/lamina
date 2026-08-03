@@ -18,7 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { GRAPH_PROTOCOL_VERSION } from './graph-runtime/constants.mjs';
+import { GRAPH_CAPABILITIES, GRAPH_PROTOCOL_VERSION } from './graph-runtime/constants.mjs';
 import { stopIncompatibleServer, daemonCompatibility, exchange, recoverWedgedGraphd } from './graph-runtime/client.mjs';
 import {
   graphSocketPath,
@@ -30,7 +30,10 @@ import { CLI_VERSION } from './runtime-identity.mjs';
 import { runtimeBudgetFromEnvironment } from './runtime-budget.mjs';
 
 export const RUNTIME_IDENTITY_SCHEMA = 'lamina.runtime-identity/v1';
+export const SUPPORTED_LAYOUT_VERSION = 1;
+export const MAX_INSTALL_FOOTPRINT_BYTES = 750 * 1024 * 1024;
 const RUNTIME_IDENTITY_FILE = 'runtime-identity.json';
+const LEGACY_RUNS_DIR = 'runs';
 const RUNTIME_ORPHAN_MARKERS = [
   'cocoindex-worker',
   'retrieval_worker.py',
@@ -56,13 +59,96 @@ export function readRuntimeIdentity(cwd = process.cwd()) {
   }
 }
 
+export function detectLegacyMarkers(runtimeDir) {
+  const markers = [];
+  const runs = path.join(runtimeDir, LEGACY_RUNS_DIR);
+  if (fs.existsSync(runs)) {
+    markers.push({
+      kind: 'legacy_runs_directory',
+      path: runs,
+      message: 'Legacy run storage under .git/lamina/runs is incompatible with the transactional runtime.',
+    });
+  }
+  return markers;
+}
+
+export function invalidateDerivedStores(paths) {
+  const removed = [];
+  const removePath = (target) => {
+    if (!fs.existsSync(target)) return;
+    fs.rmSync(target, { recursive: true, force: true });
+    removed.push(target);
+  };
+  removePath(paths.context);
+  removePath(path.join(paths.cocoindex, 'observation-generation-state.json'));
+  removePath(path.join(paths.cocoindex, 'target-generation'));
+  return { removed, canonical_graph_preserved: fs.existsSync(paths.database) };
+}
+
+export function applyRepositoryUpgrade(cwd = process.cwd()) {
+  const paths = runtimePaths(cwd);
+  const invalidated = invalidateDerivedStores(paths);
+  writeRuntimeIdentity(cwd);
+  return { upgraded: true, ...invalidated };
+}
+
+export function evaluateRepositoryCutover(cwd = process.cwd()) {
+  const paths = runtimePaths(cwd);
+  const markers = detectLegacyMarkers(paths.runtime_dir);
+  if (markers.length) {
+    return {
+      status: 'incompatible',
+      reason: 'legacy_runtime_markers',
+      markers,
+      guidance: [
+        'Export canonical graph truth with lamina graph backup --output backup.json before any reset.',
+        'Remove only incompatible legacy directories after backup; never delete graph.lbdb silently.',
+        'Reinstall the current standalone CLI from GitHub Releases if runtime assets are stale.',
+      ],
+    };
+  }
+  const identity = readRuntimeIdentity(cwd);
+  const graphExists = fs.existsSync(paths.database);
+  if (!identity && !graphExists) return { status: 'absent' };
+  if (!identity) {
+    return {
+      status: 'upgrade',
+      reason: graphExists ? 'missing_runtime_identity' : 'fresh_runtime_layout',
+      preserve_canonical_graph: graphExists,
+    };
+  }
+  const layoutVersion = Number(identity.layout_version || 1);
+  if (!Number.isInteger(layoutVersion) || layoutVersion < 1) {
+    return { status: 'incompatible', reason: 'invalid_layout_version', identity };
+  }
+  if (layoutVersion > SUPPORTED_LAYOUT_VERSION) {
+    return {
+      status: 'incompatible',
+      reason: 'future_layout_version',
+      identity,
+      supported_layout_version: SUPPORTED_LAYOUT_VERSION,
+    };
+  }
+  if (identity.cli_version !== CLI_VERSION || identity.protocol_version !== GRAPH_PROTOCOL_VERSION) {
+    return {
+      status: 'upgrade',
+      reason: 'runtime_identity_stale',
+      identity,
+      preserve_canonical_graph: graphExists,
+    };
+  }
+  return { status: 'compatible', identity };
+}
+
 export function writeRuntimeIdentity(cwd = process.cwd()) {
   const paths = runtimePaths(cwd);
   fs.mkdirSync(paths.runtime_dir, { recursive: true, mode: 0o700 });
   const record = Object.freeze({
     schema: RUNTIME_IDENTITY_SCHEMA,
+    layout_version: SUPPORTED_LAYOUT_VERSION,
     cli_version: CLI_VERSION,
     protocol_version: GRAPH_PROTOCOL_VERSION,
+    capabilities: [...GRAPH_CAPABILITIES],
     updated_at: new Date().toISOString(),
   });
   fs.writeFileSync(runtimeIdentityPath(cwd), stableJson(record), { mode: 0o600 });
@@ -71,23 +157,38 @@ export function writeRuntimeIdentity(cwd = process.cwd()) {
 
 export function assertCompatibleRuntimeIdentity(cwd = process.cwd()) {
   const paths = runtimePaths(cwd);
-  if (!fs.existsSync(paths.database)) return { compatible: true, reason: 'greenfield' };
-  const identity = readRuntimeIdentity(cwd);
-  if (!identity) return { compatible: true, reason: 'legacy_unmarked' };
-  if (identity.cli_version !== CLI_VERSION || identity.protocol_version !== GRAPH_PROTOCOL_VERSION) {
-    const error = new Error(
-      'The installed Lamina CLI is incompatible with the existing runtime identity. '
-      + 'Back up the canonical graph, then reset derived stores or migrate before mutation.',
-    );
-    error.code = 'LAMINA_RUNTIME_INCOMPATIBLE';
+  const markers = detectLegacyMarkers(paths.runtime_dir);
+  if (markers.length) {
+    const error = new Error(markers[0].message);
+    error.code = 'LAMINA_REPOSITORY_CUTOVER_INCOMPATIBLE';
     error.details = {
-      database: paths.database,
-      identity,
-      expected: { cli_version: CLI_VERSION, protocol_version: GRAPH_PROTOCOL_VERSION },
-      remediation: ['backup', 'export', 'reset-derived', 'migrate'],
+      markers,
+      guidance: [
+        'Export canonical graph truth with lamina graph backup --output backup.json before any reset.',
+        'Remove only incompatible legacy directories after backup; never delete graph.lbdb silently.',
+      ],
     };
     throw error;
   }
+  const evaluation = evaluateRepositoryCutover(cwd);
+  if (evaluation.status === 'incompatible') {
+    const error = new Error(
+      evaluation.reason === 'future_layout_version'
+        ? 'Incompatible .git/lamina layout version. Export graph backup, then reinstall or migrate.'
+        : 'Incompatible .git/lamina runtime state. Export graph backup before reset.',
+    );
+    error.code = evaluation.reason === 'future_layout_version'
+      ? 'LAMINA_RUNTIME_INCOMPATIBLE'
+      : 'LAMINA_REPOSITORY_CUTOVER_INCOMPATIBLE';
+    error.details = evaluation;
+    throw error;
+  }
+  if (evaluation.status === 'upgrade') {
+    return applyRepositoryUpgrade(cwd);
+  }
+  if (!fs.existsSync(paths.database)) return { compatible: true, reason: 'greenfield' };
+  const identity = readRuntimeIdentity(cwd);
+  if (!identity) return { compatible: true, reason: 'legacy_unmarked' };
   return { compatible: true, identity };
 }
 
