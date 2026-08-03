@@ -5,6 +5,7 @@ import { validateReport as validateSafeRunnerReport } from '../../scripts/safe-r
 import {
   COLD_RUNS, loadManifest, SCENARIOS, WARM_SAMPLES, WORKLOAD_SCHEMA,
 } from './contract.mjs';
+import { LIFECYCLE_PHASES } from './attribution-contract.mjs';
 
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
@@ -53,6 +54,22 @@ export function validateWorkloadRecord(record, { fixtureId = null, scenario = nu
   if (!record?.cleanup || record.cleanup.repository_removed !== true
     || record.cleanup.socket_removed !== true || record.cleanup.lock_removed !== true) {
     errors.push('record cleanup evidence is incomplete');
+  }
+  if (record?.attribution) {
+    if (!Array.isArray(record.attribution.phase_order)
+      || record.attribution.phase_order.length !== LIFECYCLE_PHASES.length
+      || record.attribution.phase_order.some((phase, index) => phase !== LIFECYCLE_PHASES[index])) {
+      errors.push('record attribution phase order is invalid');
+    }
+    if (!Array.isArray(record.attribution.phase_ids)
+      || record.attribution.phase_ids.some((phase) => !LIFECYCLE_PHASES.includes(phase))) {
+      errors.push('record attribution phase ids are invalid');
+    }
+    if (record.attribution.phase_time_ns !== null
+      && (!Array.isArray(record.attribution.phase_time_ns)
+        || record.attribution.phase_time_ns.length !== LIFECYCLE_PHASES.length)) {
+      errors.push('record attribution phase timing is misaligned');
+    }
   }
   if (record?.classification === 'cold') {
     if (!Array.isArray(record.samples) || record.samples.length !== COLD_RUNS

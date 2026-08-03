@@ -10,6 +10,10 @@ import {
 import { digest } from './graph-runtime/util.mjs';
 import { OBSERVATION_BACKEND as COCOINDEX_BACKEND, runCocoIndex } from './observation-runtime/cocoindex.mjs';
 import { OBSERVATION_BACKEND as NODE_BACKEND, observeNode } from './observation-runtime/node.mjs';
+import {
+  maxObservationAttempts,
+  runtimeBudgetFromEnvironment,
+} from './runtime-budget.mjs';
 
 const ignore = [
   '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
@@ -105,6 +109,7 @@ async function observationStatus(cwd, product, generation, timeout = 10_000) {
  * standalone release. The Node backend remains an explicit development switch.
  */
 export async function runObservation({ cwd = process.cwd(), live = false, invalidate = false, discover = false } = {}) {
+  const runtimeBudget = runtimeBudgetFromEnvironment();
   const backend = process.env.LAMINA_OBSERVATION_BACKEND || COCOINDEX_BACKEND;
   if (![COCOINDEX_BACKEND, NODE_BACKEND].includes(backend)) {
     const error = new Error(`Unsupported observation backend: ${backend}.`);
@@ -158,7 +163,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   });
   let compatibilityRecovery = null;
 
-  if (!completion.valid_shape) {
+  if (!completion.valid_shape && !(runtimeBudget?.defer_graphd_compat_recovery)) {
     const before = await graphdIdentity(cwd);
     const replacement = await restartGraphd(cwd, before?.pid);
     compatibilityRecovery = {
@@ -177,8 +182,9 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   // Retry the observer once against the compatible daemon without changing
   // generation. Rebuilds are explicit because invalidation destroys the
   // active observation view and cannot repair runtime-version skew.
-  if (!completion.complete && !live) {
-    const retryCompleted = await runWorker(2);
+  const maxAttempts = maxObservationAttempts(runtimeBudget);
+  if (!completion.complete && !live && workerDiagnostics.length < maxAttempts) {
+    const retryCompleted = await runWorker(workerDiagnostics.length + 1);
     workerCompleted = retryCompleted;
     observed = await observationStatus(cwd, paths.product, generation);
     completion = observationCompletionChecks(observed, {
@@ -189,6 +195,39 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   }
 
   const daemon = await graphdIdentity(cwd);
+  const graphdThreads = (() => {
+    if (!daemon?.pid) return null;
+    try {
+      const status = fs.readFileSync(`/proc/${daemon.pid}/status`, 'utf8');
+      const threads = Number(status.match(/^Threads:\s+(\d+)$/m)?.[1] || 0);
+      return Number.isInteger(threads) && threads > 0 ? threads : null;
+    } catch {
+      return null;
+    }
+  })();
+  const observationAttribution = {
+    backend,
+    runtime_budget: runtimeBudget ? {
+      graphd_threads: runtimeBudget.graphd_threads,
+      worker_threads: runtimeBudget.worker_threads,
+      observation_workers_max: runtimeBudget.observation_workers_max,
+      observation_retries_max: runtimeBudget.observation_retries_max,
+    } : null,
+    mode: live ? 'live' : invalidate ? 'rebuild' : discover ? 'discover' : 'observe',
+    subprocess_launches: {
+      cocoindex_worker: workerDiagnostics.filter((item) => item.ok).length,
+      graphd: compatibilityRecovery ? 2 : 1,
+      cli: 0,
+      onnx_embedder: 0,
+      other: workerDiagnostics.filter((item) => !item.ok).length,
+    },
+    worker_attempts: workerDiagnostics.length,
+    graphd_pid: daemon?.pid ?? null,
+    graphd_threads: graphdThreads,
+    observation_fan_out: observed?.source_key_count ?? observed?.count ?? null,
+    ipc_round_trips: workerDiagnostics.length + (compatibilityRecovery ? 1 : 0),
+    db_checkpoints: observed?.source_key_count ?? null,
+  };
   if (!completion.complete) {
     const error = new Error('Observation runtime exited without a complete committed graphd target state.');
     error.code = 'LAMINA_OBSERVATION_INCOMPLETE';
@@ -221,6 +260,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
     generation,
     expected: observed.source_key_count,
     observed,
+    attribution: observationAttribution,
     discovery_report: discover ? {
       source_roots: observed.source_roots,
       ignored_patterns: ignore,

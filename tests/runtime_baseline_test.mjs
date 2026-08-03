@@ -12,6 +12,16 @@ import {
   WORKLOAD_SCHEMA,
 } from '../benchmarks/runtime-baseline-v1/contract.mjs';
 import { validateWorkloadRecord } from '../benchmarks/runtime-baseline-v1/validate.mjs';
+import {
+  ATTRIBUTION_SCHEMA,
+  LIFECYCLE_PHASES,
+  SCENARIO_PHASE_IDS,
+  createPhaseTracker,
+  scenarioPhaseIds,
+} from '../benchmarks/runtime-baseline-v1/attribution-contract.mjs';
+import {
+  analyzeDominantCosts,
+} from '../benchmarks/runtime-baseline-v1/attribution.mjs';
 
 const { manifest, digest } = loadManifest();
 assert.equal(manifest.fixtures.length, 3);
@@ -67,6 +77,7 @@ const record = {
     retrieval_paths_digest: 'c'.repeat(64),
   },
   diagnostics: [{}, {}, {}],
+  attribution: createPhaseTracker('doctor-status-startup').snapshot(),
   cleanup: { repository_removed: true, socket_removed: true, lock_removed: true },
 };
 assert.deepEqual(validateWorkloadRecord(record, {
@@ -87,6 +98,32 @@ coldSample.classification = 'cold-sample';
 coldSample.samples = [coldSample.samples[0]];
 coldSample.statistics = null;
 assert.equal(validateWorkloadRecord(coldSample).valid, true);
+
+const tracker = createPhaseTracker('initial-observation');
+tracker.begin('observation');
+tracker.end();
+const trackerSnapshot = tracker.snapshot();
+assert.deepEqual(trackerSnapshot.phase_ids, scenarioPhaseIds('initial-observation'));
+assert.equal(trackerSnapshot.phase_order.length, LIFECYCLE_PHASES.length);
+assert.equal(SCENARIO_PHASE_IDS['doctor-status-startup'].join(','), 'doctor,status,startup');
+
+const dominant = analyzeDominantCosts([{
+  scenario: 'initial-observation',
+  status: 'refused',
+  safe_runner: {
+    outcome: 'safety_limit_exceeded',
+    limit: 'pids.max',
+    peak_pids: 64,
+    peak_memory_bytes: 717111296,
+    descendants_by_role: {
+      graphd: { peak_threads: 29, peak_rss_bytes: 100 },
+      observation_worker: { peak_threads: 17, peak_rss_bytes: 200 },
+    },
+  },
+}]);
+assert.equal(dominant.refusal_envelopes.length, 1);
+assert.ok(dominant.ranked.length >= 1);
+assert.equal(ATTRIBUTION_SCHEMA, 'lamina.runtime-baseline-attribution/v1');
 
 assert.doesNotThrow(() => fs.accessSync(path.resolve('benchmarks/runtime-baseline-v1/workload.mjs')));
 console.log('runtime_baseline_test: ok');
