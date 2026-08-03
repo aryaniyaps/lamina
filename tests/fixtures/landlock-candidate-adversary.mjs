@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 
@@ -38,6 +39,23 @@ const socketRefused = await new Promise((resolve) => {
 });
 
 fs.writeFileSync(scratchFile, 'bounded scratch\n');
+const childAttempt = await new Promise((resolve) => {
+  let child;
+  try {
+    child = spawn(process.execPath, ['--eval', 'setInterval(() => {}, 60_000)'], {
+      stdio: 'ignore',
+    });
+  } catch (error) {
+    resolve({ code: error?.code || null, pid: null });
+    return;
+  }
+  child.once('error', (error) => resolve({ code: error?.code || null, pid: null }));
+  child.once('spawn', () => {
+    const pid = child.pid;
+    child.unref();
+    resolve({ code: null, pid });
+  });
+});
 const repositoryFile = `${repository}/visible.txt`;
 const fileOwner = fs.statSync(repositoryFile);
 const directoryOwner = fs.statSync(repository);
@@ -77,5 +95,8 @@ const result = {
     repository, new Date(123456789000), new Date(123456789000),
   )),
   metadata_denial_codes: metadataDenialCodes,
+  child_process_spawn_refused: childAttempt.code === 'EPERM',
+  child_process_denial_code: childAttempt.code,
+  child_process_spawned_pid: childAttempt.pid,
 };
 fs.writeFileSync(outputFile, `${JSON.stringify(result)}\n`);

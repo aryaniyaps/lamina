@@ -6,6 +6,7 @@
 #include <linux/audit.h>
 #include <linux/filter.h>
 #include <linux/landlock.h>
+#include <linux/sched.h>
 #include <linux/seccomp.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -13,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -30,9 +32,23 @@
 #define REVIEWED_LANDLOCK_ABI_MAX 8
 #define MAX_RUNTIME_FILES 32
 
+/* Linux v6.13+ x86_64 syscall numbers, pinned with the reviewed v7.0 UAPI. */
+#ifndef __NR_setxattrat
+#define __NR_setxattrat 463
+#endif
+#ifndef __NR_removexattrat
+#define __NR_removexattrat 466
+#endif
+#ifndef __NR_file_setattr
+#define __NR_file_setattr 469
+#endif
+
 #if defined(__x86_64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define REVIEWED_AUDIT_ARCH AUDIT_ARCH_X86_64
 #define X32_SYSCALL_BIT 0x40000000U
+#define REVIEWED_X86_64_TCGETS 0x5401U
+#define REVIEWED_X86_64_TCGETS2 0x802c542aU
+#define REVIEWED_X86_64_FIONBIO 0x5421U
 #else
 #error "Landlock candidate seccomp policy is reviewed only for little-endian x86_64"
 #endif
@@ -153,6 +169,22 @@ static void install_seccomp_filter(void)
 		BPF_JUMP(BPF_JMP | BPF_JGE | BPF_K, X32_SYSCALL_BIT, 0, 1),
 		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
 
+		/* No new processes.  V8 may retain pthread clone(CLONE_THREAD). */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_clone, 0, 4),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, args[0])),
+		BPF_STMT(BPF_ALU | BPF_AND | BPF_K, CLONE_THREAD),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, 1),
+		BPF_STMT(BPF_RET | BPF_K,
+			 SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA)),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, nr)),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_clone3, 0, 1),
+		BPF_STMT(BPF_RET | BPF_K,
+			 SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA)),
+		DENY_SYSCALL(fork),
+		DENY_SYSCALL(vfork),
+
 		/* Persistent file metadata mutation not mediated by Landlock ABI 8. */
 		DENY_SYSCALL(chmod),
 		DENY_SYSCALL(fchmod),
@@ -172,6 +204,21 @@ static void install_seccomp_filter(void)
 		DENY_SYSCALL(removexattr),
 		DENY_SYSCALL(lremovexattr),
 		DENY_SYSCALL(fremovexattr),
+		DENY_SYSCALL(setxattrat),
+		DENY_SYSCALL(removexattrat),
+		DENY_SYSCALL(file_setattr),
+
+		/* Node probes stdio with TCGETS2; every other raw ioctl is refused. */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_ioctl, 0, 5),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, args[1])),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, REVIEWED_X86_64_TCGETS, 3, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, REVIEWED_X86_64_TCGETS2, 2, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, REVIEWED_X86_64_FIONBIO, 1, 0),
+		BPF_STMT(BPF_RET | BPF_K,
+			 SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA)),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, nr)),
 
 		/* Anonymous executable and filesystem/topology construction. */
 		DENY_SYSCALL(memfd_create),
@@ -245,12 +292,25 @@ static void install_seccomp_filter(void)
 static void self_test_seccomp(int writable_regular_fd)
 {
 	struct stat statbuf;
-	int descriptor;
+	int available = 0, descriptor, ioctl_result, ioctl_errno;
 
 	if (fstat(writable_regular_fd, &statbuf) != 0 || !S_ISREG(statbuf.st_mode))
 		die("seccomp self-test writable descriptor");
 	if (fchmod(writable_regular_fd, statbuf.st_mode & 0777) != 0)
 		die("pre-seccomp fchmod capability");
+	errno = 0;
+	ioctl_result = ioctl(writable_regular_fd, FIONREAD, &available);
+	ioctl_errno = errno;
+	if (ioctl_result == -1 && ioctl_errno == EPERM) {
+		errno = EPROTO;
+		die("pre-seccomp ioctl capability");
+	}
+	errno = 0;
+	if (syscall(__NR_removexattrat, writable_regular_fd, "", AT_EMPTY_PATH,
+		    "user.lamina-seccomp-self-test") != -1 || errno != ENODATA) {
+		errno = EPROTO;
+		die("pre-seccomp removexattrat valid-fd capability");
+	}
 	install_seccomp_filter();
 	errno = 0;
 	if (fchmod(writable_regular_fd, statbuf.st_mode & 0777) != -1 || errno != EPERM) {
@@ -264,6 +324,33 @@ static void self_test_seccomp(int writable_regular_fd)
 			close(descriptor);
 		errno = EPROTO;
 		die("seccomp memfd denial self-test");
+	}
+	errno = 0;
+	if (syscall(__NR_ioctl, writable_regular_fd, REVIEWED_X86_64_TCGETS2,
+		    &available) != -1 || errno == EPERM) {
+		errno = EPROTO;
+		die("seccomp reviewed TCGETS2 allowance self-test");
+	}
+	errno = 0;
+	if (ioctl(writable_regular_fd, FIONREAD, &available) != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp ioctl denial self-test");
+	}
+	errno = 0;
+	if (syscall(__NR_removexattrat, writable_regular_fd, "", AT_EMPTY_PATH,
+		    "user.lamina-seccomp-self-test") != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp removexattrat denial self-test");
+	}
+	errno = 0;
+	if (syscall(__NR_fork) != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp fork denial self-test");
+	}
+	errno = 0;
+	if (syscall(__NR_clone3, NULL, 0) != -1 || errno != ENOSYS) {
+		errno = EPROTO;
+		die("seccomp clone3 denial self-test");
 	}
 }
 

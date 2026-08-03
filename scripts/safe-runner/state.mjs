@@ -13,6 +13,9 @@ import { systemdAbsenceProof } from './linux-systemd.mjs';
 import { identityAlive, processIdentity } from './processes.mjs';
 import { infrastructureBinaries, sanitizedEnvironment } from './infrastructure.mjs';
 import { ORACLE_HOST_LAUNCH_PROFILE } from './oracle-host-profile.mjs';
+import {
+  exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+} from './landlock-candidate-profile.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
 export { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
@@ -536,6 +539,16 @@ export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand =
     evidence?.preflight?.execution_snapshot?.launch_profile,
   ].includes(ORACLE_HOST_LAUNCH_PROFILE)) {
     const error = new Error('non-gradeable oracle-host evidence cannot be promoted');
+    error.code = 'LAMINA_SAFE_PROMOTION_FORBIDDEN';
+    throw error;
+  }
+  if ([
+    evidence?.preflight?.launch_profile,
+    evidence?.preflight?.execution_snapshot?.launch_profile,
+  ].includes(LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE)
+    || exactLandlockCandidateProbeCommand(evidence?.command)
+    || exactLandlockCandidateProbeCommand(actualCommand)) {
+    const error = new Error('non-gradeable Landlock candidate probe evidence cannot be promoted');
     error.code = 'LAMINA_SAFE_PROMOTION_FORBIDDEN';
     throw error;
   }

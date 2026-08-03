@@ -291,13 +291,22 @@ limits, user/PID/network namespaces, the bounded tmpfs and read-only mount
 snapshot, capability reduction, and control-socket masking. Landlock owns
 pathname read/write/create/remove/execute rights, TCP rights, and ABI 6 scopes.
 Seccomp closes Landlock ABI 8's persistent `chmod`/`chown`/timestamp/xattr gap,
-blocks anonymous executable files and high-risk topology/control syscalls, and
-is inherited by the Node runtime. `stat` remains read-only; `fcntl` and `flock`
+including the x86-64 `setxattrat`, `removexattrat`, and `file_setattr` syscalls;
+blocks anonymous executable files and high-risk topology/control syscalls; and
+is inherited by the Node runtime. Fork and vfork return `EPERM`; clone3 returns
+`ENOSYS` so pthread may fall back to legacy clone, whose BPF argument inspection
+allows only `CLONE_THREAD`. Raw ioctl is denied except for the exact TCGETS,
+TCGETS2, and FIONBIO requests Node v24 needs to inspect inherited stdio and make
+pipe output nonblocking. A global ioctl denial was tested first and failed
+before Node user code at stdout construction; valid-descriptor FIONREAD remains
+an `EPERM` native denial self-test. `stat` remains read-only; `fcntl` and `flock`
 remain available for Node's descriptor-local runtime behavior and do not grant
 new pathname rights. The controller independently compares exact pre/post
 repository dev, inode, mode, owner, group, mtime, ctime, directory-entry, and
-file-content manifests. V8 executable memory is required by Node and is not
-claimed as a denied executable-file path.
+file-content manifests. After candidate exit it also boundedly rescans the whole
+private `/proc` namespace and accepts only the pre-recorded PID 1 and controller
+identities. V8 executable memory and threads are required by Node and are not
+claimed as denied executable-file or process paths.
 
 The launcher is compiled from a digest-pinned source descriptor into an
 anonymous `O_TMPFILE`, reopened as the same read-only inode, and executed through
@@ -312,13 +321,18 @@ failure, or missing runtime dependency is a hard refusal rather than a weaker
 fallback. The focused small-tier run uses a 32-task cgroup ceiling because the
 measured outer Node/V8 threads and short-lived gcc/cc1/as/ld build tasks exceeded
 16; its memory, time, output, and 64 MiB tmpfs bounds remain intentionally small.
+The entrypoint, workload ID, launch profile, and all six bounds are exact shared
+constants used by preflight, execution-snapshot, state, and tests. Any profile
+mismatch is refused, retained structured stdout is bounded at 1 MiB for this
+single profile, and both preflight and state authority independently reject
+promotion even when a caller spoofs the workload ID.
 
 The result always reports `non_gradeable: true`,
 `cleanup_proof_issued: false`, `grading_reachable: false`, and
 `candidate_executed: false`. It executes only the named adversarial probe and
 does not make production candidate execution, host-side grading, cleanup-proof,
 promotion, quality, or release-readiness reachable. The existing promotion
-authority is untouched.
+authority independently refuses this profile.
 
 ## Evidence boundary
 

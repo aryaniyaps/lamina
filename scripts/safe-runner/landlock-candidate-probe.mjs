@@ -14,7 +14,7 @@ const SOURCE = path.join(
   ROOT, 'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
 );
 const ADAPTER = path.join(ROOT, 'tests/fixtures/landlock-candidate-adversary.mjs');
-const REVIEWED_SOURCE_SHA256 = 'e1c3579394db06fb6024444bfe2c5faa0cf94d3571ea0122954b5e5e7c7b99db';
+const REVIEWED_SOURCE_SHA256 = 'ba4efc1ce9c4436997d385df6af368a3eaf70e90167b205bcba27e0bb3528b43';
 const O_PATH = 0x200000;
 const O_TMPFILE = 0x410000;
 const MAX_IDENTITY_BYTES = 128 * 1024 * 1024;
@@ -28,7 +28,9 @@ const SECCOMP_DENIED_SYSCALL_CLASSES = Object.freeze({
     'chmod', 'fchmod', 'fchmodat', 'fchmodat2', 'chown', 'fchown', 'lchown',
     'fchownat', 'utime', 'utimes', 'futimesat', 'utimensat', 'setxattr',
     'lsetxattr', 'fsetxattr', 'removexattr', 'lremovexattr', 'fremovexattr',
+    'setxattrat', 'removexattrat', 'file_setattr',
   ],
+  process_creation: ['fork', 'vfork'],
   anonymous_executable: ['memfd_create'],
   filesystem_topology: [
     'mount', 'umount2', 'pivot_root', 'chroot', 'open_tree', 'move_mount',
@@ -350,9 +352,49 @@ function waitForCandidate(child) {
   });
 }
 
+async function auditPrivatePidNamespace(expectedIdentities) {
+  const expected = new Map(expectedIdentities.map((identity) => [identity.pid, identity.start_ticks]));
+  let identities = [];
+  let unexpected = [];
+  let missing = [];
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    identities = fs.readdirSync('/proc')
+      .filter((name) => /^\d+$/.test(name))
+      .map(Number)
+      .sort((left, right) => left - right)
+      .map(processIdentity)
+      .filter(Boolean);
+    unexpected = identities.filter(
+      (identity) => expected.get(identity.pid) !== identity.start_ticks,
+    );
+    missing = expectedIdentities.filter(
+      (identity) => !identities.some(
+        (current) => current.pid === identity.pid && current.start_ticks === identity.start_ticks,
+      ),
+    );
+    if (unexpected.length === 0 && missing.length === 0
+      && identities.length === expectedIdentities.length) {
+      return {
+        verified: true,
+        identities,
+        unexpected: [],
+        missing: [],
+        attempts: attempt + 1,
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return { verified: false, identities, unexpected, missing, attempts: 25 };
+}
+
 async function executeAdversary({
   launcherFd, abi, node, closure, inputFile, repository, outputFile, scratchFile,
 }) {
+  const namespaceAuthorities = [processIdentity(1), processIdentity(process.pid)];
+  if (namespaceAuthorities.some((identity) => !identity)
+    || namespaceAuthorities[0].pid === namespaceAuthorities[1].pid) {
+    throw new Error('private PID namespace authority identities are incomplete');
+  }
   const descriptors = [
     openPinned(node.path), openPinned(ADAPTER), openPinned(inputFile),
     openPinned(repository, 'directory'), openPinned(outputFile),
@@ -382,11 +424,13 @@ async function executeAdversary({
       && execution.record.executable_identity?.dev === String(executable.dev)
       && execution.record.executable_identity?.ino === String(executable.ino);
     const stillAlive = [execution.identity, ...execution.descendants].filter(identityAlive);
+    const namespaceAudit = await auditPrivatePidNamespace(namespaceAuthorities);
     if (!exact || execution.exitCode !== 0 || execution.signal !== null
-      || execution.stdout !== 'READY\n' || execution.stderr !== '' || stillAlive.length > 0) {
+      || execution.stdout !== 'READY\n' || execution.stderr !== '' || stillAlive.length > 0
+      || !namespaceAudit.verified) {
       throw new Error(`candidate execution attestation failed: ${JSON.stringify({
         exact, exitCode: execution.exitCode, signal: execution.signal,
-        stdout: execution.stdout, stderr: execution.stderr, stillAlive,
+        stdout: execution.stdout, stderr: execution.stderr, stillAlive, namespaceAudit,
       })}`);
     }
     return {
@@ -394,6 +438,11 @@ async function executeAdversary({
       exit_code: execution.exitCode,
       signal: execution.signal,
       descendants_remaining: [],
+      private_pid_namespace_rescan_verified: true,
+      private_pid_namespace_expected_identities: namespaceAuthorities,
+      private_pid_namespace_observed_identities: namespaceAudit.identities,
+      private_pid_namespace_rescan_attempts: namespaceAudit.attempts,
+      unexpected_private_pid_identities: [],
       result: JSON.parse(fs.readFileSync(outputFile, 'utf8')),
     };
   } finally {
@@ -483,7 +532,29 @@ export async function runLandlockCandidateProbe() {
         kernel_install_failure_action: 'launch_refusal',
         denied_errno: 'EPERM',
         inherited_across_exec: true,
-        native_self_tests: ['writable-fd-fchmod:EPERM', 'memfd_create:EPERM'],
+        native_self_tests: [
+          'writable-fd-fchmod:EPERM', 'memfd_create:EPERM',
+          'valid-regular-fd-ioctl:pre-non-EPERM/post-EPERM',
+          'valid-regular-fd-TCGETS2:post-non-EPERM',
+          'valid-regular-fd-removexattrat:pre-ENODATA/post-EPERM',
+          'fork:EPERM', 'clone3:ENOSYS',
+        ],
+        process_creation: {
+          fork: 'EPERM',
+          vfork: 'EPERM',
+          clone3: 'ENOSYS (forces pthread fallback to reviewed legacy clone)',
+          clone: 'allowed only when CLONE_THREAD is set; otherwise EPERM',
+        },
+        raw_ioctl: {
+          default_action: 'EPERM',
+          allowed_requests: [
+            'x86_64 TCGETS (0x5401)', 'x86_64 TCGETS2 (0x802c542a)',
+            'x86_64 FIONBIO (0x5421)',
+          ],
+          compatibility_reason:
+            'Node v24 probes inherited stdio and makes pipe stdout nonblocking before user code',
+          denial_self_test: 'valid regular FD FIONREAD returns EPERM',
+        },
         denied_syscall_classes: SECCOMP_DENIED_SYSCALL_CLASSES,
       },
       build: {

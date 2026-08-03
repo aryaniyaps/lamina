@@ -15,6 +15,9 @@ import {
   ORACLE_HOST_LAUNCH_PROFILE,
   ORACLE_HOST_PROBE_COMMAND,
 } from './oracle-host-profile.mjs';
+import {
+  exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+} from './landlock-candidate-profile.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -715,6 +718,7 @@ export function prepareExecutionSnapshot({
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
   const oracleHostProbe = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     && command.length === 3 && command[2] === ORACLE_HOST_PROBE_COMMAND;
+  const landlockCandidateProbe = exactLandlockCandidateProbeCommand(command);
   const resolvedRealRepositoryClosure = realRepositoryOracleSourceClosure(command[2]);
   if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     && !resolvedRealRepositoryClosure) {
@@ -1548,12 +1552,16 @@ export function prepareExecutionSnapshot({
   const snapshotDigestInput = oracleHostProbe ? {
     entries: snapshotEntries,
     oracle_host_launch: oracleHostLaunchBinding,
+  } : landlockCandidateProbe ? {
+    entries: snapshotEntries,
+    launch_profile: LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
   } : snapshotEntries;
   return {
     root, repository, snapshot_repository: snapshotRepository,
     audited_entrypoint: auditedEntrypoint,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
-    launch_profile: oracleHostProbe ? ORACLE_HOST_LAUNCH_PROFILE : null,
+    launch_profile: oracleHostProbe ? ORACLE_HOST_LAUNCH_PROFILE
+      : landlockCandidateProbe ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE : null,
     oracle_host_launch_command: oracleHostLaunchCommand,
     oracle_host_launch_cwd: oracleHostLaunchCwd,
     oracle_host_profile: oracleHostProfile,

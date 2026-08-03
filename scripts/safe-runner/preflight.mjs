@@ -5,6 +5,7 @@ import {
   CASE_DISCOVERY_WORKLOAD_ID,
   DEFAULTS,
   GENERIC_TEMPORARY_MAX_INODES,
+  MIB,
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
   retainedOutputTailBytes,
@@ -23,6 +24,11 @@ import {
   ORACLE_HOST_PROBE_WORKLOAD_ID,
   oracleHostProbeLimits,
 } from './oracle-host-profile.mjs';
+import {
+  exactLandlockCandidateProbeCommand, exactLandlockCandidateProbeLimits,
+  LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+  LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID,
+} from './landlock-candidate-profile.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
@@ -77,7 +83,7 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['tests/cli_binary_smoke_test.mjs', false],
   ['tests/fixtures/safe-runner-adversary.mjs', false],
   ['tests/fixtures/safe-runner-graphd-client.mjs', false],
-  ['tests/fixtures/safe-runner-landlock-probe.mjs', false],
+  [LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT, false],
   ['tests/fixtures/safe-runner-mutable.mjs', false],
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
@@ -85,6 +91,7 @@ const SMALL_ONLY_SCRATCH_FIXTURES = new Set([
   'benchmarks/runtime-v1/fixture/tiny-runtime.mjs',
   'tests/runtime_benchmark_test.mjs',
   'tests/fixtures/safe-runner-graphd-client.mjs',
+  LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT,
   'tests/fixtures/safe-runner-mutable.mjs',
 ]);
 const SENSITIVE_WRITABLE_ROOTS = ['/','/tmp','/run','/proc','/sys','/dev'];
@@ -393,6 +400,13 @@ export function preflightRun({
   };
   const exactOracleHostProfile = exactOracleHostProbe && tier === 'small'
     && oracleHostProbeLimits(envelope.limits);
+  const landlockCandidateProbe = ownership.audited_entrypoint
+    === LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT;
+  const exactLandlockCandidateProfile = landlockCandidateProbe
+    && exactLandlockCandidateProbeCommand(command)
+    && workloadId === LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID
+    && tier === 'small' && exactLandlockCandidateProbeLimits(envelope.limits);
+  if (exactLandlockCandidateProfile) envelope.limits.stdout_tail_max_bytes = MIB;
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
@@ -475,6 +489,14 @@ export function preflightRun({
   if (exactOracleHostProfile && promotionRequested) {
     reasons.push('non-gradeable oracle-host probe cannot be promoted');
   }
+  if (landlockCandidateProbe && !exactLandlockCandidateProfile) {
+    reasons.push(
+      `Landlock candidate probe requires --workload ${LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID}, small tier, and exact tiny bounds`,
+    );
+  }
+  if (exactLandlockCandidateProfile && promotionRequested) {
+    reasons.push('non-gradeable Landlock candidate probe cannot be promoted');
+  }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
   if (!retry.ok && retry.previous) {
@@ -539,7 +561,8 @@ export function preflightRun({
     },
     promotion,
     workload_id: workloadId,
-    launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE : null,
+    launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE
+      : exactLandlockCandidateProfile ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE : null,
     temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };
