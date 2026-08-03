@@ -177,12 +177,15 @@ try {
   assert.throws(() => failedReleaseRegistry.assertEmpty(), /1 repository leases remain active/);
 
   const ownerIdentity = processIdentity(process.pid);
+  const acknowledgeRecoveryAuthority = () => true;
   assert.throws(() => createPersistentScenarioMaterializer({
     runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
   }), /not an exact reviewed fixture pin/,
   'arbitrary self-digested HTTPS metadata cannot enter the production factory');
   assert.throws(() => createSyntheticPersistentScenarioMaterializer({
     runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
     seedBareRepository: path.join(origin, '.git'),
   }), /explicit test-only authority/);
 
@@ -194,6 +197,7 @@ try {
     mutate?.(seed);
     assert.throws(() => createSyntheticPersistentScenarioMaterializer({
       runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+      publishRecoveryAuthority: acknowledgeRecoveryAuthority,
       seedBareRepository: seed, ...options,
     }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY), pattern);
   };
@@ -244,14 +248,61 @@ try {
     },
   }, /source after copy|byte-exact and physically independent/);
 
+  const materializerRoots = () => fs.readdirSync(temporary)
+    .filter((name) => name.startsWith('real-repository-oracle-materializer-')).sort();
+  const rootsBeforeOwnerRefusals = materializerRoots();
+  const forgedOwner = { ...ownerIdentity, start_ticks: `${Number(ownerIdentity.start_ticks) + 1}` };
+  assert.throws(() => createSyntheticPersistentScenarioMaterializer({
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: forgedOwner,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+    seedBareRepository: path.join(origin, '.git'),
+  }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY), /exact current live host process/);
+  assert.deepEqual(materializerRoots(), rootsBeforeOwnerRefusals,
+    'forged recovery owner is refused before a root is created');
+  assert.throws(() => createSyntheticPersistentScenarioMaterializer({
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority() { return false; },
+    seedBareRepository: path.join(origin, '.git'),
+  }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY), /publication was not acknowledged/);
+  assert.deepEqual(materializerRoots(), rootsBeforeOwnerRefusals,
+    'unacknowledged construction authority is synchronously cleaned');
+  assert.throws(() => createSyntheticPersistentScenarioMaterializer({
+    runnerTemporaryRoot: temporary, collection,
+    recoveryOwnerIdentity: { pid: 2_147_483_647, start_ticks: '1' },
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+    seedBareRepository: path.join(origin, '.git'),
+  }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY), /exact current live host process/);
+  assert.deepEqual(materializerRoots(), rootsBeforeOwnerRefusals,
+    'nonexistent recovery owner is refused before a root is created');
+  const inheritedProduction = Object.create({ seedBareRepository: path.join(origin, '.git') });
+  Object.assign(inheritedProduction, {
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+  });
+  assert.throws(() => createPersistentScenarioMaterializer(inheritedProduction),
+    /rejects inherited synthetic-only authority/);
+  const inheritedSynthetic = Object.create({ syntheticCopyInterposition() {} });
+  Object.assign(inheritedSynthetic, {
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+    seedBareRepository: path.join(origin, '.git'),
+  });
+  assert.throws(() => createSyntheticPersistentScenarioMaterializer(
+    inheritedSynthetic, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY,
+  ), /exact plain data object/);
+
+  let publishedAuthority = null;
   const materializer = createSyntheticPersistentScenarioMaterializer({
     runnerTemporaryRoot: temporary,
     collection,
     recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority(authority) { publishedAuthority = authority; return true; },
     seedBareRepository: path.join(origin, '.git'),
     maximumPackBytes: 16 * 1024 * 1024,
     maximumSnapshotBytes: 32 * 1024 * 1024,
   }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY);
+  assert.deepEqual(materializer.recoveryAuthority(), publishedAuthority,
+    'recovery authority is synchronously published before construction completes');
   const registry = createMaterializationRegistry(materializer);
   const initialInspection = materializer.inspectForTest();
   assert.equal(initialInspection.cache_pack_files.length, 2);

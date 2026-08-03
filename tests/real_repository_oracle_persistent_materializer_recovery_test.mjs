@@ -116,7 +116,7 @@ try {
     });
     assert.equal(payload.boundary, boundary);
     assert.deepEqual(payload.authority.recovery_owner_identity, recoveryOwnerIdentity);
-    assert.equal(fs.existsSync(payload.authority.root), true);
+    assert.equal(fs.existsSync(payload.authority.root), boundary !== 'root_quarantined');
     if (boundary === 'logical_worktree_active') {
       assert.equal(payload.resolved.worktree_role, 'oracle-worktree-recovery');
       assert.equal(fs.existsSync(payload.resolved.repository), true);
@@ -127,10 +127,22 @@ try {
       assert.equal(payload.inspection.active_count, 0);
       assert.deepEqual(fs.readdirSync(payload.inspection.leases), []);
     }
+    if (['lease_quarantined', 'root_quarantined'].includes(boundary)) {
+      assert.equal(fs.existsSync(payload.quarantine), true);
+    }
+    if (boundary === 'root_quarantined') assert.equal(absent(payload.authority.root), true);
     const exitPromise = new Promise((resolve) => child.once('exit',
       (code, signal) => resolve({ code, signal })));
     assert.throws(() => recoverPersistentScenarioMaterializer(payload.authority),
       /owner process is still alive/);
+    const forgedAuthority = {
+      ...payload.authority,
+      recovery_owner_identity: { pid: 2_147_483_647, start_ticks: '1' },
+    };
+    assert.throws(() => recoverPersistentScenarioMaterializer(forgedAuthority),
+      /marker was substituted/);
+    assert.equal(fs.existsSync(payload.authority.root) || fs.existsSync(payload.quarantine || ''), true,
+      'forged or nonexistent owner authority cannot recover a live root');
     child.kill('SIGKILL');
     const exit = await exitPromise;
     assert.equal(exit.code, null);
@@ -139,7 +151,8 @@ try {
   }
 
   for (const boundary of [
-    'cache_ready', 'lease_allocated', 'logical_worktree_active', 'released_before_close',
+    'cache_creating', 'cache_ready', 'lease_allocated', 'logical_worktree_active',
+    'lease_quarantined', 'released_before_close', 'root_quarantined',
   ]) {
     const payload = await killAt(boundary);
     assert.deepEqual(recoverPersistentScenarioMaterializer(payload.authority), {
@@ -158,20 +171,31 @@ try {
 
   const foreign = await killAt('cache_ready');
   fs.writeFileSync(path.join(foreign.authority.root, 'foreign'), 'foreign\n', { mode: 0o600 });
-  assert.throws(() => recoverPersistentScenarioMaterializer(foreign.authority),
-    /foreign entries/);
+  const foreignDisposition = recoverPersistentScenarioMaterializer(foreign.authority);
+  assert.equal(foreignDisposition.terminal_disposition, 'contaminated_quarantine');
+  assert.equal(foreignDisposition.foreign_content_preserved, true);
+  assert.equal(absent(foreign.authority.root), true);
+  assert.equal(fs.readFileSync(path.join(foreignDisposition.quarantine, 'foreign'), 'utf8'), 'foreign\n');
+  assert.deepEqual(recoverPersistentScenarioMaterializer(foreign.authority), foreignDisposition,
+    'terminal contaminated disposition is authenticated and idempotent');
 
   const symlink = await killAt('cache_ready');
   fs.symlinkSync(configFile, path.join(symlink.inspection.leases, 'foreign-link'));
-  assert.throws(() => recoverPersistentScenarioMaterializer(symlink.authority),
-    /contains a symlink/);
+  const symlinkDisposition = recoverPersistentScenarioMaterializer(symlink.authority);
+  assert.equal(symlinkDisposition.terminal_disposition, 'contaminated_quarantine');
+  assert.equal(fs.lstatSync(path.join(symlinkDisposition.quarantine,
+    'leases', 'foreign-link')).isSymbolicLink(), true,
+  'contaminated disposition preserves rather than follows the foreign symlink');
 
   const hardlink = await killAt('cache_ready');
   const hardlinkSource = path.join(temporary, 'hardlink-source');
   fs.writeFileSync(hardlinkSource, 'linked\n', { mode: 0o600 });
   fs.linkSync(hardlinkSource, path.join(hardlink.inspection.leases, 'foreign-hardlink'));
-  assert.throws(() => recoverPersistentScenarioMaterializer(hardlink.authority),
-    /special path or hardlink/);
+  const hardlinkDisposition = recoverPersistentScenarioMaterializer(hardlink.authority);
+  assert.equal(hardlinkDisposition.terminal_disposition, 'contaminated_quarantine');
+  assert.ok(fs.lstatSync(path.join(hardlinkDisposition.quarantine,
+    'leases', 'foreign-hardlink'), { bigint: true }).nlink > 1n,
+  'contaminated disposition does not unlink foreign hardlinked data');
 
   const fifoTool = ['/usr/bin/mkfifo', '/bin/mkfifo'].find((candidate) => fs.existsSync(candidate));
   if (fifoTool) {
@@ -179,8 +203,10 @@ try {
     const fifo = path.join(special.inspection.leases, 'foreign-fifo');
     const created = spawnSync(fifoTool, [fifo], { encoding: 'utf8' });
     assert.equal(created.status, 0, created.stderr);
-    assert.throws(() => recoverPersistentScenarioMaterializer(special.authority),
-      /special path or hardlink/);
+    const specialDisposition = recoverPersistentScenarioMaterializer(special.authority);
+    assert.equal(specialDisposition.terminal_disposition, 'contaminated_quarantine');
+    assert.equal(fs.lstatSync(path.join(specialDisposition.quarantine,
+      'leases', 'foreign-fifo')).isFIFO(), true);
   }
 
   console.log('real repository oracle persistent materializer recovery passed');

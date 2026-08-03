@@ -23,6 +23,8 @@ const OWNER_FILE = '.owner.json';
 const ROOT_PREFIX = 'real-repository-oracle-materializer-';
 const CACHE_NAME = 'cache.git';
 const LEASES_NAME = 'leases';
+const ROOT_QUARANTINE_PREFIX = '.lamina-materializer-quarantine-';
+const CONTAMINATED_QUARANTINE_PREFIX = '.lamina-materializer-contaminated-';
 const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
 const MAX_PACK_FILES = 2;
 const DEFAULT_MAX_PACK_BYTES = 768 * 1024 * 1024;
@@ -51,6 +53,27 @@ function frozenClone(value) {
     Object.freeze(current);
   }
   return clone;
+}
+
+function exactOptions(value, allowed, required, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw new Error(`${label} options must be an exact plain data object`);
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== 'string' || !allowed.has(key))
+    || required.some((key) => !Object.hasOwn(value, key))) {
+    throw new Error(`${label} options contain missing, inherited, or unsupported authority`);
+  }
+  const sanitized = Object.create(null);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || !descriptor.enumerable) {
+      throw new Error(`${label} options must contain enumerable data properties only`);
+    }
+    sanitized[key] = descriptor.value;
+  }
+  return sanitized;
 }
 
 function ownedGitRoot(cwd) {
@@ -170,8 +193,29 @@ function readExactJson(file, label) {
 }
 
 function validOwnerIdentity(value) {
-  return Number.isSafeInteger(value?.pid) && value.pid > 1
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify(['pid', 'start_ticks'])
+    && Number.isSafeInteger(value.pid) && value.pid > 1
     && typeof value?.start_ticks === 'string' && /^\d+$/.test(value.start_ticks);
+}
+
+function assertCurrentRecoveryOwner(value) {
+  const current = processIdentity(process.pid);
+  if (!validOwnerIdentity(value) || !current || !same(value, current)) {
+    throw new Error('persistent materializer recovery owner must be the exact current live host process');
+  }
+  return frozenClone(current);
+}
+
+function recoveryAuthorityFromMarker(marker) {
+  return frozenClone({
+    schema: PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA,
+    root: marker.root,
+    root_identity: marker.root_identity,
+    parent_identity: marker.parent_identity,
+    authority_token: marker.authority_token,
+    recovery_owner_identity: marker.recovery_owner_identity,
+  });
 }
 
 function writeOwnerMarker(root, parentIdentity, recoveryOwnerIdentity) {
@@ -208,6 +252,20 @@ function validateRoot(root, expectedMarker = null) {
   physicalDirectory(path.join(root, CACHE_NAME), 'persistent materializer cache');
   physicalDirectory(path.join(root, LEASES_NAME), 'persistent materializer leases');
   return marker;
+}
+
+function validateRootEnvelope(actualRoot, declaredRoot = actualRoot) {
+  const rootIdentity = physicalDirectory(actualRoot, 'persistent materializer root');
+  const marker = readExactJson(path.join(actualRoot, OWNER_FILE), 'persistent materializer owner marker');
+  if (marker?.schema !== PERSISTENT_MATERIALIZER_SCHEMA || marker.root !== declaredRoot
+    || !sameNodeIdentity(marker.root_identity, rootIdentity)
+    || marker.root_identity?.path !== declaredRoot
+    || !/^[a-f0-9]{64}$/.test(marker.authority_token || '')
+    || !validOwnerIdentity(marker.recovery_owner_identity)
+    || JSON.stringify(marker.owned) !== JSON.stringify([CACHE_NAME, LEASES_NAME])) {
+    throw new Error('persistent materializer owner marker or physical identity changed');
+  }
+  return { marker, rootIdentity };
 }
 
 function scanTree(root, {
@@ -576,13 +634,17 @@ function sameNodeIdentity(left, right) {
 }
 
 function quarantineExactOwnedDirectory(source, parentIdentity, expectedIdentity,
-  expectedMarker, label) {
+  expectedMarker, label, quarantineName, lifecycleInterposition = null) {
   const parent = physicalDirectory(path.dirname(source), `${label} parent`);
   const before = physicalDirectory(source, label);
   if (!sameIdentity(parent, parentIdentity) || !sameIdentity(before, expectedIdentity)) {
     throw new Error(`${label} identity changed before quarantine`);
   }
-  const quarantine = path.join(parent.path, `.lamina-quarantine-${crypto.randomBytes(32).toString('hex')}`);
+  if (!/^(?:\.lamina-materializer-quarantine-[a-f0-9]{64}|\.lamina-lease-quarantine-[a-f0-9]{64})$/.test(quarantineName)) {
+    throw new Error(`${label} quarantine name is outside deterministic authority`);
+  }
+  const quarantine = path.join(parent.path, quarantineName);
+  assertAbsent(quarantine, `${label} quarantine destination`);
   fs.renameSync(source, quarantine);
   assertAbsent(source, label);
   const afterParent = physicalDirectory(parent.path, `${label} parent`);
@@ -592,34 +654,41 @@ function quarantineExactOwnedDirectory(source, parentIdentity, expectedIdentity,
     || !same(actualMarker, expectedMarker)) {
     throw new Error(`${label} was substituted during quarantine`);
   }
+  lifecycleInterposition?.(Object.freeze({
+    boundary: 'after_quarantine_rename', label, source, quarantine,
+  }));
   scanTree(quarantine);
   makeOwnerWritable(quarantine);
   fs.rmSync(quarantine, { recursive: true, force: false });
   assertAbsent(quarantine, `${label} quarantine`);
 }
 
-function removeExactOwnedRoot(root, marker) {
+function removeExactOwnedRoot(root, marker, lifecycleInterposition = null) {
   validateRoot(root, marker);
   scanTree(root);
   quarantineExactOwnedDirectory(root, marker.parent_identity, marker.root_identity,
-    marker, 'persistent materializer root');
+    marker, 'persistent materializer root',
+    `${ROOT_QUARANTINE_PREFIX}${marker.authority_token}`, lifecycleInterposition);
 }
 
 function createPersistentScenarioMaterializerInternal({
   runnerTemporaryRoot,
   collection,
   recoveryOwnerIdentity,
+  publishRecoveryAuthority,
   seedBareRepository = null,
   maximumPackBytes = DEFAULT_MAX_PACK_BYTES,
   maximumSnapshotFiles = DEFAULT_MAX_SNAPSHOT_FILES,
   maximumSnapshotBytes = DEFAULT_MAX_SNAPSHOT_BYTES,
   syntheticCopyInterposition = null,
+  syntheticLifecycleInterposition = null,
 }) {
   if (process.platform !== 'linux') {
     throw new Error('persistent materializer requires Linux process and physical ownership semantics');
   }
-  if (!validOwnerIdentity(recoveryOwnerIdentity)) {
-    throw new Error('persistent materializer requires a host-visible recovery owner identity');
+  const authenticatedRecoveryOwner = assertCurrentRecoveryOwner(recoveryOwnerIdentity);
+  if (typeof publishRecoveryAuthority !== 'function') {
+    throw new Error('persistent materializer requires synchronous recovery authority publication');
   }
   const parentIdentity = physicalDirectory(runnerTemporaryRoot, 'safe-runner temporary authority');
   if (!collection || !/^https:\/\//.test(collection.repository_url || '')
@@ -647,9 +716,15 @@ function createPersistentScenarioMaterializerInternal({
   let cacheSnapshot;
   try {
     fs.mkdirSync(cache, { mode: 0o700 });
-    fs.rmdirSync(cache);
     fs.mkdirSync(leases, { mode: 0o700 });
-    marker = writeOwnerMarker(root, parentIdentity, recoveryOwnerIdentity);
+    marker = writeOwnerMarker(root, parentIdentity, authenticatedRecoveryOwner);
+    const constructionAuthority = recoveryAuthorityFromMarker(marker);
+    if (publishRecoveryAuthority(constructionAuthority) !== true) {
+      throw new Error('persistent materializer recovery authority publication was not acknowledged');
+    }
+    syntheticLifecycleInterposition?.(Object.freeze({
+      boundary: 'construction_authority_published', authority: constructionAuthority,
+    }));
     initializeCache(cache, frozenCollection, physicalSeed, maximumPackBytes,
       syntheticCopyInterposition);
     cacheSnapshot = scanTree(cache, {
@@ -799,7 +874,8 @@ function createPersistentScenarioMaterializerInternal({
       const releasedRoot = active.leaseRoot;
       const leaseParent = physicalDirectory(leases, 'physical repository lease parent');
       quarantineExactOwnedDirectory(releasedRoot, leaseParent, active.leaseMarker.identity,
-        active.leaseMarker, 'physical repository lease');
+        active.leaseMarker, 'physical repository lease',
+        `.lamina-lease-quarantine-${active.handle}`, syntheticLifecycleInterposition);
       const result = {
         end_digest: active.base.content_digest,
         cleanup_verified: true,
@@ -810,21 +886,14 @@ function createPersistentScenarioMaterializerInternal({
 
     recoveryAuthority() {
       if (closed) throw new Error('persistent materializer is closed');
-      return frozenClone({
-        schema: PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA,
-        root,
-        root_identity: marker.root_identity,
-        parent_identity: marker.parent_identity,
-        authority_token: marker.authority_token,
-        recovery_owner_identity: marker.recovery_owner_identity,
-      });
+      return recoveryAuthorityFromMarker(marker);
     },
 
     async close() {
       requireOpen();
       if (active) throw new Error('cannot close persistent materializer with an active lease');
       if (fs.readdirSync(leases).length !== 0) throw new Error('released lease paths remain before close');
-      removeExactOwnedRoot(root, marker);
+      removeExactOwnedRoot(root, marker, syntheticLifecycleInterposition);
       OWNED_GIT_ROOTS.delete(root);
       closed = true;
     },
@@ -845,15 +914,23 @@ function createPersistentScenarioMaterializerInternal({
 }
 
 export function createPersistentScenarioMaterializer(options) {
-  if (Object.hasOwn(options || {}, 'seedBareRepository')
-    || Object.hasOwn(options || {}, 'syntheticCopyInterposition')) {
-    throw new Error('production persistent materializer cannot accept a synthetic cache seed');
+  for (const syntheticOnly of [
+    'seedBareRepository', 'syntheticCopyInterposition', 'syntheticLifecycleInterposition',
+  ]) {
+    if (options && syntheticOnly in Object(options) && !Object.hasOwn(options, syntheticOnly)) {
+      throw new Error('production persistent materializer rejects inherited synthetic-only authority');
+    }
   }
+  const sanitized = exactOptions(options, new Set([
+    'runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority',
+    'maximumPackBytes', 'maximumSnapshotFiles', 'maximumSnapshotBytes',
+  ]), ['runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority'],
+  'production persistent materializer');
   const reviewed = loadReviewedFixture().fixture.collections;
-  if (!reviewed.some((collection) => same(collection, options?.collection))) {
+  if (!reviewed.some((collection) => same(collection, sanitized.collection))) {
     throw new Error('production persistent materializer collection is not an exact reviewed fixture pin');
   }
-  return createPersistentScenarioMaterializerInternal(options);
+  return createPersistentScenarioMaterializerInternal(sanitized);
 }
 
 export const SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY = Symbol(
@@ -861,55 +938,170 @@ export const SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY = Symbol(
 );
 
 export function createSyntheticPersistentScenarioMaterializer(options, authority) {
-  if (authority !== SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY
-    || !options?.seedBareRepository
-    || (options.syntheticCopyInterposition !== undefined
-      && typeof options.syntheticCopyInterposition !== 'function')) {
+  if (authority !== SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY) {
     throw new Error('synthetic persistent materializer requires explicit test-only authority and seed');
   }
-  return createPersistentScenarioMaterializerInternal(options);
+  const sanitized = exactOptions(options, new Set([
+    'runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority',
+    'seedBareRepository', 'maximumPackBytes', 'maximumSnapshotFiles', 'maximumSnapshotBytes',
+    'syntheticCopyInterposition', 'syntheticLifecycleInterposition',
+  ]), [
+    'runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority',
+    'seedBareRepository',
+  ], 'synthetic persistent materializer');
+  if (!sanitized.seedBareRepository
+    || (sanitized.syntheticCopyInterposition !== undefined
+      && typeof sanitized.syntheticCopyInterposition !== 'function')
+    || (sanitized.syntheticLifecycleInterposition !== undefined
+      && typeof sanitized.syntheticLifecycleInterposition !== 'function')) {
+    throw new Error('synthetic persistent materializer requires explicit test-only authority and seed');
+  }
+  return createPersistentScenarioMaterializerInternal(sanitized);
 }
 
-export function recoverPersistentScenarioMaterializer(authority) {
-  if (process.platform !== 'linux') {
-    throw new Error('persistent materializer recovery requires Linux host process evidence');
-  }
-  if (authority?.schema !== PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA
-    || !path.isAbsolute(authority.root || '') || !/^[a-f0-9]{64}$/.test(authority.authority_token || '')
+function assertRecoveryAuthority(authority) {
+  const expectedKeys = [
+    'authority_token', 'parent_identity', 'recovery_owner_identity',
+    'root', 'root_identity', 'schema',
+  ];
+  if (!authority || typeof authority !== 'object' || Array.isArray(authority)
+    || JSON.stringify(Object.keys(authority).sort()) !== JSON.stringify(expectedKeys)
+    || authority.schema !== PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA
+    || !path.isAbsolute(authority.root || '')
+    || !/^[a-f0-9]{64}$/.test(authority.authority_token || '')
     || !validOwnerIdentity(authority.recovery_owner_identity)) {
     throw new Error('persistent materializer recovery requires exact authorized owner-death evidence');
   }
-  const parent = physicalDirectory(path.dirname(authority.root), 'safe-runner recovery parent');
-  if (!sameIdentity(parent, authority.parent_identity)) {
-    throw new Error('persistent materializer recovery parent authority changed');
-  }
-  const marker = validateRoot(authority.root);
-  if (!sameIdentity(marker.root_identity, authority.root_identity)
-    || marker.authority_token !== authority.authority_token
-    || !same(marker.recovery_owner_identity, authority.recovery_owner_identity)) {
-    throw new Error('persistent materializer recovery marker was substituted');
-  }
-  // The identity is supplied by the host controller because a materializer
-  // may execute below Bubblewrap's PID namespace. A namespace-local PID is
-  // never accepted as recovery authority. Exact Linux start ticks make PID
-  // reuse fail closed.
+}
+
+function assertRecoveryOwnerDead(identity) {
   let processExists = false;
   try {
-    process.kill(authority.recovery_owner_identity.pid, 0);
+    process.kill(identity.pid, 0);
     processExists = true;
   } catch (error) {
     if (error?.code !== 'ESRCH') {
       throw new Error('persistent materializer recovery owner liveness is unknown');
     }
   }
-  const currentOwner = processIdentity(authority.recovery_owner_identity.pid);
+  const currentOwner = processIdentity(identity.pid);
   if (processExists && !currentOwner) {
     throw new Error('persistent materializer recovery owner liveness is unknown');
   }
-  if (currentOwner?.start_ticks === authority.recovery_owner_identity.start_ticks) {
+  if (currentOwner?.start_ticks === identity.start_ticks) {
     throw new Error('persistent materializer recovery owner process is still alive');
   }
-  scanTree(authority.root);
-  removeExactOwnedRoot(authority.root, marker);
+}
+
+function pathPresent(candidate) {
+  try { fs.lstatSync(candidate); return true; }
+  catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
+}
+
+function validateRecoveryEnvelope(actualRoot, authority) {
+  const { marker, rootIdentity } = validateRootEnvelope(actualRoot, authority.root);
+  if (!sameNodeIdentity(rootIdentity, authority.root_identity)
+    || marker.authority_token !== authority.authority_token
+    || !same(marker.recovery_owner_identity, authority.recovery_owner_identity)
+    || !same(marker.parent_identity, authority.parent_identity)) {
+    throw new Error('persistent materializer recovery marker was substituted');
+  }
+  return { marker, rootIdentity };
+}
+
+function strictRecoveryTree(actualRoot) {
+  const allowed = new Set([OWNER_FILE, CACHE_NAME, LEASES_NAME]);
+  const foreign = fs.readdirSync(actualRoot).filter((name) => !allowed.has(name));
+  if (foreign.length) throw new Error('persistent materializer root contains foreign entries');
+  physicalDirectory(path.join(actualRoot, CACHE_NAME), 'persistent materializer cache');
+  physicalDirectory(path.join(actualRoot, LEASES_NAME), 'persistent materializer leases');
+  scanTree(actualRoot);
+}
+
+function removeAlreadyQuarantinedRoot(quarantine, authority, marker) {
+  const parent = physicalDirectory(path.dirname(quarantine), 'persistent materializer quarantine parent');
+  const before = physicalDirectory(quarantine, 'persistent materializer root quarantine');
+  const actualMarker = readExactJson(path.join(quarantine, OWNER_FILE),
+    'persistent materializer root quarantine marker');
+  if (!sameIdentity(parent, authority.parent_identity)
+    || !sameNodeIdentity(before, authority.root_identity) || !same(actualMarker, marker)) {
+    throw new Error('persistent materializer root quarantine authority changed');
+  }
+  strictRecoveryTree(quarantine);
+  makeOwnerWritable(quarantine);
+  fs.rmSync(quarantine, { recursive: true, force: false });
+  assertAbsent(quarantine, 'persistent materializer root quarantine');
+}
+
+function quarantineContaminatedRoot(actualRoot, authority, marker) {
+  const parent = physicalDirectory(path.dirname(actualRoot), 'persistent materializer recovery parent');
+  const before = physicalDirectory(actualRoot, 'contaminated persistent materializer root');
+  const quarantine = path.join(parent.path,
+    `${CONTAMINATED_QUARANTINE_PREFIX}${authority.authority_token}`);
+  if (!sameIdentity(parent, authority.parent_identity)
+    || !sameNodeIdentity(before, authority.root_identity)) {
+    throw new Error('contaminated persistent materializer identity changed');
+  }
+  assertAbsent(quarantine, 'contaminated persistent materializer quarantine destination');
+  fs.renameSync(actualRoot, quarantine);
+  assertAbsent(actualRoot, 'contaminated persistent materializer root');
+  const after = physicalDirectory(quarantine, 'contaminated persistent materializer quarantine');
+  const actualMarker = readExactJson(path.join(quarantine, OWNER_FILE),
+    'contaminated persistent materializer marker');
+  if (!sameNodeIdentity(after, authority.root_identity) || !same(actualMarker, marker)
+    || !sameIdentity(physicalDirectory(parent.path,
+      'contaminated persistent materializer parent'), authority.parent_identity)) {
+    throw new Error('contaminated persistent materializer was substituted during quarantine');
+  }
+  return Object.freeze({
+    recovered: false,
+    root_removed: true,
+    terminal_disposition: 'contaminated_quarantine',
+    quarantine,
+    foreign_content_preserved: true,
+  });
+}
+
+export function recoverPersistentScenarioMaterializer(authority) {
+  if (process.platform !== 'linux') {
+    throw new Error('persistent materializer recovery requires Linux host process evidence');
+  }
+  assertRecoveryAuthority(authority);
+  const parent = physicalDirectory(path.dirname(authority.root), 'safe-runner recovery parent');
+  if (!sameIdentity(parent, authority.parent_identity)) {
+    throw new Error('persistent materializer recovery parent authority changed');
+  }
+  const normalQuarantine = path.join(parent.path,
+    `${ROOT_QUARANTINE_PREFIX}${authority.authority_token}`);
+  const contaminatedQuarantine = path.join(parent.path,
+    `${CONTAMINATED_QUARANTINE_PREFIX}${authority.authority_token}`);
+  const locations = [authority.root, normalQuarantine, contaminatedQuarantine]
+    .filter(pathPresent);
+  if (locations.length === 0) {
+    throw new Error('persistent materializer recovery has no authenticated owned root to recover');
+  }
+  if (locations.length !== 1) {
+    throw new Error('persistent materializer recovery has ambiguous owned-root locations');
+  }
+  const actualRoot = locations[0];
+  const { marker } = validateRecoveryEnvelope(actualRoot, authority);
+  assertRecoveryOwnerDead(authority.recovery_owner_identity);
+  if (actualRoot === contaminatedQuarantine) {
+    return Object.freeze({
+      recovered: false, root_removed: true,
+      terminal_disposition: 'contaminated_quarantine', quarantine: contaminatedQuarantine,
+      foreign_content_preserved: true,
+    });
+  }
+  try {
+    strictRecoveryTree(actualRoot);
+  } catch {
+    return quarantineContaminatedRoot(actualRoot, authority, marker);
+  }
+  if (actualRoot === normalQuarantine) {
+    removeAlreadyQuarantinedRoot(actualRoot, authority, marker);
+  } else {
+    removeExactOwnedRoot(actualRoot, marker);
+  }
   return Object.freeze({ recovered: true, root_removed: true });
 }

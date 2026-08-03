@@ -5,7 +5,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import {
   CANDIDATE_ADAPTER_SCHEMA,
   CANDIDATE_PUBLIC_BATCH_SCHEMA,
@@ -367,24 +366,18 @@ const auditedPublicBytes = new Map([
     'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d'],
 ]);
 assert.deepEqual([...auditedPublicBytes.keys()].sort(), [...allowedPublicClosure].sort());
-const attributes = spawnTrustedGit(repositoryRoot, [
-  'check-attr', '-z', 'text', 'eol', '--', ...auditedPublicBytes.keys(),
-], {
-  encoding: null, timeout: 10_000, maxBuffer: 64 * 1024,
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
-assert.equal(attributes.status, 0, String(attributes.stderr || ''));
-const attributeRows = attributes.stdout.toString('utf8').split('\0').filter(Boolean);
-assert.equal(attributeRows.length, auditedPublicBytes.size * 6,
-  'every audited public closure path must report text and eol attributes');
-for (let index = 0; index < attributeRows.length; index += 6) {
-  const [textPath, textName, textValue, eolPath, eolName, eolValue] =
-    attributeRows.slice(index, index + 6);
-  assert.equal(textPath, eolPath);
-  assert.equal(textName, 'text');
-  assert.equal(textValue, 'set');
-  assert.equal(eolName, 'eol');
-  assert.equal(eolValue, 'lf');
+const attributesBytes = fs.readFileSync(path.join(repositoryRoot, '.gitattributes'));
+assert.ok(attributesBytes.length > 0 && attributesBytes.length <= 64 * 1024,
+  '.gitattributes must remain within its audited byte bound');
+const attributesText = new TextDecoder('utf-8', { fatal: true }).decode(attributesBytes);
+assert.ok(Buffer.from(attributesText, 'utf8').equals(attributesBytes)
+  && attributesText.endsWith('\n') && !attributesText.includes('\r'),
+  '.gitattributes must be canonical UTF-8 with LF line endings');
+const attributeLines = attributesText.slice(0, -1).split('\n');
+for (const relative of auditedPublicBytes.keys()) {
+  const expected = `${relative} text eol=lf`;
+  assert.equal(attributeLines.filter((line) => line === expected).length, 1,
+    `${relative} must have one exact text eol=lf rule`);
 }
 for (const [relative, expectedSha256] of auditedPublicBytes) {
   const exactBytes = fs.readFileSync(path.join(repositoryRoot, relative));
