@@ -35,6 +35,12 @@ const PUBLIC_PINS = Object.freeze({
 export const WORKFLOW_SEED_RAW_SHA256 = 'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d';
 export const WORKFLOW_SEED_CANONICAL_SHA256 = '6392d0ca49c9c06ad9c3c2a4bdee170b1fa8e47a01a85ae142135f78e6326625';
 export const WORKFLOW_SEED_SCHEMA = 'lamina.real-repository-oracle-workflows/v1';
+export const WORKFLOW_TIER_SEED_SCHEMA = 'lamina.real-repository-oracle-workflow-tier-seed/v1';
+export const WORKFLOW_TIER_SEED_CANONICAL_SHA256 = Object.freeze({
+  small: '75ba8214e2663fc738d224aef59f8f9d53252e8a0a3ebe0fe3bfdf59b90dc493',
+  medium: 'c3814a291450a89988f95c4a316c44d6855cf8530ef1a898ef737a9734ead358',
+  large: 'e6a1451173af1e2ef3dd30c97e11d06b0f56faa1a94e25842cc660a68acee93c',
+});
 
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
@@ -290,4 +296,46 @@ export function parseWorkflowSeedBytes(bytes, { requireReviewedBytes = true } = 
 
 export function loadWorkflowSeed() {
   return parseWorkflowSeedBytes(fs.readFileSync(WORKFLOW_FILE));
+}
+
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
+}
+
+export function workflowTierProjection(seed, tier) {
+  const validation = validateWorkflowSeed(seed);
+  if (!validation.valid) throw new Error(`Cannot project invalid Workflow seed: ${validation.errors.join('; ')}`);
+  if (!TIERS.includes(tier)) throw new Error('Workflow tier must be small, medium, or large');
+  const collection = seed.collections.find((item) => item.fixture_id === tier);
+  const projection = {
+    schema: WORKFLOW_TIER_SEED_SCHEMA,
+    source_schema: WORKFLOW_SEED_SCHEMA,
+    source_canonical_sha256: WORKFLOW_SEED_CANONICAL_SHA256,
+    tier,
+    collection_id: collection.collection_id,
+    pin: structuredClone(collection.pin),
+    workflows: structuredClone(collection.workflows),
+  };
+  const canonicalBytes = Buffer.from(JSON.stringify(canonical(projection)));
+  if (canonicalBytes.length > MAX_RAW_BYTES) {
+    throw new Error('Workflow tier projection exceeds the bounded public seed contract');
+  }
+  return deepFreeze(projection);
+}
+
+export function loadWorkflowTierProjection(tier) {
+  const projection = workflowTierProjection(loadWorkflowSeed().seed, tier);
+  const canonicalSha256 = sha256(JSON.stringify(canonical(projection)));
+  if (canonicalSha256 !== WORKFLOW_TIER_SEED_CANONICAL_SHA256[tier]) {
+    throw new Error('Workflow tier projection differs from its frozen canonical identity');
+  }
+  return Object.freeze({
+    tier_seed: projection,
+    canonical_sha256: canonicalSha256,
+    canonical_bytes: Buffer.byteLength(JSON.stringify(canonical(projection))),
+  });
 }
