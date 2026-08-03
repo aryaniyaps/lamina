@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** graphd: sole Ladybug writer for canonical graph.lbdb and derived retrieval.lbdb (#69). */
 import fs from 'node:fs';
 import net from 'node:net';
 import crypto from 'node:crypto';
