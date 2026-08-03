@@ -19,6 +19,7 @@ import {
   parseCandidateRawArtifactBytes,
   serializeCandidatePublicBatch,
   serializeCandidateRawArtifact,
+  validateCandidateAdapter,
   validateCandidatePublicBatch,
   validateCandidateRawArtifact,
 } from '../benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
@@ -44,7 +45,7 @@ const requests = [
   { nonce: '1'.repeat(64), order: 1, request: '  Preserve this request exactly.  ' },
   { nonce: '2'.repeat(64), order: 2, request: 'Find the relevant Workflow and source.' },
 ];
-const batch = createCandidatePublicBatch({ tier: 'small', implementation: adapter, requests });
+const batch = createCandidatePublicBatch({ tier: 'small', requests });
 
 assert.deepEqual(validateCandidatePublicBatch(batch), { valid: true, errors: [] });
 assert.equal(batch.public_input_sha256, candidatePublicInputDigest(batch));
@@ -115,27 +116,26 @@ const artifact = {
   adapter: clone(adapter),
   persona_probe: {
     schema: PERSONA_PROBE_EVIDENCE_SCHEMA,
-    input_sha256: 'a'.repeat(64),
+    input_sha256: batch.persona_probe.content_sha256,
     observations,
     observations_sha256: sha256(Buffer.from(JSON.stringify(observations))),
   },
-  first: batch.requests.map((request) => row(request)),
-  replay: batch.requests.map((request) => row(request)),
+  rows: batch.requests.map((request) => row(request)),
 };
 
-assert.deepEqual(validateCandidateRawArtifact(artifact, batch), { valid: true, errors: [] });
-const rawBytes = serializeCandidateRawArtifact(artifact, batch);
+assert.deepEqual(validateCandidateRawArtifact(artifact, batch, adapter), { valid: true, errors: [] });
+const rawBytes = serializeCandidateRawArtifact(artifact, batch, adapter);
 assert.throws(
-  () => parseCandidateRawArtifactBytes(Buffer.from(` ${rawBytes.toString('utf8')} `), batch),
+  () => parseCandidateRawArtifactBytes(Buffer.from(` ${rawBytes.toString('utf8')} `), batch, adapter),
   /not canonical JSON/,
 );
-const parsedRaw = parseCandidateRawArtifactBytes(rawBytes, batch);
+const parsedRaw = parseCandidateRawArtifactBytes(rawBytes, batch, adapter);
 assert.deepEqual(parsedRaw.artifact, artifact);
 assert.equal(parsedRaw.canonical_json, rawBytes.toString('utf8'));
 assert.equal(parsedRaw.canonical_byte_length, rawBytes.length);
 assert.equal('canonical_bytes' in parsedRaw, false, 'parse metadata exposes no mutable canonical Buffer');
-assert.equal(parsedRaw.canonical_sha256, candidateRawArtifactDigest(artifact, batch));
-assert.equal(parsedRaw.artifact.first[0].result.source_ranking[0].symbol, '  exactSymbol  ');
+assert.equal(parsedRaw.canonical_sha256, candidateRawArtifactDigest(artifact, batch, adapter));
+assert.equal(parsedRaw.artifact.rows[0].result.source_ranking[0].symbol, '  exactSymbol  ');
 assert.equal(rawBytes[0], 0x7b);
 
 const schema = JSON.parse(fs.readFileSync(
@@ -145,25 +145,28 @@ const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(sc
 assert.equal(validateSchema(artifact), true, JSON.stringify(validateSchema.errors));
 
 const adapter2048 = { ...adapter, id: 'a'.repeat(2048) };
-const batch2048 = createCandidatePublicBatch({ tier: 'small', implementation: adapter2048, requests });
-assert.deepEqual(validateCandidatePublicBatch(batch2048), { valid: true, errors: [] });
+assert.deepEqual(validateCandidateAdapter(adapter2048), { valid: true, errors: [] });
+assert.equal(createCandidatePublicBatch({ tier: 'small', requests }).public_input_sha256,
+  batch.public_input_sha256, 'public input identity is independent of the host-expected adapter');
 const raw2048 = clone(artifact);
-raw2048.public_input_sha256 = batch2048.public_input_sha256;
 raw2048.adapter = clone(adapter2048);
-assert.deepEqual(validateCandidateRawArtifact(raw2048, batch2048), { valid: true, errors: [] });
+assert.deepEqual(validateCandidateRawArtifact(raw2048, batch, adapter2048), { valid: true, errors: [] });
 assert.equal(validateSchema(raw2048), true, JSON.stringify(validateSchema.errors));
-const public2049 = clone(batch);
-public2049.implementation.id = 'a'.repeat(2049);
-public2049.public_input_sha256 = candidatePublicInputDigest(public2049);
-assert.match(validateCandidatePublicBatch(public2049).errors.join('; '), /implementation is invalid/);
+const adapter2049 = { ...adapter, id: 'a'.repeat(2049) };
+assert.match(validateCandidateAdapter(adapter2049).errors.join('; '), /descriptor is invalid/);
 const raw2049 = clone(raw2048);
 raw2049.adapter.id = 'a'.repeat(2049);
-assert.match(validateCandidateRawArtifact(raw2049, batch2048).errors.join('; '), /adapter differs/);
+assert.match(validateCandidateRawArtifact(raw2049, batch, adapter2048).errors.join('; '), /adapter differs/);
+assert.match(validateCandidateRawArtifact(raw2049, batch, adapter2049).errors.join('; '), /Host-expected adapter/);
 assert.equal(validateSchema(raw2049), false);
+const legacyTwoRunRaw = clone(artifact);
+legacyTwoRunRaw.first = clone(artifact.rows);
+legacyTwoRunRaw.replay = clone(artifact.rows);
+assert.match(validateCandidateRawArtifact(legacyTwoRunRaw, batch, adapter).errors.join('; '), /unexpected/);
 
 function withResultPath(location, value) {
   const candidate = clone(artifact);
-  const body = candidate.first[0].result;
+  const body = candidate.rows[0].result;
   if (location === 'persona_probe') {
     candidate.persona_probe.observations[0].path = value;
     candidate.persona_probe.observations_sha256 = sha256(Buffer.from(
@@ -196,7 +199,7 @@ for (const location of pathLocations) {
   for (const validPath of validPaths) {
     const candidate = withResultPath(location, validPath);
     assert.equal(Buffer.byteLength(validPath, 'utf8') <= 4096, true);
-    assert.deepEqual(validateCandidateRawArtifact(candidate, batch), { valid: true, errors: [] },
+    assert.deepEqual(validateCandidateRawArtifact(candidate, batch, adapter), { valid: true, errors: [] },
       `${location} must preserve the established 4096-byte path authority`);
     assert.equal(validateSchema(candidate), true,
       `${location} manually valid path must be accepted by the syntactic schema: ${JSON.stringify(validateSchema.errors)}`);
@@ -204,17 +207,17 @@ for (const location of pathLocations) {
 }
 function withXy(value) {
   const candidate = clone(artifact);
-  candidate.first[0].result.repository_state.changes = [{
+  candidate.rows[0].result.repository_state.changes = [{
     kind: 'ordinary', path: 'src/change.ts', original_path: null, xy: value, submodule: 'N...',
   }];
   return candidate;
 }
 const twoByteXy = withXy('é');
-assert.deepEqual(validateCandidateRawArtifact(twoByteXy, batch), { valid: true, errors: [] });
+assert.deepEqual(validateCandidateRawArtifact(twoByteXy, batch, adapter), { valid: true, errors: [] });
 assert.equal(validateSchema(twoByteXy), true, JSON.stringify(validateSchema.errors));
 for (const schemaOnlyXy of ['€', 'éa']) {
   const candidate = withXy(schemaOnlyXy);
-  assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /changes\[0\] is invalid/);
+  assert.match(validateCandidateRawArtifact(candidate, batch, adapter).errors.join('; '), /changes\[0\] is invalid/);
   assert.equal(validateSchema(candidate), true,
     'xy schema remains a character-count syntactic superset of exact two-byte manual authority');
 }
@@ -228,7 +231,7 @@ const syntacticallyUnsafePaths = [
 for (const location of pathLocations) {
   for (const unsafePath of syntacticallyUnsafePaths) {
     const candidate = withResultPath(location, unsafePath);
-    assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /unsafe|invalid/,
+    assert.match(validateCandidateRawArtifact(candidate, batch, adapter).errors.join('; '), /unsafe|invalid/,
       `${location} must reject unsafe path ${JSON.stringify(unsafePath)}`);
     assert.equal(validateSchema(candidate), false,
       `${location} syntactically unsafe path must also fail the schema`);
@@ -238,7 +241,7 @@ const overByteMultibytePath = `${'é'.repeat(2048)}a`;
 assert.equal(Buffer.byteLength(overByteMultibytePath, 'utf8'), 4097);
 for (const location of pathLocations) {
   const candidate = withResultPath(location, overByteMultibytePath);
-  assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /unsafe|invalid/);
+  assert.match(validateCandidateRawArtifact(candidate, batch, adapter).errors.join('; '), /unsafe|invalid/);
   assert.equal(validateSchema(candidate), true,
     'the schema is intentionally a character-count syntactic superset of byte-aware manual authority');
 }
@@ -265,56 +268,52 @@ assert.throws(() => parseCandidatePublicBatchBytes(Buffer.from([0xff])), /UTF-8 
 
 for (const privateName of [
   'case_id', 'ScenarioRecipe', 'fixtureAuthority', 'expected_results', 'mutationPlan',
-  'gradingResult', 'qualityClaims', 'runnerAttestation',
+  'gradingResult', 'qualityClaims', 'runnerAttestation', 'phase', 'slot_id',
+  'leaseEvidence', 'materializationTruth', 'provenanceDigest',
 ]) {
   const leaked = clone(artifact);
-  leaked.first[0].result[privateName] = 'hidden';
-  assert.match(validateCandidateRawArtifact(leaked, batch).errors.join('; '), /private controller key/,
+  leaked.rows[0].result[privateName] = 'hidden';
+  assert.match(validateCandidateRawArtifact(leaked, batch, adapter).errors.join('; '), /private controller key/,
     `${privateName} must be rejected after recursive normalized-key inspection`);
 }
 const rowId = clone(artifact);
-rowId.first[0].id = 'private-case';
-assert.match(validateCandidateRawArtifact(rowId, batch).errors.join('; '), /unexpected|exactly correlated/);
+rowId.rows[0].id = 'private-case';
+assert.match(validateCandidateRawArtifact(rowId, batch, adapter).errors.join('; '), /unexpected|exactly correlated/);
 const bodyId = clone(artifact);
-bodyId.first[0].result.id = 'private-case';
-assert.match(validateCandidateRawArtifact(bodyId, batch).errors.join('; '), /exact normalized result case body/);
+bodyId.rows[0].result.id = 'private-case';
+assert.match(validateCandidateRawArtifact(bodyId, batch, adapter).errors.join('; '), /exact normalized result case body/);
 const duplicateRanking = clone(artifact);
-duplicateRanking.first[0].result.workflow_ranking.push({ id: duplicateRanking.first[0].result.workflow_ranking[0].id });
-assert.match(validateCandidateRawArtifact(duplicateRanking, batch).errors.join('; '), /workflow_ranking is invalid/);
-const reorderedFirst = clone(artifact);
-reorderedFirst.first.reverse();
-assert.match(validateCandidateRawArtifact(reorderedFirst, batch).errors.join('; '), /correlated and ordered/);
-const missingReplay = clone(artifact);
-missingReplay.replay.pop();
-assert.match(validateCandidateRawArtifact(missingReplay, batch).errors.join('; '), /exact public-input cardinality/);
-const replayMismatchAllowed = clone(artifact);
-replayMismatchAllowed.replay[0].result.selected_workflow_ids = ['small.workflow.other'];
-replayMismatchAllowed.replay[0].result.workflow_ranking = [{ id: 'small.workflow.other' }];
-assert.deepEqual(validateCandidateRawArtifact(replayMismatchAllowed, batch), { valid: true, errors: [] },
-  'the raw contract preserves replay divergence for the host grader instead of hiding it');
+duplicateRanking.rows[0].result.workflow_ranking.push({ id: duplicateRanking.rows[0].result.workflow_ranking[0].id });
+assert.match(validateCandidateRawArtifact(duplicateRanking, batch, adapter).errors.join('; '), /workflow_ranking is invalid/);
+const reorderedRows = clone(artifact);
+reorderedRows.rows.reverse();
+assert.match(validateCandidateRawArtifact(reorderedRows, batch, adapter).errors.join('; '), /correlated and ordered/);
+const missingRow = clone(artifact);
+missingRow.rows.pop();
+assert.match(validateCandidateRawArtifact(missingRow, batch, adapter).errors.join('; '), /exact public-input cardinality/);
 const missingPersona = clone(artifact);
 missingPersona.persona_probe.observations = [{ category: 'routes', path: 'src/a.ts' }];
 missingPersona.persona_probe.observations_sha256 = sha256(Buffer.from(JSON.stringify(missingPersona.persona_probe.observations)));
-assert.match(validateCandidateRawArtifact(missingPersona, batch).errors.join('; '), /positive digest-bound personas/);
+assert.match(validateCandidateRawArtifact(missingPersona, batch, adapter).errors.join('; '), /positive digest-bound personas/);
 const badProbeDigest = clone(artifact);
 badProbeDigest.persona_probe.observations_sha256 = 'f'.repeat(64);
-assert.match(validateCandidateRawArtifact(badProbeDigest, batch).errors.join('; '), /positive digest-bound personas/);
+assert.match(validateCandidateRawArtifact(badProbeDigest, batch, adapter).errors.join('; '), /positive digest-bound personas/);
 
 let deeplyNested = { leaf: 'bounded' };
 for (let depth = 0; depth < 3_100; depth += 1) deeplyNested = { next: deeplyNested };
 const deepPublic = clone(batch);
-deepPublic.implementation = deeplyNested;
+deepPublic.persona_probe = deeplyNested;
 assert.doesNotThrow(() => validateCandidatePublicBatch(deepPublic));
 assert.match(validateCandidatePublicBatch(deepPublic).errors.join('; '), /structure depth/);
 assert.throws(() => candidatePublicInputDigest(deepPublic), /structure depth/);
 assert.throws(() => canonicalCandidateValue(deeplyNested), /structure depth/);
 const deepRaw = clone(artifact);
-deepRaw.first = deeplyNested;
-assert.doesNotThrow(() => validateCandidateRawArtifact(deepRaw, batch));
-assert.match(validateCandidateRawArtifact(deepRaw, batch).errors.join('; '), /structure depth/);
+deepRaw.rows = deeplyNested;
+assert.doesNotThrow(() => validateCandidateRawArtifact(deepRaw, batch, adapter));
+assert.match(validateCandidateRawArtifact(deepRaw, batch, adapter).errors.join('; '), /structure depth/);
 
 const flatBatch = createCandidatePublicBatch({
-  tier: 'small', implementation: adapter,
+  tier: 'small',
   requests: [{ nonce: '3'.repeat(64), order: 1, request: 'Exercise declared flat result geometry.' }],
 });
 const flatResult = result();
@@ -325,35 +324,32 @@ flatResult.observations = Array.from({ length: 84_000 }, () => ({ category: 'rou
 flatResult.obligations = Array.from({ length: 256 }, () => ({ category: 'implementation', id: 'work' }));
 const flatArtifact = clone(artifact);
 flatArtifact.public_input_sha256 = flatBatch.public_input_sha256;
-flatArtifact.first = [row(flatBatch.requests[0], flatResult)];
-flatArtifact.replay = [row(flatBatch.requests[0], flatResult)];
-assert.deepEqual(validateCandidateRawArtifact(flatArtifact, flatBatch), { valid: true, errors: [] },
+flatArtifact.rows = [row(flatBatch.requests[0], flatResult)];
+assert.deepEqual(validateCandidateRawArtifact(flatArtifact, flatBatch, adapter), { valid: true, errors: [] },
   'large flat data remains accepted through every declared array maximum');
-assert.ok(serializeCandidateRawArtifact(flatArtifact, flatBatch).length < CANDIDATE_RAW_MAX_CANONICAL_BYTES);
+assert.ok(serializeCandidateRawArtifact(flatArtifact, flatBatch, adapter).length < CANDIDATE_RAW_MAX_CANONICAL_BYTES);
 const overSourceCap = clone(artifact);
 overSourceCap.public_input_sha256 = flatBatch.public_input_sha256;
 const overSourceResult = result();
 overSourceResult.source_ranking = Array.from({ length: 6_001 }, (_, index) => ({
   path: `src/over-${index}.ts`, symbol: null,
 }));
-overSourceCap.first = [row(flatBatch.requests[0], overSourceResult)];
-overSourceCap.replay = [row(flatBatch.requests[0], overSourceResult)];
-assert.match(validateCandidateRawArtifact(overSourceCap, flatBatch).errors.join('; '), /source_ranking is invalid/);
+overSourceCap.rows = [row(flatBatch.requests[0], overSourceResult)];
+assert.match(validateCandidateRawArtifact(overSourceCap, flatBatch, adapter).errors.join('; '), /source_ranking is invalid/);
 
-const overflowRequests = Array.from({ length: 32 }, (_, index) => ({
+const overflowRequests = Array.from({ length: 64 }, (_, index) => ({
   nonce: sha256(Buffer.from(`nonce-${index}`)), order: index + 1, request: `request ${index}`,
 }));
-const overflowBatch = createCandidatePublicBatch({ tier: 'small', implementation: adapter, requests: overflowRequests });
+const overflowBatch = createCandidatePublicBatch({ tier: 'small', requests: overflowRequests });
 const longRelation = 'x'.repeat(2048);
 const overflowResult = result();
 overflowResult.observations = Array.from({ length: 128 }, () => ({ category: 'routes', relation: longRelation }));
 const overflow = clone(artifact);
 overflow.public_input_sha256 = overflowBatch.public_input_sha256;
-overflow.first = overflowBatch.requests.map((request) => row(request, overflowResult));
-overflow.replay = overflowBatch.requests.map((request) => row(request, overflowResult));
+overflow.rows = overflowBatch.requests.map((request) => row(request, overflowResult));
 assert.ok(Buffer.byteLength(JSON.stringify(overflow)) > CANDIDATE_RAW_MAX_CANONICAL_BYTES);
-assert.match(validateCandidateRawArtifact(overflow, overflowBatch).errors.join('; '), /16 MiB canonical byte bound/);
-assert.throws(() => parseCandidateRawArtifactBytes(Buffer.from(JSON.stringify(overflow)), overflowBatch), /byte bound/);
+assert.match(validateCandidateRawArtifact(overflow, overflowBatch, adapter).errors.join('; '), /16 MiB canonical byte bound/);
+assert.throws(() => parseCandidateRawArtifactBytes(Buffer.from(JSON.stringify(overflow)), overflowBatch, adapter), /byte bound/);
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicEntry = 'benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
@@ -363,7 +359,7 @@ const allowedPublicClosure = new Set([
   'benchmarks/real-repository-oracle-v1/workflows-v1.json',
 ]);
 const auditedPublicBytes = new Map([
-  [publicEntry, '5164782dd5bb6f52b55e657b4ce789201f0b53c24075ac45a2edee4851c1e955'],
+  [publicEntry, '2525c5a65a525d9946bbe23d906e7f4d3c3aa5655108077cbdad8bc31dc7bf22'],
   ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
     'c2afa8a92c833cc3fa4bd2e36c00ace98bab1e44eace2ea14b444c21f71d075b'],
   ['benchmarks/real-repository-oracle-v1/workflows-v1.json',

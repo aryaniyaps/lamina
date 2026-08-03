@@ -447,11 +447,12 @@ assert.notEqual(second.fixture.cases[0].request, first.fixture.cases[0].request)
 assert.equal(first.fixture_digest, CASE_EXPECTATIONS_CANONICAL_SHA256);
 assert.equal(FIXTURE_AUTHORITY_BOUNDARY.visibility, 'private_controller_only');
 assert.equal(FIXTURE_AUTHORITY_BOUNDARY.candidate_supplied_fixture_or_grade_trusted, false);
-assert.equal(FIXTURE_AUTHORITY_BOUNDARY.candidate_closure, 'pending_not_implemented_or_reachable');
+assert.equal(FIXTURE_AUTHORITY_BOUNDARY.candidate_closure,
+  'public_batch_and_single_run_raw_exclude_private_fixture_expectation_scenario_and_grade_authority');
 assert.equal(FIXTURE_AUTHORITY_BOUNDARY.persona_positive_capability_gate,
-  'excepted_pending_unimplemented_candidate_facing_sealed_probe');
+  'host_recomputed_fixed_probe_contract_pending_isolated_candidate_execution');
 assert.equal(FIXTURE_AUTHORITY_BOUNDARY.quality_pass,
-  'structurally_unreachable_pending_candidate_isolation_and_host_grading');
+  'oracle_validation_host_reconstruction_reachable_without_measured_runtime_or_safety_claims');
 
 const workflowSeedSource = fs.readFileSync(new URL(
   '../benchmarks/real-repository-oracle-v1/workflow-seed.mjs', import.meta.url,

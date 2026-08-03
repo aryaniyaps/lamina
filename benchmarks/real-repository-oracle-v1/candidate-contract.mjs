@@ -7,6 +7,7 @@ import {
 export const CANDIDATE_PUBLIC_BATCH_SCHEMA = 'lamina.real-repository-oracle-candidate-batch/v1';
 export const CANDIDATE_RAW_SCHEMA = 'lamina.real-repository-oracle-candidate-raw/v1';
 export const CANDIDATE_ADAPTER_SCHEMA = 'lamina.real-repository-oracle-candidate-adapter/v1';
+export const CANDIDATE_PERSONA_PROBE_SCHEMA = 'lamina.real-repository-oracle-persona-probe/v1';
 export const PERSONA_PROBE_EVIDENCE_SCHEMA = 'lamina.real-repository-oracle-persona-probe-evidence/v1';
 export const CANDIDATE_RAW_MAX_CANONICAL_BYTES = 16 * 1024 * 1024;
 export const CANDIDATE_MAX_REQUESTS = 256;
@@ -39,8 +40,14 @@ const OBLIGATION_CATEGORIES = Object.freeze([
 ]);
 const PRIVATE_KEY_PARTS = Object.freeze([
   'caseid', 'scenario', 'recipe', 'fixture', 'expected', 'expectation', 'mutation', 'grade', 'grading',
-  'claim', 'attestation',
+  'claim', 'attestation', 'phase', 'slot', 'lease', 'materialization', 'provenance',
 ]);
+export const CANDIDATE_PERSONA_PROBE = deepFreeze({
+  schema: CANDIDATE_PERSONA_PROBE_SCHEMA,
+  path: 'docs/candidate-persona-probe.md',
+  content: '# Candidate Persona capability probe\n',
+  content_sha256: 'dcee5e8c0e81e9149ecbda14df9b2d01ab681d2e3bb79be9f1e98ce6f1e5a1db',
+});
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const same = (left, right) => JSON.stringify(canonicalCandidateValue(left))
@@ -173,6 +180,19 @@ function validAdapter(value) {
     && value.output_format === CANDIDATE_RAW_SCHEMA;
 }
 
+export function validateCandidateAdapter(value) {
+  return validAdapter(value)
+    ? { valid: true, errors: [] }
+    : { valid: false, errors: ['Candidate adapter descriptor is invalid'] };
+}
+
+function validPublicProbe(value) {
+  return exactKeys(value, ['schema', 'path', 'content', 'content_sha256'])
+    && value.schema === CANDIDATE_PERSONA_PROBE_SCHEMA
+    && same(value, CANDIDATE_PERSONA_PROBE)
+    && value.content_sha256 === sha256(Buffer.from(value.content, 'utf8'));
+}
+
 function publicBatchIdentity(batch) {
   const { public_input_sha256: _claimed, ...identity } = batch;
   return identity;
@@ -188,12 +208,12 @@ export function validateCandidatePublicBatch(batch) {
   if (!structure.valid) return { valid: false, errors: [`Candidate public batch ${structure.error}`] };
   const leaked = privateKey(batch, { skipTierSeed: true });
   if (leaked) errors.push(`Candidate public batch contains a private controller key at ${leaked}`);
-  if (!exactKeys(batch, ['schema', 'tier', 'implementation', 'public_input_sha256', 'requests', 'tier_seed'])) {
+  if (!exactKeys(batch, ['schema', 'tier', 'public_input_sha256', 'persona_probe', 'requests', 'tier_seed'])) {
     return { valid: false, errors: [...errors, 'Candidate public batch has unexpected or missing fields'] };
   }
   if (batch.schema !== CANDIDATE_PUBLIC_BATCH_SCHEMA) errors.push('Candidate public batch schema is invalid');
   if (!TIERS.includes(batch.tier)) errors.push('Candidate public batch tier is invalid');
-  if (!validAdapter(batch.implementation)) errors.push('Candidate public batch implementation is invalid');
+  if (!validPublicProbe(batch.persona_probe)) errors.push('Candidate public batch Persona probe is invalid');
   if (!Array.isArray(batch.requests) || batch.requests.length < 1
     || batch.requests.length > CANDIDATE_MAX_REQUESTS) {
     errors.push('Candidate public batch request count is outside the bounded contract');
@@ -229,12 +249,12 @@ function assertValid(validation, label) {
   if (!validation.valid) throw new Error(`${label} is invalid: ${validation.errors.join('; ')}`);
 }
 
-export function createCandidatePublicBatch({ tier, implementation, requests }) {
+export function createCandidatePublicBatch({ tier, requests }) {
   const batch = {
     schema: CANDIDATE_PUBLIC_BATCH_SCHEMA,
     tier,
-    implementation: structuredClone(implementation),
     public_input_sha256: '0'.repeat(64),
+    persona_probe: structuredClone(CANDIDATE_PERSONA_PROBE),
     requests: structuredClone(requests),
     tier_seed: structuredClone(loadWorkflowTierProjection(tier).tier_seed),
   };
@@ -359,7 +379,7 @@ function validatePersonaProbe(probe, errors) {
   }
 }
 
-export function validateCandidateRawArtifact(artifact, publicBatch) {
+export function validateCandidateRawArtifact(artifact, publicBatch, expectedAdapter) {
   const errors = [];
   const batchValidation = validateCandidatePublicBatch(publicBatch);
   if (!batchValidation.valid) return { valid: false, errors: ['Expected public batch is invalid'] };
@@ -367,32 +387,34 @@ export function validateCandidateRawArtifact(artifact, publicBatch) {
   if (!structure.valid) return { valid: false, errors: [`Candidate raw artifact ${structure.error}`] };
   const leaked = privateKey(artifact);
   if (leaked) errors.push(`Candidate raw artifact contains a private controller key at ${leaked}`);
-  if (!exactKeys(artifact, ['schema', 'public_input_sha256', 'adapter', 'persona_probe', 'first', 'replay'])) {
+  if (!validAdapter(expectedAdapter)) return { valid: false, errors: ['Host-expected adapter descriptor is invalid'] };
+  if (!exactKeys(artifact, ['schema', 'public_input_sha256', 'adapter', 'persona_probe', 'rows'])) {
     return { valid: false, errors: [...errors, 'Candidate raw artifact has unexpected or missing fields'] };
   }
   if (artifact.schema !== CANDIDATE_RAW_SCHEMA) errors.push('Candidate raw artifact schema is invalid');
   if (artifact.public_input_sha256 !== publicBatch.public_input_sha256) {
     errors.push('Candidate raw artifact is not bound to the exact public input');
   }
-  if (!validAdapter(artifact.adapter) || !same(artifact.adapter, publicBatch.implementation)) {
-    errors.push('Candidate raw artifact adapter differs from the requested implementation');
+  if (!validAdapter(artifact.adapter) || !same(artifact.adapter, expectedAdapter)) {
+    errors.push('Candidate raw artifact adapter differs from the host-expected implementation');
   }
   validatePersonaProbe(artifact.persona_probe, errors);
-  for (const field of ['first', 'replay']) {
-    const rows = artifact[field];
-    if (!Array.isArray(rows) || rows.length > MAX_RESULT_ROWS
-      || rows.length !== publicBatch.requests.length) {
-      errors.push(`Candidate ${field} rows do not have exact public-input cardinality`);
-      continue;
-    }
+  if (artifact.persona_probe?.input_sha256 !== publicBatch.persona_probe.content_sha256) {
+    errors.push('Candidate Persona probe evidence does not bind the exact public probe bytes');
+  }
+  const rows = artifact.rows;
+  if (!Array.isArray(rows) || rows.length > MAX_RESULT_ROWS
+    || rows.length !== publicBatch.requests.length) {
+    errors.push('Candidate rows do not have exact public-input cardinality');
+  } else {
     for (const [index, row] of rows.entries()) {
       const request = publicBatch.requests[index];
       if (!exactKeys(row, ['nonce', 'order', 'result'])
         || row.nonce !== request.nonce || row.order !== request.order) {
-        errors.push(`Candidate ${field} row ${index} is not exactly correlated and ordered`);
+        errors.push(`Candidate row ${index} is not exactly correlated and ordered`);
         continue;
       }
-      validateResultBody(row.result, `${field}[${index}].result`, errors);
+      validateResultBody(row.result, `rows[${index}].result`, errors);
     }
   }
   if (canonicalBytes(artifact).length > CANDIDATE_RAW_MAX_CANONICAL_BYTES) {
@@ -401,19 +423,19 @@ export function validateCandidateRawArtifact(artifact, publicBatch) {
   return { valid: errors.length === 0, errors };
 }
 
-export function serializeCandidateRawArtifact(artifact, publicBatch) {
-  assertValid(validateCandidateRawArtifact(artifact, publicBatch), 'Candidate raw artifact');
+export function serializeCandidateRawArtifact(artifact, publicBatch, expectedAdapter) {
+  assertValid(validateCandidateRawArtifact(artifact, publicBatch, expectedAdapter), 'Candidate raw artifact');
   return canonicalBytes(artifact);
 }
 
-export function candidateRawArtifactDigest(artifact, publicBatch) {
-  return sha256(serializeCandidateRawArtifact(artifact, publicBatch));
+export function candidateRawArtifactDigest(artifact, publicBatch, expectedAdapter) {
+  return sha256(serializeCandidateRawArtifact(artifact, publicBatch, expectedAdapter));
 }
 
-export function parseCandidateRawArtifactBytes(bytes, publicBatch) {
+export function parseCandidateRawArtifactBytes(bytes, publicBatch, expectedAdapter) {
   const artifact = decodeJsonBytes(bytes, CANDIDATE_RAW_MAX_CANONICAL_BYTES, 'Candidate raw artifact');
-  assertValid(validateCandidateRawArtifact(artifact, publicBatch), 'Candidate raw artifact');
-  const serialized = serializeCandidateRawArtifact(artifact, publicBatch);
+  assertValid(validateCandidateRawArtifact(artifact, publicBatch, expectedAdapter), 'Candidate raw artifact');
+  const serialized = serializeCandidateRawArtifact(artifact, publicBatch, expectedAdapter);
   if (!bytes.equals(serialized)) throw new Error('Candidate raw artifact bytes are not canonical JSON');
   return Object.freeze({
     artifact: deepFreeze(artifact),

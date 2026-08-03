@@ -3,14 +3,13 @@
   "$id": "https://lamina.dev/schemas/real-repository-oracle-candidate-raw-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "public_input_sha256", "adapter", "persona_probe", "first", "replay"],
+  "required": ["schema", "public_input_sha256", "adapter", "persona_probe", "rows"],
   "properties": {
     "schema": { "const": "lamina.real-repository-oracle-candidate-raw/v1" },
     "public_input_sha256": { "$ref": "#/$defs/sha256" },
     "adapter": { "$ref": "#/$defs/adapter" },
     "persona_probe": { "$ref": "#/$defs/personaProbe" },
-    "first": { "$ref": "#/$defs/rows" },
-    "replay": { "$ref": "#/$defs/rows" }
+    "rows": { "$ref": "#/$defs/rows" }
   },
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
