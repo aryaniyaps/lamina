@@ -30,13 +30,21 @@ const INERT_CONFIG = Object.freeze([
   'fetch.recurseSubmodules=false',
 ]);
 
-const FIXED_GIT_DIRECTORIES = Object.freeze(process.platform === 'win32'
-  ? [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'cmd'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin'),
-      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Git', 'cmd'),
-    ]
-  : ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin']);
+// Git for Windows documents cmd/git.exe and bin/git.exe as wrappers. Resolve
+// only its hard-coded architecture binaries, preferring the common 64-bit one.
+const WINDOWS_GIT_DIRECTORIES = Object.freeze([
+  'C:\\Program Files\\Git\\mingw64\\bin',
+  'C:\\Program Files\\Git\\clangarm64\\bin',
+  'C:\\Program Files\\Git\\mingw32\\bin',
+  'C:\\Program Files (x86)\\Git\\mingw32\\bin',
+]);
+const POSIX_GIT_DIRECTORIES = Object.freeze([
+  '/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin',
+]);
+export function fixedGitDirectoriesForPlatform(platform = process.platform) {
+  return [...(platform === 'win32' ? WINDOWS_GIT_DIRECTORIES : POSIX_GIT_DIRECTORIES)];
+}
+const FIXED_GIT_DIRECTORIES = Object.freeze(fixedGitDirectoriesForPlatform());
 const GIT_BINARY_NAME = process.platform === 'win32' ? 'git.exe' : 'git';
 const MAX_GIT_BINARY_BYTES = 256 * 1024 * 1024;
 const MAX_UID_MAP_BYTES = 4_096;

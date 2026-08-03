@@ -5,6 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { adapterProbe, assertAdapterShape } from '../scripts/safe-runner/adapter.mjs';
 import { MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import { fixedGitDirectoriesForPlatform } from '../scripts/safe-runner/git.mjs';
+import {
+  trustedBinaryStatPolicy, trustedPhysicalPathEqual,
+} from '../scripts/safe-runner/infrastructure.mjs';
 import { PortableProcessGroupAdapter } from '../scripts/safe-runner/portable-process-group.mjs';
 import { preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
@@ -33,6 +37,41 @@ for (const platform of ['darwin', 'win32']) {
 }
 assert.equal(assertAdapterShape(new PortableProcessGroupAdapter()).id,
   'portable-process-group-small-only');
+
+const windowsRegularFile = {
+  platform: 'win32', regularFile: true, symbolicLink: false,
+  mode: 0o100666n, uid: 0n, currentUid: null, requireRootOwnership: false,
+};
+assert.equal(trustedBinaryStatPolicy(windowsRegularFile), true,
+  'Windows trust must not reinterpret unsupported execute, group/other, or setid bits');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, regularFile: false }), false);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, symbolicLink: true }), false);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, requireRootOwnership: true }), false,
+  'POSIX root ownership authority is unavailable on Windows');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux' }), false,
+  'the identical writable non-executable mode remains forbidden by the POSIX policy');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux',
+  mode: 0o100755n, uid: BigInt(process.getuid?.() ?? 1),
+  currentUid: process.getuid?.() ?? 1 }), true);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux',
+  mode: 0o104755n }), false, 'the POSIX setid rejection remains exact');
+assert.equal(trustedPhysicalPathEqual(
+  'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
+  'c:\\program files\\git\\mingw64\\bin\\GIT.EXE', 'win32',
+), true, 'Windows physical path comparison is case-insensitive');
+assert.equal(trustedPhysicalPathEqual(
+  'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
+  'C:\\Elsewhere\\git.exe', 'win32',
+), false, 'case handling must not admit a different real path or reparse target');
+assert.deepEqual(fixedGitDirectoriesForPlatform('win32'), [
+  'C:\\Program Files\\Git\\mingw64\\bin',
+  'C:\\Program Files\\Git\\clangarm64\\bin',
+  'C:\\Program Files\\Git\\mingw32\\bin',
+  'C:\\Program Files (x86)\\Git\\mingw32\\bin',
+]);
+assert.ok(fixedGitDirectoriesForPlatform('win32').every((directory) =>
+  /[\\/]Git[\\/](?:mingw64|clangarm64|mingw32)[\\/]bin$/i.test(directory)),
+  'Windows fixed Git authority must name actual architecture binaries, not wrapper entry points');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-portable-contract-'));
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
