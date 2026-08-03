@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 import {
   graphRequest,
   graphdIdentity,
-  stopIncompatibleServer,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
 import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
@@ -16,7 +15,7 @@ import {
   applyRuntimeBudgetToEnvironment,
   runtimeBudgetFromEnvironment,
 } from '../../packages/cli/lib/runtime-budget.mjs';
-import { releaseGraphdBeforeObservation } from '../../packages/cli/lib/runtime-lifecycle.mjs';
+import { releaseGraphdBeforeObservation, finalizeRuntimeCommand } from '../../packages/cli/lib/runtime-lifecycle.mjs';
 import { summarizeRepositoryInventory } from '../../packages/cli/lib/source-inventory.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
@@ -383,17 +382,23 @@ function timeSync(callback) {
 
 async function disposeRepository(repository) {
   const paths = runtimePaths(repository);
-  await stopIncompatibleServer(paths);
+  const persistGraphd = process.env.LAMINA_RUNTIME_PERSIST_GRAPHD === '1';
+  const lifecycle = await finalizeRuntimeCommand(repository, { persistGraphd });
+  if (!persistGraphd && lifecycle.graphd?.released === false
+    && !['absent', 'unbounded', 'persist_graphd'].includes(lifecycle.graphd.reason)) {
+    fail('graphd shutdown did not complete before sample isolation', { lifecycle });
+  }
   const socketRemoved = !fs.existsSync(paths.socket);
   const lockRemoved = !fs.existsSync(paths.lock);
   if (!socketRemoved || !lockRemoved) {
-    fail('graphd shutdown left runtime objects', { socket_removed: socketRemoved, lock_removed: lockRemoved });
+    fail('graphd shutdown left runtime objects', { socket_removed: socketRemoved, lock_removed: lockRemoved, lifecycle });
   }
   fs.rmSync(repository, { recursive: true, force: false });
   return {
     repository_removed: !fs.existsSync(repository),
     socket_removed: socketRemoved,
     lock_removed: lockRemoved,
+    lifecycle,
   };
 }
 

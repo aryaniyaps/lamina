@@ -237,23 +237,52 @@ export function shouldReleaseGraphdAfterCommand({
   return true;
 }
 
-/** Release graphd after a completed mutation command under bounded topology. */
+function managedGraphdPid(paths) {
+  try {
+    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    return processIsRunning(lock?.pid) ? lock.pid : null;
+  } catch {
+    return null;
+  }
+}
+
+async function waitForGraphdRelease(paths, pid, deadlineMs = 5_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const lockPresent = fs.existsSync(paths.lock);
+    const socketPresent = fs.existsSync(graphSocketPath(paths));
+    const running = pid ? processIsRunning(pid) : false;
+    if (!lockPresent && !socketPresent && !running) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return !fs.existsSync(paths.lock)
+    && !fs.existsSync(graphSocketPath(paths))
+    && (!pid || !processIsRunning(pid));
+}
+
+/** Release graphd after a completed command under bounded topology. */
 export async function releaseGraphdAfterCommand(cwd = process.cwd(), options = {}) {
   if (!shouldReleaseGraphdAfterCommand(options)) {
     return { released: false, reason: options.persistGraphd ? 'persist_graphd' : 'unbounded' };
   }
   const paths = runtimePaths(cwd);
+  const pid = managedGraphdPid(paths);
+  if (!pid && !fs.existsSync(paths.lock) && !fs.existsSync(graphSocketPath(paths))) {
+    return { released: false, reason: 'absent' };
+  }
   try {
-    await stopIncompatibleServer(paths);
-    const deadline = Date.now() + 2_000;
-    while (Date.now() < deadline && fs.existsSync(paths.lock)) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    await stopIncompatibleServer(paths, pid);
+    if (await waitForGraphdRelease(paths, pid)) {
+      return { released: true, reason: 'post_command' };
     }
-    return { released: true, reason: 'post_command' };
+    return {
+      released: false,
+      reason: 'stop_incomplete',
+      error: { code: 'LAMINA_INTERNAL', message: `graphd ${pid || 'unknown'} did not release before sample isolation` },
+    };
   } catch (error) {
-    let lock = null;
-    try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
-    if (!processIsRunning(lock?.pid)) {
+    const lockPid = managedGraphdPid(paths);
+    if (!lockPid) {
       for (const file of [paths.lock, graphSocketPath(paths)]) {
         try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
       }
@@ -326,13 +355,12 @@ export async function assertNoRuntimeOrphans(cwd = process.cwd(), options = {}) 
 
 export async function forceStopRuntimeOrphans(cwd = process.cwd(), options = {}) {
   const paths = runtimePaths(cwd);
-  let graphdPid = null;
-  try {
-    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-    if (processIsRunning(lock?.pid)) graphdPid = lock.pid;
-  } catch {}
-  const pids = listRuntimeDescendantPids(cwd, options)
-    .filter((pid) => processIsRunning(pid) && pid !== graphdPid);
+  const graphdPid = managedGraphdPid(paths);
+  const preset = Array.isArray(options.presetPids) ? options.presetPids : [];
+  const pids = [...new Set([
+    ...preset,
+    ...listRuntimeDescendantPids(cwd, options),
+  ])].filter((pid) => processIsRunning(pid) && pid !== graphdPid);
   for (const pid of pids) {
     try { process.kill(pid, 'SIGTERM'); } catch {}
   }
@@ -391,9 +419,15 @@ export async function finalizeRuntimeCommand(cwd, {
   cleanupOrphans = true,
 } = {}) {
   const results = {};
+  const paths = runtimePaths(cwd);
+  const graphdPid = managedGraphdPid(paths);
+  const presetOrphans = cleanupOrphans && process.platform === 'linux'
+    ? listRuntimeDescendantPids(cwd)
+      .filter((pid) => processIsRunning(pid) && pid !== graphdPid)
+    : [];
   results.graphd = await releaseGraphdAfterCommand(cwd, { persistGraphd });
   if (cleanupOrphans && process.platform === 'linux') {
-    results.orphans = await forceStopRuntimeOrphans(cwd);
+    results.orphans = await forceStopRuntimeOrphans(cwd, { presetPids: presetOrphans });
   }
   if (cleanupOrphans && process.platform === 'linux') {
     results.orphan_check = await assertNoRuntimeOrphans(cwd).catch((error) => ({

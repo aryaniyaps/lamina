@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import {
   RUNTIME_IDENTITY_SCHEMA,
   assertCompatibleRuntimeIdentity,
+  finalizeRuntimeCommand,
   readRuntimeIdentity,
   releaseGraphdAfterCommand,
   shouldReleaseGraphdAfterCommand,
@@ -29,7 +30,7 @@ fs.mkdirSync(paths.runtime_dir, { recursive: true, mode: 0o700 });
 
 assert.equal(assertCompatibleRuntimeIdentity(root).reason, 'greenfield');
 fs.writeFileSync(paths.database, 'stub\n', { mode: 0o600 });
-assert.equal(assertCompatibleRuntimeIdentity(root).reason, 'legacy_unmarked');
+assert.equal(assertCompatibleRuntimeIdentity(root).upgraded, true);
 
 const identity = writeRuntimeIdentity(root);
 assert.equal(identity.schema, RUNTIME_IDENTITY_SCHEMA);
@@ -49,7 +50,8 @@ else process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY = previous;
 
 const incompatible = {
   schema: RUNTIME_IDENTITY_SCHEMA,
-  cli_version: '0.0.1',
+  layout_version: 99,
+  cli_version: CLI_VERSION,
   protocol_version: GRAPH_PROTOCOL_VERSION,
 };
 fs.writeFileSync(runtimePaths(root).runtime_dir + '/runtime-identity.json', `${JSON.stringify(incompatible)}\n`);
@@ -59,8 +61,16 @@ assert.throws(
 );
 
 const released = await releaseGraphdAfterCommand(root, { persistGraphd: false });
-assert.equal(released.released, true);
-assert.equal(released.reason, 'post_command');
+assert.equal(released.released, false);
+assert.equal(released.reason, 'absent');
+
+const absent = await releaseGraphdAfterCommand(root, { persistGraphd: false });
+assert.equal(absent.released, false);
+assert.equal(absent.reason, 'absent');
+
+const finalized = await finalizeRuntimeCommand(root);
+assert.equal(finalized.graphd.released, false);
+assert.equal(finalized.graphd.reason, 'absent');
 
 const kept = await releaseGraphdAfterCommand(root, { persistGraphd: true });
 assert.equal(kept.released, false);

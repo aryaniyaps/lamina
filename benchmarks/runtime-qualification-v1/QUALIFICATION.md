@@ -4,9 +4,9 @@
 
 **Partial qualification — gates not met for epic close.**
 
-Lamina commit `d94f8bdd` (PR stack through #77 / `perf/issue-77-linux-packaging`).
-Recorded on Linux x64 qualification host (65 GiB RAM, kernel `7.0.0-28-generic`) on
-2026-08-04.
+Lamina commit on branch `perf/issue-58-qualification` (PR #87); graphd lifecycle fix
+landed after `989e25eb`. Recorded on Linux x64 qualification host (65 GiB RAM,
+kernel `7.0.0-28-generic`) on 2026-08-04.
 
 | Gate family | Result | Evidence |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Recorded on Linux x64 qualification host (65 GiB RAM, kernel `7.0.0-28-generic`)
 | Quality (#61 real-repository oracle contracts) | **Pass** | `npm run test:real-repository-oracle` |
 | Harness (#60 baseline contracts) | **Pass** | `npm run test:runtime-baseline` |
 | Linux packaging (#57, ≤750 MiB) | **Pass** | `linux_packaging_contract_test.mjs`; release workflow footprint gate |
-| Product baseline matrix (small) | **Fail** | `initial-observation` refused after promotion success; see below |
+| Product baseline matrix (small) | **Fail** | `initial-retrieval-readiness` exceeds `pids.max` on promotion path; see below |
 | Medium / large tiers | **Deferred** | Promotion fence after small incomplete |
 | macOS / Windows | **Deferred** | #78 process-control adapters |
 | Linux arm64 full matrix | **Deferred** | Packaging release-qualified; runtime matrix workflow_dispatch on arm64 runners |
@@ -44,18 +44,22 @@ Removed or deferred:
 
 ## Baseline vs final (small tier, Linux x64)
 
-| Scenario | Pre-#53 baseline (BASELINE.md) | Post-#53–#77 (this run) |
+| Scenario | Pre-#53 baseline (BASELINE.md) | Post-#53–#77 + lifecycle fix (this run) |
 | --- | --- | --- |
 | Footprint | Valid (~405 MiB peak) | **Valid** (~386 MiB cgroup peak) |
-| Doctor/status/startup | Valid (median 459 ms cold) | **Valid** (cold samples complete) |
-| Initial observation | Invalid (`pids` refusal) | **Refused** — promotion run **succeeded**; cold sample 2 `preflight_refused` (`existing Lamina processes must stop before launch`) |
-| Retrieval readiness | Blocked | Blocked |
-| Warm preparation (30 samples) | Blocked | Blocked |
+| Doctor/status/startup | Valid (median 459 ms cold) | **Valid** (3/3 cold samples; no preflight refusal) |
+| Initial observation | Invalid (`pids` refusal) | **Valid** (3/3 cold samples; graphd released between samples) |
+| Retrieval readiness | Blocked | **Invalid** — promotion path `safety_limit_exceeded` at `pids.max` |
+| Warm preparation (30 samples) | Blocked | Blocked after retrieval-readiness |
 | Remaining scenarios | Blocked | Blocked |
 
-Root cause for current refusal: **graphd lifecycle leak between cold samples**
-within `initial-observation`, not aggregate `pids.max` on the promotion path.
-Owning area: #70 lifecycle / graphd shutdown between isolated baseline samples.
+**#70 graphd lifecycle gap (closed for observation path):** CLI commands now call
+`finalizeRuntimeCommand` on exit under bounded topology; baseline workload
+`disposeRepository` uses the same teardown. Cold-sample preflight refusal on
+`initial-observation` is resolved.
+
+**Current small-tier blocker:** aggregate task count on `initial-retrieval-readiness`
+(context rebuild after observation), not cold-sample isolation.
 
 Attribution reference:
 [`benchmarks/runtime-baseline-v1/attribution/small.json`](../runtime-baseline-v1/attribution/small.json).
@@ -78,13 +82,12 @@ Attribution reference:
 Committed evaluation summary from `linux-x64-small-partial.json`:
 
 - Oracle suites: 4/4 pass
-- Product scenario gates: `initial-observation.complete` **fail** (refused)
+- Product scenario gates: 16/19 pass (`initial-observation` **pass**; `initial-retrieval-readiness` **fail**)
 - Blocking deferred: baseline promotion incomplete; runner exit 2
 - `overall_pass`: **false**
 
-Latency and RSS gates for warm preparation, no-op sync, incremental edits, and
-idle RSS were **not measured** because the promotion fence stopped the matrix
-after `initial-observation`.
+Warm preparation, no-op sync, incremental edits, and idle RSS were **not measured**
+because the promotion fence stopped the matrix after `initial-retrieval-readiness`.
 
 ---
 
@@ -134,7 +137,7 @@ node tests/linux_packaging_contract_test.mjs
 
 ## Phase 4 readiness
 
-**Not ready.** Executable #53–#57 leaves are merged, but #58 product measurement
-gates fail on small-tier `initial-observation` cold-sample isolation. Close #58
-only after a complete small run, then medium/large promotion, with updated
-committed results and workflow artifacts.
+**Not ready.** The #70 graphd cold-sample isolation blocker is fixed; small-tier
+measurement now stops at `initial-retrieval-readiness` (`pids.max`). Close #58 only
+after a complete small run, then medium/large promotion, with updated committed
+results and workflow artifacts.

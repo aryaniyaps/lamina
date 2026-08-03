@@ -16,6 +16,11 @@ succeeds but cold sample isolation fails with `preflight_refused` when graphd
 from the prior sample has not stopped. The PID-limit peaks in the 2026-08-02/03
 runs are safety diagnostics, not performance samples.
 
+After the #70 lifecycle fix on PR #87 (`finalizeRuntimeCommand` on CLI exit and
+baseline `disposeRepository` teardown), `initial-observation` completes 3/3 cold
+samples without preflight refusal. The small matrix now blocks at
+`initial-retrieval-readiness` (`pids.max`), not cold-sample isolation.
+
 This is the truthful unoptimized baseline. The harness measures the public CLI
 commands and does not alter Lamina's stores, model, worker topology, batching,
 chunking, exclusions, or quality thresholds. Raising the PID limit or bypassing
