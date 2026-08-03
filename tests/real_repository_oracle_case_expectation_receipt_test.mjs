@@ -8,8 +8,10 @@ import {
   CASE_EXPECTATIONS_CANONICAL_SHA256,
   CASE_EXPECTATIONS_RAW_SHA256,
   CASE_EXPECTATION_REVIEW_AUTHORITY,
+  RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
   loadCaseExpectationReview,
   parseCaseExpectationReviewBytes,
+  semanticMappingReceiptMatches,
   validateCaseExpectationReview,
 } from '../benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs';
 import {
@@ -27,6 +29,7 @@ import {
   WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256, loadWorkflowSeed,
 } from '../benchmarks/real-repository-oracle-v1/workflow-seed.mjs';
 import {
+  INDEPENDENT_LEXICAL_WITNESS_AUTHORITY,
   SEMANTIC_CASE_MAPPING, SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
   semanticCaseMappingDigest, validateSemanticCaseMapping,
 } from '../benchmarks/real-repository-oracle-v1/semantic-case-authority.mjs';
@@ -91,8 +94,13 @@ assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.scenario_selection_raw_sha256,
 assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.scenario_selection_canonical_sha256,
   SCENARIO_SELECTION_CANONICAL_SHA256);
 assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.semantic_case_mapping_canonical_sha256,
+  RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256);
+assert.equal(RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
   SEMANTIC_CASE_MAPPING_CANONICAL_SHA256);
 assert.equal(semanticCaseMappingDigest(), SEMANTIC_CASE_MAPPING_CANONICAL_SHA256);
+assert.equal(semanticMappingReceiptMatches(), true);
+assert.equal(semanticMappingReceiptMatches('0'.repeat(64)), false,
+  'receipt-owned literal rejects a mapping digest mismatch through a non-tautological seam');
 assert.deepEqual(validateSemanticCaseMapping(SEMANTIC_CASE_MAPPING), { valid: true, errors: [] });
 
 const tiers = ['small', 'medium', 'large'];
@@ -146,8 +154,21 @@ for (const mapping of SEMANTIC_CASE_MAPPING.rows) {
   assert.equal(reviewedCase.rationale, mapping.rationale);
 }
 assert.deepEqual(SEMANTIC_CASE_MAPPING.rows.filter((item) => item.separate_lexical_category)
-  .map((item) => [item.id, item.separate_lexical_category]),
-[['medium.semantic.08-flag', 'feature_flags']]);
+  .map((item) => [item.id, item.separate_lexical_category]), Object.entries(
+  INDEPENDENT_LEXICAL_WITNESS_AUTHORITY,
+));
+for (const [id, category] of Object.entries(INDEPENDENT_LEXICAL_WITNESS_AUTHORITY)) {
+  const item = fixture.cases.find((candidate) => candidate.id === id);
+  const tier = id.split('.')[0];
+  const witness = OBSERVATION_CATEGORY_SUPPORT[tier].positive_targets.find((target) =>
+    target.category === category);
+  assert.deepEqual(item.expected.source_ranking.at(-1), {
+    path: witness.path, symbol: witness.symbol || null,
+    max_rank: item.expected.source_ranking.length,
+  });
+  assert.match(item.request, new RegExp(`Separately localize the exact reviewed ${category} witness`));
+  assert.match(item.request, /independent lexical evidence and must not be attached/);
+}
 assert.deepEqual(fixture.cases.find((item) => item.id === 'small.semantic.13-test')
   .expected.source_ranking[0], {
   path: 'apps/nextjs-app/src/lib/__tests__/authorization.test.tsx', symbol: 'Authorization', max_rank: 1,
@@ -314,7 +335,37 @@ const invalidSeparateMapping = structuredClone(SEMANTIC_CASE_MAPPING);
 invalidSeparateMapping.rows.find((item) => item.id === 'small.semantic.12-transition')
   .separate_lexical_category = 'feature_flags';
 assert.match(validateSemanticCaseMapping(invalidSeparateMapping).errors.join('; '),
-  /only medium.semantic.08-flag/);
+  /exactly match the reviewed row-to-category authority/);
+const unknownMappingRootKey = structuredClone(SEMANTIC_CASE_MAPPING);
+unknownMappingRootKey.unexpected = true;
+assert.match(validateSemanticCaseMapping(unknownMappingRootKey).errors.join('; '),
+  /mapping root/);
+const unknownMappingRowKey = structuredClone(SEMANTIC_CASE_MAPPING);
+unknownMappingRowKey.rows[0].unexpected = true;
+assert.match(validateSemanticCaseMapping(unknownMappingRowKey).errors.join('; '),
+  /mapping row is malformed/);
+
+for (const [id, category] of [
+  ['small.semantic.13-test', 'tests'],
+  ['medium.semantic.11-test', 'tests'],
+  ['large.semantic.09-docs_persona', 'documentation'],
+]) {
+  const tier = id.split('.')[0];
+  const falseWitness = OBSERVATION_CATEGORY_SUPPORT[tier].positive_targets.find((target) =>
+    target.category === category);
+  const falseJoin = structuredClone(fixture);
+  const item = falseJoin.cases.find((candidate) => candidate.id === id);
+  item.expected.source_ranking[0] = {
+    path: falseWitness.path, symbol: falseWitness.symbol || null, max_rank: 1,
+  };
+  const validation = validateCaseExpectationReview(falseJoin);
+  assert.equal(validation.valid, false);
+  assert.match(validation.errors.join('; '), /exact ordered semantic surface authority/);
+  assert.throws(() => parseCaseExpectationReviewBytes(
+    Buffer.from(JSON.stringify(falseJoin)), { requireReviewedBytes: false },
+  ), /case expectation review is invalid/,
+  `${id} d575e8-style false join remains rejected when raw-byte identity is disabled`);
+}
 
 function idealResult(tier) {
   const collection = fixture.collections.find((item) => item.fixture_id === tier);

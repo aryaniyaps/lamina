@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import {
-  realRepositoryOracleSourceClosureIdentity,
+  realRepositoryOracleSourceClosure, realRepositoryOracleSourceClosureIdentity,
 } from '../scripts/safe-runner/real-repository-source-closure.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from '../scripts/safe-runner/source-identity.mjs';
 import {
@@ -482,8 +482,37 @@ try {
   fs.rmSync(raceRoot, { recursive: true, force: false });
 }
 
+const reportSourceParent = fs.realpathSync.native(fs.mkdtempSync(
+  path.join(os.tmpdir(), 'lamina-scenario-report-source-'),
+));
+try {
+const reportSourceRepository = path.join(reportSourceParent, 'repository');
+git(reportSourceParent, ['init', '--quiet', reportSourceRepository]);
+for (const relative of realRepositoryOracleSourceClosure('verify-scenarios')) {
+  const destination = path.join(reportSourceRepository, relative);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, relative), destination);
+}
+git(reportSourceRepository, ['add', '--', '.']);
+git(reportSourceRepository, ['-c', 'user.name=Lamina Test',
+  '-c', 'user.email=lamina@example.invalid', 'commit', '--quiet',
+  '-m', 'isolated scenario report source']);
+const reportSourceRoot = fs.realpathSync.native(reportSourceRepository);
+const reportSourceConfig = path.join(reportSourceRoot, '.git', 'config');
+const inertReportSourceConfig = fs.readFileSync(reportSourceConfig);
+for (const executableConfig of [
+  '\n[include]\n\tpath = ../outside-config\n',
+  '\n[includeIf "gitdir:**/repository"]\n\tpath = ../outside-config\n',
+]) {
+  fs.writeFileSync(reportSourceConfig, Buffer.concat([
+    inertReportSourceConfig, Buffer.from(executableConfig),
+  ]));
+  assert.throws(() => repositorySourceDigest(reportSourceRoot), /Git config|include/i,
+    'synthetic report staging must still refuse include/includeIf Git config');
+  fs.writeFileSync(reportSourceConfig, inertReportSourceConfig);
+}
 const command = [process.execPath,
-  path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs'), 'verify-scenarios'];
+  path.join(reportSourceRoot, 'benchmarks/real-repository-oracle-v1/workload.mjs'), 'verify-scenarios'];
 const executableStat = fs.lstatSync(process.execPath, { bigint: true });
 const executable = { path: process.execPath, dev: String(executableStat.dev),
   ino: String(executableStat.ino), uid: Number(executableStat.uid),
@@ -493,10 +522,10 @@ const entrypoint = command[1];
 const entrypointStat = fs.lstatSync(entrypoint, { bigint: true });
 const entrypointIdentity = { path: entrypoint, size: String(entrypointStat.size),
   digest: sha256(fs.readFileSync(entrypoint)) };
-const sourceClosure = realRepositoryOracleSourceClosureIdentity(ROOT, 'verify-scenarios');
-const sourceValue = { repository: ROOT, command, executable,
+const sourceClosure = realRepositoryOracleSourceClosureIdentity(reportSourceRoot, 'verify-scenarios');
+const sourceValue = { repository: reportSourceRoot, command, executable,
   workload_inputs: [entrypointIdentity], retrieval_authority: null,
-  runtime_baseline_inputs: null, repository_source: repositorySourceDigest(ROOT),
+  runtime_baseline_inputs: null, repository_source: repositorySourceDigest(reportSourceRoot),
   runner_build: runnerBuildDigest() };
 const sourceIdentity = { ...sourceValue, digest: sha256(JSON.stringify(sourceValue)) };
 const snapshotDigest = '1'.repeat(64);
@@ -508,7 +537,7 @@ const stdoutTail = `${line}\n`;
 const safeReport = {
   schema: 'lamina.safe-runner-report/v1', schema_version: 1, run_id: 'synthetic-scenario-report',
   report_file: path.join(os.tmpdir(), 'synthetic-scenario-report.json'), outcome: 'success',
-  tier: 'small', command, cwd: ROOT, started_at: '2026-08-03T00:00:00.000Z',
+  tier: 'small', command, cwd: reportSourceRoot, started_at: '2026-08-03T00:00:00.000Z',
   finished_at: '2026-08-03T00:00:01.000Z', duration_ms: 1000,
   adapter: { id: 'linux-systemd-cgroup-v2', production_enforcement: true },
   limits: { stdout_tail_max_bytes: 8 * 1024, stderr_tail_max_bytes: 8 * 1024,
@@ -521,7 +550,7 @@ const safeReport = {
       executable: process.execPath }, execution_command: command, source_identity: sourceIdentity,
     execution_snapshot: { schema: 'lamina.safe-runner-execution-snapshot/v1', digest: snapshotDigest,
       file_count: sourceClosure.file_count, total_bytes: sourceClosure.total_bytes,
-      source_closure: sourceClosure, snapshot_roots: [ROOT], writable_roots: [] },
+      source_closure: sourceClosure, snapshot_roots: [reportSourceRoot], writable_roots: [] },
     execution_identity: executionIdentity,
     retry: { ok: true, signature: sourceIdentity.digest, previous: null },
     promotion: { ok: true, required: [], missing: [], completed: [],
@@ -648,3 +677,6 @@ assert.throws(() => decodeScenarioVerificationReport(closureTamper),
   'a rebound execution digest cannot replace exact source-closure membership and bytes');
 
 console.log('real repository oracle scenario verification tests passed');
+} finally {
+  fs.rmSync(reportSourceParent, { recursive: true, force: false });
+}

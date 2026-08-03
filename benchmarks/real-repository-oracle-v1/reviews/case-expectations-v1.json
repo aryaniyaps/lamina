@@ -655,7 +655,7 @@
     {
       "id": "small.semantic.02-route",
       "collection_id": "collection.small",
-      "request": "Localize the route surface for Route completion handling at routeChangeComplete at apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx: Handle a completed dashboard route change without attaching the behavior to the auth layout.",
+      "request": "For Route completion handling, localize the Workflow-semantic route-related surface routeChangeComplete at apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx; do not treat that surface as a literal repository routes witness. Separately localize the exact reviewed routes witness apps/react-vite/src/app/routes/app/dashboard.tsx; it is independent lexical evidence and must not be attached to Route completion handling.",
       "kind": {
         "query": "route",
         "intent": "source_localization",
@@ -686,6 +686,11 @@
             "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
             "symbol": "routeChangeComplete",
             "max_rank": 1
+          },
+          {
+            "path": "apps/react-vite/src/app/routes/app/dashboard.tsx",
+            "symbol": null,
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -702,7 +707,7 @@
           "changes": []
         }
       },
-      "rationale": "The route query belongs to the Workflow that handles completion of a reviewed dashboard route change."
+      "rationale": "The route-completion surface is Workflow-relevant; the separately requested routes witness is independent lexical evidence and is not attached to that Workflow."
     },
     {
       "id": "small.semantic.03-symbol",
@@ -953,7 +958,7 @@
     {
       "id": "small.semantic.07-role_boundary",
       "collection_id": "collection.small",
-      "request": "A request to protect a dashboard discussion action could mean Discussion authorization verification at Authorization at apps/nextjs-app/src/lib/__tests__/authorization.test.tsx or Dashboard navigation at SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx; preserve the role boundary and select neither until the user clarifies.",
+      "request": "A request to handle access to Discussions from the dashboard could mean Discussion authorization verification at Authorization at apps/nextjs-app/src/lib/__tests__/authorization.test.tsx or Dashboard navigation at SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx; preserve the role boundary and select neither until the user clarifies.",
       "kind": {
         "query": "role_boundary",
         "intent": "ambiguous_workflow",
@@ -998,7 +1003,7 @@
           "changes": []
         }
       },
-      "rationale": "A dashboard discussion action can plausibly mean authorizing the action or navigating to it, so both exact alternatives are retained and neither is selected."
+      "rationale": "A request to handle access to Discussions from the dashboard can mean authorization or navigation, so both exact Workflow-contract alternatives remain unselected."
     },
     {
       "id": "small.semantic.08-invariant",
@@ -1112,7 +1117,7 @@
     {
       "id": "small.semantic.10-entry_point",
       "collection_id": "collection.small",
-      "request": "After the reviewed deletion of apps/nextjs-app/.vscode/extensions.json, use the Workflow-relevant entry-point evidence SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx for Dashboard navigation without returning the stale deleted path.",
+      "request": "After the reviewed deletion of apps/nextjs-app/.vscode/extensions.json, use the Workflow-semantic entry surface SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx for Dashboard navigation without returning the stale deleted path.",
       "kind": {
         "query": "entry_point",
         "intent": "observation",
@@ -1233,12 +1238,12 @@
           ]
         }
       },
-      "rationale": "The visible side-navigation item is the reviewed entry surface for the Dashboard navigation Workflow."
+      "rationale": "The visible side-navigation item is the reviewed semantic entry surface for the Dashboard navigation Workflow."
     },
     {
       "id": "small.semantic.11-command",
       "collection_id": "collection.small",
-      "request": "For Disclosure state, identify the public-seed Workflow operation that commands the closed-to-open change, localized at useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts; this is Workflow operation semantics, not a package-script claim.",
+      "request": "For Disclosure state, localize its public-seed operation at useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts; do not treat that surface as a literal repository command. Separately localize the exact reviewed commands witness apps/nextjs-app/package.json; it is independent lexical evidence and must not be attached to Disclosure state.",
       "kind": {
         "query": "command",
         "intent": "source_localization",
@@ -1269,6 +1274,11 @@
             "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
             "symbol": "useDisclosure",
             "max_rank": 1
+          },
+          {
+            "path": "apps/nextjs-app/package.json",
+            "symbol": null,
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -1285,7 +1295,7 @@
           "changes": []
         }
       },
-      "rationale": "The disclosure operation supplies command semantics for the Workflow; the hook is its localization surface, not a repository package-script claim."
+      "rationale": "The disclosure operation supplies Workflow command semantics; the separately requested commands witness is independent lexical evidence, and the hook is not a package script."
     },
     {
       "id": "small.semantic.12-transition",
@@ -2341,7 +2351,7 @@
           "changes": []
         }
       },
-      "rationale": "A developer-authentication setup request can plausibly refer to API-key actions or OIDC discovery verification, so both exact alternatives remain unselected."
+      "rationale": "A developer-authentication setup request can refer to API-key actions or OIDC discovery verification, so both actor-authority alternatives remain unselected."
     },
     {
       "id": "medium.semantic.07-invariant",
@@ -2403,7 +2413,7 @@
     {
       "id": "medium.semantic.08-flag",
       "collection_id": "collection.medium",
-      "request": "For Menu close prevention, localize the Workflow-relevant condition surface preventCloseHandler at app/components/Menu/transformer.tsx. Separately localize the independent feature-flag exemplar toggle at app/components/Sharing/components/ShareSettingsPopover.tsx; do not attach that exemplar to the Workflow.",
+      "request": "For Menu close prevention, localize its Workflow-relevant condition at preventCloseHandler at app/components/Menu/transformer.tsx; do not treat that surface as a literal repository feature flag. Separately localize the exact reviewed feature_flags witness toggle at app/components/Sharing/components/ShareSettingsPopover.tsx; it is independent lexical evidence and must not be attached to Menu close prevention.",
       "kind": {
         "query": "flag",
         "intent": "source_localization",
@@ -2512,7 +2522,7 @@
     {
       "id": "medium.semantic.10-event",
       "collection_id": "collection.medium",
-      "request": "After the reviewed deletion of .github/auto_assign.yml, use the Workflow-relevant event evidence appinstalled at app/components/Analytics.tsx for PWA install analytics without returning the stale deleted path.",
+      "request": "After the reviewed deletion of .github/auto_assign.yml, use the Workflow-semantic event surface appinstalled at app/components/Analytics.tsx for PWA install analytics without returning the stale deleted path.",
       "kind": {
         "query": "event",
         "intent": "observation",
@@ -2763,7 +2773,7 @@
     {
       "id": "medium.semantic.13-route",
       "collection_id": "collection.medium",
-      "request": "Localize the route surface for OIDC discovery verification at DefaultBodyType at plugins/oidc/server/oidcDiscovery.test.ts: Verify the OIDC discovery response contract at the reviewed test surface.",
+      "request": "For OIDC discovery verification, localize the Workflow-semantic route-related surface DefaultBodyType at plugins/oidc/server/oidcDiscovery.test.ts; do not treat that surface as a literal repository routes witness. Separately localize the exact reviewed routes witness app/routes/authenticated.tsx; it is independent lexical evidence and must not be attached to OIDC discovery verification.",
       "kind": {
         "query": "route",
         "intent": "source_localization",
@@ -2794,6 +2804,11 @@
             "path": "plugins/oidc/server/oidcDiscovery.test.ts",
             "symbol": "DefaultBodyType",
             "max_rank": 1
+          },
+          {
+            "path": "app/routes/authenticated.tsx",
+            "symbol": null,
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -2810,7 +2825,7 @@
           "changes": []
         }
       },
-      "rationale": "OIDC discovery verification is the public-seed Workflow whose reviewed response-contract test is relevant to the discovery route."
+      "rationale": "The OIDC response-contract test is Workflow-relevant; the separately requested routes witness is independent lexical evidence and is not attached to that Workflow."
     },
     {
       "id": "medium.semantic.14-symbol",
@@ -3582,7 +3597,7 @@
           "changes": []
         }
       },
-      "rationale": "An instance-feature preview request can plausibly mean configuring AI fields or deploying a feature preview, which have distinct administrator and maintainer authority."
+      "rationale": "An instance-feature preview request can mean AI configuration or preview deployment, which have distinct public-seed administrator and maintainer authority."
     },
     {
       "id": "large.semantic.04-docs_persona",
@@ -3688,7 +3703,7 @@
     {
       "id": "large.semantic.06-entry_point",
       "collection_id": "collection.large",
-      "request": "After the reviewed deletion of .github/workflows/build-branch.yml, use the Workflow-relevant entry-point evidence authErrorHandler at apps/admin/app/(all)/(home)/auth-helpers.tsx for Authentication error handling without returning the stale deleted path.",
+      "request": "After the reviewed deletion of .github/workflows/build-branch.yml, use the Workflow-semantic entry surface authErrorHandler at apps/admin/app/(all)/(home)/auth-helpers.tsx for Authentication error handling without returning the stale deleted path.",
       "kind": {
         "query": "entry_point",
         "intent": "observation",
@@ -3814,12 +3829,12 @@
           ]
         }
       },
-      "rationale": "The administrator authErrorHandler is the reviewed entry surface for handling the corresponding authentication failure."
+      "rationale": "authErrorHandler is the reviewed semantic entry surface for handling the corresponding administrator authentication failure."
     },
     {
       "id": "large.semantic.07-command",
       "collection_id": "collection.large",
-      "request": "Find the repository command relevant to Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "request": "For Feature preview deployment, localize its public-seed operation at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml; do not treat that surface as a literal repository command. Separately localize the exact reviewed commands witness apps/admin/package.json; it is independent lexical evidence and must not be attached to Feature preview deployment.",
       "kind": {
         "query": "command",
         "intent": "source_localization",
@@ -3850,6 +3865,11 @@
             "path": ".github/workflows/feature-deployment.yml",
             "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
+          },
+          {
+            "path": "apps/admin/package.json",
+            "symbol": null,
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -3866,7 +3886,7 @@
           "changes": []
         }
       },
-      "rationale": "The invocable feature-deployment Workflow and its reviewed Helm variable surface are relevant to the deployment command."
+      "rationale": "The Helm variable localizes the invocable Workflow but is not a repository command; the separately requested commands witness is independent lexical evidence."
     },
     {
       "id": "large.semantic.08-transition",
@@ -4025,7 +4045,7 @@
     {
       "id": "large.semantic.10-flag",
       "collection_id": "collection.large",
-      "request": "Localize the feature flag surface for Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "request": "For Feature preview deployment, localize its Workflow-relevant deployment configuration at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml; do not treat that surface as a literal repository feature flag. Separately localize the exact reviewed feature_flags witness toggle at apps/admin/store/instance.store.ts; it is independent lexical evidence and must not be attached to Feature preview deployment.",
       "kind": {
         "query": "flag",
         "intent": "source_localization",
@@ -4056,6 +4076,11 @@
             "path": ".github/workflows/feature-deployment.yml",
             "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
+          },
+          {
+            "path": "apps/admin/store/instance.store.ts",
+            "symbol": "toggle",
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -4072,7 +4097,7 @@
           "changes": []
         }
       },
-      "rationale": "The reviewed feature-preview Helm variable is the Workflow-relevant feature control for preview deployment."
+      "rationale": "The Helm variable is Workflow-relevant deployment configuration, not a literal flag; the separately requested feature-flags witness is independent lexical evidence."
     },
     {
       "id": "large.semantic.11-schema_entity",
@@ -4129,7 +4154,7 @@
     {
       "id": "large.semantic.12-event",
       "collection_id": "collection.large",
-      "request": "Identify the public-seed trigger semantics for Feature preview deployment: an approved maintainer invokes the Workflow localized at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml. Do not claim that the Helm variable is itself an emitted runtime event.",
+      "request": "For Feature preview deployment, localize its public-seed trigger semantics at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml; do not treat that surface as a literal emitted runtime event. Separately localize the exact reviewed events witness resize at apps/admin/app/(all)/(dashboard)/sidebar.tsx; it is independent lexical evidence and must not be attached to Feature preview deployment.",
       "kind": {
         "query": "event",
         "intent": "source_localization",
@@ -4160,6 +4185,11 @@
             "path": ".github/workflows/feature-deployment.yml",
             "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
+          },
+          {
+            "path": "apps/admin/app/(all)/(dashboard)/sidebar.tsx",
+            "symbol": "resize",
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -4176,7 +4206,7 @@
           "changes": []
         }
       },
-      "rationale": "The approved maintainer invocation is the public-seed trigger semantics; the Helm variable localizes the Workflow but is not claimed as an emitted runtime event."
+      "rationale": "The maintainer invocation supplies Workflow trigger semantics while the Helm variable only localizes it; the separate events witness is independent lexical evidence."
     },
     {
       "id": "large.semantic.13-persona",
@@ -4297,7 +4327,7 @@
           "changes": []
         }
       },
-      "rationale": "The linked-worktree permission boundary coordinates two privileged instance-feature Workflows while preserving each public-seed actor authority."
+      "rationale": "The linked worktree coordinates two privileged public-seed Workflow contracts while preserving each actor-authority boundary."
     }
   ],
   "mutations": [

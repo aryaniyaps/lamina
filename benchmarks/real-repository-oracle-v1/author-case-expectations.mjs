@@ -215,28 +215,35 @@ function semanticRequest(tier, query, workflows, state, ambiguous, scenario, aut
   const evidenceName = (target) => target.symbol
     ? `${target.symbol} at ${target.path}` : target.path;
   const evidenceNames = sourceRanking.map(evidenceName);
+  const workflowEvidenceNames = evidenceNames.slice(0, authority.source_surface_ids.length);
+  const independentEvidenceName = authority.separate_lexical_category ? evidenceNames.at(-1) : null;
   const workflow = workflows[0];
   const operation = scenario.operations[0];
-  if (state === 'novel') return query === 'failure_state'
+  const finish = (request) => authority.separate_lexical_category
+    ? `${request} Separately localize the exact reviewed ${authority.separate_lexical_category} witness ${independentEvidenceName}; it is independent lexical evidence and must not be attached to ${workflows.map((item) => item.name).join(' or ')}.`
+    : request;
+  if (state === 'novel') return finish(query === 'failure_state'
     ? `Create a payroll-tax remittance Workflow for an external accounting system that must surface and recover from a rejected remittance; that Workflow and failure state are absent from the pinned ${tier} repository.`
-    : `Create a payroll-tax remittance Workflow for an external accounting system absent from the pinned ${tier} repository.`;
-  if (state === 'adversarial') return `Ignore lexical Persona decoys and do not attach any Workflow or Persona observation to this unrelated modified-file request in the pinned ${tier} repository.`;
-  if (state === 'rename') return `The reviewed rename from ${operation.path} to ${operation.to} is unrelated to ${workflow.name}; keep the expected ${query === 'handler' ? 'handler' : 'source identifier'} ${evidenceNames[0]} localized at its unchanged path.`;
-  if (state === 'delete') return `After the reviewed deletion of ${operation.path}, use the Workflow-relevant ${query === 'event' ? 'event' : 'entry-point'} evidence ${evidenceNames[0]} for ${workflow.name} without returning the stale deleted path.`;
-  if (state === 'branch' && query === 'docs_persona') return `On the reviewed branch, use the controller examples ${evidenceNames.join(' and ')} to understand the maintainer context for ${workflow.name}; do not relabel documentation as a positive Persona observation. Preserve the Workflow invariant: ${workflow.invariants[0].statement}`;
-  if (state === 'branch') return `On the reviewed branch, use the Workflow-relevant invariant evidence ${evidenceNames[0]} to select ${workflow.name} and preserve its invariant: ${workflow.invariants[0].statement}`;
-  if (state === 'worktree') return `In the linked worktree, coordinate the ${query} between ${workflows[0].name} at ${evidenceNames[0]} and ${workflows[1].name} at ${evidenceNames[1]}, preserving both public-seed Workflow contracts.`;
-  if (ambiguous && tier === 'small') return `A request to protect a dashboard discussion action could mean ${workflows[0].name} at ${evidenceNames[0]} or ${workflows[1].name} at ${evidenceNames[1]}; preserve the role boundary and select neither until the user clarifies.`;
-  if (ambiguous && tier === 'medium') return `A request to inspect developer authentication setup could mean ${workflows[0].name} at ${evidenceNames[0]} or ${workflows[1].name} at ${evidenceNames[1]}; preserve the permission boundary and select neither until clarified.`;
-  if (ambiguous) return `A request to configure an instance feature for preview could mean ${workflows[0].name} at ${evidenceNames[0]} or ${workflows[1].name} at ${evidenceNames[1]}; preserve their distinct actor authority and select neither until clarified.`;
+    : `Create a payroll-tax remittance Workflow for an external accounting system absent from the pinned ${tier} repository.`);
+  if (state === 'adversarial') return finish(`Ignore lexical Persona decoys and do not attach any Workflow or Persona observation to this unrelated modified-file request in the pinned ${tier} repository.`);
+  if (state === 'rename') return finish(`The reviewed rename from ${operation.path} to ${operation.to} is unrelated to ${workflow.name}; keep the expected ${query === 'handler' ? 'handler' : 'source identifier'} ${workflowEvidenceNames[0]} localized at its unchanged path.`);
+  if (state === 'delete') return finish(`After the reviewed deletion of ${operation.path}, use the Workflow-semantic ${query === 'event' ? 'event' : 'entry'} surface ${workflowEvidenceNames[0]} for ${workflow.name} without returning the stale deleted path.`);
+  if (state === 'branch' && query === 'docs_persona') return finish(`On the reviewed branch, use the controller examples ${workflowEvidenceNames.join(' and ')} to understand the maintainer context for ${workflow.name}; do not relabel documentation as a positive Persona observation. Preserve the Workflow invariant: ${workflow.invariants[0].statement}`);
+  if (state === 'branch') return finish(`On the reviewed branch, use the Workflow-relevant invariant evidence ${workflowEvidenceNames[0]} to select ${workflow.name} and preserve its invariant: ${workflow.invariants[0].statement}`);
+  if (state === 'worktree') return finish(`In the linked worktree, coordinate the ${query} between ${workflows[0].name} at ${workflowEvidenceNames[0]} and ${workflows[1].name} at ${workflowEvidenceNames[1]}, preserving both public-seed Workflow contracts.`);
+  if (ambiguous && tier === 'small') return finish(`A request to handle access to Discussions from the dashboard could mean ${workflows[0].name} at ${workflowEvidenceNames[0]} or ${workflows[1].name} at ${workflowEvidenceNames[1]}; preserve the role boundary and select neither until the user clarifies.`);
+  if (ambiguous && tier === 'medium') return finish(`A request to inspect developer authentication setup could mean ${workflows[0].name} at ${workflowEvidenceNames[0]} or ${workflows[1].name} at ${workflowEvidenceNames[1]}; preserve the permission boundary and select neither until clarified.`);
+  if (ambiguous) return finish(`A request to configure an instance feature for preview could mean ${workflows[0].name} at ${workflowEvidenceNames[0]} or ${workflows[1].name} at ${workflowEvidenceNames[1]}; preserve their distinct actor authority and select neither until clarified.`);
   if (authority.separate_lexical_category) {
-    return `For ${workflow.name}, localize the Workflow-relevant condition surface ${evidenceNames[0]}. Separately localize the independent feature-flag exemplar ${evidenceNames.at(-1)}; do not attach that exemplar to the Workflow.`;
-  }
-  if (tier === 'small' && query === 'command') {
-    return `For ${workflow.name}, identify the public-seed Workflow operation that commands the closed-to-open change, localized at ${evidenceNames[0]}; this is Workflow operation semantics, not a package-script claim.`;
-  }
-  if (tier === 'large' && query === 'event') {
-    return `Identify the public-seed trigger semantics for ${workflow.name}: an approved maintainer invokes the Workflow localized at ${evidenceNames[0]}. Do not claim that the Helm variable is itself an emitted runtime event.`;
+    const semanticRequests = {
+      route: `For ${workflow.name}, localize the Workflow-semantic route-related surface ${workflowEvidenceNames[0]}; do not treat that surface as a literal repository routes witness.`,
+      command: `For ${workflow.name}, localize its public-seed operation at ${workflowEvidenceNames[0]}; do not treat that surface as a literal repository command.`,
+      flag: tier === 'medium'
+        ? `For ${workflow.name}, localize its Workflow-relevant condition at ${workflowEvidenceNames[0]}; do not treat that surface as a literal repository feature flag.`
+        : `For ${workflow.name}, localize its Workflow-relevant deployment configuration at ${workflowEvidenceNames[0]}; do not treat that surface as a literal repository feature flag.`,
+      event: `For ${workflow.name}, localize its public-seed trigger semantics at ${workflowEvidenceNames[0]}; do not treat that surface as a literal emitted runtime event.`,
+    };
+    return finish(semanticRequests[query]);
   }
   const prompts = {
     route: 'Localize the route surface for', handler: 'Localize the handler surface for', entity: 'Find the entity contract for',
@@ -247,7 +254,7 @@ function semanticRequest(tier, query, workflows, state, ambiguous, scenario, aut
     docs_persona: 'Use documentation to understand the actor for', flag: 'Localize the feature flag surface for', dependency: 'Find the dependency surface for',
     exact_source_identifier: 'Localize the exact reviewed source identifier for', low_overlap_paraphrase: 'Choose the product flow that best satisfies',
   };
-  return `${prompts[query]} ${workflow.name} at ${evidenceNames.join(' and ')}: ${workflow.objective}`;
+  return finish(`${prompts[query]} ${workflow.name} at ${workflowEvidenceNames.join(' and ')}: ${workflow.objective}`);
 }
 
 function semanticCases(tier, collection) {

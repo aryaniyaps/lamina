@@ -14,7 +14,7 @@ import {
 } from './scenario-selection.mjs';
 import {
   SEMANTIC_CASE_MAPPING, SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
-  validateSemanticCaseMapping,
+  semanticCaseMappingDigest, validateSemanticCaseMapping,
 } from './semantic-case-authority.mjs';
 import {
   WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256, loadWorkflowSeed,
@@ -42,8 +42,13 @@ function isAcceptedStateRow(item) {
     || ['rename', 'delete', 'checkout_branch', 'add_worktree'].includes(operation);
 }
 
-export const CASE_EXPECTATIONS_RAW_SHA256 = '0cc1a3c7c4bf4b3baedad0f2e394bd4659651498cbb467417ea280d4b4cd467e';
-export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '012d21963d9b03c755745cfce3d93c66f5e957a6c230e21ca9329b1e8102d826';
+export const CASE_EXPECTATIONS_RAW_SHA256 = 'dfbfb99528e8e898449f169eff4932ca29666b17f2123c535161f9c1654e8b4d';
+export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '59766f5b63c14e1da424e4749e730b13f4512d963b6f32c3407b4700f59bc86d';
+export const RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256 = '092cfbb1313ccdec0afd2064a37dd9c9e70fff2aafa7e9ae2cdb73f09d1a58d6';
+export function semanticMappingReceiptMatches(actualDigest = semanticCaseMappingDigest()) {
+  return actualDigest === RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256
+    && SEMANTIC_CASE_MAPPING_CANONICAL_SHA256 === RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256;
+}
 export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
   review_status: 'pending_independent_review_adjudication',
   review_decision: 'not_yet_accepted',
@@ -58,9 +63,9 @@ export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
   observation_support_canonical_sha256: OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256,
   scenario_selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
   scenario_selection_canonical_sha256: SCENARIO_SELECTION_CANONICAL_SHA256,
-  semantic_case_mapping_canonical_sha256: SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
-  request_scenario_set_sha256: '469b51cf7a7841a4e97b104c501abb41be2e77169dbca3aa1d87bf7ee5ad29d9',
-  expectation_set_sha256: '5a092230f7b2af4238948d780e210bf6c771cc150df25bd4be04787dc48ee2f7',
+  semantic_case_mapping_canonical_sha256: RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
+  request_scenario_set_sha256: '2de7a1ae276985a60ecc882f77afe9bfb0e18c528d4490c67266f35d16a5a6f0',
+  expectation_set_sha256: 'ae22b9ca8a3847ebfc68e18618a92947341bbef3ab2cdc1faffcecf0c13ce7ac',
   mutation_set_sha256: 'c1bf8394ceeca151d74ee875e3fa3a3cf656d7cd1b985b8d488840273ba718cb',
   gates_sha256: 'ecea71c2b2179c520264e60109fd2f6a6e58845daa16187de392b9919520b950',
   held_out_identity_sha256: 'afc38bd388d6b27e397671806f3d83adb4b9dcbea5aa0d702d251878618e9e6c',
@@ -144,9 +149,7 @@ export function validateCaseExpectationReview(fixture) {
   const base = validateFixture(fixture);
   if (!base.valid) return base;
   const semanticMappingValidation = validateSemanticCaseMapping(SEMANTIC_CASE_MAPPING);
-  if (!semanticMappingValidation.valid
-    || CASE_EXPECTATION_REVIEW_AUTHORITY.semantic_case_mapping_canonical_sha256
-      !== SEMANTIC_CASE_MAPPING_CANONICAL_SHA256) {
+  if (!semanticMappingValidation.valid || !semanticMappingReceiptMatches()) {
     errors.push('semantic case mapping authority is invalid or unsealed');
   }
   if (fixture.id !== 'real-repository-oracle-case-expectations-v1' || fixture.version !== 1) {
@@ -269,6 +272,16 @@ export function validateCaseExpectationReview(fixture) {
             || (target.symbol && !item.request.includes(target.symbol)))) {
             errors.push(`${item.id} request does not explicitly name every ranked semantic source`);
           }
+          if (semanticAuthority.separate_lexical_category
+            && (!item.request.includes(`Separately localize the exact reviewed ${semanticAuthority.separate_lexical_category} witness`)
+              || !item.request.includes('it is independent lexical evidence')
+              || !item.request.includes('must not be attached'))) {
+            errors.push(`${item.id} request does not preserve the two-part cross-authority boundary`);
+          }
+          if (!semanticAuthority.separate_lexical_category
+            && item.request.includes('independent lexical evidence')) {
+            errors.push(`${item.id} invents an unreviewed independent lexical task`);
+          }
           const expectedObligationSet = OBLIGATION_CASE_IDS.has(item.id)
             ? expectedObligations(mappedWorkflows[0]) : [];
           if (!same(item.expected.obligations, expectedObligationSet)) {
@@ -306,7 +319,7 @@ export function validateCaseExpectationReview(fixture) {
         errors.push(`${item.id} rename request must distinguish unrelated state mutation from unchanged source evidence`);
       }
       if (operation?.op === 'delete' && (!includesFirstSource || !item.request.includes(operation.path)
-        || !item.request.includes(item.kind.query === 'event' ? 'event evidence' : 'entry-point evidence'))) {
+        || !item.request.includes(item.kind.query === 'event' ? 'event surface' : 'entry surface'))) {
         errors.push(`${item.id} delete request must name its assigned query witness and stale path`);
       }
       if (operation?.op === 'checkout_branch') {

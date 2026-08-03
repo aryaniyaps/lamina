@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   OBSERVATION_CATEGORY_SUPPORT,
   OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256,
@@ -10,6 +12,13 @@ import {
   parseObservationCategorySupportBytes,
 } from '../benchmarks/real-repository-oracle-v1/observation-category-authority.mjs';
 import { brownfieldSignals } from '../packages/cli/lib/observation-runtime/node.mjs';
+import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
+
+const git = (cwd, args) => {
+  const result = spawnTrustedGit(cwd, args, { encoding: 'utf8', timeout: 10_000,
+    maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+};
 
 const file = new URL('../benchmarks/real-repository-oracle-v1/reviews/observation-category-support-v1.json', import.meta.url);
 const bytes = fs.readFileSync(file);
@@ -113,5 +122,27 @@ assert.throws(() => parseObservationCategorySupportBytes(Buffer.alloc(128 * 1024
 const changedBytes = Buffer.from(bytes);
 changedBytes[changedBytes.length - 2] = changedBytes[changedBytes.length - 2] === 10 ? 32 : 10;
 assert.throws(() => parseObservationCategorySupportBytes(changedBytes), /reviewed identity/);
+
+const checkoutProbe = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-observation-lf-checkout-'));
+try {
+  const relativeSource = 'packages/cli/lib/observation-runtime/node.mjs';
+  fs.mkdirSync(path.join(checkoutProbe, path.dirname(relativeSource)), { recursive: true });
+  fs.copyFileSync(new URL('../.gitattributes', import.meta.url),
+    path.join(checkoutProbe, '.gitattributes'));
+  fs.copyFileSync(new URL(`../${relativeSource}`, import.meta.url),
+    path.join(checkoutProbe, relativeSource));
+  git(checkoutProbe, ['init', '--quiet']);
+  git(checkoutProbe, ['config', 'core.autocrlf', 'true']);
+  git(checkoutProbe, ['add', '--', '.gitattributes', relativeSource]);
+  fs.unlinkSync(path.join(checkoutProbe, relativeSource));
+  git(checkoutProbe, ['checkout-index', '--force', '--', relativeSource]);
+  const windowsCheckoutBytes = fs.readFileSync(path.join(checkoutProbe, relativeSource));
+  assert.equal(crypto.createHash('sha256').update(windowsCheckoutBytes).digest('hex'),
+    loaded.value.production.source_sha256,
+    'the targeted LF attribute preserves the raw production observation seam under autocrlf');
+  assert.equal(windowsCheckoutBytes.includes(Buffer.from('\r\n')), false);
+} finally {
+  fs.rmSync(checkoutProbe, { recursive: true, force: false });
+}
 
 console.log('real repository oracle observation category authority contracts passed');

@@ -240,10 +240,15 @@ mechanics checks, not candidate measurements.
 Every semantic row is also bound to an exact private mapping of same-tier
 public-seed Workflow IDs and ordered public-seed surface IDs. Workflow-relevant
 surfaces rank first; production observation-category exemplars do not become
-source-localization goldens. The sole independent lexical witness is the
-explicitly separate medium feature-flag task, and its request and rationale
-state that it is not part of the selected Workflow. Obligation expectations
-are exact structured projections of the selected Workflow contract:
+source-localization goldens. A semantic contract category can be satisfied by
+an exact Workflow relation such as actor authority, transition, entry surface,
+or cross-Workflow dependency. A repository lexical category requires an exact
+observed surface. The sealed row-to-category authority permits a cross-authority
+second task only for small route/command, medium flag/route, and large
+command/flag/event. Each such request ranks the Workflow surface first, names
+the exact observed witness second, and says that the independent witness must
+not be attached to the Workflow. Obligation expectations are exact structured
+projections of the selected Workflow contract:
 operation/target, transition, actor authority and Persona, failure contract,
 resolved target/proof closure, and scenario proof. They are not seven labels
 applied to an otherwise unexplained path.
