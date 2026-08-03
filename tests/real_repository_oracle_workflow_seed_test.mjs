@@ -1,11 +1,21 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256,
   loadWorkflowSeed, parseWorkflowSeedBytes, validateWorkflowSeed,
 } from '../benchmarks/real-repository-oracle-v1/workflow-seed.mjs';
 import { loadEvidenceSelection } from '../benchmarks/real-repository-oracle-v1/case-evidence.mjs';
+import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
+
+const git = (cwd, args) => {
+  const result = spawnTrustedGit(cwd, args, { encoding: 'utf8', timeout: 10_000,
+    maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+};
 
 const loaded = loadWorkflowSeed();
 assert.equal(loaded.raw_sha256, WORKFLOW_SEED_RAW_SHA256);
@@ -110,5 +120,30 @@ assert.throws(() => parseWorkflowSeedBytes(Buffer.alloc(64 * 1024 + 1)), /bounde
 const digestTamper = Buffer.from(bytes);
 digestTamper[digestTamper.length - 2] = digestTamper[digestTamper.length - 2] === 10 ? 32 : 10;
 assert.throws(() => parseWorkflowSeedBytes(digestTamper), /reviewed source identity/);
+
+const checkoutProbe = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-workflow-seed-lf-checkout-'));
+try {
+  const relativeSeed = 'benchmarks/real-repository-oracle-v1/workflows-v1.json';
+  fs.mkdirSync(path.join(checkoutProbe, path.dirname(relativeSeed)), { recursive: true });
+  fs.copyFileSync(new URL('../.gitattributes', import.meta.url),
+    path.join(checkoutProbe, '.gitattributes'));
+  fs.copyFileSync(new URL(`../${relativeSeed}`, import.meta.url),
+    path.join(checkoutProbe, relativeSeed));
+  git(checkoutProbe, ['init', '--quiet']);
+  git(checkoutProbe, ['config', 'core.autocrlf', 'true']);
+  git(checkoutProbe, ['add', '--', '.gitattributes', relativeSeed]);
+  fs.unlinkSync(path.join(checkoutProbe, relativeSeed));
+  git(checkoutProbe, ['checkout-index', '--force', '--', relativeSeed]);
+  const windowsCheckoutBytes = fs.readFileSync(path.join(checkoutProbe, relativeSeed));
+  assert.equal(crypto.createHash('sha256').update(windowsCheckoutBytes).digest('hex'),
+    WORKFLOW_SEED_RAW_SHA256,
+    'the targeted LF attribute preserves the sealed Workflow seed bytes under autocrlf');
+  assert.equal(windowsCheckoutBytes.includes(Buffer.from('\r\n')), false);
+  const windowsLoaded = parseWorkflowSeedBytes(windowsCheckoutBytes);
+  assert.equal(windowsLoaded.raw_sha256, WORKFLOW_SEED_RAW_SHA256);
+  assert.equal(windowsLoaded.canonical_sha256, WORKFLOW_SEED_CANONICAL_SHA256);
+} finally {
+  fs.rmSync(checkoutProbe, { recursive: true, force: false });
+}
 
 console.log('real repository oracle Workflow seed contracts passed');

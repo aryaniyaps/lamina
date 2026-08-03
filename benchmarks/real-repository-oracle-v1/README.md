@@ -6,10 +6,11 @@ earlier stage cannot be relabeled as evidence from a later one.
 
 The three repository pins and their inventories are manually reviewed. A
 candidate-visible Workflow seed and private expectation candidate are now
-digest-bound, but the private receipt remains pending independent review
-adjudication. Consequently `validate` stays outside the safe-runner
-exact-command allowlist and the public-CLI mode remains explicitly
-safety-blocked. There is no end-to-end or user-runtime qualification claim.
+digest-bound under an accepted independent-review receipt. That receipt grants
+no candidate quality or runtime authority. Consequently `validate` stays
+outside the safe-runner exact-command allowlist and the public-CLI mode remains
+explicitly safety-blocked. There is no end-to-end or user-runtime qualification
+claim.
 
 ## Bounded case discovery
 
@@ -175,7 +176,9 @@ descriptor with identity rechecks;
 both mutation paths revalidate the named file and parent after opening and
 immediately before mutation, so pathname substitution fails before any write or
 unlink. Modify additionally reopens and verifies the exact appended bytes;
-delete holds and verifies the opened inode through unlink. Branch and linked
+delete holds and verifies the opened inode through unlink, then proves the same
+physical parent and its bounded exact directory-entry identity set minus only
+the intended basename. Branch and linked
 worktree refs use fixed full pins, no tracking, compare-and-delete cleanup, and
 post-cleanup ref/config/reflog checks. Branch cleanup is not accepted until a
 final read proves detached HEAD at the full pin, clean porcelain, and unchanged
@@ -198,6 +201,11 @@ The sealed source closure includes the reviewed scenario selection and
 its narrow evidence-selection identity constants, but excludes discovery,
 evidence expansion, fixtures, expectations, semantic adapters, graders, and
 goldens.
+
+The portable post-delete correction changes that sealed scenario source
+closure. No earlier scenario report or promotion ladder qualifies these bytes.
+A fresh #59 adversarial self-test and exact small-to-medium-to-large scenario
+qualification ladder are required before treating the executor as requalified.
 
 Every record binds its stage and physical before-count to the tier's reviewed
 tracked-file count. All six fresh materializations must also agree on the exact
@@ -270,8 +278,9 @@ grading are implemented and reviewed.
   quality claims.
 - Scenario verification proves only exact selected Git mutations and cleanup;
   it neither loads nor implies fixture, expectation, grader, or quality authority.
-- The pending private expectation receipt proves fixture consistency and
-  mutation sensitivity only; it cannot issue or imply a candidate quality pass.
+- The accepted independent-review receipt proves fixture consistency and
+  mutation sensitivity only; it cannot issue or imply a candidate quality pass
+  or runtime-readiness claim.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.

@@ -54,6 +54,11 @@ const NO_QUALITY_CLAIMS = Object.freeze({
 });
 const LIMITATION = 'Lexical Git state verification only. Accepted discovery provenance is carried from the digest-locked reviewer selection and is not independently replayed. No Workflow, expectation, retrieval, grade, quality, or end-to-end runtime claim.';
 const NO_TEST_HOOKS = Object.freeze({});
+const PARENT_ENTRY_BOUNDS = Object.freeze({
+  entries: 1_024,
+  name_bytes: 1_024,
+  total_name_bytes: 256 * 1_024,
+});
 
 export const SCENARIO_VERIFICATION_SCHEMA = 'lamina.real-repository-oracle-scenario-verification/v1';
 export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
@@ -334,6 +339,50 @@ function assertPreMutationContinuity(source, label) {
   }
 }
 
+function parentEntryIdentitySet(source) {
+  const assertParent = () => {
+    const parent = fs.lstatSync(source.parent, { bigint: true });
+    if (!parent.isDirectory() || parent.isSymbolicLink()
+      || fs.realpathSync.native(source.parent) !== source.parent
+      || parent.dev !== source.parent_stat.dev || parent.ino !== source.parent_stat.ino
+      || parent.mode !== source.parent_stat.mode || parent.uid !== source.parent_stat.uid) {
+      throw new Error('scenario delete parent changed');
+    }
+    return parent;
+  };
+  assertParent();
+  const names = fs.readdirSync(source.parent);
+  if (names.length > PARENT_ENTRY_BOUNDS.entries) {
+    throw new Error('scenario delete parent entry set exceeds bounded count');
+  }
+  let totalNameBytes = 0;
+  const seen = new Set();
+  for (const name of names) {
+    const nameBytes = Buffer.byteLength(name);
+    totalNameBytes += nameBytes;
+    if (!name || name === '.' || name === '..' || name.includes('\0') || name.includes('/')
+      || name.includes('\uFFFD') || nameBytes > PARENT_ENTRY_BOUNDS.name_bytes
+      || totalNameBytes > PARENT_ENTRY_BOUNDS.total_name_bytes || seen.has(name)) {
+      throw new Error('scenario delete parent entry set exceeds bounded exact names');
+    }
+    seen.add(name);
+  }
+  const rows = names.map((name) => {
+    const named = fs.lstatSync(path.join(source.parent, name), { bigint: true });
+    return {
+      name,
+      dev: String(named.dev),
+      ino: String(named.ino),
+      mode: String(named.mode),
+      uid: String(named.uid),
+      nlink: String(named.nlink),
+      size: String(named.size),
+    };
+  }).sort((left, right) => Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
+  assertParent();
+  return rows;
+}
+
 function appendExact(source, appendUtf8, hooks) {
   const descriptor = fs.openSync(source.target,
     fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
@@ -388,21 +437,31 @@ function unlinkExact(source, hooks) {
       || opened.nlink !== source.stat.nlink || opened.size !== source.stat.size) {
       throw new Error('scenario delete target changed between lstat and held open');
     }
+    const parentEntriesBefore = parentEntryIdentitySet(source);
+    const basename = path.basename(source.target);
+    const targetEntry = parentEntriesBefore.find((entry) => entry.name === basename);
+    if (!targetEntry || targetEntry.dev !== String(source.stat.dev)
+      || targetEntry.ino !== String(source.stat.ino) || targetEntry.mode !== String(source.stat.mode)
+      || targetEntry.uid !== String(source.stat.uid) || targetEntry.nlink !== String(source.stat.nlink)
+      || targetEntry.size !== String(source.stat.size)) {
+      throw new Error('scenario delete target is absent from the exact parent entry set');
+    }
     hooks.after_delete_open_before_unlink?.(Object.freeze({ target: source.target }));
     assertPreMutationContinuity(source, 'delete');
     fs.unlinkSync(source.target);
+    hooks.after_delete_unlink_before_proof?.(Object.freeze({
+      target: source.target, parent: source.parent,
+    }));
     if (fs.fstatSync(descriptor, { bigint: true }).nlink !== 0n) {
       throw new Error('scenario delete held descriptor remains linked');
     }
     try { fs.lstatSync(source.target); throw new Error('scenario delete path remains present'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
-    const parentAfter = fs.lstatSync(source.parent, { bigint: true });
-    if (!parentAfter.isDirectory() || parentAfter.isSymbolicLink()
-      || fs.realpathSync.native(source.parent) !== source.parent
-      || parentAfter.dev !== source.parent_stat.dev || parentAfter.ino !== source.parent_stat.ino
-      || parentAfter.mode !== source.parent_stat.mode || parentAfter.uid !== source.parent_stat.uid
-      || parentAfter.nlink !== source.parent_stat.nlink) {
-      throw new Error('scenario delete parent changed');
+    const parentEntriesAfter = parentEntryIdentitySet(source);
+    const expectedEntriesAfter = parentEntriesBefore.filter((entry) => entry.name !== basename);
+    if (expectedEntriesAfter.length !== parentEntriesBefore.length - 1
+      || JSON.stringify(parentEntriesAfter) !== JSON.stringify(expectedEntriesAfter)) {
+      throw new Error('scenario delete parent entry identity set changed beyond the intended basename');
     }
   } finally { fs.closeSync(descriptor); }
 }

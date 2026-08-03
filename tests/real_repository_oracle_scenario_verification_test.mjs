@@ -371,7 +371,7 @@ assert.equal(validateScenarioVerification(rebindResult(topologyTamper)).valid, f
 const raceRoot = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-scenario-race-test-'),
 ));
-function raceRepository(name, secondCommit = false) {
+function raceRepository(name, secondCommit = false, sibling = false) {
   const repository = path.join(raceRoot, name);
   const linked = path.join(raceRoot, `${name}-linked`);
   fs.mkdirSync(linked, { mode: 0o700 });
@@ -379,7 +379,8 @@ function raceRepository(name, secondCommit = false) {
   fs.mkdirSync(path.join(repository, 'src'));
   const bytes = Buffer.from('race-original\n');
   fs.writeFileSync(path.join(repository, 'src/a.txt'), bytes, { mode: 0o644 });
-  git(repository, ['add', '--', 'src/a.txt']);
+  if (sibling) fs.writeFileSync(path.join(repository, 'src/sibling.txt'), 'sibling\n', { mode: 0o644 });
+  git(repository, ['add', '--', 'src/a.txt', ...(sibling ? ['src/sibling.txt'] : [])]);
   git(repository, ['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
     'commit', '--quiet', '-m', 'race fixture']);
   const first = git(repository, ['rev-parse', 'HEAD']);
@@ -420,6 +421,27 @@ try {
       `${kind} substitution target must not be mutated`);
     assert.deepEqual(fs.readFileSync(backup), fixture.bytes,
       `${kind} originally opened inode must not be mutated`);
+  }
+  for (const entryChange of ['added', 'removed']) {
+    const fixture = raceRepository(`delete-post-unlink-${entryChange}`, false,
+      entryChange === 'removed');
+    const scenario = { order: 3, kind: 'delete',
+      identity_sha256: sha256(`delete-post-unlink-${entryChange}`), path: 'src/a.txt',
+      blob_oid: fixture.blob, original_content_sha256: sha256(fixture.bytes),
+      discovery_operation_kind: 'delete', discovery_index: 0,
+      authored_operation_kind: 'delete' };
+    assert.throws(() => executeScenarioForTest(
+      fixture.repository, fixture.scratch, { commit: fixture.commit }, scenario, {
+        after_delete_unlink_before_proof: ({ parent }) => {
+          if (entryChange === 'added') {
+            fs.writeFileSync(path.join(parent, 'unexpected.txt'), 'unexpected\n');
+          } else {
+            fs.unlinkSync(path.join(parent, 'sibling.txt'));
+          }
+        },
+      },
+    ), /parent entry identity set changed beyond the intended basename/,
+    `a post-unlink ${entryChange} sibling must fail the exact parent-entry proof`);
   }
   const dirtyBranch = raceRepository('branch-dirty');
   const branchScenario = { order: 4, kind: 'branch', identity_sha256: sha256('branch-dirty'),

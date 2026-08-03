@@ -458,6 +458,11 @@ const workflowSeedSource = fs.readFileSync(new URL(
 ), 'utf8');
 assert.doesNotMatch(workflowSeedSource, /case-expectation|fixture-authority|reviews\/case/,
   'candidate-visible Workflow seed must not import private expectation authority');
+const readme = fs.readFileSync(new URL(
+  '../benchmarks/real-repository-oracle-v1/README.md', import.meta.url,
+), 'utf8');
+assert.doesNotMatch(readme, /pending[^.\n]{0,80}receipt|receipt[^.\n]{0,80}pending/i,
+  'accepted receipt documentation must not retain contradictory pending wording');
 assert.throws(() => parseCaseExpectationReviewBytes(Buffer.alloc(256 * 1024 + 1)), /private reviewed identity/);
 const changedBytes = Buffer.from(bytes);
 changedBytes[changedBytes.length - 2] = changedBytes[changedBytes.length - 2] === 10 ? 32 : 10;
