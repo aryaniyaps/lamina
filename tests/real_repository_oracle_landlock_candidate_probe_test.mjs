@@ -11,6 +11,9 @@ import { runSafely } from '../scripts/safe-runner/runner.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROBE = path.join(ROOT, 'tests/fixtures/safe-runner-landlock-probe.mjs');
+const LAUNCHER_SOURCE = path.join(
+  ROOT, 'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
+);
 
 if (process.platform !== 'linux') {
   console.log('real repository oracle Landlock candidate probe skipped outside Linux');
@@ -53,7 +56,7 @@ try {
   assert.equal(report.output.stderr_bytes, 0);
   const result = JSON.parse(report.output.stdout_tail.trim());
   liveAbi = result.landlock.abi;
-  assert.equal(result.schema, 'lamina.safe-runner-landlock-candidate-probe/v1');
+  assert.equal(result.schema, 'lamina.safe-runner-landlock-candidate-probe/v2');
   assert.equal(result.non_gradeable, true);
   assert.equal(result.cleanup_proof_issued, false);
   assert.equal(result.grading_reachable, false);
@@ -79,6 +82,27 @@ try {
   if (result.landlock.abi >= 6) assert.deepEqual(result.landlock.scopes,
     ['abstract_unix_socket', 'signal']);
   assert.equal(result.landlock.fail_closed_above_abi, 8);
+  assert.equal(result.seccomp.policy, 'lamina.landlock-candidate-seccomp/x86_64-v1');
+  assert.equal(result.seccomp.architecture, 'x86_64');
+  assert.equal(result.seccomp.unsupported_architecture_action, 'compile_refusal');
+  assert.equal(result.seccomp.kernel_install_failure_action, 'launch_refusal');
+  assert.equal(result.seccomp.denied_errno, 'EPERM');
+  assert.equal(result.seccomp.inherited_across_exec, true);
+  assert.deepEqual(result.seccomp.native_self_tests,
+    ['writable-fd-fchmod:EPERM', 'memfd_create:EPERM']);
+  for (const syscall of [
+    'chmod', 'fchmod', 'fchmodat', 'fchmodat2', 'chown', 'fchown', 'lchown',
+    'fchownat', 'utime', 'utimes', 'futimesat', 'utimensat', 'setxattr',
+    'lsetxattr', 'fsetxattr', 'removexattr', 'lremovexattr', 'fremovexattr',
+  ]) assert.ok(result.seccomp.denied_syscall_classes.persistent_metadata.includes(syscall));
+  assert.deepEqual(result.seccomp.denied_syscall_classes.anonymous_executable,
+    ['memfd_create']);
+  const reportedDeniedSyscalls = Object.values(result.seccomp.denied_syscall_classes)
+    .flat().sort();
+  const sourceDeniedSyscalls = [...fs.readFileSync(LAUNCHER_SOURCE, 'utf8')
+    .matchAll(/\bDENY_SYSCALL\(([a-zA-Z0-9_]+)\)/g)]
+    .map((match) => match[1]).filter((name) => name !== 'name').sort();
+  assert.deepEqual(reportedDeniedSyscalls, sourceDeniedSyscalls);
   assert.equal(result.build.source_fd_pinned, true);
   assert.equal(result.build.output_anonymous, true);
   assert.equal(result.build.output_reopened_read_only, true);
@@ -97,6 +121,7 @@ try {
       .update(fs.readFileSync(tool.path)).digest('hex'));
     assert.equal(tool.mode & 0o022, 0);
   }
+  assert.match(result.build.compiler_identity_scope, /^partial root-owned executable evidence;/);
   const configurationPath = fs.realpathSync.native('/etc/ssl/openssl.cnf');
   assert.equal(result.build.runtime_configuration.path, configurationPath);
   assert.deepEqual(result.build.runtime_configuration.allowed_rights, ['read_file']);
@@ -108,7 +133,7 @@ try {
   assert.deepEqual(result.candidate.descendants_remaining, []);
   assert.equal(result.candidate.filesystem_side_effects_absent, true);
   assert.deepEqual(result.candidate.result, {
-    schema: 'lamina.landlock-candidate-adversary-result/v1',
+    schema: 'lamina.landlock-candidate-adversary-result/v2',
     input_token: 'public-token',
     repository_text: 'repository-visible\n',
     scratch_written: true,
@@ -118,7 +143,26 @@ try {
     proc_read_refused: true,
     control_socket_refused: true,
     extra_executable_path_refused: true,
+    file_mode_mutation_refused: true,
+    directory_mode_mutation_refused: true,
+    file_owner_mutation_refused: true,
+    directory_owner_mutation_refused: true,
+    file_time_mutation_refused: true,
+    directory_time_mutation_refused: true,
+    metadata_denial_codes: {
+      file_mode: 'EPERM', directory_mode: 'EPERM',
+      file_owner: 'EPERM', directory_owner: 'EPERM',
+      file_time: 'EPERM', directory_time: 'EPERM',
+    },
   });
+  assert.equal(result.candidate.repository_manifest_equal, true);
+  assert.match(result.candidate.repository_manifest_before_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(result.candidate.repository_manifest_after_sha256,
+    result.candidate.repository_manifest_before_sha256);
+  assert.deepEqual(result.candidate.repository_manifest_fields, [
+    'dev', 'ino', 'mode', 'uid', 'gid', 'mtime_ns', 'ctime_ns',
+    'directory_entries', 'file_content_sha256',
+  ]);
   assert.deepEqual(result.probe_temp_entries_after_cleanup, []);
   assert.equal(report.cleanup.scope_removed, true);
   assert.equal(report.cleanup.temporary_directory_removed, true);

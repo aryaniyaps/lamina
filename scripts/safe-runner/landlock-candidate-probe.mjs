@@ -14,7 +14,7 @@ const SOURCE = path.join(
   ROOT, 'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
 );
 const ADAPTER = path.join(ROOT, 'tests/fixtures/landlock-candidate-adversary.mjs');
-const REVIEWED_SOURCE_SHA256 = '8eea46964c83d5b467fdb7a9b9e2e38c1df505e8da8c54b4ca376153a95909fb';
+const REVIEWED_SOURCE_SHA256 = 'e1c3579394db06fb6024444bfe2c5faa0cf94d3571ea0122954b5e5e7c7b99db';
 const O_PATH = 0x200000;
 const O_TMPFILE = 0x410000;
 const MAX_IDENTITY_BYTES = 128 * 1024 * 1024;
@@ -23,6 +23,28 @@ const BASE_RIGHTS = Object.freeze([
   'make_char', 'make_dir', 'make_reg', 'make_sock', 'make_fifo', 'make_block',
   'make_sym', 'refer', 'truncate',
 ]);
+const SECCOMP_DENIED_SYSCALL_CLASSES = Object.freeze({
+  persistent_metadata: [
+    'chmod', 'fchmod', 'fchmodat', 'fchmodat2', 'chown', 'fchown', 'lchown',
+    'fchownat', 'utime', 'utimes', 'futimesat', 'utimensat', 'setxattr',
+    'lsetxattr', 'fsetxattr', 'removexattr', 'lremovexattr', 'fremovexattr',
+  ],
+  anonymous_executable: ['memfd_create'],
+  filesystem_topology: [
+    'mount', 'umount2', 'pivot_root', 'chroot', 'open_tree', 'move_mount',
+    'fsopen', 'fsconfig', 'fsmount', 'fspick', 'mount_setattr',
+    'open_by_handle_at', 'name_to_handle_at', 'mknod', 'mknodat', 'unshare', 'setns',
+  ],
+  kernel_process_privilege: [
+    'bpf', 'ptrace', 'userfaultfd', 'perf_event_open', 'process_vm_writev',
+    'pidfd_getfd', 'fanotify_init', 'io_uring_setup', 'add_key', 'request_key',
+    'keyctl', 'kexec_load', 'finit_module', 'init_module', 'delete_module',
+    'swapon', 'swapoff', 'reboot', 'iopl', 'ioperm', 'sethostname',
+    'setdomainname', 'acct', 'quotactl', 'capset', 'setuid', 'setgid',
+    'setreuid', 'setregid', 'setresuid', 'setresgid', 'setfsuid', 'setfsgid',
+    'setgroups', 'personality', 'modify_ldt',
+  ],
+});
 
 function sha256File(file, maximumBytes = MAX_IDENTITY_BYTES) {
   const stat = fs.statSync(file);
@@ -261,13 +283,37 @@ function outerContext() {
 }
 
 function openPinned(file, type = 'file') {
-  const descriptor = fs.openSync(file, O_PATH | fs.constants.O_NOFOLLOW);
+  const descriptor = fs.openSync(file, type === 'writable-file'
+    ? fs.constants.O_RDWR | fs.constants.O_NOFOLLOW
+    : O_PATH | fs.constants.O_NOFOLLOW);
   const stat = fs.fstatSync(descriptor);
-  if ((type === 'file' && !stat.isFile()) || (type === 'directory' && !stat.isDirectory())) {
+  if ((['file', 'writable-file'].includes(type) && !stat.isFile())
+    || (type === 'directory' && !stat.isDirectory())) {
     fs.closeSync(descriptor);
     throw new Error(`pinned candidate input type changed: ${file}`);
   }
   return descriptor;
+}
+
+function repositoryManifest(repository) {
+  const statFields = (target) => {
+    const stat = fs.lstatSync(target, { bigint: true });
+    return {
+      dev: String(stat.dev), ino: String(stat.ino), mode: Number(stat.mode),
+      uid: Number(stat.uid), gid: Number(stat.gid),
+      mtime_ns: String(stat.mtimeNs), ctime_ns: String(stat.ctimeNs),
+    };
+  };
+  const entries = fs.readdirSync(repository).sort();
+  const files = Object.fromEntries(entries.map((name) => {
+    const target = path.join(repository, name);
+    return [name, { ...statFields(target), content_sha256: sha256File(target) }];
+  }));
+  const manifest = { directory: { ...statFields(repository), entries }, files };
+  return {
+    manifest,
+    sha256: crypto.createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
+  };
 }
 
 function waitForCandidate(child) {
@@ -309,7 +355,8 @@ async function executeAdversary({
 }) {
   const descriptors = [
     openPinned(node.path), openPinned(ADAPTER), openPinned(inputFile),
-    openPinned(repository, 'directory'), openPinned(outputFile), openPinned(scratchFile),
+    openPinned(repository, 'directory'), openPinned(outputFile),
+    openPinned(scratchFile, 'writable-file'),
     openPinned(closure.configuration.path),
     ...closure.files.map((item) => openPinned(item.path)),
   ];
@@ -384,6 +431,7 @@ export async function runLandlockCandidateProbe() {
     const abi = queryAbi(launcher.fd);
     const node = fileIdentity(process.execPath);
     const closure = runtimeClosure(node);
+    const manifestBefore = repositoryManifest(repository);
     let candidate;
     try {
       candidate = await executeAdversary({
@@ -392,14 +440,23 @@ export async function runLandlockCandidateProbe() {
     } catch (error) {
       throw new Error(`Landlock ABI ${abi} candidate launch failed: ${error.message}`, { cause: error });
     }
-    if (fs.readFileSync(hiddenFile, 'utf8') !== 'private-controller-material\n'
+    const manifestAfter = repositoryManifest(repository);
+    if (JSON.stringify(manifestAfter.manifest) !== JSON.stringify(manifestBefore.manifest)
+      || fs.readFileSync(hiddenFile, 'utf8') !== 'private-controller-material\n'
       || fs.readdirSync(repository).join(',') !== 'visible.txt'
       || fs.existsSync(elsewhereFile) || fs.existsSync(extraExecutable)) {
       throw new Error('candidate left a denied filesystem side effect');
     }
     candidate.filesystem_side_effects_absent = true;
+    candidate.repository_manifest_equal = true;
+    candidate.repository_manifest_before_sha256 = manifestBefore.sha256;
+    candidate.repository_manifest_after_sha256 = manifestAfter.sha256;
+    candidate.repository_manifest_fields = [
+      'dev', 'ino', 'mode', 'uid', 'gid', 'mtime_ns', 'ctime_ns',
+      'directory_entries', 'file_content_sha256',
+    ];
     result = {
-      schema: 'lamina.safe-runner-landlock-candidate-probe/v1',
+      schema: 'lamina.safe-runner-landlock-candidate-probe/v2',
       non_gradeable: true,
       cleanup_proof_issued: false,
       grading_reachable: false,
@@ -419,6 +476,16 @@ export async function runLandlockCandidateProbe() {
         tsync: abi >= 8,
         fail_closed_above_abi: 8,
       },
+      seccomp: {
+        policy: 'lamina.landlock-candidate-seccomp/x86_64-v1',
+        architecture: 'x86_64',
+        unsupported_architecture_action: 'compile_refusal',
+        kernel_install_failure_action: 'launch_refusal',
+        denied_errno: 'EPERM',
+        inherited_across_exec: true,
+        native_self_tests: ['writable-fd-fchmod:EPERM', 'memfd_create:EPERM'],
+        denied_syscall_classes: SECCOMP_DENIED_SYSCALL_CLASSES,
+      },
       build: {
         ...launcher.attestation,
         runtime: node,
@@ -428,6 +495,8 @@ export async function runLandlockCandidateProbe() {
           allowed_rights: ['read_file'],
         },
         runtime_resolver: closure.resolver,
+        compiler_identity_scope:
+          'partial root-owned executable evidence; headers and static-link inputs are not a complete closure',
       },
       candidate,
     };

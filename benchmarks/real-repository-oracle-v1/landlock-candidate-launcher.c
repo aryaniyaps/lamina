@@ -3,7 +3,11 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/audit.h>
+#include <linux/filter.h>
 #include <linux/landlock.h>
+#include <linux/seccomp.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +29,17 @@
 
 #define REVIEWED_LANDLOCK_ABI_MAX 8
 #define MAX_RUNTIME_FILES 32
+
+#if defined(__x86_64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define REVIEWED_AUDIT_ARCH AUDIT_ARCH_X86_64
+#define X32_SYSCALL_BIT 0x40000000U
+#else
+#error "Landlock candidate seccomp policy is reviewed only for little-endian x86_64"
+#endif
+
+#define DENY_SYSCALL(name) \
+	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_##name, 0, 1), \
+	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA))
 
 extern char **environ;
 
@@ -126,6 +141,132 @@ static void add_path_rule(int ruleset_fd, int parent_fd, uint64_t rights)
 		die("landlock_add_rule(PATH_BENEATH)");
 }
 
+static void install_seccomp_filter(void)
+{
+	static const struct sock_filter instructions[] = {
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, arch)),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, REVIEWED_AUDIT_ARCH, 1, 0),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
+			 offsetof(struct seccomp_data, nr)),
+		BPF_JUMP(BPF_JMP | BPF_JGE | BPF_K, X32_SYSCALL_BIT, 0, 1),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+
+		/* Persistent file metadata mutation not mediated by Landlock ABI 8. */
+		DENY_SYSCALL(chmod),
+		DENY_SYSCALL(fchmod),
+		DENY_SYSCALL(fchmodat),
+		DENY_SYSCALL(fchmodat2),
+		DENY_SYSCALL(chown),
+		DENY_SYSCALL(fchown),
+		DENY_SYSCALL(lchown),
+		DENY_SYSCALL(fchownat),
+		DENY_SYSCALL(utime),
+		DENY_SYSCALL(utimes),
+		DENY_SYSCALL(futimesat),
+		DENY_SYSCALL(utimensat),
+		DENY_SYSCALL(setxattr),
+		DENY_SYSCALL(lsetxattr),
+		DENY_SYSCALL(fsetxattr),
+		DENY_SYSCALL(removexattr),
+		DENY_SYSCALL(lremovexattr),
+		DENY_SYSCALL(fremovexattr),
+
+		/* Anonymous executable and filesystem/topology construction. */
+		DENY_SYSCALL(memfd_create),
+		DENY_SYSCALL(mount),
+		DENY_SYSCALL(umount2),
+		DENY_SYSCALL(pivot_root),
+		DENY_SYSCALL(chroot),
+		DENY_SYSCALL(open_tree),
+		DENY_SYSCALL(move_mount),
+		DENY_SYSCALL(fsopen),
+		DENY_SYSCALL(fsconfig),
+		DENY_SYSCALL(fsmount),
+		DENY_SYSCALL(fspick),
+		DENY_SYSCALL(mount_setattr),
+		DENY_SYSCALL(open_by_handle_at),
+		DENY_SYSCALL(name_to_handle_at),
+		DENY_SYSCALL(mknod),
+		DENY_SYSCALL(mknodat),
+		DENY_SYSCALL(unshare),
+		DENY_SYSCALL(setns),
+
+		/* Kernel-control, cross-process, and privilege mutation surfaces. */
+		DENY_SYSCALL(bpf),
+		DENY_SYSCALL(ptrace),
+		DENY_SYSCALL(userfaultfd),
+		DENY_SYSCALL(perf_event_open),
+		DENY_SYSCALL(process_vm_writev),
+		DENY_SYSCALL(pidfd_getfd),
+		DENY_SYSCALL(fanotify_init),
+		DENY_SYSCALL(io_uring_setup),
+		DENY_SYSCALL(add_key),
+		DENY_SYSCALL(request_key),
+		DENY_SYSCALL(keyctl),
+		DENY_SYSCALL(kexec_load),
+		DENY_SYSCALL(finit_module),
+		DENY_SYSCALL(init_module),
+		DENY_SYSCALL(delete_module),
+		DENY_SYSCALL(swapon),
+		DENY_SYSCALL(swapoff),
+		DENY_SYSCALL(reboot),
+		DENY_SYSCALL(iopl),
+		DENY_SYSCALL(ioperm),
+		DENY_SYSCALL(sethostname),
+		DENY_SYSCALL(setdomainname),
+		DENY_SYSCALL(acct),
+		DENY_SYSCALL(quotactl),
+		DENY_SYSCALL(capset),
+		DENY_SYSCALL(setuid),
+		DENY_SYSCALL(setgid),
+		DENY_SYSCALL(setreuid),
+		DENY_SYSCALL(setregid),
+		DENY_SYSCALL(setresuid),
+		DENY_SYSCALL(setresgid),
+		DENY_SYSCALL(setfsuid),
+		DENY_SYSCALL(setfsgid),
+		DENY_SYSCALL(setgroups),
+		DENY_SYSCALL(personality),
+		DENY_SYSCALL(modify_ldt),
+
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+	};
+	const struct sock_fprog program = {
+		.len = (unsigned short)(sizeof(instructions) / sizeof(instructions[0])),
+		.filter = (struct sock_filter *)instructions,
+	};
+
+	if (syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER, 0, &program) != 0)
+		die("seccomp(SECCOMP_SET_MODE_FILTER)");
+}
+
+static void self_test_seccomp(int writable_regular_fd)
+{
+	struct stat statbuf;
+	int descriptor;
+
+	if (fstat(writable_regular_fd, &statbuf) != 0 || !S_ISREG(statbuf.st_mode))
+		die("seccomp self-test writable descriptor");
+	if (fchmod(writable_regular_fd, statbuf.st_mode & 0777) != 0)
+		die("pre-seccomp fchmod capability");
+	install_seccomp_filter();
+	errno = 0;
+	if (fchmod(writable_regular_fd, statbuf.st_mode & 0777) != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp fchmod denial self-test");
+	}
+	errno = 0;
+	descriptor = syscall(__NR_memfd_create, "lamina-seccomp-self-test", 0);
+	if (descriptor != -1 || errno != EPERM) {
+		if (descriptor >= 0)
+			close(descriptor);
+		errno = EPROTO;
+		die("seccomp memfd denial self-test");
+	}
+}
+
 static void run_candidate(int argc, char **argv)
 {
 	const uint64_t read_file = LANDLOCK_ACCESS_FS_READ_FILE;
@@ -209,6 +350,7 @@ static void run_candidate(int argc, char **argv)
 		die("landlock_restrict_self");
 	if (close(ruleset_fd) != 0)
 		die("close ruleset");
+	self_test_seccomp(scratch_fd);
 	for (int fd = 3; fd <= 1024; fd++) {
 		if (fd != node_fd)
 			close(fd);

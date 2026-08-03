@@ -279,16 +279,36 @@ sockets. Inside that context, a reviewed Linux v7.0 Landlock launcher handles
 every live ABI right through ABI 8, refuses a newer ABI, sets no-new-privileges,
 uses ABI 6 scopes and ABI 8 thread synchronization, and grants only exact
 runtime/input/repository/output file descriptors before executing an adversarial
-Node fixture. This is defense-in-depth feasibility evidence, not a standalone
+Node fixture. A reviewed x86-64 seccomp-BPF layer then denies persistent metadata
+mutation, anonymous `memfd_create`, filesystem/topology construction, and named
+kernel/process/privilege-control syscall classes with `EPERM`. Unsupported
+architectures fail compilation and a kernel that cannot install the filter
+refuses launch. This is defense-in-depth feasibility evidence, not a standalone
 sandbox claim.
+
+Authority remains deliberately split. The generic outer sandbox owns cgroup
+limits, user/PID/network namespaces, the bounded tmpfs and read-only mount
+snapshot, capability reduction, and control-socket masking. Landlock owns
+pathname read/write/create/remove/execute rights, TCP rights, and ABI 6 scopes.
+Seccomp closes Landlock ABI 8's persistent `chmod`/`chown`/timestamp/xattr gap,
+blocks anonymous executable files and high-risk topology/control syscalls, and
+is inherited by the Node runtime. `stat` remains read-only; `fcntl` and `flock`
+remain available for Node's descriptor-local runtime behavior and do not grant
+new pathname rights. The controller independently compares exact pre/post
+repository dev, inode, mode, owner, group, mtime, ctime, directory-entry, and
+file-content manifests. V8 executable memory is required by Node and is not
+claimed as a denied executable-file path.
 
 The launcher is compiled from a digest-pinned source descriptor into an
 anonymous `O_TMPFILE`, reopened as the same read-only inode, and executed through
 its inherited `/proc/self/fd/N` descriptor after the writable descriptor is
-closed. The probe requires the host's reviewed static C toolchain and exact Node
-runtime closure; no launcher binary is packaged in native releases. A missing
-static compiler, unsupported inherited-FD execution, Landlock ABI below 3 or
-above 8, or missing runtime dependency is a hard refusal rather than a weaker
+closed. The probe records digest identities for the compiler and reported
+cc1/as/ld/collect2 executables, but this is partial root-owned build evidence,
+not a complete header or static-link input closure. It requires that host
+toolchain and an exact Node runtime closure; no launcher binary or seccomp policy
+artifact is packaged in native releases. A missing static compiler, unsupported
+x86-64 inherited-FD execution, Landlock ABI below 3 or above 8, seccomp install
+failure, or missing runtime dependency is a hard refusal rather than a weaker
 fallback. The focused small-tier run uses a 32-task cgroup ceiling because the
 measured outer Node/V8 threads and short-lived gcc/cc1/as/ld build tasks exceeded
 16; its memory, time, output, and 64 MiB tmpfs bounds remain intentionally small.
