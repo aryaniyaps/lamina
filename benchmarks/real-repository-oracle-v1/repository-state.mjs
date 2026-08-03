@@ -65,7 +65,11 @@ export function parsePorcelainV2Z(input, { worktreeRole = 'primary' } = {}) {
 }
 
 function runGit(cwd, args, encoding = 'utf8') {
-  const result = spawnTrustedGit(cwd, args, { encoding, timeout: 5_000, maxBuffer: MAX_STATUS_BYTES });
+  // Materialization deliberately represents reviewed mode-120000 entries as
+  // portable regular files. Keep every state read on that same command-scoped
+  // policy without trusting or persisting repository-local configuration.
+  const invocation = ['-c', 'core.symlinks=false', ...args];
+  const result = spawnTrustedGit(cwd, invocation, { encoding, timeout: 5_000, maxBuffer: MAX_STATUS_BYTES });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`trusted Git ${args[0]} failed: ${String(result.stderr).trim()}`);
   return result.stdout;

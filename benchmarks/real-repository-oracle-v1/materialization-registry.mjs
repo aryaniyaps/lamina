@@ -74,6 +74,14 @@ function assertRelease(value, lease) {
   }
   return frozenClone(value);
 }
+function assertIssuedLease(value, issued) {
+  if (!exactKeys(value, ['schema', 'opaque_handle', 'provenance_digest', 'start_digest'])
+    || value.schema !== issued.schema || value.opaque_handle !== issued.opaque_handle
+    || value.provenance_digest !== issued.provenance_digest
+    || value.start_digest !== issued.start_digest) {
+    throw new Error('repository lease authority differs from the exact issued lease');
+  }
+}
 
 export function createMaterializationRegistry(materializer) {
   for (const method of ['prepare', 'lease', 'resolve', 'verifyAndRelease']) {
@@ -96,20 +104,36 @@ export function createMaterializationRegistry(materializer) {
       const publicLease = assertLease(raw, base);
       if (issued.has(publicLease.opaque_handle)) throw new Error('materializer reused a writable lease handle');
       issued.add(publicLease.opaque_handle);
-      active.set(publicLease.opaque_handle, { raw, publicLease });
+      active.set(publicLease.opaque_handle, { raw, publicLease, state: 'active' });
       return publicLease;
     },
     resolve(opaqueHandle) {
       if (closed) throw new Error('materialization registry is closed');
       const authority = active.get(opaqueHandle);
       if (!authority) throw new Error('repository lease handle is unknown or no longer active');
+      if (authority.state !== 'active') {
+        throw new Error('repository lease release failed and is recovery-only');
+      }
       return materializer.resolve(authority.raw);
     },
     async verifyAndRelease(lease) {
       if (closed) throw new Error('materialization registry is closed');
       const authority = active.get(lease.opaque_handle);
       if (!authority) throw new Error('repository lease handle is unknown or already released');
-      const released = assertRelease(await materializer.verifyAndRelease(authority.raw), lease);
+      assertIssuedLease(lease, authority.publicLease);
+      if (authority.state !== 'active') {
+        throw new Error('repository lease release failed and is recovery-only');
+      }
+      authority.state = 'releasing';
+      let released;
+      try {
+        released = assertRelease(
+          await materializer.verifyAndRelease(authority.raw), authority.publicLease,
+        );
+      } catch (error) {
+        authority.state = 'release_failed';
+        throw error;
+      }
       active.delete(lease.opaque_handle);
       return released;
     },

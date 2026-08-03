@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnTrustedGit } from '../../scripts/safe-runner/git.mjs';
+import { processIdentity } from '../../scripts/safe-runner/processes.mjs';
+import { loadReviewedFixture } from './fixture-authority.mjs';
 import {
   digest,
   collectionDigest,
@@ -22,11 +24,13 @@ const ROOT_PREFIX = 'real-repository-oracle-materializer-';
 const CACHE_NAME = 'cache.git';
 const LEASES_NAME = 'leases';
 const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
-const MAX_PACK_FILES = 3;
+const MAX_PACK_FILES = 2;
 const DEFAULT_MAX_PACK_BYTES = 768 * 1024 * 1024;
 const DEFAULT_MAX_SNAPSHOT_FILES = 120_000;
 const DEFAULT_MAX_SNAPSHOT_BYTES = 768 * 1024 * 1024;
 const HANDLE = /^[a-f0-9]{64}$/;
+const OID = /^[a-f0-9]{40}$/;
+const OWNED_GIT_ROOTS = new Set();
 const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
   && typeof process.getuid === 'function';
 
@@ -49,7 +53,69 @@ function frozenClone(value) {
   return clone;
 }
 
+function ownedGitRoot(cwd) {
+  const physical = fs.realpathSync.native(path.resolve(cwd));
+  return [...OWNED_GIT_ROOTS].find((root) => physical === root
+    || physical.startsWith(`${root}${path.sep}`));
+}
+
+function assertMaterializerGitInvocation(cwd, args) {
+  const root = ownedGitRoot(cwd);
+  if (!root || !Array.isArray(args) || args.some((item) => typeof item !== 'string')) {
+    throw new Error('persistent materializer Git invocation escapes owned authority');
+  }
+  const withinRoot = (candidate) => {
+    if (!path.isAbsolute(candidate) || path.resolve(candidate) !== candidate
+      || (candidate !== root && !candidate.startsWith(`${root}${path.sep}`))) return false;
+    try {
+      const physicalParent = fs.realpathSync.native(path.dirname(candidate));
+      return physicalParent === root || physicalParent.startsWith(`${root}${path.sep}`);
+    } catch { return false; }
+  };
+  const oidWithType = (value) => /^[a-f0-9]{40}\^\{(?:commit|tree)\}$/.test(value);
+  let admitted = false;
+  if (args[0] === 'rev-parse') admitted = args.length === 3
+    && args[1] === '--verify' && oidWithType(args[2]);
+  else if (args[0] === 'fsck') admitted = args.length === 5
+    && args.slice(1, 4).join('\0') === ['--full', '--strict', '--no-reflogs'].join('\0')
+    && OID.test(args[4]);
+  else if (args[0] === 'init') admitted = (args.length === 3 || args.length === 4)
+    && args[1] === '--quiet' && (args.length === 3 || args[2] === '--bare')
+    && withinRoot(args.at(-1));
+  else if (args[0] === 'update-ref') admitted = args.length === 3
+    && args[1] === 'refs/lamina/cache-pin' && OID.test(args[2]);
+  else if (args[0] === 'fetch') admitted = args.length === 6
+    && args.slice(1, 4).join('\0') === ['--quiet', '--no-tags', '--depth=1'].join('\0')
+    && /^https:\/\//.test(args[4]) && /^\+[a-f0-9]{40}:refs\/lamina\/cache-pin$/.test(args[5]);
+  else if (args[0] === '-c') admitted = args.length === 5
+    && args[1] === 'pack.writeReverseIndex=false' && args[2] === 'repack'
+    && args[3] === '-Ad' && args[4] === '--no-write-bitmap-index';
+  else if (args[0] === 'prune-packed') admitted = args.length === 1;
+  else if (args[0] === 'count-objects') admitted = args.length === 2 && args[1] === '-v';
+  else if (args[0] === '--literal-pathspecs') admitted = args.length === 5
+    && args[1] === 'mv' && args[2] === '--'
+    && isSafeRelativePath(args[3]) && isSafeRelativePath(args[4]);
+  else if (args[0] === 'checkout') {
+    admitted = (args.length === 4 && args[1] === '--quiet' && args[2] === '--detach'
+      && OID.test(args[3]))
+      || (args.length === 6 && args[1] === '--quiet' && args[2] === '--no-track'
+        && args[3] === '-b' && isSafeBranchName(args[4]) && OID.test(args[5]));
+  } else if (args[0] === 'worktree') {
+    admitted = (args.length === 8 && args[1] === 'add' && args[2] === '--quiet'
+      && args[3] === '--no-track' && args[4] === '-b' && isSafeBranchName(args[5])
+      && withinRoot(args[6]) && OID.test(args[7]))
+      || (args.length === 4 && args[1] === 'remove' && args[2] === '--'
+        && withinRoot(args[3]));
+  } else if (args[0] === 'show-ref') admitted = args.length === 4
+    && args[1] === '--hash' && args[2] === '--verify'
+    && /^refs\/heads\/[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(args[3]);
+  else if (args[0] === 'branch') admitted = args.length === 4
+    && args[1] === '-D' && args[2] === '--' && isSafeBranchName(args[3]);
+  if (!admitted) throw new Error(`persistent materializer Git command is not admitted: ${args[0] || ''}`);
+}
+
 function checkedGit(cwd, args, timeout = 60_000) {
+  assertMaterializerGitInvocation(cwd, args);
   const result = spawnTrustedGit(cwd, ['-c', 'core.symlinks=false', ...args], {
     encoding: 'utf8', timeout, maxBuffer: MAX_GIT_OUTPUT,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -103,14 +169,19 @@ function readExactJson(file, label) {
   return value;
 }
 
-function writeOwnerMarker(root, parentIdentity) {
+function validOwnerIdentity(value) {
+  return Number.isSafeInteger(value?.pid) && value.pid > 1
+    && typeof value?.start_ticks === 'string' && /^\d+$/.test(value.start_ticks);
+}
+
+function writeOwnerMarker(root, parentIdentity, recoveryOwnerIdentity) {
   const rootIdentity = physicalDirectory(root, 'persistent materializer root');
   const marker = {
     schema: PERSISTENT_MATERIALIZER_SCHEMA,
     root,
     root_identity: rootIdentity,
     parent_identity: parentIdentity,
-    owner_pid: process.pid,
+    recovery_owner_identity: frozenClone(recoveryOwnerIdentity),
     authority_token: crypto.randomBytes(32).toString('hex'),
     owned: [CACHE_NAME, LEASES_NAME],
   };
@@ -126,7 +197,7 @@ function validateRoot(root, expectedMarker = null) {
   if (marker?.schema !== PERSISTENT_MATERIALIZER_SCHEMA || marker.root !== root
     || !sameIdentity(marker.root_identity, rootIdentity)
     || !/^[a-f0-9]{64}$/.test(marker.authority_token || '')
-    || !Number.isSafeInteger(marker.owner_pid) || marker.owner_pid < 1
+    || !validOwnerIdentity(marker.recovery_owner_identity)
     || JSON.stringify(marker.owned) !== JSON.stringify([CACHE_NAME, LEASES_NAME])
     || (expectedMarker && (!same(marker, expectedMarker)))) {
     throw new Error('persistent materializer owner marker or physical identity changed');
@@ -193,20 +264,18 @@ function packClosure(repository, maximumPackBytes) {
   const packDirectory = path.join(repository, 'objects', 'pack');
   physicalDirectory(packDirectory, 'packed object cache directory', { privateMode: false });
   const names = fs.readdirSync(packDirectory).sort();
-  if (names.length < 2 || names.length > MAX_PACK_FILES) {
-    throw new Error('packed object cache must contain one pack, one index, and at most one reverse index');
+  if (names.length !== MAX_PACK_FILES) {
+    throw new Error('packed object cache must contain exactly one pack and one index');
   }
   const pack = names.find((name) => /^pack-[a-f0-9]{40,64}\.pack$/.test(name));
   const index = names.find((name) => /^pack-[a-f0-9]{40,64}\.idx$/.test(name));
-  const reverse = names.find((name) => /^pack-[a-f0-9]{40,64}\.rev$/.test(name));
   const base = pack?.slice(0, -5);
   if (!pack || !index || base !== index.slice(0, -4)
-    || (reverse && base !== reverse.slice(0, -4))
-    || names.some((name) => ![pack, index, reverse].includes(name))) {
+    || names.some((name) => ![pack, index].includes(name))) {
     throw new Error('packed object cache has foreign suffixes or mismatched companions');
   }
   let total = 0;
-  const records = [pack, index, ...(reverse ? [reverse] : [])].map((name) => {
+  const records = [pack, index].map((name) => {
     const file = path.join(packDirectory, name);
     const stat = physicalFile(file, `packed object cache ${name}`, maximumPackBytes);
     total += Number(stat.size);
@@ -216,9 +285,10 @@ function packClosure(repository, maximumPackBytes) {
   return Object.freeze({ packDirectory, total_bytes: total, records });
 }
 
-function copyPhysicalFile(source, destination, expected, maximumBytes) {
+function copyPhysicalFile(source, destination, expected, maximumBytes, copyInterposition = null) {
   const before = physicalFile(source, 'packed cache source', maximumBytes);
   fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+  copyInterposition?.(source, destination);
   fs.chmodSync(destination, 0o400);
   const after = physicalFile(source, 'packed cache source after copy', maximumBytes);
   const copied = physicalFile(destination, 'independent lease object copy', maximumBytes);
@@ -231,17 +301,20 @@ function copyPhysicalFile(source, destination, expected, maximumBytes) {
   }
 }
 
-function copyPackedClosure(sourceRepository, destinationRepository, maximumPackBytes) {
+function copyPackedClosure(sourceRepository, destinationRepository, maximumPackBytes,
+  copyInterposition = null) {
   const source = packClosure(sourceRepository, maximumPackBytes);
   const destinationPack = path.join(destinationRepository, 'objects', 'pack');
   for (const record of source.records) {
-    copyPhysicalFile(record.file, path.join(destinationPack, record.name), record, maximumPackBytes);
+    copyPhysicalFile(record.file, path.join(destinationPack, record.name), record,
+      maximumPackBytes, copyInterposition);
   }
   const shallowSource = path.join(sourceRepository, 'shallow');
   if (fs.existsSync(shallowSource)) {
     const stat = physicalFile(shallowSource, 'packed cache shallow boundary', 1024 * 1024);
     const expected = { size: Number(stat.size), sha256: sha256(fs.readFileSync(shallowSource)) };
-    copyPhysicalFile(shallowSource, path.join(destinationRepository, 'shallow'), expected, 1024 * 1024);
+    copyPhysicalFile(shallowSource, path.join(destinationRepository, 'shallow'), expected,
+      1024 * 1024, copyInterposition);
   }
   return source;
 }
@@ -285,19 +358,21 @@ function verifyPin(repository, collection) {
   checkedGit(repository, ['fsck', '--full', '--strict', '--no-reflogs', collection.commit], 120_000);
 }
 
-function initializeCache(cache, collection, seedBareRepository, maximumPackBytes) {
+function initializeCache(cache, collection, seedBareRepository, maximumPackBytes,
+  copyInterposition = null) {
   checkedGit(path.dirname(cache), ['init', '--quiet', '--bare', cache]);
   if (seedBareRepository) {
     const seed = physicalDirectory(seedBareRepository,
       'synthetic packed bare cache seed', { privateMode: false }).path;
-    copyPackedClosure(seed, cache, maximumPackBytes);
+    copyPackedClosure(seed, cache, maximumPackBytes, copyInterposition);
     checkedGit(cache, ['update-ref', 'refs/lamina/cache-pin', collection.commit]);
   } else {
     checkedGit(cache, [
       'fetch', '--quiet', '--no-tags', '--depth=1', collection.repository_url,
       `+${collection.commit}:refs/lamina/cache-pin`,
     ], 20 * 60_000);
-    checkedGit(cache, ['repack', '-Ad', '--no-write-bitmap-index'], 20 * 60_000);
+    checkedGit(cache, ['-c', 'pack.writeReverseIndex=false',
+      'repack', '-Ad', '--no-write-bitmap-index'], 20 * 60_000);
     checkedGit(cache, ['prune-packed'], 120_000);
   }
   verifyPin(cache, collection);
@@ -495,24 +570,56 @@ function assertAbsent(candidate, label) {
   throw new Error(`${label} remains present after verified removal`);
 }
 
+function sameNodeIdentity(left, right) {
+  return String(left?.dev) === String(right?.dev) && String(left?.ino) === String(right?.ino)
+    && Number(left?.uid) === Number(right?.uid);
+}
+
+function quarantineExactOwnedDirectory(source, parentIdentity, expectedIdentity,
+  expectedMarker, label) {
+  const parent = physicalDirectory(path.dirname(source), `${label} parent`);
+  const before = physicalDirectory(source, label);
+  if (!sameIdentity(parent, parentIdentity) || !sameIdentity(before, expectedIdentity)) {
+    throw new Error(`${label} identity changed before quarantine`);
+  }
+  const quarantine = path.join(parent.path, `.lamina-quarantine-${crypto.randomBytes(32).toString('hex')}`);
+  fs.renameSync(source, quarantine);
+  assertAbsent(source, label);
+  const afterParent = physicalDirectory(parent.path, `${label} parent`);
+  const after = physicalDirectory(quarantine, `${label} quarantine`);
+  const actualMarker = readExactJson(path.join(quarantine, OWNER_FILE), `${label} owner marker`);
+  if (!sameIdentity(afterParent, parentIdentity) || !sameNodeIdentity(after, expectedIdentity)
+    || !same(actualMarker, expectedMarker)) {
+    throw new Error(`${label} was substituted during quarantine`);
+  }
+  scanTree(quarantine);
+  makeOwnerWritable(quarantine);
+  fs.rmSync(quarantine, { recursive: true, force: false });
+  assertAbsent(quarantine, `${label} quarantine`);
+}
+
 function removeExactOwnedRoot(root, marker) {
   validateRoot(root, marker);
   scanTree(root);
-  makeOwnerWritable(root);
-  fs.rmSync(root, { recursive: true, force: false });
-  assertAbsent(root, 'persistent materializer root');
+  quarantineExactOwnedDirectory(root, marker.parent_identity, marker.root_identity,
+    marker, 'persistent materializer root');
 }
 
-export function createPersistentScenarioMaterializer({
+function createPersistentScenarioMaterializerInternal({
   runnerTemporaryRoot,
   collection,
+  recoveryOwnerIdentity,
   seedBareRepository = null,
   maximumPackBytes = DEFAULT_MAX_PACK_BYTES,
   maximumSnapshotFiles = DEFAULT_MAX_SNAPSHOT_FILES,
   maximumSnapshotBytes = DEFAULT_MAX_SNAPSHOT_BYTES,
+  syntheticCopyInterposition = null,
 }) {
-  if (process.platform === 'win32') {
-    throw new Error('persistent materializer requires POSIX physical ownership semantics');
+  if (process.platform !== 'linux') {
+    throw new Error('persistent materializer requires Linux process and physical ownership semantics');
+  }
+  if (!validOwnerIdentity(recoveryOwnerIdentity)) {
+    throw new Error('persistent materializer requires a host-visible recovery owner identity');
   }
   const parentIdentity = physicalDirectory(runnerTemporaryRoot, 'safe-runner temporary authority');
   if (!collection || !/^https:\/\//.test(collection.repository_url || '')
@@ -532,16 +639,19 @@ export function createPersistentScenarioMaterializer({
   }
   const root = fs.mkdtempSync(path.join(parentIdentity.path, ROOT_PREFIX));
   fs.chmodSync(root, 0o700);
+  OWNED_GIT_ROOTS.add(root);
   const cache = path.join(root, CACHE_NAME);
   const leases = path.join(root, LEASES_NAME);
-  fs.mkdirSync(cache, { mode: 0o700 });
-  fs.rmdirSync(cache);
-  fs.mkdirSync(leases, { mode: 0o700 });
-  const marker = writeOwnerMarker(root, parentIdentity);
   const frozenCollection = frozenClone(collection);
+  let marker;
   let cacheSnapshot;
   try {
-    initializeCache(cache, frozenCollection, physicalSeed, maximumPackBytes);
+    fs.mkdirSync(cache, { mode: 0o700 });
+    fs.rmdirSync(cache);
+    fs.mkdirSync(leases, { mode: 0o700 });
+    marker = writeOwnerMarker(root, parentIdentity, recoveryOwnerIdentity);
+    initializeCache(cache, frozenCollection, physicalSeed, maximumPackBytes,
+      syntheticCopyInterposition);
     cacheSnapshot = scanTree(cache, {
       maximumFiles: maximumSnapshotFiles, maximumBytes: maximumSnapshotBytes,
     });
@@ -553,8 +663,10 @@ export function createPersistentScenarioMaterializer({
         fs.rmSync(root, { recursive: true, force: false });
       }
     } catch (cleanupError) {
+      OWNED_GIT_ROOTS.delete(root);
       throw new AggregateError([error, cleanupError], 'materializer creation and cleanup both failed');
     }
+    OWNED_GIT_ROOTS.delete(root);
     throw error;
   }
 
@@ -685,8 +797,9 @@ export function createPersistentScenarioMaterializer({
       if (actualCache.digest !== cacheSnapshot.digest) throw new Error('candidate changed the packed bare cache');
       deactivateScenario(active);
       const releasedRoot = active.leaseRoot;
-      fs.rmSync(releasedRoot, { recursive: true, force: false });
-      assertAbsent(releasedRoot, 'physical repository lease');
+      const leaseParent = physicalDirectory(leases, 'physical repository lease parent');
+      quarantineExactOwnedDirectory(releasedRoot, leaseParent, active.leaseMarker.identity,
+        active.leaseMarker, 'physical repository lease');
       const result = {
         end_digest: active.base.content_digest,
         cleanup_verified: true,
@@ -703,7 +816,7 @@ export function createPersistentScenarioMaterializer({
         root_identity: marker.root_identity,
         parent_identity: marker.parent_identity,
         authority_token: marker.authority_token,
-        owner_pid: marker.owner_pid,
+        recovery_owner_identity: marker.recovery_owner_identity,
       });
     },
 
@@ -712,6 +825,7 @@ export function createPersistentScenarioMaterializer({
       if (active) throw new Error('cannot close persistent materializer with an active lease');
       if (fs.readdirSync(leases).length !== 0) throw new Error('released lease paths remain before close');
       removeExactOwnedRoot(root, marker);
+      OWNED_GIT_ROOTS.delete(root);
       closed = true;
     },
 
@@ -730,10 +844,39 @@ export function createPersistentScenarioMaterializer({
   return Object.freeze(api);
 }
 
-export function recoverPersistentScenarioMaterializer(authority, { ownerDead = false } = {}) {
-  if (!ownerDead || authority?.schema !== PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA
+export function createPersistentScenarioMaterializer(options) {
+  if (Object.hasOwn(options || {}, 'seedBareRepository')
+    || Object.hasOwn(options || {}, 'syntheticCopyInterposition')) {
+    throw new Error('production persistent materializer cannot accept a synthetic cache seed');
+  }
+  const reviewed = loadReviewedFixture().fixture.collections;
+  if (!reviewed.some((collection) => same(collection, options?.collection))) {
+    throw new Error('production persistent materializer collection is not an exact reviewed fixture pin');
+  }
+  return createPersistentScenarioMaterializerInternal(options);
+}
+
+export const SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY = Symbol(
+  'synthetic persistent materializer test authority',
+);
+
+export function createSyntheticPersistentScenarioMaterializer(options, authority) {
+  if (authority !== SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY
+    || !options?.seedBareRepository
+    || (options.syntheticCopyInterposition !== undefined
+      && typeof options.syntheticCopyInterposition !== 'function')) {
+    throw new Error('synthetic persistent materializer requires explicit test-only authority and seed');
+  }
+  return createPersistentScenarioMaterializerInternal(options);
+}
+
+export function recoverPersistentScenarioMaterializer(authority) {
+  if (process.platform !== 'linux') {
+    throw new Error('persistent materializer recovery requires Linux host process evidence');
+  }
+  if (authority?.schema !== PERSISTENT_MATERIALIZER_RECOVERY_SCHEMA
     || !path.isAbsolute(authority.root || '') || !/^[a-f0-9]{64}$/.test(authority.authority_token || '')
-    || !Number.isSafeInteger(authority.owner_pid) || authority.owner_pid < 1) {
+    || !validOwnerIdentity(authority.recovery_owner_identity)) {
     throw new Error('persistent materializer recovery requires exact authorized owner-death evidence');
   }
   const parent = physicalDirectory(path.dirname(authority.root), 'safe-runner recovery parent');
@@ -743,8 +886,28 @@ export function recoverPersistentScenarioMaterializer(authority, { ownerDead = f
   const marker = validateRoot(authority.root);
   if (!sameIdentity(marker.root_identity, authority.root_identity)
     || marker.authority_token !== authority.authority_token
-    || marker.owner_pid !== authority.owner_pid) {
+    || !same(marker.recovery_owner_identity, authority.recovery_owner_identity)) {
     throw new Error('persistent materializer recovery marker was substituted');
+  }
+  // The identity is supplied by the host controller because a materializer
+  // may execute below Bubblewrap's PID namespace. A namespace-local PID is
+  // never accepted as recovery authority. Exact Linux start ticks make PID
+  // reuse fail closed.
+  let processExists = false;
+  try {
+    process.kill(authority.recovery_owner_identity.pid, 0);
+    processExists = true;
+  } catch (error) {
+    if (error?.code !== 'ESRCH') {
+      throw new Error('persistent materializer recovery owner liveness is unknown');
+    }
+  }
+  const currentOwner = processIdentity(authority.recovery_owner_identity.pid);
+  if (processExists && !currentOwner) {
+    throw new Error('persistent materializer recovery owner liveness is unknown');
+  }
+  if (currentOwner?.start_ticks === authority.recovery_owner_identity.start_ticks) {
+    throw new Error('persistent materializer recovery owner process is still alive');
   }
   scanTree(authority.root);
   removeExactOwnedRoot(authority.root, marker);
