@@ -97,11 +97,17 @@ export function canonicalCandidateValue(value) {
     const keys = Array.isArray(source) ? Object.keys(source) : Object.keys(source).sort();
     for (const key of keys) {
       const child = source[key];
+      let canonicalChild;
       if (Array.isArray(child) || isObject(child)) {
-        target[key] = Array.isArray(child) ? new Array(child.length) : {};
-        pending.push({ source: child, target: target[key] });
+        canonicalChild = Array.isArray(child) ? new Array(child.length) : {};
+        Object.defineProperty(target, key, {
+          value: canonicalChild, enumerable: true, configurable: true, writable: true,
+        });
+        pending.push({ source: child, target: canonicalChild });
       } else {
-        target[key] = child;
+        Object.defineProperty(target, key, {
+          value: child, enumerable: true, configurable: true, writable: true,
+        });
       }
     }
   }
@@ -160,6 +166,7 @@ function safeRelativePath(value) {
 function validAdapter(value) {
   return exactKeys(value, ['schema', 'id', 'version', 'input_format', 'output_format'])
     && value.schema === CANDIDATE_ADAPTER_SCHEMA
+    && boundedString(value.id)
     && /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value.id || '')
     && Number.isSafeInteger(value.version) && value.version >= 1 && value.version <= 1_000_000
     && value.input_format === CANDIDATE_PUBLIC_BATCH_SCHEMA

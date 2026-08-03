@@ -18,7 +18,7 @@
     "nonempty": { "type": "string", "minLength": 1, "maxLength": 2048 },
     "relativePath": {
       "type": "string", "minLength": 1, "maxLength": 4096,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:/|$))(?!.*\\/$).+$"
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:/|$))(?!.*\\/$)[\\s\\S]+$"
     },
     "adapter": {
       "type": "object", "additionalProperties": false,
@@ -131,7 +131,7 @@
         "kind": { "enum": ["ordinary", "renamed", "copied", "deleted", "unmerged", "untracked"] },
         "path": { "$ref": "#/$defs/relativePath" },
         "original_path": { "anyOf": [{ "$ref": "#/$defs/relativePath" }, { "type": "null" }] },
-        "xy": { "anyOf": [{ "type": "string", "minLength": 2, "maxLength": 2 }, { "type": "null" }] },
+        "xy": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 2 }, { "type": "null" }] },
         "submodule": { "anyOf": [{ "$ref": "#/$defs/nonempty" }, { "type": "null" }] }
       }
     }

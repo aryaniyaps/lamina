@@ -24,6 +24,7 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
 import {
   WORKFLOW_SEED_CANONICAL_SHA256,
+  WORKFLOW_SEED_RAW_SHA256,
   WORKFLOW_TIER_SEED_CANONICAL_SHA256,
   loadWorkflowSeed,
   loadWorkflowTierProjection,
@@ -75,6 +76,25 @@ assert.equal(parsedPublic.canonical_sha256, sha256(publicBytes));
 assert.equal(parsedPublic.batch.requests[0].request, '  Preserve this request exactly.  ');
 assert.equal(publicBytes[0], 0x7b, 'canonical transport is direct JSON rather than a compressed envelope');
 
+const parsedProto = JSON.parse('{"z":1,"__proto__":{"polluted":"no"}}');
+const canonicalProto = canonicalCandidateValue(parsedProto);
+assert.equal(Object.hasOwn(canonicalProto, '__proto__'), true);
+assert.equal(Object.getPrototypeOf(canonicalProto), Object.prototype);
+assert.deepEqual(canonicalProto.__proto__, { polluted: 'no' });
+assert.match(JSON.stringify(canonicalProto), /"__proto__":\{"polluted":"no"\}/);
+assert.equal({}.polluted, undefined, 'canonicalization never mutates inherited prototypes');
+const protoTierTamper = clone(batch);
+Object.defineProperty(protoTierTamper.tier_seed, '__proto__', {
+  value: { fixture_claims: 'private' }, enumerable: true, configurable: true, writable: true,
+});
+protoTierTamper.public_input_sha256 = candidatePublicInputDigest(protoTierTamper);
+const serializedProtoTier = JSON.stringify(canonicalCandidateValue(protoTierTamper.tier_seed));
+assert.match(serializedProtoTier, /"__proto__":\{"fixture_claims":"private"\}/);
+assert.notEqual(protoTierTamper.public_input_sha256, batch.public_input_sha256);
+assert.match(validateCandidatePublicBatch(protoTierTamper).errors.join('; '), /frozen Workflow projection/);
+assert.throws(() => serializeCandidatePublicBatch(protoTierTamper), /frozen Workflow projection/);
+assert.equal({}.fixture_claims, undefined);
+
 const result = (selected = 'small.workflow.login') => ({
   workflow_outcome: 'selected',
   selected_workflow_ids: [selected],
@@ -124,6 +144,23 @@ const schema = JSON.parse(fs.readFileSync(
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 assert.equal(validateSchema(artifact), true, JSON.stringify(validateSchema.errors));
 
+const adapter2048 = { ...adapter, id: 'a'.repeat(2048) };
+const batch2048 = createCandidatePublicBatch({ tier: 'small', implementation: adapter2048, requests });
+assert.deepEqual(validateCandidatePublicBatch(batch2048), { valid: true, errors: [] });
+const raw2048 = clone(artifact);
+raw2048.public_input_sha256 = batch2048.public_input_sha256;
+raw2048.adapter = clone(adapter2048);
+assert.deepEqual(validateCandidateRawArtifact(raw2048, batch2048), { valid: true, errors: [] });
+assert.equal(validateSchema(raw2048), true, JSON.stringify(validateSchema.errors));
+const public2049 = clone(batch);
+public2049.implementation.id = 'a'.repeat(2049);
+public2049.public_input_sha256 = candidatePublicInputDigest(public2049);
+assert.match(validateCandidatePublicBatch(public2049).errors.join('; '), /implementation is invalid/);
+const raw2049 = clone(raw2048);
+raw2049.adapter.id = 'a'.repeat(2049);
+assert.match(validateCandidateRawArtifact(raw2049, batch2048).errors.join('; '), /adapter differs/);
+assert.equal(validateSchema(raw2049), false);
+
 function withResultPath(location, value) {
   const candidate = clone(artifact);
   const body = candidate.first[0].result;
@@ -152,6 +189,8 @@ const validPaths = [
   'a'.repeat(4096),
   'é'.repeat(512),
   'é'.repeat(2048),
+  'unicode/line-separator- .ts',
+  'unicode/paragraph-separator- .ts',
 ];
 for (const location of pathLocations) {
   for (const validPath of validPaths) {
@@ -162,6 +201,22 @@ for (const location of pathLocations) {
     assert.equal(validateSchema(candidate), true,
       `${location} manually valid path must be accepted by the syntactic schema: ${JSON.stringify(validateSchema.errors)}`);
   }
+}
+function withXy(value) {
+  const candidate = clone(artifact);
+  candidate.first[0].result.repository_state.changes = [{
+    kind: 'ordinary', path: 'src/change.ts', original_path: null, xy: value, submodule: 'N...',
+  }];
+  return candidate;
+}
+const twoByteXy = withXy('é');
+assert.deepEqual(validateCandidateRawArtifact(twoByteXy, batch), { valid: true, errors: [] });
+assert.equal(validateSchema(twoByteXy), true, JSON.stringify(validateSchema.errors));
+for (const schemaOnlyXy of ['€', 'éa']) {
+  const candidate = withXy(schemaOnlyXy);
+  assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /changes\[0\] is invalid/);
+  assert.equal(validateSchema(candidate), true,
+    'xy schema remains a character-count syntactic superset of exact two-byte manual authority');
 }
 
 const syntacticallyUnsafePaths = [
@@ -307,6 +362,20 @@ const allowedPublicClosure = new Set([
   'benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
   'benchmarks/real-repository-oracle-v1/workflows-v1.json',
 ]);
+const auditedPublicBytes = new Map([
+  [publicEntry, '5164782dd5bb6f52b55e657b4ce789201f0b53c24075ac45a2edee4851c1e955'],
+  ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
+    'c2afa8a92c833cc3fa4bd2e36c00ace98bab1e44eace2ea14b444c21f71d075b'],
+  ['benchmarks/real-repository-oracle-v1/workflows-v1.json',
+    'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d'],
+]);
+assert.deepEqual([...auditedPublicBytes.keys()].sort(), [...allowedPublicClosure].sort());
+for (const [relative, expectedSha256] of auditedPublicBytes) {
+  const exactBytes = fs.readFileSync(path.join(repositoryRoot, relative));
+  assert.equal(sha256(exactBytes), expectedSha256, `${relative} differs from its audited public byte identity`);
+}
+assert.equal(auditedPublicBytes.get('benchmarks/real-repository-oracle-v1/workflows-v1.json'),
+  WORKFLOW_SEED_RAW_SHA256, 'unchanged reviewed Workflow JSON bytes remain the public data authority');
 const allowedBuiltins = new Map([
   [publicEntry, ['node:crypto']],
   ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs', ['node:crypto', 'node:fs']],
@@ -338,16 +407,10 @@ while (pendingSources.length) {
     `${relative} imports an unreviewed package dependency`);
   const urlTargets = [...source.matchAll(/new URL\(\s*['"]([^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g)]
     .map((match) => path.posix.normalize(path.posix.join(path.posix.dirname(relative), match[1])));
-  const filesystemReadTargets = [...source.matchAll(/\b(?:fs\.)?(?:readFileSync|readFile)\(\s*([^,\n)]+)/g)]
-    .map((match) => match[1].trim());
   if (relative === 'benchmarks/real-repository-oracle-v1/workflow-seed.mjs') {
     assert.deepEqual(urlTargets, ['benchmarks/real-repository-oracle-v1/workflows-v1.json']);
-    assert.deepEqual(filesystemReadTargets,
-      ['WORKFLOW_FILE'], 'Workflow seed may read only its exact reviewed JSON URL');
   } else {
     assert.deepEqual(urlTargets, [], `${relative} gained an unreviewed local URL target`);
-    assert.deepEqual(filesystemReadTargets, [],
-      `${relative} gained a local filesystem read outside the reviewed closure`);
   }
   assert.doesNotMatch(source, /\brequire\s*\(/, `${relative} gained an unreviewed CommonJS dependency`);
   for (const target of urlTargets) {
@@ -356,7 +419,7 @@ while (pendingSources.length) {
   }
 }
 assert.deepEqual([...discovered].sort(), [...allowedPublicClosure].sort(),
-  'candidate public source/data closure must remain exact');
+  'enumerated imports and URL data targets must match the exact byte-audited public closure');
 for (const resolved of discovered) {
   assert.doesNotMatch(resolved.normalize('NFKC').toLocaleLowerCase('en-US'),
     /fixture|receipt|grade|controller|attestation/,
