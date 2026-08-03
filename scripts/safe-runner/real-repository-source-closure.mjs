@@ -46,6 +46,7 @@ export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Objec
   'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
   'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+  'benchmarks/real-repository-oracle-v1/supervisor-cleanup-proof.mjs',
   'scripts/safe-runner/constants.mjs',
   'scripts/safe-runner/redaction.mjs',
   'scripts/safe-runner/report.mjs',

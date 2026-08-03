@@ -89,29 +89,34 @@ try {
   const configFile = path.join(temporary, 'helper-config.json');
   fs.writeFileSync(configFile, JSON.stringify(config), { flag: 'wx', mode: 0o600 });
 
-  async function killAt(boundary) {
+  async function killAt(boundary, whileStopped = null) {
     const child = spawn(process.execPath, [HELPER, configFile, boundary], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe', 'pipe'],
     });
     const recoveryOwnerIdentity = processIdentity(child.pid);
     assert.ok(recoveryOwnerIdentity, 'parent resolves the helper host PID and start ticks');
     child.send({ recovery_owner_identity: recoveryOwnerIdentity });
-    const externallyPublishedAuthority = await new Promise((resolve, reject) => {
-      let output = '';
-      child.stdio[4].on('data', (chunk) => {
-        output += chunk.toString('utf8');
-        if (Buffer.byteLength(output) > 16 * 1024) reject(new Error('recovery authority exceeded bound'));
-        const newline = output.indexOf('\n');
-        if (newline >= 0) {
-          try { resolve(JSON.parse(output.slice(0, newline))); } catch (error) { reject(error); }
-        }
-      });
-      child.stdio[4].once('error', reject);
+    const externallyPublishedAuthorities = [];
+    let authorityOutput = '';
+    let authorityFailure = null;
+    child.stdio[4].on('data', (chunk) => {
+      authorityOutput += chunk.toString('utf8');
+      if (Buffer.byteLength(authorityOutput) > 32 * 1024) {
+        authorityFailure = new Error('recovery authority exceeded bound');
+        return;
+      }
+      while (authorityOutput.includes('\n')) {
+        const newline = authorityOutput.indexOf('\n');
+        const line = authorityOutput.slice(0, newline);
+        authorityOutput = authorityOutput.slice(newline + 1);
+        try {
+          const authority = JSON.parse(line);
+          assert.deepEqual(authority.recovery_owner_identity, recoveryOwnerIdentity);
+          externallyPublishedAuthorities.push(authority);
+          child.stdio[5].write(`${JSON.stringify(persistentMaterializerRecoveryAck(authority))}\n`);
+        } catch (error) { authorityFailure = error; }
+      }
     });
-    assert.deepEqual(externallyPublishedAuthority.recovery_owner_identity, recoveryOwnerIdentity);
-    child.stdio[5].write(`${JSON.stringify(
-      persistentMaterializerRecoveryAck(externallyPublishedAuthority),
-    )}\n`);
     let stderr = '';
     child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
     const payload = await new Promise((resolve, reject) => {
@@ -132,8 +137,18 @@ try {
       });
     });
     assert.equal(payload.boundary, boundary);
-    assert.deepEqual(payload.authority, externallyPublishedAuthority,
+    if (authorityFailure) throw authorityFailure;
+    assert.deepEqual(payload.authority, externallyPublishedAuthorities.at(-1),
       'child proceeds only after the parent externally acknowledges exact recovery authority');
+    assert.equal(externallyPublishedAuthorities.length,
+      ['before_root_creation', 'after_root_creation'].includes(boundary) ? 1 : 2);
+    assert.equal(Object.hasOwn(externallyPublishedAuthorities[0], 'root_identity'), false);
+    if (externallyPublishedAuthorities.length === 2) {
+      const markerRoot = fs.existsSync(payload.authority.root)
+        ? payload.authority.root : payload.quarantine;
+      assert.deepEqual(externallyPublishedAuthorities[1].root_identity,
+        JSON.parse(fs.readFileSync(path.join(markerRoot, '.owner.json'), 'utf8')).root_identity);
+    }
     assert.deepEqual(payload.authority.recovery_owner_identity, recoveryOwnerIdentity);
     assert.equal(fs.existsSync(payload.authority.root),
       !['before_root_creation', 'root_quarantined'].includes(boundary));
@@ -164,6 +179,7 @@ try {
     assert.equal(fs.existsSync(payload.authority.root) || fs.existsSync(payload.quarantine || ''),
       boundary !== 'before_root_creation',
     'forged or nonexistent owner authority cannot remove a live root');
+    await whileStopped?.(payload);
     child.kill('SIGKILL');
     const exit = await exitPromise;
     assert.equal(exit.code, null);
@@ -190,6 +206,40 @@ try {
         `${boundary} recovery removes the public root name without deleting its inode`);
       assert.equal(fs.existsSync(recovered.quarantine), true);
     }
+  }
+
+  let movedOwnedRoot;
+  let preferredVictim;
+  const moved = await killAt('root_quarantined', (payload) => {
+    movedOwnedRoot = path.join(temporary, 'arbitrary-supervisor-sibling');
+    preferredVictim = payload.quarantine;
+    fs.renameSync(payload.quarantine, movedOwnedRoot);
+    fs.mkdirSync(preferredVictim, { mode: 0o700 });
+    fs.writeFileSync(path.join(preferredVictim, 'victim'), 'unrelated\n', { mode: 0o600 });
+  });
+  const movedDisposition = recoverPersistentScenarioMaterializer(moved.authority);
+  assert.equal(movedDisposition.terminal_disposition, 'awaiting_supervisor_cleanup');
+  assert.equal(movedDisposition.quarantine, movedOwnedRoot);
+  assert.equal(fs.readFileSync(path.join(preferredVictim, 'victim'), 'utf8'), 'unrelated\n',
+    'inode discovery preserves an unrelated victim planted at the preferred quarantine path');
+
+  const escapedParent = fs.realpathSync.native(fs.mkdtempSync(
+    path.join(os.tmpdir(), 'lamina-persistent-recovery-lost-'),
+  ));
+  fs.chmodSync(escapedParent, 0o700);
+  try {
+    const lost = await killAt('root_quarantined', (payload) => {
+      const firstMove = path.join(temporary, 'first-arbitrary-sibling');
+      fs.renameSync(payload.quarantine, firstMove);
+      fs.renameSync(firstMove, path.join(escapedParent, 'owned-inode-outside-authority'));
+    });
+    const lostDisposition = recoverPersistentScenarioMaterializer(lost.authority);
+    assert.equal(lostDisposition.terminal_disposition, 'owned_quarantine_path_lost');
+    assert.notEqual(lostDisposition.terminal_disposition, 'no_root_created');
+    assert.deepEqual(lostDisposition.owned_identity, lost.authority.root_identity);
+  } finally {
+    makeWritable(escapedParent);
+    fs.rmSync(escapedParent, { recursive: true, force: true });
   }
 
   const substituted = await killAt('cache_ready');

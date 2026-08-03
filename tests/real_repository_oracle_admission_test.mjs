@@ -582,6 +582,7 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/scenario-verification.mjs',
   'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
+  'benchmarks/real-repository-oracle-v1/supervisor-cleanup-proof.mjs',
   'scripts/safe-runner/real-repository-source-closure.mjs',
   'scripts/safe-runner/source-identity.mjs',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
@@ -608,6 +609,7 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/scenario-selection.mjs',
   'benchmarks/real-repository-oracle-v1/reviews/scenario-selection-v1.json',
   'benchmarks/real-repository-oracle-v1/reviewed-selection-identities.mjs',
+  'benchmarks/real-repository-oracle-v1/supervisor-cleanup-proof.mjs',
   'scripts/safe-runner/constants.mjs',
   'scripts/safe-runner/redaction.mjs',
   'scripts/safe-runner/report.mjs',
@@ -655,6 +657,16 @@ assert.equal(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE.includes(
 assert.equal(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE.includes(
   'benchmarks/real-repository-oracle-v1/grade.mjs'), false,
   'unreviewed discovery must not load the quality grader');
+assert.equal(REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE.includes(
+  'benchmarks/real-repository-oracle-v1/supervisor-cleanup-proof.mjs'), true,
+  'production scenario verification closure includes cleanup-proof verification authority');
+for (const syntheticCleanupPath of [
+  'tests/fixtures/synthetic-supervisor-cleanup-authority.mjs',
+  'tests/fixtures/synthetic-supervisor-cleanup-proof.mjs',
+]) {
+  assert.equal(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE.includes(syntheticCleanupPath), false,
+    'production source closure cannot mount the synthetic cleanup-proof mint path');
+}
 
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);

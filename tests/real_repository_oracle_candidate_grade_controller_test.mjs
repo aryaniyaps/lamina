@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   CANDIDATE_ADAPTER_SCHEMA,
   CANDIDATE_PUBLIC_BATCH_SCHEMA,
@@ -20,6 +22,7 @@ import { digest } from '../benchmarks/real-repository-oracle-v1/contract.mjs';
 import { loadReviewedFixture } from '../benchmarks/real-repository-oracle-v1/fixture-authority.mjs';
 import { gradeResult } from '../benchmarks/real-repository-oracle-v1/grade.mjs';
 import { brownfieldSignals } from '../packages/cli/lib/observation-runtime/node.mjs';
+import { syntheticSupervisorCleanupProof } from './fixtures/synthetic-supervisor-cleanup-proof.mjs';
 
 const clone = (value) => structuredClone(value);
 const canonicalBytes = (value) => Buffer.from(JSON.stringify(canonicalCandidateValue(value)));
@@ -93,9 +96,20 @@ function leaseFields(plan, slot, phase, handle, overrides = {}) {
     base_digest: slot.base_digest,
     start_digest: slot.base_digest,
     end_digest: slot.base_digest,
-    cleanup_verified: true,
     ...overrides,
   };
+}
+
+function cleanupProof(plan, slot, phase, handle, endDigest = slot.base_digest) {
+  return syntheticSupervisorCleanupProof({
+    plan, slot_id: slot.slot_id, phase, opaque_handle: handle, end_digest: endDigest,
+  });
+}
+
+function issuedLease(plan, slot, phase, handle, overrides = {}) {
+  const fields = leaseFields(plan, slot, phase, handle, overrides);
+  return issueHostLeaseEvidence(plan, fields,
+    cleanupProof(plan, slot, phase, handle, fields.end_digest));
 }
 
 function recordsFor(plan, expectedAdapter, transform = (value) => value, label = expectedAdapter.id) {
@@ -107,7 +121,7 @@ function recordsFor(plan, expectedAdapter, transform = (value) => value, label =
       slot_id: slot.slot_id,
       phase,
       raw_bytes: serializeCandidateRawArtifact(raw, slot.public_batch, expectedAdapter),
-      lease: issueHostLeaseEvidence(plan, leaseFields(plan, slot, phase, handle)),
+      lease: issuedLease(plan, slot, phase, handle),
     };
   }));
 }
@@ -133,8 +147,66 @@ for (const slot of plan.slots) {
   }
 }
 
+assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+  plan, plan.slots[0], 'first', 'lease-plain-cleanup-boolean-0001',
+  { cleanup_verified: true },
+)), /invalid identity, slot, phase, or fields/,
+'a caller-supplied cleanup_verified boolean is never cleanup authority');
+assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+  plan, plan.slots[0], 'first', 'lease-missing-cleanup-proof-0001',
+)), /cleanup proof was not issued/);
+
+const clonedProofHandle = 'lease-cloned-cleanup-proof-0001';
+const clonedProof = cleanupProof(plan, plan.slots[0], 'first', clonedProofHandle);
+assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+  plan, plan.slots[0], 'first', clonedProofHandle,
+), clone(clonedProof)), /cleanup proof was not issued/,
+'a structurally identical cleanup proof clone has no module-issued identity');
+
+const proofPlanA = createCandidateTierPlan('small');
+const proofPlanB = createCandidateTierPlan('small');
+const crossPlanHandle = 'lease-cross-plan-cleanup-proof-0001';
+const crossPlanProof = cleanupProof(
+  proofPlanA, proofPlanA.slots[0], 'first', crossPlanHandle,
+);
+assert.throws(() => issueHostLeaseEvidence(proofPlanB, leaseFields(
+  proofPlanB, proofPlanB.slots[0], 'first', crossPlanHandle,
+), crossPlanProof), /different plan, slot, phase, lease, or digest/,
+'cleanup proof cannot be transplanted between issued same-tier plan objects');
+
+const boundHandle = 'lease-bound-cleanup-proof-0001';
+const otherHandle = 'lease-other-cleanup-proof-0001';
+const crossHandleProof = cleanupProof(plan, plan.slots[0], 'first', boundHandle);
+assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+  plan, plan.slots[0], 'first', otherHandle,
+), crossHandleProof), /different plan, slot, phase, lease, or digest/,
+'cleanup proof cannot be transplanted to another lease handle');
+
+const crossDigestHandle = 'lease-cross-digest-cleanup-proof-0001';
+const crossDigestProof = cleanupProof(plan, plan.slots[0], 'first', crossDigestHandle);
+assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+  plan, plan.slots[0], 'first', crossDigestHandle, { end_digest: 'f'.repeat(64) },
+), crossDigestProof), /different plan, slot, phase, lease, or digest/,
+'cleanup proof cannot be transplanted to another end digest');
+
+const reoccupiedHandle = 'lease-reoccupied-cleanup-proof-0001';
+const reoccupiedProof = cleanupProof(plan, plan.slots[0], 'first', reoccupiedHandle);
+try {
+  fs.mkdirSync(reoccupiedProof.physical_absence.root_path, { recursive: true, mode: 0o700 });
+  assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
+    plan, plan.slots[0], 'first', reoccupiedHandle,
+  ), reoccupiedProof), /current physical path absence/,
+  'an issued receipt stops authorizing cleanup after an absence path is reoccupied');
+} finally {
+  fs.rmSync(path.dirname(reoccupiedProof.physical_absence.root_path), {
+    recursive: true, force: true,
+  });
+}
+
 const perfectRecords = recordsFor(plan, currentAdapter);
 assert.equal(perfectRecords.length, 12);
+assert.equal(perfectRecords.every((record) => record.lease.cleanup_verified === true), true,
+  'cleanup_verified is derived only on host-issued lease evidence');
 assert.equal(new Set(perfectRecords.map((record) => record.lease.opaque_handle)).size, 12);
 const perfect = gradeCandidateTierRuns({
   plan, expected_adapter: currentAdapter, records: perfectRecords,
@@ -190,9 +262,7 @@ assert.throws(() => issueHostLeaseEvidence(plan, leaseFields(
 const duplicateHandlePlanA = createCandidateTierPlan('small');
 const duplicateHandlePlanB = createCandidateTierPlan('small');
 const globallyDuplicatedHandle = 'lease-global-duplicate-0001';
-issueHostLeaseEvidence(duplicateHandlePlanA, leaseFields(
-  duplicateHandlePlanA, duplicateHandlePlanA.slots[0], 'first', globallyDuplicatedHandle,
-));
+issuedLease(duplicateHandlePlanA, duplicateHandlePlanA.slots[0], 'first', globallyDuplicatedHandle);
 assert.throws(() => issueHostLeaseEvidence(duplicateHandlePlanB, leaseFields(
   duplicateHandlePlanB, duplicateHandlePlanB.slots[0], 'first', globallyDuplicatedHandle,
 )), /already issued by this host controller/,
@@ -304,9 +374,8 @@ assert.throws(() => gradeCandidateTierRuns({
 const mismatchRecords = [...perfectRecords];
 mismatchRecords[0] = {
   ...mismatchRecords[0],
-  lease: issueHostLeaseEvidence(plan, leaseFields(
-    plan, plan.slots[0], 'first', 'lease-mismatched-digest-0001', { end_digest: 'f'.repeat(64) },
-  )),
+  lease: issuedLease(plan, plan.slots[0], 'first', 'lease-mismatched-digest-0001',
+    { end_digest: 'f'.repeat(64) }),
 };
 assert.throws(() => gradeCandidateTierRuns({
   plan, expected_adapter: currentAdapter, records: mismatchRecords,

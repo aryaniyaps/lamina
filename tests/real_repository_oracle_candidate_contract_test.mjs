@@ -4,9 +4,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
+import { spawnTrustedGit, trustedGitIdentity } from '../scripts/safe-runner/git.mjs';
 import {
   CANDIDATE_ADAPTER_SCHEMA,
   CANDIDATE_PUBLIC_BATCH_SCHEMA,
@@ -367,6 +368,7 @@ const auditedPublicBytes = new Map([
   ['benchmarks/real-repository-oracle-v1/workflows-v1.json',
     'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d'],
 ]);
+const effectiveLfPaths = ['.gitattributes', ...auditedPublicBytes.keys()];
 assert.deepEqual([...auditedPublicBytes.keys()].sort(), [...allowedPublicClosure].sort());
 const attributesBytes = fs.readFileSync(path.join(repositoryRoot, '.gitattributes'));
 assert.ok(attributesBytes.length > 0 && attributesBytes.length <= 64 * 1024,
@@ -389,9 +391,9 @@ const runAttributeGit = (cwd, args) => {
 };
 const attributeValues = (probe) => {
   const rows = runAttributeGit(probe, [
-    'check-attr', '-z', 'text', 'eol', '--', ...auditedPublicBytes.keys(),
+    'check-attr', '-z', 'text', 'eol', '--', ...effectiveLfPaths,
   ]).toString('utf8').split('\0').filter(Boolean);
-  assert.equal(rows.length, auditedPublicBytes.size * 6);
+  assert.equal(rows.length, effectiveLfPaths.length * 6);
   const values = new Map();
   for (let index = 0; index < rows.length; index += 6) {
     const [textPath, textName, textValue, eolPath, eolName, eolValue] = rows.slice(index, index + 6);
@@ -411,6 +413,33 @@ try {
   }
   for (const [relative, value] of attributeValues(probe)) {
     assert.deepEqual(value, { text: 'set', eol: 'lf' }, `${relative} must resolve to text eol=lf`);
+  }
+  runAttributeGit(probe, ['config', 'user.name', 'Lamina Test']);
+  runAttributeGit(probe, ['config', 'user.email', 'lamina@example.invalid']);
+  runAttributeGit(probe, ['add', '--', ...effectiveLfPaths]);
+  runAttributeGit(probe, ['commit', '--quiet', '-m', 'effective LF attribute probe']);
+  const checkout = path.join(attributeProbeRoot, 'autocrlf-checkout');
+  const cloneResult = spawnSync(trustedGitIdentity().path, [
+    '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
+    '-c', 'credential.helper=', '-c', 'protocol.file.allow=always',
+    '-c', 'core.autocrlf=true', 'clone', '--quiet', '--', probe, checkout,
+  ], {
+    cwd: attributeProbeRoot, encoding: 'utf8', timeout: 10_000,
+    maxBuffer: 64 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(cloneResult.status, 0, cloneResult.stderr);
+  for (const [relative, value] of attributeValues(checkout)) {
+    assert.deepEqual(value, { text: 'set', eol: 'lf' },
+      `${relative} clone attribute must resolve to text eol=lf`);
+  }
+  const checkoutEol = runAttributeGit(checkout, [
+    'ls-files', '--eol', '--', ...effectiveLfPaths,
+  ]).toString('utf8').trim().split('\n');
+  assert.equal(checkoutEol.length, effectiveLfPaths.length);
+  for (const relative of effectiveLfPaths) {
+    const row = checkoutEol.find((line) => line.endsWith(`\t${relative}`));
+    assert.match(row || '', /^i\/lf\s+w\/lf\s+attr\/text eol=lf\s+\t/,
+      `${relative} must checkout with LF under core.autocrlf=true`);
   }
   fs.appendFileSync(path.join(probe, '.gitattributes'),
     `${publicEntry} text eol=crlf\n`);

@@ -293,12 +293,14 @@ try {
   ), /exact plain data object/);
 
   let publishedAuthority = null;
+  const publishedAuthorities = [];
   const materializer = createSyntheticPersistentScenarioMaterializer({
     runnerTemporaryRoot: temporary,
     collection,
     recoveryOwnerIdentity: ownerIdentity,
     publishRecoveryAuthority(authority) {
       publishedAuthority = authority;
+      publishedAuthorities.push(authority);
       return persistentMaterializerRecoveryAck(authority);
     },
     seedBareRepository: path.join(origin, '.git'),
@@ -307,6 +309,12 @@ try {
   }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY);
   assert.deepEqual(materializer.recoveryAuthority(), publishedAuthority,
     'recovery authority is synchronously published before construction completes');
+  assert.equal(publishedAuthorities.length, 2);
+  assert.equal(Object.hasOwn(publishedAuthorities[0], 'root_identity'), false,
+    'pre-creation authority remains available for the no-root crash window');
+  assert.deepEqual(publishedAuthorities[1].root_identity,
+    materializer.recoveryAuthority().root_identity,
+    'the externally acknowledged final authority binds the created root inode');
   const registry = createMaterializationRegistry(materializer);
   const initialInspection = materializer.inspectForTest();
   assert.equal(initialInspection.cache_pack_files.length, 2);

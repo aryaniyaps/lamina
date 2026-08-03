@@ -22,6 +22,7 @@ import {
 import { loadReviewedFixture } from './fixture-authority.mjs';
 import { gradeResult } from './grade.mjs';
 import { brownfieldSignals } from '../../packages/cli/lib/observation-runtime/node.mjs';
+import { verifyIssuedSupervisorCleanupProof } from './supervisor-cleanup-proof.mjs';
 
 export const CANDIDATE_TIER_PLAN_SCHEMA = 'lamina.real-repository-oracle-candidate-tier-plan/v1';
 export const HOST_LEASE_EVIDENCE_SCHEMA = 'lamina.real-repository-oracle-host-lease-evidence/v1';
@@ -153,12 +154,12 @@ function requireIssuedPlan(plan) {
   return fixtureContext(plan.tier);
 }
 
-export function issueHostLeaseEvidence(plan, evidence) {
+export function issueHostLeaseEvidence(plan, evidence, supervisorCleanupProof) {
   requireIssuedPlan(plan);
   if (!exactKeys(evidence, [
     'schema', 'slot_id', 'phase', 'opaque_handle', 'repository_url', 'resolved_commit',
     'tree_oid', 'candidate_policy_sha256', 'scenario_digest', 'provenance_digest',
-    'base_digest', 'start_digest', 'end_digest', 'cleanup_verified',
+    'base_digest', 'start_digest', 'end_digest',
   ]) || evidence.schema !== HOST_LEASE_EVIDENCE_SCHEMA
     || !plan.slots.some((slot) => slot.slot_id === evidence.slot_id)
     || !PHASES.includes(evidence.phase) || !HANDLE.test(evidence.opaque_handle || '')) {
@@ -167,7 +168,11 @@ export function issueHostLeaseEvidence(plan, evidence) {
   if (ISSUED_HANDLE_AUTHORITY.has(evidence.opaque_handle)) {
     fail(`lease handle ${evidence.opaque_handle} was already issued by this host controller`);
   }
-  const issued = deepFreeze(structuredClone(evidence));
+  verifyIssuedSupervisorCleanupProof(supervisorCleanupProof, {
+    plan, slot_id: evidence.slot_id, phase: evidence.phase,
+    opaque_handle: evidence.opaque_handle, end_digest: evidence.end_digest,
+  });
+  const issued = deepFreeze({ ...structuredClone(evidence), cleanup_verified: true });
   const authority = {
     plan, slot_id: issued.slot_id, phase: issued.phase,
   };
