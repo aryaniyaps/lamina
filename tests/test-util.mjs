@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 
-const WINDOWS_DELAYED_DELETE_CODES = new Set(['EBUSY', 'ENOTEMPTY']);
+const WINDOWS_DELAYED_DELETE_CODES = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM']);
+
+export function isDelayedWindowsDeleteError(error, platform = process.platform) {
+  return platform === 'win32' && WINDOWS_DELAYED_DELETE_CODES.has(error?.code);
+}
 
 export function removeTemporaryTree(directory) {
   try {
@@ -15,8 +19,7 @@ export function removeTemporaryTree(directory) {
     // close. Assertions and shutdown checks are complete, and CI owns the temp
     // tree, so only delayed directory removal is non-fatal.
     if (
-      process.platform !== 'win32' ||
-      !WINDOWS_DELAYED_DELETE_CODES.has(error.code)
+      !isDelayedWindowsDeleteError(error)
     ) {
       throw error;
     }

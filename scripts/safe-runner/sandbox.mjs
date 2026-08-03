@@ -45,6 +45,7 @@ const SEALED_ENVIRONMENT_NAMES_BY_ENTRYPOINT = new Map([
   ])],
 ]);
 const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
+const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
 
 const STANDARD_CONTROL_SOCKETS = Object.freeze([
   '/run/dbus/system_bus_socket',
@@ -148,6 +149,7 @@ export function bubblewrapSandboxArguments({
     args.push('--setenv', 'LAMINA_SAFE_GIT_IDENTITY', sealedGitIdentity);
   }
   args.push(
+    '--perms', '0700',
     '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
     '--tmpfs', temporaryDirectory,
     '--chdir', cwd,
@@ -188,6 +190,7 @@ export function validatedSealedEnvironmentNames({
 export function validatedSealedGitIdentity(executionAuthority) {
   const graphdFixture = [
     'tests/fixtures/safe-runner-graphd-client.mjs', RUNTIME_BASELINE_ENTRYPOINT,
+    REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   ].includes(executionAuthority?.audited_entrypoint);
   const expected = executionAuthority?.git_executable_identity;
   if (!graphdFixture) {

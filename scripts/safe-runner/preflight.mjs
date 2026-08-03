@@ -2,14 +2,47 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  CASE_DISCOVERY_WORKLOAD_ID,
   DEFAULTS,
+  GENERIC_TEMPORARY_MAX_INODES,
+  MIB,
   PRODUCTION_TIERS,
   PORTABLE_SELF_TEST_CASE_IDS,
+  retainedOutputTailBytes,
   SELF_TEST_CASE_IDS,
   SELF_TEST_FIXTURE_MODES,
   SELF_TEST_LIMIT_MAXIMA,
+  SCENARIO_VERIFICATION_WORKLOAD_ID,
+  SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION,
+  temporaryMaxInodesForBytes,
   TIER_ORDER,
+  validateScenarioVerificationLargeInodeReservation,
 } from './constants.mjs';
+import {
+  ORACLE_HOST_LAUNCH_PROFILE,
+  ORACLE_HOST_PROBE_COMMAND,
+  ORACLE_HOST_PROBE_WORKLOAD_ID,
+  oracleHostProbeLimits,
+} from './oracle-host-profile.mjs';
+import {
+  exactLandlockCandidateProbeCommand, exactLandlockCandidateProbeLimits,
+  LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+  LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID,
+} from './landlock-candidate-profile.mjs';
+import {
+  CANDIDATE_SMOKE_COMMAND,
+  CANDIDATE_SMOKE_LAUNCH_PROFILE,
+  CANDIDATE_SMOKE_WORKLOAD_ID,
+  exactCandidateSmokeCommand,
+  exactCandidateSmokeLimits,
+} from './candidate-smoke-profile.mjs';
+import {
+  CANDIDATE_LEASE_WORKER_COMMAND,
+  CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE,
+  CANDIDATE_LEASE_WORKER_WORKLOAD_ID,
+  exactCandidateLeaseWorkerCommand,
+  exactCandidateLeaseWorkerLimits,
+} from './candidate-lease-worker-profile.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
@@ -36,9 +69,18 @@ const EXTERNAL_DAEMON_ENTRYPOINTS = [
 const EXTERNAL_TEXT = /(?:^|[\s;&|/"'])(?:docker|podman|harbor)(?=$|[\s;&|/"'])/i;
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const RUNTIME_BASELINE_ENTRYPOINT = 'benchmarks/runtime-baseline-v1/workload.mjs';
+export const REAL_REPOSITORY_ORACLE_ENTRYPOINT = 'benchmarks/real-repository-oracle-v1/workload.mjs';
+export const REAL_REPOSITORY_ORACLE_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-admission';
+export const REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-reconstruction';
+export const REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID = 'real-repository-oracle-v1:inventory-review';
+export const REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID = CASE_DISCOVERY_WORKLOAD_ID;
+export const REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID = 'real-repository-oracle-v1:evidence-expansion';
+export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID = SCENARIO_VERIFICATION_WORKLOAD_ID;
+export const REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID = ORACLE_HOST_PROBE_WORKLOAD_ID;
 
 const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['benchmarks/retrieval-v1/benchmark.mjs', false],
+  [REAL_REPOSITORY_ORACLE_ENTRYPOINT, true],
   [RUNTIME_BASELINE_ENTRYPOINT, true],
   ['benchmarks/runtime-v1/fixture/tiny-runtime.mjs', false],
   ['evals/scripts/run-suite.mjs', true],
@@ -55,6 +97,7 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['tests/cli_binary_smoke_test.mjs', false],
   ['tests/fixtures/safe-runner-adversary.mjs', false],
   ['tests/fixtures/safe-runner-graphd-client.mjs', false],
+  [LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT, false],
   ['tests/fixtures/safe-runner-mutable.mjs', false],
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
@@ -62,6 +105,7 @@ const SMALL_ONLY_SCRATCH_FIXTURES = new Set([
   'benchmarks/runtime-v1/fixture/tiny-runtime.mjs',
   'tests/runtime_benchmark_test.mjs',
   'tests/fixtures/safe-runner-graphd-client.mjs',
+  LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT,
   'tests/fixtures/safe-runner-mutable.mjs',
 ]);
 const SENSITIVE_WRITABLE_ROOTS = ['/','/tmp','/run','/proc','/sys','/dev'];
@@ -193,6 +237,17 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     if (relative === RUNTIME_BASELINE_ENTRYPOINT
       && !auditedRuntimeBaselineCommand(command, cwd)) {
       return { audited: false, allow_network: false, entrypoint: relative };
+    }
+    if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+      if (command[2] === CANDIDATE_LEASE_WORKER_COMMAND) {
+        if (!exactCandidateLeaseWorkerCommand(command)) {
+          return { audited: false, allow_network: false, entrypoint: relative };
+        }
+      } else if (command.length !== 3
+        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios', ORACLE_HOST_PROBE_COMMAND, CANDIDATE_SMOKE_COMMAND]
+          .includes(command[2])) {
+        return { audited: false, allow_network: false, entrypoint: relative };
+      }
     }
     return relative !== null
       ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative,
@@ -333,6 +388,56 @@ export function preflightRun({
   const tinySelfTest = deliberatelyTinySelfTest(mode, selfTestCaseId, overrides, command);
   const portableTinySelfTest = tinySelfTest && PORTABLE_SELF_TEST_CASE_IDS.includes(selfTestCaseId);
   const ownership = commandOwnership(command, cwd);
+  const exactRealRepositoryEntrypoint = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command.length === 3;
+  const exactScenarioVerification = exactRealRepositoryEntrypoint
+    && command[2] === 'verify-scenarios'
+    && workloadId === REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID;
+  const exactOracleHostProbe = exactRealRepositoryEntrypoint
+    && command[2] === ORACLE_HOST_PROBE_COMMAND
+    && workloadId === REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID;
+  const candidateSmokeInvocation = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command[2] === CANDIDATE_SMOKE_COMMAND;
+  const candidateLeaseWorkerInvocation = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command[2] === CANDIDATE_LEASE_WORKER_COMMAND;
+  const exactRealRepositoryStructuredOutput = exactRealRepositoryEntrypoint
+    && ((command[2] === 'discover-cases'
+      && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
+      || exactScenarioVerification);
+  const structuredOutputWorkloadId = exactRealRepositoryStructuredOutput ? workloadId : null;
+  const temporaryInodeReservation = exactScenarioVerification && tier === 'large'
+    ? SCENARIO_VERIFICATION_LARGE_TEMPORARY_INODE_RESERVATION : null;
+  const temporaryInodeReservationValidation = temporaryInodeReservation
+    ? validateScenarioVerificationLargeInodeReservation(temporaryInodeReservation) : null;
+  const temporaryInodeCeiling = temporaryInodeReservation
+    ? Math.min(temporaryInodeReservation.requested_max_inodes,
+      temporaryInodeReservation.hard_ceiling)
+    : GENERIC_TEMPORARY_MAX_INODES;
+  envelope.limits = {
+    ...envelope.limits,
+    temporary_max_inodes: temporaryMaxInodesForBytes(
+      envelope.limits.temporary_max_bytes, temporaryInodeCeiling,
+    ),
+    stdout_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stdout'),
+    stderr_tail_max_bytes: retainedOutputTailBytes(structuredOutputWorkloadId, 'stderr'),
+  };
+  const exactOracleHostProfile = exactOracleHostProbe && tier === 'small'
+    && oracleHostProbeLimits(envelope.limits);
+  const landlockCandidateProbe = ownership.audited_entrypoint
+    === LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT;
+  const exactLandlockCandidateProfile = landlockCandidateProbe
+    && exactLandlockCandidateProbeCommand(command)
+    && workloadId === LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID
+    && tier === 'small' && exactLandlockCandidateProbeLimits(envelope.limits);
+  const exactCandidateSmokeProfile = candidateSmokeInvocation
+    && exactCandidateSmokeCommand(command)
+    && workloadId === CANDIDATE_SMOKE_WORKLOAD_ID
+    && tier === 'small' && exactCandidateSmokeLimits(envelope.limits);
+  const exactCandidateLeaseWorkerProfile = candidateLeaseWorkerInvocation
+    && exactCandidateLeaseWorkerCommand(command)
+    && workloadId === CANDIDATE_LEASE_WORKER_WORKLOAD_ID
+    && tier === command[3] && exactCandidateLeaseWorkerLimits(envelope.limits);
+  if (exactLandlockCandidateProfile) envelope.limits.stdout_tail_max_bytes = MIB;
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
     ? writableWorktreeProof(cwd) : { ok: true, cwd: path.resolve(cwd), worktree: null, reason: null };
@@ -351,6 +456,13 @@ export function preflightRun({
   }
   if (!TIER_ORDER.includes(tier)) reasons.push(`tier must be one of ${TIER_ORDER.join(', ')}`);
   if (!Array.isArray(command) || command.length === 0) reasons.push('command must be a non-empty string array');
+  if (temporaryInodeReservationValidation?.valid === false) {
+    reasons.push('large scenario verification temporary inode geometry exceeds its hard ceiling');
+  } else if (temporaryInodeReservationValidation
+    && envelope.limits.temporary_max_inodes
+      < temporaryInodeReservationValidation.required_inodes) {
+    reasons.push('large scenario verification temporary inode geometry exceeds its effective reservation');
+  }
   const memoryReserve = portableTinySelfTest ? 128 * 1024 ** 2 : envelope.limits.os_reserve_bytes;
   const minimumDisk = portableTinySelfTest
     ? Math.max(64 * 1024 ** 2, envelope.limits.temporary_max_bytes * 2)
@@ -380,6 +492,61 @@ export function preflightRun({
   if (runtimeContract.reason) reasons.push(runtimeContract.reason);
   if (SMALL_ONLY_SCRATCH_FIXTURES.has(ownership.audited_entrypoint) && tier !== 'small') {
     reasons.push('safe-runner scratch fixtures are deliberately tiny and require --tier small');
+  }
+  if (ownership.audited_entrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+    const expectedWorkloadId = command[2] === 'reconstruct-inventory'
+      ? REAL_REPOSITORY_ORACLE_RECONSTRUCTION_WORKLOAD_ID
+      : command[2] === 'review-inventory' ? REAL_REPOSITORY_ORACLE_REVIEW_WORKLOAD_ID
+      : command[2] === 'discover-cases' ? REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID
+      : command[2] === 'expand-evidence' ? REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID
+      : command[2] === 'verify-scenarios' ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID
+      : command[2] === ORACLE_HOST_PROBE_COMMAND ? REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID
+      : command[2] === CANDIDATE_SMOKE_COMMAND ? CANDIDATE_SMOKE_WORKLOAD_ID
+      : command[2] === CANDIDATE_LEASE_WORKER_COMMAND ? CANDIDATE_LEASE_WORKER_WORKLOAD_ID
+      : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
+    if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
+      const operation = command[2] === 'reconstruct-inventory'
+        ? 'inventory reconstruction' : command[2] === 'review-inventory'
+          ? 'independent inventory review' : command[2] === 'discover-cases'
+            ? 'case discovery' : command[2] === 'expand-evidence'
+              ? 'evidence expansion' : command[2] === 'verify-scenarios'
+                ? 'scenario verification' : command[2] === ORACLE_HOST_PROBE_COMMAND
+                  ? 'oracle-host probe' : command[2] === CANDIDATE_SMOKE_COMMAND
+                    ? 'candidate smoke' : command[2] === CANDIDATE_LEASE_WORKER_COMMAND
+                      ? 'candidate lease worker' : 'inventory admission';
+      reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
+    }
+  }
+  if (command[2] === ORACLE_HOST_PROBE_COMMAND
+    && !exactOracleHostProfile) {
+    reasons.push('oracle-host probe requires its exact workload id, small tier, and tiny bounded limits');
+  }
+  if (exactOracleHostProfile && promotionRequested) {
+    reasons.push('non-gradeable oracle-host probe cannot be promoted');
+  }
+  if (landlockCandidateProbe && !exactLandlockCandidateProfile) {
+    reasons.push(
+      `Landlock candidate probe requires --workload ${LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID}, small tier, and exact tiny bounds`,
+    );
+  }
+  if (exactLandlockCandidateProfile && promotionRequested) {
+    reasons.push('non-gradeable Landlock candidate probe cannot be promoted');
+  }
+  if (candidateSmokeInvocation && !exactCandidateSmokeProfile) {
+    reasons.push(
+      `candidate smoke requires --workload ${CANDIDATE_SMOKE_WORKLOAD_ID}, small tier, exact command, and exact six bounds`,
+    );
+  }
+  if (exactCandidateSmokeProfile && promotionRequested) {
+    reasons.push('non-gradeable candidate smoke cannot be promoted');
+  }
+  if (candidateLeaseWorkerInvocation && !exactCandidateLeaseWorkerProfile) {
+    reasons.push(
+      `candidate lease worker requires --workload ${CANDIDATE_LEASE_WORKER_WORKLOAD_ID}, matching tier, exact command, and exact six bounds`,
+    );
+  }
+  if (exactCandidateLeaseWorkerProfile && promotionRequested) {
+    reasons.push('non-gradeable candidate lease worker cannot be promoted');
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
@@ -445,6 +612,11 @@ export function preflightRun({
     },
     promotion,
     workload_id: workloadId,
+    launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE
+      : exactLandlockCandidateProfile ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE
+        : exactCandidateSmokeProfile ? CANDIDATE_SMOKE_LAUNCH_PROFILE
+          : exactCandidateLeaseWorkerProfile ? CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE : null,
+    temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };
 }

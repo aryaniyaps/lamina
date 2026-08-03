@@ -12,14 +12,16 @@ import {
   quotaFilesystemUsage,
   removeOwnedDirectory,
 } from './filesystem.mjs';
-import { LinuxSystemdAdapter } from './linux-systemd.mjs';
+import { exactOracleHostLaunchAuthorized, isOracleHostSnapshotLaunchProfile, LinuxSystemdAdapter } from './linux-systemd.mjs';
 import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
 import {
-  baseReport, finishReport, persistReportAuthorityWith, prepareReportAuthority, writeReportWithFallback,
+  baseReport, finishReport, persistReportAuthorityWith, prepareReportAuthority, validateReport,
+  writeReportWithFallback,
 } from './report.mjs';
+export { outerSafeRunnerCleanupVerified } from './report.mjs';
 import { redactEvidence, redactText } from './redaction.mjs';
 import {
   assertFrozenWorkloadIdentity, beginSafetyAttempt,
@@ -28,8 +30,27 @@ import {
 import { sanitizedPayloadEnvironment } from './infrastructure.mjs';
 import { lstatPresence } from './managed-paths.mjs';
 import { assertExecutionSnapshot, prepareExecutionSnapshot } from './execution-snapshot.mjs';
+import {
+  createOracleQuotaRegistry, exactOracleQuotaReadyProof, procCgroupFromControlPath,
+} from './oracle-quota-broker.mjs';
+import { ORACLE_HOST_LAUNCH_PROFILE } from './oracle-host-profile.mjs';
+import { CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE } from './candidate-lease-worker-profile.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+export function retainCgroupEventMaxima(previous = {}, observed = {}) {
+  const merged = structuredClone(previous && typeof previous === 'object' ? previous : {});
+  for (const [controller, counters] of Object.entries(observed || {})) {
+    if (!counters || typeof counters !== 'object' || Array.isArray(counters)) continue;
+    const retained = merged[controller] && typeof merged[controller] === 'object'
+      ? merged[controller] : {};
+    for (const [name, value] of Object.entries(counters)) {
+      if (Number.isFinite(value) && value >= 0) retained[name] = Math.max(retained[name] || 0, value);
+    }
+    merged[controller] = retained;
+  }
+  return merged;
+}
 
 function errorDetails(error, fallback = 'LAMINA_SAFE_INTERNAL') {
   return {
@@ -56,6 +77,14 @@ export function payloadRuntimeTimedOut(payloadStartedMs, nowMs, timeoutMs) {
   if (!Number.isFinite(payloadStartedMs) || !Number.isFinite(nowMs)
     || !Number.isFinite(timeoutMs) || timeoutMs < 0 || nowMs < payloadStartedMs) return true;
   return nowMs - payloadStartedMs >= timeoutMs;
+}
+
+export function oracleQuotaCompletionAuthorized({
+  launchProfile, proof, releaseAuthorized, finished, registryState,
+} = {}) {
+  if (!isOracleHostSnapshotLaunchProfile(launchProfile)) return true;
+  return Boolean(proof && releaseAuthorized === true && finished === true
+    && registryState?.state === 'finished' && registryState.cleanup_verified === true);
 }
 
 export function boundedDiagnosticText(value) {
@@ -324,6 +353,10 @@ export async function runSafely({
   let launcherStderrTail = '';
   let launchChildState = { ended: false, code: null, signal: null, error: null };
   let scopeHandshakeDiagnostic = null;
+  let oracleQuotaRegistry = null;
+  let oracleQuotaProof = null;
+  let oracleQuotaReleaseAuthorized = false;
+  let oracleQuotaFinished = false;
   let lastTemporary = { bytes: 0, entries: 0, exceeded: false };
   const managedRegistrations = [];
   const managedReservations = [];
@@ -417,7 +450,28 @@ export async function runSafely({
       accounting: typeof measurementObserver === 'function',
     });
     let temporary = null;
-    if (activeAdapter.production_enforcement && quotaProven) {
+    const oracleProfile = isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile);
+    if (oracleProfile && activeAdapter.production_enforcement && quotaProven) {
+      const oracleUsage = oracleQuotaRegistry?.usage() || null;
+      if (oracleUsage?.state === 'finished' && oracleUsage.cleanup_verified === true) {
+        oracleQuotaFinished = true;
+        temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+          exceeded: false, reason: null, quota_proven: true, terminal: true };
+      } else if (oracleUsage?.state === 'release_authorized' && oracleQuotaReleaseAuthorized) {
+        temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+          exceeded: false, reason: null, quota_proven: true, release_transition: true };
+      } else if (oracleUsage && Number.isFinite(oracleUsage.bytes)
+        && Number.isFinite(oracleUsage.entries)) {
+        temporary = oracleUsage;
+      } else if (oracleQuotaProof && !oracleQuotaReleaseAuthorized && !oracleQuotaFinished) {
+        temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+          exceeded: false, reason: null, quota_proven: true, oracle_worker_active: true };
+      } else {
+        requestStop('internal_error', 'oracle_quota_visibility');
+        temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+          exceeded: true, reason: 'visibility', quota_proven: false };
+      }
+    } else if (activeAdapter.production_enforcement && quotaProven) {
       temporary = quotaFilesystemUsage(
         measured.records,
         payloadTemporaryDirectory,
@@ -431,8 +485,11 @@ export async function runSafely({
         report.limits.temporary_max_inodes,
       );
     }
-    if (temporary) lastTemporary = temporary;
-    temporary = temporary || lastTemporary;
+    if (temporary && !oracleProfile) lastTemporary = temporary;
+    temporary = temporary || (oracleProfile
+      ? { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+        exceeded: false, reason: null, quota_proven: false }
+      : lastTemporary);
     const aggregateRss = measured.aggregateRssBytes ?? (measured.records || [])
       .reduce((sum, record) => sum + (record.rss_bytes || 0), 0);
     const cgroupMemory = measured.cgroupMemoryCurrentBytes ?? measured.aggregateRssBytes ?? 0;
@@ -444,7 +501,9 @@ export async function runSafely({
     report.peaks.temporary_bytes = Math.max(report.peaks.temporary_bytes, temporary.bytes);
     report.peaks.temporary_inodes = Math.max(report.peaks.temporary_inodes, temporary.entries);
     rememberDescendants(report, measured.records, elapsed);
-    report.termination.cgroup_events = measured.events || {};
+    report.termination.cgroup_events = retainCgroupEventMaxima(
+      report.termination.cgroup_events, measured.events,
+    );
     report.samples.push({
       elapsed_ms: elapsed,
       aggregate_rss_bytes: aggregateRss,
@@ -632,12 +691,18 @@ export async function runSafely({
         infrastructure: activeAdapter.infrastructure,
         environment: { ...process.env, ...env },
         expectedRetrievalAuthority: preflight.retrieval_authority,
+        tier,
         onProgress() {
           if (snapshotProgressObserved) return;
           snapshotProgressObserved = true;
           crashBoundary('snapshot_building');
         },
       });
+      if (preflight.launch_profile !== executionSnapshot.launch_profile) {
+        throw Object.assign(new Error(
+          'preflight and sealed execution snapshot launch profiles do not match',
+        ), { code: 'LAMINA_SAFE_LAUNCH_PROFILE' });
+      }
       launchCommand = executionSnapshot.launch_command;
       if (preflight.source_identity) {
         assertFrozenWorkloadIdentity(preflight.source_identity, cwd, executionCommand);
@@ -647,9 +712,12 @@ export async function runSafely({
         digest: executionSnapshot.digest,
         file_count: executionSnapshot.file_count,
         total_bytes: executionSnapshot.total_bytes,
+        source_closure: executionSnapshot.source_closure_identity,
         snapshot_roots: [executionSnapshot.snapshot_repository,
           ...(executionSnapshot.git_readonly_bindings || []).map((binding) => binding.source)],
         writable_roots: executionSnapshot.writable_bindings.map((binding) => binding.source),
+        launch_profile: executionSnapshot.launch_profile,
+        translated_launch_binding: executionSnapshot.oracle_host_launch_binding,
       };
       if (preflight.source_identity) {
         report.preflight.execution_identity = bindExecutionSnapshotIdentity(
@@ -681,6 +749,60 @@ export async function runSafely({
       registrations: managedRegistrations,
       reservations: managedReservations,
       records: () => activeAdapter?.sample()?.records || [],
+      gatePid: null,
+      oracleHostLaunchAuthorized(record) {
+        return isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile)
+          && exactOracleHostLaunchAuthorized(
+            record, activeAdapter?.oracleHostLaunchAuthority, this.gatePid,
+          );
+      },
+      registerOracleQuota(record) {
+        if (!isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile)
+          || oracleQuotaRegistry || oracleQuotaProof) return null;
+        oracleQuotaRegistry = createOracleQuotaRegistry({
+          cgroup: this.cgroup,
+          procCgroup: procCgroupFromControlPath(this.cgroup),
+          quotaBytes: report.limits.temporary_max_bytes,
+          bwrap: executionSnapshot.oracle_host_profile.bwrap,
+          bwrapIdentity: executionSnapshot.oracle_host_profile.bwrap_identity,
+          keeperArguments: activeAdapter.oracleHostLaunchAuthority.keeper_arguments,
+          privateTmpRoot: activeAdapter.oracleHostLaunchAuthority.private_tmp_root,
+          cacheCapabilityAuthority:
+            activeAdapter.oracleHostLaunchAuthority.cache_capability,
+        });
+        oracleQuotaProof = oracleQuotaRegistry.register(record);
+        report.preflight.oracle_host_launch = {
+          authorized: true,
+          requester: {
+            pid: record.requester.pid,
+            ppid: record.requester.ppid,
+            start_ticks: record.requester.start_ticks,
+            argv: record.requester.argv,
+            cwd: record.requester.cwd,
+            executable_identity: record.requester.executable_identity,
+            environment_names: record.requester.environment_attestation?.names,
+          },
+        };
+        return oracleQuotaProof;
+      },
+      probeOracleQuota({ requester, exerciseEnospc }) {
+        return oracleQuotaRegistry?.probe({ requester, exerciseEnospc });
+      },
+      releaseOracleQuota({ requester }) {
+        const released = oracleQuotaRegistry?.release({ requester });
+        if (released) oracleQuotaReleaseAuthorized = true;
+        return released;
+      },
+      finishOracleQuota({ requester }) {
+        const finished = oracleQuotaRegistry?.finish({ requester });
+        if (finished) {
+          oracleQuotaFinished = true;
+          report.preflight.oracle_quota_terminal = {
+            ...finished, state: 'finished', cleanup_verified: true,
+          };
+        }
+        return finished;
+      },
       graphdLaunchAuthorized(child, reservation) {
         return exactGraphdLaunchAuthorized(child, reservation,
           executionSnapshot?.graphd_launch_authority || []);
@@ -843,7 +965,7 @@ export async function runSafely({
           launcherStderrTail = appendRawTail(
             launcherStderrTail,
             value,
-            DEFAULTS.diagnosticTailBytes,
+            report.limits.stderr_tail_max_bytes,
           );
         }
         report.output[`${key}_bytes`] += value.length;
@@ -853,7 +975,7 @@ export async function runSafely({
         if (retained.length > 0 && !stopping) {
           retainedOutputBytes += retained.length;
           report.output[`${key}_tail`] = appendTail(
-            report.output[`${key}_tail`], retained, DEFAULTS.diagnosticTailBytes,
+            report.output[`${key}_tail`], retained, report.limits[`${key}_tail_max_bytes`],
           );
           if (!sink.write(retained)) {
             stream.pause();
@@ -899,6 +1021,7 @@ export async function runSafely({
             };
             authority.cgroup = activeAdapter.cgroupPath;
             authority.enforcement = enforcement.actual;
+            authority.gatePid = gatePid;
             lock?.updateScope({
               adapter: activeAdapter.id,
               unit: activeAdapter.unit,
@@ -984,7 +1107,17 @@ export async function runSafely({
         try {
           const value = JSON.parse(fs.readFileSync(quotaReadyFile, 'utf8'));
           const totalBytes = Number(value.block_size) * Number(value.blocks);
-          if (value.filesystem_type === 'tmpfs'
+          const oracleProfile = isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile);
+          const oracleProofMatches = !oracleProfile || (oracleQuotaProof
+            && exactOracleQuotaReadyProof(value, oracleQuotaProof, authority.cgroup)
+            && exactOracleHostLaunchAuthorized(
+              (activeAdapter.sample().records || []).find((record) =>
+                record.pid === value.requester?.pid
+                  && record.start_ticks === value.requester?.start_ticks),
+              activeAdapter.oracleHostLaunchAuthority,
+              authority.gatePid,
+            ));
+          if (oracleProofMatches && value.filesystem_type === 'tmpfs'
             && Number.isSafeInteger(totalBytes)
             && totalBytes > 0
             && totalBytes <= report.limits.temporary_max_bytes + Number(value.block_size)) {
@@ -1016,8 +1149,9 @@ export async function runSafely({
       }
       crashBoundary('before_payload_release');
       payloadStartedMs = Date.now();
-      await releaseFifo(quotaReleaseFile);
       crashWatchdog?.update({ report_seed: report, armed: true });
+      crashBoundary('payload_armed_before_release');
+      await releaseFifo(quotaReleaseFile);
       crashBoundary('payload_released');
       tracePhase('launch:payload-released');
     } else {
@@ -1040,6 +1174,20 @@ export async function runSafely({
       });
     }
     recordChildTermination(report.termination, ended);
+    if (executionSnapshot) assertExecutionSnapshot(executionSnapshot);
+    tracePhase('run:post-exit-identity-checked');
+    if (!oracleQuotaCompletionAuthorized({
+      launchProfile: executionSnapshot?.launch_profile,
+      proof: oracleQuotaProof,
+      releaseAuthorized: oracleQuotaReleaseAuthorized,
+      finished: oracleQuotaFinished,
+      registryState: oracleQuotaRegistry?.usage(),
+    })) {
+      requestStop('internal_error', 'oracle_quota_finish');
+      throw Object.assign(new Error(
+        'oracle-host exited without exact quota release and terminal cleanup verification',
+      ), { code: 'LAMINA_SAFE_ORACLE_QUOTA_INCOMPLETE' });
+    }
     if (ended.error) {
       report.outcome = 'internal_error';
       report.termination.reason = 'spawn_failed';
@@ -1095,6 +1243,13 @@ export async function runSafely({
     if (monitor) clearInterval(monitor);
     if (forceTimer) clearTimeout(forceTimer);
     report.cleanup.attempted = true;
+    if (oracleQuotaRegistry && !oracleQuotaFinished) {
+      try {
+        report.cleanup.oracle_quota_abort = oracleQuotaRegistry.prepareAbort();
+      } catch (error) {
+        report.cleanup.errors.push(`oracle quota abort preparation: ${error.message}`);
+      }
+    }
     if (activeAdapter) {
       try {
         if ((activeAdapter.sample().pids || []).length) {
@@ -1118,6 +1273,19 @@ export async function runSafely({
       }
     }
     tracePhase('finally:adapter-clean');
+    if (oracleQuotaRegistry && !oracleQuotaFinished) {
+      try {
+        const aborted = oracleQuotaRegistry.finishAbort();
+        report.cleanup.oracle_quota_abort = {
+          ...(report.cleanup.oracle_quota_abort || {}), ...aborted,
+        };
+        if (aborted.cleanup_verified !== true) {
+          report.cleanup.errors.push('oracle quota abort did not observe exact scope death');
+        }
+      } catch (error) {
+        report.cleanup.errors.push(`oracle quota abort finalization: ${error.message}`);
+      }
+    }
     if (proofBroker) {
       try { await proofBroker.close(); } catch (error) {
         report.cleanup.errors.push(`proof broker cleanup: ${error.message}`);

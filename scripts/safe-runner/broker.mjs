@@ -9,6 +9,9 @@ const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || ''
   && (Number(record?.pid) === Number(claimed?.pid)
     || record?.namespace_pids?.includes(Number(claimed?.pid)));
 
+const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+  && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+
 export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority = []) {
   const environment = child?.environment_attestation;
   if (!Array.isArray(child?.argv)
@@ -71,6 +74,47 @@ export function authorizeBrokerRequest(request, authority) {
         enforcement: authority.enforcement,
       },
     };
+  }
+  if (['register_oracle_quota', 'probe_oracle_quota', 'release_oracle_quota',
+    'finish_oracle_quota'].includes(request.operation)) {
+    if (!authority.oracleHostLaunchAuthorized?.(requester)) {
+      return { ok: false, error: 'requester is not the exact sealed oracle-host launch' };
+    }
+    if (request.operation === 'register_oracle_quota') {
+      if (!exactKeys(request, [
+        'operation', 'requester', 'outer', 'keeper', 'bwrap_info', 'quota_bytes',
+        'cache_capability',
+      ])) return { ok: false, error: 'oracle quota registration is not exact' };
+      const outer = records.find((record) => sameScopedIdentity(record, request.outer));
+      const keeper = records.find((record) => sameScopedIdentity(record, request.keeper));
+      if (!outer || !keeper || outer.ppid !== requester.pid || keeper.ppid !== outer.pid) {
+        return { ok: false, error: 'oracle quota processes are not exact direct descendants' };
+      }
+      if (!Number.isSafeInteger(request.quota_bytes) || request.quota_bytes < 4096) {
+        return { ok: false, error: 'oracle quota bytes are invalid' };
+      }
+      const proof = authority.registerOracleQuota?.({ requester, outer, keeper,
+        bwrap_info: request.bwrap_info,
+        quota_bytes: request.quota_bytes,
+        cache_capability: request.cache_capability });
+      return proof ? { ok: true, proof }
+        : { ok: false, error: 'oracle quota could not be identity-bound' };
+    }
+    if (request.operation === 'probe_oracle_quota') {
+      const usage = authority.probeOracleQuota?.({
+        requester, exerciseEnospc: request.exercise_enospc === true,
+      });
+      return usage ? { ok: true, usage }
+        : { ok: false, error: 'oracle quota probe is unavailable' };
+    }
+    if (request.operation === 'release_oracle_quota') {
+      const release = authority.releaseOracleQuota?.({ requester });
+      return release ? { ok: true, release }
+        : { ok: false, error: 'oracle quota mount pins could not be released' };
+    }
+    const finish = authority.finishOracleQuota?.({ requester });
+    return finish ? { ok: true, finish }
+      : { ok: false, error: 'oracle quota lifecycle could not be finalized' };
   }
   if (request.operation === 'reserve_graphd') {
     if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)

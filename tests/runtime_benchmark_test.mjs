@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { baseReport, validateReport } from '../scripts/safe-runner/report.mjs';
+import { DEFAULTS as SAFE_RUNNER_DEFAULTS } from '../scripts/safe-runner/constants.mjs';
 import { parseCgroupCpuStat, parseCgroupIoStat } from '../scripts/safe-runner/linux-systemd.mjs';
 import {
   DEFAULT_LIMITS, LIFECYCLE_PHASES, RESULT_SCHEMA, RESULT_SCHEMA_VERSION,
@@ -34,7 +35,11 @@ function successfulSafeReport(index) {
   report.duration_ms = 10 + index;
   report.outcome = 'success';
   report.adapter = { id: 'test-cgroup' };
-  report.limits = { memory_max_bytes: 1 };
+  report.limits = {
+    memory_max_bytes: 1,
+    stdout_tail_max_bytes: SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
+    stderr_tail_max_bytes: SAFE_RUNNER_DEFAULTS.diagnosticTailBytes,
+  };
   report.preflight = { ok: true };
   report.samples = [{
     elapsed_ms: 1,
@@ -63,6 +68,10 @@ function successfulSafeReport(index) {
     errors: [],
   };
   assert.equal(validateReport(report).valid, true);
+  assert.equal(report.limits.stdout_tail_max_bytes, 8 * 1024,
+    'synthetic runtime reports bind the default stdout retention limit');
+  assert.equal(report.limits.stderr_tail_max_bytes, 8 * 1024,
+    'synthetic runtime reports bind the default stderr retention limit');
   return report;
 }
 

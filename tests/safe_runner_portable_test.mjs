@@ -5,6 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { adapterProbe, assertAdapterShape } from '../scripts/safe-runner/adapter.mjs';
 import { MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import {
+  fixedGitDirectoriesForPlatform, refusalProgramForPlatform,
+} from '../scripts/safe-runner/git.mjs';
+import {
+  sameTrustedBinaryStableFields, trustedBinaryStableFields,
+  trustedBinaryStatPolicy, trustedPhysicalPathEqual, trustedReadOpenFlags,
+} from '../scripts/safe-runner/infrastructure.mjs';
 import { PortableProcessGroupAdapter } from '../scripts/safe-runner/portable-process-group.mjs';
 import { preflightRun } from '../scripts/safe-runner/preflight.mjs';
 import { runAdversarialSelfTests } from '../scripts/safe-runner/self-test.mjs';
@@ -33,6 +40,89 @@ for (const platform of ['darwin', 'win32']) {
 }
 assert.equal(assertAdapterShape(new PortableProcessGroupAdapter()).id,
   'portable-process-group-small-only');
+
+const windowsRegularFile = {
+  platform: 'win32', regularFile: true, symbolicLink: false,
+  mode: 0o100666n, uid: 0n, currentUid: null, requireRootOwnership: false,
+};
+assert.equal(trustedBinaryStatPolicy(windowsRegularFile), true,
+  'Windows trust must not reinterpret unsupported execute, group/other, or setid bits');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, regularFile: false }), false);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, symbolicLink: true }), false);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, requireRootOwnership: true }), false,
+  'POSIX root ownership authority is unavailable on Windows');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux' }), false,
+  'the identical writable non-executable mode remains forbidden by the POSIX policy');
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux',
+  mode: 0o100755n, uid: BigInt(process.getuid?.() ?? 1),
+  currentUid: process.getuid?.() ?? 1 }), true);
+assert.equal(trustedBinaryStatPolicy({ ...windowsRegularFile, platform: 'linux',
+  mode: 0o104755n }), false, 'the POSIX setid rejection remains exact');
+assert.equal(trustedPhysicalPathEqual(
+  'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
+  'c:\\Program Files\\Git\\mingw64\\bin\\git.exe', 'win32',
+), true, 'Windows physical path comparison permits drive-letter case only');
+for (const changedCase of [
+  'C:\\program files\\Git\\mingw64\\bin\\git.exe',
+  'C:\\Program Files\\Git\\mingw64\\bin\\GIT.EXE',
+]) {
+  assert.equal(trustedPhysicalPathEqual(
+    'C:\\Program Files\\Git\\mingw64\\bin\\git.exe', changedCase, 'win32',
+  ), false, 'canonical component casing must remain exact for case-sensitive Windows directories');
+}
+assert.equal(trustedPhysicalPathEqual(
+  'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
+  'C:\\Elsewhere\\git.exe', 'win32',
+), false, 'case handling must not admit a different real path or reparse target');
+assert.deepEqual(fixedGitDirectoriesForPlatform('win32'), [
+  'C:\\Program Files\\Git\\mingw64\\bin',
+  'C:\\Program Files\\Git\\clangarm64\\bin',
+  'C:\\Program Files\\Git\\mingw32\\bin',
+  'C:\\Program Files (x86)\\Git\\mingw32\\bin',
+]);
+assert.ok(fixedGitDirectoriesForPlatform('win32').every((directory) =>
+  /[\\/]Git[\\/](?:mingw64|clangarm64|mingw32)[\\/]bin$/i.test(directory)),
+  'Windows fixed Git authority must name actual architecture binaries, not wrapper entry points');
+assert.equal(refusalProgramForPlatform('win32'),
+  'C:/Windows/System32/lamina-safe-runner-refuse-execution-does-not-exist.exe');
+assert.equal(path.win32.isAbsolute(refusalProgramForPlatform('win32')), true);
+assert.doesNotMatch(refusalProgramForPlatform('win32'), /\\/,
+  'Git shell refusal authority must use the exact forward-slash Windows spelling');
+assert.doesNotMatch(refusalProgramForPlatform('win32'), /cmd\.exe|[\s"']/i,
+  'Windows refusal hooks must never invoke an ambient command interpreter');
+assert.equal(refusalProgramForPlatform('linux'), '/bin/false');
+assert.equal(trustedReadOpenFlags('win32'), fs.constants.O_RDONLY,
+  'Windows must use its explicit lstat/fstat continuity fallback without a fake O_NOFOLLOW bit');
+if (Number.isInteger(fs.constants.O_NOFOLLOW)) {
+  assert.equal(trustedReadOpenFlags('linux'),
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    'hosts exposing O_NOFOLLOW retain the exact POSIX no-follow descriptor flags');
+} else {
+  assert.throws(() => trustedReadOpenFlags('linux'), /no-follow open is unavailable/,
+    'a synthetic POSIX request must fail closed when the Windows host exposes no O_NOFOLLOW');
+}
+
+const stableBinaryStat = {
+  dev: 1n, ino: 2n, uid: 3n, gid: 4n, mode: 0o100666n, size: 8n,
+  nlink: 1n, mtimeNs: 5n, ctimeNs: 6n,
+};
+assert.deepEqual(trustedBinaryStableFields(stableBinaryStat), {
+  dev: '1', ino: '2', uid: '3', gid: '4', mode: String(0o100666), size: '8',
+  nlink: '1', mtimeNs: '5', ctimeNs: '6',
+});
+assert.equal(sameTrustedBinaryStableFields(stableBinaryStat, { ...stableBinaryStat }), true);
+for (const field of ['mtimeNs', 'ctimeNs', 'uid', 'gid', 'nlink']) {
+  assert.equal(sameTrustedBinaryStableFields(stableBinaryStat, {
+    ...stableBinaryStat, [field]: stableBinaryStat[field] + 1n,
+  }), false, `trusted binary continuity must reject ${field} drift at unchanged size`);
+}
+assert.equal(sameTrustedBinaryStableFields(stableBinaryStat, {
+  ...stableBinaryStat, size: stableBinaryStat.size,
+  mtimeNs: stableBinaryStat.mtimeNs + 1n,
+}), false, 'same-size in-place timestamp drift must fail continuity');
+assert.equal(sameTrustedBinaryStableFields(stableBinaryStat,
+  { ...stableBinaryStat, ctimeNs: undefined }), false,
+  'missing stable metadata must fail closed');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-safe-portable-contract-'));
 const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;

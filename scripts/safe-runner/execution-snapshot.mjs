@@ -2,12 +2,43 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit, trustedGitIdentity } from './git.mjs';
 import {
-  assertTrustedBinaryIdentity, trustedRootBinaryIdentity,
+  assertTrustedBinaryIdentity, sanitizedEnvironment, trustedRootBinaryIdentity,
+  trustedRootHostBinary,
 } from './infrastructure.mjs';
+import {
+  attestOracleKeeperBwrapHelp,
+  ORACLE_HOST_LAUNCH_PROFILE,
+  ORACLE_HOST_PROBE_COMMAND,
+  oracleKeeperBwrapArguments,
+  ORACLE_HOST_PROBE_MAX_QUOTA_BYTES,
+} from './oracle-host-profile.mjs';
+import {
+  attestCandidateLeaseWorkerKeeperBwrapHelp,
+  CANDIDATE_LEASE_WORKER_HOST_LAUNCH_PROFILE,
+  candidateLeaseWorkerKeeperBwrapArguments,
+} from './candidate-lease-worker-host-profile.mjs';
+import { oracleCacheCapabilityAuthority, isOracleCacheCapabilityAuthority } from './oracle-cache-capability.mjs';
+import { pinnedCollectionForTier } from '../../benchmarks/real-repository-oracle-v1/collection-pins.mjs';
+import {
+  exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+} from './landlock-candidate-profile.mjs';
+import {
+  landlockCandidateFileIdentity, landlockCandidateRuntimeClosure,
+} from './landlock-candidate-launcher.mjs';
+import {
+  CANDIDATE_SMOKE_LAUNCH_PROFILE, exactCandidateSmokeCommand,
+} from './candidate-smoke-profile.mjs';
+import {
+  CANDIDATE_LEASE_WORKER_COMMAND,
+  CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE,
+  CANDIDATE_LEASE_WORKER_LIMITS,
+  exactCandidateLeaseWorkerCommand,
+} from './candidate-lease-worker-profile.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -15,6 +46,32 @@ import {
   RETRIEVAL_BENCHMARK_ENTRYPOINT,
   retrievalQualificationAuthority,
 } from './retrieval-authority.mjs';
+import {
+  REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+  REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
+  realRepositoryOracleSourceClosure,
+  realRepositoryOracleSourceClosureIdentity,
+} from './real-repository-source-closure.mjs';
+export {
+  REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA,
+  realRepositoryOracleSourceClosure,
+  realRepositoryOracleSourceClosureIdentity,
+} from './real-repository-source-closure.mjs';
 
 const MAX_FILES = DEFAULTS.executionAuthorityMaxFiles;
 const MAX_BYTES = DEFAULTS.executionAuthorityMaxBytes;
@@ -277,6 +334,7 @@ function entrypointRelative(repository, command, cwd = repository) {
       || EXPLICIT_ENTRYPOINT_ARGV_OUTPUTS.has(relative)
       || EXPLICIT_ENTRYPOINT_ENV_FILE_INPUTS.has(relative)
       || relative === RUNTIME_BASELINE_ENTRYPOINT
+      || relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       || relative === RETRIEVAL_BENCHMARK_ENTRYPOINT)) return relative;
   }
   return null;
@@ -668,9 +726,36 @@ function dependencyNames(repository, command, cwd, npxAuthority = null) {
   return [...packages.values()];
 }
 
+function buildOracleTierPackedBareCacheIsolated(root, options) {
+  const buildScript = path.join(path.dirname(fileURLToPath(import.meta.url)),
+    'oracle-tier-packed-cache-build.mjs');
+  const inputFile = path.join(root, `oracle-cache-build-${crypto.randomBytes(8).toString('hex')}.json`);
+  const bytesFile = `${inputFile}.bytes`;
+  const metaFile = `${inputFile}.meta`;
+  fs.writeFileSync(inputFile, JSON.stringify(options));
+  const child = spawnSync(process.execPath, [buildScript, inputFile, bytesFile, metaFile], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  try { fs.unlinkSync(inputFile); } catch {}
+  if (child.status !== 0 || child.signal) {
+    try { fs.unlinkSync(bytesFile); } catch {}
+    try { fs.unlinkSync(metaFile); } catch {}
+    throw new Error(child.stderr?.trim() || child.stdout?.trim() || 'oracle tier packed cache build failed');
+  }
+  const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+  const sealed = Object.freeze({
+    ...meta,
+    bytes: fs.readFileSync(bytesFile),
+  });
+  fs.unlinkSync(bytesFile);
+  fs.unlinkSync(metaFile);
+  return sealed;
+}
+
 export function prepareExecutionSnapshot({
   cwd, command, temporaryDirectory, infrastructure = null, environment = {}, onProgress = null,
-  expectedRetrievalAuthority = null,
+  expectedRetrievalAuthority = null, tier = 'small', temporaryMaxBytes = 64 * 1024,
   _testAfterRetrievalAuthorityValidated = null,
   _testBeforeRetrievalCopyValidation = null,
 }) {
@@ -681,6 +766,21 @@ export function prepareExecutionSnapshot({
     throw new Error(npxAuthority.launch_refusal);
   }
   const auditedEntrypoint = entrypointRelative(repository, command, cwd);
+  const oracleHostProbe = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && command.length === 3 && command[2] === ORACLE_HOST_PROBE_COMMAND;
+  const candidateLeaseWorker = exactCandidateLeaseWorkerCommand(command);
+  const landlockCandidateProbe = exactLandlockCandidateProbeCommand(command);
+  const candidateSmoke = exactCandidateSmokeCommand(command);
+  const resolvedRealRepositoryClosure = realRepositoryOracleSourceClosure(
+    candidateLeaseWorker ? CANDIDATE_LEASE_WORKER_COMMAND : command[2],
+  );
+  if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    && !resolvedRealRepositoryClosure) {
+    throw new Error('real-repository execution snapshot command has no exact source closure');
+  }
+  const realRepositoryClosure = resolvedRealRepositoryClosure
+    || REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE;
+  const realRepositorySourceSet = new Set(realRepositoryClosure);
   const repositoryOutputReason = repositoryOutputRefusal(auditedEntrypoint);
   if (repositoryOutputReason) throw new Error(repositoryOutputReason);
   const retrievalAuthority = retrievalQualificationAuthority({ repository, cwd, command });
@@ -694,11 +794,17 @@ export function prepareExecutionSnapshot({
   const environmentOverrides = {};
   let totalBytes = 0;
   let dependencyCreatedDirectories = 0;
-  const sourceFiles = repositoryFiles(repository).filter((relative) =>
-    auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT
-      || relative === RUNTIME_BASELINE_ENTRYPOINT
-      || relative.startsWith('benchmarks/runtime-baseline-v1/')
-      || relative.startsWith('packages/cli/'));
+  const sourceFiles = repositoryFiles(repository).filter((relative) => {
+    if (auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT) {
+      return relative === RUNTIME_BASELINE_ENTRYPOINT
+        || relative.startsWith('benchmarks/runtime-baseline-v1/')
+        || relative.startsWith('packages/cli/');
+    }
+    if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+      return realRepositorySourceSet.has(relative);
+    }
+    return true;
+  });
   for (const relative of sourceFiles) {
     const source = path.join(repository, relative);
     const destination = path.join(snapshotRepository, relative);
@@ -722,6 +828,26 @@ export function prepareExecutionSnapshot({
     if (totalBytes > MAX_BYTES) throw new Error(`execution snapshot exceeds ${MAX_BYTES} bytes`);
     entries.push({ label: `repository:${relative}`, path: destination, type: 'file', ...copied });
     onProgress?.({ files: entries.length, bytes: totalBytes });
+  }
+  const realRepositorySourceClosureIdentity = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
+    ? realRepositoryOracleSourceClosureIdentity(repository, command[2]) : null;
+  if (realRepositorySourceClosureIdentity) {
+    const copiedRows = realRepositoryClosure.map((relative) => {
+      const copied = entries.find((entry) => entry.label === `repository:${relative}`);
+      if (!copied || copied.type !== 'file') {
+        throw new Error(`real-repository source closure was not copied exactly: ${relative}`);
+      }
+      return { relative, bytes: copied.size, sha256: copied.digest };
+    });
+    if (copiedRows.length !== realRepositorySourceClosureIdentity.file_count
+      || copiedRows.reduce((total, row) => total + row.bytes, 0)
+        !== realRepositorySourceClosureIdentity.total_bytes
+      || crypto.createHash('sha256').update(JSON.stringify(realRepositoryClosure)).digest('hex')
+        !== realRepositorySourceClosureIdentity.paths_sha256
+      || crypto.createHash('sha256').update(JSON.stringify(copiedRows)).digest('hex')
+        !== realRepositorySourceClosureIdentity.files_sha256) {
+      throw new Error('real-repository copied source closure identity drifted');
+    }
   }
   if (npxAuthority) {
     for (const [relative, authority] of [
@@ -972,11 +1098,15 @@ export function prepareExecutionSnapshot({
   }
   const objectIds = new Set();
   if (head) {
-    // The runtime baseline uses the Lamina checkout only as immutable executable
+    // The runtime baseline and real-repository inventory admission use the
+    // Lamina checkout only as immutable executable
     // source and reads its HEAD identifier; all repository lifecycle work occurs
     // in separately cloned pinned fixtures. Seal that identifier without copying
     // unrelated Lamina history beside the large pinned runtime inputs.
-    const reachable = auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
+    const headOnlyGitClosure = [
+      RUNTIME_BASELINE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_ENTRYPOINT,
+    ].includes(auditedEntrypoint);
+    const reachable = headOnlyGitClosure
       ? head
       : gitOutput(repository, ['rev-list', '--objects', 'HEAD']);
     for (const item of reachable.split('\n').filter(Boolean)) {
@@ -985,7 +1115,7 @@ export function prepareExecutionSnapshot({
       objectIds.add(oid);
     }
   }
-  if (auditedEntrypoint !== RUNTIME_BASELINE_ENTRYPOINT) {
+  if (![RUNTIME_BASELINE_ENTRYPOINT, REAL_REPOSITORY_ORACLE_ENTRYPOINT].includes(auditedEntrypoint)) {
     const staged = gitOutput(repository, ['ls-files', '--stage', '-z']);
     for (const item of staged.split('\0').filter(Boolean)) {
       const oid = item.match(/^[0-7]{6}\s+([a-f0-9]{40,64})\s+[0-3]\t/)?.[1];
@@ -1237,13 +1367,30 @@ export function prepareExecutionSnapshot({
         mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
       };
     }
-    for (const name of ['gate.sh', 'quota-gate.sh', 'sandbox.mjs', 'infrastructure.mjs']) {
+    const infrastructureSources = [
+      'gate.sh', 'quota-gate.sh', 'sandbox.mjs', 'infrastructure.mjs',
+    ];
+    if (oracleHostProbe || candidateLeaseWorker) infrastructureSources.push('oracle-host-launcher.mjs');
+    for (const name of infrastructureSources) {
       const source = path.join(HERE, name);
       const destination = path.join(root, 'infrastructure', name);
       const copied = copyPhysicalFile(source, destination, name.endsWith('.sh'));
       totalBytes += copied.size;
       entries.push({ label: `infrastructure:${name}`, path: destination, type: 'file', ...copied });
       stagedInfrastructure[name.replaceAll(/[-.]/g, '_')] = destination;
+    }
+    if (oracleHostProbe || candidateLeaseWorker) {
+      const oracleEnvSource = trustedRootHostBinary('env');
+      const oracleEnv = path.join(root, 'infrastructure', 'oracle-env');
+      const copied = copyPhysicalFile(oracleEnvSource.path, oracleEnv, true);
+      const stat = fs.lstatSync(oracleEnv, { bigint: true });
+      totalBytes += copied.size;
+      entries.push({ label: 'infrastructure:oracle-env', path: oracleEnv, type: 'file', ...copied });
+      stagedInfrastructure.oracle_host_env = oracleEnv;
+      stagedInfrastructure.identities.oracle_host_env = {
+        path: oracleEnv, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+        mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
+      };
     }
     if (auditedEntrypoint === 'scripts/build-standalone-cli.mjs') {
       const uvSource = resolveProgram(environment.LAMINA_UV_BINARY
@@ -1282,9 +1429,207 @@ export function prepareExecutionSnapshot({
   const launchCommand = npxPackage
     ? [stagedInfrastructure.node, npxEntrypoint, ...command.slice(2)]
     : [executable, ...command.slice(1)];
+  let oracleHostLaunchCommand = null;
+  let oracleHostLaunchCwd = null;
+  let oracleHostProfile = null;
+  let oracleHostLaunchBinding = null;
+  if (oracleHostProbe || candidateLeaseWorker) {
+    const oracleHost = path.join(
+      snapshotRepository, candidateLeaseWorker
+        ? 'benchmarks/real-repository-oracle-v1/candidate-lease-oracle-host.mjs'
+        : 'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+    );
+    const workerRunner = candidateLeaseWorker
+      ? path.join(snapshotRepository,
+        'benchmarks/real-repository-oracle-v1/candidate-lease-worker-runner.mjs')
+      : null;
+    const oracleLauncher = stagedInfrastructure.oracle_host_launcher_mjs;
+    const copiedHost = entries.find((entry) => entry.path === oracleHost);
+    const copiedLauncher = entries.find((entry) => entry.path === oracleLauncher);
+    if (!copiedHost || copiedHost.type !== 'file' || !stagedInfrastructure.node
+      || !stagedInfrastructure.identities.node || !stagedInfrastructure.bwrap
+      || !stagedInfrastructure.identities.bwrap || !copiedLauncher) {
+      throw new Error('oracle-host launch profile lacks exact sealed infrastructure');
+    }
+    const hostStat = fs.lstatSync(oracleHost, { bigint: true });
+    const launcherStat = fs.lstatSync(oracleLauncher, { bigint: true });
+    assertTrustedBinaryIdentity(stagedInfrastructure.identities.bwrap);
+    const help = spawnSync(stagedInfrastructure.bwrap, ['--help'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,
+      maxBuffer: 256 * 1024, env: sanitizedEnvironment({ LANG: 'C', LC_ALL: 'C' }),
+    });
+    assertTrustedBinaryIdentity(stagedInfrastructure.identities.bwrap);
+    if (help.error || help.status !== 0 || help.signal || help.stderr.trim()) {
+      throw new Error('oracle quota keeper bwrap capability probe failed');
+    }
+    const capabilities = candidateLeaseWorker
+      ? attestCandidateLeaseWorkerKeeperBwrapHelp(help.stdout)
+      : attestOracleKeeperBwrapHelp(help.stdout);
+    const oracleTier = candidateLeaseWorker
+      ? command[3]
+      : (['small', 'medium', 'large'].includes(tier) ? tier : 'small');
+    const collectionPin = pinnedCollectionForTier(oracleTier);
+    const cacheBuildDir = fs.mkdtempSync(path.join(root, 'oracle-tier-cache-build-'));
+    let sealed;
+    try {
+      sealed = buildOracleTierPackedBareCacheIsolated(root, {
+        workDirectory: cacheBuildDir,
+        collection: {
+          fixture_id: collectionPin.fixture_id,
+          fixture_class: collectionPin.fixture_class,
+          repository_url: collectionPin.repository_url,
+          commit: collectionPin.commit,
+          tree_oid: collectionPin.tree_oid,
+        },
+      });
+    } finally {
+      const makeWritable = (directory) => {
+        for (const name of fs.readdirSync(directory)) {
+          const child = path.join(directory, name);
+          const stat = fs.lstatSync(child);
+          if (stat.isDirectory()) {
+            makeWritable(child);
+            fs.chmodSync(child, 0o700);
+          } else {
+            fs.chmodSync(child, 0o600);
+          }
+        }
+        fs.chmodSync(directory, 0o700);
+      };
+      try { makeWritable(cacheBuildDir); } catch {}
+      fs.rmSync(cacheBuildDir, { recursive: true, force: true });
+    }
+    const cacheCapabilitySealedRelative =
+      'benchmarks/real-repository-oracle-v1/.oracle-tier-cache-capability-sealed';
+    const sealedGitIdentityRelative =
+      'benchmarks/real-repository-oracle-v1/.oracle-sealed-git-identity';
+    const landlockClosureRelative =
+      'benchmarks/real-repository-oracle-v1/.oracle-landlock-runtime-closure-sealed';
+    const sealedPath = path.join(snapshotRepository, cacheCapabilitySealedRelative);
+    fs.mkdirSync(path.dirname(sealedPath), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(sealedPath, sealed.bytes, { mode: 0o400 });
+    const sealedGitIdentityEncoded =
+      Buffer.from(JSON.stringify(trustedGitIdentity())).toString('base64url');
+    const sealedGitIdentityDigest =
+      crypto.createHash('sha256').update(sealedGitIdentityEncoded).digest('hex');
+    const sealedGitPath = path.join(snapshotRepository, sealedGitIdentityRelative);
+    fs.writeFileSync(sealedGitPath, sealedGitIdentityEncoded, { mode: 0o400 });
+    let landlockRuntimeClosure = null;
+    let landlockClosureDigest = null;
+    if (candidateLeaseWorker) {
+      landlockRuntimeClosure = landlockCandidateRuntimeClosure(
+        landlockCandidateFileIdentity(stagedInfrastructure.node),
+      );
+      const landlockClosureBytes = Buffer.from(JSON.stringify(landlockRuntimeClosure), 'utf8');
+      landlockClosureDigest = crypto.createHash('sha256').update(landlockClosureBytes).digest('hex');
+      fs.writeFileSync(
+        path.join(snapshotRepository, landlockClosureRelative),
+        landlockClosureBytes,
+        { mode: 0o400 },
+      );
+    }
+    entries.push({
+      label: 'repository:oracle-tier-cache-capability-sealed',
+      path: sealedPath, type: 'file', size: sealed.size, digest: sealed.digest,
+    });
+    entries.push({
+      label: 'repository:oracle-sealed-git-identity',
+      path: sealedGitPath, type: 'file', size: sealedGitIdentityEncoded.length,
+      digest: sealedGitIdentityDigest,
+    });
+    if (candidateLeaseWorker && landlockClosureDigest) {
+      entries.push({
+        label: 'repository:oracle-landlock-runtime-closure-sealed',
+        path: path.join(snapshotRepository, landlockClosureRelative),
+        type: 'file',
+        size: Buffer.byteLength(JSON.stringify(landlockRuntimeClosure), 'utf8'),
+        digest: landlockClosureDigest,
+      });
+    }
+    totalBytes += sealed.size;
+    onProgress?.({ files: entries.length, bytes: totalBytes });
+    const quotaBytes = candidateLeaseWorker
+      ? CANDIDATE_LEASE_WORKER_LIMITS.temporary_max_bytes
+      : ORACLE_HOST_PROBE_MAX_QUOTA_BYTES;
+    const keeperArguments = candidateLeaseWorker
+      ? candidateLeaseWorkerKeeperBwrapArguments({
+        quotaBytes,
+        nodePath: stagedInfrastructure.node,
+        executionAuthorityRoot: root,
+        snapshotRepository,
+        workerRunner,
+        workerArgs: command.slice(3),
+        sealedGitIdentity: sealedGitIdentityEncoded,
+      })
+      : oracleKeeperBwrapArguments(quotaBytes);
+    const cacheCapability = oracleCacheCapabilityAuthority(sealed);
+    oracleHostLaunchCommand = Object.freeze([stagedInfrastructure.node, oracleHost]);
+    oracleHostLaunchCwd = snapshotRepository;
+    oracleHostProfile = Object.freeze({
+      schema: 'lamina.safe-runner-oracle-host-launch-profile/v1',
+      id: candidateLeaseWorker ? CANDIDATE_LEASE_WORKER_HOST_LAUNCH_PROFILE
+        : ORACLE_HOST_LAUNCH_PROFILE,
+      bwrap: stagedInfrastructure.bwrap,
+      bwrap_identity: Object.freeze({ ...stagedInfrastructure.identities.bwrap }),
+      bwrap_capabilities: capabilities,
+      launcher: oracleLauncher,
+      launcher_identity: Object.freeze({
+        path: oracleLauncher, dev: String(launcherStat.dev), ino: String(launcherStat.ino),
+        uid: Number(launcherStat.uid), mode: Number(launcherStat.mode & 0o7777n),
+        size: String(launcherStat.size), digest: copiedLauncher.digest,
+      }),
+      bootstrap_environment: Object.freeze({
+        path: stagedInfrastructure.oracle_host_env,
+        identity: Object.freeze({ ...stagedInfrastructure.identities.oracle_host_env }),
+        values: Object.freeze({ LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' }),
+      }),
+      host: oracleHost,
+      host_identity: Object.freeze({
+        path: oracleHost, dev: String(hostStat.dev), ino: String(hostStat.ino),
+        uid: Number(hostStat.uid), mode: Number(hostStat.mode & 0o7777n),
+        size: String(hostStat.size), digest: copiedHost.digest,
+      }),
+      cache_capability: cacheCapability,
+      cache_capability_sha256: sealed.digest,
+      cache_capability_sealed_relative: cacheCapabilitySealedRelative,
+      quota_bytes: quotaBytes,
+      keeper_arguments: keeperArguments,
+      snapshot_repository: snapshotRepository,
+      worker_runner: workerRunner,
+      worker_args: candidateLeaseWorker ? Object.freeze(command.slice(3)) : null,
+      execution_authority_root: candidateLeaseWorker ? root : null,
+      node_executable: candidateLeaseWorker ? stagedInfrastructure.node : null,
+      node_executable_identity: candidateLeaseWorker
+        ? Object.freeze({ ...stagedInfrastructure.identities.node }) : null,
+      sealed_git_identity_relative: candidateLeaseWorker ? sealedGitIdentityRelative : null,
+      sealed_git_identity_sha256: candidateLeaseWorker ? sealedGitIdentityDigest : null,
+      landlock_runtime_closure_relative: candidateLeaseWorker ? landlockClosureRelative : null,
+      landlock_runtime_closure_sha256: candidateLeaseWorker ? landlockClosureDigest : null,
+      non_gradeable: true,
+    });
+    oracleHostLaunchBinding = Object.freeze({
+      profile: candidateLeaseWorker ? CANDIDATE_LEASE_WORKER_HOST_LAUNCH_PROFILE
+        : ORACLE_HOST_LAUNCH_PROFILE,
+      command: ['infrastructure:node',
+        candidateLeaseWorker
+          ? 'repository:benchmarks/real-repository-oracle-v1/candidate-lease-oracle-host.mjs'
+          : 'repository:benchmarks/real-repository-oracle-v1/oracle-host.mjs'],
+      cwd: 'repository',
+      node_sha256: stagedInfrastructure.identities.node.digest,
+      launcher_sha256: copiedLauncher.digest,
+      bootstrap_env_sha256: stagedInfrastructure.identities.oracle_host_env.digest,
+      host_sha256: copiedHost.digest,
+      bwrap_sha256: stagedInfrastructure.identities.bwrap.digest,
+      bwrap_help_sha256: capabilities.help_sha256,
+      cache_capability_sha256: sealed.digest,
+      tier: oracleTier,
+      non_gradeable: true,
+    });
+  }
   const graphdLaunchAuthority = [];
   const gitExecutableIdentity = auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs'
     || auditedEntrypoint === RUNTIME_BASELINE_ENTRYPOINT
+    || auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     ? trustedGitIdentity() : null;
   if (stagedInfrastructure.node
     && auditedEntrypoint === 'tests/fixtures/safe-runner-graphd-client.mjs') {
@@ -1385,10 +1730,29 @@ export function prepareExecutionSnapshot({
       },
     });
   }
+  const snapshotEntries = entries.map(({ path: _path, ...entry }) => entry);
+  const snapshotDigestInput = (oracleHostProbe || candidateLeaseWorker) ? {
+    entries: snapshotEntries,
+    oracle_host_launch: oracleHostLaunchBinding,
+  } : landlockCandidateProbe ? {
+    entries: snapshotEntries,
+    launch_profile: LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+  } : candidateSmoke ? {
+    entries: snapshotEntries,
+    launch_profile: CANDIDATE_SMOKE_LAUNCH_PROFILE,
+  } : snapshotEntries;
   return {
     root, repository, snapshot_repository: snapshotRepository,
     audited_entrypoint: auditedEntrypoint,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
+    launch_profile: (oracleHostProbe || candidateLeaseWorker)
+      ? (candidateLeaseWorker ? CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE : ORACLE_HOST_LAUNCH_PROFILE)
+      : landlockCandidateProbe ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE
+        : candidateSmoke ? CANDIDATE_SMOKE_LAUNCH_PROFILE : null,
+    oracle_host_launch_command: oracleHostLaunchCommand,
+    oracle_host_launch_cwd: oracleHostLaunchCwd,
+    oracle_host_profile: oracleHostProfile,
+    oracle_host_launch_binding: oracleHostLaunchBinding,
     git_readonly_bindings: gitReadonlyBindings,
     git_common: sourceGit.common,
     git_directory: sourceGit.gitDirectory,
@@ -1397,8 +1761,9 @@ export function prepareExecutionSnapshot({
     graphd_launch_authority: graphdLaunchAuthority,
     runtime_baseline: runtimeBaseline,
     infrastructure: stagedInfrastructure,
+    source_closure_identity: realRepositorySourceClosureIdentity,
     file_count: entries.length, total_bytes: totalBytes,
-    digest: crypto.createHash('sha256').update(JSON.stringify(entries.map(({ path: _path, ...entry }) => entry))).digest('hex'),
+    digest: crypto.createHash('sha256').update(JSON.stringify(snapshotDigestInput)).digest('hex'),
   };
 }
 
@@ -1440,6 +1805,84 @@ export function assertExecutionSnapshot(snapshot) {
       || Number(stat.uid) !== binding.snapshot_target_identity?.uid) {
       throw new Error('execution snapshot writable mount point identity changed');
     }
+  }
+  if (snapshot?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE
+    || snapshot?.launch_profile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE) {
+    const hostRelative = snapshot.launch_profile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE
+      ? 'benchmarks/real-repository-oracle-v1/candidate-lease-oracle-host.mjs'
+      : 'benchmarks/real-repository-oracle-v1/oracle-host.mjs';
+    const host = path.join(snapshot.snapshot_repository, hostRelative);
+    const profile = snapshot.oracle_host_profile;
+    const command = snapshot.oracle_host_launch_command;
+    const hostEntry = snapshot.entries.find((entry) => entry.path === host);
+    const expectedProfileId = snapshot.launch_profile;
+    const attestHelp = snapshot.launch_profile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE
+      ? attestCandidateLeaseWorkerKeeperBwrapHelp
+      : attestOracleKeeperBwrapHelp;
+    if (profile?.schema !== 'lamina.safe-runner-oracle-host-launch-profile/v1'
+      || profile.id !== expectedProfileId || profile.non_gradeable !== true
+      || snapshot.oracle_host_launch_cwd !== snapshot.snapshot_repository
+      || !Array.isArray(command) || command.length !== 2
+      || command[0] !== snapshot.infrastructure.node || command[1] !== host
+      || !hostEntry || hostEntry.type !== 'file'
+      || snapshot.oracle_host_launch_binding?.host_sha256 !== hostEntry.digest
+      || snapshot.oracle_host_launch_binding?.launcher_sha256
+        !== profile.launcher_identity?.digest
+      || snapshot.oracle_host_launch_binding?.bootstrap_env_sha256
+        !== profile.bootstrap_environment?.identity?.digest
+      || snapshot.oracle_host_launch_binding?.node_sha256
+        !== snapshot.infrastructure.identities.node.digest
+      || snapshot.oracle_host_launch_binding?.bwrap_sha256 !== profile.bwrap_identity?.digest
+      || snapshot.oracle_host_launch_binding?.cache_capability_sha256
+        !== profile.cache_capability?.digest
+      || profile.bwrap !== snapshot.infrastructure.bwrap
+      || profile.launcher !== snapshot.infrastructure.oracle_host_launcher_mjs
+      || profile.bootstrap_environment?.path !== snapshot.infrastructure.oracle_host_env
+      || JSON.stringify(profile.bootstrap_environment?.values)
+        !== JSON.stringify({ LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' })
+      || profile.host !== host
+      || profile.host_identity?.digest !== hostEntry.digest
+      || (snapshot.launch_profile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE
+        && (profile.execution_authority_root !== snapshot.root
+          || profile.node_executable !== snapshot.infrastructure.node
+          || profile.node_executable_identity?.digest
+            !== snapshot.infrastructure.identities.node.digest
+          || JSON.stringify(profile.keeper_arguments)
+            !== JSON.stringify(candidateLeaseWorkerKeeperBwrapArguments({
+              quotaBytes: profile.quota_bytes,
+              nodePath: profile.node_executable,
+              executionAuthorityRoot: profile.execution_authority_root,
+              snapshotRepository: profile.snapshot_repository,
+              workerRunner: profile.worker_runner,
+              workerArgs: profile.worker_args,
+              sealedGitIdentity: fs.readFileSync(
+                path.join(profile.snapshot_repository, profile.sealed_git_identity_relative),
+                'utf8',
+              ),
+            }))))
+      || !isOracleCacheCapabilityAuthority(profile.cache_capability)
+      || typeof profile.cache_capability_sealed_relative !== 'string'
+      || JSON.stringify(profile.bwrap_identity)
+        !== JSON.stringify(snapshot.infrastructure.identities.bwrap)) {
+      throw new Error('oracle-host sealed launch translation changed');
+    }
+    assertTrustedBinaryIdentity(profile.bwrap_identity);
+    const help = spawnSync(profile.bwrap, ['--help'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,
+      maxBuffer: 256 * 1024, env: sanitizedEnvironment({ LANG: 'C', LC_ALL: 'C' }),
+    });
+    assertTrustedBinaryIdentity(profile.bwrap_identity);
+    if (help.error || help.status !== 0 || help.signal || help.stderr.trim()
+      || attestHelp(help.stdout).help_sha256
+        !== profile.bwrap_capabilities?.help_sha256) {
+      throw new Error('oracle-host bwrap capability authority changed');
+    }
+  } else if (snapshot?.oracle_host_launch_command !== null
+    || snapshot?.oracle_host_launch_cwd !== null || snapshot?.oracle_host_profile !== null
+    || snapshot?.oracle_host_launch_binding !== null
+    || snapshot?.infrastructure?.oracle_host_launcher_mjs !== undefined
+    || snapshot?.infrastructure?.oracle_host_env !== undefined) {
+    throw new Error('non-oracle execution snapshot contains oracle-host launch authority');
   }
   return true;
 }

@@ -1,0 +1,283 @@
+{
+  "schema": "lamina.real-repository-oracle-evidence-selection/v1",
+  "purpose": "pending_authoring_selection_only_not_grade_or_expectation_authority",
+  "authority": {
+    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064"
+  },
+  "tiers": {
+    "small": {
+      "status": "reviewer_selected",
+      "pin": {
+        "repository_url": "https://github.com/alan2207/bulletproof-react.git",
+        "commit": "9506629ed003a561c6627735480cce4994244bb4",
+        "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991"
+      },
+      "reviewed_inventory_sha256": "3916b8e34bf828a93e70950fe06d15121c4916017b393f948984557de6a7fa4f",
+      "anchors": [
+        {
+          "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+          "blob_oid": "a84797b64b77a2f8c9b9aa19b8a55ee8e2d7fbb2",
+          "symbol": "SideNavigationItem",
+          "line": 22,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx",
+          "blob_oid": "e9b25ecc97e78d10238645e264feeb9ac227406d",
+          "symbol": "EntryProps",
+          "line": 6,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+          "blob_oid": "a9f472b15efd759fac789adbfbbdc2276a1c8267",
+          "symbol": "routeChangeComplete",
+          "line": 72,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+          "blob_oid": "e386356cbb7a0b33494e0dc7777aff9793453629",
+          "symbol": "useDisclosure",
+          "line": 3,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+          "blob_oid": "973526d27fbc060e77cba13c74dfbe09cbeafdff",
+          "symbol": "Authorization",
+          "line": 11,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/nextjs-pages/src/components/layouts/auth-layout.tsx",
+          "blob_oid": "336ba5f5e20cd0ae747414b1bff96a494b546382",
+          "symbol": "routeChangeComplete",
+          "line": null,
+          "role": "negative",
+          "independent_method": "sealed_git_blob_absence"
+        },
+        {
+          "path": ".github/workflows/nextjs-app-ci.yml",
+          "blob_oid": "3d641fca6655dfd7c84c89393cd4bb0ed342f0f6",
+          "symbol": null,
+          "line": 1,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_line_context"
+        },
+        {
+          "path": "apps/nextjs-app/.storybook/preview.tsx",
+          "blob_oid": "9d181d43cce5b51b538d452653ec42fb4d8c7bd3",
+          "symbol": "parameters",
+          "line": 4,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        }
+      ]
+    },
+    "medium": {
+      "status": "reviewer_selected",
+      "pin": {
+        "repository_url": "https://github.com/outline/outline.git",
+        "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+        "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d"
+      },
+      "reviewed_inventory_sha256": "330b190ca06c70148998c05f585bf7f1bbeedc5cac36c6050b91974ceb3120d7",
+      "anchors": [
+        {
+          "path": "app/actions/definitions/apiKeys.tsx",
+          "blob_oid": "4f0f29afaa38bef914292e5362a6a78be6226597",
+          "symbol": "ApiKey",
+          "line": 6,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+          "blob_oid": "654eaf44873adbfd2bce67dac684a7fe01facc7b",
+          "symbol": "DefaultBodyType",
+          "line": 4,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/actions/definitions/developer.tsx",
+          "blob_oid": "7ac3629987be55bf75b633a7c665d4f281b5f0b8",
+          "symbol": "keydown",
+          "line": 119,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/components/Analytics.tsx",
+          "blob_oid": "333c1761589cfa2536d09e61ca24a69e61108f6f",
+          "symbol": "appinstalled",
+          "line": 37,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/components/DesktopEventHandler.tsx",
+          "blob_oid": "28ca23249c144d0183ed2be3c5bd295316d92faa",
+          "symbol": "DesktopEventHandler",
+          "line": 10,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/components/Menu/transformer.tsx",
+          "blob_oid": "0ede28d900496c03852db0b24f9ad580ebbbccde",
+          "symbol": "preventCloseHandler",
+          "line": 91,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/actions/definitions/collections.tsx",
+          "blob_oid": "08729e4bda4cd6f2225e8388d6dfdd7cbde9b567",
+          "symbol": "Permissions",
+          "line": 122,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "app/components/ActionButton.tsx",
+          "blob_oid": "1fbed3eee3c44dc9a504ecfc44c37b31c3aadcf6",
+          "symbol": "DesktopEventHandler",
+          "line": null,
+          "role": "negative",
+          "independent_method": "sealed_git_blob_absence"
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+          "blob_oid": "eedb16f6463ca5d2b7089a5c653b5bc507c68429",
+          "symbol": null,
+          "line": 1,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_line_context"
+        },
+        {
+          "path": ".github/actions/install/action.yml",
+          "blob_oid": "3cd311d5015c6fde715deed942b74400f9dbaa24",
+          "symbol": null,
+          "line": 1,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_line_context"
+        }
+      ]
+    },
+    "large": {
+      "status": "reviewer_selected",
+      "pin": {
+        "repository_url": "https://github.com/makeplane/plane.git",
+        "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+        "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e"
+      },
+      "reviewed_inventory_sha256": "b2aa9b3ad5be10632201248c2c9d988511cb36483aeef9493e18e14c549cb845",
+      "anchors": [
+        {
+          "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+          "blob_oid": "affbda4808b24bf13fd502e65ffbe9f89554be33",
+          "symbol": "AIFormValues",
+          "line": 22,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/live/tests/lib/pdf/pdf-rendering.test.ts",
+          "blob_oid": "507c6f900a2539e53aa536c90dcac5859bf47b82",
+          "symbol": "PDF_HEADER",
+          "line": 12,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "packages/decorators/README.md",
+          "blob_oid": "f607ca2b9c7ed229d47e4aa81f9950ca52bb907e",
+          "symbol": "UserController",
+          "line": 34,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": ".github/workflows/feature-deployment.yml",
+          "blob_oid": "f7ade5e169d74bdfcd72ca1dc36225aa032f2d11",
+          "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
+          "line": 167,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+          "blob_oid": "ea18dc995992c4c3ebd4338fef79329f1154a2d8",
+          "symbol": "authErrorHandler",
+          "line": 78,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "packages/decorators/README.md",
+          "blob_oid": "f607ca2b9c7ed229d47e4aa81f9950ca52bb907e",
+          "symbol": "ChatController",
+          "line": 60,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/api/plane/authentication/adapter/exception.py",
+          "blob_oid": "c8d28762a90f7043d852f29aaf45bc38a5a09a99",
+          "symbol": "auth_exception_handler",
+          "line": 17,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/api/plane/api/serializers/invite.py",
+          "blob_oid": "18c1c0206657a2df68f9b1f0dcbe2ed2729281ab",
+          "symbol": "WorkspaceInviteSerializer",
+          "line": 16,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/api/plane/tests/TESTING_GUIDE.md",
+          "blob_oid": "98f4a1dba7c8bd5e149ccfcfb136c90cd679a9b0",
+          "symbol": "TestCriticalFlow",
+          "line": 81,
+          "role": "positive",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": "apps/admin/app/(all)/(home)/auth-banner.tsx",
+          "blob_oid": "43df781bbb0eac0187ed40fb7cd37a5d2c5ee368",
+          "symbol": "authErrorHandler",
+          "line": null,
+          "role": "negative",
+          "independent_method": "sealed_git_blob_absence"
+        },
+        {
+          "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+          "blob_oid": "affbda4808b24bf13fd502e65ffbe9f89554be33",
+          "symbol": "IInstanceAIForm",
+          "line": 18,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_exact_identifier"
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/--bug-report.yaml",
+          "blob_oid": "277a3bdfa8999d263e1577fb6a625261773e0a80",
+          "symbol": null,
+          "line": 1,
+          "role": "scenario_before",
+          "independent_method": "sealed_git_blob_line_context"
+        }
+      ]
+    }
+  }
+}

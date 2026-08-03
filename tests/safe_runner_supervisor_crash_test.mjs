@@ -32,6 +32,10 @@ try {
     'preparation lasting longer than five seconds must still reach the requested boundary');
   assert.equal(delayed.passed, true, JSON.stringify(delayed, null, 2));
   assert.equal(delayed.report.samples.length, 1);
+  assert.equal(delayed.report.limits.stdout_tail_max_bytes, 8 * 1024,
+    'synthetic crash reports bind the default stdout retention limit');
+  assert.equal(delayed.report.limits.stderr_tail_max_bytes, 8 * 1024,
+    'synthetic crash reports bind the default stderr retention limit');
 
   const handledStarted = Date.now();
   const handled = await runHandledParentSignalSelfTest({
@@ -93,12 +97,14 @@ try {
   const scopeSample = runner.indexOf('rememberDescendants(report, proof.records');
   const unarmed = runner.indexOf('armed: false', scopeSample);
   const beforeRelease = runner.indexOf("crashBoundary('before_payload_release')", unarmed);
-  const release = runner.indexOf('await releaseFifo(quotaReleaseFile)', beforeRelease);
-  const armed = runner.indexOf('crashWatchdog?.update({ report_seed: report, armed: true })', release);
-  const releasedMarker = runner.indexOf("crashBoundary('payload_released')", armed);
+  const armed = runner.indexOf('crashWatchdog?.update({ report_seed: report, armed: true })', beforeRelease);
+  const armedBoundary = runner.indexOf("crashBoundary('payload_armed_before_release')", armed);
+  const release = runner.indexOf('await releaseFifo(quotaReleaseFile)', armedBoundary);
+  const releasedMarker = runner.indexOf("crashBoundary('payload_released')", release);
   assert.ok(scopeSample >= 0 && scopeSample < unarmed && unarmed < beforeRelease
-    && beforeRelease < release && release < armed && armed < releasedMarker,
-  'scope evidence must remain unarmed until final quota release, then arm atomically before the marker');
+    && beforeRelease < armed && armed < armedBoundary && armedBoundary < release
+    && release < releasedMarker,
+  'watchdog must become durably conservative before the payload FIFO is released');
 } finally {
   if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
   else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;

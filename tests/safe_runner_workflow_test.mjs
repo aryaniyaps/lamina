@@ -6,8 +6,11 @@ import { spawnSync } from 'node:child_process';
 
 const publish = fs.readFileSync('.github/workflows/publish-cli.yml', 'utf8');
 const safeWorkflow = fs.readFileSync('.github/workflows/safe-runner.yml', 'utf8');
+const cliTest = fs.readFileSync('.github/workflows/cli-test.yml', 'utf8');
+const evalSpec = fs.readFileSync('.github/workflows/eval-spec.yml', 'utf8');
 const evalNightly = fs.readFileSync('.github/workflows/eval-nightly.yml', 'utf8');
 const evalSmoke = fs.readFileSync('.github/workflows/eval-smoke.yml', 'utf8');
+const evalWeekly = fs.readFileSync('.github/workflows/eval-weekly.yml', 'utf8');
 const packageManifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const adapter = fs.readFileSync('scripts/safe-runner/adapter.mjs', 'utf8');
 const systemd = fs.readFileSync('scripts/safe-runner/linux-systemd.mjs', 'utf8');
@@ -30,17 +33,52 @@ const supervisionDecision = fs.readFileSync(
 );
 
 const checkoutSteps = (workflow) => workflow.split('\n      - ')
-  .filter((step) => step.startsWith('uses: actions/checkout@v6'));
-for (const [name, workflow, expected] of [
-  ['safe-runner', safeWorkflow, 2],
-  ['publish-cli', publish, 3],
-]) {
+  .filter((step) => /^uses: actions\/checkout@v(?:4|6)(?:\n|$)/.test(step));
+const credentialCheckedWorkflows = [
+  ['safe-runner', '.github/workflows/safe-runner.yml', safeWorkflow, 2],
+  ['publish-cli', '.github/workflows/publish-cli.yml', publish, 3],
+  ['cli-test', '.github/workflows/cli-test.yml', cliTest, 1],
+  ['eval-spec', '.github/workflows/eval-spec.yml', evalSpec, 1],
+  ['eval-nightly', '.github/workflows/eval-nightly.yml', evalNightly, 1],
+  ['eval-smoke', '.github/workflows/eval-smoke.yml', evalSmoke, 1],
+  ['eval-weekly', '.github/workflows/eval-weekly.yml', evalWeekly, 1],
+];
+for (const [name, , workflow, expected] of credentialCheckedWorkflows) {
   const checkouts = checkoutSteps(workflow);
   assert.equal(checkouts.length, expected, `${name} checkout count changed`);
   assert.ok(
-    checkouts.every((step) => /\n        with:\n          persist-credentials: false(?:\n|$)/.test(step)),
+    checkouts.every((step) => /\n        with:\n(?:          [^\n]+\n)*?          persist-credentials: false(?:\n|$)/.test(step)),
     `${name} checkout must not inject executable credential/includeIf Git config`,
   );
+}
+assert.match(checkoutSteps(evalSpec)[0], /\n          fetch-depth: 0(?:\n|$)/,
+  'eval-spec must retain complete Git history for its specification checks');
+
+function triggerPaths(workflow, trigger) {
+  const lines = workflow.split('\n');
+  const start = lines.findIndex((line) => line === `  ${trigger}:`);
+  assert.notEqual(start, -1, `safe-runner workflow is missing ${trigger}`);
+  const endOffset = lines.slice(start + 1).findIndex((line) => /^  [a-z_]+:/.test(line));
+  const end = endOffset === -1 ? lines.length : start + 1 + endOffset;
+  const block = lines.slice(start + 1, end);
+  const pathsIndex = block.findIndex((line) => line === '    paths:');
+  assert.notEqual(pathsIndex, -1, `safe-runner ${trigger} is missing paths`);
+  const paths = [];
+  for (const line of block.slice(pathsIndex + 1)) {
+    const match = line.match(/^      - '([^']+)'$/);
+    if (!match) break;
+    paths.push(match[1]);
+  }
+  assert.equal(new Set(paths).size, paths.length,
+    `safe-runner ${trigger} paths must not contain duplicates`);
+  return new Set(paths);
+}
+for (const trigger of ['pull_request', 'push']) {
+  const paths = triggerPaths(safeWorkflow, trigger);
+  for (const [name, workflowPath] of credentialCheckedWorkflows) {
+    assert.equal(paths.has(workflowPath), true,
+      `${trigger} must run credential hygiene when ${name} changes`);
+  }
 }
 
 assert.doesNotMatch(

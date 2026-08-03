@@ -35,9 +35,15 @@ await runSafely({
     sustainedHighSamples: 2,
     gracefulStopMs: 75,
   },
-  mode: ['before_payload_release', 'payload_released', 'success_report_published'].includes(boundary)
+  mode: [
+    'before_payload_release', 'payload_armed_before_release',
+    'payload_released', 'success_report_published',
+  ].includes(boundary)
     ? 'self-test' : 'run',
-  selfTestCaseId: ['before_payload_release', 'payload_released', 'success_report_published']
+  selfTestCaseId: [
+    'before_payload_release', 'payload_armed_before_release',
+    'payload_released', 'success_report_published',
+  ]
     .includes(boundary)
     ? 'parent_signal' : null,
   promote: false,

@@ -84,6 +84,10 @@ try {
   });
   assert.equal(normal.outcome, 'success');
   assert.equal(validateReport(normal).valid, true);
+  assert.equal(normal.limits.stdout_tail_max_bytes, DEFAULTS.diagnosticTailBytes,
+    'an actual unrelated runner workload retains the default stdout tail');
+  assert.equal(normal.limits.stderr_tail_max_bytes, DEFAULTS.diagnosticTailBytes,
+    'an actual unrelated runner workload retains the default stderr tail');
   assert.match(normal.output.stdout_tail, /tiny success/);
   assert.ok(normal.peaks.pids >= 1);
   assert.ok(normal.peaks.aggregate_rss_bytes > 0 || !probe.production_enforcement);
@@ -123,6 +127,19 @@ try {
     assert.equal(beforeReleaseCrash.report.termination.reason, 'supervisor_crash_before_payload');
     assert.ok(beforeReleaseCrash.report.samples.length > 0,
       'pre-release crash evidence must retain scope samples while remaining unarmed');
+    const armedBeforeReleaseCrash = await runSupervisorCrashSelfTest({
+      cwd: process.cwd(), reportDirectory: reports, boundary: 'payload_armed_before_release',
+    });
+    assert.equal(armedBeforeReleaseCrash.passed, true,
+      JSON.stringify(armedBeforeReleaseCrash, null, 2));
+    assert.equal(armedBeforeReleaseCrash.report.outcome, 'interrupted');
+    assert.equal(armedBeforeReleaseCrash.report.termination.reason, 'interrupted');
+    assert.equal(armedBeforeReleaseCrash.report.termination.limit, 'signal');
+    assert.equal(armedBeforeReleaseCrash.report.cleanup.scope_removed, true);
+    assert.equal(armedBeforeReleaseCrash.report.cleanup.temporary_directory_removed, true);
+    assert.deepEqual(armedBeforeReleaseCrash.report.cleanup.descendants_remaining, []);
+    assert.deepEqual(armedBeforeReleaseCrash.report.cleanup.errors, []);
+    assert.ok(Object.values(armedBeforeReleaseCrash.evidence).every(Boolean));
     const preparationCrash = await runSupervisorCrashSelfTest({
       cwd: process.cwd(), reportDirectory: reports, boundary: 'report_slot_acquired',
       previousReport: normal,

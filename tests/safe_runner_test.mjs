@@ -11,7 +11,10 @@ import { adapterProbe, assertAdapterShape, boundedProbeFailure } from '../script
 import {
   authorizeBrokerRequest, createProofBroker, exactGraphdLaunchAuthorized,
 } from '../scripts/safe-runner/broker.mjs';
-import { DEFAULTS, GIB, MIB, SELF_TEST_CASE_IDS } from '../scripts/safe-runner/constants.mjs';
+import {
+  DEFAULTS, GENERIC_TEMPORARY_MAX_INODES, GIB, MIB, SELF_TEST_CASE_IDS,
+  temporaryMaxInodesForBytes,
+} from '../scripts/safe-runner/constants.mjs';
 import { safeRunnerContext } from '../scripts/safe-runner/context.mjs';
 import {
   deriveLimits,
@@ -46,6 +49,8 @@ import {
   SAFE_INFRASTRUCTURE_PATH, sanitizedEnvironment, sanitizedPayloadEnvironment,
   trustedBinaryIdentity, trustedHostBinary, trustedRootBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
+import { linuxGitNamespaceAuthority } from '../scripts/safe-runner/git.mjs';
+import { ORACLE_HOST_LAUNCH_PROFILE } from '../scripts/safe-runner/oracle-host-profile.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
   existingLaminaProcesses, isLaminaProcessCommand, MAX_PROCESS_ENVIRONMENT_BYTES,
@@ -80,9 +85,25 @@ import {
 } from '../scripts/safe-runner/report.mjs';
 import {
   boundedDiagnosticText, closeOutputStreams, outcomeForStop, payloadRuntimeTimedOut, releaseFifo,
-  recordChildTermination, resolvePrivateManagedGraphdPaths, temporaryQuotaHandshakeFailure,
+  recordChildTermination, resolvePrivateManagedGraphdPaths, retainCgroupEventMaxima,
+  temporaryQuotaHandshakeFailure,
   waitForChildResult,
 } from '../scripts/safe-runner/runner.mjs';
+
+assert.deepEqual(
+  retainCgroupEventMaxima(
+    { memory: { max: 2, oom_kill: 0 }, pids: { max: 0 } },
+    {},
+  ),
+  { memory: { max: 2, oom_kill: 0 }, pids: { max: 0 } },
+  'a disappeared cgroup sample retains the last observable counters',
+);
+assert.deepEqual(
+  retainCgroupEventMaxima({ memory: { max: 2 }, pids: { max: 0 } },
+    { memory: { max: 1, oom_kill: 3 }, pids: { max: 4 } }),
+  { memory: { max: 2, oom_kill: 3 }, pids: { max: 4 } },
+  'cgroup event counters retain monotonic per-counter maxima',
+);
 import {
   bubblewrapSandboxArguments,
   CONTROL_ENVIRONMENT_NAMES,
@@ -106,6 +127,7 @@ import {
   recordSafetyLimit,
   productionLockDirectory,
   promotionCommandDigest,
+  promotionStatus,
   repositorySourceDigest,
   sealedManifestFileIdentity,
   writeAttestation,
@@ -230,11 +252,18 @@ try {
   assert.equal(eightGib.memory_page_bytes, null);
   assert.equal(eightGib.pids_max, 64);
   assert.equal(eightGib.concurrency, 1);
+  assert.equal(eightGib.temporary_max_inodes, GENERIC_TEMPORARY_MAX_INODES,
+    'generic workloads retain the 8192 temporary inode ceiling');
+  assert.equal(temporaryMaxInodesForBytes(16 * MIB), 4_096,
+    'generic inode derivation retains downward temporary-byte semantics');
   assert.ok(eightGib.minimum_free_disk_bytes >= 5 * GIB);
   for (const invalid of [NaN, Infinity, 0, -1, 1.5]) {
     assert.throws(() => validateLimitOverrides({ pidsMax: invalid }), /finite positive integer/);
   }
   assert.throws(() => deriveLimits({ unknownLimit: 1 }), /unknown safe-runner limit override/);
+  assert.throws(() => validateLimitOverrides({ temporaryMaxInodes: 16_384 }),
+    /unknown safe-runner limit override/,
+    'callers cannot request an upward temporary inode override');
   const aligned192Mib = deriveLimits({
     memoryMaxBytes: 192 * MIB,
     memoryHighBytes: 160 * MIB,
@@ -316,6 +345,50 @@ try {
   assert.ok(sandboxArgs.includes('/custom/docker.sock'));
   assert.ok(sandboxArgs.includes('--unshare-pid'));
   assert.ok(sandboxArgs.includes('--unshare-net'));
+  const payloadTmp = path.join(root, 'payload-tmp');
+  const payloadTmpMount = sandboxArgs.findIndex((value, index) =>
+    value === payloadTmp && sandboxArgs[index - 1] === '--tmpfs');
+  assert.deepEqual(sandboxArgs.slice(payloadTmpMount - 5, payloadTmpMount + 1), [
+    '--perms', '0700', '--size', String(process.env.LAMINA_SAFE_TEMP_MAX_BYTES),
+    '--tmpfs', payloadTmp,
+  ], 'private payload tmpfs mode and size modifiers must bind only to its exact mount');
+  assert.equal(sandboxArgs.filter((value) => value === '--perms').length, 1,
+    'payload tmpfs permissions must not alter earlier control-socket masking tmpfs mounts');
+  const initialGitNamespace = linuxGitNamespaceAuthority(
+    '0 0 4294967295', 1000, { sealedHostUid: 0, overflowUid: '65534' },
+  );
+  assert.deepEqual(initialGitNamespace, {
+    initial: true, seal_required: false, outside_launcher_uid: 1000,
+    expected_namespace_file_uid: 0,
+  }, 'the initial Linux UID map preserves ordinary unsealed host Git behavior');
+  const launcherOwnedGitNamespace = linuxGitNamespaceAuthority('0 1000 1', 0);
+  assert.deepEqual(launcherOwnedGitNamespace, {
+    initial: false, seal_required: true, outside_launcher_uid: 1000,
+  }, 'a launcher-owned fixed Git still requires its outside seal in bwrap');
+  assert.equal(linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 1000, overflowUid: '65534' },
+  ).expected_namespace_file_uid, 0);
+  assert.equal(linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 0, overflowUid: '65534' },
+  ).expected_namespace_file_uid, 65534);
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1', 0, { sealedHostUid: 2000, overflowUid: '65534' },
+  ), /neither host root nor outside launcher/,
+  'an unrelated owner cannot be introduced through sealed UID data');
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1\n1 2000 1', 0,
+  ), /exact one-entry UID map/,
+  'unrelated third-party mappings are outside the bwrap contract');
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 2\n1 2000 1', 0,
+  ), /overlapping ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority(
+    '0 1000 1\n1 1000 1', 0,
+  ), /overlapping ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority('4294967295 0 2', 0),
+    /exceeds uint32 ranges/);
+  assert.throws(() => linuxGitNamespaceAuthority('0 4294967295 2', 0),
+    /exceeds uint32 ranges/);
   for (const name of CONTROL_ENVIRONMENT_NAMES) {
     const index = sandboxArgs.indexOf(name);
     assert.equal(sandboxArgs[index - 1], '--unsetenv');
@@ -969,7 +1042,11 @@ try {
   report.report_file = path.join(root, 'report.json');
   report.outcome = 'success';
   report.adapter = portableProbe;
-  report.limits = eightGib;
+  report.limits = {
+    ...eightGib,
+    stdout_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+    stderr_tail_max_bytes: DEFAULTS.diagnosticTailBytes,
+  };
   report.preflight = { ok: true };
   report.samples.push({
     elapsed_ms: 0,
@@ -2050,6 +2127,56 @@ try {
   assert.deepEqual(JSON.parse(Buffer.from(
     graphdSandboxContract.sealedGitIdentity, 'base64url',
   ).toString('utf8')), validGraphdSnapshot.git_executable_identity);
+  if (process.platform === 'linux' && typeof process.getuid === 'function'
+    && process.getuid() !== 0) {
+    const namespaceProbe = path.resolve('tests/fixtures/spawn-trusted-git-namespace-probe.mjs');
+    const runNamespaceProbe = (expected, sealedIdentity = null) => {
+      const completed = spawnSync(infrastructureBinaries().bwrap, [
+        '--die-with-parent', '--unshare-user', '--unshare-pid', '--unshare-net',
+        '--uid', '0', '--gid', '0', '--ro-bind', '/', '/', '--dev-bind', '/dev', '/dev',
+        '--proc', '/proc',
+        ...(sealedIdentity
+          ? ['--setenv', 'LAMINA_SAFE_GIT_IDENTITY', sealedIdentity] : []),
+        '--', fs.realpathSync.native(process.execPath), namespaceProbe, expected,
+      ], {
+        encoding: 'utf8', timeout: 15_000, maxBuffer: 256 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'], env: sanitizedEnvironment(process.env),
+      });
+      assert.equal(completed.status, 0,
+        `real user-namespace Git ${expected} probe failed: ${completed.stderr}`);
+      return JSON.parse(completed.stdout);
+    };
+    const namespaceValid = runNamespaceProbe(
+      'valid', graphdSandboxContract.sealedGitIdentity,
+    );
+    assert.equal(namespaceValid.first.ok, true);
+    assert.equal(namespaceValid.retry.ok, true,
+      'every sealed Git spawn must revalidate namespace continuity');
+    assert.equal(namespaceValid.seal_consumed, true);
+    assert.equal(namespaceValid.uid, 0);
+    assert.equal(namespaceValid.controller_git_uid,
+      validGraphdSnapshot.git_executable_identity.uid);
+    assert.ok([0, process.getuid()].includes(namespaceValid.controller_git_uid),
+      'outside trust permits only host-root or launcher-owned fixed Git');
+    const expectedNamespaceGitUid = namespaceValid.controller_git_uid === 0
+      ? Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim()) : 0;
+    assert.equal(namespaceValid.namespace_git_uid, expectedNamespaceGitUid,
+      'fixed Git ownership must match its exact root-overflow or launcher mapping');
+    const overflowUid = Number(fs.readFileSync('/proc/sys/kernel/overflowuid', 'utf8').trim());
+    if (overflowUid !== process.getuid()) {
+      const forgedOverflowUid = Buffer.from(JSON.stringify({
+        ...validGraphdSnapshot.git_executable_identity, uid: overflowUid,
+      })).toString('base64url');
+      const namespaceForgedUid = runNamespaceProbe('invalid', forgedOverflowUid);
+      assert.equal(namespaceForgedUid.first.ok, false,
+        'an arbitrary sealed host UID cannot authenticate by equaling namespace overflow UID');
+      assert.match(namespaceForgedUid.first.error, /neither host root nor outside launcher/);
+    }
+    const namespaceMissing = runNamespaceProbe('missing');
+    assert.equal(namespaceMissing.first.ok, false);
+    assert.equal(namespaceMissing.retry.ok, false,
+      'an audited user-namespace payload cannot rediscover Git without its outside seal');
+  }
   assert.throws(() => validateSandboxExecutionAuthority({
     executionAuthority: {
       ...encodedGraphdAuthority,
@@ -2472,6 +2599,12 @@ try {
     temporaryDirectory: path.join(root, 'snapshot-escape'),
   }), /escapes the repository/);
   assert.equal(validateReport({ ...report, unexpected: true }).valid, false);
+  assert.equal(validateReport({
+    ...report, limits: { ...report.limits, stdout_tail_max_bytes: undefined },
+  }).valid, false, 'completed reports require the effective stdout tail bound');
+  assert.equal(validateReport({
+    ...report, limits: { ...report.limits, stderr_tail_max_bytes: undefined },
+  }).valid, false, 'completed reports require the effective stderr tail bound');
   assert.equal(validateReport({
     ...report,
     cleanup: { ...report.cleanup, scope_removed: 'yes' },
@@ -3101,6 +3234,22 @@ try {
     ...report,
     command: [process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success'],
   };
+  const oraclePromotionRoot = path.join(root, 'oracle-promotion-refusal');
+  fs.mkdirSync(oraclePromotionRoot);
+  const oracleEvidence = {
+    ...auditedEvidence,
+    preflight: {
+      launch_profile: ORACLE_HOST_LAUNCH_PROFILE,
+      execution_snapshot: { launch_profile: ORACLE_HOST_LAUNCH_PROFILE },
+    },
+  };
+  assert.throws(() => recordPromotion(
+    oraclePromotionRoot, 'small', oracleEvidence, 'oracle-host-direct-write',
+    oracleEvidence.command, { digest: 'd'.repeat(64) },
+  ), /non-gradeable oracle-host evidence cannot be promoted/);
+  assert.deepEqual(promotionStatus(oraclePromotionRoot, 'oracle-host-direct-write'), {
+    completed: [], value: null,
+  }, 'the authoritative write seam must not mutate the promotion ledger');
   recordPromotion(root, 'small', auditedEvidence, 'unit-workload', auditedEvidence.command);
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', auditedEvidence.command).ok, true);
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', [

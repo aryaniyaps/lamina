@@ -47,6 +47,18 @@ export function fixtureById(id) {
   return fixture;
 }
 
+export function isExcludedPath(relative, exclusions) {
+  const pieces = relative.split('/');
+  if (pieces.includes('.git') || pieces.includes('node_modules') || pieces.includes('__pycache__')
+    || pieces.includes('.next') || pieces.includes('dist') || pieces.includes('build')
+    || pieces.includes('coverage') || pieces.some((piece) => /^\.venv/.test(piece))) return true;
+  return exclusions.some((rule) => {
+    const normalized = rule.replace(/\*$/, '');
+    return relative === normalized || relative.startsWith(`${normalized}/`)
+      || (rule.endsWith('*') && relative.startsWith(normalized));
+  });
+}
+
 export function assertScenario(scenario) {
   if (!SCENARIOS.includes(scenario)) throw new Error(`unknown runtime baseline scenario: ${scenario}`);
   return scenario;

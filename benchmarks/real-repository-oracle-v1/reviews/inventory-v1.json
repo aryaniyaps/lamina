@@ -1,0 +1,236 @@
+{
+  "schema": "lamina.real-repository-oracle-inventory-review-receipt/v1",
+  "decision": "reviewer_approved_manual_freeze",
+  "equality": "reconstruction_equals_review_a_equals_review_b",
+  "code": {
+    "reconstruction_commit": "053f430667c21ea6453174ee1f289b9dea08ddb7",
+    "review_commit": "beffb5b59628b4699e2599ac59e476e2e3733bd7"
+  },
+  "authority": {
+    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064"
+  },
+  "runs": {
+    "reconstruction": {
+      "repository_source_sha256": "474f79cb04ee6a7bf38e3161f6108dc329aea78a81afeb74dceb1731e85ec17b",
+      "runner_build_sha256": "7b017b0316a24a4066850b9cd6aa43611da00f2bf7df0d14bfc92cf7ac5f73a3",
+      "source_identity_sha256": "08a1169f9acc2990cbc50f4f4e93bb78fe11e5957ab1f8c435e79116c48a6074",
+      "execution_snapshot_sha256": "e2eee6d5d56ea4c9459c5c15a6491be0f332738c6f75947f1f8074e0cd9a09db",
+      "execution_identity_sha256": "2844a318f49fa8bd385b8437de08ea3b9dc656a93992a5fd2058524ee41a8f64",
+      "reports": {
+        "small": {
+          "report_sha256": "5d3f207d3060d444466787dfb5616b37005f846fe4aa6a8b09d960a4a48af93a",
+          "stdout_tail_sha256_including_newline": "bf143a0e1cca1f9592522eca4e84f2b7add97c28405c5e7c344f801fb71348e2",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "medium": {
+          "report_sha256": "5e5059adf8889ab9a3ea828148347e759587bed7b51af792f5faef03ac54457c",
+          "stdout_tail_sha256_including_newline": "a49526b5ffcec91edefc5e41f1ee87852da72e853b66ff8525b6d9a1d3ec645e",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "large": {
+          "report_sha256": "6daaa5fdc70d3ad2ec08dad22ce2af784f29629e92c747c03adb7694b5d5d5d1",
+          "stdout_tail_sha256_including_newline": "2fcfc65aa60fd6f228e1d863a107e89a318bf3bd7faacbf11617899857ee2e04",
+          "outcome": "success",
+          "cleanup_verified": true
+        }
+      }
+    },
+    "review_a": {
+      "repository_source_sha256": "5cafb1b97f7b2fa776a55ebcb550656abaf39374489b0f8025bca3276d4613ee",
+      "runner_build_sha256": "bbce7c94c1a2973206f194d4bc980500c0f0322b5612aac1f9b91038a239fd7f",
+      "source_identity_sha256": "5ba649efd7130a4b4dd483d42d69b0e2e08208936c0a1d75e09b8cf19a8da1f4",
+      "execution_snapshot_sha256": "a4883d087e0194c3b038613ccf28d8545b59d516a2ae9a7bd9e8719a93b578c8",
+      "execution_identity_sha256": "1b1cf64a6f5cc05cd7a63138e9ff3cbe2441bf2669efd037e0c8f634b09e51be",
+      "attestation_sha256": "3217638a4cbea1651001c9463e8296a6068b327570228b7e86b64f529fa24e53",
+      "promotion_sha256": "9318dea50ea734e2af98030dd23fc696e3f22717bdd40531d191b7ee5c00c0ac",
+      "reports": {
+        "small": {
+          "report_sha256": "6a29fc2a550832992df698677bc3fb7a3c4190300c2113adc94a67d83614c383",
+          "stdout_tail_sha256_including_newline": "ac97dfc568de1aff15eb7ee9b728ded2c650a20bb965b4ab69a0dacd8a2f2c41",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "medium": {
+          "report_sha256": "8d104c041371f19d4bac34d09a3bbf3341ddf39cb57f88b30e9b8d29464cfaa8",
+          "stdout_tail_sha256_including_newline": "e8735c25ee82db927b43448ff8b1ecb35a6c83e874a73c2930470165310cc038",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "large": {
+          "report_sha256": "a953f950289a459c1238bbeaade65f1098f3fe16e83699489cbe30bce1126105",
+          "stdout_tail_sha256_including_newline": "ab3a41872229d0984d97086f1a9c20d9f5d6693fc8ba4ba3aeb2d80e82f3606e",
+          "outcome": "success",
+          "cleanup_verified": true
+        }
+      }
+    },
+    "review_b": {
+      "repository_source_sha256": "5cafb1b97f7b2fa776a55ebcb550656abaf39374489b0f8025bca3276d4613ee",
+      "runner_build_sha256": "bbce7c94c1a2973206f194d4bc980500c0f0322b5612aac1f9b91038a239fd7f",
+      "source_identity_sha256": "5ba649efd7130a4b4dd483d42d69b0e2e08208936c0a1d75e09b8cf19a8da1f4",
+      "execution_snapshot_sha256": "a4883d087e0194c3b038613ccf28d8545b59d516a2ae9a7bd9e8719a93b578c8",
+      "execution_identity_sha256": "1b1cf64a6f5cc05cd7a63138e9ff3cbe2441bf2669efd037e0c8f634b09e51be",
+      "attestation_sha256": "37c00e0792660d6a62214e1515786d0c2ebd4f9fc8555c031dbe96e2b4dc48f9",
+      "promotion_sha256": "3f64c956b261d786d24da774b1b7a43910dedea009ca974cb3df5b57ce2eb08f",
+      "reports": {
+        "small": {
+          "report_sha256": "7961c88d059d33c0e1f02d6226bbc23f75a01686dbd8b5c664e5c4b60aebd9a8",
+          "stdout_tail_sha256_including_newline": "ac97dfc568de1aff15eb7ee9b728ded2c650a20bb965b4ab69a0dacd8a2f2c41",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "medium": {
+          "report_sha256": "d3b1fcf2442b8a252dffff93d0226c5a0c3c6d3ad8fbd5181bbedc044f89f030",
+          "stdout_tail_sha256_including_newline": "e8735c25ee82db927b43448ff8b1ecb35a6c83e874a73c2930470165310cc038",
+          "outcome": "success",
+          "cleanup_verified": true
+        },
+        "large": {
+          "report_sha256": "6c6917d423d05f63255fdd13fbee8a9f948383748824d66908d2e356f06b160e",
+          "stdout_tail_sha256_including_newline": "ab3a41872229d0984d97086f1a9c20d9f5d6693fc8ba4ba3aeb2d80e82f3606e",
+          "outcome": "success",
+          "cleanup_verified": true
+        }
+      }
+    }
+  },
+  "tiers": {
+    "small": {
+      "pin": {
+        "repository_url": "https://github.com/alan2207/bulletproof-react.git",
+        "commit": "9506629ed003a561c6627735480cce4994244bb4",
+        "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991"
+      },
+      "inventory": {
+        "tracked_files": 535,
+        "tracked_bytes": 2640087,
+        "tracked_source_files": 438,
+        "tracked_source_bytes": 628504,
+        "tracked_source_loc": 20450,
+        "observation_indexed_files": 535,
+        "observation_indexed_bytes": 2640087,
+        "observation_paths_digest": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+        "retrieval_candidate_files": 467,
+        "retrieval_candidate_bytes": 693785,
+        "retrieval_paths_digest": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b"
+      },
+      "inventory_sha256": "3916b8e34bf828a93e70950fe06d15121c4916017b393f948984557de6a7fa4f",
+      "link_evidence": {
+        "reconstruction_sha256": "9b822f3c541b4d4cd8c8ac0884ad503bb5c733903733c2d37e811e42a76b5529",
+        "review_sha256": "441565b8164a126b8a600f70b891df315792ad5c510b01af5f9f72656d6e2213",
+        "normalized_records": []
+      },
+      "equality": "triple_match",
+      "signoff": "reviewer_approved"
+    },
+    "medium": {
+      "pin": {
+        "repository_url": "https://github.com/outline/outline.git",
+        "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
+        "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d"
+      },
+      "inventory": {
+        "tracked_files": 2539,
+        "tracked_bytes": 15972213,
+        "tracked_source_files": 2324,
+        "tracked_source_bytes": 8584027,
+        "tracked_source_loc": 268625,
+        "observation_indexed_files": 2539,
+        "observation_indexed_bytes": 15972213,
+        "observation_paths_digest": "a54821d081c82acea3bce42c769f6c39f3d388c330e432436bda7e80977e3b5c",
+        "retrieval_candidate_files": 2420,
+        "retrieval_candidate_bytes": 12914792,
+        "retrieval_paths_digest": "3ba81ce78f10ff50ec4d652ebed8ef18a9e2624b3434f7a125e3a3f133ec1d7e"
+      },
+      "inventory_sha256": "330b190ca06c70148998c05f585bf7f1bbeedc5cac36c6050b91974ceb3120d7",
+      "link_evidence": {
+        "reconstruction_sha256": "cfe78524de2a8b7c716a5c649c03c8918b185d049a96b52a5a4688e3ab5e1915",
+        "review_sha256": "d0f795a41349fec8dd93b6c15355482247b2c49b7bd5d8f1f7fc79869a5109f3",
+        "normalized_records": [
+          {
+            "path": "CLAUDE.md",
+            "link_oid": "47dc3e3d863cfb5727b87d785d09abf9743c0a72",
+            "link_target_text": "AGENTS.md",
+            "link_byte_length": 9,
+            "traversal_hops": 1,
+            "traversal_limit": 40,
+            "outcome": "file",
+            "skip_reason": null,
+            "target_kind": "file",
+            "target_path": "AGENTS.md",
+            "target_oid": "76189996932840849e5781c26f9a43f020344576",
+            "target_size": 6992,
+            "contribution": {
+              "tracked_bytes": 6992,
+              "observation_included": true,
+              "observation_bytes": 6992,
+              "retrieval_included": true,
+              "retrieval_bytes": 6992,
+              "source_included": false,
+              "source_bytes": 0,
+              "source_loc": 0
+            }
+          }
+        ]
+      },
+      "equality": "triple_match",
+      "signoff": "reviewer_approved"
+    },
+    "large": {
+      "pin": {
+        "repository_url": "https://github.com/makeplane/plane.git",
+        "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
+        "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e"
+      },
+      "inventory": {
+        "tracked_files": 5405,
+        "tracked_bytes": 55779821,
+        "tracked_source_files": 4184,
+        "tracked_source_bytes": 14824422,
+        "tracked_source_loc": 373748,
+        "observation_indexed_files": 5399,
+        "observation_indexed_bytes": 55696352,
+        "observation_paths_digest": "90fef3b430dee05642af40a636590a97fc0bbf405f37040def570ba7832a1652",
+        "retrieval_candidate_files": 4805,
+        "retrieval_candidate_bytes": 21278398,
+        "retrieval_paths_digest": "de46b1ebd6495065f95d8afd365be2195f4518ed5f2e57f4d38881c9f29f3ebc"
+      },
+      "inventory_sha256": "b2aa9b3ad5be10632201248c2c9d988511cb36483aeef9493e18e14c549cb845",
+      "link_evidence": {
+        "reconstruction_sha256": "98e5d9011035e57a1042daf4fc1cbabe35abe4ce18a204bc1192ec54087d7653",
+        "review_sha256": "ce0f4b5979f884a282aa2b88b7285baef9bb0ed792855538130ab3c3647dfb3b",
+        "normalized_records": [
+          {
+            "path": "packages/i18n/locales",
+            "link_oid": "a4829b544e33d6ea9c199f1b7abeb18afd18757d",
+            "link_target_text": "src/locales",
+            "link_byte_length": 11,
+            "traversal_hops": 1,
+            "traversal_limit": 40,
+            "outcome": "directory",
+            "skip_reason": null,
+            "target_kind": "directory",
+            "target_path": "packages/i18n/src/locales",
+            "target_oid": null,
+            "target_size": null,
+            "contribution": {
+              "tracked_bytes": 0,
+              "observation_included": false,
+              "observation_bytes": 0,
+              "retrieval_included": false,
+              "retrieval_bytes": 0,
+              "source_included": false,
+              "source_bytes": 0,
+              "source_loc": 0
+            }
+          }
+        ]
+      },
+      "equality": "triple_match",
+      "signoff": "reviewer_approved"
+    }
+  }
+}
