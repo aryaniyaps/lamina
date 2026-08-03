@@ -15,14 +15,13 @@ import {
   runtimeBudgetFromEnvironment,
 } from './runtime-budget.mjs';
 import { releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
+import {
+  OBSERVATION_IGNORE_PATTERNS,
+  observationInventorySnapshot,
+} from './source-inventory.mjs';
+import { brownfieldSignals } from './observation-runtime/node.mjs';
 
-const ignore = [
-  '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
-  '**/.agents/skills/**', '**/.codex/skills/**', '**/.claude/skills/**', '**/.opencode/skills/**',
-  '**/node_modules/**', '**/.venv*/**',
-  '**/__pycache__/**', '**/.next/**', '**/dist/**', '**/build/**', '**/coverage/**',
-  '**/benchmarks/results/**', '**/evals/fixtures/.vendor-tmp*/**',
-];
+const ignore = OBSERVATION_IGNORE_PATTERNS;
 
 function check(pass, expected, actual) {
   return { pass, expected, actual };
@@ -274,6 +273,11 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       unsupported_sources: observed.unsupported,
       stale_snapshots: observed.source_revisions.filter((item) => item !== paths.source_revision),
       limitations: observed.limitations,
+      source_inventory: observationInventorySnapshot(cwd, {
+        sourceRevision: paths.source_revision,
+        sourceRoot: paths.root,
+        extractSignals: brownfieldSignals,
+      }),
     } : undefined,
   };
   }, { live, mutation: true });
