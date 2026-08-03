@@ -13,6 +13,7 @@ import {
   verifyCandidateRuntimeSnapshot,
 } from '../benchmarks/real-repository-oracle-v1/candidate-runtime-closure.mjs';
 import {
+  CANDIDATE_DEV_SHM_MAX_BYTES,
   CANDIDATE_OUTPUT_MAX_BYTES,
   CANDIDATE_MOUNT_FD_MAX,
   CANDIDATE_ROOT_MAX_BYTES,
@@ -71,10 +72,14 @@ assert.deepEqual(pureArguments.slice(0, 24), [
 assert.equal(pureArguments.includes('--ro-bind'), false);
 assert.equal(pureArguments.join('\0').includes('--ro-bind\0/\0/'), false,
   'candidate sandbox never binds the host root');
-for (const target of ['/dev/pts', '/dev', '/proc', '/']) {
+for (const target of ['/dev/shm', '/dev/pts', '/dev', '/proc', '/']) {
   assert.ok(pureArguments.some((value, index) => value === '--remount-ro'
     && pureArguments[index + 1] === target), `${target} is remounted read-only`);
 }
+assert.ok(pureArguments.some((value, index) => value === '--size'
+  && pureArguments[index + 1] === String(CANDIDATE_DEV_SHM_MAX_BYTES)
+  && pureArguments[index + 2] === '--tmpfs' && pureArguments[index + 3] === '/dev/shm'),
+  'dev shm is a separately bounded private mount');
 assert.ok(pureArguments.lastIndexOf('--remount-ro') > pureArguments.indexOf('--tmpfs'),
   'read-only remounts occur after writable submount construction');
 for (const pair of [
@@ -182,6 +187,10 @@ try {
   assert.match(success.authority.argv_sha256, /^[a-f0-9]{64}$/);
   assert.equal(success.authority.limitation, CANDIDATE_SANDBOX_LIMITATION);
   assert.equal(success.authority.infrastructure.bwrap_capabilities.read_only_remount, true);
+  assert.deepEqual(success.authority.infrastructure.bwrap_capabilities.required_options, [
+    '--remount-ro DEST', '--bind-fd FD DEST', '--ro-bind-fd FD DEST',
+    '--disable-userns', '--assert-userns-disabled', '--size BYTES', '--proc DEST', '--dev DEST',
+  ]);
   assert.match(success.authority.infrastructure.bwrap_capabilities.help_sha256, /^[a-f0-9]{64}$/);
   assert.equal(success.authority.source_snapshot_limitation,
     CANDIDATE_SOURCE_SNAPSHOT_LIMITATION);

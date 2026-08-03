@@ -21,6 +21,7 @@ export const CANDIDATE_SOURCE_SNAPSHOT_LIMITATION =
   'pending_issue_59_private_host_mount_namespace_for_atomic_same_uid_source_snapshot_not_implemented';
 export const CANDIDATE_OUTPUT_MAX_BYTES = 16 * 1024 * 1024;
 export const CANDIDATE_ROOT_MAX_BYTES = 1024 * 1024;
+export const CANDIDATE_DEV_SHM_MAX_BYTES = 4 * 1024;
 export const CANDIDATE_MOUNT_FD_MAX = 48;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const MAX_TREE_FILES = 120_000;
@@ -48,14 +49,22 @@ function attestBubblewrapReadOnlyRemount(identity) {
     env: { LANG: 'C', LC_ALL: 'C' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   assertTrustedBinaryIdentity(identity);
-  if (help.error || help.status !== 0 || help.signal || help.stderr.trim()
-    || !/^\s*--remount-ro DEST\s+Remount DEST as readonly;/m.test(help.stdout)) {
-    const error = new Error('candidate sandbox requires attested bubblewrap --remount-ro support');
+  const requiredOptions = Object.freeze([
+    '--remount-ro DEST', '--bind-fd FD DEST', '--ro-bind-fd FD DEST',
+    '--disable-userns', '--assert-userns-disabled', '--size BYTES', '--proc DEST', '--dev DEST',
+  ]);
+  const advertised = requiredOptions.every((option) => {
+    const pattern = option.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+');
+    return new RegExp(`^\\s*${pattern}(?:\\s|$)`, 'm').test(help.stdout);
+  });
+  if (help.error || help.status !== 0 || help.signal || help.stderr.trim() || !advertised) {
+    const error = new Error('candidate sandbox requires attested bubblewrap isolation options');
     error.code = 'LAMINA_CANDIDATE_SANDBOX_UNSUPPORTED';
     throw error;
   }
   return freeze({
     read_only_remount: true,
+    required_options: requiredOptions,
     help_sha256: sha256(Buffer.from(help.stdout)),
   });
 }
@@ -273,10 +282,11 @@ export function candidateBubblewrapArguments({
   }
   args.push(
     '--proc', '/proc', '--dev', '/dev',
+    '--perms', '0555', '--size', String(CANDIDATE_DEV_SHM_MAX_BYTES), '--tmpfs', '/dev/shm',
     '--perms', '0700', '--size', String(CANDIDATE_OUTPUT_MAX_BYTES), '--tmpfs', '/tmp',
     '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'LC_ALL', 'C.UTF-8',
     '--setenv', 'TZ', 'UTC', '--setenv', 'PATH', '/runtime', '--setenv', 'TMPDIR', '/tmp',
-    '--remount-ro', '/dev/pts', '--remount-ro', '/dev',
+    '--remount-ro', '/dev/shm', '--remount-ro', '/dev/pts', '--remount-ro', '/dev',
     '--remount-ro', '/proc', '--remount-ro', '/',
     '--chdir', '/repository',
     '--', '/runtime/loader', '--library-path', '/runtime', '/runtime/node',
