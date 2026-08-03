@@ -19,6 +19,11 @@ import {
   OBSERVATION_IGNORE_PATTERNS,
   observationInventorySnapshot,
 } from './source-inventory.mjs';
+import {
+  generationStatePath,
+  observationFreshnessContext,
+  readGenerationState,
+} from './observation-generation.mjs';
 import { brownfieldSignals } from './observation-runtime/node.mjs';
 
 const ignore = OBSERVATION_IGNORE_PATTERNS;
@@ -251,6 +256,9 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       },
       ...(compatibilityRecovery ? { compatibility_recovery: compatibilityRecovery } : {}),
       ...(workerDiagnostics.length ? { worker_diagnostics: workerDiagnostics } : {}),
+      ...(readGenerationState(generationStatePath(paths.cocoindex)).commit_phase === 'pending'
+        ? { interrupted_recovery: { commit_phase: 'pending', freshness: observationFreshnessContext(cwd) } }
+        : {}),
       troubleshooting: completion.failed_checks.some((item) => item.startsWith('status.'))
         ? 'Reinstall or restart Lamina if graphd still lacks the required status contract.'
         : 'Run `lamina graph rebuild-observations` only when the reported target generation is genuinely incomplete or corrupted.',
