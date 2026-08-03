@@ -220,12 +220,16 @@ for (const mutate of [
   assert.throws(() => parseCandidateSmokeRecordLine(`${JSON.stringify(changed)}\n`));
 }
 
-const oversizedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-candidate-output-bound-'));
+const oversizedRoot = fs.realpathSync.native(fs.mkdtempSync(
+  path.join(os.tmpdir(), 'lamina-candidate-output-bound-'),
+));
 try {
   const oversized = path.join(oversizedRoot, 'oversized-candidate-output.json');
   const descriptor = fs.openSync(oversized, 'wx', 0o600);
   try { fs.ftruncateSync(descriptor, CANDIDATE_RAW_MAX_CANONICAL_BYTES + 1); }
   finally { fs.closeSync(descriptor); }
+  assert.equal(fs.realpathSync.native(oversized), oversized,
+    'oversized candidate fixture must use its exact physical path');
   assert.throws(() => readBoundedCandidateOutput(oversized),
     /exceeds the bounded parser ceiling/);
 } finally {
