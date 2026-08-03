@@ -84,8 +84,10 @@ assert.ok(fixedGitDirectoriesForPlatform('win32').every((directory) =>
   /[\\/]Git[\\/](?:mingw64|clangarm64|mingw32)[\\/]bin$/i.test(directory)),
   'Windows fixed Git authority must name actual architecture binaries, not wrapper entry points');
 assert.equal(refusalProgramForPlatform('win32'),
-  'C:\\Windows\\System32\\lamina-safe-runner-refuse-execution-does-not-exist.exe');
+  'C:/Windows/System32/lamina-safe-runner-refuse-execution-does-not-exist.exe');
 assert.equal(path.win32.isAbsolute(refusalProgramForPlatform('win32')), true);
+assert.doesNotMatch(refusalProgramForPlatform('win32'), /\\/,
+  'Git shell refusal authority must use the exact forward-slash Windows spelling');
 assert.doesNotMatch(refusalProgramForPlatform('win32'), /cmd\.exe|[\s"']/i,
   'Windows refusal hooks must never invoke an ambient command interpreter');
 assert.equal(refusalProgramForPlatform('linux'), '/bin/false');

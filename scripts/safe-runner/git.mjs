@@ -12,7 +12,7 @@ import {
 
 const NULL_DEVICE = process.platform === 'win32' ? 'NUL' : '/dev/null';
 const WINDOWS_REFUSAL_PROGRAM =
-  'C:\\Windows\\System32\\lamina-safe-runner-refuse-execution-does-not-exist.exe';
+  'C:/Windows/System32/lamina-safe-runner-refuse-execution-does-not-exist.exe';
 export function refusalProgramForPlatform(platform = process.platform) {
   return platform === 'win32' ? WINDOWS_REFUSAL_PROGRAM : '/bin/false';
 }
