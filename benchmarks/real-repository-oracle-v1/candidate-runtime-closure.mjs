@@ -31,7 +31,14 @@ function exactPrivateDirectory(candidate, label) {
       && (stat.uid !== BigInt(process.getuid()) || (stat.mode & 0o077n) !== 0n))) {
     throw new Error(`${label} must be an exact private physical directory`);
   }
-  return { path: absolute, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+  return {
+    path: absolute,
+    dev: String(stat.dev),
+    ino: String(stat.ino),
+    uid: Number(stat.uid),
+    nlink: String(stat.nlink),
+    mode: Number(stat.mode & 0o7777n),
+  };
 }
 
 function runtimeLibraryIdentity(candidate) {
@@ -133,7 +140,16 @@ function snapshotRecords(root) {
       throw new Error('candidate runtime snapshot contains a non-physical file');
     }
     const bytes = fs.readFileSync(candidate);
-    records.push({ name, bytes: bytes.length, sha256: sha256(bytes) });
+    records.push({
+      name,
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+      uid: Number(stat.uid),
+      nlink: String(stat.nlink),
+      mode: Number(stat.mode & 0o7777n),
+      bytes: bytes.length,
+      sha256: sha256(bytes),
+    });
   }
   if (records.length > MAX_RUNTIME_FILES
     || records.reduce((total, item) => total + item.bytes, 0) > MAX_RUNTIME_BYTES) {

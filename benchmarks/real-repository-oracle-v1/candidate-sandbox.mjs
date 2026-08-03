@@ -17,11 +17,15 @@ export const CANDIDATE_SANDBOX_AUTHORITY_SCHEMA =
   'lamina.real-repository-oracle-candidate-sandbox-authority/v1';
 export const CANDIDATE_SANDBOX_LIMITATION =
   'pending_issue_59_same_cgroup_supervision_and_physical_cleanup_proof_not_implemented';
+export const CANDIDATE_SOURCE_SNAPSHOT_LIMITATION =
+  'pending_issue_59_private_host_mount_namespace_for_atomic_same_uid_source_snapshot_not_implemented';
 export const CANDIDATE_OUTPUT_MAX_BYTES = 16 * 1024 * 1024;
+export const CANDIDATE_ROOT_MAX_BYTES = 1024 * 1024;
+export const CANDIDATE_MOUNT_FD_MAX = 48;
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const MAX_TREE_FILES = 120_000;
 const MAX_TREE_BYTES = 768 * 1024 * 1024;
-const ISSUED_AUTHORITIES = new WeakSet();
+const AUTHORITY_STATES = new WeakMap();
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
@@ -46,7 +50,14 @@ function physicalDirectory(candidate, label, { privateMode = false } = {}) {
       && (stat.uid !== BigInt(process.getuid()) || (privateMode && (stat.mode & 0o077n) !== 0n)))) {
     throw new Error(`${label} must be an exact physical directory`);
   }
-  return { path: absolute, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid) };
+  return {
+    path: absolute,
+    dev: String(stat.dev),
+    ino: String(stat.ino),
+    uid: Number(stat.uid),
+    nlink: String(stat.nlink),
+    mode: Number(stat.mode & 0o7777n),
+  };
 }
 
 function physicalFile(candidate, label, { empty = false } = {}) {
@@ -63,7 +74,8 @@ function physicalFile(candidate, label, { empty = false } = {}) {
   const bytes = fs.readFileSync(absolute);
   return {
     path: absolute, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
-    mode: Number(stat.mode & 0o7777n), size: bytes.length, sha256: sha256(bytes),
+    nlink: String(stat.nlink), mode: Number(stat.mode & 0o7777n),
+    size: bytes.length, sha256: sha256(bytes),
   };
 }
 
@@ -79,17 +91,27 @@ function treeIdentity(root, label, { allowSymlinks = true } = {}) {
       const relative = path.posix.join(current.relative.split(path.sep).join('/'), name);
       const stat = fs.lstatSync(absolute, { bigint: true });
       if (stat.isDirectory() && !stat.isSymbolicLink()) {
-        records.push({ path: relative, type: 'directory', mode: Number(stat.mode & 0o7777n) });
+        records.push({
+          path: relative, type: 'directory', dev: String(stat.dev), ino: String(stat.ino),
+          uid: Number(stat.uid), nlink: String(stat.nlink), mode: Number(stat.mode & 0o7777n),
+        });
         pending.push({ absolute, relative });
       } else if (stat.isFile() && !stat.isSymbolicLink()) {
+        if (stat.nlink !== 1n) throw new Error(`${label} contains a hard-linked file`);
         const content = fs.readFileSync(absolute);
         bytes += content.length;
         records.push({
-          path: relative, type: 'file', mode: Number(stat.mode & 0o7777n),
+          path: relative, type: 'file', dev: String(stat.dev), ino: String(stat.ino),
+          uid: Number(stat.uid), nlink: String(stat.nlink), mode: Number(stat.mode & 0o7777n),
           bytes: content.length, sha256: sha256(content),
         });
       } else if (stat.isSymbolicLink() && allowSymlinks) {
-        records.push({ path: relative, type: 'symlink', target: fs.readlinkSync(absolute) });
+        if (stat.nlink !== 1n) throw new Error(`${label} contains a hard-linked symbolic link`);
+        records.push({
+          path: relative, type: 'symlink', dev: String(stat.dev), ino: String(stat.ino),
+          uid: Number(stat.uid), nlink: String(stat.nlink), mode: Number(stat.mode & 0o7777n),
+          target: fs.readlinkSync(absolute),
+        });
       } else throw new Error(`${label} contains unsupported filesystem content`);
       if (records.length > MAX_TREE_FILES || bytes > MAX_TREE_BYTES) {
         throw new Error(`${label} exceeds bounded identity limits`);
@@ -97,7 +119,13 @@ function treeIdentity(root, label, { allowSymlinks = true } = {}) {
     }
   }
   records.sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
-  return freeze({ root_identity: rootIdentity, files: records.length, bytes, sha256: digest(records) });
+  return freeze({
+    root_identity: rootIdentity,
+    files: records.length,
+    bytes,
+    records,
+    sha256: digest(records),
+  });
 }
 
 function canonicalInputIdentity(file) {
@@ -119,42 +147,114 @@ function safeRelative(value, label) {
   return value.split(path.sep).join('/');
 }
 
+function buildMountPlan({
+  runtime, adapterRoot, adapter, publicInput, inputIdentity, repository,
+  repositoryIdentity, outputFile, outputIdentity,
+}) {
+  const entries = [];
+  for (const record of runtime.records) {
+    entries.push({
+      kind: 'runtime-file', source: path.join(runtime.root, record.name),
+      destination: `/runtime/${record.name}`, directory: false, writable: false,
+      identity: record,
+    });
+  }
+  for (const record of adapter.records.filter((item) => item.type === 'file')) {
+    entries.push({
+      kind: 'adapter-file',
+      source: path.join(adapterRoot, ...record.path.split('/')),
+      destination: `/candidate/${record.path}`,
+      directory: false,
+      writable: false,
+      identity: record,
+    });
+  }
+  entries.push(
+    {
+      kind: 'public-input', source: publicInput, destination: '/input/public.json',
+      directory: false, writable: false, identity: inputIdentity,
+    },
+    {
+      kind: 'repository', source: repository, destination: '/repository',
+      directory: true, writable: false, identity: repositoryIdentity.root_identity,
+    },
+    {
+      kind: 'output', source: outputFile, destination: '/output/result',
+      directory: false, writable: true, identity: outputIdentity,
+    },
+  );
+  if (entries.length > CANDIDATE_MOUNT_FD_MAX) {
+    throw new Error(`candidate exact mount closure exceeds ${CANDIDATE_MOUNT_FD_MAX} descriptors`);
+  }
+  entries.forEach((entry, index) => { entry.fd = index + 3; });
+  return {
+    entries,
+    adapter_directories: adapter.records.filter((item) => item.type === 'directory')
+      .map((item) => item.path),
+  };
+}
+
 export function candidateBubblewrapArguments({
-  runtime_fd: runtimeFd = 3,
-  adapter_fd: adapterFd = 4,
-  input_fd: inputFd = 5,
-  repository_fd: repositoryFd = 6,
-  output_fd: outputFd = 7,
+  mount_plan: mountPlan,
   adapter_entrypoint: adapterEntrypoint,
   platform = process.platform,
 } = {}) {
   if (platform !== 'linux') throw new Error('candidate sandbox execution requires Linux');
   const entrypoint = safeRelative(adapterEntrypoint, 'candidate adapter entrypoint');
-  for (const fd of [runtimeFd, adapterFd, inputFd, repositoryFd, outputFd]) {
-    if (!Number.isSafeInteger(fd) || fd < 3 || fd > 63) throw new Error('candidate mount fd is invalid');
+  if (!mountPlan || !Array.isArray(mountPlan.entries)
+    || !Array.isArray(mountPlan.adapter_directories)
+    || mountPlan.entries.length < 5 || mountPlan.entries.length > CANDIDATE_MOUNT_FD_MAX) {
+    throw new Error('candidate exact mount plan is invalid');
   }
-  return [
+  const destinations = new Set();
+  for (const [index, entry] of mountPlan.entries.entries()) {
+    if (entry.fd !== index + 3 || entry.fd > 63 || typeof entry.destination !== 'string'
+      || !entry.destination.startsWith('/') || path.posix.normalize(entry.destination) !== entry.destination
+      || destinations.has(entry.destination)) throw new Error('candidate exact mount entry is invalid');
+    destinations.add(entry.destination);
+  }
+  if (!destinations.has('/runtime/node') || !destinations.has('/runtime/loader')
+    || !destinations.has(`/candidate/${entrypoint}`)
+    || !destinations.has('/input/public.json') || !destinations.has('/repository')
+    || !destinations.has('/output/result')) {
+    throw new Error('candidate exact mount plan lacks a required target');
+  }
+  const adapterDirectories = mountPlan.adapter_directories.map((directory) =>
+    safeRelative(directory, 'candidate adapter directory'))
+    .sort((left, right) => left.split('/').length - right.split('/').length
+      || left.localeCompare(right));
+  const args = [
     '--die-with-parent', '--new-session',
     '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net',
     '--uid', '0', '--gid', '0', '--hostname', 'lamina-candidate',
     '--disable-userns', '--assert-userns-disabled', '--cap-drop', 'ALL', '--clearenv',
-    '--tmpfs', '/',
+    '--perms', '0755', '--size', String(CANDIDATE_ROOT_MAX_BYTES), '--tmpfs', '/',
     '--dir', '/runtime', '--dir', '/candidate', '--dir', '/input',
     '--dir', '/repository', '--dir', '/output',
-    '--ro-bind-fd', String(runtimeFd), '/runtime',
-    '--ro-bind-fd', String(adapterFd), '/candidate',
-    '--ro-bind-fd', String(inputFd), '/input/public.json',
-    '--ro-bind-fd', String(repositoryFd), '/repository',
-    '--bind-fd', String(outputFd), '/output/result',
+  ];
+  for (const directory of adapterDirectories) args.push('--dir', `/candidate/${directory}`);
+  for (const directory of [...adapterDirectories].reverse()) {
+    args.push('--chmod', '0555', `/candidate/${directory}`);
+  }
+  args.push(
+    '--chmod', '0555', '/runtime', '--chmod', '0555', '/candidate',
+    '--chmod', '0555', '/input',
+  );
+  for (const entry of mountPlan.entries) {
+    args.push(entry.writable ? '--bind-fd' : '--ro-bind-fd', String(entry.fd), entry.destination);
+  }
+  args.push(
     '--chmod', '0555', '/output',
-    '--proc', '/proc', '--dev', '/dev',
+    '--proc', '/proc', '--dev', '/dev', '--chmod', '0555', '/dev',
     '--perms', '0700', '--size', String(CANDIDATE_OUTPUT_MAX_BYTES), '--tmpfs', '/tmp',
     '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'LC_ALL', 'C.UTF-8',
     '--setenv', 'TZ', 'UTC', '--setenv', 'PATH', '/runtime', '--setenv', 'TMPDIR', '/tmp',
+    '--chmod', '0555', '/',
     '--chdir', '/repository',
     '--', '/runtime/loader', '--library-path', '/runtime', '/runtime/node',
     `/candidate/${entrypoint}`, '/input/public.json', '/repository', '/output/result',
-  ];
+  );
+  return args;
 }
 
 function validateTimeout(timeoutMs) {
@@ -178,7 +278,9 @@ export function prepareCandidateSandbox({
   const runtime = verifyCandidateRuntimeSnapshot(runtimeSnapshot);
   const adapterEntry = safeRelative(adapterEntrypoint, 'candidate adapter entrypoint');
   const adapter = treeIdentity(adapterRoot, 'candidate adapter closure', { allowSymlinks: false });
-  if (!adapter.files || !fs.existsSync(path.join(adapterRoot, adapterEntry))) {
+  const adapterEntrypointRecord = adapter.records.find((record) =>
+    record.path === adapterEntry && record.type === 'file');
+  if (!adapter.files || !adapterEntrypointRecord) {
     throw new Error('candidate adapter entrypoint is absent from its exact closure');
   }
   const repositoryIdentity = treeIdentity(repository, 'candidate repository');
@@ -191,7 +293,20 @@ export function prepareCandidateSandbox({
   const outputIdentity = physicalFile(outputFile, 'candidate output', { empty: true });
   const bwrap = trustedRootHostBinary('bwrap');
   const prlimit = trustedRootHostBinary('prlimit');
-  const bwrapArguments = candidateBubblewrapArguments({ adapter_entrypoint: adapterEntry });
+  const mountPlan = buildMountPlan({
+    runtime,
+    adapterRoot,
+    adapter,
+    publicInput,
+    inputIdentity,
+    repository,
+    repositoryIdentity,
+    outputFile,
+    outputIdentity,
+  });
+  const bwrapArguments = candidateBubblewrapArguments({
+    mount_plan: mountPlan, adapter_entrypoint: adapterEntry,
+  });
   const prlimitArguments = [
     `--fsize=${CANDIDATE_OUTPUT_MAX_BYTES}:${CANDIDATE_OUTPUT_MAX_BYTES}`,
     '--core=0:0', '--nofile=64:64', '--', bwrap.path, ...bwrapArguments,
@@ -208,6 +323,7 @@ export function prepareCandidateSandbox({
     repository_identity: repositoryIdentity,
     output_file: outputFile,
     output_identity: outputIdentity,
+    mount_plan: mountPlan,
     timeout_ms: validateTimeout(timeoutMs),
     git_dependent: gitDependent,
     infrastructure: { bwrap, prlimit },
@@ -219,8 +335,9 @@ export function prepareCandidateSandbox({
       PWD: '/repository',
     },
     limitation: CANDIDATE_SANDBOX_LIMITATION,
+    source_snapshot_limitation: CANDIDATE_SOURCE_SNAPSHOT_LIMITATION,
   });
-  ISSUED_AUTHORITIES.add(authority);
+  AUTHORITY_STATES.set(authority, 'prepared');
   return authority;
 }
 
@@ -239,15 +356,23 @@ function verifyImmutableAuthorityInputs(authority, phase) {
 }
 
 function verifyAuthority(authority) {
-  if (!authority || !ISSUED_AUTHORITIES.has(authority)) {
-    throw new Error('candidate launch authority was not issued by this host process');
-  }
   verifyImmutableAuthorityInputs(authority, 'before launch');
   if (!same(physicalFile(authority.output_file, 'candidate output', { empty: true }),
     authority.output_identity)) {
     throw new Error('candidate launch authority input identity changed before launch');
   }
   return authority;
+}
+
+function beginAuthorityLaunch(authority) {
+  if (!authority || !AUTHORITY_STATES.has(authority)) {
+    throw new Error('candidate launch authority was not issued by this host process');
+  }
+  const state = AUTHORITY_STATES.get(authority);
+  if (state !== 'prepared') {
+    throw new Error(`candidate launch authority is ${state} and cannot be reused`);
+  }
+  AUTHORITY_STATES.set(authority, 'running');
 }
 
 function openMount(candidate, directory, expected, writable = false) {
@@ -258,6 +383,8 @@ function openMount(candidate, directory, expected, writable = false) {
   if ((directory ? !stat.isDirectory() : !stat.isFile()) || stat.isSymbolicLink()
     || String(stat.dev) !== String(expected.dev) || String(stat.ino) !== String(expected.ino)
     || Number(stat.uid) !== Number(expected.uid)
+    || String(stat.nlink) !== String(expected.nlink)
+    || Number(stat.mode & 0o7777n) !== Number(expected.mode)
     || (!directory && stat.nlink !== 1n)) {
     fs.closeSync(descriptor);
     throw new Error('candidate mount descriptor differs from launch authority');
@@ -335,15 +462,8 @@ function descriptorOutputIdentity(descriptor, authority) {
 }
 
 export async function runCandidateSandbox(authority) {
-  if (process.platform !== 'linux') throw new Error('candidate sandbox execution requires Linux');
-  verifyAuthority(authority);
-  const descriptors = [
-    openMount(authority.runtime_snapshot.root, true, authority.runtime_snapshot.root_identity),
-    openMount(authority.adapter_root, true, authority.adapter_identity.root_identity),
-    openMount(authority.public_input, false, authority.public_input_identity),
-    openMount(authority.repository, true, authority.repository_identity.root_identity),
-    openMount(authority.output_file, false, authority.output_identity, true),
-  ];
+  beginAuthorityLaunch(authority);
+  const descriptors = [];
   let child;
   const observed = new Map();
   let stdout = Buffer.alloc(0);
@@ -367,6 +487,11 @@ export async function runCandidateSandbox(authority) {
     setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 100).unref();
   };
   try {
+    if (process.platform !== 'linux') throw new Error('candidate sandbox execution requires Linux');
+    verifyAuthority(authority);
+    for (const entry of authority.mount_plan.entries) {
+      descriptors.push(openMount(entry.source, entry.directory, entry.identity, entry.writable));
+    }
     child = spawn(authority.infrastructure.prlimit.path, authority.prlimit_arguments, {
       env: {}, detached: true, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe', ...descriptors],
@@ -396,7 +521,8 @@ export async function runCandidateSandbox(authority) {
     await new Promise((resolve) => setTimeout(resolve, 150));
     const descendantsRemaining = [...observed.values()].filter(identityAlive);
     verifyImmutableAuthorityInputs(authority, 'after launch');
-    const output = descriptorOutputIdentity(descriptors[4], authority);
+    const outputIndex = authority.mount_plan.entries.findIndex((entry) => entry.kind === 'output');
+    const output = descriptorOutputIdentity(descriptors[outputIndex], authority);
     return freeze({
       passed: ended.code === 0 && !timedOut && !outputFlood
         && output.size <= CANDIDATE_OUTPUT_MAX_BYTES && descendantsRemaining.length === 0,
@@ -411,8 +537,10 @@ export async function runCandidateSandbox(authority) {
       descendants_remaining: descendantsRemaining,
       cleanup_verified: false,
       limitation: CANDIDATE_SANDBOX_LIMITATION,
+      source_snapshot_limitation: CANDIDATE_SOURCE_SNAPSHOT_LIMITATION,
     });
   } finally {
+    AUTHORITY_STATES.set(authority, 'consumed');
     for (const descriptor of descriptors) {
       try { fs.closeSync(descriptor); } catch {}
     }

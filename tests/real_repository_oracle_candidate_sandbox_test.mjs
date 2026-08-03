@@ -13,7 +13,10 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/candidate-runtime-closure.mjs';
 import {
   CANDIDATE_OUTPUT_MAX_BYTES,
+  CANDIDATE_MOUNT_FD_MAX,
+  CANDIDATE_ROOT_MAX_BYTES,
   CANDIDATE_SANDBOX_LIMITATION,
+  CANDIDATE_SOURCE_SNAPSHOT_LIMITATION,
   candidateBubblewrapArguments,
   prepareCandidateSandbox,
   runCandidateSandbox,
@@ -32,28 +35,54 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
     : value;
 const writeCanonical = (file, value) => fs.writeFileSync(file,
   Buffer.from(JSON.stringify(canonical(value))), { flag: 'wx', mode: 0o600 });
+const replaceSameBytes = (file) => {
+  const before = fs.lstatSync(file, { bigint: true });
+  const replacement = `${file}.replacement-${crypto.randomBytes(6).toString('hex')}`;
+  fs.writeFileSync(replacement, fs.readFileSync(file), { flag: 'wx', mode: 0o600 });
+  fs.chmodSync(replacement, Number(before.mode & 0o7777n));
+  fs.renameSync(replacement, file);
+  const after = fs.lstatSync(file, { bigint: true });
+  assert.notEqual(String(after.ino), String(before.ino), 'same-byte replacement changes inode');
+};
 
+const pureMountPlan = {
+  adapter_directories: [],
+  entries: [
+    { fd: 3, destination: '/runtime/node', writable: false },
+    { fd: 4, destination: '/runtime/loader', writable: false },
+    { fd: 5, destination: '/candidate/adapter.mjs', writable: false },
+    { fd: 6, destination: '/input/public.json', writable: false },
+    { fd: 7, destination: '/repository', writable: false },
+    { fd: 8, destination: '/output/result', writable: true },
+  ],
+};
 const pureArguments = candidateBubblewrapArguments({
-  adapter_entrypoint: 'adapter.mjs', platform: 'linux',
+  mount_plan: pureMountPlan, adapter_entrypoint: 'adapter.mjs', platform: 'linux',
 });
-assert.deepEqual(pureArguments.slice(0, 20), [
+assert.deepEqual(pureArguments.slice(0, 24), [
   '--die-with-parent', '--new-session',
   '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net',
   '--uid', '0', '--gid', '0', '--hostname', 'lamina-candidate',
-  '--disable-userns', '--assert-userns-disabled', '--cap-drop', 'ALL', '--clearenv', '--tmpfs', '/',
+  '--disable-userns', '--assert-userns-disabled', '--cap-drop', 'ALL', '--clearenv',
+  '--perms', '0755', '--size', String(CANDIDATE_ROOT_MAX_BYTES), '--tmpfs', '/',
 ]);
 assert.equal(pureArguments.includes('--ro-bind'), false);
 assert.equal(pureArguments.join('\0').includes('--ro-bind\0/\0/'), false,
   'candidate sandbox never binds the host root');
+for (const target of ['/runtime', '/candidate', '/input', '/output', '/dev', '/']) {
+  assert.ok(pureArguments.some((value, index) => value === '--chmod'
+    && pureArguments[index + 1] === '0555' && pureArguments[index + 2] === target),
+  `${target} is made non-writable after sandbox setup`);
+}
 for (const pair of [
   ['--ro-bind-fd', '3'], ['--ro-bind-fd', '4'], ['--ro-bind-fd', '5'],
-  ['--ro-bind-fd', '6'], ['--bind-fd', '7'],
+  ['--ro-bind-fd', '6'], ['--ro-bind-fd', '7'], ['--bind-fd', '8'],
 ]) {
   assert.ok(pureArguments.some((value, index) => value === pair[0]
     && pureArguments[index + 1] === pair[1]));
 }
 assert.throws(() => candidateBubblewrapArguments({
-  adapter_entrypoint: 'adapter.mjs', platform: 'darwin',
+  mount_plan: pureMountPlan, adapter_entrypoint: 'adapter.mjs', platform: 'darwin',
 }), /requires Linux/);
 
 if (process.platform !== 'linux') {
@@ -84,6 +113,9 @@ try {
   assert.ok(runtime.files.some((item) => item.role === 'loader'));
   assert.ok(runtime.files.filter((item) => item.role === 'library').length >= 1);
   assert.match(runtime.closure_sha256, /^[a-f0-9]{64}$/);
+  for (const field of ['dev', 'ino', 'uid', 'nlink', 'mode', 'bytes', 'sha256']) {
+    assert.ok(Object.hasOwn(runtime.records[0], field), `runtime records retain exact ${field}`);
+  }
 
   const hostSocket = path.join(temporary, 'host-control.sock');
   server = net.createServer();
@@ -96,7 +128,7 @@ try {
   fs.writeFileSync(hostSentinel, 'host-private\n', { mode: 0o600 });
 
   let runIndex = 0;
-  const prepareRun = (mode, timeoutMs = 3_000, extra = {}) => {
+  const prepareRun = (mode, timeoutMs = 3_000, extra = {}, authorityOverrides = {}) => {
     runIndex += 1;
     const input = path.join(temporary, `input-${runIndex}.json`);
     const output = path.join(temporary, `output-${runIndex}`);
@@ -114,7 +146,7 @@ try {
     const sibling = `${output}.sibling`;
     fs.writeFileSync(sibling, 'preserve-sibling\n', { flag: 'wx', mode: 0o600 });
     const authority = prepareCandidateSandbox({
-      runtime_snapshot: runtime,
+      runtime_snapshot: authorityOverrides.runtime_snapshot || runtime,
       adapter_root: adapterRoot,
       adapter_entrypoint: 'adapter.mjs',
       public_input: input,
@@ -136,6 +168,16 @@ try {
     'attested prlimit directly invokes attested bwrap');
   assert.match(success.authority.argv_sha256, /^[a-f0-9]{64}$/);
   assert.equal(success.authority.limitation, CANDIDATE_SANDBOX_LIMITATION);
+  assert.equal(success.authority.source_snapshot_limitation,
+    CANDIDATE_SOURCE_SNAPSHOT_LIMITATION);
+  assert.ok(success.authority.mount_plan.entries.length <= CANDIDATE_MOUNT_FD_MAX);
+  assert.equal(success.authority.mount_plan.entries.some((entry) =>
+    entry.destination === '/runtime' || entry.destination === '/candidate'), false,
+  'runtime and adapter closures mount exact files rather than broad directories');
+  assert.ok(success.authority.mount_plan.entries.filter((entry) =>
+    entry.kind === 'runtime-file').length >= 3);
+  assert.equal(success.authority.mount_plan.entries.filter((entry) =>
+    entry.kind === 'adapter-file').length, 1);
   await assert.rejects(runCandidateSandbox(structuredClone(success.authority)), /was not issued/);
   const successResult = await runCandidateSandbox(success.authority);
   assert.equal(successResult.passed, true, successResult.stderr);
@@ -154,9 +196,46 @@ try {
   assert.equal(observed.nested_userns_tool_absent, true);
   assert.equal(observed.mount_tool_absent, true);
   assert.equal(observed.hostname, 'lamina-candidate');
+  assert.deepEqual(observed.write_refusals, {
+    '/candidate/junk': true,
+    '/dev/junk': true,
+    '/input/junk': true,
+    '/junk': true,
+    '/output/junk': true,
+    '/proc/junk': true,
+    '/repository/junk': true,
+    '/runtime/junk': true,
+  });
+  assert.equal(observed.tmp_writable, true);
+  assert.deepEqual(observed.intended_writable_roots, ['/output/result', '/tmp']);
   assert.equal(fs.readFileSync(success.sibling, 'utf8'), 'preserve-sibling\n');
   assert.equal(fs.existsSync(path.join(repository, 'candidate-mutation')), false);
   assert.equal(successResult.cleanup_verified, false);
+  assert.equal(successResult.source_snapshot_limitation,
+    CANDIDATE_SOURCE_SNAPSHOT_LIMITATION);
+  await assert.rejects(runCandidateSandbox(success.authority), /is consumed and cannot be reused/);
+
+  const concurrent = prepareRun('launch-count', 2_000);
+  const concurrentRun = runCandidateSandbox(concurrent.authority);
+  await assert.rejects(runCandidateSandbox(concurrent.authority),
+    /is running and cannot be reused/);
+  const concurrentResult = await concurrentRun;
+  assert.equal(concurrentResult.passed, true, concurrentResult.stderr);
+  assert.equal(fs.readFileSync(concurrent.output, 'utf8'), 'x',
+    'a concurrent same-authority attempt launches exactly one candidate');
+  await assert.rejects(runCandidateSandbox(concurrent.authority),
+    /is consumed and cannot be reused/);
+
+  const validationFailure = prepareRun('success');
+  const validInput = fs.readFileSync(validationFailure.input);
+  const changedInput = JSON.parse(validInput.toString('utf8'));
+  changedInput.token = 'changed-but-still-canonical';
+  fs.writeFileSync(validationFailure.input, Buffer.from(JSON.stringify(canonical(changedInput))));
+  await assert.rejects(runCandidateSandbox(validationFailure.authority),
+    /input identity changed before launch/);
+  fs.writeFileSync(validationFailure.input, validInput);
+  await assert.rejects(runCandidateSandbox(validationFailure.authority),
+    /is consumed and cannot be reused/);
 
   const exact = prepareRun('exact-limit', 5_000);
   const exactResult = await runCandidateSandbox(exact.authority);
@@ -177,7 +256,45 @@ try {
     assert.equal(result.passed, false);
     assert.equal(result[expected], true, `${mode} must hit ${expected}`);
     assert.deepEqual(result.descendants_remaining, [], `${mode} leaves no observed descendants`);
+    if (mode === 'timeout') {
+      await assert.rejects(runCandidateSandbox(bounded.authority),
+        /is consumed and cannot be reused/);
+    }
   }
+
+  const replacementRuntimeRoot = path.join(temporary, 'replacement-runtime');
+  const replacementRuntime = buildCandidateRuntimeSnapshot({
+    snapshot_root: replacementRuntimeRoot,
+  });
+  const runtimeReplaced = prepareRun('success', 3_000, {}, {
+    runtime_snapshot: replacementRuntime,
+  });
+  replaceSameBytes(path.join(replacementRuntime.root, replacementRuntime.records[0].name));
+  await assert.rejects(runCandidateSandbox(runtimeReplaced.authority),
+    /candidate runtime snapshot content changed/);
+  await assert.rejects(runCandidateSandbox(runtimeReplaced.authority),
+    /is consumed and cannot be reused/);
+
+  const adapterReplaced = prepareRun('success');
+  replaceSameBytes(path.join(adapterRoot, 'adapter.mjs'));
+  await assert.rejects(runCandidateSandbox(adapterReplaced.authority),
+    /candidate launch authority input identity changed before launch/);
+  await assert.rejects(runCandidateSandbox(adapterReplaced.authority),
+    /is consumed and cannot be reused/);
+
+  const inputReplaced = prepareRun('success');
+  replaceSameBytes(inputReplaced.input);
+  await assert.rejects(runCandidateSandbox(inputReplaced.authority),
+    /candidate launch authority input identity changed before launch/);
+  await assert.rejects(runCandidateSandbox(inputReplaced.authority),
+    /is consumed and cannot be reused/);
+
+  const repositoryReplaced = prepareRun('success');
+  replaceSameBytes(path.join(repository, 'observed.txt'));
+  await assert.rejects(runCandidateSandbox(repositoryReplaced.authority),
+    /candidate launch authority input identity changed before launch/);
+  await assert.rejects(runCandidateSandbox(repositoryReplaced.authority),
+    /is consumed and cannot be reused/);
 
   const swapped = prepareRun('timeout', 500);
   const displacedOutput = `${swapped.output}.candidate-owned`;
@@ -198,6 +315,8 @@ try {
   await assert.rejects(mutatedRun,
     /candidate launch authority input identity changed after launch/);
   fs.writeFileSync(path.join(repository, 'observed.txt'), 'repository-visible\n');
+  await assert.rejects(runCandidateSandbox(mutated.authority),
+    /is consumed and cannot be reused/);
 
   const linked = path.join(temporary, 'linked-worktree');
   fs.mkdirSync(linked, { mode: 0o700 });

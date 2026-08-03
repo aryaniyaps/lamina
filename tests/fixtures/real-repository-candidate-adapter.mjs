@@ -29,6 +29,14 @@ if (input.mode === 'success') {
     && !fs.existsSync('/bin/unshare');
   const mountToolAbsent = !fs.existsSync('/usr/bin/mount') && !fs.existsSync('/bin/mount');
   const hostSocketAbsent = !fs.existsSync(input.host_socket);
+  const writeRefusals = Object.fromEntries([
+    '/junk', '/dev/junk', '/runtime/junk', '/candidate/junk', '/input/junk',
+    '/repository/junk', '/output/junk', '/proc/junk',
+  ].map((candidate) => [candidate, refusal(() => fs.writeFileSync(candidate, 'forbidden'))]));
+  const tmpProbe = '/tmp/candidate-writable-root';
+  fs.writeFileSync(tmpProbe, 'bounded-private-temp');
+  const tmpWritable = fs.readFileSync(tmpProbe, 'utf8') === 'bounded-private-temp';
+  fs.unlinkSync(tmpProbe);
   const result = {
     repository_text: fs.readFileSync(`${repository}/observed.txt`, 'utf8'),
     input_token: input.token,
@@ -42,8 +50,14 @@ if (input.mode === 'success') {
     nested_userns_tool_absent: nestedUsernsToolAbsent,
     mount_tool_absent: mountToolAbsent,
     hostname: os.hostname(),
+    write_refusals: writeRefusals,
+    tmp_writable: tmpWritable,
+    intended_writable_roots: ['/output/result', '/tmp'],
   };
   fs.writeFileSync(outputFile, JSON.stringify(result));
+} else if (input.mode === 'launch-count') {
+  fs.appendFileSync(outputFile, 'x');
+  await new Promise((resolve) => setTimeout(resolve, 300));
 } else if (input.mode === 'exact-limit' || input.mode === 'overflow') {
   const size = 16 * 1024 * 1024 + (input.mode === 'overflow' ? 1 : 0);
   fs.writeFileSync(outputFile, Buffer.alloc(size, 0x61));
