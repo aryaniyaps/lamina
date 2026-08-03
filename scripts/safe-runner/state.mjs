@@ -17,7 +17,8 @@ import {
   exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
 } from './landlock-candidate-profile.mjs';
 import {
-  CANDIDATE_SMOKE_LAUNCH_PROFILE, exactCandidateSmokeCommand,
+  CANDIDATE_SMOKE_LAUNCH_PROFILE, CANDIDATE_SMOKE_WORKLOAD_ID,
+  exactCandidateSmokeCommand,
 } from './candidate-smoke-profile.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
@@ -541,6 +542,7 @@ export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand =
     evidence?.preflight?.launch_profile,
     evidence?.preflight?.execution_snapshot?.launch_profile,
   ].includes(CANDIDATE_SMOKE_LAUNCH_PROFILE)
+    || workloadId === CANDIDATE_SMOKE_WORKLOAD_ID
     || exactCandidateSmokeCommand(evidence?.command)
     || exactCandidateSmokeCommand(actualCommand)) {
     const error = new Error('non-gradeable candidate smoke evidence cannot be promoted');

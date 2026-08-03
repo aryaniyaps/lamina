@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -54,11 +56,74 @@ const promotion = preflightRun({
 });
 assert.equal(promotion.launch_profile, CANDIDATE_SMOKE_LAUNCH_PROFILE);
 assert.match(promotion.reasons.join('\n'), /non-gradeable candidate smoke cannot be promoted/);
-assert.throws(() => recordPromotion(ROOT, 'small', {
-  command, preflight: { launch_profile: CANDIDATE_SMOKE_LAUNCH_PROFILE },
-}, CANDIDATE_SMOKE_WORKLOAD_ID, command), (error) =>
-  error?.code === 'LAMINA_SAFE_PROMOTION_FORBIDDEN'
-  && /non-gradeable candidate smoke/.test(error.message));
+const previousState = process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+const promotionState = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-candidate-smoke-promotion-'));
+fs.rmSync(promotionState, { recursive: true });
+try {
+  process.env.LAMINA_SAFE_RUNNER_STATE_DIR = promotionState;
+  const otherCommand = [process.execPath, ENTRYPOINT, 'admit-inventory'];
+  const ordinaryEvidence = {
+    outcome: 'success', run_id: 'candidate-smoke-promotion-spoof', command: otherCommand,
+    adapter: { id: 'pure-contract' }, finished_at: '2026-08-03T00:00:00.000Z',
+    preflight: {
+      launch_profile: null,
+      execution_snapshot: { launch_profile: null },
+    },
+    cleanup: {
+      descendants_remaining: [], managed_paths_remaining: [], scope_removed: true,
+      temporary_directory_removed: true, errors: [],
+    },
+  };
+  const promotionSpoofs = [
+    {
+      label: 'workload ID only', evidence: ordinaryEvidence,
+      workloadId: CANDIDATE_SMOKE_WORKLOAD_ID, actualCommand: otherCommand,
+    },
+    {
+      label: 'preflight profile only',
+      evidence: {
+        ...ordinaryEvidence,
+        preflight: {
+          launch_profile: CANDIDATE_SMOKE_LAUNCH_PROFILE,
+          execution_snapshot: { launch_profile: null },
+        },
+      },
+      workloadId: 'ordinary-workload', actualCommand: otherCommand,
+    },
+    {
+      label: 'snapshot profile only',
+      evidence: {
+        ...ordinaryEvidence,
+        preflight: {
+          launch_profile: null,
+          execution_snapshot: { launch_profile: CANDIDATE_SMOKE_LAUNCH_PROFILE },
+        },
+      },
+      workloadId: 'ordinary-workload', actualCommand: otherCommand,
+    },
+    {
+      label: 'evidence command only', evidence: { ...ordinaryEvidence, command },
+      workloadId: 'ordinary-workload', actualCommand: otherCommand,
+    },
+    {
+      label: 'actual command only', evidence: ordinaryEvidence,
+      workloadId: 'ordinary-workload', actualCommand: command,
+    },
+  ];
+  for (const spoof of promotionSpoofs) {
+    assert.throws(() => recordPromotion(
+      ROOT, 'small', spoof.evidence, spoof.workloadId, spoof.actualCommand,
+      { digest: 'a'.repeat(64) },
+    ), (error) => error?.code === 'LAMINA_SAFE_PROMOTION_FORBIDDEN'
+      && /non-gradeable candidate smoke/.test(error.message), spoof.label);
+    assert.equal(fs.existsSync(promotionState), false,
+      `${spoof.label} must not create promotion state`);
+  }
+} finally {
+  if (previousState === undefined) delete process.env.LAMINA_SAFE_RUNNER_STATE_DIR;
+  else process.env.LAMINA_SAFE_RUNNER_STATE_DIR = previousState;
+  fs.rmSync(promotionState, { recursive: true, force: true });
+}
 for (const refusal of [
   { command: [...command, 'extra'], workloadId: CANDIDATE_SMOKE_WORKLOAD_ID, tier: 'small',
     overrides: CANDIDATE_SMOKE_OVERRIDES },
