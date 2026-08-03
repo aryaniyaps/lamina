@@ -52,9 +52,29 @@ export function isExecutionHookEnvironment(name) {
 export function trustedPhysicalPathEqual(left, right, platform = process.platform) {
   if (typeof left !== 'string' || typeof right !== 'string') return false;
   if (platform === 'win32') {
-    return path.win32.normalize(left).toLowerCase() === path.win32.normalize(right).toLowerCase();
+    const normalizedLeft = path.win32.normalize(left);
+    const normalizedRight = path.win32.normalize(right);
+    const leftDrive = normalizedLeft.match(/^([A-Za-z]):(.*)$/s);
+    const rightDrive = normalizedRight.match(/^([A-Za-z]):(.*)$/s);
+    if (leftDrive && rightDrive) {
+      return leftDrive[1].toLowerCase() === rightDrive[1].toLowerCase()
+        && leftDrive[2] === rightDrive[2];
+    }
+    return normalizedLeft === normalizedRight;
   }
   return left === right;
+}
+
+export function trustedReadOpenFlags(platform = process.platform) {
+  if (platform === 'win32') {
+    // Windows has no O_NOFOLLOW. The surrounding lstat -> opened fstat ->
+    // post-read fstat -> final lstat continuity is the fail-closed substitute.
+    return fs.constants.O_RDONLY;
+  }
+  if (!Number.isInteger(fs.constants.O_NOFOLLOW)) {
+    throw new Error('trusted executable no-follow open is unavailable');
+  }
+  return fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW;
 }
 
 export function trustedBinaryStatPolicy({
@@ -77,9 +97,24 @@ export function trustedBinaryStatPolicy({
     && (currentUid === null || uid === 0n || uid === BigInt(currentUid));
 }
 
-function sameBinaryNode(left, right) {
-  return left.dev === right.dev && left.ino === right.ino
-    && left.size === right.size && left.mode === right.mode;
+const TRUSTED_BINARY_STABLE_FIELDS = Object.freeze([
+  'dev', 'ino', 'uid', 'gid', 'mode', 'size', 'nlink', 'mtimeNs', 'ctimeNs',
+]);
+
+export function trustedBinaryStableFields(stat) {
+  if (!stat || TRUSTED_BINARY_STABLE_FIELDS.some((field) => typeof stat[field] !== 'bigint')) {
+    return null;
+  }
+  return Object.freeze(Object.fromEntries(
+    TRUSTED_BINARY_STABLE_FIELDS.map((field) => [field, String(stat[field])]),
+  ));
+}
+
+export function sameTrustedBinaryStableFields(left, right) {
+  const leftFields = trustedBinaryStableFields(left);
+  const rightFields = trustedBinaryStableFields(right);
+  return leftFields !== null && rightFields !== null
+    && JSON.stringify(leftFields) === JSON.stringify(rightFields);
 }
 
 function binaryDigest(file, expected, platform) {
@@ -89,10 +124,10 @@ function binaryDigest(file, expected, platform) {
     error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
     throw error;
   }
-  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const descriptor = fs.openSync(file, trustedReadOpenFlags(platform));
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (!opened.isFile() || !sameBinaryNode(expected, opened)) {
+    if (!opened.isFile() || !sameTrustedBinaryStableFields(expected, opened)) {
       throw new Error('trusted executable changed while opening');
     }
     const hash = crypto.createHash('sha256');
@@ -109,11 +144,12 @@ function binaryDigest(file, expected, platform) {
     }
     const after = fs.fstatSync(descriptor, { bigint: true });
     const namedAfter = fs.lstatSync(file, { bigint: true });
-    if (!sameBinaryNode(opened, after) || !sameBinaryNode(after, namedAfter)
+    if (!sameTrustedBinaryStableFields(opened, after)
+      || !sameTrustedBinaryStableFields(after, namedAfter)
       || !trustedPhysicalPathEqual(fs.realpathSync.native(file), file, platform)) {
       throw new Error('trusted executable identity changed while hashing');
     }
-    return hash.digest('hex');
+    return Object.freeze({ digest: hash.digest('hex'), stat: after });
   } finally { fs.closeSync(descriptor); }
 }
 
@@ -167,22 +203,23 @@ export function trustedBinaryIdentity(candidate, {
     throw error;
   }
   assertTrustedAncestors(physical, { requireRootOwnership });
-  const digest = binaryDigest(physical, stat, process.platform);
+  const verified = binaryDigest(physical, stat, process.platform);
   assertTrustedAncestors(physical, { requireRootOwnership });
-  if (expectedDigest && digest !== expectedDigest) {
+  if (expectedDigest && verified.digest !== expectedDigest) {
     const error = new Error(`trusted executable digest mismatch: ${absolute}`);
     error.code = 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY';
     throw error;
   }
   return {
     path: physical,
-    dev: String(stat.dev),
-    ino: String(stat.ino),
-    uid: Number(stat.uid),
-    mode: Number(stat.mode & 0o7777n),
-    size: String(stat.size),
-    digest,
-    ...(requireRootOwnership ? { nlink: Number(stat.nlink), root_owned_path: true } : {}),
+    dev: String(verified.stat.dev),
+    ino: String(verified.stat.ino),
+    uid: Number(verified.stat.uid),
+    mode: Number(verified.stat.mode & 0o7777n),
+    size: String(verified.stat.size),
+    digest: verified.digest,
+    ...(requireRootOwnership
+      ? { nlink: Number(verified.stat.nlink), root_owned_path: true } : {}),
   };
 }
 

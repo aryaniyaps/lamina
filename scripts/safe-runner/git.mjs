@@ -4,11 +4,25 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import {
   assertTrustedBinaryIdentity,
+  sameTrustedBinaryStableFields,
+  trustedPhysicalPathEqual,
+  trustedReadOpenFlags,
   trustedHostBinary,
 } from './infrastructure.mjs';
 
 const NULL_DEVICE = process.platform === 'win32' ? 'NUL' : '/dev/null';
-const FALSE_PROGRAM = process.platform === 'win32' ? 'cmd.exe /d /c exit 1' : '/bin/false';
+const WINDOWS_REFUSAL_PROGRAM =
+  'C:\\Windows\\System32\\lamina-safe-runner-refuse-execution-does-not-exist.exe';
+export function refusalProgramForPlatform(platform = process.platform) {
+  return platform === 'win32' ? WINDOWS_REFUSAL_PROGRAM : '/bin/false';
+}
+const FALSE_PROGRAM = refusalProgramForPlatform();
+
+function assertRefusalProgramUnavailable() {
+  if (process.platform === 'win32' && fs.existsSync(FALSE_PROGRAM)) {
+    throw new Error('fixed Windows refusal executable unexpectedly exists');
+  }
+}
 
 // Every Git command used by the controller is read-only. These command-scope
 // settings neutralize repository-local execution hooks while still allowing
@@ -75,16 +89,24 @@ const EXECUTABLE_REMOTE_KEYS = new Set([
 function physicalBoundedFile(file, label, maximumBytes = 1024 * 1024) {
   const stat = fs.lstatSync(file, { bigint: true });
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > BigInt(maximumBytes)
-    || fs.realpathSync.native(file) !== file) {
+    || !trustedPhysicalPathEqual(fs.realpathSync.native(file), file)) {
     throw new Error(`${label} must be a bounded physical file`);
   }
-  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const descriptor = fs.openSync(file, trustedReadOpenFlags());
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.size !== stat.size) {
+    if (!sameTrustedBinaryStableFields(stat, opened)) {
       throw new Error(`${label} changed while opening`);
     }
-    return fs.readFileSync(descriptor, 'utf8');
+    const contents = fs.readFileSync(descriptor, 'utf8');
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    const namedAfter = fs.lstatSync(file, { bigint: true });
+    if (!sameTrustedBinaryStableFields(opened, after)
+      || !sameTrustedBinaryStableFields(after, namedAfter)
+      || !trustedPhysicalPathEqual(fs.realpathSync.native(file), file)) {
+      throw new Error(`${label} changed while reading`);
+    }
+    return contents;
   } finally { fs.closeSync(descriptor); }
 }
 
@@ -318,7 +340,7 @@ function validateSealedGitContinuity(expected) {
   if (!pathBefore.isFile() || pathBefore.isSymbolicLink()) {
     throw sealedGitError('sealed workload Git path is not a physical file');
   }
-  const descriptor = fs.openSync(expected.path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const descriptor = fs.openSync(expected.path, trustedReadOpenFlags());
   try {
     const before = fs.fstatSync(descriptor, { bigint: true });
     if (!before.isFile() || (before.mode & 0o111n) === 0n || (before.mode & 0o6022n) !== 0n
@@ -449,6 +471,7 @@ function trustedGitIdentityForSpawn() {
 }
 
 export function inertGitEnvironment({ objectDirectory = null } = {}) {
+  assertRefusalProgramUnavailable();
   const environment = {
     PATH: process.platform === 'win32' ? path.dirname(trustedGitIdentity().path) : '/usr/bin:/bin',
     HOME: process.platform === 'win32' ? 'C:\\nonexistent' : '/nonexistent',
