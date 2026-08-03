@@ -22,6 +22,8 @@ const MANIFEST_RETURN = `m.identity AS identity, m.generation AS generation,
   m.graph_version AS graph_version, m.source_revision AS source_revision,
   m.repository_revision AS repository_revision, m.branch AS branch,
   m.worktree AS worktree, m.model_digest AS model_digest,
+  m.observation_generation AS observation_generation,
+  m.observation_membership_digest AS observation_membership_digest,
   m.index_digest AS index_digest, m.schema_version AS schema_version,
   m.expected_count AS expected_count`;
 const ACTIVE_MANIFEST_RETURN = `${MANIFEST_RETURN},
@@ -243,7 +245,23 @@ export class RetrievalStore {
       this.connection.initSync();
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     }
+    this.migrateRetrievalSchema();
     this.recoverInterruptedPendingGenerations();
+  }
+
+  migrateRetrievalSchema() {
+    const manifests = this.query(
+      'MATCH (m:RetrievalManifest) RETURN m.schema_version AS schema_version',
+    );
+    if (!manifests.some((row) => Number(row.schema_version) < RETRIEVAL_SCHEMA_VERSION)) return;
+    this.close();
+    for (const file of [this.paths.retrieval, `${this.paths.retrieval}.wal`]) {
+      fs.rmSync(file, { recursive: true, force: true });
+    }
+    this.database = null;
+    this.connection = null;
+    this.extensionsLoaded = false;
+    this.ensureOpen();
   }
 
   recoverInterruptedPendingGenerations() {
@@ -422,6 +440,8 @@ export class RetrievalStore {
       manifest.branch === params.branch &&
       manifest.worktree === params.worktree &&
       manifest.model_digest === params.model_digest &&
+      (manifest.observation_generation || '') === (params.observation_generation || '') &&
+      (manifest.observation_membership_digest || '') === (params.observation_membership_digest || '') &&
       Number(manifest.schema_version) === RETRIEVAL_SCHEMA_VERSION;
     let documents;
     const documentGeneration = manifest || pending;
@@ -517,12 +537,16 @@ export class RetrievalStore {
             identity: $identity, generation: $generation, graph_version: $graph_version,
             source_revision: $source_revision, repository_revision: $repository_revision,
             branch: $branch, worktree: $worktree, model_digest: $model_digest,
+            observation_generation: $observation_generation,
+            observation_membership_digest: $observation_membership_digest,
             index_digest: $index_digest, schema_version: $schema_version,
             expected_count: $expected_count, started_at: $started_at
           })`,
           {
             ...manifest,
             repository_revision: manifest.repository_revision || '',
+            observation_generation: manifest.observation_generation || '',
+            observation_membership_digest: manifest.observation_membership_digest || '',
             started_at: new Date().toISOString(),
           },
         );
@@ -534,7 +558,9 @@ export class RetrievalStore {
       if (!pending || pending.generation !== generation ||
           pending.graph_version !== manifest.graph_version ||
           pending.source_revision !== manifest.source_revision ||
-          pending.model_digest !== manifest.model_digest) {
+          pending.model_digest !== manifest.model_digest ||
+          (pending.observation_generation || '') !== (manifest.observation_generation || '') ||
+          (pending.observation_membership_digest || '') !== (manifest.observation_membership_digest || '')) {
         throw retrievalFailure('Retrieval batch does not match the pending generation.');
       }
       for (const item of upserts) {
@@ -625,12 +651,16 @@ export class RetrievalStore {
             identity: $identity, generation: $generation, graph_version: $graph_version,
             source_revision: $source_revision, repository_revision: $repository_revision,
             branch: $branch, worktree: $worktree, model_digest: $model_digest,
+            observation_generation: $observation_generation,
+            observation_membership_digest: $observation_membership_digest,
             index_digest: $index_digest, schema_version: $schema_version,
             expected_count: $expected_count, committed_count: $committed_count,
             updated_at: $updated_at
           })`,
           {
             ...pending,
+            observation_generation: pending.observation_generation || '',
+            observation_membership_digest: pending.observation_membership_digest || '',
             committed_count: documents.length,
             updated_at: new Date().toISOString(),
           },

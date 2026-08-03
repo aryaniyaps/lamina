@@ -1,4 +1,4 @@
-export const RETRIEVAL_SCHEMA_VERSION = 1;
+export const RETRIEVAL_SCHEMA_VERSION = 2;
 export const RETRIEVAL_DIMENSIONS = 768;
 export const RETRIEVAL_RRF_K = 60;
 export const RETRIEVAL_LIMIT = 12;
@@ -34,6 +34,8 @@ export const RETRIEVAL_SCHEMA = Object.freeze([
     branch STRING,
     worktree STRING,
     model_digest STRING,
+    observation_generation STRING,
+    observation_membership_digest STRING,
     index_digest STRING,
     schema_version INT64,
     expected_count INT64,
@@ -49,6 +51,8 @@ export const RETRIEVAL_SCHEMA = Object.freeze([
     branch STRING,
     worktree STRING,
     model_digest STRING,
+    observation_generation STRING,
+    observation_membership_digest STRING,
     index_digest STRING,
     schema_version INT64,
     expected_count INT64,

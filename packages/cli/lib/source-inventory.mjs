@@ -266,6 +266,15 @@ export function summarizePathInventory(paths, repository, manifest, fixture, {
   });
 }
 
+export function enumerateRetrievalCandidatePaths(repository, {
+  manifest = loadManifest().manifest,
+  exclusions = manifest.exclusions,
+  includeUntracked = false,
+} = {}) {
+  const paths = enumerateGitInventoryPaths(repository, { includeUntracked });
+  return summarizePathInventory(paths, repository, manifest, null, { exclusions }).retrieval_paths;
+}
+
 export function summarizeRepositoryInventory(repository, { manifest, fixture } = {}) {
   const loaded = manifest ? { manifest } : loadManifest();
   const resolvedManifest = manifest || loaded.manifest;
