@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import dgram from 'node:dgram';
 import net from 'node:net';
 
 const [inputFile, repository, outputFile, scratchFile] = process.argv.slice(2);
@@ -28,14 +29,47 @@ const metadataRefused = (label, operation) => {
     return ['EACCES', 'EPERM', 'ENOSYS'].includes(error?.code);
   }
 };
+const commandLineControllerPathsAbsent = (() => {
+  try {
+    return !fs.readFileSync('/proc/self/cmdline', 'utf8').includes(input.controller_path);
+  } catch (error) {
+    return error?.code === 'EACCES';
+  }
+})();
 const socketRefused = await new Promise((resolve) => {
   const socket = net.createConnection(input.control_socket);
   const timer = setTimeout(() => { socket.destroy(); resolve(false); }, 500);
   socket.once('connect', () => { clearTimeout(timer); socket.destroy(); resolve(false); });
   socket.once('error', (error) => {
     clearTimeout(timer);
-    resolve(['EACCES', 'ENOENT', 'ENOTSOCK', 'ECONNREFUSED'].includes(error?.code));
+    resolve(['EACCES', 'EPERM', 'ENOENT', 'ENOTSOCK', 'ECONNREFUSED'].includes(error?.code));
   });
+});
+const tcpSocketRefused = await new Promise((resolve) => {
+  const socket = net.createConnection({ host: '127.0.0.1', port: 9 });
+  const timer = setTimeout(() => { socket.destroy(); resolve(false); }, 500);
+  socket.once('connect', () => { clearTimeout(timer); socket.destroy(); resolve(false); });
+  socket.once('error', (error) => {
+    clearTimeout(timer);
+    resolve(error?.code === 'EPERM');
+  });
+});
+const udpSocketRefused = await new Promise((resolve) => {
+  let socket;
+  try {
+    socket = dgram.createSocket('udp4');
+    const timer = setTimeout(() => { socket.close(); resolve(false); }, 500);
+    socket.once('listening', () => { clearTimeout(timer); socket.close(); resolve(false); });
+    socket.once('error', (error) => {
+      clearTimeout(timer);
+      socket.close();
+      resolve(error?.code === 'EPERM');
+    });
+    socket.bind(0, '127.0.0.1');
+  } catch (error) {
+    try { socket?.close(); } catch {}
+    resolve(error?.code === 'EPERM');
+  }
 });
 
 fs.writeFileSync(scratchFile, 'bounded scratch\n');
@@ -72,7 +106,10 @@ const result = {
     input.elsewhere_file, 'escaped\n',
   )),
   proc_read_refused: refused(() => fs.readFileSync('/proc/self/status')),
+  command_line_controller_paths_absent: commandLineControllerPathsAbsent,
   control_socket_refused: socketRefused,
+  tcp_socket_refused: tcpSocketRefused,
+  udp_socket_refused: udpSocketRefused,
   extra_executable_path_refused: refused(() => fs.writeFileSync(
     input.extra_executable, '#!/bin/sh\nexit 0\n', { mode: 0o700 },
   )),

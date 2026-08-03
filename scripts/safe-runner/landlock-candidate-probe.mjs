@@ -1,52 +1,23 @@
-import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
+import { identityAlive, processIdentity } from './processes.mjs';
 import {
-  descendantRecords, identityAlive, processIdentity, processRecord,
-} from './processes.mjs';
+  LANDLOCK_CANDIDATE_BASE_RIGHTS,
+  SECCOMP_DENIED_SYSCALL_CLASSES,
+  compileLandlockCandidateLauncher,
+  executeLandlockCandidate,
+  landlockCandidateFileIdentity,
+  landlockCandidateRuntimeClosure,
+  queryLandlockCandidateAbi,
+} from './landlock-candidate-launcher.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SOURCE = path.join(
-  ROOT, 'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
-);
 const ADAPTER = path.join(ROOT, 'tests/fixtures/landlock-candidate-adversary.mjs');
-const REVIEWED_SOURCE_SHA256 = 'ba4efc1ce9c4436997d385df6af368a3eaf70e90167b205bcba27e0bb3528b43';
-const O_PATH = 0x200000;
-const O_TMPFILE = 0x410000;
 const MAX_IDENTITY_BYTES = 128 * 1024 * 1024;
-const BASE_RIGHTS = Object.freeze([
-  'execute', 'write_file', 'read_file', 'read_dir', 'remove_dir', 'remove_file',
-  'make_char', 'make_dir', 'make_reg', 'make_sock', 'make_fifo', 'make_block',
-  'make_sym', 'refer', 'truncate',
-]);
-const SECCOMP_DENIED_SYSCALL_CLASSES = Object.freeze({
-  persistent_metadata: [
-    'chmod', 'fchmod', 'fchmodat', 'fchmodat2', 'chown', 'fchown', 'lchown',
-    'fchownat', 'utime', 'utimes', 'futimesat', 'utimensat', 'setxattr',
-    'lsetxattr', 'fsetxattr', 'removexattr', 'lremovexattr', 'fremovexattr',
-    'setxattrat', 'removexattrat', 'file_setattr',
-  ],
-  process_creation: ['fork', 'vfork'],
-  anonymous_executable: ['memfd_create'],
-  filesystem_topology: [
-    'mount', 'umount2', 'pivot_root', 'chroot', 'open_tree', 'move_mount',
-    'fsopen', 'fsconfig', 'fsmount', 'fspick', 'mount_setattr',
-    'open_by_handle_at', 'name_to_handle_at', 'mknod', 'mknodat', 'unshare', 'setns',
-  ],
-  kernel_process_privilege: [
-    'bpf', 'ptrace', 'userfaultfd', 'perf_event_open', 'process_vm_writev',
-    'pidfd_getfd', 'fanotify_init', 'io_uring_setup', 'add_key', 'request_key',
-    'keyctl', 'kexec_load', 'finit_module', 'init_module', 'delete_module',
-    'swapon', 'swapoff', 'reboot', 'iopl', 'ioperm', 'sethostname',
-    'setdomainname', 'acct', 'quotactl', 'capset', 'setuid', 'setgid',
-    'setreuid', 'setregid', 'setresuid', 'setresgid', 'setfsuid', 'setfsgid',
-    'setgroups', 'personality', 'modify_ldt',
-  ],
-});
 
 function sha256File(file, maximumBytes = MAX_IDENTITY_BYTES) {
   const stat = fs.statSync(file);
@@ -54,178 +25,6 @@ function sha256File(file, maximumBytes = MAX_IDENTITY_BYTES) {
     throw new Error(`identity input is not a bounded regular file: ${file}`);
   }
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-}
-
-function fileIdentity(file, { digest = true } = {}) {
-  const physical = fs.realpathSync.native(file);
-  const stat = fs.statSync(physical, { bigint: true });
-  if (!stat.isFile() || stat.size <= 0n || stat.size > BigInt(MAX_IDENTITY_BYTES)) {
-    throw new Error(`identity input is not a bounded regular file: ${physical}`);
-  }
-  return {
-    path: physical,
-    dev: String(stat.dev),
-    ino: String(stat.ino),
-    uid: Number(stat.uid),
-    mode: Number(stat.mode),
-    size: Number(stat.size),
-    ...(digest ? { sha256: sha256File(physical) } : {}),
-  };
-}
-
-function sameInode(left, right) {
-  return String(left.dev) === String(right.dev) && String(left.ino) === String(right.ino);
-}
-
-function compilerToolchain(compilerFd) {
-  const files = new Map();
-  for (const program of ['cc1', 'as', 'ld', 'collect2']) {
-    const result = spawnSync('/proc/self/fd/3', [`-print-prog-name=${program}`], {
-      stdio: ['ignore', 'pipe', 'pipe', compilerFd], encoding: 'utf8',
-      timeout: 2_000, maxBuffer: 8 * 1024,
-      env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
-    });
-    if (result.error || result.status !== 0 || result.signal !== null || result.stderr !== '') {
-      throw new Error(`compiler ${program} identity query failed`);
-    }
-    const declared = result.stdout.trim();
-    const resolved = path.isAbsolute(declared) ? declared : `/usr/bin/${declared}`;
-    const identity = fileIdentity(resolved);
-    if ((identity.mode & 0o022) !== 0) {
-      throw new Error(`compiler subprogram is group/world writable: ${identity.path}`);
-    }
-    files.set(identity.path, { role: program, ...identity });
-  }
-  return [...files.values()].sort((left, right) => left.path.localeCompare(right.path));
-}
-
-function compileLauncher(temporaryDirectory) {
-  const temporaryStat = fs.lstatSync(temporaryDirectory);
-  const temporaryFilesystem = fs.statfsSync(temporaryDirectory);
-  if (!temporaryStat.isDirectory() || temporaryStat.isSymbolicLink()
-    || fs.realpathSync.native(temporaryDirectory) !== temporaryDirectory
-    || (temporaryStat.mode & 0o777) !== 0o700
-    || Number(temporaryFilesystem.type) !== 0x01021994) {
-    throw new Error('compiler temporary directory is not the exact bounded outer tmpfs');
-  }
-  const source = fileIdentity(SOURCE);
-  const sourceDigest = source.sha256;
-  if (sourceDigest !== REVIEWED_SOURCE_SHA256) {
-    throw new Error('reviewed Landlock launcher source digest changed');
-  }
-  const compiler = fileIdentity('/usr/bin/cc');
-  const sourceFd = fs.openSync(SOURCE, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  const compilerFd = fs.openSync(compiler.path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  const writableOutputFd = fs.openSync(temporaryDirectory, O_TMPFILE | fs.constants.O_RDWR, 0o700);
-  let readOnlyOutputFd = null;
-  try {
-    const sourceFdStat = fs.fstatSync(sourceFd, { bigint: true });
-    if (!sameInode(sourceFdStat, source)) throw new Error('reviewed source descriptor changed');
-    const toolchain = compilerToolchain(compilerFd);
-    const compile = spawnSync('/proc/self/fd/4', [
-      '-x', 'c', '-std=c17', '-O2', '-static', '-Wall', '-Wextra', '-Werror',
-      '-Wl,--build-id=none', '/proc/self/fd/3', '-o', '/proc/self/fd/5',
-    ], {
-      stdio: ['ignore', 'pipe', 'pipe', sourceFd, compilerFd, writableOutputFd],
-      encoding: 'utf8', timeout: 20_000, maxBuffer: 128 * 1024,
-      cwd: temporaryDirectory,
-      env: {
-        LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin',
-        TMPDIR: temporaryDirectory, TMP: temporaryDirectory, TEMP: temporaryDirectory,
-      },
-    });
-    if (compile.error || compile.status !== 0 || compile.signal !== null
-      || compile.stdout !== '' || compile.stderr !== '') {
-      throw new Error(`anonymous launcher compilation failed: ${JSON.stringify({
-        error: compile.error?.message || null, status: compile.status, signal: compile.signal,
-        stdout: compile.stdout, stderr: compile.stderr,
-      })}`);
-    }
-    fs.fchmodSync(writableOutputFd, 0o500);
-    fs.fsyncSync(writableOutputFd);
-    const writableStat = fs.fstatSync(writableOutputFd, { bigint: true });
-    readOnlyOutputFd = fs.openSync(`/proc/self/fd/${writableOutputFd}`, fs.constants.O_RDONLY);
-    const readOnlyStat = fs.fstatSync(readOnlyOutputFd, { bigint: true });
-    if (!sameInode(writableStat, readOnlyStat) || !readOnlyStat.isFile()
-      || readOnlyStat.size <= 0n || readOnlyStat.size > 4n * 1024n * 1024n) {
-      throw new Error('anonymous launcher output identity or bound changed');
-    }
-    const outputSha256 = crypto.createHash('sha256')
-      .update(fs.readFileSync(`/proc/self/fd/${readOnlyOutputFd}`)).digest('hex');
-    fs.closeSync(writableOutputFd);
-    return {
-      fd: readOnlyOutputFd,
-      attestation: {
-        source_sha256: sourceDigest,
-        source,
-        source_fd_pinned: true,
-        compiler,
-        compiler_toolchain: toolchain,
-        output_sha256: outputSha256,
-        output_bytes: Number(readOnlyStat.size),
-        output_anonymous: true,
-        output_reopened_read_only: true,
-        writable_output_fd_closed_before_exec: true,
-        exact_flags: [
-          '-x', 'c', '-std=c17', '-O2', '-static', '-Wall', '-Wextra', '-Werror',
-          '-Wl,--build-id=none', '/proc/self/fd/3', '-o', '/proc/self/fd/5',
-        ],
-      },
-    };
-  } catch (error) {
-    if (readOnlyOutputFd !== null) fs.closeSync(readOnlyOutputFd);
-    try { fs.closeSync(writableOutputFd); } catch {}
-    throw error;
-  } finally {
-    fs.closeSync(sourceFd);
-    fs.closeSync(compilerFd);
-  }
-}
-
-function queryAbi(launcherFd) {
-  const result = spawnSync('/proc/self/fd/3', ['query'], {
-    stdio: ['ignore', 'pipe', 'pipe', launcherFd], encoding: 'utf8',
-    timeout: 2_000, maxBuffer: 8 * 1024,
-    env: { LANG: 'C', LC_ALL: 'C' },
-  });
-  if (result.error || result.status !== 0 || result.signal !== null || result.stderr !== '') {
-    throw new Error(`Landlock ABI query failed: ${JSON.stringify({
-      error: result.error?.message || null, status: result.status,
-      signal: result.signal, stderr: result.stderr,
-    })}`);
-  }
-  if (!/^[3-8]\n$/.test(result.stdout)) {
-    throw new Error(`Landlock ABI is outside reviewed Linux v7.0 range: ${result.stdout.trim()}`);
-  }
-  return Number(result.stdout.trim());
-}
-
-function runtimeClosure(nodeIdentity) {
-  const ldd = fileIdentity('/usr/bin/ldd');
-  const result = spawnSync(ldd.path, [nodeIdentity.path], {
-    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,
-    maxBuffer: 64 * 1024, env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
-  });
-  if (result.error || result.status !== 0 || result.signal !== null || result.stderr !== '') {
-    throw new Error('trusted ldd could not resolve the exact candidate runtime closure');
-  }
-  const paths = new Set();
-  for (const line of result.stdout.trim().split('\n')) {
-    const match = line.match(/=>\s+(\/\S+)\s+\(0x[0-9a-f]+\)$/i)
-      || line.match(/^\s*(\/\S+)\s+\(0x[0-9a-f]+\)$/i);
-    if (match) paths.add(fs.realpathSync.native(match[1]));
-    else if (!line.includes('linux-vdso.so.1')) {
-      throw new Error(`unrecognized ldd runtime closure line: ${line}`);
-    }
-  }
-  if (paths.size < 2 || paths.size > 32) {
-    throw new Error(`candidate runtime closure is outside reviewed bounds: ${paths.size}`);
-  }
-  return {
-    resolver: ldd,
-    files: [...paths].sort().map((file) => fileIdentity(file)),
-    configuration: fileIdentity('/etc/ssl/openssl.cnf'),
-  };
 }
 
 function outerContext() {
@@ -284,19 +83,6 @@ function outerContext() {
   };
 }
 
-function openPinned(file, type = 'file') {
-  const descriptor = fs.openSync(file, type === 'writable-file'
-    ? fs.constants.O_RDWR | fs.constants.O_NOFOLLOW
-    : O_PATH | fs.constants.O_NOFOLLOW);
-  const stat = fs.fstatSync(descriptor);
-  if ((['file', 'writable-file'].includes(type) && !stat.isFile())
-    || (type === 'directory' && !stat.isDirectory())) {
-    fs.closeSync(descriptor);
-    throw new Error(`pinned candidate input type changed: ${file}`);
-  }
-  return descriptor;
-}
-
 function repositoryManifest(repository) {
   const statFields = (target) => {
     const stat = fs.lstatSync(target, { bigint: true });
@@ -316,40 +102,6 @@ function repositoryManifest(repository) {
     manifest,
     sha256: crypto.createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
   };
-}
-
-function waitForCandidate(child) {
-  return new Promise((resolve, reject) => {
-    let stdout = '';
-    let stderr = '';
-    let ready = false;
-    let identity = null;
-    let record = null;
-    let descendants = [];
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-      if (!ready && stdout === 'READY\n') {
-        ready = true;
-        record = processRecord(child.pid);
-        identity = processIdentity(child.pid);
-        descendants = descendantRecords(child.pid).map((item) => processIdentity(item.pid))
-          .filter(Boolean);
-        if (!record || !identity) {
-          reject(new Error('candidate identity disappeared before release'));
-          return;
-        }
-        child.stdin.end('G');
-      }
-    });
-    child.once('error', reject);
-    child.once('close', (exitCode, signal) => {
-      if (!ready) return reject(new Error(`candidate did not reach release gate: ${stderr}`));
-      resolve({ exitCode, signal, stdout, stderr, identity, record, descendants });
-    });
-  });
 }
 
 async function auditPrivatePidNamespace(expectedIdentities) {
@@ -395,59 +147,36 @@ async function executeAdversary({
     || namespaceAuthorities[0].pid === namespaceAuthorities[1].pid) {
     throw new Error('private PID namespace authority identities are incomplete');
   }
-  const descriptors = [
-    openPinned(node.path), openPinned(ADAPTER), openPinned(inputFile),
-    openPinned(repository, 'directory'), openPinned(outputFile),
-    openPinned(scratchFile, 'writable-file'),
-    openPinned(closure.configuration.path),
-    ...closure.files.map((item) => openPinned(item.path)),
-  ];
-  try {
-    const childFds = descriptors.map((_, index) => index + 4);
-    const [nodeFd, adapterFd, inputFd, repositoryFd, outputFd, scratchFd,
-      configurationFd, ...runtimeFds]
-      = childFds;
-    const args = [
-      'run', String(abi), String(nodeFd), String(adapterFd), String(inputFd),
-      String(repositoryFd), String(outputFd), String(scratchFd), String(configurationFd),
-      String(runtimeFds.length),
-      ...runtimeFds.map(String), '--', node.path, ADAPTER, inputFile, repository,
-      outputFile, scratchFile,
-    ];
-    const child = spawn('/proc/self/fd/3', args, {
-      stdio: ['pipe', 'pipe', 'pipe', launcherFd, ...descriptors],
-      env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
-    });
-    const execution = await waitForCandidate(child);
-    const executable = fs.statSync(node.path, { bigint: true });
-    const exact = execution.record?.start_ticks === execution.identity.start_ticks
-      && execution.record.executable_identity?.dev === String(executable.dev)
-      && execution.record.executable_identity?.ino === String(executable.ino);
-    const stillAlive = [execution.identity, ...execution.descendants].filter(identityAlive);
-    const namespaceAudit = await auditPrivatePidNamespace(namespaceAuthorities);
-    if (!exact || execution.exitCode !== 0 || execution.signal !== null
-      || execution.stdout !== 'READY\n' || execution.stderr !== '' || stillAlive.length > 0
-      || !namespaceAudit.verified) {
-      throw new Error(`candidate execution attestation failed: ${JSON.stringify({
-        exact, exitCode: execution.exitCode, signal: execution.signal,
-        stdout: execution.stdout, stderr: execution.stderr, stillAlive, namespaceAudit,
-      })}`);
-    }
-    return {
-      identity_exact: true,
-      exit_code: execution.exitCode,
-      signal: execution.signal,
-      descendants_remaining: [],
-      private_pid_namespace_rescan_verified: true,
-      private_pid_namespace_expected_identities: namespaceAuthorities,
-      private_pid_namespace_observed_identities: namespaceAudit.identities,
-      private_pid_namespace_rescan_attempts: namespaceAudit.attempts,
-      unexpected_private_pid_identities: [],
-      result: JSON.parse(fs.readFileSync(outputFile, 'utf8')),
-    };
-  } finally {
-    for (const descriptor of descriptors) fs.closeSync(descriptor);
+  const execution = await executeLandlockCandidate({
+    launcherFd, abi, node, closure, adapter: ADAPTER, inputFile, repository,
+    outputFile, scratchFile, readyLine: 'READY\n', releaseToken: 'G',
+  });
+  const executable = fs.statSync(node.path, { bigint: true });
+  const exact = execution.record?.start_ticks === execution.identity.start_ticks
+    && execution.record.executable_identity?.dev === String(executable.dev)
+    && execution.record.executable_identity?.ino === String(executable.ino);
+  const stillAlive = [execution.identity, ...execution.descendants].filter(identityAlive);
+  const namespaceAudit = await auditPrivatePidNamespace(namespaceAuthorities);
+  if (!exact || execution.exitCode !== 0 || execution.signal !== null
+    || execution.stdout !== 'READY\n' || execution.stderr !== '' || stillAlive.length > 0
+    || !namespaceAudit.verified) {
+    throw new Error(`candidate execution attestation failed: ${JSON.stringify({
+      exact, exitCode: execution.exitCode, signal: execution.signal,
+      stdout: execution.stdout, stderr: execution.stderr, stillAlive, namespaceAudit,
+    })}`);
   }
+  return {
+    identity_exact: true,
+    exit_code: execution.exitCode,
+    signal: execution.signal,
+    descendants_remaining: [],
+    private_pid_namespace_rescan_verified: true,
+    private_pid_namespace_expected_identities: namespaceAuthorities,
+    private_pid_namespace_observed_identities: namespaceAudit.identities,
+    private_pid_namespace_rescan_attempts: namespaceAudit.attempts,
+    unexpected_private_pid_identities: [],
+    result: JSON.parse(fs.readFileSync(outputFile, 'utf8')),
+  };
 }
 
 export async function runLandlockCandidateProbe() {
@@ -474,12 +203,13 @@ export async function runLandlockCandidateProbe() {
     fs.writeFileSync(inputFile, `${JSON.stringify({
       token: 'public-token', hidden_file: hiddenFile, elsewhere_file: elsewhereFile,
       extra_executable: extraExecutable, control_socket: '/run/systemd/private',
+      controller_path: probeRoot,
     })}\n`);
 
-    launcher = compileLauncher(probeRoot);
-    const abi = queryAbi(launcher.fd);
-    const node = fileIdentity(process.execPath);
-    const closure = runtimeClosure(node);
+    launcher = compileLandlockCandidateLauncher(probeRoot);
+    const abi = queryLandlockCandidateAbi(launcher.fd);
+    const node = landlockCandidateFileIdentity(process.execPath);
+    const closure = landlockCandidateRuntimeClosure(node);
     const manifestBefore = repositoryManifest(repository);
     let candidate;
     try {
@@ -515,9 +245,9 @@ export async function runLandlockCandidateProbe() {
       landlock: {
         reviewed_uapi: 'linux-v7.0',
         abi,
-        base_rights: [...BASE_RIGHTS],
+        base_rights: [...LANDLOCK_CANDIDATE_BASE_RIGHTS],
         handled_rights: [
-          ...BASE_RIGHTS,
+          ...LANDLOCK_CANDIDATE_BASE_RIGHTS,
           ...(abi >= 5 ? ['ioctl_dev'] : []),
           ...(abi >= 4 ? ['bind_tcp', 'connect_tcp'] : []),
         ],
@@ -526,7 +256,7 @@ export async function runLandlockCandidateProbe() {
         fail_closed_above_abi: 8,
       },
       seccomp: {
-        policy: 'lamina.landlock-candidate-seccomp/x86_64-v1',
+        policy: 'lamina.landlock-candidate-seccomp/x86_64-v2',
         architecture: 'x86_64',
         unsupported_architecture_action: 'compile_refusal',
         kernel_install_failure_action: 'launch_refusal',
@@ -537,7 +267,7 @@ export async function runLandlockCandidateProbe() {
           'valid-regular-fd-ioctl:pre-non-EPERM/post-EPERM',
           'valid-regular-fd-TCGETS2:post-non-EPERM',
           'valid-regular-fd-removexattrat:pre-ENODATA/post-EPERM',
-          'fork:EPERM', 'clone3:ENOSYS',
+          'fork:EPERM', 'clone3:ENOSYS', 'socket:EPERM', 'socketpair:EPERM',
         ],
         process_creation: {
           fork: 'EPERM',

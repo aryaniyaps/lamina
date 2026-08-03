@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -31,6 +32,14 @@
 
 #define REVIEWED_LANDLOCK_ABI_MAX 8
 #define MAX_RUNTIME_FILES 32
+#define NODE_FD 4
+#define ADAPTER_FD 5
+#define INPUT_FD 6
+#define REPOSITORY_FD 7
+#define OUTPUT_FD 8
+#define SCRATCH_FD 9
+#define CONFIGURATION_FD 10
+#define FIRST_RUNTIME_FD 11
 
 /* Linux v6.13+ x86_64 syscall numbers, pinned with the reviewed v7.0 UAPI. */
 #ifndef __NR_setxattrat
@@ -184,6 +193,8 @@ static void install_seccomp_filter(void)
 			 SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA)),
 		DENY_SYSCALL(fork),
 		DENY_SYSCALL(vfork),
+		DENY_SYSCALL(socket),
+		DENY_SYSCALL(socketpair),
 
 		/* Persistent file metadata mutation not mediated by Landlock ABI 8. */
 		DENY_SYSCALL(chmod),
@@ -292,7 +303,7 @@ static void install_seccomp_filter(void)
 static void self_test_seccomp(int writable_regular_fd)
 {
 	struct stat statbuf;
-	int available = 0, descriptor, ioctl_result, ioctl_errno;
+	int available = 0, descriptor, ioctl_result, ioctl_errno, socket_pair[2];
 
 	if (fstat(writable_regular_fd, &statbuf) != 0 || !S_ISREG(statbuf.st_mode))
 		die("seccomp self-test writable descriptor");
@@ -352,6 +363,16 @@ static void self_test_seccomp(int writable_regular_fd)
 		errno = EPROTO;
 		die("seccomp clone3 denial self-test");
 	}
+	errno = 0;
+	if (socket(AF_INET, SOCK_STREAM, 0) != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp socket denial self-test");
+	}
+	errno = 0;
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, socket_pair) != -1 || errno != EPERM) {
+		errno = EPROTO;
+		die("seccomp socketpair denial self-test");
+	}
 }
 
 static void run_candidate(int argc, char **argv)
@@ -384,18 +405,29 @@ static void run_candidate(int argc, char **argv)
 	output_fd = parse_fd(argv[7]);
 	scratch_fd = parse_fd(argv[8]);
 	configuration_fd = parse_fd(argv[9]);
+	if (node_fd != NODE_FD || adapter_fd != ADAPTER_FD || input_fd != INPUT_FD
+	    || repository_fd != REPOSITORY_FD || output_fd != OUTPUT_FD
+	    || scratch_fd != SCRATCH_FD || configuration_fd != CONFIGURATION_FD) {
+		errno = EINVAL;
+		die("candidate descriptor layout changed");
+	}
 	runtime_count = atoi(argv[10]);
 	if (runtime_count < 0 || runtime_count > MAX_RUNTIME_FILES) {
 		errno = E2BIG;
 		die("runtime closure descriptor count");
 	}
 	separator = 11 + runtime_count;
-	if (argc != separator + 7 || strcmp(argv[separator], "--") != 0) {
+	if (argc != separator + 1 || strcmp(argv[separator], "--") != 0) {
 		errno = EINVAL;
 		die("candidate launcher argument boundary");
 	}
-	for (int index = 0; index < runtime_count; index++)
+	for (int index = 0; index < runtime_count; index++) {
 		runtime_fds[index] = parse_fd(argv[11 + index]);
+		if (runtime_fds[index] != FIRST_RUNTIME_FD + index) {
+			errno = EINVAL;
+			die("candidate runtime descriptor layout changed");
+		}
+	}
 
 	require_descriptor_type(node_fd, S_IFREG);
 	require_descriptor_type(adapter_fd, S_IFREG);
@@ -439,18 +471,22 @@ static void run_candidate(int argc, char **argv)
 		die("close ruleset");
 	self_test_seccomp(scratch_fd);
 	for (int fd = 3; fd <= 1024; fd++) {
-		if (fd != node_fd)
+		if (fd < NODE_FD || fd > SCRATCH_FD)
 			close(fd);
 	}
 	if (fcntl(node_fd, F_SETFD, FD_CLOEXEC) != 0)
 		die("seal candidate runtime descriptor");
+	for (int fd = ADAPTER_FD; fd <= SCRATCH_FD; fd++) {
+		if (fcntl(fd, F_SETFD, 0) != 0)
+			die("preserve candidate argument descriptor");
+	}
 
-	candidate_argv[0] = argv[separator + 1];
-	candidate_argv[1] = argv[separator + 2];
-	candidate_argv[2] = argv[separator + 3];
-	candidate_argv[3] = argv[separator + 4];
-	candidate_argv[4] = argv[separator + 5];
-	candidate_argv[5] = argv[separator + 6];
+	candidate_argv[0] = "/proc/self/fd/4";
+	candidate_argv[1] = "/proc/self/fd/5";
+	candidate_argv[2] = "/proc/self/fd/6";
+	candidate_argv[3] = "/proc/self/fd/7";
+	candidate_argv[4] = "/proc/self/fd/8";
+	candidate_argv[5] = "/proc/self/fd/9";
 	candidate_argv[6] = NULL;
 	if (syscall(__NR_execveat, node_fd, "", candidate_argv, environ,
 		    AT_EMPTY_PATH) != 0)

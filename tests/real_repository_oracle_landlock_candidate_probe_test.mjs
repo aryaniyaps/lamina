@@ -92,7 +92,7 @@ try {
   if (result.landlock.abi >= 6) assert.deepEqual(result.landlock.scopes,
     ['abstract_unix_socket', 'signal']);
   assert.equal(result.landlock.fail_closed_above_abi, 8);
-  assert.equal(result.seccomp.policy, 'lamina.landlock-candidate-seccomp/x86_64-v1');
+  assert.equal(result.seccomp.policy, 'lamina.landlock-candidate-seccomp/x86_64-v2');
   assert.equal(result.seccomp.architecture, 'x86_64');
   assert.equal(result.seccomp.unsupported_architecture_action, 'compile_refusal');
   assert.equal(result.seccomp.kernel_install_failure_action, 'launch_refusal');
@@ -104,7 +104,7 @@ try {
       'valid-regular-fd-ioctl:pre-non-EPERM/post-EPERM',
       'valid-regular-fd-TCGETS2:post-non-EPERM',
       'valid-regular-fd-removexattrat:pre-ENODATA/post-EPERM',
-      'fork:EPERM', 'clone3:ENOSYS',
+      'fork:EPERM', 'clone3:ENOSYS', 'socket:EPERM', 'socketpair:EPERM',
     ]);
   for (const syscall of [
     'chmod', 'fchmod', 'fchmodat', 'fchmodat2', 'chown', 'fchown', 'lchown',
@@ -131,6 +131,8 @@ try {
   });
   assert.deepEqual(result.seccomp.denied_syscall_classes.anonymous_executable,
     ['memfd_create']);
+  assert.deepEqual(result.seccomp.denied_syscall_classes.network_creation,
+    ['socket', 'socketpair']);
   const reportedDeniedSyscalls = Object.values(result.seccomp.denied_syscall_classes)
     .flat().sort();
   const sourceDeniedSyscalls = [...fs.readFileSync(LAUNCHER_SOURCE, 'utf8')
@@ -180,7 +182,10 @@ try {
     repository_mutation_refused: true,
     elsewhere_write_refused: true,
     proc_read_refused: true,
+    command_line_controller_paths_absent: true,
     control_socket_refused: true,
+    tcp_socket_refused: true,
+    udp_socket_refused: true,
     extra_executable_path_refused: true,
     file_mode_mutation_refused: true,
     directory_mode_mutation_refused: true,
