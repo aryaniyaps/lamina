@@ -16,10 +16,8 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/candidate-smoke.mjs';
 import {
   CANDIDATE_RAW_MAX_CANONICAL_BYTES,
-} from '../benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
-import {
   readBoundedCandidateOutput,
-} from '../benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs';
+} from '../benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
 import {
   CANDIDATE_SMOKE_LAUNCH_PROFILE,
   CANDIDATE_SMOKE_LIMITS,

@@ -495,7 +495,7 @@ const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
 });
 assert.notEqual(directUnknown.status, 0);
 assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
-  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios\|probe-oracle-host\|smoke-candidate-small>/);
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios\|probe-oracle-host\|smoke-candidate-small\|lease-candidate-worker <tier> <slot> <phase>>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -588,6 +588,11 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/source-identity.mjs',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
+  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
   'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
@@ -600,15 +605,10 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-contract.mjs',
-  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
-  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
-  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
   'benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs',
   'benchmarks/real-repository-oracle-v1/semantic-case-authority.mjs',
   'benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
   'benchmarks/real-repository-oracle-v1/workflows-v1.json',
-  'benchmarks/real-repository-oracle-v1/contract.mjs',
-  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
   'benchmarks/real-repository-oracle-v1/schema/fixture.schema.json',
   'benchmarks/real-repository-oracle-v1/schema/result.schema.json',
   'benchmarks/real-repository-oracle-v1/observation-category-authority.mjs',
@@ -617,6 +617,13 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/landlock-candidate-launcher.mjs',
   'scripts/safe-runner/candidate-smoke-profile.mjs',
   'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-runner.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-controller.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-report.mjs',
+  'scripts/safe-runner/candidate-lease-worker-profile.mjs',
+  'scripts/safe-runner/candidate-lease-worker-host-profile.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,

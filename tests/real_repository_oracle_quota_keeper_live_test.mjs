@@ -14,8 +14,12 @@ import { oracleKeeperBwrapArguments } from '../scripts/safe-runner/oracle-host-p
 import { identityAlive, processRecord } from '../scripts/safe-runner/processes.mjs';
 import { anonymizeCacheCapability, createCacheCapabilitySource } from
   '../benchmarks/real-repository-oracle-v1/oracle-host.mjs';
-import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from
+import { oracleCacheCapabilityAuthority } from
   '../scripts/safe-runner/oracle-cache-capability.mjs';
+import { buildOracleTierPackedBareCache } from
+  '../benchmarks/real-repository-oracle-v1/persistent-materializer.mjs';
+import { pinnedCollectionForTier } from
+  '../benchmarks/real-repository-oracle-v1/collection-pins.mjs';
 
 if (process.platform !== 'linux') {
   console.log('real repository oracle quota keeper live test skipped outside Linux');
@@ -42,7 +46,39 @@ const capabilityRoot = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-oracle-cache-capability-'),
 ));
 fs.chmodSync(capabilityRoot, 0o700);
-const capability = createCacheCapabilitySource(capabilityRoot);
+const buildRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-cache-build-'));
+const collectionPin = pinnedCollectionForTier('small');
+let sealed;
+try {
+  sealed = buildOracleTierPackedBareCache({
+    workDirectory: buildRoot,
+    collection: {
+      fixture_id: collectionPin.fixture_id,
+      fixture_class: collectionPin.fixture_class,
+      repository_url: collectionPin.repository_url,
+      commit: collectionPin.commit,
+      tree_oid: collectionPin.tree_oid,
+    },
+  });
+} finally {
+  const makeWritable = (directory) => {
+    for (const name of fs.readdirSync(directory)) {
+      const child = path.join(directory, name);
+      const stat = fs.lstatSync(child);
+      if (stat.isDirectory()) {
+        makeWritable(child);
+        fs.chmodSync(child, 0o700);
+      } else {
+        fs.chmodSync(child, 0o600);
+      }
+    }
+    fs.chmodSync(directory, 0o700);
+  };
+  try { makeWritable(buildRoot); } catch {}
+  fs.rmSync(buildRoot, { recursive: true, force: true });
+}
+const authority = oracleCacheCapabilityAuthority(sealed);
+const capability = createCacheCapabilitySource(capabilityRoot, authority, sealed.bytes);
 let capabilityDescriptor = capability.descriptor;
 const child = spawn(infrastructure.bwrap, keeperArguments, {
   cwd: process.cwd(), env: process.env,
@@ -70,7 +106,7 @@ try {
   }
   const bwrapInfo = parseOracleBwrapInfo(info);
   await waitForOracleKeeperMountTopology(bwrapInfo.child_pid);
-  const capabilityClaim = anonymizeCacheCapability(capability);
+  const capabilityClaim = anonymizeCacheCapability(capability, authority);
   capabilityDescriptor = null;
   const keeperPid = bwrapInfo.child_pid;
   const outer = await waitForRecord(child.pid);
@@ -92,7 +128,7 @@ try {
     bwrapIdentity: infrastructure.identities.bwrap,
     keeperArguments,
     privateTmpRoot: capabilityRoot,
-    cacheCapabilityAuthority: ORACLE_CACHE_CAPABILITY_AUTHORITY,
+    cacheCapabilityAuthority: authority,
   });
   const proof = registry.register({
     requester: processRecord(process.pid), outer, keeper, bwrap_info: bwrapInfo,
@@ -114,6 +150,8 @@ try {
   assert.equal(proof.cache_capability.transfer,
     'fixed-fd-post-setup-anonymized-read-only');
   assert.equal(proof.cache_capability.descriptor, 4);
+  assert.equal(proof.cache_capability.tier, 'small');
+  assert.equal(proof.cache_capability.pack_closure_digest, authority.pack_closure_digest);
   assert.equal(proof.cache_capability.source.pathname_absent, true);
   assert.equal(proof.cache_capability.source.fd_closed, true);
   assert.deepEqual(proof.cache_capability.retained_fds,

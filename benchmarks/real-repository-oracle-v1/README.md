@@ -272,14 +272,17 @@ the remaining candidate lifecycle are implemented and reviewed.
 
 ## Non-gradeable oracle-host cache-capability probe
 
-The exact `probe-oracle-host` path now includes one tiny fixed-content,
-read-only cache-capability feasibility proof. Oracle-host creates the staging
-file only beneath the sealed runner-owned `payload-tmp` authority after proving
-that directory is canonical, mode `0700`, same-user, and on tmpfs. It fsyncs the
-bytes, changes the file to mode `0400`, reopens it read-only, and passes it to
-the attested bwrap keeper only as fixed FD 4 with
-`--ro-bind-fd 4 /oracle-cache-capability`. No source pathname is present in the
-bwrap argv and there is no pathname-bind or weaker fallback.
+The exact `probe-oracle-host` path now seals one content-addressed packed bare
+Git cache per tier and proves read-only cache-capability transfer through it.
+During execution-snapshot preparation the runner builds the exact single-pack bare
+`cache.git` closure for the requested tier, seals pack and index bytes behind one
+canonical manifest, and records the resulting authority in the oracle-host launch
+profile. Oracle-host stages the sealed bytes only beneath the runner-owned
+`payload-tmp` authority after proving that directory is canonical, mode `0700`,
+same-user, and on tmpfs. It fsyncs the bytes, changes the file to mode `0400`,
+reopens it read-only, and passes it to the attested bwrap keeper only as fixed
+FD 4 with `--ro-bind-fd 4 /oracle-cache-capability`. No source pathname is
+present in the bwrap argv and there is no pathname-bind or weaker fallback.
 
 Bubblewrap 0.11.1 cannot ingest an already-unlinked regular-file descriptor, so
 this checkpoint proves post-setup anonymization rather than pre-unlink anonymous
@@ -299,8 +302,8 @@ for mount-ID pins. Finalization still requires keeper and outer bwrap death,
 then releases the proc anchor; outer safe-runner cleanup remains mandatory. The
 result remains `non_gradeable: true`, `cleanup_proof_issued: false`,
 `grading_reachable: false`, and `candidate_executed: false`. It proves only this
-fixed-FD anonymous cache-capability transfer. It does not construct a Git
-bundle, materialize a repository, issue cleanup proof, execute a candidate, or
+sealed packed-bare-cache fixed-FD anonymous cache-capability transfer. It does
+not materialize a repository lease, issue cleanup proof, execute a candidate, or
 grade anything. A hostile same-UID concurrent process racing the transient
 trusted setup pathname remains outside this probe's threat model.
 

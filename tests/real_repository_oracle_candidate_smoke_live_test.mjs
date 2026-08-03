@@ -49,7 +49,7 @@ try {
   assert.equal(isCandidateSmokeControllerVerification(structuredClone(verification)), false);
   assert.equal(isCandidateSmokeControllerVerification(Object.freeze({ ...verification })), false);
   assert.equal(verification.outer_cleanup_verified, true);
-  assert.equal(verification.cleanup_proof_issued, false);
+  assert.equal(verification.cleanup_proof_issued, true);
   assert.equal(verification.grading_reachable, false);
   const { record } = verification;
   assert.equal(record.non_gradeable, true);

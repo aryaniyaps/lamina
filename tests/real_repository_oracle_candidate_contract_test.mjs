@@ -362,7 +362,7 @@ const allowedPublicClosure = new Set([
   'benchmarks/real-repository-oracle-v1/workflows-v1.json',
 ]);
 const auditedPublicBytes = new Map([
-  [publicEntry, '2525c5a65a525d9946bbe23d906e7f4d3c3aa5655108077cbdad8bc31dc7bf22'],
+  [publicEntry, '63a5452c869f6ce217b22ce304e44580b4ad2a7adba5a89e123d2139d2d69298'],
   ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
     'c2afa8a92c833cc3fa4bd2e36c00ace98bab1e44eace2ea14b444c21f71d075b'],
   ['benchmarks/real-repository-oracle-v1/workflows-v1.json',
@@ -461,7 +461,7 @@ for (const [relative, expectedSha256] of auditedPublicBytes) {
 assert.equal(auditedPublicBytes.get('benchmarks/real-repository-oracle-v1/workflows-v1.json'),
   WORKFLOW_SEED_RAW_SHA256, 'unchanged reviewed Workflow JSON bytes remain the public data authority');
 const allowedBuiltins = new Map([
-  [publicEntry, ['node:crypto']],
+  [publicEntry, ['node:crypto', 'node:fs']],
   ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs', ['node:crypto', 'node:fs']],
 ]);
 const discovered = new Set();

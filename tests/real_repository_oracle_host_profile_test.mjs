@@ -15,10 +15,10 @@ import {
   auditedCommand, preflightRun, REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID,
 } from '../scripts/safe-runner/preflight.mjs';
 import {
-  attestOracleKeeperBwrapHelp, ORACLE_HOST_LAUNCH_PROFILE,
+  attestOracleKeeperBwrapHelp, encodeOracleHostWireProfile, ORACLE_HOST_LAUNCH_PROFILE,
   ORACLE_HOST_PROBE_COMMAND, oracleKeeperBwrapArguments,
 } from '../scripts/safe-runner/oracle-host-profile.mjs';
-import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from
+import { isOracleCacheCapabilityAuthority } from
   '../scripts/safe-runner/oracle-cache-capability.mjs';
 import { validateOracleHostLaunchAuthority } from
   '../scripts/safe-runner/oracle-host-launcher.mjs';
@@ -103,6 +103,14 @@ assert.equal(arguments_.filter((value) => value === '--tmpfs').length, 2);
 assert.deepEqual(realRepositoryOracleSourceClosure(ORACLE_HOST_PROBE_COMMAND), [
   'benchmarks/real-repository-oracle-v1/workload.mjs',
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-pins.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
+  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
+  'benchmarks/runtime-baseline-v1/manifest.json',
   'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
@@ -142,6 +150,7 @@ try {
   const snapshot = prepareExecutionSnapshot({
     cwd: ROOT, command, temporaryDirectory: temporary,
     infrastructure: liveInfrastructure, environment: process.env,
+    tier: 'small',
   });
   assert.equal(snapshot.launch_profile, ORACLE_HOST_LAUNCH_PROFILE);
   assert.equal(snapshot.oracle_host_launch_cwd, snapshot.snapshot_repository);
@@ -152,19 +161,24 @@ try {
   ]);
   assert.notEqual(snapshot.oracle_host_launch_command[1], ENTRYPOINT);
   assert.equal(snapshot.oracle_host_profile.non_gradeable, true);
-  assert.deepEqual(snapshot.oracle_host_profile.cache_capability,
-    ORACLE_CACHE_CAPABILITY_AUTHORITY);
+  assert.equal(isOracleCacheCapabilityAuthority(snapshot.oracle_host_profile.cache_capability),
+    true);
+  assert.equal(snapshot.oracle_host_profile.cache_capability.tier, 'small');
+  assert.equal(snapshot.oracle_host_profile.cache_capability_sealed_relative,
+    'benchmarks/real-repository-oracle-v1/.oracle-tier-cache-capability-sealed');
   assert.equal(snapshot.oracle_host_profile.launcher,
     snapshot.infrastructure.oracle_host_launcher_mjs);
   assert.equal(snapshot.oracle_host_profile.bootstrap_environment.path,
     snapshot.infrastructure.oracle_host_env);
   assert.match(snapshot.oracle_host_launch_binding.host_sha256, /^[a-f0-9]{64}$/);
-  const profileArgument = Buffer.from(JSON.stringify({
-    ...snapshot.oracle_host_profile,
-    quota_bytes: limits.tempMaxBytes,
-    keeper_arguments: oracleKeeperBwrapArguments(limits.tempMaxBytes),
-    private_tmp_root: path.join(temporary, 'payload-tmp'),
-  })).toString('base64url');
+  const profileArgument = Buffer.from(JSON.stringify(
+    encodeOracleHostWireProfile(snapshot.oracle_host_profile, {
+      quotaBytes: limits.tempMaxBytes,
+      keeperArguments: oracleKeeperBwrapArguments(limits.tempMaxBytes),
+      privateTmpRoot: path.join(temporary, 'payload-tmp'),
+      brokerSocket: path.join(temporary, 'supervisor.sock'),
+    }),
+  )).toString('base64url');
   const hostArgv = [
     snapshot.infrastructure.node,
     snapshot.oracle_host_launch_command[1],

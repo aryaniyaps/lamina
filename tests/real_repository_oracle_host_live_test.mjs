@@ -72,6 +72,8 @@ try {
   assert.equal(result.anonymous_cache_capability_transfer_proven, true);
   assert.equal(result.cache_capability.transfer,
     'fixed-fd-post-setup-anonymized-read-only');
+  assert.equal(result.cache_capability.tier, 'small');
+  assert.match(result.cache_capability.pack_closure_digest, /^[a-f0-9]{64}$/);
   assert.equal(result.cache_capability.descriptor, 4);
   assert.equal(result.cache_capability.source.pathname_absent, true);
   assert.equal(result.cache_capability.source.fd_closed, true);
