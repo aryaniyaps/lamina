@@ -1,0 +1,48 @@
+{
+  "schema": "lamina.runtime-baseline-spike/v1",
+  "spike": "da-bounded-topology",
+  "generated_at": "2026-08-03T16:45:33.404Z",
+  "lamina_commit": "5f8c0b9b6b5402d01006cbbf27fbd060554bf7c7",
+  "fixture": {
+    "id": "small",
+    "commit": "9506629ed003a561c6627735480cce4994244bb4"
+  },
+  "runtime_budget": {
+    "graphd_threads": 4,
+    "worker_threads": 4,
+    "observation_workers_max": 1,
+    "observation_retries_max": 0,
+    "observation_backend": "node",
+    "defer_graphd_compat_recovery": true
+  },
+  "initial_observation": {
+    "before": {
+      "attribution_commit": "5f8c0b9b",
+      "status": "invalid",
+      "safe_runner_outcome": "safety_limit_exceeded",
+      "limit": "pids",
+      "peak_pids": 48,
+      "peak_memory_bytes": 716034048,
+      "observation_worker_processes": 3,
+      "graphd_peak_threads": 29,
+      "worker_attempts": 2
+    },
+    "after": {
+      "status": "valid",
+      "safe_runner_outcome": "success",
+      "peak_pids": 47,
+      "peak_memory_bytes": 915976192,
+      "observation_worker_processes": 1,
+      "graphd_peak_threads": 29,
+      "worker_attempts": 1,
+      "observation_backend": "node",
+      "median_wall_time_ns": 3496742937,
+      "indexed_source_keys": 535
+    }
+  },
+  "promotion_fence": {
+    "initial_retrieval_readiness": "invalid",
+    "note": "Spike scoped to observation unblock; retrieval scenarios need separate #53/#55 leaves with CocoIndex caps."
+  },
+  "verdict": "initial_observation_unblocked_under_pids_max_64"
+}

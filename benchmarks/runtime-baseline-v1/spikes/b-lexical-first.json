@@ -1,0 +1,36 @@
+{
+  "schema": "lamina.runtime-baseline-spike/v1",
+  "spike": "b-lexical-first",
+  "generated_at": "2026-08-03T16:38:09.857Z",
+  "fixture": {
+    "graphs": 4,
+    "held_out_workflow_queries": 160,
+    "held_out_source_queries": 80
+  },
+  "lexical_only_bm25": {
+    "workflow_recall_at_5": 0.9423076923076923,
+    "exact_id_alias_accuracy": 1,
+    "complete_multi_workflow_selection": 0,
+    "incorrect_new_workflow_attachment": 0,
+    "source_recall_at_10": 0.8
+  },
+  "adr012_hybrid_gates": {
+    "exact_id_alias_min": 1,
+    "multi_workflow_min": 0.95,
+    "incorrect_new_workflow_max": 0.02,
+    "workflow_recall_at_5_hybrid_min": 0.98,
+    "source_recall_at_10_hybrid_min": 0.9
+  },
+  "passes_gates": {
+    "exact_id_alias": true,
+    "multi_workflow": false,
+    "incorrect_new_workflow": true,
+    "workflow_recall_at_5": false,
+    "source_recall_at_10": false
+  },
+  "footprint_headroom": {
+    "model_bytes_avoided": 161895621,
+    "worker_bytes_note": "Observation CocoIndex worker (88.7 MiB) remains until #56 removal decision."
+  },
+  "verdict": "lexical_only_fails_held_out_gates_keep_hybrid_dense"
+}

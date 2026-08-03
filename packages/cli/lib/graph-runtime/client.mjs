@@ -9,6 +9,7 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
+import { graphdThreadEnvironment } from '../runtime-budget.mjs';
 import {
   bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
   recordManagedGraphdLockWithSupervisor, sealManagedGraphdWithSupervisor,
@@ -65,6 +66,7 @@ export function graphdEnvironmentFor(
   const environment = Object.fromEntries(entries
     .filter(([name]) => !isGraphdExecutionHook(name, platform)
       && (platform !== 'win32' || name.toLowerCase() !== 'path')));
+  Object.assign(environment, graphdThreadEnvironment(inheritedEnvironment));
   if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when

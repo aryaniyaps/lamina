@@ -10,6 +10,10 @@ import {
 import { digest } from './graph-runtime/util.mjs';
 import { OBSERVATION_BACKEND as COCOINDEX_BACKEND, runCocoIndex } from './observation-runtime/cocoindex.mjs';
 import { OBSERVATION_BACKEND as NODE_BACKEND, observeNode } from './observation-runtime/node.mjs';
+import {
+  maxObservationAttempts,
+  runtimeBudgetFromEnvironment,
+} from './runtime-budget.mjs';
 
 const ignore = [
   '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
@@ -105,6 +109,7 @@ async function observationStatus(cwd, product, generation, timeout = 10_000) {
  * standalone release. The Node backend remains an explicit development switch.
  */
 export async function runObservation({ cwd = process.cwd(), live = false, invalidate = false, discover = false } = {}) {
+  const runtimeBudget = runtimeBudgetFromEnvironment();
   const backend = process.env.LAMINA_OBSERVATION_BACKEND || COCOINDEX_BACKEND;
   if (![COCOINDEX_BACKEND, NODE_BACKEND].includes(backend)) {
     const error = new Error(`Unsupported observation backend: ${backend}.`);
@@ -158,7 +163,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   });
   let compatibilityRecovery = null;
 
-  if (!completion.valid_shape) {
+  if (!completion.valid_shape && !(runtimeBudget?.defer_graphd_compat_recovery)) {
     const before = await graphdIdentity(cwd);
     const replacement = await restartGraphd(cwd, before?.pid);
     compatibilityRecovery = {
@@ -177,8 +182,9 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   // Retry the observer once against the compatible daemon without changing
   // generation. Rebuilds are explicit because invalidation destroys the
   // active observation view and cannot repair runtime-version skew.
-  if (!completion.complete && !live) {
-    const retryCompleted = await runWorker(2);
+  const maxAttempts = maxObservationAttempts(runtimeBudget);
+  if (!completion.complete && !live && workerDiagnostics.length < maxAttempts) {
+    const retryCompleted = await runWorker(workerDiagnostics.length + 1);
     workerCompleted = retryCompleted;
     observed = await observationStatus(cwd, paths.product, generation);
     completion = observationCompletionChecks(observed, {
@@ -201,6 +207,12 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   })();
   const observationAttribution = {
     backend,
+    runtime_budget: runtimeBudget ? {
+      graphd_threads: runtimeBudget.graphd_threads,
+      worker_threads: runtimeBudget.worker_threads,
+      observation_workers_max: runtimeBudget.observation_workers_max,
+      observation_retries_max: runtimeBudget.observation_retries_max,
+    } : null,
     mode: live ? 'live' : invalidate ? 'rebuild' : discover ? 'discover' : 'observe',
     subprocess_launches: {
       cocoindex_worker: workerDiagnostics.filter((item) => item.ok).length,

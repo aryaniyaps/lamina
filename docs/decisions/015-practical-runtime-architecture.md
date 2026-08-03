@@ -1,6 +1,6 @@
 # ADR 015: Practical runtime architecture
 
-- Status: Draft (Slice 2 — Context and elimination only; no Decision yet)
+- Status: Draft (Slice 3 — Spike evidence recorded; Decision in Slice 4)
 - Date: 2026-08-03
 - Tracks: [#49](https://github.com/aryaniyaps/lamina/issues/49) epic, [#52](https://github.com/aryaniyaps/lamina/issues/52) open ADR, [#60](https://github.com/aryaniyaps/lamina/issues/60) baseline
 - Related: [ADR-012](012-use-local-hybrid-retrieval.md), [ADR-014](014-crash-safe-resource-supervision.md), [runtime baseline v1](../../benchmarks/runtime-baseline-v1/BASELINE.md), [attribution report](../../benchmarks/runtime-baseline-v1/attribution/small.json)
@@ -316,6 +316,75 @@ evidence before mandating 250 MiB assets in the final #57 package. Fails gate
 supersession path.
 
 **Not recommended for Slice 3:** Family C alone — eliminated above.
+
+---
+
+## Spike Results (Slice 3)
+
+Bounded spikes ran on the identical #60 small fixture (`9506629e`) with
+unchanged `pids.max=64` safe-runner limits. Gate tests:
+`npm run test:semantic-oracle` and `npm run test:real-repository-oracle`
+passed on the spike branch.
+
+### Spike 1 — Bounded topology + tuned concurrency (D + A)
+
+**Implementation (behind `LAMINA_RUNTIME_BOUNDED_TOPOLOGY=1`):**
+
+- `packages/cli/lib/runtime-budget.mjs` — configurable graphd/worker thread
+  caps, single observation worker attempt, deferred graphd compatibility restart.
+- Wired into graphd spawn, CocoIndex/retrieval workers, and observation orchestration.
+- Baseline workload passes bounded policy to CLI children; skips `seedGraph`
+  before `initial-observation` to avoid duplicate graphd trees.
+
+**Evidence:** [`benchmarks/runtime-baseline-v1/spikes/da-bounded-topology.json`](../../benchmarks/runtime-baseline-v1/spikes/da-bounded-topology.json);
+updated attribution [`benchmarks/runtime-baseline-v1/attribution/small.json`](../../benchmarks/runtime-baseline-v1/attribution/small.json).
+
+| Metric | Before (Slice 1) | After (Spike 1) |
+| --- | ---: | ---: |
+| `initial-observation` status | invalid (`pids` refusal) | **valid** |
+| peak_pids | 48 (refusal envelope) | 47 |
+| observation_worker processes | 3 | 1 |
+| worker_attempts | 2 (retry fan-out) | 1 |
+| graphd peak_threads | 29 | 29 (OMP caps do not bind Ladybug yet) |
+| observation backend | cocoindex (default) | node (spike policy) |
+
+**Findings:**
+
+- Eliminating seedGraph graphd overlap, single worker attempt, and Node
+  observation backend recovers enough headroom for small `initial-observation`
+  under 64 tasks without raising safe-runner limits.
+- Ladybug graphd still reports 29 threads; native pool caps remain a #53 leaf.
+- CocoIndex production observation path still fans out without the Node backend
+  switch; Phase 2 must add native worker concurrency caps or bounded CocoIndex
+  packaging.
+- `initial-retrieval-readiness` remained invalid in the spike run (promotion
+  fence after observation); retrieval/indexing leaves are out of Slice 3 scope.
+
+**Spike code disposition:** `runtime-budget.mjs` and observation lifecycle hooks
+are **kept** as the production policy surface for #53; Node backend override
+and seedGraph skip are **spike-only** in baseline `childEnvironment` until
+CocoIndex caps land.
+
+### Spike 2 — Structural / lexical-first retrieval (B)
+
+**Evidence:** [`benchmarks/runtime-baseline-v1/spikes/b-lexical-first.json`](../../benchmarks/runtime-baseline-v1/spikes/b-lexical-first.json)
+
+Held-out BM25-only evaluation on retrieval-v1 fixture (no mandatory dense ONNX):
+
+| Gate | Threshold | BM25-only |
+| --- | ---: | ---: |
+| exact id/alias | 1.00 | 1.00 |
+| multi-Workflow selection | ≥ 0.95 | 0.00 |
+| incorrect new-Workflow attachment | ≤ 0.02 | 0.00 |
+| Workflow Recall@5 | ≥ 0.98 (hybrid bar) | below threshold |
+| source Recall@10 | ≥ 0.90 (hybrid bar) | 0.80 |
+
+**Verdict:** `lexical_only_fails_held_out_gates_keep_hybrid_dense` — 250 MiB
+hybrid assets remain mandatory for #51 quality; #56 should implement bounded
+dense stage inside hybrid, not remove dense leg.
+
+**Footprint headroom if dense were optional:** ~162 MiB model bytes; CocoIndex
+worker (88.7 MiB) still required for production observation until #53/#56.
 
 ---
 

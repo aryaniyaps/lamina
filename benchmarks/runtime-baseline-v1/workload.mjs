@@ -100,12 +100,32 @@ function cleanupOwnedRoot() {
 
 function childEnvironment(extra = {}) {
   const assets = path.join(baselineRoot, 'assets');
-  return {
+  const env = {
     ...process.env,
     LAMINA_RETRIEVAL_MODEL_PATH: runtimeInputs?.model || '',
     LAMINA_RETRIEVAL_RUNTIME: path.join(assets, 'retrieval-runtime'),
     ...extra,
   };
+  if (process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY === '1') {
+    env.LAMINA_OBSERVATION_BACKEND = 'node';
+    for (const name of [
+      'LAMINA_RUNTIME_BOUNDED_TOPOLOGY',
+      'LAMINA_RUNTIME_GRAPHD_THREADS',
+      'LAMINA_RUNTIME_WORKER_THREADS',
+      'LAMINA_RUNTIME_OBSERVATION_WORKERS',
+      'LAMINA_RUNTIME_OBSERVATION_RETRIES',
+      'LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY',
+      'LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS',
+    ]) {
+      if (process.env[name] !== undefined) env[name] = process.env[name];
+    }
+  }
+  return env;
+}
+
+async function releaseGraphdBeforeObservationCli(repository) {
+  if (process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY !== '1') return;
+  await stopIncompatibleServer(runtimePaths(repository));
 }
 
 function run(command, args, { cwd = REPOSITORY, env = childEnvironment(), input = null,
@@ -508,7 +528,9 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   let measurement;
   let diagnostics = {};
   try {
-    if (!['doctor-status-startup'].includes(scenario)) seeded = await seedGraph(repository);
+    const needsSeed = !['doctor-status-startup'].includes(scenario)
+      && !(scenario === 'initial-observation' && process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY === '1');
+    if (needsSeed) seeded = await seedGraph(repository);
     if (scenario === 'doctor-status-startup') {
       const started = process.hrtime.bigint();
       tracker.begin('doctor');
@@ -527,6 +549,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         graph_version: status.value.graph_version || null,
       }, status.value, tracker);
     } else if (scenario === 'initial-observation') {
+      await releaseGraphdBeforeObservationCli(repository);
       tracker.begin('observation');
       measurement = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'observe']));
       tracker.end();
