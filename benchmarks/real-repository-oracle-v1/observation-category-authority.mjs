@@ -33,8 +33,8 @@ const EXPECTED_ABSENCE_SHA256 = Object.freeze({
 const SHA1 = /^[a-f0-9]{40}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 
-export const OBSERVATION_CATEGORY_SUPPORT_RAW_SHA256 = 'ee4ecc3c63ea2acb6e013a9a75a3cba745856a7beabd2aeaffb56784b958ec97';
-export const OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256 = 'd7c93134918c4b77db341846f7bb27faeb34fb0e0a893d343eac659babfa01c4';
+export const OBSERVATION_CATEGORY_SUPPORT_RAW_SHA256 = 'e642618e9f48a39d816cf1247d0b0fb67d4793c1a0e85c54064c5ed0d2631698';
+export const OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256 = '04459a854372c5d06053843578b487c1c874ea5b740bd5b76ba491889f6eb9bf';
 
 const object = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const exactKeys = (value, keys) => object(value)
@@ -78,7 +78,7 @@ export function validateObservationCategorySupport(value) {
   if (JSON.stringify(value.vocabulary) !== JSON.stringify(VOCABULARY)) errors.push('observation category support does not preserve the exact production vocabulary');
   if (!exactKeys(value.production, ['source', 'source_sha256', 'discovery_rules_sha256', 'persona_rule'])
     || value.production.source !== 'packages/cli/lib/observation-runtime/node.mjs'
-    || value.production.source_sha256 !== '0ce0a2b58974f36eca05c748728516526f8d06b8fbe7d61bba2fdf1a62c7f928'
+    || value.production.source_sha256 !== '5d8dd464ebec00e21bdb08201c619d83066869b1e155305f4251257ceefd2803'
     || value.production.discovery_rules_sha256 !== 'cb8104b44dbf6147ac1d2e9547846b051094891d13cc6d6a96d1e251b9e25349'
     || value.production.persona_rule !== 'lowercase_basename_includes_persona') errors.push('observation category source or discovery-rule authority differs');
   if (!exactKeys(value.tiers, TIERS)) return { valid: false, errors: [...errors, 'observation category support must exactly cover all tiers'] };

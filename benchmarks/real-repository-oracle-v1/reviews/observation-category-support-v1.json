@@ -4,7 +4,7 @@
   "vocabulary": ["entry_points", "commands", "routes", "handlers", "schemas", "entities", "state_transitions", "permissions", "events", "tests", "documentation", "personas", "feature_flags", "dependencies"],
   "production": {
     "source": "packages/cli/lib/observation-runtime/node.mjs",
-    "source_sha256": "0ce0a2b58974f36eca05c748728516526f8d06b8fbe7d61bba2fdf1a62c7f928",
+    "source_sha256": "5d8dd464ebec00e21bdb08201c619d83066869b1e155305f4251257ceefd2803",
     "discovery_rules_sha256": "cb8104b44dbf6147ac1d2e9547846b051094891d13cc6d6a96d1e251b9e25349",
     "persona_rule": "lowercase_basename_includes_persona"
   },

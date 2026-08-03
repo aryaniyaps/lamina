@@ -17,12 +17,12 @@ import {
   runtimeBudgetFromEnvironment,
 } from '../../packages/cli/lib/runtime-budget.mjs';
 import { releaseGraphdBeforeObservation } from '../../packages/cli/lib/runtime-lifecycle.mjs';
+import { summarizeRepositoryInventory } from '../../packages/cli/lib/source-inventory.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
   assertScenario,
   COLD_RUNS,
   fixtureById,
-  isExcludedPath,
   loadManifest,
   MAX_WORKLOAD_OUTPUT_BYTES,
   SCENARIOS,
@@ -45,7 +45,6 @@ const CLI = path.join(REPOSITORY, 'packages/cli/bin/lamina.mjs');
 const PACKAGE_ROOT = path.join(REPOSITORY, 'packages/cli');
 const MARKER_SCHEMA = 'lamina.runtime-baseline-scratch/v1';
 const MAX_CHILD_OUTPUT = 8 * 1024 * 1024;
-const SOURCE_NAMES = new Set(['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml']);
 
 const runnerTemporaryRoot = path.resolve(process.env.LAMINA_SAFE_RUNNER_TEMP_DIR || '');
 if (!process.env.LAMINA_SAFE_RUNNER_TEMP_DIR || !path.isAbsolute(runnerTemporaryRoot)) {
@@ -211,71 +210,7 @@ function ensureSource(fixture) {
 }
 
 function repositoryMetadata(repository, manifest, fixture) {
-  const tracked = git(repository, ['ls-files', '-z']).stdout.split('\0').filter(Boolean);
-  const sourceExtensions = new Set(manifest.source_extensions);
-  let trackedBytes = 0;
-  let sourceBytes = 0;
-  let sourceLoc = 0;
-  let sourceFiles = 0;
-  let indexedBytes = 0;
-  let indexedFiles = 0;
-  const indexed = [];
-  let retrievalBytes = 0;
-  let retrievalFiles = 0;
-  const retrievalPaths = [];
-  const retrievalExtensions = new Set(manifest.retrieval_extensions);
-  for (const relative of tracked) {
-    const file = path.join(repository, relative);
-    let stat;
-    try { stat = fs.statSync(file); } catch { continue; }
-    if (!stat.isFile()) continue;
-    trackedBytes += stat.size;
-    if (!isExcludedPath(relative, manifest.exclusions)) {
-      indexedFiles += 1;
-      indexedBytes += stat.size;
-      indexed.push(relative);
-    }
-    const extension = path.extname(relative).toLowerCase();
-    if (retrievalExtensions.has(extension) && stat.size <= manifest.retrieval_max_file_bytes) {
-      try {
-        new TextDecoder('utf-8', { fatal: true }).decode(fs.readFileSync(file));
-        retrievalFiles += 1;
-        retrievalBytes += stat.size;
-        retrievalPaths.push(relative);
-      } catch {}
-    }
-    if (sourceExtensions.has(extension) || SOURCE_NAMES.has(path.basename(relative))) {
-      sourceFiles += 1;
-      sourceBytes += stat.size;
-      if (stat.size <= 4 * 1024 * 1024) {
-        const text = fs.readFileSync(file, 'utf8');
-        sourceLoc += text.split(/\r?\n/).filter((line) => line.trim()).length;
-      }
-    }
-  }
-  if (sourceLoc < fixture.source_loc.minimum || sourceLoc > fixture.source_loc.maximum) {
-    fail('fixture source LOC is outside its pinned class', { sourceLoc, range: fixture.source_loc });
-  }
-  const result = {
-    commit: fixture.commit,
-    tracked_files: tracked.length,
-    tracked_bytes: trackedBytes,
-    tracked_source_files: sourceFiles,
-    tracked_source_bytes: sourceBytes,
-    tracked_source_loc: sourceLoc,
-    observation_indexed_files: indexedFiles,
-    observation_indexed_bytes: indexedBytes,
-    retrieval_candidate_files: retrievalFiles,
-    retrieval_candidate_bytes: retrievalBytes,
-    retrieval_indexed_files: null,
-    retrieval_indexed_bytes: null,
-    retrieval_source_chunks: null,
-    exclusion_rules: manifest.exclusions,
-    observation_paths_digest: sha256(indexed.join('\n')),
-    retrieval_paths_digest: sha256(retrievalPaths.join('\n')),
-  };
-  Object.defineProperty(result, '_retrieval_paths', { value: retrievalPaths });
-  return result;
+  return summarizeRepositoryInventory(repository, { manifest, fixture });
 }
 
 async function recordRetrievalInventory(repository, metadata) {

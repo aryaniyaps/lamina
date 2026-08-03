@@ -4,11 +4,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { digest, canonical, runtimePaths } from '../graph-runtime/util.mjs';
+import { enumerateObservationPaths } from '../source-inventory.mjs';
 
 export const OBSERVATION_BACKEND = 'node';
-
-const ignoredNames = new Set(['.git', 'node_modules', '__pycache__', '.next', 'dist', 'build', 'coverage']);
-const ignoredSuffixes = ['.venv'];
 
 function unique(values, limit = 100) {
   return [...new Set(values.map((value) => String(value).trim()).filter(Boolean))].sort().slice(0, limit);
@@ -47,27 +45,6 @@ export function brownfieldSignals(relativePath, content) {
   return { categories: Object.keys(normalized).filter((key) => normalized[key].length).sort(), signals: Object.fromEntries(Object.entries(normalized).filter(([, values]) => values.length)), unsupported: truncated ? ['static_scan_truncated'] : [] };
 }
 
-function isIgnored(relative, entry) {
-  const pieces = relative.split('/');
-  if (pieces.includes('.git') || (pieces[0] === '.lamina' && pieces[1] === 'runs')) return true;
-  if (
-    (pieces[0] === '.lamina' && ['runtime', 'runtime-cli'].includes(pieces[1])) ||
-    (['.agents', '.codex', '.claude', '.opencode'].includes(pieces[0]) && pieces[1] === 'skills')
-  ) return true;
-  return pieces.some((part) => ignoredNames.has(part) || ignoredSuffixes.some((suffix) => part.startsWith(suffix)) || /^\.venv/.test(part)) || relative.startsWith('benchmarks/results/') || relative.includes('/.vendor-tmp');
-}
-
-function files(root, directory = root, output = []) {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const full = path.join(directory, entry.name);
-    const relative = path.relative(root, full).split(path.sep).join('/');
-    if (isIgnored(relative, entry)) continue;
-    if (entry.isDirectory()) files(root, full, output);
-    else if (entry.isFile()) output.push(relative);
-  }
-  return output.sort();
-}
-
 function readState(statePath) {
   try { return JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return { version: 1, generation: null, source_revision: null, records: {} }; }
 }
@@ -83,7 +60,7 @@ export async function observeNode({ paths, generation, graphRequest, live = fals
     const next = {};
     const envelopes = [];
     const fullReconcile = previous.generation !== generation || previous.source_revision !== current.source_revision;
-    for (const relative of files(current.root)) {
+    for (const { path: relative } of enumerateObservationPaths(current.root)) {
       let content; try { content = fs.readFileSync(path.join(current.root, relative)); } catch { continue; }
       const contentHash = crypto.createHash('sha256').update(content).digest('hex');
       const payload = { media_type: content.subarray(0, 4096).includes(0) ? 'binary' : 'text', byte_length: content.length, brownfield: brownfieldSignals(relative, content) };
