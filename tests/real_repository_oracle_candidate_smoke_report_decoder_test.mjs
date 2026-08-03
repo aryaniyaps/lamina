@@ -24,6 +24,10 @@ import {
 import { frozenWorkloadIdentity } from '../scripts/safe-runner/state.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+if (process.platform === 'win32') {
+  console.log('real repository oracle candidate smoke report decoder skipped on Windows: production candidate smoke is Linux-only');
+  process.exit(0);
+}
 const command = [process.execPath,
   path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs'),
   'smoke-candidate-small'];
