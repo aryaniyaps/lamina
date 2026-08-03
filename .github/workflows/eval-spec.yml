@@ -20,6 +20,12 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Install trusted candidate runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nodejs
+
       - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Install dependencies

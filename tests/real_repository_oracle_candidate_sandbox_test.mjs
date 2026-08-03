@@ -93,6 +93,18 @@ assert.throws(() => candidateBubblewrapArguments({
   mount_plan: pureMountPlan, adapter_entrypoint: 'adapter.mjs', platform: 'darwin',
 }), /requires Linux/);
 
+for (const [workflow, expectedInstallSteps] of [
+  ['.github/workflows/eval-spec.yml', 1],
+  ['.github/workflows/cli-test.yml', 1],
+  ['.github/workflows/publish-cli.yml', 2],
+]) {
+  const source = fs.readFileSync(path.join(ROOT, workflow), 'utf8');
+  assert.equal(source.split('- name: Install trusted candidate runtime').length - 1,
+    expectedInstallSteps, `${workflow} provisions every Linux candidate-sandbox consumer`);
+  assert.equal(source.split('sudo apt-get install --yes --no-install-recommends nodejs').length - 1,
+    expectedInstallSteps, `${workflow} uses the signed distro Node package`);
+}
+
 if (process.platform !== 'linux') {
   console.log('real repository oracle candidate sandbox portable contracts passed; Linux integration skipped');
   process.exit(0);
