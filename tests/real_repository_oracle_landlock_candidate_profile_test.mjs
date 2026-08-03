@@ -22,17 +22,28 @@ const LIMITS = {
   outputMaxBytes: 1024 * 1024,
 };
 const adapterInfo = {
-  id: 'unit-production', platform: 'linux', production_enforcement: true,
-  aggregate_memory: true, aggregate_pids: true, complete_descendant_ownership: true,
-  temporary_quota: true, controllers: ['memory', 'pids'], reasons: [],
+  id: 'portable-process-group', platform: process.platform, production_enforcement: false,
+  aggregate_memory: false, aggregate_pids: false, complete_descendant_ownership: false,
+  temporary_quota: false, controllers: [], reasons: ['pure contract fixture'],
 };
 const command = [process.execPath, ENTRYPOINT];
 const exact = preflightRun({
   tier: 'small', command, cwd: ROOT, overrides: LIMITS, adapterInfo,
   injectedExistingProcesses: [], workloadId: WORKLOAD,
 });
-assert.equal(exact.ok, true, exact.reasons.join('\n'));
+assert.equal(exact.ok, false);
 assert.equal(exact.launch_profile, PROFILE);
+assert.match(exact.reasons.join('\n'), /aggregate enforcement is unavailable/);
+assert.doesNotMatch(exact.reasons.join('\n'), /Landlock candidate probe requires/);
+
+const promotionRefusal = preflightRun({
+  tier: 'small', command, cwd: ROOT, overrides: LIMITS, adapterInfo,
+  injectedExistingProcesses: [], workloadId: WORKLOAD, promotionRequested: true,
+});
+assert.equal(promotionRefusal.ok, false);
+assert.equal(promotionRefusal.launch_profile, PROFILE);
+assert.match(promotionRefusal.reasons.join('\n'),
+  /non-gradeable Landlock candidate probe cannot be promoted/);
 
 for (const refusal of [
   preflightRun({
@@ -44,15 +55,19 @@ for (const refusal of [
     injectedExistingProcesses: [], workloadId: WORKLOAD,
   }),
   preflightRun({
-    tier: 'small', command, cwd: ROOT,
-    overrides: { ...LIMITS, pidsMax: 31 }, adapterInfo,
+    tier: 'small', command: [...command, 'extra'], cwd: ROOT, overrides: LIMITS, adapterInfo,
     injectedExistingProcesses: [], workloadId: WORKLOAD,
   }),
-  preflightRun({
-    tier: 'small', command, cwd: ROOT, overrides: LIMITS, adapterInfo,
-    injectedExistingProcesses: [], workloadId: WORKLOAD, promotionRequested: true,
-  }),
-]) assert.equal(refusal.ok, false, 'Landlock probe profile mismatch must be refused');
+  ...Object.keys(LIMITS).map((key) => preflightRun({
+    tier: 'small', command, cwd: ROOT,
+    overrides: { ...LIMITS, [key]: LIMITS[key] - 1 }, adapterInfo,
+    injectedExistingProcesses: [], workloadId: WORKLOAD,
+  })),
+]) {
+  assert.equal(refusal.ok, false, 'Landlock probe profile mismatch must be refused');
+  assert.equal(refusal.launch_profile, null);
+  assert.match(refusal.reasons.join('\n'), /Landlock candidate probe requires/);
+}
 
 const stateRoot = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-landlock-profile-state-'),
