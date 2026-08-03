@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import {
   createOracleQuotaRegistry, parseOracleBwrapInfo, parseOracleProcCgroup,
+  waitForOracleKeeperMountTopology,
 } from '../scripts/safe-runner/oracle-quota-broker.mjs';
 import { infrastructureBinaries } from '../scripts/safe-runner/infrastructure.mjs';
 import { oracleKeeperBwrapArguments } from '../scripts/safe-runner/oracle-host-profile.mjs';
 import { identityAlive, processRecord } from '../scripts/safe-runner/processes.mjs';
+import { anonymizeCacheCapability, createCacheCapabilitySource } from
+  '../benchmarks/real-repository-oracle-v1/oracle-host.mjs';
+import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from
+  '../scripts/safe-runner/oracle-cache-capability.mjs';
 
 if (process.platform !== 'linux') {
   console.log('real repository oracle quota keeper live test skipped outside Linux');
@@ -31,8 +38,15 @@ try {
   process.exit(0);
 }
 const keeperArguments = oracleKeeperBwrapArguments(quotaBytes);
+const capabilityRoot = fs.realpathSync.native(fs.mkdtempSync(
+  path.join(os.tmpdir(), 'lamina-oracle-cache-capability-'),
+));
+fs.chmodSync(capabilityRoot, 0o700);
+const capability = createCacheCapabilitySource(capabilityRoot);
+let capabilityDescriptor = capability.descriptor;
 const child = spawn(infrastructure.bwrap, keeperArguments, {
-  cwd: process.cwd(), env: process.env, stdio: ['pipe', 'ignore', 'pipe', 'pipe'],
+  cwd: process.cwd(), env: process.env,
+  stdio: ['pipe', 'ignore', 'pipe', 'pipe', capabilityDescriptor],
 });
 let stderr = '';
 child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-8192); });
@@ -55,9 +69,20 @@ try {
     if (Buffer.byteLength(info) > 8 * 1024) throw new Error('live bwrap info exceeded bound');
   }
   const bwrapInfo = parseOracleBwrapInfo(info);
+  await waitForOracleKeeperMountTopology(bwrapInfo.child_pid);
+  const capabilityClaim = anonymizeCacheCapability(capability);
+  capabilityDescriptor = null;
   const keeperPid = bwrapInfo.child_pid;
   const outer = await waitForRecord(child.pid);
   const keeper = await waitForRecord(keeperPid);
+  assert.equal(outer.ppid, process.pid);
+  assert.equal(keeper.ppid, outer.pid);
+  assert.deepEqual(outer.argv, [infrastructure.bwrap, ...keeperArguments]);
+  assert.deepEqual(keeper.argv, [infrastructure.bwrap, ...keeperArguments]);
+  for (const field of ['dev', 'ino', 'uid']) {
+    assert.equal(outer.executable_identity[field], infrastructure.identities.bwrap[field]);
+    assert.equal(keeper.executable_identity[field], infrastructure.identities.bwrap[field]);
+  }
   outerIdentity.start_ticks = outer.start_ticks;
   keeperIdentity = { pid: keeper.pid, start_ticks: keeper.start_ticks };
   const registry = createOracleQuotaRegistry({
@@ -66,10 +91,12 @@ try {
     bwrap: infrastructure.bwrap,
     bwrapIdentity: infrastructure.identities.bwrap,
     keeperArguments,
+    privateTmpRoot: capabilityRoot,
+    cacheCapabilityAuthority: ORACLE_CACHE_CAPABILITY_AUTHORITY,
   });
   const proof = registry.register({
     requester: processRecord(process.pid), outer, keeper, bwrap_info: bwrapInfo,
-    quota_bytes: quotaBytes,
+    quota_bytes: quotaBytes, cache_capability: capabilityClaim,
   });
   assert.equal(proof.schema, 'lamina.safe-runner-oracle-quota-proof/v1');
   assert.equal(proof.non_gradeable, true);
@@ -84,6 +111,15 @@ try {
   assert.match(proof.namespaces.mount, /^mnt:\[\d+\]$/);
   assert.match(proof.namespaces.user, /^user:\[\d+\]$/);
   assert.equal(proof.nonce.created_read_removed, true);
+  assert.equal(proof.cache_capability.transfer,
+    'fixed-fd-post-setup-anonymized-read-only');
+  assert.equal(proof.cache_capability.descriptor, 4);
+  assert.equal(proof.cache_capability.source.pathname_absent, true);
+  assert.equal(proof.cache_capability.source.fd_closed, true);
+  assert.deepEqual(proof.cache_capability.retained_fds,
+    { requester: false, outer: false, keeper: false });
+  assert.equal(proof.cache_capability.write_refused, true);
+  assert.equal(proof.cache_capability.open_for_write_refused, true);
 
   const usage = registry.probe({ requester: processRecord(process.pid), exerciseEnospc: true });
   assert.equal(usage.quota_proven, true);
@@ -91,6 +127,9 @@ try {
   assert.ok(usage.bytes >= 0 && usage.bytes <= quotaBytes);
   const released = registry.release({ requester: processRecord(process.pid) });
   assert.equal(released.mount_fds_released, true);
+  assert.equal(released.cache_capability_fd_released, true);
+  assert.equal(released.root_fd_released, true);
+  assert.equal(released.state_fd_released, true);
   assert.deepEqual(released.broker_mount_id_pins, []);
 
   child.kill('SIGTERM');
@@ -110,6 +149,9 @@ try {
   assert.equal(finish.anchored_proc_esrch, true);
   assert.equal(finish.proc_anchor_released, true);
 } finally {
+  if (capabilityDescriptor !== null) {
+    try { fs.closeSync(capabilityDescriptor); } catch {}
+  }
   try { child.stdin.end(); } catch {}
   if (keeperIdentity && identityAlive(keeperIdentity)) {
     try { process.kill(keeperIdentity.pid, 'SIGKILL'); } catch {}
@@ -117,6 +159,7 @@ try {
   if (outerIdentity.start_ticks && identityAlive(outerIdentity)) {
     try { process.kill(outerIdentity.pid, 'SIGKILL'); } catch {}
   }
+  fs.rmSync(capabilityRoot, { recursive: true, force: true });
 }
 
 console.log('real repository oracle quota keeper live lifecycle passed');

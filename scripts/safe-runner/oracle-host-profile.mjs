@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import {
+  ORACLE_CACHE_CAPABILITY_FD, ORACLE_CACHE_CAPABILITY_MOUNT,
+} from './oracle-cache-capability.mjs';
 
 export const ORACLE_HOST_PROBE_WORKLOAD_ID =
   'real-repository-oracle-v1:oracle-host-probe';
@@ -14,6 +17,7 @@ export const ORACLE_KEEPER_REQUIRED_BWRAP_OPTIONS = Object.freeze([
   '--unshare-ipc', '--unshare-uts', '--unshare-net', '--uid UID', '--gid GID',
   '--hostname NAME', '--disable-userns', '--assert-userns-disabled', '--cap-drop CAP',
   '--clearenv', '--perms OCTAL', '--size BYTES', '--tmpfs DEST', '--dir DEST',
+  '--ro-bind-fd FD DEST',
   '--remount-ro DEST', '--as-pid-1', '--block-fd FD', '--info-fd FD',
 ]);
 
@@ -30,6 +34,7 @@ export function oracleKeeperBwrapArguments(quotaBytes) {
     '--perms', '0755', '--size', String(ORACLE_HOST_ROOT_BYTES), '--tmpfs', '/',
     '--dir', '/oracle-state',
     '--perms', '0700', '--size', String(quotaBytes), '--tmpfs', '/oracle-state',
+    '--ro-bind-fd', String(ORACLE_CACHE_CAPABILITY_FD), ORACLE_CACHE_CAPABILITY_MOUNT,
     '--remount-ro', '/', '--as-pid-1', '--block-fd', '0', '--info-fd', '3',
     '--', '/oracle-state',
   ]);

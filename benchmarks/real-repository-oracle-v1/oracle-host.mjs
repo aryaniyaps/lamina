@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
@@ -8,9 +9,16 @@ import { pathToFileURL } from 'node:url';
 import {
   ORACLE_HOST_LAUNCH_PROFILE,
   ORACLE_HOST_PROBE_MAX_QUOTA_BYTES,
+  TMPFS_MAGIC,
   oracleKeeperBwrapArguments,
   parseOracleBwrapInfo,
 } from '../../scripts/safe-runner/oracle-host-profile.mjs';
+import {
+  ORACLE_CACHE_CAPABILITY_AUTHORITY, ORACLE_CACHE_CAPABILITY_CONTENT,
+  ORACLE_CACHE_CAPABILITY_SOURCE_NAME,
+} from '../../scripts/safe-runner/oracle-cache-capability.mjs';
+import { waitForOracleKeeperMountTopology } from
+  '../../scripts/safe-runner/oracle-quota-broker.mjs';
 
 export const ORACLE_HOST_RESULT_SCHEMA =
   'lamina.real-repository-oracle-host-probe/v1';
@@ -24,6 +32,11 @@ function invocationError(message) {
   throw error;
 }
 
+function exactKeys(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+}
+
 function processIdentity(pid) {
   const text = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
   const close = text.lastIndexOf(')');
@@ -31,6 +44,102 @@ function processIdentity(pid) {
   const startTicks = fields[19];
   if (!/^\d+$/.test(startTicks || '')) invocationError('cannot bind a process identity');
   return { pid: Number(pid), start_ticks: startTicks };
+}
+
+function cacheCapabilityIdentity(stat, bytes) {
+  return {
+    dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+    mode: Number(stat.mode & 0o7777n), size: Number(stat.size),
+    digest: crypto.createHash('sha256').update(bytes).digest('hex'),
+  };
+}
+
+function readCacheCapability(descriptor) {
+  const bytes = Buffer.alloc(ORACLE_CACHE_CAPABILITY_AUTHORITY.size);
+  const count = fs.readSync(descriptor, bytes, 0, bytes.length, 0);
+  if (count !== bytes.length) invocationError('cache capability content is incomplete');
+  return bytes;
+}
+
+export function createCacheCapabilitySource(privateTmpRoot) {
+  if (!path.isAbsolute(privateTmpRoot || '')
+    || fs.realpathSync.native(privateTmpRoot) !== privateTmpRoot) {
+    invocationError('private tmpfs authority is not canonical');
+  }
+  const root = fs.lstatSync(privateTmpRoot, { bigint: true });
+  const rootFilesystem = fs.statfsSync(privateTmpRoot);
+  if (!root.isDirectory() || root.isSymbolicLink()
+    || Number(root.uid) !== process.getuid() || Number(root.gid) !== process.getgid()
+    || Number(root.mode & 0o777n) !== 0o700 || Number(rootFilesystem.type) !== TMPFS_MAGIC) {
+    invocationError('private tmpfs authority is not exact runner-owned tmpfs');
+  }
+  const sourcePath = path.join(privateTmpRoot, ORACLE_CACHE_CAPABILITY_SOURCE_NAME);
+  const content = Buffer.from(ORACLE_CACHE_CAPABILITY_CONTENT);
+  let writer = null;
+  let descriptor = null;
+  try {
+    writer = fs.openSync(sourcePath, fs.constants.O_CREAT | fs.constants.O_EXCL
+      | fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW, 0o400);
+    fs.writeFileSync(writer, content);
+    fs.fchmodSync(writer, 0o400);
+    fs.fsyncSync(writer);
+    fs.closeSync(writer);
+    writer = null;
+    descriptor = fs.openSync(sourcePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    const observed = readCacheCapability(descriptor);
+    const identity = cacheCapabilityIdentity(opened, observed);
+    if (!opened.isFile() || opened.nlink !== 1n || !observed.equals(content)
+      || identity.mode !== 0o400 || identity.size !== ORACLE_CACHE_CAPABILITY_AUTHORITY.size
+      || identity.digest !== ORACLE_CACHE_CAPABILITY_AUTHORITY.digest) {
+      invocationError('cache capability source identity is invalid');
+    }
+    return {
+      descriptor,
+      claim: {
+        schema: 'lamina.safe-runner-oracle-cache-capability-claim/v1',
+        transfer: ORACLE_CACHE_CAPABILITY_AUTHORITY.transfer,
+        descriptor: ORACLE_CACHE_CAPABILITY_AUTHORITY.descriptor,
+        source_path: sourcePath,
+        pathname_absent: false,
+        source_fd_closed: false,
+        identity,
+      },
+    };
+  } catch (error) {
+    if (writer !== null) fs.closeSync(writer);
+    if (descriptor !== null) fs.closeSync(descriptor);
+    try { fs.unlinkSync(sourcePath); } catch {}
+    throw error;
+  }
+}
+
+export function anonymizeCacheCapability(capability) {
+  const descriptor = capability?.descriptor;
+  const claim = capability?.claim;
+  if (!Number.isSafeInteger(descriptor) || claim?.pathname_absent !== false
+    || claim?.source_fd_closed !== false) invocationError('cache capability is not releasable');
+  fs.unlinkSync(claim.source_path);
+  if (fs.existsSync(claim.source_path)) invocationError('cache capability source path survived unlink');
+  const after = fs.fstatSync(descriptor, { bigint: true });
+  const stable = readCacheCapability(descriptor);
+  const observed = cacheCapabilityIdentity(after, stable);
+  if (after.nlink !== 0n || JSON.stringify(observed) !== JSON.stringify(claim.identity)
+    || !stable.equals(Buffer.from(ORACLE_CACHE_CAPABILITY_CONTENT))) {
+    invocationError('cache capability changed after unlink');
+  }
+  fs.closeSync(descriptor);
+  assertDescriptorClosed(descriptor);
+  return { ...claim, pathname_absent: true, source_fd_closed: true };
+}
+
+function assertDescriptorClosed(descriptor) {
+  try { fs.fstatSync(descriptor); }
+  catch (error) {
+    if (error?.code === 'EBADF') return;
+    throw error;
+  }
+  invocationError('cache capability source descriptor remained open');
 }
 
 export function validateOracleHostInvocation(args, environment = process.env) {
@@ -57,12 +166,22 @@ export function validateOracleHostInvocation(args, environment = process.env) {
   try { profile = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
   catch { invocationError('profile is not exact JSON'); }
   const expectedArguments = oracleKeeperBwrapArguments(profile?.quota_bytes);
-  if (profile?.schema !== 'lamina.safe-runner-oracle-host-launch-profile/v1'
+  if (!exactKeys(profile, [
+    'schema', 'id', 'bwrap', 'bwrap_identity', 'bwrap_capabilities',
+    'launcher', 'launcher_identity', 'bootstrap_environment', 'host', 'host_identity',
+    'non_gradeable', 'quota_bytes', 'keeper_arguments', 'broker_socket',
+    'private_tmp_root', 'cache_capability',
+  ]) || profile.schema !== 'lamina.safe-runner-oracle-host-launch-profile/v1'
     || profile.id !== ORACLE_HOST_LAUNCH_PROFILE || profile.non_gradeable !== true
     || !path.isAbsolute(profile.bwrap || '') || !path.isAbsolute(profile.broker_socket || '')
     || path.dirname(profile.broker_socket) !== path.dirname(quotaReady)
+    || !path.isAbsolute(profile.private_tmp_root || '')
+    || path.dirname(profile.private_tmp_root) !== path.dirname(quotaReady)
+    || path.basename(profile.private_tmp_root) !== 'payload-tmp'
     || !Number.isSafeInteger(profile.quota_bytes) || profile.quota_bytes < 4096
     || profile.quota_bytes > ORACLE_HOST_PROBE_MAX_QUOTA_BYTES
+    || JSON.stringify(profile.cache_capability)
+      !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)
     || JSON.stringify(profile.keeper_arguments) !== JSON.stringify(expectedArguments)) {
     invocationError('profile authority is invalid');
   }
@@ -143,20 +262,47 @@ export async function terminateKeeper(child, { timeoutMs = 1_500 } = {}) {
 }
 
 export function oracleHostResult({ proof, usage, release, finish }) {
+  const cacheCapability = proof?.cache_capability;
+  const anonymousTransferProven = cacheCapability?.schema
+      === 'lamina.safe-runner-oracle-cache-capability-proof/v1'
+    && cacheCapability.non_gradeable === true
+    && cacheCapability.transfer === ORACLE_CACHE_CAPABILITY_AUTHORITY.transfer
+    && cacheCapability.descriptor === ORACLE_CACHE_CAPABILITY_AUTHORITY.descriptor
+    && cacheCapability.source?.pathname_absent === true
+    && cacheCapability.source?.fd_closed === true
+    && cacheCapability.retained_fds?.requester === false
+    && cacheCapability.retained_fds?.outer === false
+    && cacheCapability.retained_fds?.keeper === false
+    && cacheCapability.write_refused === true
+    && cacheCapability.open_for_write_refused === true
+    && release?.mount_fds_released === true
+    && release?.cache_capability_fd_released === true
+    && release?.root_fd_released === true && release?.state_fd_released === true
+    && finish?.identities_dead === true && finish?.proc_anchor_released === true;
+  if (!anonymousTransferProven) {
+    throw new Error('oracle-host anonymous cache capability lifecycle is incomplete');
+  }
   return {
     schema: ORACLE_HOST_RESULT_SCHEMA,
     non_gradeable: true,
     cleanup_proof_issued: false,
     grading_reachable: false,
     candidate_executed: false,
+    anonymous_cache_capability_transfer_proven: true,
+    cache_capability: cacheCapability,
     keeper: proof.keeper,
     filesystem: proof.filesystem,
     enospc_proven: usage.enospc_proven === true,
     mount_fds_released: release.mount_fds_released === true,
+    cache_capability_fd_released: true,
+    root_fd_released: true,
+    state_fd_released: true,
     identities_dead: finish.identities_dead === true,
     proc_anchor_released: finish.proc_anchor_released === true,
     limitations: [
       'untrusted candidate execution and grading are unreachable in this probe',
+      'this proves only fixed-FD anonymous cache-capability transfer with post-setup anonymization; bwrap 0.11.1 cannot ingest an already-unlinked regular-file FD',
+      'a same-UID concurrent attacker during the transient trusted mount-setup pathname is outside the threat model',
       'same-UID ambient pathname replacement and proof-broker requester impersonation remain unsupported denial-of-service or state-race surfaces; the runner terminal tuple prevents false success',
       'Git realpath cannot consume the proc-acquired quota descriptor as a repository path',
       'bwrap 0.11.1 sibling --bind-fd cannot consume the proc-acquired quota descriptor',
@@ -167,9 +313,19 @@ export function oracleHostResult({ proof, usage, release, finish }) {
 export async function main(exactArguments = []) {
   const invocation = validateOracleHostInvocation(exactArguments);
   const requester = processIdentity(process.pid);
-  const child = spawn(invocation.profile.bwrap, invocation.profile.keeper_arguments, {
-    cwd: process.cwd(), env: process.env, stdio: ['pipe', 'ignore', 'pipe', 'pipe'],
-  });
+  const capability = createCacheCapabilitySource(invocation.profile.private_tmp_root);
+  let capabilityDescriptor = capability.descriptor;
+  let child;
+  try {
+    child = spawn(invocation.profile.bwrap, invocation.profile.keeper_arguments, {
+      cwd: process.cwd(), env: process.env,
+      stdio: ['pipe', 'ignore', 'pipe', 'pipe', capabilityDescriptor],
+    });
+  } catch (error) {
+    fs.closeSync(capabilityDescriptor);
+    try { fs.unlinkSync(capability.claim.source_path); } catch {}
+    throw error;
+  }
   let stderr = '';
   child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-4096); });
   let keeper = null;
@@ -182,10 +338,14 @@ export async function main(exactArguments = []) {
       if (Buffer.byteLength(info) > 8 * 1024) throw new Error('bwrap info exceeded bound');
     }
     const bwrapInfo = parseOracleBwrapInfo(info);
+    await waitForOracleKeeperMountTopology(bwrapInfo.child_pid);
+    const capabilityClaim = anonymizeCacheCapability(capability);
+    capabilityDescriptor = null;
     keeper = processIdentity(bwrapInfo.child_pid);
     const registration = await brokerRequest(invocation.profile.broker_socket, {
       operation: 'register_oracle_quota', requester, outer, keeper, bwrap_info: bwrapInfo,
       quota_bytes: invocation.profile.quota_bytes,
+      cache_capability: capabilityClaim,
     });
     writeQuotaReady(invocation.quota_ready, registration.proof);
     waitForRelease(invocation.quota_release);
@@ -205,6 +365,11 @@ export async function main(exactArguments = []) {
     if (Buffer.byteLength(line) >= 8 * 1024) throw new Error('oracle-host result exceeds bound');
     process.stdout.write(line);
   } catch (error) {
+    if (capabilityDescriptor !== null) {
+      try { fs.closeSync(capabilityDescriptor); } catch {}
+      capabilityDescriptor = null;
+    }
+    try { fs.unlinkSync(capability.claim.source_path); } catch {}
     try { releaseKeeperGate(child); } catch {}
     throw Object.assign(new Error(`${error.message}${stderr ? `: ${stderr.trim()}` : ''}`), {
       code: error.code || 'LAMINA_SAFE_ORACLE_HOST',

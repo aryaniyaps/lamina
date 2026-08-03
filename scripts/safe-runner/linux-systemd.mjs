@@ -9,6 +9,7 @@ import {
 import {
   ORACLE_HOST_LAUNCH_PROFILE, oracleKeeperBwrapArguments,
 } from './oracle-host-profile.mjs';
+import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from './oracle-cache-capability.mjs';
 
 export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
@@ -310,6 +311,8 @@ export class LinuxSystemdAdapter {
         !== staged.oracle_host_launcher_mjs
       || executionAuthority.oracle_host_profile.bootstrap_environment?.path
         !== staged.oracle_host_env
+      || JSON.stringify(executionAuthority.oracle_host_profile.cache_capability)
+        !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)
       || executionAuthority.oracle_host_launch_cwd !== executionAuthority.snapshot_repository)) {
       throw Object.assign(new Error('oracle-host launch profile is not exact sealed authority'), {
         code: 'LAMINA_SAFE_ORACLE_HOST_AUTHORITY',
@@ -320,9 +323,11 @@ export class LinuxSystemdAdapter {
       quota_bytes: this.limits.temporary_max_bytes,
       keeper_arguments: oracleKeeperBwrapArguments(this.limits.temporary_max_bytes),
       broker_socket: env?.LAMINA_SAFE_RUNNER_BROKER,
+      private_tmp_root: temporaryDirectory,
     })).toString('base64url') : '';
     if (oracleProfile && (!path.isAbsolute(env?.LAMINA_SAFE_RUNNER_BROKER || '')
-      || path.dirname(env.LAMINA_SAFE_RUNNER_BROKER) !== path.dirname(quotaReadyFile))) {
+      || path.dirname(env.LAMINA_SAFE_RUNNER_BROKER) !== path.dirname(quotaReadyFile)
+      || temporaryDirectory !== path.join(path.dirname(quotaReadyFile), 'payload-tmp'))) {
       throw Object.assign(new Error('oracle-host broker socket is outside exact run authority'), {
         code: 'LAMINA_SAFE_ORACLE_HOST_AUTHORITY',
       });
@@ -356,6 +361,8 @@ export class LinuxSystemdAdapter {
       keeper_arguments: Object.freeze(oracleKeeperBwrapArguments(
         this.limits.temporary_max_bytes,
       )),
+      private_tmp_root: temporaryDirectory,
+      cache_capability: ORACLE_CACHE_CAPABILITY_AUTHORITY,
       launcher_identity: Object.freeze({
         ...executionAuthority.oracle_host_profile.launcher_identity,
       }),

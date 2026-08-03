@@ -18,6 +18,8 @@ import {
   attestOracleKeeperBwrapHelp, ORACLE_HOST_LAUNCH_PROFILE,
   ORACLE_HOST_PROBE_COMMAND, oracleKeeperBwrapArguments,
 } from '../scripts/safe-runner/oracle-host-profile.mjs';
+import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from
+  '../scripts/safe-runner/oracle-cache-capability.mjs';
 import { validateOracleHostLaunchAuthority } from
   '../scripts/safe-runner/oracle-host-launcher.mjs';
 import {
@@ -90,6 +92,10 @@ assert.equal(oversizedProfile.launch_profile, null);
 const arguments_ = oracleKeeperBwrapArguments(64 * 1024);
 assert.equal(arguments_.includes('--ro-bind'), false);
 assert.equal(arguments_.includes('--bind'), false);
+assert.deepEqual(arguments_.slice(arguments_.indexOf('--ro-bind-fd'),
+  arguments_.indexOf('--ro-bind-fd') + 3), [
+  '--ro-bind-fd', '4', '/oracle-cache-capability',
+]);
 assert.equal(arguments_.includes('/proc'), false);
 assert.equal(arguments_.includes('/runtime'), false);
 assert.deepEqual(arguments_.slice(-2), ['--', '/oracle-state']);
@@ -97,8 +103,13 @@ assert.equal(arguments_.filter((value) => value === '--tmpfs').length, 2);
 assert.deepEqual(realRepositoryOracleSourceClosure(ORACLE_HOST_PROBE_COMMAND), [
   'benchmarks/real-repository-oracle-v1/workload.mjs',
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
+  'scripts/safe-runner/oracle-quota-broker.mjs',
+  'scripts/safe-runner/filesystem.mjs',
+  'scripts/safe-runner/processes.mjs',
+  'scripts/safe-runner/infrastructure.mjs',
 ]);
 
 if (process.platform !== 'linux') {
@@ -141,6 +152,8 @@ try {
   ]);
   assert.notEqual(snapshot.oracle_host_launch_command[1], ENTRYPOINT);
   assert.equal(snapshot.oracle_host_profile.non_gradeable, true);
+  assert.deepEqual(snapshot.oracle_host_profile.cache_capability,
+    ORACLE_CACHE_CAPABILITY_AUTHORITY);
   assert.equal(snapshot.oracle_host_profile.launcher,
     snapshot.infrastructure.oracle_host_launcher_mjs);
   assert.equal(snapshot.oracle_host_profile.bootstrap_environment.path,
@@ -150,6 +163,7 @@ try {
     ...snapshot.oracle_host_profile,
     quota_bytes: limits.tempMaxBytes,
     keeper_arguments: oracleKeeperBwrapArguments(limits.tempMaxBytes),
+    private_tmp_root: path.join(temporary, 'payload-tmp'),
   })).toString('base64url');
   const hostArgv = [
     snapshot.infrastructure.node,

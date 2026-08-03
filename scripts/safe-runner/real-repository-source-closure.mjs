@@ -57,8 +57,13 @@ export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Objec
 export const REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE = Object.freeze([
   REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
+  'scripts/safe-runner/oracle-quota-broker.mjs',
+  'scripts/safe-runner/filesystem.mjs',
+  'scripts/safe-runner/processes.mjs',
+  'scripts/safe-runner/infrastructure.mjs',
 ]);
 export const REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE = Object.freeze([
   ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,

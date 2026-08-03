@@ -759,6 +759,9 @@ export async function runSafely({
           bwrap: executionSnapshot.oracle_host_profile.bwrap,
           bwrapIdentity: executionSnapshot.oracle_host_profile.bwrap_identity,
           keeperArguments: activeAdapter.oracleHostLaunchAuthority.keeper_arguments,
+          privateTmpRoot: activeAdapter.oracleHostLaunchAuthority.private_tmp_root,
+          cacheCapabilityAuthority:
+            activeAdapter.oracleHostLaunchAuthority.cache_capability,
         });
         oracleQuotaProof = oracleQuotaRegistry.register(record);
         report.preflight.oracle_host_launch = {

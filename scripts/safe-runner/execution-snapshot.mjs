@@ -15,6 +15,7 @@ import {
   ORACLE_HOST_LAUNCH_PROFILE,
   ORACLE_HOST_PROBE_COMMAND,
 } from './oracle-host-profile.mjs';
+import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from './oracle-cache-capability.mjs';
 import {
   exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
 } from './landlock-candidate-profile.mjs';
@@ -1434,6 +1435,7 @@ export function prepareExecutionSnapshot({
         uid: Number(hostStat.uid), mode: Number(hostStat.mode & 0o7777n),
         size: String(hostStat.size), digest: copiedHost.digest,
       }),
+      cache_capability: ORACLE_CACHE_CAPABILITY_AUTHORITY,
       non_gradeable: true,
     });
     oracleHostLaunchBinding = Object.freeze({
@@ -1447,6 +1449,7 @@ export function prepareExecutionSnapshot({
       host_sha256: copiedHost.digest,
       bwrap_sha256: stagedInfrastructure.identities.bwrap.digest,
       bwrap_help_sha256: capabilities.help_sha256,
+      cache_capability_sha256: ORACLE_CACHE_CAPABILITY_AUTHORITY.digest,
       non_gradeable: true,
     });
   }
@@ -1649,6 +1652,8 @@ export function assertExecutionSnapshot(snapshot) {
       || snapshot.oracle_host_launch_binding?.node_sha256
         !== snapshot.infrastructure.identities.node.digest
       || snapshot.oracle_host_launch_binding?.bwrap_sha256 !== profile.bwrap_identity?.digest
+      || snapshot.oracle_host_launch_binding?.cache_capability_sha256
+        !== profile.cache_capability?.digest
       || profile.bwrap !== snapshot.infrastructure.bwrap
       || profile.launcher !== snapshot.infrastructure.oracle_host_launcher_mjs
       || profile.bootstrap_environment?.path !== snapshot.infrastructure.oracle_host_env
@@ -1656,6 +1661,8 @@ export function assertExecutionSnapshot(snapshot) {
         !== JSON.stringify({ LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' })
       || profile.host !== host
       || profile.host_identity?.digest !== hostEntry.digest
+      || JSON.stringify(profile.cache_capability)
+        !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)
       || JSON.stringify(profile.bwrap_identity)
         !== JSON.stringify(snapshot.infrastructure.identities.bwrap)) {
       throw new Error('oracle-host sealed launch translation changed');

@@ -9,6 +9,9 @@ const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || ''
   && (Number(record?.pid) === Number(claimed?.pid)
     || record?.namespace_pids?.includes(Number(claimed?.pid)));
 
+const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+  && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+
 export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority = []) {
   const environment = child?.environment_attestation;
   if (!Array.isArray(child?.argv)
@@ -78,6 +81,10 @@ export function authorizeBrokerRequest(request, authority) {
       return { ok: false, error: 'requester is not the exact sealed oracle-host launch' };
     }
     if (request.operation === 'register_oracle_quota') {
+      if (!exactKeys(request, [
+        'operation', 'requester', 'outer', 'keeper', 'bwrap_info', 'quota_bytes',
+        'cache_capability',
+      ])) return { ok: false, error: 'oracle quota registration is not exact' };
       const outer = records.find((record) => sameScopedIdentity(record, request.outer));
       const keeper = records.find((record) => sameScopedIdentity(record, request.keeper));
       if (!outer || !keeper || outer.ppid !== requester.pid || keeper.ppid !== outer.pid) {
@@ -88,7 +95,8 @@ export function authorizeBrokerRequest(request, authority) {
       }
       const proof = authority.registerOracleQuota?.({ requester, outer, keeper,
         bwrap_info: request.bwrap_info,
-        quota_bytes: request.quota_bytes });
+        quota_bytes: request.quota_bytes,
+        cache_capability: request.cache_capability });
       return proof ? { ok: true, proof }
         : { ok: false, error: 'oracle quota could not be identity-bound' };
     }

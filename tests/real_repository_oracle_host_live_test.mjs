@@ -69,6 +69,19 @@ try {
   assert.equal(result.cleanup_proof_issued, false);
   assert.equal(result.grading_reachable, false);
   assert.equal(result.candidate_executed, false);
+  assert.equal(result.anonymous_cache_capability_transfer_proven, true);
+  assert.equal(result.cache_capability.transfer,
+    'fixed-fd-post-setup-anonymized-read-only');
+  assert.equal(result.cache_capability.descriptor, 4);
+  assert.equal(result.cache_capability.source.pathname_absent, true);
+  assert.equal(result.cache_capability.source.fd_closed, true);
+  assert.deepEqual(result.cache_capability.retained_fds,
+    { requester: false, outer: false, keeper: false });
+  assert.equal(result.cache_capability.write_refused, true);
+  assert.equal(result.cache_capability.open_for_write_refused, true);
+  assert.equal(result.cache_capability_fd_released, true);
+  assert.equal(result.root_fd_released, true);
+  assert.equal(result.state_fd_released, true);
   assert.equal(result.enospc_proven, true);
   assert.equal(result.identities_dead, true);
   assert.equal(report.preflight.oracle_host_launch.authorized, true);
@@ -76,6 +89,8 @@ try {
     report.preflight.scope_proof.gate_pid);
   assert.equal(report.preflight.temporary_quota_proof.cgroup,
     report.preflight.scope_proof.cgroup);
+  assert.deepEqual(report.preflight.temporary_quota_proof.cache_capability,
+    result.cache_capability);
   assert.equal(report.preflight.oracle_quota_terminal.cleanup_verified, true);
   assert.equal(report.cleanup.scope_removed, true);
   assert.equal(report.cleanup.temporary_directory_removed, true);

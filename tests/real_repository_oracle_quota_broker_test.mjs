@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import {
   oracleHostResult, terminateKeeper, validateOracleHostInvocation,
 } from '../benchmarks/real-repository-oracle-v1/oracle-host.mjs';
 import { EventEmitter } from 'node:events';
 import { oracleKeeperBwrapArguments } from '../scripts/safe-runner/oracle-host-profile.mjs';
+import * as oracleCacheCapability from
+  '../scripts/safe-runner/oracle-cache-capability.mjs';
 import {
   createOracleQuotaRegistry,
   exactOracleQuotaReadyProof,
@@ -23,6 +26,67 @@ for (const crossed of ['/sys/fs/cgroup', '/sys/fs/cgroup/../escape', '/tmp/cgrou
   assert.throws(() => procCgroupFromControlPath(crossed), /control cgroup escapes/);
 }
 import { oracleQuotaCompletionAuthorized } from '../scripts/safe-runner/runner.mjs';
+
+assert.equal(typeof oracleCacheCapability.validateOracleCacheCapabilityEvidence, 'function',
+  'anonymous cache-capability evidence requires one exact pure validator');
+const capabilityPrivateRoot = '/tmp/lamina-safe-runner-test/payload-tmp';
+const capabilityIdentity = {
+  dev: '21', ino: '34', uid: process.getuid?.() ?? 1000, mode: 0o400,
+  size: Buffer.byteLength(oracleCacheCapability.ORACLE_CACHE_CAPABILITY_CONTENT),
+  digest: oracleCacheCapability.ORACLE_CACHE_CAPABILITY_DIGEST,
+};
+const capabilityClaim = {
+  schema: 'lamina.safe-runner-oracle-cache-capability-claim/v1',
+  transfer: 'fixed-fd-post-setup-anonymized-read-only', descriptor: 4,
+  source_path: path.join(capabilityPrivateRoot, '.oracle-cache-capability'),
+  pathname_absent: true, source_fd_closed: true,
+  identity: capabilityIdentity,
+};
+const capabilityObservation = {
+  identity: capabilityIdentity, mount_id: 93, mount_access: 'ro',
+  pathname_exists: false,
+  requester_fd_retained: false, outer_fd_retained: false, keeper_fd_retained: false,
+  read_descriptor_write_refused: true, open_for_write_refused: true,
+};
+const capabilityEvidence = oracleCacheCapability.validateOracleCacheCapabilityEvidence(
+  capabilityClaim, capabilityObservation, { privateTmpRoot: capabilityPrivateRoot },
+);
+assert.equal(capabilityEvidence.schema,
+  'lamina.safe-runner-oracle-cache-capability-proof/v1');
+assert.equal(capabilityEvidence.non_gradeable, true);
+assert.equal(capabilityEvidence.transfer,
+  'fixed-fd-post-setup-anonymized-read-only');
+assert.equal(capabilityEvidence.descriptor, 4);
+assert.equal(capabilityEvidence.mount.path, '/oracle-cache-capability');
+assert.equal(capabilityEvidence.source.pathname_absent, true);
+assert.equal(capabilityEvidence.source.fd_closed, true);
+assert.deepEqual(capabilityEvidence.retained_fds,
+  { requester: false, outer: false, keeper: false });
+assert.equal(capabilityEvidence.write_refused, true);
+assert.equal(capabilityEvidence.open_for_write_refused, true);
+const crossedCapability = (claimMutation = () => {}, observationMutation = () => {}) => {
+  const claim = structuredClone(capabilityClaim);
+  const observation = structuredClone(capabilityObservation);
+  claimMutation(claim);
+  observationMutation(observation);
+  assert.throws(() => oracleCacheCapability.validateOracleCacheCapabilityEvidence(
+    claim, observation, { privateTmpRoot: capabilityPrivateRoot },
+  ), /cache capability/);
+};
+crossedCapability(() => {}, (value) => { value.identity.ino = '35'; });
+crossedCapability((value) => { value.unexpected = true; });
+crossedCapability(() => {}, (value) => { value.unexpected = true; });
+crossedCapability((value) => { value.identity.digest = '0'.repeat(64); });
+crossedCapability((value) => { value.identity.mode = 0o600; },
+  (value) => { value.identity.mode = 0o600; });
+crossedCapability((value) => { value.pathname_absent = false; },
+  (value) => { value.pathname_exists = true; });
+crossedCapability((value) => { value.descriptor = 5; });
+crossedCapability(() => {}, (value) => { value.requester_fd_retained = true; });
+crossedCapability(() => {}, (value) => { value.outer_fd_retained = true; });
+crossedCapability(() => {}, (value) => { value.keeper_fd_retained = true; });
+crossedCapability(() => {}, (value) => { value.read_descriptor_write_refused = false; });
+crossedCapability(() => {}, (value) => { value.open_for_write_refused = false; });
 
 const bwrapInfo = `${JSON.stringify({
   'child-pid': 412,
@@ -77,14 +141,18 @@ for (const invalid of [
 const mounts = parseOracleMountInfo([
   '91 80 0:77 / / ro,nosuid,nodev - tmpfs tmpfs rw,size=1024k',
   '92 91 0:78 / /oracle-state rw,nosuid,nodev - tmpfs tmpfs rw,size=65536',
+  '93 91 0:79 /file /oracle-cache-capability ro,nosuid,nodev - tmpfs tmpfs rw',
   '',
 ].join('\n'));
 assert.deepEqual(mounts.root, { mount_id: 91, major_minor: '0:77', mount_point: '/',
   filesystem_type: 'tmpfs', access: 'ro' });
 assert.deepEqual(mounts.oracle_state, { mount_id: 92, major_minor: '0:78',
   mount_point: '/oracle-state', filesystem_type: 'tmpfs', access: 'rw' });
+assert.deepEqual(mounts.oracle_cache_capability, { mount_id: 93, major_minor: '0:79',
+  mount_point: '/oracle-cache-capability', filesystem_type: 'tmpfs', access: 'ro' });
 for (const invalid of [
   '91 80 0:77 / / ro - tmpfs tmpfs rw\n',
+  '91 80 0:77 / / ro - tmpfs tmpfs rw\n92 91 0:78 / /oracle-state rw - tmpfs tmpfs rw\n',
   '91 80 0:77 / / ro - ext4 /dev/x rw\n92 91 0:78 / /oracle-state rw - tmpfs tmpfs rw\n',
   '91 80 0:77 / / ro - tmpfs tmpfs rw\n92 91 0:78 / /oracle-state rw - ext4 /dev/x rw\n',
   '91 80 0:77 / / rw - tmpfs tmpfs rw\n92 91 0:78 / /oracle-state rw - tmpfs tmpfs rw\n',
@@ -112,10 +180,18 @@ assert.deepEqual(authorizeBrokerRequest({
   operation: 'register_oracle_quota', requester,
   outer: { pid: outer.pid, start_ticks: outer.start_ticks },
   keeper: { pid: keeper.pid, start_ticks: keeper.start_ticks }, quota_bytes: 65_536,
+  bwrap_info: { exact: true }, cache_capability: capabilityClaim,
 }, authority), {
   ok: true, proof: { schema: 'lamina.safe-runner-oracle-quota-proof/v1', mount_id: 92 },
 });
 assert.equal(registrations[0].requester.pid, host.pid);
+assert.deepEqual(registrations[0].cache_capability, capabilityClaim);
+assert.match(authorizeBrokerRequest({
+  operation: 'register_oracle_quota', requester,
+  outer: { pid: outer.pid, start_ticks: outer.start_ticks },
+  keeper: { pid: keeper.pid, start_ticks: keeper.start_ticks }, quota_bytes: 65_536,
+  bwrap_info: { exact: true }, cache_capability: capabilityClaim, unexpected: true,
+}, authority).error, /registration is not exact/);
 for (const crossed of [
   { outer: { ...outer, ppid: 999 }, keeper },
   { outer, keeper: { ...keeper, ppid: 999 } },
@@ -126,6 +202,7 @@ for (const crossed of [
     outer: { pid: crossed.outer.pid, start_ticks: crossed.outer.start_ticks },
     keeper: { pid: crossed.keeper.pid, start_ticks: crossed.keeper.start_ticks },
     quota_bytes: 65_536,
+    bwrap_info: { exact: true }, cache_capability: capabilityClaim,
   }, authority).error, /descendant/);
 }
 authority.records = () => [host, outer, keeper];
@@ -134,6 +211,7 @@ assert.match(authorizeBrokerRequest({
   operation: 'register_oracle_quota', requester,
   outer: { pid: outer.pid, start_ticks: outer.start_ticks },
   keeper: { pid: keeper.pid, start_ticks: keeper.start_ticks }, quota_bytes: 65_536,
+  bwrap_info: { exact: true }, cache_capability: capabilityClaim,
 }, authority).error, /exact sealed oracle-host/);
 authority.oracleHostLaunchAuthorized = (record) => record === host;
 for (const [operation, property] of [
@@ -147,8 +225,14 @@ const profile = {
   schema: 'lamina.safe-runner-oracle-host-launch-profile/v1',
   id: 'oracle-host-probe-v1', non_gradeable: true,
   bwrap: '/usr/bin/bwrap', quota_bytes: 65_536,
+  bwrap_identity: {}, bwrap_capabilities: {},
+  launcher: '/tmp/lamina-oracle/launcher.mjs', launcher_identity: {},
+  bootstrap_environment: {},
+  host: '/tmp/lamina-oracle/oracle-host.mjs', host_identity: {},
   keeper_arguments: oracleKeeperBwrapArguments(65_536),
   broker_socket: '/tmp/lamina-oracle/supervisor.sock',
+  private_tmp_root: '/tmp/lamina-oracle/payload-tmp',
+  cache_capability: oracleCacheCapability.ORACLE_CACHE_CAPABILITY_AUTHORITY,
 };
 const encodedProfile = Buffer.from(JSON.stringify(profile)).toString('base64url');
 assert.deepEqual(validateOracleHostInvocation([
@@ -159,20 +243,71 @@ for (const crossed of [
     Buffer.from(JSON.stringify({ ...profile, broker_socket: '/tmp/crossed.sock' })).toString('base64url')],
   ['/tmp/lamina-oracle/quota.ready', '/tmp/lamina-oracle/quota.release',
     Buffer.from(JSON.stringify({ ...profile, keeper_arguments: ['--ro-bind', '/', '/'] })).toString('base64url')],
+  ['/tmp/lamina-oracle/quota.ready', '/tmp/lamina-oracle/quota.release',
+    Buffer.from(JSON.stringify({ ...profile, unexpected: true })).toString('base64url')],
+  ['/tmp/lamina-oracle/quota.ready', '/tmp/lamina-oracle/quota.release',
+    Buffer.from(JSON.stringify({ ...profile,
+      private_tmp_root: '/tmp/lamina-oracle/other' })).toString('base64url')],
+  ['/tmp/lamina-oracle/quota.ready', '/tmp/lamina-oracle/quota.release',
+    Buffer.from(JSON.stringify({ ...profile, cache_capability: {
+      ...profile.cache_capability, descriptor: 5,
+    } })).toString('base64url')],
 ]) assert.throws(() => validateOracleHostInvocation(crossed,
   { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' }), /oracle-host invocation/);
 const result = oracleHostResult({
-  proof: { keeper: { pid: 412 } }, usage: { enospc_proven: true },
-  release: { mount_fds_released: true }, finish: { identities_dead: true },
+  proof: { keeper: { pid: 412 }, cache_capability: capabilityEvidence },
+  usage: { enospc_proven: true },
+  release: {
+    mount_fds_released: true, cache_capability_fd_released: true,
+    root_fd_released: true, state_fd_released: true,
+  },
+  finish: { identities_dead: true, proc_anchor_released: true },
 });
 assert.equal(result.non_gradeable, true);
 assert.equal(result.cleanup_proof_issued, false);
 assert.equal(result.grading_reachable, false);
 assert.equal(result.candidate_executed, false);
+assert.equal(result.anonymous_cache_capability_transfer_proven, true);
+assert.equal(result.cache_capability.transfer,
+  'fixed-fd-post-setup-anonymized-read-only');
+assert.equal(result.cache_capability_fd_released, true);
+assert.equal(result.root_fd_released, true);
+assert.equal(result.state_fd_released, true);
 assert.ok(result.limitations.some((value) => value.includes('--bind-fd')));
+assert.ok(result.limitations.some((value) => value.includes('post-setup anonymization')
+  && value.includes('already-unlinked regular-file FD')));
+assert.ok(result.limitations.some((value) => value.includes('same-UID concurrent attacker')
+  && value.includes('outside the threat model')));
 assert.ok(result.limitations.some((value) => value.includes('proof-broker requester impersonation')
   && value.includes('terminal tuple')));
 assert.ok(Buffer.byteLength(`${JSON.stringify(result)}\n`) < 8 * 1024);
+for (const crossed of [
+  {
+    release: {
+      mount_fds_released: false, cache_capability_fd_released: true,
+      root_fd_released: true, state_fd_released: true,
+    },
+    finish: { identities_dead: true, proc_anchor_released: true },
+  },
+  {
+    release: {
+      mount_fds_released: true, cache_capability_fd_released: true,
+      root_fd_released: true, state_fd_released: true,
+    },
+    finish: { identities_dead: false, proc_anchor_released: true },
+  },
+  {
+    release: {
+      mount_fds_released: true, cache_capability_fd_released: true,
+      root_fd_released: true, state_fd_released: true,
+    },
+    finish: { identities_dead: true, proc_anchor_released: false },
+  },
+]) assert.throws(() => oracleHostResult({
+  proof: { keeper: { pid: 412 }, cache_capability: capabilityEvidence },
+  usage: { enospc_proven: true },
+  ...crossed,
+}), /anonymous cache capability lifecycle/);
 
 const originalProcessKill = process.kill;
 const pidSignals = [];
@@ -240,6 +375,8 @@ const emptyRegistry = createOracleQuotaRegistry({
   cgroup: '/control.scope', procCgroup: '/proc.scope', quotaBytes: 65_536,
   bwrap: '/usr/bin/bwrap', bwrapIdentity: { dev: '1', ino: '2', uid: 0 },
   keeperArguments: oracleKeeperBwrapArguments(65_536),
+  privateTmpRoot: capabilityPrivateRoot,
+  cacheCapabilityAuthority: oracleCacheCapability.ORACLE_CACHE_CAPABILITY_AUTHORITY,
 });
 assert.deepEqual(emptyRegistry.prepareAbort(), {
   state: 'aborted_before_registration', cleanup_verified: true,

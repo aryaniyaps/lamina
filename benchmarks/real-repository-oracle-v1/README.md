@@ -270,6 +270,40 @@ and cannot issue a grade. Positive Persona capability therefore remains
 excepted; quality pass is structurally unreachable until host-side grading and
 the remaining candidate lifecycle are implemented and reviewed.
 
+## Non-gradeable oracle-host cache-capability probe
+
+The exact `probe-oracle-host` path now includes one tiny fixed-content,
+read-only cache-capability feasibility proof. Oracle-host creates the staging
+file only beneath the sealed runner-owned `payload-tmp` authority after proving
+that directory is canonical, mode `0700`, same-user, and on tmpfs. It fsyncs the
+bytes, changes the file to mode `0400`, reopens it read-only, and passes it to
+the attested bwrap keeper only as fixed FD 4 with
+`--ro-bind-fd 4 /oracle-cache-capability`. No source pathname is present in the
+bwrap argv and there is no pathname-bind or weaker fallback.
+
+Bubblewrap 0.11.1 cannot ingest an already-unlinked regular-file descriptor, so
+this checkpoint proves post-setup anonymization rather than pre-unlink anonymous
+ingestion. The staging pathname exists transiently only during trusted bwrap
+mount setup. After the exact bwrap info handshake confirms setup, oracle-host
+unlinks the pathname, rechecks the open inode and bytes, and closes its source
+descriptor before broker registration and before the blocked keeper can run.
+The broker then independently opens `/oracle-cache-capability` through its
+pinned keeper-root/proc anchor, matches device, inode, owner, mode, size, and
+digest, checks the staging path is absent, and proves requester, outer bwrap,
+and keeper retain no matching descriptor. It also requires a distinct
+read-only mount, refuses writing through its read descriptor, and refuses a new
+write open. This evidence is embedded in the existing quota proof.
+
+Release closes the broker cache, state, and root descriptors before checking
+for mount-ID pins. Finalization still requires keeper and outer bwrap death,
+then releases the proc anchor; outer safe-runner cleanup remains mandatory. The
+result remains `non_gradeable: true`, `cleanup_proof_issued: false`,
+`grading_reachable: false`, and `candidate_executed: false`. It proves only this
+fixed-FD anonymous cache-capability transfer. It does not construct a Git
+bundle, materialize a repository, issue cleanup proof, execute a candidate, or
+grade anything. A hostile same-UID concurrent process racing the transient
+trusted setup pathname remains outside this probe's threat model.
+
 ## Non-gradeable Landlock candidate-launch probe
 
 `npm run test:real-repository-oracle:landlock-candidate-probe` is a Linux-only

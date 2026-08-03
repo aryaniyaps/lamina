@@ -588,8 +588,12 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/source-identity.mjs',
   'benchmarks/real-repository-oracle-v1/inventory-review.mjs',
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
+  'scripts/safe-runner/oracle-quota-broker.mjs',
+  'scripts/safe-runner/filesystem.mjs',
+  'scripts/safe-runner/processes.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-adapter.mjs',
   'benchmarks/real-repository-oracle-v1/candidate-smoke-controller.mjs',
@@ -613,7 +617,6 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'scripts/safe-runner/landlock-candidate-launcher.mjs',
   'scripts/safe-runner/candidate-smoke-profile.mjs',
   'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
-  'scripts/safe-runner/processes.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
