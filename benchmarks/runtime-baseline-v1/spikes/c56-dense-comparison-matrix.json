@@ -1,0 +1,57 @@
+{
+  "schema": "lamina.runtime-baseline-spike/v1",
+  "spike": "c56-dense-comparison-matrix",
+  "generated_at": "2026-08-03T20:39:21.804Z",
+  "fixture": {
+    "graphs": 4,
+    "held_out_workflow_queries": 160,
+    "held_out_source_queries": 80,
+    "dense_candidate_limit": 64,
+    "max_workflow_documents_per_graph": 5
+  },
+  "modes": {
+    "bm25_only": {
+      "metrics": {
+        "workflow_recall_at_5": 0.9423076923076923,
+        "exact_id_alias_accuracy": 1,
+        "complete_multi_workflow_selection": 0,
+        "incorrect_new_workflow_attachment": 0,
+        "source_recall_at_10": 0.8
+      },
+      "passes_gates": {
+        "exact_id_alias": true,
+        "multi_workflow": false,
+        "incorrect_new_workflow": true,
+        "workflow_recall_at_5": false,
+        "source_recall_at_10": false
+      },
+      "dense_leg": "removed",
+      "evidence": "benchmarks/runtime-baseline-v1/spikes/b-lexical-first.json"
+    },
+    "bounded_hybrid": {
+      "ranking_equivalence": {
+        "held_out_workflow_queries_matching_full_hybrid": 160,
+        "held_out_workflow_queries_total": 160,
+        "note": "Fixture corpora are below dense candidate cap; bounded pool equals full pool."
+      },
+      "dense_leg": "retained_bounded",
+      "qualification": "npm run test:cli (retrieval-v1 benchmark --evaluate)"
+    },
+    "full_hybrid_pre_76": {
+      "dense_leg": "retained_full",
+      "qualification": "ADR-012 retrieval-v1 held-out gates (pre-#76 baseline)"
+    }
+  },
+  "adr012_hybrid_gates": {
+    "exact_id_alias_min": 1,
+    "multi_workflow_min": 0.95,
+    "incorrect_new_workflow_max": 0.02,
+    "workflow_recall_at_5_hybrid_min": 0.98,
+    "source_recall_at_10_hybrid_min": 0.9
+  },
+  "decision": {
+    "issue": 75,
+    "outcome": "keep_mandatory_dense",
+    "rationale": "bm25_only fails multi_workflow and recall gates; bounded hybrid preserves full hybrid ranking on fixture"
+  }
+}

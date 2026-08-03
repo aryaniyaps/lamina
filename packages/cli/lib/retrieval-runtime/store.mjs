@@ -5,20 +5,24 @@ import { Connection, Database, json } from '@ladybugdb/core';
 import { graphdLadybugThreads } from '../runtime-budget.mjs';
 import {
   RETRIEVAL_DIMENSIONS,
+  RETRIEVAL_DENSE_CANDIDATE_LIMIT,
   RETRIEVAL_LIMIT,
   RETRIEVAL_SCHEMA,
   RETRIEVAL_SCHEMA_VERSION,
 } from './constants.mjs';
 import {
   bm25Ranking,
+  boundedHybridCandidateIds,
+  boundedHybridRanking,
   classifyWorkflowOutcome,
   fuseRankings,
-  hybridRanking,
   retrievalQueryTerms,
 } from './scoring.mjs';
 
 export {
   bm25Ranking,
+  boundedHybridCandidateIds,
+  boundedHybridRanking,
   classifyWorkflowOutcome,
   denseRanking,
   fuseRankings,
@@ -226,7 +230,7 @@ export class RetrievalStore {
     if (process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') {
       return lexicalOnly
         ? fuseRankings(documents, query, bm25Ranking(documents, query), [])
-        : hybridRanking(documents, query, embedding);
+        : boundedHybridRanking(documents, query, embedding);
     }
     this.ensureExtensions();
     const byId = new Map(documents.map((document) => [document.id, document]));
@@ -250,22 +254,30 @@ export class RetrievalStore {
       }) : [];
       let dense = [];
       if (!lexicalOnly && documents.length) {
-        const totalDocuments = this.query(
-          'MATCH (d:RetrievalDocument) RETURN count(d) AS count',
-        )[0]?.count || documents.length;
+        const denseLimit = Math.min(RETRIEVAL_DENSE_CANDIDATE_LIMIT, documents.length);
         dense = this.query(
           `CALL QUERY_VECTOR_INDEX(
              'RetrievalDocument', 'retrieval_vector', $embedding, $limit, efs := 500
            )
            RETURN node.id AS id, distance
            ORDER BY distance, id`,
-          { embedding, limit: Number(totalDocuments) },
+          { embedding, limit: denseLimit },
         ).filter((item) => byId.has(item.id)).map((item) => ({
           document: byId.get(item.id),
           score: 1 - Number(item.distance),
         }));
       }
-      return fuseRankings(documents, query, lexical, dense);
+      if (lexicalOnly) {
+        return fuseRankings(documents, query, lexical, []);
+      }
+      const candidateIds = boundedHybridCandidateIds(documents, lexical, dense);
+      const candidates = documents.filter((document) => candidateIds.has(document.id));
+      return fuseRankings(
+        candidates,
+        query,
+        lexical.filter((item) => candidateIds.has(item.document.id)),
+        dense.filter((item) => candidateIds.has(item.document.id)),
+      );
     } catch (error) {
       this.recordFailure('retrieval_native_index_corrupt', error);
       if (!retry) throw error;

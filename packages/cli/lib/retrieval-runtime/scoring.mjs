@@ -2,12 +2,18 @@
  *
  * Pure ranking over indexed candidates — graph closure and packet assembly live in
  * work-context; index membership lives in retrieval-generation (#73).
+ *
+ * #76 bounds dense work to a lexical union pool so query-time cosine and Ladybug
+ * vector-index probes stay within ADR-015 memory/task budgets without removing
+ * the mandatory dense leg (ADR-015 Spike 2 / #75).
  */
 import { gitByteCompare } from '../source-inventory.mjs';
 import {
   RETRIEVAL_AMBIGUITY_MARGIN,
+  RETRIEVAL_DENSE_CANDIDATE_LIMIT,
   RETRIEVAL_DENSE_RELEVANCE,
   RETRIEVAL_HYBRID_DENSE_RELEVANCE,
+  RETRIEVAL_LEXICAL_CANDIDATE_LIMIT,
   RETRIEVAL_MULTI_MARGIN,
   RETRIEVAL_RRF_K,
   RETRIEVAL_WORKFLOW_THRESHOLD,
@@ -116,13 +122,45 @@ export function fuseRankings(documents, query, lexical, dense) {
     right.score - left.score || documentIdCompare(left, right));
 }
 
-export function hybridRanking(documents, query, embedding) {
-  return fuseRankings(
+export function boundedHybridCandidateIds(documents, lexical, denseOrdered, {
+  lexicalLimit = RETRIEVAL_LEXICAL_CANDIDATE_LIMIT,
+  denseLimit = RETRIEVAL_DENSE_CANDIDATE_LIMIT,
+} = {}) {
+  if (!documents.length) return new Set();
+  if (documents.length <= denseLimit) {
+    return new Set(documents.map((document) => document.id));
+  }
+  const ids = new Set();
+  for (const item of lexical.slice(0, lexicalLimit)) ids.add(item.document.id);
+  for (const item of denseOrdered.slice(0, denseLimit)) ids.add(item.document.id);
+  return ids;
+}
+
+export function boundedHybridRanking(documents, query, embedding, {
+  lexical = null,
+  dense = null,
+  lexicalLimit = RETRIEVAL_LEXICAL_CANDIDATE_LIMIT,
+  denseLimit = RETRIEVAL_DENSE_CANDIDATE_LIMIT,
+} = {}) {
+  const lexicalRanking = lexical ?? bm25Ranking(documents, query);
+  const denseOrdered = dense ?? denseRanking(documents, embedding);
+  const candidateIds = boundedHybridCandidateIds(
     documents,
-    query,
-    bm25Ranking(documents, query),
-    denseRanking(documents, embedding),
+    lexicalRanking,
+    denseOrdered,
+    { lexicalLimit, denseLimit },
   );
+  const candidates = documents.filter((document) => candidateIds.has(document.id));
+  return fuseRankings(
+    candidates,
+    query,
+    lexicalRanking.filter((item) => candidateIds.has(item.document.id)),
+    denseOrdered.filter((item) => candidateIds.has(item.document.id)),
+  );
+}
+
+export function hybridRanking(documents, query, embedding) {
+  return boundedHybridRanking(documents, query, embedding);
 }
 
 export function classifyWorkflowOutcome(query, ranking) {

@@ -484,7 +484,7 @@ Out of scope: authentication, tenancy, billing, sync, hosted APIs, automatic net
 1. **#53** topology/memory ownership then lifecycle/cancellation/cleanup/recovery.
 2. **#54** source inventory/identity/exclusions then generations/invalidation/tombstones.
 3. **#55** index construction/sync then scoring/graph closure/query integration.
-4. **#56** evidence-based dense keep/remove decision (Spike 2: **keep**) then bounded hybrid implementation.
+4. **#56** evidence-based dense keep/remove decision (Spike 2: **keep**; [ADR-016](016-dense-retention-decision.md)) then bounded hybrid implementation ([#76](https://github.com/aryaniyaps/lamina/issues/76)).
 5. **#57** Linux x64/arm64 packaging/cutover/offline; macOS/Windows deferred child.
 
 ### Spike code disposition (Slice 4)
