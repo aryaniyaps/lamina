@@ -91,9 +91,14 @@ assert.doesNotMatch(refusalProgramForPlatform('win32'), /cmd\.exe|[\s"']/i,
 assert.equal(refusalProgramForPlatform('linux'), '/bin/false');
 assert.equal(trustedReadOpenFlags('win32'), fs.constants.O_RDONLY,
   'Windows must use its explicit lstat/fstat continuity fallback without a fake O_NOFOLLOW bit');
-assert.equal(trustedReadOpenFlags('linux'),
-  fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
-  'POSIX trusted binaries retain no-follow descriptor opening');
+if (Number.isInteger(fs.constants.O_NOFOLLOW)) {
+  assert.equal(trustedReadOpenFlags('linux'),
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    'hosts exposing O_NOFOLLOW retain the exact POSIX no-follow descriptor flags');
+} else {
+  assert.throws(() => trustedReadOpenFlags('linux'), /no-follow open is unavailable/,
+    'a synthetic POSIX request must fail closed when the Windows host exposes no O_NOFOLLOW');
+}
 
 const stableBinaryStat = {
   dev: 1n, ino: 2n, uid: 3n, gid: 4n, mode: 0o100666n, size: 8n,
