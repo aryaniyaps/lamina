@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { verifyRetrievalModel, verifyRetrievalRuntimeAssets } from './assets.mjs';
 import { RETRIEVAL_DIMENSIONS } from './constants.mjs';
-import { workerThreadEnvironment } from '../runtime-budget.mjs';
+import { workerThreadEnvironment, retrievalBatchEnvironment } from '../runtime-budget.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -81,6 +81,7 @@ export class RetrievalEmbedder {
       env: {
         ...process.env,
         ...workerThreadEnvironment(),
+        ...retrievalBatchEnvironment(),
         LAMINA_RETRIEVAL_MODEL_PATH: model.path,
         LAMINA_RETRIEVAL_MODEL_DIGEST: model.digest,
         LAMINA_RETRIEVAL_TOKENIZER_PATH: assets.tokenizer,

@@ -2,6 +2,10 @@ export const RETRIEVAL_SCHEMA_VERSION = 2;
 export const RETRIEVAL_DIMENSIONS = 768;
 export const RETRIEVAL_RRF_K = 60;
 export const RETRIEVAL_LIMIT = 12;
+/** Lexical pool size before dense rerank (#76 / ADR-015 bounded hybrid). */
+export const RETRIEVAL_LEXICAL_CANDIDATE_LIMIT = 64;
+/** Dense vector-index / cosine pool size (#76 / ADR-015 bounded hybrid). */
+export const RETRIEVAL_DENSE_CANDIDATE_LIMIT = 64;
 export const RETRIEVAL_WORKFLOW_THRESHOLD = 0.016;
 export const RETRIEVAL_DENSE_RELEVANCE = 0.50;
 export const RETRIEVAL_HYBRID_DENSE_RELEVANCE = 0.30;

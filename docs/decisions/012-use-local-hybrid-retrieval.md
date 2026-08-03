@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-07-30
 - Supersedes: the deferred dense-retrieval portion of ADR 008
+- Related: [ADR-015](015-practical-runtime-architecture.md), [ADR-016](016-dense-retention-decision.md) (#75 keep dense)
 
 ## Context
 
