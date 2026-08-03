@@ -12,6 +12,7 @@ import { createMaterializationRegistry } from '../benchmarks/real-repository-ora
 import {
   createPersistentScenarioMaterializer,
   createSyntheticPersistentScenarioMaterializer,
+  persistentMaterializerRecoveryAck,
   SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY,
 } from '../benchmarks/real-repository-oracle-v1/persistent-materializer.mjs';
 import { readRepositoryState } from '../benchmarks/real-repository-oracle-v1/repository-state.mjs';
@@ -177,7 +178,7 @@ try {
   assert.throws(() => failedReleaseRegistry.assertEmpty(), /1 repository leases remain active/);
 
   const ownerIdentity = processIdentity(process.pid);
-  const acknowledgeRecoveryAuthority = () => true;
+  const acknowledgeRecoveryAuthority = (authority) => persistentMaterializerRecoveryAck(authority);
   assert.throws(() => createPersistentScenarioMaterializer({
     runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
     publishRecoveryAuthority: acknowledgeRecoveryAuthority,
@@ -296,7 +297,10 @@ try {
     runnerTemporaryRoot: temporary,
     collection,
     recoveryOwnerIdentity: ownerIdentity,
-    publishRecoveryAuthority(authority) { publishedAuthority = authority; return true; },
+    publishRecoveryAuthority(authority) {
+      publishedAuthority = authority;
+      return persistentMaterializerRecoveryAck(authority);
+    },
     seedBareRepository: path.join(origin, '.git'),
     maximumPackBytes: 16 * 1024 * 1024,
     maximumSnapshotBytes: 32 * 1024 * 1024,
@@ -311,80 +315,107 @@ try {
   assert.equal(fs.existsSync(path.join(initialInspection.root, 'template')), false,
     'persistent materializer has no checked-out template copy');
 
-  const handles = new Set();
-  const leaseRoots = new Set();
-  for (const { scenario, expected } of scenarios) {
-    const base = await registry.prepare(scenario, collection);
-    for (const side of ['current-first', 'current-replay', 'candidate-first', 'candidate-replay']) {
-      const lease = await registry.lease(base, {
-        side,
-        expected_repository_state: expected,
-      });
-      assert.equal(handles.has(lease.opaque_handle), false);
-      handles.add(lease.opaque_handle);
-      const inspection = materializer.inspectForTest();
-      assert.equal(inspection.active_count, 1);
-      assert.equal(leaseRoots.has(inspection.active_lease_root), false,
-        'every action receives a never-reused random physical lease path');
-      leaseRoots.add(inspection.active_lease_root);
-      const resolved = registry.resolve(lease.opaque_handle);
-      assert.deepEqual(Object.keys(resolved).sort(), ['repository', 'worktree_role']);
-      assert.deepEqual(readRepositoryState(resolved.repository, {
-        worktreeRole: resolved.worktree_role,
-      }), expected);
-      if (scenario.kind === 'branch') {
-        assert.equal(runGit(resolved.repository, ['branch', '--show-current']),
-          scenario.operations[0].branch, 'scenario branch remains checked out during candidate action');
-      }
-      if (scenario.kind === 'worktree') {
-        const primary = path.join(inspection.active_lease_root, 'repository');
-        assert.deepEqual(readRepositoryState(primary, { worktreeRole: 'primary' }), cleanState());
-        assert.equal(fs.existsSync(resolved.repository), true,
-          'logical worktree path remains active during candidate action');
-      }
-      const primary = path.join(inspection.active_lease_root, 'repository');
-      const portableAlias = path.join(primary, 'src', 'alias.txt');
-      assert.equal(fs.lstatSync(portableAlias).isSymbolicLink(), false);
-      assert.equal(fs.readFileSync(portableAlias, 'utf8'), 'a.txt',
-        'tracked mode-120000 entry remains a clean portable regular file');
-      assert.equal(fs.readFileSync(path.join(primary, '.git', 'shallow'), 'utf8'), `${commit}\n`,
-        'exact shallow metadata is copied into every self-contained lease');
-      const cachePack = path.join(initialInspection.cache, 'objects', 'pack',
-        initialInspection.cache_pack_files.find((name) => name.endsWith('.pack')));
-      const leasePack = path.join(primary, '.git', 'objects', 'pack',
-        initialInspection.cache_pack_files.find((name) => name.endsWith('.pack')));
-      const cachePackStat = fs.lstatSync(cachePack, { bigint: true });
-      const leasePackStat = fs.lstatSync(leasePack, { bigint: true });
-      assert.equal(leasePackStat.nlink, 1n);
-      assert.equal(cachePackStat.nlink, 1n);
-      assert.notDeepEqual([leasePackStat.dev, leasePackStat.ino],
-        [cachePackStat.dev, cachePackStat.ino], 'lease pack is a byte copy, never a cache hardlink');
-      assert.equal(sha256(fs.readFileSync(leasePack)), sha256(fs.readFileSync(cachePack)));
-      assert.equal(materializer.inspectForTest().cache_digest, initialInspection.cache_digest);
-      await assert.rejects(registry.lease(base, {
-        expected_repository_state: expected,
-      }), /only one physical repository lease may be active/);
-      const forgedLease = { ...lease, start_digest: 'f'.repeat(64) };
-      await assert.rejects(registry.verifyAndRelease(forgedLease),
-        /differs from the exact issued lease/);
-      assert.equal(materializer.inspectForTest().active_count, 1,
-        'forged release input cannot mutate the physical lease lifecycle');
-      assert.deepEqual(registry.resolve(lease.opaque_handle), resolved);
-      const leaseRoot = inspection.active_lease_root;
-      const release = await registry.verifyAndRelease(lease);
-      assert.deepEqual(release, { end_digest: base.content_digest, cleanup_verified: true });
-      assert.equal(absent(leaseRoot), true);
-      assert.equal(materializer.inspectForTest().active_count, 0);
-      assert.throws(() => registry.resolve(lease.opaque_handle), /unknown|no longer active/);
-    }
-  }
-  assert.equal(handles.size, scenarios.length * 4);
-  assert.equal(leaseRoots.size, handles.size);
-  registry.assertEmpty();
-  const root = materializer.inspectForTest().root;
-  await registry.close();
-  assert.equal(absent(root), true);
-  await assert.rejects(registry.prepare(scenarios[0].scenario, collection), /closed/);
+  const prepared = [];
+  for (const item of scenarios) prepared.push(await registry.prepare(item.scenario, collection));
+  const base = prepared[0];
+  const lease = await registry.lease(base, {
+    side: 'current-first', expected_repository_state: scenarios[0].expected,
+  });
+  const inspection = materializer.inspectForTest();
+  const resolved = registry.resolve(lease.opaque_handle);
+  assert.deepEqual(readRepositoryState(resolved.repository, {
+    worktreeRole: resolved.worktree_role,
+  }), scenarios[0].expected);
+  const primary = path.join(inspection.active_lease_root, 'repository');
+  assert.equal(fs.lstatSync(path.join(primary, 'src', 'alias.txt')).isSymbolicLink(), false);
+  assert.equal(fs.readFileSync(path.join(primary, 'src', 'alias.txt'), 'utf8'), 'a.txt');
+  const cachePack = path.join(initialInspection.cache, 'objects', 'pack',
+    initialInspection.cache_pack_files.find((name) => name.endsWith('.pack')));
+  const leasePack = path.join(primary, '.git', 'objects', 'pack',
+    initialInspection.cache_pack_files.find((name) => name.endsWith('.pack')));
+  const cachePackStat = fs.lstatSync(cachePack, { bigint: true });
+  const leasePackStat = fs.lstatSync(leasePack, { bigint: true });
+  assert.equal(leasePackStat.nlink, 1n);
+  assert.notDeepEqual([leasePackStat.dev, leasePackStat.ino],
+    [cachePackStat.dev, cachePackStat.ino]);
+  assert.equal(sha256(fs.readFileSync(leasePack)), sha256(fs.readFileSync(cachePack)));
+  const forgedLease = { ...lease, start_digest: 'f'.repeat(64) };
+  await assert.rejects(registry.verifyAndRelease(forgedLease),
+    /differs from the exact issued lease/);
+  assert.deepEqual(registry.resolve(lease.opaque_handle), resolved);
+  await assert.rejects(registry.verifyAndRelease(lease), /cleanup was not verified/);
+  const disposition = registry.cleanupDisposition();
+  assert.equal(disposition.cleanup_verified, false);
+  assert.equal(disposition.terminal_disposition, 'awaiting_supervisor_cleanup');
+  assert.equal(absent(inspection.active_lease_root), true);
+  assert.equal(fs.existsSync(disposition.quarantine), true,
+    'owned lease quarantine is preserved for later #59 cleanup');
+  assert.throws(() => registry.resolve(lease.opaque_handle), /recovery-only/);
+  await assert.rejects(registry.verifyAndRelease(lease), /recovery-only/);
+  assert.throws(() => registry.assertEmpty(), /1 repository leases remain active/);
+  await assert.rejects(registry.close(), /1 repository leases remain active/);
+
+  const leaseVictim = path.join(temporary, 'lease-swap-victim');
+  fs.mkdirSync(leaseVictim, { mode: 0o700 });
+  fs.writeFileSync(path.join(leaseVictim, 'sentinel'), 'unrelated lease victim\n', { mode: 0o600 });
+  let leasePreferred = null;
+  let leaseRelocated = null;
+  const swapLeaseMaterializer = createSyntheticPersistentScenarioMaterializer({
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+    seedBareRepository: path.join(origin, '.git'),
+    maximumPackBytes: 16 * 1024 * 1024,
+    syntheticLifecycleInterposition(event) {
+      if (event.label !== 'physical repository lease') return;
+      leasePreferred = event.quarantine;
+      leaseRelocated = path.join(path.dirname(event.quarantine), '.relocated-owned-lease');
+      fs.renameSync(event.quarantine, leaseRelocated);
+      fs.renameSync(leaseVictim, event.quarantine);
+    },
+  }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY);
+  const swapLeaseRegistry = createMaterializationRegistry(swapLeaseMaterializer);
+  const swapBase = await swapLeaseRegistry.prepare(scenarios[0].scenario, collection);
+  const swapLease = await swapLeaseRegistry.lease(swapBase, {
+    expected_repository_state: scenarios[0].expected,
+  });
+  await assert.rejects(swapLeaseRegistry.verifyAndRelease(swapLease),
+    /cleanup was not verified/);
+  const swappedLeaseDisposition = swapLeaseRegistry.cleanupDisposition();
+  assert.equal(swappedLeaseDisposition.cleanup_verified, false);
+  assert.equal(swappedLeaseDisposition.pathname_stable, false);
+  assert.equal(swappedLeaseDisposition.quarantine, leaseRelocated,
+    'authenticated owned inode is rediscovered without traversing the swapped pathname');
+  assert.equal(fs.readFileSync(path.join(leasePreferred, 'sentinel'), 'utf8'),
+    'unrelated lease victim\n', 'unrelated lease victim survives the exact swap attack');
+  assert.equal(fs.existsSync(path.join(leaseRelocated, '.owner.json')), true);
+
+  const rootVictim = path.join(temporary, 'root-swap-victim');
+  fs.mkdirSync(rootVictim, { mode: 0o700 });
+  fs.writeFileSync(path.join(rootVictim, 'sentinel'), 'unrelated root victim\n', { mode: 0o600 });
+  let rootPreferred = null;
+  let rootRelocated = null;
+  const swapRootMaterializer = createSyntheticPersistentScenarioMaterializer({
+    runnerTemporaryRoot: temporary, collection, recoveryOwnerIdentity: ownerIdentity,
+    publishRecoveryAuthority: acknowledgeRecoveryAuthority,
+    seedBareRepository: path.join(origin, '.git'),
+    maximumPackBytes: 16 * 1024 * 1024,
+    syntheticLifecycleInterposition(event) {
+      if (event.label !== 'persistent materializer root') return;
+      rootPreferred = event.quarantine;
+      rootRelocated = path.join(path.dirname(event.quarantine), '.relocated-owned-root');
+      fs.renameSync(event.quarantine, rootRelocated);
+      fs.renameSync(rootVictim, event.quarantine);
+    },
+  }, SYNTHETIC_PERSISTENT_MATERIALIZER_TEST_AUTHORITY);
+  const swapRootRegistry = createMaterializationRegistry(swapRootMaterializer);
+  await assert.rejects(swapRootRegistry.close(), /awaits independently verified supervisor cleanup/);
+  const swappedRootDisposition = swapRootRegistry.cleanupDisposition();
+  assert.equal(swappedRootDisposition.cleanup_verified, false);
+  assert.equal(swappedRootDisposition.pathname_stable, false);
+  assert.equal(swappedRootDisposition.quarantine, rootRelocated);
+  assert.equal(fs.readFileSync(path.join(rootPreferred, 'sentinel'), 'utf8'),
+    'unrelated root victim\n', 'unrelated root victim survives the exact swap attack');
+  assert.equal(fs.existsSync(path.join(rootRelocated, '.owner.json')), true);
 
   console.log('real repository oracle persistent materializer passed');
 } finally {

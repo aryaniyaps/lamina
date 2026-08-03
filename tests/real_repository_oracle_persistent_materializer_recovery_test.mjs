@@ -9,6 +9,7 @@ import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import { collectionDigest } from '../benchmarks/real-repository-oracle-v1/contract.mjs';
 import { processIdentity } from '../scripts/safe-runner/processes.mjs';
 import {
+  persistentMaterializerRecoveryAck,
   recoverPersistentScenarioMaterializer,
 } from '../benchmarks/real-repository-oracle-v1/persistent-materializer.mjs';
 
@@ -90,11 +91,27 @@ try {
 
   async function killAt(boundary) {
     const child = spawn(process.execPath, [HELPER, configFile, boundary], {
-      cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe', 'pipe'],
     });
     const recoveryOwnerIdentity = processIdentity(child.pid);
     assert.ok(recoveryOwnerIdentity, 'parent resolves the helper host PID and start ticks');
     child.send({ recovery_owner_identity: recoveryOwnerIdentity });
+    const externallyPublishedAuthority = await new Promise((resolve, reject) => {
+      let output = '';
+      child.stdio[4].on('data', (chunk) => {
+        output += chunk.toString('utf8');
+        if (Buffer.byteLength(output) > 16 * 1024) reject(new Error('recovery authority exceeded bound'));
+        const newline = output.indexOf('\n');
+        if (newline >= 0) {
+          try { resolve(JSON.parse(output.slice(0, newline))); } catch (error) { reject(error); }
+        }
+      });
+      child.stdio[4].once('error', reject);
+    });
+    assert.deepEqual(externallyPublishedAuthority.recovery_owner_identity, recoveryOwnerIdentity);
+    child.stdio[5].write(`${JSON.stringify(
+      persistentMaterializerRecoveryAck(externallyPublishedAuthority),
+    )}\n`);
     let stderr = '';
     child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
     const payload = await new Promise((resolve, reject) => {
@@ -115,17 +132,16 @@ try {
       });
     });
     assert.equal(payload.boundary, boundary);
+    assert.deepEqual(payload.authority, externallyPublishedAuthority,
+      'child proceeds only after the parent externally acknowledges exact recovery authority');
     assert.deepEqual(payload.authority.recovery_owner_identity, recoveryOwnerIdentity);
-    assert.equal(fs.existsSync(payload.authority.root), boundary !== 'root_quarantined');
+    assert.equal(fs.existsSync(payload.authority.root),
+      !['before_root_creation', 'root_quarantined'].includes(boundary));
     if (boundary === 'logical_worktree_active') {
       assert.equal(payload.resolved.worktree_role, 'oracle-worktree-recovery');
       assert.equal(fs.existsSync(payload.resolved.repository), true);
       assert.equal(fs.existsSync(path.join(payload.inspection.active_lease_root,
         'repository', '.git', 'worktrees', 'oracle-worktree-recovery')), true);
-    }
-    if (boundary === 'released_before_close') {
-      assert.equal(payload.inspection.active_count, 0);
-      assert.deepEqual(fs.readdirSync(payload.inspection.leases), []);
     }
     if (['lease_quarantined', 'root_quarantined'].includes(boundary)) {
       assert.equal(fs.existsSync(payload.quarantine), true);
@@ -139,10 +155,15 @@ try {
       ...payload.authority,
       recovery_owner_identity: { pid: 2_147_483_647, start_ticks: '1' },
     };
-    assert.throws(() => recoverPersistentScenarioMaterializer(forgedAuthority),
-      /marker was substituted/);
-    assert.equal(fs.existsSync(payload.authority.root) || fs.existsSync(payload.quarantine || ''), true,
-      'forged or nonexistent owner authority cannot recover a live root');
+    if (['before_root_creation', 'after_root_creation'].includes(boundary)) {
+      assert.equal(recoverPersistentScenarioMaterializer(forgedAuthority).cleanup_verified, false);
+    } else {
+      assert.throws(() => recoverPersistentScenarioMaterializer(forgedAuthority),
+        /marker was substituted/);
+    }
+    assert.equal(fs.existsSync(payload.authority.root) || fs.existsSync(payload.quarantine || ''),
+      boundary !== 'before_root_creation',
+    'forged or nonexistent owner authority cannot remove a live root');
     child.kill('SIGKILL');
     const exit = await exitPromise;
     assert.equal(exit.code, null);
@@ -151,14 +172,24 @@ try {
   }
 
   for (const boundary of [
+    'before_root_creation', 'after_root_creation', 'after_owner_marker',
     'cache_creating', 'cache_ready', 'lease_allocated', 'logical_worktree_active',
-    'lease_quarantined', 'released_before_close', 'root_quarantined',
+    'lease_quarantined', 'root_quarantined',
   ]) {
     const payload = await killAt(boundary);
-    assert.deepEqual(recoverPersistentScenarioMaterializer(payload.authority), {
-      recovered: true, root_removed: true,
-    });
-    assert.equal(absent(payload.authority.root), true, `${boundary} recovery removes its exact owned root`);
+    const recovered = recoverPersistentScenarioMaterializer(payload.authority);
+    if (boundary === 'before_root_creation') {
+      assert.equal(recovered.terminal_disposition, 'no_root_created');
+    } else if (boundary === 'after_root_creation') {
+      assert.equal(recovered.terminal_disposition, 'unverified_intended_root');
+      assert.equal(fs.existsSync(payload.authority.root), true);
+    } else {
+      assert.equal(recovered.cleanup_verified, false);
+      assert.equal(recovered.terminal_disposition, 'awaiting_supervisor_cleanup');
+      assert.equal(absent(payload.authority.root), true,
+        `${boundary} recovery removes the public root name without deleting its inode`);
+      assert.equal(fs.existsSync(recovered.quarantine), true);
+    }
   }
 
   const substituted = await killAt('cache_ready');

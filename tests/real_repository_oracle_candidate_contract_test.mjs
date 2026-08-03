@@ -2,9 +2,11 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { spawnTrustedGit } from '../scripts/safe-runner/git.mjs';
 import {
   CANDIDATE_ADAPTER_SCHEMA,
   CANDIDATE_PUBLIC_BATCH_SCHEMA,
@@ -373,11 +375,55 @@ const attributesText = new TextDecoder('utf-8', { fatal: true }).decode(attribut
 assert.ok(Buffer.from(attributesText, 'utf8').equals(attributesBytes)
   && attributesText.endsWith('\n') && !attributesText.includes('\r'),
   '.gitattributes must be canonical UTF-8 with LF line endings');
-const attributeLines = attributesText.slice(0, -1).split('\n');
-for (const relative of auditedPublicBytes.keys()) {
-  const expected = `${relative} text eol=lf`;
-  assert.equal(attributeLines.filter((line) => line === expected).length, 1,
-    `${relative} must have one exact text eol=lf rule`);
+const attributeProbeRoot = fs.realpathSync.native(fs.mkdtempSync(
+  path.join(os.tmpdir(), 'lamina-candidate-attributes-'),
+));
+fs.chmodSync(attributeProbeRoot, 0o700);
+const runAttributeGit = (cwd, args) => {
+  const result = spawnTrustedGit(cwd, args, {
+    encoding: null, timeout: 10_000, maxBuffer: 64 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(result.status, 0, String(result.stderr || ''));
+  return result.stdout;
+};
+const attributeValues = (probe) => {
+  const rows = runAttributeGit(probe, [
+    'check-attr', '-z', 'text', 'eol', '--', ...auditedPublicBytes.keys(),
+  ]).toString('utf8').split('\0').filter(Boolean);
+  assert.equal(rows.length, auditedPublicBytes.size * 6);
+  const values = new Map();
+  for (let index = 0; index < rows.length; index += 6) {
+    const [textPath, textName, textValue, eolPath, eolName, eolValue] = rows.slice(index, index + 6);
+    assert.equal(textPath, eolPath); assert.equal(textName, 'text'); assert.equal(eolName, 'eol');
+    values.set(textPath, { text: textValue, eol: eolValue });
+  }
+  return values;
+};
+try {
+  const probe = path.join(attributeProbeRoot, 'repository');
+  runAttributeGit(attributeProbeRoot, ['init', '--quiet', probe]);
+  fs.writeFileSync(path.join(probe, '.gitattributes'), attributesBytes, { flag: 'wx', mode: 0o600 });
+  for (const relative of auditedPublicBytes.keys()) {
+    const target = path.join(probe, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(target, 'attribute probe\n', { flag: 'wx', mode: 0o600 });
+  }
+  for (const [relative, value] of attributeValues(probe)) {
+    assert.deepEqual(value, { text: 'set', eol: 'lf' }, `${relative} must resolve to text eol=lf`);
+  }
+  fs.appendFileSync(path.join(probe, '.gitattributes'),
+    `${publicEntry} text eol=crlf\n`);
+  assert.equal(attributeValues(probe).get(publicEntry).eol, 'crlf',
+    'a later exact-path conflict must override and fail the effective LF contract');
+  fs.writeFileSync(path.join(probe, '.gitattributes'), Buffer.concat([
+    attributesBytes,
+    Buffer.from('benchmarks/real-repository-oracle-v1/*.mjs text eol=crlf\n'),
+  ]));
+  assert.equal(attributeValues(probe).get(publicEntry).eol, 'crlf',
+    'a later wildcard conflict must override and fail the effective LF contract');
+} finally {
+  fs.rmSync(attributeProbeRoot, { recursive: true, force: true });
 }
 for (const [relative, expectedSha256] of auditedPublicBytes) {
   const exactBytes = fs.readFileSync(path.join(repositoryRoot, relative));

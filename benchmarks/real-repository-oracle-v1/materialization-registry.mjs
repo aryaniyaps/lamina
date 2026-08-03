@@ -90,6 +90,7 @@ export function createMaterializationRegistry(materializer) {
   const active = new Map();
   const issued = new Set();
   let closed = false;
+  let terminalDisposition = null;
   const registry = {
     async prepare(scenario, collection) {
       if (closed) throw new Error('materialization registry is closed');
@@ -132,6 +133,8 @@ export function createMaterializationRegistry(materializer) {
         );
       } catch (error) {
         authority.state = 'release_failed';
+        terminalDisposition = typeof materializer.cleanupDisposition === 'function'
+          ? materializer.cleanupDisposition() : null;
         throw error;
       }
       active.delete(lease.opaque_handle);
@@ -145,12 +148,21 @@ export function createMaterializationRegistry(materializer) {
     registry.close = async () => {
       if (closed) throw new Error('materialization registry is already closed');
       if (active.size) throw new Error(`${active.size} repository leases remain active`);
-      await materializer.close();
+      const result = await materializer.close();
+      if (result?.cleanup_verified !== true) {
+        terminalDisposition = result || null;
+        throw new Error('materialization close awaits independently verified supervisor cleanup');
+      }
       closed = true;
     };
   }
   if (typeof materializer.recoveryAuthority === 'function') {
     registry.recoveryAuthority = () => frozenClone(materializer.recoveryAuthority());
+  }
+  if (typeof materializer.cleanupDisposition === 'function') {
+    registry.cleanupDisposition = () => frozenClone(
+      terminalDisposition || materializer.cleanupDisposition(),
+    );
   }
   return Object.freeze(registry);
 }
