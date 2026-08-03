@@ -30,7 +30,7 @@ import { hostSmokeCandidateProductionBytes } from './candidate-smoke-host.mjs';
 
 export const CANDIDATE_TIER_PLAN_SCHEMA = 'lamina.real-repository-oracle-candidate-tier-plan/v1';
 export const HOST_LEASE_EVIDENCE_SCHEMA = 'lamina.real-repository-oracle-host-lease-evidence/v1';
-export const PRODUCTION_OBSERVATION_SOURCE_SHA256 = '5d8dd464ebec00e21bdb08201c619d83066869b1e155305f4251257ceefd2803';
+export const PRODUCTION_OBSERVATION_SOURCE_SHA256 = '2a1de3a0a9a97f695d307f88ee5fe5959c433a815133618cf26c9faf0188906b';
 
 const OBSERVATION_SOURCE = new URL('../../packages/cli/lib/observation-runtime/node.mjs', import.meta.url);
 const TIERS = Object.freeze(['small', 'medium', 'large']);

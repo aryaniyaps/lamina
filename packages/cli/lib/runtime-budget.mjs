@@ -104,5 +104,6 @@ export function graphdThreadEnvironment(budget = runtimeBudgetFromEnvironment())
 
 export function maxObservationAttempts(budget = runtimeBudgetFromEnvironment()) {
   if (!budget) return 2;
-  return Math.max(1, budget.observation_workers_max + budget.observation_retries_max);
+  // Bounded topology still needs one worker retry for interrupted observation recovery.
+  return Math.max(2, budget.observation_workers_max + budget.observation_retries_max);
 }

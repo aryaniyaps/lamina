@@ -1,10 +1,16 @@
 /* Self-contained source observation backend.  It deliberately talks only to
  * graphd: this module must never open the canonical Ladybug database. */
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { digest, canonical, runtimePaths } from '../graph-runtime/util.mjs';
-import { enumerateObservationPaths } from '../source-inventory.mjs';
+import { runtimePaths } from '../graph-runtime/util.mjs';
+import {
+  activateGenerationPlan,
+  commitGenerationState,
+  generationStatePath,
+  observationFreshnessContext,
+  planObservationSync,
+  readGenerationState,
+} from '../observation-generation.mjs';
 
 export const OBSERVATION_BACKEND = 'node';
 
@@ -45,35 +51,52 @@ export function brownfieldSignals(relativePath, content) {
   return { categories: Object.keys(normalized).filter((key) => normalized[key].length).sort(), signals: Object.fromEntries(Object.entries(normalized).filter(([, values]) => values.length)), unsupported: truncated ? ['static_scan_truncated'] : [] };
 }
 
-function readState(statePath) {
-  try { return JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return { version: 1, generation: null, source_revision: null, records: {} }; }
-}
-
-export async function observeNode({ paths, generation, graphRequest, live = false, ignoreDigest, extractorDigest }) {
-  const statePath = path.join(paths.cocoindex, 'node-observation-state.json');
+export async function observeNode({
+  paths,
+  generation,
+  graphRequest,
+  live = false,
+  ignoreDigest,
+  extractorDigest,
+}) {
+  const statePath = generationStatePath(paths.cocoindex);
   const once = async () => {
     // A live observer must take a fresh Git/source snapshot for each pass;
     // otherwise updates would retain stale source revisions indefinitely.
     const current = runtimePaths(paths.root);
-    const snapshot = { product: current.product, source_revision: current.source_revision, source_root: current.root, ignore_policy_digest: ignoreDigest, extractor_set_digest: extractorDigest };
-    const previous = readState(statePath);
-    const next = {};
-    const envelopes = [];
-    const fullReconcile = previous.generation !== generation || previous.source_revision !== current.source_revision;
-    for (const { path: relative } of enumerateObservationPaths(current.root)) {
-      let content; try { content = fs.readFileSync(path.join(current.root, relative)); } catch { continue; }
-      const contentHash = crypto.createHash('sha256').update(content).digest('hex');
-      const payload = { media_type: content.subarray(0, 4096).includes(0) ? 'binary' : 'text', byte_length: content.length, brownfield: brownfieldSignals(relative, content) };
-      const extractor = { id: 'lamina.source-file', version: '2' };
-      const envelope = { source_snapshot: snapshot, source_key: relative, content_hash: contentHash, path: relative, extractor, payload };
-      envelope.id = digest('observation', { snapshot: envelope.source_snapshot, source_key: envelope.source_key, content_hash: envelope.content_hash, extractor: envelope.extractor, payload: envelope.payload });
-      next[relative] = { id: envelope.id, fingerprint: digest('fingerprint', canonical(envelope)) };
-      if (fullReconcile || previous.records[relative]?.fingerprint !== next[relative].fingerprint) envelopes.push(envelope);
+    const freshness = observationFreshnessContext(current.root);
+    const snapshot = {
+      product: current.product,
+      source_revision: freshness.source_revision,
+      source_root: current.root,
+      ignore_policy_digest: ignoreDigest,
+      extractor_set_digest: extractorDigest,
+    };
+    const previous = readGenerationState(statePath);
+    const plan = planObservationSync({
+      repositoryRoot: current.root,
+      generation,
+      snapshot,
+      freshness,
+      previous,
+      extractSignals: brownfieldSignals,
+    });
+    if (plan.envelopes.length || plan.deletes.length || plan.full_reconcile) {
+      commitGenerationState(statePath, plan, { phase: 'pending' });
+      await graphRequest('observation.apply', {
+        snapshot,
+        generation,
+        upserts: plan.envelopes,
+        deletes: plan.deletes,
+      }, current.root);
     }
-    const deletes = Object.entries(previous.records).filter(([relative]) => !next[relative]).map(([, record]) => record.id);
-    if (envelopes.length || deletes.length || fullReconcile) await graphRequest('observation.apply', { snapshot, generation, upserts: envelopes, deletes }, current.root);
-    fs.writeFileSync(statePath, `${JSON.stringify({ version: 1, generation, source_revision: current.source_revision, records: next })}\n`, { mode: 0o600 });
-    if (process.env.LAMINA_TEST_OBSERVATION_CRASH_AFTER_COMMIT === '1') { const error = new Error('Injected observation crash after graphd commit.'); error.code = 'LAMINA_OBSERVATION_FAILED'; throw error; }
+    if (process.env.LAMINA_TEST_OBSERVATION_CRASH_AFTER_COMMIT === '1') {
+      const error = new Error('Injected observation crash after graphd commit.');
+      error.code = 'LAMINA_OBSERVATION_FAILED';
+      throw error;
+    }
+    activateGenerationPlan(plan);
+    commitGenerationState(statePath, plan, { phase: 'committed' });
   };
   await once();
   if (!live) return;
