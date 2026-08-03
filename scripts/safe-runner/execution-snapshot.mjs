@@ -23,7 +23,6 @@ import {
   candidateLeaseWorkerKeeperBwrapArguments,
 } from './candidate-lease-worker-host-profile.mjs';
 import { oracleCacheCapabilityAuthority, isOracleCacheCapabilityAuthority } from './oracle-cache-capability.mjs';
-import { buildOracleTierPackedBareCache } from '../../benchmarks/real-repository-oracle-v1/persistent-materializer.mjs';
 import { pinnedCollectionForTier } from '../../benchmarks/real-repository-oracle-v1/collection-pins.mjs';
 import {
   exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
@@ -725,6 +724,33 @@ function dependencyNames(repository, command, cwd, npxAuthority = null) {
     }
   }
   return [...packages.values()];
+}
+
+function buildOracleTierPackedBareCacheIsolated(root, options) {
+  const buildScript = path.join(path.dirname(fileURLToPath(import.meta.url)),
+    'oracle-tier-packed-cache-build.mjs');
+  const inputFile = path.join(root, `oracle-cache-build-${crypto.randomBytes(8).toString('hex')}.json`);
+  const bytesFile = `${inputFile}.bytes`;
+  const metaFile = `${inputFile}.meta`;
+  fs.writeFileSync(inputFile, JSON.stringify(options));
+  const child = spawnSync(process.execPath, [buildScript, inputFile, bytesFile, metaFile], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  try { fs.unlinkSync(inputFile); } catch {}
+  if (child.status !== 0 || child.signal) {
+    try { fs.unlinkSync(bytesFile); } catch {}
+    try { fs.unlinkSync(metaFile); } catch {}
+    throw new Error(child.stderr?.trim() || child.stdout?.trim() || 'oracle tier packed cache build failed');
+  }
+  const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+  const sealed = Object.freeze({
+    ...meta,
+    bytes: fs.readFileSync(bytesFile),
+  });
+  fs.unlinkSync(bytesFile);
+  fs.unlinkSync(metaFile);
+  return sealed;
 }
 
 export function prepareExecutionSnapshot({
@@ -1446,7 +1472,7 @@ export function prepareExecutionSnapshot({
     const cacheBuildDir = fs.mkdtempSync(path.join(root, 'oracle-tier-cache-build-'));
     let sealed;
     try {
-      sealed = buildOracleTierPackedBareCache({
+      sealed = buildOracleTierPackedBareCacheIsolated(root, {
         workDirectory: cacheBuildDir,
         collection: {
           fixture_id: collectionPin.fixture_id,
