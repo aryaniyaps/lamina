@@ -24,6 +24,7 @@
     "test:real-repository-oracle:oracle-quota-broker": "node tests/real_repository_oracle_quota_broker_test.mjs",
     "test:real-repository-oracle:oracle-quota-live": "node tests/real_repository_oracle_quota_keeper_live_test.mjs && node tests/real_repository_oracle_quota_keeper_live_test.mjs --simulate-no-trusted-bwrap",
     "test:real-repository-oracle:oracle-host-live": "node tests/real_repository_oracle_host_live_test.mjs",
+    "test:real-repository-oracle:landlock-candidate-probe": "node tests/real_repository_oracle_landlock_candidate_probe_test.mjs",
     "test:runtime-benchmark:integration": "node tests/runtime_benchmark_integration_test.mjs",
     "graphd": "node packages/cli/lib/graph-runtime/server.mjs",
     "graph:observe": "node packages/cli/bin/lamina.mjs graph observe",

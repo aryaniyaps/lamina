@@ -269,6 +269,37 @@ excepted until a later candidate-facing sealed probe exists; quality pass is
 structurally unreachable until that probe, candidate isolation, and host-side
 grading are implemented and reviewed.
 
+## Non-gradeable Landlock candidate-launch probe
+
+`npm run test:real-repository-oracle:landlock-candidate-probe` is a Linux-only
+feasibility probe inside the existing generic safe-runner sandbox. The outer
+sandbox remains responsible for the production systemd cgroup, user/PID/network
+namespaces, bounded tmpfs, read-only execution snapshot, and masked control
+sockets. Inside that context, a reviewed Linux v7.0 Landlock launcher handles
+every live ABI right through ABI 8, refuses a newer ABI, sets no-new-privileges,
+uses ABI 6 scopes and ABI 8 thread synchronization, and grants only exact
+runtime/input/repository/output file descriptors before executing an adversarial
+Node fixture. This is defense-in-depth feasibility evidence, not a standalone
+sandbox claim.
+
+The launcher is compiled from a digest-pinned source descriptor into an
+anonymous `O_TMPFILE`, reopened as the same read-only inode, and executed through
+its inherited `/proc/self/fd/N` descriptor after the writable descriptor is
+closed. The probe requires the host's reviewed static C toolchain and exact Node
+runtime closure; no launcher binary is packaged in native releases. A missing
+static compiler, unsupported inherited-FD execution, Landlock ABI below 3 or
+above 8, or missing runtime dependency is a hard refusal rather than a weaker
+fallback. The focused small-tier run uses a 32-task cgroup ceiling because the
+measured outer Node/V8 threads and short-lived gcc/cc1/as/ld build tasks exceeded
+16; its memory, time, output, and 64 MiB tmpfs bounds remain intentionally small.
+
+The result always reports `non_gradeable: true`,
+`cleanup_proof_issued: false`, `grading_reachable: false`, and
+`candidate_executed: false`. It executes only the named adversarial probe and
+does not make production candidate execution, host-side grading, cleanup-proof,
+promotion, quality, or release-readiness reachable. The existing promotion
+authority is untouched.
+
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed

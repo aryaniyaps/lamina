@@ -77,6 +77,7 @@ const AUDITED_NODE_ENTRYPOINTS = new Map([
   ['tests/cli_binary_smoke_test.mjs', false],
   ['tests/fixtures/safe-runner-adversary.mjs', false],
   ['tests/fixtures/safe-runner-graphd-client.mjs', false],
+  ['tests/fixtures/safe-runner-landlock-probe.mjs', false],
   ['tests/fixtures/safe-runner-mutable.mjs', false],
 ]);
 const AUDITED_BASH_ENTRYPOINTS = new Set(['evals/hooks/compatibility-matrix.sh']);
