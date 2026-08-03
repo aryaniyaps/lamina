@@ -7,8 +7,14 @@ Recorded through the first enforced safety refusal on 2026-08-02. Re-validated o
 outcome: the small fixture produced valid footprint and cold doctor/status/startup
 results, then its initial observation reached the unchanged aggregate
 `pids.max=64` ceiling, so that scenario remains invalid and every later scenario
-and tier is explicitly blocked. The PID-limit peaks are safety diagnostics, not
-performance samples.
+and tier is explicitly blocked.
+
+Post-#53–#77 re-measurement at `d94f8bdd` (see
+[`runtime-qualification-v1/QUALIFICATION.md`](../runtime-qualification-v1/QUALIFICATION.md)):
+footprint and doctor/status remain valid; `initial-observation` promotion now
+succeeds but cold sample isolation fails with `preflight_refused` when graphd
+from the prior sample has not stopped. The PID-limit peaks in the 2026-08-02/03
+runs are safety diagnostics, not performance samples.
 
 This is the truthful unoptimized baseline. The harness measures the public CLI
 commands and does not alter Lamina's stores, model, worker topology, batching,

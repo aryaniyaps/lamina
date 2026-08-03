@@ -288,3 +288,23 @@ complete scope termination.
 
 See [ADR-014](https://github.com/aryaniyaps/lamina/blob/main/docs/decisions/014-crash-safe-resource-supervision.md)
 for the ownership and fail-closed rationale.
+
+## 4. Runtime qualification (#58)
+
+Issue [#58](https://github.com/aryaniyaps/lamina/issues/58) final qualification
+extends the [#60 runtime baseline](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/runtime-baseline-v1/BASELINE.md)
+with gate evaluation and oracle-suite enforcement.
+
+| Mode | Command / workflow | Scope |
+| --- | --- | --- |
+| Presubmit | `npm run test:runtime-qualification:presubmit` | Oracle contract suites (`#51`, `#61`, `#60`, `#57` packaging contract) |
+| Full matrix | `.github/workflows/runtime-qualification.yml` (`workflow_dispatch`) | Baseline product scenarios + oracle suites + artifact upload |
+| Local small | See [runtime qualification README](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/runtime-qualification-v1/README.md) | Minimum cell when production attestation and pinned assets are available |
+
+Warm p95 latencies require 30 measured samples (1 warm-up excluded). Cold
+scenarios use 3–5 isolated runs. macOS and Windows remain deferred ([#78](https://github.com/aryaniyaps/lamina/issues/78)).
+Linux arm64 packaging is release-qualified; the full runtime matrix on arm64 is
+workflow_dispatch-only when hardware is available.
+
+Human-readable status:
+[`benchmarks/runtime-qualification-v1/QUALIFICATION.md`](https://github.com/aryaniyaps/lamina/blob/main/benchmarks/runtime-qualification-v1/QUALIFICATION.md).

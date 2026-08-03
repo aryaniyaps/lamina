@@ -3,6 +3,11 @@
 The tiny [practical-runtime harness](runtime-v1/README.md) validates the
 versioned measurement and cleanup contract without claiming a product baseline.
 
+The [real-repository runtime baseline](runtime-baseline-v1/BASELINE.md) measures
+the public CLI on pinned #60 fixtures. [Runtime qualification v1](runtime-qualification-v1/README.md)
+is the final #58 release gate: oracle-suite enforcement, gate evaluation, and
+committed evidence on Linux x64/arm64 (macOS/Windows deferred).
+
 The [normalized semantic behavior oracle](semantic-oracle-v1/README.md)
 compares implementation-independent product semantics on a compact reviewed
 fixture. Real-repository observation and retrieval cases are intentionally

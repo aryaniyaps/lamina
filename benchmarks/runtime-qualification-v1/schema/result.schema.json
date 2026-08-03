@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lamina.dev/schemas/runtime-qualification-result/v1",
+  "title": "lamina.runtime-qualification-result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "generated_at", "index", "evaluation"],
+  "properties": {
+    "schema": { "const": "lamina.runtime-qualification-result/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "index": { "type": "object" },
+    "evaluation": {
+      "type": "object",
+      "required": ["gates", "summary"],
+      "properties": {
+        "gates": { "type": "array" },
+        "summary": {
+          "type": "object",
+          "required": ["overall_pass"],
+          "properties": {
+            "overall_pass": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

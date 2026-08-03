@@ -213,6 +213,16 @@ function repositoryMetadata(repository, manifest, fixture) {
   return summarizeRepositoryInventory(repository, { manifest, fixture });
 }
 
+function repositoryMetadataForRecord(metadata) {
+  const { _retrieval_paths, ...record } = metadata;
+  return {
+    ...record,
+    retrieval_indexed_files: record.retrieval_indexed_files ?? null,
+    retrieval_indexed_bytes: record.retrieval_indexed_bytes ?? null,
+    retrieval_source_chunks: record.retrieval_source_chunks ?? null,
+  };
+}
+
 async function recordRetrievalInventory(repository, metadata) {
   const prepared = await ensureRetrieval(repository);
   const snapshot = prepared.snapshot;
@@ -767,6 +777,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     scenario,
     runtime: { node: process.version, lamina_commit: git(REPOSITORY, ['rev-parse', 'HEAD']).stdout.trim(), assets_release: manifest.runtime_assets.release },
     ...payload,
+    ...(payload.repository ? { repository: repositoryMetadataForRecord(payload.repository) } : {}),
   };
   const output = JSON.stringify(record);
   if (Buffer.byteLength(output) > MAX_WORKLOAD_OUTPUT_BYTES) fail('workload record exceeds its bounded output contract');

@@ -1,0 +1,127 @@
+{
+  "schema": "lamina.runtime-qualification-manifest/v1",
+  "version": 1,
+  "baseline_manifest": "../runtime-baseline-v1/manifest.json",
+  "profiles": [
+    {
+      "id": "16gb",
+      "description": "16 GB qualification profile — full small/medium/large matrix when host promotion allows",
+      "peak_rss_max_bytes": 1610612736,
+      "idle_rss_max_bytes": 209715200,
+      "fixtures": ["small", "medium", "large"]
+    },
+    {
+      "id": "8gb",
+      "description": "8 GB enforced budget — small and medium only; large refused when safety unavailable",
+      "peak_rss_max_bytes": 2147483648,
+      "idle_rss_max_bytes": 209715200,
+      "fixtures": ["small", "medium"]
+    }
+  ],
+  "platforms": [
+    {
+      "id": "linux-x64",
+      "status": "qualified",
+      "arch": "x64",
+      "notes": "Primary qualification host; safe-runner production adapter"
+    },
+    {
+      "id": "linux-arm64",
+      "status": "release_qualified",
+      "arch": "arm64",
+      "notes": "Packaging and checksum verification in publish-cli.yml; full runtime matrix deferred to scheduled workflow_dispatch on arm64 runners when available"
+    },
+    {
+      "id": "macos",
+      "status": "deferred",
+      "issue": 78,
+      "notes": "Process-control adapter and native qualification deferred per #57 child issue"
+    },
+    {
+      "id": "windows",
+      "status": "deferred",
+      "issue": 78,
+      "notes": "Process-control adapter and native qualification deferred per #57 child issue"
+    }
+  ],
+  "quality_gates": {
+    "exact_id_alias": 1.0,
+    "multi_workflow_selection_min": 0.95,
+    "incorrect_new_workflow_attachment_max": 0.02,
+    "dense_recall_at_5_loss_max_pp": 0.01,
+    "deterministic": true,
+    "no_canonical_corruption": true
+  },
+  "resource_gates": {
+    "install_max_bytes": 786432000,
+    "no_oom_8gb_small_medium": true,
+    "no_orphan_processes": true
+  },
+  "latency_gates_ns": {
+    "doctor_status_warm_p95_max": 1000000000,
+    "warm_preparation_p95_max": {
+      "small": 3000000000,
+      "medium": 3000000000,
+      "large": 5000000000
+    },
+    "noop_sync_p95_max": {
+      "small": 2000000000,
+      "medium": 2000000000,
+      "large": 5000000000
+    },
+    "incremental_queryable_max": {
+      "small": 10000000000,
+      "medium": 10000000000,
+      "large": 30000000000
+    },
+    "cold_first_preparation_max": {
+      "small": 60000000000,
+      "medium": 180000000000,
+      "large": 600000000000
+    }
+  },
+  "oracle_suites": [
+    {
+      "id": "semantic-oracle-v1",
+      "issue": 51,
+      "command": "npm run test:semantic-oracle",
+      "presubmit": true
+    },
+    {
+      "id": "real-repository-oracle-v1",
+      "issue": 61,
+      "command": "npm run test:real-repository-oracle",
+      "presubmit": true
+    },
+    {
+      "id": "runtime-baseline-contract",
+      "issue": 60,
+      "command": "npm run test:runtime-baseline",
+      "presubmit": true
+    },
+    {
+      "id": "linux-packaging",
+      "issue": 57,
+      "command": "node tests/linux_packaging_contract_test.mjs",
+      "presubmit": true
+    }
+  ],
+  "scenario_coverage": [
+    { "id": "fresh-install-doctor", "baseline": "doctor-status-startup", "oracle": null },
+    { "id": "installation-footprint", "baseline": "footprint", "oracle": "linux-packaging" },
+    { "id": "clean-graph", "baseline": "doctor-status-startup", "oracle": null },
+    { "id": "observe", "baseline": "initial-observation", "oracle": "real-repository-oracle-v1" },
+    { "id": "retrieval-ready", "baseline": "initial-retrieval-readiness", "oracle": "real-repository-oracle-v1" },
+    { "id": "first-useful-prep", "baseline": "first-useful-preparation", "oracle": "semantic-oracle-v1" },
+    { "id": "warm-prep", "baseline": "warm-preparation", "oracle": null },
+    { "id": "noop-sync", "baseline": "noop-synchronization", "oracle": null },
+    { "id": "one-file-edit", "baseline": "one-file-change", "oracle": "real-repository-oracle-v1" },
+    { "id": "multi-file-edit", "baseline": "multi-file-change", "oracle": "real-repository-oracle-v1" },
+    { "id": "rename-delete", "baseline": null, "oracle": "real-repository-oracle-v1", "note": "Scenario verification and 72-case contract; not duplicated in baseline workload" },
+    { "id": "branch-worktree", "baseline": null, "oracle": "real-repository-oracle-v1", "note": "Scenario verification and 72-case contract" },
+    { "id": "corruption-rebuild", "baseline": "full-derived-state-rebuild", "oracle": null },
+    { "id": "interrupted-recovery", "baseline": "cancellation-shutdown-cleanup", "oracle": "real-repository-oracle-v1" },
+    { "id": "network-disabled", "baseline": null, "oracle": "linux-packaging", "note": "Offline install smoke via linux_packaging_contract_test when LAMINA_OFFLINE_SMOKE=1" },
+    { "id": "shutdown-orphan-check", "baseline": "cancellation-shutdown-cleanup", "oracle": null }
+  ]
+}
