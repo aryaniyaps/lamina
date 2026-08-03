@@ -667,6 +667,11 @@ for (const syntheticCleanupPath of [
   assert.equal(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE.includes(syntheticCleanupPath), false,
     'production source closure cannot mount the synthetic cleanup-proof mint path');
 }
+const cleanupProofVerifierSource = fs.readFileSync(path.join(ROOT,
+  'benchmarks/real-repository-oracle-v1/supervisor-cleanup-proof.mjs'), 'utf8');
+assert.doesNotMatch(cleanupProofVerifierSource,
+  /BEGIN (?:PUBLIC|PRIVATE) KEY|issueSynthetic|admitSynthetic|crypto\.sign|tests\/fixtures/,
+  'production cleanup verifier contains no issuer, signer, embedded key, or test import');
 
 const temporaryRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'lamina-oracle-admission-')));
 fs.chmodSync(temporaryRoot, 0o700);
