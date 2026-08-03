@@ -17,12 +17,16 @@ import {
   canonicalCandidateValue,
   createCandidatePublicBatch,
   parseCandidateRawArtifactBytes,
+  serializeCandidateRawArtifact,
   validateCandidateAdapter,
 } from './candidate-contract.mjs';
 import { loadReviewedFixture } from './fixture-authority.mjs';
 import { gradeResult } from './grade.mjs';
 import { brownfieldSignals } from '../../packages/cli/lib/observation-runtime/node.mjs';
 import { verifyIssuedSupervisorCleanupProof } from './supervisor-cleanup-proof.mjs';
+import { candidateLeaseWorkerPublicNonce } from './candidate-lease-worker.mjs';
+import { CANDIDATE_SMOKE_ADAPTER, reconstructSmokeCandidateArtifact, reconstructSmokeSandboxArtifact } from './candidate-smoke.mjs';
+import { hostSmokeCandidateProductionBytes } from './candidate-smoke-host.mjs';
 
 export const CANDIDATE_TIER_PLAN_SCHEMA = 'lamina.real-repository-oracle-candidate-tier-plan/v1';
 export const HOST_LEASE_EVIDENCE_SCHEMA = 'lamina.real-repository-oracle-host-lease-evidence/v1';
@@ -37,6 +41,9 @@ const ISSUED_PLANS = new WeakSet();
 const ISSUED_LEASES = new WeakSet();
 const ISSUED_LEASE_AUTHORITY = new WeakMap();
 const ISSUED_HANDLE_AUTHORITY = new Map();
+const CLEANUP_HOST_INIT = Symbol.for('lamina.supervisor-cleanup-proof.host-init');
+const CLEANUP_HOST_MINT = Symbol.for('lamina.supervisor-cleanup-proof.host-mint');
+const CLEANUP_HOST = verifyIssuedSupervisorCleanupProof[CLEANUP_HOST_INIT]();
 
 const exactKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
@@ -149,9 +156,88 @@ export function createCandidateTierPlan(tier) {
   return plan;
 }
 
+export function createDeterministicCandidateTierPlan(tier) {
+  const context = fixtureContext(tier);
+  const groups = new Map();
+  for (const reviewedCase of context.cases) {
+    const scenarioDigest = digest(reviewedCase.repository_scenario);
+    if (!groups.has(scenarioDigest)) groups.set(scenarioDigest, []);
+    groups.get(scenarioDigest).push(reviewedCase);
+  }
+  if (groups.size !== 6) fail(`reviewed tier ${tier} does not contain exactly six scenario groups`);
+  const slots = [...groups.entries()].map(([scenarioDigest, cases], index) => {
+    const slot_id = `slot-${index + 1}`;
+    const privateRows = cases.map((reviewedCase, rowIndex) => ({
+      nonce: candidateLeaseWorkerPublicNonce({
+        tier,
+        slot_id,
+        row_order: rowIndex + 1,
+        request: reviewedCase.request,
+      }),
+      order: rowIndex + 1,
+      case_id: reviewedCase.id,
+    }));
+    return {
+      slot_id,
+      order: index + 1,
+      scenario_digest: scenarioDigest,
+      provenance_digest: materializationProvenanceDigest(context.collection, scenarioDigest),
+      base_digest: materializationBaseDigest(context.collection, scenarioDigest),
+      scenario: structuredClone(cases[0].repository_scenario),
+      private_rows: privateRows,
+      public_batch: createCandidatePublicBatch({
+        tier,
+        requests: privateRows.map((row, rowIndex) => ({
+          nonce: row.nonce,
+          order: row.order,
+          request: cases[rowIndex].request,
+        })),
+      }),
+    };
+  });
+  const plan = deepFreeze({
+    schema: CANDIDATE_TIER_PLAN_SCHEMA,
+    tier,
+    fixture_digest: context.fixture_digest,
+    collection_id: context.collection.id,
+    collection_digest: context.collection.collection_digest,
+    slots,
+  });
+  ISSUED_PLANS.add(plan);
+  return plan;
+}
+
+export function hostSmokeCandidateRawBytes(plan, slot, collection) {
+  return hostSmokeCandidateProductionBytes(slot.public_batch, collection, slot.scenario);
+}
+
+export function hostSmokeSandboxRawBytes(plan, slot, collection) {
+  const artifact = reconstructSmokeSandboxArtifact(
+    slot.public_batch, collection, slot.scenario,
+  );
+  return serializeCandidateRawArtifact(artifact, slot.public_batch, CANDIDATE_SMOKE_ADAPTER);
+}
+
+export function hostCurrentLeaseOpaqueHandle(tier, slot_id, phase) {
+  return `candidate-current-${tier}-${slot_id}-${phase}`;
+}
+
 function requireIssuedPlan(plan) {
   if (!plan || !ISSUED_PLANS.has(plan)) fail('plan was not issued by this host controller');
   return fixtureContext(plan.tier);
+}
+
+export function issueHostLeaseEvidenceFromOuterReport(plan, evidence, outerReport) {
+  const proof = verifyIssuedSupervisorCleanupProof[CLEANUP_HOST_MINT](
+    CLEANUP_HOST, outerReport, {
+      plan,
+      slot_id: evidence.slot_id,
+      phase: evidence.phase,
+      opaque_handle: evidence.opaque_handle,
+      end_digest: evidence.end_digest,
+    },
+  );
+  return issueHostLeaseEvidence(plan, evidence, proof);
 }
 
 export function issueHostLeaseEvidence(plan, evidence, supervisorCleanupProof) {

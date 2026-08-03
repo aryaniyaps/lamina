@@ -7,10 +7,17 @@ import {
 } from '../../scripts/safe-runner/candidate-smoke-profile.mjs';
 import { runSafely } from '../../scripts/safe-runner/runner.mjs';
 import { validateCandidateSmokeReport } from './candidate-smoke-report.mjs';
+import { verifyIssuedSupervisorCleanupProof } from './supervisor-cleanup-proof.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ENTRYPOINT = path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs');
 const ISSUED = new WeakSet();
+const CLEANUP_HOST_INIT = Symbol.for('lamina.supervisor-cleanup-proof.host-init');
+const CLEANUP_HOST_MINT = Symbol.for('lamina.supervisor-cleanup-proof.host-mint');
+const CLEANUP_HOST = verifyIssuedSupervisorCleanupProof[CLEANUP_HOST_INIT]();
+const SMOKE_CLEANUP_PLAN = Object.freeze({
+  schema: 'lamina.real-repository-oracle-candidate-smoke-cleanup-plan/v1',
+});
 
 export function isCandidateSmokeControllerVerification(value) {
   return ISSUED.has(value);
@@ -54,12 +61,22 @@ export async function runCandidateSmokeThroughSafeRunner(options) {
     throw error;
   }
   const record = validateCandidateSmokeReport(report);
+  const cleanupProof = verifyIssuedSupervisorCleanupProof[CLEANUP_HOST_MINT](
+    CLEANUP_HOST, report, {
+      plan: SMOKE_CLEANUP_PLAN,
+      slot_id: 'slot-1',
+      phase: 'first',
+      opaque_handle: 'candidate-smoke-outer-lease',
+      end_digest: record.lease.end_digest,
+    },
+  );
   const verification = Object.freeze({
     schema: 'lamina.real-repository-oracle-candidate-smoke-controller-verification/v1',
     record,
     outer_cleanup_verified: true,
-    cleanup_proof_issued: false,
+    cleanup_proof_issued: true,
     grading_reachable: false,
+    supervisor_cleanup_proof: cleanupProof,
   });
   ISSUED.add(verification);
   return verification;

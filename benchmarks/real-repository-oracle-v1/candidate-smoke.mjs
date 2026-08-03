@@ -81,27 +81,39 @@ export function candidateSmokePublicNonce(value) {
     .digest('hex');
 }
 
-function artifactFor(publicBatch, collection) {
-  const observations = [{ category: 'personas', path: CANDIDATE_PERSONA_PROBE.path }];
-  const repositoryState = {
+function sandboxPersonaProbeEvidence(publicBatch) {
+  const observations = [{ category: 'personas', path: publicBatch.persona_probe.path }];
+  return {
+    schema: PERSONA_PROBE_EVIDENCE_SCHEMA,
+    input_sha256: publicBatch.persona_probe.content_sha256,
+    observations,
+    observations_sha256: digest(observations),
+  };
+}
+
+function smokeAdapterRepositoryState(collection, scenario) {
+  const operation = scenario?.operations?.[0];
+  const branch = scenario?.kind === 'branch' ? operation.branch
+    : scenario?.kind === 'worktree' ? operation.branch : '(detached)';
+  const worktree_role = scenario?.kind === 'worktree' ? operation.worktree_id : 'primary';
+  return {
     head: collection.commit,
-    branch: '(detached)',
+    branch,
     upstream: null,
     ahead: 0,
     behind: 0,
-    worktree_role: 'primary',
+    worktree_role,
     changes: [],
   };
+}
+
+function artifactFor(publicBatch, collection, scenario) {
+  const repositoryState = smokeAdapterRepositoryState(collection, scenario);
   const artifact = {
     schema: CANDIDATE_RAW_SCHEMA,
     public_input_sha256: publicBatch.public_input_sha256,
     adapter: structuredClone(CANDIDATE_SMOKE_ADAPTER),
-    persona_probe: {
-      schema: PERSONA_PROBE_EVIDENCE_SCHEMA,
-      input_sha256: publicBatch.persona_probe.content_sha256,
-      observations,
-      observations_sha256: digest(observations),
-    },
+    persona_probe: sandboxPersonaProbeEvidence(publicBatch),
     rows: publicBatch.requests.map((row) => ({
       nonce: row.nonce,
       order: row.order,
@@ -123,6 +135,14 @@ function artifactFor(publicBatch, collection) {
     throw new Error(`candidate smoke expected artifact is invalid: ${validation.errors.join('; ')}`);
   }
   return deepFreeze(canonicalCandidateValue(artifact));
+}
+
+export function reconstructSmokeCandidateArtifact(publicBatch, collection, scenario) {
+  return artifactFor(publicBatch, collection, scenario);
+}
+
+export function reconstructSmokeSandboxArtifact(publicBatch, collection, scenario) {
+  return artifactFor(publicBatch, collection, scenario);
 }
 
 export function candidateSmokeAuthority() {
@@ -149,7 +169,7 @@ export function candidateSmokeAuthority() {
   });
   const scenario = structuredClone(cases[0].repository_scenario);
   const scenarioDigest = digest(scenario);
-  const expectedArtifact = artifactFor(publicBatch, collection);
+  const expectedArtifact = artifactFor(publicBatch, collection, scenario);
   return deepFreeze({
     tier: 'small',
     slot: 'clean-1',

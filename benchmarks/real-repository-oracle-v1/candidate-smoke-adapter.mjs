@@ -4,6 +4,10 @@ import crypto from 'node:crypto';
 import dgram from 'node:dgram';
 import fs from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
+
+const PERSONA_PROBE_EVIDENCE_SCHEMA =
+  'lamina.real-repository-oracle-persona-probe-evidence/v1';
 
 const EXPECTED_ARGUMENTS = Object.freeze([
   '/proc/self/fd/6', '/proc/self/fd/7', '/proc/self/fd/8', '/proc/self/fd/9',
@@ -29,8 +33,35 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
     : value;
-const digest = (value) => crypto.createHash('sha256')
-  .update(typeof value === 'string' ? value : JSON.stringify(canonical(value))).digest('hex');
+const observationDigest = (value) => crypto.createHash('sha256')
+  .update(JSON.stringify(canonical(value))).digest('hex');
+const repositoryStateFromFilesystem = (repositoryPath) => {
+  const headRaw = fs.readFileSync(path.join(repositoryPath, '.git/HEAD'), 'utf8').trim();
+  let branch = '(detached)';
+  let head = headRaw;
+  if (headRaw.startsWith('ref: ')) {
+    const refPath = headRaw.slice(5);
+    branch = refPath.replace(/^refs\/heads\//, '');
+    head = fs.readFileSync(path.join(repositoryPath, '.git', refPath), 'utf8').trim();
+  }
+  if (!/^[a-f0-9]{40}$/.test(head)) {
+    throw new Error('candidate smoke repository head is not a pinned commit');
+  }
+  const physical = fs.realpathSync.native(repositoryPath);
+  const base = path.basename(physical);
+  const parent = path.basename(path.dirname(physical));
+  const worktree_role = base !== 'repository' && parent === 'linked'
+    && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(base) ? base : 'primary';
+  return {
+    head,
+    branch,
+    upstream: null,
+    ahead: 0,
+    behind: 0,
+    worktree_role,
+    changes: [],
+  };
+};
 const denied = (operation, codes = ['EACCES', 'EPERM']) => {
   try { operation(); return false; } catch (error) { return codes.includes(error?.code); }
 };
@@ -99,7 +130,8 @@ const checks = {
   tcp_network_denied: await streamSocketDenied({ host: '127.0.0.1', port: 9 }),
   udp_network_denied: await datagramSocketDenied(),
   control_socket_denied: await streamSocketDenied('/run/systemd/private'),
-  extra_executable_denied: denied(() => fs.readFileSync('/bin/sh')),
+  extra_executable_denied: ['/bin/sh', '/usr/bin/sh'].every((probe) =>
+    denied(() => fs.readFileSync(probe), ['EACCES', 'EPERM', 'ENOENT'])),
 };
 if (Object.values(checks).some((value) => value !== true)) {
   throw new Error(`candidate smoke sandbox check failed: ${JSON.stringify(checks)}`);
@@ -109,17 +141,13 @@ fs.writeFileSync(scratchFile, 'bounded candidate scratch\n');
 if (fs.readFileSync(scratchFile, 'utf8') !== 'bounded candidate scratch\n') {
   throw new Error('candidate smoke scratch descriptor is not writable');
 }
-const head = fs.readFileSync(`${repository}/.git/HEAD`, 'utf8').trim();
-if (!/^[a-f0-9]{40}$/.test(head)) throw new Error('candidate smoke repository is not detached');
+const repositoryState = repositoryStateFromFilesystem(repository);
 const observations = [{ category: 'personas', path: publicBatch.persona_probe.path }];
-const repositoryState = {
-  head,
-  branch: '(detached)',
-  upstream: null,
-  ahead: 0,
-  behind: 0,
-  worktree_role: 'primary',
-  changes: [],
+const persona_probe = {
+  schema: PERSONA_PROBE_EVIDENCE_SCHEMA,
+  input_sha256: publicBatch.persona_probe.content_sha256,
+  observations,
+  observations_sha256: observationDigest(observations),
 };
 const adapter = {
   schema: 'lamina.real-repository-oracle-candidate-adapter/v1',
@@ -132,12 +160,7 @@ const artifact = canonical({
   schema: 'lamina.real-repository-oracle-candidate-raw/v1',
   public_input_sha256: publicBatch.public_input_sha256,
   adapter,
-  persona_probe: {
-    schema: 'lamina.real-repository-oracle-persona-probe-evidence/v1',
-    input_sha256: publicBatch.persona_probe.content_sha256,
-    observations,
-    observations_sha256: digest(observations),
-  },
+  persona_probe,
   rows: publicBatch.requests.map((row) => ({
     nonce: row.nonce,
     order: row.order,
