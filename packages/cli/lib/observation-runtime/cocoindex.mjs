@@ -3,12 +3,21 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { digest, graphSocketChildPath } from '../graph-runtime/util.mjs';
-import { workerThreadEnvironment } from '../runtime-budget.mjs';
+import { workerThreadEnvironment, observationWorkerThreadEnvironment } from '../runtime-budget.mjs';
 
 export const OBSERVATION_BACKEND = 'cocoindex';
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function managedWorker() {
+  if (process.env.LAMINA_OBSERVATION_WORKER) {
+    const configured = path.resolve(process.env.LAMINA_OBSERVATION_WORKER);
+    try {
+      fs.accessSync(configured, process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK);
+      return configured;
+    } catch {
+      return null;
+    }
+  }
   const executable = process.platform === 'win32' ? 'cocoindex-worker.exe' : 'cocoindex-worker';
   const worker = path.join(packageRoot, 'observation-runtime', executable);
   try {
@@ -56,7 +65,7 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
   const worker = managedWorker();
   const environment = {
     ...process.env,
-    ...workerThreadEnvironment(),
+    ...observationWorkerThreadEnvironment(),
     COCOINDEX_DB: path.join(paths.cocoindex, 'state.db'),
     PYTHONDONTWRITEBYTECODE: '1',
     PYTHONNOUSERSITE: '1',
@@ -68,6 +77,7 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
     LAMINA_IGNORE_DIGEST: digest('ignore', ignore),
     LAMINA_EXTRACTOR_DIGEST: extractorDigest,
     LAMINA_OBSERVATION_GENERATION: generation,
+    LAMINA_OBSERVATION_LIVE: live ? '1' : '0',
   };
   let command;
   let args;

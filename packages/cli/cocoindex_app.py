@@ -27,8 +27,9 @@ GRAPHD_TOKEN = os.environ["LAMINA_GRAPHD_TOKEN"]
 PRODUCT = os.environ.get("LAMINA_PRODUCT", SOURCE_ROOT.name)
 SOURCE_REVISION = os.environ["LAMINA_SOURCE_REVISION"]
 IGNORE_DIGEST = os.environ["LAMINA_IGNORE_DIGEST"]
-EXTRACTOR_DIGEST = os.environ.get("LAMINA_EXTRACTOR_DIGEST", "lamina.source-file.v1")
+EXTRACTOR_DIGEST = os.environ.get("LAMINA_EXTRACTOR_DIGEST", "lamina.source-file.v2")
 GENERATION = os.environ["LAMINA_OBSERVATION_GENERATION"]
+OBSERVATION_LIVE = os.environ.get("LAMINA_OBSERVATION_LIVE") == "1"
 
 SNAPSHOT = {
     "product": PRODUCT,
@@ -427,7 +428,7 @@ async def app_main(sourcedir: pathlib.Path) -> None:
                 "**/evals/fixtures/.vendor-tmp*/**",
             ],
         ),
-        live=True,
+        live=OBSERVATION_LIVE,
     )
     # Generation is an explicit memoized-function argument so a rebuild forces
     # every unchanged source item through target reconciliation.

@@ -14,6 +14,7 @@ import {
   maxObservationAttempts,
   runtimeBudgetFromEnvironment,
 } from './runtime-budget.mjs';
+import { releaseGraphdBeforeObservation } from './runtime-lifecycle.mjs';
 
 const ignore = [
   '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
@@ -116,6 +117,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
     error.code = 'LAMINA_OBSERVATION_UNAVAILABLE';
     throw error;
   }
+  await releaseGraphdBeforeObservation(cwd);
   const paths = await ensureGraphd(cwd);
   const invalidation = invalidate
     ? await graphRequest('observation.invalidate', { product: paths.product }, cwd)

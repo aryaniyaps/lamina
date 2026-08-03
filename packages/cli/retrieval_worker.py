@@ -64,6 +64,15 @@ def normalize(vector: np.ndarray) -> np.ndarray:
     return vector / norm if norm else vector
 
 
+def _worker_thread_cap() -> int:
+    raw = os.environ.get("LAMINA_RUNTIME_WORKER_THREADS", "")
+    try:
+        value = int(raw)
+        return max(1, value)
+    except ValueError:
+        return 1
+
+
 class Embedder:
     def __init__(self) -> None:
         self.test_only = os.environ.get("LAMINA_TEST_RETRIEVAL_EMBEDDER") == "deterministic"
@@ -90,8 +99,13 @@ class Embedder:
         if not tokenizer.is_file():
             raise RuntimeError("LAMINA_RETRIEVAL_INTEGRITY: tokenizer is missing")
         self.tokenizer = Tokenizer.from_file(str(tokenizer))
+        thread_cap = _worker_thread_cap()
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = thread_cap
+        options.inter_op_num_threads = 1
         self.session = ort.InferenceSession(
             str(model),
+            sess_options=options,
             providers=["CPUExecutionProvider"],
         )
 

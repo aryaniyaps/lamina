@@ -12,6 +12,10 @@ import {
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
 import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
+import {
+  applyRuntimeBudgetToEnvironment,
+  runtimeBudgetFromEnvironment,
+} from '../../packages/cli/lib/runtime-budget.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
   assertScenario,
@@ -100,30 +104,17 @@ function cleanupOwnedRoot() {
 
 function childEnvironment(extra = {}) {
   const assets = path.join(baselineRoot, 'assets');
-  const env = {
+  return applyRuntimeBudgetToEnvironment({
     ...process.env,
     LAMINA_RETRIEVAL_MODEL_PATH: runtimeInputs?.model || '',
     LAMINA_RETRIEVAL_RUNTIME: path.join(assets, 'retrieval-runtime'),
+    ...(runtimeInputs?.worker ? { LAMINA_OBSERVATION_WORKER: runtimeInputs.worker } : {}),
     ...extra,
-  };
-  if (process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY === '1') {
-    for (const name of [
-      'LAMINA_RUNTIME_BOUNDED_TOPOLOGY',
-      'LAMINA_RUNTIME_GRAPHD_THREADS',
-      'LAMINA_RUNTIME_WORKER_THREADS',
-      'LAMINA_RUNTIME_OBSERVATION_WORKERS',
-      'LAMINA_RUNTIME_OBSERVATION_RETRIES',
-      'LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY',
-      'LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS',
-    ]) {
-      if (process.env[name] !== undefined) env[name] = process.env[name];
-    }
-  }
-  return env;
+  });
 }
 
 async function releaseGraphdBeforeObservationCli(repository) {
-  if (process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY !== '1') return;
+  if (!runtimeBudgetFromEnvironment()) return;
   await stopIncompatibleServer(runtimePaths(repository));
 }
 
@@ -528,6 +519,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   let diagnostics = {};
   try {
     const needsSeed = !['doctor-status-startup'].includes(scenario)
+      && !(scenario === 'initial-observation' && runtimeBudgetFromEnvironment())
       && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1');
     if (needsSeed) seeded = await seedGraph(repository);
     if (scenario === 'doctor-status-startup') {
