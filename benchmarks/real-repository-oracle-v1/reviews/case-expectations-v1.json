@@ -650,12 +650,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+      "rationale": "The exact identifier is the route-completion Workflow trigger at its reviewed dashboard-layout surface."
     },
     {
       "id": "small.semantic.02-route",
       "collection_id": "collection.small",
-      "request": "Localize the route surface for Route completion handling: Handle a completed dashboard route change without attaching the behavior to the auth layout.",
+      "request": "Localize the route surface for Route completion handling at routeChangeComplete at apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx: Handle a completed dashboard route change without attaching the behavior to the auth layout.",
       "kind": {
         "query": "route",
         "intent": "source_localization",
@@ -683,8 +683,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/react-vite/src/app/routes/app/dashboard.tsx",
-            "symbol": null,
+            "path": "apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx",
+            "symbol": "routeChangeComplete",
             "max_rank": 1
           }
         ],
@@ -702,12 +702,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the route query family without changing the pinned repository state."
+      "rationale": "The route query belongs to the Workflow that handles completion of a reviewed dashboard route change."
     },
     {
       "id": "small.semantic.03-symbol",
       "collection_id": "collection.small",
-      "request": "Find the exact source symbol for Dashboard navigation: Let an authenticated dashboard user understand and choose a named navigation item.",
+      "request": "Find the exact source symbol for Dashboard navigation at SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx: Let an authenticated dashboard user understand and choose a named navigation item.",
       "kind": {
         "query": "symbol",
         "intent": "source_localization",
@@ -754,7 +754,7 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the symbol query family without changing the pinned repository state."
+      "rationale": "The requested symbol is the reviewed side-navigation item contract used by Dashboard navigation."
     },
     {
       "id": "small.semantic.04-low_overlap_paraphrase",
@@ -793,7 +793,7 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+      "rationale": "The payroll-remittance request is intentionally absent from every public-seed Workflow and source surface."
     },
     {
       "id": "small.semantic.05-persona",
@@ -846,12 +846,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+      "rationale": "The modified-file adversary is unrelated to the product and must not inherit a Workflow or Persona source."
     },
     {
       "id": "small.semantic.06-permission",
       "collection_id": "collection.small",
-      "request": "Preserve the permission boundary for Discussion authorization verification: Verify discussion authorization behavior at the reviewed test surface.",
+      "request": "Preserve the permission boundary for Discussion authorization verification at Authorization at apps/nextjs-app/src/lib/__tests__/authorization.test.tsx: Verify discussion authorization behavior at the reviewed test surface.",
       "kind": {
         "query": "permission",
         "intent": "obligations",
@@ -879,8 +879,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/src/app/app/_components/dashboard-info.tsx",
-            "symbol": "role",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
             "max_rank": 1
           }
         ],
@@ -889,31 +889,52 @@
         "obligations": [
           {
             "category": "implementation",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.discussion-authorization.verify",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "operation:small.test-maintainer->small.surface.authorization-test"
           },
           {
             "category": "state",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.discussion-authorization.verify-transition",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "transition:small.discussion-authorization.unverified->small.discussion-authorization.verified"
           },
           {
             "category": "permission",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.test-maintainer",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "authority:May verify but not redefine product authorization policy."
           },
           {
             "category": "failure",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.discussion-authorization.failure",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "failure:The authorization verification fails=>Keep the workflow unverified and report the failure"
           },
           {
             "category": "persona",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.test-maintainer",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "persona:Authorization test maintainer"
           },
           {
             "category": "completeness",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.discussion-authorization",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "closure:targets=small.surface.authorization-test;unresolved=0"
           },
           {
             "category": "verification",
-            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx"
+            "id": "small.discussion-authorization.primary",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
+            "relation": "proof:small.proof.authorization-test"
           }
         ],
         "forbidden_paths": [],
@@ -927,12 +948,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the permission query family without changing the pinned repository state."
+      "rationale": "Permission semantics are tested by the dedicated Discussion authorization Workflow and its reviewed authorization test."
     },
     {
       "id": "small.semantic.07-role_boundary",
       "collection_id": "collection.small",
-      "request": "The pinned small request says only \"manage access\" and could refer to Discussion authorization verification or Dashboard navigation; localize the reviewed permission evidence but select neither Workflow.",
+      "request": "A request to protect a dashboard discussion action could mean Discussion authorization verification at Authorization at apps/nextjs-app/src/lib/__tests__/authorization.test.tsx or Dashboard navigation at SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx; preserve the role boundary and select neither until the user clarifies.",
       "kind": {
         "query": "role_boundary",
         "intent": "ambiguous_workflow",
@@ -953,9 +974,14 @@
         "workflow_ranking": [],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/src/app/app/_components/dashboard-info.tsx",
-            "symbol": "role",
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
             "max_rank": 1
+          },
+          {
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -972,12 +998,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the role_boundary query family without changing the pinned repository state."
+      "rationale": "A dashboard discussion action can plausibly mean authorizing the action or navigating to it, so both exact alternatives are retained and neither is selected."
     },
     {
       "id": "small.semantic.08-invariant",
       "collection_id": "collection.small",
-      "request": "On the reviewed branch, use the assigned invariant evidence useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts to select Disclosure state and preserve its invariant: Disclosure state remains either open or closed.",
+      "request": "On the reviewed branch, use the Workflow-relevant invariant evidence useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts to select Disclosure state and preserve its invariant: Disclosure state remains either open or closed.",
       "kind": {
         "query": "invariant",
         "intent": "workflow_selection",
@@ -1029,12 +1055,12 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+      "rationale": "The open-or-closed invariant is defined by Disclosure state at the reviewed useDisclosure surface."
     },
     {
       "id": "small.semantic.09-failure_state",
       "collection_id": "collection.small",
-      "request": "Handle the explicit failure state for Disclosure state: Move a disclosure between closed and open states through the reviewed hook.",
+      "request": "Handle the explicit failure state for Disclosure state at useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts: Move a disclosure between closed and open states through the reviewed hook.",
       "kind": {
         "query": "failure_state",
         "intent": "obligations",
@@ -1081,12 +1107,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the failure_state query family without changing the pinned repository state."
+      "rationale": "The missing-hook failure belongs to Disclosure state and is localized at its reviewed hook surface."
     },
     {
       "id": "small.semantic.10-entry_point",
       "collection_id": "collection.small",
-      "request": "After the reviewed deletion of apps/nextjs-app/.vscode/extensions.json, use the assigned entry-point evidence apps/nextjs-app/.storybook/main.ts for Dashboard navigation without returning the stale deleted path.",
+      "request": "After the reviewed deletion of apps/nextjs-app/.vscode/extensions.json, use the Workflow-relevant entry-point evidence SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx for Dashboard navigation without returning the stale deleted path.",
       "kind": {
         "query": "entry_point",
         "intent": "observation",
@@ -1119,8 +1145,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/.storybook/main.ts",
-            "symbol": null,
+            "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
+            "symbol": "SideNavigationItem",
             "max_rank": 1
           }
         ],
@@ -1207,12 +1233,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+      "rationale": "The visible side-navigation item is the reviewed entry surface for the Dashboard navigation Workflow."
     },
     {
       "id": "small.semantic.11-command",
       "collection_id": "collection.small",
-      "request": "Find the repository command relevant to Dashboard navigation: Let an authenticated dashboard user understand and choose a named navigation item.",
+      "request": "For Disclosure state, identify the public-seed Workflow operation that commands the closed-to-open change, localized at useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts; this is Workflow operation semantics, not a package-script claim.",
       "kind": {
         "query": "command",
         "intent": "source_localization",
@@ -1226,22 +1252,22 @@
       "expected": {
         "workflow_outcome": "selected",
         "selected_workflow_ids": [
-          "small.dashboard-navigation"
+          "small.disclosure-state"
         ],
         "forbidden_workflow_ids": [
-          "small.profile-entry",
-          "small.route-completion"
+          "small.dashboard-navigation",
+          "small.profile-entry"
         ],
         "workflow_ranking": [
           {
-            "id": "small.dashboard-navigation",
+            "id": "small.disclosure-state",
             "max_rank": 1
           }
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/package.json",
-            "symbol": null,
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
             "max_rank": 1
           }
         ],
@@ -1259,12 +1285,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the command query family without changing the pinned repository state."
+      "rationale": "The disclosure operation supplies command semantics for the Workflow; the hook is its localization surface, not a repository package-script claim."
     },
     {
       "id": "small.semantic.12-transition",
       "collection_id": "collection.small",
-      "request": "Apply the state transition for Disclosure state: Move a disclosure between closed and open states through the reviewed hook.",
+      "request": "Apply the state transition for Disclosure state at useDisclosure at apps/nextjs-app/src/hooks/use-disclosure.ts: Move a disclosure between closed and open states through the reviewed hook.",
       "kind": {
         "query": "transition",
         "intent": "source_localization",
@@ -1292,8 +1318,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/src/components/ui/dialog/dialog.tsx",
-            "symbol": null,
+            "path": "apps/nextjs-app/src/hooks/use-disclosure.ts",
+            "symbol": "useDisclosure",
             "max_rank": 1
           }
         ],
@@ -1311,12 +1337,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the transition query family without changing the pinned repository state."
+      "rationale": "The closed-to-open transition is owned by Disclosure state and its reviewed hook."
     },
     {
       "id": "small.semantic.13-test",
       "collection_id": "collection.small",
-      "request": "Find the verification surface for Discussion authorization verification: Verify discussion authorization behavior at the reviewed test surface.",
+      "request": "Find the verification surface for Discussion authorization verification at Authorization at apps/nextjs-app/src/lib/__tests__/authorization.test.tsx: Verify discussion authorization behavior at the reviewed test surface.",
       "kind": {
         "query": "test",
         "intent": "source_localization",
@@ -1344,8 +1370,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/src/testing/test-utils.tsx",
-            "symbol": null,
+            "path": "apps/nextjs-app/src/lib/__tests__/authorization.test.tsx",
+            "symbol": "Authorization",
             "max_rank": 1
           }
         ],
@@ -1363,12 +1389,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the test query family without changing the pinned repository state."
+      "rationale": "The test query ranks the dedicated authorization test that defines the Discussion authorization Workflow."
     },
     {
       "id": "small.semantic.14-dependency",
       "collection_id": "collection.small",
-      "request": "In the linked worktree, use the assigned dependency evidence apps/nextjs-app/.storybook/preview.tsx to coordinate Dashboard navigation and Profile entry presentation across apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx and apps/nextjs-app/src/app/app/profile/_components/profile.tsx.",
+      "request": "In the linked worktree, coordinate the dependency between Dashboard navigation at SideNavigationItem at apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx and Profile entry presentation at EntryProps at apps/nextjs-app/src/app/app/profile/_components/profile.tsx, preserving both public-seed Workflow contracts.",
       "kind": {
         "query": "dependency",
         "intent": "multi_workflow",
@@ -1407,19 +1433,14 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/nextjs-app/.storybook/preview.tsx",
-            "symbol": null,
-            "max_rank": 1
-          },
-          {
             "path": "apps/nextjs-app/src/app/app/_components/dashboard-layout.tsx",
             "symbol": "SideNavigationItem",
-            "max_rank": 2
+            "max_rank": 1
           },
           {
             "path": "apps/nextjs-app/src/app/app/profile/_components/profile.tsx",
             "symbol": "EntryProps",
-            "max_rank": 3
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -1436,7 +1457,7 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+      "rationale": "The linked-worktree dependency is explicitly between Dashboard navigation and Profile entry presentation, so each selected Workflow contributes its own reviewed surface."
     },
     {
       "id": "medium.identity.id-1",
@@ -2024,12 +2045,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+      "rationale": "The exact ApiKey identifier is the reviewed model reference that anchors API key actions."
     },
     {
       "id": "medium.semantic.02-handler",
       "collection_id": "collection.medium",
-      "request": "Localize the handler surface for Menu close prevention: Keep a menu open when its reviewed prevent-close condition holds.",
+      "request": "Localize the handler surface for Menu close prevention at preventCloseHandler at app/components/Menu/transformer.tsx: Keep a menu open when its reviewed prevent-close condition holds.",
       "kind": {
         "query": "handler",
         "intent": "source_localization",
@@ -2060,11 +2081,6 @@
             "path": "app/components/Menu/transformer.tsx",
             "symbol": "preventCloseHandler",
             "max_rank": 1
-          },
-          {
-            "path": "app/components/DesktopEventHandler.tsx",
-            "symbol": "DesktopEventHandler",
-            "max_rank": 2
           }
         ],
         "observations": [],
@@ -2081,12 +2097,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the handler query family without changing the pinned repository state."
+      "rationale": "The requested handler is the prevent-close handler that owns the Menu close prevention Workflow."
     },
     {
       "id": "medium.semantic.03-entity",
       "collection_id": "collection.medium",
-      "request": "Find the entity contract for API key actions: Present API-key actions through the reviewed action definition.",
+      "request": "Find the entity contract for API key actions at ApiKey at app/actions/definitions/apiKeys.tsx: Present API-key actions through the reviewed action definition.",
       "kind": {
         "query": "entity",
         "intent": "obligations",
@@ -2124,31 +2140,52 @@
         "obligations": [
           {
             "category": "implementation",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-actions.present",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "operation:medium.api-key-manager->medium.surface.api-key"
           },
           {
             "category": "state",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-actions.show",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "transition:medium.api-key-actions.hidden->medium.api-key-actions.visible"
           },
           {
             "category": "permission",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-manager",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "authority:May invoke exposed API-key actions."
           },
           {
             "category": "failure",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-actions.missing",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "failure:The API key model binding is unavailable=>Do not present an invented action"
           },
           {
             "category": "persona",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-manager",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "persona:API key manager"
           },
           {
             "category": "completeness",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-actions",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "closure:targets=medium.surface.api-key;unresolved=0"
           },
           {
             "category": "verification",
-            "path": "app/actions/definitions/apiKeys.tsx"
+            "id": "medium.api-key-actions.primary",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
+            "relation": "proof:medium.proof.api-key"
           }
         ],
         "forbidden_paths": [],
@@ -2162,7 +2199,7 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the entity query family without changing the pinned repository state."
+      "rationale": "The ApiKey entity is the reviewed entity contract used by API key actions."
     },
     {
       "id": "medium.semantic.04-low_overlap_paraphrase",
@@ -2201,7 +2238,7 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+      "rationale": "The payroll-remittance request is intentionally absent from every public-seed Workflow and source surface."
     },
     {
       "id": "medium.semantic.05-persona",
@@ -2254,12 +2291,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+      "rationale": "The modified-file adversary is unrelated to the product and must not inherit a Workflow or Persona source."
     },
     {
       "id": "medium.semantic.06-permission",
       "collection_id": "collection.medium",
-      "request": "The pinned medium request says only \"manage access\" and could refer to API key actions or OIDC discovery verification; localize the reviewed permission evidence but select neither Workflow.",
+      "request": "A request to inspect developer authentication setup could mean API key actions at ApiKey at app/actions/definitions/apiKeys.tsx or OIDC discovery verification at DefaultBodyType at plugins/oidc/server/oidcDiscovery.test.ts; preserve the permission boundary and select neither until clarified.",
       "kind": {
         "query": "permission",
         "intent": "ambiguous_workflow",
@@ -2280,9 +2317,14 @@
         "workflow_ranking": [],
         "source_ranking": [
           {
-            "path": "app/actions/definitions/collections.tsx",
-            "symbol": "Permissions",
+            "path": "app/actions/definitions/apiKeys.tsx",
+            "symbol": "ApiKey",
             "max_rank": 1
+          },
+          {
+            "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+            "symbol": "DefaultBodyType",
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -2299,14 +2341,14 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the permission query family without changing the pinned repository state."
+      "rationale": "A developer-authentication setup request can plausibly refer to API-key actions or OIDC discovery verification, so both exact alternatives remain unselected."
     },
     {
-      "id": "medium.semantic.07-docs_persona",
+      "id": "medium.semantic.07-invariant",
       "collection_id": "collection.medium",
-      "request": "On the reviewed branch, use server/test/fixtures/empty.md only as documentation-path evidence for OIDC discovery verification; it is not positive Persona evidence, and the complete candidate set remains reviewed absent for Persona observations. Preserve the Workflow invariant: The response remains checked through the reviewed body type reference.",
+      "request": "On the reviewed branch, use the Workflow-relevant invariant evidence preventCloseHandler at app/components/Menu/transformer.tsx to select Menu close prevention and preserve its invariant: Menu closure remains subject to the reviewed prevention condition.",
       "kind": {
-        "query": "docs_persona",
+        "query": "invariant",
         "intent": "workflow_selection",
         "scope": "repository"
       },
@@ -2323,22 +2365,22 @@
       "expected": {
         "workflow_outcome": "selected",
         "selected_workflow_ids": [
-          "medium.oidc-discovery-test"
+          "medium.menu-close-prevention"
         ],
         "forbidden_workflow_ids": [
           "medium.api-key-actions",
-          "medium.developer-escape"
+          "medium.oidc-discovery-test"
         ],
         "workflow_ranking": [
           {
-            "id": "medium.oidc-discovery-test",
+            "id": "medium.menu-close-prevention",
             "max_rank": 1
           }
         ],
         "source_ranking": [
           {
-            "path": "server/test/fixtures/empty.md",
-            "symbol": null,
+            "path": "app/components/Menu/transformer.tsx",
+            "symbol": "preventCloseHandler",
             "max_rank": 1
           }
         ],
@@ -2356,12 +2398,12 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+      "rationale": "The reviewed branch must preserve the prevent-close invariant at the Workflow handler that enforces it."
     },
     {
       "id": "medium.semantic.08-flag",
       "collection_id": "collection.medium",
-      "request": "Localize the feature flag surface for Menu close prevention: Keep a menu open when its reviewed prevent-close condition holds.",
+      "request": "For Menu close prevention, localize the Workflow-relevant condition surface preventCloseHandler at app/components/Menu/transformer.tsx. Separately localize the independent feature-flag exemplar toggle at app/components/Sharing/components/ShareSettingsPopover.tsx; do not attach that exemplar to the Workflow.",
       "kind": {
         "query": "flag",
         "intent": "source_localization",
@@ -2389,9 +2431,14 @@
         ],
         "source_ranking": [
           {
+            "path": "app/components/Menu/transformer.tsx",
+            "symbol": "preventCloseHandler",
+            "max_rank": 1
+          },
+          {
             "path": "app/components/Sharing/components/ShareSettingsPopover.tsx",
             "symbol": "toggle",
-            "max_rank": 1
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -2408,12 +2455,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the flag query family without changing the pinned repository state."
+      "rationale": "Menu close prevention supplies the Workflow-relevant condition surface; a separately named feature-flag exemplar is requested only as independent lexical evidence."
     },
     {
       "id": "medium.semantic.09-schema_entity",
       "collection_id": "collection.medium",
-      "request": "Localize the schema/entity surface for API key actions: Present API-key actions through the reviewed action definition.",
+      "request": "Localize the schema/entity surface for API key actions at ApiKey at app/actions/definitions/apiKeys.tsx: Present API-key actions through the reviewed action definition.",
       "kind": {
         "query": "schema_entity",
         "intent": "source_localization",
@@ -2460,12 +2507,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the schema_entity query family without changing the pinned repository state."
+      "rationale": "The reviewed ApiKey model reference is the schema/entity surface for API key actions."
     },
     {
       "id": "medium.semantic.10-event",
       "collection_id": "collection.medium",
-      "request": "After the reviewed deletion of .github/auto_assign.yml, use the assigned event evidence appinstalled at app/components/Analytics.tsx for PWA install analytics without returning the stale deleted path.",
+      "request": "After the reviewed deletion of .github/auto_assign.yml, use the Workflow-relevant event evidence appinstalled at app/components/Analytics.tsx for PWA install analytics without returning the stale deleted path.",
       "kind": {
         "query": "event",
         "intent": "observation",
@@ -2501,11 +2548,6 @@
             "path": "app/components/Analytics.tsx",
             "symbol": "appinstalled",
             "max_rank": 1
-          },
-          {
-            "path": "app/actions/definitions/developer.tsx",
-            "symbol": "keydown",
-            "max_rank": 2
           }
         ],
         "observations": [
@@ -2596,12 +2638,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+      "rationale": "The appinstalled event is the exact event that drives PWA install analytics."
     },
     {
       "id": "medium.semantic.11-test",
       "collection_id": "collection.medium",
-      "request": "Find the verification surface for OIDC discovery verification: Verify the OIDC discovery response contract at the reviewed test surface.",
+      "request": "Find the verification surface for OIDC discovery verification at DefaultBodyType at plugins/oidc/server/oidcDiscovery.test.ts: Verify the OIDC discovery response contract at the reviewed test surface.",
       "kind": {
         "query": "test",
         "intent": "source_localization",
@@ -2629,8 +2671,8 @@
         ],
         "source_ranking": [
           {
-            "path": "app/components/EmojiDialog/EmojiCreateDialog.tsx",
-            "symbol": null,
+            "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+            "symbol": "DefaultBodyType",
             "max_rank": 1
           }
         ],
@@ -2648,12 +2690,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the test query family without changing the pinned repository state."
+      "rationale": "The test query ranks oidcDiscovery.test.ts because that reviewed test defines OIDC discovery verification."
     },
     {
       "id": "medium.semantic.12-dependency",
       "collection_id": "collection.medium",
-      "request": "In the linked worktree, use the assigned dependency evidence app/actions/definitions/apiKeys.tsx to coordinate Developer escape handling and PWA install analytics across app/actions/definitions/developer.tsx and app/components/Analytics.tsx.",
+      "request": "In the linked worktree, coordinate the dependency between Developer escape handling at keydown at app/actions/definitions/developer.tsx and PWA install analytics at appinstalled at app/components/Analytics.tsx, preserving both public-seed Workflow contracts.",
       "kind": {
         "query": "dependency",
         "intent": "multi_workflow",
@@ -2692,19 +2734,14 @@
         ],
         "source_ranking": [
           {
-            "path": "app/actions/definitions/apiKeys.tsx",
-            "symbol": null,
-            "max_rank": 1
-          },
-          {
             "path": "app/actions/definitions/developer.tsx",
             "symbol": "keydown",
-            "max_rank": 2
+            "max_rank": 1
           },
           {
             "path": "app/components/Analytics.tsx",
             "symbol": "appinstalled",
-            "max_rank": 3
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -2721,12 +2758,12 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+      "rationale": "The linked-worktree dependency coordinates two event-driven Workflows and retains one reviewed source surface from each."
     },
     {
       "id": "medium.semantic.13-route",
       "collection_id": "collection.medium",
-      "request": "Localize the route surface for PWA install analytics: Record the reviewed application-installed event through the analytics surface.",
+      "request": "Localize the route surface for OIDC discovery verification at DefaultBodyType at plugins/oidc/server/oidcDiscovery.test.ts: Verify the OIDC discovery response contract at the reviewed test surface.",
       "kind": {
         "query": "route",
         "intent": "source_localization",
@@ -2740,22 +2777,22 @@
       "expected": {
         "workflow_outcome": "selected",
         "selected_workflow_ids": [
-          "medium.pwa-install-analytics"
+          "medium.oidc-discovery-test"
         ],
         "forbidden_workflow_ids": [
           "medium.api-key-actions",
-          "medium.oidc-discovery-test"
+          "medium.developer-escape"
         ],
         "workflow_ranking": [
           {
-            "id": "medium.pwa-install-analytics",
+            "id": "medium.oidc-discovery-test",
             "max_rank": 1
           }
         ],
         "source_ranking": [
           {
-            "path": "app/routes/authenticated.tsx",
-            "symbol": null,
+            "path": "plugins/oidc/server/oidcDiscovery.test.ts",
+            "symbol": "DefaultBodyType",
             "max_rank": 1
           }
         ],
@@ -2773,12 +2810,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the route query family without changing the pinned repository state."
+      "rationale": "OIDC discovery verification is the public-seed Workflow whose reviewed response-contract test is relevant to the discovery route."
     },
     {
       "id": "medium.semantic.14-symbol",
       "collection_id": "collection.medium",
-      "request": "Find the exact source symbol for Developer escape handling: Handle the Escape key on the reviewed developer action surface.",
+      "request": "Find the exact source symbol for Developer escape handling at keydown at app/actions/definitions/developer.tsx: Handle the Escape key on the reviewed developer action surface.",
       "kind": {
         "query": "symbol",
         "intent": "source_localization",
@@ -2825,7 +2862,7 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the symbol query family without changing the pinned repository state."
+      "rationale": "The keydown symbol is the exact reviewed trigger surface for Developer escape handling."
     },
     {
       "id": "large.identity.id-1",
@@ -3417,11 +3454,6 @@
             "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
             "symbol": "authErrorHandler",
             "max_rank": 1
-          },
-          {
-            "path": "apps/api/plane/authentication/adapter/exception.py",
-            "symbol": "auth_exception_handler",
-            "max_rank": 2
           }
         ],
         "observations": [],
@@ -3448,12 +3480,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed rename repository scenario to a distinct semantic/source query."
+      "rationale": "The administrator authentication handler is the exact reviewed handler surface for the Authentication error family."
     },
     {
       "id": "large.semantic.02-entity",
       "collection_id": "collection.large",
-      "request": "Find the entity contract for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "request": "Find the entity contract for AI configuration form at AIFormValues at apps/admin/app/(all)/(dashboard)/ai/form.tsx: Present instance AI configuration through the reviewed form value contract.",
       "kind": {
         "query": "entity",
         "intent": "source_localization",
@@ -3500,12 +3532,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the entity query family without changing the pinned repository state."
+      "rationale": "AIFormValues is the reviewed entity contract for the AI configuration form."
     },
     {
       "id": "large.semantic.03-role_boundary",
       "collection_id": "collection.large",
-      "request": "The pinned large request says only \"manage access\" and could refer to Authentication error handling or AI configuration form; localize the reviewed permission evidence but select neither Workflow.",
+      "request": "A request to configure an instance feature for preview could mean AI configuration form at AIFormValues at apps/admin/app/(all)/(dashboard)/ai/form.tsx or Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml; preserve their distinct actor authority and select neither until clarified.",
       "kind": {
         "query": "role_boundary",
         "intent": "ambiguous_workflow",
@@ -3520,15 +3552,20 @@
         "workflow_outcome": "ambiguous",
         "selected_workflow_ids": [],
         "forbidden_workflow_ids": [
-          "large.authentication-error-family",
-          "large.ai-configuration-form"
+          "large.ai-configuration-form",
+          "large.feature-preview-deployment"
         ],
         "workflow_ranking": [],
         "source_ranking": [
           {
-            "path": "apps/api/plane/api/serializers/invite.py",
-            "symbol": "ROLE",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
             "max_rank": 1
+          },
+          {
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
+            "max_rank": 2
           }
         ],
         "observations": [],
@@ -3545,14 +3582,14 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the role_boundary query family without changing the pinned repository state."
+      "rationale": "An instance-feature preview request can plausibly mean configuring AI fields or deploying a feature preview, which have distinct administrator and maintainer authority."
     },
     {
-      "id": "large.semantic.04-invariant",
+      "id": "large.semantic.04-docs_persona",
       "collection_id": "collection.large",
-      "request": "On the reviewed branch, use the assigned invariant evidence UserController at packages/decorators/README.md to select Decorated controller guidance and preserve its invariant: Documentation examples remain guidance rather than runtime registration evidence.",
+      "request": "On the reviewed branch, use the controller examples UserController at packages/decorators/README.md and ChatController at packages/decorators/README.md to understand the maintainer context for Decorated controller guidance; do not relabel documentation as a positive Persona observation. Preserve the Workflow invariant: Documentation examples remain guidance rather than runtime registration evidence.",
       "kind": {
-        "query": "invariant",
+        "query": "docs_persona",
         "intent": "workflow_selection",
         "scope": "repository"
       },
@@ -3607,7 +3644,7 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed branch repository scenario to a distinct semantic/source query."
+      "rationale": "Both reviewed controller examples in packages/decorators/README.md define the maintainer guidance and its documentation Persona context."
     },
     {
       "id": "large.semantic.05-failure_state",
@@ -3646,12 +3683,12 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed novel repository scenario to a distinct semantic/source query."
+      "rationale": "The rejected payroll-remittance failure is intentionally absent from every public-seed Workflow and source surface."
     },
     {
       "id": "large.semantic.06-entry_point",
       "collection_id": "collection.large",
-      "request": "After the reviewed deletion of .github/workflows/build-branch.yml, use the assigned entry-point evidence apps/admin/hooks/oauth/index.ts for Authentication error handling without returning the stale deleted path.",
+      "request": "After the reviewed deletion of .github/workflows/build-branch.yml, use the Workflow-relevant entry-point evidence authErrorHandler at apps/admin/app/(all)/(home)/auth-helpers.tsx for Authentication error handling without returning the stale deleted path.",
       "kind": {
         "query": "entry_point",
         "intent": "observation",
@@ -3684,8 +3721,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/admin/hooks/oauth/index.ts",
-            "symbol": null,
+            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
+            "symbol": "authErrorHandler",
             "max_rank": 1
           }
         ],
@@ -3777,12 +3814,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed delete repository scenario to a distinct semantic/source query."
+      "rationale": "The administrator authErrorHandler is the reviewed entry surface for handling the corresponding authentication failure."
     },
     {
       "id": "large.semantic.07-command",
       "collection_id": "collection.large",
-      "request": "Find the repository command relevant to Feature preview deployment: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "request": "Find the repository command relevant to Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml: Deploy a feature preview using the reviewed Helm chart variable surface.",
       "kind": {
         "query": "command",
         "intent": "source_localization",
@@ -3810,8 +3847,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/admin/package.json",
-            "symbol": null,
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
           }
         ],
@@ -3829,12 +3866,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the command query family without changing the pinned repository state."
+      "rationale": "The invocable feature-deployment Workflow and its reviewed Helm variable surface are relevant to the deployment command."
     },
     {
       "id": "large.semantic.08-transition",
       "collection_id": "collection.large",
-      "request": "Apply the state transition for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "request": "Apply the state transition for AI configuration form at AIFormValues at apps/admin/app/(all)/(dashboard)/ai/form.tsx: Present instance AI configuration through the reviewed form value contract.",
       "kind": {
         "query": "transition",
         "intent": "source_localization",
@@ -3862,8 +3899,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/admin/store/instance.store.ts",
-            "symbol": null,
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
             "max_rank": 1
           }
         ],
@@ -3881,12 +3918,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the transition query family without changing the pinned repository state."
+      "rationale": "The hidden-to-visible configuration transition belongs to the AI form and its reviewed value contract."
     },
     {
       "id": "large.semantic.09-docs_persona",
       "collection_id": "collection.large",
-      "request": "Use documentation to understand the actor for Decorated controller guidance: Guide maintainers through reviewed HTTP and WebSocket controller examples.",
+      "request": "Use documentation to understand the actor for Decorated controller guidance at UserController at packages/decorators/README.md: Guide maintainers through reviewed HTTP and WebSocket controller examples.",
       "kind": {
         "query": "docs_persona",
         "intent": "obligations",
@@ -3914,8 +3951,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/api/plane/tests/README.md",
-            "symbol": null,
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
             "max_rank": 1
           }
         ],
@@ -3924,31 +3961,52 @@
         "obligations": [
           {
             "category": "implementation",
-            "path": "packages/decorators/README.md"
+            "id": "large.decorated-controller-guidance.read-http",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "operation:large.controller-maintainer->large.surface.user-controller"
           },
           {
             "category": "state",
-            "path": "packages/decorators/README.md"
+            "id": "large.decorated-controller-guidance.review",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "transition:large.decorated-controller-guidance.unread->large.decorated-controller-guidance.reviewed"
           },
           {
             "category": "permission",
-            "path": "packages/decorators/README.md"
+            "id": "large.controller-maintainer",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "authority:May follow reviewed documentation examples."
           },
           {
             "category": "failure",
-            "path": "packages/decorators/README.md"
+            "id": "large.decorated-controller-guidance.runtime-overclaim",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "failure:Documentation is treated as runtime route proof=>Reject the runtime claim"
           },
           {
             "category": "persona",
-            "path": "packages/decorators/README.md"
+            "id": "large.controller-maintainer",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "persona:Controller maintainer"
           },
           {
             "category": "completeness",
-            "path": "packages/decorators/README.md"
+            "id": "large.decorated-controller-guidance",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "closure:targets=large.surface.user-controller,large.surface.chat-controller;unresolved=0"
           },
           {
             "category": "verification",
-            "path": "packages/decorators/README.md"
+            "id": "large.decorated-controller-guidance.primary",
+            "path": "packages/decorators/README.md",
+            "symbol": "UserController",
+            "relation": "proof:large.proof.user-controller,large.proof.chat-controller"
           }
         ],
         "forbidden_paths": [],
@@ -3962,12 +4020,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the docs_persona query family without changing the pinned repository state."
+      "rationale": "The maintainer Persona and documentation query belong to the reviewed decorated-controller README, not an unrelated API test README."
     },
     {
       "id": "large.semantic.10-flag",
       "collection_id": "collection.large",
-      "request": "Localize the feature flag surface for Feature preview deployment: Deploy a feature preview using the reviewed Helm chart variable surface.",
+      "request": "Localize the feature flag surface for Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml: Deploy a feature preview using the reviewed Helm chart variable surface.",
       "kind": {
         "query": "flag",
         "intent": "source_localization",
@@ -3995,8 +4053,8 @@
         ],
         "source_ranking": [
           {
-            "path": "apps/admin/store/instance.store.ts",
-            "symbol": "toggle",
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
           }
         ],
@@ -4014,12 +4072,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the flag query family without changing the pinned repository state."
+      "rationale": "The reviewed feature-preview Helm variable is the Workflow-relevant feature control for preview deployment."
     },
     {
       "id": "large.semantic.11-schema_entity",
       "collection_id": "collection.large",
-      "request": "Localize the schema/entity surface for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "request": "Localize the schema/entity surface for AI configuration form at AIFormValues at apps/admin/app/(all)/(dashboard)/ai/form.tsx: Present instance AI configuration through the reviewed form value contract.",
       "kind": {
         "query": "schema_entity",
         "intent": "source_localization",
@@ -4066,12 +4124,12 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the schema_entity query family without changing the pinned repository state."
+      "rationale": "AIFormValues is the reviewed schema/entity contract for the AI configuration form."
     },
     {
       "id": "large.semantic.12-event",
       "collection_id": "collection.large",
-      "request": "Localize the event surface for AI configuration form: Present instance AI configuration through the reviewed form value contract.",
+      "request": "Identify the public-seed trigger semantics for Feature preview deployment: an approved maintainer invokes the Workflow localized at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml. Do not claim that the Helm variable is itself an emitted runtime event.",
       "kind": {
         "query": "event",
         "intent": "source_localization",
@@ -4085,22 +4143,22 @@
       "expected": {
         "workflow_outcome": "selected",
         "selected_workflow_ids": [
-          "large.ai-configuration-form"
+          "large.feature-preview-deployment"
         ],
         "forbidden_workflow_ids": [
-          "large.pdf-rendering-verification",
-          "large.decorated-controller-guidance"
+          "large.ai-configuration-form",
+          "large.pdf-rendering-verification"
         ],
         "workflow_ranking": [
           {
-            "id": "large.ai-configuration-form",
+            "id": "large.feature-preview-deployment",
             "max_rank": 1
           }
         ],
         "source_ranking": [
           {
-            "path": "apps/admin/app/(all)/(dashboard)/sidebar.tsx",
-            "symbol": "resize",
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 1
           }
         ],
@@ -4118,7 +4176,7 @@
           "changes": []
         }
       },
-      "rationale": "Exercises the event query family without changing the pinned repository state."
+      "rationale": "The approved maintainer invocation is the public-seed trigger semantics; the Helm variable localizes the Workflow but is not claimed as an emitted runtime event."
     },
     {
       "id": "large.semantic.13-persona",
@@ -4171,12 +4229,12 @@
           ]
         }
       },
-      "rationale": "Binds the reviewed adversarial repository scenario to a distinct semantic/source query."
+      "rationale": "The modified-file adversary is unrelated to the product and must not inherit a Workflow or Persona source."
     },
     {
       "id": "large.semantic.14-permission",
       "collection_id": "collection.large",
-      "request": "In the linked worktree, use the assigned permission evidence ROLE at apps/api/plane/api/serializers/invite.py to coordinate Authentication error handling and AI configuration form across apps/admin/app/(all)/(home)/auth-helpers.tsx and apps/admin/app/(all)/(dashboard)/ai/form.tsx.",
+      "request": "In the linked worktree, coordinate the permission between AI configuration form at AIFormValues at apps/admin/app/(all)/(dashboard)/ai/form.tsx and Feature preview deployment at FEATURE_PREVIEW_HELM_CHART_NAME at .github/workflows/feature-deployment.yml, preserving both public-seed Workflow contracts.",
       "kind": {
         "query": "permission",
         "intent": "multi_workflow",
@@ -4196,8 +4254,8 @@
       "expected": {
         "workflow_outcome": "multi_workflow",
         "selected_workflow_ids": [
-          "large.authentication-error-family",
-          "large.ai-configuration-form"
+          "large.ai-configuration-form",
+          "large.feature-preview-deployment"
         ],
         "forbidden_workflow_ids": [
           "large.pdf-rendering-verification",
@@ -4205,39 +4263,24 @@
         ],
         "workflow_ranking": [
           {
-            "id": "large.authentication-error-family",
+            "id": "large.ai-configuration-form",
             "max_rank": 1
           },
           {
-            "id": "large.ai-configuration-form",
+            "id": "large.feature-preview-deployment",
             "max_rank": 2
           }
         ],
         "source_ranking": [
           {
-            "path": "apps/api/plane/api/serializers/invite.py",
-            "symbol": "ROLE",
+            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
+            "symbol": "AIFormValues",
             "max_rank": 1
           },
           {
-            "path": "apps/admin/app/(all)/(home)/auth-helpers.tsx",
-            "symbol": "authErrorHandler",
+            "path": ".github/workflows/feature-deployment.yml",
+            "symbol": "FEATURE_PREVIEW_HELM_CHART_NAME",
             "max_rank": 2
-          },
-          {
-            "path": "apps/api/plane/authentication/adapter/exception.py",
-            "symbol": "auth_exception_handler",
-            "max_rank": 3
-          },
-          {
-            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
-            "symbol": "AIFormValues",
-            "max_rank": 4
-          },
-          {
-            "path": "apps/admin/app/(all)/(dashboard)/ai/form.tsx",
-            "symbol": "IInstanceAIForm",
-            "max_rank": 5
           }
         ],
         "observations": [],
@@ -4254,7 +4297,7 @@
           "changes": []
         }
       },
-      "rationale": "Binds the reviewed worktree repository scenario to a distinct semantic/source query."
+      "rationale": "The linked-worktree permission boundary coordinates two privileged instance-feature Workflows while preserving each public-seed actor authority."
     }
   ],
   "mutations": [

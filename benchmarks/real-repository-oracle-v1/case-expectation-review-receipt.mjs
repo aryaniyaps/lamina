@@ -13,6 +13,10 @@ import {
   loadScenarioSelection,
 } from './scenario-selection.mjs';
 import {
+  SEMANTIC_CASE_MAPPING, SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
+  validateSemanticCaseMapping,
+} from './semantic-case-authority.mjs';
+import {
   WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256, loadWorkflowSeed,
 } from './workflow-seed.mjs';
 
@@ -20,21 +24,16 @@ const REVIEW_FILE = new URL('./reviews/case-expectations-v1.json', import.meta.u
 const TIERS = Object.freeze(['small', 'medium', 'large']);
 const QUERY_ALLOCATIONS = Object.freeze({
   small: Object.freeze(['exact_source_identifier', 'route', 'symbol', 'low_overlap_paraphrase', 'persona', 'permission', 'role_boundary', 'invariant', 'failure_state', 'entry_point', 'command', 'transition', 'test', 'dependency']),
-  medium: Object.freeze(['exact_source_identifier', 'handler', 'entity', 'low_overlap_paraphrase', 'persona', 'permission', 'docs_persona', 'flag', 'schema_entity', 'event', 'test', 'dependency', 'route', 'symbol']),
-  large: Object.freeze(['handler', 'entity', 'role_boundary', 'invariant', 'failure_state', 'entry_point', 'command', 'transition', 'docs_persona', 'flag', 'schema_entity', 'event', 'persona', 'permission']),
+  medium: Object.freeze(['exact_source_identifier', 'handler', 'entity', 'low_overlap_paraphrase', 'persona', 'permission', 'invariant', 'flag', 'schema_entity', 'event', 'test', 'dependency', 'route', 'symbol']),
+  large: Object.freeze(['handler', 'entity', 'role_boundary', 'docs_persona', 'failure_state', 'entry_point', 'command', 'transition', 'docs_persona', 'flag', 'schema_entity', 'event', 'persona', 'permission']),
 });
 const STATE_NAMES = Object.freeze([
   'clean-pinned-tree', 'reviewed-modify', 'reviewed-rename', 'reviewed-delete',
   'reviewed-branch', 'reviewed-logical-worktree',
 ]);
-const QUERY_OBSERVATION_CATEGORY = Object.freeze({
-  route: 'routes', handler: 'handlers', entity: 'entities', permission: 'permissions',
-  role_boundary: 'permissions', entry_point: 'entry_points', command: 'commands',
-  schema_entity: 'schemas', transition: 'state_transitions', event: 'events', test: 'tests',
-  docs_persona: 'documentation', flag: 'feature_flags', dependency: 'dependencies',
-});
-const WORKFLOW_SURFACE_FIRST_QUERIES = Object.freeze(new Set([
-  'exact_source_identifier', 'symbol', 'invariant', 'failure_state',
+const OBLIGATION_CASE_IDS = Object.freeze(new Set([
+  'small.semantic.06-permission', 'medium.semantic.03-entity',
+  'large.semantic.09-docs_persona',
 ]));
 
 function isAcceptedStateRow(item) {
@@ -43,8 +42,8 @@ function isAcceptedStateRow(item) {
     || ['rename', 'delete', 'checkout_branch', 'add_worktree'].includes(operation);
 }
 
-export const CASE_EXPECTATIONS_RAW_SHA256 = 'ba8736cf60db9bd9554fd8966404206558db085625ee0010ceb198e466e1e9b9';
-export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '68282446582a9b5ee1d0d122a385ab205468ce0255d12554298b1a48da287874';
+export const CASE_EXPECTATIONS_RAW_SHA256 = '0cc1a3c7c4bf4b3baedad0f2e394bd4659651498cbb467417ea280d4b4cd467e';
+export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '012d21963d9b03c755745cfce3d93c66f5e957a6c230e21ca9329b1e8102d826';
 export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
   review_status: 'pending_independent_review_adjudication',
   review_decision: 'not_yet_accepted',
@@ -59,8 +58,9 @@ export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
   observation_support_canonical_sha256: OBSERVATION_CATEGORY_SUPPORT_CANONICAL_SHA256,
   scenario_selection_raw_sha256: SCENARIO_SELECTION_RAW_SHA256,
   scenario_selection_canonical_sha256: SCENARIO_SELECTION_CANONICAL_SHA256,
-  request_scenario_set_sha256: '2ee00f4cf2aef7c7837d9593bfd07522f3fb2c17c8f424b2527f4fdce44c692c',
-  expectation_set_sha256: '3beaeeb6bb3b90b1f6fba2514603a1f32b113d1649c1c534f3e2cc529870a62b',
+  semantic_case_mapping_canonical_sha256: SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
+  request_scenario_set_sha256: '469b51cf7a7841a4e97b104c501abb41be2e77169dbca3aa1d87bf7ee5ad29d9',
+  expectation_set_sha256: '5a092230f7b2af4238948d780e210bf6c771cc150df25bd4be04787dc48ee2f7',
   mutation_set_sha256: 'c1bf8394ceeca151d74ee875e3fa3a3cf656d7cd1b985b8d488840273ba718cb',
   gates_sha256: 'ecea71c2b2179c520264e60109fd2f6a6e58845daa16187de392b9919520b950',
   held_out_identity_sha256: 'afc38bd388d6b27e397671806f3d83adb4b9dcbea5aa0d702d251878618e9e6c',
@@ -111,10 +111,44 @@ function expectedScenario(selection, order) {
   return { kind: 'worktree', name: 'reviewed-logical-worktree', operations: [{ op: 'add_worktree', branch: source.derived_branch, worktree_id: source.logical_worktree_id }] };
 }
 
+function expectedObligations(workflow) {
+  const surfaceFor = (surfaceId) => workflow.surfaces.find((surface) => surface.id === surfaceId)
+    || workflow.surfaces[0];
+  const target = (category, id, surface, relation) => ({
+    category, id, path: surface.path, ...(surface.symbol ? { symbol: surface.symbol } : {}), relation,
+  });
+  const operation = workflow.operations[0];
+  const actor = workflow.actors.find((item) => item.id === operation.actor_id) || workflow.actors[0];
+  const transition = workflow.transitions[0];
+  const failure = workflow.failure_contracts[0];
+  const scenario = workflow.scenarios[0];
+  const operationSurface = surfaceFor(operation.surface_id);
+  return [
+    target('implementation', operation.id, operationSurface,
+      `operation:${operation.actor_id}->${operation.surface_id}`),
+    target('state', transition.id, operationSurface,
+      `transition:${transition.from}->${transition.to}`),
+    target('permission', actor.id, operationSurface, `authority:${actor.authority}`),
+    target('failure', failure.id, operationSurface,
+      `failure:${failure.condition}=>${failure.response}`),
+    target('persona', actor.id, operationSurface, `persona:${actor.persona}`),
+    target('completeness', workflow.id, operationSurface,
+      `closure:targets=${workflow.implementation_ready_input.target_ids.join(',')};unresolved=0`),
+    target('verification', scenario.id, operationSurface,
+      `proof:${workflow.implementation_ready_input.proof_ids.join(',')}`),
+  ];
+}
+
 export function validateCaseExpectationReview(fixture) {
   const errors = [];
   const base = validateFixture(fixture);
   if (!base.valid) return base;
+  const semanticMappingValidation = validateSemanticCaseMapping(SEMANTIC_CASE_MAPPING);
+  if (!semanticMappingValidation.valid
+    || CASE_EXPECTATION_REVIEW_AUTHORITY.semantic_case_mapping_canonical_sha256
+      !== SEMANTIC_CASE_MAPPING_CANONICAL_SHA256) {
+    errors.push('semantic case mapping authority is invalid or unsealed');
+  }
   if (fixture.id !== 'real-repository-oracle-case-expectations-v1' || fixture.version !== 1) {
     errors.push('case expectation review root identity differs');
   }
@@ -132,6 +166,7 @@ export function validateCaseExpectationReview(fixture) {
   const workflows = loadWorkflowSeed().seed.collections;
   const workflowsByTier = Object.fromEntries(workflows.map((collection) => [collection.fixture_id, collection.workflows]));
   const workflowIds = new Set(workflows.flatMap((collection) => collection.workflows.map((workflow) => workflow.id)));
+  const semanticAuthorityById = new Map(SEMANTIC_CASE_MAPPING.rows.map((item) => [item.id, item]));
   const scenarioSelection = loadScenarioSelection().selection;
   for (const tier of TIERS) {
     const tierCases = fixture.cases.filter((item) => item.collection_id === `collection.${tier}`);
@@ -176,25 +211,70 @@ export function validateCaseExpectationReview(fixture) {
       }
       const selectedWorkflows = tierWorkflows.filter((workflow) =>
         item.expected.selected_workflow_ids.includes(workflow.id));
-      const category = QUERY_OBSERVATION_CATEGORY[item.kind.query];
-      const categoryWitness = category && OBSERVATION_CATEGORY_SUPPORT[tier].positive_targets
-        .find((target) => target.category === category);
-      const preferWorkflowSurface = item.kind.query === 'handler'
-        || (tier === 'medium' && item.kind.query === 'event');
-      if (categoryWitness && item.expected.source_ranking.length
-        && !item.expected.source_ranking.some((target) => sameTarget(target, categoryWitness))) {
-        errors.push(`${item.id} omits the exact reviewed ${category} source witness`);
-      }
-      const expectedFirst = preferWorkflowSurface ? selectedWorkflows[0]?.surfaces[0]
-        : categoryWitness || (WORKFLOW_SURFACE_FIRST_QUERIES.has(item.kind.query)
-          ? selectedWorkflows[0]?.surfaces[0] : null);
-      if (expectedFirst && (!item.expected.source_ranking.length
-        || !sameTarget(item.expected.source_ranking[0], expectedFirst))) {
-        errors.push(`${item.id} rank one source differs from the reviewed query witness`);
-      }
       if (item.id.includes('.identity.') && item.expected.source_ranking.some((target) =>
         !selectedWorkflows.some((workflow) => workflow.surfaces.some((surface) => sameTarget(target, surface))))) {
         errors.push(`${item.id} identity source ranking contains a non-Workflow witness`);
+      }
+      const semanticAuthority = semanticAuthorityById.get(item.id);
+      if (item.id.includes('.semantic.')) {
+        if (!semanticAuthority) {
+          errors.push(`${item.id} lacks exact semantic mapping authority`);
+        } else {
+          const mappedWorkflows = semanticAuthority.workflow_ids.map((id) =>
+            tierWorkflows.find((workflow) => workflow.id === id));
+          if (mappedWorkflows.some((workflow) => !workflow)) {
+            errors.push(`${item.id} semantic mapping crosses its tier Workflow authority`);
+          }
+          const expectedSources = [];
+          for (const surfaceId of semanticAuthority.source_surface_ids) {
+            const owners = tierWorkflows.filter((workflow) =>
+              workflow.surfaces.some((surface) => surface.id === surfaceId));
+            const surface = owners[0]?.surfaces.find((candidate) => candidate.id === surfaceId);
+            if (owners.length !== 1 || !semanticAuthority.workflow_ids.includes(owners[0]?.id)) {
+              errors.push(`${item.id} semantic surface is not owned by its mapped same-tier Workflow`);
+            } else {
+              expectedSources.push({ path: surface.path, symbol: surface.symbol, max_rank: expectedSources.length + 1 });
+            }
+          }
+          if (semanticAuthority.separate_lexical_category) {
+            const witness = OBSERVATION_CATEGORY_SUPPORT[tier].positive_targets.find((target) =>
+              target.category === semanticAuthority.separate_lexical_category);
+            if (!witness) errors.push(`${item.id} lacks its explicitly separate lexical witness`);
+            else expectedSources.push({
+              path: witness.path, symbol: witness.symbol || null, max_rank: expectedSources.length + 1,
+            });
+          }
+          if (!same(item.expected.source_ranking, expectedSources)) {
+            errors.push(`${item.id} source ranking differs from its exact ordered semantic surface authority`);
+          }
+          if (expectedSources.length && !semanticAuthority.source_surface_ids.length) {
+            errors.push(`${item.id} cannot rank an independent lexical witness before a Workflow surface`);
+          }
+          const expectedSelected = ['selected', 'multi_workflow'].includes(item.expected.workflow_outcome)
+            ? semanticAuthority.workflow_ids : [];
+          if (!same(item.expected.selected_workflow_ids, expectedSelected)
+            || !same(item.expected.workflow_ranking, expectedSelected.map((id, index) =>
+              ({ id, max_rank: index + 1 })))) {
+            errors.push(`${item.id} Workflow selection differs from its exact semantic mapping`);
+          }
+          if (item.expected.workflow_outcome === 'ambiguous'
+            && (semanticAuthority.workflow_ids.length !== 2
+              || !same(item.expected.forbidden_workflow_ids, semanticAuthority.workflow_ids))) {
+            errors.push(`${item.id} ambiguity must retain exactly two mapped Workflow alternatives`);
+          }
+          if (item.rationale !== semanticAuthority.rationale) {
+            errors.push(`${item.id} rationale differs from its exact semantic mapping authority`);
+          }
+          if (expectedSources.some((target) => !item.request.includes(target.path)
+            || (target.symbol && !item.request.includes(target.symbol)))) {
+            errors.push(`${item.id} request does not explicitly name every ranked semantic source`);
+          }
+          const expectedObligationSet = OBLIGATION_CASE_IDS.has(item.id)
+            ? expectedObligations(mappedWorkflows[0]) : [];
+          if (!same(item.expected.obligations, expectedObligationSet)) {
+            errors.push(`${item.id} obligations differ from exact public-seed contract derivation`);
+          }
+        }
       }
       if (item.kind.intent === 'multi_workflow' && selectedWorkflows.some((workflow) =>
         !workflow.surfaces.some((surface) => item.expected.source_ranking.some((target) => sameTarget(target, surface))))) {
@@ -236,13 +316,12 @@ export function validateCaseExpectationReview(fixture) {
           errors.push(`${item.id} branch request must bind its query witness and Workflow invariant`);
         }
         if (item.kind.query === 'docs_persona'
-          && (!item.request.includes('not positive Persona evidence')
-            || !item.request.includes('complete candidate set'))) {
+          && !item.request.includes('do not relabel documentation as a positive Persona observation')) {
           errors.push(`${item.id} documentation query must preserve negative Persona authority`);
         }
       }
       if (operation?.op === 'add_worktree' && (!includesFirstSource
-        || !item.request.includes(item.kind.query === 'dependency' ? 'dependency evidence' : 'permission evidence')
+        || !item.request.includes(item.kind.query)
         || selectedWorkflows.some((workflow) => !item.request.includes(workflow.name)))) {
         errors.push(`${item.id} worktree request must name its query witness and both selected Workflows`);
       }
@@ -257,6 +336,10 @@ export function validateCaseExpectationReview(fixture) {
   const stateCount = fixture.cases.filter((item) => item.id.includes('.semantic.') && isAcceptedStateRow(item)).length;
   if (identityCount !== 30 || stateCount !== 18 || fixture.cases.length - identityCount - stateCount !== 24) {
     errors.push('global allocation must be 30 identity, 24 semantic/source, and 18 accepted-state rows');
+  }
+  const fixtureSemanticIds = fixture.cases.filter((item) => item.id.includes('.semantic.')).map((item) => item.id);
+  if (!same(fixtureSemanticIds, SEMANTIC_CASE_MAPPING.rows.map((item) => item.id))) {
+    errors.push('fixture semantic rows must exactly equal the ordered 42-row semantic mapping authority');
   }
   const queryCounts = fixture.cases.reduce((counts, item) => {
     counts[item.kind.query] = (counts[item.kind.query] || 0) + 1;

@@ -237,6 +237,17 @@ mutations, gates, and the unchanged retrieval-v1 held-out identities (160
 Workflow rows and 80 source rows). These are fixture-consistency and grader-
 mechanics checks, not candidate measurements.
 
+Every semantic row is also bound to an exact private mapping of same-tier
+public-seed Workflow IDs and ordered public-seed surface IDs. Workflow-relevant
+surfaces rank first; production observation-category exemplars do not become
+source-localization goldens. The sole independent lexical witness is the
+explicitly separate medium feature-flag task, and its request and rationale
+state that it is not part of the selected Workflow. Obligation expectations
+are exact structured projections of the selected Workflow contract:
+operation/target, transition, actor authority and Persona, failure contract,
+resolved target/proof closure, and scenario proof. They are not seven labels
+applied to an otherwise unexplained path.
+
 The fixture loader clones private material at the controller boundary and does
 not trust candidate-supplied fixtures or grades. Candidate closure is not
 implemented or reachable. In particular, positive Persona capability remains

@@ -10,6 +10,7 @@ import {
   CASE_EXPECTATION_REVIEW_AUTHORITY,
   loadCaseExpectationReview,
   parseCaseExpectationReviewBytes,
+  validateCaseExpectationReview,
 } from '../benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs';
 import {
   FIXTURE_AUTHORITY_BOUNDARY, loadReviewedFixture,
@@ -23,8 +24,12 @@ import {
   SCENARIO_SELECTION_CANONICAL_SHA256, SCENARIO_SELECTION_RAW_SHA256,
 } from '../benchmarks/real-repository-oracle-v1/scenario-selection.mjs';
 import {
-  WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256,
+  WORKFLOW_SEED_CANONICAL_SHA256, WORKFLOW_SEED_RAW_SHA256, loadWorkflowSeed,
 } from '../benchmarks/real-repository-oracle-v1/workflow-seed.mjs';
+import {
+  SEMANTIC_CASE_MAPPING, SEMANTIC_CASE_MAPPING_CANONICAL_SHA256,
+  semanticCaseMappingDigest, validateSemanticCaseMapping,
+} from '../benchmarks/real-repository-oracle-v1/semantic-case-authority.mjs';
 import {
   ADAPTER_SCHEMA, RESULT_SCHEMA, canonical, digest, executeRegisteredMutation, fixtureDigest,
   materializationBaseDigest, materializationProvenanceDigest, resultCasesDigest, validateResult,
@@ -85,6 +90,10 @@ assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.scenario_selection_raw_sha256,
   SCENARIO_SELECTION_RAW_SHA256);
 assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.scenario_selection_canonical_sha256,
   SCENARIO_SELECTION_CANONICAL_SHA256);
+assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.semantic_case_mapping_canonical_sha256,
+  SEMANTIC_CASE_MAPPING_CANONICAL_SHA256);
+assert.equal(semanticCaseMappingDigest(), SEMANTIC_CASE_MAPPING_CANONICAL_SHA256);
+assert.deepEqual(validateSemanticCaseMapping(SEMANTIC_CASE_MAPPING), { valid: true, errors: [] });
 
 const tiers = ['small', 'medium', 'large'];
 for (const tier of tiers) {
@@ -109,6 +118,48 @@ assert.equal(queryCounts.permission, 3);
 for (const [query, count] of Object.entries(queryCounts)) {
   if (!query.startsWith('exact_workflow_')) assert.ok(count >= 2, `${query} has at least two reviewed cases`);
 }
+
+const seed = loadWorkflowSeed().seed;
+const seedWorkflows = seed.collections.flatMap((collection) => collection.workflows);
+const seedWorkflowById = new Map(seedWorkflows.map((workflow) => [workflow.id, workflow]));
+assert.deepEqual(
+  fixture.cases.filter((item) => item.id.includes('.semantic.')).map((item) => item.id),
+  SEMANTIC_CASE_MAPPING.rows.map((item) => item.id),
+  'all 42 semantic rows exactly match mapping authority order',
+);
+for (const mapping of SEMANTIC_CASE_MAPPING.rows) {
+  const reviewedCase = fixture.cases.find((item) => item.id === mapping.id);
+  const tier = mapping.id.split('.')[0];
+  for (const workflowId of mapping.workflow_ids) {
+    assert.equal(seedWorkflowById.get(workflowId)?.id.startsWith(`${tier}.`), true,
+      `${mapping.id} Workflow is owned by the same tier`);
+  }
+  const expectedSurfaces = mapping.source_surface_ids.map((surfaceId) => {
+    const owners = seedWorkflows.filter((workflow) => workflow.surfaces.some((surface) => surface.id === surfaceId));
+    assert.equal(owners.length, 1, `${mapping.id} surface has one public-seed owner`);
+    assert.ok(mapping.workflow_ids.includes(owners[0].id), `${mapping.id} surface belongs to a mapped Workflow`);
+    return owners[0].surfaces.find((surface) => surface.id === surfaceId);
+  });
+  assert.deepEqual(reviewedCase.expected.source_ranking.slice(0, expectedSurfaces.length)
+    .map(({ path, symbol }) => ({ path, symbol })),
+  expectedSurfaces.map(({ path, symbol }) => ({ path, symbol })), `${mapping.id} ranks exact surfaces in order`);
+  assert.equal(reviewedCase.rationale, mapping.rationale);
+}
+assert.deepEqual(SEMANTIC_CASE_MAPPING.rows.filter((item) => item.separate_lexical_category)
+  .map((item) => [item.id, item.separate_lexical_category]),
+[['medium.semantic.08-flag', 'feature_flags']]);
+assert.deepEqual(fixture.cases.find((item) => item.id === 'small.semantic.13-test')
+  .expected.source_ranking[0], {
+  path: 'apps/nextjs-app/src/lib/__tests__/authorization.test.tsx', symbol: 'Authorization', max_rank: 1,
+});
+assert.deepEqual(fixture.cases.find((item) => item.id === 'medium.semantic.11-test')
+  .expected.source_ranking[0], {
+  path: 'plugins/oidc/server/oidcDiscovery.test.ts', symbol: 'DefaultBodyType', max_rank: 1,
+});
+assert.deepEqual(fixture.cases.find((item) => item.id === 'large.semantic.09-docs_persona')
+  .expected.source_ranking[0], {
+  path: 'packages/decorators/README.md', symbol: 'UserController', max_rank: 1,
+});
 
 for (const item of fixture.cases) {
   const selected = item.expected.selected_workflow_ids.length;
@@ -180,6 +231,90 @@ rejects((value) => {
   const item = value.cases.find((candidate) => candidate.repository_scenario.operations[0]?.op === 'add_worktree');
   item.request = item.request.replace(item.expected.source_ranking[0].path, 'unreviewed/evidence.ts');
 }, 'worktree prompt must name its exact query witness');
+
+function rejectsReview(mutator, pattern, message) {
+  const value = structuredClone(fixture);
+  mutator(value);
+  const validation = validateCaseExpectationReview(value);
+  assert.equal(validation.valid, false, message);
+  assert.match(validation.errors.join('; '), pattern, message);
+}
+
+for (const [index, mapping] of SEMANTIC_CASE_MAPPING.rows.entries()) {
+  rejectsReview((value) => {
+    const item = value.cases.find((candidate) => candidate.id === mapping.id);
+    if (item.expected.source_ranking.length) {
+      item.expected.source_ranking[0].path = `semantic-tamper/row-${index + 1}.ts`;
+    } else {
+      item.expected.source_ranking.push({
+        path: `semantic-tamper/row-${index + 1}.ts`, symbol: null, max_rank: 1,
+      });
+    }
+  }, /exact ordered semantic surface authority/, `${mapping.id} source binding tamper`);
+}
+
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'small.semantic.06-permission');
+  item.expected.selected_workflow_ids = ['small.route-completion'];
+  item.expected.workflow_ranking = [{ id: 'small.route-completion', max_rank: 1 }];
+  item.expected.source_ranking = [{
+    path: 'apps/nextjs-pages/src/components/layouts/dashboard-layout.tsx',
+    symbol: 'routeChangeComplete', max_rank: 1,
+  }];
+}, /exact semantic mapping|exact ordered semantic surface authority/, 'Workflow/surface pair swap');
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'small.semantic.06-permission');
+  item.expected.selected_workflow_ids = ['medium.api-key-actions'];
+  item.expected.workflow_ranking = [{ id: 'medium.api-key-actions', max_rank: 1 }];
+}, /exact semantic mapping/, 'cross-tier Workflow ownership swap');
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'large.semantic.04-docs_persona');
+  const [first, second] = item.expected.source_ranking;
+  item.expected.source_ranking = [
+    { ...second, max_rank: 1 }, { ...first, max_rank: 2 },
+  ];
+}, /exact ordered semantic surface authority/, 'semantic surface rank order');
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'small.semantic.13-test');
+  item.expected.source_ranking.push({
+    path: 'apps/nextjs-app/src/testing/test-utils.tsx', symbol: null, max_rank: 2,
+  });
+}, /exact ordered semantic surface authority/, 'extra observation-category witness');
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'medium.semantic.08-flag');
+  item.expected.source_ranking.reverse();
+  item.expected.source_ranking.forEach((target, index) => { target.max_rank = index + 1; });
+}, /exact ordered semantic surface authority/, 'separate lexical witness cannot become rank one');
+rejectsReview((value) => {
+  const item = value.cases.find((candidate) => candidate.id === 'large.semantic.09-docs_persona');
+  item.rationale = 'A long but invented rationale that is not the sealed semantic mapping authority.';
+}, /rationale differs from its exact semantic mapping authority/, 'semantic rationale seal');
+
+const obligationCases = fixture.cases.filter((item) => item.expected.obligations.length);
+assert.deepEqual(obligationCases.map((item) => item.id), [
+  'small.semantic.06-permission', 'medium.semantic.03-entity', 'large.semantic.09-docs_persona',
+]);
+assert.deepEqual(obligationCases.map((item) => item.expected.obligations.map((target) => target.category)), [
+  ['implementation', 'state', 'permission', 'failure', 'persona', 'completeness', 'verification'],
+  ['implementation', 'state', 'permission', 'failure', 'persona', 'completeness', 'verification'],
+  ['implementation', 'state', 'permission', 'failure', 'persona', 'completeness', 'verification'],
+]);
+for (const category of ['implementation', 'state', 'permission', 'failure', 'persona', 'completeness', 'verification']) {
+  rejectsReview((value) => {
+    const item = value.cases.find((candidate) => candidate.id === 'small.semantic.06-permission');
+    item.expected.obligations.find((target) => target.category === category).relation += ':tampered';
+  }, /obligations differ from exact public-seed contract derivation/, `${category} obligation relation`);
+  rejectsReview((value) => {
+    const item = value.cases.find((candidate) => candidate.id === 'medium.semantic.03-entity');
+    item.expected.obligations.find((target) => target.category === category).id += '.tampered';
+  }, /obligations differ from exact public-seed contract derivation/, `${category} obligation id`);
+}
+
+const invalidSeparateMapping = structuredClone(SEMANTIC_CASE_MAPPING);
+invalidSeparateMapping.rows.find((item) => item.id === 'small.semantic.12-transition')
+  .separate_lexical_category = 'feature_flags';
+assert.match(validateSemanticCaseMapping(invalidSeparateMapping).errors.join('; '),
+  /only medium.semantic.08-flag/);
 
 function idealResult(tier) {
   const collection = fixture.collections.find((item) => item.fixture_id === tier);
