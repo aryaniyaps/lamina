@@ -231,8 +231,9 @@ positive capability claim.
 allocate exactly 24 rows per tier: 10 identity rows, 8 semantic/source rows,
 and 6 accepted-state rows. The 31 registered mutations cover every mutation
 kind in each tier plus the small bounded handler control. The authoring
-projection reproduces the frozen JSON byte-for-byte, while the pending receipt
-separately seals collections, request/scenario pairs, expectations/rationales,
+projection reproduces the frozen JSON byte-for-byte, while the accepted
+independent-review receipt separately seals collections, request/scenario pairs,
+expectations/rationales,
 mutations, gates, and the unchanged retrieval-v1 held-out identities (160
 Workflow rows and 80 source rows). These are fixture-consistency and grader-
 mechanics checks, not candidate measurements.

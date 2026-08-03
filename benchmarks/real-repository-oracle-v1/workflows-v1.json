@@ -1,16 +1,16 @@
 {
   "schema": "lamina.real-repository-oracle-workflows/v1",
-  "purpose": "candidate_visible_synthetic_persona_walks_with_lexical_surface_grounding_only_pending_private_review_receipt",
+  "purpose": "candidate_visible_synthetic_persona_walks_with_lexical_surface_grounding_and_accepted_private_review_receipt",
   "authority": {
     "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
     "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
     "evidence_selection_raw_sha256": "338540672264c5bd2bd98164fa120e6cceea6ac5408fcb7c77986d786d70f7d2",
-    "review_status": "pending_private_review_receipt",
+    "review_status": "accepted_private_review_receipt",
     "review_scopes": [
       { "id": "workflow-semantic-review-a", "scope": "synthetic_product_contracts_and_persona_walks" },
       { "id": "workflow-semantic-review-b", "scope": "lexical_surface_grounding_and_non_derivation_boundary" }
     ],
-    "implementation_ready_meaning": "all_declared_target_and_proof_ids_resolve_within_seed_only_pending_private_review_receipt",
+    "implementation_ready_meaning": "all_declared_target_and_proof_ids_resolve_within_seed_only_under_accepted_private_review_receipt_not_implementation_correctness_product_quality_runtime_readiness_or_independent_real_repository_truth",
     "evidence_expansion_reports": {
       "small": { "report_sha256": "30c9b02d50a2d0c7af7d3f15df8c2a9122f044118a078cbcfbb8651d454bf51a", "records_sha256": "94b5b5c49c095970e68d5a5592ca8f2584decd8a0977745341132890cd48fe58" },
       "medium": { "report_sha256": "e133903549b9e759592f31be95c84b2655d600ae8d34ac206459cc4a9ded77ba", "records_sha256": "657b93b3c9a07f51d1e1c235b800196be38027d377a0bc6a8d83b7dab2a0265d" },

@@ -57,12 +57,19 @@ const stateRow = (item) => item.kind.intent === 'new_workflow' || item.kind.inte
 
 assert.equal(loaded.raw_sha256, CASE_EXPECTATIONS_RAW_SHA256);
 assert.equal(loaded.canonical_sha256, CASE_EXPECTATIONS_CANONICAL_SHA256);
+assert.equal(CASE_EXPECTATIONS_RAW_SHA256,
+  'dfbfb99528e8e898449f169eff4932ca29666b17f2123c535161f9c1654e8b4d');
+assert.equal(CASE_EXPECTATIONS_CANONICAL_SHA256,
+  '59766f5b63c14e1da424e4749e730b13f4512d963b6f32c3407b4700f59bc86d');
 assert.equal(sha256(bytes), CASE_EXPECTATIONS_RAW_SHA256);
 assert.equal(fixtureDigest(fixture), CASE_EXPECTATIONS_CANONICAL_SHA256);
 assert.equal(fixture.cases.length, 72);
 assert.equal(fixture.mutations.length, 31);
 assert.deepEqual(CASE_EXPECTATION_REVIEW_AUTHORITY.counts,
   { tiers: 3, cases: 72, identity: 30, semantic_source: 24, state: 18, mutations: 31 });
+assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.review_status,
+  'accepted_independent_review_adjudication');
+assert.equal(CASE_EXPECTATION_REVIEW_AUTHORITY.review_decision, 'accepted');
 
 const sectionValues = {
   collections_sha256: fixture.collections,

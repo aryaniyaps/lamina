@@ -11,6 +11,11 @@ const loaded = loadWorkflowSeed();
 assert.equal(loaded.raw_sha256, WORKFLOW_SEED_RAW_SHA256);
 assert.equal(loaded.canonical_sha256, WORKFLOW_SEED_CANONICAL_SHA256);
 assert.deepEqual(validateWorkflowSeed(loaded.seed), { valid: true, errors: [] });
+assert.equal(loaded.seed.purpose,
+  'candidate_visible_synthetic_persona_walks_with_lexical_surface_grounding_and_accepted_private_review_receipt');
+assert.equal(loaded.seed.authority.review_status, 'accepted_private_review_receipt');
+assert.equal(loaded.seed.authority.implementation_ready_meaning,
+  'all_declared_target_and_proof_ids_resolve_within_seed_only_under_accepted_private_review_receipt_not_implementation_correctness_product_quality_runtime_readiness_or_independent_real_repository_truth');
 assert.deepEqual(loaded.seed.collections.map((item) => [item.fixture_id, item.workflows.length]), [
   ['small', 5], ['medium', 5], ['large', 5],
 ]);

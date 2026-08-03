@@ -50,8 +50,8 @@ export function semanticMappingReceiptMatches(actualDigest = semanticCaseMapping
     && SEMANTIC_CASE_MAPPING_CANONICAL_SHA256 === RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256;
 }
 export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
-  review_status: 'pending_independent_review_adjudication',
-  review_decision: 'not_yet_accepted',
+  review_status: 'accepted_independent_review_adjudication',
+  review_decision: 'accepted',
   fixture_raw_sha256: CASE_EXPECTATIONS_RAW_SHA256,
   fixture_canonical_sha256: CASE_EXPECTATIONS_CANONICAL_SHA256,
   baseline_manifest_sha256: BASELINE_MANIFEST_SHA256,

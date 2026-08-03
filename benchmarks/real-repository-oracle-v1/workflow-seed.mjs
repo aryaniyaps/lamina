@@ -32,8 +32,8 @@ const PUBLIC_PINS = Object.freeze({
   large: Object.freeze({ repository_url: 'https://github.com/makeplane/plane.git', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f', tree_oid: '382c6539083af65e86cdddbffd4e09884773e64e' }),
 });
 
-export const WORKFLOW_SEED_RAW_SHA256 = '60742b0625506632a7a7010ec66f2624424fadc37100a8e8a0deafd0564f934b';
-export const WORKFLOW_SEED_CANONICAL_SHA256 = 'fee8f4a6c4ef3ea6e12b741e52f8fcd4092682f5dcfb9afbbca20ab8a8a927e9';
+export const WORKFLOW_SEED_RAW_SHA256 = 'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d';
+export const WORKFLOW_SEED_CANONICAL_SHA256 = '6392d0ca49c9c06ad9c3c2a4bdee170b1fa8e47a01a85ae142135f78e6326625';
 export const WORKFLOW_SEED_SCHEMA = 'lamina.real-repository-oracle-workflows/v1';
 
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
@@ -219,7 +219,7 @@ export function validateWorkflowSeed(seed) {
   if (!boundedStructure(seed)) errors.push('Workflow seed exceeds bounded arrays, strings, object width, or depth');
   if (!exactKeys(seed, ['schema', 'purpose', 'authority', 'collections'])
     || seed.schema !== WORKFLOW_SEED_SCHEMA
-    || seed.purpose !== 'candidate_visible_synthetic_persona_walks_with_lexical_surface_grounding_only_pending_private_review_receipt') {
+    || seed.purpose !== 'candidate_visible_synthetic_persona_walks_with_lexical_surface_grounding_and_accepted_private_review_receipt') {
     return { valid: false, errors: ['Workflow seed root is not the exact candidate-visible review schema'] };
   }
   if (containsForbiddenKey(seed)) errors.push('Workflow seed contains request-to-answer or golden-ranking fields');
@@ -234,8 +234,8 @@ export function validateWorkflowSeed(seed) {
     || seed.authority.baseline_manifest_sha256 !== PUBLIC_AUTHORITY.baseline_manifest_sha256
     || seed.authority.candidate_policy_sha256 !== PUBLIC_AUTHORITY.candidate_policy_sha256
     || seed.authority.evidence_selection_raw_sha256 !== PUBLIC_AUTHORITY.evidence_selection_raw_sha256
-    || seed.authority.implementation_ready_meaning !== 'all_declared_target_and_proof_ids_resolve_within_seed_only_pending_private_review_receipt'
-    || seed.authority.review_status !== 'pending_private_review_receipt'
+    || seed.authority.implementation_ready_meaning !== 'all_declared_target_and_proof_ids_resolve_within_seed_only_under_accepted_private_review_receipt_not_implementation_correctness_product_quality_runtime_readiness_or_independent_real_repository_truth'
+    || seed.authority.review_status !== 'accepted_private_review_receipt'
     || JSON.stringify(seed.authority.review_scopes) !== JSON.stringify([
       { id: 'workflow-semantic-review-a', scope: 'synthetic_product_contracts_and_persona_walks' },
       { id: 'workflow-semantic-review-b', scope: 'lexical_surface_grounding_and_non_derivation_boundary' },
