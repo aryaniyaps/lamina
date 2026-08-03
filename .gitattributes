@@ -1,3 +1,5 @@
 benchmarks/real-repository-oracle-v1/reviews/*.json text eol=lf
 benchmarks/real-repository-oracle-v1/workflows-v1.json text eol=lf
+benchmarks/real-repository-oracle-v1/candidate-contract.mjs text eol=lf
+benchmarks/real-repository-oracle-v1/workflow-seed.mjs text eol=lf
 packages/cli/lib/observation-runtime/node.mjs text eol=lf

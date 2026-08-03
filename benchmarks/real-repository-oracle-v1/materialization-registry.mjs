@@ -81,13 +81,17 @@ export function createMaterializationRegistry(materializer) {
   }
   const active = new Map();
   const issued = new Set();
-  return Object.freeze({
+  let closed = false;
+  const registry = {
     async prepare(scenario, collection) {
+      if (closed) throw new Error('materialization registry is closed');
       const frozenScenario = frozenClone(scenario);
       const frozenCollection = frozenClone(collection);
       return assertBase(await materializer.prepare(frozenScenario, frozenCollection), frozenScenario, frozenCollection);
     },
     async lease(base, context) {
+      if (closed) throw new Error('materialization registry is closed');
+      if (active.size) throw new Error('only one physical repository lease may be active');
       const raw = await materializer.lease(frozenClone(base), frozenClone(context));
       const publicLease = assertLease(raw, base);
       if (issued.has(publicLease.opaque_handle)) throw new Error('materializer reused a writable lease handle');
@@ -96,18 +100,33 @@ export function createMaterializationRegistry(materializer) {
       return publicLease;
     },
     resolve(opaqueHandle) {
+      if (closed) throw new Error('materialization registry is closed');
       const authority = active.get(opaqueHandle);
       if (!authority) throw new Error('repository lease handle is unknown or no longer active');
       return materializer.resolve(authority.raw);
     },
     async verifyAndRelease(lease) {
+      if (closed) throw new Error('materialization registry is closed');
       const authority = active.get(lease.opaque_handle);
       if (!authority) throw new Error('repository lease handle is unknown or already released');
+      const released = assertRelease(await materializer.verifyAndRelease(authority.raw), lease);
       active.delete(lease.opaque_handle);
-      return assertRelease(await materializer.verifyAndRelease(authority.raw), lease);
+      return released;
     },
     assertEmpty() {
       if (active.size) throw new Error(`${active.size} repository leases remain active`);
     },
-  });
+  };
+  if (typeof materializer.close === 'function') {
+    registry.close = async () => {
+      if (closed) throw new Error('materialization registry is already closed');
+      if (active.size) throw new Error(`${active.size} repository leases remain active`);
+      await materializer.close();
+      closed = true;
+    };
+  }
+  if (typeof materializer.recoveryAuthority === 'function') {
+    registry.recoveryAuthority = () => frozenClone(materializer.recoveryAuthority());
+  }
+  return Object.freeze(registry);
 }
