@@ -161,7 +161,10 @@ jobs:
       - name: Verify Linux release installer and checksum rejection
         env:
           LAMINA_RELEASE_DIR: ${{ github.workspace }}/dist
-        run: node tests/release_artifact_smoke_test.mjs
+        run: |
+          node tests/release_artifact_smoke_test.mjs
+          node scripts/measure-linux-install-footprint.mjs
+          LAMINA_OFFLINE_SMOKE=1 node tests/linux_packaging_contract_test.mjs
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
