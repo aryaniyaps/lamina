@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import {
   CANDIDATE_ADAPTER_SCHEMA,
@@ -9,6 +11,7 @@ import {
   CANDIDATE_RAW_MAX_CANONICAL_BYTES,
   CANDIDATE_RAW_SCHEMA,
   PERSONA_PROBE_EVIDENCE_SCHEMA,
+  canonicalCandidateValue,
   candidatePublicInputDigest,
   candidateRawArtifactDigest,
   createCandidatePublicBatch,
@@ -65,7 +68,9 @@ assert.throws(
 );
 const parsedPublic = parseCandidatePublicBatchBytes(publicBytes);
 assert.deepEqual(parsedPublic.batch, batch);
-assert.deepEqual(parsedPublic.canonical_bytes, publicBytes);
+assert.equal(parsedPublic.canonical_json, publicBytes.toString('utf8'));
+assert.equal(parsedPublic.canonical_byte_length, publicBytes.length);
+assert.equal('canonical_bytes' in parsedPublic, false, 'parse metadata exposes no mutable canonical Buffer');
 assert.equal(parsedPublic.canonical_sha256, sha256(publicBytes));
 assert.equal(parsedPublic.batch.requests[0].request, '  Preserve this request exactly.  ');
 assert.equal(publicBytes[0], 0x7b, 'canonical transport is direct JSON rather than a compressed envelope');
@@ -106,7 +111,9 @@ assert.throws(
 );
 const parsedRaw = parseCandidateRawArtifactBytes(rawBytes, batch);
 assert.deepEqual(parsedRaw.artifact, artifact);
-assert.deepEqual(parsedRaw.canonical_bytes, rawBytes);
+assert.equal(parsedRaw.canonical_json, rawBytes.toString('utf8'));
+assert.equal(parsedRaw.canonical_byte_length, rawBytes.length);
+assert.equal('canonical_bytes' in parsedRaw, false, 'parse metadata exposes no mutable canonical Buffer');
 assert.equal(parsedRaw.canonical_sha256, candidateRawArtifactDigest(artifact, batch));
 assert.equal(parsedRaw.artifact.first[0].result.source_ranking[0].symbol, '  exactSymbol  ');
 assert.equal(rawBytes[0], 0x7b);
@@ -116,6 +123,70 @@ const schema = JSON.parse(fs.readFileSync(
 ));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 assert.equal(validateSchema(artifact), true, JSON.stringify(validateSchema.errors));
+
+function withResultPath(location, value) {
+  const candidate = clone(artifact);
+  const body = candidate.first[0].result;
+  if (location === 'persona_probe') {
+    candidate.persona_probe.observations[0].path = value;
+    candidate.persona_probe.observations_sha256 = sha256(Buffer.from(
+      JSON.stringify(canonicalCandidateValue(candidate.persona_probe.observations)),
+    ));
+  } else if (location === 'source_ranking') body.source_ranking[0].path = value;
+  else if (location === 'observations') body.observations[0].path = value;
+  else if (location === 'obligations') body.obligations[0].path = value;
+  else if (location === 'change_path') body.repository_state.changes = [{
+    kind: 'renamed', path: value, original_path: 'src/original.ts', xy: 'R.', submodule: 'N...',
+  }];
+  else if (location === 'change_original_path') body.repository_state.changes = [{
+    kind: 'renamed', path: 'src/renamed.ts', original_path: value, xy: 'R.', submodule: 'N...',
+  }];
+  return candidate;
+}
+
+const pathLocations = [
+  'persona_probe', 'source_ranking', 'observations', 'obligations', 'change_path', 'change_original_path',
+];
+const validPaths = [
+  'a'.repeat(1024),
+  'a'.repeat(4096),
+  'é'.repeat(512),
+  'é'.repeat(2048),
+];
+for (const location of pathLocations) {
+  for (const validPath of validPaths) {
+    const candidate = withResultPath(location, validPath);
+    assert.equal(Buffer.byteLength(validPath, 'utf8') <= 4096, true);
+    assert.deepEqual(validateCandidateRawArtifact(candidate, batch), { valid: true, errors: [] },
+      `${location} must preserve the established 4096-byte path authority`);
+    assert.equal(validateSchema(candidate), true,
+      `${location} manually valid path must be accepted by the syntactic schema: ${JSON.stringify(validateSchema.errors)}`);
+  }
+}
+
+const syntacticallyUnsafePaths = [
+  '', 'a'.repeat(4097), '/absolute.ts', 'C:/drive.ts', 'C:drive.ts', 'a\\b.ts', 'a//b.ts',
+  '.', '..', './a.ts', '../a.ts', 'a/./b.ts', 'a/../b.ts', 'trailing/',
+  'line\nbreak.ts', 'tab\tpath.ts', `nul${String.fromCharCode(0)}path.ts`,
+  `del${String.fromCharCode(0x7f)}path.ts`,
+];
+for (const location of pathLocations) {
+  for (const unsafePath of syntacticallyUnsafePaths) {
+    const candidate = withResultPath(location, unsafePath);
+    assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /unsafe|invalid/,
+      `${location} must reject unsafe path ${JSON.stringify(unsafePath)}`);
+    assert.equal(validateSchema(candidate), false,
+      `${location} syntactically unsafe path must also fail the schema`);
+  }
+}
+const overByteMultibytePath = `${'é'.repeat(2048)}a`;
+assert.equal(Buffer.byteLength(overByteMultibytePath, 'utf8'), 4097);
+for (const location of pathLocations) {
+  const candidate = withResultPath(location, overByteMultibytePath);
+  assert.match(validateCandidateRawArtifact(candidate, batch).errors.join('; '), /unsafe|invalid/);
+  assert.equal(validateSchema(candidate), true,
+    'the schema is intentionally a character-count syntactic superset of byte-aware manual authority');
+}
 
 const unknownBatch = clone(batch);
 unknownBatch.controller_note = 'not public';
@@ -174,6 +245,46 @@ const badProbeDigest = clone(artifact);
 badProbeDigest.persona_probe.observations_sha256 = 'f'.repeat(64);
 assert.match(validateCandidateRawArtifact(badProbeDigest, batch).errors.join('; '), /positive digest-bound personas/);
 
+let deeplyNested = { leaf: 'bounded' };
+for (let depth = 0; depth < 3_100; depth += 1) deeplyNested = { next: deeplyNested };
+const deepPublic = clone(batch);
+deepPublic.implementation = deeplyNested;
+assert.doesNotThrow(() => validateCandidatePublicBatch(deepPublic));
+assert.match(validateCandidatePublicBatch(deepPublic).errors.join('; '), /structure depth/);
+assert.throws(() => candidatePublicInputDigest(deepPublic), /structure depth/);
+assert.throws(() => canonicalCandidateValue(deeplyNested), /structure depth/);
+const deepRaw = clone(artifact);
+deepRaw.first = deeplyNested;
+assert.doesNotThrow(() => validateCandidateRawArtifact(deepRaw, batch));
+assert.match(validateCandidateRawArtifact(deepRaw, batch).errors.join('; '), /structure depth/);
+
+const flatBatch = createCandidatePublicBatch({
+  tier: 'small', implementation: adapter,
+  requests: [{ nonce: '3'.repeat(64), order: 1, request: 'Exercise declared flat result geometry.' }],
+});
+const flatResult = result();
+flatResult.source_ranking = Array.from({ length: 6_000 }, (_, index) => ({
+  path: `src/ranked-${index}.ts`, symbol: null,
+}));
+flatResult.observations = Array.from({ length: 84_000 }, () => ({ category: 'routes', id: 'route' }));
+flatResult.obligations = Array.from({ length: 256 }, () => ({ category: 'implementation', id: 'work' }));
+const flatArtifact = clone(artifact);
+flatArtifact.public_input_sha256 = flatBatch.public_input_sha256;
+flatArtifact.first = [row(flatBatch.requests[0], flatResult)];
+flatArtifact.replay = [row(flatBatch.requests[0], flatResult)];
+assert.deepEqual(validateCandidateRawArtifact(flatArtifact, flatBatch), { valid: true, errors: [] },
+  'large flat data remains accepted through every declared array maximum');
+assert.ok(serializeCandidateRawArtifact(flatArtifact, flatBatch).length < CANDIDATE_RAW_MAX_CANONICAL_BYTES);
+const overSourceCap = clone(artifact);
+overSourceCap.public_input_sha256 = flatBatch.public_input_sha256;
+const overSourceResult = result();
+overSourceResult.source_ranking = Array.from({ length: 6_001 }, (_, index) => ({
+  path: `src/over-${index}.ts`, symbol: null,
+}));
+overSourceCap.first = [row(flatBatch.requests[0], overSourceResult)];
+overSourceCap.replay = [row(flatBatch.requests[0], overSourceResult)];
+assert.match(validateCandidateRawArtifact(overSourceCap, flatBatch).errors.join('; '), /source_ranking is invalid/);
+
 const overflowRequests = Array.from({ length: 32 }, (_, index) => ({
   nonce: sha256(Buffer.from(`nonce-${index}`)), order: index + 1, request: `request ${index}`,
 }));
@@ -189,16 +300,67 @@ assert.ok(Buffer.byteLength(JSON.stringify(overflow)) > CANDIDATE_RAW_MAX_CANONI
 assert.match(validateCandidateRawArtifact(overflow, overflowBatch).errors.join('; '), /16 MiB canonical byte bound/);
 assert.throws(() => parseCandidateRawArtifactBytes(Buffer.from(JSON.stringify(overflow)), overflowBatch), /byte bound/);
 
-const candidateSource = fs.readFileSync(
-  new URL('../benchmarks/real-repository-oracle-v1/candidate-contract.mjs', import.meta.url), 'utf8');
-const projectionSource = fs.readFileSync(
-  new URL('../benchmarks/real-repository-oracle-v1/workflow-seed.mjs', import.meta.url), 'utf8');
-const imports = [...candidateSource.matchAll(/^import[\s\S]*?from\s+['"]([^'"]+)['"];$/gm)].map((match) => match[1]);
-const projectionImports = [...projectionSource.matchAll(/^import[^\n]+from\s+['"]([^'"]+)['"];$/gm)].map((match) => match[1]);
-assert.deepEqual(imports, ['node:crypto', './workflow-seed.mjs']);
-assert.deepEqual(projectionImports.sort(), ['node:crypto', 'node:fs']);
-for (const source of [...imports, ...projectionImports]) {
-  assert.doesNotMatch(source, /fixture|receipt|grade|controller|attestation/);
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const publicEntry = 'benchmarks/real-repository-oracle-v1/candidate-contract.mjs';
+const allowedPublicClosure = new Set([
+  publicEntry,
+  'benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
+  'benchmarks/real-repository-oracle-v1/workflows-v1.json',
+]);
+const allowedBuiltins = new Map([
+  [publicEntry, ['node:crypto']],
+  ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs', ['node:crypto', 'node:fs']],
+]);
+const discovered = new Set();
+const pendingSources = [publicEntry];
+while (pendingSources.length) {
+  const relative = pendingSources.pop();
+  if (discovered.has(relative)) continue;
+  discovered.add(relative);
+  const source = fs.readFileSync(path.join(repositoryRoot, relative), 'utf8');
+  const staticImports = [...source.matchAll(/^import[\s\S]*?from\s+['"]([^'"]+)['"];$/gm)]
+    .map((match) => match[1]);
+  const sideEffectImports = [...source.matchAll(/^import\s+['"]([^'"]+)['"];$/gm)]
+    .map((match) => match[1]);
+  const dynamicImports = [...source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)]
+    .map((match) => match[1]);
+  const reexports = [...source.matchAll(/^export[\s\S]*?from\s+['"]([^'"]+)['"];$/gm)]
+    .map((match) => match[1]);
+  const imports = [...staticImports, ...sideEffectImports, ...dynamicImports, ...reexports];
+  const builtins = imports.filter((specifier) => specifier.startsWith('node:')).sort();
+  assert.deepEqual(builtins, allowedBuiltins.get(relative) || [], `${relative} builtin closure changed`);
+  for (const specifier of imports.filter((item) => item.startsWith('.'))) {
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(relative), specifier));
+    assert.equal(allowedPublicClosure.has(resolved), true, `${relative} imports unreviewed local source ${resolved}`);
+    pendingSources.push(resolved);
+  }
+  assert.equal(imports.some((item) => !item.startsWith('.') && !item.startsWith('node:')), false,
+    `${relative} imports an unreviewed package dependency`);
+  const urlTargets = [...source.matchAll(/new URL\(\s*['"]([^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g)]
+    .map((match) => path.posix.normalize(path.posix.join(path.posix.dirname(relative), match[1])));
+  const filesystemReadTargets = [...source.matchAll(/\b(?:fs\.)?(?:readFileSync|readFile)\(\s*([^,\n)]+)/g)]
+    .map((match) => match[1].trim());
+  if (relative === 'benchmarks/real-repository-oracle-v1/workflow-seed.mjs') {
+    assert.deepEqual(urlTargets, ['benchmarks/real-repository-oracle-v1/workflows-v1.json']);
+    assert.deepEqual(filesystemReadTargets,
+      ['WORKFLOW_FILE'], 'Workflow seed may read only its exact reviewed JSON URL');
+  } else {
+    assert.deepEqual(urlTargets, [], `${relative} gained an unreviewed local URL target`);
+    assert.deepEqual(filesystemReadTargets, [],
+      `${relative} gained a local filesystem read outside the reviewed closure`);
+  }
+  assert.doesNotMatch(source, /\brequire\s*\(/, `${relative} gained an unreviewed CommonJS dependency`);
+  for (const target of urlTargets) {
+    assert.equal(allowedPublicClosure.has(target), true, `${relative} reads unreviewed local data ${target}`);
+    discovered.add(target);
+  }
+}
+assert.deepEqual([...discovered].sort(), [...allowedPublicClosure].sort(),
+  'candidate public source/data closure must remain exact');
+for (const resolved of discovered) {
+  assert.doesNotMatch(resolved.normalize('NFKC').toLocaleLowerCase('en-US'),
+    /fixture|receipt|grade|controller|attestation/,
+    `candidate public closure contains private authority ${resolved}`);
 }
 
 console.log('real repository oracle candidate public contract passed');

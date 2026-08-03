@@ -17,8 +17,8 @@
     "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
     "nonempty": { "type": "string", "minLength": 1, "maxLength": 2048 },
     "relativePath": {
-      "type": "string", "minLength": 1, "maxLength": 1024,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*//).+$"
+      "type": "string", "minLength": 1, "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:/|$))(?!.*\\/$).+$"
     },
     "adapter": {
       "type": "object", "additionalProperties": false,

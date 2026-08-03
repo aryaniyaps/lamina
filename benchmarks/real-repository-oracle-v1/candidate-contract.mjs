@@ -12,6 +12,8 @@ export const CANDIDATE_RAW_MAX_CANONICAL_BYTES = 16 * 1024 * 1024;
 export const CANDIDATE_MAX_REQUESTS = 256;
 
 const PUBLIC_BATCH_MAX_BYTES = 4 * 1024 * 1024;
+const MAX_STRUCTURE_DEPTH = 64;
+const MAX_STRUCTURE_NODES = CANDIDATE_RAW_MAX_CANONICAL_BYTES;
 const MAX_REQUEST_BYTES = 8 * 1024;
 const MAX_STRING_BYTES = 2 * 1024;
 const MAX_RESULT_ROWS = CANDIDATE_MAX_REQUESTS;
@@ -50,11 +52,60 @@ const boundedString = (value, maximum = MAX_STRING_BYTES) => typeof value === 's
   && value.length > 0 && byteLength(value) <= maximum;
 const unique = (values) => new Set(values).size === values.length;
 
+function boundedStructure(value) {
+  const pending = [{ value, depth: 0 }];
+  const active = new WeakSet();
+  let nodes = 0;
+  while (pending.length) {
+    const current = pending.pop();
+    if (current.exit) {
+      active.delete(current.value);
+      continue;
+    }
+    nodes += 1;
+    if (nodes > MAX_STRUCTURE_NODES) {
+      return { valid: false, error: 'structure node count exceeds the bounded contract' };
+    }
+    if (current.depth > MAX_STRUCTURE_DEPTH) {
+      return { valid: false, error: 'structure depth exceeds the bounded contract' };
+    }
+    const item = current.value;
+    if (item === null || typeof item === 'string' || typeof item === 'boolean'
+      || (typeof item === 'number' && Number.isFinite(item))) continue;
+    if (!Array.isArray(item) && !isObject(item)) {
+      return { valid: false, error: 'structure contains a non-JSON value' };
+    }
+    if (Array.isArray(item) && item.length > MAX_OBSERVATIONS) {
+      return { valid: false, error: 'structure array length exceeds every declared array contract' };
+    }
+    if (active.has(item)) return { valid: false, error: 'structure contains a cycle' };
+    active.add(item);
+    pending.push({ value: item, depth: current.depth, exit: true });
+    for (const child of Object.values(item)) pending.push({ value: child, depth: current.depth + 1 });
+  }
+  return { valid: true, error: null };
+}
+
 export function canonicalCandidateValue(value) {
-  if (Array.isArray(value)) return value.map(canonicalCandidateValue);
-  if (isObject(value)) return Object.fromEntries(Object.keys(value).sort()
-    .map((key) => [key, canonicalCandidateValue(value[key])]));
-  return value;
+  const structure = boundedStructure(value);
+  if (!structure.valid) throw new Error(`Candidate value ${structure.error}`);
+  if (!Array.isArray(value) && !isObject(value)) return value;
+  const result = Array.isArray(value) ? new Array(value.length) : {};
+  const pending = [{ source: value, target: result }];
+  while (pending.length) {
+    const { source, target } = pending.pop();
+    const keys = Array.isArray(source) ? Object.keys(source) : Object.keys(source).sort();
+    for (const key of keys) {
+      const child = source[key];
+      if (Array.isArray(child) || isObject(child)) {
+        target[key] = Array.isArray(child) ? new Array(child.length) : {};
+        pending.push({ source: child, target: target[key] });
+      } else {
+        target[key] = child;
+      }
+    }
+  }
+  return result;
 }
 
 function canonicalBytes(value) {
@@ -62,9 +113,12 @@ function canonicalBytes(value) {
 }
 
 function deepFreeze(value) {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
+  const pending = [value];
+  while (pending.length) {
+    const current = pending.pop();
+    if (!current || typeof current !== 'object' || Object.isFrozen(current)) continue;
+    for (const child of Object.values(current)) pending.push(child);
+    Object.freeze(current);
   }
   return value;
 }
@@ -73,28 +127,33 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function privateKey(value, { skipTierSeed = false } = {}, at = '$') {
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const found = privateKey(value[index], { skipTierSeed: false }, `${at}[${index}]`);
-      if (found) return found;
+function privateKey(value, { skipTierSeed = false } = {}) {
+  const pending = [{ value, at: '$', root: true }];
+  while (pending.length) {
+    const current = pending.pop();
+    if (Array.isArray(current.value)) {
+      for (let index = current.value.length - 1; index >= 0; index -= 1) {
+        pending.push({ value: current.value[index], at: `${current.at}[${index}]`, root: false });
+      }
+      continue;
     }
-    return null;
-  }
-  if (!isObject(value)) return null;
-  for (const [key, child] of Object.entries(value)) {
-    if (skipTierSeed && at === '$' && key === 'tier_seed') continue;
-    const normalized = key.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^a-z0-9]/g, '');
-    if (PRIVATE_KEY_PARTS.some((part) => normalized.includes(part))) return `${at}.${key}`;
-    const found = privateKey(child, { skipTierSeed: false }, `${at}.${key}`);
-    if (found) return found;
+    if (!isObject(current.value)) continue;
+    const entries = Object.entries(current.value);
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const [key, child] = entries[index];
+      if (skipTierSeed && current.root && key === 'tier_seed') continue;
+      const normalized = key.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^a-z0-9]/g, '');
+      if (PRIVATE_KEY_PARTS.some((part) => normalized.includes(part))) return `${current.at}.${key}`;
+      pending.push({ value: child, at: `${current.at}.${key}`, root: false });
+    }
   }
   return null;
 }
 
 function safeRelativePath(value) {
-  if (!boundedString(value, 1024) || value.includes('\0') || value.includes('\\')
-    || value.startsWith('/') || /^[A-Za-z]:/.test(value) || value.includes('//')) return false;
+  if (!boundedString(value, 4096) || /[\u0000-\u001f\u007f]/u.test(value) || value.includes('\\')
+    || value.startsWith('/') || /^[A-Za-z]:/.test(value) || value.includes('//')
+    || value.endsWith('/')) return false;
   return value.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
@@ -118,6 +177,8 @@ export function candidatePublicInputDigest(batch) {
 
 export function validateCandidatePublicBatch(batch) {
   const errors = [];
+  const structure = boundedStructure(batch);
+  if (!structure.valid) return { valid: false, errors: [`Candidate public batch ${structure.error}`] };
   const leaked = privateKey(batch, { skipTierSeed: true });
   if (leaked) errors.push(`Candidate public batch contains a private controller key at ${leaked}`);
   if (!exactKeys(batch, ['schema', 'tier', 'implementation', 'public_input_sha256', 'requests', 'tier_seed'])) {
@@ -195,7 +256,8 @@ export function parseCandidatePublicBatchBytes(bytes) {
   if (!bytes.equals(serialized)) throw new Error('Candidate public batch bytes are not canonical JSON');
   return Object.freeze({
     batch: deepFreeze(batch),
-    canonical_bytes: serialized,
+    canonical_json: serialized.toString('utf8'),
+    canonical_byte_length: serialized.length,
     canonical_sha256: sha256(serialized),
   });
 }
@@ -294,6 +356,8 @@ export function validateCandidateRawArtifact(artifact, publicBatch) {
   const errors = [];
   const batchValidation = validateCandidatePublicBatch(publicBatch);
   if (!batchValidation.valid) return { valid: false, errors: ['Expected public batch is invalid'] };
+  const structure = boundedStructure(artifact);
+  if (!structure.valid) return { valid: false, errors: [`Candidate raw artifact ${structure.error}`] };
   const leaked = privateKey(artifact);
   if (leaked) errors.push(`Candidate raw artifact contains a private controller key at ${leaked}`);
   if (!exactKeys(artifact, ['schema', 'public_input_sha256', 'adapter', 'persona_probe', 'first', 'replay'])) {
@@ -344,5 +408,10 @@ export function parseCandidateRawArtifactBytes(bytes, publicBatch) {
   assertValid(validateCandidateRawArtifact(artifact, publicBatch), 'Candidate raw artifact');
   const serialized = serializeCandidateRawArtifact(artifact, publicBatch);
   if (!bytes.equals(serialized)) throw new Error('Candidate raw artifact bytes are not canonical JSON');
-  return Object.freeze({ artifact: deepFreeze(artifact), canonical_bytes: serialized, canonical_sha256: sha256(serialized) });
+  return Object.freeze({
+    artifact: deepFreeze(artifact),
+    canonical_json: serialized.toString('utf8'),
+    canonical_byte_length: serialized.length,
+    canonical_sha256: sha256(serialized),
+  });
 }
