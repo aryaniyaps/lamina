@@ -14,7 +14,7 @@ import {
   maxObservationAttempts,
   runtimeBudgetFromEnvironment,
 } from './runtime-budget.mjs';
-import { releaseGraphdBeforeObservation } from './runtime-lifecycle.mjs';
+import { releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
 
 const ignore = [
   '**/.git/**', '**/.lamina/runs/**', '**/.lamina/runtime/**', '**/.lamina/runtime-cli/**',
@@ -110,6 +110,7 @@ async function observationStatus(cwd, product, generation, timeout = 10_000) {
  * standalone release. The Node backend remains an explicit development switch.
  */
 export async function runObservation({ cwd = process.cwd(), live = false, invalidate = false, discover = false } = {}) {
+  return runWithRuntimeLifecycle(cwd, async ({ cancellation } = {}) => {
   const runtimeBudget = runtimeBudgetFromEnvironment();
   const backend = process.env.LAMINA_OBSERVATION_BACKEND || COCOINDEX_BACKEND;
   if (![COCOINDEX_BACKEND, NODE_BACKEND].includes(backend)) {
@@ -117,7 +118,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
     error.code = 'LAMINA_OBSERVATION_UNAVAILABLE';
     throw error;
   }
-  await releaseGraphdBeforeObservation(cwd);
+  await releaseGraphdBeforeObservation(cwd, { force: invalidate });
   const paths = await ensureGraphd(cwd);
   const invalidation = invalidate
     ? await graphRequest('observation.invalidate', { product: paths.product }, cwd)
@@ -129,7 +130,9 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   const runWorker = async (attempt) => {
     try {
       if (backend === COCOINDEX_BACKEND) {
-        const result = runCocoIndex({ paths, generation, live, ignore, extractorDigest });
+        const result = await runCocoIndex({
+          paths, generation, live, ignore, extractorDigest, cancellation,
+        });
         workerDiagnostics.push({ attempt, ok: true, ...result });
       } else {
         await observeNode({
@@ -145,6 +148,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       return true;
     } catch (error) {
       if (error.code === 'LAMINA_OBSERVATION_UNAVAILABLE') throw error;
+      if (error.code === 'LAMINA_OBSERVATION_CANCELLED') throw error;
       workerDiagnostics.push({
         attempt,
         ok: false,
@@ -272,4 +276,5 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       limitations: observed.limitations,
     } : undefined,
   };
+  }, { live, mutation: true });
 }

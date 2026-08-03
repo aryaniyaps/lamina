@@ -243,6 +243,25 @@ export class RetrievalStore {
       this.connection.initSync();
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     }
+    this.recoverInterruptedPendingGenerations();
+  }
+
+  recoverInterruptedPendingGenerations() {
+    const pending = this.query(
+      'MATCH (p:RetrievalPending) RETURN p.identity AS identity, p.generation AS generation',
+    );
+    if (!pending.length) return { recovered: 0 };
+    this.transaction(() => {
+      for (const row of pending) {
+        this.query(
+          'MATCH (m:RetrievalMember) WHERE m.identity = $identity AND m.generation = $generation DELETE m',
+          row,
+        );
+        this.query('MATCH (p:RetrievalPending {identity: $identity}) DELETE p', { identity: row.identity });
+      }
+    });
+    try { this.connection.querySync('CHECKPOINT'); } catch {}
+    return { recovered: pending.length };
   }
 
   close() {
