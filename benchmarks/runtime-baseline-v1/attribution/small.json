@@ -1,0 +1,352 @@
+{
+  "schema": "lamina.runtime-baseline-attribution/v1",
+  "generated_at": "2026-08-03T16:29:39.634Z",
+  "fixture": {
+    "id": "small",
+    "commit": "9506629ed003a561c6627735480cce4994244bb4",
+    "url": "https://github.com/alan2207/bulletproof-react.git"
+  },
+  "lamina_commit": "8cf5761dea0acef618a4577ebd21ad8a11685b70",
+  "host": {
+    "platform": "linux",
+    "release": "7.0.0-28-generic",
+    "architecture": "x64",
+    "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+    "memory_bytes": 65562333184
+  },
+  "lifecycle_phases": [
+    "doctor",
+    "status",
+    "startup",
+    "observation",
+    "retrieval_readiness",
+    "preparation",
+    "noop_sync",
+    "incremental_change",
+    "rebuild",
+    "idle",
+    "shutdown",
+    "cleanup"
+  ],
+  "scenario_phase_map": {
+    "footprint": [],
+    "doctor-status-startup": [
+      "doctor",
+      "status",
+      "startup"
+    ],
+    "initial-observation": [
+      "startup",
+      "observation"
+    ],
+    "initial-retrieval-readiness": [
+      "observation",
+      "retrieval_readiness"
+    ],
+    "first-useful-preparation": [
+      "observation",
+      "retrieval_readiness",
+      "preparation"
+    ],
+    "warm-preparation": [
+      "preparation"
+    ],
+    "noop-synchronization": [
+      "noop_sync"
+    ],
+    "one-file-change": [
+      "incremental_change",
+      "retrieval_readiness"
+    ],
+    "multi-file-change": [
+      "incremental_change",
+      "retrieval_readiness"
+    ],
+    "full-derived-state-rebuild": [
+      "rebuild",
+      "retrieval_readiness"
+    ],
+    "post-command-idle-rss": [
+      "idle"
+    ],
+    "cancellation-shutdown-cleanup": [
+      "observation",
+      "shutdown",
+      "cleanup"
+    ]
+  },
+  "scenarios": [
+    {
+      "scenario": "footprint",
+      "status": "valid",
+      "phase_ids": [],
+      "phase_time_ns": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "subprocess_launches": {
+        "graphd": 0,
+        "cocoindex_worker": 0,
+        "onnx_embedder": 0,
+        "cli": 0,
+        "other": 0
+      },
+      "descendant_peaks_by_phase": {},
+      "product": null,
+      "safe_runner": {
+        "outcome": "success",
+        "limit": null,
+        "duration_ms": 6480,
+        "peak_pids": 16,
+        "peak_memory_bytes": 404983808,
+        "descendants_by_role": {
+          "cli": {
+            "processes": 4,
+            "peak_threads": 1,
+            "peak_rss_bytes": 5607424,
+            "first_seen_ms": 1454,
+            "last_seen_ms": 5779
+          },
+          "observation_worker": {
+            "processes": 1,
+            "peak_threads": 7,
+            "peak_rss_bytes": 145215488,
+            "first_seen_ms": 2526,
+            "last_seen_ms": 5779
+          },
+          "asset_extraction_worker": {
+            "processes": 2,
+            "peak_threads": 1,
+            "peak_rss_bytes": 39276544,
+            "first_seen_ms": 3028,
+            "last_seen_ms": 3779
+          },
+          "other": {
+            "processes": 7,
+            "peak_threads": 2,
+            "peak_rss_bytes": 19705856,
+            "first_seen_ms": 4029,
+            "last_seen_ms": 5779
+          }
+        },
+        "descendant_count": 14
+      }
+    },
+    {
+      "scenario": "doctor-status-startup",
+      "status": "valid",
+      "phase_ids": [
+        "doctor",
+        "status",
+        "startup"
+      ],
+      "phase_time_ns": [
+        64399510,
+        null,
+        406465677,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "subprocess_launches": {
+        "graphd": 0,
+        "cocoindex_worker": 0,
+        "onnx_embedder": 0,
+        "cli": 2,
+        "other": 0
+      },
+      "descendant_peaks_by_phase": {},
+      "safe_runner": {
+        "outcome": "success",
+        "limit": null,
+        "duration_ms": 7466,
+        "peak_pids": 46,
+        "peak_memory_bytes": 404975616,
+        "descendants_by_role": {
+          "cli": {
+            "processes": 6,
+            "peak_threads": 7,
+            "peak_rss_bytes": 56610816,
+            "first_seen_ms": 1399,
+            "last_seen_ms": 6818
+          },
+          "observation_worker": {
+            "processes": 1,
+            "peak_threads": 7,
+            "peak_rss_bytes": 155045888,
+            "first_seen_ms": 2563,
+            "last_seen_ms": 6818
+          },
+          "asset_extraction_worker": {
+            "processes": 2,
+            "peak_threads": 22,
+            "peak_rss_bytes": 61935616,
+            "first_seen_ms": 3064,
+            "last_seen_ms": 4314
+          },
+          "other": {
+            "processes": 7,
+            "peak_threads": 1,
+            "peak_rss_bytes": 19738624,
+            "first_seen_ms": 4565,
+            "last_seen_ms": 6318
+          },
+          "graphd": {
+            "processes": 1,
+            "peak_threads": 29,
+            "peak_rss_bytes": 203976704,
+            "first_seen_ms": 6568,
+            "last_seen_ms": 6818
+          }
+        },
+        "descendant_count": 17
+      }
+    },
+    {
+      "scenario": "initial-observation",
+      "status": "invalid",
+      "phase_ids": [
+        "startup",
+        "observation"
+      ],
+      "phase_time_ns": null,
+      "subprocess_launches": null,
+      "descendant_peaks_by_phase": null,
+      "product": null,
+      "safe_runner": {
+        "outcome": "safety_limit_exceeded",
+        "limit": "pids",
+        "duration_ms": 10403,
+        "peak_pids": 48,
+        "peak_memory_bytes": 716034048,
+        "descendants_by_role": {
+          "cli": {
+            "processes": 6,
+            "peak_threads": 7,
+            "peak_rss_bytes": 56147968,
+            "first_seen_ms": 1419,
+            "last_seen_ms": 9772
+          },
+          "observation_worker": {
+            "processes": 3,
+            "peak_threads": 7,
+            "peak_rss_bytes": 154931200,
+            "first_seen_ms": 2510,
+            "last_seen_ms": 9772
+          },
+          "asset_extraction_worker": {
+            "processes": 2,
+            "peak_threads": 22,
+            "peak_rss_bytes": 45400064,
+            "first_seen_ms": 3012,
+            "last_seen_ms": 3763
+          },
+          "other": {
+            "processes": 11,
+            "peak_threads": 1,
+            "peak_rss_bytes": 19685376,
+            "first_seen_ms": 4013,
+            "last_seen_ms": 8019
+          },
+          "graphd": {
+            "processes": 1,
+            "peak_threads": 29,
+            "peak_rss_bytes": 394637312,
+            "first_seen_ms": 6018,
+            "last_seen_ms": 9772
+          }
+        },
+        "descendant_count": 23
+      }
+    }
+  ],
+  "dominant_costs": [
+    {
+      "label": "graphd startup",
+      "peak_threads": 29,
+      "peak_rss_bytes": 394637312,
+      "scenarios": [
+        "doctor-status-startup",
+        "initial-observation"
+      ]
+    },
+    {
+      "label": "CocoIndex worker",
+      "peak_threads": 22,
+      "peak_rss_bytes": 155045888,
+      "scenarios": [
+        "doctor-status-startup",
+        "footprint",
+        "initial-observation"
+      ]
+    },
+    {
+      "label": "CLI dispatch",
+      "peak_threads": 7,
+      "peak_rss_bytes": 56610816,
+      "scenarios": [
+        "doctor-status-startup",
+        "footprint",
+        "initial-observation"
+      ]
+    },
+    {
+      "label": "other",
+      "peak_threads": 2,
+      "peak_rss_bytes": 19738624,
+      "scenarios": [
+        "doctor-status-startup",
+        "footprint",
+        "initial-observation"
+      ]
+    }
+  ],
+  "refusal_envelopes": [
+    {
+      "scenario": "initial-observation",
+      "outcome": "safety_limit_exceeded",
+      "limit": "pids",
+      "peak_pids": 48,
+      "peak_memory_bytes": 716034048,
+      "dominant_roles": [
+        {
+          "role": "graphd",
+          "peak_threads": 29
+        },
+        {
+          "role": "asset_extraction_worker",
+          "peak_threads": 22
+        },
+        {
+          "role": "cli",
+          "peak_threads": 7
+        },
+        {
+          "role": "observation_worker",
+          "peak_threads": 7
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Descendant peaks are sampled per lifecycle phase inside the workload and aggregated across the safe-runner report.",
+    "Thread counts are sampled diagnostics, not simultaneous guarantees.",
+    "PID-limit refusals report envelope peaks only; they are not valid latency measurements."
+  ]
+}

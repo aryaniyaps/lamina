@@ -27,6 +27,10 @@ import {
   WARMUP_SAMPLES,
   WORKLOAD_SCHEMA,
 } from './contract.mjs';
+import {
+  compactProductAttribution,
+  createPhaseTracker,
+} from './attribution-contract.mjs';
 
 assertSafeRunnerContext('real-repository runtime baseline');
 
@@ -327,6 +331,20 @@ function cli(repository, args, options = {}) {
   }
 }
 
+function runTrackedCli(tracker, repository, args, options = {}) {
+  tracker.recordCliLaunch();
+  return cli(repository, args, options);
+}
+
+function attachProductDiagnostics(diagnostics, value, tracker) {
+  const product = compactProductAttribution(value);
+  if (product) {
+    diagnostics.product_attribution = product;
+    tracker.mergeProductAttribution(product);
+  }
+  return diagnostics;
+}
+
 async function seedGraph(repository) {
   const workflow = 'workflow.baseline';
   const operation = 'operation.baseline.inspect';
@@ -485,6 +503,7 @@ function changeFiles(repository, count) {
 async function runSample({ fixture, manifest, source, scenario, index }) {
   const repository = freshRepository(source, fixture, scenario, index);
   const metadata = repositoryMetadata(repository, manifest, fixture);
+  const tracker = createPhaseTracker(scenario);
   let seeded = null;
   let measurement;
   let diagnostics = {};
@@ -492,67 +511,99 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
     if (!['doctor-status-startup'].includes(scenario)) seeded = await seedGraph(repository);
     if (scenario === 'doctor-status-startup') {
       const started = process.hrtime.bigint();
-      const doctor = timeSync(() => cli(repository, ['doctor', '--json']));
-      const status = timeSync(() => cli(repository, ['graph', 'status']));
+      tracker.begin('doctor');
+      const doctor = timeSync(() => runTrackedCli(tracker, repository, ['doctor', '--json']));
+      tracker.end();
+      tracker.begin('startup');
+      const status = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'status']));
+      tracker.end();
       measurement = {
         wall_time_ns: Number(process.hrtime.bigint() - started),
         value: { doctor: doctor.value, status: status.value },
       };
-      diagnostics = {
+      diagnostics = attachProductDiagnostics({
         doctor_wall_time_ns: doctor.wall_time_ns,
         status_and_graphd_startup_wall_time_ns: status.wall_time_ns,
         graph_version: status.value.graph_version || null,
-      };
+      }, status.value, tracker);
     } else if (scenario === 'initial-observation') {
-      measurement = timeSync(() => cli(repository, ['graph', 'observe']));
-      diagnostics = compactDiagnostics(measurement.value);
+      tracker.begin('observation');
+      measurement = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'observe']));
+      tracker.end();
+      diagnostics = attachProductDiagnostics(compactDiagnostics(measurement.value), measurement.value, tracker);
       if (diagnostics.source_key_count !== metadata.observation_indexed_files) {
         fail('observation indexed count contradicts the pinned candidate set', { diagnostics, metadata });
       }
     } else if (scenario === 'initial-retrieval-readiness') {
-      cli(repository, ['graph', 'observe']);
-      measurement = timeSync(() => cli(repository, ['context', 'rebuild']));
-      diagnostics = {
+      tracker.begin('observation');
+      runTrackedCli(tracker, repository, ['graph', 'observe']);
+      tracker.end();
+      tracker.begin('retrieval_readiness');
+      measurement = timeSync(() => runTrackedCli(tracker, repository, ['context', 'rebuild']));
+      tracker.end();
+      diagnostics = attachProductDiagnostics({
         ...compactDiagnostics(measurement.value),
         inventory: await recordRetrievalInventory(repository, metadata),
-      };
+      }, measurement.value, tracker);
     } else if (scenario === 'first-useful-preparation') {
-      cli(repository, ['graph', 'observe']);
+      tracker.begin('observation');
+      runTrackedCli(tracker, repository, ['graph', 'observe']);
+      tracker.end();
       const output = path.join(repository, '.git', 'lamina', 'work', 'packet.json');
+      tracker.begin('preparation');
       measurement = timeSync(() => assertUsefulPacket(
-        cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
+        runTrackedCli(tracker, repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
         seeded.workflow,
       ));
-      diagnostics = {
+      tracker.end();
+      diagnostics = attachProductDiagnostics({
         ...compactDiagnostics(measurement.value),
         inventory: await recordRetrievalInventory(repository, metadata),
-      };
+      }, measurement.value, tracker);
     } else if (scenario === 'one-file-change' || scenario === 'multi-file-change') {
       const changed = changeFiles(repository, scenario === 'one-file-change' ? 1 : 5);
+      tracker.begin('incremental_change');
       measurement = timeSync(() => ({
-        observation: cli(repository, ['graph', 'observe']),
-        retrieval: cli(repository, ['context', 'rebuild']),
+        observation: runTrackedCli(tracker, repository, ['graph', 'observe']),
+        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
       }));
+      tracker.end();
       diagnostics = {
-        observation: compactDiagnostics(measurement.value.observation),
+        observation: attachProductDiagnostics(
+          compactDiagnostics(measurement.value.observation),
+          measurement.value.observation,
+          tracker,
+        ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
         changed_files: changed,
         inventory: await recordRetrievalInventory(repository, metadata),
       };
     } else if (scenario === 'full-derived-state-rebuild') {
-      cli(repository, ['graph', 'observe']);
-      cli(repository, ['context', 'rebuild']);
+      tracker.begin('observation');
+      runTrackedCli(tracker, repository, ['graph', 'observe']);
+      tracker.end();
+      tracker.begin('retrieval_readiness');
+      runTrackedCli(tracker, repository, ['context', 'rebuild']);
+      tracker.end();
+      tracker.begin('rebuild');
       measurement = timeSync(() => ({
-        observation: cli(repository, ['graph', 'rebuild-observations']),
-        retrieval: cli(repository, ['context', 'rebuild']),
+        observation: runTrackedCli(tracker, repository, ['graph', 'rebuild-observations']),
+        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
       }));
+      tracker.end();
       diagnostics = {
-        observation: compactDiagnostics(measurement.value.observation),
+        observation: attachProductDiagnostics(
+          compactDiagnostics(measurement.value.observation),
+          measurement.value.observation,
+          tracker,
+        ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
         inventory: await recordRetrievalInventory(repository, metadata),
       };
     } else if (scenario === 'post-command-idle-rss') {
-      cli(repository, ['graph', 'status']);
+      tracker.begin('startup');
+      runTrackedCli(tracker, repository, ['graph', 'status']);
+      tracker.end();
       const pid = (await graphdIdentity(repository)).pid;
       const readRss = () => {
         try {
@@ -560,6 +611,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
           return Number(line?.match(/\d+/)?.[0] || 0) * 1024;
         } catch { return 0; }
       };
+      tracker.begin('idle');
       const started = process.hrtime.bigint();
       const rssSamples = [];
       for (let sample = 0; sample < 10; sample += 1) {
@@ -568,16 +620,19 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         if (!rssBytes) fail('graphd exited during the idle RSS window', { pid, sample });
         rssSamples.push({ index: sample, elapsed_ms: sample * 1000, rss_bytes: rssBytes });
       }
+      tracker.end();
       measurement = { wall_time_ns: Number(process.hrtime.bigint() - started), value: null };
       diagnostics = { graphd_pid: pid || null, idle_rss_samples: rssSamples, idle_window_ms: 9000 };
     } else {
       fail('scenario is not a cold sample', { scenario });
     }
+    const attribution = tracker.snapshot();
     return {
       index,
       wall_time_ns: measurement.wall_time_ns,
       repository: metadata,
       diagnostics,
+      attribution,
       cleanup: await disposeRepository(repository),
     };
   } catch (error) {
@@ -589,8 +644,11 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
 async function warmScenario({ fixture, manifest, source, scenario }) {
   const repository = freshRepository(source, fixture, scenario, 0);
   const metadata = repositoryMetadata(repository, manifest, fixture);
+  const tracker = createPhaseTracker(scenario);
   const seeded = await seedGraph(repository);
-  cli(repository, ['graph', 'observe']);
+  tracker.begin('observation');
+  runTrackedCli(tracker, repository, ['graph', 'observe']);
+  tracker.end();
   const samples = [];
   const diagnostics = [];
   const total = WARMUP_SAMPLES + WARM_SAMPLES;
@@ -599,10 +657,12 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
     for (let index = 0; index < total; index += 1) {
       let measured;
       const output = path.join(repository, '.git', 'lamina', 'work', `packet-${index}.json`);
+      tracker.begin(scenario === 'noop-synchronization' ? 'noop_sync' : 'preparation');
       measured = timeSync(() => assertUsefulPacket(
-        cli(repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
+        runTrackedCli(tracker, repository, ['work', 'prepare', '--request-file', seeded.request, '--output', output]),
         seeded.workflow,
       ));
+      tracker.end();
       if (scenario === 'noop-synchronization') {
         const current = {
           generation: measured.value.retrieval.generation,
@@ -615,7 +675,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
         }
       }
       if (index >= WARMUP_SAMPLES) samples.push(measured.wall_time_ns);
-      diagnostics.push(compactDiagnostics(measured.value));
+      diagnostics.push(attachProductDiagnostics(compactDiagnostics(measured.value), measured.value, tracker));
     }
     const inventory = await recordRetrievalInventory(repository, metadata);
     return {
@@ -627,6 +687,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
       no_op_identity: noOpIdentity,
       repository: metadata,
       diagnostics: [...diagnostics.slice(-3), { inventory }],
+      attribution: tracker.snapshot(),
       cleanup: await disposeRepository(repository),
     };
   } catch (error) {
@@ -638,7 +699,9 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
 async function cancellationScenario({ fixture, manifest, source, scenario }) {
   const repository = freshRepository(source, fixture, scenario, 0);
   const metadata = repositoryMetadata(repository, manifest, fixture);
+  const tracker = createPhaseTracker(scenario);
   await seedGraph(repository);
+  tracker.begin('observation');
   const child = spawn(process.execPath, [CLI, 'graph', 'observe', '--live'], {
     cwd: repository, env: childEnvironment(), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -674,6 +737,11 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
     });
   }
   const cleanup = await disposeRepository(repository);
+  tracker.end();
+  tracker.begin('shutdown');
+  tracker.end();
+  tracker.begin('cleanup');
+  tracker.end();
   return {
     samples: [],
     statistics: null,
@@ -683,6 +751,7 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
       graphd_pid: daemon.pid, exit_code: code, exit_signal: signal,
       stdout_tail: stdout.slice(-512), stderr_tail: stderr.slice(-512),
     },
+    attribution: tracker.snapshot(),
     cleanup,
   };
 }
@@ -704,7 +773,12 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     const repository = freshRepository(source, fixture, scenario, 0);
     const metadata = repositoryMetadata(repository, manifest, fixture);
     const cleanup = await disposeRepository(repository);
-    payload = { samples: [], statistics: null, classification: 'static', repository: metadata, diagnostics: runtimeFootprint, cleanup };
+    payload = {
+      samples: [], statistics: null, classification: 'static', repository: metadata,
+      diagnostics: runtimeFootprint,
+      attribution: createPhaseTracker(scenario).snapshot(),
+      cleanup,
+    };
   } else if (['warm-preparation', 'noop-synchronization'].includes(scenario)) {
     payload = await warmScenario({ fixture, manifest, source, scenario });
   } else if (scenario === 'cancellation-shutdown-cleanup') {
@@ -719,6 +793,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
       measurement_unit: 'bytes',
       repository: sample.repository,
       diagnostics: [sample.diagnostics],
+      attribution: sample.attribution,
       cleanup: sample.cleanup,
     };
   } else {
@@ -730,6 +805,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
       classification: 'cold-sample',
       repository,
       diagnostics: [sample.diagnostics],
+      attribution: sample.attribution,
       cleanup: sample.cleanup,
     };
   }

@@ -189,6 +189,33 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   }
 
   const daemon = await graphdIdentity(cwd);
+  const graphdThreads = (() => {
+    if (!daemon?.pid) return null;
+    try {
+      const status = fs.readFileSync(`/proc/${daemon.pid}/status`, 'utf8');
+      const threads = Number(status.match(/^Threads:\s+(\d+)$/m)?.[1] || 0);
+      return Number.isInteger(threads) && threads > 0 ? threads : null;
+    } catch {
+      return null;
+    }
+  })();
+  const observationAttribution = {
+    backend,
+    mode: live ? 'live' : invalidate ? 'rebuild' : discover ? 'discover' : 'observe',
+    subprocess_launches: {
+      cocoindex_worker: workerDiagnostics.filter((item) => item.ok).length,
+      graphd: compatibilityRecovery ? 2 : 1,
+      cli: 0,
+      onnx_embedder: 0,
+      other: workerDiagnostics.filter((item) => !item.ok).length,
+    },
+    worker_attempts: workerDiagnostics.length,
+    graphd_pid: daemon?.pid ?? null,
+    graphd_threads: graphdThreads,
+    observation_fan_out: observed?.source_key_count ?? observed?.count ?? null,
+    ipc_round_trips: workerDiagnostics.length + (compatibilityRecovery ? 1 : 0),
+    db_checkpoints: observed?.source_key_count ?? null,
+  };
   if (!completion.complete) {
     const error = new Error('Observation runtime exited without a complete committed graphd target state.');
     error.code = 'LAMINA_OBSERVATION_INCOMPLETE';
@@ -221,6 +248,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
     generation,
     expected: observed.source_key_count,
     observed,
+    attribution: observationAttribution,
     discovery_report: discover ? {
       source_roots: observed.source_roots,
       ignored_patterns: ignore,

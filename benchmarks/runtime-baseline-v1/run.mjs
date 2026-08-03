@@ -3,12 +3,17 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runSafely } from '../../scripts/safe-runner/runner.mjs';
 import { validateReport as validateSafeRunnerReport } from '../../scripts/safe-runner/report.mjs';
 import {
   COLD_RUNS, fixtureById, loadManifest, SCENARIOS, summarizeNanoseconds,
 } from './contract.mjs';
+import {
+  buildAttributionReport,
+  writeAttributionReport,
+} from './attribution.mjs';
 import {
   validateScenarioResult, validateWorkloadRecord, workloadRecordFromReport,
 } from './validate.mjs';
@@ -129,6 +134,7 @@ async function runScenario({ root, fixture, scenario, model, worker }) {
       samples,
       statistics: summarizeNanoseconds(samples.map((sample) => sample.wall_time_ns), false),
       diagnostics: measured.flatMap((record) => record.diagnostics || []),
+      attribution: measured.at(-1)?.attribution || workload.attribution || null,
       cleanup: {
         repository_removed: measured.every((record) => record.cleanup.repository_removed),
         socket_removed: measured.every((record) => record.cleanup.socket_removed),
@@ -177,10 +183,12 @@ async function main(args) {
   const { digest: manifestDigest } = loadManifest();
   const completed = [];
   const outcomes = new Map();
+  const scenarioResults = [];
   for (const scenario of SCENARIOS) {
     const run = await runScenario({ root: output, fixture, scenario, model, worker });
     completed.push(path.basename(run.file));
     outcomes.set(scenario, run.result.status);
+    scenarioResults.push(run.result);
     if (run.result.status !== 'valid') break;
   }
   const scenarioOutcomes = SCENARIOS.map((scenario) => ({
@@ -200,7 +208,23 @@ async function main(args) {
     complete,
   };
   fs.writeFileSync(path.join(output, 'index.json'), stableJson(index), { flag: 'wx', mode: 0o600 });
-  process.stdout.write(stableJson({ output, ...index }));
+  const attributionReport = buildAttributionReport({
+    fixture,
+    laminaCommit: spawnSync('git', ['rev-parse', 'HEAD'], { cwd: REPOSITORY, encoding: 'utf8' }).stdout.trim(),
+    host: index.host,
+    scenarioResults,
+    artifactRoot: output,
+    generatedAt: index.generated_at,
+  });
+  const attributionDestination = path.join(output, 'attribution.json');
+  writeAttributionReport(attributionReport, attributionDestination);
+  const committedAttribution = path.join(HERE, 'attribution', `${fixture.id}.json`);
+  writeAttributionReport(attributionReport, committedAttribution, { overwrite: true });
+  process.stdout.write(stableJson({
+    output,
+    attribution: path.relative(REPOSITORY, committedAttribution),
+    ...index,
+  }));
   return index.complete ? 0 : 2;
 }
 
