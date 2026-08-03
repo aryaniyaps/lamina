@@ -129,37 +129,102 @@ function loadedClosure(nodeIdentity) {
   return { entries, loader: loader.source, ldd };
 }
 
-function externalRuntimeClosure(nodeIdentity) {
-  assertTrustedBinaryIdentity(nodeIdentity);
-  const result = spawnSync(nodeIdentity.path, [
-    '-p', 'String(process.config.variables.node_relative_path || "")',
-  ], {
-    encoding: 'utf8', timeout: 2_000, maxBuffer: 64 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'], env: { LANG: 'C', LC_ALL: 'C' },
-  });
-  assertTrustedBinaryIdentity(nodeIdentity);
-  if (result.error || result.status !== 0 || result.signal || result.stderr.trim()) {
-    throw new Error('candidate runtime external closure discovery failed');
+const RUNNING_IMAGE_STABLE_FIELDS = Object.freeze([
+  'dev', 'ino', 'uid', 'gid', 'mode', 'size', 'nlink', 'mtimeNs', 'ctimeNs',
+]);
+
+function runningImageStableFields(stat) {
+  return Object.fromEntries(RUNNING_IMAGE_STABLE_FIELDS.map((field) => [field, String(stat[field])]));
+}
+
+function sameRunningImage(left, right) {
+  return JSON.stringify(runningImageStableFields(left))
+    === JSON.stringify(runningImageStableFields(right));
+}
+
+function hashOpenDescriptor(descriptor, size) {
+  const hash = crypto.createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  let offset = 0;
+  while (offset < size) {
+    const count = fs.readSync(descriptor, buffer, 0, Math.min(buffer.length, size - offset), offset);
+    if (count === 0) throw new Error('running process image ended while hashing');
+    hash.update(buffer.subarray(0, count));
+    offset += count;
   }
-  if (!result.stdout.trim().split(':').some((item) => item === 'share/nodejs')) return [];
-  const sandboxTargets = [
-    '/usr/share/nodejs/acorn-walk/dist/walk.js',
-    '/usr/share/nodejs/acorn/dist/acorn.js',
-    '/usr/share/nodejs/cjs-module-lexer/dist/lexer.js',
-    '/usr/share/nodejs/cjs-module-lexer/lexer.js',
-    '/usr/share/nodejs/minimatch/dist/cjs/index.bundle.js',
-    '/usr/share/nodejs/undici/undici-fetch.js',
-  ];
-  const external = [];
-  for (const sandboxTarget of sandboxTargets) {
-    let identity;
-    try { identity = runtimeLibraryIdentity(sandboxTarget); }
-    catch {
-      throw new Error('candidate system Node external builtin closure is unavailable');
+  if (fs.readSync(descriptor, buffer, 0, 1, offset) !== 0) {
+    throw new Error('running process image exceeded its attested size');
+  }
+  return hash.digest('hex');
+}
+
+function assertRunningProcessImageIdentity(expected) {
+  if (expected?.authority !== 'running-process-image-fd' || expected.pid !== process.pid) {
+    throw new Error('candidate runtime running-process authority changed');
+  }
+  const descriptor = fs.openSync('/proc/self/exe', fs.constants.O_RDONLY);
+  try {
+    const before = fs.fstatSync(descriptor, { bigint: true });
+    const linked = fs.statSync('/proc/self/exe', { bigint: true });
+    const size = Number(before.size);
+    if (!before.isFile() || !sameRunningImage(before, linked)
+      || !Number.isSafeInteger(size) || size < 1 || size > MAX_RUNTIME_BYTES
+      || JSON.stringify(runningImageStableFields(before)) !== JSON.stringify(expected.stable)
+      || hashOpenDescriptor(descriptor, size) !== expected.digest) {
+      throw new Error('candidate runtime running-process image identity changed');
     }
-    external.push({ source: identity.path, sandbox_target: sandboxTarget, identity });
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (!sameRunningImage(before, after)) {
+      throw new Error('candidate runtime running-process image changed while hashing');
+    }
+    return expected;
+  } finally {
+    fs.closeSync(descriptor);
   }
-  return external;
+}
+
+function sealRunningProcessImage(destination) {
+  const input = fs.openSync('/proc/self/exe', fs.constants.O_RDONLY);
+  const output = fs.openSync(destination, fs.constants.O_WRONLY | fs.constants.O_CREAT
+    | fs.constants.O_EXCL, 0o500);
+  try {
+    const before = fs.fstatSync(input, { bigint: true });
+    const linked = fs.statSync('/proc/self/exe', { bigint: true });
+    const size = Number(before.size);
+    if (!before.isFile() || !sameRunningImage(before, linked)
+      || !Number.isSafeInteger(size) || size < 1 || size > MAX_RUNTIME_BYTES) {
+      throw new Error('candidate runtime cannot attest the running process image');
+    }
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let offset = 0;
+    while (offset < size) {
+      const count = fs.readSync(input, buffer, 0, Math.min(buffer.length, size - offset), offset);
+      if (count === 0) throw new Error('running process image ended while sealing');
+      hash.update(buffer.subarray(0, count));
+      fs.writeSync(output, buffer, 0, count, offset);
+      offset += count;
+    }
+    if (fs.readSync(input, buffer, 0, 1, offset) !== 0) {
+      throw new Error('running process image exceeded its attested size');
+    }
+    fs.fsyncSync(output);
+    const after = fs.fstatSync(input, { bigint: true });
+    const linkedAfter = fs.statSync('/proc/self/exe', { bigint: true });
+    if (!sameRunningImage(before, after) || !sameRunningImage(after, linkedAfter)) {
+      throw new Error('running process image changed while sealing');
+    }
+    const identity = Object.freeze({
+      authority: 'running-process-image-fd',
+      pid: process.pid,
+      stable: Object.freeze(runningImageStableFields(after)),
+      digest: hash.digest('hex'),
+    });
+    return identity;
+  } finally {
+    fs.closeSync(output);
+    fs.closeSync(input);
+  }
 }
 
 function snapshotRecords(root) {
@@ -191,20 +256,7 @@ function snapshotRecords(root) {
   return records;
 }
 
-export function trustedCandidateRuntimeNode({
-  platform = process.platform,
-  candidate_directories: candidateDirectories,
-} = {}) {
-  if (platform !== 'linux') {
-    throw new Error('candidate runtime node selection requires Linux root-owned authority');
-  }
-  return trustedRootHostBinary('node', candidateDirectories);
-}
-
-export function buildCandidateRuntimeSnapshot({
-  snapshot_root: snapshotRoot,
-  node_candidate_directories: nodeCandidateDirectories,
-} = {}) {
+export function buildCandidateRuntimeSnapshot({ snapshot_root: snapshotRoot } = {}) {
   if (process.platform !== 'linux') {
     throw new Error('candidate runtime snapshot construction requires Linux ELF authority');
   }
@@ -212,28 +264,28 @@ export function buildCandidateRuntimeSnapshot({
   if (fs.existsSync(snapshotRoot) || path.dirname(snapshotRoot) !== parent.path) {
     throw new Error('candidate runtime snapshot destination must be absent under its exact parent');
   }
-  const nodeIdentity = trustedCandidateRuntimeNode({
-    candidate_directories: nodeCandidateDirectories,
+  fs.mkdirSync(snapshotRoot, { mode: 0o700 });
+  const runningNodeIdentity = sealRunningProcessImage(path.join(snapshotRoot, 'node'));
+  const nodeIdentity = trustedBinaryIdentity(path.join(snapshotRoot, 'node'), {
+    expectedDigest: runningNodeIdentity.digest,
   });
   const closure = loadedClosure(nodeIdentity);
-  fs.mkdirSync(snapshotRoot, { mode: 0o700 });
-  const usedNames = new Set();
-  const files = [];
+  const usedNames = new Set(['node']);
+  const files = [{
+    role: 'node', source: '/proc/self/exe', target: 'node', sandbox_target: '/runtime/node',
+    identity: nodeIdentity,
+  }];
   for (const entry of closure.entries) {
     const { source } = entry;
-    const role = source === nodeIdentity.path ? 'node' : source === closure.loader ? 'loader' : 'library';
+    if (source === nodeIdentity.path) continue;
+    const role = source === closure.loader ? 'loader' : 'library';
     const identity = role === 'library' ? runtimeLibraryIdentity(source)
-      : source === nodeIdentity.path ? nodeIdentity : trustedBinaryIdentity(source);
-    const base = role === 'library' ? entry.target : role;
+      : trustedBinaryIdentity(source);
+    const base = role === 'library' ? entry.target : 'loader';
     if (usedNames.has(base)) throw new Error(`candidate runtime library basename collided: ${base}`);
     usedNames.add(base);
     copyExactFile(source, path.join(snapshotRoot, base), identity);
     files.push({ role, source, target: base, sandbox_target: `/runtime/${base}`, identity });
-  }
-  for (const [index, external] of externalRuntimeClosure(nodeIdentity).entries()) {
-    const target = `external-${index}`;
-    copyExactFile(external.source, path.join(snapshotRoot, target), external.identity);
-    files.push({ role: 'external-data', target, ...external });
   }
   const rootIdentity = exactPrivateDirectory(snapshotRoot, 'candidate runtime snapshot');
   const records = snapshotRecords(snapshotRoot);
@@ -254,7 +306,7 @@ export function buildCandidateRuntimeSnapshot({
     records: Object.freeze(records.map((item) => Object.freeze(item))),
     closure_sha256: digest(records),
     builder_identities: Object.freeze({
-      node: Object.freeze({ ...nodeIdentity }), ldd: Object.freeze({ ...closure.ldd }),
+      node: runningNodeIdentity, ldd: Object.freeze({ ...closure.ldd }),
     }),
   });
   ISSUED_SNAPSHOTS.add(snapshot);
@@ -269,7 +321,7 @@ export function verifyCandidateRuntimeSnapshot(snapshot) {
   if (JSON.stringify(root) !== JSON.stringify(snapshot.root_identity)) {
     throw new Error('candidate runtime snapshot root identity changed');
   }
-  assertTrustedBinaryIdentity(snapshot.builder_identities.node);
+  assertRunningProcessImageIdentity(snapshot.builder_identities.node);
   assertTrustedBinaryIdentity(snapshot.builder_identities.ldd);
   for (const file of snapshot.files) assertRuntimeSourceIdentity(file.identity);
   const records = snapshotRecords(snapshot.root);

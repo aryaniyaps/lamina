@@ -24,11 +24,6 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Install trusted candidate runtime
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nodejs
       - uses: astral-sh/setup-uv@v9.0.0
       - uses: actions/setup-python@v6
         with:
@@ -82,11 +77,6 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Install trusted candidate runtime
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nodejs
       - uses: astral-sh/setup-uv@v9.0.0
       - uses: actions/setup-python@v6
         with:

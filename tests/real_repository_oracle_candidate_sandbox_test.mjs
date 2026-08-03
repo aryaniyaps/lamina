@@ -9,7 +9,6 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   buildCandidateRuntimeSnapshot,
-  trustedCandidateRuntimeNode,
   verifyCandidateRuntimeSnapshot,
 } from '../benchmarks/real-repository-oracle-v1/candidate-runtime-closure.mjs';
 import {
@@ -31,6 +30,8 @@ const ADAPTER_FIXTURE = path.join(ROOT,
   'tests/fixtures/real-repository-candidate-adapter.mjs');
 const SUPERVISOR_HELPER = path.join(ROOT,
   'tests/fixtures/real-repository-candidate-supervisor-helper.mjs');
+const RUNTIME_BUILDER_HELPER = path.join(ROOT,
+  'tests/fixtures/real-repository-runtime-builder-helper.mjs');
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
@@ -93,18 +94,6 @@ assert.throws(() => candidateBubblewrapArguments({
   mount_plan: pureMountPlan, adapter_entrypoint: 'adapter.mjs', platform: 'darwin',
 }), /requires Linux/);
 
-for (const [workflow, expectedInstallSteps] of [
-  ['.github/workflows/eval-spec.yml', 1],
-  ['.github/workflows/cli-test.yml', 1],
-  ['.github/workflows/publish-cli.yml', 2],
-]) {
-  const source = fs.readFileSync(path.join(ROOT, workflow), 'utf8');
-  assert.equal(source.split('- name: Install trusted candidate runtime').length - 1,
-    expectedInstallSteps, `${workflow} provisions every Linux candidate-sandbox consumer`);
-  assert.equal(source.split('sudo apt-get install --yes --no-install-recommends nodejs').length - 1,
-    expectedInstallSteps, `${workflow} uses the signed distro Node package`);
-}
-
 if (process.platform !== 'linux') {
   console.log('real repository oracle candidate sandbox portable contracts passed; Linux integration skipped');
   process.exit(0);
@@ -114,14 +103,6 @@ const temporary = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-candidate-sandbox-test-'),
 ));
 fs.chmodSync(temporary, 0o700);
-const unsafeRuntimeDirectory = path.join(temporary, 'unsafe-runtime-bin');
-fs.mkdirSync(unsafeRuntimeDirectory, { mode: 0o700 });
-fs.writeFileSync(path.join(unsafeRuntimeDirectory, 'node'), '#!/bin/sh\nexit 0\n', {
-  mode: 0o500,
-});
-assert.throws(() => trustedCandidateRuntimeNode({
-  candidate_directories: [unsafeRuntimeDirectory],
-}), /trusted root-owned infrastructure binary is unavailable: node/);
 const adapterRoot = path.join(temporary, 'adapter');
 const repository = path.join(temporary, 'repository');
 const runtimeRoot = path.join(temporary, 'runtime');
@@ -134,15 +115,66 @@ fs.writeFileSync(path.join(repository, 'observed.txt'), 'repository-visible\n', 
 let server;
 let hostSentinel;
 let supervisorHelper;
+let runtimeBuilderHelper;
 try {
+  const replacedExecutable = path.join(temporary, 'replaceable-running-node');
+  fs.copyFileSync(process.execPath, replacedExecutable);
+  fs.chmodSync(replacedExecutable, 0o500);
+  const runningExecutableStat = fs.statSync(replacedExecutable, { bigint: true });
+  const replacementSnapshotRoot = path.join(temporary, 'replaced-path-runtime');
+  runtimeBuilderHelper = spawn(replacedExecutable, [
+    RUNTIME_BUILDER_HELPER, replacementSnapshotRoot,
+  ], { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
+  let builderOutput = '';
+  let builderError = '';
+  runtimeBuilderHelper.stdout.on('data', (chunk) => { builderOutput += chunk.toString('utf8'); });
+  runtimeBuilderHelper.stderr.on('data', (chunk) => { builderError += chunk.toString('utf8'); });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`runtime builder timeout: ${builderError}`)), 5_000);
+    const ready = (chunk) => {
+      if (!builderOutput.includes('READY\n') && !chunk.toString('utf8').includes('READY\n')) return;
+      clearTimeout(timer);
+      runtimeBuilderHelper.stdout.off('data', ready);
+      resolve();
+    };
+    runtimeBuilderHelper.stdout.on('data', ready);
+    runtimeBuilderHelper.once('error', reject);
+    runtimeBuilderHelper.once('exit', (code, signal) => reject(new Error(
+      `runtime builder exited before READY: ${code}/${signal}: ${builderError}`,
+    )));
+  });
+  const heldExecutable = `${replacedExecutable}.held`;
+  fs.renameSync(replacedExecutable, heldExecutable);
+  fs.copyFileSync(heldExecutable, replacedExecutable);
+  fs.chmodSync(replacedExecutable, 0o500);
+  assert.notEqual(String(fs.statSync(replacedExecutable, { bigint: true }).ino),
+    String(runningExecutableStat.ino));
+  const builderPid = runtimeBuilderHelper.pid;
+  const builderExit = new Promise((resolve, reject) => {
+    runtimeBuilderHelper.once('error', reject);
+    runtimeBuilderHelper.once('exit', (code, signal) => code === 0
+      ? resolve() : reject(new Error(`runtime builder failed: ${code}/${signal}: ${builderError}`)));
+  });
+  runtimeBuilderHelper.stdin.end('GO\n');
+  await builderExit;
+  runtimeBuilderHelper = null;
+  const builderResult = JSON.parse(builderOutput.trim().split('\n').at(-1));
+  assert.equal(builderResult.authority, 'running-process-image-fd');
+  assert.equal(builderResult.pid, builderPid);
+  assert.equal(builderResult.source_ino, String(runningExecutableStat.ino));
+  assert.equal(builderResult.source_digest, crypto.createHash('sha256')
+    .update(fs.readFileSync(heldExecutable)).digest('hex'));
+  assert.equal(builderResult.sealed_digest, builderResult.source_digest,
+    'runtime sealing follows the kernel-held executable inode, not its replaced pathname');
+
   const runtime = buildCandidateRuntimeSnapshot({ snapshot_root: runtimeRoot });
   assert.equal(verifyCandidateRuntimeSnapshot(runtime), runtime);
   assert.ok(runtime.files.some((item) => item.role === 'node'));
   assert.ok(runtime.files.some((item) => item.role === 'loader'));
   assert.ok(runtime.files.filter((item) => item.role === 'library').length >= 1);
   assert.match(runtime.closure_sha256, /^[a-f0-9]{64}$/);
-  assert.equal(runtime.builder_identities.node.root_owned_path, true);
-  assert.equal(runtime.builder_identities.node.uid, 0);
+  assert.equal(runtime.builder_identities.node.authority, 'running-process-image-fd');
+  assert.equal(runtime.builder_identities.node.pid, process.pid);
   for (const field of ['dev', 'ino', 'uid', 'nlink', 'mode', 'bytes', 'sha256']) {
     assert.ok(Object.hasOwn(runtime.records[0], field), `runtime records retain exact ${field}`);
   }
@@ -437,6 +469,9 @@ try {
   delete process.env.NODE_OPTIONS;
   if (supervisorHelper?.exitCode === null && supervisorHelper?.signalCode === null) {
     try { supervisorHelper.kill('SIGKILL'); } catch {}
+  }
+  if (runtimeBuilderHelper?.exitCode === null && runtimeBuilderHelper?.signalCode === null) {
+    try { runtimeBuilderHelper.kill('SIGKILL'); } catch {}
   }
   if (server) await new Promise((resolve) => server.close(resolve));
   if (hostSentinel) {
