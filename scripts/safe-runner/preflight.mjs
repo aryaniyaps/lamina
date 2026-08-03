@@ -471,6 +471,9 @@ export function preflightRun({
     && !exactOracleHostProfile) {
     reasons.push('oracle-host probe requires its exact workload id, small tier, and tiny bounded limits');
   }
+  if (exactOracleHostProfile && promotionRequested) {
+    reasons.push('non-gradeable oracle-host probe cannot be promoted');
+  }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
   if (!retry.ok && retry.previous) {

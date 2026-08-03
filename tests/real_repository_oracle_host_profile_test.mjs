@@ -58,6 +58,14 @@ const exact = preflightRun({
 });
 assert.equal(exact.launch_profile, ORACLE_HOST_LAUNCH_PROFILE);
 assert.equal(exact.reasons.some((reason) => reason.includes('oracle-host probe requires')), false);
+const promotionRefusal = preflightRun({
+  tier: 'small', command, cwd: ROOT, overrides: limits, adapterInfo,
+  injectedExistingProcesses: [], workloadId: REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID,
+  promotionRequested: true,
+});
+assert.equal(promotionRefusal.ok, false);
+assert.match(promotionRefusal.reasons.join('\n'), /non-gradeable oracle-host probe cannot be promoted/);
+assert.equal(promotionRefusal.launch_profile, ORACLE_HOST_LAUNCH_PROFILE);
 for (const crossed of [
   { tier: 'small', workloadId: 'real-repository-oracle-v1:scenario-verification' },
   { tier: 'small', workloadId: REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID,

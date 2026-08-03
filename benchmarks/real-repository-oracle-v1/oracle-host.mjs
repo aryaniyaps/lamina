@@ -122,24 +122,24 @@ function waitForRelease(file) {
   } finally { fs.closeSync(descriptor); }
 }
 
-async function terminateKeeper(child, outer, keeper) {
-  const closed = once(child, 'close');
-  try { process.kill(keeper.pid, 'SIGKILL'); } catch {}
-  try { child.kill('SIGTERM'); } catch {}
-  await Promise.race([closed, new Promise((resolve) => setTimeout(resolve, 750))]);
-  try { process.kill(outer.pid, 'SIGKILL'); } catch {}
-  try { process.kill(keeper.pid, 'SIGKILL'); } catch {}
-  await Promise.race([closed, new Promise((resolve) => setTimeout(resolve, 750))]);
-  const deadline = Date.now() + 1_000;
-  while (Date.now() < deadline) {
-    try { processIdentity(outer.pid); }
-    catch {
-      try { processIdentity(keeper.pid); }
-      catch { return; }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+function releaseKeeperGate(child) {
+  if (!child.stdin.destroyed && !child.stdin.writableEnded) child.stdin.end();
+}
+
+export async function terminateKeeper(child, { timeoutMs = 1_500 } = {}) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const closed = once(child, 'close').then(() => true);
+  releaseKeeperGate(child);
+  let timeout = null;
+  let exited;
+  try {
+    exited = await Promise.race([closed, new Promise((resolve) => {
+      timeout = setTimeout(() => resolve(false), timeoutMs);
+    })]);
+  } finally { clearTimeout(timeout); }
+  if (!exited) {
+    throw new Error('oracle keeper did not close after its owned block gate was released');
   }
-  throw new Error('oracle keeper identities did not die within bound');
 }
 
 export function oracleHostResult({ proof, usage, release, finish }) {
@@ -157,7 +157,7 @@ export function oracleHostResult({ proof, usage, release, finish }) {
     proc_anchor_released: finish.proc_anchor_released === true,
     limitations: [
       'untrusted candidate execution and grading are unreachable in this probe',
-      'same-UID ambient pathname replacement is unsupported and blocks materializer or grading use',
+      'same-UID ambient pathname replacement and proof-broker requester impersonation remain unsupported denial-of-service or state-race surfaces; the runner terminal tuple prevents false success',
       'Git realpath cannot consume the proc-acquired quota descriptor as a repository path',
       'bwrap 0.11.1 sibling --bind-fd cannot consume the proc-acquired quota descriptor',
     ],
@@ -195,7 +195,7 @@ export async function main(exactArguments = []) {
     const release = (await brokerRequest(invocation.profile.broker_socket, {
       operation: 'release_oracle_quota', requester,
     })).release;
-    await terminateKeeper(child, outer, keeper);
+    await terminateKeeper(child);
     const finish = (await brokerRequest(invocation.profile.broker_socket, {
       operation: 'finish_oracle_quota', requester,
     })).finish;
@@ -205,10 +205,7 @@ export async function main(exactArguments = []) {
     if (Buffer.byteLength(line) >= 8 * 1024) throw new Error('oracle-host result exceeds bound');
     process.stdout.write(line);
   } catch (error) {
-    try {
-      if (keeper) process.kill(keeper.pid, 'SIGKILL');
-      child.kill('SIGKILL');
-    } catch {}
+    try { releaseKeeperGate(child); } catch {}
     throw Object.assign(new Error(`${error.message}${stderr ? `: ${stderr.trim()}` : ''}`), {
       code: error.code || 'LAMINA_SAFE_ORACLE_HOST',
     });

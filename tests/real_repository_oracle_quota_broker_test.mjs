@@ -2,8 +2,9 @@
 import assert from 'node:assert/strict';
 import { authorizeBrokerRequest } from '../scripts/safe-runner/broker.mjs';
 import {
-  oracleHostResult, validateOracleHostInvocation,
+  oracleHostResult, terminateKeeper, validateOracleHostInvocation,
 } from '../benchmarks/real-repository-oracle-v1/oracle-host.mjs';
+import { EventEmitter } from 'node:events';
 import { oracleKeeperBwrapArguments } from '../scripts/safe-runner/oracle-host-profile.mjs';
 import {
   createOracleQuotaRegistry,
@@ -169,7 +170,42 @@ assert.equal(result.cleanup_proof_issued, false);
 assert.equal(result.grading_reachable, false);
 assert.equal(result.candidate_executed, false);
 assert.ok(result.limitations.some((value) => value.includes('--bind-fd')));
+assert.ok(result.limitations.some((value) => value.includes('proof-broker requester impersonation')
+  && value.includes('terminal tuple')));
 assert.ok(Buffer.byteLength(`${JSON.stringify(result)}\n`) < 8 * 1024);
+
+const originalProcessKill = process.kill;
+const pidSignals = [];
+process.kill = (...arguments_) => { pidSignals.push(arguments_); return true; };
+try {
+  const reusedPidChild = new EventEmitter();
+  reusedPidChild.pid = 2_147_483_647;
+  reusedPidChild.exitCode = null;
+  reusedPidChild.signalCode = null;
+  let keeperGateReleases = 0;
+  reusedPidChild.stdin = {
+    end() {
+      keeperGateReleases += 1;
+      queueMicrotask(() => reusedPidChild.emit('close', 0, null));
+    },
+  };
+  await terminateKeeper(reusedPidChild, { timeoutMs: 100 });
+  assert.equal(keeperGateReleases, 1);
+  assert.deepEqual(pidSignals, [],
+    'a stored PID that may be stale or reused must never receive a PID-number signal');
+
+  const stuckChild = new EventEmitter();
+  stuckChild.pid = 2_147_483_646;
+  stuckChild.exitCode = null;
+  stuckChild.signalCode = null;
+  stuckChild.stdin = { end() {} };
+  await assert.rejects(() => terminateKeeper(stuckChild, { timeoutMs: 5 }),
+    /did not close after its owned block gate was released/);
+  assert.deepEqual(pidSignals, [],
+    'timeout must defer to exact cgroup cleanup without signaling a potentially reused PID');
+} finally {
+  process.kill = originalProcessKill;
+}
 
 const heldProof = {
   schema: 'lamina.safe-runner-oracle-quota-proof/v1', non_gradeable: true,

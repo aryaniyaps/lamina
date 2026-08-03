@@ -1139,8 +1139,9 @@ export async function runSafely({
       }
       crashBoundary('before_payload_release');
       payloadStartedMs = Date.now();
-      await releaseFifo(quotaReleaseFile);
       crashWatchdog?.update({ report_seed: report, armed: true });
+      crashBoundary('payload_armed_before_release');
+      await releaseFifo(quotaReleaseFile);
       crashBoundary('payload_released');
       tracePhase('launch:payload-released');
     } else {

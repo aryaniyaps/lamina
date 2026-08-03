@@ -50,6 +50,7 @@ import {
   trustedBinaryIdentity, trustedHostBinary, trustedRootBinaryIdentity,
 } from '../scripts/safe-runner/infrastructure.mjs';
 import { linuxGitNamespaceAuthority } from '../scripts/safe-runner/git.mjs';
+import { ORACLE_HOST_LAUNCH_PROFILE } from '../scripts/safe-runner/oracle-host-profile.mjs';
 import { commandOwnership, preflightRun, writableWorktreeProof } from '../scripts/safe-runner/preflight.mjs';
 import {
   existingLaminaProcesses, isLaminaProcessCommand, MAX_PROCESS_ENVIRONMENT_BYTES,
@@ -126,6 +127,7 @@ import {
   recordSafetyLimit,
   productionLockDirectory,
   promotionCommandDigest,
+  promotionStatus,
   repositorySourceDigest,
   sealedManifestFileIdentity,
   writeAttestation,
@@ -3232,6 +3234,22 @@ try {
     ...report,
     command: [process.execPath, path.resolve('tests/fixtures/safe-runner-adversary.mjs'), 'success'],
   };
+  const oraclePromotionRoot = path.join(root, 'oracle-promotion-refusal');
+  fs.mkdirSync(oraclePromotionRoot);
+  const oracleEvidence = {
+    ...auditedEvidence,
+    preflight: {
+      launch_profile: ORACLE_HOST_LAUNCH_PROFILE,
+      execution_snapshot: { launch_profile: ORACLE_HOST_LAUNCH_PROFILE },
+    },
+  };
+  assert.throws(() => recordPromotion(
+    oraclePromotionRoot, 'small', oracleEvidence, 'oracle-host-direct-write',
+    oracleEvidence.command, { digest: 'd'.repeat(64) },
+  ), /non-gradeable oracle-host evidence cannot be promoted/);
+  assert.deepEqual(promotionStatus(oraclePromotionRoot, 'oracle-host-direct-write'), {
+    completed: [], value: null,
+  }, 'the authoritative write seam must not mutate the promotion ledger');
   recordPromotion(root, 'small', auditedEvidence, 'unit-workload', auditedEvidence.command);
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', auditedEvidence.command).ok, true);
   assert.equal(checkPromotion(root, 'medium', 'unit-workload', [

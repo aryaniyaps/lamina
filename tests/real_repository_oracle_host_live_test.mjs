@@ -8,6 +8,7 @@ import { adapterProbe } from '../scripts/safe-runner/adapter.mjs';
 import { infrastructureBinaries } from '../scripts/safe-runner/infrastructure.mjs';
 import { runSafely } from '../scripts/safe-runner/runner.mjs';
 import { ORACLE_HOST_PROBE_WORKLOAD_ID } from '../scripts/safe-runner/oracle-host-profile.mjs';
+import { promotionStatus } from '../scripts/safe-runner/state.mjs';
 
 if (process.platform !== 'linux') {
   console.log('real repository oracle-host end-to-end live test skipped outside Linux');
@@ -42,6 +43,16 @@ const limits = {
   outputMaxBytes: 64 * 1024,
 };
 try {
+  const promotedReport = await runSafely({
+    command: [process.execPath, ENTRYPOINT, 'probe-oracle-host'],
+    tier: 'small', cwd: ROOT, reportFile: path.join(reportRoot, 'promote-refused.json'),
+    overrides: limits, workloadId: ORACLE_HOST_PROBE_WORKLOAD_ID, promote: true,
+  });
+  assert.equal(promotedReport.outcome, 'preflight_refused');
+  assert.equal(promotedReport.termination.reason, 'preflight_refused');
+  assert.match(promotedReport.error.message, /non-gradeable oracle-host probe cannot be promoted/);
+  assert.deepEqual(promotionStatus(ROOT, ORACLE_HOST_PROBE_WORKLOAD_ID).completed, []);
+
   const reportFile = path.join(reportRoot, 'normal.json');
   const report = await runSafely({
     command: [process.execPath, ENTRYPOINT, 'probe-oracle-host'],
