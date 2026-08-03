@@ -47,7 +47,6 @@ export function applyRuntimeBudgetToEnvironment(baseEnv = process.env, budget = 
   return {
     ...baseEnv,
     LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '1',
-    LAMINA_OBSERVATION_BACKEND: 'node',
     LAMINA_RUNTIME_GRAPHD_THREADS: String(budget.graphd_threads),
     LAMINA_RUNTIME_WORKER_THREADS: String(budget.worker_threads),
     LAMINA_RUNTIME_OBSERVATION_WORKERS: String(budget.observation_workers_max),

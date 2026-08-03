@@ -1,6 +1,6 @@
 # ADR 015: Practical runtime architecture
 
-- Status: Draft (Slice 3 — Spike evidence recorded; Decision in Slice 4)
+- Status: Accepted
 - Date: 2026-08-03
 - Tracks: [#49](https://github.com/aryaniyaps/lamina/issues/49) epic, [#52](https://github.com/aryaniyaps/lamina/issues/52) open ADR, [#60](https://github.com/aryaniyaps/lamina/issues/60) baseline
 - Related: [ADR-012](012-use-local-hybrid-retrieval.md), [ADR-014](014-crash-safe-resource-supervision.md), [runtime baseline v1](../../benchmarks/runtime-baseline-v1/BASELINE.md), [attribution report](../../benchmarks/runtime-baseline-v1/attribution/small.json)
@@ -388,22 +388,107 @@ worker (88.7 MiB) still required for production observation until #53/#56.
 
 ---
 
-## Open questions (for Slice 3–4)
-
-1. What minimum `TasksMax` headroom does small observation require after caps
-   (target: stable completion at ≤ 56 tasks with margin)?
-2. Does observation worker fan-out come from parallel extractors, retries, or
-   generation overlap — and which #53 lifecycle rule removes it?
-3. If Spike 2 fails #51 held-out gates, what is the cheapest hybrid dense stage
-   (Family C) that stays within post-Spike-1 resource envelope?
-4. At medium fixture scale, which descendant role grows fastest — informing
-   #54 incremental observation vs #55 index sync split?
-
----
-
 ## Decision
 
-*Intentionally omitted — Slice 4 will record the selected architecture,
-component retain/replace/remove, memory/concurrency policy, offline asset
-strategy, rejected alternatives with spike evidence, and component budgets
-summing to #49 gates.*
+Adopt **Family D + A**: bounded process topology and explicit concurrency caps
+while **retaining ADR-012 hybrid retrieval** (exact id/alias, Ladybug FTS/BM25,
+shared INT8 ONNX embeddings, reciprocal-rank fusion, exact graph closure).
+graphd remains the sole Ladybug writer; CocoIndex performs chunking and ONNX
+inference through `retrieval.apply` without opening databases.
+
+Spike evidence:
+[`da-bounded-topology.json`](../../benchmarks/runtime-baseline-v1/spikes/da-bounded-topology.json),
+[`b-lexical-first.json`](../../benchmarks/runtime-baseline-v1/spikes/b-lexical-first.json).
+
+### Component retain / replace / remove
+
+| Component | Verdict | Notes |
+| --- | --- | --- |
+| Canonical graph (`graph.lbdb`) + graphd | **Retain** | Single writer; atomic publication |
+| ADR-012 hybrid retrieval (FTS + dense + fusion) | **Retain** | Spike 2 failed BM25-only gates |
+| INT8 ONNX model + manifest | **Retain** | 161.9 MiB; mandatory for dense leg |
+| Native CocoIndex worker (chunking + ONNX) | **Retain** | 88.7 MiB; observation + retrieval |
+| Node observation backend | **Replace** (Phase 2) | Spike-only unblock; production uses bounded CocoIndex |
+| Unbounded native thread pools (graphd, worker) | **Replace** | `runtime-budget.mjs` caps + #53 Ladybug pool binding |
+| Multi-worker observation fan-out + retries | **Replace** | Single worker per generation; bounded retries |
+| Overlapping graphd trees (seed + observe) | **Replace** | Deferred compat recovery + lifecycle ownership |
+| Mandatory dense retrieval | **Retain** | Not removed; #56 optimizes inside hybrid |
+| Lexical-only retrieval product path | **Remove** | Spike 2: multi-Workflow 0%, Workflow R@5 below bar |
+| Cloud sync / hosted APIs | **Defer** | Optional boundary only; no implementation |
+
+### Memory and concurrency policy (8 GB / 16 GB)
+
+Host profiles derive from ADR-014 safe-runner ceilings and epic #49 gates:
+
+| Profile | Host RAM | Safe-runner `memory.max` | Epic peak RSS target | Idle RSS | `pids.max` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 8 GB | 8 GiB | 2 GiB | ≤ 2.0 GiB aggregate tree | ≤ 200 MiB | 64 (unchanged) |
+| 16 GB qualification | 16 GiB | 3 GiB (25% cap) | ≤ 1.5 GiB aggregate tree | ≤ 200 MiB | 64 |
+
+**Budget formula (#53 topology leaf):** `lamina_memory_budget = min(epic_peak, safe_runner_memory.max − reserve)` where reserve is 2 GiB on 8 GB hosts. Derive from that budget:
+
+- `graphd_threads` and `worker_threads` (default 4 each under bounded policy; Ladybug native pools bound in #53);
+- `observation_workers_max = 1` per generation;
+- `observation_retries_max = 0` unless diagnostics prove a single retry stays under task headroom;
+- queue depth, batch size, IPC buffers, and embedding batch size scaled down on 8 GB.
+
+Spike 1 completed small `initial-observation` at **47/64 tasks** with bounded policy (headroom ≈ 17 tasks). Target steady state: **≤ 56 tasks** peak with margin after #53 lifecycle leaves land.
+
+Production activation: bounded policy ships behind `LAMINA_RUNTIME_BOUNDED_TOPOLOGY=1` until #53 makes caps the default without the env gate.
+
+### Offline assets and clean-cutover (`.git/lamina`)
+
+- Ship immutable sealed assets (worker, model, tokenizer metadata) with checksum verification per ADR-012 manifest; no first-run download.
+- Mandatory install footprint **≤ 750 MiB** including hybrid assets (~250 MiB sealed overhead retained).
+- **Versioned clean-cutover** for incompatible runtime identity: detect old layouts before mutation; migrate or refuse with backup/export/reset guidance — never silently delete canonical `graph.lbdb`.
+- Disposable derived stores (`context/retrieval.lbdb`, observation generations) may be invalidated and rebuilt after identity resolution (#57 packaging leaf).
+- Offline proof: network-disabled smoke from installed artifacts (#57).
+
+### Rejected alternatives (with spike evidence)
+
+| Alternative | Verdict | Evidence |
+| --- | --- | --- |
+| **A alone** — tuned current without topology | **Rejected** | Doctor/status at 46/64 tasks before observation; thread caps insufficient |
+| **B** — structural/lexical-first (no mandatory dense) | **Rejected** for product | [`b-lexical-first.json`](../../benchmarks/runtime-baseline-v1/spikes/b-lexical-first.json): multi-Workflow 0%, Workflow R@5 0.94, source R@10 0.80 |
+| **C** — lazy/hierarchical semantics as unblock spike | **Rejected** as unblock | Refusal in observation phase before retrieval; revisit for #56 cost optimization |
+| **D alone** — topology without thread caps | **Rejected** | graphd 29 threads without OMP binding; needs Family A caps |
+| Raise `pids.max` for baseline | **Rejected** | Would measure a different product than ADR-014 qualification |
+| Weaken #51/#61 gates for spike convenience | **Rejected** | All spikes ran full contract tests |
+
+### Component budgets toward epic #49 gates
+
+| Gate | Owner | Budget / target | Spike 1 / 2 status |
+| --- | --- | --- | --- |
+| Install footprint | #57 | ≤ 750 MiB | ~405 MiB small (hybrid assets retained) |
+| Peak RSS 8 GB | #53 | ≤ 2.0 GiB tree | 915 MiB at observation valid |
+| Peak RSS 16 GB | #53 | ≤ 1.5 GiB tree | Qualify in #58 |
+| Idle RSS | #53 lifecycle | ≤ 200 MiB | #53 leaf |
+| Aggregate tasks | #53 | ≤ 64 (`pids.max`) | 47 peak post-spike |
+| Exact id/alias | ADR-012 / #55 | 100% | BM25-only 100%; hybrid retained |
+| Multi-Workflow selection | ADR-012 / #55 | ≥ 95% | BM25-only 0%; hybrid required |
+| Dense Recall@5 vs FP16 | ADR-012 / #56 | ≤ 1 pp loss | Hybrid path; dense mandatory |
+| Orphan processes | #53 lifecycle | none after shutdown | #53 leaf |
+| Warm prep p95 (16 GB) | #58 | ≤ 3s sm/med | Unmeasured until observation matrix runs |
+
+### Optional future cloud boundary (no implementation)
+
+Local runtime remains the reference implementation. A future optional cloud may expose:
+
+- observation/retrieval execution contracts with schema version, capability bits, content digests, freshness, and provenance;
+- artifact identity for worker/model bundles matching local manifests.
+
+Out of scope: authentication, tenancy, billing, sync, hosted APIs, automatic network fallback. Normal local commands must not instantiate a required network client.
+
+### Implementation sequencing (#53–#57 leaves)
+
+1. **#53** topology/memory ownership then lifecycle/cancellation/cleanup/recovery.
+2. **#54** source inventory/identity/exclusions then generations/invalidation/tombstones.
+3. **#55** index construction/sync then scoring/graph closure/query integration.
+4. **#56** evidence-based dense keep/remove decision (Spike 2: **keep**) then bounded hybrid implementation.
+5. **#57** Linux x64/arm64 packaging/cutover/offline; macOS/Windows deferred child.
+
+### Spike code disposition (Slice 4)
+
+- **Keep:** `packages/cli/lib/runtime-budget.mjs`, observation lifecycle hooks in `observe.mjs`, baseline bounded-env passthrough for measurement.
+- **Removed from default baseline path:** `LAMINA_OBSERVATION_BACKEND=node` override and `initial-observation` seedGraph skip (spike-only; reproduce via `benchmarks/runtime-baseline-v1/spikes/run-da-spike.mjs`).
+- **Phase 2:** bound CocoIndex native pools and make bounded topology the default without Node backend workaround.

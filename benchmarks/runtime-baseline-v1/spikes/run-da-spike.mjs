@@ -16,6 +16,9 @@ const OUTPUT = process.env.LAMINA_SPIKE_DA_OUTPUT
 const budgetEnv = applyRuntimeBudgetToEnvironment({
   ...process.env,
   LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '1',
+  // Spike-only unblock helpers — not default baseline or production (#52 Slice 4 ADR).
+  LAMINA_OBSERVATION_BACKEND: 'node',
+  LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED: '1',
 });
 const budget = runtimeBudgetFromEnvironment(budgetEnv);
 

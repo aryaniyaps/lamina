@@ -107,7 +107,6 @@ function childEnvironment(extra = {}) {
     ...extra,
   };
   if (process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY === '1') {
-    env.LAMINA_OBSERVATION_BACKEND = 'node';
     for (const name of [
       'LAMINA_RUNTIME_BOUNDED_TOPOLOGY',
       'LAMINA_RUNTIME_GRAPHD_THREADS',
@@ -529,7 +528,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   let diagnostics = {};
   try {
     const needsSeed = !['doctor-status-startup'].includes(scenario)
-      && !(scenario === 'initial-observation' && process.env.LAMINA_RUNTIME_BOUNDED_TOPOLOGY === '1');
+      && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1');
     if (needsSeed) seeded = await seedGraph(repository);
     if (scenario === 'doctor-status-startup') {
       const started = process.hrtime.bigint();
