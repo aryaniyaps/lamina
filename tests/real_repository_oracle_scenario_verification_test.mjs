@@ -16,6 +16,7 @@ import {
   temporaryMaxInodesForBytes,
 } from '../scripts/safe-runner/constants.mjs';
 import {
+  assertDeletedPathAbsent,
   decodeScenarioVerificationPayload, decodeScenarioVerificationReport,
   encodeScenarioVerificationPayload, executeScenario, executeScenarioForTest,
   parseScenarioPorcelainV2Z, SCENARIO_VERIFICATION_BOUNDS,
@@ -42,6 +43,38 @@ const git = (cwd, args) => {
   assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
   return String(result.stdout || '').trim();
 };
+
+const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
+const inaccessible = () => Object.assign(new Error('transient access denial'), { code: 'EPERM' });
+const waits = [];
+let absenceAttempts = 0;
+assertDeletedPathAbsent('C:/sealed/deleted.txt', {
+  platform: 'win32', attempts: 3, retryMs: 7,
+  lstat() {
+    absenceAttempts += 1;
+    if (absenceAttempts < 3) throw inaccessible();
+    throw missing;
+  },
+  wait(milliseconds) { waits.push(milliseconds); },
+});
+assert.equal(absenceAttempts, 3);
+assert.deepEqual(waits, [7, 7]);
+assert.doesNotThrow(() => assertDeletedPathAbsent('/sealed/deleted.txt', {
+  platform: 'linux', lstat() { throw missing; }, wait() { assert.fail('waited for ENOENT'); },
+}));
+assert.throws(() => assertDeletedPathAbsent('C:/sealed/replaced.txt', {
+  platform: 'win32', lstat() { return { isFile: () => true }; }, wait() {},
+}), /path remains present/);
+assert.throws(() => assertDeletedPathAbsent('C:/sealed/denied.txt', {
+  platform: 'win32', lstat() { throw Object.assign(new Error('denied'), { code: 'EACCES' }); },
+  wait() {},
+}), /denied/);
+assert.throws(() => assertDeletedPathAbsent('/sealed/denied.txt', {
+  platform: 'linux', lstat() { throw inaccessible(); }, wait() {},
+}), /transient access denial/);
+assert.throws(() => assertDeletedPathAbsent('C:/sealed/denied.txt', {
+  platform: 'win32', attempts: 2, retryMs: 0, lstat() { throw inaccessible(); }, wait() {},
+}), /absence remained inaccessible after bounded Windows retries/);
 
 const oid = '1'.repeat(40);
 const cleanStatus = `# branch.oid ${oid}\0# branch.head (detached)\0`;
@@ -443,6 +476,22 @@ try {
     ), /parent entry identity set changed beyond the intended basename/,
     `a post-unlink ${entryChange} sibling must fail the exact parent-entry proof`);
   }
+  const windowsDelete = raceRepository('delete-windows-descriptor-order');
+  const windowsDeleteScenario = { order: 3, kind: 'delete',
+    identity_sha256: sha256('delete-windows-descriptor-order'), path: 'src/a.txt',
+    blob_oid: windowsDelete.blob, original_content_sha256: sha256(windowsDelete.bytes),
+    discovery_operation_kind: 'delete', discovery_index: 0,
+    authored_operation_kind: 'delete' };
+  const windowsDeleteOrder = [];
+  executeScenarioForTest(windowsDelete.repository, windowsDelete.scratch,
+    { commit: windowsDelete.commit }, windowsDeleteScenario, {
+      delete_platform: 'win32',
+      after_delete_unlink_before_proof: () => windowsDeleteOrder.push('unlinked'),
+      after_delete_link_proof_before_windows_close: () => windowsDeleteOrder.push('link-proof'),
+      after_delete_windows_close_before_absence: () => windowsDeleteOrder.push('closed'),
+    });
+  assert.deepEqual(windowsDeleteOrder, ['unlinked', 'link-proof', 'closed'],
+    'Windows must prove the held inode unlinked before closing it for pathname absence');
   const dirtyBranch = raceRepository('branch-dirty');
   const branchScenario = { order: 4, kind: 'branch', identity_sha256: sha256('branch-dirty'),
     path: 'src/a.txt', blob_oid: dirtyBranch.blob,

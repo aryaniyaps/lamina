@@ -59,6 +59,8 @@ const PARENT_ENTRY_BOUNDS = Object.freeze({
   name_bytes: 1_024,
   total_name_bytes: 256 * 1_024,
 });
+const WINDOWS_DELETE_ABSENCE_ATTEMPTS = 8;
+const WINDOWS_DELETE_ABSENCE_RETRY_MS = 10;
 
 export const SCENARIO_VERIFICATION_SCHEMA = 'lamina.real-repository-oracle-scenario-verification/v1';
 export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scenario-verification';
@@ -84,6 +86,41 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
 const canonicalBytes = (value) => Buffer.from(JSON.stringify(canonical(value)));
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const digest = (value) => sha256(canonicalBytes(value));
+
+const boundedSynchronousWait = (milliseconds) => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+};
+
+export function assertDeletedPathAbsent(target, {
+  platform = process.platform,
+  lstat = (candidate) => fs.lstatSync(candidate),
+  wait = boundedSynchronousWait,
+  attempts = WINDOWS_DELETE_ABSENCE_ATTEMPTS,
+  retryMs = WINDOWS_DELETE_ABSENCE_RETRY_MS,
+} = {}) {
+  if (typeof target !== 'string' || !target || typeof lstat !== 'function'
+    || typeof wait !== 'function' || !Number.isSafeInteger(attempts)
+    || attempts < 1 || attempts > 32 || !Number.isSafeInteger(retryMs)
+    || retryMs < 0 || retryMs > 50) {
+    throw new Error('scenario delete absence proof options are invalid');
+  }
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    let failure = null;
+    try { lstat(target); } catch (error) { failure = error; }
+    if (failure === null) throw new Error('scenario delete path remains present');
+    if (failure?.code === 'ENOENT') return;
+    if (platform !== 'win32' || failure?.code !== 'EPERM') throw failure;
+    if (attempt === attempts) {
+      const exhausted = new Error(
+        'scenario delete path absence remained inaccessible after bounded Windows retries',
+        { cause: failure },
+      );
+      exhausted.code = 'LAMINA_SCENARIO_DELETE_ABSENCE_UNPROVEN';
+      throw exhausted;
+    }
+    wait(retryMs);
+  }
+}
 
 function checkedGit(cwd, args, { input, allowed = [0] } = {}) {
   if (!Array.isArray(args) || args.some((value) => typeof value !== 'string')) {
@@ -429,7 +466,7 @@ function appendExact(source, appendUtf8, hooks) {
 }
 
 function unlinkExact(source, hooks) {
-  const descriptor = fs.openSync(source.target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  let descriptor = fs.openSync(source.target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (!opened.isFile() || opened.dev !== source.stat.dev || opened.ino !== source.stat.ino
@@ -455,15 +492,26 @@ function unlinkExact(source, hooks) {
     if (fs.fstatSync(descriptor, { bigint: true }).nlink !== 0n) {
       throw new Error('scenario delete held descriptor remains linked');
     }
-    try { fs.lstatSync(source.target); throw new Error('scenario delete path remains present'); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    hooks.after_delete_link_proof_before_windows_close?.(Object.freeze({
+      target: source.target,
+    }));
+    const deletePlatform = hooks.delete_platform || process.platform;
+    if (deletePlatform === 'win32') {
+      const heldDescriptor = descriptor;
+      descriptor = null;
+      fs.closeSync(heldDescriptor);
+      hooks.after_delete_windows_close_before_absence?.(Object.freeze({
+        target: source.target,
+      }));
+    }
+    assertDeletedPathAbsent(source.target, { platform: deletePlatform });
     const parentEntriesAfter = parentEntryIdentitySet(source);
     const expectedEntriesAfter = parentEntriesBefore.filter((entry) => entry.name !== basename);
     if (expectedEntriesAfter.length !== parentEntriesBefore.length - 1
       || JSON.stringify(parentEntriesAfter) !== JSON.stringify(expectedEntriesAfter)) {
       throw new Error('scenario delete parent entry identity set changed beyond the intended basename');
     }
-  } finally { fs.closeSync(descriptor); }
+  } finally { if (descriptor !== null) fs.closeSync(descriptor); }
 }
 
 function verifySource(repository, scenario) {
