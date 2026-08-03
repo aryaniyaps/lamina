@@ -30,6 +30,7 @@ export const REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE = Object.freeze([
   'packages/cli/lib/observation-runtime/node.mjs',
   'packages/cli/lib/source-inventory.mjs',
   'packages/cli/lib/observation-generation.mjs',
+  'packages/cli/lib/retrieval-generation.mjs',
   'packages/cli/lib/graph-runtime/util.mjs',
   'scripts/safe-runner/constants.mjs',
   'scripts/safe-runner/redaction.mjs',

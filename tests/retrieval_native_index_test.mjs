@@ -62,8 +62,10 @@ const manifest = {
   branch: 'main',
   worktree: '/native',
   model_digest: 'native-model',
+  observation_generation: '',
+  observation_membership_digest: '',
   index_digest: indexDigest,
-  schema_version: 1,
+  schema_version: 2,
   expected_count: documents.length,
 };
 

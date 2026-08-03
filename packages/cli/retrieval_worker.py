@@ -73,6 +73,15 @@ def _worker_thread_cap() -> int:
         return 1
 
 
+def _retrieval_batch_cap() -> int:
+    raw = os.environ.get("LAMINA_RUNTIME_RETRIEVAL_BATCH", "16")
+    try:
+        value = int(raw)
+        return max(1, value)
+    except ValueError:
+        return 16
+
+
 class Embedder:
     def __init__(self) -> None:
         self.test_only = os.environ.get("LAMINA_TEST_RETRIEVAL_EMBEDDER") == "deterministic"
@@ -277,10 +286,17 @@ def split_region(
         }
 
 
-def source_documents(root: pathlib.Path) -> list[dict[str, Any]]:
+def source_documents(root: pathlib.Path, candidates: list[str] | None = None) -> list[dict[str, Any]]:
     output = []
-    for file in tracked_files(root):
-        relative = file.relative_to(root).as_posix()
+    if candidates is None:
+        relative_paths = [
+            file.relative_to(root).as_posix()
+            for file in tracked_files(root)
+        ]
+    else:
+        relative_paths = sorted(candidates)
+    for relative in relative_paths:
+        file = root / relative
         if file.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         try:
@@ -306,7 +322,8 @@ def prepare_documents(
     snapshot: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[str], set[str]]:
     root = pathlib.Path(os.environ["LAMINA_SOURCE_ROOT"]).resolve()
-    documents = [*snapshot.get("workflows", []), *source_documents(root)]
+    source_paths = snapshot.get("source_paths")
+    documents = [*snapshot.get("workflows", []), *source_documents(root, source_paths)]
     previous = snapshot.get("previous", {})
     upserts = []
     member_ids = []
@@ -334,8 +351,8 @@ def prepare_documents(
         )
         pending.append(item)
         member_ids.append(item["id"])
-    for offset in range(0, len(pending), 16):
-        batch = pending[offset : offset + 16]
+    for offset in range(0, len(pending), _retrieval_batch_cap()):
+        batch = pending[offset : offset + _retrieval_batch_cap()]
         vectors = embedder.encode([item["text"] for item in batch])
         for item, embedding in zip(batch, vectors):
             item["embedding"] = embedding
@@ -377,8 +394,13 @@ def index_command(input_path: pathlib.Path) -> dict[str, Any]:
             "identity": snapshot["identity"],
             "graph_version": snapshot["graph_version"],
             "source_revision": snapshot["source_revision"],
+            "repository_revision": snapshot.get("repository_revision", ""),
+            "branch": snapshot.get("branch", ""),
+            "worktree": snapshot.get("worktree", ""),
             "model_digest": snapshot["model_digest"],
             "schema_version": snapshot["schema_version"],
+            "observation_generation": snapshot.get("observation_generation", ""),
+            "observation_membership_digest": snapshot.get("observation_membership_digest", ""),
         },
     )
     manifest = {
@@ -386,16 +408,21 @@ def index_command(input_path: pathlib.Path) -> dict[str, Any]:
         for key in (
             "identity", "graph_version", "source_revision", "repository_revision",
             "branch", "worktree", "model_digest", "schema_version",
+            "observation_generation", "observation_membership_digest",
         )
+        if key in snapshot
     }
     manifest.update(
         {
             "generation": generation,
             "expected_count": len(members),
             "index_digest": index_digest([current_by_id[item] for item in members]),
+            "observation_generation": snapshot.get("observation_generation", ""),
+            "observation_membership_digest": snapshot.get("observation_membership_digest", ""),
         }
     )
-    for offset in range(0, max(len(upserts), len(members), 1), 100):
+    batch_cap = _retrieval_batch_cap()
+    for offset in range(0, max(len(upserts), len(members), 1), batch_cap):
         graphd_request(
             "retrieval.apply",
             {
@@ -403,9 +430,9 @@ def index_command(input_path: pathlib.Path) -> dict[str, Any]:
                 "generation": generation,
                 "manifest": manifest,
                 "reset": offset == 0,
-                "upserts": upserts[offset : offset + 100],
-                "members": members[offset : offset + 100],
-                "deletes": deletes[offset : offset + 100],
+                "upserts": upserts[offset : offset + batch_cap],
+                "members": members[offset : offset + batch_cap],
+                "deletes": deletes[offset : offset + batch_cap],
                 "complete": False,
             },
         )
