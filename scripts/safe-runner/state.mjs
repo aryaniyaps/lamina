@@ -16,6 +16,9 @@ import { ORACLE_HOST_LAUNCH_PROFILE } from './oracle-host-profile.mjs';
 import {
   exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
 } from './landlock-candidate-profile.mjs';
+import {
+  CANDIDATE_SMOKE_LAUNCH_PROFILE, exactCandidateSmokeCommand,
+} from './candidate-smoke-profile.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
 export { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
@@ -534,6 +537,16 @@ export function checkPromotion(cwd, tier, workloadId = null, command = null, fro
 }
 
 export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand = evidence?.command, frozen = null) {
+  if ([
+    evidence?.preflight?.launch_profile,
+    evidence?.preflight?.execution_snapshot?.launch_profile,
+  ].includes(CANDIDATE_SMOKE_LAUNCH_PROFILE)
+    || exactCandidateSmokeCommand(evidence?.command)
+    || exactCandidateSmokeCommand(actualCommand)) {
+    const error = new Error('non-gradeable candidate smoke evidence cannot be promoted');
+    error.code = 'LAMINA_SAFE_PROMOTION_FORBIDDEN';
+    throw error;
+  }
   if ([
     evidence?.preflight?.launch_profile,
     evidence?.preflight?.execution_snapshot?.launch_profile,

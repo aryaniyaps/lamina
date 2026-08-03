@@ -29,6 +29,13 @@ import {
   LANDLOCK_CANDIDATE_PROBE_ENTRYPOINT, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
   LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID,
 } from './landlock-candidate-profile.mjs';
+import {
+  CANDIDATE_SMOKE_COMMAND,
+  CANDIDATE_SMOKE_LAUNCH_PROFILE,
+  CANDIDATE_SMOKE_WORKLOAD_ID,
+  exactCandidateSmokeCommand,
+  exactCandidateSmokeLimits,
+} from './candidate-smoke-profile.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
@@ -377,6 +384,8 @@ export function preflightRun({
   const exactOracleHostProbe = exactRealRepositoryEntrypoint
     && command[2] === ORACLE_HOST_PROBE_COMMAND
     && workloadId === REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID;
+  const candidateSmokeInvocation = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command[2] === CANDIDATE_SMOKE_COMMAND;
   const exactRealRepositoryStructuredOutput = exactRealRepositoryEntrypoint
     && ((command[2] === 'discover-cases'
       && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
@@ -406,6 +415,10 @@ export function preflightRun({
     && exactLandlockCandidateProbeCommand(command)
     && workloadId === LANDLOCK_CANDIDATE_PROBE_WORKLOAD_ID
     && tier === 'small' && exactLandlockCandidateProbeLimits(envelope.limits);
+  const exactCandidateSmokeProfile = candidateSmokeInvocation
+    && exactCandidateSmokeCommand(command)
+    && workloadId === CANDIDATE_SMOKE_WORKLOAD_ID
+    && tier === 'small' && exactCandidateSmokeLimits(envelope.limits);
   if (exactLandlockCandidateProfile) envelope.limits.stdout_tail_max_bytes = MIB;
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
@@ -470,6 +483,7 @@ export function preflightRun({
       : command[2] === 'expand-evidence' ? REAL_REPOSITORY_ORACLE_EVIDENCE_WORKLOAD_ID
       : command[2] === 'verify-scenarios' ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID
       : command[2] === ORACLE_HOST_PROBE_COMMAND ? REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID
+      : command[2] === CANDIDATE_SMOKE_COMMAND ? CANDIDATE_SMOKE_WORKLOAD_ID
       : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
     if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
       const operation = command[2] === 'reconstruct-inventory'
@@ -478,7 +492,8 @@ export function preflightRun({
             ? 'case discovery' : command[2] === 'expand-evidence'
               ? 'evidence expansion' : command[2] === 'verify-scenarios'
                 ? 'scenario verification' : command[2] === ORACLE_HOST_PROBE_COMMAND
-                  ? 'oracle-host probe' : 'inventory admission';
+                  ? 'oracle-host probe' : command[2] === CANDIDATE_SMOKE_COMMAND
+                    ? 'candidate smoke' : 'inventory admission';
       reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
     }
   }
@@ -496,6 +511,14 @@ export function preflightRun({
   }
   if (exactLandlockCandidateProfile && promotionRequested) {
     reasons.push('non-gradeable Landlock candidate probe cannot be promoted');
+  }
+  if (candidateSmokeInvocation && !exactCandidateSmokeProfile) {
+    reasons.push(
+      `candidate smoke requires --workload ${CANDIDATE_SMOKE_WORKLOAD_ID}, small tier, exact command, and exact six bounds`,
+    );
+  }
+  if (exactCandidateSmokeProfile && promotionRequested) {
+    reasons.push('non-gradeable candidate smoke cannot be promoted');
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
@@ -562,7 +585,8 @@ export function preflightRun({
     promotion,
     workload_id: workloadId,
     launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE
-      : exactLandlockCandidateProfile ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE : null,
+      : exactLandlockCandidateProfile ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE
+        : exactCandidateSmokeProfile ? CANDIDATE_SMOKE_LAUNCH_PROFILE : null,
     temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };
