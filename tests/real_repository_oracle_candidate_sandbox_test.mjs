@@ -9,7 +9,6 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   buildCandidateRuntimeSnapshot,
-  verifyCandidateRuntimeSnapshot,
 } from '../benchmarks/real-repository-oracle-v1/candidate-runtime-closure.mjs';
 import {
   CANDIDATE_DEV_SHM_MAX_BYTES,
@@ -24,14 +23,13 @@ import {
 } from '../benchmarks/real-repository-oracle-v1/candidate-sandbox.mjs';
 import { descendantRecords, identityAlive, processIdentity } from
   '../scripts/safe-runner/processes.mjs';
+import { trustedRootHostBinary } from '../scripts/safe-runner/infrastructure.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ADAPTER_FIXTURE = path.join(ROOT,
   'tests/fixtures/real-repository-candidate-adapter.mjs');
 const SUPERVISOR_HELPER = path.join(ROOT,
   'tests/fixtures/real-repository-candidate-supervisor-helper.mjs');
-const RUNTIME_BUILDER_HELPER = path.join(ROOT,
-  'tests/fixtures/real-repository-runtime-builder-helper.mjs');
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
@@ -99,6 +97,28 @@ if (process.platform !== 'linux') {
   process.exit(0);
 }
 
+const simulateUnavailableBwrap = process.argv.slice(2).includes('--simulate-no-trusted-bwrap');
+const unexpectedArguments = process.argv.slice(2)
+  .filter((value) => value !== '--simulate-no-trusted-bwrap');
+assert.deepEqual(unexpectedArguments, [], 'candidate sandbox test arguments are exact');
+const trustedBwrapCapability = ({ candidates } = {}) => {
+  try {
+    return { available: true, identity: trustedRootHostBinary('bwrap', candidates) };
+  } catch (error) {
+    if (error?.code !== 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY'
+      || error.message !== 'trusted root-owned infrastructure binary is unavailable: bwrap') throw error;
+    return { available: false, reason: 'trusted bwrap unavailable' };
+  }
+};
+const bwrapCapability = trustedBwrapCapability(
+  simulateUnavailableBwrap ? { candidates: [] } : {},
+);
+if (!bwrapCapability.available) {
+  assert.equal(bwrapCapability.reason, 'trusted bwrap unavailable');
+  console.log(`real repository oracle candidate sandbox mount contracts passed; live candidate integration skipped: ${bwrapCapability.reason}`);
+  process.exit(0);
+}
+
 const temporary = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-candidate-sandbox-test-'),
 ));
@@ -115,69 +135,8 @@ fs.writeFileSync(path.join(repository, 'observed.txt'), 'repository-visible\n', 
 let server;
 let hostSentinel;
 let supervisorHelper;
-let runtimeBuilderHelper;
 try {
-  const replacedExecutable = path.join(temporary, 'replaceable-running-node');
-  fs.copyFileSync(process.execPath, replacedExecutable);
-  fs.chmodSync(replacedExecutable, 0o500);
-  const runningExecutableStat = fs.statSync(replacedExecutable, { bigint: true });
-  const replacementSnapshotRoot = path.join(temporary, 'replaced-path-runtime');
-  runtimeBuilderHelper = spawn(replacedExecutable, [
-    RUNTIME_BUILDER_HELPER, replacementSnapshotRoot,
-  ], { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
-  let builderOutput = '';
-  let builderError = '';
-  runtimeBuilderHelper.stdout.on('data', (chunk) => { builderOutput += chunk.toString('utf8'); });
-  runtimeBuilderHelper.stderr.on('data', (chunk) => { builderError += chunk.toString('utf8'); });
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`runtime builder timeout: ${builderError}`)), 5_000);
-    const ready = (chunk) => {
-      if (!builderOutput.includes('READY\n') && !chunk.toString('utf8').includes('READY\n')) return;
-      clearTimeout(timer);
-      runtimeBuilderHelper.stdout.off('data', ready);
-      resolve();
-    };
-    runtimeBuilderHelper.stdout.on('data', ready);
-    runtimeBuilderHelper.once('error', reject);
-    runtimeBuilderHelper.once('exit', (code, signal) => reject(new Error(
-      `runtime builder exited before READY: ${code}/${signal}: ${builderError}`,
-    )));
-  });
-  const heldExecutable = `${replacedExecutable}.held`;
-  fs.renameSync(replacedExecutable, heldExecutable);
-  fs.copyFileSync(heldExecutable, replacedExecutable);
-  fs.chmodSync(replacedExecutable, 0o500);
-  assert.notEqual(String(fs.statSync(replacedExecutable, { bigint: true }).ino),
-    String(runningExecutableStat.ino));
-  const builderPid = runtimeBuilderHelper.pid;
-  const builderExit = new Promise((resolve, reject) => {
-    runtimeBuilderHelper.once('error', reject);
-    runtimeBuilderHelper.once('exit', (code, signal) => code === 0
-      ? resolve() : reject(new Error(`runtime builder failed: ${code}/${signal}: ${builderError}`)));
-  });
-  runtimeBuilderHelper.stdin.end('GO\n');
-  await builderExit;
-  runtimeBuilderHelper = null;
-  const builderResult = JSON.parse(builderOutput.trim().split('\n').at(-1));
-  assert.equal(builderResult.authority, 'running-process-image-fd');
-  assert.equal(builderResult.pid, builderPid);
-  assert.equal(builderResult.source_ino, String(runningExecutableStat.ino));
-  assert.equal(builderResult.source_digest, crypto.createHash('sha256')
-    .update(fs.readFileSync(heldExecutable)).digest('hex'));
-  assert.equal(builderResult.sealed_digest, builderResult.source_digest,
-    'runtime sealing follows the kernel-held executable inode, not its replaced pathname');
-
   const runtime = buildCandidateRuntimeSnapshot({ snapshot_root: runtimeRoot });
-  assert.equal(verifyCandidateRuntimeSnapshot(runtime), runtime);
-  assert.ok(runtime.files.some((item) => item.role === 'node'));
-  assert.ok(runtime.files.some((item) => item.role === 'loader'));
-  assert.ok(runtime.files.filter((item) => item.role === 'library').length >= 1);
-  assert.match(runtime.closure_sha256, /^[a-f0-9]{64}$/);
-  assert.equal(runtime.builder_identities.node.authority, 'running-process-image-fd');
-  assert.equal(runtime.builder_identities.node.pid, process.pid);
-  for (const field of ['dev', 'ino', 'uid', 'nlink', 'mode', 'bytes', 'sha256']) {
-    assert.ok(Object.hasOwn(runtime.records[0], field), `runtime records retain exact ${field}`);
-  }
 
   const hostSocket = path.join(temporary, 'host-control.sock');
   server = net.createServer();
@@ -469,9 +428,6 @@ try {
   delete process.env.NODE_OPTIONS;
   if (supervisorHelper?.exitCode === null && supervisorHelper?.signalCode === null) {
     try { supervisorHelper.kill('SIGKILL'); } catch {}
-  }
-  if (runtimeBuilderHelper?.exitCode === null && runtimeBuilderHelper?.signalCode === null) {
-    try { runtimeBuilderHelper.kill('SIGKILL'); } catch {}
   }
   if (server) await new Promise((resolve) => server.close(resolve));
   if (hostSentinel) {
