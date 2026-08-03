@@ -29,9 +29,10 @@ export const CANDIDATE_SMOKE_ADAPTER = deepFreeze({
 });
 
 const NONCE_DOMAIN = 'lamina.real-repository-candidate-smoke-public-nonce/v1';
-const SANDBOX_CHECKS = Object.freeze([
+export const CANDIDATE_SMOKE_SANDBOX_CHECKS = Object.freeze([
   'private-controller-read-denied',
   'proc-metadata-read-denied',
+  'command-line-controller-paths-absent',
   'repository-mutation-denied',
   'child-process-denied',
   'tcp-network-denied',
@@ -167,7 +168,7 @@ export function candidateSmokeAuthority() {
       start_digest: materializationBaseDigest(collection, scenarioDigest),
       end_digest: materializationBaseDigest(collection, scenarioDigest),
     },
-    sandbox_checks_sha256: digest(SANDBOX_CHECKS),
+    sandbox_checks_sha256: digest(CANDIDATE_SMOKE_SANDBOX_CHECKS),
   });
 }
 

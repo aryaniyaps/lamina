@@ -233,7 +233,7 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
     }
     if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
       && (command.length !== 3
-        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios', ORACLE_HOST_PROBE_COMMAND]
+        || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios', ORACLE_HOST_PROBE_COMMAND, CANDIDATE_SMOKE_COMMAND]
           .includes(command[2]))) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }

@@ -263,11 +263,12 @@ resolved target/proof closure, and scenario proof. They are not seven labels
 applied to an otherwise unexplained path.
 
 The fixture loader clones private material at the controller boundary and does
-not trust candidate-supplied fixtures or grades. Candidate closure is not
-implemented or reachable. In particular, positive Persona capability remains
-excepted until a later candidate-facing sealed probe exists; quality pass is
-structurally unreachable until that probe, candidate isolation, and host-side
-grading are implemented and reviewed.
+not trust candidate-supplied fixtures or grades. Gradeable candidate closure is
+not implemented or reachable. The bounded smoke below now proves one isolated
+candidate execution path, but it deliberately receives no private expectations
+and cannot issue a grade. Positive Persona capability therefore remains
+excepted; quality pass is structurally unreachable until host-side grading and
+the remaining candidate lifecycle are implemented and reviewed.
 
 ## Non-gradeable Landlock candidate-launch probe
 
@@ -280,8 +281,9 @@ every live ABI right through ABI 8, refuses a newer ABI, sets no-new-privileges,
 uses ABI 6 scopes and ABI 8 thread synchronization, and grants only exact
 runtime/input/repository/output file descriptors before executing an adversarial
 Node fixture. A reviewed x86-64 seccomp-BPF layer then denies persistent metadata
-mutation, anonymous `memfd_create`, filesystem/topology construction, and named
-kernel/process/privilege-control syscall classes with `EPERM`. Unsupported
+mutation, anonymous `memfd_create`, socket and socket-pair creation,
+filesystem/topology construction, and named kernel/process/privilege-control
+syscall classes with `EPERM`. Unsupported
 architectures fail compilation and a kernel that cannot install the filter
 refuses launch. This is defense-in-depth feasibility evidence, not a standalone
 sandbox claim.
@@ -334,6 +336,60 @@ does not make production candidate execution, host-side grading, cleanup-proof,
 promotion, quality, or release-readiness reachable. The existing promotion
 authority independently refuses this profile.
 
+## Non-gradeable real-repository candidate smoke
+
+`npm run test:real-repository-oracle:candidate-smoke` exercises exactly one
+clean small-tier lease through the generic safe runner and production
+persistent materializer. The exact envelope is 512 MiB hard memory, 384 MiB
+memory high, 32 tasks, 180 seconds, 512 MiB temporary storage, and 256 KiB
+combined output. The reviewed collection is fetched at its exact commit and
+tree identity; one clean base is leased once and never replayed or promoted.
+
+The controller keeps its plan, row mappings, expectations, and materializer
+construction authority private. The candidate receives only a canonical public
+batch and the candidate-visible checkout. Public request nonces are derived
+from the domain, tier, slot, row, and request digest rather than a private case
+identifier. The sealed deterministic adapter is benchmark plumbing, not the
+future production candidate: it receives exact fixed file-descriptor aliases
+for the adapter, input, repository, output, and scratch. The launcher also pins
+the exact Node executable, runtime-library closure, and configuration file while
+constructing Landlock rules, but those descriptors do not survive into the
+candidate process; Node's own descriptor closes on exec as well. Candidate argv
+contains no controller paths, all other descriptors are closed, and Landlock
+plus seccomp prevent ungranted host or `/proc` reads, repository mutation, extra
+processes, TCP/UDP, and control-socket creation. The threat model excludes a
+hostile concurrent process already running under the same UID outside the
+runner's private namespaces.
+
+The adapter emits one bounded canonical raw artifact, which the existing
+candidate contract parses and the controller compares with an independent
+deterministic reconstruction. `verifyAndRelease` remains honest: cleanup is
+false and the lease is quarantined under the runner-owned temporary authority.
+The outer safe-runner report may authenticate removal of its own descendants,
+managed paths, scope, and temporary directory, but the strict external decoder
+returns that fact separately from `cleanup_proof_issued: false` and
+`grading_reachable: false`. It also revalidates the exact profile, source and
+execution snapshot, termination, resource peaks, single complete output line,
+and cleanup state; mutations are refused.
+
+Run the exact path manually only on a qualified Linux host:
+
+```bash
+npm run safe:envelope
+npm run safe:self-test
+npm run safe:run -- --tier small \
+  --workload real-repository-oracle-v1:candidate-smoke-small \
+  --report /absolute/path/to/candidate-smoke.json \
+  --memory-mib 512 --memory-high-mib 384 --pids 32 \
+  --timeout-ms 180000 --temporary-mib 512 --output-mib 0.25 \
+  -- node benchmarks/real-repository-oracle-v1/workload.mjs smoke-candidate-small
+```
+
+This is first-phase execution evidence only. It does not expose private grader
+authority, publish materializer recovery authority, create cleanup proof, run a
+second slot, replay a request, invoke an oracle host, grade quality, or consume
+promotion authority.
+
 ## Evidence boundary
 
 - Inventory admission proves only the exact pinned checkout equals the reviewed
@@ -346,6 +402,8 @@ authority independently refuses this profile.
 - The accepted independent-review receipt proves fixture consistency and
   mutation sensitivity only; it cannot issue or imply a candidate quality pass
   or runtime-readiness claim.
+- Candidate smoke proves one bounded public-only execution and exact outer
+  cleanup; it does not prove candidate quality, lease cleanup, or gradeability.
 - A future semantic-core oracle may claim only the production seams it directly
   calls. Source localization remains `not_measured` unless actual post-scenario
   production retrieval is safely exercised.

@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import {
   BASELINE_MANIFEST_SHA256, CANDIDATE_POLICY_SHA256, COLLECTION_PINS,
@@ -494,7 +495,7 @@ const directUnknown = spawnSync(process.execPath, [ENTRYPOINT, 'unknown'], {
 });
 assert.notEqual(directUnknown.status, 0);
 assert.match(`${directUnknown.stdout}\n${directUnknown.stderr}`,
-  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios\|probe-oracle-host>/);
+  /usage: workload\.mjs <admit-inventory\|reconstruct-inventory\|review-inventory\|discover-cases\|expand-evidence\|verify-scenarios\|probe-oracle-host\|smoke-candidate-small>/);
 const directExact = spawnSync(process.execPath, [ENTRYPOINT, 'admit-inventory'], {
   cwd: ROOT,
   env: { ...process.env, LAMINA_SAFE_RUNNER_BROKER: '' },
@@ -589,6 +590,29 @@ assert.deepEqual(REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, [
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-adapter.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-contract.mjs',
+  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
+  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
+  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs',
+  'benchmarks/real-repository-oracle-v1/semantic-case-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
+  'benchmarks/real-repository-oracle-v1/workflows-v1.json',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
+  'benchmarks/real-repository-oracle-v1/schema/fixture.schema.json',
+  'benchmarks/real-repository-oracle-v1/schema/result.schema.json',
+  'benchmarks/real-repository-oracle-v1/observation-category-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/observation-category-support-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviews/case-expectations-v1.json',
+  'scripts/safe-runner/landlock-candidate-launcher.mjs',
+  'scripts/safe-runner/candidate-smoke-profile.mjs',
+  'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
+  'scripts/safe-runner/processes.mjs',
 ]);
 assert.deepEqual(REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE, [
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
@@ -711,6 +735,33 @@ try {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     assert.equal(snapshotInit.status, 0, snapshotInit.stderr);
+    fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(snapshotRepository, 'package.json'));
+    const copiedPackages = new Set();
+    const copyPackageClosure = (name, importer = path.join(ROOT, 'package.json')) => {
+      const sourceManifest = createRequire(importer).resolve(`${name}/package.json`);
+      const manifest = JSON.parse(fs.readFileSync(sourceManifest, 'utf8'));
+      const key = `${name}\0${manifest.version}`;
+      if (copiedPackages.has(key)) return;
+      copiedPackages.add(key);
+      const sourceRoot = path.dirname(sourceManifest);
+      const destination = path.join(snapshotRepository, 'node_modules', ...name.split('/'));
+      fs.cpSync(sourceRoot, destination, {
+        recursive: true,
+        filter: (source) => {
+          const relative = path.relative(sourceRoot, source);
+          return !relative.split(path.sep).includes('node_modules');
+        },
+      });
+      for (const dependency of Object.keys({
+        ...manifest.dependencies, ...manifest.optionalDependencies, ...manifest.peerDependencies,
+      })) {
+        try { copyPackageClosure(dependency, sourceManifest); } catch (error) {
+          if (manifest.optionalDependencies?.[dependency]) continue;
+          throw error;
+        }
+      }
+    };
+    copyPackageClosure('ajv');
     for (const relative of REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE) {
       const source = path.join(ROOT, relative);
       const destination = path.join(snapshotRepository, relative);
@@ -729,7 +780,7 @@ try {
       assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
       return String(result.stdout || '').trim();
     }
-    snapshotGit(['add', '--', ...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE]);
+    snapshotGit(['add', '--', ...REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE, 'package.json']);
     snapshotGit(['-c', 'user.name=Lamina Test', '-c', 'user.email=lamina@example.invalid',
       'commit', '--quiet', '-m', 'sealed oracle source fixture']);
     const snapshotCommit = snapshotGit(['rev-parse', 'HEAD']);

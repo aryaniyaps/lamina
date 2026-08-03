@@ -60,6 +60,35 @@ export const REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE = Object.freeze([
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
 ]);
+export const REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-runner.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-adapter.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke-report.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-smoke.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-contract.mjs',
+  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
+  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
+  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/case-expectation-review-receipt.mjs',
+  'benchmarks/real-repository-oracle-v1/semantic-case-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
+  'benchmarks/real-repository-oracle-v1/workflows-v1.json',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
+  'benchmarks/real-repository-oracle-v1/schema/fixture.schema.json',
+  'benchmarks/real-repository-oracle-v1/schema/result.schema.json',
+  'benchmarks/real-repository-oracle-v1/observation-category-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/reviews/observation-category-support-v1.json',
+  'benchmarks/real-repository-oracle-v1/reviews/case-expectations-v1.json',
+  'packages/cli/lib/safe-runner-context.mjs',
+  'packages/cli/lib/safe-runner-broker-client.mjs',
+  'scripts/safe-runner/landlock-candidate-launcher.mjs',
+  'scripts/safe-runner/candidate-smoke-profile.mjs',
+  'benchmarks/real-repository-oracle-v1/landlock-candidate-launcher.c',
+  'scripts/safe-runner/processes.mjs',
+  'scripts/safe-runner/infrastructure.mjs',
+]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([...new Set([
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
@@ -67,6 +96,7 @@ export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([...new Set([
   ...REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
+  ...REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
 ])]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA =
   'lamina.safe-runner-real-repository-source-closure/v1';
@@ -74,16 +104,18 @@ export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA =
 export function realRepositoryOracleSourceClosure(commandName) {
   const closure = commandName === 'probe-oracle-host'
     ? REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE
-    : commandName === 'review-inventory'
-    ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
-    : commandName === 'discover-cases'
-      ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
-      : commandName === 'expand-evidence'
-        ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
-        : commandName === 'verify-scenarios'
-          ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE
-          : ['admit-inventory', 'reconstruct-inventory'].includes(commandName)
-            ? REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE : null;
+    : commandName === 'smoke-candidate-small'
+      ? REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE
+      : commandName === 'review-inventory'
+        ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
+        : commandName === 'discover-cases'
+          ? REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE
+          : commandName === 'expand-evidence'
+            ? REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE
+            : commandName === 'verify-scenarios'
+              ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE
+              : ['admit-inventory', 'reconstruct-inventory'].includes(commandName)
+                ? REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE : null;
   return closure ? [...closure] : null;
 }
 

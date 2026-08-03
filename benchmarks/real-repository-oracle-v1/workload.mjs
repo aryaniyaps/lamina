@@ -19,6 +19,7 @@ export const SCENARIO_VERIFICATION_WORKLOAD_ID = 'real-repository-oracle-v1:scen
 export const SCENARIO_VERIFICATION_EXACT_COMMAND = Object.freeze(['verify-scenarios']);
 export const ORACLE_HOST_PROBE_WORKLOAD_ID = 'real-repository-oracle-v1:oracle-host-probe';
 export const ORACLE_HOST_PROBE_EXACT_COMMAND = Object.freeze(['probe-oracle-host']);
+export const CANDIDATE_SMOKE_EXACT_COMMAND = Object.freeze(['smoke-candidate-small']);
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -138,7 +139,12 @@ export async function main(argv = process.argv.slice(2)) {
   if (JSON.stringify(argv) === JSON.stringify(ORACLE_HOST_PROBE_EXACT_COMMAND)) {
     throw new Error('oracle-host probe is a safe-runner launch profile and cannot execute directly');
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios|probe-oracle-host>');
+  if (JSON.stringify(argv) === JSON.stringify(CANDIDATE_SMOKE_EXACT_COMMAND)) {
+    const { runCandidateSmoke } = await import('./candidate-smoke-runner.mjs');
+    await runCandidateSmoke();
+    return;
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios|probe-oracle-host|smoke-candidate-small>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -18,6 +18,9 @@ import {
 import {
   exactLandlockCandidateProbeCommand, LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
 } from './landlock-candidate-profile.mjs';
+import {
+  CANDIDATE_SMOKE_LAUNCH_PROFILE, exactCandidateSmokeCommand,
+} from './candidate-smoke-profile.mjs';
 import { auditedNpxCommand } from './npx-authority.mjs';
 import { repositoryOutputRefusal } from './output-policy.mjs';
 import {
@@ -28,6 +31,7 @@ import {
 import {
   REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
@@ -39,6 +43,7 @@ import {
 } from './real-repository-source-closure.mjs';
 export {
   REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
+  REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_EVIDENCE_SOURCE_CLOSURE,
   REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
@@ -719,6 +724,7 @@ export function prepareExecutionSnapshot({
   const oracleHostProbe = auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     && command.length === 3 && command[2] === ORACLE_HOST_PROBE_COMMAND;
   const landlockCandidateProbe = exactLandlockCandidateProbeCommand(command);
+  const candidateSmoke = exactCandidateSmokeCommand(command);
   const resolvedRealRepositoryClosure = realRepositoryOracleSourceClosure(command[2]);
   if (auditedEntrypoint === REAL_REPOSITORY_ORACLE_ENTRYPOINT
     && !resolvedRealRepositoryClosure) {
@@ -1555,13 +1561,17 @@ export function prepareExecutionSnapshot({
   } : landlockCandidateProbe ? {
     entries: snapshotEntries,
     launch_profile: LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE,
+  } : candidateSmoke ? {
+    entries: snapshotEntries,
+    launch_profile: CANDIDATE_SMOKE_LAUNCH_PROFILE,
   } : snapshotEntries;
   return {
     root, repository, snapshot_repository: snapshotRepository,
     audited_entrypoint: auditedEntrypoint,
     launch_command: launchCommand, entries, writable_bindings: writableBindings,
     launch_profile: oracleHostProbe ? ORACLE_HOST_LAUNCH_PROFILE
-      : landlockCandidateProbe ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE : null,
+      : landlockCandidateProbe ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE
+        : candidateSmoke ? CANDIDATE_SMOKE_LAUNCH_PROFILE : null,
     oracle_host_launch_command: oracleHostLaunchCommand,
     oracle_host_launch_cwd: oracleHostLaunchCwd,
     oracle_host_profile: oracleHostProfile,

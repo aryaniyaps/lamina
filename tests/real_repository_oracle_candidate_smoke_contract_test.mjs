@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CANDIDATE_SMOKE_RECORD_MAX_BYTES,
+  CANDIDATE_SMOKE_SANDBOX_CHECKS,
   candidateSmokeAuthority,
   candidateSmokePublicNonce,
   candidateSmokeRecord,
@@ -80,6 +81,17 @@ for (const refusal of [
 }
 
 const authority = candidateSmokeAuthority();
+assert.deepEqual(CANDIDATE_SMOKE_SANDBOX_CHECKS, [
+  'private-controller-read-denied',
+  'proc-metadata-read-denied',
+  'command-line-controller-paths-absent',
+  'repository-mutation-denied',
+  'child-process-denied',
+  'tcp-network-denied',
+  'udp-network-denied',
+  'control-socket-denied',
+  'extra-executable-denied',
+]);
 const repeated = candidateSmokeAuthority();
 assert.deepEqual(authority.public_batch, repeated.public_batch);
 assert.deepEqual(authority.expected_artifact, expectedCandidateSmokeArtifact(authority));
