@@ -7,9 +7,24 @@ import {
   assertInfrastructureBinaries, infrastructureBinaries, sanitizedEnvironment,
 } from './infrastructure.mjs';
 import {
-  ORACLE_HOST_LAUNCH_PROFILE, oracleKeeperBwrapArguments,
+  ORACLE_HOST_LAUNCH_PROFILE, encodeOracleHostWireProfile, oracleKeeperBwrapArguments,
 } from './oracle-host-profile.mjs';
-import { ORACLE_CACHE_CAPABILITY_AUTHORITY } from './oracle-cache-capability.mjs';
+import { CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE } from './candidate-lease-worker-profile.mjs';
+import { CANDIDATE_LEASE_WORKER_HOST_LAUNCH_PROFILE } from './candidate-lease-worker-host-profile.mjs';
+import { isOracleCacheCapabilityAuthority } from './oracle-cache-capability.mjs';
+
+export function isOracleHostSnapshotLaunchProfile(launchProfile) {
+  return launchProfile === ORACLE_HOST_LAUNCH_PROFILE
+    || launchProfile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE;
+}
+
+function oracleHostProfileId(launchProfile) {
+  if (launchProfile === ORACLE_HOST_LAUNCH_PROFILE) return ORACLE_HOST_LAUNCH_PROFILE;
+  if (launchProfile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE) {
+    return CANDIDATE_LEASE_WORKER_HOST_LAUNCH_PROFILE;
+  }
+  return null;
+}
 
 export const SYSTEMCTL_CONTROL_TIMEOUT_MS = 3_000;
 // Cgroup discovery is polled behind a closed payload gate. Keep each D-Bus
@@ -19,7 +34,7 @@ export const SYSTEMCTL_READBACK_TIMEOUT_MS = 500;
 
 export function exactOracleHostLaunchAuthorized(record, expected, gatePid = null) {
   const environment = record?.environment_attestation;
-  return expected?.profile === ORACLE_HOST_LAUNCH_PROFILE
+  return isOracleHostSnapshotLaunchProfile(expected?.profile)
     && Number.isSafeInteger(gatePid) && record?.ppid === gatePid
     && Array.isArray(record?.argv) && Array.isArray(expected.argv)
     && record.argv.length === expected.argv.length
@@ -35,11 +50,12 @@ export function exactOracleHostLaunchAuthorized(record, expected, gatePid = null
 
 export function encodeOracleHostLaunchAuthority({
   node, nodeIdentity, launcher, launcherIdentity, host, hostIdentity,
-  cwd, argv, profileArgument,
+  cwd, argv, profileArgument, profile = ORACLE_HOST_LAUNCH_PROFILE,
 }) {
   if (![node, launcher, host, cwd].every((value) => path.isAbsolute(value))
     || !Array.isArray(argv) || argv.length !== 5 || argv[0] !== node || argv[1] !== host
     || typeof profileArgument !== 'string' || argv[4] !== profileArgument
+    || !isOracleHostSnapshotLaunchProfile(profile)
     || [nodeIdentity, launcherIdentity, hostIdentity]
       .some((identity) => !identity || identity.path === undefined)) {
     throw Object.assign(new Error('oracle-host launch authority inputs are not exact'), {
@@ -48,7 +64,7 @@ export function encodeOracleHostLaunchAuthority({
   }
   return Buffer.from(JSON.stringify({
     schema: 'lamina.safe-runner-oracle-host-launch-authority/v1',
-    profile: ORACLE_HOST_LAUNCH_PROFILE,
+    profile,
     node: { path: node, identity: nodeIdentity },
     launcher: { path: launcher, identity: launcherIdentity },
     host: { path: host, identity: hostIdentity },
@@ -302,8 +318,9 @@ export class LinuxSystemdAdapter {
     }
     const bwrapIdentity = Buffer.from(JSON.stringify(staged.identities.bwrap)).toString('base64url');
     const encodedExecutionAuthority = encodeExecutionAuthority(executionAuthority);
-    const oracleProfile = executionAuthority?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE;
-    if (oracleProfile && (executionAuthority.oracle_host_profile?.id !== ORACLE_HOST_LAUNCH_PROFILE
+    const oracleProfile = isOracleHostSnapshotLaunchProfile(executionAuthority?.launch_profile);
+    const expectedHostProfileId = oracleHostProfileId(executionAuthority?.launch_profile);
+    if (oracleProfile && (executionAuthority.oracle_host_profile?.id !== expectedHostProfileId
       || !Array.isArray(executionAuthority.oracle_host_launch_command)
       || executionAuthority.oracle_host_launch_command.length !== 2
       || executionAuthority.oracle_host_launch_command[0] !== staged.node
@@ -311,20 +328,25 @@ export class LinuxSystemdAdapter {
         !== staged.oracle_host_launcher_mjs
       || executionAuthority.oracle_host_profile.bootstrap_environment?.path
         !== staged.oracle_host_env
-      || JSON.stringify(executionAuthority.oracle_host_profile.cache_capability)
-        !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)
+      || !isOracleCacheCapabilityAuthority(executionAuthority.oracle_host_profile.cache_capability)
       || executionAuthority.oracle_host_launch_cwd !== executionAuthority.snapshot_repository)) {
       throw Object.assign(new Error('oracle-host launch profile is not exact sealed authority'), {
         code: 'LAMINA_SAFE_ORACLE_HOST_AUTHORITY',
       });
     }
-    const encodedOracleProfile = oracleProfile ? Buffer.from(JSON.stringify({
-      ...executionAuthority.oracle_host_profile,
-      quota_bytes: this.limits.temporary_max_bytes,
-      keeper_arguments: oracleKeeperBwrapArguments(this.limits.temporary_max_bytes),
-      broker_socket: env?.LAMINA_SAFE_RUNNER_BROKER,
-      private_tmp_root: temporaryDirectory,
-    })).toString('base64url') : '';
+    const keeperArguments = oracleProfile
+      ? (executionAuthority.launch_profile === CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE
+        ? executionAuthority.oracle_host_profile.keeper_arguments
+        : oracleKeeperBwrapArguments(this.limits.temporary_max_bytes))
+      : null;
+    const encodedOracleProfile = oracleProfile ? Buffer.from(JSON.stringify(
+      encodeOracleHostWireProfile(executionAuthority.oracle_host_profile, {
+        quotaBytes: this.limits.temporary_max_bytes,
+        keeperArguments,
+        brokerSocket: env?.LAMINA_SAFE_RUNNER_BROKER,
+        privateTmpRoot: temporaryDirectory,
+      }),
+    )).toString('base64url') : '';
     if (oracleProfile && (!path.isAbsolute(env?.LAMINA_SAFE_RUNNER_BROKER || '')
       || path.dirname(env.LAMINA_SAFE_RUNNER_BROKER) !== path.dirname(quotaReadyFile)
       || temporaryDirectory !== path.join(path.dirname(quotaReadyFile), 'payload-tmp'))) {
@@ -351,18 +373,17 @@ export class LinuxSystemdAdapter {
       cwd: oracleCwd,
       argv: oracleArgv,
       profileArgument: encodedOracleProfile,
+      profile: expectedHostProfileId,
     }) : '';
     this.oracleHostLaunchAuthority = oracleProfile ? Object.freeze({
-      profile: ORACLE_HOST_LAUNCH_PROFILE,
+      profile: expectedHostProfileId,
       argv: Object.freeze([staged.node, oracleLauncher, encodedOracleAuthority]),
       cwd: oracleCwd,
       executable_identity: Object.freeze({ ...staged.identities.node }),
       host_main_arguments: Object.freeze(oracleArgv.slice(2)),
-      keeper_arguments: Object.freeze(oracleKeeperBwrapArguments(
-        this.limits.temporary_max_bytes,
-      )),
+      keeper_arguments: Object.freeze(keeperArguments),
       private_tmp_root: temporaryDirectory,
-      cache_capability: ORACLE_CACHE_CAPABILITY_AUTHORITY,
+      cache_capability: executionAuthority.oracle_host_profile.cache_capability,
       launcher_identity: Object.freeze({
         ...executionAuthority.oracle_host_profile.launcher_identity,
       }),

@@ -14,8 +14,8 @@ import {
   parseOracleBwrapInfo,
 } from '../../scripts/safe-runner/oracle-host-profile.mjs';
 import {
-  ORACLE_CACHE_CAPABILITY_AUTHORITY, ORACLE_CACHE_CAPABILITY_CONTENT,
-  ORACLE_CACHE_CAPABILITY_SOURCE_NAME,
+  ORACLE_CACHE_CAPABILITY_FD, ORACLE_CACHE_CAPABILITY_SOURCE_NAME,
+  ORACLE_CACHE_CAPABILITY_TRANSFER, oracleCacheCapabilityAuthority,
 } from '../../scripts/safe-runner/oracle-cache-capability.mjs';
 import { waitForOracleKeeperMountTopology } from
   '../../scripts/safe-runner/oracle-quota-broker.mjs';
@@ -54,14 +54,65 @@ function cacheCapabilityIdentity(stat, bytes) {
   };
 }
 
-function readCacheCapability(descriptor) {
-  const bytes = Buffer.alloc(ORACLE_CACHE_CAPABILITY_AUTHORITY.size);
-  const count = fs.readSync(descriptor, bytes, 0, bytes.length, 0);
-  if (count !== bytes.length) invocationError('cache capability content is incomplete');
+function readCacheCapabilityBytes(content, authority) {
+  if (!Buffer.isBuffer(content) || content.length !== authority.size) {
+    invocationError('cache capability sealed bytes are invalid');
+  }
+  const digest = crypto.createHash('sha256').update(content).digest('hex');
+  if (digest !== authority.digest) invocationError('cache capability sealed bytes digest is invalid');
+  return content;
+}
+
+function loadSealedCacheCapabilityFile(sealedRelativePath, repositoryRoot, expectedDigest) {
+  if (!sealedRelativePath || sealedRelativePath.includes('..')
+    || path.isAbsolute(sealedRelativePath) || !/^[a-f0-9]{64}$/.test(expectedDigest || '')) {
+    invocationError('cache capability sealed relative path is invalid');
+  }
+  const sealedPath = path.join(repositoryRoot, sealedRelativePath);
+  const physical = fs.realpathSync.native(sealedPath);
+  if (physical !== path.resolve(sealedPath)) invocationError('cache capability seal path is not physical');
+  const stat = fs.lstatSync(sealedPath, { bigint: true });
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    invocationError('cache capability sealed source is invalid');
+  }
+  const bytes = fs.readFileSync(sealedPath);
+  const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (digest !== expectedDigest || bytes.length < 1) {
+    invocationError('cache capability sealed source digest is invalid');
+  }
   return bytes;
 }
 
-export function createCacheCapabilitySource(privateTmpRoot) {
+function authorityFromSealedCacheCapabilityBytes(bytes) {
+  const newline = bytes.indexOf('\n');
+  if (newline < 1) invocationError('cache capability sealed manifest is invalid');
+  let manifest;
+  try { manifest = JSON.parse(bytes.toString('utf8', 0, newline)); }
+  catch { invocationError('cache capability sealed manifest is invalid'); }
+  return oracleCacheCapabilityAuthority({
+    bytes,
+    digest: crypto.createHash('sha256').update(bytes).digest('hex'),
+    size: bytes.length,
+    manifest,
+    pack_closure_digest: manifest.pack_closure_digest,
+  });
+}
+
+function readCacheCapability(descriptor, authority) {
+  const bytes = Buffer.alloc(authority.size);
+  const count = fs.readSync(descriptor, bytes, 0, bytes.length, 0);
+  if (count !== bytes.length) invocationError('cache capability content is incomplete');
+  const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (digest !== authority.digest) invocationError('cache capability content digest is invalid');
+  return bytes;
+}
+
+export function createCacheCapabilitySource(privateTmpRoot, authority, content) {
+  if (!authority || !Number.isSafeInteger(authority.size) || authority.size < 1
+    || typeof authority.digest !== 'string') {
+    invocationError('cache capability authority is invalid');
+  }
+  content = readCacheCapabilityBytes(content, authority);
   if (!path.isAbsolute(privateTmpRoot || '')
     || fs.realpathSync.native(privateTmpRoot) !== privateTmpRoot) {
     invocationError('private tmpfs authority is not canonical');
@@ -73,8 +124,7 @@ export function createCacheCapabilitySource(privateTmpRoot) {
     || Number(root.mode & 0o777n) !== 0o700 || Number(rootFilesystem.type) !== TMPFS_MAGIC) {
     invocationError('private tmpfs authority is not exact runner-owned tmpfs');
   }
-  const sourcePath = path.join(privateTmpRoot, ORACLE_CACHE_CAPABILITY_SOURCE_NAME);
-  const content = Buffer.from(ORACLE_CACHE_CAPABILITY_CONTENT);
+  const sourcePath = path.join(privateTmpRoot, authority.source_name);
   let writer = null;
   let descriptor = null;
   try {
@@ -87,19 +137,19 @@ export function createCacheCapabilitySource(privateTmpRoot) {
     writer = null;
     descriptor = fs.openSync(sourcePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    const observed = readCacheCapability(descriptor);
+    const observed = readCacheCapability(descriptor, authority);
     const identity = cacheCapabilityIdentity(opened, observed);
     if (!opened.isFile() || opened.nlink !== 1n || !observed.equals(content)
-      || identity.mode !== 0o400 || identity.size !== ORACLE_CACHE_CAPABILITY_AUTHORITY.size
-      || identity.digest !== ORACLE_CACHE_CAPABILITY_AUTHORITY.digest) {
+      || identity.mode !== 0o400 || identity.size !== authority.size
+      || identity.digest !== authority.digest) {
       invocationError('cache capability source identity is invalid');
     }
     return {
       descriptor,
       claim: {
         schema: 'lamina.safe-runner-oracle-cache-capability-claim/v1',
-        transfer: ORACLE_CACHE_CAPABILITY_AUTHORITY.transfer,
-        descriptor: ORACLE_CACHE_CAPABILITY_AUTHORITY.descriptor,
+        transfer: authority.transfer,
+        descriptor: authority.descriptor,
         source_path: sourcePath,
         pathname_absent: false,
         source_fd_closed: false,
@@ -114,18 +164,17 @@ export function createCacheCapabilitySource(privateTmpRoot) {
   }
 }
 
-export function anonymizeCacheCapability(capability) {
+export function anonymizeCacheCapability(capability, authority) {
   const descriptor = capability?.descriptor;
   const claim = capability?.claim;
-  if (!Number.isSafeInteger(descriptor) || claim?.pathname_absent !== false
+  if (!authority || !Number.isSafeInteger(descriptor) || claim?.pathname_absent !== false
     || claim?.source_fd_closed !== false) invocationError('cache capability is not releasable');
   fs.unlinkSync(claim.source_path);
   if (fs.existsSync(claim.source_path)) invocationError('cache capability source path survived unlink');
   const after = fs.fstatSync(descriptor, { bigint: true });
-  const stable = readCacheCapability(descriptor);
+  const stable = readCacheCapability(descriptor, authority);
   const observed = cacheCapabilityIdentity(after, stable);
-  if (after.nlink !== 0n || JSON.stringify(observed) !== JSON.stringify(claim.identity)
-    || !stable.equals(Buffer.from(ORACLE_CACHE_CAPABILITY_CONTENT))) {
+  if (after.nlink !== 0n || JSON.stringify(observed) !== JSON.stringify(claim.identity)) {
     invocationError('cache capability changed after unlink');
   }
   fs.closeSync(descriptor);
@@ -170,7 +219,7 @@ export function validateOracleHostInvocation(args, environment = process.env) {
     'schema', 'id', 'bwrap', 'bwrap_identity', 'bwrap_capabilities',
     'launcher', 'launcher_identity', 'bootstrap_environment', 'host', 'host_identity',
     'non_gradeable', 'quota_bytes', 'keeper_arguments', 'broker_socket',
-    'private_tmp_root', 'cache_capability',
+    'private_tmp_root', 'cache_capability_sha256', 'cache_capability_sealed_relative',
   ]) || profile.schema !== 'lamina.safe-runner-oracle-host-launch-profile/v1'
     || profile.id !== ORACLE_HOST_LAUNCH_PROFILE || profile.non_gradeable !== true
     || !path.isAbsolute(profile.bwrap || '') || !path.isAbsolute(profile.broker_socket || '')
@@ -178,10 +227,13 @@ export function validateOracleHostInvocation(args, environment = process.env) {
     || !path.isAbsolute(profile.private_tmp_root || '')
     || path.dirname(profile.private_tmp_root) !== path.dirname(quotaReady)
     || path.basename(profile.private_tmp_root) !== 'payload-tmp'
+    || typeof profile.cache_capability_sealed_relative !== 'string'
+    || profile.cache_capability_sealed_relative.includes('..')
+    || path.isAbsolute(profile.cache_capability_sealed_relative)
+    || typeof profile.cache_capability_sha256 !== 'string'
+    || !/^[a-f0-9]{64}$/.test(profile.cache_capability_sha256)
     || !Number.isSafeInteger(profile.quota_bytes) || profile.quota_bytes < 4096
     || profile.quota_bytes > ORACLE_HOST_PROBE_MAX_QUOTA_BYTES
-    || JSON.stringify(profile.cache_capability)
-      !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)
     || JSON.stringify(profile.keeper_arguments) !== JSON.stringify(expectedArguments)) {
     invocationError('profile authority is invalid');
   }
@@ -266,8 +318,10 @@ export function oracleHostResult({ proof, usage, release, finish }) {
   const anonymousTransferProven = cacheCapability?.schema
       === 'lamina.safe-runner-oracle-cache-capability-proof/v1'
     && cacheCapability.non_gradeable === true
-    && cacheCapability.transfer === ORACLE_CACHE_CAPABILITY_AUTHORITY.transfer
-    && cacheCapability.descriptor === ORACLE_CACHE_CAPABILITY_AUTHORITY.descriptor
+    && cacheCapability.transfer === ORACLE_CACHE_CAPABILITY_TRANSFER
+    && cacheCapability.descriptor === ORACLE_CACHE_CAPABILITY_FD
+    && ['small', 'medium', 'large'].includes(cacheCapability.tier)
+    && typeof cacheCapability.pack_closure_digest === 'string'
     && cacheCapability.source?.pathname_absent === true
     && cacheCapability.source?.fd_closed === true
     && cacheCapability.retained_fds?.requester === false
@@ -301,7 +355,7 @@ export function oracleHostResult({ proof, usage, release, finish }) {
     proc_anchor_released: finish.proc_anchor_released === true,
     limitations: [
       'untrusted candidate execution and grading are unreachable in this probe',
-      'this proves only fixed-FD anonymous cache-capability transfer with post-setup anonymization; bwrap 0.11.1 cannot ingest an already-unlinked regular-file FD',
+      'this proves only sealed packed-bare-cache fixed-FD anonymous cache-capability transfer with post-setup anonymization; bwrap 0.11.1 cannot ingest an already-unlinked regular-file FD',
       'a same-UID concurrent attacker during the transient trusted mount-setup pathname is outside the threat model',
       'same-UID ambient pathname replacement and proof-broker requester impersonation remain unsupported denial-of-service or state-race surfaces; the runner terminal tuple prevents false success',
       'Git realpath cannot consume the proc-acquired quota descriptor as a repository path',
@@ -312,8 +366,16 @@ export function oracleHostResult({ proof, usage, release, finish }) {
 
 export async function main(exactArguments = []) {
   const invocation = validateOracleHostInvocation(exactArguments);
+  const sealedBytes = loadSealedCacheCapabilityFile(
+    invocation.profile.cache_capability_sealed_relative,
+    process.cwd(),
+    invocation.profile.cache_capability_sha256,
+  );
+  const authority = authorityFromSealedCacheCapabilityBytes(sealedBytes);
   const requester = processIdentity(process.pid);
-  const capability = createCacheCapabilitySource(invocation.profile.private_tmp_root);
+  const capability = createCacheCapabilitySource(
+    invocation.profile.private_tmp_root, authority, sealedBytes,
+  );
   let capabilityDescriptor = capability.descriptor;
   let child;
   try {
@@ -339,7 +401,7 @@ export async function main(exactArguments = []) {
     }
     const bwrapInfo = parseOracleBwrapInfo(info);
     await waitForOracleKeeperMountTopology(bwrapInfo.child_pid);
-    const capabilityClaim = anonymizeCacheCapability(capability);
+    const capabilityClaim = anonymizeCacheCapability(capability, authority);
     capabilityDescriptor = null;
     keeper = processIdentity(bwrapInfo.child_pid);
     const registration = await brokerRequest(invocation.profile.broker_socket, {

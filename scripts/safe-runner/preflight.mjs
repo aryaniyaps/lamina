@@ -36,6 +36,13 @@ import {
   exactCandidateSmokeCommand,
   exactCandidateSmokeLimits,
 } from './candidate-smoke-profile.mjs';
+import {
+  CANDIDATE_LEASE_WORKER_COMMAND,
+  CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE,
+  CANDIDATE_LEASE_WORKER_WORKLOAD_ID,
+  exactCandidateLeaseWorkerCommand,
+  exactCandidateLeaseWorkerLimits,
+} from './candidate-lease-worker-profile.mjs';
 import { adapterProbe } from './adapter.mjs';
 import { hostEnvelope } from './envelope.mjs';
 import { existingLaminaProcesses } from './processes.mjs';
@@ -231,11 +238,16 @@ export function auditedCommand(command = [], cwd = process.cwd()) {
       && !auditedRuntimeBaselineCommand(command, cwd)) {
       return { audited: false, allow_network: false, entrypoint: relative };
     }
-    if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT
-      && (command.length !== 3
+    if (relative === REAL_REPOSITORY_ORACLE_ENTRYPOINT) {
+      if (command[2] === CANDIDATE_LEASE_WORKER_COMMAND) {
+        if (!exactCandidateLeaseWorkerCommand(command)) {
+          return { audited: false, allow_network: false, entrypoint: relative };
+        }
+      } else if (command.length !== 3
         || !['admit-inventory', 'reconstruct-inventory', 'review-inventory', 'discover-cases', 'expand-evidence', 'verify-scenarios', ORACLE_HOST_PROBE_COMMAND, CANDIDATE_SMOKE_COMMAND]
-          .includes(command[2]))) {
-      return { audited: false, allow_network: false, entrypoint: relative };
+          .includes(command[2])) {
+        return { audited: false, allow_network: false, entrypoint: relative };
+      }
     }
     return relative !== null
       ? { audited: true, allow_network: AUDITED_NODE_ENTRYPOINTS.get(relative), entrypoint: relative,
@@ -386,6 +398,8 @@ export function preflightRun({
     && workloadId === REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID;
   const candidateSmokeInvocation = ownership.audited_entrypoint
     === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command[2] === CANDIDATE_SMOKE_COMMAND;
+  const candidateLeaseWorkerInvocation = ownership.audited_entrypoint
+    === REAL_REPOSITORY_ORACLE_ENTRYPOINT && command[2] === CANDIDATE_LEASE_WORKER_COMMAND;
   const exactRealRepositoryStructuredOutput = exactRealRepositoryEntrypoint
     && ((command[2] === 'discover-cases'
       && workloadId === REAL_REPOSITORY_ORACLE_DISCOVERY_WORKLOAD_ID)
@@ -419,6 +433,10 @@ export function preflightRun({
     && exactCandidateSmokeCommand(command)
     && workloadId === CANDIDATE_SMOKE_WORKLOAD_ID
     && tier === 'small' && exactCandidateSmokeLimits(envelope.limits);
+  const exactCandidateLeaseWorkerProfile = candidateLeaseWorkerInvocation
+    && exactCandidateLeaseWorkerCommand(command)
+    && workloadId === CANDIDATE_LEASE_WORKER_WORKLOAD_ID
+    && tier === command[3] && exactCandidateLeaseWorkerLimits(envelope.limits);
   if (exactLandlockCandidateProfile) envelope.limits.stdout_tail_max_bytes = MIB;
   const runtimeContract = externalRuntimeContract(ownership, command, cwd);
   const writableWorktree = adapterInfo.production_enforcement
@@ -484,6 +502,7 @@ export function preflightRun({
       : command[2] === 'verify-scenarios' ? REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_WORKLOAD_ID
       : command[2] === ORACLE_HOST_PROBE_COMMAND ? REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID
       : command[2] === CANDIDATE_SMOKE_COMMAND ? CANDIDATE_SMOKE_WORKLOAD_ID
+      : command[2] === CANDIDATE_LEASE_WORKER_COMMAND ? CANDIDATE_LEASE_WORKER_WORKLOAD_ID
       : command[2] === 'admit-inventory' ? REAL_REPOSITORY_ORACLE_WORKLOAD_ID : null;
     if (expectedWorkloadId && workloadId !== expectedWorkloadId) {
       const operation = command[2] === 'reconstruct-inventory'
@@ -493,7 +512,8 @@ export function preflightRun({
               ? 'evidence expansion' : command[2] === 'verify-scenarios'
                 ? 'scenario verification' : command[2] === ORACLE_HOST_PROBE_COMMAND
                   ? 'oracle-host probe' : command[2] === CANDIDATE_SMOKE_COMMAND
-                    ? 'candidate smoke' : 'inventory admission';
+                    ? 'candidate smoke' : command[2] === CANDIDATE_LEASE_WORKER_COMMAND
+                      ? 'candidate lease worker' : 'inventory admission';
       reasons.push(`real-repository ${operation} requires --workload ${expectedWorkloadId}`);
     }
   }
@@ -519,6 +539,14 @@ export function preflightRun({
   }
   if (exactCandidateSmokeProfile && promotionRequested) {
     reasons.push('non-gradeable candidate smoke cannot be promoted');
+  }
+  if (candidateLeaseWorkerInvocation && !exactCandidateLeaseWorkerProfile) {
+    reasons.push(
+      `candidate lease worker requires --workload ${CANDIDATE_LEASE_WORKER_WORKLOAD_ID}, matching tier, exact command, and exact six bounds`,
+    );
+  }
+  if (exactCandidateLeaseWorkerProfile && promotionRequested) {
+    reasons.push('non-gradeable candidate lease worker cannot be promoted');
   }
   if (!writableWorktree.ok) reasons.push(writableWorktree.reason);
   if (sourceIdentityError) reasons.push(sourceIdentityError.message);
@@ -586,7 +614,8 @@ export function preflightRun({
     workload_id: workloadId,
     launch_profile: exactOracleHostProfile ? ORACLE_HOST_LAUNCH_PROFILE
       : exactLandlockCandidateProfile ? LANDLOCK_CANDIDATE_PROBE_LAUNCH_PROFILE
-        : exactCandidateSmokeProfile ? CANDIDATE_SMOKE_LAUNCH_PROFILE : null,
+        : exactCandidateSmokeProfile ? CANDIDATE_SMOKE_LAUNCH_PROFILE
+          : exactCandidateLeaseWorkerProfile ? CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE : null,
     temporary_inode_reservation: temporaryInodeReservation,
     reasons,
   };

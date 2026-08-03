@@ -5,7 +5,10 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const AUTHORITY_SCHEMA = 'lamina.safe-runner-oracle-host-launch-authority/v1';
-const PROFILE_ID = 'oracle-host-probe-v1';
+const ALLOWED_PROFILES = new Set([
+  'oracle-host-probe-v1',
+  'candidate-lease-worker-v1',
+]);
 const MAX_AUTHORITY_BYTES = 64 * 1024;
 const EXACT_BOOTSTRAP_ENVIRONMENT = Object.freeze({
   LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
@@ -81,13 +84,13 @@ export function validateOracleHostLaunchAuthority(encoded, {
     'profile_argument_sha256', 'non_gradeable',
   ]) || !['node', 'launcher', 'host'].every((name) =>
     exactKeys(authority[name], ['path', 'identity']))
-    || authority.schema !== AUTHORITY_SCHEMA || authority.profile !== PROFILE_ID
+    || authority.schema !== AUTHORITY_SCHEMA || !ALLOWED_PROFILES.has(authority.profile)
     || authority.non_gradeable !== true || !path.isAbsolute(authority.cwd)
     || fs.realpathSync.native(authority.cwd) !== authority.cwd || fs.realpathSync.native(cwd) !== authority.cwd
     || !Array.isArray(authority.argv) || authority.argv.length !== 5
     || authority.argv[0] !== authority.node?.path || authority.argv[1] !== authority.host?.path
-    || authority.host?.path !== path.join(authority.cwd,
-      'benchmarks/real-repository-oracle-v1/oracle-host.mjs')
+    || authority.host?.path !== authority.host?.identity?.path
+    || !authority.host.path.startsWith(`${authority.cwd}${path.sep}`)
     || !path.isAbsolute(authority.argv[2]) || !path.isAbsolute(authority.argv[3])
     || authority.argv[2] === authority.argv[3]
     || typeof authority.argv[4] !== 'string' || authority.argv[4].length > MAX_AUTHORITY_BYTES

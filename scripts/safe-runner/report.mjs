@@ -195,6 +195,29 @@ export function validateReport(report) {
   return { valid: errors.length === 0, errors, schema: BUNDLED_SCHEMA.$id };
 }
 
+export function outerSafeRunnerCleanupVerified(report) {
+  if (!report || typeof report !== 'object' || Array.isArray(report)) {
+    throw new Error('outer safe-runner cleanup verification requires an exact report object');
+  }
+  if (report.outcome !== 'success') {
+    throw new Error('outer safe-runner cleanup verification requires a successful outcome');
+  }
+  const validation = validateReport(report);
+  if (!validation.valid) {
+    throw new Error(`outer safe-runner report is invalid: ${validation.errors.join('; ')}`);
+  }
+  const cleanup = report.cleanup;
+  if (cleanup?.attempted !== true
+    || cleanup.descendants_remaining?.length !== 0
+    || cleanup.managed_paths_remaining?.length !== 0
+    || cleanup.scope_removed !== true
+    || cleanup.temporary_directory_removed !== true
+    || cleanup.errors?.length !== 0) {
+    throw new Error('outer safe-runner cleanup is incomplete');
+  }
+  return true;
+}
+
 function fileIdentity(candidate) {
   const stat = fs.lstatSync(candidate, { bigint: true });
   return {

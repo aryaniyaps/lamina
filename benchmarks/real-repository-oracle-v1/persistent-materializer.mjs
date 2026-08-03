@@ -34,6 +34,7 @@ const DEFAULT_MAX_SNAPSHOT_FILES = 120_000;
 const DEFAULT_MAX_SNAPSHOT_BYTES = 768 * 1024 * 1024;
 const HANDLE = /^[a-f0-9]{64}$/;
 const OID = /^[a-f0-9]{40}$/;
+const PACK_DIGEST = /^[a-f0-9]{64}$/;
 const OWNED_GIT_ROOTS = new Set();
 const HAS_POSIX_OWNERSHIP = process.platform !== 'win32'
   && typeof process.getuid === 'function';
@@ -402,13 +403,15 @@ function makeReadOnly(root) {
   for (const directory of directories.reverse()) fs.chmodSync(directory, 0o500);
 }
 
-function verifyPin(repository, collection) {
+function verifyPin(repository, collection, { fsck = true } = {}) {
   const commit = checkedGit(repository, ['rev-parse', '--verify', `${collection.commit}^{commit}`]).trim();
   const tree = checkedGit(repository, ['rev-parse', '--verify', `${collection.commit}^{tree}`]).trim();
   if (commit !== collection.commit || tree !== collection.tree_oid) {
     throw new Error('packed object closure does not resolve the exact reviewed commit and tree');
   }
-  checkedGit(repository, ['fsck', '--full', '--strict', '--no-reflogs', collection.commit], 120_000);
+  if (fsck) {
+    checkedGit(repository, ['fsck', '--full', '--strict', '--no-reflogs', collection.commit], 120_000);
+  }
 }
 
 function initializeCache(cache, collection, seedBareRepository, maximumPackBytes,
@@ -436,6 +439,145 @@ function initializeCache(cache, collection, seedBareRepository, maximumPackBytes
   if (count !== 0 || packs !== 1) throw new Error('cache is not one exact packed bare object closure');
   makeReadOnly(cache);
   return closure;
+}
+
+export const SEALED_PACKED_BARE_CACHE_CAPABILITY_SCHEMA =
+  'lamina.sealed-packed-bare-cache-capability/v1';
+
+export function inspectPackedBareCacheClosure(repository, maximumPackBytes = DEFAULT_MAX_PACK_BYTES) {
+  return packClosure(repository, maximumPackBytes);
+}
+
+export function parseSealedPackedBareCacheCapabilityBytes(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 2) {
+    throw new Error('sealed packed bare cache capability bytes are invalid');
+  }
+  const newline = bytes.indexOf(0x0a);
+  if (newline < 1 || newline >= bytes.length - 1) {
+    throw new Error('sealed packed bare cache capability manifest is missing');
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(bytes.subarray(0, newline + 1).toString('utf8'));
+  } catch {
+    throw new Error('sealed packed bare cache capability manifest is not JSON');
+  }
+  if (manifest?.schema !== SEALED_PACKED_BARE_CACHE_CAPABILITY_SCHEMA
+    || !['small', 'medium', 'large'].includes(manifest.tier)
+    || !OID.test(manifest.commit || '') || !OID.test(manifest.tree_oid || '')
+    || !PACK_DIGEST.test(manifest.pack_closure_digest || '')
+    || !Array.isArray(manifest.pack_files) || manifest.pack_files.length !== MAX_PACK_FILES
+    || manifest.pack_files.some((item) => !item?.name || !Number.isSafeInteger(item.size)
+      || !PACK_DIGEST.test(item.sha256 || ''))) {
+    throw new Error('sealed packed bare cache capability manifest is invalid');
+  }
+  const packBytes = bytes.subarray(newline + 1);
+  if (packBytes.length !== manifest.pack_closure_bytes) {
+    throw new Error('sealed packed bare cache capability pack bytes differ from manifest');
+  }
+  if (sha256(packBytes) !== manifest.pack_closure_digest) {
+    throw new Error('sealed packed bare cache capability pack digest differs from manifest');
+  }
+  let offset = 0;
+  const files = manifest.pack_files.map((item) => {
+    const slice = packBytes.subarray(offset, offset + item.size);
+    offset += item.size;
+    if (slice.length !== item.size || sha256(slice) !== item.sha256) {
+      throw new Error('sealed packed bare cache capability pack file bytes are invalid');
+    }
+    return Object.freeze({ ...item, bytes: slice });
+  });
+  if (offset !== packBytes.length) {
+    throw new Error('sealed packed bare cache capability pack file layout is invalid');
+  }
+  return Object.freeze({ manifest, packBytes, files });
+}
+
+export function installSealedPackedBareCacheCapability(cacheRepository, bytes,
+  maximumPackBytes = DEFAULT_MAX_PACK_BYTES) {
+  const parsed = parseSealedPackedBareCacheCapabilityBytes(bytes);
+  checkedGit(path.dirname(cacheRepository), ['init', '--quiet', '--bare', cacheRepository]);
+  const packDirectory = path.join(cacheRepository, 'objects', 'pack');
+  for (const file of parsed.files) {
+    const destination = path.join(packDirectory, file.name);
+    fs.writeFileSync(destination, file.bytes, { flag: 'wx', mode: 0o400 });
+  }
+  checkedGit(cacheRepository, ['update-ref', 'refs/lamina/cache-pin', parsed.manifest.commit]);
+  const collection = {
+    commit: parsed.manifest.commit,
+    tree_oid: parsed.manifest.tree_oid,
+  };
+  verifyPin(cacheRepository, collection, { fsck: false });
+  const closure = packClosure(cacheRepository, maximumPackBytes);
+  if (closure.total_bytes !== parsed.manifest.pack_closure_bytes
+    || sha256(Buffer.concat(parsed.files.map((item) => item.bytes)))
+      !== parsed.manifest.pack_closure_digest) {
+    throw new Error('installed sealed packed bare cache does not match capability authority');
+  }
+  makeReadOnly(cacheRepository);
+  return Object.freeze({ manifest: parsed.manifest, closure });
+}
+
+export function sealPackedBareCacheCapabilityBytes(closure, { tier, commit, tree_oid }) {
+  if (!closure?.records || closure.records.length !== MAX_PACK_FILES
+    || !['small', 'medium', 'large'].includes(tier)
+    || !OID.test(commit || '') || !OID.test(tree_oid || '')) {
+    throw new Error('packed bare cache capability seal inputs are invalid');
+  }
+  const packFiles = closure.records.map((record) => Object.freeze({
+    name: record.name, size: record.size, sha256: record.sha256,
+  }));
+  const packBytes = Buffer.concat(closure.records.map((record) => fs.readFileSync(record.file)));
+  const packClosureDigest = sha256(packBytes);
+  const manifest = Object.freeze({
+    schema: SEALED_PACKED_BARE_CACHE_CAPABILITY_SCHEMA,
+    tier, commit, tree_oid,
+    pack_closure_digest: packClosureDigest,
+    pack_closure_bytes: closure.total_bytes,
+    pack_files: Object.freeze(packFiles),
+  });
+  const manifestBytes = Buffer.from(`${JSON.stringify(manifest)}\n`, 'utf8');
+  const bytes = Buffer.concat([manifestBytes, packBytes]);
+  return Object.freeze({
+    bytes, digest: sha256(bytes), size: bytes.length, manifest, pack_closure_digest: packClosureDigest,
+  });
+}
+
+export function buildPackedBareCacheRepository({
+  destinationRepository, collection, seedBareRepository = null,
+  maximumPackBytes = DEFAULT_MAX_PACK_BYTES,
+}) {
+  if (!collection || !/^https:\/\//.test(collection.repository_url || '')
+    || !OID.test(collection.commit || '') || !OID.test(collection.tree_oid || '')) {
+    throw new Error('packed bare cache collection authority is invalid');
+  }
+  const parent = path.dirname(destinationRepository);
+  physicalDirectory(parent, 'packed bare cache parent', { privateMode: false });
+  OWNED_GIT_ROOTS.add(parent);
+  try {
+    return initializeCache(destinationRepository, collection, seedBareRepository, maximumPackBytes);
+  } finally {
+    OWNED_GIT_ROOTS.delete(parent);
+  }
+}
+
+export function buildOracleTierPackedBareCache({
+  workDirectory, collection, seedBareRepository = null,
+  maximumPackBytes = DEFAULT_MAX_PACK_BYTES,
+}) {
+  if (!['small', 'medium', 'large'].includes(collection?.fixture_id)
+    || collection.fixture_id !== collection?.fixture_class) {
+    throw new Error('oracle tier packed bare cache requires an exact collection tier');
+  }
+  const cacheRepository = path.join(workDirectory, CACHE_NAME);
+  const closure = buildPackedBareCacheRepository({
+    destinationRepository: cacheRepository, collection, seedBareRepository, maximumPackBytes,
+  });
+  return sealPackedBareCacheCapabilityBytes(closure, {
+    tier: collection.fixture_id,
+    commit: collection.commit,
+    tree_oid: collection.tree_oid,
+  });
 }
 
 function safeOwnedPath(root, relative, { missing = false } = {}) {
@@ -746,6 +888,7 @@ function createPersistentScenarioMaterializerInternal({
   recoveryOwnerIdentity,
   publishRecoveryAuthority,
   seedBareRepository = null,
+  sealedCapabilityBytes = null,
   maximumPackBytes = DEFAULT_MAX_PACK_BYTES,
   maximumSnapshotFiles = DEFAULT_MAX_SNAPSHOT_FILES,
   maximumSnapshotBytes = DEFAULT_MAX_SNAPSHOT_BYTES,
@@ -768,6 +911,21 @@ function createPersistentScenarioMaterializerInternal({
     throw new Error('persistent materializer collection authority is invalid');
   }
   let physicalSeed = null;
+  if (seedBareRepository && sealedCapabilityBytes) {
+    throw new Error('persistent materializer cannot combine sealed capability and seed repository');
+  }
+  if (sealedCapabilityBytes) {
+    if (!Buffer.isBuffer(sealedCapabilityBytes)) {
+      throw new Error('persistent materializer sealed capability bytes are invalid');
+    }
+    const manifest = parseSealedPackedBareCacheCapabilityBytes(sealedCapabilityBytes).manifest;
+    if (manifest.tier !== collection.fixture_id
+      || manifest.commit !== collection.commit
+      || manifest.tree_oid !== collection.tree_oid) {
+      throw new Error('sealed packed bare cache capability does not match materializer collection');
+    }
+  }
+  const sealedPackedCacheInstall = Boolean(sealedCapabilityBytes);
   if (seedBareRepository) {
     physicalSeed = physicalDirectory(seedBareRepository,
       'synthetic packed bare cache seed', { privateMode: false }).path;
@@ -816,8 +974,12 @@ function createPersistentScenarioMaterializerInternal({
     syntheticLifecycleInterposition?.(Object.freeze({
       boundary: 'after_owner_marker', authority: finalAuthority,
     }));
-    initializeCache(cache, frozenCollection, physicalSeed, maximumPackBytes,
-      syntheticCopyInterposition);
+    if (sealedCapabilityBytes) {
+      installSealedPackedBareCacheCapability(cache, sealedCapabilityBytes, maximumPackBytes);
+    } else {
+      initializeCache(cache, frozenCollection, physicalSeed, maximumPackBytes,
+        syntheticCopyInterposition);
+    }
     cacheSnapshot = scanTree(cache, {
       maximumFiles: maximumSnapshotFiles, maximumBytes: maximumSnapshotBytes,
     });
@@ -886,9 +1048,9 @@ function createPersistentScenarioMaterializerInternal({
       try {
         checkedGit(leaseRoot, ['init', '--quiet', repository]);
         const closure = copyPackedClosure(cache, path.join(repository, '.git'), maximumPackBytes);
-        verifyPin(repository, frozenCollection);
+        verifyPin(repository, frozenCollection, { fsck: !sealedPackedCacheInstall });
         checkedGit(repository, ['checkout', '--quiet', '--detach', frozenCollection.commit]);
-        verifyPin(repository, frozenCollection);
+        verifyPin(repository, frozenCollection, { fsck: !sealedPackedCacheInstall });
         const initial = readRepositoryState(repository, { worktreeRole: 'primary' });
         const clean = {
           head: frozenCollection.commit, branch: '(detached)', upstream: null,
@@ -1029,7 +1191,7 @@ export function createPersistentScenarioMaterializer(options) {
   }
   const sanitized = exactOptions(options, new Set([
     'runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority',
-    'maximumPackBytes', 'maximumSnapshotFiles', 'maximumSnapshotBytes',
+    'sealedCapabilityBytes', 'maximumPackBytes', 'maximumSnapshotFiles', 'maximumSnapshotBytes',
   ]), ['runnerTemporaryRoot', 'collection', 'recoveryOwnerIdentity', 'publishRecoveryAuthority'],
   'production persistent materializer');
   const reviewed = loadReviewedFixture().fixture.collections;

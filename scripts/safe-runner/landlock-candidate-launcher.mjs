@@ -230,7 +230,15 @@ export function queryLandlockCandidateAbi(launcherFd) {
   return Number(result.stdout.trim());
 }
 
-export function landlockCandidateRuntimeClosure(nodeIdentity) {
+export function landlockCandidateRuntimeClosure(nodeIdentity, precomputed = null) {
+  if (precomputed) {
+    if (!precomputed.resolver || !Array.isArray(precomputed.files)
+      || !precomputed.configuration
+      || precomputed.files.length < 2 || precomputed.files.length > MAX_RUNTIME_FILES) {
+      throw new Error('precomputed candidate runtime closure is invalid');
+    }
+    return precomputed;
+  }
   const ldd = landlockCandidateFileIdentity('/usr/bin/ldd');
   const result = spawnSync(ldd.path, [nodeIdentity.path], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 2_000,

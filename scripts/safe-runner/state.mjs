@@ -20,6 +20,10 @@ import {
   CANDIDATE_SMOKE_LAUNCH_PROFILE, CANDIDATE_SMOKE_WORKLOAD_ID,
   exactCandidateSmokeCommand,
 } from './candidate-smoke-profile.mjs';
+import {
+  CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE, CANDIDATE_LEASE_WORKER_WORKLOAD_ID,
+  exactCandidateLeaseWorkerCommand,
+} from './candidate-lease-worker-profile.mjs';
 import { retrievalQualificationAuthority } from './retrieval-authority.mjs';
 import { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
 export { repositorySourceDigest, runnerBuildDigest } from './source-identity.mjs';
@@ -554,6 +558,17 @@ export function recordPromotion(cwd, tier, evidence, workloadId, actualCommand =
     evidence?.preflight?.execution_snapshot?.launch_profile,
   ].includes(ORACLE_HOST_LAUNCH_PROFILE)) {
     const error = new Error('non-gradeable oracle-host evidence cannot be promoted');
+    error.code = 'LAMINA_SAFE_PROMOTION_FORBIDDEN';
+    throw error;
+  }
+  if ([
+    evidence?.preflight?.launch_profile,
+    evidence?.preflight?.execution_snapshot?.launch_profile,
+  ].includes(CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE)
+    || workloadId === CANDIDATE_LEASE_WORKER_WORKLOAD_ID
+    || exactCandidateLeaseWorkerCommand(evidence?.command)
+    || exactCandidateLeaseWorkerCommand(actualCommand)) {
+    const error = new Error('non-gradeable candidate lease worker evidence cannot be promoted');
     error.code = 'LAMINA_SAFE_PROMOTION_FORBIDDEN';
     throw error;
   }

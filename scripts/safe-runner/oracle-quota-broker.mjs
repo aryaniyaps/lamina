@@ -7,8 +7,8 @@ import {
   ORACLE_HOST_ROOT_BYTES, TMPFS_MAGIC, parseOracleBwrapInfo,
 } from './oracle-host-profile.mjs';
 import {
-  ORACLE_CACHE_CAPABILITY_AUTHORITY, ORACLE_CACHE_CAPABILITY_CONTENT,
-  ORACLE_CACHE_CAPABILITY_MOUNT, validateOracleCacheCapabilityEvidence,
+  ORACLE_CACHE_CAPABILITY_MOUNT, isOracleCacheCapabilityAuthority,
+  validateOracleCacheCapabilityEvidence,
 } from './oracle-cache-capability.mjs';
 
 export { parseOracleBwrapInfo };
@@ -265,8 +265,8 @@ function scanMountPins(mountIds) {
   return found.sort((left, right) => left - right);
 }
 
-function exactKeeperState(registration, cgroup) {
-  const { anchor, keeper, namespaces, mounts } = registration;
+function exactKeeperState(registration, cgroup, { mounts = true } = {}) {
+  const { anchor, keeper, namespaces, mounts: registeredMounts } = registration;
   const stat = liveAnchoredIdentity(anchor);
   if (stat.start_ticks !== keeper.start_ticks || stat.state === 'Z'
     || readCgroup(keeper.pid) !== cgroup
@@ -275,11 +275,12 @@ function exactKeeperState(registration, cgroup) {
       readNamespace(anchor, procName) !== namespaces[key])) {
     throw new Error('oracle keeper identity, cgroup, or namespaces changed');
   }
+  if (!mounts) return true;
   const currentMounts = parseOracleMountInfo(fs.readFileSync(`${anchor}/mountinfo`, 'utf8'));
-  if (currentMounts.root.mount_id !== mounts.root.mount_id
-    || currentMounts.oracle_state.mount_id !== mounts.oracle_state.mount_id
+  if (currentMounts.root.mount_id !== registeredMounts.root.mount_id
+    || currentMounts.oracle_state.mount_id !== registeredMounts.oracle_state.mount_id
     || currentMounts.oracle_cache_capability.mount_id
-      !== mounts.oracle_cache_capability.mount_id) {
+      !== registeredMounts.oracle_cache_capability.mount_id) {
     throw new Error('oracle keeper mount topology changed');
   }
   return true;
@@ -309,7 +310,7 @@ function processRetainsCapabilityFd(procRoot, identity) {
 }
 
 function cacheCapabilityProof({
-  claim, privateTmpRoot, requester, outer, keeperAnchor, rootFd, mounts,
+  claim, privateTmpRoot, requester, outer, keeperAnchor, rootFd, mounts, authority,
 }) {
   const requesterFdRetained = processRetainsCapabilityFd(`/proc/${requester.pid}`,
     claim?.identity || {});
@@ -322,7 +323,8 @@ function cacheCapabilityProof({
     const stat = fs.fstatSync(descriptor, { bigint: true });
     const bytes = Buffer.alloc(Number(stat.size));
     const count = fs.readSync(descriptor, bytes, 0, bytes.length, 0);
-    if (count !== bytes.length || !bytes.equals(Buffer.from(ORACLE_CACHE_CAPABILITY_CONTENT))) {
+    const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+    if (count !== bytes.length || digest !== authority.digest || bytes.length !== authority.size) {
       throw new Error('oracle cache capability mounted content is invalid');
     }
     let readDescriptorWriteRefused = false;
@@ -350,7 +352,7 @@ function cacheCapabilityProof({
       keeper_fd_retained: keeperFdRetained,
       read_descriptor_write_refused: readDescriptorWriteRefused,
       open_for_write_refused: openForWriteRefused,
-    }, { privateTmpRoot, expectedUid: process.getuid() });
+    }, { privateTmpRoot, expectedUid: process.getuid(), authority });
     if (fdMountId(descriptor) !== mounts.oracle_cache_capability.mount_id) {
       throw new Error('oracle cache capability descriptor mount identity is invalid');
     }
@@ -432,8 +434,7 @@ export function createOracleQuotaRegistry({
     || !path.isAbsolute(bwrap || '') || !bwrapIdentity
     || !Array.isArray(keeperArguments) || keeperArguments.length < 2
     || !path.isAbsolute(privateTmpRoot || '')
-    || JSON.stringify(cacheCapabilityAuthority)
-      !== JSON.stringify(ORACLE_CACHE_CAPABILITY_AUTHORITY)) {
+    || !isOracleCacheCapabilityAuthority(cacheCapabilityAuthority)) {
     throw new TypeError('oracle quota registry authority is incomplete');
   }
   let registration = null;
@@ -503,7 +504,7 @@ export function createOracleQuotaRegistry({
         }
         const cache = cacheCapabilityProof({
           claim: cacheCapability, privateTmpRoot, requester, outer,
-          keeperAnchor: anchor, rootFd, mounts,
+          keeperAnchor: anchor, rootFd, mounts, authority: cacheCapabilityAuthority,
         });
         cacheFd = cache.descriptor;
         const nonce = nonceProof(stateFd);
@@ -535,10 +536,9 @@ export function createOracleQuotaRegistry({
     probe({ requester, exerciseEnospc = false }) {
       if (!registration || registration.released) throw new Error('oracle quota is not registered');
       assertRequester(registration, requester, procCgroup);
-      exactKeeperState(registration, procCgroup);
+      exactKeeperState(registration, procCgroup, { mounts: false });
       const filesystem = statfsProof(registration.stateFd, quotaBytes);
       const walked = boundedDirectorySize(`/proc/self/fd/${registration.stateFd}`, quotaBytes, 64);
-      if (walked.symlinks > 0) throw new Error('oracle quota contains a symlink');
       const enospc = exerciseEnospc ? enospcProof(registration.stateFd, quotaBytes) : null;
       return {
         bytes: filesystem.bytes, entries: walked.entries,
@@ -552,7 +552,11 @@ export function createOracleQuotaRegistry({
     release({ requester }) {
       if (!registration || registration.released) throw new Error('oracle quota is not releasable');
       assertRequester(registration, requester, procCgroup);
-      exactKeeperState(registration, procCgroup);
+      if (identityAlive(registration.keeper)) {
+        exactKeeperState(registration, procCgroup);
+      } else if (identityAlive(registration.outer)) {
+        throw new Error('oracle keeper died before quota release while outer remains alive');
+      }
       const mountIds = [registration.mounts.root.mount_id,
         registration.mounts.oracle_state.mount_id,
         registration.mounts.oracle_cache_capability.mount_id];

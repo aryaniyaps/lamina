@@ -12,14 +12,16 @@ import {
   quotaFilesystemUsage,
   removeOwnedDirectory,
 } from './filesystem.mjs';
-import { exactOracleHostLaunchAuthorized, LinuxSystemdAdapter } from './linux-systemd.mjs';
+import { exactOracleHostLaunchAuthorized, isOracleHostSnapshotLaunchProfile, LinuxSystemdAdapter } from './linux-systemd.mjs';
 import { classifyRemainingDescendants } from './managed-descendants.mjs';
 import { PortableProcessGroupAdapter } from './portable-process-group.mjs';
 import { preflightRun } from './preflight.mjs';
 import { existingLaminaProcesses, signalIdentity } from './processes.mjs';
 import {
-  baseReport, finishReport, persistReportAuthorityWith, prepareReportAuthority, writeReportWithFallback,
+  baseReport, finishReport, persistReportAuthorityWith, prepareReportAuthority, validateReport,
+  writeReportWithFallback,
 } from './report.mjs';
+export { outerSafeRunnerCleanupVerified } from './report.mjs';
 import { redactEvidence, redactText } from './redaction.mjs';
 import {
   assertFrozenWorkloadIdentity, beginSafetyAttempt,
@@ -32,6 +34,7 @@ import {
   createOracleQuotaRegistry, exactOracleQuotaReadyProof, procCgroupFromControlPath,
 } from './oracle-quota-broker.mjs';
 import { ORACLE_HOST_LAUNCH_PROFILE } from './oracle-host-profile.mjs';
+import { CANDIDATE_LEASE_WORKER_LAUNCH_PROFILE } from './candidate-lease-worker-profile.mjs';
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -79,7 +82,7 @@ export function payloadRuntimeTimedOut(payloadStartedMs, nowMs, timeoutMs) {
 export function oracleQuotaCompletionAuthorized({
   launchProfile, proof, releaseAuthorized, finished, registryState,
 } = {}) {
-  if (launchProfile !== ORACLE_HOST_LAUNCH_PROFILE) return true;
+  if (!isOracleHostSnapshotLaunchProfile(launchProfile)) return true;
   return Boolean(proof && releaseAuthorized === true && finished === true
     && registryState?.state === 'finished' && registryState.cleanup_verified === true);
 }
@@ -447,7 +450,7 @@ export async function runSafely({
       accounting: typeof measurementObserver === 'function',
     });
     let temporary = null;
-    const oracleProfile = executionSnapshot?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE;
+    const oracleProfile = isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile);
     if (oracleProfile && activeAdapter.production_enforcement && quotaProven) {
       const oracleUsage = oracleQuotaRegistry?.usage() || null;
       if (oracleUsage?.state === 'finished' && oracleUsage.cleanup_verified === true) {
@@ -460,6 +463,9 @@ export async function runSafely({
       } else if (oracleUsage && Number.isFinite(oracleUsage.bytes)
         && Number.isFinite(oracleUsage.entries)) {
         temporary = oracleUsage;
+      } else if (oracleQuotaProof && !oracleQuotaReleaseAuthorized && !oracleQuotaFinished) {
+        temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
+          exceeded: false, reason: null, quota_proven: true, oracle_worker_active: true };
       } else {
         requestStop('internal_error', 'oracle_quota_visibility');
         temporary = { bytes: 0, entries: 0, symlinks: 0, symlink_paths: [],
@@ -685,6 +691,7 @@ export async function runSafely({
         infrastructure: activeAdapter.infrastructure,
         environment: { ...process.env, ...env },
         expectedRetrievalAuthority: preflight.retrieval_authority,
+        tier,
         onProgress() {
           if (snapshotProgressObserved) return;
           snapshotProgressObserved = true;
@@ -744,13 +751,13 @@ export async function runSafely({
       records: () => activeAdapter?.sample()?.records || [],
       gatePid: null,
       oracleHostLaunchAuthorized(record) {
-        return executionSnapshot?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE
+        return isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile)
           && exactOracleHostLaunchAuthorized(
             record, activeAdapter?.oracleHostLaunchAuthority, this.gatePid,
           );
       },
       registerOracleQuota(record) {
-        if (executionSnapshot?.launch_profile !== ORACLE_HOST_LAUNCH_PROFILE
+        if (!isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile)
           || oracleQuotaRegistry || oracleQuotaProof) return null;
         oracleQuotaRegistry = createOracleQuotaRegistry({
           cgroup: this.cgroup,
@@ -1100,7 +1107,7 @@ export async function runSafely({
         try {
           const value = JSON.parse(fs.readFileSync(quotaReadyFile, 'utf8'));
           const totalBytes = Number(value.block_size) * Number(value.blocks);
-          const oracleProfile = executionSnapshot?.launch_profile === ORACLE_HOST_LAUNCH_PROFILE;
+          const oracleProfile = isOracleHostSnapshotLaunchProfile(executionSnapshot?.launch_profile);
           const oracleProofMatches = !oracleProfile || (oracleQuotaProof
             && exactOracleQuotaReadyProof(value, oracleQuotaProof, authority.cgroup)
             && exactOracleHostLaunchAuthorized(

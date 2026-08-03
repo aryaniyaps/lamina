@@ -57,6 +57,14 @@ export const REAL_REPOSITORY_ORACLE_SCENARIO_VERIFICATION_SOURCE_CLOSURE = Objec
 export const REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE = Object.freeze([
   REAL_REPOSITORY_ORACLE_ENTRYPOINT,
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/persistent-materializer.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-pins.mjs',
+  'benchmarks/real-repository-oracle-v1/collection-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/contract.mjs',
+  'benchmarks/real-repository-oracle-v1/repository-state.mjs',
+  'benchmarks/real-repository-oracle-v1/fixture-authority.mjs',
+  'benchmarks/real-repository-oracle-v1/schema-validation.mjs',
+  'benchmarks/runtime-baseline-v1/manifest.json',
   'scripts/safe-runner/oracle-cache-capability.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
@@ -95,6 +103,21 @@ export const REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE = Object.free
   'scripts/safe-runner/processes.mjs',
   'scripts/safe-runner/infrastructure.mjs',
 ]);
+export const REAL_REPOSITORY_ORACLE_CANDIDATE_LEASE_WORKER_SOURCE_CLOSURE = Object.freeze([
+  ...REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
+  'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-runner.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-oracle-host.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-controller.mjs',
+  'benchmarks/real-repository-oracle-v1/candidate-lease-worker-report.mjs',
+  'scripts/safe-runner/candidate-lease-worker-profile.mjs',
+  'scripts/safe-runner/candidate-lease-worker-host-profile.mjs',
+  'scripts/safe-runner/oracle-cache-capability.mjs',
+  'scripts/safe-runner/oracle-host-profile.mjs',
+  'scripts/safe-runner/oracle-quota-broker.mjs',
+  'scripts/safe-runner/filesystem.mjs',
+]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([...new Set([
   ...REAL_REPOSITORY_ORACLE_ADMISSION_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_DISCOVERY_SOURCE_CLOSURE,
@@ -103,6 +126,7 @@ export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE = Object.freeze([...new Set([
   ...REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE,
   ...REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE,
+  ...REAL_REPOSITORY_ORACLE_CANDIDATE_LEASE_WORKER_SOURCE_CLOSURE,
 ])]);
 export const REAL_REPOSITORY_ORACLE_SOURCE_CLOSURE_SCHEMA =
   'lamina.safe-runner-real-repository-source-closure/v1';
@@ -112,6 +136,8 @@ export function realRepositoryOracleSourceClosure(commandName) {
     ? REAL_REPOSITORY_ORACLE_HOST_PROBE_SOURCE_CLOSURE
     : commandName === 'smoke-candidate-small'
       ? REAL_REPOSITORY_ORACLE_CANDIDATE_SMOKE_SOURCE_CLOSURE
+      : commandName === 'lease-candidate-worker'
+        ? REAL_REPOSITORY_ORACLE_CANDIDATE_LEASE_WORKER_SOURCE_CLOSURE
       : commandName === 'review-inventory'
         ? REAL_REPOSITORY_ORACLE_REVIEW_SOURCE_CLOSURE
         : commandName === 'discover-cases'

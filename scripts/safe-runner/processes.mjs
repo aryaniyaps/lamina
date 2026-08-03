@@ -83,7 +83,7 @@ export function processRecord(pid) {
     const namespacePids = String(status.match(/^NSpid:\s+(.+)$/m)?.[1] || '')
       .trim().split(/\s+/).filter(Boolean).map(Number);
     const cmdlineBytes = fs.readFileSync(`/proc/${pid}/cmdline`);
-    const argv = cmdlineBytes.length <= 8 * 1024
+    const argv = cmdlineBytes.length <= 128 * 1024
       ? cmdlineBytes.toString('utf8').split('\0').filter(Boolean) : null;
     const cmdline = (argv || []).join(' ');
     const environmentAttestation = readProcessEnvironment(pid);
@@ -124,8 +124,16 @@ export function processRecord(pid) {
 }
 
 export function processIdentity(pid) {
-  const record = processRecord(pid);
-  return record ? { pid: record.pid, start_ticks: record.start_ticks } : null;
+  try {
+    const text = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = text.lastIndexOf(')');
+    const fields = close > 0 ? text.slice(close + 2).trim().split(/\s+/) : [];
+    const startTicks = fields[19];
+    if (!/^\d+$/.test(startTicks || '')) return null;
+    return { pid: Number(pid), start_ticks: startTicks };
+  } catch {
+    return null;
+  }
 }
 
 export function identityAlive(identity) {

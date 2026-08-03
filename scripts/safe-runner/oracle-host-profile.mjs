@@ -93,3 +93,40 @@ export function oracleHostProbeLimits(limits) {
     && limits.temporary_max_bytes >= 4096
     && limits.temporary_max_bytes <= ORACLE_HOST_PROBE_MAX_QUOTA_BYTES);
 }
+
+export function encodeOracleHostWireProfile(oracleHostProfile, {
+  quotaBytes, keeperArguments, brokerSocket, privateTmpRoot,
+}) {
+  const wire = {
+    schema: oracleHostProfile.schema,
+    id: oracleHostProfile.id,
+    bwrap: oracleHostProfile.bwrap,
+    bwrap_identity: oracleHostProfile.bwrap_identity,
+    bwrap_capabilities: oracleHostProfile.bwrap_capabilities,
+    launcher: oracleHostProfile.launcher,
+    launcher_identity: oracleHostProfile.launcher_identity,
+    bootstrap_environment: oracleHostProfile.bootstrap_environment,
+    host: oracleHostProfile.host,
+    host_identity: oracleHostProfile.host_identity,
+    non_gradeable: oracleHostProfile.non_gradeable,
+    cache_capability_sha256: oracleHostProfile.cache_capability.digest,
+    cache_capability_sealed_relative: oracleHostProfile.cache_capability_sealed_relative,
+    quota_bytes: quotaBytes,
+    broker_socket: brokerSocket,
+    private_tmp_root: privateTmpRoot,
+  };
+  if (oracleHostProfile.id === 'candidate-lease-worker-v1'
+    && oracleHostProfile.snapshot_repository && oracleHostProfile.worker_runner) {
+    wire.snapshot_repository = oracleHostProfile.snapshot_repository;
+    wire.worker_runner = oracleHostProfile.worker_runner;
+    wire.worker_args = oracleHostProfile.worker_args;
+    wire.execution_authority_root = oracleHostProfile.execution_authority_root;
+    wire.node_executable = oracleHostProfile.node_executable;
+    wire.node_executable_identity = oracleHostProfile.node_executable_identity;
+    wire.sealed_git_identity_relative = oracleHostProfile.sealed_git_identity_relative;
+    wire.sealed_git_identity_sha256 = oracleHostProfile.sealed_git_identity_sha256;
+  } else {
+    wire.keeper_arguments = keeperArguments;
+  }
+  return Object.freeze(wire);
+}

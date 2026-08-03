@@ -20,6 +20,7 @@ export const SCENARIO_VERIFICATION_EXACT_COMMAND = Object.freeze(['verify-scenar
 export const ORACLE_HOST_PROBE_WORKLOAD_ID = 'real-repository-oracle-v1:oracle-host-probe';
 export const ORACLE_HOST_PROBE_EXACT_COMMAND = Object.freeze(['probe-oracle-host']);
 export const CANDIDATE_SMOKE_EXACT_COMMAND = Object.freeze(['smoke-candidate-small']);
+export const CANDIDATE_LEASE_WORKER_EXACT_COMMAND_PREFIX = Object.freeze(['lease-candidate-worker']);
 
 const NO_QUALITY_CLAIMS = Object.freeze({
   workflow_selection: false,
@@ -144,7 +145,15 @@ export async function main(argv = process.argv.slice(2)) {
     await runCandidateSmoke();
     return;
   }
-  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios|probe-oracle-host|smoke-candidate-small>');
+  if (argv[0] === CANDIDATE_LEASE_WORKER_EXACT_COMMAND_PREFIX[0]
+    && argv.length === 4 && ['small', 'medium', 'large'].includes(argv[1])
+    && /^slot-[1-9]\d*$/.test(argv[2] || '')
+    && ['first', 'replay'].includes(argv[3])) {
+    const { runCandidateLeaseWorker } = await import('./candidate-lease-worker-runner.mjs');
+    await runCandidateLeaseWorker(argv.slice(1));
+    return;
+  }
+  throw new Error('usage: workload.mjs <admit-inventory|reconstruct-inventory|review-inventory|discover-cases|expand-evidence|verify-scenarios|probe-oracle-host|smoke-candidate-small|lease-candidate-worker <tier> <slot> <phase>>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
