@@ -72,6 +72,42 @@ export function authorizeBrokerRequest(request, authority) {
       },
     };
   }
+  if (['register_oracle_quota', 'probe_oracle_quota', 'release_oracle_quota',
+    'finish_oracle_quota'].includes(request.operation)) {
+    if (!authority.oracleHostLaunchAuthorized?.(requester)) {
+      return { ok: false, error: 'requester is not the exact sealed oracle-host launch' };
+    }
+    if (request.operation === 'register_oracle_quota') {
+      const outer = records.find((record) => sameScopedIdentity(record, request.outer));
+      const keeper = records.find((record) => sameScopedIdentity(record, request.keeper));
+      if (!outer || !keeper || outer.ppid !== requester.pid || keeper.ppid !== outer.pid) {
+        return { ok: false, error: 'oracle quota processes are not exact direct descendants' };
+      }
+      if (!Number.isSafeInteger(request.quota_bytes) || request.quota_bytes < 4096) {
+        return { ok: false, error: 'oracle quota bytes are invalid' };
+      }
+      const proof = authority.registerOracleQuota?.({ requester, outer, keeper,
+        bwrap_info: request.bwrap_info,
+        quota_bytes: request.quota_bytes });
+      return proof ? { ok: true, proof }
+        : { ok: false, error: 'oracle quota could not be identity-bound' };
+    }
+    if (request.operation === 'probe_oracle_quota') {
+      const usage = authority.probeOracleQuota?.({
+        requester, exerciseEnospc: request.exercise_enospc === true,
+      });
+      return usage ? { ok: true, usage }
+        : { ok: false, error: 'oracle quota probe is unavailable' };
+    }
+    if (request.operation === 'release_oracle_quota') {
+      const release = authority.releaseOracleQuota?.({ requester });
+      return release ? { ok: true, release }
+        : { ok: false, error: 'oracle quota mount pins could not be released' };
+    }
+    const finish = authority.finishOracleQuota?.({ requester });
+    return finish ? { ok: true, finish }
+      : { ok: false, error: 'oracle quota lifecycle could not be finalized' };
+  }
   if (request.operation === 'reserve_graphd') {
     if (typeof request.socket !== 'string' || !path.isAbsolute(request.socket)
       || typeof request.lock !== 'string' || !path.isAbsolute(request.lock)

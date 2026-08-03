@@ -8,6 +8,7 @@ import { DEFAULTS } from './constants.mjs';
 import { inertRepositoryConfig, spawnTrustedGit, trustedGitIdentity } from './git.mjs';
 import {
   assertTrustedBinaryIdentity, sanitizedEnvironment, trustedRootBinaryIdentity,
+  trustedRootHostBinary,
 } from './infrastructure.mjs';
 import {
   attestOracleKeeperBwrapHelp,
@@ -1320,6 +1321,19 @@ export function prepareExecutionSnapshot({
       entries.push({ label: `infrastructure:${name}`, path: destination, type: 'file', ...copied });
       stagedInfrastructure[name.replaceAll(/[-.]/g, '_')] = destination;
     }
+    if (oracleHostProbe) {
+      const oracleEnvSource = trustedRootHostBinary('env');
+      const oracleEnv = path.join(root, 'infrastructure', 'oracle-env');
+      const copied = copyPhysicalFile(oracleEnvSource.path, oracleEnv, true);
+      const stat = fs.lstatSync(oracleEnv, { bigint: true });
+      totalBytes += copied.size;
+      entries.push({ label: 'infrastructure:oracle-env', path: oracleEnv, type: 'file', ...copied });
+      stagedInfrastructure.oracle_host_env = oracleEnv;
+      stagedInfrastructure.identities.oracle_host_env = {
+        path: oracleEnv, dev: String(stat.dev), ino: String(stat.ino), uid: Number(stat.uid),
+        mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
+      };
+    }
     if (auditedEntrypoint === 'scripts/build-standalone-cli.mjs') {
       const uvSource = resolveProgram(environment.LAMINA_UV_BINARY
         || (process.platform === 'win32' ? 'uv.exe' : 'uv'), cwd, environment);
@@ -1399,6 +1413,11 @@ export function prepareExecutionSnapshot({
         uid: Number(launcherStat.uid), mode: Number(launcherStat.mode & 0o7777n),
         size: String(launcherStat.size), digest: copiedLauncher.digest,
       }),
+      bootstrap_environment: Object.freeze({
+        path: stagedInfrastructure.oracle_host_env,
+        identity: Object.freeze({ ...stagedInfrastructure.identities.oracle_host_env }),
+        values: Object.freeze({ LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' }),
+      }),
       host: oracleHost,
       host_identity: Object.freeze({
         path: oracleHost, dev: String(hostStat.dev), ino: String(hostStat.ino),
@@ -1414,6 +1433,7 @@ export function prepareExecutionSnapshot({
       cwd: 'repository',
       node_sha256: stagedInfrastructure.identities.node.digest,
       launcher_sha256: copiedLauncher.digest,
+      bootstrap_env_sha256: stagedInfrastructure.identities.oracle_host_env.digest,
       host_sha256: copiedHost.digest,
       bwrap_sha256: stagedInfrastructure.identities.bwrap.digest,
       bwrap_help_sha256: capabilities.help_sha256,
@@ -1606,11 +1626,16 @@ export function assertExecutionSnapshot(snapshot) {
       || snapshot.oracle_host_launch_binding?.host_sha256 !== hostEntry.digest
       || snapshot.oracle_host_launch_binding?.launcher_sha256
         !== profile.launcher_identity?.digest
+      || snapshot.oracle_host_launch_binding?.bootstrap_env_sha256
+        !== profile.bootstrap_environment?.identity?.digest
       || snapshot.oracle_host_launch_binding?.node_sha256
         !== snapshot.infrastructure.identities.node.digest
       || snapshot.oracle_host_launch_binding?.bwrap_sha256 !== profile.bwrap_identity?.digest
       || profile.bwrap !== snapshot.infrastructure.bwrap
       || profile.launcher !== snapshot.infrastructure.oracle_host_launcher_mjs
+      || profile.bootstrap_environment?.path !== snapshot.infrastructure.oracle_host_env
+      || JSON.stringify(profile.bootstrap_environment?.values)
+        !== JSON.stringify({ LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' })
       || profile.host !== host
       || profile.host_identity?.digest !== hostEntry.digest
       || JSON.stringify(profile.bwrap_identity)
@@ -1631,7 +1656,8 @@ export function assertExecutionSnapshot(snapshot) {
   } else if (snapshot?.oracle_host_launch_command !== null
     || snapshot?.oracle_host_launch_cwd !== null || snapshot?.oracle_host_profile !== null
     || snapshot?.oracle_host_launch_binding !== null
-    || snapshot?.infrastructure?.oracle_host_launcher_mjs !== undefined) {
+    || snapshot?.infrastructure?.oracle_host_launcher_mjs !== undefined
+    || snapshot?.infrastructure?.oracle_host_env !== undefined) {
     throw new Error('non-oracle execution snapshot contains oracle-host launch authority');
   }
   return true;

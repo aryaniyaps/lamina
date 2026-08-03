@@ -8,7 +8,9 @@ import { execFileSync } from 'node:child_process';
 import {
   assertExecutionSnapshot, prepareExecutionSnapshot,
 } from '../scripts/safe-runner/execution-snapshot.mjs';
-import { infrastructureBinaries } from '../scripts/safe-runner/infrastructure.mjs';
+import {
+  infrastructureBinaries, sanitizedPayloadEnvironment,
+} from '../scripts/safe-runner/infrastructure.mjs';
 import {
   auditedCommand, preflightRun, REAL_REPOSITORY_ORACLE_HOST_PROBE_WORKLOAD_ID,
 } from '../scripts/safe-runner/preflight.mjs';
@@ -25,11 +27,6 @@ import { baseReport, finishReport, validateReport } from '../scripts/safe-runner
 import { realRepositoryOracleSourceClosure } from
   '../scripts/safe-runner/real-repository-source-closure.mjs';
 
-if (process.platform !== 'linux') {
-  console.log('real repository oracle-host launch profile portable contracts passed; Linux snapshot skipped');
-  process.exit(0);
-}
-
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRYPOINT = path.join(ROOT, 'benchmarks/real-repository-oracle-v1/workload.mjs');
 const command = [process.execPath, ENTRYPOINT, ORACLE_HOST_PROBE_COMMAND];
@@ -43,9 +40,9 @@ assert.equal(auditedCommand(
 ).audited, true);
 
 const adapterInfo = {
-  id: 'linux-systemd-cgroup-v2', platform: 'linux', production_enforcement: true,
-  aggregate_memory: true, aggregate_pids: true, complete_descendant_ownership: true,
-  temporary_quota: true, controllers: ['memory', 'pids'], reasons: [],
+  id: 'portable-process-group', platform: process.platform, production_enforcement: false,
+  aggregate_memory: false, aggregate_pids: false, complete_descendant_ownership: false,
+  temporary_quota: false, controllers: [], reasons: ['pure contract fixture'],
 };
 const limits = {
   memoryMaxBytes: 256 * 1024 ** 2,
@@ -89,15 +86,34 @@ assert.equal(arguments_.includes('/proc'), false);
 assert.equal(arguments_.includes('/runtime'), false);
 assert.deepEqual(arguments_.slice(-2), ['--', '/oracle-state']);
 assert.equal(arguments_.filter((value) => value === '--tmpfs').length, 2);
-assert.match(attestOracleKeeperBwrapHelp(execFileSync('/usr/bin/bwrap', ['--help'], {
-  encoding: 'utf8',
-})).help_sha256, /^[a-f0-9]{64}$/);
 assert.deepEqual(realRepositoryOracleSourceClosure(ORACLE_HOST_PROBE_COMMAND), [
   'benchmarks/real-repository-oracle-v1/workload.mjs',
   'benchmarks/real-repository-oracle-v1/oracle-host.mjs',
   'scripts/safe-runner/oracle-host-launcher.mjs',
   'scripts/safe-runner/oracle-host-profile.mjs',
 ]);
+
+if (process.platform !== 'linux') {
+  console.log('real repository oracle-host pure contracts passed; Linux capability snapshot skipped');
+  process.exit(0);
+}
+let liveInfrastructure;
+try {
+  if (process.argv.slice(2).includes('--simulate-no-trusted-bwrap')) {
+    throw Object.assign(new Error(
+      'trusted root-owned infrastructure binary is unavailable: bwrap',
+    ), { code: 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY' });
+  }
+  liveInfrastructure = infrastructureBinaries();
+} catch (error) {
+  if (error?.code !== 'LAMINA_SAFE_INFRASTRUCTURE_IDENTITY'
+    || error.message !== 'trusted root-owned infrastructure binary is unavailable: bwrap') throw error;
+  console.log('real repository oracle-host pure contracts passed; exact bwrap capability unavailable');
+  process.exit(0);
+}
+assert.match(attestOracleKeeperBwrapHelp(execFileSync(liveInfrastructure.bwrap, ['--help'], {
+  encoding: 'utf8',
+})).help_sha256, /^[a-f0-9]{64}$/);
 
 const temporary = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-oracle-host-profile-test-'),
@@ -106,7 +122,7 @@ fs.chmodSync(temporary, 0o700);
 try {
   const snapshot = prepareExecutionSnapshot({
     cwd: ROOT, command, temporaryDirectory: temporary,
-    infrastructure: infrastructureBinaries(), environment: process.env,
+    infrastructure: liveInfrastructure, environment: process.env,
   });
   assert.equal(snapshot.launch_profile, ORACLE_HOST_LAUNCH_PROFILE);
   assert.equal(snapshot.oracle_host_launch_cwd, snapshot.snapshot_repository);
@@ -119,6 +135,8 @@ try {
   assert.equal(snapshot.oracle_host_profile.non_gradeable, true);
   assert.equal(snapshot.oracle_host_profile.launcher,
     snapshot.infrastructure.oracle_host_launcher_mjs);
+  assert.equal(snapshot.oracle_host_profile.bootstrap_environment.path,
+    snapshot.infrastructure.oracle_host_env);
   assert.match(snapshot.oracle_host_launch_binding.host_sha256, /^[a-f0-9]{64}$/);
   const profileArgument = Buffer.from(JSON.stringify({
     ...snapshot.oracle_host_profile,
@@ -148,7 +166,8 @@ try {
       encodedAuthority],
     execPath: snapshot.infrastructure.node,
     launcherPath: snapshot.oracle_host_profile.launcher,
-    environment: {},
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
   }).argv, hostArgv);
   const exactLaunchRecord = {
     ppid: 73,
@@ -158,6 +177,7 @@ try {
     executable_identity: snapshot.infrastructure.identities.node,
     environment_attestation: {
       readable: true, bounded: true, malformed: false, execution_hooks: [],
+      names: ['LANG', 'LC_ALL', 'TZ'],
     },
   };
   const exactLaunchAuthority = {
@@ -175,19 +195,31 @@ try {
   assert.equal(exactOracleHostLaunchAuthorized({
     ...exactLaunchRecord, argv: hostArgv,
   }, exactLaunchAuthority, 73), false);
+  assert.equal(exactOracleHostLaunchAuthorized({
+    ...exactLaunchRecord, cwd: ROOT,
+  }, exactLaunchAuthority, 73), false);
+  assert.equal(exactOracleHostLaunchAuthorized({
+    ...exactLaunchRecord,
+    environment_attestation: {
+      ...exactLaunchRecord.environment_attestation,
+      names: ['BENIGN_EXTRA', 'LANG', 'LC_ALL', 'TZ'],
+    },
+  }, exactLaunchAuthority, 73), false);
   assert.throws(() => validateOracleHostLaunchAuthority(encodedAuthority, {
     argv: [snapshot.infrastructure.node, snapshot.oracle_host_profile.launcher,
       `${encodedAuthority}a`],
     execPath: snapshot.infrastructure.node,
     launcherPath: snapshot.oracle_host_profile.launcher,
-    environment: {},
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
   }), /argv is not exact/);
   assert.throws(() => validateOracleHostLaunchAuthority(`${encodedAuthority}=`, {
     argv: [snapshot.infrastructure.node, snapshot.oracle_host_profile.launcher,
       `${encodedAuthority}=`],
     execPath: snapshot.infrastructure.node,
     launcherPath: snapshot.oracle_host_profile.launcher,
-    environment: {},
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
   }), /encoding is invalid/);
   const extraNestedAuthority = JSON.parse(Buffer.from(encodedAuthority, 'base64url'));
   extraNestedAuthority.host.unexpected = true;
@@ -197,7 +229,8 @@ try {
       encodedExtraNested],
     execPath: snapshot.infrastructure.node,
     launcherPath: snapshot.oracle_host_profile.launcher,
-    environment: {},
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
   }), /sealed launch translation is invalid/);
   const hostHardlink = path.join(temporary, 'oracle-host-hardlink.mjs');
   fs.linkSync(snapshot.oracle_host_profile.host, hostHardlink);
@@ -207,7 +240,8 @@ try {
         encodedAuthority],
       execPath: snapshot.infrastructure.node,
       launcherPath: snapshot.oracle_host_profile.launcher,
-      environment: {},
+      cwd: snapshot.oracle_host_launch_cwd,
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
     }), /file identity changed/);
   } finally { fs.unlinkSync(hostHardlink); }
   const trustedHost = `${snapshot.oracle_host_profile.host}.trusted`;
@@ -220,7 +254,8 @@ try {
         encodedAuthority],
       execPath: snapshot.infrastructure.node,
       launcherPath: snapshot.oracle_host_profile.launcher,
-      environment: {},
+      cwd: snapshot.oracle_host_launch_cwd,
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' },
     }), /file identity changed/);
   } finally {
     fs.rmSync(snapshot.oracle_host_profile.host, { force: true });
@@ -239,6 +274,7 @@ try {
   });
   assert.equal(genericSnapshot.launch_profile, null);
   assert.equal(genericSnapshot.infrastructure.oracle_host_launcher_mjs, undefined);
+  assert.equal(genericSnapshot.infrastructure.oracle_host_env, undefined);
   assert.equal(genericSnapshot.entries.some((entry) =>
     entry.label === 'infrastructure:oracle-host-launcher.mjs'), false);
   assert.equal(assertExecutionSnapshot(genericSnapshot), true);
@@ -256,6 +292,36 @@ try {
   report.error = { code: 'LAMINA_SAFE_TEST', message: 'schema acceptance fixture' };
   finishReport(report, Date.now());
   assert.equal(validateReport(report).valid, true);
+  for (const hostile of [
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', OPENSSL_CONF: '/tmp/hostile' },
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', OPENSSL_MODULES: '/tmp/hostile' },
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', OPENSSL_ENGINES: '/tmp/hostile' },
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', NODE_OPTIONS: '--require=/tmp/x' },
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', GIT_CONFIG_NOSYSTEM: '1' },
+    { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', GIT_CONFIG_GLOBAL: '/dev/null' },
+  ]) assert.throws(() => validateOracleHostLaunchAuthority(encodedAuthority, {
+    argv: [snapshot.infrastructure.node, snapshot.oracle_host_profile.launcher,
+      encodedAuthority],
+    execPath: snapshot.infrastructure.node,
+    launcherPath: snapshot.oracle_host_profile.launcher,
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: hostile,
+  }), /environment is not exact/);
+  const normalSanitizedPayload = sanitizedPayloadEnvironment({
+    sources: [{ OPENSSL_CONF: '/tmp/hostile-openssl' }],
+    auditedEntrypoint: 'benchmarks/real-repository-oracle-v1/workload.mjs',
+  });
+  assert.equal(normalSanitizedPayload.GIT_CONFIG_NOSYSTEM, '1');
+  assert.equal(normalSanitizedPayload.GIT_CONFIG_GLOBAL, '/dev/null');
+  assert.equal(normalSanitizedPayload.OPENSSL_CONF, '/tmp/hostile-openssl');
+  assert.throws(() => validateOracleHostLaunchAuthority(encodedAuthority, {
+    argv: [snapshot.infrastructure.node, snapshot.oracle_host_profile.launcher,
+      encodedAuthority],
+    execPath: snapshot.infrastructure.node,
+    launcherPath: snapshot.oracle_host_profile.launcher,
+    cwd: snapshot.oracle_host_launch_cwd,
+    environment: normalSanitizedPayload,
+  }), /environment is not exact/);
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });
 }

@@ -108,6 +108,7 @@
         "scope_removed": { "type": ["boolean", "null"] },
         "temporary_directory_removed": { "type": ["boolean", "null"] },
         "lock_released": { "type": ["boolean", "null"] },
+        "oracle_quota_abort": { "type": "object" },
         "errors": { "type": "array", "items": { "type": "string" } }
       }
     },

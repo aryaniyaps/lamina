@@ -7,7 +7,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const AUTHORITY_SCHEMA = 'lamina.safe-runner-oracle-host-launch-authority/v1';
 const PROFILE_ID = 'oracle-host-probe-v1';
 const MAX_AUTHORITY_BYTES = 64 * 1024;
-const EXECUTION_HOOKS = /^(?:BASH_ENV|ENV|CDPATH|GLOBIGNORE|SHELLOPTS|LD_|DYLD_|NODE_|BASH_FUNC_|PYTHON|PERL|RUBY|GIT_|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS|GCONV_PATH|GETCONF_DIR|LOCPATH|NLSPATH|HOSTALIASES|RES_OPTIONS)/;
+const EXACT_BOOTSTRAP_ENVIRONMENT = Object.freeze({
+  LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+});
 
 function fail(message) {
   const error = new Error(message);
@@ -67,6 +69,7 @@ export function validateOracleHostLaunchAuthority(encoded, {
   argv = process.argv,
   execPath = process.execPath,
   launcherPath = fileURLToPath(import.meta.url),
+  cwd = process.cwd(),
   environment = process.env,
 } = {}) {
   if (!Array.isArray(argv) || argv.length !== 3 || argv[2] !== encoded) {
@@ -80,7 +83,7 @@ export function validateOracleHostLaunchAuthority(encoded, {
     exactKeys(authority[name], ['path', 'identity']))
     || authority.schema !== AUTHORITY_SCHEMA || authority.profile !== PROFILE_ID
     || authority.non_gradeable !== true || !path.isAbsolute(authority.cwd)
-    || fs.realpathSync.native(authority.cwd) !== authority.cwd
+    || fs.realpathSync.native(authority.cwd) !== authority.cwd || fs.realpathSync.native(cwd) !== authority.cwd
     || !Array.isArray(authority.argv) || authority.argv.length !== 5
     || authority.argv[0] !== authority.node?.path || authority.argv[1] !== authority.host?.path
     || authority.host?.path !== path.join(authority.cwd,
@@ -96,8 +99,11 @@ export function validateOracleHostLaunchAuthority(encoded, {
     || fs.realpathSync.native(launcherPath) !== authority.launcher.path) {
     fail('oracle-host launcher did not start from sealed authority');
   }
-  for (const name of Object.keys(environment)) {
-    if (EXECUTION_HOOKS.test(name)) fail('oracle-host launcher environment contains an execution hook');
+  if (JSON.stringify(Object.keys(environment).sort())
+      !== JSON.stringify(Object.keys(EXACT_BOOTSTRAP_ENVIRONMENT).sort())
+    || Object.entries(EXACT_BOOTSTRAP_ENVIRONMENT)
+      .some(([name, value]) => environment[name] !== value)) {
+    fail('oracle-host launcher environment is not exact');
   }
   assertPhysicalFile(authority.node.path, authority.node.identity, { executable: true });
   assertPhysicalFile(authority.launcher.path, authority.launcher.identity);

@@ -7,6 +7,7 @@ export const ORACLE_HOST_LAUNCH_PROFILE = 'oracle-host-probe-v1';
 export const ORACLE_HOST_PROBE_MAX_QUOTA_BYTES = 16 * 1024 * 1024;
 export const ORACLE_HOST_ROOT_BYTES = 1024 * 1024;
 export const TMPFS_MAGIC = 16_914_836;
+export const ORACLE_BWRAP_INFO_MAX_BYTES = 8 * 1024;
 
 export const ORACLE_KEEPER_REQUIRED_BWRAP_OPTIONS = Object.freeze([
   '--die-with-parent', '--new-session', '--unshare-user', '--unshare-pid',
@@ -49,6 +50,33 @@ export function attestOracleKeeperBwrapHelp(stdout) {
     required_options: ORACLE_KEEPER_REQUIRED_BWRAP_OPTIONS,
     help_sha256: crypto.createHash('sha256').update(Buffer.from(text)).digest('hex'),
   });
+}
+
+export function parseOracleBwrapInfo(value) {
+  const text = String(value ?? '');
+  if (!text || Buffer.byteLength(text, 'utf8') > ORACLE_BWRAP_INFO_MAX_BYTES
+    || text.includes('\0') || !text.endsWith('\n')) {
+    throw new Error('bwrap info is missing, malformed, or unbounded');
+  }
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { throw new Error('bwrap info is not exact JSON'); }
+  const keys = [
+    'child-pid', 'ipc-namespace', 'mnt-namespace', 'net-namespace',
+    'pid-namespace', 'uts-namespace',
+  ];
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify([...keys].sort())
+    || keys.some((key) => !Number.isSafeInteger(parsed[key]) || parsed[key] <= 1)) {
+    throw new Error('bwrap info does not contain exact namespace identities');
+  }
+  return {
+    child_pid: parsed['child-pid'],
+    namespaces: {
+      ipc: parsed['ipc-namespace'], mount: parsed['mnt-namespace'],
+      network: parsed['net-namespace'], pid: parsed['pid-namespace'],
+      uts: parsed['uts-namespace'],
+    },
+  };
 }
 
 export function oracleHostProbeLimits(limits) {
