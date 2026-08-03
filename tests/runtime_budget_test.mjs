@@ -10,6 +10,7 @@ import {
   threadLimitEnvironment,
   workerThreadEnvironment,
 } from '../packages/cli/lib/runtime-budget.mjs';
+import { shouldReleaseGraphdAfterCommand } from '../packages/cli/lib/runtime-lifecycle.mjs';
 
 assert.equal(runtimeBudgetFromEnvironment({ LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '0' }), null);
 assert.equal(runtimeBudgetFromEnvironment({ LAMINA_RUNTIME_BOUNDED_TOPOLOGY: 'false' }), null);
@@ -21,6 +22,7 @@ assert.equal(defaultBudget.worker_threads, 1);
 assert.equal(defaultBudget.observation_workers_max, 1);
 assert.equal(defaultBudget.observation_retries_max, 0);
 assert.equal(defaultBudget.defer_graphd_compat_recovery, true);
+assert.equal(defaultBudget.idle_graphd_shutdown_ms, 0);
 
 const explicitBudget = runtimeBudgetFromEnvironment({ LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '1' });
 assert.ok(explicitBudget);
@@ -77,5 +79,7 @@ const applied = applyRuntimeBudgetToEnvironment({ HOME: '/tmp' }, defaultBudget)
 assert.equal(applied.HOME, '/tmp');
 assert.equal(applied.LAMINA_RUNTIME_BOUNDED_TOPOLOGY, '1');
 assert.equal(applied.LAMINA_RUNTIME_GRAPHD_THREADS, '1');
+assert.equal(shouldReleaseGraphdAfterCommand({ persistGraphd: false, budget: defaultBudget }), true);
+assert.equal(shouldReleaseGraphdAfterCommand({ persistGraphd: true, budget: defaultBudget }), false);
 
 process.stdout.write('runtime budget tests passed\n');

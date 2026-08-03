@@ -16,6 +16,7 @@ import {
   applyRuntimeBudgetToEnvironment,
   runtimeBudgetFromEnvironment,
 } from '../../packages/cli/lib/runtime-budget.mjs';
+import { releaseGraphdBeforeObservation } from '../../packages/cli/lib/runtime-lifecycle.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
   assertScenario,
@@ -115,7 +116,7 @@ function childEnvironment(extra = {}) {
 
 async function releaseGraphdBeforeObservationCli(repository) {
   if (!runtimeBudgetFromEnvironment()) return;
-  await stopIncompatibleServer(runtimePaths(repository));
+  await releaseGraphdBeforeObservation(repository, { force: true });
 }
 
 function run(command, args, { cwd = REPOSITORY, env = childEnvironment(), input = null,
@@ -549,6 +550,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         fail('observation indexed count contradicts the pinned candidate set', { diagnostics, metadata });
       }
     } else if (scenario === 'initial-retrieval-readiness') {
+      await releaseGraphdBeforeObservationCli(repository);
       tracker.begin('observation');
       runTrackedCli(tracker, repository, ['graph', 'observe']);
       tracker.end();
