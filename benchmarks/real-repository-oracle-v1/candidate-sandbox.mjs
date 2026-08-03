@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   assertTrustedBinaryIdentity,
   trustedRootHostBinary,
@@ -39,6 +39,25 @@ function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
+}
+
+function attestBubblewrapReadOnlyRemount(identity) {
+  assertTrustedBinaryIdentity(identity);
+  const help = spawnSync(identity.path, ['--help'], {
+    encoding: 'utf8', timeout: 2_000, maxBuffer: 256 * 1024,
+    env: { LANG: 'C', LC_ALL: 'C' }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assertTrustedBinaryIdentity(identity);
+  if (help.error || help.status !== 0 || help.signal || help.stderr.trim()
+    || !/^\s*--remount-ro DEST\s+Remount DEST as readonly;/m.test(help.stdout)) {
+    const error = new Error('candidate sandbox requires attested bubblewrap --remount-ro support');
+    error.code = 'LAMINA_CANDIDATE_SANDBOX_UNSUPPORTED';
+    throw error;
+  }
+  return freeze({
+    read_only_remount: true,
+    help_sha256: sha256(Buffer.from(help.stdout)),
+  });
 }
 
 function physicalDirectory(candidate, label, { privateMode = false } = {}) {
@@ -152,10 +171,12 @@ function buildMountPlan({
   repositoryIdentity, outputFile, outputIdentity,
 }) {
   const entries = [];
-  for (const record of runtime.records) {
+  for (const mount of runtime.mounts) {
+    const record = runtime.records.find((item) => item.name === mount.snapshot_name);
+    if (!record) throw new Error('candidate runtime mount lacks an exact snapshot record');
     entries.push({
-      kind: 'runtime-file', source: path.join(runtime.root, record.name),
-      destination: `/runtime/${record.name}`, directory: false, writable: false,
+      kind: 'runtime-file', source: path.join(runtime.root, mount.snapshot_name),
+      destination: mount.destination, directory: false, writable: false,
       identity: record,
     });
   }
@@ -189,6 +210,15 @@ function buildMountPlan({
   entries.forEach((entry, index) => { entry.fd = index + 3; });
   return {
     entries,
+    runtime_directories: [...new Set(runtime.mounts.flatMap((mount) => {
+      const directories = [];
+      let current = path.posix.dirname(mount.destination);
+      while (current !== '/' && current !== '/runtime') {
+        directories.push(current);
+        current = path.posix.dirname(current);
+      }
+      return directories;
+    }))],
     adapter_directories: adapter.records.filter((item) => item.type === 'directory')
       .map((item) => item.path),
   };
@@ -202,6 +232,7 @@ export function candidateBubblewrapArguments({
   if (platform !== 'linux') throw new Error('candidate sandbox execution requires Linux');
   const entrypoint = safeRelative(adapterEntrypoint, 'candidate adapter entrypoint');
   if (!mountPlan || !Array.isArray(mountPlan.entries)
+    || !Array.isArray(mountPlan.runtime_directories)
     || !Array.isArray(mountPlan.adapter_directories)
     || mountPlan.entries.length < 5 || mountPlan.entries.length > CANDIDATE_MOUNT_FD_MAX) {
     throw new Error('candidate exact mount plan is invalid');
@@ -223,6 +254,9 @@ export function candidateBubblewrapArguments({
     safeRelative(directory, 'candidate adapter directory'))
     .sort((left, right) => left.split('/').length - right.split('/').length
       || left.localeCompare(right));
+  const runtimeDirectories = [...mountPlan.runtime_directories]
+    .sort((left, right) => left.split('/').length - right.split('/').length
+      || left.localeCompare(right));
   const args = [
     '--die-with-parent', '--new-session',
     '--unshare-user', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-net',
@@ -232,24 +266,18 @@ export function candidateBubblewrapArguments({
     '--dir', '/runtime', '--dir', '/candidate', '--dir', '/input',
     '--dir', '/repository', '--dir', '/output',
   ];
+  for (const directory of runtimeDirectories) args.push('--dir', directory);
   for (const directory of adapterDirectories) args.push('--dir', `/candidate/${directory}`);
-  for (const directory of [...adapterDirectories].reverse()) {
-    args.push('--chmod', '0555', `/candidate/${directory}`);
-  }
-  args.push(
-    '--chmod', '0555', '/runtime', '--chmod', '0555', '/candidate',
-    '--chmod', '0555', '/input',
-  );
   for (const entry of mountPlan.entries) {
     args.push(entry.writable ? '--bind-fd' : '--ro-bind-fd', String(entry.fd), entry.destination);
   }
   args.push(
-    '--chmod', '0555', '/output',
-    '--proc', '/proc', '--dev', '/dev', '--chmod', '0555', '/dev',
+    '--proc', '/proc', '--dev', '/dev',
     '--perms', '0700', '--size', String(CANDIDATE_OUTPUT_MAX_BYTES), '--tmpfs', '/tmp',
     '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'LC_ALL', 'C.UTF-8',
     '--setenv', 'TZ', 'UTC', '--setenv', 'PATH', '/runtime', '--setenv', 'TMPDIR', '/tmp',
-    '--chmod', '0555', '/',
+    '--remount-ro', '/dev/pts', '--remount-ro', '/dev',
+    '--remount-ro', '/proc', '--remount-ro', '/',
     '--chdir', '/repository',
     '--', '/runtime/loader', '--library-path', '/runtime', '/runtime/node',
     `/candidate/${entrypoint}`, '/input/public.json', '/repository', '/output/result',
@@ -292,6 +320,7 @@ export function prepareCandidateSandbox({
   const inputIdentity = canonicalInputIdentity(publicInput);
   const outputIdentity = physicalFile(outputFile, 'candidate output', { empty: true });
   const bwrap = trustedRootHostBinary('bwrap');
+  const bwrapCapabilities = attestBubblewrapReadOnlyRemount(bwrap);
   const prlimit = trustedRootHostBinary('prlimit');
   const mountPlan = buildMountPlan({
     runtime,
@@ -326,7 +355,7 @@ export function prepareCandidateSandbox({
     mount_plan: mountPlan,
     timeout_ms: validateTimeout(timeoutMs),
     git_dependent: gitDependent,
-    infrastructure: { bwrap, prlimit },
+    infrastructure: { bwrap, bwrap_capabilities: bwrapCapabilities, prlimit },
     bwrap_arguments: bwrapArguments,
     prlimit_arguments: prlimitArguments,
     argv_sha256: digest({ executable: prlimit.path, argv: prlimitArguments }),

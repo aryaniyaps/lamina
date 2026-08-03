@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   buildCandidateRuntimeSnapshot,
+  trustedCandidateRuntimeNode,
   verifyCandidateRuntimeSnapshot,
 } from '../benchmarks/real-repository-oracle-v1/candidate-runtime-closure.mjs';
 import {
@@ -46,6 +47,7 @@ const replaceSameBytes = (file) => {
 };
 
 const pureMountPlan = {
+  runtime_directories: [],
   adapter_directories: [],
   entries: [
     { fd: 3, destination: '/runtime/node', writable: false },
@@ -69,11 +71,12 @@ assert.deepEqual(pureArguments.slice(0, 24), [
 assert.equal(pureArguments.includes('--ro-bind'), false);
 assert.equal(pureArguments.join('\0').includes('--ro-bind\0/\0/'), false,
   'candidate sandbox never binds the host root');
-for (const target of ['/runtime', '/candidate', '/input', '/output', '/dev', '/']) {
-  assert.ok(pureArguments.some((value, index) => value === '--chmod'
-    && pureArguments[index + 1] === '0555' && pureArguments[index + 2] === target),
-  `${target} is made non-writable after sandbox setup`);
+for (const target of ['/dev/pts', '/dev', '/proc', '/']) {
+  assert.ok(pureArguments.some((value, index) => value === '--remount-ro'
+    && pureArguments[index + 1] === target), `${target} is remounted read-only`);
 }
+assert.ok(pureArguments.lastIndexOf('--remount-ro') > pureArguments.indexOf('--tmpfs'),
+  'read-only remounts occur after writable submount construction');
 for (const pair of [
   ['--ro-bind-fd', '3'], ['--ro-bind-fd', '4'], ['--ro-bind-fd', '5'],
   ['--ro-bind-fd', '6'], ['--ro-bind-fd', '7'], ['--bind-fd', '8'],
@@ -94,6 +97,14 @@ const temporary = fs.realpathSync.native(fs.mkdtempSync(
   path.join(os.tmpdir(), 'lamina-candidate-sandbox-test-'),
 ));
 fs.chmodSync(temporary, 0o700);
+const unsafeRuntimeDirectory = path.join(temporary, 'unsafe-runtime-bin');
+fs.mkdirSync(unsafeRuntimeDirectory, { mode: 0o700 });
+fs.writeFileSync(path.join(unsafeRuntimeDirectory, 'node'), '#!/bin/sh\nexit 0\n', {
+  mode: 0o500,
+});
+assert.throws(() => trustedCandidateRuntimeNode({
+  candidate_directories: [unsafeRuntimeDirectory],
+}), /trusted root-owned infrastructure binary is unavailable: node/);
 const adapterRoot = path.join(temporary, 'adapter');
 const repository = path.join(temporary, 'repository');
 const runtimeRoot = path.join(temporary, 'runtime');
@@ -113,6 +124,8 @@ try {
   assert.ok(runtime.files.some((item) => item.role === 'loader'));
   assert.ok(runtime.files.filter((item) => item.role === 'library').length >= 1);
   assert.match(runtime.closure_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(runtime.builder_identities.node.root_owned_path, true);
+  assert.equal(runtime.builder_identities.node.uid, 0);
   for (const field of ['dev', 'ino', 'uid', 'nlink', 'mode', 'bytes', 'sha256']) {
     assert.ok(Object.hasOwn(runtime.records[0], field), `runtime records retain exact ${field}`);
   }
@@ -168,6 +181,8 @@ try {
     'attested prlimit directly invokes attested bwrap');
   assert.match(success.authority.argv_sha256, /^[a-f0-9]{64}$/);
   assert.equal(success.authority.limitation, CANDIDATE_SANDBOX_LIMITATION);
+  assert.equal(success.authority.infrastructure.bwrap_capabilities.read_only_remount, true);
+  assert.match(success.authority.infrastructure.bwrap_capabilities.help_sha256, /^[a-f0-9]{64}$/);
   assert.equal(success.authority.source_snapshot_limitation,
     CANDIDATE_SOURCE_SNAPSHOT_LIMITATION);
   assert.ok(success.authority.mount_plan.entries.length <= CANDIDATE_MOUNT_FD_MAX);
@@ -199,6 +214,8 @@ try {
   assert.deepEqual(observed.write_refusals, {
     '/candidate/junk': true,
     '/dev/junk': true,
+    '/dev/pts/junk': true,
+    '/dev/shm/junk': true,
     '/input/junk': true,
     '/junk': true,
     '/output/junk': true,
@@ -206,6 +223,10 @@ try {
     '/repository/junk': true,
     '/runtime/junk': true,
   });
+  assert.deepEqual(observed.chmod_write_refusals, Object.fromEntries([
+    '/', '/candidate', '/dev', '/dev/pts', '/dev/shm', '/input',
+    '/output', '/proc', '/repository', '/runtime',
+  ].map((directory) => [directory, { chmod_refused: true, write_refused: true }])));
   assert.equal(observed.tmp_writable, true);
   assert.deepEqual(observed.intended_writable_roots, ['/output/result', '/tmp']);
   assert.equal(fs.readFileSync(success.sibling, 'utf8'), 'preserve-sibling\n');

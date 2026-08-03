@@ -10,6 +10,12 @@ function refusal(operation) {
   try { operation(); return false; } catch { return true; }
 }
 
+function chmodThenWriteRefusal(directory, candidate) {
+  const chmodRefused = refusal(() => fs.chmodSync(directory, 0o700));
+  const writeRefused = refusal(() => fs.writeFileSync(candidate, 'forbidden-after-chmod'));
+  return { chmod_refused: chmodRefused, write_refused: writeRefused };
+}
+
 async function networkRefused() {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host: '1.1.1.1', port: 53 });
@@ -30,9 +36,22 @@ if (input.mode === 'success') {
   const mountToolAbsent = !fs.existsSync('/usr/bin/mount') && !fs.existsSync('/bin/mount');
   const hostSocketAbsent = !fs.existsSync(input.host_socket);
   const writeRefusals = Object.fromEntries([
-    '/junk', '/dev/junk', '/runtime/junk', '/candidate/junk', '/input/junk',
-    '/repository/junk', '/output/junk', '/proc/junk',
+    '/junk', '/dev/junk', '/dev/shm/junk', '/dev/pts/junk', '/runtime/junk',
+    '/candidate/junk', '/input/junk', '/repository/junk', '/output/junk', '/proc/junk',
   ].map((candidate) => [candidate, refusal(() => fs.writeFileSync(candidate, 'forbidden'))]));
+  const chmodWriteRefusals = Object.fromEntries([
+    ['/', '/chmod-root-junk'],
+    ['/dev', '/dev/chmod-junk'],
+    ['/dev/shm', '/dev/shm/chmod-junk'],
+    ['/dev/pts', '/dev/pts/chmod-junk'],
+    ['/runtime', '/runtime/chmod-junk'],
+    ['/candidate', '/candidate/chmod-junk'],
+    ['/input', '/input/chmod-junk'],
+    ['/repository', '/repository/chmod-junk'],
+    ['/output', '/output/chmod-junk'],
+    ['/proc', '/proc/chmod-junk'],
+  ].map(([directory, candidate]) =>
+    [directory, chmodThenWriteRefusal(directory, candidate)]));
   const tmpProbe = '/tmp/candidate-writable-root';
   fs.writeFileSync(tmpProbe, 'bounded-private-temp');
   const tmpWritable = fs.readFileSync(tmpProbe, 'utf8') === 'bounded-private-temp';
@@ -51,6 +70,7 @@ if (input.mode === 'success') {
     mount_tool_absent: mountToolAbsent,
     hostname: os.hostname(),
     write_refusals: writeRefusals,
+    chmod_write_refusals: chmodWriteRefusals,
     tmp_writable: tmpWritable,
     intended_writable_roots: ['/output/result', '/tmp'],
   };

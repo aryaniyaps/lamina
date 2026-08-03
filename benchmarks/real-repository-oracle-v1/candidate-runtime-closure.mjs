@@ -129,6 +129,39 @@ function loadedClosure(nodeIdentity) {
   return { entries, loader: loader.source, ldd };
 }
 
+function externalRuntimeClosure(nodeIdentity) {
+  assertTrustedBinaryIdentity(nodeIdentity);
+  const result = spawnSync(nodeIdentity.path, [
+    '-p', 'String(process.config.variables.node_relative_path || "")',
+  ], {
+    encoding: 'utf8', timeout: 2_000, maxBuffer: 64 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'], env: { LANG: 'C', LC_ALL: 'C' },
+  });
+  assertTrustedBinaryIdentity(nodeIdentity);
+  if (result.error || result.status !== 0 || result.signal || result.stderr.trim()) {
+    throw new Error('candidate runtime external closure discovery failed');
+  }
+  if (!result.stdout.trim().split(':').some((item) => item === 'share/nodejs')) return [];
+  const sandboxTargets = [
+    '/usr/share/nodejs/acorn-walk/dist/walk.js',
+    '/usr/share/nodejs/acorn/dist/acorn.js',
+    '/usr/share/nodejs/cjs-module-lexer/dist/lexer.js',
+    '/usr/share/nodejs/cjs-module-lexer/lexer.js',
+    '/usr/share/nodejs/minimatch/dist/cjs/index.bundle.js',
+    '/usr/share/nodejs/undici/undici-fetch.js',
+  ];
+  const external = [];
+  for (const sandboxTarget of sandboxTargets) {
+    let identity;
+    try { identity = runtimeLibraryIdentity(sandboxTarget); }
+    catch {
+      throw new Error('candidate system Node external builtin closure is unavailable');
+    }
+    external.push({ source: identity.path, sandbox_target: sandboxTarget, identity });
+  }
+  return external;
+}
+
 function snapshotRecords(root) {
   const names = fs.readdirSync(root).sort();
   const records = [];
@@ -158,7 +191,20 @@ function snapshotRecords(root) {
   return records;
 }
 
-export function buildCandidateRuntimeSnapshot({ snapshot_root: snapshotRoot } = {}) {
+export function trustedCandidateRuntimeNode({
+  platform = process.platform,
+  candidate_directories: candidateDirectories,
+} = {}) {
+  if (platform !== 'linux') {
+    throw new Error('candidate runtime node selection requires Linux root-owned authority');
+  }
+  return trustedRootHostBinary('node', candidateDirectories);
+}
+
+export function buildCandidateRuntimeSnapshot({
+  snapshot_root: snapshotRoot,
+  node_candidate_directories: nodeCandidateDirectories,
+} = {}) {
   if (process.platform !== 'linux') {
     throw new Error('candidate runtime snapshot construction requires Linux ELF authority');
   }
@@ -166,7 +212,9 @@ export function buildCandidateRuntimeSnapshot({ snapshot_root: snapshotRoot } = 
   if (fs.existsSync(snapshotRoot) || path.dirname(snapshotRoot) !== parent.path) {
     throw new Error('candidate runtime snapshot destination must be absent under its exact parent');
   }
-  const nodeIdentity = trustedBinaryIdentity(fs.realpathSync.native(process.execPath));
+  const nodeIdentity = trustedCandidateRuntimeNode({
+    candidate_directories: nodeCandidateDirectories,
+  });
   const closure = loadedClosure(nodeIdentity);
   fs.mkdirSync(snapshotRoot, { mode: 0o700 });
   const usedNames = new Set();
@@ -180,7 +228,12 @@ export function buildCandidateRuntimeSnapshot({ snapshot_root: snapshotRoot } = 
     if (usedNames.has(base)) throw new Error(`candidate runtime library basename collided: ${base}`);
     usedNames.add(base);
     copyExactFile(source, path.join(snapshotRoot, base), identity);
-    files.push({ role, source, target: base, identity });
+    files.push({ role, source, target: base, sandbox_target: `/runtime/${base}`, identity });
+  }
+  for (const [index, external] of externalRuntimeClosure(nodeIdentity).entries()) {
+    const target = `external-${index}`;
+    copyExactFile(external.source, path.join(snapshotRoot, target), external.identity);
+    files.push({ role: 'external-data', target, ...external });
   }
   const rootIdentity = exactPrivateDirectory(snapshotRoot, 'candidate runtime snapshot');
   const records = snapshotRecords(snapshotRoot);
@@ -193,6 +246,10 @@ export function buildCandidateRuntimeSnapshot({ snapshot_root: snapshotRoot } = 
     library_path: '/runtime',
     files: Object.freeze(files.map((item) => Object.freeze({
       ...item, identity: Object.freeze({ ...item.identity }),
+    }))),
+    mounts: Object.freeze(files.map((item) => Object.freeze({
+      snapshot_name: item.target,
+      destination: item.sandbox_target,
     }))),
     records: Object.freeze(records.map((item) => Object.freeze(item))),
     closure_sha256: digest(records),
