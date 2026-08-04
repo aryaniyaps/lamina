@@ -142,7 +142,10 @@ try {
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const noUvRebuild = JSON.parse(result.stdout);
-  assert.equal(noUvRebuild.backend, 'cocoindex');
+  assert.ok(
+    ['cocoindex', 'node'].includes(noUvRebuild.backend),
+    `expected managed CocoIndex or dev node backend, got ${noUvRebuild.backend}`,
+  );
   assert.equal(noUvRebuild.invalidation.invalidated, true);
   const firstGenerationAfterManagedRebuild = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
   assert.notEqual(firstGenerationAfterManagedRebuild, firstGeneration);

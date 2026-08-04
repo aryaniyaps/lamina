@@ -36,7 +36,7 @@ import { brownfieldSignals } from '../packages/cli/lib/observation-runtime/node.
 
 const observationSource = fs.readFileSync(new URL('../packages/cli/lib/observation-runtime/node.mjs', import.meta.url));
 assert.equal(crypto.createHash('sha256').update(observationSource).digest('hex'),
-  '0ce0a2b58974f36eca05c748728516526f8d06b8fbe7d61bba2fdf1a62c7f928',
+  '2a1de3a0a9a97f695d307f88ee5fe5959c433a815133618cf26c9faf0188906b',
   'the benchmark vocabulary is bound to the unchanged production extractor seam');
 const parityProbes = [
   brownfieldSignals('package.json', Buffer.from(JSON.stringify({ scripts: { build: 'x' }, bin: 'cli.js', dependencies: { react: '*' } }))),

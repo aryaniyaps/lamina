@@ -246,8 +246,10 @@ try {
     recoveredMalformedStatus.stderr || recoveredMalformedStatus.stdout,
   );
   if (fake.exitCode === null) await once(fake, 'exit');
-  lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-  await stopIncompatibleServer(paths, lock.pid);
+  if (fs.existsSync(paths.lock)) {
+    lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    await stopIncompatibleServer(paths, lock.pid);
+  }
 
   // Protocol equality alone is insufficient. A protocol-9 process without the
   // status capabilities must also be recycled.

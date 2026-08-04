@@ -12,6 +12,22 @@ import { setupAgent } from '../lib/agent-setup.mjs';
 const argv = process.argv.slice(2);
 const [domain, command, ...rawArgs] = argv;
 
+function shouldPersistGraphdAfterCommand(domainName, commandName) {
+  if (!domainName || domainName === '--help' || domainName === '-h' || domainName === 'help'
+    || domainName === '--version' || domainName === '-v') return true;
+  if (domainName === 'doctor') return true;
+  if (domainName === 'context' && commandName === 'status') return true;
+  if (domainName === 'graph' && ['status', 'query', 'validate', 'diff'].includes(commandName)) return true;
+  if (domainName === 'session' && commandName === 'query') return true;
+  if (domainName === 'mission' && commandName === 'compile') return true;
+  if (domainName === 'design' && commandName === 'prepare-walk') return true;
+  if (domainName === 'work' && ['map', 'check'].includes(commandName)) return true;
+  if (domainName === 'setup') return true;
+  return false;
+}
+
+let persistGraphdAfterCommand = shouldPersistGraphdAfterCommand(domain, command);
+
 const HELP = Object.freeze({
   root: `Usage: lamina <command> [options]
 
@@ -332,7 +348,8 @@ try {
 } finally {
   if (process.env.LAMINA_CLI_SKIP_RUNTIME_FINALIZE !== '1') {
     try {
-      await finalizeRuntimeCommand(process.cwd());
+      const persistGraphd = persistGraphdAfterCommand && process.exitCode !== 1;
+      await finalizeRuntimeCommand(process.cwd(), { persistGraphd });
     } catch {}
   }
 }

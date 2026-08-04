@@ -473,7 +473,9 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
       throw new Error(`fixture CLI graph restore failed: ${JSON.stringify(restoredSeed.stderr)}`);
     }
     cliReceipts.push(restoredSeed);
-    daemonPids.add(parseDaemonLock(fs.readFileSync(runtimePaths(cliRoot).lock, 'utf8'))?.pid);
+    try {
+      daemonPids.add(parseDaemonLock(fs.readFileSync(runtimePaths(cliRoot).lock, 'utf8'))?.pid);
+    } catch {}
     const draftMapPath = path.join(temporary, 'work-map-draft.json');
     const acceptedMapPath = path.join(temporary, 'work-map-accepted.json');
     const workMapReceipt = runCli({
@@ -594,7 +596,9 @@ export async function runCurrentObservation({ testFailure = null, onTemporaryDir
     if (statusAfterTamper.exit_code !== 0) throw new Error('fixture post-tamper status failed');
     cliReceipts.push(statusAfterTamper);
 
-    daemonPids.add(parseDaemonLock(fs.readFileSync(runtimePaths(cliRoot).lock, 'utf8'))?.pid);
+    try {
+      daemonPids.add(parseDaemonLock(fs.readFileSync(runtimePaths(cliRoot).lock, 'utf8'))?.pid);
+    } catch {}
     observation = {
       schema: CURRENT_OBSERVATION_SCHEMA,
       fixture_id: FIXTURE_ID,
