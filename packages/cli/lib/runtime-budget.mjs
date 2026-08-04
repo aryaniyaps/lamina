@@ -28,6 +28,7 @@ export function runtimeBudgetFromEnvironment(env = process.env) {
     worker_threads: readPositiveInt(env.LAMINA_RUNTIME_WORKER_THREADS, 1),
     observation_workers_max: readPositiveInt(env.LAMINA_RUNTIME_OBSERVATION_WORKERS, 1),
     observation_retries_max: readPositiveInt(env.LAMINA_RUNTIME_OBSERVATION_RETRIES, 0),
+    retrieval_batch_size: readPositiveInt(env.LAMINA_RUNTIME_RETRIEVAL_BATCH, 16),
     defer_graphd_compat_recovery: env.LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY !== '0',
     idle_graphd_shutdown_ms: readPositiveInt(env.LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS, 0),
   });
@@ -78,6 +79,13 @@ export function workerThreadEnvironment(budget = runtimeBudgetFromEnvironment())
   return threadLimitEnvironment(budget.worker_threads);
 }
 
+export function retrievalBatchEnvironment(budget = runtimeBudgetFromEnvironment()) {
+  if (!budget) return {};
+  return Object.freeze({
+    LAMINA_RUNTIME_RETRIEVAL_BATCH: String(Math.max(1, budget.retrieval_batch_size)),
+  });
+}
+
 /** CocoIndex observation: serial component builds under pids.max; inflight>1 fans out processes. */
 export function observationWorkerThreadEnvironment(budget = runtimeBudgetFromEnvironment()) {
   if (!budget) return {};
@@ -104,5 +112,6 @@ export function graphdThreadEnvironment(budget = runtimeBudgetFromEnvironment())
 
 export function maxObservationAttempts(budget = runtimeBudgetFromEnvironment()) {
   if (!budget) return 2;
-  return Math.max(1, budget.observation_workers_max + budget.observation_retries_max);
+  // Bounded topology still needs one worker retry for interrupted observation recovery.
+  return Math.max(2, budget.observation_workers_max + budget.observation_retries_max);
 }

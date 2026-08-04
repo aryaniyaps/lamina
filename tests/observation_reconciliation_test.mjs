@@ -56,7 +56,9 @@ try {
   assert.equal(rebuilt.observed.source_key_count, 185);
   assert.deepEqual(rebuilt.observed.source_revisions, [runtimePaths(root).source_revision]);
 
-  daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
+  try {
+    daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
+  } catch {}
 } finally {
   if (daemonPid) {
     try { await stopIncompatibleServer(runtimePaths(root), daemonPid); } catch {}

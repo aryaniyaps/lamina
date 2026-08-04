@@ -65,6 +65,8 @@ try {
     path.join(root, 'src', 'planner.ts'),
   );
   fs.writeFileSync(path.join(root, 'src', 'planner.ts'), oversized);
+  execFileSync('git', ['add', '-A'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'rename and grow planner'], { cwd: root });
   const second = await ensureRetrieval(root);
   assert.notEqual(second.status.generation, firstGeneration);
   assert.equal(second.status.counts.source_chunks, 3,
@@ -79,6 +81,8 @@ try {
     'renamed source paths must not survive in the active generation');
 
   fs.rmSync(path.join(root, 'src', 'planner.ts'));
+  execFileSync('git', ['add', '-A'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'remove planner'], { cwd: root });
   const third = await ensureRetrieval(root);
   assert.equal(third.status.counts.source_chunks, 1);
   const thirdQuery = await queryRetrieval('rebuild schedule value299', third, root);

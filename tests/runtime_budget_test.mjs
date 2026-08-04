@@ -6,6 +6,7 @@ import {
   graphdThreadEnvironment,
   maxObservationAttempts,
   observationWorkerThreadEnvironment,
+  retrievalBatchEnvironment,
   runtimeBudgetFromEnvironment,
   threadLimitEnvironment,
   workerThreadEnvironment,
@@ -21,6 +22,7 @@ assert.equal(defaultBudget.graphd_threads, 1);
 assert.equal(defaultBudget.worker_threads, 1);
 assert.equal(defaultBudget.observation_workers_max, 1);
 assert.equal(defaultBudget.observation_retries_max, 0);
+assert.equal(defaultBudget.retrieval_batch_size, 16);
 assert.equal(defaultBudget.defer_graphd_compat_recovery, true);
 assert.equal(defaultBudget.idle_graphd_shutdown_ms, 0);
 
@@ -72,8 +74,9 @@ assert.deepEqual(observationWorkerThreadEnvironment(defaultBudget), {
   LAMINA_RUNTIME_WORKER_THREADS: '1',
 });
 assert.equal(maxObservationAttempts(null), 2);
-assert.equal(maxObservationAttempts(defaultBudget), 1);
+assert.equal(maxObservationAttempts(defaultBudget), 2);
 assert.equal(maxObservationAttempts(tuned), 2);
+assert.deepEqual(retrievalBatchEnvironment(defaultBudget), { LAMINA_RUNTIME_RETRIEVAL_BATCH: '16' });
 
 const applied = applyRuntimeBudgetToEnvironment({ HOME: '/tmp' }, defaultBudget);
 assert.equal(applied.HOME, '/tmp');
